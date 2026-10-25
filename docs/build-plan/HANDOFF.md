@@ -388,6 +388,22 @@ folder that no longer exists; ignore those paths).
   `tests/markets.spec.mjs`, and the CI-loop line is the orchestrator's. Told: Agenda and System are the navigation
   builder's, Settings and the Library their passes'; prices only from free keyless sources, marked with their time;
   never buy/sell advice. Builders now: Settings (8879), Library (8880), navigation (8881), Markets (8882).
+- 25 Oct 02:55 UK: merged after review: the LIBRARY upgrade pass (11 commits, 10 fixes; merge 74d6e2f; one conflict in
+  features/library/index.ts where the builder had copied the picker fix line for line: both sides' additions kept).
+  The builder's leftover 1 was a real breach of OWNER-ISSUES 17 waiting to happen: a past paper added by hand through
+  ADD (or as photos) is an ordinary document, and `selftrain/factory.ts ownerPassages` would have read it into the
+  weekly training. Closed in the same hour: `packages/shared/src/papers.ts looksLikeExamPaper(title, openingText)`
+  (a board's name with a paper's markings, or two markings alone; conservative: a revision guide that names GCSE once
+  is not a paper) and `ownerPassages` skips such documents (`[papers]`; school.test.mjs covers it). Still to do, in the
+  next Library pass: the shelf says "kept private · never trained on" on such a document, and the GitHub export leaves
+  it out (check `library/export.ts`). Other leftovers the builder ranked: the study plan is a developer's curriculum
+  (`library/study.ts`), not his school subjects (big brain work); scanned PDFs still need the converter (the phone cannot
+  draw PDF pages); FRESH TODAY offline still says "Tap Digest now"; the three suggested searches are 40 px tall; the
+  shelf shows unlabelled numbers. Note: `rareTerms` also changes which passages the chat's automatic lookup counts as
+  relevant (stricter; the prompt and knowledge tests stayed green).
+- 25 Oct 02:40 UK: the Iron Man merge's scroll spec red was timing: the System wheel check read scrollTop 400 ms after
+  the wheel (0 px twice at load 10–13; 240 px at load 5 and in three direct traces of the same sequence); the check
+  now waits up to 3 s for the page to move. The ironbuild worktree is removed.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

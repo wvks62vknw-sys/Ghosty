@@ -32,6 +32,7 @@
  */
 import { recordProblem, type ChatMsg, type TaskRef, type TrainRecord, type TrainReport } from '../../../../packages/shared/src/selftrain';
 import { human } from '../../../../packages/shared/src/voice';
+import { looksLikeExamPaper } from '../../../../packages/shared/src/papers'; // [papers]
 import { schemaProblem, toolCallText, toolResponseText, toolsBlock, type ToolCall, type ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { asData } from '../kernel/permissions';
 import { makeDrill, SKILLS } from '../library/drills';
@@ -719,7 +720,10 @@ export function ownerPassages(library: Library | null, week: number, max: number
   const r = rng(week * 13 + 5);
   const out: Passage[] = [];
   for (const d of docs.sort(() => r() - 0.5)) {
-    const ps = library.passagesOf(d.id, 0, 60).passages.filter((p) => p.text.length >= 200);
+    const all = library.passagesOf(d.id, 0, 60).passages;
+    // [papers] an official exam paper he added by hand is private: never trained on (OWNER-ISSUES 17)
+    if (looksLikeExamPaper(d.title, all.slice(0, 3).map((p) => p.text).join('\n'))) continue;
+    const ps = all.filter((p) => p.text.length >= 200);
     for (const p of ps.sort(() => r() - 0.5).slice(0, 8)) {
       const key = `${d.id}#${p.rid}`;
       if (skip.has(key)) continue;
