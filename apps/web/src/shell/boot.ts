@@ -789,7 +789,36 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     bootState.pace = Math.round(rate * 1000) / 1000;
   };
 
+  /** A frame that throws (a driver quirk, a shader that will not compile) must never keep the app behind the black
+   *  (it plays on every cold open now): the cinematic bails straight to Home, Mind handed to the hero if it can be. */
+  const bail = (err: unknown) => {
+    if (done) return;
+    done = true;
+    console.warn('boot cinematic stopped early:', err);
+    try {
+      stopSound?.();
+    } catch {
+      /* the sound is already gone */
+    }
+    try {
+      if (mindIn && mind) mind.bootEnd();
+    } catch {
+      /* Home wakes its own Mind */
+    }
+    el.remove();
+    document.body.classList.remove('booting', 'bootland', 'bootwait');
+    bootState.phase = 'done';
+    bootState.ended = Math.round(elapsed(performance.now()));
+    watchReturns();
+  };
   const step = (now: number) => {
+    try {
+      frame(now);
+    } catch (err) {
+      bail(err);
+    }
+  };
+  const frame = (now: number) => {
     if (done || faulted) return;
     const w0 = performance.now();
     if (!t0) {
