@@ -79,7 +79,10 @@ for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, he
         const b = pn.getBoundingClientRect();
         const dock = document.querySelector('nav')?.getBoundingClientRect().top ?? innerHeight;
         const bd = pn.querySelector(':scope > .bd');
-        return { h: Math.round(b.height), bottom: Math.round(b.bottom), dock: Math.round(dock), top: Math.round(b.top), cls: pn.className, bd: bd ? `${getComputedStyle(bd).display} ${Math.round(bd.getBoundingClientRect().height)}px ${bd.children.length} kids` : 'no body', fonts: document.fonts.status, w: innerWidth };
+        // A panel taller than the screen (the page scrolls as one: no panel scrolls inside it, BRIEF-SCROLL-AUDIT)
+        // cannot show its head and its end at once: its head must come into view when scrolled to.
+        const top = b.top >= 0 ? b.top : (pn.scrollIntoView({ block: 'start' }), pn.getBoundingClientRect().top);
+        return { h: Math.round(b.height), bottom: Math.round(b.bottom), dock: Math.round(dock), top: Math.round(top), cls: pn.className, bd: bd ? `${getComputedStyle(bd).display} ${Math.round(bd.getBoundingClientRect().height)}px ${bd.children.length} kids` : 'no body', fonts: document.fonts.status, w: innerWidth };
       }, must);
       let r = await measure();
       for (let i = 0; i < 16 && !r.missing && (r.h < 220 || r.bottom > r.dock + 2 || r.top < 0); i++) {

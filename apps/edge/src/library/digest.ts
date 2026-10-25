@@ -1,5 +1,5 @@
 /**
- * Fresh knowledge every day. At 06:10 UTC (job kind `digest`) the brain gathers the day's
+ * Fresh knowledge every day. At 05:40 UK time (job kind `digest`) the brain gathers the day's
  * headlines and new work with no model at all — BBC News (world, UK, Birmingham, technology,
  * science), Hacker News' front page, the newest arXiv papers in AI and machine learning, and
  * Wikipedia's current events — and files them in the library notebook "Fresh knowledge"

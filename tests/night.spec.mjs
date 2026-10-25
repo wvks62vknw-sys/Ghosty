@@ -215,6 +215,13 @@ check((await card()).includes(rep.replace(/^Last night: /, '')), 'the card shows
 await shot('report');
 await noSideways('after the night');
 
+// ---- 7. leave the preview as found: the switch off, the dark layer gone. The brain is shared with the specs that run
+// next, and with the switch left on a run late in the evening (UK time inside the 23:00 window) would dim their pages.
+await api('/school/night', { method: 'POST', body: JSON.stringify({ on: false }) });
+check((await api('/school/night')).settings?.on === false, 'the switch is off again at the end');
+await tick();
+check(!(await page.locator('#nightdim').isVisible()), 'the dark layer is gone at the end');
+
 await browser.close();
 if (problems.length) {
   console.error(`NIGHT SCHOOL: ${problems.length} problem(s)\n - ${problems.join('\n - ')}`);

@@ -19,7 +19,7 @@
  */
 import { gfx } from '../../engine/gfx';
 import type { VoiceState } from '../../state/app';
-import { exposeHero, Mind } from './mind';
+import { exposeHero, mindFor, type Mind } from './mind';
 
 const TAU = Math.PI * 2;
 /** The canvas spans ±PX housing radii. */
@@ -117,11 +117,12 @@ export class Reactor {
 
   frame(dt: number): void {
     if (!this.el.isConnected) return;
-    // MIND draws instead (the first frame on Home loads it); if it cannot run, this reactor stays.
+    // MIND draws instead (the first frame on Home loads it, or takes the one the boot cinematic woke: shell/boot.ts);
+    // if it cannot run, this reactor stays.
     if (!this.mindTried) {
       this.mindTried = true;
       exposeHero();
-      const m = new Mind(this.el);
+      const m = mindFor(this.el);
       this.mind = m;
       void m.start().then((ok) => {
         if (!ok && this.mind === m) this.mind = null;

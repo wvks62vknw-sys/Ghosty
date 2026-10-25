@@ -333,7 +333,8 @@ export const brain = {
   /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
-  placeKeep: (found: PlaceCandidate) => req<{ places: SavedPlace[] }>('POST', '/profile/places', { found }),
+  /** `back` (UNDO): the place put back exactly — its date and its place in the list. */
+  placeKeep: (found: PlaceCandidate, back?: { at: number; index: number }) => req<{ places: SavedPlace[] }>('POST', '/profile/places', { found, ...back }),
   placeForget: (id: string) => req<{ places: SavedPlace[]; removed: boolean }>('DELETE', `/profile/places?id=${encodeURIComponent(id)}`),
   /** The Brief's commute: the drive between two points now (live traffic with the TomTom key). */
   commute: (from: { lat: number; lon: number }, to: { lat: number; lon: number }) =>
@@ -457,6 +458,8 @@ export const brain = {
     /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
     base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),
     privateData: (on: boolean) => req<TrainStatus>('POST', '/training/private', { on }),
+    /** The daily GPU (a Space on his Hugging Face account, its free minutes): his yes (it is made at the next step) or no. */
+    pool: (allow: boolean) => req<TrainStatus>('POST', '/training/pool', { allow }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */

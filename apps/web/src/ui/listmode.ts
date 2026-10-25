@@ -125,6 +125,8 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
   new MutationObserver(deco).observe(root, { childList: true, subtree: true });
   let pushed: HTMLElement | null = null;
   let scroll = 0;
+  // the list's place when a panel was closed by leaving the page: put back once the page shows again (a hidden page ignores it)
+  let restore: number | null = null;
   const scroller = () => root.querySelector<HTMLElement>('.hud');
   const pop = () => {
     if (!pushed) return;
@@ -136,6 +138,7 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     root.classList.remove('haspush');
     const s = scroller();
     if (s) s.scrollTop = scroll;
+    if (!root.classList.contains('on')) restore = scroll;
     popScreen();
   };
   // Capture: a tap on a panel's title pushes it, before the panel would fold itself.
@@ -162,6 +165,14 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     root.classList.add('haspush');
     pushScreen({ back: name, title: titleOf(pn), label: pn.querySelector<HTMLElement>('.ptitle')?.dataset.label ?? '', pop });
   }, true);
-  // Leaving the page closes the pushed panel, so the list is there next time.
-  ui.subscribe((st, pr) => st.tab !== pr.tab && pop());
+  // Leaving the page closes the pushed panel, so the list is there next time, where it was.
+  ui.subscribe((st, pr) => {
+    if (st.tab === pr.tab) return;
+    pop();
+    const s = scroller();
+    if (restore != null && s && root.classList.contains('on')) {
+      s.scrollTop = restore;
+      restore = null;
+    }
+  });
 }

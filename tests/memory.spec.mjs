@@ -1,10 +1,13 @@
 // The Memory tab's ME and DIARY panels: the profile drawn from the brain (stubbed first, exact
-// values), a line added and removed, a diary entry opened, REFLECT NOW's toast — then, through
+// values) — ME first on his side, headed in his words, where it came from and when, the title's
+// count —, a line added and removed, a diary entry opened (its day in words), REFLECT NOW's toast,
+// Memory's sentences in one voice, every target 44 pt — then, through
 // the preview brain's scripted model, a real reflection over two things the owner said. Then the
 // TIMELINE over the real brain: a fact said in chat shows with that chat as its source (which
 // opens it), EDIT, LOCK (and the "Locked only" filter), FORGET and UNDO (back still locked), the
 // kind filter and search; and PATTERNS: four evenings on one topic show with their evidence, and
-// ✕ hides the pattern for good (still hidden after a reload).
+// ✕ hides the pattern for good (still hidden after a reload); a row 26 deep forgotten with its UNDO
+// on screen; offline: the title line says so and a FORGET says why nothing changed.
 //   node tests/memory.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK } from './nav.mjs';
@@ -68,13 +71,34 @@ async function run(name, viewport) {
   await page.waitForFunction(() => document.querySelector('#pg-memory .pn.me')?.textContent?.includes('flat whites'), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the ME panel did not show the profile`));
   const text = (await me.textContent()) ?? '';
   if (!/A bridge engineer in Kings Heath/.test(text)) problems.push(`[${name}] no summary line in ME`);
-  if (!/LIKES/i.test(text) || !/rain on the window/.test(text) || !/Ann is my sister/.test(text)) problems.push(`[${name}] ME is missing section lines: ${text.slice(0, 200)}`);
+  if (!/rain on the window/.test(text) || !/Ann is my sister/.test(text)) problems.push(`[${name}] ME is missing section lines: ${text.slice(0, 200)}`);
+  // ME reads as his: the sections headed in his words (not "likes", "people"), where it came from and when
+  const heads = await me.locator('.lab[data-section]').allTextContents();
+  if (heads.join('|') !== 'Who you are|What you like|Your people|Places in your life|What you’re working towards') problems.push(`[${name}] ME's headings read: ${heads.join(' | ') || (await me.locator('.lab').allTextContents()).join(' | ')}`);
+  if (!/From your own words · updated today/.test(text)) problems.push(`[${name}] ME does not say where it came from and when: ${text.slice(0, 160)}`);
+  // the count under the title is everything known about him: his facts and the lines about him
+  const known = await page.evaluate(async () => (await (await fetch('/api/memory', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } })).json()).facts.length);
+  await page.waitForFunction((n) => document.querySelector('#pg-memory .sub')?.textContent?.startsWith(`${n} `), known + 6, { timeout: 5000 }).catch(() => undefined);
+  const sub = (await page.locator('#pg-memory .sub').first().textContent()) ?? '';
+  if (!sub.startsWith(`${known + 6} things I know about you`)) problems.push(`[${name}] the title says "${sub}", not ${known + 6} things (${known} facts and 6 lines)`);
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
+  // ME (who he is) comes first on his side, above PATTERNS and the TIMELINE, and starts on the first screen
+  const order = await page.evaluate(() => ['me', 'pats', 'tl'].map((c) => document.querySelector(`#pg-memory .pn.${c}`)?.getBoundingClientRect().top ?? -1));
+  if (!(order[0] < order[1] && order[1] < order[2])) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order (tops ${order.join(', ')})`);
+  if (order[0] > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order[0])} points down, below the first screen`);
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
+  // one voice: Memory's own sentences speak as Ghosty ("I"), never of him in the third person ("he keeps it", "his memory")
+  const voice = await page.$$eval('#pg-memory :is(.note, .empty, .placelist p)', (els) => els.map((e) => e.textContent ?? '').filter((t) => /\b(he|him|his)\b/i.test(t)));
+  if (voice.length) problems.push(`[${name}] Memory speaks of Ghosty as "he": ${voice.join(' / ').slice(0, 300)}`);
   // add a line under ROUTINES (the "Add a memory…" row opens the form in a sheet)
   const addRow = page.locator('#pg-memory .addrow');
   const sheet = (await addRow.isVisible().catch(() => false)) ? (await addRow.click(), page.locator('.modal .memadd')) : me;
+  if (await page.locator('.modal .memadd').count()) {
+    // the sheet's fields sit inside its margins (they touched its edges)
+    const gap = await page.evaluate(() => document.querySelector('.modal .memadd input').getBoundingClientRect().left - document.querySelector('.modal').getBoundingClientRect().left);
+    if (gap < 16) problems.push(`[${name}] the Add a memory sheet's field is ${Math.round(gap)} points from the sheet's edge`);
+  }
   await sheet.locator('select').selectOption('routines');
   await sheet.locator('input').fill('I run on Tuesdays');
   await sheet.locator('button:has-text("ADD")').click();
@@ -90,20 +114,32 @@ async function run(name, viewport) {
   await added.locator('.del').click();
   await page.waitForFunction(() => !document.querySelector('#pg-memory .pn.me')?.textContent?.includes('I run on Tuesdays'), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the removed line is still there`));
   if (editing) await edit.click(); // Done
+  // every target he taps is at least 44 pt (CSS points: the page's own zoom aside)
+  const small = async () => page.$$eval('#pg-memory :is(button, select, input, summary)', (els) => els.filter((e) => e.offsetParent && e.getClientRects().length && parseFloat(getComputedStyle(e).height) < 44 && getComputedStyle(e).height !== 'auto').map((e) => `${(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24)} (${getComputedStyle(e).height})`));
+  const tiny = await small();
   // the DIARY (other column on phones): newest first, opens in a modal; REFLECT NOW toasts what changed
   const narrow = viewport.width < 900;
   if (narrow) await page.click('#pg-memory .swap');
   const dp = page.locator('#pg-memory .pn', { has: page.locator('h3:has-text("DIARY")') });
   await dp.waitFor({ state: 'visible', timeout: 8000 });
+  // the other side opens on the DIARY (the switch says so: "Diary & chat")
+  const firstRight = await page.evaluate(() => document.querySelector('#pg-memory .col.cR > .pn h3')?.textContent ?? '');
+  if (!/DIARY/i.test(firstRight)) problems.push(`[${name}] the other side opens on "${firstRight}", not the DIARY`);
+  if (narrow && !/Diary/.test((await page.locator('#pg-memory .swap').getAttribute('data-right')) ?? '')) problems.push(`[${name}] the switch does not name the diary`);
   const rows = dp.locator('.rw');
   await rows.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined);
-  const first = (await rows.first().textContent()) ?? '';
-  if (!/2026-10-17/.test(first)) problems.push(`[${name}] the diary is not newest first: "${first.slice(0, 60)}"`);
+  const first = (await rows.first().innerText()) ?? ''; // (as shown: its capitals too)
+  // newest first, its day as he would say it (never "2026-10-17")
+  if (!/Saturday 17 October/.test(first) || /2026-10-17/.test(first)) problems.push(`[${name}] the diary's first row is not "Saturday 17 October", newest first: "${first.slice(0, 80)}"`);
   await rows.first().click();
   const modalText = await page.locator('.modal .mbody').textContent({ timeout: 5000 }).catch(() => '');
   if (!/We decided to train on Tuesdays/.test(modalText ?? '')) problems.push(`[${name}] the diary entry did not open in a modal`);
+  const modalTitle = (await page.locator('.modal').first().textContent().catch(() => '')) ?? '';
+  if (!/Diary · Saturday 17 October/.test(modalTitle)) problems.push(`[${name}] the diary page's title reads "${modalTitle.slice(0, 60)}"`);
   await page.screenshot({ path: `${out}/${name}-memory-diary.png` });
   await page.keyboard.press('Escape');
+  tiny.push(...(await small()));
+  if (tiny.length) problems.push(`[${name}] targets under 44 pt: ${[...new Set(tiny)].join(', ')}`);
   await dp.locator('button:has-text("REFLECT NOW")').click();
   await page.waitForFunction(() => /Reflected: 1 new fact, 1 line about you/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] no toast after REFLECT NOW`));
   if (state.reflected !== 1) problems.push(`[${name}] REFLECT NOW called the brain ${state.reflected} times`);
@@ -158,9 +194,13 @@ async function run(name, viewport) {
   const src = (await item(thing).first().locator('.misrc').textContent().catch(() => '')) ?? '';
   if (!/From your chat on/.test(src)) problems.push(`[${name}] the chat fact's source reads "${src}"`);
   // everything is there: what reflection kept, newest first
-  const kinds = await tlp.locator('.mik').allTextContents();
-  if (!kinds.some((k) => /ABOUT YOU/.test(k)) || !kinds.some((k) => /SAVED FACT/.test(k))) problems.push(`[${name}] the timeline is missing kinds: ${kinds.join(', ')}`);
-  if (!kinds.some((k) => /DIARY/.test(k))) problems.push(`[${name}] the diary is not in the timeline`);
+  // (each kind through the filter: on a preview other runs have filled, the first page may be all facts)
+  for (const [kind, label] of [['profile', /ABOUT YOU/], ['fact', /SAVED FACT/], ['diary', /DIARY/]]) {
+    await tlp.locator('select[aria-label="Show which memories"]').selectOption(kind);
+    const kinds = await tlp.locator('.mik').allTextContents();
+    if (!kinds.length || kinds.some((k) => !label.test(k))) problems.push(`[${name}] the timeline's ${kind} rows read: ${kinds.slice(0, 5).join(', ') || 'none'}`);
+  }
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('all');
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${out}/${name}-memory-timeline.png` });
   // the source opens that chat (the CORE log, the message picked out), or what was said when the phone no longer has it
@@ -189,13 +229,14 @@ async function run(name, viewport) {
   // FORGET, then UNDO: back, still locked
   await item(edited).first().locator('button:has-text("FORGET")').click();
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] FORGET did not remove it`));
-  const undo = tlp.locator('.undo button:has-text("UNDO")');
+  // the UNDO bar floats above the tab bar (on screen wherever the row was)
+  const undo = page.locator('.undo.undofloat:not([hidden]) button:has-text("UNDO")');
   if (!(await undo.isVisible().catch(() => false))) problems.push(`[${name}] no UNDO after FORGET`);
   await page.screenshot({ path: `${out}/${name}-memory-undo.png` });
   await undo.click().catch(() => undefined);
   await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring it back locked`));
   // RECENTLY FORGOTTEN: forget it again, then a line under ME (its ✕): both stay undoable after the bar has gone
-  await item(edited).first().locator('button:has-text("FORGET")').click();
+  await item(edited).first().locator('button:has-text("FORGET")').click({ timeout: 8000 }).catch(() => problems.push(`[${name}] the memory to forget again is not there`));
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
   const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
   if (await meLine.count()) {
@@ -218,6 +259,27 @@ async function run(name, viewport) {
   await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO from RECENTLY FORGOTTEN did not bring it back locked`));
   await fb.locator('.fgi', { hasText: 'walks in Kings Heath' }).locator('button:has-text("UNDO")').click().catch(() => undefined);
   await page.waitForFunction(() => /walks in Kings Heath/.test(document.querySelector('#pg-memory .pn.me')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the ME line did not come back`));
+  // A row far down the timeline: its FORGET's UNDO is on screen (it sat at the top of the panel, thousands of points up).
+  const deepWord = word();
+  await page.evaluate(async (w) => {
+    for (let i = 1; i <= 26; i++) await fetch('/api/memory', { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: JSON.stringify({ text: `deep ${w} number ${i}` }) });
+  }, deepWord);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => (location.hash = 'memory'));
+  // the oldest of the 26: about the 26th row, newest first
+  const deepText = `deep ${deepWord} number 1`;
+  const deep = tlp.locator('.mi').filter({ has: page.locator('.mit', { hasText: new RegExp(`^${deepText}$`) }) });
+  if (await deep.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false)) {
+    await deep.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    const rowIndex = await deep.evaluate((e) => [...e.parentElement.querySelectorAll('.mi')].indexOf(e));
+    await deep.locator('button:has-text("FORGET")').click();
+    await page.waitForTimeout(500);
+    const seen = await page.evaluate(() => [...document.querySelectorAll('.undo:not([hidden])')].some((u) => { const b = u.getBoundingClientRect(); return b.height > 0 && b.top >= 0 && b.bottom <= innerHeight && /deep/.test(u.textContent); }));
+    if (!seen) problems.push(`[${name}] FORGET on row ${rowIndex + 1} of the timeline: its UNDO is not on screen`);
+    await undo.click().catch(() => problems.push(`[${name}] no UNDO to tap after forgetting row ${rowIndex + 1}`));
+    await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi .mit')].some((x) => x.textContent === t), deepText, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring the deep row back`));
+  } else problems.push(`[${name}] the 26 seeded memories are not in the timeline`);
   // the filter by kind and the search
   await tlp.locator('select[aria-label="Show which memories"]').selectOption('profile');
   const kinds2 = await tlp.locator('.mik').allTextContents();
@@ -241,11 +303,32 @@ async function run(name, viewport) {
   await tlp.locator('.mi').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
   await page.waitForTimeout(800);
   if (await pp.locator('.pat', { hasText: topic }).count()) problems.push(`[${name}] the dismissed pattern came back after a reload`);
+  // OFFLINE: one line says what shows is what I knew before; a FORGET says so plainly (never "Failed to fetch") and keeps the memory
+  await ctx.setOffline(true);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForTimeout(1200);
+  const offSub = (await page.locator('#pg-memory .sub').first().textContent()) ?? '';
+  if (!/You’re offline: this is what I knew before/.test(offSub)) problems.push(`[${name}] offline, the title line reads "${offSub}"`);
+  const keep = tlp.locator('.mi').first();
+  const keepText = (await keep.locator('.mit').textContent().catch(() => '')) ?? '';
+  if (keepText) {
+    await page.evaluate(() => document.querySelector('#toasts')?.replaceChildren());
+    await keep.locator('button:has-text("FORGET")').click().catch(() => undefined);
+    await page.waitForFunction(() => /offline|Failed|Could not/i.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    const said = (await page.locator('#toasts').textContent().catch(() => '')) ?? '';
+    if (!/you’re offline, so nothing changed/.test(said) || /Failed to fetch/.test(said)) problems.push(`[${name}] a FORGET with no connection says: "${said.slice(0, 120)}"`);
+    if (!(await page.evaluate((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi .mit')].some((x) => x.textContent === t), keepText))) problems.push(`[${name}] offline, the memory left the list though nothing was forgotten`);
+  }
+  await page.screenshot({ path: `${out}/${name}-memory-offline.png` });
+  await ctx.setOffline(false);
+  await page.waitForFunction(() => /things I know about you/.test(document.querySelector('#pg-memory .sub')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] back online, the title line still says offline`));
   await ctx.close();
 }
 
 await run('desktop', DESKTOP);
 await run('phone', PHONE);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME, DIARY, REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo, filters) and PATTERNS work.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME first and in his words, DIARY (its days in words), REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo on screen however deep, filters), PATTERNS, one voice, offline said plainly, every target 44 pt.');
 process.exit(problems.length ? 1 : 0);

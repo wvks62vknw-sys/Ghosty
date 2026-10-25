@@ -8,6 +8,7 @@ import type { PlaceCandidate, SavedPlace } from '../../../../../packages/shared/
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, toast, undoBar } from '../../ui/components';
+import { offlineNow, why } from './timeline';
 
 const KINDS: [string, string][] = [
   ['home', 'Home'],
@@ -41,7 +42,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     } catch (e) {
       found = null;
       check.hidden = false;
-      clear(check, h('p.note.bad', `Not found: ${(e as Error).message}`));
+      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : `Not found: ${(e as Error).message}`));
     }
     b.disabled = false;
     b.textContent = 'FIND';
@@ -62,16 +63,20 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
         'div.row',
         button('KEEP IT', async (b) => {
           b.disabled = true;
+          // a new home replaces the old one: UNDO puts the old one back exactly
+          const was = places.findIndex((x) => x.id === f.id || x.label.toLowerCase() === f.label.toLowerCase());
+          const old = was >= 0 ? places[was]! : null;
           try {
             places = (await brain.placeKeep(f)).places;
-            toast(`${f.label} kept`, 'ok');
+            if (old) undo.show(`${f.label} changed to ${f.address}`, () => putBack(old, was));
+            else toast(`${f.label} kept`, 'ok');
             found = null;
             where.value = '';
             name.value = '';
             paintFound();
             paint();
           } catch (e) {
-            toast(`Could not keep it: ${(e as Error).message}`, 'bad');
+            toast(`Could not keep it: ${why(e)}`, 'bad');
             b.disabled = false;
           }
         }, 'on'),
@@ -84,13 +89,19 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     );
   };
 
+  /** UNDO: a place back exactly as it was (its date, its place in the list). */
+  const putBack = async (p: SavedPlace, index: number) => {
+    places = (await brain.placeKeep({ id: p.id, label: p.label, query: p.query, address: p.address, lat: p.lat, lon: p.lon }, { at: p.at, index })).places;
+    paint();
+  };
+
   const paint = () => {
     clear(list);
     if (!places.length) {
-      list.append(h('p.note', 'No places yet. Add home and work and he can take you home, time the drive to work, and show your commute in the Brief.'));
+      list.append(h('p.note', 'No places yet. Add home and work and I can take you home, time the drive to work, and show your commute in the Brief.'));
       return;
     }
-    for (const p of places) {
+    for (const [i, p] of places.entries()) {
       const edit = button('EDIT', () => {
         const k = KINDS.find(([v]) => v === p.id);
         kind.value = k ? p.id : '';
@@ -105,12 +116,9 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
         try {
           places = (await brain.placeForget(p.id)).places;
           paint();
-          undo.show(`Forgot ${p.label}`, async () => {
-            places = (await brain.placeKeep({ id: p.id, label: p.label, query: p.query, address: p.address, lat: p.lat, lon: p.lon })).places;
-            paint();
-          });
+          undo.show(`Forgot ${p.label}`, () => putBack(p, i));
         } catch (e) {
-          toast(`Could not forget it: ${(e as Error).message}`, 'bad');
+          toast(`Could not forget it: ${why(e)}`, 'bad');
         }
       }, 'warn');
       list.append(h('div.placerow', { dataset: { id: p.id } }, h('span.k', p.label), h('span.v', p.address), h('span.acts', edit, forget)));
@@ -120,7 +128,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
   const el = h(
     'div.places',
     h('div.lab', 'PLACES'),
-    h('p.note.privacy', 'Kept in his memory like everything here, and nowhere else. Only the map points go to the free route service when he works out a journey.'),
+    h('p.note.privacy', 'Kept in my memory like everything here, and nowhere else. Only the map points go to the free route service when I work out a journey.'),
     undo.el,
     list,
     h('div.keyrow.wrapit.placeadd', kind, name, where, button('FIND', (b) => void find(b))),

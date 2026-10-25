@@ -12,7 +12,9 @@
  * comes from `security.OAuthService/IntrospectToken` like the CLI's `_introspect_token`. Errors come back as
  * `{code, message}`; durations as protobuf JSON strings ("108000s", "151.500s"), a zero one left out.
  * Hugging Face: whoami-v2, the repo info and settings endpoints, repos/create, the commit endpoint (NDJSON), preupload,
- * the Git LFS batch API, tags, and `resolve/<commit>/<file>`.
+ * the Git LFS batch API, tags, and `resolve/<commit>/<file>`; for the daily GPU (pool.ts) a Space: repos/create with
+ * the Gradio SDK on ZeroGPU (`zero-a10g`, the only hardware ever asked for: free, and a free account cannot buy more),
+ * its secrets, and its Gradio API (`/gradio_api/call/<name>`: POST, then the event stream with the answer).
  */
 
 export class RemoteError extends Error {
@@ -217,6 +219,9 @@ export interface HfMe {
   name: string;
   /** 'write' (a classic write token), 'fineGrained', or 'read'. */
   role: string;
+  /** The account is PRO (it could pay for GPU time past the free minutes), and whether it can pay (a card on file); absent when Hugging Face did not say. */
+  isPro?: boolean;
+  canPay?: boolean;
   /** May create new repos under the owner's name. */
   canCreate: boolean;
   /** May write to this repo ("owner/name"). */
@@ -232,7 +237,7 @@ interface FineScope {
 export async function hfWhoami(f: Fetch, token: string): Promise<HfMe> {
   const r = await hfCall(f, token, 'GET', `${HF}/api/whoami-v2`);
   if (!r.ok) throw new RemoteError(`Hugging Face answered ${r.status}`, r.status);
-  const j = (await r.json()) as { name?: string; auth?: { accessToken?: { role?: string; fineGrained?: { scoped?: FineScope[]; global?: string[] } } } };
+  const j = (await r.json()) as { name?: string; isPro?: unknown; canPay?: unknown; auth?: { accessToken?: { role?: string; fineGrained?: { scoped?: FineScope[]; global?: string[] } } } };
   const name = String(j.name ?? '');
   const at = j.auth?.accessToken;
   const role = String(at?.role ?? 'read');
@@ -242,6 +247,8 @@ export async function hfWhoami(f: Fetch, token: string): Promise<HfMe> {
   return {
     name,
     role,
+    ...(typeof j.isPro === 'boolean' ? { isPro: j.isPro } : {}),
+    ...(typeof j.canPay === 'boolean' ? { canPay: j.canPay } : {}),
     canCreate: role === 'write' || (role === 'fineGrained' && userWide),
     canWrite: (repo) => role === 'write' || (role === 'fineGrained' && (userWide || scoped.some((s) => s.entity?.name === repo && writes(s)))),
   };
@@ -304,7 +311,7 @@ const LFS = 'application/vnd.git-lfs+json';
  * One commit of text files to a repo's main branch. Hugging Face says per file whether it wants it as a plain
  * file or in LFS (preupload); LFS files go up through the Git LFS batch API first. Returns the commit id.
  */
-export async function hfCommit(f: Fetch, token: string, repo: string, type: 'model' | 'dataset', files: HfFile[], summary: string): Promise<string> {
+export async function hfCommit(f: Fetch, token: string, repo: string, type: 'model' | 'dataset' | 'space', files: HfFile[], summary: string): Promise<string> {
   const base = `${HF}/api/${type}s/${repo}`;
   // A file worked out ahead (x.pre) is never encoded here; the others are, once.
   const enc = files.map((x) => {
@@ -317,7 +324,7 @@ export async function hfCommit(f: Fetch, token: string, repo: string, type: 'mod
   const lfs = [];
   for (const x of enc) if (modes.get(x.path) === 'lfs') lfs.push({ ...x, oid: x.pre?.sha256 ?? (await sha256Hex(x.bytes())) });
   if (lfs.length) {
-    const gitBase = `${HF}/${type === 'dataset' ? 'datasets/' : ''}${repo}.git/info/lfs/objects/batch`;
+    const gitBase = `${HF}/${type === 'dataset' ? 'datasets/' : type === 'space' ? 'spaces/' : ''}${repo}.git/info/lfs/objects/batch`;
     const r = await hfCall(f, token, 'POST', gitBase, JSON.stringify({ operation: 'upload', transfers: ['basic'], objects: lfs.map((x) => ({ oid: x.oid, size: x.size })), hash_algo: 'sha256', ref: { name: 'main' } }), LFS, { Accept: LFS });
     if (!r.ok) throw new RemoteError(`Hugging Face LFS refused the upload (${r.status})`, r.status);
     const objs = ((await r.json()) as { objects?: { oid: string; actions?: { upload?: { href: string; header?: Record<string, string> }; verify?: { href: string; header?: Record<string, string> } } }[] }).objects ?? [];
@@ -361,4 +368,80 @@ export async function hfTag(f: Fetch, token: string, repo: string, commit: strin
 /** One file of the private model repo at a commit, asked with the owner's token; redirects are NOT followed (weights.ts decides). */
 export function hfResolve(f: Fetch, token: string, repo: string, commit: string, path: string, method: 'GET' | 'HEAD' = 'GET', range?: string | null): Promise<Response> {
   return f(`${HF}/${repo}/resolve/${commit}/${path}`, { method, redirect: 'manual', headers: { Authorization: `Bearer ${token}`, ...(range ? { Range: range } : {}) } });
+}
+
+// ---- Hugging Face Spaces: the daily GPU (pool.ts) --------------------------------------------------------------
+
+/** The only hardware a Space of Ghosty's is ever put on: ZeroGPU, free (a free account gets its daily minutes and cannot buy more). */
+export const ZERO_GPU = 'zero-a10g';
+
+/** Where a Space's app answers: `https://<owner>-<name>.hf.space` (lower case, `_` and `.` as `-`). */
+export const spaceHost = (repo: string): string => `https://${repo.toLowerCase().replace(/[/_.]/g, '-')}.hf.space`;
+
+/**
+ * A Gradio Space on ZeroGPU under the owner's name: private when Hugging Face lets a free account have one (else public,
+ * which the caller is told: the Space then holds no data of his, and answers only with its key). An existing one is kept
+ * as it is. Returns whether it is private.
+ */
+export async function hfCreateSpace(f: Fetch, token: string, repo: string): Promise<{ private: boolean; existed: boolean }> {
+  const [org, name] = repo.split('/');
+  const create = (priv: boolean) => hfCall(f, token, 'POST', `${HF}/api/repos/create`, JSON.stringify({ type: 'space', name, organization: org, private: priv, sdk: 'gradio', hardware: ZERO_GPU }));
+  let r = await create(true);
+  let priv = true;
+  if (!r.ok && r.status !== 409) {
+    const why = await r.text();
+    if (!/private/i.test(why)) throw new RemoteError(`Hugging Face would not make the Space ${repo}: ${why.slice(0, 200)}`, r.status);
+    r = await create(false);
+    priv = false;
+    if (!r.ok && r.status !== 409) throw new RemoteError(`Hugging Face would not make the Space ${repo}: ${(await r.text()).slice(0, 200)}`, r.status);
+  }
+  const existed = r.status === 409;
+  // (an existing Space keeps its privacy; asked, to say it truly)
+  const info = await hfCall(f, token, 'GET', `${HF}/api/spaces/${repo}`);
+  if (info.ok) priv = ((await info.json()) as { private?: boolean }).private === true;
+  // On the free GPU (asked again: Hugging Face may have ignored it at creation); never any other hardware.
+  const hw = await hfCall(f, token, 'POST', `${HF}/api/spaces/${repo}/hardware`, JSON.stringify({ flavor: ZERO_GPU }));
+  if (!hw.ok) throw new RemoteError(`Hugging Face would not put ${repo} on its free daily GPU (ZeroGPU needs an account older than 30 days with its email verified): ${(await hw.text()).slice(0, 160)}`, hw.status);
+  return { private: priv, existed };
+}
+
+/** A secret of the Space (its code reads it; nobody else can). */
+export async function hfSpaceSecret(f: Fetch, token: string, repo: string, key: string, value: string): Promise<void> {
+  const r = await hfCall(f, token, 'POST', `${HF}/api/spaces/${repo}/secrets`, JSON.stringify({ key, value, description: 'set by Ghosty' }));
+  if (!r.ok) throw new RemoteError(`Hugging Face would not keep the Space's ${key} (${r.status})`, r.status);
+}
+
+/**
+ * One call of a Gradio app's API: POST the arguments (one JSON string), then read the event stream to its end; the
+ * answer is the app's JSON string, parsed. An `error` event, or an answer that is `{error}`, comes back as RemoteError
+ * (ZeroGPU says so when the day's minutes are used up: `quota` is then true).
+ */
+export async function gradioCall(f: Fetch, token: string, host: string, fn: string, args: unknown): Promise<Record<string, unknown>> {
+  const auth = { Authorization: `Bearer ${token}` };
+  const r = await f(`${host}/gradio_api/call/${fn}`, { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ data: [JSON.stringify(args)] }) });
+  if (r.status === 401 || r.status === 403) throw new RemoteError('the daily GPU would not let Ghosty in (the Hugging Face token was refused)', r.status);
+  if (!r.ok) throw new RemoteError(`the daily GPU is not answering (${r.status}${r.status === 404 || r.status === 503 ? ': it may be asleep or still being built' : ''})`, r.status);
+  const id = ((await r.json().catch(() => ({}))) as { event_id?: string }).event_id;
+  if (!id) throw new RemoteError('the daily GPU did not take the call');
+  const s = await f(`${host}/gradio_api/call/${fn}/${encodeURIComponent(id)}`, { headers: auth });
+  const text = s.ok ? await s.text() : '';
+  let last: { event: string; data: string } | null = null;
+  for (const block of text.split(/\r?\n\r?\n/)) {
+    const event = /^event:\s*(.*)$/m.exec(block)?.[1]?.trim();
+    const data = /^data:\s*(.*)$/m.exec(block)?.[1] ?? '';
+    if (event === 'complete' || event === 'error') last = { event, data };
+  }
+  if (!last) throw new RemoteError(`the daily GPU sent no answer${s.ok ? '' : ` (${s.status})`}`, s.status);
+  if (last.event === 'error') {
+    const why = String(last.data).replace(/^"|"$/g, '').slice(0, 200);
+    throw Object.assign(new RemoteError(`the daily GPU stopped: ${why || 'no reason given'}`), { quota: /quota|GPU (time|minutes)/i.test(why) });
+  }
+  let out: Record<string, unknown>;
+  try {
+    out = JSON.parse(String((JSON.parse(last.data) as unknown[])[0])) as Record<string, unknown>;
+  } catch {
+    throw new RemoteError('the daily GPU sent something that is not its answer');
+  }
+  if (typeof out?.error === 'string') throw new RemoteError(`the daily GPU said: ${out.error.slice(0, 200)}`);
+  return out;
 }

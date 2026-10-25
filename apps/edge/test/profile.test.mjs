@@ -881,3 +881,84 @@ test('"remind me when I\'m near Tesco": no location tracking, said plainly; a re
   await assert.rejects(T.toolByName.get('set_reminder').run({ text: "buy milk when I'm near Tesco" }, { storage: st }), /never tracks your location/);
   assert.match(await T.toolByName.get('set_reminder').run({ text: 'call mum', in_minutes: 30 }, { storage: st }), /Reminder set/);
 });
+
+test('the reflection asks for the summary written to him ("You\'re …"), never "the owner"', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  await st.put('turns', turns([['user', 'I build bridges for a living'], ['user', 'and I live in Kings Heath']]));
+  let system = '';
+  await P.reflect({ storage: st, library: lib, ai: async (sys) => ((system = sys), JSON.stringify({ summary: "You're a bridge engineer in Kings Heath.", facts: [], sections: {}, diary: '' })) }, T0 + 10 * 60_000);
+  assert.match(system, /"summary": [^\n]*second person[^\n]*"You're [^\n]*never "the owner"/);
+  assert.equal((await P.loadProfile(st)).summary, "You're a bridge engineer in Kings Heath.");
+});
+
+test('the chat\'s forget keeps what it removed a day for UNDO (one fact as itself, several as one group); two letters remove nothing', async () => {
+  const storage = new MemStorage();
+  const lib = new Library(storage, {});
+  const forget = P.memoryTools.find((t) => t.name === 'forget');
+  const ctx = { storage };
+  await storage.put('memory', ['my bike is green', 'my bike shed is blue', 'my kettle is red', 'Ann is my sister'].map((text, i) => ({ id: `id${i}`, text, at: T0 + i * 1000, src: { kind: 'chat', at: T0 + i * 1000 } })));
+  const before = structuredClone(await storage.get('memory'));
+  // "a" would match all four: refused, nothing removed
+  assert.match(await forget.run({ id_or_text: 'a' }, ctx), /Nothing removed/);
+  assert.equal((await storage.get('memory')).length, 4);
+  // one fact: back exactly as it was (its id, words, date and source)
+  const kettle = before.find((f) => f.text === 'my kettle is red');
+  assert.match(await forget.run({ id_or_text: 'kettle' }, ctx), /Removed 1 fact\(s\)\. For a day, Memory → RECENTLY FORGOTTEN can bring it back/);
+  let gone = await P.recentlyForgotten(storage);
+  assert.deepEqual(gone.map((f) => [f.id, f.text]), [[`f:${kettle.id}`, 'my kettle is red']]);
+  await P.changeMemory({ storage, library: lib }, `f:${kettle.id}`, 'restore');
+  // several: one group, all back together
+  assert.match(await forget.run({ id_or_text: 'bike' }, ctx), /Removed 2 fact\(s\)/);
+  gone = await P.recentlyForgotten(storage);
+  assert.equal(gone[0].text, '2 facts matching “bike”');
+  assert.equal(gone[0].count, 2);
+  await P.changeMemory({ storage, library: lib }, gone[0].id, 'restore');
+  assert.deepEqual(await storage.get('memory'), before, 'every fact back exactly as it was');
+});
+
+test('UNDO puts things back exactly: a line in its place in its section; a place with its date and in its place in the list', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const deps = { storage: st, library: lib, ai: async () => '' };
+  for (const text of ['tea', 'rain on the window', 'jazz on Sundays']) await route('/profile', 'POST', { section: 'likes', text }, deps);
+  const before = (await P.loadProfile(st)).sections.likes;
+  await P.changeMemory(deps, 'p:rain on the window', 'forget');
+  assert.deepEqual((await P.loadProfile(st)).sections.likes, ['tea', 'jazz on Sundays']);
+  await P.changeMemory(deps, 'p:rain on the window', 'restore');
+  assert.deepEqual((await P.loadProfile(st)).sections.likes, before, 'back in the middle, where it was');
+  // places: FORGET then UNDO, and KEEP IT over an old home then UNDO
+  const home = { id: 'home', label: 'Home', query: '12 Acacia Avenue', address: '12, Acacia Avenue, B13 9XX', lat: 52.4351, lon: -1.8912 };
+  const work = { id: 'work', label: 'Work', query: 'B15 2TT', address: 'B15 2TT, Edgbaston', lat: 52.4531, lon: -1.9416 };
+  await route('/profile/places', 'POST', { found: home }, deps);
+  await route('/profile/places', 'POST', { found: work }, deps);
+  const saved = await P.places.loadPlaces(st);
+  const old = saved[0];
+  await route('/profile/places?id=home', 'DELETE', undefined, deps);
+  const back = await (await route('/profile/places', 'POST', { found: old, at: old.at, index: 0 }, deps)).json();
+  assert.deepEqual(back.places, saved, 'home first again, with the date it was saved');
+  await route('/profile/places', 'POST', { found: { ...home, address: '1 New Road', lat: 52.1, lon: -1.8 } }, deps);
+  const undone = await (await route('/profile/places', 'POST', { found: old, at: old.at, index: 0 }, deps)).json();
+  assert.deepEqual(undone.places, saved, 'the old home back exactly after a new one replaced it');
+});
+
+test('patterns are true and useful: what he asks Ghosty to do is never a topic; words said together are one topic, dismissed whole', async () => {
+  const tz = 'Europe/London';
+  const msgs = [];
+  for (let d = 0; d < 5; d++) msgs.push([d, 18, 'how is the allotment doing'], [d, 18, 'remind me about the allotment shed']);
+  const pats = P.findPatterns(P.tallyDays(said(msgs), tz), ['likes tea', 'likes jazz', 'likes rain']);
+  const topics = pats.filter((p) => p.kind === 'topic');
+  assert.deepEqual(topics.map((p) => [p.id, p.text]), [['topic:allotment+shed', 'You keep coming back to “allotment” and “shed” — on 5 different days.']]);
+  assert.ok(!pats.some((p) => /remind|likes/.test(p.text)), JSON.stringify(pats));
+  // dismissed: both words leave the day log
+  const st = new MemStorage();
+  await st.put('owner:ctx', { tz });
+  await st.put('patterns:days', P.tallyDays(said(msgs), tz));
+  await P.profileRoute(new Request('https://x/api/profile/patterns/dismiss', { method: 'POST', body: JSON.stringify({ id: 'topic:allotment+shed' }) }), '/profile/patterns/dismiss', 'POST', new URL('https://x/api/profile/patterns/dismiss'), { storage: st, library: new Library(st, {}), ai: async () => '' });
+  assert.ok((await st.get('patterns:days')).every((d) => !d.t.allotment && !d.t.shed));
+  // still in the chat history (not yet filed), and said again with another word on the same days: never back
+  await st.put('turns', said(msgs.map(([d, h, t]) => [d, h, `${t} and the greenhouse`])).map((t, i) => ({ ...t, at: t.at + i })));
+  const again = await P.patterns({ storage: st }, Date.UTC(2026, 8, 30));
+  assert.ok(!again.some((p) => /allotment|shed/.test(p.text)), JSON.stringify(again));
+  assert.ok(again.some((p) => p.id === 'topic:greenhouse'), JSON.stringify(again));
+});

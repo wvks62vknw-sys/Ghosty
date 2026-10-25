@@ -125,9 +125,22 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const pill = (await page.textContent('#cstate'))?.trim();
   if (pill !== 'ONLINE') problems.push(`[${W}] the live-state pill reads "${pill}"`);
   // ---- the Today card and the tiles: the mock agenda and incident, the gym's games
-  await page.waitForFunction(() => /Call Mum/.test(document.querySelector('.rctoday')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
-  const today = (await page.textContent('.rctoday'))?.replace(/\s+/g, ' ').trim();
-  if (!/Call Mum/.test(today ?? '') || !/in (\d+ min|1 h)/.test(today ?? '') || !/\d+ left/.test(today ?? '')) problems.push(`[${W}] the Today card reads "${today}"`);
+  // The card lists the two soonest of what is left today in the brain's agenda, whatever other specs left there, so it
+  // is checked against that list: Call Mum (this spec's, seven minutes out) must be in it, and the card's rows, their
+  // order and its count must match. (PR #36: a run that crossed midnight UK found the agenda spec's two Dentist events
+  // still ahead, Call Mum third and off the card.)
+  await page.waitForFunction(() => /\d+ left/.test(document.querySelector('.rctoday')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+  const today = (await page.textContent('.rctoday'))?.replace(/\s+/g, ' ').trim() ?? '';
+  const dayEnd = await page.evaluate(() => new Date().setHours(24, 0, 0, 0));
+  const agenda = await fetch(`${base}/api/agenda`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).then((r) => r.json()).catch(() => null);
+  const nowT = Date.now();
+  const left = (agenda?.events ?? []).filter((e) => (e.end ?? e.start) > nowT && e.start < dayEnd).sort((a, b) => a.start - b.start);
+  const want = left.slice(0, 2).map((e) => e.title);
+  const first = left[0];
+  const soon = !!first && !first.allDay && first.start - nowT < 3 * 3600_000;
+  if (!left.some((e) => e.title === 'Call Mum')) problems.push(`[${W}] the brain's agenda has no Call Mum left today (${left.map((e) => e.title).join(', ') || 'nothing'})`);
+  const inOrder = want.length > 0 && want.every((t) => today.includes(t)) && (want.length < 2 || today.indexOf(want[0]) < today.indexOf(want[1]));
+  if (!inOrder || !new RegExp(`(^|\\D)${left.length} left`).test(today) || (soon && !/in (\d+ min|\d+ h)/.test(today))) problems.push(`[${W}] the Today card reads "${today}"; the agenda's soonest today: ${left.map((e) => `${e.title} ${new Date(e.start).toISOString().slice(11, 16)}Z`).join(', ') || 'nothing'}`);
   await page.waitForFunction(() => /M6/.test(document.querySelector('.rcroad')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
   const road = (await page.textContent('.rcroad'))?.replace(/\s+/g, ' ').trim();
   if (!/M6 J6–J7/.test(road ?? '') || !/\+12 min/.test(road ?? '') || !/Clears by \d\d:\d\d/i.test(road ?? '')) problems.push(`[${W}] the Roads tile reads "${road}"`);
@@ -328,7 +341,16 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   }
   {
     const [g, r] = [homeBoxes.graphite, homeBoxes.reactor];
-    const moved = g.map((x, i) => (x === r[i] ? '' : `${r[i]} → ${x}`)).filter(Boolean);
+    // Type and spacing must match to the letter; a box may sit a pixel off between the two paints (a suggestion chip's
+    // words follow the clock, and a centred row moves with them): one pixel is not a theme changing the layout.
+    const near = (a, b) => {
+      if (a === b) return true;
+      const cut = (x) => [x.slice(0, x.lastIndexOf(':')), x.slice(x.lastIndexOf(':') + 1).split(',')];
+      const [ka, A] = cut(a);
+      const [kb, B] = cut(b ?? '');
+      return ka === kb && A.length === B.length && A.every((x, i) => /^-?\d+$/.test(x) && /^-?\d+$/.test(B[i]) && Math.abs(Number(x) - Number(B[i])) <= 1);
+    };
+    const moved = g.map((x, i) => (near(x, r[i]) ? '' : `${r[i]} → ${x}`)).filter(Boolean);
     if (g.length !== r.length || moved.length) problems.push(`[themes] Graphite changed Home's layout, type or spacing: ${moved.slice(0, 4).join(' | ')} (${g.length} vs ${r.length})`);
   }
   // remembered: after a restart the last one tapped (Reactor) is still on; then Graphite, and it stays after a restart too

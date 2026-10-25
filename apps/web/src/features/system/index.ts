@@ -218,6 +218,8 @@ export const systemTab: TabDef = {
       const linksBtn = button('EMAIL · SPOTIFY · PHONE → LINKS', () => go('links'));
       linksBtn.dataset.label = 'Email, Spotify and phone';
       sp.body.append(h('div.keyrow', linksBtn));
+      // the boot cinematic again, over Home (shell/boot.ts)
+      sp.body.append(button('REBOOT HIM', () => void import('../../shell/boot').then((b) => b.reboot())));
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
       if (ownerKey.get())
         sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', async () => {

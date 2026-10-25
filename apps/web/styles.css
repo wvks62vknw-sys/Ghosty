@@ -175,14 +175,6 @@ select { appearance: none; -webkit-appearance: none; }
 /* ---------- boot + pairing ---------- */
 #boot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity .6s; }
 #boot.out { opacity: 0; pointer-events: none; }
-#boot .ring { position: relative; width: 96px; height: 96px; border-radius: 50%; }
-#boot .ring::before { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid transparent; animation: spin 1.6s linear infinite; }
-#boot .ring::after { content: ''; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 18px 4px rgba(var(--cr), .8); animation: breath 1.6s ease-in-out infinite; }
-#boot h1 { margin: 0; color: #fff; }
-#boot .log { width: min(340px, 86vw); min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
-#boot .log div { display: flex; justify-content: space-between; color: var(--mute); padding-bottom: 3px; }
-#boot .log b { color: var(--c); font-weight: 400; }
-#boot p { margin: 0; color: rgba(var(--cr), .7); text-transform: uppercase; animation: breath 1.6s ease-in-out infinite; }
 #pair { position: fixed; inset: 0; z-index: 210; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(var(--bgr), .9); }
 #pair .bx { width: min(420px, 100%); display: flex; flex-direction: column; }
 #pair h2 { margin: 0; }
@@ -1358,11 +1350,6 @@ body[data-depth="home"] #top .navtitle { display: none; }
 
 /* ---------- boot + pairing ---------- */
 #boot { gap: 26px; background: radial-gradient(ellipse 60% 45% at 50% 44%, rgba(var(--cr), .12), var(--bg) 70%); }
-#boot .ring { border: 0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.08); }
-#boot .ring::before { border-width: 2px; border-top-color: var(--c); border-right-color: transparent; animation-duration: 1.1s; }
-#boot h1 { font: 700 28px var(--sfd); letter-spacing: -.02em; padding: 0; text-transform: capitalize; }
-#boot .log div { font: 400 12px var(--sf); letter-spacing: 0; border-bottom: .5px solid var(--line); }
-#boot p { font: 500 13px var(--sf); letter-spacing: .02em; }
 #pair .bx { border: 0; border-radius: 26px; padding: 26px; gap: 14px; background: var(--thick); box-shadow: var(--edge), var(--lift); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
 #pair h2 { font: 700 24px var(--sfd); letter-spacing: -.02em; color: var(--fg); text-transform: none; }
 #pair p { font-size: 16px; }
@@ -1463,6 +1450,8 @@ body.busy #cstate, body.speaking #cstate { background-image: radial-gradient(cir
 .msgact { width: 40px; height: 40px; min-height: 40px !important; padding: 0; display: grid; place-items: center; border-radius: 50%; background: none; box-shadow: none; }
 .msgact .ic { width: 19px; height: 19px; fill: none; stroke: var(--l2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .msgact:active { background: var(--thin); }
+.msgact.on { background: var(--thin); }
+.msgact.on .ic { stroke: var(--c); }
 .act { align-self: center; margin-top: 6px; font: 500 13px var(--sf); color: var(--l2); padding: 2px 10px; }
 .act i { width: 6px; height: 6px; }
 .act .prog { font: 500 13px var(--sf); }
@@ -3311,6 +3300,16 @@ html .pn.pats .pat button.del { grid-column: 2; grid-row: 1 / 3; width: 44px; he
 /* ME: the summary first, the sections as kickers, a line each */
 html #pg-memory .pn.me .note.summary { order: -1; margin: 0 0 4px; font: 400 15px/20px var(--sf); color: var(--ink2); }
 html #pg-memory .pn.me .rw .v { font: 400 17px/23px var(--sf); letter-spacing: -.25px; }
+/* (upgrade pass) who he is in a line, written to him, then where it came from and when */
+html #pg-memory .pn.me .mesum { margin: 2px 0 2px; font: 500 20px/27px var(--sf); letter-spacing: -.35px; color: var(--ink); text-wrap: pretty; }
+html #pg-memory .pn.me .mewhen { margin: 0 0 6px; font: 400 13px/18px var(--sf); color: var(--ink3); }
+html #pg-memory .two .sub.off { color: #ffb36b; }
+/* (upgrade pass) every target he taps at least 44 pt: the add row, FIND, SHOW MORE, REFLECT NOW, CLEAR CONVERSATION */
+html body #pg-memory :is(.addrow, .placeadd button, .pn.tl > .bd > button.more, .pn > .ft > button) { height: 44px; min-height: 44px !important; }
+/* the Add a memory sheet: its words and fields inside the sheet's margins, like every other sheet */
+html body .memadd { flex: 1; padding: 0 20px 20px; }
+/* a diary day keeps its capitals: "Saturday 17 October" */
+html body #pg-memory .rw .k[data-case="keep"] { text-transform: none; }
 /* the two sides flow: each card as tall as what it holds, the side scrolls (a list shows a page of eight) */
 @media (max-width: 899px) {
   html .two.rcflow > .col { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 24px; }
@@ -3329,10 +3328,15 @@ html #pg-workshop .change .ct small { --lfs: 13px; font: 400 13px/18px var(--sf)
 html #pg-workshop .change .rcpill.chk { display: inline-flex; height: 22px; padding: 0 10px; font-size: 10.5px; }
 html #pg-workshop .change > .row.wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 html #pg-workshop .change button.ship { order: 1; flex: 1 1 140px; height: 48px; min-height: 48px !important; border-radius: 24px; font: 600 17px var(--sf) !important; letter-spacing: -.2px; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
-html #pg-workshop .change.failed button.ship { color: var(--ink) !important; background: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .4) !important; }
+html #pg-workshop .change:is(.failed, .pending, .none) button.ship { color: var(--ink) !important; background: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .4) !important; }
+/* a failed check: ASK TO FIX is the big filled button, first; SHIP IT beside it, outlined */
+html #pg-workshop .change.failed button.fixit { order: 0; flex: 1 1 140px; height: 48px; min-height: 48px !important; border-radius: 24px; font: 600 17px var(--sf) !important; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
+html #pg-workshop .change.failed > .row.wrap:not(:has(.prev)) button.ship { flex-basis: 140px; }
+html #pg-workshop .change small.chksays { font: 400 14px/19px var(--sf); color: var(--ink2); }
+html #pg-workshop .change.failed small.chksays { color: color-mix(in srgb, var(--amber) 80%, #fff); }
 html #pg-workshop .change button.prev { order: 2; flex: 0 0 auto; height: 48px; min-height: 48px !important; padding: 0 18px; border-radius: 24px; font: 600 15px var(--sf) !important; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
 html #pg-workshop .change .prevnote { order: 3; flex: 1 1 100%; margin: -2px 0 0; font: 400 12px/16px var(--sf); color: var(--ink3); }
-html #pg-workshop .change button.quiet { order: 4; position: relative; height: 36px; min-height: 36px !important; padding: 0 10px; margin: 0 0 -4px; border-radius: 10px; font: 500 15px var(--sf) !important; color: var(--ink2) !important; background: none !important; box-shadow: none !important; }
+html #pg-workshop .change button.quiet { order: 4; position: relative; height: 44px; min-height: 44px !important; padding: 0 10px; margin: 0; border-radius: 10px; font: 500 15px var(--sf) !important; color: var(--ink2) !important; background: none !important; box-shadow: none !important; }
 html #pg-workshop .change button.quiet::after { content: ''; position: absolute; inset: -4px 0; }
 html #pg-workshop .change button.quiet:first-of-type { margin-left: -10px; }
 html #pg-workshop .change > .row.wrap > button.quiet:nth-last-child(3) { margin-left: -10px; }
@@ -3364,7 +3368,13 @@ html #pg-workshop .change.project > .rw.st-doing .n { color: var(--c); }
 html #pg-workshop .change.project > .rw.open::after { content: ''; position: absolute; right: -4px; top: 50%; width: 0; height: 0; }
 html #pg-workshop .change.project > small.note { margin-top: 6px; font-size: 13px; color: var(--ink3); }
 html #pg-workshop .change.project > .row.wrap { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-html #pg-workshop .change.project > .row.wrap button { height: 40px; min-height: 40px !important; padding: 0 16px; }
+html #pg-workshop .change.project.paused { box-shadow: inset 3px 0 0 var(--amber), inset 0 0 0 1px var(--hair); }
+html #pg-workshop .change.project > .row.wrap button { height: 44px; min-height: 44px !important; padding: 0 16px; }
+/* a finished project, folded: what it made (the link, how to install it) and its buttons; the steps and the whole report behind SHOW DETAILS */
+html #pg-workshop .change.project.folded > :is(.rw, .preport) { display: none; }
+html #pg-workshop .change.project > .plead { margin: 8px 0 0; font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-workshop .change.project > .plead p { margin: 0 0 6px; } html #pg-workshop .change.project > .plead p:first-child { color: var(--ink); font-weight: 600; } html #pg-workshop .change.project > .plead p:last-child { margin: 0; }
+html #pg-workshop .change.project > .row.wrap button.fold { color: var(--ink2) !important; background: none !important; box-shadow: none !important; padding: 0 10px; }
 /* an upgrade idea: a glass card, its steps numbered, BUILD and DISMISS */
 html #pg-workshop .idea { gap: 8px; margin: 0 0 10px; padding: 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-workshop .idea b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
@@ -3372,7 +3382,7 @@ html #pg-workshop .idea .note { font-size: 15px; line-height: 20px; }
 html #pg-workshop .idea ol { padding-left: 20px; gap: 4px; font: 400 14px/19px var(--sf); color: var(--ink2); }
 html #pg-workshop .idea ol li::marker { color: var(--ink3); font-variant-numeric: tabular-nums; }
 html #pg-workshop .idea .row { gap: 8px; margin-top: 4px; }
-html #pg-workshop .idea .row button { height: 40px; min-height: 40px !important; padding: 0 18px; }
+html #pg-workshop .idea .row button { height: 44px; min-height: 44px !important; padding: 0 18px; }
 html #pg-workshop .idea .row small { color: var(--ink3); font-size: 13px; }
 html #pg-workshop .pn > .ft { gap: 12px; }
 html #pg-workshop .pn > .ft .note { font-size: 13px; color: var(--ink3); }
@@ -3385,7 +3395,10 @@ html #pg-workshop .rw.old .n.del { display: grid; place-items: center; width: 44
 /* the kernel lock: one quiet card; unlocking is amber, the warning colour */
 html #pg-workshop .pn:has(> .bd > button.warn) > .bd > button.warn { align-self: flex-start; height: 44px; min-height: 44px !important; padding: 0 18px; color: var(--amber) !important; background: rgba(var(--amberr), .1) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .28) !important; }
 html #pg-workshop .site { gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--hair); }
-html #pg-workshop .site .keyrow button { height: 40px; min-height: 40px !important; }
+html #pg-workshop .site .keyrow button { height: 44px; min-height: 44px !important; }
+/* every other Workshop button (BUILD IT, UPGRADE YOURSELF, THINK NOW, CARRY ON, GOT IT, SET IT UP, TRAIN …): 44 pt, the owner's rule */
+html #pg-workshop button:not(.swap, .wnall) { min-height: 44px !important; }
+html #pg-workshop .pn.whatsnew .wngot { height: 44px; }
 /* ---------- UNDO bars (ui/components.ts undoBar) ---------- */
 .rcundo { display: flex; align-items: center; }
 .rcundo span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -3464,7 +3477,7 @@ html #pg-brief .pn.wx .rw .k[data-label]::before { letter-spacing: .09em; text-t
 html #pg-brief .pn.wx .rw .v { flex: none; max-width: 100%; font: 500 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); white-space: normal; font-variant-numeric: tabular-nums; }
 html #pg-brief .pn.wx .rw .n { font: 400 12px/16px var(--sf); color: var(--ink3); }
 html #pg-brief .pn.wx .rw .n.bad { color: var(--amber); }
-html #pg-brief .pn.wx .rw:nth-child(4) { grid-column: 1 / -1; }
+html #pg-brief .pn.wx .rw.full { grid-column: 1 / -1; }
 html #pg-brief .pn.wx .lab { margin: 10px 0 0; }
 html #pg-brief .wxspark { position: relative; padding: 0 0 18px; }
 html #pg-brief .wxspark svg.spark { display: block; width: 100%; height: 44px; overflow: visible; }
@@ -3482,6 +3495,29 @@ html #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(
 html #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
 html #pg-brief .pn.news .rw .v { font: 500 16px/22px var(--sf); letter-spacing: -.2px; color: var(--ink); }
 html #pg-brief .pn.news .rw .n { padding-top: 2px; font: 400 13px var(--sf); color: var(--ink3); }
+/* The hero's greeting and date, and the day in one plain sentence (the upgrade pass). */
+html #pg-brief .two > .hero .brdate { font: 500 15px/20px var(--sf); color: var(--ink2); margin: 0 0 2px; }
+html #pg-brief .two > .hero .brsay { margin: 10px 0 0; max-width: 36em; font: 400 17px/24px var(--sf); letter-spacing: -.2px; color: var(--ink); text-wrap: pretty; }
+html #pg-brief .two > .hero .brsay:empty { display: none; }
+html #pg-brief .two > .hero .bract { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+html #pg-brief .two > .hero .bract button { height: 44px; min-height: 44px !important; padding: 0 20px; border-radius: 22px; }
+/* The commute: the whole line under its label (it was cut off after three lines in a narrow middle column). */
+html #pg-brief .pn.commute .rw.wrap { flex-wrap: wrap; row-gap: 4px; }
+html #pg-brief .pn.commute .rw.wrap .v { order: 3; flex: 1 1 100%; display: block; -webkit-line-clamp: unset; overflow: visible; }
+html #pg-brief .pn.commute .rw .v::first-letter { text-transform: uppercase; }
+html #pg-brief .pn.commute .rw.link { min-height: 44px; align-items: center; flex-wrap: nowrap; }
+html #pg-brief .pn.commute .rw.link .v { order: 0; flex: 1 1 auto; }
+html #pg-brief .pn.commute .rw.link .v { font: 400 15px/21px var(--sf); color: var(--ink2); }
+/* The digest's "Today in one line" above the headlines' sections. */
+html #pg-brief .pn.news .brone { display: flex; flex-direction: column; gap: 4px; margin: 0 16px 10px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); }
+html #pg-brief .pn.news .brone[hidden] { display: none; }
+html #pg-brief .pn.news .brone b { font: 600 12px/14px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+html #pg-brief .pn.news .brone span { font: 400 16px/22px var(--sf); color: var(--ink); }
+/* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
+html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
+html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
+html #pg-brief .pn.brday .rw .v { font: 500 16px/22px var(--sf); }
+html #pg-brief .pn.brday .rw .n { font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-brief .pn.news > .ft > button.warn { height: 48px; min-height: 48px !important; padding: 0 26px; border-radius: 24px; font: 600 17px var(--sf) !important; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
 
 /* ---------- Markets (features/markets): risk in a word, coins with their line and change, indices, currencies ---------- */
@@ -3907,6 +3943,36 @@ html .msg.tr .trtext { font: 400 19px/26px var(--sf); color: var(--ink); overflo
 html .msg.tr .tracts { margin-top: 8px; }
 html .msg.tr .novoice { color: var(--ink3); }
 html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px var(--sf); color: var(--ink2); }
+/* ---------- scrolling on the phone (BRIEF-SCROLL-AUDIT; spec tests/scroll.spec.mjs part 2, tests/scrollfeel.spec.mjs) ---------- */
+@media (max-width: 899px) {
+  /* a page that scrolls as one has no panel that scrolls on its own: a body capped at 70 % of the screen took the swipe,
+     moved a few pixels and stopped, and the page under it did not move (ui/components.ts pager shows 8 rows there) */
+  html :is(.two.stack, .two.rcflow) .col > .pn > .bd { max-height: none; }
+  /* the Home Screen app: the safe area over the home indicator is counted once, by the tab bar and the pages' ends
+     (#app padded by it too, so pages ended 78 px above the bar instead of 26 and stopped 34 px above the bottom) */
+  html body.tabbar #app { padding-bottom: 0; }
+  /* offline, every screen but Home shows one line above the tab bar (#rcoffline, 36 px from 88 px over the bar's
+     bottom edge): a page ends above it, not under it, and God's eye's bar sits above it */
+  html body.tabbar.offline:not([data-tab="core"]) :is(.two.stack, .hub, .two:not(.stack) > .col, .listmode .pn.pushed > .bd, .hud:not(.two):not(.core)) { padding-bottom: calc(140px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))) !important; }
+  /* the Lens and the 3D Studio scroll as one page too: they end as clear of the tab bar as every other page (they
+     stopped 14 px from it, their last line under its blur) */
+  html body.tabbar :is(.hud.lens, .hud.studio) { padding-bottom: calc(var(--tabh) + 20px + env(safe-area-inset-bottom, 0px)); }
+  /* the Library's reader uses the phone's height, clear of the Dynamic Island and the home indicator (its sheet
+     stayed 720 px tall: on the 18 Pro Max the words read in a 534 px window with 118 px empty above and below) */
+  html .modal:has(.readwrap) { padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+  html .modal:has(.readwrap) .mbox { height: 100%; }
+}
+/* the keyboard up (shell/layout.ts): the app, a sheet and the deck fit the part of the screen it leaves; the tab bar
+   steps aside and Home's ask bar comes down to the keyboard */
+html body.kb :is(#app, .modal, #deck, #mesheet) { top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100%); }
+html body.kb :is(#dock, #rcoffline) { display: none !important; }
+html body.kb .hud.core:not(.logopen) { padding-bottom: 10px; }
+/* God's eye's LOOK menu: as tall as the room above the bar (features/eye/index.ts sets the cap), its rows scroll inside it */
+html .lookmenu { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+html .lookmenu > * { flex: none; }
+/* a sheet (ui/components.ts modal) whose words are longer than it scrolls to their end: a notification's whole text,
+   a confirm, the add-a-memory sheet were clipped by the box (one with its own scroller, the reader, is unchanged) */
+html .mbody { overflow-y: auto; overscroll-behavior: contain; }
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */
@@ -4138,3 +4204,39 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .pn.commute .rw .v { white-space: normal; }
 .myplaces { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; pointer-events: auto; }
 .myplaces .lchip { min-height: 44px; }
+
+/* =====================================================================
+   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, once per cold open of the day.
+   Its own block, last in the file; nothing above depends on it. Only transforms and opacity move (the particles are
+   drawn on a canvas, Mind by three.js). The old spinner, engine lines and "INITIALISING…" are gone.
+   ===================================================================== */
+#boot { display: block; gap: 0; overflow: hidden; background: var(--bg, #050607); transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#boot.playing { background: none; }
+#boot.out { opacity: 0; pointer-events: none; }
+#boot .bveil { position: absolute; inset: 0; background: var(--bg, #050607); pointer-events: none; }
+/* the point of light: there from the first paint (index.html), dim until the cinematic wakes it */
+#boot .bdot { position: absolute; left: 50%; top: 40%; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(var(--cr), .9), 0 0 38px 12px rgba(var(--cr), .32); transform: translate(-50%, -50%); opacity: .25; pointer-events: none; will-change: transform, opacity; }
+#boot .bdust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#boot canvas.mindhero { pointer-events: none; will-change: transform, opacity; }
+/* the name, letter-spaced in the instruments' face (the trailing space is balanced so it sits in the middle) */
+#boot .bword { position: absolute; left: 50%; margin: 0; padding: 0 0 0 .62em; transform: translateX(-50%); font: 500 26px/32px var(--sf); letter-spacing: .62em; color: #fff; text-transform: none; white-space: nowrap; opacity: 0; text-shadow: 0 0 18px rgba(var(--cr), .55); pointer-events: none; }
+/* one line, his */
+#boot .bgreet { position: absolute; left: 50%; width: max-content; max-width: calc(100vw - 32px); margin: 0; transform: translateX(-50%); font: 600 24px/30px var(--sfd); letter-spacing: -.01em; color: var(--ink, #f4f6f8); text-align: center; text-transform: none; opacity: 0; pointer-events: none; }
+/* the app could not start: plain words and one button */
+#boot.fault { display: flex; align-items: center; justify-content: center; }
+#boot .bfault { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; text-align: center; }
+#boot .bfault p { margin: 0; font: 500 17px/1.35 var(--sf); color: var(--ink, #f4f6f8); }
+#boot .bfault button { min-width: 44px; min-height: 44px; padding: 0 22px; }
+/* the landing: the ribbon comes down, the tab bar and Home's cards slide up into place, the rest fades in
+   (the individual translate property, so each part's own transform is left alone) */
+body.bootland #top { animation: bootin-down .34s cubic-bezier(.2, .8, .2, 1) both; }
+body.bootland #dock { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) .04s both; }
+body.bootland .rcbelow .rccard { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) both; }
+body.bootland .rcbelow .rcpair .rccard { animation-delay: .06s; }
+body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation: bootin-fade .34s ease-out both; }
+@keyframes bootin-down { from { opacity: 0; translate: 0 -14px; } }
+@keyframes bootin-up { from { opacity: 0; translate: 0 22px; } }
+@keyframes bootin-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  body.bootland :is(#top, #dock, .rcbelow .rccard) { animation-name: bootin-fade; }
+}

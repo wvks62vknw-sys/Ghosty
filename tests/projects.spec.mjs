@@ -70,11 +70,15 @@ async function run(name, viewport) {
   const text = (await jp.textContent()) ?? '';
   if (!/1 RUNNING/.test(text)) problems.push(`[${name}] status should say 1 RUNNING: ${text.slice(0, 80)}`);
   if (!/1\/4/.test(text) || !/1\/3/.test(text)) problems.push(`[${name}] progress bars missing (1/4 and 1/3): ${text.slice(0, 300)}`);
-  if (!/ACTIVE · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing`);
-  if (!/step 2 failed \(3 of 3\): boom/.test(text)) problems.push(`[${name}] the project's note is not shown`);
+  if (!/RUNNING · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing (in plain words: RUNNING, PAUSED)`);
+  // the note in plain words: what happened, what happens next, and why
+  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RESUME tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
+  if (/\b(ACTIVE|TODO|DOING)\b|failed \(3 of 3\)/.test(text)) problems.push(`[${name}] the projects speak jargon (ACTIVE / TODO / DOING / "failed (3 of 3)")`);
+  for (const [label, re] of [['NOW', /Design the pages\s*NOW/], ['TO DO', /Build the site\s*TO DO/], ['DIDN’T WORK', /Compare running costs\s*DIDN’T WORK/]]) if (!re.test(text)) problems.push(`[${name}] a step does not say ${label}`);
   const cards = jp.locator('.change.project');
   if ((await cards.count()) !== 2) problems.push(`[${name}] expected 2 project cards, got ${await cards.count()}`);
   const first = cards.first();
+  if (await cards.nth(1).evaluate((c) => c.classList.contains('failed'))) problems.push(`[${name}] a paused project is drawn as a failure`);
   for (const label of ['PAUSE', 'RUN NEXT NOW', 'CANCEL']) if (!(await first.locator(`button:has-text("${label}")`).count())) problems.push(`[${name}] the running project has no ${label} button`);
   if (!(await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the paused project has no RESUME button`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
@@ -88,7 +92,7 @@ async function run(name, viewport) {
   await first.locator('button:has-text("PAUSE")').click();
   await page.waitForFunction(() => /PAUSED · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] PAUSE did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RESUME")').click();
-  await page.waitForFunction(() => /ACTIVE · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
+  await page.waitForFunction(() => /RUNNING · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RUN NEXT NOW")').click();
   await page.waitForFunction(() => /2\/4/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RUN NEXT NOW did not advance the bar to 2/4`));
   // CANCEL asks first in a one-tap confirm (a cancelled project cannot be started again)
@@ -134,6 +138,271 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
+// ── The rest of the Workshop on the owner's phone (the upgrade pass, 24 Oct): honest states, words, targets ──
+async function pairOn(viewport) {
+  const ctx = await browser.newContext({ viewport, ...UK, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[workshop] pageerror: ${e.message}`));
+  // the browser's own boxes are never used: every confirm is the in-app sheet
+  page.on('dialog', (d) => {
+    problems.push(`[workshop] the browser's own ${d.type()} box came up: ${d.message().slice(0, 80)}`);
+    void d.dismiss();
+  });
+  await page.goto(base);
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  return { ctx, page };
+}
+const panelOf = (page, title) => page.locator('#pg-workshop .pn', { has: page.locator(`h3:has-text("${title}")`) });
+/** What a panel says, its route C words (data-label) included. */
+const words = (loc) => loc.evaluate((e) => `${e.textContent} ${[...e.querySelectorAll('[data-label]')].map((x) => x.dataset.label).join(' ')}`).catch(() => '');
+
+async function workshop() {
+  const { ctx, page } = await pairOn(PHONE);
+  // 1. Self-edit not set up, and the change list on its way: the headline never says "Offline" and nothing says GITHUB_REPO
+  let notReady = null;
+  await page.route('**/api/changes', async (r) => {
+    await new Promise((ok) => (notReady = ok));
+    await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: false, changes: [], versions: [] }) });
+  });
+  await page.evaluate(() => (location.hash = 'workshop'));
+  await panelOf(page, 'PROPOSED CHANGES').waitFor({ state: 'attached', timeout: 10000 });
+  await page.waitForTimeout(400);
+  const big = () => page.$eval('#pg-workshop .bigv', (e) => e.textContent ?? '');
+  const waiting = await words(panelOf(page, 'PROPOSED CHANGES'));
+  if (/Offline/.test(await big())) problems.push(`[workshop 1] while the change list loads the headline says "${await big()}"`);
+  if (/NOT CONNECTED|GITHUB_REPO|SETUP\.md/.test(waiting)) problems.push(`[workshop 1] while loading the changes panel says it is not connected: ${waiting.slice(0, 120)}`);
+  notReady?.();
+  await page.waitForFunction(() => !/Checking/.test(document.querySelector('#pg-workshop .bigv')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+  const off = await words(panelOf(page, 'PROPOSED CHANGES'));
+  if (/Offline/.test(await big())) problems.push(`[workshop 1] with self-edit not set up the headline says "${await big()}" (Ghosty is online)`);
+  if (/GITHUB_REPO|SETUP\.md|token/.test(off)) problems.push(`[workshop 1] the self-edit panel speaks jargon: ${off.slice(0, 160)}`);
+  if (!/Self-editing is off/.test(off) || !(await panelOf(page, 'PROPOSED CHANGES').locator('button:has-text("SET IT UP")').count())) problems.push(`[workshop 1] the self-edit panel does not say it is off with a way to set it up: ${off.slice(0, 160)}`);
+  await page.screenshot({ path: `${out}/workshop-selfedit-off.png` });
+  await page.unroute('**/api/changes');
+  await ctx.close();
+
+  // 2. The change list held back (GitHub answers in several requests in a row): the widgets and the published
+  //    pages come up without waiting for it, and no list says "nothing yet" before it has answered
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const W = { name: 'spec-egg-timer', title: 'Spec egg timer', html: '<p>egg</p>', at: Date.now() };
+    let release = null;
+    await page.route('**/api/changes', async (r) => {
+      await new Promise((ok) => (release = ok));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: true, changes: [], versions: [] }) });
+    });
+    await page.route('**/api/widgets', async (r) => {
+      if (r.request().method() !== 'GET') return r.continue();
+      await new Promise((ok) => setTimeout(ok, 700));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ widgets: [W] }) });
+    });
+    await page.route('**/api/sites', async (r) => {
+      await new Promise((ok) => setTimeout(ok, 700));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ sites: [{ name: 'spec-bakery', title: 'Spec Bakery', source: '', at: Date.now(), bytes: 4096 }], origin: '' }) });
+    });
+    // (the project list is held until the first look: it is empty, and only then may it say "Nothing running")
+    let releaseProjects = null;
+    await page.route('**/api/projects', async (r) => {
+      await new Promise((ok) => (releaseProjects = ok));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [] }) });
+    });
+    const t0 = Date.now();
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await panelOf(page, 'WIDGETS').waitFor({ state: 'attached', timeout: 10000 });
+    await page.waitForTimeout(250);
+    const early = { widgets: await words(panelOf(page, 'WIDGETS')), pages: await words(panelOf(page, 'PUBLISHED PAGES')), projects: await words(panelOf(page, 'PROJECTS')) };
+    if (/No widgets yet/.test(early.widgets)) problems.push('[workshop 2] WIDGETS says "No widgets yet" before the list has answered');
+    if (/Nothing published yet/.test(early.pages)) problems.push('[workshop 2] PUBLISHED PAGES says "Nothing published yet" before the list has answered');
+    if (/Nothing running/.test(early.projects)) problems.push('[workshop 2] PROJECTS says "Nothing running" before the list has answered');
+    releaseProjects?.();
+    const shown = await page.waitForFunction(() => /Spec egg timer/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Bakery/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 6000 }).then(() => Date.now() - t0, () => null);
+    // (the change list is held until after this look: waiting for it, they would never show)
+    if (shown == null) problems.push('[workshop 2] the widgets and published pages waited for the change list (not shown 6 s in while it was held)');
+    release?.();
+    await ctx.close();
+  }
+
+  // 3. No connection: said once on the page (the lists kept, the hero says Offline), never a "Failed to fetch" toast
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForFunction(() => !/Checking/.test(document.querySelector('#pg-workshop .bigv')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+    await page.evaluate(() => {
+      window.__toasts = [];
+      new MutationObserver(() => document.querySelectorAll('#toasts > *').forEach((t) => window.__toasts.includes(t.textContent) || window.__toasts.push(t.textContent))).observe(document.body, { childList: true, subtree: true });
+    });
+    await ctx.setOffline(true);
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForTimeout(3000);
+    const toasts = await page.evaluate(() => window.__toasts);
+    if (toasts.some((t) => /fetch|Workshop:/i.test(t))) problems.push(`[workshop 3] offline, a toast says: ${toasts.join(' | ')}`);
+    const hero = await page.$eval('#pg-workshop .hero', (e) => e.textContent ?? '');
+    if (!/Offline/.test(hero) || !/what was here before/.test(hero)) problems.push(`[workshop 3] offline, the hero does not say so: ${hero.slice(0, 160)}`);
+    await page.screenshot({ path: `${out}/workshop-offline.png` });
+    await ctx.setOffline(false);
+    await ctx.close();
+  }
+
+  // 4. A finished mini-app: its link and how to install it, then OPEN / COPY LINK / UNDO, at the top of a short card;
+  //    the five steps and the rest of the report behind SHOW DETAILS (no tool names); a finished project folds too
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const STEPS = ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report'];
+    const report = ['"Spec Water" is live at https://ghosty.example/s/spec-water/', 'WHAT IT DOES: Adds up glasses towards 8 glasses a day, with today’s entries, the last 7 days and a streak. A new day starts at midnight.', 'WHAT IT SAVES: Your entries, on this phone only; nothing is sent anywhere. Anyone else who opens the link gets their own empty copy.', 'INSTALL: on the iPhone, open the link in Safari, tap Share, then Add to Home Screen, then Add. It opens full screen from its own icon and works with no connection once it has been opened.', 'GOOD TO KNOW: a web app on your Ghosty, not an App Store app — no notifications, and nothing runs while it is closed.', 'CHECKS: page check clean; kit gates 100/100.', 'UNDO: say "take down spec-water" (unpublish_site) and the link stops working.'].join('\n');
+    const list = [
+      { id: 'cccc333333', kind: 'app', title: 'App: Spec Water', goal: 'x', status: 'done', pace: 'fast', created: Date.now() - 60_000, updated: Date.now() - 30_000, fails: 0, docId: 'p', link: 'https://ghosty.example/s/spec-water/', steps: STEPS.map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: i === 4 ? report : 'ok', at: Date.now() })) },
+      { id: 'dddd444444', title: 'Spec holiday research', goal: 'x', status: 'done', pace: 'steady', created: Date.now() - 86400_000, updated: Date.now() - 3600_000, fails: 0, docId: 'p', steps: ['Look', 'Compare', 'Write it up'].map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: `${t} done.`, at: Date.now() })) },
+    ];
+    await page.route('**/api/projects', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: list }) }));
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const app = page.locator('#pg-workshop .change.project', { hasText: 'App: Spec Water' });
+    await app.waitFor({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    const box = await app.boundingBox();
+    const open = await app.locator('button:has-text("OPEN")').boundingBox();
+    if (!box || box.height > 460) problems.push(`[workshop 4] the finished app's card is ${Math.round(box?.height ?? 0)} px tall (a screen of steps and report)`);
+    if (!open || !box || open.y - box.y > 300) problems.push(`[workshop 4] OPEN sits ${Math.round((open?.y ?? 0) - (box?.y ?? 0))} px down the finished app's card`);
+    if (!(await app.locator('button:has-text("COPY LINK")').count())) problems.push('[workshop 4] the finished app has no COPY LINK');
+    const seen = await app.evaluate((c) => c.innerText);
+    if (!/is live at https:\/\/ghosty\.example\/s\/spec-water\//.test(seen) || !/INSTALL: on the iPhone/.test(seen)) problems.push(`[workshop 4] the folded app card does not show its link and how to install it: ${seen.slice(0, 200)}`);
+    if (/Build and icon/.test(seen)) problems.push('[workshop 4] the finished app shows its five steps before SHOW DETAILS');
+    await app.evaluate((e) => e.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/workshop-app-folded.png` });
+    await app.locator('button:has-text("SHOW DETAILS")').click().catch(() => problems.push('[workshop 4] no SHOW DETAILS on the finished app'));
+    await page.waitForTimeout(300);
+    const all = await app.evaluate((c) => c.innerText);
+    if (!STEPS.every((t) => all.includes(t)) || !/WHAT IT SAVES/.test(all)) problems.push(`[workshop 4] SHOW DETAILS does not show the steps and the report: ${all.slice(0, 200)}`);
+    if (/unpublish_site/.test(all)) problems.push('[workshop 4] the report shows a tool name (unpublish_site)');
+    const research = page.locator('#pg-workshop .change.project', { hasText: 'Spec holiday research' });
+    if (/Compare/.test(await research.evaluate((c) => c.innerText).catch(() => ''))) problems.push('[workshop 4] a finished project keeps its steps open');
+    if (!(await research.locator('button:has-text("SHOW 3 STEPS")').count())) problems.push('[workshop 4] a finished project has no SHOW 3 STEPS');
+    await ctx.close();
+  }
+
+  // 5 and 6. The self-edit view: a change whose checks passed, one that failed, one still being checked
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const at = new Date(Date.now() - 600_000).toISOString();
+    const change = (number, title, checks, preview, previewUrl = null) => ({ number, title, branch: `ghosty/spec-${number}`, sha: `${number}`.repeat(10).slice(0, 40), url: `https://github.com/x/y/pull/${number}`, previewUrl, checks, preview, createdAt: at });
+    const shipped = [];
+    const kernel = [];
+    await page.route('**/api/changes', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: true, changes: [change(941, 'Spec rain radar on the Brief', 'passed', 'ok', 'https://spec-941.ghosty.pages.dev'), change(942, 'Spec bigger clock', 'failed', 'failed'), change(943, 'Spec pomodoro', 'pending', 'pending')], versions: [{ sha: 'f00dfacecafe0000', message: 'Merge pull request #940 from owner/ghosty/brief-icons', date: at }, { sha: 'beadfeed12340000', message: 'Brief: bigger icons', date: at }] }) }));
+    await page.route('**/api/changes/*/ship', (r) => (shipped.push(r.request().url().match(/changes\/(\d+)/)[1]), r.fulfill({ contentType: 'application/json', body: JSON.stringify({ result: 'Shipped' }) })));
+    await page.route('**/api/kernel', (r) => (kernel.push(r.request().postData()), r.fulfill({ contentType: 'application/json', body: JSON.stringify({ kernelUnlockedUntil: 0 }) })));
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const cp = panelOf(page, 'PROPOSED CHANGES');
+    await cp.locator('.change', { hasText: 'Spec bigger clock' }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const sheet = page.locator('.modal .confirm.sure');
+    // 5. SHIP IT before the checks pass asks in the in-app sheet: KEEP IT ships nothing, SHIP ANYWAY ships
+    const failed = cp.locator('.change', { hasText: 'Spec bigger clock' });
+    await failed.locator('button:has-text("SHIP IT")').click();
+    if (!(await sheet.waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('[workshop 5] SHIP IT on a failed change did not ask in the in-app sheet');
+    else {
+      if (!/could break Ghosty/.test((await sheet.textContent()) ?? '')) problems.push('[workshop 5] the failed-checks sheet does not say what could happen');
+      await sheet.locator('button:has-text("KEEP IT")').click();
+      await page.waitForTimeout(400);
+      if (shipped.length) problems.push('[workshop 5] KEEP IT still shipped the failed change');
+      await failed.locator('button:has-text("SHIP IT")').click();
+      await sheet.locator('button.sureyes').click({ timeout: 3000 }).catch(() => undefined);
+      await page.waitForTimeout(600);
+      if (shipped.join() !== '942') problems.push(`[workshop 5] SHIP ANYWAY shipped ${JSON.stringify(shipped)}`);
+    }
+    await page.keyboard.press('Escape');
+    // UNLOCK FOR 15 MIN asks in the sheet too (the lock is in the second column on the phone)
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(500);
+    await panelOf(page, 'KERNEL LOCK').locator('button:has-text("UNLOCK")').click();
+    if (!(await sheet.waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('[workshop 5] UNLOCK FOR 15 MIN did not ask in the in-app sheet');
+    else {
+      await sheet.locator('button:has-text("KEEP IT")').click();
+      await page.waitForTimeout(300);
+      if (kernel.length) problems.push('[workshop 5] KEEP IT still unlocked the kernel');
+    }
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(400);
+    // 6. Each change says what its checks mean; a failed one leads with ASK TO FIX, SHIP IT is only the bright button once they pass
+    const says = async (title) => (await cp.locator('.change', { hasText: title }).evaluate((c) => c.innerText).catch(() => '')) ?? '';
+    if (!/Ready to ship/.test(await says('Spec rain radar'))) problems.push('[workshop 6] a change whose checks passed does not say it is ready to ship');
+    if (!/doesn’t work yet/.test(await says('Spec bigger clock'))) problems.push('[workshop 6] a failed change does not say, in plain words, that something in it does not work yet');
+    if (!/Ghosty is checking it/.test(await says('Spec pomodoro'))) problems.push('[workshop 6] a change being checked does not say so in plain words');
+    const fix = await failed.locator('button:has-text("ASK TO FIX")').evaluate((b) => ({ quiet: b.classList.contains('quiet'), h: b.getBoundingClientRect().height }));
+    const ship = await failed.locator('button:has-text("SHIP IT")').boundingBox();
+    const fixBox = await failed.locator('button:has-text("ASK TO FIX")').boundingBox();
+    if (fix.quiet || fix.h < 44 || !ship || !fixBox || fixBox.y > ship.y + 4 || (Math.abs(fixBox.y - ship.y) <= 4 && fixBox.x > ship.x)) problems.push(`[workshop 6] on a failed change ASK TO FIX is not the leading button (${JSON.stringify({ ...fix, fixBox, ship })})`);
+    const bright = (title) => cp.locator('.change', { hasText: title }).locator('button:has-text("SHIP IT")').evaluate((b) => getComputedStyle(b).backgroundImage !== 'none');
+    if (!(await bright('Spec rain radar'))) problems.push('[workshop 6] SHIP IT is not the bright button on a change whose checks passed');
+    if (await bright('Spec pomodoro')) problems.push('[workshop 6] SHIP IT is the bright button while the checks are still running');
+    await cp.locator('.change', { hasText: 'Spec bigger clock' }).evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/workshop-changes.png` });
+    // 9. VERSIONS in plain words: GitHub's merge line is the change's name and number
+    const versions = await words(panelOf(page, 'VERSIONS'));
+    if (/Merge pull request/.test(versions) || !/Brief icons · change #940/.test(versions)) problems.push(`[workshop 9] VERSIONS reads: ${versions.slice(0, 160)}`);
+    await ctx.close();
+  }
+
+  // 7. RUN NEXT NOW on a step that did not work: said in plain words, not "Step not finished (retry)"
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const p = { ...projects()[0], id: 'eeee555555', title: 'Spec retry project' };
+    await page.route('**/api/projects**', (r) => {
+      if (r.request().method() !== 'POST') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [p] }) });
+      p.note = 'step 2 failed (1 of 3): HTTP 429 Too Many Requests';
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ project: p, did: 'retry' }) });
+    });
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const card = page.locator('#pg-workshop .change.project', { hasText: 'Spec retry project' });
+    await card.waitFor({ timeout: 10000 });
+    await page.evaluate(() => {
+      window.__toasts = [];
+      new MutationObserver(() => document.querySelectorAll('#toasts > *').forEach((t) => window.__toasts.includes(t.textContent) || window.__toasts.push(t.textContent))).observe(document.body, { childList: true, subtree: true });
+    });
+    await card.locator('button:has-text("RUN NEXT NOW")').click();
+    await page.waitForTimeout(800);
+    const said = (await page.evaluate(() => window.__toasts)).join(' | ');
+    if (!/didn’t work/.test(said) || /\(retry\)/.test(said)) problems.push(`[workshop 7] RUN NEXT NOW on a step that did not work says: ${said}`);
+    const note = (await card.locator('small.note').textContent().catch(() => '')) ?? '';
+    if (!/Step 2 didn’t work \(try 1 of 3\): Ghosty tries again by itself/.test(note) || !/the free AI was busy/.test(note)) problems.push(`[workshop 7] the retry note is not in plain words: ${note}`);
+    await ctx.close();
+  }
+
+  // 8. Every button in both columns, every card filled in, is at least 44 pt tall
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const at = new Date().toISOString();
+    const fill = (url, body) => page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));
+    await fill('**/api/changes', { ready: true, changes: [{ number: 951, title: 'Spec change', branch: 'b', sha: 'a'.repeat(40), url: 'https://github.com/x/y/pull/951', previewUrl: 'https://p.example', checks: 'passed', preview: 'ok', createdAt: at }, { number: 952, title: 'Spec failed change', branch: 'c', sha: 'b'.repeat(40), url: 'https://github.com/x/y/pull/952', previewUrl: null, checks: 'failed', preview: 'none', createdAt: at }], versions: [{ sha: 'c'.repeat(40), message: 'Now', date: at }, { sha: 'd'.repeat(40), message: 'Before', date: at }] });
+    await fill('**/api/projects', { projects: [...projects(), { ...projects()[0], id: 'ffff666666', kind: 'app', title: 'App: Spec Notes', status: 'done', link: 'https://ghosty.example/s/spec-notes/', steps: ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report'].map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: i === 4 ? '"Spec Notes" is live at https://ghosty.example/s/spec-notes/\nINSTALL: tap Share.' : 'ok' })) }] });
+    await fill('**/api/upgrades', { ideas: [{ id: 'i1', title: 'Spec idea', why: 'Because.', steps: ['One', 'Two'], at: Date.now() }], next: null, last: null });
+    await fill('**/api/roadmap', { roadmap: { goal: 'Spec roadmap', steps: [{ id: 1, title: 'First', status: 'todo' }] } });
+    await fill('**/api/sites', { sites: [{ name: 'spec-cafe', title: 'Spec Cafe', source: '', at: Date.now(), bytes: 2048 }], origin: '' });
+    await fill('**/api/widgets', { widgets: [{ name: 'spec-dice', title: 'Spec dice', html: '<p>4</p>', at: Date.now() }] });
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForFunction(() => /Spec failed change/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Cafe/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('[workshop 8] the filled-in Workshop did not show'));
+    await page.waitForTimeout(600);
+    const short = () => page.$$eval('#pg-workshop button', (bs) => bs.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden').map((b) => ({ t: (b.dataset.label || b.textContent || '').trim().slice(0, 24), h: b.offsetHeight })).filter((b) => b.h < 44)); // (layout size: a pane sliding in is scaled for a moment)
+    const left = await short();
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(500);
+    const right = await short();
+    // 10. The second column starts with what he made (pages, then widgets), and the switch names both columns
+    const order = await page.$$eval('#pg-workshop .cR .pn h3 .ptitle', (hs) => hs.map((x) => x.textContent?.trim() ?? ''));
+    if (!/^PUBLISHED PAGES/.test(order[0] ?? '') || !/^WIDGETS/.test(order[1] ?? '')) problems.push(`[workshop 10] the second column starts with ${order.slice(0, 2).join(', ')}`);
+    const sw = await page.$eval('#pg-workshop button.swap', (b) => `${b.dataset.left} | ${b.dataset.right}`);
+    if (sw !== 'Build | Pages & widgets') problems.push(`[workshop 10] the column switch reads "${sw}"`);
+    const small = [...left, ...right];
+    if (small.length) problems.push(`[workshop 8] buttons under 44 pt: ${[...new Set(small.map((b) => `${b.t} ${b.h}px`))].join(', ')}`);
+    await ctx.close();
+  }
+}
+
+await workshop();
 await run('desktop', DESKTOP);
 await run('phone', PHONE);
 await browser.close();

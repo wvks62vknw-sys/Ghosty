@@ -69,7 +69,9 @@ export async function saveLineMeta(storage: DurableObjectStorage, meta: LineMeta
 export const lockedLines = (meta: LineMetaMap): Set<string> => new Set(Object.entries(meta).filter(([, m]) => m.locked).map(([k]) => k));
 
 const STOP = new Set(
-  ('that this with from have what when where which there their they them then than your yours about would could should into just like really very much more some will been being were want need know think going make made does doing done thing things also only even well good okay yeah sure please thanks thank today tonight tomorrow yesterday morning evening night time week weekend year years day days last next ever never always still again here back over under after before because while every other another each most many such these those mine ours ghosty hello right maybe actually something anything nothing everything someone anyone tell said says say asked ask help remember forget look looking find found show give gave take took come came went getting have having know knew lets shall might must cannot cant dont didnt doesnt isnt wasnt arent wont youre theyre thats whats ive youve weve were heres hows whos whens wheres little quite pretty kind sort lot lots bit stuff yes along coming goes gone keep kept keeps start started stop stopped tried trying used using went seen seem seems feel felt meant mean means told telling talk talking call called work works thought thinking getting gets give gives makes making takes taking looks looked anyway though although around through without within across later soon early first second third enough rather instead already almost often usually sometimes maybe perhaps okay alright cheers sorry hmm hey hiya morning afternoon evening'
+  ('that this with from have what when where which there their they them then than your yours about would could should into just like really very much more some will been being were want need know think going make made does doing done thing things also only even well good okay yeah sure please thanks thank today tonight tomorrow yesterday morning evening night time week weekend year years day days last next ever never always still again here back over under after before because while every other another each most many such these those mine ours ghosty hello right maybe actually something anything nothing everything someone anyone tell said says say asked ask help remember forget look looking find found show give gave take took come came went getting have having know knew lets shall might must cannot cant dont didnt doesnt isnt wasnt arent wont youre theyre thats whats ive youve weve were heres hows whos whens wheres little quite pretty kind sort lot lots bit stuff yes along coming goes gone keep kept keeps start started stop stopped tried trying used using went seen seem seems feel felt meant mean means told telling talk talking call called work works thought thinking getting gets give gives makes making takes taking looks looked anyway though although around through without within across later soon early first second third enough rather instead already almost often usually sometimes maybe perhaps okay alright cheers sorry hmm hey hiya morning afternoon evening ' +
+    // what he asks Ghosty to do, and how a line about him starts: never a topic or a theme ("you keep coming back to “remind”")
+    'remind reminder reminders reminding alarm alarms timer timers play playing search searching check checking open turn send likes loves love prefer prefers hates'
   ).split(' '),
 );
 
@@ -162,10 +164,13 @@ export async function timeline(deps: Pick<ProfileDeps, 'storage' | 'library'>): 
 interface Forgotten {
   id: string;
   gone: number;
-  profile?: { section: ProfileSection; text: string; meta?: LineMeta };
+  /** `i`: where it stood in its section, so UNDO puts it back in its place. */
+  profile?: { section: ProfileSection; text: string; i?: number; meta?: LineMeta };
   fact?: MemoryFact;
-  /** FORGET EVERYTHING: the facts that went at once (the locked ones stay). */
+  /** FORGET EVERYTHING, or a chat's "forget …" that matched several: the facts that went at once (the locked ones stay). */
   facts?: MemoryFact[];
+  /** How RECENTLY FORGOTTEN names a group of facts (FORGET EVERYTHING's is the default). */
+  label?: string;
   lesson?: Lesson;
   diary?: { heading: string; text: string; locked: boolean };
 }
@@ -229,7 +234,7 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
     const old = profile.sections[at.section][at.i]!;
     const m: LineMeta = meta[key] ?? { at: profile.updatedAt || now, src: { kind: 'unknown', at: profile.updatedAt || now } };
     if (op === 'forget') {
-      await stash(storage, { id, gone: now, profile: { section: at.section, text: old, ...(meta[key] ? { meta: meta[key] } : {}) } });
+      await stash(storage, { id, gone: now, profile: { section: at.section, text: old, i: at.i, ...(meta[key] ? { meta: meta[key] } : {}) } });
       profile.sections[at.section].splice(at.i, 1);
       delete meta[key];
     } else if (op === 'edit') {
@@ -320,6 +325,16 @@ export async function stashFacts(storage: DurableObjectStorage, facts: MemoryFac
   return id;
 }
 
+/**
+ * The chat's `forget` (tools/memory.ts): what it removed, kept a day for UNDO like every other way of forgetting —
+ * one fact as itself, several as one group ("3 facts matching “bike”") that UNDO brings back together.
+ */
+export async function stashForgottenFacts(storage: DurableObjectStorage, facts: MemoryFact[], words: string, now = Date.now()): Promise<void> {
+  if (!facts.length) return;
+  if (facts.length === 1) return stash(storage, { id: `f:${facts[0]!.id}`, gone: now, fact: { ...facts[0]! } });
+  await stash(storage, { id: `f:*some*${now}`, gone: now, facts: facts.map((f) => ({ ...f })), label: `${facts.length} facts matching “${words.slice(0, 40)}”` });
+}
+
 const kindOf = (f: Forgotten): MemoryKind => (f.profile ? 'profile' : f.fact || f.facts ? 'fact' : f.lesson ? 'lesson' : 'diary');
 
 /** RECENTLY FORGOTTEN: what UNDO can still bring back, newest first. */
@@ -328,7 +343,7 @@ export async function recentlyForgotten(storage: DurableObjectStorage, now = Dat
     .map((f): ForgottenItem => ({
       id: f.id,
       kind: kindOf(f),
-      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
+      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? f.label ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
       gone: f.gone,
       ...(f.facts ? { count: f.facts.length } : {}),
     }))
@@ -344,7 +359,9 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
   if (f.profile) {
     const profile = await loadProfile(storage);
     const meta = await loadLineMeta(storage);
-    if (!findLine(profile, lineKey(f.profile.text))) profile.sections[f.profile.section].push(f.profile.text);
+    // back in its place in its section (an older copy without one goes at the end)
+    const list = profile.sections[f.profile.section];
+    if (!findLine(profile, lineKey(f.profile.text))) list.splice(Math.min(f.profile.i ?? list.length, list.length), 0, f.profile.text);
     if (f.profile.meta) meta[lineKey(f.profile.text)] = f.profile.meta;
     await saveProfile(storage, profile);
     await saveLineMeta(storage, meta, PROFILE_SECTIONS.flatMap((s) => profile.sections[s]));
@@ -526,10 +543,17 @@ export function findPatterns(days: DayTally[], memories: string[]): MemoryPatter
     const others = (total - counts[top]!) / 6;
     if (byDay[top]!.length >= 2 && counts[top]! >= 2 * others && counts[top]! >= 5) out.push({ id: `day:${top}`, kind: 'day', text: `You talk to me most on ${DAYS[top]} — ${counts[top]} of ${total} messages, over ${plural(byDay[top]!.length, DAYS[top]!.slice(0, -1), DAYS[top])}.`, evidence: counts[top]!, unit: 'messages' });
   }
-  const topicDays = new Map<string, number>();
-  for (const d of days) for (const w of Object.keys(d.t)) topicDays.set(w, (topicDays.get(w) ?? 0) + 1);
-  const topics = [...topicDays].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 4);
-  for (const [w, n] of topics) out.push({ id: `topic:${w}`, kind: 'topic', text: `You keep coming back to “${w}” — on ${n} different days.`, evidence: n, unit: 'days' });
+  // Topic words said on exactly the same days are one topic ("allotment" and "shed"): one line, not two.
+  const topicDays = new Map<string, string[]>();
+  for (const d of days) for (const w of Object.keys(d.t)) topicDays.set(w, [...(topicDays.get(w) ?? []), d.d]);
+  const together = new Map<string, string[]>();
+  for (const [w, on] of topicDays) if (on.length >= 3) together.set(on.join(), [...(together.get(on.join()) ?? []), w]);
+  const topics = [...together].map(([on, ws]) => ({ ws: ws.sort((a, b) => (days.reduce((k, d) => k + (d.t[b] ?? 0) - (d.t[a] ?? 0), 0)) || a.localeCompare(b)).slice(0, 3), n: on.split(',').length }));
+  topics.sort((a, b) => b.n - a.n || a.ws[0]!.localeCompare(b.ws[0]!));
+  for (const { ws, n } of topics.slice(0, 4)) {
+    const words = ws.map((w) => `“${w}”`);
+    out.push({ id: `topic:${ws.join('+')}`, kind: 'topic', text: `You keep coming back to ${words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words.at(-1)}` : words[0]} — on ${n} different days.`, evidence: n, unit: 'days' });
+  }
   for (const [kind, words] of MOODS) {
     const on = days.filter((d) => d.m[kind]);
     if (on.length < 3) continue;
@@ -550,7 +574,8 @@ async function forgetTallied(storage: DurableObjectStorage, id: string): Promise
   const [kind, what] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
   if ((kind !== 'topic' && kind !== 'mood') || !what) return;
   const days = (await storage.get<DayTally[]>(DAYS_KEY)) ?? [];
-  for (const d of days) delete (kind === 'topic' ? d.t : d.m)[what];
+  // (a topic of words said together goes whole: "topic:allotment+shed")
+  for (const d of days) for (const w of kind === 'topic' ? what.split('+') : [what]) delete (kind === 'topic' ? d.t : d.m)[w];
   await storage.put(DAYS_KEY, days);
 }
 
@@ -568,6 +593,9 @@ export async function patterns(deps: Pick<ProfileDeps, 'storage'>, now = Date.no
   const profile = await loadProfile(storage);
   const memories = [...PROFILE_SECTIONS.flatMap((s) => profile.sections[s]), ...(await loadMemory(storage)).map((f) => f.text)];
   const dismissed = new Set((await storage.get<string[]>(DISMISSED_KEY)) ?? []);
+  // A dismissed topic's words never count again, alone or said with others (a topic's id names its words: "topic:allotment+shed").
+  const gone = new Set([...dismissed].filter((id) => id.startsWith('topic:')).flatMap((id) => id.slice(6).split('+')));
+  for (const d of days.values()) for (const w of gone) delete d.t[w];
   return findPatterns([...days.values()].sort((a, b) => a.d.localeCompare(b.d)), memories).filter((p) => !dismissed.has(p.id));
 }
 

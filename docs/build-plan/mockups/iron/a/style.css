@@ -1,0 +1,179 @@
+/* A · Reactor HUD. The arc reactor's light in every card: thin glowing edges, corner brackets, a scan line,
+   readouts in an instrument face (--mono), concentric rings round each instrument, MIND's sphere and equator scale.
+   Everything is drawn from the theme's accent (--c, --cr, --c2), so Graphite gives a steel HUD with no new rule. */
+.dir-a { --hud: rgba(var(--cr), .22); --hud2: rgba(var(--cr), .1); --brk: rgba(var(--cr), .8); }
+
+/* ---------- the room: graphite, one glow from above, a faint HUD grid ---------- */
+.dir-a .room {
+  background:
+    radial-gradient(ellipse 90% 34% at 50% -4%, rgba(var(--cr), .16), transparent 70%),
+    radial-gradient(ellipse 70% 30% at 50% 104%, rgba(var(--cr), .07), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(var(--cr), .028) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, rgba(var(--cr), .028) 0 1px, transparent 1px 44px),
+    var(--bg);
+}
+.dir-a .hubsub { color: var(--ink2); }
+.dir-a .round { background: rgba(var(--cr), .06); box-shadow: inset 0 0 0 1px var(--hud), inset 0 0 12px rgba(var(--cr), .08); color: var(--ink); }
+.dir-a .round.av { color: var(--c2); font-family: var(--mono); }
+.dir-a .cmdbar { background: linear-gradient(90deg, rgba(var(--cr), .07), rgba(var(--cr), .025)); box-shadow: inset 0 0 0 1px var(--hud), 0 0 22px -8px rgba(var(--cr), .35); color: var(--c); }
+.dir-a .cmdbar .mic { box-shadow: inset 0 0 0 1px rgba(var(--cr), .5), 0 0 12px rgba(var(--cr), .3); background: rgba(var(--cr), .14); color: var(--c2); }
+.dir-a .hubsec > h2 small { font: 600 10px/12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+
+/* ---------- the instrument card: dark glass, a lit hairline, brackets, a scan texture, the light at its top edge ---------- */
+.dir-a .inst {
+  background:
+    linear-gradient(180deg, rgba(var(--cr), .085), rgba(var(--cr), .018) 38%, rgba(6,10,13,.82) 100%),
+    rgba(8,12,15,.7);
+  box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .38), 0 0 30px -12px rgba(var(--cr), .4), 0 18px 40px rgba(0,0,0,.55);
+}
+.dir-a .inst::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(var(--cr), .04) 0 1px, transparent 1px 3px); opacity: .9; }
+.dir-a .inst::after { content: ''; position: absolute; inset: 6px; z-index: 3; pointer-events: none;
+  background:
+    linear-gradient(var(--brk), var(--brk)) left top / 13px 1.5px, linear-gradient(var(--brk), var(--brk)) left top / 1.5px 13px,
+    linear-gradient(var(--brk), var(--brk)) right top / 13px 1.5px, linear-gradient(var(--brk), var(--brk)) right top / 1.5px 13px,
+    linear-gradient(var(--brk), var(--brk)) left bottom / 13px 1.5px, linear-gradient(var(--brk), var(--brk)) left bottom / 1.5px 13px,
+    linear-gradient(var(--brk), var(--brk)) right bottom / 13px 1.5px, linear-gradient(var(--brk), var(--brk)) right bottom / 1.5px 13px;
+  background-repeat: no-repeat; filter: drop-shadow(0 0 3px rgba(var(--cr), .7)); border-radius: 0; }
+.dir-a .hubtile.mini::after { inset: 5px; background-size: 9px 1.2px, 1.2px 9px, 9px 1.2px, 1.2px 9px, 9px 1.2px, 1.2px 9px, 9px 1.2px, 1.2px 9px; }
+/* the touched card: brackets close in, a scan beam crosses it */
+.dir-a .inst.touch { box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), inset 0 1px 0 rgba(var(--cr), .6), 0 0 40px -8px rgba(var(--cr), .6), 0 18px 40px rgba(0,0,0,.55); }
+.dir-a .inst.touch::before { background: radial-gradient(60% 80% at 18% 50%, rgba(var(--cr), .16), transparent 70%), repeating-linear-gradient(0deg, rgba(var(--cr), .06) 0 1px, transparent 1px 3px); }
+.dir-a .kick { font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; color: rgba(var(--cr), .85); }
+.dir-a .kick em { color: var(--c2); text-shadow: 0 0 8px rgba(var(--cr), .8); }
+.dir-a .kick em.off { color: rgba(var(--cr), .5); text-shadow: none; }
+.dir-a .hubtile .t { color: #fff; }
+.dir-a .rd em { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; color: rgba(var(--cr), .55); }
+.dir-a .rd b { font-family: var(--mono); font-weight: 500; letter-spacing: -.2px; color: #fff; }
+.dir-a .rd.lv b { color: var(--c2); text-shadow: 0 0 10px rgba(var(--cr), .55); }
+.dir-a .reads { padding-top: 9px; border-top: 1px dashed rgba(var(--cr), .18); }
+.dir-a .hubtile.half .ins { background: radial-gradient(ellipse 60% 70% at 50% 50%, rgba(var(--cr), .12), transparent 70%); border-radius: 12px; }
+.dir-a .ctr b { font-family: var(--mono); font-weight: 500; color: #fff; text-shadow: 0 0 12px rgba(var(--cr), .7); }
+.dir-a .ctr .of { font-size: 13px; color: rgba(var(--cr), .7); }
+.dir-a .ctr small { font-family: var(--mono); color: rgba(var(--cr), .6) !important; }
+.dir-a .lensvf .vfcap { font-family: var(--mono); color: rgba(var(--cr), .6); }
+.dir-a .coursemap .cmk { font-family: var(--mono); color: rgba(var(--cr), .6); }
+.dir-a .coursemap .cm { color: #fff; }
+.dir-a .segs i { background: rgba(var(--cr), .14); border-radius: 1px; height: 5px; }
+.dir-a .segs i.on { background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .8); }
+.dir-a .segs i.live { background: var(--c2); box-shadow: 0 0 10px var(--c); }
+.dir-a .hubtile.mini .mv b { font-family: var(--mono); font-weight: 500; color: var(--c2); text-shadow: 0 0 10px rgba(var(--cr), .55); font-size: 16px; }
+.dir-a .dot.pulse { box-shadow: 0 0 0 3px rgba(var(--cr), .18), 0 0 8px var(--c); animation: a-breathe 2.4s ease-in-out infinite; }
+@keyframes a-breathe { 50% { box-shadow: 0 0 0 5px rgba(var(--cr), .06), 0 0 12px var(--c); } }
+
+/* try-this rows: a lit spine on the left */
+.dir-a .tryrow { background: linear-gradient(90deg, rgba(var(--cr), .08), rgba(var(--cr), .02) 60%); box-shadow: inset 0 0 0 1px var(--hud2); border-radius: 14px; }
+.dir-a .tryrow::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 1px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.dir-a .tryrow .tk { font-family: var(--mono); letter-spacing: .16em; }
+.dir-a .tryrow .ic { color: var(--c); }
+
+/* ---------- the SVG instruments, in the reactor's light ---------- */
+.dir-a :is(.bz, .gr-dial, .vf-lens, .lamps, .gy-bz) { display: none; }
+.dir-a svg .ln { fill: none; stroke: rgba(var(--cr), .62); stroke-width: .8; }
+.dir-a svg .ln2 { fill: none; stroke: rgba(var(--cr), .22); stroke-width: .6; }
+.dir-a svg .lit { fill: none; stroke: var(--c2); stroke-width: 1.2; filter: url(#glow); stroke-linecap: round; }
+.dir-a svg .fl { fill: var(--c2); filter: url(#glow); }
+.dir-a svg .fl2 { fill: rgba(var(--cr), .08); }
+.dir-a .g-sph { fill: url(#sph); }
+.dir-a .g-mer, .dir-a .g-mer ellipse { fill: none; stroke: rgba(var(--cr), .2); stroke-width: .5; }
+.dir-a .g-eq { fill: none; stroke: rgba(var(--cr), .5); stroke-width: .7; }
+.dir-a .g-orbit :is(ellipse, path) { fill: none; stroke: rgba(var(--cr), .5); stroke-width: .55; }
+.dir-a .g-dot { fill: var(--c2); }
+.dir-a .g-dots { filter: url(#glow); }
+.dir-a .g-sat { fill: #fff; filter: url(#glow2); }
+.dir-a .g-rim { fill: none; stroke: var(--c); stroke-width: 1.3; filter: url(#glow2); }
+.dir-a .g-you circle:first-child { fill: none; stroke: #fff; stroke-width: .8; }
+.dir-a .gl { opacity: .7; }
+.dir-a .vf-grid circle { fill: rgba(var(--cr), .3); }
+.dir-a .vf-brk { fill: none; stroke: var(--c); stroke-width: 1.6; filter: url(#glow); stroke-linecap: round; }
+.dir-a .m-l { stroke: rgba(var(--cr), .2); stroke-width: .5; }
+.dir-a .m-l.lit { stroke: rgba(var(--cr), .6); stroke-width: .6; filter: none; }
+.dir-a .m-n { fill: rgba(var(--cr), .4); }
+.dir-a .m-n.on { fill: var(--c2); filter: url(#glow); }
+.dir-a .m-core { fill: #fff; filter: url(#glow2); }
+.dir-a .sg { fill: none; stroke: rgba(var(--cr), .15); stroke-width: 5; }
+.dir-a .sg.on { stroke: var(--c); filter: url(#glow); }
+.dir-a .sg.live { stroke: var(--c2); stroke-dasharray: 2 1.4; filter: url(#glow); }
+.dir-a .ctx { font: 600 9px var(--mono); fill: var(--c2); text-anchor: middle; }
+/* the GYM's pictures */
+.dir-a .gymdraw .mv { fill: none; stroke: var(--c2); stroke-width: 1; stroke-dasharray: 2.5 2; filter: url(#glow); }
+.dir-a .gymdraw .tgt { fill: none; stroke: var(--c2); stroke-width: .9; filter: url(#glow); }
+.dir-a .gymdraw .path { stroke: var(--c); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: url(#glow); opacity: .95; }
+.dir-a .gymdraw .gold { fill: #fff; filter: url(#glow2); }
+.dir-a .gymdraw .dg { font: 500 5.6px var(--mono); fill: rgba(var(--cr), .55); text-anchor: middle; }
+.dir-a .gymdraw .dg.his { fill: var(--c2); font-weight: 700; filter: url(#glow); }
+.dir-a .gymdraw .hl { fill: rgba(var(--cr), .06); }
+.dir-a .gymdraw .cur { fill: rgba(var(--cr), .22); stroke: var(--c2); stroke-width: .8; filter: url(#glow); }
+.dir-a .gymdraw .disc.his { fill: var(--c); filter: url(#glow); }
+.dir-a .gymdraw .disc.opp { fill: none; stroke: rgba(var(--cr), .7); stroke-width: .9; }
+.dir-a .gymdraw .hole { fill: none; stroke: rgba(var(--cr), .16); stroke-width: .6; }
+.dir-a .gymdraw .win { stroke: #fff; stroke-width: 1; filter: url(#glow); }
+.dir-a .gymdraw .trail { stroke: rgba(var(--cr), .5); stroke-width: 1.4; stroke-linecap: round; }
+.dir-a .gymdraw .stone.his { fill: var(--c); filter: url(#glow); }
+.dir-a .gymdraw .stone.opp { fill: rgba(5,8,10,.8); stroke: var(--c2); stroke-width: .8; }
+.dir-a .gymdraw .stone.next { fill: none; stroke: #fff; stroke-width: .8; stroke-dasharray: 1.5 1.2; filter: url(#glow); }
+.dir-a .gymdraw .tgt2 { fill: none; stroke: var(--c2); stroke-width: .8; stroke-dasharray: 1.5 1.2; }
+.dir-a .gymdraw .box { fill: rgba(var(--cr), .12); stroke: var(--c2); stroke-width: .9; filter: url(#glow); }
+.dir-a .gymdraw { background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(var(--cr), .2), transparent 75%); border-radius: 10px; }
+
+/* ---------- GYM ---------- */
+.dir-a .gymsum .big b { font-family: var(--mono); font-weight: 500; color: #fff; }
+.dir-a .gymsum .big .of { color: rgba(var(--cr), .7); font-size: 16px; }
+.dir-a .gymsum .big small { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+.dir-a .gymsum .bars i { background: rgba(var(--cr), .2); border-radius: 1px; }
+.dir-a .gymsum .bars i.on { background: var(--c); box-shadow: 0 0 6px rgba(var(--cr), .8); }
+.dir-a .gymsum .bars i.live { background: var(--c2); box-shadow: 0 0 8px var(--c); }
+.dir-a .gymsum .go { background: rgba(var(--cr), .16); box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), 0 0 18px -4px rgba(var(--cr), .6); color: var(--c2); font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.dir-a .gymsum .go .ic { fill: currentColor; stroke: none; }
+.dir-a .gymsum .now { padding-top: 9px; border-top: 1px dashed rgba(var(--cr), .18); }
+.dir-a .gymsum .now .dot { color: var(--c); }
+.dir-a .gymcard .nm span { font-family: var(--mono); color: rgba(var(--cr), .75); letter-spacing: .12em; }
+.dir-a .meter { background: rgba(var(--cr), .12); border-radius: 1px; }
+.dir-a .meter i { background: linear-gradient(90deg, rgba(var(--cr), .45), var(--c)); box-shadow: 0 0 8px rgba(var(--cr), .7); border-radius: 1px; }
+.dir-a .meter u { background: #fff; box-shadow: 0 0 6px #fff; }
+.dir-a .gymcard .rl { font-family: var(--mono); font-size: 10px; letter-spacing: .02em; color: rgba(var(--cr), .6); }
+.dir-a .gymcard .rl b { color: var(--c2); font-weight: 500; }
+.dir-a .gymcard.done .meter i { background: var(--c2); }
+
+/* ---------- the tab bar: the lit tab sits in a small reactor ring; live dot; a red alert ring for the badge ---------- */
+.dir-a .tabcap { background: rgba(7,11,14,.78); box-shadow: inset 0 0 0 1px var(--hud), 0 0 34px -12px rgba(var(--cr), .55), 0 20px 50px rgba(0,0,0,.6); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+.dir-a .tabcap::before { content: ''; position: absolute; left: 30px; right: 30px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(var(--cr), .7), transparent); }
+.dir-a .tabcap button { font: 600 9px/11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(235,240,245,.55); }
+.dir-a .tabcap button .halo { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%; opacity: 0; }
+.dir-a .tabcap button.on { color: var(--c2); }
+.dir-a .tabcap button.on .ic { filter: drop-shadow(0 0 5px rgba(var(--cr), .9)); }
+.dir-a .tabcap button.on .halo { opacity: 1; background: radial-gradient(circle, rgba(var(--cr), .28), transparent 62%); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35), 0 0 0 4px rgba(var(--cr), .05), 0 0 0 5px rgba(var(--cr), .18); }
+.dir-a .tabcap button.on::after { content: ''; position: absolute; top: -4px; left: 50%; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.dir-a .tabcap button.press .halo { opacity: 1; background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); transform: scale(1.08); }
+.dir-a .tabcap button.press { color: #fff; }
+.dir-a .tabcap .live { background: var(--c); box-shadow: 0 0 0 2.5px rgba(7,11,14,1), 0 0 0 3.5px rgba(var(--cr), .5), 0 0 10px var(--c); }
+.dir-a .tabcap .badge { background: rgba(255,105,97,.22); box-shadow: inset 0 0 0 1.5px var(--r), 0 0 10px rgba(255,105,97,.55); color: #ffd9d6; font-family: var(--mono); font-weight: 600; border-radius: 5px; }
+.dir-a .sweep { display: none; }
+
+/* ---------- the chat: the reply as a HUD panel ---------- */
+.dir-a .me span { background: rgba(var(--cr), .12); box-shadow: inset 0 0 0 1px rgba(var(--cr), .28); }
+.dir-a .steps { background: rgba(var(--cr), .05); box-shadow: inset 0 0 0 1px var(--hud2); }
+.dir-a .steps .ic { color: var(--c); }
+.dir-a .daysep { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .5); }
+.dir-a .msg { border-radius: 20px; }
+.dir-a .rcwho b { color: #fff; font-family: var(--mono); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+.dir-a .rcwho em { font-family: var(--mono); font-size: 11px; color: rgba(var(--cr), .6); }
+.dir-a .rccited { background: rgba(var(--cr), .12); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); color: var(--c2); font-family: var(--mono); border-radius: 5px; }
+.dir-a .msg .meta { font-family: var(--mono); color: rgba(var(--cr), .45); padding-bottom: 8px; border-bottom: 1px dashed rgba(var(--cr), .16); }
+.dir-a .msg .meta b { color: var(--c2); font-weight: 500; }
+.dir-a .cite { font-family: var(--mono); color: var(--c2); background: rgba(var(--cr), .14); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); border-radius: 4px; }
+.dir-a .claims { background: rgba(var(--cr), .05); box-shadow: inset 0 0 0 1px var(--hud2); }
+.dir-a .src .n { font-family: var(--mono); color: var(--c2); box-shadow: inset 0 0 0 1px rgba(var(--cr), .5); border-radius: 5px; }
+.dir-a .src + .src, .dir-a .acts { border-color: rgba(var(--cr), .12); }
+.dir-a .acts .th { box-shadow: inset 0 0 0 1px var(--hud); color: var(--c2); }
+.dir-a .gy-rim { fill: rgba(var(--cr), .16); stroke: var(--c); stroke-width: 1.1; filter: url(#glow); }
+.dir-a .gy-eq { fill: none; stroke: var(--c2); stroke-width: .6; }
+.dir-a .gy-core { fill: #fff; filter: url(#glow2); }
+.dir-a .composer { background: rgba(7,11,14,.82); box-shadow: inset 0 0 0 1px var(--hud), 0 0 30px -12px rgba(var(--cr), .55); }
+.dir-a .composer .chip { color: var(--c2); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); background: rgba(var(--cr), .1); font-family: var(--mono); border-radius: 5px; }
+.dir-a .composer .mic { background: var(--c); color: #021018; box-shadow: 0 0 0 3px rgba(var(--cr), .18), 0 0 18px rgba(var(--cr), .6); }
+
+/* the sheet itself */
+.dir-a .cap b { background: var(--c); }
+.dir-a .msg.cited p { margin-top: 8px; }
+.dir-a .msg .meta { margin-top: 6px; padding-bottom: 6px; }

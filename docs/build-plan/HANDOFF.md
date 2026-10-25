@@ -224,6 +224,149 @@ folder that no longer exists; ignore those paths).
   the Lens. The owner (19:40 UK): "Telegram don't really need an upgrade": its pass was stopped while still measuring
   and its worktree removed; Telegram is off the list. Still to run, one or two at a time: Reverse, Workshop, Brief,
   Markets, Radio, Memory, Agenda, Library, Settings, System.
+- 24 Oct 19:42 UK: pushed and opened **PR #34** (head 92f14ea): the bigger brain, the Threats, God's Eye and Lens passes,
+  the mended checks, STATUS.md. Gate: its CI run (63 specs); a check-in at 21:09 UK merges if green. Out now: the voice
+  and Workshop passes.
+- 24 Oct ~20:05 UK: THE 18 PRO MAX IS HERE (OWNER-ISSUES 40). The phone-only items of week 3 are unlocked: 120 Hz motion,
+  the GYM on WebGPU, larger vision and depth models, the offline brain's speed and memory on the device — each starts
+  from his real numbers (asked for). Next phase he wants: training that survives Kaggle's hours running out (resumable
+  runs, an economy mode, a second free pool, an emergency CPU run, the phone's GPU measured) and a much bigger GYM
+  (his picks from the menu pending).
+- 24 Oct ~20:40 UK: the IRON MAN mock-ups (BRIEF-IRONMAN.md) are in `mockups/iron/{a,b,c}/contact.png` (+ laptop) and
+  were sent to the owner for his pick. The critic (feels Iron Man / calm / readable / no icons / honest): A Reactor HUD
+  8/6/7/9/7 (JARVIS at once, but busy: brackets on every card, scan texture, 9 px labels); B Stark workshop 7/7/7/7/7
+  (warm metal, a luxury watch more than a hologram; amber everywhere breaks the warn-colour rule; two invented dials);
+  C Hologram minimal 5/9/9/10/9 (calm and honest, but close to what he called "nothing like Iron Man"). My view: A's
+  instruments with C's restraint (keep the rings, readouts and scan line; drop the corner brackets and the grid; labels
+  11 px or more). Build cost: shared work about 13 h (`ui/instruments.ts`, hub cards wired to real state in
+  `shell/areas.ts` + `TabDef`, `features/gym/art.ts` for all 22 games (6 drawn), the reply's meta line, live-dot wiring,
+  `tests/hubcards.spec.mjs`), then A about 2.5 h more, B about 5 h (and a new warm theme), C about 1.5 h. Waiting on him.
+- 24 Oct 21:10 UK: **PR #34 MERGED into main** (merge commit d705514; CI green on 92f14ea, 63 specs). Live: the bigger
+  brain (Qwen3.5 2B / 4B to choose), the Threats, God's Eye and Lens passes. Next batch, same branch: the voice, Workshop
+  and Brief passes, the scroll fixes, training resilience, the Iron Man build, as they land and pass.
+- 24 Oct ~21:25 UK: merged after review: TRAINING RESILIENCE (BRIEF-TRAINING-RESILIENCE parts A and B; part C as notes at
+  the end of this file). No kernel line. The builder's choices, accepted: his yes to the daily GPU is a tap on an
+  owner-only route after a confirm sheet (a tool would have cost a prompt name); `score` runs on the CPU; a paper sat on
+  the daily GPU is shown as "sat on the free GPU". Open: the Space holds his HF write token as a secret (the only token
+  Ghosty has); a read-only token would be safer and is his to make (OWNER-ISSUES 37 (m)). Unmeasured without a GPU: real
+  two-card speed and memory, a real mid-SFT resume, the HF branch calls, the Space's stack. The quota test now expects a
+  smaller run at 9 h left, not a wait (the brief's change).
+- 24 Oct ~21:45 UK: the NAVIGATION and BOOT mock-ups (BRIEF-NAV-BOOT.md) are in `mockups/nav/contact.png` and
+  `mockups/boot/contact.png`, sent to the owner for his yes. The builder's notes: Learn today has four tools (Revise,
+  Exams and Quizzes are views inside Courses; Videos is the chat's YouTube summary), so the eight-tool hub is a proposal;
+  iOS blocks speech on a cold open until a tap, so the boot's spoken greeting must fall back to silent or speak on the
+  first tap; his name starts with G (the avatar) and is read from Settings; 24 Oct 2026 is a Saturday. Build cost:
+  navigation 1–1.5 builder days after BRIEF-IRON-BUILD step 1; the boot half to one day (`shell/boot.ts`, first open of
+  the day + reboot, Reduce Motion). Waiting on him.
+- 24 Oct ~21:55 UK: merged after review: the BRIEF upgrade pass (10 fixes, no brain code by the builder). Kernel lines,
+  marked: `brief` and `places` in the CI loop (`[brief] [places]`); the digest job re-timed to 05:40 Europe/London in
+  agent.ts (`[brief]`; `ensureJob` re-times the standing job). Leftovers the builder ranked: the deck's Brief picture is
+  out of date (`deckshots` rewrites all 20); the offline diary is not marked last-known; the TomTom nag every morning
+  and "to work" on weekends (`integrations/traffic.ts`); no markets line or reflection on the Brief; headlines open the
+  chat's explain, not the article; rain timing assumes UK time; safari and scroll untested here (no WebKit).
+- 24 Oct 22:05 UK: pushed as PR #36: training resilience, the Brief pass, the digest at 05:40 UK, the mock-ups, the
+  research and briefs (brain suite 1,173 of 1,174 with the one red being the digest test's old time, fixed and green
+  alone). The crash fix (OWNER-ISSUES 44) rode PR #36 in the end (23:48 UK below).
+- 24 Oct ~22:15 UK: merged after review: the VOICE upgrade pass (10 fixes; no kernel line; LEARN's READ ALOUD already
+  stopped). Leftovers the builder ranked: end of speech to the first sound is about 1.3 s, 1.0 s of it the "has he
+  finished" wait (700–800 ms would do, but only real voice timings should decide); a voice lap in the stopwatch (System's
+  files); playback volume and routing with the mic open and Safari's recogniser offline need the real iPhone; barge-in
+  false stops with a loud TV (2 of 40 in a simulation; real recordings before retuning); a SPOKEN line about misheard
+  words would cost 47 prompt characters (about 25 spare); the stale `SPEECH_ABOUT`; "until midnight UTC" is 1 am in BST.
+- 24 Oct ~22:30 UK: merged after review: the WORKSHOP upgrade pass (10 fixes; no brain code; no kernel line). Leftovers the
+  builder ranked: the change list itself is slow (GitHub requests one after another in `github.ts`, protected: parallel or
+  cached would need a kernel edit); the app report's jargon comes from the brain's text in `appbuild.ts` (a prompt check
+  before changing a tool result); the deck line for the Workshop could say "1 project running · 2 changes to ship";
+  widget rows do not show that the title opens the widget; the training ground's wording; the desktop hero mostly empty;
+  real GitHub timings and the Safari install flow need the real thing. The ui spec opens whichever widget is listed
+  first, so after the undo spec on the same preview it can fail (a spec assumption, not a bug).
+- 24 Oct ~23:00 UK: merged after review: THE BOOT CINEMATIC (BRIEF-BOOT). No kernel line (`index.html` and `main.ts` are
+  not kernel). Only the real phone can prove: 120 Hz smoothness, whether the app's own boot work stalls frames (here up
+  to 2.7 s under software WebGL, which made it skip ahead), the 16 ms draw test's threshold, speech on a cold open
+  (iOS stays silent until the first tap, then the greeting is spoken), the hum on silent mode, the landing at hardware
+  speed. Under automation the cinematic plays only when a spec asks (`__ghostyBoot`), like MIND. The frame strip:
+  scratchpad `boot/boot-frames-strip.png` (sent to the owner).
+- 24 Oct 23:35 UK: PR #36's browser run (21:04–22:21 UTC) failed three specs. Two (photo, places) were blocked by Night
+  School's dark layer: the night spec leaves the switch ON with its 23:00–06:00 window, and this run crossed 23:00 UK, so
+  every page after it was dimmed (earlier runs happened in the afternoon). Fixed: the night spec switches it off at the
+  end and checks the layer is gone (a shared preview is left as found). The third (library, phone part): STUDY on a
+  picked field did not come first ("Reading Accounting and business basics · 5 of 256 · working out the pace"): it
+  passes here twice on a fresh preview; the likely cause is the STUDY request not reaching the brain on the loaded
+  runner (the button only toasts). The spec now checks the brain's focus, allows one more tap, and names the brain's
+  focus and queue when it fails, so the next failure says why.
+- 24 Oct 23:40 UK: pushed to PR #36 (its CI run is the gate): the voice, Workshop and boot work, the night spec's
+  cleanup, the hardened library spec, the docs. A check-in at 01:05 UK merges if green.
+- 24 Oct ~23:55 UK: merged after review: THE BIG-BRAIN CRASH FIX (OWNER-ISSUES 44). The fix relies on WebLLM 0.2.85's
+  cache layout (store names `webllm/config|model|wasm`, full-address keys), pinned by the vendored file; an edge test
+  checks the limits it asks for against the runtime's own code; recheck both if WebLLM is ever upgraded. Only the real
+  phone can prove whether Safari gives the 0.8B (1.6 GB) or the 2B (2.2 GB) enough graphics memory, what buffer limits it
+  reports (under 1 GB bindings → WebLLM asks for 128 MB and the 2B is refused before any load), whether WebKit holds a
+  whole piece in memory while storing it, and that the crash record survives a kill. The weekly training does not
+  train the 0.8B. The full edge suite did not finish in the builder's window (load); run here before the push.
+- 24 Oct 23:48 UK: pushed to PR #36 (head 61ce7db): the big-brain crash fix and its docs. The verification chain on the
+  merged tree showed the offline-brain file 40 of 42: both reds were a stale `test/.build/offline-models.mjs` from before
+  the merge (the file is only rebuilt by `npm test`), 42 of 42 once rebuilt; the bigbrain and offlinebrain specs passed
+  on a fresh preview. The pull request's title and body now carry the fix. The 01:05 UK check-in was cancelled and a new
+  one armed for 01:14 UK: it merges if green. Lesson: a targeted `node --test` run reads whatever is in `.build`; rebuild
+  the bundles a test imports after a merge, or run the file through `npm test`.
+- 24 Oct 23:58 UK: started two more upgrade passes on the branch head e938052, each in its own worktree: SETTINGS
+  (`.claude/worktrees/settings`, branch `worktree-settings`, preview 8879, scratch `scratchpad/settings/`) and the LIBRARY
+  (`.claude/worktrees/library`, `worktree-library`, preview 8880, scratch `scratchpad/library/`). Both were told the
+  Iron Man builder owns `shell/*`, `ui/instruments.ts`, `shell/hubcards.ts` and styles.css's route C layer, and that the
+  orchestrator merges. Still finishing: the scroll audit (8878, 12 commits), the Iron Man look (8877, 9 commits), Memory
+  (8874, 11 commits); none touches a protected file; their only shared files are `styles.css` (all three) and
+  `features/core/index.ts` (scroll audit and Iron Man). Merge order when they report: scroll audit, Iron Man, Memory.
+  Their push waits until PR #36 has merged (the owner is waiting on the crash fix in it; a push would restart its CI),
+  then goes up as the next pull request. Passes left after these: Reverse, Markets, Radio, Agenda, System.
+- 25 Oct 00:20 UK: merged after review: the MEMORY upgrade pass (14 commits, 10 fixes; merge 2875b8f, clean; no kernel
+  line; the builder's edge suite 1,181 of 1,181). Design note: the chat's `forget` now keeps what it removed for a day
+  under RECENTLY FORGOTTEN like every other forget (UNDO everywhere, the owner's pick 12); the Lens crop's FORGET NOW
+  still deletes at once on purpose (a privacy take-down; `DELETE /memory/:id` in agent.ts keeps no copy; if he ever
+  wants UNDO there, agent.ts line 343 becomes `await changeMemory(this.dailyDeps(), \`f:${id}\`, 'forget').catch(() => null)`
+  with `changeMemory` imported from `./memories`). Leftovers the builder ranked: a brain unreachable while the phone is
+  online still shows the cached copy silently (`api/brain.ts` `req()` would need to report its fallback: a shell-level
+  change for every tab, not Memory's); timeline rows are 173 pt (folding EDIT / LOCK / FORGET behind a tap would halve
+  them); the desktop shows an empty middle column and the phone's switch (`ui/page.ts`); theme patterns pick up filler
+  words ("long", "note"); two add forms and the section picker still says About / Likes; the diary prompt still says
+  "the owner". Verification on the merged tree: web check, tsc and the memory, places, undo and backup specs on a fresh
+  preview (chain bvwbxx25c); the full edge suite runs once after the scroll audit and the Iron Man look merge, before
+  the push.
+- 25 Oct 01:05 UK: CI's smoke job on PR #36's earlier head 9212e3c went red on ONE spec, the library's STUDY check
+  (every other spec after it passed). Root cause, in the interface, not the spec: `paintStudy` repainted the whole
+  SELF-STUDY panel and set the field picker back to the field being read (`pick.value = cur?.id`), so on CI's slow
+  runner a repaint between the spec's pick and its STUDY tap (the FOCUS reply, or a status answer landing late) made
+  STUDY send "Accounting and business basics" instead of "Algebra & number theory"; the spec's "one more tap"
+  hardening could never help, because STUDY's own repaint reset the picker again. The owner would have hit it too: pick
+  a field, wait a moment, tap STUDY, and the wrong field is read. Fix: the picker keeps the owner's pick through every
+  repaint (`ownPick`, set by the select's change and the field bars' tap). The spec now repaints with ALL FIELDS /
+  FEWER right after the pick and checks the picker kept it (red on the old code by construction), then polls the brain's
+  focus for up to two minutes after one tap and reports the picker's value and the toasts if it did not take. Not run
+  against the old interface here (the machine was at load 10–15 with four builders); the mechanism is in the code.
+  The Library pass builder was told the exact change so its worktree merges cleanly.
+- 25 Oct 01:25 UK: merged after review: THE SCROLL AUDIT (13 commits, 10 fixes; merge 5a13d68, clean). Kernel line:
+  `scrollfeel` added to the CI spec loop in check.yml (`[scroll]`; 66 specs). Leftovers the builder ranked: long toasts
+  (`.toast.more`, 7 s in the thumb zone) take swipes; the 133 px fixed header on Agenda, Workshop and Memory does not
+  scroll; the Brief's headline chips run 33 px past the card ("Business" cut); the parallax (`--dx/--dy`) shifts where a
+  page ends by up to 27 px; coming back to the Library lands 20 px off; `-webkit-mask-image` on the page scrollers may
+  affect Safari's momentum. Only the phone can prove: momentum, rubber-banding, the real keyboard (the check uses a
+  stand-in visualViewport), the real Home Screen insets, whether toasts swallow swipes on iOS, that the keyboard fit does
+  not double-shift with Safari's own scroll-into-view; the WebKit runs of scroll.spec and safari.spec are CI's.
+- 25 Oct 01:20 UK: CI's smoke on PR #36's current head 61ce7db went red on a different single spec: Route C's Today
+  card (the run crossed midnight UK: the agenda spec's two "Dentist" events, made for an hour ahead at 00:05 UK, were
+  still ahead when Route C ran at 01:00 UK, so its own "Call Mum", seven minutes out, was third and off the two-row
+  card; on a run that ends before midnight the Dentists have passed by then, which is why 232 passed). Fixes: the Route
+  C check now reads the brain's agenda and requires the card's two rows, their order and its count to match the soonest
+  of what is left today, with Call Mum in that list; the agenda spec deletes its Dentist event at the end of each run
+  (leave the preview as found). The library spec passed on this run by timing luck; its picker fix (above) stands.
+- 25 Oct 01:50 UK: pushed to PR #36 (one CI run for the batch): the Memory pass, the scroll audit, the library picker fix,
+  the Route C and agenda spec fixes, `scrollfeel` in the CI loop. Proofs on the merged tree before the push: edge suite
+  1,182 of 1,182; web check; specs memory, places, undo, backup, library, agenda, routec (twice, the second with a
+  leftover event two hours ahead seeded through the API), scrollfeel, layout, ui, scroll (Chromium). Two spec lessons
+  from the Route C rerun: the Today card's text runs together ("Today2 left01:26Call Mum…"), so a count check cannot
+  use `\b` on either side of the number (`(^|\D)2 left`); the themes check compared Home's boxes to the pixel between
+  two paints, and a suggestion chip whose words follow the clock moved a centred row by one pixel, so boxes now match
+  within a pixel while type and spacing still match to the letter. The 00:14 UTC check-in is superseded; a new one is
+  armed about 85 minutes after this push.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
@@ -539,3 +682,62 @@ Still to build (in this order unless the owner says otherwise):
 The owner asked that the next session (a more capable model) also goes back over everything already built and
 upgrades it where it can be made genuinely better — with the same review discipline, and without changing his
 choices above.
+
+## TRAINING BEYOND KAGGLE'S HOURS — design notes (BRIEF-TRAINING-RESILIENCE part C, 24 Oct; no code yet)
+Built already (parts A and B, branch `worktree-trainres`): checkpoints inside phases with a mid-phase resume, a session
+budget per host (`HOSTS` in the notebook: Kaggle 9 h, Colab 1.75 h, Lightning 3.5 h, GitHub 5.5 h, ZeroGPU 4.5 min) and
+a week spread over several sessions ({paused} at the hook → pushed again with `resume`), the second T4, economy mode, the
+quota line, and the daily GPU on Hugging Face. What follows needs the owner at a computer to sign in once.
+
+### C1. Colab's free T4 through the official Colab CLI: a second full-run pool
+- **What it adds**: a full week's run when Kaggle's hours are gone, in short sessions (`host: 'colab'`, 1.75 h each; a
+  9-hour week is about 5–6 sessions, each carrying on from the last checkpoint — the mechanism is built and tested).
+- **The driver (outside Cloudflare)**: a Worker cannot run a CLI or hold a Google login. A PRIVATE GitHub repo of his
+  (`ghosty-colab-driver`; never Ghosty's own `.github/*`, which is kernel) with one `workflow_dispatch` workflow: install
+  the Colab CLI (pinned), write the notebook with the run's settings, `colab run --gpu T4` with a 1 h 45 min limit, end.
+  The brain starts it through GitHub's REST API (`POST /repos/{owner}/{repo}/actions/workflows/colab.yml/dispatches`)
+  with the GitHub token he already set, sending only the hook address and a one-time ticket (never the Hugging Face
+  token: the notebook trades the ticket for it at the hook, as on Kaggle). How the run goes comes back the same way as
+  Kaggle's ({paused} / the report at the hook); the workflow run's own status from `GET …/actions/runs` for a run that
+  never reached the hook.
+- **The token as a secret**: `colab auth login` (Google's own OAuth) once on his computer; the token goes into the
+  driver repo's Actions secrets by his hand (Settings → Secrets → Actions), never through Ghosty or a chat.
+- **Actions minutes** [unverified]: if the CLI waits for the notebook, each session holds a runner ~1 h 50 min, so 5–6
+  sessions a week are ~2,200–2,600 min a month, over a private repo's free 2,000. Either the CLI can start a run and
+  return (then the job is ~2 min and the brain polls), or the sessions are capped at 4 a week. Checked in the first run.
+  Nothing can bill: on a free GitHub account with no card the minutes simply stop at the limit (spending limit $0).
+- **The supervised first run**: Fable watching, the owner at a computer: sign in, set the secret, press RUN once. Check
+  (1) the CLI gets a T4 on the free tier; (2) the notebook trades its ticket and posts {paused} after its 1.75 h; (3) the
+  second session carries on mid-phase; (4) the Actions minutes one session used; (5) no warning on his Colab account.
+- **The free-tier rules risk**: Colab's free-tier FAQ says it is for interactive use and forbids "bypassing the notebook
+  UI" and long unattended runs; the CLI is Google's own, but a scheduled bot using it may still be read as unattended
+  use, and the cost could be his Colab access. So: his explicit choice, after reading that sentence; Kaggle stays
+  primary (Colab only when Kaggle waits); at most a few sessions a week; stop at the first warning or odd disconnects;
+  never Colab Pro or pay-as-you-go (he confirms no payment method on his Google account's Colab billing: there is no API
+  to check it).
+- **What changes in Ghosty**: `cycle.ts` push picks a host (Kaggle first; Colab when Kaggle waits and the driver is set
+  up), `remote.ts` a `githubDispatch` and a run-status read, the panel's GPU HOURS line names where the next run goes; the
+  notebook needs nothing more than its `HOSTS['colab']` budget and per-host pins (Colab's image has its own torch: the
+  pins install over it, to be checked in the first run). Tests: the dispatch with a fake GitHub, the host choice.
+
+### C2. Kaggle's TPU v5e-8: what a torch_xla port of the LoRA training would take
+- **Why**: a separate 20 hours a week on the same account (9-hour sessions), bf16 native, 8 cores × 16 GB.
+- **The device**: `device_plan` gains `xla` (`torch_xla.core.xla_model.xla_device()`), `HOSTS['kaggle-tpu']` ~8 h; the
+  push asks Kaggle for a TPU (`enableTpu`, its machine shape) under its own slug.
+- **Packages**: Kaggle's TPU image's own torch and torch_xla (they must match: never pip a torch over them), and
+  transformers/peft pins that suit that torch; checked in the image before anything else.
+- **Precision**: the base in bf16, the LoRA weights and AdamW's state in fp32 (`amp_for` gives bf16 on xla).
+- **The training loops**: XLA compiles a graph per tensor shape, so every new sequence length recompiles. Batches are
+  padded to a few fixed lengths (256 / 512 / 1024 / 2048) and a fixed batch size; `xm.mark_step()` after each step,
+  `xm.optimizer_step(opt)`; data over the 8 cores (SPMD sharding or `xmp.spawn`), the LoRA replicated. SFT and DPO move
+  over almost unchanged otherwise.
+- **Generation (STaR, the exams)**: the hard part. HF `generate` on XLA recompiles as the cache grows; it needs the
+  static cache (`cache_implementation="static"`), prompts in fixed buckets and fixed new-token lengths, or it is slower
+  than a T4. The honest first step is a split week: TRAINING on the TPU (the bulk of the hours), SAMPLING and the EXAMS
+  on Kaggle's T4s, which then need far fewer hours; the checkpoint branch carries the adapter between the two runs.
+- **What stays**: the q4f16_1 export (numpy, on the CPU), the gate (before and after both scored on the same hardware in
+  a given week: like with like), the checkpoints (tensors moved to the CPU before saving; XLA's own RNG state).
+- **Tests**: the bucket padding and the step functions on a CPU with `PJRT_DEVICE=CPU`; the split week's hand-over with
+  fakes, as `Resilience` does now.
+- **Size**: about a week's work for SFT/DPO on the TPU plus two or three supervised real runs to tune; generation on the
+  TPU after that, only if the split week leaves the T4 hours short.

@@ -22,6 +22,8 @@ import random
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import types
 import unittest
 
@@ -235,15 +237,39 @@ class FakeModules:
     """Stand-ins for torch and huggingface_hub (neither is installed here, and the real ones must not be reached):
     put into sys.modules for the length of a `with`, then taken out again."""
 
-    def __init__(self, capability=(7, 5), fail=None):
+    def __init__(self, capability=(7, 5), fail=None, cards=1, checkpoint=None):
         self.calls = []
+        # a checkpoint an earlier session left ({(branch, path): {file: bytes}}), for snapshot_download to hand back
+        self.checkpoint = dict(checkpoint or {})
         self.fail = dict(fail or {})
+        self.uploaded = {}
         me = self
 
         class Cuda:
             @staticmethod
             def is_available():
-                return True
+                return cards > 0
+
+            @staticmethod
+            def device_count():
+                return cards
+
+            @staticmethod
+            def get_device_name(i=0):
+                return 'Tesla T4'
+
+            @staticmethod
+            def device(dev):
+                me.calls.append(('device', dev))
+                return contextlib.nullcontext()
+
+            @staticmethod
+            def get_rng_state_all():
+                return ['cuda-rng']
+
+            @staticmethod
+            def set_rng_state_all(st):
+                me.calls.append(('cuda-rng', st))
 
             @staticmethod
             def is_bf16_supported():
@@ -256,7 +282,54 @@ class FakeModules:
             @staticmethod
             def get_device_properties(dev=None):
                 return types.SimpleNamespace(total_memory=15_095_365_632)  # a T4
-        self.torch = types.SimpleNamespace(cuda=Cuda, bfloat16='bf16', float16='fp16', float32='fp32', no_grad=contextlib.nullcontext, autocast=lambda *a, **k: contextlib.nullcontext())
+        import pickle
+
+        def save(obj, path):
+            with open(path, 'wb') as fh:
+                pickle.dump(obj, fh)
+
+        def load(path, weights_only=True):
+            with open(path, 'rb') as fh:
+                return pickle.load(fh)
+        class Opt:
+            """AdamW as far as the training loops use it: its steps are its state."""
+
+            def __init__(self, params, lr=0.0, weight_decay=0.0):
+                self.steps = 0
+                me.opts.append(self)
+
+            def step(self):
+                self.steps += 1
+
+            def zero_grad(self):
+                pass
+
+            def state_dict(self):
+                return {'steps': self.steps}
+
+            def load_state_dict(self, d):
+                self.steps = d['steps']
+
+        class Sched:
+            def __init__(self, opt, fn):
+                self.fn = fn
+                self.last_epoch = 0
+                self.factors = []
+
+            def step(self):
+                self.last_epoch += 1
+                self.factors.append(self.fn(self.last_epoch))
+
+            def state_dict(self):
+                return {'last_epoch': self.last_epoch}
+
+            def load_state_dict(self, d):
+                self.last_epoch = d['last_epoch']
+        self.opts = []
+        self.torch = types.SimpleNamespace(cuda=Cuda, bfloat16='bf16', float16='fp16', float32='fp32', no_grad=contextlib.nullcontext, autocast=lambda *a, **k: contextlib.nullcontext(),
+                                           save=save, load=load, get_rng_state=lambda: 'torch-rng', set_rng_state=lambda st: me.calls.append(('torch-rng', st)),
+                                           optim=types.SimpleNamespace(AdamW=Opt, lr_scheduler=types.SimpleNamespace(LambdaLR=Sched)),
+                                           nn=types.SimpleNamespace(utils=types.SimpleNamespace(clip_grad_norm_=lambda *a, **k: None)))
 
         def flaky(name):
             if me.fail.get(name, 0) > 0:
@@ -273,10 +346,16 @@ class FakeModules:
                     fh.write(me.files.get(filename, '{}'))
             return p
 
-        def snapshot_download(repo_id, revision=None, repo_type=None, local_dir=None, token=None, **k):
-            me.calls.append(('snapshot', repo_id, None, token))
+        def snapshot_download(repo_id, revision=None, repo_type=None, local_dir=None, token=None, allow_patterns=None, **k):
+            me.calls.append(('snapshot', repo_id, revision, token))
             flaky(repo_id)
             os.makedirs(local_dir, exist_ok=True)
+            for (rev, path), files in me.checkpoint.items():
+                if rev == revision and any(pat.startswith(path) for pat in allow_patterns or []):
+                    os.makedirs(os.path.join(local_dir, path), exist_ok=True)
+                    for name, data in files.items():
+                        with open(os.path.join(local_dir, path, name), 'wb') as fh:
+                            fh.write(data)
             with open(os.path.join(local_dir, 'config.json'), 'w') as fh:
                 fh.write('{}')
             return local_dir
@@ -292,8 +371,25 @@ class FakeModules:
             def create_branch(self, repo, repo_type=None, branch=None, exist_ok=False):
                 me.calls.append(('branch', repo, branch))
 
+            def delete_folder(self, path_in_repo=None, repo_id=None, repo_type=None, revision=None, commit_message=None, **k):
+                me.calls.append(('delete', repo_id, path_in_repo, revision))
+
+            def super_squash_history(self, repo_id=None, repo_type=None, branch=None, **k):
+                me.calls.append(('squash', repo_id, branch))
+
+            def delete_branch(self, repo, repo_type=None, branch=None):
+                me.calls.append(('delete-branch', repo, branch))
+
             def upload_folder(self, repo_id=None, repo_type=None, revision=None, folder_path=None, path_in_repo=None, commit_message=None, **k):
                 me.calls.append(('upload', repo_id, path_in_repo or revision))
+                if folder_path and path_in_repo and path_in_repo.startswith('wip/'):
+                    # what a checkpoint holds, as it went up (the resume tests read it back from here)
+                    files = {}
+                    for f in os.listdir(folder_path):
+                        if os.path.isfile(os.path.join(folder_path, f)):
+                            with open(os.path.join(folder_path, f), 'rb') as fh:
+                                files[f] = fh.read()
+                    me.uploaded[(revision, path_in_repo)] = files
                 flaky(path_in_repo or revision)
                 return types.SimpleNamespace(oid='e' * 40)
 
@@ -354,6 +450,15 @@ class PreFlight(unittest.TestCase):
         self.assertEqual(G.amp_for((9, 0)), 'bf16')
         self.assertIsNone(self.run_setup((7, 5))[0].amp)
         self.assertEqual(self.run_setup((8, 6))[0].amp, 'bf16')
+
+    def test_no_text_calls_the_retired_p100_a_kaggle_gpu(self):
+        # Kaggle retired the P100 on 15 Sep 2026 (docs/build-plan/RESEARCH-FREE-GPU.md): its free GPU is two T4s
+        src = open(G.__file__).read()
+        self.assertNotRegex(src, r"Kaggle's T4 \(7\.5\) and P100")
+        root = os.path.dirname(os.path.dirname(HERE))
+        for doc in ('docs/build-plan/PLAN.md', 'docs/build-plan/BRIEF-S2.md'):
+            text = open(os.path.join(root, doc)).read()
+            self.assertNotRegex(text, r'T4 or P100|T4/P100', doc)
 
     def test_generation_batches_group_by_length_and_fit_the_t4(self):
         lens = [2048, 120, 1990, 300, 2040, 90] + [1500] * 20 + [200] * 70
@@ -508,6 +613,503 @@ class PreFlight(unittest.TestCase):
             G.WORK = work
 
 
+class Resilience(unittest.TestCase):
+    """Training that survives a host's hours running out (BRIEF-TRAINING-RESILIENCE part A): the time budget set by the
+    host, the device chosen, checkpoints inside phases and a resume that carries on mid-phase, the second card. No GPU
+    here: torch and Hugging Face are stand-ins (FakeModules), the model and the checker too."""
+
+    CFG = {'week': 7, 'current': {'label': 'stock', 'chain': []}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain', 'samples': 2}
+
+    def setUp(self):
+        self.work, self.out = G.WORK, G.OUT
+        self.http, self.sleep = G.http_json, G.time.sleep
+        self.hooked = []
+        G.http_json = lambda url, data=None, method=None, timeout=60, headers=None: self.hooked.append(data) or {}
+        G.time.sleep = lambda s: None
+
+    def tearDown(self):
+        G.WORK, G.OUT = self.work, self.out
+        G.http_json, G.time.sleep = self.http, self.sleep
+
+    def fresh(self, cfg=None, clock=None):
+        """A run in a new work folder (a new session), its session clock under the test's control."""
+        G.WORK = tempfile.mkdtemp()
+        G.OUT = G.WORK
+        r = G.Run({**self.CFG, **(cfg or {})})
+        if clock:
+            r.session = G.Deadline(1, now=0, clock=clock)
+            r.saver = G.Every(G.CHECKPOINT_MINUTES, clock=clock)
+        r.token = 'TOKEN'
+        return r
+
+    # -- the time budget set by the host
+    def test_each_host_has_its_own_session_budget_and_a_week_may_span_sessions(self):
+        self.assertEqual(G.session_hours({}), 9, "Kaggle as now: 9 h of a 10 h session (12 h is Kaggle's limit)")
+        self.assertEqual(G.session_hours({'host': 'colab'}), 1.75)
+        self.assertEqual(G.session_hours({'host': 'github'}), 5.5)
+        self.assertEqual(G.session_hours({'host': 'lightning'}), 3.5)
+        self.assertEqual(G.session_hours({'host': 'zerogpu'}) * 60, 4.5, "the daily GPU: 4.5 of the free account's 5 minutes")
+        self.assertEqual(G.session_hours({'budget_hours': 4.5}), 4.5, 'economy mode: a smaller budget from the brain')
+        self.assertEqual(G.session_hours({'host': 'colab', 'budget_hours': 9}), 1.75, 'never more than the host allows')
+        with self.assertRaises(ValueError):
+            G.session_hours({'host': 'somewhere'})
+        self.assertEqual(G.week_hours({}), 9)
+        self.assertEqual(G.week_hours({'host': 'colab', 'week_hours': 8}), 8, 'a week over several short sessions')
+        r = G.Run({**self.CFG, 'host': 'colab', 'week_hours': 8})
+        self.assertAlmostEqual(r.session.left() / 3600, 1.75, places=2)
+        self.assertAlmostEqual(r.deadline.left() / 3600, 8, places=2)
+        # carried on: the week's clock goes on from what earlier sessions used
+        r.restore({'state': {'done': ['setup', 'exam_before'], 'spent': 2 * 3600.0, 'sessions': 1}, 'report': {}})
+        self.assertAlmostEqual(r.deadline.left() / 3600, 6, places=2)
+        self.assertEqual(r.report['sessions'], 2)
+
+    # -- the device chosen
+    def test_the_device_is_chosen_at_start_two_cards_one_card_or_none(self):
+        self.assertEqual(G.device_plan(2), {'kind': 'cuda', 'train': 'cuda:0', 'sample': 'cuda:1', 'cards': 2, 'problem': ''})
+        self.assertEqual(G.device_plan(1)['sample'], 'cuda:0', 'one card: everything on it, in turn')
+        self.assertRegex(G.device_plan(0)['problem'], 'no GPU', "Kaggle without a GPU is a set-up mistake, not a CPU run")
+        self.assertEqual(G.device_plan(0, 'github'), {'kind': 'cpu', 'train': 'cpu', 'sample': 'cpu', 'cards': 0, 'problem': ''})
+        for cards, want in ((2, ('cuda:0', 'cuda:1')), (1, ('cuda:0', 'cuda:0'))):
+            r = self.fresh()
+            with FakeModules(cards=cards):
+                r.choose_devices()
+            self.assertEqual((r.dev, r.plan['sample']), want)
+            self.assertEqual(r.report['cards']['count'], cards)
+            self.assertEqual(r.report['cards']['names'], ['Tesla T4'] * cards)
+            self.assertIsNone(r.amp, 'T4: fp32')
+        with FakeModules(cards=0), self.assertRaisesRegex(RuntimeError, 'no GPU'):
+            self.fresh().choose_devices()
+        # a host with no GPU at all: the CPU, and none of the sampling parts or DPO (far too slow there)
+        r = self.fresh({'host': 'github'})
+        with FakeModules(cards=0):
+            r.choose_devices()
+        self.assertEqual(r.dev, 'cpu')
+        ran = []
+        r.checkpoint = lambda: None
+        r.records = []
+        for name in ('exam_before', 'star', 'school_star', 'critique', 'judge'):
+            setattr(r, name, lambda name=name: ran.append(name))
+        r.sampling_phases()
+        self.assertEqual(ran, ['exam_before'])
+        self.assertTrue(all(p['skipped'] == 'no GPU on this host' for p in r.report['phases'] if p['name'] in ('star', 'critique', 'judge')))
+
+    # -- checkpoints inside a phase, and a resume that carries on from there
+    def star_run(self, r, gen_log):
+        r.records = [{'kind': 'gym', 'task': {'game': 'maze', 'level': 1, 'seed': i}} for i in range(40)]
+        r.exam = {'tools': {'system': 'sys'}}
+        r.report_card = []
+
+        class Tasks:
+            def make(self, tasks):
+                return [f"puzzle {t['seed']}" for t in tasks]
+
+            def check(self, items):
+                return [{'correct': a.startswith('right'), 'score': 0, 'why': 'no'} for _, a in items]
+
+            def reportcard(self):
+                return []
+        r.tasks = Tasks()
+
+        def gen(prompts, n=1, temperature=0.0, max_new=384, batch=32, card=None):
+            gen_log.append([G.re.search(r'puzzle (\d+)', p).group(1) for p in prompts])
+            return [[f'right {G.re.search(r"puzzle (\d+)", p).group(1)}', 'wrong'] for p in prompts]
+        r.generate = gen
+
+    def test_an_interrupted_star_phase_resumes_mid_phase_and_loses_nothing(self):
+        t = [0.0]
+        r = self.fresh(clock=lambda: t[0])
+        gen1 = []
+        self.star_run(r, gen1)
+        real_gen = r.generate
+
+        def slow(*a, **k):
+            t[0] += 1000  # each batch of 8 puzzles takes 1000 s of this session (1 h, saved and stopped 10 min before)
+            return real_gen(*a, **k)
+        r.generate = slow
+        f = FakeModules()
+        with f, self.assertRaises(G.SessionOver):
+            r.star()
+        self.assertEqual(len(gen1), 4, 'four batches: the fourth ends past the point (10 minutes before the hour) where it saves and stops')
+        saved = f.uploaded[('wip-week-0007', 'wip/week-0007')]
+        self.assertIn(('branch', 'o/ghosty-training', 'wip-week-0007'), f.calls, 'checkpoints on their own branch')
+        state = json.loads(saved['state.json'])['state']
+        self.assertEqual(state['at']['star']['done'], 32)
+        self.assertEqual(len(saved['star.jsonl'].decode().splitlines()), 32, 'the right answers so far went up with it')
+        # the next session: the checkpoint comes back and STaR carries on at puzzle 25
+        r2 = self.fresh()
+        gen2 = []
+        self.star_run(r2, gen2)
+        with FakeModules(checkpoint=f.uploaded):
+            r2.resume()
+            r2.star()
+        done1 = [x for b in gen1 for x in b]
+        done2 = [x for b in gen2 for x in b]
+        self.assertFalse(set(done1) & set(done2), 'no puzzle sampled twice')
+        self.assertEqual(sorted(done1 + done2, key=int), [str(i) for i in range(40)], 'and none left out')
+        kept = r2.load_jsonl('star.jsonl')
+        self.assertEqual(sorted(int(k['answer'].split()[1]) for k in kept), list(range(40)), 'the first session\'s answers kept')
+        self.assertEqual(r2.report['trained']['star'], 40)
+        self.assertEqual(r2.report['sessions'], 2)
+        self.assertEqual([x['why'] for x in r2.report['rejected']].count("puzzles that are on the phone's report card"), 1, 'counted once, not again on the resume')
+
+    def test_checkpoints_inside_a_phase_every_15_minutes(self):
+        t = [0.0]
+        r = self.fresh(clock=lambda: t[0])
+        r.session = G.Deadline(9, now=0, clock=lambda: t[0])
+        gen = []
+        self.star_run(r, gen)
+        real_gen = r.generate
+        r.generate = lambda *a, **k: (t.__setitem__(0, t[0] + 300), real_gen(*a, **k))[1]  # 5 minutes a batch
+        f = FakeModules()
+        with f:
+            r.star()
+        ups = [c for c in f.calls if c[0] == 'upload' and c[2] == 'wip/week-0007']
+        self.assertEqual(len(ups), 1, 'five batches of 5 minutes: one checkpoint at 15 minutes, none after (the phase end saves)')
+        self.assertTrue(G.CHECKPOINT_MINUTES >= 10 and G.CHECKPOINT_MINUTES <= 20)
+
+    def test_an_interrupted_exam_keeps_its_answers_and_carries_on(self):
+        items = [{'area': 'gym', 'core': True, 'task': {'game': 'maze', 'level': 1, 'seed': i}, 'prompt': f'q{i}'} for i in range(100)]
+        t = [0.0]
+        r = self.fresh(clock=lambda: t[0])
+        asked = []
+
+        def gen(prompts, n=1, temperature=0.0, max_new=384, batch=32, card=None):
+            asked.append(len(prompts))
+            t[0] += 3500
+            return [[f'a{p}'] for p in prompts]
+
+        class Tasks:
+            def check(self, pairs):
+                return [{'correct': True, 'score': 1} for _ in pairs]
+        for run in (r,):
+            run.exam_items = lambda split='exam': items
+            run.exam = {}
+            run.generate = gen
+            run.tasks = Tasks()
+        f = FakeModules()
+        with f, self.assertRaises(G.SessionOver):
+            r.score('current, quantised')
+        self.assertEqual(asked, [64])
+        r2 = self.fresh()
+        r2.exam_items, r2.exam, r2.generate, r2.tasks = (lambda split='exam': items), {}, gen, Tasks()
+        with FakeModules(checkpoint=f.uploaded):
+            r2.resume()
+            scores, _ = r2.score('current, quantised')
+        self.assertEqual(asked, [64, 36], 'only the 36 questions not answered before')
+        self.assertEqual(scores, {'gym': 1.0})
+        # sat whole in an earlier session: not sat again
+        with FakeModules():
+            r2.score('current, quantised')
+        self.assertEqual(asked, [64, 36])
+
+    def sft_model(self, t, calls):
+        class Loss:
+            def __truediv__(self, k):
+                return self
+
+            def backward(self):
+                pass
+
+            def item(self):
+                return 0.5
+
+        class Model:
+            config = types.SimpleNamespace(use_cache=True)
+
+            def train(self):
+                pass
+
+            def gradient_checkpointing_enable(self):
+                pass
+
+            def gradient_checkpointing_disable(self):
+                pass
+
+            def enable_input_require_grads(self):
+                pass
+
+            def parameters(self):
+                return []
+
+            def __call__(self, input_ids=None, attention_mask=None, labels=None):
+                calls.append(input_ids[0][0])
+                t[0] += 300  # five minutes a batch
+                return types.SimpleNamespace(loss=Loss())
+        return Model()
+
+    def test_an_interrupted_sft_carries_on_with_its_optimiser_schedule_and_place(self):
+        t = [0.0]
+        ex = [(f'p{i}', 'a', 'k') for i in range(64)]  # 16 batches of 4, an optimiser step every 4
+        calls = []
+        r = self.fresh(clock=lambda: t[0])
+        r.model = self.sft_model(t, calls)
+        r.encode = lambda p, a: (p, a)
+        r.tensors = lambda batch: (batch, None, None)
+        r.save_adapter = lambda: None
+        f = FakeModules()
+        with f, self.assertRaises(G.SessionOver):
+            r.train_sft(ex, 'sft')
+        self.assertEqual(calls, [f'p{i}' for i in range(0, 48, 4)][:len(calls)])
+        stopped = len(calls)
+        self.assertEqual(stopped % 4, 0, 'stopped between optimiser steps: no half-added gradients lost')
+        self.assertEqual(f.opts[0].steps, stopped // 4)
+        # the next session: from the very batch it stopped at, with the optimiser and the schedule where they were
+        r2 = self.fresh()
+        calls2 = []
+        r2.model = self.sft_model([0.0], calls2)
+        r2.encode, r2.tensors, r2.save_adapter = r.encode, r.tensors, r.save_adapter
+        f2 = FakeModules(checkpoint=f.uploaded)
+        with f2:
+            r2.resume()
+            r2.train_sft(ex, 'sft')
+        self.assertEqual(calls2, [f'p{i}' for i in range(stopped * 4, 64, 4)], 'no batch trained twice, none left out')
+        self.assertEqual(f2.opts[0].steps, 4, 'four optimiser steps in all')
+        self.assertIn(('torch-rng', 'torch-rng'), f2.calls, 'the random state came back too')
+        self.assertEqual(r2._sft_sched.last_epoch, 4)
+
+    def test_the_rate_schedule(self):
+        # one card: exactly the schedule SFT always had
+        for s in range(0, 40, 3):
+            self.assertAlmostEqual(G.lr_factor(s, 37.5), min(1.0, (s + 1) / 10) * max(0.1, 1 - s / 37.5))
+        # two cards: full rate (after the warm-up) while the samples are made, then the fall over the second part
+        self.assertEqual(G.lr_factor(50, 10 ** 9, 10 ** 9), 1.0)
+        self.assertEqual(G.lr_factor(60, 80, 60), 1.0)
+        self.assertAlmostEqual(G.lr_factor(70, 80, 60), 0.5)
+        self.assertAlmostEqual(G.lr_factor(80, 80, 60), 0.1)
+
+    # -- the second card
+    def test_with_two_cards_sampling_runs_on_the_second_beside_the_training(self):
+        r = self.fresh()
+        r.plan = G.device_plan(2)
+        r.checkpoint = lambda: None
+        r.records = []
+        both = threading.Barrier(2, timeout=10)
+        ran = []
+
+        def part(name, meet=False):
+            def fn():
+                if meet:
+                    both.wait()  # only returns when the other card's part is running at the same time
+                ran.append((name, threading.current_thread() is threading.main_thread()))
+            return fn
+        r.sft_known = part('sft_known', meet=True)
+        r.exam_before = part('exam_before', meet=True)
+        for name in ('star', 'critique', 'judge'):
+            setattr(r, name, part(name))
+        r.side_by_side()
+        self.assertEqual(sorted(n for n, _ in ran), ['critique', 'exam_before', 'judge', 'sft_known', 'star'])
+        self.assertTrue(dict(ran)['sft_known'], 'training on the main thread')
+        self.assertFalse(dict(ran)['star'], 'sampling on its own thread')
+        cards = {p['name']: p.get('card') for p in r.report['phases']}
+        self.assertEqual(cards, {'sft_known': 'cuda:0', 'exam_before': 'cuda:1', 'star': 'cuda:1', 'school': None, 'critique': 'cuda:1', 'judge': 'cuda:1'})
+        self.assertIn('saved_minutes', r.report['cards'], 'the report says what running side by side saved')
+        # STaR samples on the second card's model
+        devs = []
+        r2 = self.fresh()
+        self.star_run(r2, [])
+        real = r2.generate
+        r2.generate = lambda prompts, card=None, **k: devs.append(card.dev) or real(prompts, card=card, **k)
+        r2.sampling = G.Card('cuda:1', lambda: 'the brain the week started from', lambda: None)
+        with FakeModules():
+            r2.star()
+        self.assertEqual(set(devs), {'cuda:1'})
+
+    def test_a_failure_on_one_card_stops_the_other_after_it_saved(self):
+        r = self.fresh()
+        saved = []
+
+        def sampling():
+            raise RuntimeError('CUDA out of memory on cuda:1')
+
+        def training():
+            for _ in range(200):
+                try:
+                    r.tick('sft_known', lambda: saved.append('saved'))
+                except G.SessionOver:
+                    raise
+                time.sleep(0.01)
+        r.checkpoint = lambda: None
+        with self.assertRaisesRegex(RuntimeError, 'out of memory'):
+            r.side_by_side_calls([training, sampling])
+        self.assertEqual(saved, ['saved'], 'the training card saved its place before stopping')
+
+    def test_the_gate_scoring_uses_both_cards(self):
+        r = self.fresh()
+        r.plan = G.device_plan(2)
+        r.dev = r.plan['train']
+        r.sampler = 'the brain the week started from'
+        r.exam_items = lambda split='exam': []
+        r.model = types.SimpleNamespace(modules=lambda: [])
+        other = types.SimpleNamespace(modules=lambda: [])
+        r.adapter_copy = lambda: G.Card('cuda:1', lambda: other, lambda: None)
+        seen = []
+        r.score = lambda label, split='exam', quantised=False, card=None: seen.append((label, card.dev)) or ({'gym': 0.6 if '0.5' in label else 0.5}, {})
+        r.pick_scale()
+        self.assertEqual(sorted(seen), [('new, LoRA × 0.5', 'cuda:1'), ('new, LoRA × 1.0', 'cuda:0')])
+        self.assertEqual(r.scale, 0.5)
+        self.assertEqual(r.report['dev'], {'1.0': 0.5, '0.5': 0.6})
+
+    # -- the session's end, and the week decided
+    def test_a_session_that_runs_out_reports_paused_and_keeps_its_checkpoint(self):
+        r = self.fresh()
+        r.phase_setup = lambda: None
+        r.clean_wip = lambda: self.fail('a paused week keeps its checkpoint')
+
+        def out():
+            raise G.SessionOver('star')
+        r.sampling_phases = out
+        r.state['done'] = ['exam_before']
+        r.main()
+        self.assertEqual(len(self.hooked), 1)
+        p = self.hooked[0]['paused']
+        self.assertEqual((p['week'], p['phase'], p['done'], p['host']), (7, 'star', ['exam_before'], 'kaggle'))
+        self.assertGreater(p['left_hours'], 8)
+        self.assertNotIn('report', self.hooked[0], 'not a report: the gate judges only a finished run')
+
+    def test_a_decided_week_clears_its_checkpoint_branch(self):
+        r = self.fresh()
+        f = FakeModules()
+        with f:
+            r.clean_wip()
+        self.assertEqual([c for c in f.calls if c[0] in ('delete', 'squash', 'delete-branch')],
+                         [('delete', 'o/ghosty-training', 'wip/week-0007', 'wip-week-0007'), ('squash', 'o/ghosty-training', 'wip-week-0007'), ('delete-branch', 'o/ghosty-training', 'wip-week-0007')])
+        # called by main once the week is decided; not after an error before the exam (the brain pushes it again)
+        for report, cleaned in (({'after': {'gym': 0.5}}, True), ({'error': 'x'}, False), ({}, True)):
+            r = self.fresh()
+            r.phase_setup = lambda: None
+            r.sampling_phases = lambda: None
+            r.phase = lambda *a, **k: None
+            r.keep_for_later = lambda: None
+            r.report.update(report)
+            done = []
+            r.clean_wip = lambda: done.append(1)
+            if 'error' in report:
+                r.sampling_phases = lambda: (_ for _ in ()).throw(OSError('503'))
+            r.main()
+            self.assertEqual(bool(done), cleaned, report)
+
+
+class DailyGpu(unittest.TestCase):
+    """The daily GPU (BRIEF-TRAINING-RESILIENCE part B): the Space on the owner's Hugging Face account runs this file's
+    DailyPool. No GPU and no Hugging Face here: the model, the checker and the GPU call are stand-ins."""
+
+    SPACE = os.path.join(os.path.dirname(HERE), 'space')
+
+    def pool(self, records=None, clock=None):
+        p = G.DailyPool('hf_secretTOKEN123', 'the-key', clock=clock or time.time)
+        p.records = records if records is not None else [{'kind': 'gym', 'task': {'game': 'maze', 'level': 2, 'seed': i}} for i in range(10)] + [{'kind': 'evol', 'messages': []}]
+        p.exam = {'tools': {'system': 'You are Ghosty.'}}
+        p.report_card = ['puzzle 3']
+
+        class Tasks:
+            def make(self, tasks):
+                return [f"puzzle {t['seed']}" for t in tasks]
+
+            def check(self, items):
+                return [{'correct': a.startswith('right'), 'score': 0} for _, a in items]
+        p.tasks = Tasks()
+        p.prepare_data = lambda a: None
+        p.prepare_model = lambda a: None
+        return p
+
+    def test_its_budget_is_inside_the_free_daily_minutes(self):
+        self.assertEqual(G.POOL_SECONDS, 270, "4.5 of a free account's 5 GPU-minutes a day")
+        self.assertEqual(G.pool_seconds(9999), 270)
+        self.assertEqual(G.pool_seconds(5), 30)
+        self.assertEqual(G.pool_seconds(None), 270)
+        self.assertEqual(G.pool_seconds(120), 120)
+
+    def test_only_the_brain_may_use_it(self):
+        p = self.pool()
+        for args in ('{}', json.dumps({'key': 'wrong'}), json.dumps({'key': ''}), 'not json', json.dumps(['the-key'])):
+            self.assertIn('error', p.call('sample', args, gpu=lambda *a: self.fail('no GPU time for a stranger')))
+        self.assertFalse(G.pool_allowed('', ''), 'an empty key never opens it')
+        self.assertEqual(p.call('train', json.dumps({'key': 'the-key'})), {'error': "no call 'train'"})
+        # a failure never shows the token
+        p.tasks = None  # (a Space woken afresh: it fetches the GYM's program first)
+        p.prepare_data = lambda a: (_ for _ in ()).throw(OSError('401 for hf_secretTOKEN123'))
+        self.assertEqual(p.call('score', json.dumps({'key': 'the-key'})), {'error': 'OSError: 401 for hf_…'})
+
+    def test_a_different_slice_of_the_weeks_puzzles_each_day(self):
+        recs = [{'kind': 'gym', 'task': {'game': 'maze', 'seed': i}} for i in range(10)] + [{'kind': 'library', 'messages': []}, {'kind': 'drill', 'task': {'drill': 1, 'seed': 99}}]
+        day1 = [r['task']['seed'] for r in G.pool_pick(recs, 4, 1)]
+        day2 = [r['task']['seed'] for r in G.pool_pick(recs, 4, 2)]
+        self.assertEqual(len(day1), 4)
+        self.assertFalse(set(day1) & set(day2), 'another slice the next day')
+        self.assertEqual(G.pool_pick([{'kind': 'evol', 'messages': []}], 4, 1), [], 'only puzzles the GYM can check')
+        self.assertEqual(len(G.pool_pick(recs[:3], 24, 5)), 3)
+
+    def test_sample_then_score_gives_checked_star_records(self):
+        p = self.pool()
+        lent = []
+
+        def gpu(prompts, n, temperature, max_new, seconds, quantised=False):
+            lent.append((len(prompts), n, seconds, quantised))
+            return [[f'right {i}', 'wrong', f'right {i}'] for i, _ in enumerate(prompts)]
+        out = p.call('sample', json.dumps({'key': 'the-key', 'n': 5, 'k': 3, 'day': 0, 'seconds': 200}), gpu)
+        self.assertEqual(lent, [(4, 3, 200, False)], "five picked, the one on the phone's report card left out")
+        self.assertEqual(out['asked'], 4)
+        self.assertNotIn('puzzle 3', [s['ask'] for s in out['samples']])
+        scored = p.call('score', json.dumps({'key': 'the-key', 'samples': out['samples'], 'system': out['system']}))
+        self.assertEqual((scored['checked'], scored['right']), (12, 8))
+        self.assertEqual(len(scored['records']), 4, 'one right answer a puzzle (the same answer twice counts once)')
+        for r in scored['records']:
+            self.assertEqual(G.record_problem(r), '', r)
+            self.assertEqual(r['messages'][0]['content'], 'You are Ghosty.')
+            self.assertTrue(r['from'].startswith('daily GPU · gym maze level 2'))
+        # trained as their own kind, so the report says what the daily GPU added
+        run = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        run.records = scored['records']
+        self.assertEqual({k for _, _, k in run.record_examples()}, {'daily'})
+
+    def test_it_stops_before_the_lent_seconds_run_out(self):
+        t = [0.0]
+        p = self.pool(clock=lambda: t[0])
+        p.generate = lambda prompts, n=1, temperature=0.0, max_new=384: (t.__setitem__(0, t[0] + 100), [['x'] * n for _ in prompts])[1]
+        out = p.generate_now([f'q{i}' for i in range(40)], 1, 0.8, 384, 270)
+        self.assertEqual(sum(1 for o in out if o), 24, 'three batches of 8 inside 85 % of 270 s; the rest not reached')
+        self.assertIsNone(out[-1])
+
+    def test_a_school_paper_chunk_is_sat_with_the_phones_exam_prompt_on_the_shipped_weights(self):
+        p = self.pool()
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        paper = [{'id': 'q1', 'q': 'What is 7 × 8?', 'type': 'number', 'marks': 1}, {'id': 'q2', 'q': 'Write about a dog.', 'type': 'extended', 'marks': 8}, {'id': 'q3', 'q': 'What is 2 + 2?', 'type': 'number', 'marks': 1}]
+        f = FakeModules()
+        f.files = {'school_paper.jsonl': ''.join(json.dumps(x) + '\n' for x in paper)}
+        seen = []
+        try:
+            with f:
+                out = p.call('exam', json.dumps({'key': 'the-key', 'data_repo': 'o/ghosty-training', 'paper_file': 'school_paper.jsonl', 'data_rev': 'd' * 40, 'chunk': [0, 2], 'seconds': 90}),
+                             lambda prompts, n, temperature, max_new, seconds, quantised=False: seen.append((prompts, n, temperature, max_new, seconds, quantised)) or [[f'answer {i}'] for i in range(len(prompts))])
+        finally:
+            G.WORK = work
+        self.assertEqual(out, {'answers': [{'id': 'q1', 'given': 'answer 0'}, {'id': 'q2', 'given': 'answer 1'}], 'asked': 2})
+        prompts, n, temperature, max_new, seconds, quantised = seen[0]
+        self.assertEqual(prompts[0], G.chat_prompt(G.exam_prompt(paper[0])), "the phone's exam prompt")
+        self.assertEqual((n, temperature, max_new, seconds, quantised), (1, 0.3, 350, 90, True), 'as the phone sits it, on the weights as they ship')
+
+    def test_the_space_files(self):
+        req = open(os.path.join(self.SPACE, 'requirements.txt')).read()
+        pins = [l for l in req.splitlines() if l and not l.startswith('#')]
+        for pin in G.PIP_PINS_QWEN3_5:
+            if not pin.startswith('huggingface_hub'):
+                self.assertIn(pin, pins, "the Space runs the weekly notebook's Qwen3.5 stack")
+        self.assertIn('huggingface_hub==1.33.0', pins, 'Gradio 6.29.1 wants huggingface_hub 1.16 or later; transformers 5.5.4 below 2')
+        torch_pin = next(l for l in pins if l.startswith('torch=='))
+        self.assertTrue((2, 8) <= tuple(int(x) for x in torch_pin.split('==')[1].split('.')[:2]) <= (2, 13), "ZeroGPU's supported torch")
+        readme = open(os.path.join(self.SPACE, 'README.md')).read()
+        self.assertRegex(readme, r'(?m)^sdk: gradio$')
+        self.assertRegex(readme, r'(?m)^sdk_version: 6\.29\.1$')
+        self.assertEqual(open(os.path.join(self.SPACE, 'packages.txt')).read().split(), ['nodejs'], "node, for the GYM's own checker")
+        app = open(os.path.join(self.SPACE, 'app.py')).read()
+        for fn in ('sample', 'score', 'exam'):
+            self.assertIn(f"POOL.call('{fn}'", app)
+        self.assertIn('@spaces.GPU(duration=_seconds)', app)
+        self.assertNotIn("POOL.call('score', args, _generate)", app, 'the checker needs no GPU time')
+        self.assertIn('ghosty_weekly as G', app)
+
+
 SYS = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
 
 
@@ -529,7 +1131,7 @@ class SchoolPractice(unittest.TestCase):
         r.records = records
         r.replay = []
         r.general_data = lambda n: []
-        r.generate = lambda prompts, n=1, temperature=0.0, max_new=384, batch=32: [list(replies)[:n] for _ in prompts]
+        r.generate = lambda prompts, n=1, temperature=0.0, max_new=384, batch=32, card=None: [list(replies)[:n] for _ in prompts]
         return r
 
     def test_only_checked_attempts_are_kept_and_written_ones_are_learned(self):
@@ -634,8 +1236,9 @@ class MonthlyRetrain(unittest.TestCase):
             r = G.Run(self.cfg(scratch))
             training = Peft()
             r.model = training
-            r.merged_base = lambda chain: built.append(chain) or where.append(list(training.moves)) or 'the brain in use'
-            r.score = lambda label, split='exam', quantised=False: scored.append((r.model if isinstance(r.model, str) else ('training', r.model.off), quantised)) or ({'gym': 0.5}, {'gym': 0.5})
+            r.merged_base = lambda chain, dev=None: built.append(chain) or where.append(list(training.moves)) or 'the brain in use'
+            # (the model scored is the card's: the brain in use built apart, or the training model with its LoRA off)
+            r.score = lambda label, split='exam', quantised=False, card=None: scored.append(((card or r.train_card).model if isinstance((card or r.train_card).model, str) else ('training', r.model.off), quantised)) or ({'gym': 0.5}, {'gym': 0.5})
             r.exam_before()
             self.assertIs(r.model, training, 'back on the model being trained')
             self.assertEqual(r.report['before'], {'gym': 0.5})
@@ -1060,8 +1663,8 @@ class CpuSmoke(unittest.TestCase):
         real_generate = self.r.generate
         answers = {}
 
-        def gen(prompts, n=1, temperature=0.0, max_new=384, batch=32):
-            outs = real_generate(prompts, n=n, temperature=temperature, max_new=8)
+        def gen(prompts, n=1, temperature=0.0, max_new=384, batch=32, card=None):
+            outs = real_generate(prompts, n=n, temperature=temperature, max_new=8, card=card)
             return [[answers['code']] + o[1:] if 'Mastermind' in p else o for p, o in zip(prompts, outs)]
         wrong = self.r.tasks.check([({'game': 'codebreaker', 'level': 1, 'seed': 11}, '0')])[0]
         answers['code'] = wrong['why'].split()[-1].strip('.')

@@ -17,6 +17,7 @@ import { brain, speechCaps } from '../api/brain';
 import { brainVoice, naturalBritish, phoneVoiceScore } from '../../../../packages/shared/src/voices';
 import { settings, ui } from '../state/app';
 import { BargeDetector } from './barge';
+import { brief, clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 
 let voices: SpeechSynthesisVoice[] = [];
@@ -106,34 +107,6 @@ export function bestVoice(): SpeechSynthesisVoice | null {
 /** A natural British voice installed on this phone ("Serena (Premium)", "Daniel (Enhanced)"), or null. */
 export const naturalPhoneVoice = (): SpeechSynthesisVoice | null => listVoices().find(naturalBritish) ?? null;
 
-const clean = (t: string) =>
-  t
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/https?:\/\/\S+/g, 'link')
-    .replace(/[*_#`>~|]+/g, ' ')
-    .replace(/\s*\n+\s*/g, '. ')
-    .replace(/\bkm\b/g, 'kilometres')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-/** The sentences of a reply, none longer than `max` characters (a long one is cut at a comma, else a space). */
-export function sentences(t: string, max = 300): string[] {
-  const out: string[] = [];
-  for (const raw of t.match(/[^.!?]+[.!?]*\s*/g) ?? [t]) {
-    let s = raw.trim();
-    while (s.length > max) {
-      const slice = s.slice(0, max);
-      let cut = Math.max(slice.lastIndexOf(', '), slice.lastIndexOf('; '), slice.lastIndexOf(': ')) + 1;
-      if (cut < max / 3) cut = slice.lastIndexOf(' ');
-      if (cut < max / 3) cut = max;
-      out.push(s.slice(0, cut).trim());
-      s = s.slice(cut).trim();
-    }
-    if (s) out.push(s);
-  }
-  return out;
-}
-
 let speakToken = 0;
 /** After a natural-voice error, ask for the plain voice until this time (a short break, not the rest of the day). */
 let auraBreakUntil = 0;
@@ -158,14 +131,16 @@ let progress = { parts: [] as string[], i: 0, owner: undefined as string | undef
 
 /**
  * Read `text` aloud. `owner`: which chat entry this is (session.ts passes the reply's own tag), so
- * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE).
+ * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE);
+ * `brief`: a reply read out by itself — a long one stops after about half a minute, "The rest is on
+ * screen." (LISTEN reads the whole of it).
  */
-export function speak(text: string, opts: { choice?: Choice; owner?: string } = {}): Promise<void> {
+export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean } = {}): Promise<void> {
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
   const token = ++speakToken;
-  const parts = sentences(t);
+  const parts = opts.brief ? brief(sentences(t)) : sentences(t);
   progress = { parts, i: 0, owner: opts.owner };
   // A clip still playing from the last reply stops now, so its handlers never touch the next clip.
   stopClip?.();
@@ -184,9 +159,10 @@ export function speakSample(choice: Choice): Promise<void> {
   return speak("Evening. This is how I'll sound. Say the word and I'll stop.", { choice });
 }
 
-// Choosing a voice again in SETTINGS ends any wait on the phone's voice.
+// Choosing a voice again in SETTINGS ends any wait on the phone's voice; VOICE OFF also silences what is being said now.
 settings.subscribe((s, prev) => {
   if (s.voiceEngine !== prev.voiceEngine || s.brainVoice !== prev.brainVoice) phoneUntil = 0;
+  if (prev.speak && !s.speak) stopSpeaking();
 });
 
 function speakPhone(parts: string[], token: number, choice: Choice, offset = 0): Promise<void> {
@@ -422,10 +398,15 @@ export const micLevel = { level: 0, spectrum: null as Uint8Array | null };
 
 let abortListen: (() => void) | null = null;
 
+/** What the owner is told when Ghosty cannot hear (plain words, never "Failed to fetch"). */
+const NO_SIGNAL = "No connection, so I can't hear you right now. Type it instead.";
+const MIC_BLOCKED = 'Microphone blocked. On iPhone: Settings › Safari › Microphone › Allow (or tap aA › Website Settings), then tap the mic again.';
+const NO_EARS = "I can't hear you in this browser: it has no speech recognition, and your brain can't hear until it runs on Cloudflare.";
+
 function listenBrowser(onInterim: (t: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!SRClass) {
-      reject(new Error('This browser has no speech recognition. Add a Groq key in System to use Whisper.'));
+      reject(new Error(NO_EARS));
       return;
     }
     const rc = new SRClass();
@@ -442,8 +423,11 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
       }
       onInterim((fin + interim).trim());
     };
+    // Nothing said, or stopped: an empty answer. Anything else is said in plain words (a conversation then ends,
+    // rather than starting the recogniser again and again with nothing on the screen).
     rc.onerror = (e) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') reject(new Error('Microphone blocked. Allow it in the browser address bar.'));
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      reject(new Error(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? MIC_BLOCKED : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? 'No microphone found on this device.' : "This phone couldn't turn what you said into words. Try again, or type it."));
     };
     rc.onend = () => resolve(fin.trim());
     abortListen = () => rc.abort();
@@ -485,7 +469,7 @@ async function openMic(): Promise<Mic> {
   } catch (e) {
     void ctx.close();
     const name = (e as Error)?.name;
-    if (name === 'NotAllowedError' || name === 'SecurityError') throw new Error('Microphone blocked. On iPhone: Settings › Safari › Microphone › Allow (or tap aA › Website Settings), then tap the mic again.');
+    if (name === 'NotAllowedError' || name === 'SecurityError') throw new Error(MIC_BLOCKED);
     if (name === 'NotFoundError') throw new Error('No microphone found on this device.');
     throw e;
   }
@@ -623,13 +607,19 @@ async function listenWhisper(): Promise<string> {
   const c = carry;
   carry = null;
   const r = c && c.rec.state === 'recording' ? c : record(m);
+  // `speech`: a voice was heard (the end of it ends the recording); `voiced`: ms of anything louder than the room, so a
+  // soft voice that never reached `speech` is still sent, and a recording of only the room is not; `ticks`: readings
+  // taken (a meter that hardly ran — a suspended context, a busy phone — proves nothing, so then it is sent as before).
+  let speech = !!c;
+  let voiced = 0;
+  let ticks = 0;
   const done = new Promise<void>((resolve) => {
     let floor = 0.008;
-    let speech = !!c;
     let speechAt = 0;
     let lastLoud = c ? performance.now() : 0;
     let calib = c ? 20 : 0;
     const t0 = performance.now();
+    let last = t0;
     let stopped = false;
     abortListen = () => {
       stopped = true;
@@ -641,6 +631,9 @@ async function listenWhisper(): Promise<string> {
       micLevel.spectrum = m.freq;
       if (!speech) floor = ++calib < 20 ? Math.max(floor * 0.9 + rms * 0.1, 0.003) : floor * 0.995 + Math.min(rms, floor * 1.5) * 0.005;
       const thr = Math.max(0.018, floor * 3.2);
+      if (rms > Math.max(0.008, floor * 2)) voiced += Math.min(1000, now - last);
+      last = now;
+      ticks++;
       if (rms > thr) {
         lastLoud = now;
         if (!speech) {
@@ -671,6 +664,11 @@ async function listenWhisper(): Promise<string> {
     mic = null;
     m.stream.getTracks().forEach((t) => t.stop());
   }
+  // Only the room was heard (12 s and no voice): nothing goes to the brain (Whisper "hears" words in silence, and each try counts).
+  if (!speech && voiced < 250 && ticks >= 30 && m.ctx.state === 'running') {
+    if (mic !== m) void m.ctx.close().catch(() => undefined);
+    return '';
+  }
   const blob = new Blob(r.chunks, { type: r.rec.mimeType || r.mime }); // iPhones record audio/mp4, others webm
   // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats). A barge-in
   // recording began while Ghosty was still speaking: it is cut to a moment before the owner's voice began.
@@ -678,19 +676,39 @@ async function listenWhisper(): Promise<string> {
   const wav = blob.size >= 4000 ? await toWav(m.ctx, blob, skip).catch(() => null) : null;
   if (mic !== m) void m.ctx.close().catch(() => undefined);
   if (blob.size < 4000) return '';
-  const text = (await brain.stt(wav ?? blob)).trim();
+  // The recording is done: the screen stops saying LISTENING while the words are worked out.
+  writing = true;
+  ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
+  const text = (
+    await brain.stt(wav ?? blob).catch((e: unknown) => {
+      throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
+    })
+  ).trim();
   return /^(thank you|thanks for watching|you|bye)\.?$/i.test(text) ? '' : text;
 }
 
-/** Listen for one utterance. */
+/** The recording is with the brain and its words are being worked out (listen shows "writing down what you said…"). */
+let writing = false;
+
+/**
+ * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
+ * instead when there is one, else the owner is told so before saying a word.
+ */
 export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined): Promise<string> {
   stopSpeaking();
+  const offline = navigator.onLine === false;
+  if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
+  const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {
-    return useWhisper && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
+    return useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
   } finally {
     abortListen = null;
     if (ui.get().voice === 'listening') ui.set({ voice: 'idle' });
+    if (writing) {
+      writing = false;
+      ui.set({ ...(ui.get().voice === 'thinking' ? { voice: 'idle' as const } : {}), ...(wasBusy ? {} : { busy: false, status: '' }) });
+    }
   }
 }
 

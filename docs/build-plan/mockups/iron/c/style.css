@@ -1,0 +1,135 @@
+/* C · Hologram minimal. Route C's calm (space, large type, one glass, one accent) with a holographic layer:
+   the cards are translucent and lit from behind (the theme's light rises through them from below), the content
+   itself glows where it is live, and a sweep of light crosses what you touch. No brackets, no scan lines, no metal:
+   the least decoration and the most light. Closest to today's styles.css (the same glass and hairline). */
+.dir-c { --back: rgba(var(--cr), .26); }
+.dir-c .lensvf .gl { display: none; }
+
+/* ---------- the room: graphite, one soft light behind the title ---------- */
+.dir-c .room { background: radial-gradient(ellipse 85% 30% at 50% -6%, rgba(var(--cr), .14), transparent 72%), radial-gradient(ellipse 60% 24% at 50% 100%, rgba(var(--cr), .05), transparent 70%), var(--bg); }
+.dir-c .round { background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.08); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+.dir-c .cmdbar { background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px -14px rgba(var(--cr), .35); color: var(--ink3); }
+.dir-c .cmdbar .mic { background: var(--c); color: #04131b; box-shadow: 0 0 16px rgba(var(--cr), .55); }
+
+/* ---------- the card: translucent glass, lit from behind and below; a bright top edge ---------- */
+.dir-c .inst {
+  background: radial-gradient(120% 85% at 50% 125%, var(--back), transparent 62%), linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.025));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.075), inset 0 1px 0 rgba(255,255,255,.14), 0 26px 50px -24px rgba(var(--cr), .45), 0 18px 40px rgba(0,0,0,.45);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8);
+}
+.dir-c .inst::before { content: ''; position: absolute; left: 18%; right: 18%; bottom: -1px; height: 1px; z-index: 1; background: linear-gradient(90deg, transparent, rgba(var(--cr), .7), transparent); }
+/* touch: a sweep of light runs across the card, and its back light comes up */
+.dir-c .inst.touch { background: radial-gradient(120% 85% at 50% 125%, rgba(var(--cr), .32), transparent 65%), linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); }
+.dir-c .inst.touch::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(118deg, transparent 22%, rgba(255,255,255,.04) 34%, rgba(var(--cr), .16) 44%, rgba(255,255,255,.09) 48%, rgba(var(--cr), .1) 54%, transparent 68%); }
+.dir-c .kick { color: var(--ink3); }
+.dir-c .kick em { color: var(--c); text-shadow: 0 0 10px rgba(var(--cr), .7); }
+.dir-c .kick em.off { color: var(--ink3); text-shadow: none; }
+.dir-c .hubtile .t { font-size: 18px; }
+.dir-c .rd b { font-weight: 500; }
+.dir-c .rd.lv b { color: #e9f9ff; text-shadow: 0 0 14px rgba(var(--cr), .75), 0 0 2px rgba(var(--cr), .6); }
+.dir-c .ctr b { color: #e9f9ff; text-shadow: 0 0 16px rgba(var(--cr), .8); font-weight: 600 !important; }
+.dir-c .ctr .of { font-size: 13px; color: var(--ink3); text-shadow: none; }
+.dir-c .coursemap .cmk { color: var(--ink3); }
+.dir-c .segs i { background: rgba(255,255,255,.09); }
+.dir-c .segs i.on { background: var(--c); box-shadow: 0 0 10px rgba(var(--cr), .7); }
+.dir-c .segs i.live { background: linear-gradient(90deg, var(--c), rgba(var(--cr), .2)); }
+.dir-c .hubtile.mini .mv b { color: #e9f9ff; text-shadow: 0 0 12px rgba(var(--cr), .7); }
+.dir-c .dot.pulse { box-shadow: 0 0 10px var(--c); }
+.dir-c .lensvf .vfcap { color: var(--ink3); }
+.dir-c .tryrow { background: rgba(255,255,255,.045); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+
+/* ---------- the SVG: faint white line work, light only where it is live ---------- */
+.dir-c :is(.bz, .g-ring, .gr-dial, .vf-lens, .vf-grid, .lamps, .gy-bz, .vf-ret) { display: none; }
+.dir-c svg .ln { fill: none; stroke: rgba(255,255,255,.34); stroke-width: .7; }
+.dir-c svg .ln2 { fill: none; stroke: rgba(255,255,255,.1); stroke-width: .55; }
+.dir-c svg .lit { fill: none; stroke: var(--c); stroke-width: 1.2; filter: url(#glow); stroke-linecap: round; }
+.dir-c svg .fl { fill: var(--c2); filter: url(#glow); }
+.dir-c svg .fl2 { fill: rgba(255,255,255,.035); }
+.dir-c .g-sph { fill: url(#sph); opacity: .75; }
+.dir-c .g-mer, .dir-c .g-mer ellipse { fill: none; stroke: rgba(255,255,255,.08); stroke-width: .5; }
+.dir-c .g-eq { fill: none; stroke: rgba(255,255,255,.2); stroke-width: .6; }
+.dir-c .g-orbit :is(ellipse, path) { fill: none; stroke: rgba(var(--cr), .28); stroke-width: .5; }
+.dir-c .g-dot { fill: var(--c2); }
+.dir-c .g-dots { filter: url(#glow); }
+.dir-c .g-sat { fill: #fff; filter: url(#glow2); }
+.dir-c .g-rim { fill: none; stroke: rgba(var(--cr), .6); stroke-width: .9; filter: url(#glow); }
+.dir-c .g-you circle:first-child { fill: none; stroke: #fff; stroke-width: .7; }
+.dir-c .gl { opacity: .8; }
+.dir-c .vf-brk { fill: none; stroke: rgba(255,255,255,.55); stroke-width: 1.3; stroke-linecap: round; }
+.dir-c .vf-scan rect { opacity: .8; }
+.dir-c .m-l { stroke: rgba(255,255,255,.1); stroke-width: .5; }
+.dir-c .m-l.lit { stroke: rgba(var(--cr), .5); stroke-width: .6; filter: none; }
+.dir-c .m-n { fill: rgba(255,255,255,.3); }
+.dir-c .m-n.on { fill: var(--c2); filter: url(#glow); }
+.dir-c .m-core { fill: #fff; filter: url(#glow2); }
+.dir-c .sg { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 3.2; stroke-linecap: round; }
+.dir-c .sg.on { stroke: var(--c); filter: url(#glow); }
+.dir-c .sg.live { stroke: rgba(var(--cr), .5); }
+.dir-c .ctx { font: 600 10px var(--sf); fill: #e9f9ff; text-anchor: middle; filter: url(#glow); }
+.dir-c .gymdraw .mv { fill: none; stroke: var(--c); stroke-width: 1; stroke-dasharray: 2.5 2; filter: url(#glow); }
+.dir-c .gymdraw .tgt { fill: none; stroke: var(--c); stroke-width: .9; filter: url(#glow); }
+.dir-c .gymdraw .path { stroke: var(--c); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; filter: url(#glow); }
+.dir-c .gymdraw .gold { fill: #fff; filter: url(#glow2); }
+.dir-c .gymdraw .dg { font: 500 5.6px var(--sf); fill: rgba(255,255,255,.45); text-anchor: middle; }
+.dir-c .gymdraw .dg.his { fill: var(--c2); font-weight: 700; filter: url(#glow); }
+.dir-c .gymdraw .hl { fill: rgba(var(--cr), .05); }
+.dir-c .gymdraw .cur { fill: rgba(var(--cr), .2); stroke: var(--c); stroke-width: .7; filter: url(#glow); }
+.dir-c .gymdraw .disc.his { fill: var(--c); filter: url(#glow); }
+.dir-c .gymdraw .disc.opp { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.45); stroke-width: .6; }
+.dir-c .gymdraw .hole { fill: none; stroke: rgba(255,255,255,.1); stroke-width: .5; }
+.dir-c .gymdraw .win { stroke: #fff; stroke-width: .9; filter: url(#glow); }
+.dir-c .gymdraw .trail { stroke: rgba(var(--cr), .45); stroke-width: 1.4; stroke-linecap: round; }
+.dir-c .gymdraw .stone.his { fill: var(--c); filter: url(#glow); }
+.dir-c .gymdraw .stone.opp { fill: rgba(255,255,255,.14); stroke: rgba(255,255,255,.55); stroke-width: .6; }
+.dir-c .gymdraw .stone.next { fill: none; stroke: var(--c2); stroke-width: .8; stroke-dasharray: 1.5 1.2; filter: url(#glow); }
+.dir-c .gymdraw .tgt2 { fill: none; stroke: rgba(var(--cr), .8); stroke-width: .8; stroke-dasharray: 1.5 1.2; }
+.dir-c .gymdraw .box { fill: rgba(255,255,255,.06); stroke: rgba(255,255,255,.6); stroke-width: .8; }
+.dir-c .gymdraw { border-radius: 12px; background: radial-gradient(ellipse 60% 70% at 50% 105%, rgba(var(--cr), .16), transparent 70%); }
+
+/* ---------- GYM ---------- */
+.dir-c .gymsum .big b { color: #e9f9ff; text-shadow: 0 0 16px rgba(var(--cr), .6); }
+.dir-c .gymsum .big .of { color: var(--ink3); text-shadow: none; font-size: 17px; }
+.dir-c .gymsum .bars i { background: rgba(255,255,255,.12); }
+.dir-c .gymsum .bars i.on { background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .7); }
+.dir-c .gymsum .bars i.live { background: linear-gradient(to top, var(--c), rgba(var(--cr), .25)); }
+.dir-c .gymsum .go { background: linear-gradient(180deg, #8fe0ff, var(--c)); color: #04131b; box-shadow: 0 8px 22px -6px rgba(var(--cr), .6), inset 0 1px 0 rgba(255,255,255,.5); }
+.dir-c .gymsum .go .ic { fill: currentColor; stroke: none; }
+.dir-c .gymsum .now .dot { color: var(--c); }
+.dir-c .meter { background: rgba(255,255,255,.08); }
+.dir-c .meter i { background: var(--c); box-shadow: 0 0 10px rgba(var(--cr), .65); }
+.dir-c .meter u { background: rgba(255,255,255,.75); }
+.dir-c .gymcard.live .gymdraw { background: radial-gradient(ellipse 70% 80% at 50% 105%, rgba(var(--cr), .3), transparent 72%); }
+
+/* ---------- the tab bar: route C's glass pill; the lit tab is lit from behind; a sweep on touch ---------- */
+.dir-c .tabcap { background: var(--rcpill); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,0,0,.55); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+.dir-c .tabcap button .halo { position: absolute; left: 50%; top: 60%; width: 64px; height: 50px; margin: -25px 0 0 -32px; border-radius: 50%; opacity: 0; background: radial-gradient(ellipse, rgba(var(--cr), .38), transparent 66%); filter: blur(4px); }
+.dir-c .tabcap button.on { color: var(--c); }
+.dir-c .tabcap button.on .halo { opacity: 1; }
+.dir-c .tabcap button.on .ic { filter: drop-shadow(0 0 6px rgba(var(--cr), .85)); }
+.dir-c .tabcap button.on > span:last-child { text-shadow: 0 0 10px rgba(var(--cr), .7); }
+.dir-c .tabcap .live { background: var(--c); box-shadow: 0 0 0 2px rgba(20,22,25,.9), 0 0 10px var(--c); }
+.dir-c .tabcap .badge { background: var(--r); box-shadow: 0 0 0 2px rgba(20,22,25,.9), 0 0 12px rgba(255,105,97,.6); }
+.dir-c .sweep { display: none; }
+.dir-c .touch .sweep { display: block; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.05) 40%, rgba(var(--cr), .22) 47%, rgba(255,255,255,.07) 52%, transparent 62%); }
+.dir-c .tabcap button.press { color: #fff; }
+.dir-c .tabcap button.press .halo { opacity: .7; }
+
+/* ---------- the chat: the reply lit from behind, its live parts glowing ---------- */
+.dir-c .me span { background: rgba(var(--cr), .16); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+.dir-c .steps { background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+.dir-c .steps .ic { color: var(--c); }
+.dir-c .msg.inst { background: radial-gradient(90% 50% at 0% 0%, rgba(var(--cr), .16), transparent 60%), radial-gradient(120% 70% at 50% 125%, rgba(var(--cr), .14), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025)); }
+.dir-c .rccited { background: rgba(var(--cr), .14); color: var(--c); text-shadow: 0 0 8px rgba(var(--cr), .6); }
+.dir-c .msg .meta { display: none; }
+.dir-c .cite { color: var(--c2); background: rgba(var(--cr), .16); text-shadow: 0 0 8px rgba(var(--cr), .8); }
+.dir-c .claims { background: rgba(255,255,255,.04); }
+.dir-c .src .n { color: var(--c); background: rgba(var(--cr), .12); }
+.dir-c .acts .th { background: rgba(255,255,255,.07); }
+.dir-c .gy-rim { fill: rgba(var(--cr), .14); stroke: rgba(var(--cr), .65); stroke-width: .9; }
+.dir-c .gy-eq { fill: none; stroke: rgba(var(--cr), .5); stroke-width: .5; }
+.dir-c .gy-core { fill: #fff; filter: url(#glow2); }
+.dir-c .composer { background: var(--rcpill); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.55); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+.dir-c .composer .chip { background: rgba(var(--cr), .14); color: var(--c); }
+.dir-c .composer .mic { background: var(--c); color: #04131b; box-shadow: 0 0 18px rgba(var(--cr), .55); }
+
+.dir-c .cap b { background: var(--c); }
