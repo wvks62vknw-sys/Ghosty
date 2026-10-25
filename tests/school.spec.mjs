@@ -33,7 +33,7 @@ function makePdf(lines) {
 }
 const GPS_QUESTIONS = makePdf(['KEY STAGE 2 ENGLISH GRAMMAR, PUNCTUATION AND SPELLING PAPER 1', '1 What is 12 + 30? [1 mark]', '2 What is 7 + 8? [1 mark]', '3 Use the diagram to find angle x [2 marks]', '4 Explain why 9 is not a prime number [2 marks]']);
 const GPS_MARKS = makePdf(['MARK SCHEMES', '1 Answer: 42', '2 Answer: 15', '3 Answer: 40', '4 Answer: it has the factor 3']);
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -80,6 +80,12 @@ const smallTargets = async (page, where) => {
   if (small.length) problems.push(`${where}: buttons under 44 px: ${small.join(', ')}`);
 };
 
+/** On the phone SCHOOL is in sections (ui/sections.ts, one drawn at a time): show the part that holds what is checked next. */
+const sec = async (page, label) => {
+  await page.waitForSelector('#pg-school .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => undefined);
+  return openSection(page, 'school', label);
+};
+
 async function signIn(ready) {
   const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK });
   const page = await ctx.newPage();
@@ -113,20 +119,30 @@ if ((await page.locator('#pg-school .schrung.s-locked .schmark.lock svg').count(
 const navTitle = (await page.locator('#top .navtitle').textContent().catch(() => '')) ?? '';
 const tag = (await page.locator('#pg-school .hero .tag').textContent().catch(() => '')) ?? '';
 if (navTitle !== 'School' && tag !== 'SCHOOL') problems.push(`no "School" title (nav "${navTitle}", tag "${tag}")`);
+await sec(page, 'This stage');
 const subs = await page.$$eval('#pg-school .schsub .schsubname b', (n) => n.map((x) => x.textContent));
 if (subs.join('|') !== 'Talking and listening|Letters and sounds|Numbers|The world around us') problems.push(`nursery subjects: ${subs.join(', ')}`);
 // (A preview brain that has run this spec before already holds papers: the empty states are checked on a fresh one.)
 const before = (await page.evaluate(() => window.__ghosty?.school?.results)) ?? 0;
+await sec(page, 'Results');
 if (!before && !/Nothing sat yet/.test(await page.locator('#pg-school .schresults').textContent())) problems.push('RESULTS does not say nothing was sat yet');
+await sec(page, 'Weak spots');
 if (!before && !/Weak spots show after his first papers/.test(await page.locator('#pg-school .schweak').textContent())) problems.push('WEAK SPOTS does not explain itself before any paper');
 if (!/marked by the code[\s\S]*stronger model against the mark scheme/.test(await page.locator('#pg-school .schset').textContent())) problems.push('no honest note on how marking works');
+await sec(page, 'Ladder');
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${out}/school-start.png` });
 await page.screenshot({ path: `${out}/school-start-full.png`, fullPage: true });
-await noSideways(page, 'the SCHOOL tab');
-await smallTargets(page, 'the SCHOOL tab');
+// every section in turn (one is drawn at a time on the phone): nothing sideways, every button 44 pt
+for (const label of await page.$$eval('#pg-school .secpills .secpill', (b) => b.map((x) => x.textContent ?? ''))) {
+  await sec(page, label);
+  await noSideways(page, `the SCHOOL tab (${label})`);
+  await smallTargets(page, `the SCHOOL tab (${label})`);
+}
+await sec(page, 'Ladder');
 
 // ---- SIT one subject on the stand-in model: "Question x of y", then the result card with a grade -------------------
+await sec(page, 'This stage');
 await page.locator('#pg-school .schsub').nth(2).locator('button').first().click(); // Numbers (its SIT; FREE GPU is beside it)
 await page.waitForFunction(() => /^Question \d+ of \d+$/.test(document.querySelector('#pg-school .schliveh b')?.textContent ?? ''), null, { timeout: 15000 }).catch(async () => problems.push(`no "Question x of y" while he sits it: "${await page.locator('#pg-school .schliveh b').textContent().catch(() => '')}"`));
 if (!(await page.locator('#pg-school .schbtns button.warn:not([hidden])').count())) problems.push('no STOP while he sits');
@@ -149,6 +165,7 @@ if (st?.results !== before + 1) problems.push(`the result is not in the record: 
 await noSideways(page, 'the result');
 
 // ---- RESULTS: the paper with every question, his answer and the marks -----------------------------------------
+await sec(page, 'Results');
 await page.locator('#pg-school .schresults button.schrow').first().click();
 await page.waitForFunction(() => document.querySelectorAll('.modal .schq').length >= 8, null, { timeout: 10000 }).catch(() => problems.push('the paper did not open with its questions'));
 const paperText = (await page.locator('.modal').textContent().catch(() => '')) ?? '';
@@ -161,6 +178,7 @@ await page.locator('.modal .mhead button').click().catch(() => undefined);
 await page.waitForTimeout(300);
 
 // ---- the placement picker lists every stage -------------------------------------------------------------------------
+await sec(page, 'Placement');
 await page.locator('#pg-school .schplace button', { hasText: /placement test/i }).click();
 await page.waitForFunction(() => document.querySelectorAll('#pg-school .schpick button').length === 9, null, { timeout: 5000 }).catch(() => problems.push('the placement picker does not list nine stages'));
 const picks = await page.$$eval('#pg-school .schpick button', (b) => b.map((x) => ({ id: x.dataset.stage, off: x.disabled, papers: x.dataset.papers })));
@@ -177,10 +195,12 @@ await noSideways(page, 'the placement picker');
 await smallTargets(page, 'the placement picker');
 
 // ---- each subject says where its paper comes from ----------------------------------------------------------------
+await sec(page, 'This stage');
 const froms = await page.$$eval('#pg-school .schsub .schfrom', (n) => n.map((x) => x.textContent));
 if (froms.length !== 4 || froms.some((f) => !/^Next paper: written by Ghosty$/.test(f))) problems.push(`the subjects do not say who writes their papers: ${JSON.stringify(froms)}`);
 
 // ---- OFFICIAL PAPERS: the list with source and licence; FETCH reads one on the phone and the brain makes it a paper ----
+await sec(page, 'Papers');
 await page.waitForFunction(() => document.querySelectorAll('#pg-school .schofficial .schoff').length >= 25, null, { timeout: 10000 }).catch(() => problems.push('OFFICIAL PAPERS does not list the official papers'));
 const offs = await page.$$eval('#pg-school .schofficial .schoff', (n) => n.map((x) => ({ id: x.dataset.id, text: x.textContent })));
 if (!offs.some((o) => o.id === 'ks2-2024-gps') || !offs.some((o) => o.id === 'gcse-aqa-8300-1h-2023') || !offs.some((o) => o.id === 'gcse-ocr-j277-01-2023') || !offs.some((o) => o.id === 'alevel-aqa-7357-1-2023')) problems.push(`official papers missing: ${offs.map((o) => o.id).join(', ')}`);
@@ -213,6 +233,7 @@ await page.screenshot({ path: `${out}/school-official-ready.png` });
 await noSideways(page, 'OFFICIAL PAPERS');
 await smallTargets(page, 'OFFICIAL PAPERS');
 // Key Stage 2's grammar paper is official now (picked for a placement, it says so).
+await sec(page, 'Placement');
 await page.locator('#pg-school .schpick button[data-stage="ks2"]').click().catch(() => undefined);
 const ks2Go = (await page.locator('#pg-school .schgo').textContent().catch(() => '')) ?? '';
 if (!/Grammar, punctuation and spelling — official/.test(ks2Go) && !alreadyFetched) problems.push(`Key Stage 2 grammar is not marked official: ${ks2Go}`);
@@ -248,6 +269,7 @@ await ctx.close();
 {
   const { ctx, page } = await signIn(true);
   await page.evaluate(() => (location.hash = 'school'));
+  await sec(page, 'Papers');
   await page.waitForFunction(() => document.querySelectorAll('#pg-school .schreading .schbook').length >= 6, null, { timeout: 20000 }).catch(() => problems.push('READING does not list his shelf'));
   const rows = await page.$$eval('#pg-school .schreading .schbook', (n) => n.map((x) => ({ id: x.dataset.id, text: x.textContent })));
   const shelf = (await page.evaluate(() => window.__ghosty?.school?.reading?.shelf)) ?? [];
@@ -319,6 +341,7 @@ await ctx.close();
     await keysAre(page, { kaggle: false, hf: true });
     await page.evaluate(() => (location.hash = 'school'));
     await page.waitForFunction(() => /needs the Kaggle key/.test(window.__ghosty?.school?.gpu?.why ?? ''), null, { timeout: 15000 }).catch(() => problems.push('[no Kaggle key] no line saying why there is no free GPU button'));
+    await sec(page, 'This stage');
     if (await page.locator('#pg-school button.schgpu:visible, #pg-school button.schgpuall:visible').count()) problems.push('[no Kaggle key] the free GPU buttons are shown');
     const why = (await page.locator('#pg-school .schgpuwhy').textContent().catch(() => '')) ?? '';
     if (!/^SIT ON THE FREE GPU .* needs the Kaggle key: save it in SYSTEM → KEYS\.$/.test(why)) problems.push(`[no Kaggle key] the line: "${why}"`);
@@ -354,6 +377,7 @@ await ctx.close();
   });
   await page.evaluate(() => (location.hash = 'school'));
   await page.waitForFunction(() => window.__ghosty?.school?.gpu?.shown === true, null, { timeout: 15000 }).catch(() => problems.push('[free GPU] the buttons are not shown with the keys saved'));
+  await sec(page, 'This stage');
   const row = page.locator('#pg-school .schsub[data-subject="numbers"]');
   if ((await page.locator('#pg-school button.schgpu:visible').count()) !== 4) problems.push(`[free GPU] not one FREE GPU per subject: ${await page.locator('#pg-school button.schgpu:visible').count()}`);
   if (!(await page.locator('#pg-school button.schgpuall:visible').count())) problems.push('[free GPU] no SIT ON THE FREE GPU beside SIT THE EXAM');
@@ -400,6 +424,7 @@ await ctx.close();
   await page.evaluate(() => (location.hash = 'school'));
   await page.waitForFunction(() => document.querySelectorAll('#pg-school .schrung').length === 9, null, { timeout: 15000 }).catch(() => problems.push('[not downloaded] the ladder did not show'));
   await page.waitForTimeout(500);
+  await sec(page, 'This stage');
   const txt = await page.locator('#pg-school .schstage').textContent();
   if (!/isn't on this phone yet/.test(txt)) problems.push(`[not downloaded] no plain words about the download: ${txt.slice(0, 200)}`);
   if (!(await page.locator('#pg-school .schstage button', { hasText: 'DOWNLOAD IT IN SETTINGS' }).isVisible())) problems.push('[not downloaded] no DOWNLOAD IT IN SETTINGS');

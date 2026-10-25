@@ -408,6 +408,12 @@ LONG.push({ // MEMORY: one stacked page now, no YOU / DIARY & CHAT switch
   panels: { Me: /^ME$/, Patterns: /^PATTERNS/, Timeline: /^TIMELINE/, Diary: /^DIARY/, Chat: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
   tap: 'Timeline', link: { row: /diary he writes/i, pill: 'Diary', panel: /^DIARY/ },
 });
+LONG.push({ // SCHOOL: the nightly report, named by no pill, follows the weak spots above it
+  tab: 'school',
+  pills: ['Ladder', 'This stage', 'Results', 'Weak spots', 'Papers', 'Placement'],
+  panels: { Ladder: /^THE LADDER/, 'This stage': /^THIS STAGE/, Results: /^RESULTS/, 'Weak spots': /^(WEAK SPOTS|NIGHTLY REPORT)/, Papers: /^(OFFICIAL PAPERS|READING)/, Placement: /^PLACEMENT/ },
+  tap: 'Results', link: { row: /Real SATs/i, pill: 'Papers', panel: /^OFFICIAL PAPERS/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;
