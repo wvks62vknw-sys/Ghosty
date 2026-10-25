@@ -254,7 +254,9 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   try {
     await fn(handle);
   } catch (e) {
-    if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
+    if ((e as Error)?.name === 'AbortError') {
+      // the owner said stop (or STOP, or spoke over him): he goes quiet, and says nothing about it
+    } else if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
       // answered on the phone
     } else if (e instanceof AuthError) {
       ui.set({ connected: false });
@@ -354,7 +356,7 @@ function lastQuestion(): string {
   for (const u of users.reverse()) {
     const ask = thinkAsk(u.text);
     if (ask) return ask;
-    if (ask === null && !/^(stop|cancel|quiet|be quiet|shut up)$/i.test(u.text.trim())) return u.text;
+    if (ask === null && !/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(u.text.trim())) return u.text;
   }
   return '';
 }
@@ -421,7 +423,7 @@ export function askBigBrain(question: string): Promise<void> {
 export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  if (/^(stop|cancel|quiet|be quiet|shut up)$/i.test(t)) {
+  if (/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(t)) {
     stopSpeaking();
     stopListening();
     stopOffline();

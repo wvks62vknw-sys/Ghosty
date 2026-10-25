@@ -94,7 +94,8 @@ const toasts = (page) => page.evaluate(() => document.getElementById('toasts')?.
   const paris = mine.findIndex((r) => r.name === 'Spec Paris Jazz');
   check(paris === mine.length - 1, `UK stations should come before the rest: ${mine.map((r) => r.name).join(', ')}`);
 
-  // 2. every control 44 pt
+  // 2. every control 44 pt (measured once the screen's entry animation has finished: mid-way, every control reads a fraction short)
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
   const small = await page.$$eval('#pg-radio :is(.keyrow button, .rw.station .k, .rw.station .n, input)', (es) => es.filter((e) => { const r = e.getBoundingClientRect(); return r.width && r.height && (r.width < 44 || r.height < 44) && e.type !== 'range'; }).map((e) => `${(e.getAttribute('aria-label') ?? e.textContent).trim().slice(0, 24)} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`));
   check(!small.length, `controls under 44 pt: ${small.slice(0, 6).join(', ')}${small.length > 6 ? ` … (${small.length})` : ''}`);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'the page scrolls sideways at 440');

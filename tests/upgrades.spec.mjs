@@ -14,7 +14,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
+// (no service worker: once it controls the page, requests bypass page.route() and the real brain answers THINK NOW with
+//  the scripted model's list, whose first idea carries the same title as the stub's old one — a slow runner lost that race)
+const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK, serviceWorkers: 'block' });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 

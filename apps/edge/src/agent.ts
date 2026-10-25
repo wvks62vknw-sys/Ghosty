@@ -973,8 +973,8 @@ export class GhostyAgent {
       const read: Read[] = [];
       const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), found: (source) => read.push({ call: call.id, source }) });
       this.turnRead.push(...read);
-      if (tool.name === 'publish_site') {
-        const title = result.match(/^Published "([^"]*)"/)?.[1] ?? '';
+      if (tool.name === 'publish_site' || tool.name === 'build_app') { // [links] a mini-app's link is delivered like a page's
+        const title = result.match(/^Published (?:the mini-app )?"([^"]*)"/)?.[1] ?? result.match(/^"([^"]*)" is live at/)?.[1] ?? '';
         for (const url of linksIn(result)) if (!this.turnLinks.some((l) => l.url === url)) this.turnLinks.push({ url, title });
       }
       emit({ t: 'tool_result', id: call.id, name: tool.name, ok: true, summary: result.slice(0, 280) });
