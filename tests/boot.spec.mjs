@@ -6,8 +6,9 @@
 //      old spinner, engine lines and "INITIALISING…" are gone, the greeting is his ("Good evening, Tony."), it is not
 //      spoken on a cold open until the first tap (and is then), the app booted underneath (Home was there before it
 //      ended), and it lands on Home's real MIND: the same canvas, in the hero's box to the pixel, three.js loaded once;
-//   2. a tap skips it;  3. a warm return (same day) has no cinematic, only Mind's breath, and so does coming back to the
-//   app;  4. Reduce Motion: the frames fade, nothing moves;  5. "reboot" plays it again over Home (and SYSTEM has the
+//   2. a tap skips it;  3. every cold open plays it: a second cold open (a reload: a new page) plays the full cinematic
+//   again, while a resume (coming back to the running app, or a page restored from the back-forward cache) and a deep
+//   link play only Mind's breath;  4. Reduce Motion: the frames fade, nothing moves;  5. "reboot" plays it again over Home (and SYSTEM has the
 //   line);  6. automated checks (no flag) see no cinematic at all.
 // It also photographs each moment (the cinematic stepped by hand) into a strip, and prints the timings it measured.
 //   BASE=http://localhost:8875 node tests/boot.spec.mjs [outDir]
@@ -168,16 +169,20 @@ const onHero = (page) => page.evaluate(() => {
   if (hp.count !== 1 || !hp.inHero) problems.push(`skip: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   if (s) timings.push(`skip: the tap at ${Math.round(at - s.firstFrame)} ms after the first frame; ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; ended ${Math.round(gone)} ms after the tap (held ${s.held} ms for the app and Home's hero) (app ready at ${s.appReady} ms; ${s.frames} frames, worst gap ${s.worstGap} ms)`);
 
-  // ---- 3. a warm return: the same day again, no cinematic, Mind's light breathes once
+  // ---- 3. every cold open plays it: a second open (a reload is a new page, as a launch from the Home Screen is)
   await page.reload();
-  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 }).catch(() => problems.push('warm: the black never went'));
+  await until(page, () => window.__bootState?.marks?.point === 0, 15000, 'second open: the cinematic never started');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => problems.push('second open: the cinematic never ended'));
   const w = await state(page);
-  const wv = await seen(page);
-  if (w?.kind !== 'warm') problems.push(`warm: a second open the same day played "${w?.kind}"`);
-  if (wv.texts.length) problems.push(`warm: words on a warm return: ${wv.texts.join(' | ')}`);
-  await until(page, () => (window.__bootState?.warm ?? 0) >= 1, 30000, 'warm: Mind did not breathe on the warm return');
-  // coming back to the app (it was away more than a few seconds): another breath, still no cinematic
+  if (w?.kind !== 'full') problems.push(`second open: a second cold open played "${w?.kind}" (want the full cinematic every cold open)`);
+  if (ORDER.some((p) => typeof w?.marks?.[p] !== 'number')) problems.push(`second open: frames missing: ${JSON.stringify(w?.marks)}`);
+  if (w?.skipped) problems.push('second open: it was skipped with no tap');
+  if (w) timings.push(`second cold open: ${w.kind}; ${ORDER.map((p) => `${p} ${w.marks[p]}`).join(' · ')} ms`);
+  const hp2 = await onHero(page);
+  if (hp2.count !== 1 || !hp2.inHero) problems.push(`second open: Mind did not end up in the hero (${JSON.stringify(hp2)})`);
+  // a resume (coming back to the app after more than a few seconds away, the page still alive): a breath, no cinematic
   const before = (await state(page))?.warm ?? 0;
+  const plays = (await state(page))?.plays ?? 0;
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -187,8 +192,26 @@ const onHero = (page) => page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await until(page, (n) => (window.__bootState?.warm ?? 0) > n, 5000, 'warm: coming back to the app did not breathe', before);
-  if (await page.$('#boot')) problems.push('warm: coming back to the app showed the boot layer');
+  await until(page, (n) => (window.__bootState?.warm ?? 0) > n, 5000, 'resume: coming back to the app did not breathe', before);
+  if (await page.$('#boot')) problems.push('resume: coming back to the app showed the boot layer');
+  // the page restored whole from the back-forward cache: the same page life, a breath
+  const before2 = (await state(page))?.warm ?? 0;
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+  await until(page, (n) => (window.__bootState?.warm ?? 0) > n, 5000, 'resume: a page back from the back-forward cache did not breathe', before2);
+  const after = await state(page);
+  if (after?.plays !== plays) problems.push(`resume: the cinematic played again on a resume (${after?.plays} plays, was ${plays})`);
+  await ctx.close();
+}
+
+// ---- 3b. a deep link (a notification he tapped opens its screen): no cinematic over it, only the breath
+{
+  const { ctx, page } = await open({ kind: 'full' });
+  await page.goto(`${base}/#agenda`);
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 }).catch(() => problems.push('deep link: the black never went'));
+  const w = await state(page);
+  const wv = await seen(page);
+  if (w?.kind !== 'warm') problems.push(`deep link: an open on a deep link played "${w?.kind}" (want only the breath)`);
+  if (wv.texts.length) problems.push(`deep link: words over a deep link: ${wv.texts.join(' | ')}`);
   await ctx.close();
 }
 
@@ -277,5 +300,5 @@ const onHero = (page) => page.evaluate(() => {
 
 await browser.close();
 console.log(timings.map((t) => `TIMING ${t}`).join('\n'));
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'BOOT run clean at 440 × 956: the full cinematic came in order (point, gather, sphere, name, greeting, land) with the app booting underneath, no number and no status line on it, the old spinner, engine lines and INITIALISING gone, his greeting spoken on the first tap of a cold open, landed on Home\'s real MIND to the pixel with three.js loaded once; a tap skipped it; a warm return and coming back to the app only breathed; Reduce Motion faded with nothing moving; "reboot" played it again over Home; automated checks saw none of it.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'BOOT run clean at 440 × 956: the full cinematic came in order (point, gather, sphere, name, greeting, land) with the app booting underneath, no number and no status line on it, the old spinner, engine lines and INITIALISING gone, his greeting spoken on the first tap of a cold open, landed on Home\'s real MIND to the pixel with three.js loaded once; a tap skipped it; a second cold open played the full cinematic again, while a resume, a page back from the back-forward cache and a deep link only breathed; Reduce Motion faded with nothing moving; "reboot" played it again over Home; automated checks saw none of it.');
 process.exit(problems.length ? 1 : 0);

@@ -1,6 +1,7 @@
 /**
  * The boot cinematic (docs/build-plan/BRIEF-BOOT.md; OWNER-ISSUES 43 and 45, his words: "really cinematic and cool",
- * "forget giving facts", "it's not an arc reactor anymore"). MIND waking up, about 3.5 s, once per cold open of the day:
+ * "forget giving facts", "it's not an arc reactor anymore"; then "i want the cinematic to be on every boot up"). MIND
+ * waking up, about 3.5 s, on every cold open (a launch from the Home Screen, a fresh tab, a reload):
  *   1. black; one point of light, far away, breathing once                      0 – 400 ms
  *   2. it splits into a drift of particles that settle into the constellation (links light as they settle), the camera
  *      pushes in slowly, a thin sweep of light passes down through it once        400 – 1,400 ms
@@ -14,10 +15,12 @@
  * is still starting then, Mind keeps turning quietly, with no words, until it is). A tap skips it.
  * Reduce Motion: the frames fade, nothing moves, 1.2 s. A phone whose first frames come late, or whose Mind is late,
  * gets the short version (no drift, no push-in); with no 3-D at all, the point of light, the name and the greeting.
- * A warm return (another open the same day, or coming back to the app): no cinematic, Mind's light breathes out once
- * (400 ms; 150 ms with Reduce Motion). "reboot" (said or typed) and SYSTEM → REBOOT HIM play it again.
+ * A resume (coming back to the app while its page is still alive: a tab switch, the app brought back from the
+ * background, a page restored from the back-forward cache) and a deep link (a notification, Spotify's way back): no
+ * cinematic, Mind's light breathes out once (400 ms; 150 ms with Reduce Motion). "reboot" (said or typed) and
+ * SYSTEM → REBOOT HIM play it again.
  * Sound: a low hum rising to a soft chord, made here with WebAudio (no file), quiet, only with the voice setting on,
- * only where the phone allows sound (never on a warm return). The greeting is spoken in his voice with the voice
+ * only where the phone allows sound (never on a resume). The greeting is spoken in his voice with the voice
  * setting on: at once if the phone allows it, else on the first tap (iOS keeps a cold open silent until a tap).
  * Automated checks see none of it (it would slow every check that opens the app) unless one asks: tests/boot.spec.mjs.
  */
@@ -73,7 +76,7 @@ export const bootState = {
   spoken: '' as '' | 'now' | 'tap' | 'waiting' | 'off',
   /** Where the sphere was on its last frame in the air, and Home's hero box, as [x, y, width, height]. */
   landed: null as null | { flight: number[]; hero: number[] },
-  /** Warm returns answered with a breath of Mind's light. */
+  /** Resumes (and deep links) answered with a breath of Mind's light. */
   warm: 0,
   /** How many times it has played since the page opened (a reboot adds one). */
   plays: 0,
@@ -94,24 +97,6 @@ export function greetingLine(d = new Date()): string {
   const hr = d.getHours();
   const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   return `${part}, ${settings.get().name.trim() || 'Boss'}.`;
-}
-
-// ---------------------------------------------------------------- once a day
-const DAY_KEY = 'ghosty.boot.day';
-const today = () => new Date().toLocaleDateString('en-CA');
-function firstOpenToday(): boolean {
-  try {
-    return localStorage.getItem(DAY_KEY) !== today();
-  } catch {
-    return true;
-  }
-}
-function markToday(): void {
-  try {
-    localStorage.setItem(DAY_KEY, today());
-  } catch {
-    /* private window: it may play again next open */
-  }
 }
 
 // ---------------------------------------------------------------- the app underneath
@@ -153,13 +138,13 @@ export function startBoot(): void {
   const hash = location.hash.slice(1);
   // never over a notification he tapped, a deep link or the way back from Spotify's sign-in: those open their screen
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
-  let kind: Kind = automated ? 'quiet' : !toHome || !firstOpenToday() ? 'warm' : reduced() ? 'still' : 'full';
+  // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : reduced() ? 'still' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
   el.classList.add(kind);
   if (kind === 'quiet' || kind === 'warm') return;
-  markToday();
   play(el, kind, false);
 }
 
@@ -177,7 +162,7 @@ export async function reboot(): Promise<void> {
   play(el, kind, true);
 }
 
-// ---------------------------------------------------------------- the warm return
+// ---------------------------------------------------------------- the resume
 let watching = false;
 function watchReturns(): void {
   if (watching) return;
@@ -186,6 +171,10 @@ function watchReturns(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) hiddenAt = Date.now();
     else if (hiddenAt && Date.now() - hiddenAt > 3000 && !document.getElementById('boot')) breatheWhenReady();
+  });
+  // a page the browser kept whole and showed again (the back-forward cache): the same page life, so a resume
+  addEventListener('pageshow', (e) => {
+    if (e.persisted && !document.getElementById('boot')) breatheWhenReady();
   });
 }
 /** Mind's light breathes out once behind whatever is on screen (when Mind is there to breathe). */
