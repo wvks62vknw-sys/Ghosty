@@ -413,7 +413,8 @@ folder that no longer exists; ignore those paths).
   Memory passes, the scroll audit, the boot cinematic and the library picker fix. He is asked for: GET and USE the 0.8B,
   USE the 2B, the "What this phone can hold" line. Then main was merged back into the branch and the next batch pushed as
   the NEXT pull request (#37): the Iron Man look, the Library pass, the exam-paper guard (`[papers]`), the scroll and
-  learn spec fixes, the docs. Still running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
+  learn spec fixes, the docs. PR #37 opened 03:09 UK on head 8561f0d; a check-in at 04:35 UK merges if green. Still
+  running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
