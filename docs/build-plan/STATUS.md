@@ -1,8 +1,8 @@
-# Where everything stands — 25 October 2026, 12:15 UK
+# Where everything stands — 25 October 2026, 15:45 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #40, the last at 12:12 UK on 25 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #41, the last at 15:42 UK on 25 Oct)
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -39,6 +39,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Saved places ("my home is …", "take me home", the commute in the Brief) and SPENDING in the Agenda from your statements (no bank access).
 - UNDO everywhere: a 12-second UNDO bar on every removal or big change, a one-tap confirm when it cannot come back.
 - The plain-words guide for life after 14 November.
+
+**Live since the afternoon (PR #41)**
+- A stop ("stop", "shutup", STOP, talking over him) goes quiet with nothing printed after it.
+- A built app's live link is in the reply's words, not only on a card in the conversation.
+- System's report card opens the Offline Brain panel itself; the deck's pictures show the screens with their tabs.
 
 **Live since midday (PR #40)**
 - The GYM: Connect 4 plays you at full strength whatever his level (the four trick lines that beat him every time now never win); every game with you is kept, a loss is studied and becomes a lesson he plays right; he speaks as "I" and tells you what changed since yesterday.

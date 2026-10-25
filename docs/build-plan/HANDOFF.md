@@ -651,6 +651,11 @@ folder that no longer exists; ignore those paths).
   dry run (deploy-build) was green: one standing-down comment on the PR; the owner was asked for the build page's last
   lines. The owner's asks of the afternoon are OWNER-ISSUES 55 and 56 (the Machine's eyes, the guardian, the social
   side, the cousin by Telegram or email); first briefs after the weekly reset (all models at 95 %).
+- 25 Oct 15:42 UK: PR #41 MERGED (002f7b3) after 232f804 went green on all six checks (smoke 14:02–15:41; Cloudflare's
+  build too, so its instant failure on 5bb1925 was a one-off). Live with the owner's next open: a stop goes quiet, a
+  built app's link in the reply's words, the report-card link, the deck pictures. Nothing building; the next pull request
+  starts with the first brief after the weekly reset (OWNER-ISSUES 55/56: the Machine's eyes, the guardian, the social
+  side). Waiting on him: Telegram or email for the cousin, the four Offline Brain steps, his Connect 4 trick, the reset time.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
