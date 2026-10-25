@@ -129,7 +129,7 @@ export const reverseTab: TabDef = {
       jp.setStatus(`${jobs.filter((j) => j.status === 'running' || j.status === 'queued').length} RUNNING · ${jobs.length} TOTAL`, 'ok');
       for (const j of jobs) {
         const tone = j.status === 'done' ? 'up' : j.status === 'failed' ? 'bad' : '';
-        const r = h('div.rw.link', { onclick: () => void show(j.id) },
+        const r = h('div.rw.link', { onclick: () => void show(j.id, true), tabIndex: 0, role: 'button', onkeydown: (e: KeyboardEvent) => e.key === 'Enter' && void show(j.id, true) },
           h('span.sev', { style: `color:${j.status === 'done' ? 'var(--ok)' : j.status === 'failed' ? 'var(--r)' : 'var(--a)'};background:currentColor` }),
           h('span.k', j.kind),
           h('span.v', j.target.replace(/^https?:\/\//, '')),
@@ -139,12 +139,14 @@ export const reverseTab: TabDef = {
         list.append(r);
       }
     };
-    const show = async (id: string) => {
+    const show = async (id: string, bring = false) => {
       open = id;
       paint();
       viewer.el.hidden = false;
       clear(viewer.body);
       viewer.body.append(h('div.note', 'Loading…'));
+      // On the phone the report sits under the form and the list: a tap brings it on screen (it opened out of sight).
+      if (bring) viewer.el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       try {
         const { job } = await brain.reverseJob(id);
         clear(viewer.body);
