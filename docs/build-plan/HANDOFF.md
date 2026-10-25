@@ -552,6 +552,10 @@ folder that no longer exists; ignore those paths).
   the section last chosen; the spec's tabs loop had opened the Agenda's "other side" (the second pill, Reminders)
   earlier in the same page, so the date-box check opened on Reminders and its "other side" was Reminders again. The
   spec now taps the first pill (Diary) before counting. WebKit cannot run here; CI proves it. Pushed onto PR #39.
+  06:50: reproduced in Chromium against the main-tree preview (the same page logic): the old check counted
+  ['Reminder time'] then ['Reminder time'] → 1; the new one ['Event start'] then ['Reminder time'] → 2; the phone's
+  memory was `ghosty.sections.agenda = reminders`. Run 243 (head 23bd0e2) started 06:43; run 242 (1838a6d) will end red
+  on the same safari check — superseded, ignore it.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
