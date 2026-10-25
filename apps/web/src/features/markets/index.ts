@@ -1,11 +1,53 @@
 /** MARKETS tab: crypto, gold and silver, and currencies. */
 import { send } from '../../assistant/session';
-import { clear, h } from '../../core/dom';
+import { clear, h, svgEl } from '../../core/dom';
 import { biggestMove, clock, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, money, moved, ounce, pct, rate, rates, type Coin } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
 import { settings } from '../../state/app';
-import { button, panel, row, spark } from '../../ui/components';
+import { button, modal, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
+
+/** A coin's week as a chart: the line between its own high and low (labelled beside it, so the scale is plain). */
+function weekChart(c: Coin): HTMLElement {
+  const v = c.spark;
+  if (v.length < 2) return h('p.mknote', 'No week of prices yet.');
+  const W = 320, H = 140;
+  const lo = Math.min(...v), hi = Math.max(...v), span = Math.max(1e-9, hi - lo);
+  const pts = v.map((x, i) => `${((i / (v.length - 1)) * W).toFixed(1)},${(6 + (1 - (x - lo) / span) * (H - 12)).toFixed(1)}`);
+  const up = v[v.length - 1]! >= v[0]!;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: `mkchart ${up ? 'up' : 'dn'}`, preserveAspectRatio: 'none', role: 'img', 'aria-label': `${c.name} over 7 days, from ${money(lo, c.cur)} to ${money(hi, c.cur)}` });
+  svg.append(
+    svgEl('line', { x1: 0, x2: W, y1: 6, y2: 6, class: 'grid' }),
+    svgEl('line', { x1: 0, x2: W, y1: H - 6, y2: H - 6, class: 'grid' }),
+    svgEl('polyline', { points: pts.join(' '), fill: 'none', 'vector-effect': 'non-scaling-stroke' }),
+  );
+  return h('div.mkchartbox',
+    h('div.mky', h('span', `High ${money(hi, c.cur)}`), h('span', `Low ${money(lo, c.cur)}`)),
+    svg,
+    h('div.mkx', h('span', '7 days ago'), h('span', 'Now')));
+}
+
+/**
+ * A coin, opened in place: its price and when it was read, its week as a chart, its last day's range, and ASK WHY IT
+ * MOVED, which asks the chat for what happened, never whether to buy or sell (it used to leave the tab at once
+ * with "Give me a quick take on…").
+ */
+function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string }): void {
+  const v = c.spark;
+  const week = v.length > 1 ? ((v[v.length - 1]! - v[0]!) / v[0]!) * 100 : null;
+  const tone = c.change >= 0 ? 'up' : 'dn';
+  const ask = button('ASK WHY IT MOVED', () => {
+    m.close();
+    go('core');
+    void send(`Why has ${c.name} moved over the last 24 hours? It is ${money(c.price, c.cur)} now, ${moved(c.change)}. Just what happened, not whether to buy or sell.`);
+  }, 'on mkask');
+  const m = modal(c.name, h('div.mkcoin', { dataset: { case: 'keep' } },
+    h('div.mkprice', h('b.tnum', money(c.price, c.cur)), h(`span.${tone}` as 'span', `${moved(c.change)} in 24 hours`)),
+    h('p.mkasof', `${s.live ? '' : `${s.why || 'Not updated since'} · `}As of ${s.asOf} · from CoinGecko`),
+    weekChart(c),
+    h('p.mknote', [week != null ? `Over 7 days: ${moved(week)}.` : '', c.low != null && c.high != null ? `Last 24 hours: ${money(c.low, c.cur)} to ${money(c.high, c.cur)}.` : ''].filter(Boolean).join(' ')),
+    ask));
+}
 
 /** The day in a word, from the last 24 hours of the coins: a description, never advice. */
 export function dayWord(list: Coin[]): string {
@@ -36,10 +78,7 @@ export const marketsTab: TabDef = {
       // (in the currency the prices came in: a switch the source has not answered yet never relabels them)
       const r = row(c.sym, h('span', c.name, h('br'), h('small.mono', money(c.price, c.cur))), pct(c.change), {
         tone: c.change >= 0 ? 'up' : 'dn',
-        onClick: () => {
-          go('core');
-          void send(`Give me a quick take on ${c.name}. It is ${CURRENCY_SYMBOL[c.cur] ?? ''}${c.price} and moved ${c.change.toFixed(1)}% in 24 hours.`);
-        },
+        onClick: () => openCoin(c, state(coins, c.at)),
       });
       // the trace is the same last 24 hours as the change beside it, in its colour (it was the week, coloured by the week)
       const tr = spark(lastDay(c));

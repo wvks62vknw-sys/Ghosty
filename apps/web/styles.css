@@ -3697,6 +3697,21 @@ html #pg-markets .rw .n.dn { color: #ff6961; background: rgba(255,105,97,.13); }
 html #pg-markets .pn:not(.coins) .rw { min-height: 48px; padding: 8px 0; }
 html #pg-markets .pn:not(.coins) .rw .v { font: 500 16px/21px var(--sf); color: var(--ink); }
 html #pg-markets .pn:not(.coins) .rw .n:not(.up, .dn) { min-width: 0; padding: 0; font: 400 15px var(--sf); color: var(--ink2); background: none; }
+/* A coin opened in place (a sheet): its price, when, its week between its labelled high and low, ASK WHY IT MOVED. */
+.mkcoin { display: flex; flex-direction: column; gap: 10px; }
+.mkcoin .mkprice { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.mkcoin .mkprice b { font: 300 40px/44px var(--sfd, var(--sf)); letter-spacing: -1px; color: var(--ink); }
+.mkcoin .mkprice span { font: 500 17px var(--sf); }
+.mkcoin .mkprice .up { color: #30d158; } .mkcoin .mkprice .dn { color: #ff6961; }
+.mkcoin .mkasof, .mkcoin .mknote { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink2); }
+.mkcoin .mkchartbox { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 140px auto; column-gap: 10px; }
+.mkcoin .mky { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; justify-content: space-between; font: 400 13px/16px var(--sf); color: var(--ink2); font-variant-numeric: tabular-nums; text-align: right; }
+.mkcoin svg.mkchart { grid-column: 1; grid-row: 1; width: 100%; height: 140px; overflow: visible; }
+.mkcoin svg.mkchart .grid { stroke: var(--hair, rgba(255,255,255,.12)); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.mkcoin svg.mkchart polyline { stroke-width: 2; stroke-linejoin: round; }
+.mkcoin svg.mkchart.up polyline { stroke: #30d158; } .mkcoin svg.mkchart.dn polyline { stroke: #ff6961; }
+.mkcoin .mkx { grid-column: 1; grid-row: 2; display: flex; justify-content: space-between; padding-top: 4px; font: 400 13px var(--sf); color: var(--ink3, var(--ink2)); }
+.mkcoin button.mkask { align-self: flex-start; height: 48px; min-height: 48px !important; padding: 0 22px; border-radius: 24px; }
 /* Prices in £ $ €: a segmented control of three 44 pt buttons, the one in use lit. */
 html #pg-markets .pn.coins > .ft { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 html #pg-markets .pn.coins .mkcurl { font: 400 15px var(--sf); color: var(--ink2); }
