@@ -7,6 +7,7 @@ import { home, settings } from '../../state/app';
 import { applyTheme, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sections } from '../../ui/sections';
 import { characterPanel } from './character';
 import { offlinePanel } from './offline';
 import { switchRow } from './switch';
@@ -56,6 +57,15 @@ export const settingsTab: TabDef = {
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
     P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), about.el, privacy.el, help.el);
+    // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
+    // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
+    sections(root, 'settings', [
+      { id: 'appearance', label: 'Appearance', match: /^THEME/ },
+      { id: 'you', label: 'You', match: /^NAME/ },
+      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE)/ },
+      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
+      { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
+    ]);
 
     // Theme: one live swatch per theme, drawn in its own accent (a little Home: the glow, the reactor, the lit
     // tab). A tap applies it at once, everywhere, and this phone remembers it.

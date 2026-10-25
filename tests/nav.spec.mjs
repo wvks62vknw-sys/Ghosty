@@ -390,6 +390,12 @@ const sweep = async (page, L, W) => {
   if (cut.length) problems.push(`[${W} ${L.tab}] a pill's name is cut short: ${cut.join(', ')}`);
 };
 
+LONG.push({ // SETTINGS: the list's own groups (shell/layout.ts); CHARACTER has no group and goes with the one above it
+  tab: 'settings', list: true,
+  pills: ['Appearance', 'You', 'Voice & home', 'Ghosty', 'About'],
+  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
+  tap: 'You', link: { row: /voice he speaks in/i, pill: 'Voice & home', panel: /^VOICE/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;

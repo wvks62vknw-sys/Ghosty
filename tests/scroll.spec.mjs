@@ -362,12 +362,17 @@ for (const tab of ENDS) {
 //    the list came back at its top [120 → 0] (the open row is closed on leaving, and its list's place was put back
 //    while the page was hidden, which a browser ignores).
 {
+  // (Settings is in short sections now: a screen too small for the part it uses makes it scroll, so the list's place is still checked)
+  await feel.setViewportSize({ width: viewport.width, height: 380 });
   await show(feel, 'settings');
+  await openSection(feel, 'settings', 'About');
+  await feel.waitForTimeout(300);
   const set = await feel.evaluate(() => {
     const s = document.querySelector('#pg-settings .hud');
     s.scrollTop = 120;
     return Math.round(s.scrollTop);
   });
+  if (set < 40) problems.push(`[settings] the About part does not scroll even on a 380 px screen (${set} px): the list's place was not checked`);
   // tapped where it is (a Playwright click would first scroll the list to bring the row into view)
   await feel.locator('#pg-settings .pn[data-row] > h3').filter({ hasText: /about/i }).first().evaluate((h) => h.click());
   await feel.waitForTimeout(500);
@@ -377,6 +382,7 @@ for (const tab of ENDS) {
   const back = await feel.evaluate(() => Math.round(document.querySelector('#pg-settings .hud').scrollTop));
   if (!opened) problems.push('[settings] the ABOUT row did not open');
   else if (Math.abs(back - set) > 4) problems.push(`[settings] scrolled to ${set}, a row opened, away and back: the list is at ${back}`);
+  await feel.setViewportSize(viewport);
   felt++;
 }
 // 8. Every page scrolled to its end stops clear of the floating tab bar, 16 px or more above it and out of its blur,
