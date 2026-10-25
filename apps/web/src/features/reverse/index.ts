@@ -23,7 +23,7 @@ const CSS = `
 #pg-reverse .rw.link.on { box-shadow: inset 2px 0 0 var(--a); background: linear-gradient(90deg, rgba(var(--ar), .14), transparent); }
 `;
 
-const KINDS: [string, string][] = [['auto', 'Work it out'], ['web', 'Website'], ['npm', 'npm package'], ['repo', 'GitHub project'], ['artifact', 'App file (.apk .dll .exe .zip …)']];
+const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
 
 /** Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code). */
 function renderMd(md: string): HTMLElement {
@@ -75,14 +75,15 @@ export const reverseTab: TabDef = {
   title: 'REVERSE',
   icon: '<path d="M4 7h11a4 4 0 010 8H9"/><path d="M7 11l-3 4 3 4"/><circle cx="18" cy="7" r="2"/>',
   scene: 'backdrop',
-  blurb: 'reverse-engineer apps, sites & packages',
+  blurb: 'see how any app or site works',
   mount(root) {
     if (!document.getElementById('reverse-css')) document.head.append(h('style#reverse-css', CSS));
-    const P = page(root, { tag: 'REVERSE // ENGINEERING', sub: 'REA runs on GitHub’s computers; the findings come back here', leftLabel: 'NEW JOB', rightLabel: 'REPORTS', stack: true });
+    // The top says what it is for in his words, the same words as the Make hub's card (shell/hubcards.ts).
+    const P = page(root, { tag: 'REVERSE', sub: 'Paste a link to a website, an app or a code package. Ghosty takes it apart and tells you what it is built with and what it talks to.', leftLabel: 'NEW REPORT', rightLabel: 'REPORTS', stack: true });
 
     // ---- new job
-    const np = panel('REVERSE-ENGINEER SOMETHING', { grow: false });
-    const target = h('input', { placeholder: 'https://example.com  ·  lodash  ·  owner/repo  ·  https://…/app.apk', 'aria-label': 'Target', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' });
+    const np = panel('TAKE SOMETHING APART', { grow: false });
+    const target = h('input', { placeholder: 'A link, like bbc.co.uk', 'aria-label': 'What to look at', inputmode: 'url', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' });
     const kind = h('select', { 'aria-label': 'What is it' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
     const question = h('input', { placeholder: 'What do you want to know? (optional)', 'aria-label': 'Question' });
     const startBtn = button('START', () => void start(), 'on');
@@ -107,8 +108,8 @@ export const reverseTab: TabDef = {
       target,
       h('div.row', kind, startBtn),
       question,
-      h('div.note', 'Websites: structure, scripts, frameworks, API endpoints, security headers and the web bundle. Packages and projects: files, dependencies, entry points and REA’s full JavaScript analysis. App files: format, strings, URLs inside, Android packages and .NET assemblies. Native code decompiling needs Ghidra — ask Ghosty if you want it.'),
-      h('div.note', h('b', 'Only analyse software you own or are allowed to test.'), ' REA by morluto, MIT licence.'),
+      h('div.note', 'A website: what it is built with, the other companies it talks to, and how well it is locked down. An app or a code package: what is inside and what it connects to.'),
+      h('div.note', h('b', 'Only analyse software you own or are allowed to test.'), ' Free: it runs on GitHub’s computers, not this phone. Uses REA by morluto (MIT licence).'),
     );
 
     // ---- jobs
@@ -201,7 +202,7 @@ export const reverseTab: TabDef = {
 
     P.left.append(np.el, jp.el);
     P.right.append(viewer.el);
-    P.big.textContent = 'REA';
+    P.big.textContent = 'See how any app works';
     let timer = 0;
     return {
       enter() {
