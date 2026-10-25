@@ -15,12 +15,15 @@
  *
  * In:  { gym: 'train', id, rec, epoch, carry? } · { gym: 'carry', on } · { gym: 'pause' } · { gym: 'reset', id, epoch }
  *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board?, limit? } ('move': PLAY HIM, his reply with `why`)
+ *      { gym: 'study', id, req, moves, ghosty } (a game the owner won: studied with the solver, learned from)
+ *      { gym: 'idle', id, on, games? } (nothing trains: solve positions from the owner's games a slice at a time)
  *      { gym: 'bench', req } (the report card's gym questions) · { gym: 'judge', req, id, reply } (one judged)
  *      { gym: 'exact', req, question, reply? } (the exact check THINK HARDER can use for a chat question; with a reply, its verdict)
  * Out: { gym: 'progress', rec, view, training, epoch, event?, verdict? } (rec without the learner's state; event 'league' with the league's verdict)
  *      { gym: 'star', id, record, epoch } (a puzzle at his edge he solved, checked: a training record for the offline brain)
  *      { gym: 'save', rec, epoch } (with it) · { gym: 'reply', req, frames | move | view | items | verdict | exact | error }
  *      { gym: 'error', id, message, epoch } (training itself failed and stopped)
+ *      { gym: 'known', id, epoch, book, lessons } (what he has proved and keeps, after a study or a position solved while idle)
  */
 import { starFromGym, type StarRecord } from '../offline/star';
 import { benchItems, gymCheck, gymCheckable, judgeItem, type BenchItem } from './bench';
@@ -37,6 +40,8 @@ export type GymIn =
   | { gym: 'pause' }
   | { gym: 'reset'; id: string; epoch?: number }
   | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[]; limit?: { ms?: number; nodes?: number } }
+  | { gym: 'study'; id: string; rec?: GymRecord | null; epoch?: number; req: number; moves: number[]; ghosty: number; nodes?: number }
+  | { gym: 'idle'; id: string; rec?: GymRecord | null; epoch?: number; on: boolean; games?: number[][] }
   | { gym: 'bench'; req: number }
   | { gym: 'judge'; req: number; id: string; reply: string }
   | { gym: 'exact'; req: number; question: string; reply?: string };
@@ -45,7 +50,8 @@ export type GymOut =
   | { gym: 'progress'; rec: GymRecord; view: Frame; training: boolean; epoch: number; event?: 'level' | 'mastered' | 'league' | null; verdict?: LeagueVerdict }
   | { gym: 'star'; id: string; record: StarRecord; epoch: number }
   | { gym: 'save'; rec: GymRecord; epoch: number }
-  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; why?: Versus; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
+  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; why?: Versus; study?: unknown; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
+  | { gym: 'known'; id: string; epoch: number; book: number; lessons: number }
   | { gym: 'error'; id: string; message: string; epoch: number };
 
 interface Live {
@@ -138,6 +144,42 @@ function stretch(post: (m: GymOut) => void, l: Live) {
   if (record) post({ gym: 'star', id: l.s.game.id, record, epoch: l.epoch });
 }
 
+// ======================= while nothing trains: he solves positions from the owner's games (gym2)
+
+/** The game he ponders, its games with the owner, and the loop's timer. */
+let idle: { id: string; games: number[][] } | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+/** Nodes a slice (about 30 ms on the phone), then a rest four times as long: the worker stays free for moves and messages. */
+const IDLE_NODES = 60_000;
+let lastKnownSave = 0;
+
+function idleTick(post: (m: GymOut) => void) {
+  idleTimer = null;
+  if (!idle || active) return;
+  const l = sessions.get(idle.id);
+  if (!l?.s.learner.ponder) return;
+  let r: string | null;
+  try {
+    r = l.s.learner.ponder(idle.games, IDLE_NODES);
+  } catch {
+    r = null;
+  }
+  if (r) {
+    // a position solved: what he knows goes to the page (and his record, now and then, to be kept)
+    post({ gym: 'known', id: idle.id, epoch: l.epoch, ...l.s.learner.known!() });
+    if (now() - lastKnownSave > 5000) {
+      lastKnownSave = now();
+      post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
+    }
+  }
+  if (r === null) {
+    post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
+    idle = null;
+    return;
+  }
+  idleTimer = setTimeout(() => idleTick(post), 120);
+}
+
 /** Measure, and space the next measurement by how long this one took. */
 function measure(l: Live): 'level' | 'mastered' | null {
   const t = now();
@@ -218,6 +260,35 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       }
     } catch (e) {
       post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+    }
+    return;
+  }
+  if (m.gym === 'study') {
+    // A game the owner won: the solver goes through it, the network learns, the turning point becomes a lesson.
+    try {
+      const l = live(m.id, m.rec, m.epoch);
+      const study = l.s.learner.study?.(m.moves, m.ghosty, m.nodes) ?? null;
+      post({ gym: 'reply', req: m.req, study });
+      if (study && l.s.learner.known) post({ gym: 'known', id: m.id, epoch: l.epoch, ...l.s.learner.known() });
+      post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
+    } catch (e) {
+      post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+    }
+    return;
+  }
+  if (m.gym === 'idle') {
+    if (!m.on) {
+      idle = null;
+      return;
+    }
+    try {
+      const l = live(m.id, m.rec, m.epoch);
+      if (!l.s.learner.ponder) return;
+      idle = { id: m.id, games: m.games ?? [] };
+      if (l.s.learner.known) post({ gym: 'known', id: m.id, epoch: l.epoch, ...l.s.learner.known() });
+      if (!idleTimer) idleTimer = setTimeout(() => idleTick(post), 120);
+    } catch {
+      idle = null;
     }
     return;
   }

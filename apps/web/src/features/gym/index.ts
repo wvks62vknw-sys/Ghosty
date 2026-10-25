@@ -20,6 +20,7 @@
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
 import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
+import { cardLine, countLine, greeting, lessons, type OwnerGame, review, screenLine, type Study, type Totals } from '../../gym/c4talk';
 import type { Frame } from '../../gym/core';
 import { type GameMeta, META as GAMES, metaById as gameById } from '../../gym/meta';
 import { kb, leagueKept, ratingLine, weekChange } from '../../gym/rating';
@@ -71,6 +72,13 @@ export const gymState = {
   stars: 0,
   /** The page of game cards on screen (six a page, from 0). */
   page: 0,
+  /**
+   * Connect 4 with the owner (gym2): games kept, the study of the last loss under way, what he has proved and keeps
+   * (positions, lessons), his lines (the card, the game screen, the count, the GYM's greeting) and the last review.
+   */
+  c4: { games: 0, studying: false, studied: 0, book: 0, lessons: 0, card: '', screen: '', count: '', greeting: '', review: [] as string[], pondering: false },
+  /** A test's own thinking limit for PLAY HIM ({ nodes } or { ms }); the app never sets it (he takes his full time). */
+  limit: null as { nodes?: number; ms?: number } | null,
 };
 
 /**
@@ -273,6 +281,14 @@ export const gymTab: TabDef = {
     const savePrefs = () => void store.putPrefs({ ...prefs, all: prefs.all && { ...prefs.all, spent: { ...prefs.all.spent } } });
     /** TRAIN ALL is running (prefs.all says how far it has got). */
     let allOn = false;
+    /** The games the owner played him and what the greeting counted last (read with the games). */
+    let journal: store.Journal = { c4: [] };
+    const saveJournal = () => void store.putJournal(journal);
+    /** What he has proved and keeps in Connect 4 (from the worker), and the study under way. */
+    const known = { book: -1, lessons: 0 };
+    let studying: OwnerGame | null = null;
+    /** The GYM's greeting this visit (what changed since he last looked), or '' for the plain line. */
+    let greet = '';
     /** The run of level-ups the GYM toast on screen tells of. */
     let levelNote: LevelNote | null = null;
     /** Past a level he goes straight on (TRAIN ALL always does). */
@@ -328,6 +344,14 @@ export const gymTab: TabDef = {
       if (m.gym === 'reply') {
         replies.get(m.req)?.(m);
         replies.delete(m.req);
+        return;
+      }
+      if (m.gym === 'known') {
+        // what he has proved and keeps (after a study, or a position solved while idle)
+        if (!current(epochs, m.id, m.epoch)) return;
+        known.book = m.book;
+        known.lessons = m.lessons;
+        paint();
         return;
       }
       if (m.gym === 'star') {
@@ -521,6 +545,10 @@ export const gymTab: TabDef = {
     const gameP = panel('GAME', { cls: 'gymgame' });
     const learns = h('div.gymlearns');
     const status = h('div.gymstatus', { role: 'status', 'aria-live': 'polite' });
+    // Connect 4: what he says about your games — the last one, then the count (gym2)
+    const saysLine = h('b');
+    const saysCount = h('small');
+    const says = h('div.gymsays', { role: 'status', 'aria-live': 'polite' }, saysLine, saysCount);
     const trainBtn = button('TRAIN', () => toggleTrain(), 'on gymtrain');
     // WATCH: he trains and plays round after round while you watch; STOP ends it (the last picture stays).
     const watchBtn = button('WATCH', () => (watchOn === open.id ? stopWatching() : void watch()), 'gymwatch');
@@ -571,7 +599,7 @@ export const gymTab: TabDef = {
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -583,7 +611,8 @@ export const gymTab: TabDef = {
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
       P.big.textContent = `${mastered} OF ${GAMES.length} MASTERED`;
       // A fixed line: text that changes length here would shift every button below it mid-tap.
-      P.sub.textContent = 'Ghosty teaches himself by playing, on this phone.';
+      // (set when the GYM opens: what changed since he last looked; it does not change while he is here)
+      P.sub.textContent = greet || 'I teach myself by playing, on this phone.';
       P.dials([
         ['MASTERY', avg, `${Math.round(avg * 100)}%`],
         ['LEVELS', levels / (GAMES.length * 10), `${levels}`],
@@ -617,6 +646,13 @@ export const gymTab: TabDef = {
         const lv = r?.level ?? 1;
         c.small.textContent = r?.mastered ? 'Every level passed' : lv >= 10 ? `Lv 10 passes at ${Math.round(g.bar(10) * 100)}%` : `Lv ${lv + 1} at ${Math.round(g.bar(lv) * 100)}%`;
         c.small.hidden = !!lg?.versions.length;
+        if (g.id === 'connect4') {
+          // Connect 4 carries his line about the games with the owner (his rating is on the game's page)
+          c.small.textContent = gymState.c4.card = cardLine(journal.c4);
+          c.small.hidden = false;
+          c.rate.hidden = true;
+          c.b.classList.add('says');
+        }
         // nothing has happened yet: an empty meter and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
         c.b.classList.toggle('mastered', !!r?.mastered);
@@ -678,6 +714,14 @@ export const gymTab: TabDef = {
         pushScreen({ back: 'Gym', label: niceCase(open.title), pop: popGame });
       }
       status.textContent = statusLine(r, open, training === open.id);
+      says.hidden = open.id !== 'connect4';
+      const c4 = gymState.c4;
+      c4.screen = studying ? `You beat me at move ${studying.moves.length}. I’m studying it.` : screenLine(journal.c4);
+      c4.count = countLine(journal.c4);
+      saysLine.textContent = c4.screen;
+      // (with no games the first line already says so)
+      saysCount.textContent = journal.c4.length ? c4.count : '';
+      saysCount.hidden = !journal.c4.length;
       trainBtn.textContent = training === open.id ? 'PAUSE' : r?.mastered ? 'MASTERED' : 'TRAIN';
       trainBtn.disabled = !!r?.mastered;
       watchBtn.textContent = watchOn === open.id ? 'STOP' : 'WATCH';
@@ -750,11 +794,19 @@ export const gymTab: TabDef = {
         }
         if (r.edge?.tries.length) gymState.edge[id] = { x: r.edge.x, line: edgeLine(r.edge), rate: edgeRate(r.edge), n: r.edge.n };
       }
+      const c4 = gymState.c4;
+      c4.games = journal.c4.length;
+      c4.studying = !!studying;
+      c4.studied = lessons(journal.c4);
+      c4.book = Math.max(0, known.book);
+      c4.lessons = known.lessons;
       paintHero();
       paintCards();
       paintGame();
       paintAll();
       syncLock();
+      studyNext();
+      syncIdle();
     };
 
     // ======================= KEEP AWAKE: a screen wake lock while he trains (the phone lets go of it when hidden)
@@ -947,6 +999,87 @@ export const gymTab: TabDef = {
         });
     };
 
+    // ======================= Connect 4 with the owner (gym2): every game kept on the phone; a loss studied with the solver
+    // when the GYM is idle (nothing training); and while it stays idle and open, he solves positions your games reached.
+    let c4game: OwnerGame | null = null;
+    /** Losses whose study was asked for this visit (a failed one is not asked again until the next). */
+    const tried = new Set<number>();
+    const finishC4 = () => {
+      const g = c4game;
+      const pl = gymState.play;
+      if (!g || !pl.over || pl.game !== 'connect4') return;
+      c4game = null;
+      g.at = Date.now();
+      g.result = pl.over === 'You win!' ? 'you' : pl.over === 'He wins.' ? 'me' : 'draw';
+      if (g.result === 'you') g.study = null;
+      journal.c4.push(g);
+      if (journal.c4.length > store.JOURNAL_CAP) journal.c4.splice(0, journal.c4.length - store.JOURNAL_CAP);
+      saveJournal();
+      note(`connect4 game ${g.result} at move ${g.moves.length}`);
+    };
+    /** Study the latest loss not studied yet — only while nothing trains (the GYM is idle). */
+    const studyNext = () => {
+      if (studying || training) return;
+      const g = [...journal.c4].reverse().find((x) => x.result === 'you' && !x.study && !tried.has(x.at));
+      if (!g) return;
+      studying = g;
+      tried.add(g.at);
+      note(`study ${g.moves.length}`);
+      void ask({ gym: 'study', id: 'connect4', moves: g.moves, ghosty: g.ghosty }).then((m) => {
+        studying = null;
+        if (m.study) {
+          g.study = m.study as Study;
+          saveJournal();
+          note('studied');
+        } else note(`study failed: ${m.error ?? 'no answer'}`);
+        paint();
+        // the finished game on the board gets its review
+        if (gymState.play.game === 'connect4' && gymState.play.over && open.id === 'connect4') paintPlay(gymState.play.over);
+      });
+      paint();
+    };
+    let idleOn = false;
+    let idleGames = -1;
+    /** While nothing trains and the GYM is on screen, he solves positions from your games (the worker stops when asked, or when training starts). */
+    const syncIdle = () => {
+      const want = !training && !studying && !document.hidden && ui.get().tab === 'gym' && journal.c4.some((g) => g.ghosty === 2) && !gymState.play.thinking;
+      if (want && (!idleOn || idleGames !== journal.c4.length)) {
+        idleOn = true;
+        idleGames = journal.c4.length;
+        const games = journal.c4.filter((g) => g.ghosty === 2).slice(-40).map((g) => g.moves);
+        void ready.then(() => idleOn && send({ gym: 'idle', id: 'connect4', on: true, games, rec: recFor('connect4'), epoch: epochs.connect4 ?? 0 }));
+      } else if (!want && idleOn) {
+        idleOn = false;
+        send({ gym: 'idle', id: 'connect4', on: false });
+      }
+      gymState.c4.pondering = idleOn;
+    };
+    ui.subscribe((st2, prev) => st2.tab !== prev.tab && syncIdle());
+    /** Positions he keeps (from his saved record, until the worker says). */
+    const bookOf = () => {
+      const sv = recs.get('connect4')?.saved as { book?: Record<string, string> } | null | undefined;
+      return sv?.book ? Object.keys(sv.book).length : 0;
+    };
+    const SELF = ['tictactoe', 'connect4', 'checkers', 'chess', 'go'];
+    const totals = (): Totals => ({
+      lessons: lessons(journal.c4),
+      self: SELF.reduce((t, id) => t + (recs.get(id)?.units ?? 0), 0),
+      solved: Math.max(known.book, bookOf()),
+      played: journal.c4.length,
+    });
+    /** The GYM's greeting: what changed since he last looked (a visit within 20 minutes keeps its line). */
+    const greetNow = () => {
+      const t = totals();
+      const at = Date.now();
+      const seen = journal.seen;
+      if (seen && at - seen.at < 20 * 60_000) return;
+      greet = greeting(seen, t, at) ?? '';
+      gymState.c4.greeting = greet;
+      journal.seen = { at, t };
+      saveJournal();
+      paint();
+    };
+
     /** On a phone the board is below the buttons: bring it into view. */
     const showBoard = () => {
       if (matchMedia('(max-width: 899px)').matches) board.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'center' });
@@ -1066,6 +1199,8 @@ export const gymTab: TabDef = {
       }
       const big = BOARDS[open.id];
       gymState.play = { game: open.id, board: big ? big.start() : open.id === 'tictactoe' ? new Array(9).fill(0) : new Array(42).fill(0), over: '', thinking: false };
+      // every game with the owner is kept (Connect 4: he moves first)
+      c4game = open.id === 'connect4' ? { at: 0, moves: [], ghosty: 2, result: 'draw', why: [] } : null;
       sel = { path: [] };
       last = [];
       choices = null;
@@ -1137,8 +1272,14 @@ export const gymTab: TabDef = {
     const paintPlay = (caption: string) => {
       if (BOARDS[open.id]) return paintBig(caption);
       const b = gymState.play.board;
-      const f = open.id === 'tictactoe' ? tttFrame(b, caption) : c4Frame(posFromBoard(b), caption);
-      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), h('div.row.wrap.gymagain', button('NEW GAME', () => startPlay())));
+      // a finished Connect 4 game: his line about it, and the review (the moments that mattered, from his reasons and the study)
+      const done = open.id === 'connect4' && !!gymState.play.over ? journal.c4.at(-1) : undefined;
+      const rv = done ? review(done) : [];
+      gymState.c4.review = rv.map((x) => (x.at ? `Move ${x.at} · ${x.text}` : x.text));
+      const said = done ? (studying === done ? `You beat me at move ${done.moves.length}. I’m studying it.` : screenLine(journal.c4)) : caption;
+      const f = open.id === 'tictactoe' ? tttFrame(b, caption) : c4Frame(posFromBoard(b), said);
+      const rvBox = rv.length ? h('div.gymreview', h('b', 'Review'), ...rv.map((x) => h('div', x.at ? h('span', `Move ${x.at}`) : null, h('i', x.text)))) : null;
+      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), rvBox, h('div.row.wrap.gymagain', button('NEW GAME', () => startPlay())));
     };
     const outcome = (): string => {
       const b = gymState.play.board;
@@ -1157,12 +1298,16 @@ export const gymTab: TabDef = {
         if (!canPlay(p, col)) return;
         c4Play(p, col);
         pl.board = Array.from(p.b);
+        c4game?.moves.push(col);
       }
       pl.over = outcome();
-      if (pl.over) return paintPlay(pl.over);
+      if (pl.over) {
+        finishC4();
+        return paintPlay(pl.over);
+      }
       pl.thinking = true;
       paintPlay('He is thinking…');
-      const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
+      const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice(), ...(gymState.limit ? { limit: gymState.limit } : {}) });
       pl.thinking = false;
       if (gymState.play !== pl) return;
       if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `He could not move: ${m.error}` : 'Your move.');
@@ -1171,8 +1316,11 @@ export const gymTab: TabDef = {
         const p = posFromBoard(pl.board);
         c4Play(p, m.move);
         pl.board = Array.from(p.b);
+        c4game?.moves.push(m.move);
+        c4game?.why.push({ r: m.why?.reason ?? '', k: m.why?.kind });
       }
       pl.over = outcome();
+      finishC4();
       // his reason for the move, in his words ("I had to stop column 4."), kept with the game
       pl.why = m.why?.reason ?? '';
       paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `He took square ${m.move + 1}. Your move.` : `He dropped in column ${m.move + 1}. Your move.`));
@@ -1204,6 +1352,7 @@ export const gymTab: TabDef = {
         resumeWatch = '';
         paint();
       } else if (!document.hidden) syncLock(); // the phone let go of the wake lock while hidden: ask again
+      syncIdle();
     };
     document.addEventListener('visibilitychange', onVisible);
     addEventListener('pagehide', () => training && send({ gym: 'pause' }));
@@ -1227,13 +1376,16 @@ export const gymTab: TabDef = {
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)
     const fresh = { ...prefs };
-    ready = Promise.all([store.loadAll(), store.loadPrefs()]).then(([all, kept]) => {
+    ready = Promise.all([store.loadAll(), store.loadPrefs(), store.loadJournal()]).then(([all, kept, jr]) => {
+      // (a game finished while this was loading is kept too)
+      journal = { c4: [...jr.c4, ...journal.c4], seen: jr.seen ?? null };
       prefs = { carry: prefs.carry !== fresh.carry ? prefs.carry : kept.carry, awake: prefs.awake !== fresh.awake ? prefs.awake : kept.awake, all: prefs.all ?? kept.all };
       // (A game RESET while this was loading stays reset.)
       for (const [id, r] of all) if (!recs.has(id) && !epochs[id]) recs.set(id, r);
       paint();
       // the records are in: open on the page of the game played last (unless he has swiped since)
       if (!moved) openOnLast();
+      if (ui.get().tab === 'gym') greetNow();
       if (waiting !== undefined) {
         const w = waiting;
         waiting = undefined;
@@ -1246,6 +1398,7 @@ export const gymTab: TabDef = {
       enter: () => requestAnimationFrame(() => {
         moved = false;
         openOnLast();
+        void ready.then(greetNow);
       }),
       describe() {
         const r = recs.get(open.id);

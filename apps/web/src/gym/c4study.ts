@@ -9,22 +9,10 @@
  */
 import { COLS, copyPos, legal, newPos, play, ROWS, turn, wonAt, type Pos } from './c4board';
 import { bookKey } from './c4play';
+import type { Study } from './c4talk';
 import { bitsOf, parity, scoreMoves, searchAhead, threatSquares, WIN } from './c4solve';
 
-/** What a study found (kept on the phone with the game, and the words said from it). */
-export interface Study {
-  /** Stones on the board when the owner's winning stone landed (his "move 23"), 0 if the owner did not win. */
-  wonAt: number;
-  /** The owner's winning idea in words ("a double threat on columns 3 and 5"). */
-  idea: string;
-  kind: 'double' | 'stacked' | 'odd' | 'even' | 'under' | 'four' | 'none';
-  /** Ghosty's first move proved to give the result away: its stone number, the column he played, the columns that held, and what they held (1 win, 0 draw; null: not lost by force, the rest not proved). */
-  turn: { at: number; played: number; held: number[]; value: number | null } | null;
-  /** Positions the solver labelled (and how many of them the network trained on). */
-  labelled: number;
-  /** True when every position up to the turning point was solved (so nothing earlier went wrong unseen). */
-  complete: boolean;
-}
+export type { Study };
 
 const col = (c: number) => c + 1;
 const cols = (cs: number[]) => (cs.length === 1 ? `column ${col(cs[0]!)}` : `columns ${cs.slice(0, -1).map(col).join(', ')} and ${col(cs.at(-1)!)}`);
