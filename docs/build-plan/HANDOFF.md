@@ -461,6 +461,13 @@ folder that no longer exists; ignore those paths).
   after the panels mount. Other screens (the deck, the GYM page text) still say "he" about Ghosty: a sweep for the
   polish week. Verification on the merged tree: web check, then nav, gym, hubcards, routec, layout, ui, agenda,
   spending, speed, training, night, backup, undo, scrollfeel, scroll (Chromium), markets and settings on a fresh preview.
+- 25 Oct 05:20 UK: THE OWNER WROTE (OWNER-ISSUES 47–51): the brain re-downloads every time and the biggest one still
+  closes Ghosty on download; little tabs inside every tab; the cinematic every boot and cooler; the UI "the tiniest bit";
+  the allowance at 84 % (all models) and 49 % (Fable). Started two builders on the branch head 63f1150 (the navigation
+  merged): BRAINKEEP (`.claude/worktrees/brainkeep`, preview 8885, Opus) on the two brain bugs, and SECTIONS
+  (`.claude/worktrees/sections`, preview 8886, Sonnet) putting `ui/sections.ts` on Settings, Library, Memory, School,
+  Workshop, Threats and Links. Boot 2 (every cold open, cooler) starts when Reverse or Radio reports. Agenda and System
+  passes wait for the allowance reset.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
