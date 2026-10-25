@@ -196,6 +196,13 @@ const dateBoxes = () =>
       return { label: i.getAttribute('aria-label'), type: i.type, value: i.value, w: Math.round(r.width), h: Math.round(r.height) };
     }),
   );
+// (A screen in sections remembers the one last chosen: the tabs loop above opened the Agenda's other side, so start
+//  from its first pill, the Diary, or the first count and the "other side" would both be the Reminders.)
+const firstPill = page.locator('#pg-agenda .secpills .secpill').nth(0);
+if (await firstPill.isVisible().catch(() => false)) {
+  await firstPill.click();
+  await page.waitForTimeout(500);
+}
 const dates = await dateBoxes();
 if (await otherSide('agenda')) dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 if (dates.length < 2) problems.push(`AGENDA has ${dates.length} date and time boxes, expected the event's and the reminder's`);

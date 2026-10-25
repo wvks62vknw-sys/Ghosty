@@ -494,7 +494,7 @@ export function liveIn(): Record<string, string> {
   if (ui.get().busy) out.ask = 'I am working on an answer';
   if (gymState.training || gymControl?.allOn()) out.learn = 'the GYM is training';
   else if (schoolState.sitting) out.learn = 'I am sitting a paper';
-  if (hubFacts.reverse?.some((j) => j.status === 'running')) out.make = 'a reverse report is running';
+  if (hubFacts.reverse?.some((j) => j.status === 'running' || j.status === 'queued')) out.make = 'a reverse report is running';
   if (offlineBrain.get().busy === 'download') out.me = 'the offline brain is downloading';
   return out;
 }

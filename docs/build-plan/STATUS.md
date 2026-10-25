@@ -49,20 +49,23 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- Live on your phone with the next open: PR #36 (03:08 UK: the big-brain crash fix, the Brief, voice, Workshop and Memory passes, the scroll audit, the boot cinematic) and PR #37 (04:32 UK: the Iron Man look on every hub, the Library pass, an exam paper you add never trained on). PR #38 carries the Markets and Settings passes; I merge it when its checks are green.
+- Live on your phone with the next open: PR #36 (02:08 UK: the big-brain crash fix, the Brief, voice, Workshop and Memory passes, the scroll audit, the boot cinematic), PR #37 (03:31 UK: the Iron Man look on every hub, the Library pass, an exam paper you add never trained on) and PR #38 (04:55 UK: the Settings and Markets passes). PR #39 (opened 05:35 UK) carries the navigation build (the little tabs on System and Agenda, a long press on a tab fans out its tools, the GYM in pages of six, the hubs in your own words) and the Radio and Reverse passes; I merge it when its checks are green.
 - Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
-- Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
-- Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
-- Merged at 03:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
-- Merged at 05:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
-- Upgrade pass running since 03:30 UK: Reverse.
-- Merged at 04:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
+- Merged at 01:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
+- Merged at 01:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
+- Merged at 02:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
+- Merged at 04:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
+- Upgrade pass running since 02:30 UK: Reverse.
+- Merged at 03:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
 - Telegram's pass: dropped at your word.
+
+- Merged at 05:45 UK and on its way in PR #39: the brain kept between opens. The cause was Ghosty's own update step wiping the downloaded brains every time a new version arrived (several times a day this week), now fixed; the biggest download comes in 32 MB parts that survive a close, the panel says exactly what your phone holds, and a download that cannot fit is refused before it starts.
+- Being built from your messages this morning: little tabs inside every long screen (Settings, Library, Memory, School, Workshop, Threats, Links); the GYM's Connect 4 at full strength with lessons from your games and the Machine's voice; the boot on every cold open and cooler.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-1. Upgrade passes still to run: Reverse, Radio, Agenda, System (Threats, God's Eye, Lens, voice, Workshop, Brief, Memory, the Library, Settings and Markets are merged; Agenda and System get their sections from the navigation build first).
+1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
 3. UK threats near home: Environment Agency flood warnings, Met Office warnings, a street-crime tile (the Threats pass's biggest leftover).
 4. ASK gets PICK PHOTO (ask about a picture with no camera); the red primary buttons (a design call for you); READ's picked photo shown whole.
@@ -75,7 +78,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 
 - Done: 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
-- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: eleven merged, three to go: Reverse (running), Agenda, System), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
+- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: twelve merged; Agenda and System to go, after the little tabs land in them), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
 - Waiting on you: 21/29 the self-edit trial's results, 23 the phone's arrival, 37 (a)–(l) the taps only you can do, the voice blind check.
 
 ## 6. My own ideas (PLAN section 6) and where each stands

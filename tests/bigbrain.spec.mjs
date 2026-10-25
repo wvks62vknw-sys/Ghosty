@@ -26,7 +26,17 @@
 //     and no warning; the 0.8B (the step between) passes, loads, and leaves the training's base alone;
 //  7. the owner's phone as the old GET left it (the 2B "in use", never loaded, its files whole): on opening, the 0.6B
 //     is back in use and the 2B is marked as having closed Ghosty, with nothing loaded.
+//  8. (25 Oct: "you have to download the offline brain every time") what GET stored is found on the next open: the
+//     panel counts it ("On this phone: … whole") and says ON THIS PHONE before USE; WebLLM 0.2.85's own lookups
+//     (hasModelInCache, and the match its ArtifactCache makes for every file a load reads) find every piece; USE then
+//     fetches nothing; and a new version of Ghosty (its service worker replaced) leaves every download where it was;
+//  9. (25 Oct: "i still can't download the biggest one") a big piece comes in Range-request parts, one at a time, the
+//     log written before each part; a close mid-piece carries on at that piece's next part, and the stored piece is
+//     byte-identical to the file served;
+// 10. what the phone holds, said honestly: a GET the space cannot hold is refused before a byte comes, in plain words;
+//     persist() asked once and its answer shown; a piece gone between opens named; Safari and the Home Screen app.
 //   BASE=http://localhost:8892 node tests/bigbrain.spec.mjs [outDir]
+import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { engine as browserName, launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openPanel } from './nav.mjs';
@@ -57,7 +67,58 @@ const STANDIN = {
 };
 const PIECES = 3 + SHARDS + 1; // config, list, tokenizer, the shards, the compiled library
 
-const fakes = ({ memory, limits }) => {
+// Each brain as the app pins it (offline/models.ts): WebLLM's lookups below build its addresses from these.
+const PINS = {
+  [ID.small]: { rev: '8c14ce481d4c692769976ad52afea453a102df19', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm' },
+  [ID.mid]: { rev: '0ec138972555613c1d7812a821778ad0398c8790', lib: 'Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm' },
+  [ID.two]: { rev: 'dd74e9c8a20c4546df85c844103bff87b6dcacad', lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm' },
+  [ID.four]: { rev: '44b42469f9e192814bfd90440e3b377d89ba7a13', lib: 'Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm' },
+};
+/** A shard's bytes: different in every shard and every position, so a part put back in the wrong place shows. */
+const shardBody = (file) => {
+  const k = Number(/(\d+)\.bin$/.exec(file)?.[1] ?? 0);
+  const b = Buffer.alloc(SHARD);
+  for (let j = 0; j < SHARD; j++) b[j] = (j * 31 + (j >> 9) * 7 + k * 101) & 255;
+  return b;
+};
+const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+
+const fakes = ({ memory, limits, pins, storage }) => {
+  // The space the browser says Ghosty has, and whether it keeps it for good (a spec may set them; else the browser's own).
+  window.__persistAsked = 0;
+  if (storage) {
+    let kept = false;
+    StorageManager.prototype.estimate = async () => ({ quota: storage.quota, usage: storage.usage });
+    StorageManager.prototype.persisted = async () => kept;
+    StorageManager.prototype.persist = async () => (window.__persistAsked++, (kept = storage.grant));
+  }
+  // What WebLLM 0.2.85 looks up when it loads a brain (worker.mjs → MLCEngine.reload), asked of the real vendored
+  // web-llm.mjs: hasModelInCache, then every file the load reads, matched the way its ArtifactCache.addToCache
+  // matches (caches.open(scope), match(new Request(url))): a miss would be fetched (cache.add), so it is counted.
+  window.__webllmMissed = [];
+  window.__webllmLooked = [];
+  window.__webllmLoad = async (model) => {
+    const pin = pins[model];
+    if (!pin) return;
+    const base = `https://huggingface.co/mlc-ai/${model}/resolve/${pin.rev}/`;
+    const lib = new URL(`/vendor/webllm/libs/${pin.lib}`, location.origin).href;
+    const webllm = await import('/vendor/webllm/web-llm.mjs');
+    const inCache = await webllm.hasModelInCache(model, { model_list: [{ model: base, model_id: model, model_lib: lib }] });
+    const take = async (scope, url) => {
+      const c = await caches.open(scope);
+      const hit = await c.match(new Request(url));
+      if (hit) return hit;
+      window.__webllmMissed.push(url);
+      await c.add(new Request(url));
+      return c.match(new Request(url));
+    };
+    const cfg = await (await take('webllm/config', new URL('mlc-chat-config.json', base).href)).json();
+    await take('webllm/wasm', lib);
+    if (cfg.tokenizer_files?.includes('tokenizer.json')) await take('webllm/model', new URL('tokenizer.json', base).href);
+    const list = await (await take('webllm/model', new URL('tensor-cache.json', base).href)).json();
+    for (const r of list.records) await take('webllm/model', new URL(r.dataPath, base).href);
+    window.__webllmLooked.push({ model, inCache });
+  };
   // Safari says nothing about the device's memory or its connection (a spec may set window.__net).
   Object.defineProperty(Navigator.prototype, 'deviceMemory', { get: () => memory ?? undefined, configurable: true });
   window.__net = '';
@@ -94,8 +155,10 @@ const fakes = ({ memory, limits }) => {
     failFor: '',
     hangFor: '',
     idleMs: 60000,
-    load(model) {
+    async load(model) {
       this.loads.push(model);
+      // what the real load would read from the cache first (a miss is a fetch, counted)
+      await window.__webllmLoad(model);
       if (model && model === this.failFor) throw new Error('Out of memory: the GPU device was lost while loading');
       if (model && model === this.hangFor) return new Promise(() => undefined);
     },
@@ -112,21 +175,35 @@ const fakes = ({ memory, limits }) => {
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
-/** Every huggingface.co address answered with the stand-in, one at a time checked; `hang` files never answer. */
+/**
+ * Every huggingface.co address answered with the stand-in, one at a time checked; `hang` files never answer, nor does a
+ * part in `hangRange` ("file@first byte"). A Range request gets its part (206), as Hugging Face sends it.
+ */
 function standIn(ctx) {
-  const net = { hits: [], inflight: 0, most: 0, hang: new Set() };
+  const net = { hits: [], ranges: [], inflight: 0, most: 0, hang: new Set(), hangRange: new Set() };
   void ctx.route('https://huggingface.co/**', async (route) => {
-    const url = route.request().url();
+    const req = route.request();
+    const url = req.url();
     const file = url.split('/').pop();
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'range', 'access-control-allow-methods': 'GET, HEAD' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const range = /^bytes=(\d+)-(\d+)$/.exec((await req.allHeaders()).range ?? '');
     net.hits.push(url);
-    if (net.hang.has(file)) return; // the connection just stops (never answered)
+    net.ranges.push(`${file}@${range ? `${range[1]}-${range[2]}` : 'all'}`);
+    if (net.hang.has(file) || (range && net.hangRange.has(`${file}@${range[1]}`))) return; // the connection just stops (never answered)
     net.inflight++;
     net.most = Math.max(net.most, net.inflight);
     await new Promise((r) => setTimeout(r, file.startsWith('params_shard') ? 120 : 20));
     net.inflight--;
-    const body = file.startsWith('params_shard') ? Buffer.alloc(SHARD, 7) : STANDIN[file];
-    if (body === undefined) return route.fulfill({ status: 404, body: 'no such file', headers: { 'access-control-allow-origin': '*' } });
-    await route.fulfill({ status: 200, body, headers: { 'access-control-allow-origin': '*', 'content-type': file.endsWith('.json') ? 'application/json' : 'application/octet-stream' } }).catch(() => undefined);
+    const whole = file.startsWith('params_shard') ? shardBody(file) : STANDIN[file];
+    if (whole === undefined) return route.fulfill({ status: 404, body: 'no such file', headers: cors });
+    const type = { 'content-type': file.endsWith('.json') ? 'application/json' : 'application/octet-stream' };
+    if (range) {
+      const buf = Buffer.from(whole);
+      const [a, b] = [Number(range[1]), Math.min(Number(range[2]), buf.length - 1)];
+      return route.fulfill({ status: 206, body: buf.subarray(a, b + 1), headers: { ...cors, ...type, 'content-range': `bytes ${a}-${b}/${buf.length}` } }).catch(() => undefined);
+    }
+    await route.fulfill({ status: 200, body: whole, headers: { ...cors, ...type } }).catch(() => undefined);
   });
   return net;
 }
@@ -139,12 +216,14 @@ async function toSettings(page) {
   await page.waitForTimeout(500);
 }
 
-async function signedIn({ memory = null, limits = GENEROUS } = {}) {
-  const ctx = await browser.newContext({ viewport: PHONE, ...UK });
+// (a phone with room: 64 GB for Ghosty, and kept for good once asked; Chromium's own figure for a test context is small)
+const ROOMY = { quota: 64e9, usage: 1e8, grant: true };
+async function signedIn({ memory = null, limits = GENEROUS, storage = ROOMY, userAgent = undefined } = {}) {
+  const ctx = await browser.newContext({ viewport: PHONE, ...UK, ...(userAgent ? { userAgent } : {}) });
   const net = standIn(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
-  await page.addInitScript(fakes, { memory, limits });
+  await page.addInitScript(fakes, { memory, limits, pins: PINS, storage });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 20000 });
   await page.fill('#pair input', KEY);
@@ -272,6 +351,22 @@ check(/Qwen3\.5 2B is on this phone: tap Use to load it/.test(await toasts(page)
 check(based.length === 0, `GET does not move the training: ${JSON.stringify(based)}`);
 await shot(page, 'got-2b');
 
+// ---- 8. what GET stored is found on the next open (25 Oct: "you have to download the offline brain every time")
+const ONPHONE = 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 2B whole (1.1 GB).';
+check((await text(page, '.obkeep .obhere')) === ONPHONE, `the pieces on this phone, counted in the cache: "${await text(page, '.obkeep .obhere')}"`);
+await killAndReopen(page);
+const hitsReopened = net.hits.length;
+// before USE is tapped: the panel says the 2B is here, from the pieces really in the cache
+check(await tagIs(page, ID.two, 'ON THIS PHONE', 5000), `after reopening, the 2B is not ON THIS PHONE: ${JSON.stringify(await row(page, ID.two))}`);
+check((await row(page, ID.two))?.buttons.join() === 'USE,REMOVE', `after reopening, the 2B offers USE (not GET): ${JSON.stringify(await row(page, ID.two))}`);
+check((await text(page, '.obkeep .obhere')) === ONPHONE, `after reopening, the same pieces: "${await text(page, '.obkeep .obhere')}"`);
+check((await page.locator('#pg-settings .offbrain .obgone').count()) === 0, 'nothing named as gone after a plain reopen');
+// WebLLM 0.2.85's own lookups, as its load makes them, find every piece: no fetch
+await page.evaluate(() => window.__webllmLoad('Qwen3.5-2B-q4f16_1-MLC'));
+const looked = await page.evaluate(() => ({ looked: window.__webllmLooked, missed: window.__webllmMissed }));
+check(looked.looked.at(-1)?.inCache === true && looked.missed.length === 0, `WebLLM's own lookups after reopening: ${JSON.stringify(looked)}`);
+check(net.hits.length === hitsReopened, `reopening and WebLLM's lookups fetched nothing: ${net.hits.slice(hitsReopened)}`);
+
 // ---- 3. iOS closes Ghosty half-way through GET (the 4B): the next open says where it stopped; CONTINUE carries on
 net.hang.add('params_shard_2.bin');
 await press(page, ID.four, 'GET');
@@ -310,11 +405,15 @@ await page.screenshot({ path: `${out}/bigbrain-${browserName}-warning.png` });
 await sheet(page).locator('button', { hasText: 'KEEP IT' }).click();
 await page.waitForTimeout(400);
 check(!(await engine(page)).loads.includes(ID.two) && (await stored(page)).model === ID.small, 'KEEP IT loads nothing and changes nothing');
+const hitsBeforeUse = net.hits.length;
 await press(page, ID.two, 'USE');
 await sheet(page).locator('button.sureyes').click().catch(() => problems.push('no LOAD IT in the warning'));
 check(await tagIs(page, ID.two, 'IN USE'), 'the 2B is not IN USE after USE');
+// the load (WebLLM's lookups in the test engine) read every file from the cache: not one request for the brain's files
+check(net.hits.length === hitsBeforeUse && (await page.evaluate(() => window.__webllmMissed.length)) === 0, `USE fetched the 2B's files: ${JSON.stringify({ hits: net.hits.slice(hitsBeforeUse), missed: await page.evaluate(() => window.__webllmMissed) })}`);
 check((await engine(page)).loads.at(-1) === ID.two, `USE loaded the 2B: ${JSON.stringify((await engine(page)).loads)}`);
-check((await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.loading'))) === null, 'the load record is cleared after the load');
+// (the stand-in load reads every file from the cache first, as WebLLM does: the record goes when it is done)
+check(await page.waitForFunction(() => localStorage.getItem('ghosty.offlinebrain.loading') === null, null, { timeout: 10000 }).then(() => true, () => false), 'the load record is cleared after the load');
 let st = await stored(page);
 check(st.held?.['qwen3.5-2b']?.s === 'loaded', `the 2B is remembered as having run here: ${JSON.stringify(st.held)}`);
 // (its row says so too: what happened here, not the guess from the memory figure)
@@ -418,7 +517,7 @@ check(!(await stored(page)).have.includes(ID.four) && (await cached(page, ID.fou
 const fit = await page.evaluate(() => {
   const pn = document.querySelector('#pg-settings .offbrain');
   const w = pn.getBoundingClientRect();
-  const over = [...pn.querySelectorAll('.obbrain, .obbrain *, .obcost, .obfell, .obgetting, .obhold')].filter((e) => e.getBoundingClientRect().right > w.right + 1).map((e) => `${e.className}: ${(e.textContent ?? '').slice(0, 30)}`);
+  const over = [...pn.querySelectorAll('.obbrain, .obbrain *, .obcost, .obfell, .obgetting, .obhold, .obkeep, .obkeep *')].filter((e) => e.getBoundingClientRect().right > w.right + 1).map((e) => `${e.className}: ${(e.textContent ?? '').slice(0, 30)}`);
   return { doc: document.documentElement.scrollWidth, vw: innerWidth, over };
 });
 check(fit.doc <= fit.vw && fit.over.length === 0, `sideways: ${JSON.stringify(fit)}`);
@@ -487,10 +586,130 @@ await shot(sp, 'legacy-2b');
 await putBack(sp);
 await safari.ctx.close();
 
+// ---- 8 (continued). a new version of Ghosty replaces its service worker: every download stays where it was
+const fresh = await signedIn();
+const fp = fresh.page;
+fp.on('dialog', (d) => void d.accept());
+await fp.locator('#pg-settings .offbrain > .bd > .keyrow button', { hasText: 'DOWNLOAD' }).click();
+await fp.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the 0.6B did not download (fresh phone)'));
+await press(fp, ID.mid, 'GET');
+await answerSheet(fp, true);
+check(await tagIs(fp, ID.mid, 'ON THIS PHONE', 20000), 'GET of the 0.8B did not finish (fresh phone)');
+const swNext = await fp.evaluate(async () => {
+  // (as a new build's sw.js would: a different worker script for the same scope, installed and activated)
+  const reg = await navigator.serviceWorker.register('/sw.js?build=next', { scope: '/' });
+  const sw = reg.installing ?? reg.waiting ?? reg.active;
+  if (sw && sw.state !== 'activated') await new Promise((r) => sw.addEventListener('statechange', () => sw.state === 'activated' && r(undefined)));
+  await new Promise((r) => setTimeout(r, 300));
+  return { script: reg.active?.scriptURL ?? '', caches: await caches.keys() };
+});
+check(/build=next/.test(swNext.script), `the new service worker took over: ${JSON.stringify(swNext)}`);
+check(['webllm/model', 'webllm/config', 'webllm/wasm'].every((c) => swNext.caches.includes(c)), `the new service worker left WebLLM's stores alone: ${JSON.stringify(swNext.caches)}`);
+await killAndReopen(fp);
+const freshHits = fresh.net.hits.length;
+check(await tagIs(fp, ID.mid, 'ON THIS PHONE', 5000), `after a new service worker, the 0.8B is not ON THIS PHONE: ${JSON.stringify(await row(fp, ID.mid))}`);
+check(/READY/.test((await fp.locator('#pg-settings .pn.offbrain h3').textContent()) ?? ''), 'after a new service worker, the 0.6B is not READY');
+check((await text(fp, '.obkeep .obhere')) === 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 0.8B whole (447 MB).', `after a new service worker: "${await text(fp, '.obkeep .obhere')}"`);
+await fp.evaluate(() => window.__webllmLoad('Qwen3.5-0.8B-q4f16_1-MLC'));
+check((await fp.evaluate(() => window.__webllmMissed.length)) === 0 && fresh.net.hits.length === freshHits, `after a new service worker, WebLLM's lookups fetched: ${fresh.net.hits.slice(freshHits)}`);
+check((await fp.locator('#pg-settings .offbrain .obkeep > div').allTextContents()).includes('Kept for good: yes. The phone will not clear Ghosty’s downloads to make space.'), 'the phone\'s answer (granted) on the panel');
+await shot(fp, 'kept-after-new-version');
+
+// ---- 9. the biggest brain's download in parts (pieces of 1.5 MB here, parts of 500 KB: three parts a piece)
+await fp.evaluate(() => {
+  window.__ghostyOfflineEngine.part = 500_000;
+  window.__logs = [];
+  window.__lines = [];
+});
+fresh.net.most = 0;
+fresh.net.hangRange.add('params_shard_2.bin@1000000'); // the third part of the third shard never comes: iOS closes Ghosty then
+const partsFrom = fresh.net.ranges.length;
+await press(fp, ID.four, 'GET');
+await answerSheet(fp, true);
+await fp.waitForFunction(() => window.__logs.at(-1)?.piece === 6 && window.__logs.at(-1)?.part === 3, null, { timeout: 10000 }).catch(() => problems.push('GET in parts never reached piece 6, part 3'));
+await fp.waitForTimeout(200);
+const partLogs = await fp.evaluate(() => window.__logs.filter((l) => l.parts).map((l) => `${l.piece}.${l.part}/${l.parts}`));
+check(JSON.stringify(partLogs) === JSON.stringify(['4.1/3', '4.2/3', '4.3/3', '5.1/3', '5.2/3', '5.3/3', '6.1/3', '6.2/3', '6.3/3']), `the log written before each part: ${JSON.stringify(partLogs)}`);
+check(fresh.net.most === 1, `one part at a time, never two pieces at once (at most ${fresh.net.most} in flight)`);
+const askedParts = fresh.net.ranges.slice(partsFrom).filter((r) => r.startsWith('params_shard'));
+check(JSON.stringify(askedParts.slice(0, 3)) === JSON.stringify(['params_shard_0.bin@0-499999', 'params_shard_0.bin@500000-999999', 'params_shard_0.bin@1000000-1499999']), `the parts asked for: ${JSON.stringify(askedParts)}`);
+const partLines = await fp.evaluate(() => window.__lines);
+check(partLines.includes('piece 5 of 8 · part 2 of 3 · 2 MB of 6 MB'), `the progress line names the part: ${JSON.stringify(partLines)}`);
+await killAndReopen(fp);
+await fp.evaluate(() => (window.__ghostyOfflineEngine.part = 500_000)); // (the same part size after the reopen)
+const carryPart = await text(fp, '.obgetting');
+check(carryPart === 'Ghosty was closed while getting Qwen3.5 4B at piece 6 of 8, part 3 of 3. Tap CONTINUE to carry on from there.', `the carry-on line names the part: "${carryPart}"`);
+const kept4 = await fp.evaluate(async () => (await (await caches.open('ghosty-brain-parts')).keys()).map((r) => r.url.split('/').pop()));
+check(JSON.stringify(kept4.sort()) === JSON.stringify(['params_shard_2.bin?ghosty-part=1-of-3', 'params_shard_2.bin?ghosty-part=2-of-3']), `the parts of the unfinished piece are kept: ${JSON.stringify(kept4)}`);
+check((await text(fp, '.obkeep .obhere')) === 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 0.8B whole (447 MB) · Qwen3.5 4B 5 of 8 pieces.', `the half-way brain counted: "${await text(fp, '.obkeep .obhere')}"`);
+fresh.net.hangRange.clear();
+const resumeFrom = fresh.net.ranges.length;
+await press(fp, ID.four, 'CONTINUE');
+await answerSheet(fp, true);
+check(await tagIs(fp, ID.four, 'ON THIS PHONE', 20000), 'CONTINUE in parts did not finish the 4B');
+const resumed = fresh.net.ranges.slice(resumeFrom);
+check(JSON.stringify(resumed) === JSON.stringify(['params_shard_2.bin@1000000-1499999', 'params_shard_3.bin@0-499999', 'params_shard_3.bin@500000-999999', 'params_shard_3.bin@1000000-1499999']), `CONTINUE carried on at the piece's next part: ${JSON.stringify(resumed)}`);
+const stored4 = await fp.evaluate(async () => {
+  const c = await caches.open('webllm/model');
+  const out = {};
+  for (const k of [2, 3]) {
+    const r = await c.match(new Request(`https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC/resolve/44b42469f9e192814bfd90440e3b377d89ba7a13/params_shard_${k}.bin`));
+    const b = r ? new Uint8Array(await r.arrayBuffer()) : new Uint8Array();
+    out[k] = { bytes: b.length, sha: [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join('') };
+  }
+  return { out, parts: (await (await caches.open('ghosty-brain-parts')).keys()).length };
+});
+check(stored4.out[2]?.bytes === SHARD && stored4.out[2]?.sha === sha(shardBody('params_shard_2.bin')), `the piece put together after the close is byte-identical: ${JSON.stringify(stored4.out[2])}`);
+check(stored4.out[3]?.sha === sha(shardBody('params_shard_3.bin')), `the next piece is byte-identical: ${JSON.stringify(stored4.out[3])}`);
+check(stored4.parts === 0, `the parts are gone once each piece is whole: ${stored4.parts}`);
+await fp.evaluate(() => window.__webllmLoad('Qwen3.5-4B-q4f16_1-MLC'));
+check((await fp.evaluate(() => window.__webllmLooked.at(-1)?.inCache && window.__webllmMissed.length === 0)) === true, 'WebLLM finds the 4B built from parts under its own keys');
+await shot(fp, 'parts-done');
+await putBack(fp);
+await fresh.ctx.close();
+
+// ---- 10. honest storage: an iPhone in Safari that gives Ghosty 1.2 GB (300 MB used), keeping it for good once asked
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+const tight = await signedIn({ storage: { quota: 1.2e9, usage: 0.3e9, grant: false }, userAgent: IPHONE });
+const tp = tight.page;
+const askedBefore = await tp.evaluate(() => window.__persistAsked);
+const tHits = tight.net.hits.length;
+await press(tp, ID.four, 'GET');
+await tp.waitForTimeout(600);
+const roomWords = 'This phone gives Ghosty 1.2 GB of space (900 MB of it free); the 4B needs 2.7 GB (its files and room to put its biggest piece together). Nothing was downloaded: free some space on the phone, or choose a smaller brain.';
+check((await text(tp, '.obtest')) === roomWords, `the 4B refused for space, in plain words: "${await text(tp, '.obtest')}"`);
+check((await toasts(tp)).includes(roomWords.slice(0, 60)), `…and in a toast: "${await toasts(tp)}"`);
+check(!(await sheet(tp).isVisible().catch(() => false)) && tight.net.hits.length === tHits, `refused before anything was asked or fetched: ${tight.net.hits.slice(tHits)}`);
+await shot(tp, 'no-room-4b');
+await press(tp, ID.mid, 'GET');
+await answerSheet(tp, true);
+check(await tagIs(tp, ID.mid, 'ON THIS PHONE', 20000), 'the 0.8B (it fits the space) did not download');
+await tp.locator('#pg-settings .offbrain > .bd > .keyrow button', { hasText: 'DOWNLOAD' }).click();
+await tp.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the 0.6B did not download (tight phone)'));
+check((await tp.evaluate(() => window.__persistAsked)) - askedBefore === 1, `persist() asked once for two downloads: ${askedBefore} → ${await tp.evaluate(() => window.__persistAsked)}`);
+const keepLines = await tp.locator('#pg-settings .offbrain .obkeep > div').allTextContents();
+check(keepLines.includes('Kept for good: no. The phone may clear downloaded brains when it runs short of space.'), `the phone's answer (not granted) on the panel: ${JSON.stringify(keepLines)}`);
+check(keepLines.includes('This is Safari: a brain stays where it was downloaded (Safari and the Home Screen app each keep their own), so use Ghosty from one of them.'), `Safari and the Home Screen app: ${JSON.stringify(keepLines)}`);
+// pieces gone between opens (the phone cleared them): named, not a silent new download
+await tp.evaluate(async () => {
+  const c = await caches.open('webllm/model');
+  for (const r of await c.keys()) if (/Qwen3\.5-0\.8B.*params_shard_[01]\.bin$/.test(r.url)) await c.delete(r);
+});
+await killAndReopen(tp);
+const goneWords = await text(tp, '.obkeep .obgone');
+check(/^Qwen3\.5 0\.8B was whole on this phone on \d+ \w+ \(8 pieces\); 2 of them have gone since, and Ghosty did not remove them\. Getting it again fetches only what is missing\.$/.test(goneWords), `the pieces gone, said by name: "${goneWords}"`);
+check((await text(tp, '.obkeep .obhere')) === 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 0.8B 6 of 8 pieces.', `what is left, counted: "${await text(tp, '.obkeep .obhere')}"`);
+check((await row(tp, ID.mid))?.buttons.join() === 'GET', `the 0.8B offers GET again: ${JSON.stringify(await row(tp, ID.mid))}`);
+await shot(tp, 'gone-named');
+const fit10 = await tp.evaluate(() => document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#pg-settings .offbrain .obkeep *')].every((e) => e.getBoundingClientRect().right <= document.querySelector('#pg-settings .offbrain').getBoundingClientRect().right + 1));
+check(fit10, 'the storage lines fit the phone (nothing sideways)');
+await putBack(tp);
+await tight.ctx.close();
+
 await browser.close();
 reported = true;
 if (problems.length) {
   console.error(`bigbrain spec (${browserName}): ${problems.length} problem(s)\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`bigbrain spec (${browserName}): all good — the picker, GET stores pieces one at a time with no graphics memory, the carry-on after a close, USE's limits check and warning, the closed-Ghosty mark, the 0.8B step, the 0.6B fallback, REMOVE, no sideways scroll`);
+console.log(`bigbrain spec (${browserName}): all good — the picker, GET stores pieces one at a time with no graphics memory, the carry-on after a close, USE's limits check and warning, the closed-Ghosty mark, the 0.8B step, the 0.6B fallback, REMOVE, no sideways scroll; what GET stored found on the next open and after a new service worker with no fetch, a big piece in parts resumed at its next part and byte-identical, a GET the space cannot hold refused, the storage lines`);

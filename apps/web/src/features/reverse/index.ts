@@ -4,31 +4,62 @@
  * project or a direct file link (.apk, .dll, .exe, .zip, .asar, .jar) — and the report
  * arrives here (and as a notification) a few minutes later. Lawful research only.
  */
-import { brain, type ReverseJobInfo } from '../../api/brain';
+import { readsAs } from '../../../../../packages/shared/src/reverse';
+import { brain, headers, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 
 const CSS = `
-.mdreport { font-size: 12.5px; line-height: 1.5; }
-.mdreport h2 { font: 500 11px var(--m); letter-spacing: .3em; color: var(--c); text-transform: uppercase; margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(var(--cr), .2); }
-.mdreport h3 { font: 500 9px var(--m); letter-spacing: .24em; color: var(--a); text-transform: uppercase; margin: 12px 0 4px; }
-.mdreport p { margin: 4px 0; } .mdreport ul { margin: 4px 0; padding-left: 16px; } .mdreport li { margin: 2px 0; word-break: break-word; }
-.mdreport code { font: 400 11px var(--m); color: var(--a); background: rgba(var(--ar), .08); padding: 0 3px; }
-.mdreport pre { font: 400 10.5px/1.4 var(--m); color: #cfe9f7; background: rgba(0,0,0,.45); padding: 8px 10px; overflow: auto; max-height: 50vh; white-space: pre; border-left: 2px solid rgba(var(--cr), .4); }
-.mdreport .warnnote { border-left: 2px solid var(--a); padding-left: 8px; }
+.mdreport { font-size: 15px; line-height: 22px; overflow-wrap: anywhere; }
+.mdreport h3 { font: 600 17px/22px var(--sf); color: var(--ink); margin: 18px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--hair); }
+.mdreport h4 { font: 600 15px/20px var(--sf); color: var(--ink2); margin: 14px 0 4px; }
+.mdreport p { margin: 6px 0; } .mdreport ul { margin: 6px 0; padding-left: 18px; } .mdreport li { margin: 3px 0; }
+.mdreport code { font: 400 13px var(--m); color: var(--a); background: rgba(var(--ar), .08); padding: 0 3px; border-radius: 4px; }
+.mdreport details { margin: 8px 0; } .mdreport summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink2); font: 500 15px var(--sf); }
+.mdreport pre { font: 400 12px/1.45 var(--m); color: var(--ink2); background: rgba(0,0,0,.35); padding: 10px 12px; margin: 4px 0 0; max-height: 60vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 10px; }
+.mdreport .warnnote { border-left: 2px solid var(--a); padding-left: 10px; }
+.mdreport .revfoot { color: var(--ink3); font-size: 13px; line-height: 18px; }
+.revhead { margin: 0 0 12px; } .revhead b { display: block; font: 600 22px/28px var(--sf); color: var(--ink); overflow-wrap: anywhere; } .revhead span { display: block; margin-top: 2px; font: 400 14px/19px var(--sf); color: var(--ink3); }
 .mdreport hr { border: 0; border-top: 1px solid rgba(var(--cr), .15); margin: 10px 0; }
 #pg-reverse .rw.link.on { box-shadow: inset 2px 0 0 var(--a); background: linear-gradient(90deg, rgba(var(--ar), .14), transparent); }
 `;
 
-const KINDS: [string, string][] = [['auto', 'Work it out'], ['web', 'Website'], ['npm', 'npm package'], ['repo', 'GitHub project'], ['artifact', 'App file (.apk .dll .exe .zip …)']];
+/** The brain's words as a sentence: a capital at the start, a full stop at the end. */
+const sentence = (t: string) => (t ? `${t.charAt(0).toUpperCase()}${t.slice(1)}${/[.!?)]$/.test(t) ? '' : '.'}` : '');
+const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+/** 14:08, on this phone's clock. */
+const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+/** A button shown with its words as written ("GitHub", not the sentence case that would make it "Github"). */
+const asWritten = (b: HTMLButtonElement, words: string) => ((b.dataset.label = words), b);
 
-/** Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code). */
+/** What a report is about, in a word or two. */
+const KIND_WORD: Record<string, string> = { web: 'Website', npm: 'Code package', repo: 'GitHub project', artifact: 'App file', auto: 'Link' };
+
+/** Where a report has got to, in his words: "Ready · 25 Oct", "Running · 3 min", "Didn't finish". */
+const STATE_WORD: Record<ReverseJobInfo['status'], (j: ReverseJobInfo) => string> = {
+  done: (j) => `Ready${j.finishedAt ? ` · ${new Date(j.finishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}`,
+  failed: () => 'Didn’t finish',
+  running: (j) => `Running · ${Math.max(1, Math.round((Date.now() - j.at) / 60_000))} min`,
+  queued: () => 'Starting',
+};
+
+const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
+
+/** "2026-10-25T01:05:00.000Z" → "25 Oct 2026, 02:05" (this phone's time): the report's times in his words. */
+const day = (t: number | string) => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const plainTimes = (t: string) => t.replace(/\b\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?Z\b/g, (iso) => day(iso));
+
+/**
+ * Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code), made to read on a phone:
+ * times in his words, the title and the lines the header above already says (target, kind, when, question) left out, "(Ghosty baseline)" dropped
+ * from headings, and REA's raw data (a code block, often thousands of characters of JSON) folded away.
+ */
 function renderMd(md: string): HTMLElement {
   const out = h('div.mdreport');
-  const lines = md.split('\n');
+  const lines = plainTimes(md).split('\n').filter((l) => !/^# Reverse engineering report\s*$|^\*\*(Target|Kind|Started|Question):\*\*/.test(l));
   let i = 0;
   const inline = (t: string): (string | Node)[] => {
     const parts: (string | Node)[] = [];
@@ -50,13 +81,13 @@ function renderMd(md: string): HTMLElement {
       i++;
       while (i < lines.length && !lines[i]!.startsWith('```')) buf.push(lines[i++]!);
       i++;
-      const pre = h('pre', buf.join('\n').slice(0, 40000));
-      out.append(pre);
+      const raw = buf.join('\n');
+      out.append(h('details', h('summary', `Show the raw data (${raw.length < 1024 ? `${raw.length} characters` : `${Math.round(raw.length / 1024)} KB`})`), h('pre', raw.slice(0, 40000))));
       continue;
     }
     if (/^#{1,3} /.test(l)) {
       const lvl = l.match(/^#+/)![0].length;
-      out.append(h(lvl === 1 ? 'h2' : 'h3', ...inline(l.replace(/^#+ /, ''))));
+      out.append(h(lvl <= 2 ? 'h3' : 'h4', ...inline(l.replace(/^#+ /, '').replace(/\s*\(Ghosty baseline\)/i, ''))));
     } else if (/^[-*] /.test(l)) {
       const ul = h('ul');
       while (i < lines.length && /^[-*] /.test(lines[i]!)) ul.append(h('li', ...inline(lines[i++]!.slice(2))));
@@ -64,6 +95,7 @@ function renderMd(md: string): HTMLElement {
       continue;
     } else if (/^> /.test(l)) out.append(h('div.note.warnnote', ...inline(l.slice(2))));
     else if (l.trim() === '---') out.append(h('hr'));
+    else if (/^_.+_$/.test(l.trim())) out.append(h('p.revfoot', l.trim().slice(1, -1)));
     else if (l.trim()) out.append(h('p', ...inline(l.replace(/ {2}$/, ''))));
     i++;
   }
@@ -75,113 +107,217 @@ export const reverseTab: TabDef = {
   title: 'REVERSE',
   icon: '<path d="M4 7h11a4 4 0 010 8H9"/><path d="M7 11l-3 4 3 4"/><circle cx="18" cy="7" r="2"/>',
   scene: 'backdrop',
-  blurb: 'reverse-engineer apps, sites & packages',
+  blurb: 'see how any app or site works',
   mount(root) {
     if (!document.getElementById('reverse-css')) document.head.append(h('style#reverse-css', CSS));
-    const P = page(root, { tag: 'REVERSE // ENGINEERING', sub: 'REA runs on GitHub’s computers; the findings come back here', leftLabel: 'NEW JOB', rightLabel: 'REPORTS', stack: true });
+    // The top says what it is for in his words, the same words as the Make hub's card (shell/hubcards.ts).
+    const P = page(root, { tag: 'REVERSE', sub: 'Paste a link to a website, an app or a code package. Ghosty takes it apart and tells you what it is built with and what it talks to.', leftLabel: 'NEW REPORT', rightLabel: 'REPORTS', stack: true });
 
     // ---- new job
-    const np = panel('REVERSE-ENGINEER SOMETHING', { grow: false });
-    const target = h('input', { placeholder: 'https://example.com  ·  lodash  ·  owner/repo  ·  https://…/app.apk', 'aria-label': 'Target', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' });
+    const np = panel('TAKE SOMETHING APART', { grow: false });
+    const target = h('input', { placeholder: 'A link, like bbc.co.uk', 'aria-label': 'What to look at', inputmode: 'url', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' });
     const kind = h('select', { 'aria-label': 'What is it' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
     const question = h('input', { placeholder: 'What do you want to know? (optional)', 'aria-label': 'Question' });
     const startBtn = button('START', () => void start(), 'on');
+    // What START did, kept on screen under it (a toast is gone before it is read); the brain's words, as a sentence.
+    const say = h('div.note.revsay', { role: 'status', 'aria-live': 'polite', hidden: true });
+    const tell = (msg: string) => {
+      say.textContent = sentence(msg);
+      say.hidden = !msg;
+    };
+    // Reverse runs on GitHub: without it nothing can start, so that is said before he types, with the way to fix it.
+    const connect = asWritten(button('CONNECT GITHUB', () => go('system'), 'on'), 'Connect GitHub');
+    const gh = h('div.revgh', { hidden: true }, h('p', 'GitHub is not connected yet, so a report cannot start. Reverse runs on GitHub’s free computers: add a free GitHub token once in System → Keys.'), connect);
     const start = async () => {
       const t = target.value.trim();
-      if (!t) return void toast('Paste a link, a package name or owner/repo first', 'warn');
+      if (!t) return void tell('Paste a link first, like bbc.co.uk');
+      if (offline()) return void tell('You’re offline, so nothing can start. Try again when you’re back');
+      tell('');
       startBtn.disabled = true;
       try {
         const r = await brain.reverseStart({ target: t, kind: kind.value, question: question.value.trim() });
-        toast(`Started · ${r.job.kind} · takes 3–8 min`, 'ok');
         target.value = '';
         question.value = '';
+        reads.hidden = true;
         await refresh();
+        // the new report, waiting, in place: when to expect it and that he can go
+        void show(r.job.id, true);
       } catch (e) {
-        toast(String((e as Error).message ?? e), 'bad');
+        const msg = String((e as Error).message ?? e);
+        tell(msg);
+        if (/GitHub token/i.test(msg)) gh.hidden = false;
       } finally {
         startBtn.disabled = false;
       }
     };
     target.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
+    // what the box reads as, by the brain's own rules, while he types ("kettle" is a code package, not a kettle)
+    const reads = h('div.note.revreads', { 'aria-live': 'polite', hidden: true });
+    target.addEventListener('input', () => {
+      reads.textContent = readsAs(target.value);
+      reads.hidden = !reads.textContent;
+    });
     np.body.append(
+      gh,
       target,
+      reads,
       h('div.row', kind, startBtn),
+      say,
       question,
-      h('div.note', 'Websites: structure, scripts, frameworks, API endpoints, security headers and the web bundle. Packages and projects: files, dependencies, entry points and REA’s full JavaScript analysis. App files: format, strings, URLs inside, Android packages and .NET assemblies. Native code decompiling needs Ghidra — ask Ghosty if you want it.'),
-      h('div.note', h('b', 'Only analyse software you own or are allowed to test.'), ' REA by morluto, MIT licence.'),
+      h('div.note', 'A website: what it is built with, the other companies it talks to, and how well it is locked down. An app or a code package: what is inside and what it connects to.'),
+      h('div.note', h('b', 'Only analyse software you own or are allowed to test.'), ' Free: it runs on GitHub’s computers, not this phone. Uses REA by morluto (MIT licence).'),
     );
 
     // ---- jobs
-    const jp = panel('JOBS', { status: '', footer: true });
+    const jp = panel('YOUR REPORTS', { status: '', footer: true });
     const list = h('div.stackf');
-    jp.body.append(list);
+    const offNote = h('div.note.revoff', { role: 'status', hidden: true });
+    jp.body.append(offNote, list);
     let jobs: ReverseJobInfo[] = [];
     let open: string | null = null;
-    const viewer = panel('REPORT', { status: '' });
+    const viewer = panel('REPORT', { status: '', cls: 'revview' });
     viewer.el.hidden = true;
     const paint = () => {
       clear(list);
       if (!jobs.length) {
-        list.append(h('div.empty', h('b', 'NO JOBS YET'), h('span', 'Paste something above to begin.')));
-        jp.setStatus('IDLE', 'off');
+        list.append(h('div.empty', h('b', 'No reports yet'), h('span', 'Paste a link above to begin.')));
+        jp.setStatus('None yet', 'off');
         return;
       }
-      jp.setStatus(`${jobs.filter((j) => j.status === 'running' || j.status === 'queued').length} RUNNING · ${jobs.length} TOTAL`, 'ok');
+      const busy = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length;
+      jp.setStatus(`${jobs.length} ${jobs.length === 1 ? 'report' : 'reports'}${busy ? ` · ${busy} running` : ''}`, 'ok');
       for (const j of jobs) {
         const tone = j.status === 'done' ? 'up' : j.status === 'failed' ? 'bad' : '';
-        const r = h('div.rw.link', { onclick: () => void show(j.id) },
+        const r = h('div.rw.link', { onclick: () => void show(j.id, true), tabIndex: 0, role: 'button', onkeydown: (e: KeyboardEvent) => e.key === 'Enter' && void show(j.id, true) },
           h('span.sev', { style: `color:${j.status === 'done' ? 'var(--ok)' : j.status === 'failed' ? 'var(--r)' : 'var(--a)'};background:currentColor` }),
-          h('span.k', j.kind),
-          h('span.v', j.target.replace(/^https?:\/\//, '')),
-          h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, j.status === 'done' ? 'REPORT' : j.status === 'failed' ? 'FAILED' : `${j.status.toUpperCase()} · ${fmt.ago(j.at)}`),
+          // the name in full (a long one wraps, never cut), what it is under it
+          h('span.v.revname', j.target.replace(/^https?:\/\//, '').replace(/\/$/, ''), h('small', KIND_WORD[j.kind] ?? 'Link')),
+          h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, STATE_WORD[j.status](j)),
         );
+        // REMOVE: the row goes at once; the floating UNDO bar puts it back; the brain is told only when the bar closes
+        // (the pass's design: UNDO never needs the brain). A running report is left to finish first.
+        if (j.status !== 'running' && j.status !== 'queued') {
+          const name = j.target.replace(/^https?:\/\//, '').replace(/\/$/, '');
+          const rm = button('REMOVE', () => {
+            r.hidden = true;
+            undo(`Removed ${name}`, () => { r.hidden = false; }, async () => {
+              await brain.reverseRemove(j.id).catch(() => null);
+              jobs = jobs.filter((x) => x.id !== j.id);
+              paint();
+            });
+          });
+          rm.classList.add('revremove');
+          rm.setAttribute('aria-label', `Remove ${name}`);
+          rm.addEventListener('click', (e) => e.stopPropagation());
+          rm.addEventListener('keydown', (e) => e.stopPropagation());
+          r.append(rm);
+        }
         if (j.id === open) r.classList.add('on');
         list.append(r);
       }
     };
-    const show = async (id: string) => {
+    // SAVE TO LIBRARY: the report filed there and then (the brain's /library/text, no AI), said in place.
+    const saveToLibrary = async (job: ReverseJobInfo & { report?: string }, name: string, b: HTMLButtonElement, savedLine: HTMLElement) => {
+      const title = `Reverse report: ${name}`;
+      b.disabled = true;
+      savedLine.hidden = false;
+      savedLine.textContent = 'Saving…';
+      // the words, not REA's raw data (thousands of characters of JSON that would only clutter a search)
+      const text = plainTimes(job.report ?? '').replace(/```[\s\S]*?```/g, '(raw data left out; it is in the report in Reverse)');
+      try {
+        const r = await fetch('/api/library/text', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ title, text, kind: 'note', source: `Reverse · ${job.target}` }), credentials: 'same-origin' });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        if (!r.ok) throw new Error(j.error ?? `the brain answered ${r.status}`);
+        clear(savedLine, `Saved in the Library as “${title}”. `, button('OPEN LIBRARY', () => go('library')));
+      } catch (e) {
+        savedLine.textContent = navigator.onLine === false ? 'You’re offline, so it could not be saved. Try again when you’re back.' : `Could not save it: ${String((e as Error).message ?? e)}`;
+        b.disabled = false;
+      }
+    };
+    const show = async (id: string, bring = false) => {
       open = id;
       paint();
       viewer.el.hidden = false;
       clear(viewer.body);
       viewer.body.append(h('div.note', 'Loading…'));
+      // On the phone the report sits under the form and the list: a tap brings it on screen (it opened out of sight).
+      // After it is drawn: "Loading…" alone is too short for the page to scroll that far.
+      const bringIn = () => bring && viewer.el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       try {
         const { job } = await brain.reverseJob(id);
         clear(viewer.body);
-        viewer.title.textContent = job.target.replace(/^https?:\/\//, '').slice(0, 40).toUpperCase();
-        viewer.setStatus(job.status.toUpperCase(), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
+        viewer.setStatus(STATE_WORD[job.status](job).replace(/ ·.*/, ''), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
+        // the name as written (example.com, not "Example.com"), what it is and when
+        const name = job.target.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        viewer.body.append(h('div.revhead', h('b', name), h('span', `${KIND_WORD[job.kind] ?? 'Link'} · ${job.status === 'done' && job.finishedAt ? `made ${day(job.finishedAt)}` : `asked for ${day(job.at)}`}${job.question ? ` · “${job.question}”` : ''}`)));
         if (job.status === 'done' && job.report) {
+          const savedLine = h('div.note.revsaved', { role: 'status', hidden: true });
           viewer.body.append(
             h('div.row.wrap',
               button('ASK GHOSTY', () => {
                 go('core');
                 void send(`Read the reverse-engineering report for ${job.target} (job ${job.id}) with reverse_status and tell me the most useful findings${job.question ? `, especially: ${job.question}` : ''}.`);
-              }, 'warn'),
-              button('SAVE TO LIBRARY', () => {
-                go('core');
-                void send(`Save the reverse-engineering report for ${job.target} (job ${job.id}) into the library so I can search it later: read it with reverse_status and library_import the text.`);
-              }),
-              job.runUrl ? button('GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : null,
+              }, 'on'),
+              button('SAVE TO LIBRARY', (b) => void saveToLibrary(job, name, b, savedLine)),
+              job.runUrl ? asWritten(button('SEE IT ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'See it on GitHub ↗') : null,
             ),
+            savedLine,
             renderMd(job.report),
           );
         } else if (job.status === 'failed') {
-          viewer.body.append(h('div.note', job.error ?? 'failed'), job.runUrl ? button('SEE THE RUN ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : '');
+          // what happened, in words, and the same thing asked again with one tap
+          const why = h('div.note.revsay', { role: 'status', hidden: true });
+          const again = button('TRY AGAIN', async (b) => {
+            if (offline()) {
+              why.textContent = 'You’re offline, so nothing can start. Try again when you’re back.';
+              return void (why.hidden = false);
+            }
+            b.disabled = true;
+            try {
+              const r = await brain.reverseStart({ target: job.target, kind: job.kind, question: job.question });
+              await refresh();
+              void show(r.job.id, true);
+            } catch (e) {
+              why.textContent = sentence(String((e as Error).message ?? e));
+              why.hidden = false;
+              b.disabled = false;
+            }
+          }, 'on');
+          viewer.body.append(
+            h('div.empty.revwait', h('b', 'This one didn’t finish'), h('span', sentence(job.error ?? 'GitHub did not say why'))),
+            h('div.row.wrap', again, job.runUrl ? asWritten(button('SEE WHAT HAPPENED ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'See what happened on GitHub ↗') : null),
+            why,
+          );
         } else {
-          viewer.body.append(h('div.empty', h('b', job.status === 'queued' ? 'WAITING FOR GITHUB' : 'RUNNING ON GITHUB'), h('span', `started ${fmt.ago(job.at)} · usually 3–8 minutes`)), job.runUrl ? button('WATCH ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : '');
+          // A run takes 3–8 minutes; the brain looks again after six and sends what it found (tools/reverse.ts).
+          const late = Date.now() - job.at > 8 * 60_000;
+          viewer.body.append(
+            h('div.empty.revwait',
+              h('b', { dataset: { case: 'keep' } }, job.status === 'queued' ? 'Starting on GitHub…' : 'Taking it apart…'),
+              h('span', late ? `Started at ${clock(job.at)}. It is taking longer than usual; it keeps going for up to 15 minutes.` : `Started at ${clock(job.at)}, ready by about ${clock(job.at + 8 * 60_000)}.`),
+              h('span', 'You can leave this screen: Ghosty tells you when it is ready, and it will be here.'),
+            ),
+            job.runUrl ? asWritten(button('WATCH ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'Watch on GitHub ↗') : '',
+          );
         }
         const k = jobs.findIndex((x) => x.id === id);
         if (k >= 0) jobs[k] = { ...jobs[k]!, status: job.status, error: job.error, runUrl: job.runUrl };
         paint();
+        bringIn();
       } catch (e) {
         clear(viewer.body);
         viewer.body.append(h('div.note', String((e as Error).message ?? e)));
+        bringIn();
       }
     };
     const refresh = async () => {
       try {
+        // offline the brain's client answers with the list this phone last saw: said so, and nothing nudged
         jobs = (await brain.reverseJobs()).jobs;
+        offNote.hidden = !offline();
+        offNote.textContent = 'You’re offline: these are your reports as this phone last saw them. They update when you’re back.';
         paint();
+        if (offline()) return void jp.setStatus('Offline', 'off');
         // nudge running jobs so they update from GitHub
         const running = jobs.filter((j) => j.status === 'running' || j.status === 'queued').slice(0, 3);
         for (const j of running) {
@@ -192,22 +328,30 @@ export const reverseTab: TabDef = {
         }
         paint();
       } catch {
-        jp.setStatus('OFFLINE', 'off');
+        jp.setStatus(offline() ? 'Offline' : 'Not reached', 'off');
+        offNote.hidden = false;
+        offNote.textContent = offline() ? 'You’re offline. Your reports show here when you’re back.' : 'Ghosty’s brain could not be reached just now. REFRESH tries again.';
       }
     };
     jp.foot!.append(button('REFRESH', () => void refresh()));
 
     P.left.append(np.el, jp.el);
     P.right.append(viewer.el);
-    P.big.textContent = 'REA';
+    P.big.textContent = 'See how any app works';
     let timer = 0;
+    const back = () => void refresh();
     return {
       enter() {
         void refresh();
+        addEventListener('online', back);
+        addEventListener('offline', back);
+        void brain.status().then((st) => (gh.hidden = st.repoReady)).catch(() => undefined);
         timer = window.setInterval(() => jobs.some((j) => j.status === 'running' || j.status === 'queued') && void refresh(), 30000);
       },
       leave() {
         clearInterval(timer);
+        removeEventListener('online', back);
+        removeEventListener('offline', back);
       },
       describe: () => `Reverse tab: ${jobs.length} jobs (${jobs.filter((j) => j.status === 'done').length} reports)${open ? `, viewing ${open}` : ''}.`,
     };

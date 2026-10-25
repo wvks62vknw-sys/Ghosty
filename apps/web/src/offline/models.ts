@@ -197,6 +197,60 @@ export const sizeText = (mb: number): string => (mb < 1000 ? `${Math.round(mb)} 
 export const memText = (vramMB: number): string => `${(vramMB / 1024).toFixed(1)} GB`;
 
 /**
+ * How much of one piece GET fetches at a time (offline/fill.ts): about 32 MB, asked for with a Range request and kept as a
+ * part of its own until the piece is whole, so a phone that closes Ghosty mid-piece loses at most one part, and only
+ * one part is ever on its way in. A piece no bigger than this comes in one go.
+ */
+export const PART_BYTES = 32 * 1024 * 1024;
+/** The parts of a piece of `bytes`: [first, last] byte of each, as a Range header names them (one part when it is small). */
+export function partRanges(bytes: number, part: number = PART_BYTES): [number, number][] {
+  if (!(bytes > 0)) return [];
+  const size = part > 0 ? Math.floor(part) : bytes;
+  const out: [number, number][] = [];
+  for (let a = 0; a < bytes; a += size) out.push([a, Math.min(bytes, a + size) - 1]);
+  return out;
+}
+
+/** What one brain has on this phone right now, counted in the cache: pieces there of the pieces it needs (`of`, 0 when its list is not here), and their bytes. */
+export interface Kept {
+  label: string;
+  mb: number;
+  have: number;
+  of: number;
+}
+/** "On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 2B 37 of 120 pieces", from the pieces really in the cache. */
+export function onPhoneLine(kept: Kept[]): string {
+  const there = kept.filter((k) => k.have > 0);
+  if (!there.length) return 'On this phone: no brain yet.';
+  const one = (k: Kept) => (k.of > 0 && k.have >= k.of ? `${k.label} whole (${sizeText(k.mb)})` : k.of > 0 ? `${k.label} ${k.have} of ${k.of} pieces` : `${k.label} ${k.have} piece${k.have === 1 ? '' : 's'}`);
+  return `On this phone: ${there.map(one).join(' · ')}.`;
+}
+/**
+ * A brain whose download finished here earlier and whose pieces are not all here now (counted at opening): said by name,
+ * so a new download is never silent. `was`: the pieces it had when GET finished, and when.
+ */
+export function goneLine(m: Pick<ModelDef, 'label'>, was: { of: number; at: number }, have: number): string {
+  const gone = Math.max(0, was.of - have);
+  const when = new Date(was.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${m.label} was whole on this phone on ${when} (${was.of} pieces); ${gone === was.of ? 'all of them have' : `${gone} of them have`} gone since, and Ghosty did not remove them. Getting it again fetches only what is missing.`;
+}
+/**
+ * A GET the space this phone gives Ghosty cannot hold, in plain words before anything is downloaded ('' when it fits, or
+ * when the browser does not say). `quota` and `usage` are navigator.storage.estimate()'s bytes; `have` the bytes of this
+ * brain already here. A brain fetched in parts needs room for its biggest piece twice while that piece is put together.
+ */
+export function roomProblem(m: Pick<ModelDef, 'label' | 'mb' | 'largest'>, quota: number, usage: number, have = 0, part: number = PART_BYTES): string {
+  if (!(quota > 0)) return '';
+  const free = Math.max(0, quota - Math.max(0, usage));
+  const files = Math.max(0, m.mb * 1e6 - Math.max(0, have));
+  const extra = (m.largest ?? 0) > part ? (m.largest ?? 0) : 0;
+  const need = files + extra;
+  if (need <= free) return '';
+  const gb = (b: number) => sizeText(b / 1e6);
+  return `This phone gives Ghosty ${gb(quota)} of space (${gb(free)} of it free); the ${shortName(m)} needs ${gb(need)}${extra ? ` (its files and room to put its biggest piece together)` : ''}. Nothing was downloaded: free some space on the phone, or choose a smaller brain.`;
+}
+
+/**
  * SEARCH BY MEANING (offline/embed.ts, library/meaning.ts): a small model that turns a passage or a question into a
  * list of 384 numbers, so passages that mean the same thing sit close together even when their words differ.
  * snowflake-arctic-embed-s (Apache-2.0, English-first), the "-b4" build from WebLLM 0.2.85's own list (four texts

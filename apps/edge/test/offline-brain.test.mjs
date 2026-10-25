@@ -278,3 +278,58 @@ test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, t
   assert.match(M.holdLine(null, { 'Qwen3.5-0.8B-q4f16_1-MLC': { s: 'failed', at }, 'qwen3.5-4b': { s: 'refused', at } }), /^What this phone can hold: ran out of memory loading Qwen3\.5 0\.8B \(24 Oct\); could not start Qwen3\.5 4B \(24 Oct\); not tried yet: Qwen3 0\.6B, Qwen3\.5 2B\./);
   assert.equal(M.shortName(two), '2B');
 });
+
+test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {
+  const { readFileSync } = await import('node:fs');
+  // the service worker's activate step, run as a browser runs it on a new version: only its own older caches go
+  const sw = readFileSync(new URL('../../web/public/sw.js', import.meta.url), 'utf8');
+  const on = {};
+  const had = ['ghosty-shell-v1', 'ghosty-shell-v0', 'ghosty-vendor-v1', 'ghosty-vendor-v0', 'ghosty-app:notes', 'webllm/model', 'webllm/config', 'webllm/wasm', 'ghosty-brain-parts'];
+  const gone = [];
+  const fakeSelf = { addEventListener: (k, f) => (on[k] = f), skipWaiting() {}, clients: { claim: async () => undefined }, location: { origin: 'https://ghosty.example' } };
+  const fakeCaches = { keys: async () => had, delete: async (k) => (gone.push(k), true), open: async () => ({ addAll: async () => undefined }) };
+  new Function('self', 'caches', sw)(fakeSelf, fakeCaches);
+  let wait;
+  on.activate({ waitUntil: (p) => (wait = p) });
+  await wait;
+  assert.deepEqual(gone.sort(), ['ghosty-shell-v0', 'ghosty-vendor-v0'], `a new service worker cleared ${JSON.stringify(gone)}`);
+});
+
+test('GET stores what WebLLM looks up, a big piece in parts, and the storage lines (what the phone holds, what went, the space)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const by = (id) => M.PICKER.find((m) => m.id === id);
+  const [small, mid, two, four] = ['Qwen3-0.6B-q4f16_1-MLC', 'Qwen3.5-0.8B-q4f16_1-MLC', 'Qwen3.5-2B-q4f16_1-MLC', 'Qwen3.5-4B-q4f16_1-MLC'].map(by);
+  // GET's stores and keys are the ones the vendored WebLLM 0.2.85 opens and matches (full address, no query)
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  assert.match(src, /createArtifactCache\("webllm\/config"[\s\S]*?new URL\("mlc-chat-config\.json", modelUrl\)\.href/);
+  assert.match(src, /createArtifactCache\("webllm\/wasm"/);
+  assert.match(src, /createScopedArtifactCache\("webllm\/model", appConfig\);\s*if \(config\.tokenizer_files\.includes\("tokenizer\.json"\)\)/);
+  assert.match(src, /hasAllKeys\(list\.map\(key => new URL\(key\.dataPath, tensorCacheUrl\)\.href\)\)/);
+  assert.match(src, /const result = yield this\.cache\.match\(request\);\s*if \(result === undefined\) \{\s*yield this\.cache\.add\(request\);/);
+  const fill = readFileSync(new URL('../../web/src/offline/fill.ts', import.meta.url), 'utf8');
+  assert.match(fill, /store: 'webllm\/config', url: new URL\('mlc-chat-config\.json', base\)\.href/);
+  assert.match(fill, /store: 'webllm\/model' as const, url: new URL\(r\.dataPath, base\)\.href/);
+  assert.match(fill, /await target\.put\(new Request\(p\.url\), new Response\(body/, 'a piece built from parts is stored under its own address');
+  // the parts of a piece: about 32 MB each, in order, covering every byte once
+  assert.equal(M.PART_BYTES, 32 * 2 ** 20);
+  assert.deepEqual(M.partRanges(1_500_000, 500_000), [[0, 499_999], [500_000, 999_999], [1_000_000, 1_499_999]]);
+  assert.deepEqual(M.partRanges(1_200_000, 500_000), [[0, 499_999], [500_000, 999_999], [1_000_000, 1_199_999]]);
+  assert.deepEqual(M.partRanges(77_791_232), [[0, 33_554_431], [33_554_432, 67_108_863], [67_108_864, 77_791_231]]);
+  assert.equal(M.partRanges(four.largest).length, 10, "the 4B's biggest piece comes in ten parts");
+  assert.deepEqual(M.partRanges(400), [[0, 399]], 'a small piece in one go');
+  assert.deepEqual(M.partRanges(0), []);
+  // what the phone holds, counted
+  assert.equal(M.onPhoneLine([]), 'On this phone: no brain yet.');
+  assert.equal(M.onPhoneLine([{ label: small.label, mb: small.mb, have: 8, of: 8 }, { label: two.label, mb: two.mb, have: 37, of: 120 }, { label: four.label, mb: four.mb, have: 0, of: 0 }]), 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 2B 37 of 120 pieces.');
+  assert.equal(M.onPhoneLine([{ label: mid.label, mb: mid.mb, have: 2, of: 0 }]), 'On this phone: Qwen3.5 0.8B 2 pieces.');
+  const at = Date.UTC(2026, 9, 25, 9);
+  assert.equal(M.goneLine(two, { of: 120, at }, 0), 'Qwen3.5 2B was whole on this phone on 25 Oct (120 pieces); all of them have gone since, and Ghosty did not remove them. Getting it again fetches only what is missing.');
+  assert.match(M.goneLine(two, { of: 120, at }, 83), /; 37 of them have gone since/);
+  // a GET the space cannot hold, said before a byte comes (the brief's words: "This phone gives Ghosty 1.2 GB of space; the 4B needs 2.4 GB")
+  assert.equal(M.roomProblem(four, 1.2e9, 0.3e9), 'This phone gives Ghosty 1.2 GB of space (900 MB of it free); the 4B needs 2.7 GB (its files and room to put its biggest piece together). Nothing was downloaded: free some space on the phone, or choose a smaller brain.');
+  assert.equal(M.roomProblem(four, 6e9, 1e9), '', 'it fits');
+  assert.equal(M.roomProblem(four, 3e9, 0, 2e9), '', 'what is already here counts');
+  assert.equal(M.roomProblem(mid, 0, 0), '', 'a browser that does not say: no refusal');
+  assert.match(M.roomProblem({ label: 'Tiny', mb: 3, largest: 0 }, 1e6, 0), /^This phone gives Ghosty 1 MB of space \(1 MB of it free\); the Tiny needs 3 MB\. Nothing was downloaded/, 'no parts, no room for them');
+});

@@ -3109,6 +3109,11 @@ html .secmark { display: block; height: 0; }
 html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
 html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
 html .hud.secs [data-sec][hidden], html .hud.secs .secnone { display: none !important; }
+/* On a wide screen the sections are off (every panel shows) and their row and its marker must not be grid items of the
+   two-column page: the marker alone pushed the Diary's column into the middle cell with no height (clipped, untappable:
+   the Agenda spec's ADD at 1440 × 900 hit the globe's canvas behind the page). Hidden means gone here, whatever the
+   marker's own display rule says. */
+html .secmark[hidden], html .secpills[hidden] { display: none !important; }
 html .hud.secs .lcard > .pn[hidden] + .pn > h3::before { display: none; }
 /* a hub's line in his own words stays within two lines, so the hub still fits one screen */
 html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
@@ -4086,6 +4091,23 @@ html .homecardacts button { --lfs: 15px; height: 44px; min-height: 44px !importa
 /* Reverse: the help under the form quieter, the jobs as rows */
 html #pg-reverse .pn .note { font-size: 14px; line-height: 20px; color: var(--ink3); }
 html #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }
+/* Reverse: GitHub not connected, said before he types (with the way to connect it); what START did, kept under it */
+html #pg-reverse .revgh { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--ar), .08); box-shadow: inset 0 0 0 1px rgba(var(--ar), .25); }
+html #pg-reverse .revgh p { margin: 0 0 10px; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html #pg-reverse :is(.revgh, .revsay, .revsaved, .revoff, .revreads)[hidden] { display: none; }
+html #pg-reverse .pn .note.revsaved { margin: 0 0 10px; font-size: 15px; line-height: 21px; color: var(--ink2); }
+html #pg-reverse .revsaved button { margin-left: 4px; }
+html #pg-reverse .pn .note.revoff { margin: 0 0 8px; font-size: 15px; line-height: 21px; color: var(--ink2); }
+html #pg-reverse .pn .note.revreads { margin: 6px 2px 8px; font-size: 14px; line-height: 19px; color: var(--ink2); }
+/* Reverse: every target a full 44 pt (START, REFRESH, the report's buttons were 40; the rows 40–41) */
+html #pg-reverse :is(button, select, input) { min-height: 44px !important; }
+html #pg-reverse .pn .rw.link { min-height: 48px; align-items: center; }
+/* Reverse: each report's name in full (a long one wraps, never cut, at 390 or in a laptop's narrow column), what it is under it */
+html #pg-reverse .rw .v.revname { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; padding: 6px 0; }
+html #pg-reverse .rw .v.revname small { display: block; margin-top: 1px; font: 400 13px/17px var(--sf); color: var(--ink3); }
+/* REMOVE on a finished or failed report: a 44 pt target at the row's end (UNDO through the floating bar) */
+html #pg-reverse .rw .revremove { min-height: 44px; margin-left: auto; flex: none; }
+html #pg-reverse .pn .note.revsay { margin: 8px 0; font-size: 15px; line-height: 21px; color: var(--ink); }
 /* ---------- System and Links: a pushed panel shows its contents under the large title (its row is not repeated) ---------- */
 html .listmode .pn.pushed[data-row] > h3 { display: none; }
 html body[data-depth="inner"]:not(.ownback) #top .navtitle[data-len="l"] { font-size: 28px; line-height: 34px; letter-spacing: -.3px; }

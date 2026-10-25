@@ -80,6 +80,7 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
     applying = true;
     const on = phone.matches && defs.length > 1;
     el.hidden = !on;
+    mark.hidden = !on; // (off: the marker is not a grid item of the wide screen's two-column page)
     hud?.classList.toggle('secs', on);
     let prev = defs[0]?.id ?? '';
     for (const p of parts()) {
