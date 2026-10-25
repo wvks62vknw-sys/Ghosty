@@ -3103,12 +3103,26 @@ html #switcher .switem.on .swnm { color: var(--ink); }
 
 /* the sections on a long tool screen (ui/sections.ts): a row of pills under the title, held under the navigation bar
    as the page scrolls; the chosen one lit. Only on the phone: a wide screen shows every panel. */
-html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
+html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
 html .secpills[hidden] { display: none; }
+/* a panel scrolled to (a link from the deck) stops under the pills, not behind them: the pills end 70 pt down the page, and
+   the 16 here also cover the panels' own slide-up (14 pt) while a screen is still opening, when the deck's link measures */
+html .hud.secs { scroll-padding-top: 86px; }
+/* a row whose names do not fit (School's six, the Library's at 390) is set tighter, and when it is still too wide it scrolls by
+   itself (ui/sections.ts adds .dense and .scrolls only then) */
+html .secpills.dense { gap: 3px; }
+html .secpills.dense .secpill { padding: 0 4px; font-size: 13px !important; }
+html .secpills.scrolls { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+html .secpills.scrolls::-webkit-scrollbar { display: none; }
 html .secmark { display: block; height: 0; }
 html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
 html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
 html .hud.secs [data-sec][hidden], html .hud.secs .secnone { display: none !important; }
+/* On a wide screen the sections are off (every panel shows) and their row and its marker must not be grid items of the
+   two-column page: the marker alone pushed the Diary's column into the middle cell with no height (clipped, untappable:
+   the Agenda spec's ADD at 1440 × 900 hit the globe's canvas behind the page). Hidden means gone here, whatever the
+   marker's own display rule says. */
+html .secmark[hidden], html .secpills[hidden] { display: none !important; }
 html .hud.secs .lcard > .pn[hidden] + .pn > h3::before { display: none; }
 /* a hub's line in his own words stays within two lines, so the hub still fits one screen */
 html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }

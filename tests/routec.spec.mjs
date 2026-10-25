@@ -15,7 +15,7 @@
 //    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openPanel } from './nav.mjs';
+import { PHONE, UK, openDeck, openPanel, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -415,7 +415,16 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     for (const s of await sideways(page, `#pg-${tab} :is(button, .pn, .rw, .chip, input, select, .empty, .rccard), #top :is(button, h1)`)) problems.push(`[${W} ${tab}] sticks out sideways: ${s}`);
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} ${tab}] the page scrolls sideways`);
     // every empty state on the screen is worded: what it is, and a sentence (the route C words are its data-labels)
-    const empties = await page.$$eval(`#pg-${tab} .empty`, (els) => els.filter((e) => e.getClientRects().length).map((e) => { const w = (x) => (x?.dataset.label ?? x?.textContent ?? '').trim(); return `${w(e.querySelector('b'))} | ${w(e.querySelector('span'))}`; }));
+    // (a screen in sections, ui/sections.ts, draws one part at a time: every part is looked at)
+    const parts = ['library', 'memory', 'workshop', 'threats', 'school'].includes(tab) ? await page.$$eval(`#pg-${tab} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? '')).catch(() => []) : [];
+    const empties = [];
+    for (const part of parts.length ? parts : ['']) {
+      if (part) {
+        await openSection(page, tab, part);
+        await page.waitForTimeout(250);
+      }
+      empties.push(...(await page.$$eval(`#pg-${tab} .empty`, (els) => els.filter((e) => e.getClientRects().length).map((e) => { const w = (x) => (x?.dataset.label ?? x?.textContent ?? '').trim(); return `${w(e.querySelector('b'))} | ${w(e.querySelector('span'))}`; }))));
+    }
     for (const e of empties) if (!/\S \| .{12,}[.!”]$/.test(e)) problems.push(`[${W} ${tab}] an empty state is not worded: "${e}"`);
     if (want) {
       const words = await page.evaluate((t) => {

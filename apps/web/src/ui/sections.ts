@@ -9,8 +9,10 @@
  * repaints carry on), and a link to a panel — the deck's YOU CAN lines, `revealSection` — selects the pill that holds
  * it first. On a wide screen (900 pt and up) every panel shows at once and the pills step aside.
  *
- * Used on SYSTEM and AGENDA. A panel belongs to the first section whose `match` fits its title; a panel no section
- * names (one added since) and anything in a column that is not a panel go with the part just above them.
+ * Used on SYSTEM, AGENDA, SETTINGS, the LIBRARY, MEMORY, SCHOOL, the WORKSHOP, THREATS and LINKS. A panel belongs to the first
+ * section whose `match` fits its title; a panel no section names (one added since) and anything in a column that is not a
+ * panel go with the part just above them. The row sizes each pill to its name; when the names do not fit (six of them, or a
+ * narrow phone) it is set a little tighter (`.dense`), and when they still do not it scrolls by itself (`.scrolls`).
  */
 import { h } from '../core/dom';
 import { go } from '../shell/tabs';
@@ -75,11 +77,34 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
   /** Every part of the page in order: the panels (inside a grouped list's cards too) and anything else in a column. */
   const parts = () => [...(hud?.querySelectorAll<HTMLElement>(':scope > .col > *, :scope > .col > .lgrp > .lcard > .pn') ?? [])].filter((e) => !e.classList.contains('lgrp'));
   const titleOf = (e: HTMLElement) => (e.classList.contains('pn') ? e.querySelector(':scope > h3 .ptitle')?.textContent ?? '' : '');
-  let applying = false;
+  /** The pill the row was last scrolled to (a row wider than the screen shows the picked pill). */
+  let centred = '';
+  const centre = () => {
+    if (centred === cur || !el.classList.contains('scrolls')) return;
+    centred = cur;
+    const b = pills.find((x) => x.dataset.sec === cur);
+    if (b) el.scrollLeft = Math.max(0, b.offsetLeft - (el.clientWidth - b.offsetWidth) / 2);
+  };
+  /**
+   * How the row sits when its width changes (a page shown, a turn of the phone): as it is; or tighter (`.dense`) when its
+   * names do not fit (six of them, "Self-study", "Fresh today"); or, still too wide, a row that scrolls by itself (`.scrolls`)
+   * with the picked pill in view. The page never moves for it.
+   */
+  const fit = () => {
+    el.classList.remove('dense', 'scrolls');
+    if (el.hidden || !el.clientWidth) return;
+    const over = () => el.scrollWidth > el.clientWidth + 1;
+    if (over()) {
+      el.classList.add('dense');
+      if (over()) el.classList.add('scrolls');
+    }
+    centred = '';
+    centre();
+  };
   const apply = () => {
-    applying = true;
     const on = phone.matches && defs.length > 1;
     el.hidden = !on;
+    mark.hidden = !on; // (off: the marker is not a grid item of the wide screen's two-column page)
     hud?.classList.toggle('secs', on);
     let prev = defs[0]?.id ?? '';
     for (const p of parts()) {
@@ -99,7 +124,7 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
       b.setAttribute('aria-selected', String(sel));
     }
     el.dataset.current = cur;
-    queueMicrotask(() => (applying = false));
+    centre();
   };
   /** Show section `id`: the page starts at the pills (its title scrolled away only if it already was). */
   const select = (id: string) => {
@@ -124,7 +149,8 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
   // Panels arrive and move (a grouped list wraps them in its cards once the page is first shown): sort them again.
   let queued = false;
   new MutationObserver((recs) => {
-    if (applying || queued || !recs.some((r) => (r.target as HTMLElement).matches?.('.hud, .col, .lgrp, .lcard'))) return;
+    // (not held back while `apply` runs: the panels are often wrapped in the same task as the first one, and that is when it must run again)
+    if (queued || !recs.some((r) => (r.target as HTMLElement).matches?.('.hud, .col, .lgrp, .lcard'))) return;
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
@@ -132,6 +158,7 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
     });
   }).observe(hud ?? root, { childList: true, subtree: true });
   phone.addEventListener('change', apply);
+  new ResizeObserver(fit).observe(el);
   apply();
   return { el, select, current: () => cur };
 }

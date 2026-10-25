@@ -10,7 +10,7 @@
 //   CHROMIUM_ONLY=1 runs the same checks in Chromium (a machine without WebKit); FEEL_ONLY=1 runs part 2 alone.
 // Chromium with a real touch screen and the Home Screen's safe areas: tests/scrollfeel.spec.mjs.
 import { chromium, webkit } from 'playwright';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
 const chromiumOnly = !!process.env.CHROMIUM_ONLY;
@@ -18,6 +18,8 @@ const engineName = chromiumOnly ? 'Chromium' : 'WebKit';
 const browser = chromiumOnly ? await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }) : await webkit.launch();
 const problems = [];
 const TABS = process.env.FEEL_ONLY ? [] : ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
+// These show one part at a time on a phone (ui/sections.ts): every pill is a side of its own, so no part goes unchecked.
+const SECTIONED = ['settings', 'library', 'memory', 'school', 'workshop', 'threats', 'links'];
 const viewport = { width: PHONE.width, height: PHONE.height - 193 }; // the iPhone 18 Pro Max in Safari, with its bars (an iPhone 15 Pro Max loses 193 px of its 932 to them)
 const ctx = await browser.newContext({ viewport, ...UK });
 const page = await ctx.newPage();
@@ -38,14 +40,18 @@ for (const tab of TABS) {
   await page.waitForTimeout(1500);
   await clearToasts();
   await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
-  for (const side of ['main', 'alt']) {
-    if (side === 'alt') {
+  const pills = SECTIONED.includes(tab) ? await page.$$eval(`#pg-${tab} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? '')).catch(() => []) : [];
+  for (const side of pills.length ? pills : ['main', 'alt']) {
+    if (pills.length) {
+      await openSection(page, tab, side);
+      await page.waitForTimeout(500);
+    } else if (side === 'alt') {
       const swap = page.locator(`#pg-${tab} .swap`);
       if (!(await swap.count()) || !(await swap.isVisible())) continue;
       await swap.click();
       await page.waitForTimeout(500);
     }
-    const where = `${tab}${side === 'alt' ? ' (other side)' : ''}`;
+    const where = `${tab}${pills.length ? ` (${side})` : side === 'alt' ? ' (other side)' : ''}`;
     // The page's outermost box that has more to show than fits, and points down its middle and near its left edge.
     const spots = await page.evaluate((t) => {
       const root = document.getElementById(`pg-${t}`);
@@ -139,12 +145,20 @@ let felt = 0;
 //    screen and scrolled there: a swipe on Markets' crypto list moved the list 5 px and the page not at all; System's
 //    STATUS card took 235 px of every swipe; Library, School and Threats had lists in a slit (and momentum stopped
 //    dead at their ends). The wheel over the STATUS card must move the page itself.
-for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief', 'radio', 'gym', 'space', 'learn', 'reverse', 'settings', 'links', 'memory']) {
+for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief', 'radio', 'gym', 'space', 'learn', 'reverse', 'settings', 'links', 'memory', 'workshop']) {
   await show(feel, tab);
-  const inner = await feel.evaluate((t) => [...document.querySelectorAll(`#pg-${t} :is(.two.stack, .two.rcflow) .col > .pn > .bd`)]
-    .filter((b) => b.getBoundingClientRect().height && /(auto|scroll)/.test(getComputedStyle(b).overflowY) && b.scrollHeight > b.clientHeight + 2)
-    .map((b) => `"${b.parentElement.querySelector('.ptitle')?.textContent ?? '?'}" (${b.scrollHeight} px shown in ${b.clientHeight})`), tab);
-  for (const s of inner) problems.push(`[${tab}] the panel ${s} scrolls on its own inside the page: a swipe that starts on it stops there`);
+  // (a screen in sections shows one part at a time: every part is looked at)
+  const parts = SECTIONED.includes(tab) ? await feel.$$eval(`#pg-${tab} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? '')).catch(() => []) : [];
+  for (const part of parts.length ? parts : ['']) {
+    if (part) {
+      await openSection(feel, tab, part);
+      await feel.waitForTimeout(300);
+    }
+    const inner = await feel.evaluate((t) => [...document.querySelectorAll(`#pg-${t} :is(.two.stack, .two.rcflow) .col > .pn > .bd`)]
+      .filter((b) => b.getBoundingClientRect().height && /(auto|scroll)/.test(getComputedStyle(b).overflowY) && b.scrollHeight > b.clientHeight + 2)
+      .map((b) => `"${b.parentElement.querySelector('.ptitle')?.textContent ?? '?'}" (${b.scrollHeight} px shown in ${b.clientHeight})`), tab);
+    for (const s of inner) problems.push(`[${tab}${part ? ` (${part})` : ''}] the panel ${s} scrolls on its own inside the page: a swipe that starts on it stops there`);
+  }
 }
 {
   await show(feel, 'system');
