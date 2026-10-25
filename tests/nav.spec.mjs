@@ -426,6 +426,12 @@ LONG.push({ // THREATS
   panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR YOU/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
   tap: 'Space weather', link: { row: /Recon/i, pill: 'Launches', panel: /^RECON/ },
 });
+LONG.push({ // LINKS: the list's own groups (shell/layout.ts)
+  tab: 'links', list: true,
+  pills: ['Accounts', 'This phone', 'Services'],
+  panels: { Accounts: /^(EMAIL|SPOTIFY|TELEGRAM)/, 'This phone': /^(PHONE|NOTIFICATIONS)/, Services: /^(LIVE|AI|GITHUB)/ },
+  tap: 'This phone', link: { row: /Live traffic/i, pill: 'Services', panel: /^LIVE TRAFFIC/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;

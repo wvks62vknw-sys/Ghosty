@@ -13,7 +13,7 @@ import { ui } from '../../state/app';
 import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
-import { goToPanel } from '../../ui/sections';
+import { goToPanel, sections } from '../../ui/sections';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -89,6 +89,13 @@ export const linksTab: TabDef = {
     const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
     P.left.append(ep.el, spot.el, tg.el);
     P.right.append(ap.el, np.el, tp.el, bp.el, gp.el);
+    // Sections (ui/sections.ts): a pill for each of the list's groups: his accounts (email, music, Telegram), this phone
+    // (the app and its notifications) and the services behind Ghosty (traffic, the AI brain, GitHub).
+    sections(root, 'links', [
+      { id: 'accounts', label: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM)/ },
+      { id: 'phone', label: 'This phone', match: /^(PHONE|NOTIFICATIONS)/ },
+      { id: 'services', label: 'Services', match: /^(LIVE|AI|GITHUB)/ },
+    ]);
 
     const online = { email: false, spotify: false, telegram: false, phone: false, traffic: false, brain: false, github: false };
     const paintHero = () => {
