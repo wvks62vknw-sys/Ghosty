@@ -87,9 +87,20 @@ export const reverseTab: TabDef = {
     const kind = h('select', { 'aria-label': 'What is it' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
     const question = h('input', { placeholder: 'What do you want to know? (optional)', 'aria-label': 'Question' });
     const startBtn = button('START', () => void start(), 'on');
+    // What START did, kept on screen under it (a toast is gone before it is read); the brain's words, as a sentence.
+    const say = h('div.note.revsay', { role: 'status', 'aria-live': 'polite', hidden: true });
+    const tell = (msg: string) => {
+      say.textContent = msg ? `${msg.charAt(0).toUpperCase()}${msg.slice(1)}${/[.!?)]$/.test(msg) ? '' : '.'}` : '';
+      say.hidden = !msg;
+    };
+    // Reverse runs on GitHub: without it nothing can start, so that is said before he types, with the way to fix it.
+    const connect = button('CONNECT GITHUB', () => go('system'), 'on');
+    connect.dataset.label = 'Connect GitHub';
+    const gh = h('div.revgh', { hidden: true }, h('p', 'GitHub is not connected yet, so a report cannot start. Reverse runs on GitHub’s free computers: add a free GitHub token once in System → Keys.'), connect);
     const start = async () => {
       const t = target.value.trim();
-      if (!t) return void toast('Paste a link, a package name or owner/repo first', 'warn');
+      if (!t) return void tell('Paste a link first, like bbc.co.uk');
+      tell('');
       startBtn.disabled = true;
       try {
         const r = await brain.reverseStart({ target: t, kind: kind.value, question: question.value.trim() });
@@ -98,15 +109,19 @@ export const reverseTab: TabDef = {
         question.value = '';
         await refresh();
       } catch (e) {
-        toast(String((e as Error).message ?? e), 'bad');
+        const msg = String((e as Error).message ?? e);
+        tell(msg);
+        if (/GitHub token/i.test(msg)) gh.hidden = false;
       } finally {
         startBtn.disabled = false;
       }
     };
     target.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
     np.body.append(
+      gh,
       target,
       h('div.row', kind, startBtn),
+      say,
       question,
       h('div.note', 'A website: what it is built with, the other companies it talks to, and how well it is locked down. An app or a code package: what is inside and what it connects to.'),
       h('div.note', h('b', 'Only analyse software you own or are allowed to test.'), ' Free: it runs on GitHub’s computers, not this phone. Uses REA by morluto (MIT licence).'),
@@ -207,6 +222,7 @@ export const reverseTab: TabDef = {
     return {
       enter() {
         void refresh();
+        void brain.status().then((st) => (gh.hidden = st.repoReady)).catch(() => undefined);
         timer = window.setInterval(() => jobs.some((j) => j.status === 'running' || j.status === 'queued') && void refresh(), 30000);
       },
       leave() {
