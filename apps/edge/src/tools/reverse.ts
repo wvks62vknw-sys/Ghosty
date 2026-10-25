@@ -11,7 +11,10 @@
 import type { Env } from '../env';
 import { durableGet, durablePut } from '../kv';
 import { addJob } from '../schedule';
+import { normaliseTarget } from '../../../../packages/shared/src/reverse';
 import { arg, type Tool, type ToolContext } from './types';
+
+export { normaliseTarget };
 
 export interface ReverseJob {
   id: string;
@@ -42,26 +45,17 @@ async function saveJobs(env: Pick<Env, 'SITES'> | undefined, storage: DurableObj
   await durablePut(env, storage, KEY, jobs.slice(-MAX_JOBS));
 }
 
-/** A target is a URL, an npm package name or owner/repo. */
-export function normaliseTarget(raw: string): { target: string; kind: string } | null {
-  const t = raw.trim();
-  if (!t || t.length > 400 || /\s/.test(t)) return null;
-  if (/^https?:\/\//i.test(t)) {
-    try {
-      const u = new URL(t);
-      if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(u.hostname) || !u.hostname.includes('.')) return null;
-      return { target: u.href, kind: 'auto' };
-    } catch {
-      return null;
-    }
-  }
-  if (/^[\w.-]+\/[\w.-]+$/.test(t)) return { target: t, kind: 'repo' };
-  // "example.com" or "shop.example.co.uk/path" → a website; "lodash.merge" → an npm package
-  if (/^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|uk|de|fr|es|it|nl|se|no|fi|dk|pl|ch|at|eu|app|dev|ai|me|info|xyz|gov|edu|ac|tv|cc|us|ca|au|nz|in|jp|kr|br|mx|ru|cn|hk|sg|ie|tech|site|online|store|cloud|page)(\/.*)?$/i.test(t)) {
-    return { target: `https://${t}`, kind: 'web' };
-  }
-  if (/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(t)) return { target: t, kind: 'npm' };
-  return null;
+/**
+ * Remove one report from the list (the Reverse tab's REMOVE, once the brain's route exists: agent.ts
+ * `DELETE /reverse/<id>`). The phone hides it at once and sends this only when its UNDO bar has gone,
+ * so UNDO never needs the brain. True when there was such a report.
+ */
+export async function removeReverse(env: Pick<Env, 'SITES'> | undefined, storage: DurableObjectStorage, id: string): Promise<boolean> {
+  const jobs = await loadReverseJobs(env, storage);
+  const left = jobs.filter((j) => j.id !== id);
+  if (left.length === jobs.length) return false;
+  await saveJobs(env, storage, left);
+  return true;
 }
 
 /** Start a run. Returns the job (status queued). */
@@ -77,6 +71,19 @@ export async function startReverse(ctx: ToolContext, raw: string, kind = 'auto',
   const jobs = await loadReverseJobs(ctx.env, ctx.storage);
   jobs.push(job);
   await saveJobs(ctx.env, ctx.storage, jobs);
+  // Come back in a few minutes and tell the owner what was found: for a job started in the chat AND
+  // one started from the Reverse tab (its START goes straight here), so the tab's promise holds.
+  try {
+    await addJob(ctx.storage, {
+      kind: 'task',
+      title: `Reverse: ${job.target.slice(0, 60)}`,
+      text: `Call reverse_status with job "${job.id}". If it is still running, call it again after wait_minutes (up to 3 times). When the report is in, write the owner a clear summary of the most useful findings${job.question ? ` with their question in mind: "${job.question}"` : ''} — what the software is built with, what it talks to, anything surprising — in under 200 words. If it failed, say why in one line.`,
+      next: Date.now() + 6 * 60_000,
+      tz: 'UTC',
+    });
+  } catch {
+    /* the owner can still ask */
+  }
   return job;
 }
 
@@ -131,19 +138,8 @@ export const reverseTools: Tool[] = [
     },
     risk: 'confirm',
     async run(a, ctx) {
+      // startReverse also schedules the follow-up that tells the owner what was found.
       const job = await startReverse(ctx, arg.str(a, 'target'), arg.str(a, 'kind', false) || 'auto', arg.str(a, 'question', false));
-      // Come back in a few minutes and tell the owner what was found.
-      try {
-        await addJob(ctx.storage, {
-          kind: 'task',
-          title: `Reverse: ${job.target.slice(0, 60)}`,
-          text: `Call reverse_status with job "${job.id}". If it is still running, call it again after wait_minutes (up to 3 times). When the report is in, write the owner a clear summary of the most useful findings${job.question ? ` with their question in mind: "${job.question}"` : ''} — what the software is built with, what it talks to, anything surprising — in under 200 words. If it failed, say why in one line.`,
-          next: Date.now() + 6 * 60_000,
-          tz: 'UTC',
-        });
-      } catch {
-        /* the owner can still ask */
-      }
       return `Started reverse-engineering job ${job.id} for ${job.target} (${job.kind}) on GitHub. It takes 3–8 minutes; I will check it and send a notification with the findings. The owner can also watch it in the Reverse tab.`;
     },
   },
