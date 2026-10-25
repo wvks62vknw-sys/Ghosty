@@ -187,6 +187,9 @@ test('self-check: a division after "return <name>" is not read as a regex, a rea
   assert.equal(bracketProblem("function f(t) {\n  const letters = 3;\n  return letters / t.replace(/\\s/g, '').length < 0.4 && t.length > 2;\n}\n"), null);
   assert.equal(bracketProblem("const ok = (x) => { return /ab+c/.test(x) ? 1 : 0; };\n"), null);
   assert.equal(bracketProblem("const r = a / b / c;\nconst q = typeof x / 2;\n"), null);
+  // a word that only ends in a keyword is a value: "min / 2" divides (gym/c4solve.ts), while a real "case" still starts a regex
+  assert.equal(bracketProblem("if (med <= 0 && Math.trunc(min / 2) < med) med = Math.trunc(min / 2);\nconst o = (proof / 2) + (lowercase / 3);\n"), null);
+  assert.equal(bracketProblem("switch (k) {\n  case /a(b/.test(s) ? 1 : 2:\n    break;\n}\n"), null);
   assert.match(bracketProblem("function g() {\n  return (1 + 2;\n}\n") ?? '', /never closed|closes/);
 });
 

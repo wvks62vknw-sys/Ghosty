@@ -514,7 +514,7 @@ if (!/^Since yesterday: (\d+ games? with you, )?(\d+ lessons? from you, )?[\d,]+
 console.log(`the GYM's greeting: "${greetTxt}"`);
 await closeLog();
 await page.screenshot({ path: `${out}/gym-greeting.png` });
-// …and back again (the greeting's look is the spec's too), then the app opened afresh.
+// Then back again (the greeting's look is the spec's too), and the app opened afresh.
 await page.evaluate(() => (location.hash = 'core'));
 await page.waitForTimeout(800);
 await restoreC4(true);

@@ -47,7 +47,8 @@ export function bracketProblem(src: string): string | null {
       i = end + 2;
       continue;
     }
-    if (c === '/' && /[(,=:[!&|?{};>+\-*%~<^]$|^$|(return|typeof|case|in|of)$/.test(prevSig)) {
+    // (a keyword only when it is the whole word before the "/": "min / 2" and "proof / 2" are divisions, not "in" and "of")
+    if (c === '/' && /[(,=:[!&|?{};>+\-*%~<^]$|^$|^(return|typeof|case|in|of)$/.test(prevSig)) {
       // a regex literal: skip to its end
       let j = i + 1;
       let cls = false;
@@ -208,7 +209,7 @@ export function literalRanges(src: string): [number, number][] {
       i = end;
       continue;
     }
-    if (c === '/' && /[(,=:[!&|?{};>+\-*%~<^]$|^$|(return|typeof|case|in|of)$/.test(prevSig)) {
+    if (c === '/' && /[(,=:[!&|?{};>+\-*%~<^]$|^$|^(return|typeof|case|in|of)$/.test(prevSig)) {
       let j = i + 1;
       let cls = false;
       while (j < src.length && src[j] !== '\n') {
