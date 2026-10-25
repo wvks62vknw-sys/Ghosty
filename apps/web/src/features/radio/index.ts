@@ -1,37 +1,24 @@
-/** RADIO tab: search internet radio by name, genre or country; favourites; now playing. */
+/** RADIO tab: search internet radio by name, genre or country (UK first); favourites; now playing. */
 import { fetchJson } from '../../api/feed';
 import { favourites, player, playStation, setVolume, stopAudio, type NowPlaying } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-
-interface RawStation {
-  name: string;
-  url_resolved: string;
-  country: string;
-  tags: string;
-  codec: string;
-  bitrate: number;
-}
+import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
 const GENRES = ['news', 'pop', 'rock', 'jazz', 'classical', 'lofi', 'chillout', 'dance', 'hip hop', 'talk', 'ambient', 'country'];
 
-async function search(q: { name?: string; tag?: string; country?: string }): Promise<NowPlaying[]> {
+type Query = { name?: string; tag?: string; country?: string; countrycode?: string };
+
+async function search(q: Query): Promise<NowPlaying[]> {
   const u = new URL('https://de1.api.radio-browser.info/json/stations/search');
-  if (q.name) u.searchParams.set('name', q.name);
-  if (q.tag) u.searchParams.set('tag', q.tag);
-  if (q.country) u.searchParams.set('country', q.country);
+  for (const k of ['name', 'tag', 'country', 'countrycode'] as const) if (q[k]) u.searchParams.set(k, q[k]!);
   u.searchParams.set('hidebroken', 'true');
   u.searchParams.set('order', 'clickcount');
   u.searchParams.set('reverse', 'true');
-  u.searchParams.set('limit', '60');
-  const j = await fetchJson<RawStation[]>(u.toString(), 1800);
-  const seen = new Set<string>();
-  return j
-    .filter((s) => /^https:\/\//i.test(s.url_resolved ?? '') && !seen.has(s.name.trim().toLowerCase()) && seen.add(s.name.trim().toLowerCase()))
-    .slice(0, 30)
-    .map((s) => ({ name: s.name.trim().slice(0, 80), url: s.url_resolved, info: [s.country, (s.tags ?? '').split(',').slice(0, 3).join(', '), s.bitrate ? `${s.bitrate} kbps` : ''].filter(Boolean).join(' · ') }));
+  u.searchParams.set('limit', '80');
+  return tidyStations(await fetchJson<RawStation[]>(u.toString(), 1800));
 }
 
 export const radioTab: TabDef = {
@@ -54,7 +41,7 @@ export const radioTab: TabDef = {
 
     const q = h('input', { placeholder: 'Station, genre or country…', 'aria-label': 'Search radio' });
     const results: NowPlaying[] = [];
-    const go = async (query: { name?: string; tag?: string; country?: string }, label: string) => {
+    const go = async (query: Query, label: string) => {
       sp.setStatus('SEARCHING', 'mid');
       try {
         const r = await search(query);
@@ -158,7 +145,7 @@ export const radioTab: TabDef = {
     return {
       enter() {
         paintFavs();
-        if (!results.length) void go({ tag: 'news', country: 'United Kingdom' }, 'UK news');
+        if (!results.length) void go({ tag: 'news', countrycode: 'GB' }, 'UK news');
       },
       describe: () => `Radio: ${player.get().now ? `playing ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites.`,
     };

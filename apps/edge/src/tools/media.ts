@@ -1,5 +1,6 @@
 /** Radio: find internet radio stations (radio-browser.info, free) and play them in the interface. */
 import { arg, type Tool } from './types';
+import { isVideo, secureStream } from '../../../../packages/shared/src/radio';
 
 export interface Station {
   name: string;
@@ -25,9 +26,11 @@ export async function searchStations(q: { name?: string; tag?: string; country?:
   const r = await fetch(u.toString(), { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant)' } });
   if (!r.ok) throw new Error(`radio directory answered ${r.status}`);
   const j = (await r.json()) as { name: string; url_resolved: string; country: string; tags: string; codec: string; bitrate: number; votes: number }[];
-  // Only secure streams play inside an https page.
+  // Only secure streams play inside an https page (made https where the station serves the same stream there:
+  // the BBC's, Global's, GB News), and no TV channels.
   return j
-    .filter((s) => /^https:\/\//i.test(s.url_resolved ?? ''))
+    .map((s) => ({ ...s, url_resolved: secureStream(s.url_resolved ?? '') ?? '' }))
+    .filter((s) => s.url_resolved && !isVideo(s))
     .slice(0, limit)
     .map((s) => ({ name: s.name.trim().slice(0, 80), url: s.url_resolved, country: s.country, tags: (s.tags ?? '').split(',').slice(0, 4).join(', '), codec: s.codec, bitrate: s.bitrate, votes: s.votes }));
 }
