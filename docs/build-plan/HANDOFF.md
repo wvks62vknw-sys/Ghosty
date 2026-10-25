@@ -619,38 +619,6 @@ folder that no longer exists; ignore those paths).
   daily jobs) can hold the single thread when the question lands. The spec now waits 120 s, and when no cited reply
   comes it reports the last message's class and words and skips the chip, source and click checks (no throw), so a
   second red names the cause. Pushed as the next head; the spec is clean here.
-- 25 Oct 12:12 UK: PR #40 MERGED (f1d9cc6) after run 245 (4959c11) went green: brain 10:55–11:05, smoke 10:55–12:11,
-  interface, deploy-build and Workers Builds green; all 73 specs reported, cited in 15 s (run 244's red did not come
-  back: a one-off on the runner, and the hardened spec names the cause if it does), nav 299 s and routec 315 s on their
-  720 s. The branch fast-forwarded to main. Live on the owner's phone with
-  his next open: the GYM at full strength, the boot on every cold open, the little tabs on seven more screens, the four
-  specs in CI's loop. Next pull request: #41, from whatever lands next (the Agenda and System passes wait for the
-  allowance reset; the owner's answers wait: the four Offline Brain steps, the Harold/Machine picks, the usage numbers).
-- 25 Oct 12:20 UK: two leftovers of the sections rollout done by hand (no builder): System's report-card link opens the
-  Offline Brain panel (features/system/reportcard.ts: goToPanel instead of go), and the deck's twenty miniatures made
-  again on a fresh preview (tests/deckshots.spec.mjs; all twenty change bytes, the sectioned screens change looks).
-  Seen in the new pictures, for the Settings pass: the Appearance section holds one row (THEME), so the screen opens
-  nearly empty under its pills — Appearance and You may belong together, or You should come first (a design pick for
-  the owner, or the pass). Pushed as PR #41.
-- 25 Oct 12:30 UK: the owner's numbers, corrected at 12:40: ALL MODELS weekly 95 %, Fable weekly 60 % (OWNER-ISSUES 53).
-  RULE FROM HERE: no builder starts until the weekly reset (every model counts against the 95 %); the orchestrator spends
-  almost nothing: merge PR #41 on green, answer the owner, write the first brief for the reset once he picks. Ask him
-  when the window resets (the app shows it). A fresh session starts from HANDOFF, STATUS and OWNER-ISSUES 53.
-- 25 Oct 13:00 UK: his two bugs (OWNER-ISSUES 54) fixed by hand and pushed onto PR #41: assistant/session.ts (an
-  AbortError after a stop says nothing; the stop words widened) and agent.ts `[links]` (build_app's link treated like
-  publish_site's). Verified: web and edge typecheck, sites.test 81/81, voice, apps, direct specs. Spent as little as
-  possible (all models at 95 %).
-- 25 Oct 14:05 UK: PR #41's runs on its earlier heads (e3d451e, 2090fc4) went red on the upgrades spec ("THINK NOW did not
-  show the new idea first") and once on radio ("controls under 44 pt", every one printed as 44). Causes: the upgrades
-  spec stubs /api/upgrades* with page.route(), but once the app's service worker controls the page those requests bypass
-  the stubs and the real brain answers THINK NOW with the scripted model's list, whose first idea has the same title as
-  the stub's old one; a slow runner lost that race (13:05 UTC, three runs at once). Fixed: `serviceWorkers: 'block'` on
-  the spec's context (as the safari spec's voice context does). Radio measured its controls while the screen's entry
-  animation still scaled them: it now waits for the animations to finish. Both clean here; pushed as the next head.
-  Cloudflare's "Workers Builds" check on 5bb1925 failed at the second it started with no output while the repo's own
-  dry run (deploy-build) was green: one standing-down comment on the PR; the owner was asked for the build page's last
-  lines. The owner's asks of the afternoon are OWNER-ISSUES 55 and 56 (the Machine's eyes, the guardian, the social
-  side, the cousin by Telegram or email); first briefs after the weekly reset (all models at 95 %).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
