@@ -68,3 +68,17 @@ test('no GitHub token → clear error; run never starting → failed after 15 mi
   assert.equal(j.status, 'failed');
   assert.match(j.error, /never started/);
 });
+
+test('a job started from the Reverse tab (startReverse, no chat) still schedules the follow-up that tells the owner; the chat tool schedules it once', async () => {
+  const storage = new MemStorage();
+  const g = { async dispatchWorkflow() {}, async findRun() { return null; }, async read() { return null; } };
+  const ctx = { storage, github: async () => g, emit() {}, kernelUnlocked: async () => false, env: {}, vault: {} };
+  const tasks = () => [...storage.m.values()].flatMap((v) => (Array.isArray(v) ? v : [])).filter((j) => j && j.kind === 'task' && /reverse_status/.test(j.text ?? ''));
+  const job = await R.startReverse(ctx, 'example.com', 'auto', 'what does it talk to');
+  assert.equal(tasks().length, 1, 'the tab\'s START schedules the follow-up');
+  assert.match(tasks()[0].text, new RegExp(`job "${job.id}"`));
+  assert.match(tasks()[0].text, /what does it talk to/);
+  assert.ok(tasks()[0].next > Date.now() + 5 * 60_000, 'it looks again in about six minutes');
+  await R.reverseTools.find((t) => t.name === 'reverse_engineer').run({ target: 'lodash' }, ctx);
+  assert.equal(tasks().length, 2, 'the chat tool adds exactly one more, not two');
+});
