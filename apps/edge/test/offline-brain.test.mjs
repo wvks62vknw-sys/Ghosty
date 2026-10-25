@@ -278,3 +278,19 @@ test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, t
   assert.match(M.holdLine(null, { 'Qwen3.5-0.8B-q4f16_1-MLC': { s: 'failed', at }, 'qwen3.5-4b': { s: 'refused', at } }), /^What this phone can hold: ran out of memory loading Qwen3\.5 0\.8B \(24 Oct\); could not start Qwen3\.5 4B \(24 Oct\); not tried yet: Qwen3 0\.6B, Qwen3\.5 2B\./);
   assert.equal(M.shortName(two), '2B');
 });
+
+test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {
+  const { readFileSync } = await import('node:fs');
+  // the service worker's activate step, run as a browser runs it on a new version: only its own older caches go
+  const sw = readFileSync(new URL('../../web/public/sw.js', import.meta.url), 'utf8');
+  const on = {};
+  const had = ['ghosty-shell-v1', 'ghosty-shell-v0', 'ghosty-vendor-v1', 'ghosty-vendor-v0', 'ghosty-app:notes', 'webllm/model', 'webllm/config', 'webllm/wasm', 'ghosty-brain-parts'];
+  const gone = [];
+  const fakeSelf = { addEventListener: (k, f) => (on[k] = f), skipWaiting() {}, clients: { claim: async () => undefined }, location: { origin: 'https://ghosty.example' } };
+  const fakeCaches = { keys: async () => had, delete: async (k) => (gone.push(k), true), open: async () => ({ addAll: async () => undefined }) };
+  new Function('self', 'caches', sw)(fakeSelf, fakeCaches);
+  let wait;
+  on.activate({ waitUntil: (p) => (wait = p) });
+  await wait;
+  assert.deepEqual(gone.sort(), ['ghosty-shell-v0', 'ghosty-vendor-v0'], `a new service worker cleared ${JSON.stringify(gone)}`);
+});
