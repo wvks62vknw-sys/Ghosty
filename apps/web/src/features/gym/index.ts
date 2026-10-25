@@ -260,7 +260,7 @@ export const gymTab: TabDef = {
     return recs.length ? `${recs.filter((r) => r.mastered).length} of ${GAMES.length} mastered` : '';
   },
   mount(root) {
-    const P = page(root, { tag: 'GYM', sub: 'Ghosty teaches himself by playing · on this phone', leftLabel: 'GAMES', rightLabel: 'GAME', stack: true });
+    const P = page(root, { tag: 'GYM', sub: 'I teach myself by playing, on this phone.', leftLabel: 'GAMES', rightLabel: 'GAME', stack: true });
     expose();
     const recs = new Map<string, GymRecord>();
     const views = new Map<string, Frame>();
@@ -504,7 +504,7 @@ export const gymTab: TabDef = {
     // TRAIN ALL (every game in turn, the least learned first) and KEEP AWAKE beside it.
     const allBtn = button('TRAIN ALL', () => (allOn ? stopAll(true) : startAll()), 'on gymallbtn');
     const allStatus = h('div.gymallst', { role: 'status', 'aria-live': 'polite' });
-    const awakeSw = toggle('KEEP AWAKE', 'Keeps the screen on while he trains (plug the phone in)', (on) => {
+    const awakeSw = toggle('KEEP AWAKE', 'Keeps the screen on while I train (plug the phone in)', (on) => {
       note(`keep awake ${on ? 'on' : 'off'}`);
       prefs.awake = on;
       savePrefs();
@@ -552,7 +552,7 @@ export const gymTab: TabDef = {
     const trainBtn = button('TRAIN', () => toggleTrain(), 'on gymtrain');
     // WATCH: he trains and plays round after round while you watch; STOP ends it (the last picture stays).
     const watchBtn = button('WATCH', () => (watchOn === open.id ? stopWatching() : void watch()), 'gymwatch');
-    const carrySw = toggle('CONTINUE BY HIMSELF', 'When he passes a level he goes straight on to the next. Off: he stops there and waits for you.', (on) => {
+    const carrySw = toggle('CONTINUE BY HIMSELF', 'When I pass a level I go straight on to the next. Off: I stop there and wait for you.', (on) => {
       note(`continue by himself ${on ? 'on' : 'off'}`);
       prefs.carry = on;
       savePrefs();
@@ -680,7 +680,7 @@ export const gymTab: TabDef = {
       nowCard.classList.toggle('live', !!training);
       nowKick.textContent = training ? 'Training now' : g ? 'Trained last' : 'Nothing in training';
       nowTitle.textContent = g ? niceCase(g.title) : 'Pick a game, then Train';
-      nowSub.textContent = g && r ? (r.mastered ? 'Mastered · all 10 levels' : `Level ${r.level} · ${Math.floor(r.mastery * 100)}% · ${Math.floor(r.mastery * 100) >= Math.round(g.bar(r.level) * 100) ? `past the ${Math.round(g.bar(r.level) * 100)}% mark` : `passes at ${Math.round(g.bar(r.level) * 100)}%`}`) : 'He learns by playing, on this phone, even while you use other screens.';
+      nowSub.textContent = g && r ? (r.mastered ? 'Mastered · all 10 levels' : `Level ${r.level} · ${Math.floor(r.mastery * 100)}% · ${Math.floor(r.mastery * 100) >= Math.round(g.bar(r.level) * 100) ? `past the ${Math.round(g.bar(r.level) * 100)}% mark` : `passes at ${Math.round(g.bar(r.level) * 100)}%`}`) : 'I learn by playing, on this phone, even while you use other screens.';
       nowRing.set(r?.mastered ? 1 : r?.mastery ?? 0, g && r && !r.mastered ? g.bar(r.level) : 0);
     };
     const paintGame = () => {
@@ -707,7 +707,7 @@ export const gymTab: TabDef = {
       const pts = r?.history ?? [];
       xFrom.textContent = pts.length ? `${fmt.n(pts[0]!.u)}` : '';
       xTo.textContent = pts.length ? `${fmt.n(pts.at(-1)!.u)} ${open.unit}` : `${open.unit} played`;
-      menuNote.textContent = `Reset ${niceCase(open.title)}? He forgets everything he learned in it.`;
+      menuNote.textContent = `Reset ${niceCase(open.title)}? I forget everything I learned in it.`;
       resetBtn.dataset.label = `Reset ${niceCase(open.title)}`;
       if (pushedGame && shownLabel !== open.id) {
         shownLabel = open.id;
@@ -728,7 +728,7 @@ export const gymTab: TabDef = {
       carrySw.set(prefs.carry);
       playBtn.hidden = !open.play;
       clear(graphBox, graph(r, open));
-      detail.textContent = r?.detail ? `${r.detail} Level ${r.level} needs ${Math.round(open.bar(r.level) * 100)}%.` : `Mastery is checked against ground truth, never his own say-so. Level 1 needs ${Math.round(open.bar(1) * 100)}%.`;
+      detail.textContent = r?.detail ? `${r.detail} Level ${r.level} needs ${Math.round(open.bar(r.level) * 100)}%.` : `Mastery is checked against ground truth, never my own say-so. Level 1 needs ${Math.round(open.bar(1) * 100)}%.`;
       paintIdeas(r);
       secretRow.hidden = open.play !== 'secret' || gymState.play.game !== open.id;
       // The board shows what he knows — unless a WATCH is playing or just finished, or the owner is playing him.
@@ -742,12 +742,12 @@ export const gymTab: TabDef = {
         const bytes = lg.versions.reduce((t, v) => t + v.bytes, 0);
         const last = lg.verdicts.at(-1);
         parts.push(
-          h('div.gymidea.league', h('b', 'League of his past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
+          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
       const e = r?.edge;
       const line = edgeLine(e);
-      if (line) parts.push(h('div.gymidea.edge', h('b', 'Puzzles at his edge'), h('span.gymedgeline', line), h('small', 'He makes his own puzzles where he solves about half, and practises on them. The levels above are still the exam.')));
+      if (line) parts.push(h('div.gymidea.edge', h('b', 'Puzzles at my edge'), h('span.gymedgeline', line), h('small', 'I make my own puzzles where I solve about half, and practise on them. The levels above are still the exam.')));
       clear(ideas, ...parts);
       ideas.hidden = !parts.length;
     };
@@ -994,7 +994,7 @@ export const gymTab: TabDef = {
           void store.put(kept.rec!);
           if (kept.view) views.set(id, kept.view);
           if (kept.seen) gymState.recs[id] = kept.seen;
-          gymToast(`${title}: back where he was`, 'ok');
+          gymToast(`${title}: back where I was`, 'ok');
           paint();
         });
     };
@@ -1010,12 +1010,14 @@ export const gymTab: TabDef = {
       if (!g || !pl.over || pl.game !== 'connect4') return;
       c4game = null;
       g.at = Date.now();
-      g.result = pl.over === 'You win!' ? 'you' : pl.over === 'He wins.' ? 'me' : 'draw';
+      g.result = pl.over === 'You win.' ? 'you' : pl.over === 'I win.' ? 'me' : 'draw';
       if (g.result === 'you') g.study = null;
       journal.c4.push(g);
       if (journal.c4.length > store.JOURNAL_CAP) journal.c4.splice(0, journal.c4.length - store.JOURNAL_CAP);
       saveJournal();
       note(`connect4 game ${g.result} at move ${g.moves.length}`);
+      // the card, the game screen's lines and the count follow at once; a loss is studied now if nothing trains
+      void Promise.resolve().then(paint);
     };
     /** Study the latest loss not studied yet — only while nothing trains (the GYM is idle). */
     const studyNext = () => {
@@ -1125,7 +1127,7 @@ export const gymTab: TabDef = {
     const round = async (id: string, loop: boolean, secret?: string) => {
       const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
       if (m.error) {
-        clear(board, h('div.note.bad', `He could not play that: ${m.error}`));
+        clear(board, h('div.note.bad', `I couldn’t play that: ${m.error}`));
         if (watchOn === id) stopWatch();
         paint();
         return;
@@ -1180,7 +1182,7 @@ export const gymTab: TabDef = {
         }
         paint();
       }
-      clear(board, h('div.note', 'He is getting ready…'));
+      clear(board, h('div.note', 'Getting ready…'));
       await round(id, loop, secret);
     };
 
@@ -1192,7 +1194,7 @@ export const gymTab: TabDef = {
         gymState.play = { game: open.id, board: [], over: '', thinking: false };
         secretIn.value = '';
         secretIn.placeholder = open.id === 'words' ? 'a five-letter word, e.g. HOUSE' : 'a code, e.g. 1234';
-        clear(board, h('div.note', open.id === 'words' ? 'Type a word from his list and tap GO — he will try to guess it.' : 'Type a code (digits from 1 up to the number of symbols at his level) and tap GO — he will try to crack it.'));
+        clear(board, h('div.note', open.id === 'words' ? 'Type a word from my list and tap GO. I’ll try to guess it.' : 'Type a code (digits from 1 up to the number of symbols at my level) and tap GO. I’ll try to crack it.'));
         paint();
         secretIn.focus();
         return;
@@ -1257,11 +1259,11 @@ export const gymTab: TabDef = {
       pl.over = big.over(pl.board);
       if (pl.over) return paintBig(pl.over);
       pl.thinking = true;
-      paintBig(`${said} He is thinking…`);
+      paintBig(`${said} Thinking…`);
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? `He could not move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
       const r = big.apply(pl.board, m.move);
       pl.board = r.state;
       last = r.cells;
@@ -1286,7 +1288,7 @@ export const gymTab: TabDef = {
     const outcome = (): string => {
       const b = gymState.play.board;
       const w = open.id === 'tictactoe' ? tttWinner(b) : winnerOf(posFromBoard(b));
-      return w === 1 ? 'You win!' : w === 2 ? 'He wins.' : w === 3 ? 'A draw.' : '';
+      return w === 1 ? 'You win.' : w === 2 ? 'I win.' : w === 3 ? 'A draw.' : '';
     };
     const humanMove = async (cell: number) => {
       const pl = gymState.play;
@@ -1308,11 +1310,11 @@ export const gymTab: TabDef = {
         return paintPlay(pl.over);
       }
       pl.thinking = true;
-      paintPlay('He is thinking…');
+      paintPlay('Thinking…');
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice(), ...(gymState.limit ? { limit: gymState.limit } : {}) });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `He could not move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
       if (open.id === 'tictactoe') pl.board[m.move] = 2;
       else {
         const p = posFromBoard(pl.board);
@@ -1325,7 +1327,7 @@ export const gymTab: TabDef = {
       finishC4();
       // his reason for the move, in his words ("I had to stop column 4."), kept with the game
       pl.why = m.why?.reason ?? '';
-      paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `He took square ${m.move + 1}. Your move.` : `He dropped in column ${m.move + 1}. Your move.`));
+      paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
     };
     secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
 

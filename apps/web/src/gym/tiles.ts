@@ -351,7 +351,7 @@ class TilesLearner implements Learner {
     const name = `${this.n * this.n - 1}-puzzle`;
     return {
       mastery: sum / set.length,
-      detail: `${name}, ${depthFor(this.level)}-move scrambles: he solves ${solvedN} of ${set.length} within ${budgetFor(this.level).toLocaleString('en-GB')} positions; his routes are ${Math.round((sum / Math.max(1, solvedN)) * 100)}% as short as the shortest (A* with Manhattan + linear conflict).`,
+      detail: `${name}, ${depthFor(this.level)}-move scrambles: I solve ${solvedN} of ${set.length} within ${budgetFor(this.level).toLocaleString('en-GB')} positions; my routes are ${Math.round((sum / Math.max(1, solvedN)) * 100)}% as short as the shortest (A* with Manhattan + linear conflict).`,
     };
   }
   save(): TilesSave {

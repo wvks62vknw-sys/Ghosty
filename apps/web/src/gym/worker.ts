@@ -149,8 +149,8 @@ function stretch(post: (m: GymOut) => void, l: Live) {
 /** The game he ponders, its games with the owner, and the loop's timer. */
 let idle: { id: string; games: number[][] } | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
-/** Nodes a slice (about 30 ms on the phone), then a rest four times as long: the worker stays free for moves and messages. */
-const IDLE_NODES = 60_000;
+/** Nodes a slice (about 50 ms on the phone), then a short rest: the worker stays free for moves and messages. (An unfinished solve starts again from what the table already proved.) */
+const IDLE_NODES = 150_000;
 let lastKnownSave = 0;
 
 function idleTick(post: (m: GymOut) => void) {

@@ -419,7 +419,7 @@ class C4Learner implements Learner {
     const base = searchAlone(this.level);
     return {
       mastery: Math.max(0, Math.min(1, (good - base) / Math.max(1, set.length - base))),
-      detail: `His move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver); the same search with an untrained network gets ${base} (0%), the solver ${set.length} (100%).`,
+      detail: `My move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver); the same search with an untrained network gets ${base} (0%), the solver ${set.length} (100%).`,
     };
   }
   save(): C4Save {
@@ -446,7 +446,7 @@ class C4Learner implements Learner {
   }
   watch(seed: number): Frame[] {
     const p = newPos();
-    const frames: Frame[] = [frameOf(p, 'He plays himself.')];
+    const frames: Frame[] = [frameOf(p, 'I play myself.')];
     const r = rng(seed);
     play(p, Math.floor(r() * COLS));
     frames.push(frameOf(p, 'X opens.'));

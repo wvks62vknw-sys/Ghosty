@@ -853,5 +853,5 @@ test('part 3: level-ups close together are one toast ("Levels 4–6 passed"); an
   // Nothing joins a finished run.
   assert.equal(S.joinLevels(top, 'tictactoe', 11, 25).from, 11);
   // CONTINUE BY HIMSELF off: he waits.
-  assert.equal(S.levelText(S.joinLevels(null, 'maze', 1, 0), false), 'Level 1 passed · he waits for you at level 2');
+  assert.equal(S.levelText(S.joinLevels(null, 'maze', 1, 0), false), 'Level 1 passed · I wait for you at level 2');
 });

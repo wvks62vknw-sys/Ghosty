@@ -286,5 +286,5 @@ export function joinLevels(prev: LevelNote | null, id: string, passed: number, a
 export function levelText(n: LevelNote, carry = true): string {
   const passed = n.from === n.to ? `Level ${n.to} passed` : `Levels ${n.from}–${n.to} passed`;
   if (n.done) return n.from === n.to ? 'Mastered every level' : `${passed} · Mastered every level`;
-  return `${passed} · ${carry ? 'on to' : 'he waits for you at'} level ${n.to + 1}`;
+  return `${passed} · ${carry ? 'on to' : 'I wait for you at'} level ${n.to + 1}`;
 }

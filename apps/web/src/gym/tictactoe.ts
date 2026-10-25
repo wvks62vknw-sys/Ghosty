@@ -152,7 +152,7 @@ class TttLearner implements Learner {
     let good = 0;
     for (const b of set) if (S.best.get(keyOf(b))!.includes(this.choose(b.slice()).move)) good++;
     const n = set.length;
-    return { mastery: good / n, detail: `His move is perfect in ${good.toLocaleString('en-GB')} of the ${n.toLocaleString('en-GB')} positions where the choice matters (of all ${S.positions.length.toLocaleString('en-GB')}, checked against exhaustive minimax).` };
+    return { mastery: good / n, detail: `My move is perfect in ${good.toLocaleString('en-GB')} of the ${n.toLocaleString('en-GB')} positions where the choice matters (of all ${S.positions.length.toLocaleString('en-GB')}, checked against exhaustive minimax).` };
   }
   save(): TttSave {
     return { game: 'tictactoe', v: this.v, games: this.games, rand: this.rand };

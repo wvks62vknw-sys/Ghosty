@@ -543,14 +543,14 @@ class ChessLearner implements Learner {
     const pending = !!this.match || !!this.tacting;
     if (!this.last) {
       const played = this.match?.res.games ?? n;
-      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
+      return { mastery: 0, pending, detail: `My first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     const t = this.tact;
     return {
       mastery: s,
       pending,
-      detail: `Against ${rungWords(rung)} (hand-written evaluator; games still going after 80 moves are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.${t ? ` Tactics: he finds ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).` : ''}`,
+      detail: `Against ${rungWords(rung)} (hand-written evaluator; games still going after 80 moves are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.${t ? ` Tactics: I find ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).` : ''}`,
     };
   }
   save(): ChessSave {

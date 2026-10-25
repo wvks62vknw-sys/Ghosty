@@ -423,6 +423,7 @@ export function parity(pl: number, ph: number, ml: number, mh: number, n: number
 }
 
 let hNodes = 0;
+/** The search ahead (negamax, deepening): the side to move must not have a four to make at once (the caller checks). */
 function hsearch(pl: number, ph: number, ml: number, mh: number, n: number, depth: number, alpha: number, beta: number, leaf: Leaf): number {
   if ((++hNodes & 2047) === 0 && (hNodes > nodeCap || now() > deadline)) throw BUDGET;
   nonLosing(pl, ph, ml, mh);
@@ -516,6 +517,13 @@ export function searchAhead(b: Bits, leaf: Leaf, lim: Limit, margin = 40, maxDep
           continue;
         }
         const q = playB(b, c);
+        // (the search below a move assumes the side to move cannot make four at once — true under the moves it
+        // chooses, not under every column at the root: a column that hands over a four is a loss, said here)
+        if (canWinNext(q.pl, q.ph, q.ml, q.mh)) {
+          vals[c] = -WIN - ((N - q.n) >> 1);
+          best = Math.max(best, vals[c]!);
+          continue;
+        }
         const alpha = best === -Infinity ? -Infinity : best - margin - 1;
         vals[c] = -hsearch(q.pl, q.ph, q.ml, q.mh, q.n, d - 1, -Infinity, -alpha, leaf);
         best = Math.max(best, vals[c]!);

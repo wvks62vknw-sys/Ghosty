@@ -621,7 +621,7 @@ class GoLearner implements Learner {
     const pending = !!this.match || !!this.puzzling;
     if (!this.last) {
       const played = this.match?.res.games ?? n;
-      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
+      return { mastery: 0, pending, detail: `My first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     return {

@@ -11,7 +11,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['connect4', 'c4solve', 'c4play', 'c4study', 'c4talk', 'worker', 'tictactoe', 'checkers', 'ckboard', 'chess', 'chessboard'].map((f) => at(`../../web/src/gym/${f}.ts`)),
+  entryPoints: ['connect4', 'c4solve', 'c4play', 'c4study', 'c4talk', 'worker', 'tictactoe', 'checkers', 'ckboard', 'chess', 'chessboard', 'meta', 'index'].map((f) => at(`../../web/src/gym/${f}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -30,6 +30,8 @@ const CK = await load('checkers');
 const CB = await load('ckboard');
 const CH = await load('chess');
 const BD = await load('chessboard');
+const META = await load('meta');
+const IDX = await load('index');
 
 /** The old PLAY HIM (still his own move, used for league games between his versions): the network's tree search, 128 simulations. */
 const oldEngine = (games) => {
@@ -110,6 +112,19 @@ test('connect 4 bitboards: the exact solver agrees with the stored ground truth 
   let v = SV.solveBits(b, { nodes: 5000 });
   for (let i = 0; v == null && i < 400; i++) v = SV.solveBits(b, { nodes: 5000 });
   assert.equal(Math.sign(v) + 0, C4.solvePos(deep) + 0);
+});
+
+test('connect 4: a column that hands the owner a four at once is never called a win (the look-ahead\'s root checks it)', () => {
+  // From a real game the spec played: column 3 lets X make four at once (the solver: lost), and the search ahead
+  // used to call it "wins by force" — X had no safe reply to its two threats, but X did not need one.
+  const board = '112000112111220000121222212221000000110000'.split('').map(Number);
+  const b = SV.bitsOf(board);
+  assert.ok(SV.scoreMoves(b)[2] < 0, 'column 3 loses');
+  const a = SV.searchAhead(b, SV.parity, { nodes: 100_000 });
+  assert.ok(a.values[2] < -SV.WIN, `column 3: ${a.values[2]}`);
+  const v = C4.connect4.learner(1, 1).versus(board, { nodes: 2000 });
+  assert.notEqual(v.move, 2);
+  if (/wins by force/.test(v.reason)) assert.ok(SV.scoreMoves(b)[v.move] > 0, v.reason);
 });
 
 test('connect 4: the trick sequences that beat the old PLAY HIM every time do not beat him now', () => {
@@ -436,4 +451,19 @@ test('the worker answers PLAY HIM with a reason on tic-tac-toe, checkers and che
   for (const u of ['f2f3', 'e7e5', 'g2g4']) BD.make(p0, BD.legal(p0).find((m) => BD.uci(m) === u));
   W.gymMessage({ gym: 'move', id: 'chess', req: 23, board: BD.posState(p0) }, (m) => out.push(m));
   assert.equal(out.at(-1).why.reason, 'Checkmate.');
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// One voice: what each game says about his learning, and what each measurement says, is in the first person.
+test('the GYM speaks in one voice: every game\'s learning line and every measured line are his own words, first person', () => {
+  const third = /\b(he|his|him|himself)\b/i;
+  for (const g of META.META) {
+    assert.doesNotMatch(g.learns, third, `${g.id}: ${g.learns}`);
+    assert.match(g.learns, /\b(I|my|me|myself)\b/, `${g.id}: ${g.learns}`);
+  }
+  // the first measurement of each part-1 game (quick ones) says "my" / "I"
+  for (const id of ['maze', 'tictactoe', 'connect4', 'colony', 'codebreaker', 'words']) {
+    const d = IDX.gameById(id).learner(1, 1).measure().detail;
+    assert.doesNotMatch(d, third, `${id}: ${d}`);
+  }
 });

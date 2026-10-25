@@ -446,7 +446,7 @@ class CkLearner implements Learner {
     const pending = !!this.match;
     if (!this.last) {
       const played = this.match?.res.games ?? 0;
-      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
+      return { mastery: 0, pending, detail: `My first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     return {

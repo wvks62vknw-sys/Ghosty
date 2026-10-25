@@ -137,7 +137,7 @@ class WordLearner implements Learner {
     const his = this.pol.avg;
     return {
       mastery: closed(his, naiveAvg(spaceFor(this.level)), y.avg),
-      detail: `${listSize(this.level)} words: he needs ${his.toFixed(2)} guesses on average over every word; the information-gain guesser needs ${y.avg.toFixed(2)} (worst ${y.worst}); guessing the first word that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(2)} (0%).`,
+      detail: `${listSize(this.level)} words: I need ${his.toFixed(2)} guesses on average over every word; the information-gain guesser needs ${y.avg.toFixed(2)} (worst ${y.worst}); guessing the first word that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(2)} (0%).`,
     };
   }
   save(): WordSave {

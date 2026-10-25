@@ -441,7 +441,7 @@ const c4gap = await page.evaluate(() => {
   return { worst: Math.round(worst), n: t.length };
 });
 if (c4gap.worst > 500) problems.push(`the page froze while he thought: longest gap ${c4gap.worst} ms`);
-if ((await st()).play.over === 'You win!') problems.push(`the bottom-row trick still wins on the board: ${captions.join(' | ')}`);
+if ((await st()).play.over === 'You win.') problems.push(`the bottom-row trick still wins on the board: ${captions.join(' | ')}`);
 if (captions.some((t) => !/\. Your move\.$|wins|draw/i.test(t) || /^He dropped in column/.test(t))) problems.push(`his reasons on the board: ${captions.join(' | ')}`);
 console.log(`the bottom-row trick on the board: ${captions.join(' | ')} (longest page pause ${c4gap.worst} ms)`);
 await page.screenshot({ path: `${out}/gym-c4-reason.png` });
@@ -474,7 +474,7 @@ for (let tries = 0; tries < 3 && !lostGame; tries++) {
     await until((n) => window.__ghosty.gym.play.board.filter((x) => x).length >= n + 2 || !!window.__ghosty.gym.play.over, 20000, 'he did not answer (the learning game)', stones);
   }
   const s1 = await st();
-  if (s1.play.over === 'You win!') lostGame = s1.play.board;
+  if (s1.play.over === 'You win.') lostGame = s1.play.board;
 }
 await page.evaluate(() => (window.__ghosty.gym.limit = null));
 if (!lostGame) problems.push('learning: the owner\'s engine did not beat him in three games on the tiny limit');
@@ -628,7 +628,7 @@ await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not st
 // ---- RESET: asks first (a "…" menu that says what will go), and an open question does not carry over to another game ----
 await tap('codebreaker');
 await G('.gymmore').click().catch(() => problems.push('the game has no … menu'));
-if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? He forgets/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
+if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? I forget everything I learned in it/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
 await tap('maze');
 if (await G('.gymmenu').isVisible()) problems.push('the RESET menu carried over to another game');
 if (!/maze/i.test(await G('.gymmenu .gymmenunote').textContent())) problems.push('the RESET menu does not name the open game');

@@ -557,7 +557,7 @@ class BugLearner implements Learner {
       if (h.fix) ok++;
       tries += h.tries;
     }
-    return { mastery: ok / set.length, detail: `He fixes ${ok} of ${set.length} held-out buggy programs within his budget of tries (${(tries / set.length).toFixed(1)} tries each); a fix counts only when every test passes.` };
+    return { mastery: ok / set.length, detail: `I fix ${ok} of ${set.length} held-out buggy programs within my budget of tries (${(tries / set.length).toFixed(1)} tries each); a fix counts only when every test passes.` };
   }
   save(): BugSave {
     return { game: 'bughunt', level: this.level, w: this.w.slice(), programs: this.programs, rand: this.rand };
