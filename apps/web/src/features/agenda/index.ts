@@ -10,6 +10,7 @@ import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/components';
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
+import { sections } from '../../ui/sections';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -65,7 +66,8 @@ export const agendaTab: TabDef = {
   },
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY' });
+    // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between.
+    const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY', stack: true });
     const ep = panel('DIARY · NEXT 14 DAYS', { cls: 'scroll' });
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
     // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
@@ -352,6 +354,14 @@ export const agendaTab: TabDef = {
       ].map(([label, text]) => button(label!, () => void send(text!))),
     );
     P.right.append(suggest);
+    // Sections: the diary first (what he opens the agenda for), then reminders with the notifications they send,
+    // the month's spending and the calendars he has connected.
+    sections(root, 'agenda', [
+      { id: 'diary', label: 'Diary', match: /^DIARY/ },
+      { id: 'reminders', label: 'Reminders', match: /^(REMINDERS|NOTIFICATIONS)/ },
+      { id: 'spending', label: 'Spending', match: /^SPENDING/ },
+      { id: 'calendars', label: 'Calendars', match: /^CALENDARS/ },
+    ]);
 
     let timer = 0;
     return {

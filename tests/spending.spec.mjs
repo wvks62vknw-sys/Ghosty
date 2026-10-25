@@ -6,7 +6,7 @@
 // month"; EXPORT AS CSV downloads; FORGET ALL empties it. No page errors, nothing blocked, no sideways scrolling.
 //   node tests/spending.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -102,6 +102,8 @@ const shot = async (name) => {
 // ---- Before the first import: the honest words.
 await page.evaluate(() => (location.hash = 'agenda'));
 await card.waitFor({ state: 'attached', timeout: 10000 });
+// (on the phone the agenda is in sections: SPENDING has its own pill)
+await openSection(page, 'agenda', 'Spending');
 await page.waitForFunction(() => /No bank access, ever/.test(document.querySelector('#pg-agenda .pn.spend')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push('the card does not say "No bank access, ever" before the first import'));
 const before = await text();
 if (!/only the shop names they can't place — never dates, amounts or your balance — go to a free online AI/.test(before)) problems.push(`the card does not say what goes to an online model: ${before.slice(0, 300)}`);

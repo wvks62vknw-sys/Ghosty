@@ -3099,6 +3099,15 @@ html #switcher .switem:is([data-status="live"], [data-status="training"]) .swrin
 html #switcher .switem.on .swring { transform: scale(1.14); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 5px rgba(var(--cr), .12), 0 0 36px rgba(var(--cr), .65), 0 12px 28px rgba(0,0,0,.55); }
 html #switcher .switem.on .swnm { color: var(--ink); }
 
+/* the sections on a long tool screen (ui/sections.ts): a row of pills under the title, held under the navigation bar
+   as the page scrolls; the chosen one lit. Only on the phone: a wide screen shows every panel. */
+html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
+html .secpills[hidden] { display: none; }
+html .secmark { display: block; height: 0; }
+html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
+html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
+html .hud.secs [data-sec][hidden], html .hud.secs .secnone { display: none !important; }
+html .hud.secs .lcard > .pn[hidden] + .pn > h3::before { display: none; }
 /* end route C */
 
 /* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */

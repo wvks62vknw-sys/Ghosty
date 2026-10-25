@@ -2,7 +2,7 @@
 // by chat, and check the notification pops up when the (emulated) alarm fires.
 //   node tests/agenda.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { DESKTOP, PHONE, UK } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -28,7 +28,7 @@ async function run(name, viewport) {
   await page.waitForFunction((n) => document.querySelector('#pg-agenda')?.textContent?.includes(`Dentist ${n}`), name, { timeout: 8000 });
   await page.screenshot({ path: `${out}/${name}-agenda.png` });
   // a reminder by hand
-  if (narrow) await page.click('#pg-agenda .swap');
+  if (narrow) await openSection(page, 'agenda', 'Reminders');
   await page.fill('#pg-agenda input[aria-label="Reminder text"]', `Water plants ${name}`);
   await page.click('#pg-agenda .keyrow button:has-text("SET")');
   await page.waitForFunction((n) => document.querySelector('#pg-agenda')?.textContent?.includes(`Water plants ${n}`), name, { timeout: 8000 });
