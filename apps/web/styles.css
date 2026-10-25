@@ -3049,6 +3049,22 @@ html #dock .tabcap .gi .live { position: absolute; top: 1px; right: 0; width: 8p
 html #dock .tabcap button.live .gi .live { display: block; animation: ironbreathe 2.4s ease-in-out infinite; }
 html #dock .tabcap button[data-badge]:not([data-badge=""])::after { top: 3px; right: calc(50% - 26px); left: auto; width: auto; min-width: 20px; height: 18px; margin: 0; padding: 0 5px; border-radius: 5px; font: 600 11px/18px var(--mono); color: #ffd9d6; background: rgba(255,105,97,.22); box-shadow: inset 0 0 0 1.5px var(--r), 0 0 10px rgba(255,105,97,.55); }
 html #top .you.live .av { box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), 0 0 0 3px rgba(var(--cr), .14), 0 0 12px rgba(var(--cr), .6); }
+/* ---------- navigation (BRIEF-NAV-BOOT 1; the owner: "different like tabs for all of it but not overstimulating, and easy
+   to navigate"): the GYM's games in pages of six, the tab bar's long-press switcher, the section pills on the long tool
+   screens (ui/sections.ts). In the Iron Man look, every colour the theme's (--c, --cr, --c2), so Graphite gets the
+   same shapes in steel; Reduce Motion moves nothing (the rule above stops every animation and transition). ---------- */
+/* the GYM: a strip of pages, two columns and three rows each, one page a swipe; the dots under it */
+html #pg-gym .gymcards.paged { --cw: calc((100% - 12px) / 2); display: grid; grid-template-rows: repeat(3, auto); grid-auto-rows: auto; grid-auto-columns: var(--cw); gap: 12px; margin: 0 -16px; padding: 4px 16px 20px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html #pg-gym .gymcards.paged::-webkit-scrollbar { display: none; }
+html #pg-gym .gymcards.paged > .gymcard { min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
+html #pg-gym .gymcards.paged > .gymcard:nth-child(even) { scroll-snap-align: none; }
+html #pg-gym .gympager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -12px 0 4px; }
+html #pg-gym .gymdots { display: flex; align-items: center; margin-left: -12px; }
+html #pg-gym .gymdot { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+html #pg-gym .gymdot i { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--cr), .22); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); transition: width .3s var(--spring), background .3s; }
+html #pg-gym .gymdot.on i { width: 20px; background: var(--c); box-shadow: 0 0 10px rgba(var(--cr), .75); }
+html #pg-gym .gymdot.train::before { content: ''; position: absolute; left: 50%; top: 9px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 3px; background: var(--c2); box-shadow: 0 0 0 2px rgba(5,8,10,.9), 0 0 8px var(--c); animation: ironbreathe 2.4s ease-in-out infinite; }
+html #pg-gym .gympgw { font: 500 12px/14px var(--mono); letter-spacing: .04em; color: rgba(var(--cr), .6); white-space: nowrap; }
 /* end route C */
 
 /* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */
