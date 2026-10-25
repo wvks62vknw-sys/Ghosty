@@ -16,7 +16,7 @@ import { THEMES } from '../state/theme';
 import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
-import { CARDS, hubFacts } from './hubcards';
+import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
@@ -25,7 +25,8 @@ import { offlineBrain } from '../offline/brain';
 export interface Area {
   id: string;
   title: string;
-  /** One line under the hub's title. */
+  /** One line under the hub's title, in Ghosty's voice ("I"): the plain line, for when the phone has no reading for
+   *  the personal one (shell/hubcards.ts hubWords: his school stage, his next event, his city, his latest project). */
   sub: string;
   icon: string;
   /** Its tabs, in order; the first is where the tab bar goes when the area has no hub (ASK → the reactor). */
@@ -35,12 +36,12 @@ export interface Area {
 }
 
 export const AREAS: Area[] = [
-  { id: 'ask', title: 'Ask', sub: 'Talk to Ghosty, or get the day in one look.', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/>', tabs: ['core', 'brief'], tint: '#3fc3ff' },
+  { id: 'ask', title: 'Ask', sub: 'Talk to me, or get the day in one look.', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/>', tabs: ['core', 'brief'], tint: '#3fc3ff' },
   { id: 'see', title: 'See', sub: 'The world live, and the camera that understands it.', icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/>', tabs: ['eye', 'lens'], tint: '#0a84ff' },
   { id: 'make', title: 'Make', sub: 'Build, take apart and plan real things.', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/>', tabs: ['studio', 'workshop', 'reverse', 'space'], tint: '#ff9f0a' },
-  { id: 'learn', title: 'Learn', sub: 'Courses for you, games and a library for him.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
+  { id: 'learn', title: 'Learn', sub: 'Courses for you; games, school and a library for me.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
   { id: 'plan', title: 'Plan', sub: 'Your days, the markets, the world’s alerts and the radio.', icon: '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>', tabs: ['agenda', 'markets', 'threats', 'radio'], tint: '#ff375f' },
-  { id: 'me', title: 'Me', sub: 'What Ghosty knows, how he looks and what he is linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links'], tint: '#8e8e93' },
+  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links'], tint: '#8e8e93' },
 ];
 
 /**
@@ -189,8 +190,9 @@ function hubTab(a: Area): TabDef {
       ensureDefs();
       const grid = h('div.hubgrid');
       const moreRow = h('div.hubmore');
+      const sub = h('p.hubsub', a.sub);
       const wrap = h('div.hub',
-        h('p.hubsub', a.sub),
+        sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
         moreRow,
@@ -205,13 +207,21 @@ function hubTab(a: Area): TabDef {
       clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
       moreRow.hidden = !minis.length;
       cards.push(...minis);
+      // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
+      // city, his latest project) where the phone has the reading, else the plain line; never a sample
+      const paintSub = () => {
+        const w = hubWords(a.id) || a.sub;
+        if (sub.textContent !== w) sub.textContent = w;
+        sub.dataset.personal = String(w !== a.sub);
+      };
       const paintAll = () => {
         for (const c of cards) c.paint();
+        paintSub();
       };
       let timer = 0;
       const paint = () => {
         paintAll();
-        void Promise.all(cards.map((c) => c.load())).then(paintAll);
+        void Promise.all([...cards.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
@@ -481,9 +491,9 @@ function switchItems(a: Area): SwitchItem[] {
  */
 export function liveIn(): Record<string, string> {
   const out: Record<string, string> = {};
-  if (ui.get().busy) out.ask = 'Ghosty is working on an answer';
+  if (ui.get().busy) out.ask = 'I am working on an answer';
   if (gymState.training || gymControl?.allOn()) out.learn = 'the GYM is training';
-  else if (schoolState.sitting) out.learn = 'he is sitting a paper';
+  else if (schoolState.sitting) out.learn = 'I am sitting a paper';
   if (hubFacts.reverse?.some((j) => j.status === 'running')) out.make = 'a reverse report is running';
   if (offlineBrain.get().busy === 'download') out.me = 'the offline brain is downloading';
   return out;
