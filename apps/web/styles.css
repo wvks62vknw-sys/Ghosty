@@ -4508,7 +4508,7 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 #boot .bword { position: absolute; left: 50%; margin: 0; padding: 0 0 0 .62em; transform: translateX(-50%); font: 500 26px/32px var(--sf); letter-spacing: .62em; color: #fff; text-transform: none; white-space: nowrap; opacity: 0; text-shadow: 0 0 18px rgba(var(--cr), .55); pointer-events: none; }
 /* each letter moves on its own for the last tightening (a transform; inline boxes take none) */
 #boot .bword span { display: inline-block; will-change: transform; }
-/* the single thin line under the name: the instruments' line (svg.inst .lit), drawn from the middle out */
+/* the single thin line under the name: the instruments' light (svg.inst .fl), drawn from the middle out */
 #boot svg.bline { position: absolute; left: 50%; transform: translateX(-50%) scaleX(0); transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: transform, opacity; }
 /* the greeting's breath of bloom: a soft light behind the line, in his colour */
 #boot .bbloom { position: absolute; left: 50%; width: 400px; max-width: 100vw; height: 120px; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--cr), .3), rgba(var(--cr), .08) 60%, rgba(var(--cr), 0)); opacity: 0; pointer-events: none; will-change: opacity; }

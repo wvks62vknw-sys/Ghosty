@@ -10,7 +10,7 @@
  *   3. the sphere resolves from the inside out: the haze, then the meridians catching the light one after
  *      another, the latitudes, the rim last; it turns a few degrees; the equator scale lights round   1,500 – 2,400 ms
  *   4. G H O S T Y assembles from particles, a little wide, then one last tightening; a single thin line
- *      draws itself under it, from the middle out (the instruments' line: svg.inst .lit)              2,400 – 3,050 ms
+ *      draws itself under it, from the middle out (the instruments' light: svg.inst .fl)            2,400 – 3,050 ms
  *   5. one line, his, with a breath of bloom: "Good evening, <name>." (the name from Settings)       3,050 – 3,500 ms
  *   6. the sphere eases up into Home's hero, where it lives from then on (the same Mind, never a copy); a beat
  *      after it lands, the HUD slides in (the ribbon, the tab bar, Home's cards)                      3,500 – 3,900 ms
@@ -396,10 +396,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const bloom = h('i.bbloom');
   bloom.style.top = `${wordTop + 81}px`;
   el.append(dust, word, bloom, greet);
-  // the single thin line under the name, in the instruments' own line (svg.inst .lit, its glow; .ln end stops)
+  // the single thin line under the name, in the instruments' own light (svg.inst .fl, its glow; .ln end stops). A bar
+  // of light, not a stroked path: a filter on a box with no height (a level line) would draw nothing at all
   ensureDefs();
   const lw = Math.round(Math.min(vw - 64, word.getBoundingClientRect().width * 0.84));
-  const rule = svgEl('path', { class: 'lit', d: `M0 4H${lw}` });
+  const rule = svgEl('rect', { class: 'fl', x: 0, y: 3.4, width: lw, height: 1.2, rx: 0.6 });
   const stops = svgEl('path', { class: 'ln', d: `M0.5 0.5V7.5M${lw - 0.5} 0.5V7.5` });
   const line = svgEl('svg', { class: 'inst bline', viewBox: `0 0 ${lw} 8`, width: lw, height: 8, 'aria-hidden': 'true', focusable: 'false' });
   line.append(rule, stops);

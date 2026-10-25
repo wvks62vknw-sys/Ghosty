@@ -454,7 +454,9 @@ function checkCut(s, what) {
     }
     const spans = [...document.querySelectorAll('#boot .bword span')].map((s) => s.style.transform);
     const line = document.querySelector('#boot svg.bline');
-    return { lit, spans, line: line ? { t: line.style.transform, o: Number(line.style.opacity), inst: line.classList.contains('inst') && !!line.querySelector('.lit') } : null, bloom: Number(document.querySelector('#boot .bbloom')?.style.opacity ?? 0) };
+    // (the instruments' light, with a box of its own: a glow filter on a box with no height draws nothing)
+    const bar = line?.querySelector('.fl');
+    return { lit, spans, line: line ? { t: line.style.transform, o: Number(line.style.opacity), inst: line.classList.contains('inst') && !!bar && bar.getBBox().height > 0 && bar.getBBox().width > 100 } : null, bloom: Number(document.querySelector('#boot .bbloom')?.style.opacity ?? 0) };
   });
   const seenAt = {};
   for (const [ms, name] of ready ? frames : []) {

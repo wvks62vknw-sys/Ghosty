@@ -45,7 +45,7 @@ back-forward cache) and a deep link play only the breath; "reboot" replays it. T
 3. The sphere resolves from the inside out: the haze, the meridians catching the light one after another, the
    latitudes, the rim last; the equator scale lights round (1,500–2,400 ms).
 4. G H O S T Y from particles, a little wide, then one last tightening; a single thin line draws itself under it from
-   the middle out, the instruments' own line (svg.inst .lit with its end stops) (2,400–3,050 ms).
+   the middle out, the instruments' own light (svg.inst .fl with .ln end stops) (2,400–3,050 ms).
 5. The greeting with a breath of bloom, spoken in his voice as before (3,050–3,500 ms).
 6. Mind flies into Home's hero (to the pixel, the same canvas); a beat after it lands, the ribbon, the tab bar and
    Home's cards slide in, not with it (3,500–3,900 ms).
