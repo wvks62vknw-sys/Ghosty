@@ -4100,6 +4100,8 @@ html #pg-reverse .pn .rw.link { min-height: 48px; align-items: center; }
 /* Reverse: each report's name in full (a long one wraps, never cut, at 390 or in a laptop's narrow column), what it is under it */
 html #pg-reverse .rw .v.revname { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; padding: 6px 0; }
 html #pg-reverse .rw .v.revname small { display: block; margin-top: 1px; font: 400 13px/17px var(--sf); color: var(--ink3); }
+/* REMOVE on a finished or failed report: a 44 pt target at the row's end (UNDO through the floating bar) */
+html #pg-reverse .rw .revremove { min-height: 44px; margin-left: auto; flex: none; }
 html #pg-reverse .pn .note.revsay { margin: 8px 0; font-size: 15px; line-height: 21px; color: var(--ink); }
 /* ---------- System and Links: a pushed panel shows its contents under the large title (its row is not repeated) ---------- */
 html .listmode .pn.pushed[data-row] > h3 { display: none; }

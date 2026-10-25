@@ -492,6 +492,16 @@ folder that no longer exists; ignore those paths).
 - CLOCKS: British Summer Time ended at 01:00 UTC on 25 Oct 2026, so from then UK time = UTC. The 25 Oct labels above
   from the Iron Man merge onward were first written an hour ahead and have been corrected (05:20 UK → 04:20 UK, and so
   on); CI timestamps are UTC. The owner's messages this morning came at 04:15 and 04:35 UK.
+- 25 Oct 04:50 UK: merged after review: the REVERSE pass (15 commits, 11 fixes; merge b78c8df, clean). My brief had
+  described a different feature (physical things taken apart); the builder read MAP.md and upgraded the real one
+  (software reverse engineering: REA on GitHub's runners) and left the shared integrations alone: the right call.
+  Kernel lines: `reverse` in the CI spec loop (71 specs; `[reverse]`); `agent.ts`: the import of `removeReverse` and a
+  `DELETE /reverse/:id` route (`[reverse]`). Made at the merge, mine: REMOVE on a finished or failed report's row (the
+  row goes at once, the floating bar's UNDO brings it back, the brain is told only when the bar closes; the page's
+  `reverseRemove` wrapper; a spec check), the Make hub card's title "See how apps work" and OFF without GitHub, the
+  live dot counting a queued report. Leftovers the builder ranked: no FIND among up to 40 reports; no plain-English
+  summary at the top of a report (ASK GHOSTY gives one through the chat); the laptop's empty middle column (ui/page.ts);
+  a run can wait 15 minutes before "didn't finish"; no live GitHub run could be tried (the preview has no token).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

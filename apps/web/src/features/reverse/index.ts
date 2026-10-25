@@ -9,7 +9,7 @@ import { brain, headers, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel } from '../../ui/components';
+import { button, panel, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 
 const CSS = `
@@ -194,6 +194,24 @@ export const reverseTab: TabDef = {
           h('span.v.revname', j.target.replace(/^https?:\/\//, '').replace(/\/$/, ''), h('small', KIND_WORD[j.kind] ?? 'Link')),
           h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, STATE_WORD[j.status](j)),
         );
+        // REMOVE: the row goes at once; the floating UNDO bar puts it back; the brain is told only when the bar closes
+        // (the pass's design: UNDO never needs the brain). A running report is left to finish first.
+        if (j.status !== 'running' && j.status !== 'queued') {
+          const name = j.target.replace(/^https?:\/\//, '').replace(/\/$/, '');
+          const rm = button('REMOVE', () => {
+            r.hidden = true;
+            undo(`Removed ${name}`, () => { r.hidden = false; }, async () => {
+              await brain.reverseRemove(j.id).catch(() => null);
+              jobs = jobs.filter((x) => x.id !== j.id);
+              paint();
+            });
+          });
+          rm.classList.add('revremove');
+          rm.setAttribute('aria-label', `Remove ${name}`);
+          rm.addEventListener('click', (e) => e.stopPropagation());
+          rm.addEventListener('keydown', (e) => e.stopPropagation());
+          r.append(rm);
+        }
         if (j.id === open) r.classList.add('on');
         list.append(r);
       }

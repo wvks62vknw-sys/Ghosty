@@ -58,6 +58,7 @@ async function open(viewport, { github = true } = {}) {
     return r.fulfill({ response: res, json: { ...j, repoReady: github } });
   });
   await page.route('**/api/reverse**', async (r) => {
+    if (r.request().method() === 'DELETE') { st.deleted = (st.deleted ?? 0) + 1; return r.fulfill({ json: { removed: true } }); }
     if (st.offline) return r.abort('internetdisconnected');
     const req = r.request();
     const m = new URL(req.url()).pathname.match(/\/api\/reverse\/([\w-]+)$/);
@@ -144,6 +145,21 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
   if (!/example\.com[\s\S]*Ready/.test(rt)) problems.push(`[440] a finished report's row does not say "Ready": ${rt}`);
   if (!/left-pad[\s\S]*Didn.t finish/.test(rt)) problems.push(`[440] a failed report's row does not say "Didn't finish": ${rt}`);
   if (/\bREPORT\b|\bFAILED\b/.test(rt)) problems.push(`[440] the rows still shout REPORT / FAILED: ${rt}`);
+
+  // REMOVE on a finished report: the row goes at once, the floating bar's UNDO brings it back, and the brain is told
+  // only when the bar closes (so nothing was sent here)
+  {
+    const r = row(page, 'left-pad');
+    await r.locator('button.revremove').click().catch(() => problems.push('[440] no REMOVE on a failed report\'s row'));
+    await page.waitForTimeout(300);
+    if (await r.isVisible().catch(() => true)) problems.push('[440] REMOVE did not take the row off the list at once');
+    const bar = page.locator('.undo.rcundo:not([hidden])');
+    if (!/Removed left-pad/.test((await bar.innerText().catch(() => '')))) problems.push(`[440] the UNDO bar does not say what went: "${await bar.innerText().catch(() => '')}"`);
+    await bar.locator('button', { hasText: 'UNDO' }).click().catch(() => problems.push('[440] no UNDO on the bar'));
+    await page.waitForTimeout(300);
+    if (!(await r.isVisible().catch(() => false))) problems.push('[440] UNDO did not bring the row back');
+    if (st.deleted) problems.push(`[440] REMOVE told the brain before the UNDO bar closed (${st.deleted} DELETE)`);
+  }
 
   // a tap on the finished one brings the report on screen
   await tap(row(page, 'example.com'), 'the example.com report');
