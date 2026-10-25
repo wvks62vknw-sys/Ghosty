@@ -5,7 +5,7 @@
 //   node tests/upgrades.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -42,8 +42,11 @@ await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 await page.evaluate(() => (location.hash = 'workshop'));
+// (on the phone the Workshop is in sections, ui/sections.ts: the ideas are under their own pill)
+await page.waitForSelector('#pg-workshop .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => problems.push('the Workshop has no pills'));
+await openSection(page, 'workshop', 'Ideas');
 
-// 1. the panel lists every idea with its why and steps (the CHANGES column shows first on a phone)
+// 1. the panel lists every idea with its why and steps
 const cards = page.locator('#pg-workshop .idea');
 await cards.first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => problems.push('no UPGRADE IDEAS cards in the Workshop'));
 const titles = await page.$$eval('#pg-workshop .idea b', (b) => b.map((x) => x.textContent));

@@ -414,6 +414,12 @@ LONG.push({ // SCHOOL: the nightly report, named by no pill, follows the weak sp
   panels: { Ladder: /^THE LADDER/, 'This stage': /^THIS STAGE/, Results: /^RESULTS/, 'Weak spots': /^(WEAK SPOTS|NIGHTLY REPORT)/, Papers: /^(OFFICIAL PAPERS|READING)/, Placement: /^PLACEMENT/ },
   tap: 'Results', link: { row: /Real SATs/i, pill: 'Papers', panel: /^OFFICIAL PAPERS/ },
 });
+LONG.push({ // WORKSHOP: one stacked page now, no BUILD / PAGES & WIDGETS switch
+  tab: 'workshop',
+  pills: ['Build', 'Ideas', 'Changes', 'Made', 'Training'],
+  panels: { Build: /^(TELL GHOSTY|PROJECTS|WHAT.S NEW)/, Ideas: /^UPGRADE/, Changes: /^(PROPOSED|VERSIONS|KERNEL)/, Made: /^(WIDGETS|PUBLISHED)/, Training: /^TRAINING/ },
+  tap: 'Ideas', link: { row: /preview, then ship it/i, pill: 'Changes', panel: /^PROPOSED CHANGES/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;

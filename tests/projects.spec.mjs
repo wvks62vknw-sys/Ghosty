@@ -4,7 +4,7 @@
 // brain's alarm with the scripted model.
 //   node tests/projects.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { DESKTOP, PHONE, UK } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -155,6 +155,11 @@ async function pairOn(viewport) {
   return { ctx, page };
 }
 const panelOf = (page, title) => page.locator('#pg-workshop .pn', { has: page.locator(`h3:has-text("${title}")`) });
+/** On the phone the Workshop is in sections (ui/sections.ts, one drawn at a time): show the part that holds what is checked next. */
+const sec = async (page, label) => {
+  await page.waitForSelector('#pg-workshop .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => undefined);
+  return openSection(page, 'workshop', label);
+};
 /** What a panel says, its route C words (data-label) included. */
 const words = (loc) => loc.evaluate((e) => `${e.textContent} ${[...e.querySelectorAll('[data-label]')].map((x) => x.dataset.label).join(' ')}`).catch(() => '');
 
@@ -296,6 +301,7 @@ async function workshop() {
     await page.route('**/api/kernel', (r) => (kernel.push(r.request().postData()), r.fulfill({ contentType: 'application/json', body: JSON.stringify({ kernelUnlockedUntil: 0 }) })));
     await page.evaluate(() => (location.hash = 'workshop'));
     const cp = panelOf(page, 'PROPOSED CHANGES');
+    await sec(page, 'Changes');
     await cp.locator('.change', { hasText: 'Spec bigger clock' }).waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
     const sheet = page.locator('.modal .confirm.sure');
@@ -314,8 +320,7 @@ async function workshop() {
       if (shipped.join() !== '942') problems.push(`[workshop 5] SHIP ANYWAY shipped ${JSON.stringify(shipped)}`);
     }
     await page.keyboard.press('Escape');
-    // UNLOCK FOR 15 MIN asks in the sheet too (the lock is in the second column on the phone)
-    await page.click('#pg-workshop button.swap');
+    // UNLOCK FOR 15 MIN asks in the sheet too (the lock is in the same section as the changes)
     await page.waitForTimeout(500);
     await panelOf(page, 'KERNEL LOCK').locator('button:has-text("UNLOCK")').click();
     if (!(await sheet.waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('[workshop 5] UNLOCK FOR 15 MIN did not ask in the in-app sheet');
@@ -324,7 +329,6 @@ async function workshop() {
       await page.waitForTimeout(300);
       if (kernel.length) problems.push('[workshop 5] KEEP IT still unlocked the kernel');
     }
-    await page.click('#pg-workshop button.swap');
     await page.waitForTimeout(400);
     // 6. Each change says what its checks mean; a failed one leads with ASK TO FIX, SHIP IT is only the bright button once they pass
     const says = async (title) => (await cp.locator('.change', { hasText: title }).evaluate((c) => c.innerText).catch(() => '')) ?? '';
@@ -387,16 +391,18 @@ async function workshop() {
     await page.waitForFunction(() => /Spec failed change/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Cafe/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('[workshop 8] the filled-in Workshop did not show'));
     await page.waitForTimeout(600);
     const short = () => page.$$eval('#pg-workshop button', (bs) => bs.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden').map((b) => ({ t: (b.dataset.label || b.textContent || '').trim().slice(0, 24), h: b.offsetHeight })).filter((b) => b.h < 44)); // (layout size: a pane sliding in is scaled for a moment)
-    const left = await short();
-    await page.click('#pg-workshop button.swap');
-    await page.waitForTimeout(500);
-    const right = await short();
-    // 10. The second column starts with what he made (pages, then widgets), and the switch names both columns
+    // (one section is drawn at a time on the phone: every one in turn)
+    const small = [];
+    for (const label of ['Build', 'Ideas', 'Changes', 'Made', 'Training']) {
+      await sec(page, label);
+      await page.waitForTimeout(300);
+      small.push(...(await short()));
+    }
+    // 10. The second column starts with what he made (pages, then widgets), and the pills name every part
     const order = await page.$$eval('#pg-workshop .cR .pn h3 .ptitle', (hs) => hs.map((x) => x.textContent?.trim() ?? ''));
     if (!/^PUBLISHED PAGES/.test(order[0] ?? '') || !/^WIDGETS/.test(order[1] ?? '')) problems.push(`[workshop 10] the second column starts with ${order.slice(0, 2).join(', ')}`);
-    const sw = await page.$eval('#pg-workshop button.swap', (b) => `${b.dataset.left} | ${b.dataset.right}`);
-    if (sw !== 'Build | Pages & widgets') problems.push(`[workshop 10] the column switch reads "${sw}"`);
-    const small = [...left, ...right];
+    const names = await page.$$eval('#pg-workshop .secpill', (b) => b.map((x) => x.textContent).join(', '));
+    if (names !== 'Build, Ideas, Changes, Made, Training') problems.push(`[workshop 10] the pills read "${names}"`);
     if (small.length) problems.push(`[workshop 8] buttons under 44 pt: ${[...new Set(small.map((b) => `${b.t} ${b.h}px`))].join(', ')}`);
     await ctx.close();
   }
