@@ -640,6 +640,17 @@ folder that no longer exists; ignore those paths).
   AbortError after a stop says nothing; the stop words widened) and agent.ts `[links]` (build_app's link treated like
   publish_site's). Verified: web and edge typecheck, sites.test 81/81, voice, apps, direct specs. Spent as little as
   possible (all models at 95 %).
+- 25 Oct 14:05 UK: PR #41's runs on its earlier heads (e3d451e, 2090fc4) went red on the upgrades spec ("THINK NOW did not
+  show the new idea first") and once on radio ("controls under 44 pt", every one printed as 44). Causes: the upgrades
+  spec stubs /api/upgrades* with page.route(), but once the app's service worker controls the page those requests bypass
+  the stubs and the real brain answers THINK NOW with the scripted model's list, whose first idea has the same title as
+  the stub's old one; a slow runner lost that race (13:05 UTC, three runs at once). Fixed: `serviceWorkers: 'block'` on
+  the spec's context (as the safari spec's voice context does). Radio measured its controls while the screen's entry
+  animation still scaled them: it now waits for the animations to finish. Both clean here; pushed as the next head.
+  Cloudflare's "Workers Builds" check on 5bb1925 failed at the second it started with no output while the repo's own
+  dry run (deploy-build) was green: one standing-down comment on the PR; the owner was asked for the build page's last
+  lines. The owner's asks of the afternoon are OWNER-ISSUES 55 and 56 (the Machine's eyes, the guardian, the social
+  side, the cousin by Telegram or email); first briefs after the weekly reset (all models at 95 %).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
