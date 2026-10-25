@@ -260,6 +260,8 @@ for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
   if (!(top >= 0 && top < vp.height / 2)) problems.push(`[${vp.width}] the report opened out of sight (top ${Math.round(top)})`);
   await sideways(page, String(vp.width));
   if (vp.width < 900) await smallTargets(page, String(vp.width));
+  const cut = await page.$$eval('#pg-reverse .rw.link .v', (vs) => vs.filter((v) => v.scrollWidth > v.clientWidth + 1).map((v) => v.textContent));
+  if (cut.length) problems.push(`[${vp.width}] report names cut short in the list: ${cut.join(', ')}`);
   await page.screenshot({ path: `${out}/reverse-report-${vp.width}.png` });
   await ctx.close();
 }

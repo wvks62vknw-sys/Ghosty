@@ -190,8 +190,8 @@ export const reverseTab: TabDef = {
         const tone = j.status === 'done' ? 'up' : j.status === 'failed' ? 'bad' : '';
         const r = h('div.rw.link', { onclick: () => void show(j.id, true), tabIndex: 0, role: 'button', onkeydown: (e: KeyboardEvent) => e.key === 'Enter' && void show(j.id, true) },
           h('span.sev', { style: `color:${j.status === 'done' ? 'var(--ok)' : j.status === 'failed' ? 'var(--r)' : 'var(--a)'};background:currentColor` }),
-          h('span.k', { dataset: { case: 'keep' } }, KIND_WORD[j.kind] ?? 'Link'),
-          h('span.v', j.target.replace(/^https?:\/\//, '').replace(/\/$/, '')),
+          // the name in full (a long one wraps, never cut), what it is under it
+          h('span.v.revname', j.target.replace(/^https?:\/\//, '').replace(/\/$/, ''), h('small', KIND_WORD[j.kind] ?? 'Link')),
           h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, STATE_WORD[j.status](j)),
         );
         if (j.id === open) r.classList.add('on');
