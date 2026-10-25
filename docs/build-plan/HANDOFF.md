@@ -358,6 +358,15 @@ folder that no longer exists; ignore those paths).
   C check now reads the brain's agenda and requires the card's two rows, their order and its count to match the soonest
   of what is left today, with Call Mum in that list; the agenda spec deletes its Dentist event at the end of each run
   (leave the preview as found). The library spec passed on this run by timing luck; its picker fix (above) stands.
+- 25 Oct 01:50 UK: pushed to PR #36 (one CI run for the batch): the Memory pass, the scroll audit, the library picker fix,
+  the Route C and agenda spec fixes, `scrollfeel` in the CI loop. Proofs on the merged tree before the push: edge suite
+  1,182 of 1,182; web check; specs memory, places, undo, backup, library, agenda, routec (twice, the second with a
+  leftover event two hours ahead seeded through the API), scrollfeel, layout, ui, scroll (Chromium). Two spec lessons
+  from the Route C rerun: the Today card's text runs together ("Today2 left01:26Call Mum…"), so a count check cannot
+  use `\b` on either side of the number (`(^|\D)2 left`); the themes check compared Home's boxes to the pixel between
+  two paints, and a suggestion chip whose words follow the clock moved a centred row by one pixel, so boxes now match
+  within a pixel while type and spacing still match to the letter. The 00:14 UTC check-in is superseded; a new one is
+  armed about 85 minutes after this push.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
