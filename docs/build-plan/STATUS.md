@@ -49,18 +49,18 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- Live on your phone with the next open: PR #36 (03:08 UK: the big-brain crash fix, the Brief, voice, Workshop and Memory passes, the scroll audit, the boot cinematic) and PR #37 (04:32 UK: the Iron Man look on every hub, the Library pass, an exam paper you add never trained on). PR #38 carries the Markets and Settings passes; I merge it when its checks are green.
+- Live on your phone with the next open: PR #36 (02:08 UK: the big-brain crash fix, the Brief, voice, Workshop and Memory passes, the scroll audit, the boot cinematic) and PR #37 (03:32 UK: the Iron Man look on every hub, the Library pass, an exam paper you add never trained on). PR #38 carries the Markets and Settings passes; I merge it when its checks are green.
 - Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
-- Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
-- Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
-- Merged at 03:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
-- Merged at 05:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
-- Upgrade pass running since 03:30 UK: Reverse.
-- Merged at 04:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
+- Merged at 01:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
+- Merged at 01:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
+- Merged at 02:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
+- Merged at 04:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
+- Upgrade pass running since 02:30 UK: Reverse.
+- Merged at 03:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
 - Telegram's pass: dropped at your word.
 
-- Being built since 05:20–05:55 UK, from your messages this morning: the brain kept between opens and the biggest download's crash (first in line); little tabs inside every long screen (Settings, Library, Memory, School, Workshop, Threats, Links); the GYM's Connect 4 at full strength with lessons from your games and the Machine's voice; the boot on every cold open and cooler.
+- Being built since 05:20–04:55 UK, from your messages this morning: the brain kept between opens and the biggest download's crash (first in line); little tabs inside every long screen (Settings, Library, Memory, School, Workshop, Threats, Links); the GYM's Connect 4 at full strength with lessons from your games and the Machine's voice; the boot on every cold open and cooler.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
