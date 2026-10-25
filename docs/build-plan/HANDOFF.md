@@ -656,6 +656,9 @@ folder that no longer exists; ignore those paths).
   built app's link in the reply's words, the report-card link, the deck pictures. Nothing building; the next pull request
   starts with the first brief after the weekly reset (OWNER-ISSUES 55/56: the Machine's eyes, the guardian, the social
   side). Waiting on him: Telegram or email for the cousin, the four Offline Brain steps, his Connect 4 trick, the reset time.
+- 25 Oct 15:55 UK: OWNER-ISSUES 57: the school sitting on the offline brain crashes the page on his phone (first fix
+  after the reset: memory headroom while sitting, the smallest brain by default, resume after a crash); no mastery cap
+  in the GYM; a working 3-D engine and car knowledge; the full Machine/Harold list put to him. Builders wait for the reset.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
