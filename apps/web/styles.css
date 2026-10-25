@@ -4492,20 +4492,26 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .myplaces .lchip { min-height: 44px; }
 
 /* =====================================================================
-   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, once per cold open of the day.
+   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, on every cold open, on true black.
    Its own block, last in the file; nothing above depends on it. Only transforms and opacity move (the particles are
    drawn on a canvas, Mind by three.js). The old spinner, engine lines and "INITIALISING…" are gone.
    ===================================================================== */
-#boot { display: block; gap: 0; overflow: hidden; background: var(--bg, #050607); transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#boot { display: block; gap: 0; overflow: hidden; background: #000; transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 #boot.playing { background: none; }
 #boot.out { opacity: 0; pointer-events: none; }
-#boot .bveil { position: absolute; inset: 0; background: var(--bg, #050607); pointer-events: none; }
+#boot .bveil { position: absolute; inset: 0; background: #000; pointer-events: none; }
 /* the point of light: there from the first paint (index.html), dim until the cinematic wakes it */
 #boot .bdot { position: absolute; left: 50%; top: 40%; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(var(--cr), .9), 0 0 38px 12px rgba(var(--cr), .32); transform: translate(-50%, -50%); opacity: .25; pointer-events: none; will-change: transform, opacity; }
 #boot .bdust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #boot canvas.mindhero { pointer-events: none; will-change: transform, opacity; }
 /* the name, letter-spaced in the instruments' face (the trailing space is balanced so it sits in the middle) */
 #boot .bword { position: absolute; left: 50%; margin: 0; padding: 0 0 0 .62em; transform: translateX(-50%); font: 500 26px/32px var(--sf); letter-spacing: .62em; color: #fff; text-transform: none; white-space: nowrap; opacity: 0; text-shadow: 0 0 18px rgba(var(--cr), .55); pointer-events: none; }
+/* each letter moves on its own for the last tightening (a transform; inline boxes take none) */
+#boot .bword span { display: inline-block; will-change: transform; }
+/* the single thin line under the name: the instruments' line (svg.inst .lit), drawn from the middle out */
+#boot svg.bline { position: absolute; left: 50%; transform: translateX(-50%) scaleX(0); transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: transform, opacity; }
+/* the greeting's breath of bloom: a soft light behind the line, in his colour */
+#boot .bbloom { position: absolute; left: 50%; width: 400px; max-width: 100vw; height: 120px; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--cr), .3), rgba(var(--cr), .08) 60%, rgba(var(--cr), 0)); opacity: 0; pointer-events: none; will-change: opacity; }
 /* one line, his */
 #boot .bgreet { position: absolute; left: 50%; width: max-content; max-width: calc(100vw - 32px); margin: 0; transform: translateX(-50%); font: 600 24px/30px var(--sfd); letter-spacing: -.01em; color: var(--ink, #f4f6f8); text-align: center; text-transform: none; opacity: 0; pointer-events: none; }
 /* the app could not start: plain words and one button */
@@ -4513,8 +4519,10 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 #boot .bfault { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; text-align: center; }
 #boot .bfault p { margin: 0; font: 500 17px/1.35 var(--sf); color: var(--ink, #f4f6f8); }
 #boot .bfault button { min-width: 44px; min-height: 44px; padding: 0 22px; }
-/* the landing: the ribbon comes down, the tab bar and Home's cards slide up into place, the rest fades in
-   (the individual translate property, so each part's own transform is left alone) */
+/* the landing: while Mind flies the HUD waits out of sight; a beat after it lands, the ribbon comes down, the tab bar
+   and Home's cards slide up into place, the rest fades in (the individual translate property, so each part's own
+   transform is left alone) */
+body.bootwait :is(#top, #dock, .rcbelow .rccard), body.bootwait .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { opacity: 0; }
 body.bootland #top { animation: bootin-down .34s cubic-bezier(.2, .8, .2, 1) both; }
 body.bootland #dock { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) .04s both; }
 body.bootland .rcbelow .rccard { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) both; }

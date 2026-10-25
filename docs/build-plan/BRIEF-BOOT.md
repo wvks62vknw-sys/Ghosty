@@ -32,3 +32,23 @@ downloaded; 44 pt targets; the current boot's engine lines and "INITIALISING…"
 ## Finish
 Commit per step (no push, no merge). Report: a strip of the frames as screenshots at 440 × 956, the timings measured,
 every check's result, what only the real phone can prove (120 Hz, speech on a cold open, the hum on silent).
+
+## Boot 2 (25 Oct; his words: "i want the cinematic to be on every boot up and just a bit cooler like we're so close but it could still be so much better")
+Every cold open plays it (a launch from the Home Screen, a fresh tab, a reload: a new page); the once-a-day rule is
+gone. Coming back to the running app (a tab switch, the app resumed in the same page life, a page restored from the
+back-forward cache) and a deep link play only the breath; "reboot" replays it. The same idea, a richer cut, 3.9 s:
+1. True black. One point of light, far away, breathing once (0–450 ms).
+2. It splits; the particles gather into the constellation, each leaving a faint trail that fades; the camera pushes in
+   slowly through three depths (far dust behind, the constellation, a few near motes streaming past the edges), so the
+   push reads as 3-D; one thin sweep of light passes down through it and refracts at the equator: a flare along it
+   and a second, bent ring parting below (450–1,500 ms).
+3. The sphere resolves from the inside out: the haze, the meridians catching the light one after another, the
+   latitudes, the rim last; the equator scale lights round (1,500–2,400 ms).
+4. G H O S T Y from particles, a little wide, then one last tightening; a single thin line draws itself under it from
+   the middle out, the instruments' own line (svg.inst .lit with its end stops) (2,400–3,050 ms).
+5. The greeting with a breath of bloom, spoken in his voice as before (3,050–3,500 ms).
+6. Mind flies into Home's hero (to the pixel, the same canvas); a beat after it lands, the ribbon, the tab bar and
+   Home's cards slide in, not with it (3,500–3,900 ms).
+Every frame is held to a budget (a long frame: over 12 ms at 120 Hz, over 20 ms at 60), counted in
+`__bootState.budget`; a phone that cannot keep up gets the short version, or mid-flight the lean cut (no depths,
+trails or refraction; the rest quickened). Sound unchanged. No text but GHOSTY and the greeting.

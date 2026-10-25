@@ -133,8 +133,14 @@ export interface BootLook {
   gather: number;
   /** the links between them, lit as they settle */
   links: number;
-  /** the sphere resolving round them: its rims, haze, meridians and the tilted ring */
+  /** the sphere resolving round them: its latitudes and the tilted ring (and, scaled by the three below, the rest) */
   sphere: number;
+  /** the inside out: the faint haze within the sphere first */
+  haze: number;
+  /** then the meridians, catching the light one after another (0: none yet; 1: all lit and settled) */
+  mer: number;
+  /** and the rim (its two Fresnel shells) last */
+  rim: number;
   /** how much of the equator scale is lit, round from the front */
   scale: number;
   /** the nucleus and its light */
@@ -145,9 +151,17 @@ export interface BootLook {
   push: number;
   /** the thin sweep of light passing down through it: its height in sphere radii, NaN when there is none */
   sweep: number;
+  /** the faint trails the gathering particles leave (0: none) */
+  trails: number;
+  /** the sweep refracting as it crosses the equator: a flare along it, and a second, bent ring below (0: none) */
+  refract: number;
 }
 /** The whole of Mind, as Home draws it. */
-export const BOOT_DONE: BootLook = { gather: 1, links: 1, sphere: 1, scale: 1, core: 1, turn: 0, push: 1, sweep: NaN };
+export const BOOT_DONE: BootLook = { gather: 1, links: 1, sphere: 1, haze: 1, mer: 1, rim: 1, scale: 1, core: 1, turn: 0, push: 1, sweep: NaN, trails: 0, refract: 0 };
+/** Meridians round the sphere (each its own material, so the boot can light them one after another). */
+const MERIDIANS = 6;
+/** How much of the gathering a trail spans (in the gather's own 0..1). */
+const TRAIL = 0.07;
 
 /** The constellation he saw last (saved on this phone), so the boot draws what he knows before the brain answers. */
 const DATA_KEY = 'ghosty.mind.data';
@@ -168,6 +182,18 @@ const hash3 = (x: number, y: number, z: number) => {
   return v - Math.floor(v);
 };
 const ease = (k: number) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 - Math.pow(1 - k, 3));
+/** Where a node whose home is (x, y, z) is at gather `g`, written into `a` at `i`: each node leaves the point of light a
+ *  little later the further out it lives, and swirls on its way. */
+function gathered(a: Float32Array, i: number, x: number, y: number, z: number, g: number): void {
+  const r = hash3(x, y, z);
+  const k = ease((g - 0.35 * r) / 0.65);
+  const sw = (1 - k) * (1.4 + r * 1.6);
+  const c = Math.cos(sw);
+  const s = Math.sin(sw);
+  a[i] = (x * c - z * s) * k;
+  a[i + 1] = y * k + (1 - k) * (r - 0.5) * 0.12 * Math.sin(k * Math.PI);
+  a[i + 2] = (x * s + z * c) * k;
+}
 
 /** The one Mind on this phone. The boot cinematic may make it before Home exists; Home's hero adopts it. */
 let theMind: Mind | null = null;
@@ -361,6 +387,17 @@ export class Mind {
     host.append(this.canvas);
     this.canvas.style.display = '';
     this.size(w, h);
+    // the cinematic's own pieces (the trails, the refraction) are hidden until their moment: their shaders are made now,
+    // while the point of light still breathes, so their first frame does not stall mid-flight
+    const P = this.parts;
+    const extras = ['trails', 'sweep', 'sweep2', 'flare'].map((k) => P[k]).filter(Boolean);
+    for (const o of extras) o.visible = true;
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } catch {
+      /* made on first use instead */
+    }
+    for (const o of extras) o.visible = false;
   }
 
   /** One frame of the cinematic, `t` seconds into it. */
@@ -378,7 +415,7 @@ export class Mind {
     this.gatherAt(1);
     const P = this.parts;
     P.tickGeo?.setDrawRange(0, Infinity);
-    if (P.sweep) P.sweep.visible = false;
+    for (const k of ['sweep', 'sweep2', 'flare', 'trails']) if (P[k]) P[k].visible = false;
     for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
     this.w = this.h = 0;
     if (this.pending) {
@@ -415,22 +452,28 @@ export class Mind {
       if (g >= 1 && o.userData.at === 1) continue;
       o.userData.at = g >= 1 ? 1 : g;
       const a = pos.array as Float32Array;
-      for (let i = 0; i < a.length; i += 3) {
-        const x = home[i]!;
-        const y = home[i + 1]!;
-        const z = home[i + 2]!;
-        // each node leaves a little later the further out it lives, and swirls on its way
-        const r = hash3(x, y, z);
-        const k = ease((g - 0.35 * r) / 0.65);
-        const sw = (1 - k) * (1.4 + r * 1.6);
-        const c = Math.cos(sw);
-        const s = Math.sin(sw);
-        a[i] = (x * c - z * s) * k;
-        a[i + 1] = y * k + (1 - k) * (r - 0.5) * 0.12 * Math.sin(k * Math.PI);
-        a[i + 2] = (x * s + z * c) * k;
-      }
+      for (let i = 0; i < a.length; i += 3) gathered(a, i, home[i]!, home[i + 1]!, home[i + 2]!, g);
       pos.needsUpdate = true;
     }
+    // the trails: each node where it was a moment ago, a little before, and now
+    const tr = this.parts.trails;
+    const tpos = tr?.geometry?.attributes?.position;
+    const th = tr?.userData?.home as Float32Array | undefined;
+    if (!tpos || !th) return;
+    tr.visible = !!this.boot && this.boot.trails > 0 && g > 0 && g < 1;
+    if (!tr.visible) return;
+    const a = tpos.array as Float32Array;
+    for (let j = 0, n = th.length / 3; j < n; j++) {
+      const x = th[j * 3]!;
+      const y = th[j * 3 + 1]!;
+      const z = th[j * 3 + 2]!;
+      const o = j * 12;
+      gathered(a, o, x, y, z, g - TRAIL);
+      gathered(a, o + 3, x, y, z, g - TRAIL / 2);
+      a.copyWithin(o + 6, o + 3, o + 6);
+      gathered(a, o + 9, x, y, z, g);
+    }
+    tpos.needsUpdate = true;
   }
 
   /** How bright the core is (0..1.5): Home tints its glass with it (--glow). */
@@ -553,9 +596,13 @@ export class Mind {
     this.root.add(P.haze, P.rimSoft, P.rimCrisp);
     const lineMat = (P.lineMat = new T.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.05, blending: T.AdditiveBlending, depthWrite: false }));
     const circle = (rad: number, n = 128) => new T.BufferGeometry().setFromPoints(Array.from({ length: n + 1 }, (_, i) => new T.Vector3(Math.cos((i / n) * Math.PI * 2) * rad, Math.sin((i / n) * Math.PI * 2) * rad, 0)));
-    for (let i = 0; i < 6; i++) {
-      const m = new T.Line(circle(1), lineMat);
-      m.rotation.y = (i / 6) * Math.PI;
+    // the meridians: one material each (the same look as the latitudes' on Home), so the boot can light them in turn
+    P.merMats = [];
+    for (let i = 0; i < MERIDIANS; i++) {
+      const mat = lineMat.clone();
+      P.merMats.push(mat);
+      const m = new T.Line(circle(1), mat);
+      m.rotation.y = (i / MERIDIANS) * Math.PI;
       this.spin.add(m);
     }
     for (const lat of [-0.62, -0.31, 0.31, 0.62]) {
@@ -592,6 +639,16 @@ export class Mind {
     P.sweep.rotation.x = Math.PI / 2;
     P.sweep.visible = false;
     this.spin.add(P.sweep);
+    // its refraction at the equator: a second ring, bent a few degrees, that parts from it below; and a flare along the
+    // equator as it crosses (a glow stretched thin)
+    P.sweep2 = new T.Mesh(new T.TorusGeometry(1, 0.004, 6, 160), new T.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
+    P.sweep2.rotation.set(Math.PI / 2 + 0.16, 0, 0.05);
+    P.sweep2.visible = false;
+    this.spin.add(P.sweep2);
+    P.flare = this.glow(PALE, 1, 0);
+    P.flare.scale.set(2.5, 0.07, 1);
+    P.flare.visible = false;
+    this.root.add(P.flare);
 
     // the nucleus and its light
     P.nucleus = new T.Mesh(new T.SphereGeometry(0.06, 32, 16), new T.MeshBasicMaterial({ color: 0xffffff }));
@@ -721,6 +778,28 @@ export class Mind {
     this.parts.halo = pts(lit, 0.3, CYAN, 0.16);
     this.parts.lit = pts(lit, 0.15, CYAN, 0.95);
     this.parts.litCore = pts(lit, 0.05, 0xffffff, 1);
+    // the boot's trails: two short segments behind each node as it gathers (tail dark, head bright: with additive light,
+    // a streak that fades), drawn only while the boot gathers them
+    {
+      const all = [...lit, ...dim];
+      const home = Float32Array.from(all.flatMap((x) => [x.p.x, x.p.y, x.p.z]));
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(new Float32Array(all.length * 12), 3));
+      const col = new Float32Array(all.length * 12);
+      all.forEach((x, j) => {
+        const v = x.lit ? 1 : 0.45;
+        // tail, mid | mid, head
+        [0, 0.35 * v, 0.35 * v, v].forEach((c, q) => col.set([c, c, c], j * 12 + q * 3));
+      });
+      geo.setAttribute('color', new T.BufferAttribute(col, 3));
+      const m = new T.LineBasicMaterial({ color: CYAN, vertexColors: true, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false });
+      const tr = new T.LineSegments(geo, m);
+      tr.userData.home = home;
+      tr.visible = false;
+      tr.frustumCulled = false;
+      g.add(tr);
+      this.parts.trails = tr;
+    }
     // links: each node to its two nearest in its field; each field to its two nearest fields and to the nucleus
     const near = (a: Any, list: Any[], k: number) => list.filter((b) => b !== a).sort((x, y) => x.distanceTo(a) - y.distanceTo(a)).slice(0, k);
     const segDim: Any[] = [];
@@ -779,11 +858,19 @@ export class Mind {
     P.eq.rotation.z = -t * 0.04;
     P.tilt.rotation.z = t * 0.03;
     this.spin.scale.setScalar(1 + 0.08 * p.open);
-    P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath * b.sphere;
+    P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath * b.sphere * b.rim;
     P.rimSoft.material.uniforms.uColor.value.copy(tint(C.c));
-    P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim) * b.sphere;
-    P.haze.material.uniforms.uStrength.value = 0.07 * b.sphere;
+    P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim) * b.sphere * b.rim;
+    P.haze.material.uniforms.uStrength.value = 0.07 * b.sphere * b.haze;
     P.lineMat.opacity = 0.05 * b.sphere;
+    // the meridians light one after another, each catching the light as it comes (Home: all at the latitudes' 0.05)
+    P.merMats.forEach((m: Any, i: number) => {
+      const x = b.mer * (MERIDIANS + 1) - i;
+      const lit = x <= 0 ? 0 : x >= 1 ? 1 : x;
+      const caught = x > 0 && x < 1.6 ? Math.sin((Math.PI * x) / 1.6) : 0;
+      m.opacity = 0.05 * b.sphere * lit + 0.34 * caught;
+      m.color.copy(tint(C.c)).lerp(tint(C.pale), Math.min(1, caught));
+    });
     P.tilt.material.opacity = 0.32 * b.sphere;
     // the equator scale lights round from the front; its ring follows the first ticks
     P.eqMat.opacity = 0.7 * Math.min(1, b.scale * 2);
@@ -796,6 +883,26 @@ export class Mind {
       P.sweep.scale.setScalar(Math.sqrt(1 - b.sweep * b.sweep) * (0.45 + 0.4 * b.gather));
       P.sweep.material.opacity = 0.7 * (1 - Math.abs(b.sweep));
       P.sweep.material.color.copy(tint(C.pale));
+    }
+    // its refraction at the equator: a flare along it as it crosses, then a second ring, bent, parting from it below
+    const flare = Number.isFinite(b.sweep) ? b.refract * Math.max(0, 1 - Math.abs(b.sweep) / 0.16) : 0;
+    P.flare.visible = flare > 0.01;
+    if (P.flare.visible) {
+      P.flare.material.opacity = 0.85 * flare;
+      P.flare.material.color.copy(tint(C.pale));
+      P.sweep.material.opacity *= 1 + 0.9 * flare;
+    }
+    const y2 = Number.isFinite(b.sweep) && b.sweep < 0 ? b.sweep * 1.22 : NaN;
+    P.sweep2.visible = b.refract > 0 && Number.isFinite(y2) && y2 > -1;
+    if (P.sweep2.visible) {
+      P.sweep2.position.y = y2;
+      P.sweep2.scale.setScalar(Math.sqrt(1 - y2 * y2) * (0.45 + 0.4 * b.gather));
+      P.sweep2.material.opacity = b.refract * 0.42 * (1 - Math.abs(y2)) * Math.min(1, -b.sweep / 0.12);
+      P.sweep2.material.color.copy(tint(C.c));
+    }
+    if (P.trails?.visible) {
+      P.trails.material.opacity = 0.5 * b.trails;
+      P.trails.material.color.copy(tint(C.c));
     }
     P.rimCrisp.material.uniforms.uColor.value.copy(tint(C.pale));
     P.haze.material.uniforms.uColor.value.copy(tint(C.c));
