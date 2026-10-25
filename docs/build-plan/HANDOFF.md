@@ -632,6 +632,10 @@ folder that no longer exists; ignore those paths).
   Seen in the new pictures, for the Settings pass: the Appearance section holds one row (THEME), so the screen opens
   nearly empty under its pills — Appearance and You may belong together, or You should come first (a design pick for
   the owner, or the pass). Pushed as PR #41.
+- 25 Oct 12:30 UK: the owner's numbers: Fable weekly 95 %, all models weekly 60 % (OWNER-ISSUES 53). RULE FROM HERE: the
+  orchestrator reads and writes as little as possible (no diffs in full, logs by grep only, short replies); every build
+  goes to Opus builders with compact briefs; a fresh session, if this one stops at the cap, starts from HANDOFF, STATUS
+  and OWNER-ISSUES 53 and the owner's reply to the shortlist there. PR #41 (e3d451e) runs; merge it on green.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
