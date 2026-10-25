@@ -9,7 +9,7 @@
 //   BASE=http://localhost:8889 node tests/manuals.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { PHONE, UK, openScreen } from './nav.mjs';
+import { PHONE, UK, openScreen, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -108,6 +108,9 @@ await page.screenshot({ path: `${out}/manuals-parts.png` });
 
 // ---- LIBRARY → GADGETS: the manual with where it came from and its licence; it opens at its pages ----
 await openScreen(page, 'library');
+// (the Library is in sections on a phone, ui/sections.ts: the manuals are under the Gadgets pill)
+await page.waitForSelector('#pg-library .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => problems.push('the Library has no pills'));
+await openSection(page, 'library', 'Gadgets');
 await page.waitForSelector('#pg-library .gadgets .gadgetrow', { timeout: 20000 }).catch(() => problems.push('LIBRARY has no GADGETS row'));
 const shelf = (await page.locator('#pg-library .gadgets').textContent().catch(() => '')) ?? '';
 if (!/Bosch SMS24AW01G — manual/.test(shelf) || !/from media3\.bosch-home\.com · © Bosch/.test(shelf)) problems.push(`GADGETS shelf reads: ${shelf.slice(0, 200)}`);

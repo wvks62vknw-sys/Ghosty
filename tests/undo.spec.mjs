@@ -10,7 +10,7 @@
 //          forgotten on this phone, the offline brain DELETEd — KEEP IT changes nothing
 //   node tests/undo.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -98,6 +98,8 @@ else {
 }
 
 // ---- 2. MEMORY → TIMELINE: EDIT a memory's words → UNDO puts the old words back ----
+// (on the phone MEMORY is in sections, ui/sections.ts: the timeline is under its own pill)
+await openSection(page, 'memory', 'Timeline');
 const tl = page.locator('#pg-memory .pn.tl');
 const tlItem = tl.locator('.mi', { hasText: 'marmalade' }).first();
 if (await tlItem.waitFor({ state: 'attached', timeout: 10000 }).then(() => true, () => false)) {

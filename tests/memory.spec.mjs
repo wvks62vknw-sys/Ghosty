@@ -10,7 +10,7 @@
 // on screen; offline: the title line says so and a FORGET says why nothing changed.
 //   node tests/memory.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
-import { DESKTOP, PHONE, UK } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -30,6 +30,12 @@ async function run(name, viewport) {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   const state = { profile: profile(), reflected: 0 };
+  /** On the phone MEMORY is in sections (ui/sections.ts, one drawn at a time): show the part that holds what is checked next. */
+  const sec = async (label) => {
+    if (viewport.width >= 900) return false;
+    await page.waitForSelector('#pg-memory .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => undefined);
+    return openSection(page, 'memory', label);
+  };
   const stub = async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -83,10 +89,15 @@ async function run(name, viewport) {
   if (!sub.startsWith(`${known + 6} things I know about you`)) problems.push(`[${name}] the title says "${sub}", not ${known + 6} things (${known} facts and 6 lines)`);
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
-  // ME (who he is) comes first on his side, above PATTERNS and the TIMELINE, and starts on the first screen
-  const order = await page.evaluate(() => ['me', 'pats', 'tl'].map((c) => document.querySelector(`#pg-memory .pn.${c}`)?.getBoundingClientRect().top ?? -1));
-  if (!(order[0] < order[1] && order[1] < order[2])) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order (tops ${order.join(', ')})`);
-  if (order[0] > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order[0])} points down, below the first screen`);
+  // ME (who he is) comes first, above PATTERNS and the TIMELINE (in the page, and as the first pills on the phone), and starts on the first screen
+  const order = await page.evaluate(() => {
+    const at = (c) => document.querySelector(`#pg-memory .pn.${c}`);
+    const before = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return { inOrder: before(at('me'), at('pats')) && before(at('pats'), at('tl')), meTop: at('me')?.getBoundingClientRect().top ?? -1, pills: [...document.querySelectorAll('#pg-memory .secpill')].map((b) => b.textContent).slice(0, 3).join(',') };
+  });
+  if (!order.inOrder) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order in the page`);
+  if (viewport.width < 900 && order.pills !== 'Me,Patterns,Timeline') problems.push(`[${name}] the first pills read "${order.pills}", not Me, Patterns, Timeline`);
+  if (order.meTop > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order.meTop)} points down, below the first screen`);
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
   // one voice: Memory's own sentences speak as Ghosty ("I"), never of him in the third person ("he keeps it", "his memory")
   const voice = await page.$$eval('#pg-memory :is(.note, .empty, .placelist p)', (els) => els.map((e) => e.textContent ?? '').filter((t) => /\b(he|him|his)\b/i.test(t)));
@@ -116,16 +127,22 @@ async function run(name, viewport) {
   if (editing) await edit.click(); // Done
   // every target he taps is at least 44 pt (CSS points: the page's own zoom aside)
   const small = async () => page.$$eval('#pg-memory :is(button, select, input, summary)', (els) => els.filter((e) => e.offsetParent && e.getClientRects().length && parseFloat(getComputedStyle(e).height) < 44 && getComputedStyle(e).height !== 'auto').map((e) => `${(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24)} (${getComputedStyle(e).height})`));
-  const tiny = await small();
+  // (on the phone each part is a section: every one is looked at in turn)
+  const tiny = [];
+  for (const label of ['Me', 'Patterns', 'Timeline']) {
+    await sec(label);
+    tiny.push(...(await small()));
+  }
+  await sec('Me');
   // the DIARY (other column on phones): newest first, opens in a modal; REFLECT NOW toasts what changed
   const narrow = viewport.width < 900;
-  if (narrow) await page.click('#pg-memory .swap');
+  await sec('Diary');
   const dp = page.locator('#pg-memory .pn', { has: page.locator('h3:has-text("DIARY")') });
   await dp.waitFor({ state: 'visible', timeout: 8000 });
-  // the other side opens on the DIARY (the switch says so: "Diary & chat")
+  // the other side opens on the DIARY (on the phone it has its own pill, "Diary")
   const firstRight = await page.evaluate(() => document.querySelector('#pg-memory .col.cR > .pn h3')?.textContent ?? '');
   if (!/DIARY/i.test(firstRight)) problems.push(`[${name}] the other side opens on "${firstRight}", not the DIARY`);
-  if (narrow && !/Diary/.test((await page.locator('#pg-memory .swap').getAttribute('data-right')) ?? '')) problems.push(`[${name}] the switch does not name the diary`);
+  if (narrow && !(await page.locator('#pg-memory .secpill', { hasText: /^Diary$/ }).count())) problems.push(`[${name}] there is no Diary pill`);
   const rows = dp.locator('.rw');
   await rows.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined);
   const first = (await rows.first().innerText()) ?? ''; // (as shown: its capitals too)
@@ -138,7 +155,11 @@ async function run(name, viewport) {
   if (!/Diary · Saturday 17 October/.test(modalTitle)) problems.push(`[${name}] the diary page's title reads "${modalTitle.slice(0, 60)}"`);
   await page.screenshot({ path: `${out}/${name}-memory-diary.png` });
   await page.keyboard.press('Escape');
-  tiny.push(...(await small()));
+  for (const label of ['Diary', 'Chat']) {
+    await sec(label);
+    tiny.push(...(await small()));
+  }
+  await sec('Diary');
   if (tiny.length) problems.push(`[${name}] targets under 44 pt: ${[...new Set(tiny)].join(', ')}`);
   await dp.locator('button:has-text("REFLECT NOW")').click();
   await page.waitForFunction(() => /Reflected: 1 new fact, 1 line about you/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] no toast after REFLECT NOW`));
@@ -146,7 +167,7 @@ async function run(name, viewport) {
   await page.unroute('**/api/profile**', stub);
 
   // the real thing: two things said in chat, then a reflection by the preview brain's scripted model
-  if (narrow) await page.click('#pg-memory .swap');
+  await sec('Me');
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
   for (const line of ['I like flat whites', 'I like walks in Kings Heath']) {
@@ -157,10 +178,10 @@ async function run(name, viewport) {
   if (narrow) await page.click('.logbtn');
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForTimeout(600);
-  if (narrow) await page.click('#pg-memory .swap');
+  await sec('Diary');
   await dp.locator('button:has-text("REFLECT NOW")').click();
   await page.waitForFunction(() => /Reflected: /.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push(`[${name}] the real reflection gave no toast`));
-  if (narrow) await page.click('#pg-memory .swap');
+  await sec('Me');
   await page.waitForFunction(() => /flat whites/.test(document.querySelector('#pg-memory .pn.me')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the real reflection did not put "flat whites" in the profile`));
   const real = (await me.textContent()) ?? '';
   if (!/walks in Kings Heath/.test(real)) problems.push(`[${name}] the second thing said is missing from the profile: ${real.slice(0, 200)}`);
@@ -187,6 +208,7 @@ async function run(name, viewport) {
     await fetch('/api/history', { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: JSON.stringify({ turns }) });
   }, [topic]);
   await page.evaluate(() => (location.hash = 'memory'));
+  await sec('Timeline');
   const tlp = page.locator('#pg-memory .pn.tl');
   await tlp.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push(`[${name}] no TIMELINE panel`));
   const item = (text) => tlp.locator('.mi', { hasText: text });
@@ -238,6 +260,7 @@ async function run(name, viewport) {
   // RECENTLY FORGOTTEN: forget it again, then a line under ME (its ✕): both stay undoable after the bar has gone
   await item(edited).first().locator('button:has-text("FORGET")').click({ timeout: 8000 }).catch(() => problems.push(`[${name}] the memory to forget again is not there`));
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
+  await sec('Me');
   const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
   if (await meLine.count()) {
     // (the delete buttons show in Edit mode)
@@ -248,6 +271,7 @@ async function run(name, viewport) {
     if (on) await ed.click();
   }
   else problems.push(`[${name}] no ME line to forget`);
+  await sec('Timeline');
   const fb = tlp.locator('details.forgot');
   if (!(await fb.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] no RECENTLY FORGOTTEN list`);
   await fb.locator('summary').click();
@@ -289,6 +313,7 @@ async function run(name, viewport) {
   if ((await tlp.locator('.mi').count()) !== 1) problems.push(`[${name}] searching found ${await tlp.locator('.mi').count()} rows`);
   await tlp.locator('input[aria-label="Find a memory"]').fill('');
   // PATTERNS: the topic of four evenings, with its evidence; ✕ hides it for good
+  await sec('Patterns');
   const pp = page.locator('#pg-memory .pn.pats');
   const pat = pp.locator('.pat', { hasText: topic });
   if (!(await pat.first().waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false))) problems.push(`[${name}] no pattern about "${topic}": ${(await pp.textContent().catch(() => '')) ?? ''}`);
@@ -300,6 +325,7 @@ async function run(name, viewport) {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await page.evaluate(() => (location.hash = 'memory'));
+  await sec('Timeline');
   await tlp.locator('.mi').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
   await page.waitForTimeout(800);
   if (await pp.locator('.pat', { hasText: topic }).count()) problems.push(`[${name}] the dismissed pattern came back after a reload`);

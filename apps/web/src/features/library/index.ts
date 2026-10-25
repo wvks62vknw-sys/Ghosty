@@ -23,6 +23,7 @@ import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sections } from '../../ui/sections';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
 const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
@@ -678,6 +679,17 @@ export const libraryTab: TabDef = {
     fresh.foot!.prepend(digestBtn);
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
     P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
+    // Sections (ui/sections.ts; the navigation sheet): asking first, then his shelf (his own documents at its top, then
+    // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
+    // himself, and the two things he does least, adding a book and the gadgets' manuals.
+    sections(root, 'library', [
+      { id: 'ask', label: 'Ask', match: /^ASK/ },
+      { id: 'shelf', label: 'Shelf', match: /^SHELF/ },
+      { id: 'study', label: 'Self-study', match: /^SELF-STUDY/ },
+      { id: 'fresh', label: 'Fresh today', match: /^FRESH/ },
+      { id: 'add', label: 'Add', match: /^ADD/ },
+      { id: 'gadgets', label: 'Gadgets', match: /^GADGETS/ },
+    ]);
 
     let vectors = false;
     let starterReady = true;

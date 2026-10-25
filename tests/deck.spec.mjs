@@ -12,7 +12,7 @@
 //  - the Me sheet still opens and its rows still go where they say.
 //   BASE=http://localhost:8788 node tests/deck.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -172,7 +172,13 @@ for (const id of ['memory', 'settings', 'links']) {
   await page.click(`#mesheet .merow[data-id="${id}"]`);
   await until((want) => document.body.dataset.tab === want && !document.querySelector('#mesheet'), id, 6000, `the Me sheet's ${id} row did not open ${id}`);
   await page.waitForTimeout(700);
-  if (id === 'settings') for (const f of await filled('#pg-settings :is(.rowic, .sq)')) problems.push(`a Settings row glyph has a filled background: ${f}`);
+  if (id === 'settings') {
+    // (Settings is in sections: a few rows are drawn at a time, so each part is looked at)
+    for (const label of await page.$$eval('#pg-settings .secpills:not([hidden]) .secpill', (b) => b.map((x) => x.textContent ?? ''))) {
+      await openSection(page, 'settings', label);
+      for (const f of await filled('#pg-settings :is(.rowic, .sq)')) problems.push(`a Settings row glyph has a filled background (${label}): ${f}`);
+    }
+  }
 }
 await me();
 await page.click('#mesheet .merow[data-id="deck"]');

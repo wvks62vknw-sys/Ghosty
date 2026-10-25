@@ -36,9 +36,10 @@ import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, typ
 import { notDownloaded, runPaper, school, sitSubjects, sitting, stopSitting, type Gen, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
 import { loadOffline, offlineReply, withModel } from '../../offline/brain';
-import { go, type TabDef } from '../../shell/tabs';
+import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { goToPanel, sections } from '../../ui/sections';
 
 const LOCK = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>';
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -249,7 +250,8 @@ export const schoolTab: TabDef = {
     const gpuAll = named(button('SIT ON THE FREE GPU', (b) => view && void sitGpu(view.current.stage, view.current.subjects.filter((s) => s.source).map((s) => s.id), b)), 'Sit on the free GPU');
     gpuAll.classList.add('schgpuall');
     gpuAll.title = 'Every subject of this stage on the free GPU, one after another · about 10 minutes each, no phone time';
-    const toSettings = button('DOWNLOAD IT IN SETTINGS', () => go('settings'));
+    // (Settings is in sections now: the offline brain is under Voice & home, so the button goes straight to that part)
+    const toSettings = button('DOWNLOAD IT IN SETTINGS', () => goToPanel('settings', 'OFFLINE BRAIN'));
     const resultCard = h('div.schresult');
 
     function paintResult(r: PaperResult | null): void {
@@ -579,6 +581,16 @@ export const schoolTab: TabDef = {
     // ======================= reading (part 3): the shelf, READ, the reading check, BORROW, the locks
     const readP = panel('READING', { cls: 'school.schreading' });
     P.right.append(readP.el);
+    // Sections (ui/sections.ts; the navigation sheet): the ladder first, then the stage he is on, his results, his weak spots
+    // (with the nightly report that follows them), the real papers with the reading shelf, and the placement test.
+    sections(root, 'school', [
+      { id: 'ladder', label: 'Ladder', match: /^THE LADDER/ },
+      { id: 'stage', label: 'This stage', match: /^THIS STAGE/ },
+      { id: 'results', label: 'Results', match: /^RESULTS/ },
+      { id: 'weak', label: 'Weak spots', match: /^WEAK SPOTS/ },
+      { id: 'papers', label: 'Papers', match: /^(OFFICIAL PAPERS|READING)/ },
+      { id: 'placement', label: 'Placement', match: /^PLACEMENT/ },
+    ]);
     let reading: ReadView | null = null;
     let readingError = '';
     /** Books being read in now (READ runs a part at a time while SCHOOL is open): their progress line. */

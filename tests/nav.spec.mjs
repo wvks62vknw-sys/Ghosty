@@ -10,6 +10,11 @@
 //    scrolls, 44 pt, six at most, the first selected on a new phone; a tap shows that section alone (the other panels
 //    `hidden`, still in the page) and the page is shorter; the pill picked is remembered per screen after a reload; a
 //    deep link from Every screen to a panel selects its pill; on a wide screen every panel shows and the pills step aside;
+//  - the same pills on the other long screens, each its own entry below: Settings, the Library, Memory, School, the Workshop,
+//    Threats and Links (the owner: "i wanted like the things inside the tabs to have their own little tabs too because it can
+//    get a little confusing and overstimulating"): the pills by name, the first section shown alone with every other panel
+//    still in the page (`hidden`), a tap switches, the pick is remembered through a reload, a deck line that links to a
+//    panel of another section selects its pill, no name cut short, nothing sideways at 440 or 390, every panel on a wide screen;
 //  - the hubs' own words under their titles, read against the brain and the phone: his school stage (from /api/school),
 //    his next event (made here in the brain) and his city's weather, his city, his latest project; with no reading the
 //    plain line, never a sample; Ghosty says "I", never "he" or "him", on every hub;
@@ -19,7 +24,7 @@
 //   BASE=http://localhost:8788 node tests/nav.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -31,16 +36,18 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? 
 
 const api = (path, init = {}) => fetch(`${base}/api${path}`, { ...init, headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json', ...(init.headers ?? {}) } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
-/** A phone with his settings (his home unless `home: null`), paired, booted. */
-async function phone({ viewport = PHONE, theme = '', home = HOME, reduced = false, routes = null } = {}) {
-  const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 2, hasTouch: true, isMobile: true, serviceWorkers: 'block', ...(reduced ? { reducedMotion: 'reduce' } : {}) });
+/** A phone with his settings (his home unless `home: null`), paired, booted (`desktop`: a computer's screen, a mouse). */
+async function phone({ viewport = PHONE, theme = '', home = HOME, reduced = false, routes = null, desktop = false } = {}) {
+  const ctx = await browser.newContext({ viewport, ...UK, ...(desktop ? {} : { deviceScaleFactor: 2, hasTouch: true, isMobile: true }), serviceWorkers: 'block', ...(reduced ? { reducedMotion: 'reduce' } : {}) });
   await ctx.addInitScript(([k, home, theme]) => {
     localStorage.setItem('ghosty.ownerKey', k);
     if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ ...(home ? { home } : {}), units: 'metric', ...(theme ? { theme } : {}) }));
     if (theme) localStorage.setItem('ghosty.themes1', '1');
   }, [KEY, home, theme]);
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  // (a page drawn in a locked frame, like a website's draft in the Workshop that another spec left on this preview, is refused
+  // storage and a service worker there: what it then throws is that frame's own content, not an error of Ghosty's page)
+  page.on('pageerror', (e) => /sandboxed and lacks the 'allow-same-origin' flag/.test(e.message) || problems.push(`pageerror: ${e.message}`));
   if (routes) await routes(page);
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
@@ -315,6 +322,170 @@ await page.click('#deck .dkcard[data-id="system"]');
 await page.locator('#deck .dkx[data-id="system"] .dkrow', { hasText: 'Back up this phone every day' }).click();
 await until(page, () => document.body.dataset.tab === 'system' && document.querySelector('#pg-system .secpill.on')?.textContent === 'Backup' && /^BACKUP/.test(document.querySelector('#pg-system .pn.pushed .ptitle')?.textContent ?? ''), null, 6000, `[system] the deck's backup line did not select Backup and open BACKUP (${await page.evaluate(() => `${document.querySelector('#pg-system .secpill.on')?.textContent} / ${document.querySelector('#pg-system .pn.pushed .ptitle')?.textContent}`)})`);
 await page.click('#top .navback').catch(() => undefined);
+
+// ===================================================================== sections: the other long screens
+// One entry each, everything found by name (never by place): the pills, the panels each section holds (by their titles),
+// a pill to tap, and a line of the deck that links to a panel of another section. Every phone here is a new browser, so
+// the pill a check picks is kept nowhere else, and nothing is added to the preview.
+const LONG = [];
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Open screen `tab` and wait for its pills (drawn as it mounts) and for the page to land. */
+const onScreen = async (page, tab, wait = 700) => {
+  await show(page, tab, wait);
+  await page.waitForSelector(`#pg-${tab} .secpills:not([hidden]) .secpill.on`, { timeout: 8000 }).catch(() => undefined);
+  await settle(page);
+};
+/** Where the panel a link went to is (its section shown; pushed in a grouped list; else where the scroll left it). */
+const linked = (page, L) => page.evaluate(([t, src]) => {
+  const pn = [...document.querySelectorAll(`#pg-${t} .pn`)].find((x) => new RegExp(src).test(x.querySelector('.ptitle')?.textContent ?? ''));
+  const r = pn?.getBoundingClientRect();
+  return pn && { hidden: pn.hidden, top: Math.round(r.top), h: Math.round(r.height), pushed: pn.classList.contains('pushed'), under: Math.round(document.querySelector(`#pg-${t} .secpills`)?.getBoundingClientRect().bottom ?? 0) };
+}, [L.tab, L.link.panel.source]);
+/** The deck scrolls to a panel smoothly (and on a busy machine late): wait until it is on screen, then until it stops. */
+const cameTo = async (page, L) => {
+  await page.waitForFunction(([t, src, list, H]) => {
+    const pn = [...document.querySelectorAll(`#pg-${t} .pn`)].find((x) => new RegExp(src).test(x.querySelector('.ptitle')?.textContent ?? ''));
+    if (!pn || pn.hidden) return false;
+    if (list) return pn.classList.contains('pushed');
+    const r = pn.getBoundingClientRect();
+    return r.height > 0 && r.top >= 0 && r.top <= H - 100;
+  }, [L.tab, L.link.panel.source, !!L.list, PHONE.height], { timeout: 8000 }).catch(() => undefined);
+  let at = await linked(page, L);
+  for (let i = 0; i < 15; i++) {
+    await page.waitForTimeout(200);
+    const now = await linked(page, L);
+    if (now?.top === at?.top) return now;
+    at = now;
+  }
+  return at;
+};
+/** Only the section `label` shows: its panels are drawn, every other section's are in the page, `hidden`. */
+const onlySection = (P, L, label) => {
+  const bad = [];
+  for (const [name, re] of Object.entries(L.panels)) {
+    const mine = P.panels.filter((x) => re.test(x.t));
+    if (!mine.length) bad.push(`no panel like ${re} is in the page (a panel of a hidden section must stay, hidden)`);
+    else if (name === label ? !mine.every((x) => x.shown && !x.hidden) : !mine.every((x) => x.hidden && !x.shown)) bad.push(`${name}: ${mine.map((x) => `${x.t}${x.hidden ? ' (hidden)' : x.shown ? '' : ' (not drawn)'}`).join(', ')}`);
+  }
+  return bad;
+};
+/** A grouped list's card (its small title, its footnote) with no row of the section in it is not drawn: no empty heading under the pills. */
+const emptyGroups = (page, tab) => page.$$eval(`#pg-${tab} .lgrp`, (gs) => gs.filter((g) => g.getClientRects().length && ![...g.querySelectorAll('.pn')].some((p) => p.getClientRects().length)).map((g) => g.querySelector('.lgt')?.textContent ?? g.querySelector('.lgf')?.textContent ?? 'untitled'));
+/** Every pill in turn at this width: nothing sticks out sideways, no name is cut short, the picked pill is in view in its row. */
+const sweep = async (page, L, W) => {
+  const row = (sel) => page.locator(`#pg-${L.tab} ${sel}`);
+  for (const label of L.pills) {
+    await row('.secpill').filter({ hasText: new RegExp(`^${esc(label)}$`) }).first().click({ timeout: 5000 }).catch(() => problems.push(`[${W} ${L.tab}] no ${label} pill to tap`));
+    await page.waitForTimeout(150);
+    for (const x of await sideways(page, `#pg-${L.tab} :is(.secpills, .secpill, .pn, button, input, select, textarea)`)) problems.push(`[${W} ${L.tab} ${label}] sticks out sideways: ${x}`);
+    const look = await page.evaluate((t) => {
+      const r = document.querySelector(`#pg-${t} .secpills`)?.getBoundingClientRect();
+      const x = document.querySelector(`#pg-${t} .secpill.on`)?.getBoundingClientRect();
+      return { wide: document.documentElement.scrollWidth > innerWidth + 1 || document.body.scrollWidth > innerWidth + 1, inView: !!r && !!x && x.left >= r.left - 1 && x.right <= r.right + 1 };
+    }, L.tab);
+    if (look.wide) problems.push(`[${W} ${L.tab} ${label}] the page scrolls sideways`);
+    if (!look.inView) problems.push(`[${W} ${L.tab}] the picked pill "${label}" is not in view in its row`);
+  }
+  const cut = await page.$$eval(`#pg-${L.tab} .secpill`, (bs) => bs.filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent));
+  if (cut.length) problems.push(`[${W} ${L.tab}] a pill's name is cut short: ${cut.join(', ')}`);
+};
+
+LONG.push({ // SETTINGS: the list's own groups (shell/layout.ts); CHARACTER has no group and goes with the one above it
+  tab: 'settings', list: true,
+  pills: ['Appearance', 'You', 'Voice & home', 'Ghosty', 'About'],
+  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
+  tap: 'You', link: { row: /voice he speaks in/i, pill: 'Voice & home', panel: /^VOICE/ },
+});
+LONG.push({ // LIBRARY
+  tab: 'library',
+  pills: ['Ask', 'Shelf', 'Self-study', 'Fresh today', 'Add', 'Gadgets'],
+  panels: { Ask: /^ASK/, Shelf: /^SHELF/, 'Self-study': /^SELF-STUDY/, 'Fresh today': /^FRESH/, Add: /^ADD/, Gadgets: /^GADGETS/ },
+  tap: 'Shelf', link: { row: /Fresh today/i, pill: 'Fresh today', panel: /^FRESH/ },
+});
+LONG.push({ // MEMORY: one stacked page now, no YOU / DIARY & CHAT switch
+  tab: 'memory',
+  pills: ['Me', 'Patterns', 'Timeline', 'Diary', 'Chat'],
+  panels: { Me: /^ME$/, Patterns: /^PATTERNS/, Timeline: /^TIMELINE/, Diary: /^DIARY/, Chat: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
+  tap: 'Timeline', link: { row: /diary he writes/i, pill: 'Diary', panel: /^DIARY/ },
+});
+LONG.push({ // SCHOOL: the nightly report, named by no pill, follows the weak spots above it
+  tab: 'school',
+  pills: ['Ladder', 'This stage', 'Results', 'Weak spots', 'Papers', 'Placement'],
+  panels: { Ladder: /^THE LADDER/, 'This stage': /^THIS STAGE/, Results: /^RESULTS/, 'Weak spots': /^(WEAK SPOTS|NIGHTLY REPORT)/, Papers: /^(OFFICIAL PAPERS|READING)/, Placement: /^PLACEMENT/ },
+  tap: 'Results', link: { row: /Real SATs/i, pill: 'Papers', panel: /^OFFICIAL PAPERS/ },
+});
+LONG.push({ // WORKSHOP: one stacked page now, no BUILD / PAGES & WIDGETS switch
+  tab: 'workshop',
+  pills: ['Build', 'Ideas', 'Changes', 'Made', 'Training'],
+  panels: { Build: /^(TELL GHOSTY|PROJECTS|WHAT.S NEW)/, Ideas: /^UPGRADE/, Changes: /^(PROPOSED|VERSIONS|KERNEL)/, Made: /^(WIDGETS|PUBLISHED)/, Training: /^TRAINING/ },
+  tap: 'Ideas', link: { row: /preview, then ship it/i, pill: 'Changes', panel: /^PROPOSED CHANGES/ },
+});
+LONG.push({ // THREATS
+  tab: 'threats',
+  pills: ['Signals', 'Near you', 'Space weather', 'Launches'],
+  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR YOU/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
+  tap: 'Space weather', link: { row: /Recon/i, pill: 'Launches', panel: /^RECON/ },
+});
+LONG.push({ // LINKS: the list's own groups (shell/layout.ts)
+  tab: 'links', list: true,
+  pills: ['Accounts', 'This phone', 'Services'],
+  panels: { Accounts: /^(EMAIL|SPOTIFY|TELEGRAM)/, 'This phone': /^(PHONE|NOTIFICATIONS)/, Services: /^(LIVE|AI|GITHUB)/ },
+  tap: 'This phone', link: { row: /Live traffic/i, pill: 'Services', panel: /^LIVE TRAFFIC/ },
+});
+
+for (const L of LONG) {
+  const w = `[${L.tab}]`;
+  const pill = (label) => page.locator(`#pg-${L.tab} .secpill`).filter({ hasText: new RegExp(`^${esc(label)}$`) });
+  await onScreen(page, L.tab);
+  let P = await pills(page, L.tab);
+  if (!P.shown || P.labels.join(',') !== L.pills.join(',')) problems.push(`${w} the pills read "${P.labels.join(', ')}" (want ${L.pills.join(', ')})`);
+  if (P.labels.length > 6) problems.push(`${w} ${P.labels.length} pills (six at most)`);
+  if (P.on !== L.pills[0] || P.selected !== 1) problems.push(`${w} a new phone opens on "${P.on}" (want ${L.pills[0]}, the one he uses most)`);
+  if (P.pillH < 44) problems.push(`${w} a pill is ${P.pillH} pt high (want 44)`);
+  // every pill takes a finger, 44 pt each way, and a tap at its middle lands on it (a pill a scrolling row clips is tried when it is picked)
+  const small = await page.$$eval(`#pg-${L.tab} .secpill`, (bs) => {
+    const row = bs[0]?.parentElement?.getBoundingClientRect();
+    return bs.map((b) => {
+      const r = b.getBoundingClientRect();
+      const inside = !!row && r.left >= row.left - 1 && r.right <= row.right + 1;
+      const hit = inside ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : b;
+      return r.width < 44 || r.height < 44 || !(hit === b || b.contains(hit)) ? `"${b.textContent}" ${Math.round(r.width)}×${Math.round(r.height)}` : '';
+    }).filter(Boolean);
+  });
+  for (const t of small) problems.push(`${w} a pill under a 44 pt target: ${t}`);
+  for (const b of onlySection(P, L, L.pills[0])) problems.push(`${w} ${L.pills[0]} does not show its section alone: ${b}`);
+  for (const g of await emptyGroups(page, L.tab)) problems.push(`${w} ${L.pills[0]}: the heading "${g}" of a group with nothing of this section in it is drawn`);
+  if (await page.locator(`#pg-${L.tab} .swap`).isVisible().catch(() => false)) problems.push(`${w} the old two-sides switch is still shown beside the pills`);
+  await page.screenshot({ path: `${out}/nav-${L.tab}.png` });
+  // a tap shows that section alone
+  await pill(L.tap).click({ timeout: 5000 }).catch(() => problems.push(`${w} no ${L.tap} pill to tap`));
+  await page.waitForTimeout(400);
+  P = await pills(page, L.tab);
+  if (P.on !== L.tap) problems.push(`${w} a tap on ${L.tap} left "${P.on}" lit`);
+  for (const b of onlySection(P, L, L.tap)) problems.push(`${w} ${L.tap} does not show its section alone: ${b}`);
+  for (const g of await emptyGroups(page, L.tab)) problems.push(`${w} ${L.tap}: the heading "${g}" of a group with nothing of this section in it is drawn`);
+  await page.screenshot({ path: `${out}/nav-${L.tab}-${L.tap.toLowerCase().replace(/[^a-z]+/g, '-')}.png` });
+  // remembered per screen, through a reload
+  const sec = await page.$eval(`#pg-${L.tab} .secpill.on`, (b) => b.dataset.sec).catch(() => '');
+  const kept = await page.evaluate((t) => localStorage.getItem(`ghosty.sections.${t}`), L.tab);
+  if (!sec || kept !== sec) problems.push(`${w} the pill picked is not remembered (${kept} for ${sec})`);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  await onScreen(page, L.tab);
+  P = await pills(page, L.tab);
+  if (P.on !== L.tap) problems.push(`${w} after a reload the screen opens on "${P.on}" (want ${L.tap}, the one picked)`);
+  // a deep link from Every screen to a panel of another section selects its pill (and shows the panel)
+  await openDeck(page);
+  await page.click(`#deck .dkcard[data-id="${L.tab}"]`);
+  await page.locator(`#deck .dkx[data-id="${L.tab}"] .dkrow`, { hasText: L.link.row }).first().click({ timeout: 5000 }).catch(() => problems.push(`${w} the deck has no line like ${L.link.row}`));
+  const landed = await page.waitForFunction(([t, want]) => document.body.dataset.tab === t && document.querySelector(`#pg-${t} .secpill.on`)?.textContent === want, [L.tab, L.link.pill], { timeout: 7000 }).then(() => true, () => false);
+  if (!landed) problems.push(`${w} the deck's ${L.link.row} did not select ${L.link.pill} (${await page.evaluate((t) => `${document.body.dataset.tab} / ${document.querySelector(`#pg-${t} .secpill.on`)?.textContent}`, L.tab)})`);
+  const at = await cameTo(page, L);
+  if (!at || at.hidden || !at.h || (L.list ? !at.pushed : at.top < 0 || at.top > PHONE.height - 100)) problems.push(`${w} the panel the deck linked to is not shown after the link: ${JSON.stringify(at)}`);
+  else if (!L.list && at.top < at.under - 1) problems.push(`${w} the panel the deck linked to starts behind the pills (its top ${at.top}, the pills end at ${at.under})`);
+  if (L.list) await page.click('#top .navback').catch(() => undefined);
+  await page.waitForTimeout(300);
+}
 await ctx.close();
 
 // ===================================================================== the hubs' own words
@@ -452,6 +623,11 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
       if (fit.sh > fit.ch + 1) problems.push(`[${W} ${tab}] the hub no longer fits one screen (${fit.sh} > ${fit.ch})`);
     }
   }
+  // the other long screens' pills, one after another at this width
+  for (const L of LONG) {
+    await onScreen(page, L.tab, 900);
+    await sweep(page, L, W);
+  }
   for (const t of await target44(page, '#pg-area-see .hubtile')) problems.push(`[${W}] under a 44 pt target: ${t}`);
   await show(page, 'gym', 1500);
   await page.evaluate(() => document.querySelector('#pg-gym .gympager')?.scrollIntoView({ block: 'center' }));
@@ -478,11 +654,61 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   // the desktop keeps every panel: the pills step aside on a wide screen
   await ctx.close();
 }
+/**
+ * A computer's screen on one of the sectioned pages: the sections' marker is no grid item of the page (it once pushed the
+ * Agenda's Diary column into a cell with no height), every panel has a size and sits inside the screen, the two columns are
+ * where they always were (the first on the left, the second on the right), and the first, middle and last thing to tap in
+ * each can be tapped: the point at its centre hits it, not the globe's canvas behind the page.
+ */
+const wide = (page, tab) => page.evaluate((t) => {
+  const hud = document.querySelector(`#pg-${t} .hud`);
+  const mark = hud?.querySelector(':scope > .secmark');
+  const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, w: r.width, h: r.height }; };
+  const cL = hud?.querySelector(':scope > .col.cL'), cR = hud?.querySelector(':scope > .col.cR');
+  const sized = (e) => !!e.getClientRects().length && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0;
+  const tappable = (col) => {
+    // (a button inside a closed <details>, such as the papers' groups, is not on the page to be tapped)
+    const shown = (e) => sized(e) && getComputedStyle(e).visibility !== 'hidden' && !(e.checkVisibility && !e.checkVisibility()) && ![...(function* () { for (let d = e.closest('details'); d; d = d.parentElement?.closest('details')) yield d; })()].some((d) => !d.open && !d.querySelector(':scope > summary')?.contains(e));
+    const all = [...(col?.querySelectorAll('button, a[href], input, select, textarea, [role="button"], .pn[data-row] > h3') ?? [])].filter(shown);
+    const picks = [...new Set([all[0], all[Math.floor(all.length / 2)], all[all.length - 1]].filter(Boolean))];
+    return { n: all.length, bad: picks.filter((e) => {
+      e.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      const r = e.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !at || (at !== e && !e.contains(at) && !at.contains(e));
+    }).map((e) => (e.textContent || e.getAttribute('aria-label') || e.tagName).trim().slice(0, 24)) };
+  };
+  return {
+    mark: mark ? getComputedStyle(mark).display : 'none',
+    unsized: [...(hud?.querySelectorAll('.pn') ?? [])].filter((p) => !sized(p) || box(p).l < -1 || box(p).r > innerWidth + 1).map((p) => p.querySelector('.ptitle')?.textContent ?? '?'),
+    cL: cL ? box(cL) : null, cR: cR ? box(cR) : null, width: innerWidth,
+    left: tappable(cL), right: tappable(cR),
+  };
+}, tab);
 ({ ctx, page } = await phone({ viewport: { width: 1280, height: 800 } }));
 for (const tab of ['system', 'agenda']) {
   await show(page, tab, 1800);
   const P = await pills(page, tab);
   if (P.shown || P.panels.some((x) => x.hidden)) problems.push(`[1280 ${tab}] on a wide screen the pills show or panels are hidden: ${JSON.stringify(P.panels.filter((x) => x.hidden).map((x) => x.t))}`);
+}
+await ctx.close();
+({ ctx, page } = await phone({ viewport: DESKTOP, desktop: true }));
+for (const tab of ['system', 'agenda', ...LONG.map((L) => L.tab)]) {
+  const at = `${DESKTOP.width} × ${DESKTOP.height} ${tab}`;
+  await show(page, tab, 1000);
+  await settle(page);
+  const P = await pills(page, tab);
+  if (P.shown || P.panels.some((x) => x.hidden)) problems.push(`[${at}] on a wide screen the pills show or panels are hidden: ${JSON.stringify(P.panels.filter((x) => x.hidden).map((x) => x.t))}`);
+  const D = await wide(page, tab);
+  if (D.mark !== 'none') problems.push(`[${at}] the sections' marker is still part of the wide page (display ${D.mark})`);
+  if (D.unsized.length) problems.push(`[${at}] a panel has no size or is off the screen: ${D.unsized.join(', ')}`);
+  if (!D.cL || !D.cR) problems.push(`[${at}] a column is missing (left ${!!D.cL}, right ${!!D.cR})`);
+  else if (!(D.cL.w > 150 && D.cR.w > 150 && D.cL.l >= -1 && D.cR.r <= D.width + 1 && D.cL.r <= D.cR.l + 1 && D.cL.l < D.width * 0.4 && D.cR.r > D.width * 0.6)) problems.push(`[${at}] the columns are not in their places (left ${Math.round(D.cL.l)}–${Math.round(D.cL.r)}, right ${Math.round(D.cR.l)}–${Math.round(D.cR.r)} of ${D.width})`);
+  if (!D.left.n && !D.right.n) problems.push(`[${at}] nothing to tap was found in either column`);
+  if (D.left.bad.length) problems.push(`[${at}] a button in the left column cannot be tapped (something else is on top of it): ${D.left.bad.join(', ')}`);
+  if (D.right.bad.length) problems.push(`[${at}] a button in the right column cannot be tapped (something else is on top of it): ${D.right.bad.join(', ')}`);
+  await page.evaluate((t) => document.querySelectorAll(`#pg-${t} .col`).forEach((c) => (c.scrollTop = 0)), tab);
+  await page.screenshot({ path: `${out}/nav-wide-${tab}.png` });
 }
 await ctx.close();
 
@@ -491,4 +717,4 @@ if (problems.length) {
   console.error(`FAIL nav\n${[...new Set(problems)].join('\n')}`);
   process.exit(1);
 }
-console.log('nav: OK (the switcher by touch, by mouse and under Reduce Motion: hold, slide, let go; a tap and a short press unchanged; the sections on System and Agenda: pills held in reach, one section at a time, remembered per screen, deep links select their pill, every panel on a wide screen; the hubs in his own words against the brain, the plain line with no reading, "I" throughout; Graphite the same shapes in its colour; nothing sideways at 440 or 390; 44 pt targets)');
+console.log('nav: OK (the switcher by touch, by mouse and under Reduce Motion: hold, slide, let go; a tap and a short press unchanged; the sections on System and Agenda and on Settings, the Library, Memory, School, the Workshop, Threats and Links: pills held in reach, one section at a time, remembered per screen, deep links select their pill and stop clear of the pills, no name cut short, every panel on a wide screen and, on a computer at 1440 × 900, the columns in their places with their buttons tappable; the hubs in his own words against the brain, the plain line with no reading, "I" throughout; Graphite the same shapes in its colour; nothing sideways at 440 or 390; 44 pt targets)');

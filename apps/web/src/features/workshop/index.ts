@@ -17,6 +17,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, confirmSheet, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, undo, type Light } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sections } from '../../ui/sections';
 import { forgetWidget, keepWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
@@ -84,7 +85,8 @@ export const workshopTab: TabDef = {
   },
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'PAGES & WIDGETS', leftLabel: 'BUILD' });
+    // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between.
+    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'PAGES & WIDGETS', leftLabel: 'BUILD', stack: true });
 
     // ask box
     const ask = panel('TELL GHOSTY WHAT TO BUILD', { grow: false });
@@ -483,6 +485,15 @@ export const workshopTab: TabDef = {
     tp.foot!.append(tLevel, startBtn);
     // what he made first (his pages and apps, his widgets), then the versions; the coding practice and the lock last
     P.right.append(pp.el, wp.el, vp.el, tp.el, kp.el);
+    // Sections: what he asks for and the projects that run for days first, then the ideas and the roadmap, the changes
+    // to ship or roll back (with the kernel lock), what he made (his pages and widgets) and the coding practice.
+    sections(root, 'workshop', [
+      { id: 'build', label: 'Build', match: /^(TELL GHOSTY|PROJECTS)/ },
+      { id: 'ideas', label: 'Ideas', match: /^UPGRADE/ },
+      { id: 'changes', label: 'Changes', match: /^(PROPOSED|VERSIONS|KERNEL)/ },
+      { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED)/ },
+      { id: 'training', label: 'Training', match: /^TRAINING/ },
+    ]);
 
     let changes: ChangeSummary[] = [];
     let versions: VersionSummary[] = [];

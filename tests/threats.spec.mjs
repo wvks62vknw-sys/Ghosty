@@ -8,7 +8,7 @@
 //  - the RECON report flows with the page (no box scrolling inside the page), opens with WHAT STANDS OUT in
 //    plain words, says a null MX as "takes no email", keeps DNS names in their own case, and its errors are plain.
 import { launch } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -63,7 +63,8 @@ async function open(viewport, { feeds }) {
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await page.evaluate(() => (location.hash = 'threats'));
-  await page.waitForSelector('#pg-threats .pn.recon', { timeout: 10000 });
+  // (attached: on the phone RECON is under the Launches pill, one section drawn at a time, ui/sections.ts)
+  await page.waitForSelector('#pg-threats .pn.recon', { state: 'attached', timeout: 10000 });
   return { ctx, page };
 }
 
@@ -81,6 +82,7 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   const sub = await text(page, '#pg-threats .hero .sub');
   if (/clear/i.test(big)) problems.push(`[down] the feeds are unreachable but the level reads "${big}"`);
   if (!/can.t reach/i.test(sub)) problems.push(`[down] the line under the level does not say the feeds cannot be reached: "${sub}"`);
+  await openSection(page, 'threats', 'Near you');
   const near = await text(page, '#pg-threats .pn.near');
   if (/none in 48h|\bnone\b/i.test(near)) problems.push(`[down] NEAR YOU says "none" without a feed: ${near.replace(/\s+/g, ' ')}`);
   await page.screenshot({ path: `${out}/threats-440-down.png` });
@@ -100,11 +102,13 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   const tags = await page.$$eval('#pg-threats .pn.signals .rw .n', (els) => els.map((e) => e.textContent.trim()));
   if (!tags.length || tags.some((t) => !/ago$|^now$/i.test(t))) problems.push(`[440] every signal should say when (quakes said their magnitude twice): ${tags.join(' | ')}`);
   // space weather: NOAA's Kp file as served now
+  await openSection(page, 'threats', 'Space weather');
   const sw = await text(page, '#pg-threats .pn.spacewx');
   if (!/3\.3/.test(sw) || (await page.locator('#pg-threats .pn.spacewx .empty').count())) problems.push(`[440] Space weather did not read the Kp file: ${sw.replace(/\s+/g, ' ')}`);
   const kpDial = await page.evaluate(() => [...document.querySelectorAll('#pg-threats .dials > *')].map((d) => d.textContent).join(' '));
   if (/--/.test(kpDial)) problems.push(`[440] the KP dial reads "--" with a reading in hand: ${kpDial}`);
   // the launch window: both launches, in plain words, no "LL2" in the corner
+  await openSection(page, 'threats', 'Launches');
   const lrows = await page.$$eval('#pg-threats .pn.launches .rw', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
   if (lrows.length < 2) problems.push(`[440] the launch window lists ${lrows.length} launches (2 stood in)`);
   if (lrows.some((r) => /\b(Success|TBD|TBC|NET)\b/.test(r))) problems.push(`[440] launch statuses are not in plain words: ${lrows.join(' | ')}`);
@@ -113,6 +117,7 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   if (cut.length) problems.push(`[440] launch names are cut off: ${cut.join(' | ')}`);
   if (lrows.some((r) => / \| /.test(r))) problems.push(`[440] launch names keep Launch Library's " | ": ${lrows.join(' | ')}`);
   // NEAR YOU: plain kilometres, where it measures from, tiles that open God's Eye
+  await openSection(page, 'threats', 'Near you');
   const near = await text(page, '#pg-threats .pn.near');
   if (/\dk km/.test(near)) problems.push(`[440] NEAR YOU writes distances as "k km": ${near.replace(/\s+/g, ' ')}`);
   if (!/from London/i.test(near)) problems.push(`[440] NEAR YOU does not say where it measures from: ${near.replace(/\s+/g, ' ')}`);
@@ -130,6 +135,7 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   }
 
   // RECON: a real report (example.com) from the fixture
+  await openSection(page, 'threats', 'Launches');
   await page.route('**/api/recon?**', (r) => r.fulfill({ contentType: 'application/json', body: RECON }));
   await page.fill('#pg-threats .recon input', 'example.com');
   await page.click('#pg-threats .recon .bd button.on');

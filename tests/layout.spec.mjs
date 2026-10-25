@@ -1,12 +1,16 @@
 // Every tab at the owner's phone, a small phone (375), a small laptop and a desktop: nothing may be cut off without a way
 // to scroll to it, and nothing may stick out sideways off the screen.
 import { launch, webkitNoise } from './browser.mjs';
-import { DESKTOP, PHONE, UK } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openSection } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
+// These show one part at a time on a phone (ui/sections.ts): every pill is a side of its own, so nothing a part holds goes unmeasured.
+const SECTIONED = ['settings', 'library', 'memory', 'school', 'workshop', 'threats', 'links'];
+/** Every animation that ends has ended. */
+const landed = (page) => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
 for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', DESKTOP]]) {
   const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
@@ -19,14 +23,20 @@ for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, he
     await page.evaluate((t) => (location.hash = t), tab);
     await page.waitForTimeout(tab === 'eye' ? 1500 : 700);
     // Panes assemble with a short 3D animation; measure them where they land, not mid-flight.
-    await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
-    for (const side of ['main', 'alt']) {
-      if (side === 'alt') {
+    await landed(page);
+    const pills = SECTIONED.includes(tab) ? await page.$$eval(`#pg-${tab} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? '')).catch(() => []) : [];
+    for (const side of pills.length ? pills : ['main', 'alt']) {
+      if (pills.length) {
+        await openSection(page, tab, side);
+        await page.waitForTimeout(300);
+      } else if (side === 'alt') {
         const swap = page.locator(`#pg-${tab} .swap`);
         if (!(await swap.count()) || !(await swap.isVisible())) continue;
         await swap.click();
         await page.waitForTimeout(300);
       }
+      // (the panels a section or side shows slide in as they appear: they too are measured where they land)
+      if (pills.length || side === 'alt') await landed(page);
       const bad = await page.evaluate((t) => {
         const root = document.getElementById(`pg-${t}`);
         if (!root) return ['tab did not mount'];
@@ -66,11 +76,12 @@ for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, he
         }
         return [...new Set(out)].slice(0, 6);
       }, tab);
-      for (const b of bad) problems.push(`[${name} ${tab}${side === 'alt' ? ' (other side)' : ''}] ${b}`);
+      for (const b of bad) problems.push(`[${name} ${tab}${pills.length ? ` (${side})` : side === 'alt' ? ' (other side)' : ''}] ${b}`);
     }
     // Phones: the Library shelf and System status must get real room and scroll fully into view above the dock.
     const must = { library: 'SHELF', system: 'STATUS' }[tab];
     if (/^phone/.test(name) && must) {
+      await openSection(page, tab, { library: 'Shelf', system: 'Status' }[tab]);
       // The panel fills in once its data arrives (slower on CI runners): measure when it has, or after 8 s.
       const measure = () => page.evaluate((m) => {
         const pn = [...document.querySelectorAll('.pg.on .pn')].find((x) => x.querySelector('h3')?.textContent?.trim().startsWith(m));

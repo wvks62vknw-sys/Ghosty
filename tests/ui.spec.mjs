@@ -1,7 +1,7 @@
 // Drives the built interface in Chromium against the preview server and saves screenshots.
 //   node tests/ui.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { DESKTOP, PHONE, UK } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -69,14 +69,16 @@ async function run(name, viewport) {
   // open the widget from the workshop
   await page.evaluate(() => (location.hash = 'workshop'));
   await page.waitForTimeout(800);
-  if (viewport.width < 900) await page.click('#pg-workshop .swap');
+  // (on the phone the Workshop is in sections, ui/sections.ts: the widgets are under its Made pill)
+  await openSection(page, 'workshop', 'Made');
   const w = page.locator('#pg-workshop .rw.link .v').first();
   // the list fills from the brain; on a slow runner that takes a moment
   await w.waitFor({ state: 'attached', timeout: 15000 }).catch(() => undefined);
   if (await w.count()) {
     await w.click();
     await page.waitForTimeout(1800);
-    const frame = page.frameLocator('iframe.sandbox');
+    // (the widget's own frame, in the sheet it opened: a website's draft in the Workshop has locked frames of the same kind)
+    const frame = page.frameLocator('.modal iframe.sandbox');
     const txt = await frame.locator('#t').textContent({ timeout: 5000 }).catch(() => '');
     if (!/\d/.test(txt ?? '')) problems.push(`[${name}] widget did not run its script (got "${txt}")`);
     await page.screenshot({ path: `${out}/${name}-widget.png` });

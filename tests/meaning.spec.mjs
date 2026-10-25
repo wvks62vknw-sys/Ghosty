@@ -9,7 +9,7 @@
 // nothing sticks out sideways and every button is 44 px tall.
 //   node tests/meaning.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -95,6 +95,9 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 // ---- a passage that means the question without its words, saved from the LIBRARY tab (kept on the phone at once)
 await page.evaluate(() => (location.hash = 'library'));
 await page.waitForFunction(() => /PASSAGES/.test(document.querySelector('#pg-library .bigv')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => problems.push('the library tab never loaded'));
+// (the Library is in sections on a phone, ui/sections.ts: adding is under its Add pill, asking under Ask)
+await page.waitForSelector('#pg-library .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => problems.push('the Library has no pills'));
+await openSection(page, 'library', 'Add');
 // pasted text waits behind MORE WAYS TO ADD (the tile is the one thing on show)
 if (!(await page.isVisible('#pg-library textarea[aria-label="Text to save"]'))) await page.click('#pg-library button:has-text("MORE WAYS TO ADD")');
 await page.fill('#pg-library input[aria-label="Title of the text"]', TITLE);
@@ -106,6 +109,7 @@ await page.waitForFunction(() => /on this device \(works offline\)/.test(documen
 // Before the model is here: keywords, said so; the question finds nothing about photosynthesis.
 const ask = async (q) => {
   await page.evaluate(() => (location.hash = 'library'));
+  await openSection(page, 'library', 'Ask');
   await page.fill('#pg-library input[aria-label="Search the library"]', q);
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => /passages? · by/.test(document.querySelector('#pg-library .pn.ask h3 small')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
