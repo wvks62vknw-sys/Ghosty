@@ -528,6 +528,16 @@ folder that no longer exists; ignore those paths).
   animated wheel scroll to land (at load 12 it read 0 px after 350 ms in a different place each run; clean at load 7).
   PR #39 opened 05:35 UK on head 60dc3c2; a check-in at 07:05 UK merges if green. The nav worktree is removed. Builders
   still running: brainkeep (8885), sections (8886), gym2 (8887), boot2 (8888).
+- 25 Oct 05:45 UK: merged after review: BRAINKEEP (2 commits; merge 1d330dd, clean): the re-download's root cause was
+  `public/sw.js` wiping every cache but Ghosty's own on each new version (WebLLM's stores included), fixed; honest
+  storage lines; the quota check; Range parts of 32 MB with a per-part carry-on. Pushed onto PR #39 (its CI restarts:
+  the owner is waiting on this one most). What only his phone can prove, and the four steps he was given: the "This
+  is Safari / the Home Screen app" and "Kept for good" lines; GET the 2B, read "On this phone: Qwen3.5 2B whole (1.1
+  GB)"; close fully, reopen, read the line again and any "… have gone since" line; try the 4B GET and send either the
+  "This phone gives Ghosty … of space" refusal or the carry-on line. If the 4B still closes Ghosty, the levers left
+  are the quota check, smaller pieces (a re-converted model) and WebLLM's OPFS backend (not touched: it changes what
+  the runtime looks up). The builder waited the full 25 minutes once at load 12–14 and went ahead; every later heavy
+  step waited for 6 or below.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
