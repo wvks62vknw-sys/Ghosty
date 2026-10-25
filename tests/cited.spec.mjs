@@ -68,9 +68,19 @@ await openLog();
 const had = await page.locator('.log .msg.cited').count();
 await page.fill('#cin', 'what is the speed of light');
 await page.press('#cin', 'Enter');
-await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 60000 }).catch(() => problems.push('no cited reply in the log'));
-const reply = page.locator('.log .msg.cited').last();
+// (two minutes: on CI's shared preview the brain may be in the middle of a scheduled job when the question lands)
+const gotCited = await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 120000 }).then(() => true, () => false);
 if (!asked.at(-1)?.cited) problems.push(`the chat request did not carry cited: ${JSON.stringify(asked.at(-1))}`);
+if (!gotCited) {
+  // say what did come, so a red run tells what the brain answered (and the chip and source checks below are skipped: they would only time out one by one)
+  const last = await page.evaluate(() => {
+    const m = [...document.querySelectorAll('.log .msg')].at(-1);
+    return m ? `${m.className}: "${(m.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 240)}"` : 'nothing in the log';
+  });
+  problems.push(`no cited reply in the log within 120 s; the last message is ${last}`);
+}
+const reply = page.locator('.log .msg.cited').last();
+if (gotCited) {
 const chips = await reply.locator('.citedtext .cite').evaluateAll((c) => c.map((x) => ({ n: x.textContent, tag: x.tagName, href: x.getAttribute('href'), miss: x.classList.contains('miss'), un: x.classList.contains('un') })));
 if (chips.map((c) => c.n).join(',') !== '1,1,2,3') problems.push(`chips: ${JSON.stringify(chips)}`);
 if (chips[0]?.tag !== 'A' || chips[0]?.href !== 'https://physics.example.test/speed-of-light') problems.push(`chip 1 does not link its page: ${JSON.stringify(chips[0])}`);
@@ -98,6 +108,7 @@ else {
 await reply.locator('.citedtext .cite.miss').last().click();
 const warned = await page.locator('.toast', { hasText: 'never looked up' }).first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
 if (!warned) problems.push('a chip for a source never looked up did not warn');
+}
 
 // 4. after a reload the brain's history brings the chips back
 await page.reload({ waitUntil: 'domcontentloaded' });

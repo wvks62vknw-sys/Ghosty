@@ -611,6 +611,14 @@ folder that no longer exists; ignore those paths).
   hubcards, undo and spending clean; routec failed once on "the day line reads Yesterday 09:42": it read the FIRST day
   line, and the memory spec seeds four turns dated one to four days back (08:42 UTC yesterday = 09:42 BST); CI's order
   clears them before routec, a local chain did not. It now reads the newest day line; clean with those turns seeded.
+- 25 Oct 10:46 UK: PR #40's run 244 (5fffd14) red on ONE spec, cited: "locator.click: Timeout 30000ms exceeded" at
+  its chip click, i.e. no `.msg.cited` reply arrived within its 60 s wait (every other spec ran at run 243's speed;
+  the cited path — cited.ts, web.ts, mock.ts, the chat, the preview server — is untouched by this PR; run 243 passed
+  the same order an hour earlier; learn → cited passes here on the final tree). The spec threw before printing what
+  the brain had answered, so the cause is unknown: the preview emulates the DO alarm, so a scheduled job (study, the
+  daily jobs) can hold the single thread when the question lands. The spec now waits 120 s, and when no cited reply
+  comes it reports the last message's class and words and skips the chip, source and click checks (no throw), so a
+  second red names the cause. Pushed as the next head; the spec is clean here.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
