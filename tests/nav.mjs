@@ -50,10 +50,16 @@ export async function openPanel(page, tab, title) {
   await page.waitForTimeout(400);
 }
 
-// System and Agenda are in sections on a phone (ui/sections.ts): a row of pills under the title, one section shown at a
-// time. Tap the pill named `label` (nothing to do on a wide screen, where every panel shows).
+// System, Agenda and the other long screens (Settings, the Library, Memory, School, the Workshop, Threats, Links) are in
+// sections on a phone (ui/sections.ts): a row of pills under the title, one section shown at a time. Tap the pill named
+// `label` (exactly: "Me" is not "Timeline"; nothing to do on a wide screen, where every panel shows). The page may still
+// be drawing when this is called: the row is given a moment to appear.
 export async function openSection(page, tab, label) {
-  const pill = page.locator(`#pg-${tab} .secpills .secpill`, { hasText: label });
+  if ((page.viewportSize()?.width ?? 0) >= 900) return false;
+  const all = page.locator(`#pg-${tab} .secpills .secpill`);
+  await all.first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => undefined);
+  const exact = all.filter({ hasText: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) });
+  const pill = (await exact.count()) ? exact.first() : all.filter({ hasText: label }).first();
   if (!(await pill.count()) || !(await pill.isVisible().catch(() => false))) return false;
   await pill.click();
   await page.waitForTimeout(250);

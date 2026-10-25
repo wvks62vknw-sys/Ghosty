@@ -686,11 +686,11 @@ class SokoLearner implements Learner {
     }
     const L = this.last;
     const pending = !!this.pass;
-    if (!L) return { mastery: 0, pending, detail: `His first test on ${set.length} puzzles he has never practised on is under way (${ps.i} done).` };
+    if (!L) return { mastery: 0, pending, detail: `My first test on ${set.length} puzzles I have never practised on is under way (${ps.i} done).` };
     return {
       mastery: L.score / set.length,
       pending,
-      detail: `He solves ${L.solved} of ${set.length} puzzles he has never practised on, opening at most ${Math.round(L.budget / set.length)} positions each on average (${spec(this.level).budget}× the fewest pushes)${L.solved ? `, in ${L.his} pushes where the fewest possible is ${L.best} (exact solver)` : ''}.`,
+      detail: `I solve ${L.solved} of ${set.length} puzzles I have never practised on, opening at most ${Math.round(L.budget / set.length)} positions each on average (${spec(this.level).budget}× the fewest pushes)${L.solved ? `, in ${L.his} pushes where the fewest possible is ${L.best} (exact solver)` : ''}.`,
     };
   }
   save(): SokoSave {

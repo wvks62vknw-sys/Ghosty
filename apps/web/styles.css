@@ -2840,6 +2840,16 @@ html #pg-gym .gymcard .gymrate[hidden], html #pg-gym .gymcard .gymnext[hidden] {
 .gymidea .gymrateline, .gymidea .gymedgeline { font: 500 16px/1.35 var(--sf); color: var(--fg); }
 .gymidea small { font: 400 13px/1.4 var(--sf); color: var(--l2); }
 .gymidea small.thrown { color: #ff9f0a; }
+.gymsays { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; overflow-wrap: anywhere; } /* Connect 4: what he says about your games (gym2) */
+.gymsays[hidden] { display: none; }
+.gymsays b { font: 500 17px/1.38 var(--sf); letter-spacing: -.01em; color: var(--fg); }
+.gymsays small { font: 400 14px/1.4 var(--sf); color: var(--l2); }
+.gymreview { display: flex; flex-direction: column; gap: 7px; max-width: 360px; margin: 12px auto 0; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow-wrap: anywhere; }
+.gymreview > b { font: 600 13px/1.3 var(--sf); color: var(--l2); }
+.gymreview > div { display: flex; gap: 10px; font: 400 15px/1.4 var(--sf); color: var(--fg); }
+.gymreview > div span { flex: none; min-width: 62px; color: var(--l2); font-variant-numeric: tabular-nums; }
+.gymreview > div i { font-style: normal; min-width: 0; }
+html #pg-gym .gymcard .gymsay { display: block; margin-top: 5px; font: 500 12px/15px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* Connect 4: his line about your games */
 
 /* ---------- Settings, System and Links (ui/listmode.ts): grouped glass rows — a neutral icon tile, the name,
    its line under it, a chevron ---------- */
@@ -3103,8 +3113,17 @@ html #switcher .switem.on .swnm { color: var(--ink); }
 
 /* the sections on a long tool screen (ui/sections.ts): a row of pills under the title, held under the navigation bar
    as the page scrolls; the chosen one lit. Only on the phone: a wide screen shows every panel. */
-html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
+html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
 html .secpills[hidden] { display: none; }
+/* a panel scrolled to (a link from the deck) stops under the pills, not behind them: the pills end 70 pt down the page, and
+   the 16 here also cover the panels' own slide-up (14 pt) while a screen is still opening, when the deck's link measures */
+html .hud.secs { scroll-padding-top: 86px; }
+/* a row whose names do not fit (School's six, the Library's at 390) is set tighter, and when it is still too wide it scrolls by
+   itself (ui/sections.ts adds .dense and .scrolls only then) */
+html .secpills.dense { gap: 3px; }
+html .secpills.dense .secpill { padding: 0 4px; font-size: 13px !important; }
+html .secpills.scrolls { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+html .secpills.scrolls::-webkit-scrollbar { display: none; }
 html .secmark { display: block; height: 0; }
 html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
 html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
@@ -3481,6 +3500,9 @@ html .readwrap > .keyrow button { height: 44px; min-height: 44px !important; }
 html #pg-memory .two > .hero { padding-right: 2px; }
 html #pg-memory .two .sub { max-width: calc(100% - 72px); }
 html #pg-memory .editbtn { top: -10px; min-width: 44px; height: 44px; min-height: 44px !important; font: 400 17px var(--sf) !important; color: var(--c) !important; }
+/* one stacked page in sections on the phone (no YOU / DIARY & CHAT switch in the hero to make it tall): the line keeps room
+   for Edit's 44 pt target, which hangs 10 pt above it, so nothing of it is outside the hero */
+@media (max-width: 899px) { html #pg-memory .two.stack > .hero { min-height: 34px; } }
 /* every list says it is empty, with what to do next (an empty one is no longer hidden) */
 html #pg-memory .pn:has(> .bd > .empty) { display: flex; }
 html #pg-memory .pn:has(> .bd > .empty) > .ft:has(.pg-label:empty) > button:not(:first-child) { display: none; }
@@ -4514,20 +4536,26 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .myplaces .lchip { min-height: 44px; }
 
 /* =====================================================================
-   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, once per cold open of the day.
+   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, on every cold open, on true black.
    Its own block, last in the file; nothing above depends on it. Only transforms and opacity move (the particles are
    drawn on a canvas, Mind by three.js). The old spinner, engine lines and "INITIALISING…" are gone.
    ===================================================================== */
-#boot { display: block; gap: 0; overflow: hidden; background: var(--bg, #050607); transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#boot { display: block; gap: 0; overflow: hidden; background: #000; transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 #boot.playing { background: none; }
 #boot.out { opacity: 0; pointer-events: none; }
-#boot .bveil { position: absolute; inset: 0; background: var(--bg, #050607); pointer-events: none; }
+#boot .bveil { position: absolute; inset: 0; background: #000; pointer-events: none; }
 /* the point of light: there from the first paint (index.html), dim until the cinematic wakes it */
 #boot .bdot { position: absolute; left: 50%; top: 40%; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(var(--cr), .9), 0 0 38px 12px rgba(var(--cr), .32); transform: translate(-50%, -50%); opacity: .25; pointer-events: none; will-change: transform, opacity; }
 #boot .bdust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #boot canvas.mindhero { pointer-events: none; will-change: transform, opacity; }
 /* the name, letter-spaced in the instruments' face (the trailing space is balanced so it sits in the middle) */
 #boot .bword { position: absolute; left: 50%; margin: 0; padding: 0 0 0 .62em; transform: translateX(-50%); font: 500 26px/32px var(--sf); letter-spacing: .62em; color: #fff; text-transform: none; white-space: nowrap; opacity: 0; text-shadow: 0 0 18px rgba(var(--cr), .55); pointer-events: none; }
+/* each letter moves on its own for the last tightening (a transform; inline boxes take none) */
+#boot .bword span { display: inline-block; will-change: transform; }
+/* the single thin line under the name: the instruments' light (svg.inst .fl), drawn from the middle out */
+#boot svg.bline { position: absolute; left: 50%; transform: translateX(-50%) scaleX(0); transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: transform, opacity; }
+/* the greeting's breath of bloom: a soft light behind the line, in his colour */
+#boot .bbloom { position: absolute; left: 50%; width: 400px; max-width: 100vw; height: 120px; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--cr), .3), rgba(var(--cr), .08) 60%, rgba(var(--cr), 0)); opacity: 0; pointer-events: none; will-change: opacity; }
 /* one line, his */
 #boot .bgreet { position: absolute; left: 50%; width: max-content; max-width: calc(100vw - 32px); margin: 0; transform: translateX(-50%); font: 600 24px/30px var(--sfd); letter-spacing: -.01em; color: var(--ink, #f4f6f8); text-align: center; text-transform: none; opacity: 0; pointer-events: none; }
 /* the app could not start: plain words and one button */
@@ -4535,8 +4563,10 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 #boot .bfault { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; text-align: center; }
 #boot .bfault p { margin: 0; font: 500 17px/1.35 var(--sf); color: var(--ink, #f4f6f8); }
 #boot .bfault button { min-width: 44px; min-height: 44px; padding: 0 22px; }
-/* the landing: the ribbon comes down, the tab bar and Home's cards slide up into place, the rest fades in
-   (the individual translate property, so each part's own transform is left alone) */
+/* the landing: while Mind flies the HUD waits out of sight; a beat after it lands, the ribbon comes down, the tab bar
+   and Home's cards slide up into place, the rest fades in (the individual translate property, so each part's own
+   transform is left alone) */
+body.bootwait :is(#top, #dock, .rcbelow .rccard), body.bootwait .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { opacity: 0; }
 body.bootland #top { animation: bootin-down .34s cubic-bezier(.2, .8, .2, 1) both; }
 body.bootland #dock { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) .04s both; }
 body.bootland .rcbelow .rccard { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) both; }

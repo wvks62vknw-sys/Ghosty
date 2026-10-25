@@ -9,6 +9,7 @@ import { go, type TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
 import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sections } from '../../ui/sections';
 import { reconPanel } from './recon';
 
 /** A distance in plain kilometres: "340 km", "5,410 km" (not "5.4k km"). */
@@ -37,6 +38,14 @@ export const threatsTab: TabDef = {
     const lp = panel('LAUNCH WINDOW', { footer: true, cls: 'launches' });
     const lg = pager(lp, 46, (l: Launch) => row(launchStatus(l.status), l.name.replace(/\s*\|\s*/g, ' · '), new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { wrap: true, onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
     P.right.append(near.el, space.el, lp.el, reconPanel());
+    // Sections (ui/sections.ts): what is happening now, what is near him, the sky, and what is going up (with RECON, the
+    // one thing here he runs himself, after the launches).
+    sections(root, 'threats', [
+      { id: 'signals', label: 'Signals', match: /^ACTIVE SIGNALS/ },
+      { id: 'near', label: 'Near you', match: /^NEAR YOU/ },
+      { id: 'space', label: 'Space weather', match: /^SPACE WEATHER/ },
+      { id: 'launches', label: 'Launches', match: /^(LAUNCH|RECON)/ },
+    ]);
 
     const paint = () => {
       const list = signals();

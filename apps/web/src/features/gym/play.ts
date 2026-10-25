@@ -30,14 +30,14 @@ export interface BoardPlay {
   tap(state: number[], sel: Sel, cell: number): Tap;
   /** Apply a move code (his, or a chosen promotion); returns the new board and words for it. */
   apply(state: number[], move: number): { state: number[]; said: string; cells: number[] };
-  /** '' while playing; otherwise the result from the owner's side ("You win!", "He wins.", "A draw."). */
+  /** '' while playing; otherwise the result ("You win.", "I win.", "A draw."). */
   over(state: number[]): string;
   /** Extra button (Go: PASS): its label and the move code it plays. */
   extra?: { label: string; move: number };
   hello: string;
 }
 
-const ownerWins = (w: boolean | null) => (w == null ? 'A draw.' : w ? 'You win!' : 'He wins.');
+const ownerWins = (w: boolean | null) => (w == null ? 'A draw.' : w ? 'You win.' : 'I win.');
 
 // ---- checkers: the owner is Black (moves first, down the board) -----------------------------------------------------
 

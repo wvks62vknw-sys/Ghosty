@@ -52,7 +52,7 @@ import {
   cellOf,
 } from './chessboard';
 import { CHESS_TACTICS } from './chesssets';
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict, type Versus } from './core';
 import { Match, type MatchResult, record, share, type Stepper, trainMs } from './match';
 import { CHESS } from './meta';
 
@@ -543,14 +543,14 @@ class ChessLearner implements Learner {
     const pending = !!this.match || !!this.tacting;
     if (!this.last) {
       const played = this.match?.res.games ?? n;
-      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
+      return { mastery: 0, pending, detail: `My first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     const t = this.tact;
     return {
       mastery: s,
       pending,
-      detail: `Against ${rungWords(rung)} (hand-written evaluator; games still going after 80 moves are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.${t ? ` Tactics: he finds ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).` : ''}`,
+      detail: `Against ${rungWords(rung)} (hand-written evaluator; games still going after 80 moves are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.${t ? ` Tactics: I find ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).` : ''}`,
     };
   }
   save(): ChessSave {
@@ -600,6 +600,69 @@ class ChessLearner implements Learner {
     if (status(p, moves)) return -1;
     return pageMove(bestMove(p, rungFor(this.level).me, learnedEval(this.w), moves, 60_000).move);
   }
+  /**
+   * Against the owner: his own engine's move (it already sees a piece left hanging), on a tactical floor — a mate
+   * in one is taken, and no move is played that lets the owner mate within his next two moves (4 plies).
+   */
+  versus(state: number[]): Versus {
+    const p = posFrom(state);
+    const moves = legal(p);
+    if (status(p, moves)) return { move: -1, reason: '' };
+    for (const m of moves) {
+      make(p, m);
+      const mate = status(p) === 'mate';
+      unmake(p);
+      if (mate) return { move: pageMove(m), reason: 'Checkmate.', kind: 'win' };
+    }
+    const ev = learnedEval(this.w);
+    const depth = rungFor(this.level).me;
+    let m = bestMove(p, depth, ev, moves, 60_000).move;
+    if (!lets(p, m)) return { move: pageMove(m), reason: inCheck(p) ? 'I had to get out of check.' : '', kind: 'learned' };
+    const safe = moves.filter((x) => x !== m && !lets(p, x));
+    if (!safe.length) return { move: pageMove(m), reason: 'You have a forced mate. I’ll make you find it.', kind: 'lost' };
+    m = bestMove(p, depth, ev, safe, 60_000).move;
+    return { move: pageMove(m), reason: 'You had a mate there. I closed it.', kind: 'floor' };
+  }
+}
+
+/** Mate in one for the side to move? */
+function mateIn1(p: Pos): boolean {
+  for (const m of legal(p)) {
+    make(p, m);
+    const mate = status(p) === 'mate';
+    unmake(p);
+    if (mate) return true;
+  }
+  return false;
+}
+/** Does playing m let the other side mate within two of its moves (a mate in one, or a mate in two that starts with a check)? */
+export function lets(p: Pos, m: number): boolean {
+  make(p, m);
+  let bad = mateIn1(p);
+  if (!bad) {
+    for (const x of legal(p)) {
+      make(p, x);
+      // (a check first: the forcing tricks; replies are few, so this stays quick)
+      if (inCheck(p)) {
+        const replies = legal(p);
+        let all = replies.length > 0;
+        for (const r of replies) {
+          make(p, r);
+          const ok = mateIn1(p);
+          unmake(p);
+          if (!ok) {
+            all = false;
+            break;
+          }
+        }
+        if (all) bad = true;
+      }
+      unmake(p);
+      if (bad) break;
+    }
+  }
+  unmake(p);
+  return bad;
 }
 
 // ---- problems: mate in N (exact) ------------------------------------------------------------------------------------

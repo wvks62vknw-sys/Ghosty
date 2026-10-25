@@ -295,7 +295,7 @@ class CountLearner implements Learner {
     const sp = specFor(this.level);
     return {
       mastery: ok / set.length,
-      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: he solves ${ok} of ${set.length} in half the tries the plain order needs (every one is solvable — checked by exhaustive search).`,
+      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: I solve ${ok} of ${set.length} in half the tries the plain order needs (every one is solvable — checked by exhaustive search).`,
     };
   }
   save(): CountSave {

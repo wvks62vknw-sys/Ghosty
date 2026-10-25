@@ -2,7 +2,7 @@
 // browser's own push pipeline (Chrome DevTools Protocol) becomes a notification.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -73,7 +73,8 @@ for (const want of ['EMAIL', 'SPOTIFY', 'PHONE · APP & NOTIFICATIONS', 'AI BRAI
 if (!/TURN ON NOTIFICATIONS|TURN OFF HERE/.test(panelText)) problems.push('Links: notifications button missing');
 if (!/LINK EMAIL/.test(panelText) || !(await page.$('#pg-links select[aria-label="Email provider"]'))) problems.push('Links: email sign-in form missing');
 if (!/LINK SPOTIFY|UNLINK/.test(panelText)) problems.push('Links: Spotify link button missing');
-// On a phone everything is on one scrolling page: the last panel can be scrolled into view.
+// On a phone each part is a short page under a pill (ui/sections.ts): the last panel can be scrolled into view under its own.
+await openSection(page, 'links', 'Services');
 const reach = await page.evaluate(() => {
   const hud = document.querySelector('#pg-links .hud');
   const last = [...document.querySelectorAll('#pg-links .pn')].pop();

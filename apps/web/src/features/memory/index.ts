@@ -15,6 +15,7 @@ import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sections } from '../../ui/sections';
 import { placesBlock } from './places';
 import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
 
@@ -51,9 +52,9 @@ export const memoryTab: TabDef = {
     return n == null ? '' : n === 1 ? '1 thing remembered' : `${fmt.n(n)} things remembered`;
   },
   mount(root) {
-    // Phones: YOU (who he is first, then what was noticed, then the timeline) and DIARY & CHAT (the diary first).
-    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'DIARY & CHAT', leftLabel: 'YOU' });
-    root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards
+    // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between: Me (who he is first, with
+    // his places), Patterns, Timeline, Diary and Chat (what I remember, the lessons, the conversation).
+    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'DIARY & CHAT', leftLabel: 'YOU', stack: true });
     // A change in the TIMELINE shows in the panels below it, and theirs in it.
     const tl = timelinePanel(() => {
       void refresh();
@@ -295,6 +296,13 @@ export const memoryTab: TabDef = {
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
     P.right.append(dp.el, fp.el, lp.el, cp.el);
+    sections(root, 'memory', [
+      { id: 'me', label: 'Me', match: /^ME$/ },
+      { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
+      { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
+      { id: 'diary', label: 'Diary', match: /^DIARY/ },
+      { id: 'chat', label: 'Chat', match: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
+    ]);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
       cg.set(list.map((e) => ({ who: e.kind === 'user' ? 'YOU' : 'GHOSTY', text: e.text })).reverse());

@@ -19,9 +19,10 @@ await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 await page.evaluate(() => (location.hash = 'workshop'));
-await page.waitForSelector('#pg-workshop button:has-text("TRAIN")', { timeout: 10000 });
+// (the panel's TRAIN, not the Workshop's Training pill, which has the same letters and is hidden on a wide screen)
+await page.waitForSelector('#pg-workshop .pn button:has-text("TRAIN")', { timeout: 10000 });
 await page.selectOption('#pg-workshop select[aria-label="Exercise level"]', '1');
-await page.click('#pg-workshop button:has-text("TRAIN")');
+await page.click('#pg-workshop .pn button:has-text("TRAIN")');
 const solved = await page.waitForFunction(() => [...document.querySelectorAll('#pg-workshop .liblog .note.ok')].some((n) => /all \d+ tests pass \(attempt 2/.test(n.textContent ?? '')), null, { timeout: 30000 }).then(() => true).catch(() => false);
 if (!solved) problems.push(`no exercise solved on the second attempt: ${(await page.$$eval('#pg-workshop .liblog .note', (n) => n.map((x) => x.textContent))).slice(0, 4).join(' | ')}`);
 const sawFailure = await page.$$eval('#pg-workshop .liblog .note', (n) => n.some((x) => /attempt 1: \d+ of \d+ tests failed/.test(x.textContent ?? '')));

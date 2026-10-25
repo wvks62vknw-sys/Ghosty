@@ -4,7 +4,7 @@
 //   node tests/sites.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -84,9 +84,8 @@ else {
   // The Workshop lists every published page, with COPY LINK and UNPUBLISH.
   await ui.evaluate(() => (location.hash = 'workshop'));
   await ui.waitForTimeout(800);
-  // On the phone the Workshop shows one column at a time: PUBLISHED PAGES is in the PAGES & WIDGETS column.
-  const swap = await ui.$('#pg-workshop button.swap');
-  if (swap && !(await ui.$eval('#pg-workshop .site', (el) => el.getBoundingClientRect().height > 0).catch(() => false))) await swap.tap();
+  // On the phone the Workshop shows one section at a time (ui/sections.ts): PUBLISHED PAGES is under its Made pill.
+  await openSection(ui, 'workshop', 'Made');
   // Its own page by its link: a shared preview may list pages other specs published (the websites spec's), before or after this one.
   const own = '#pg-workshop .site:has(a.sitelink[href$="/s/acme-bakery"])';
   const listed = await ui.waitForSelector(`${own} a.sitelink`, { timeout: 15000 }).catch(() => null);

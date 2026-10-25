@@ -422,10 +422,10 @@ class BalanceLearner implements Learner {
     const mine = his.fuel.reduce((t, f, i) => t + (both[i] ? f : 0), 0);
     const theirs = ref.fuel.reduce((t, f, i) => t + (both[i] ? f : 0), 0);
     const nb = both.filter(Boolean).length;
-    const what = this.task === 'pole' ? 'keeps the pole up' : 'lands softly on the pad';
+    const what = this.task === 'pole' ? 'keep the pole up' : 'land softly on the pad';
     const unit = this.task === 'pole' ? 'pushing effort' : 'fuel';
-    const fuel = nb ? ` On the ${nb} where both succeed he uses ${Math.round((mine / Math.max(1e-9, theirs)) * 100)}% of the reference's ${unit}.` : '';
-    return { mastery: ok / HELD_OUT, detail: `He ${what} from ${ok} of ${HELD_OUT} start positions he has never trained on; the hand-tuned reference controller manages ${rok}.${fuel}` };
+    const fuel = nb ? ` On the ${nb} where both succeed I use ${Math.round((mine / Math.max(1e-9, theirs)) * 100)}% of the reference's ${unit}.` : '';
+    return { mastery: ok / HELD_OUT, detail: `I ${what} from ${ok} of ${HELD_OUT} start positions I have never trained on; the hand-tuned reference controller manages ${rok}.${fuel}` };
   }
   save(): BalanceSave {
     return { game: 'balance', task: this.task, mean: this.mean, sd: this.sd, trials: this.trials, rand: this.rand };

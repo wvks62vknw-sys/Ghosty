@@ -90,14 +90,39 @@ export interface Learner {
   view(): Frame;
   /** One game played by his current policy, frame by frame (WATCH). `secret` = the owner's pick for PLAY HIM. */
   watch(seed: number, secret?: string): Frame[];
-  /** His move in a position the owner is playing (PLAY HIM on a board), or -1. */
+  /** His own move in a position (what his learned knowledge plays: league games between his versions use it), or -1. */
   move?(state: number[]): number;
+  /**
+   * His move against the owner (PLAY HIM): everything he has, whatever his level — the learned move made safe by
+   * exact search where the game allows it — with one line saying why. `nodes` instead of time: the same answer on
+   * any machine (tests). Without it, PLAY HIM uses move().
+   */
+  versus?(state: number[], limit?: { ms?: number; nodes?: number }): Versus;
+  /** After the owner beat him: study the game (`moves` from the empty board, his side 1 or 2) and learn from it; what he found. */
+  study?(moves: number[], ghosty: number, nodes?: number): unknown;
+  /** Idle time: solve a little more of the positions the owner's games reached; the position solved, '' still working, null nothing to do. */
+  ponder?(games: number[][], nodes: number): string | null;
+  /** Positions he has proved and keeps (his book), and the lessons among them. */
+  known?(): { book: number; lessons: number };
   /**
    * A puzzle at the edge of what he can do (gym/stretch.ts): made from `seed` at difficulty `x` (his level plus the
    * share of the way to the next level's puzzles), with his answer to it; he practises on it as he tries it. The
    * worker checks the answer with the game's own check(), never his say-so. null when no puzzle could be made.
    */
   stretch?(x: number, seed: number): { problem: Problem; answer: string } | null;
+}
+
+/** His move against the owner, and why (kept for the review after the game). */
+export interface Versus {
+  move: number;
+  /** One line in his words ("I had to stop column 4."), '' when there is nothing to say. */
+  reason: string;
+  /** What decided it: 'win' | 'block' | 'lost' | 'book' | 'lesson' | 'solved' | 'search' | 'learned'. */
+  kind?: string;
+  /** Proved: 1 he wins, 0 a draw, −1 the owner can force a win; null not proved. */
+  value?: number | null;
+  /** Thinking time, ms. */
+  ms?: number;
 }
 
 /** A whole game: its page-side facts (meta.ts) plus the engine, the problem maker and the learner. */

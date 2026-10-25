@@ -73,10 +73,13 @@ jobs:
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
           fail=0
-          # [markman] [night] [photo] [bigbrain] [threats] [eye] [brief] [places] [scroll] mark, manuals, night, photo, bigbrain, threats, eye, brief and places joined the loop on 24 Oct (each has its own spec) [markets] [settings] [nav] [radio] [reverse]
-          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands eye lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications threats airoom gym character selftrain thinkharder meaning bigbrain websites studiomake apps school hero routec homeplan deck speed mark manuals night photo brief places scrollfeel markets settings nav radio reverse; do
+          # [markman] [night] [photo] [bigbrain] [threats] [eye] [brief] [places] [scroll] mark, manuals, night, photo, bigbrain, threats, eye, brief and places joined the loop on 24 Oct (each has its own spec) [markets] [settings] [nav] [radio] [reverse] [boot] boot, hubcards, spending and undo joined on 25 Oct (written 24 Oct, left out of the loop)
+          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands eye lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications threats airoom gym character selftrain thinkharder meaning bigbrain websites studiomake apps school hero routec homeplan deck speed mark manuals night photo brief places scrollfeel markets settings nav radio reverse boot hubcards spending undo; do
             # Street View's dives follow the frames, which software rendering draws slowly: give each run up to 8 minutes.
-            if ! timeout 480 node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
+            # [sections] nav and routec walk every pill of nine screens in sections: 248 s and 357 s on run 243 before the
+            # rollout, which roughly doubled nav; they get 12 minutes, the rest 8.
+            t=480; case $s in nav|routec) t=720;; esac
+            if ! timeout $t node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
               fail=1
               # Annotations are readable through the API (Ghosty reads them to fix its changes).
               echo "::error title=browser check: $s::$(grep -v '^\s*$' out-$s.txt | tail -n 12 | cut -c1-200 | tr '\n' '|')"

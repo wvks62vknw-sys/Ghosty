@@ -668,7 +668,7 @@ class EscapeLearner implements Learner {
     }
     return {
       mastery: sum / set.length,
-      detail: `He escapes ${out} of ${set.length} held-out rooms within twice the shortest way${out ? ` (${steps} steps where the shortest ways take ${best})` : ''}; shortest ways found by searching every state.`,
+      detail: `I escape ${out} of ${set.length} held-out rooms within twice the shortest way${out ? ` (${steps} steps where the shortest ways take ${best})` : ''}; shortest ways found by searching every state.`,
     };
   }
   save(): EscapeSave {

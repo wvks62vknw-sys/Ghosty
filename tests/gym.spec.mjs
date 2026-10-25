@@ -300,6 +300,228 @@ if (cb[3 * 6] !== 1) problems.push('my Connect 4 stone did not drop to the botto
 await wideCheck('playing Connect 4');
 await page.screenshot({ path: `${out}/gym-c4.png` });
 
+// ---- PLAY HIM at full strength (gym2, OWNER-ISSUES 52): the trick sequences that beat the old PLAY HIM every time ----
+// The owner (X) plays these columns, taking a four whenever there is one; after the list, a plain player (block a four,
+// else the most central column that hands none over). Played against the engine in the worker, as PLAY HIM asks it, on a
+// fresh Connect 4 (no training at all: the old PLAY HIM lost every one of these by the 7th or 9th stone). Each must now
+// end without the owner winning, every move of his with a reason. (Fails on the old code: X wins all four.)
+const TRICKS = [[4, 2, 3, 5], [4, 3, 5, 2], [4, 5, 3, 2], [4, 5, 6, 3]];
+const trickRuns = await page.evaluate(async (tricks) => {
+  const w = new Worker('/textures.worker.js');
+  let req = 900000;
+  const waiting = new Map();
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m?.gym === 'reply') (waiting.get(m.req)?.(m), waiting.delete(m.req));
+  };
+  const ask = (board) => new Promise((ok) => {
+    const id = ++req;
+    waiting.set(id, ok);
+    w.postMessage({ gym: 'move', id: 'connect4', req: id, board, rec: null, epoch: 0 });
+  });
+  const LINES = [];
+  for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) for (const [dc, dr] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+    if (c + 3 * dc > 6 || r + 3 * dr < 0 || r + 3 * dr > 5) continue;
+    LINES.push([0, 1, 2, 3].map((k) => (c + k * dc) * 6 + r + k * dr));
+  }
+  const won = (b, who) => LINES.some((l) => l.every((s) => b[s] === who));
+  const height = (b, c) => { let r = 0; while (r < 6 && b[c * 6 + r]) r++; return r; };
+  const drop = (b, c, who) => { const q = b.slice(); q[c * 6 + height(b, c)] = who; return q; };
+  const legalCols = (b) => [3, 2, 4, 1, 5, 0, 6].filter((c) => height(b, c) < 6);
+  const out = [];
+  for (const xs of tricks) {
+    let b = new Array(42).fill(0);
+    const why = [];
+    let res = '';
+    let slowest = 0;
+    for (let i = 0; i < 21 && !res; i++) {
+      const ms = legalCols(b);
+      let c = ms.find((x) => won(drop(b, x, 1), 1));
+      if (c == null && i < xs.length && height(b, xs[i] - 1) < 6) c = xs[i] - 1;
+      if (c == null) c = ms.find((x) => won(drop(b, x, 2), 2));
+      if (c == null) c = ms.find((x) => !legalCols(drop(b, x, 1)).some((y) => won(drop(drop(b, x, 1), y, 2), 2))) ?? ms[0];
+      b = drop(b, c, 1);
+      if (won(b, 1)) { res = 'X'; break; }
+      if (b.every((x) => x)) { res = 'D'; break; }
+      const t = performance.now();
+      const m = await ask(b);
+      slowest = Math.max(slowest, performance.now() - t);
+      if (m.error || m.move == null || m.move < 0) { res = `error ${m.error ?? m.move}`; break; }
+      why.push(m.why?.reason ?? '');
+      b = drop(b, m.move, 2);
+      if (won(b, 2)) res = 'O';
+      else if (b.every((x) => x)) res = 'D';
+    }
+    out.push({ xs: xs.join(''), res, why, slowest: Math.round(slowest) });
+  }
+  w.terminate();
+  return out;
+}, TRICKS);
+for (const t of trickRuns) {
+  if (t.res === 'X') problems.push(`PLAY HIM lost to the trick ${t.xs} (the owner won): ${t.why.join(' | ')}`);
+  else if (t.res !== 'O' && t.res !== 'D') problems.push(`PLAY HIM did not finish the trick ${t.xs}: ${t.res}`);
+  if (t.why.some((w) => !w)) problems.push(`PLAY HIM gave a move without a reason in the trick ${t.xs}: ${t.why.join(' | ')}`);
+}
+console.log(`tricks against PLAY HIM in the worker: ${trickRuns.map((t) => `${t.xs} → ${t.res === 'O' ? 'he won' : t.res === 'D' ? 'a draw' : t.res} (slowest move ${t.slowest} ms)`).join('; ')}`);
+// (Every game played on the board is kept in his journal and may teach him: the games here are the spec's, so Connect 4's
+// record and the journal are kept aside now and put back after the learning section below.)
+// (kept in the same store under an id no game has, so typed arrays survive and a reload does not lose it)
+const C4SNAP = '~spec-c4';
+const snapshotC4 = () => page.evaluate((key) => new Promise((ok) => {
+  const r = indexedDB.open('ghosty-gym', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('games', 'readwrite');
+    const st = tx.objectStore('games');
+    const j = st.get('~journal');
+    const c = st.get('connect4');
+    c.onsuccess = () => st.put({ id: key, journal: j.result ?? null, rec: c.result ?? null });
+    tx.oncomplete = () => (r.result.close(), ok(true));
+    tx.onerror = () => (r.result.close(), ok(false));
+  };
+  r.onerror = () => ok(false);
+}), C4SNAP);
+/** Put Connect 4's record and the journal back from the copy (and drop the copy with `drop`). */
+const restoreC4 = (drop) => page.evaluate(([key, dropIt]) => new Promise((ok) => {
+  const r = indexedDB.open('ghosty-gym', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('games', 'readwrite');
+    const st = tx.objectStore('games');
+    const g = st.get(key);
+    g.onsuccess = () => {
+      const snap = g.result;
+      if (!snap) return;
+      if (snap.journal) st.put(snap.journal);
+      else st.delete('~journal');
+      if (snap.rec) st.put(snap.rec);
+      else st.delete('connect4');
+      if (dropIt) st.delete(key);
+    };
+    tx.oncomplete = () => (r.result.close(), ok(true));
+    tx.onerror = () => (r.result.close(), ok(false));
+  };
+  r.onerror = () => ok(false);
+}), [C4SNAP, drop]);
+/** The journal's last look moved back `ago` ms, with nothing counted then. */
+const seenBack = (ago) => page.evaluate((a) => new Promise((ok) => {
+  const r = indexedDB.open('ghosty-gym', 1);
+  r.onsuccess = () => {
+    const tx = r.result.transaction('games', 'readwrite');
+    const st = tx.objectStore('games');
+    const j = st.get('~journal');
+    j.onsuccess = () => st.put({ id: '~journal', c4: j.result?.c4 ?? [], seen: { at: Date.now() - a, t: { lessons: 0, self: 0, solved: 0, played: 0 } } });
+    tx.oncomplete = () => (r.result.close(), ok(true));
+    tx.onerror = () => (r.result.close(), ok(false));
+  };
+  r.onerror = () => ok(false);
+}), ago);
+await snapshotC4();
+// The first trick by taps on the real board: no four for the owner, a reason under the board after each of his moves,
+// and the page never freezes while he thinks (the worker does the thinking).
+await G('button', { hasText: 'NEW GAME' }).click();
+await page.evaluate(() => {
+  window.__ticks = [];
+  clearInterval(window.__tick);
+  window.__tick = setInterval(() => window.__ticks.push(performance.now()), 50);
+});
+const captions = [];
+for (const c of TRICKS[0]) {
+  const s0 = await st();
+  if (s0.play.over) break;
+  const before = s0.play.board.filter((x) => x === 2).length;
+  // (a four first, as the owner would)
+  await G('.gymboard button.gymcell').nth(c - 1).click();
+  await until((n) => window.__ghosty.gym.play.board.filter((x) => x === 2).length > n || !!window.__ghosty.gym.play.over, 20000, `he did not answer my column ${c}`, before);
+  captions.push(await G('.gymboard .gymcap').innerText().catch(() => ''));
+}
+const c4gap = await page.evaluate(() => {
+  const t = window.__ticks;
+  let worst = 0;
+  for (let i = 1; i < t.length; i++) worst = Math.max(worst, t[i] - t[i - 1]);
+  clearInterval(window.__tick);
+  return { worst: Math.round(worst), n: t.length };
+});
+if (c4gap.worst > 500) problems.push(`the page froze while he thought: longest gap ${c4gap.worst} ms`);
+if ((await st()).play.over === 'You win.') problems.push(`the bottom-row trick still wins on the board: ${captions.join(' | ')}`);
+if (captions.some((t) => !/\. Your move\.$|wins|draw/i.test(t) || /^He dropped in column/.test(t))) problems.push(`his reasons on the board: ${captions.join(' | ')}`);
+console.log(`the bottom-row trick on the board: ${captions.join(' | ')} (longest page pause ${c4gap.worst} ms)`);
+await page.screenshot({ path: `${out}/gym-c4-reason.png` });
+
+// ---- he learns from the owner's games (gym2): a real game he loses, studied while the GYM is idle ----
+// He thinks on a test's tiny limit (2,000 positions a move: PLAY HIM otherwise takes its full time and does not lose
+// to this) against the owner's moves from a second engine in its own worker (1.2 s a move). After the loss, with
+// nothing training, he studies it with the solver: the card, the game screen and the review say what he found.
+// (Fails on the old code: no journal, no study, no lines.)
+await page.evaluate(() => (window.__ghosty.gym.limit = { nodes: 2000 }));
+const oracle = (board) => page.evaluate((b) => new Promise((ok) => {
+  if (!window.__oracle) {
+    window.__oracle = new Worker('/textures.worker.js');
+    window.__oracleWait = new Map();
+    window.__oracle.onmessage = (e) => e.data?.gym === 'reply' && (window.__oracleWait.get(e.data.req)?.(e.data), window.__oracleWait.delete(e.data.req));
+  }
+  const id = 800000 + Math.floor(Math.random() * 99999);
+  window.__oracleWait.set(id, (m) => ok(m.move));
+  window.__oracle.postMessage({ gym: 'move', id: 'connect4', req: id, board: b, rec: null, epoch: 0, limit: { ms: 1200 } });
+}), board);
+let lostGame = null;
+for (let tries = 0; tries < 3 && !lostGame; tries++) {
+  await G('button', { hasText: 'NEW GAME' }).click();
+  for (let i = 0; i < 21; i++) {
+    const s0 = await st();
+    if (s0.play.over) break;
+    const col = await oracle(s0.play.board);
+    const stones = s0.play.board.filter((x) => x).length;
+    await G('.gymboard button.gymcell').nth(col).click();
+    await until((n) => window.__ghosty.gym.play.board.filter((x) => x).length >= n + 2 || !!window.__ghosty.gym.play.over, 20000, 'he did not answer (the learning game)', stones);
+  }
+  const s1 = await st();
+  if (s1.play.over === 'You win.') lostGame = s1.play.board;
+}
+await page.evaluate(() => (window.__ghosty.gym.limit = null));
+if (!lostGame) problems.push('learning: the owner\'s engine did not beat him in three games on the tiny limit');
+else {
+  await until(() => window.__ghosty.gym.c4.studied >= 1 && !window.__ghosty.gym.c4.studying, 180000, 'learning: the lost game was never studied');
+  const c4 = (await st()).c4;
+  if (!/^You beat me at move \d+( with (a double threat on columns [\d, and]+|two threats stacked in column \d|the (odd|even) threat on the \w+ row of column \d|your threat on the \w+ row of column \d: I played under it|four in a row through column \d))?\. I’ve studied it\. Play me again\.$/.test(c4.screen)) problems.push(`learning: the game screen says "${c4.screen}"`);
+  if (!/^You’ve taught me \d+ lessons?\.$/.test(c4.card)) problems.push(`learning: the card says "${c4.card}"`);
+  const cardText = await G('.gymcard[data-game="connect4"] .gymsay').innerText().catch(() => '');
+  if (cardText !== c4.card) problems.push(`learning: the Connect 4 card shows "${cardText}", not "${c4.card}"`);
+  if (!/^You’ve taught me \d+ lessons?; (I’ve won \d+ of (our \d+|the last 5)|you won our only game)\.$/.test(c4.count)) problems.push(`learning: the count says "${c4.count}"`);
+  if (!c4.review.length || !c4.review.some((r) => /^Move \d+ · Your /.test(r))) problems.push(`learning: the review: ${JSON.stringify(c4.review)}`);
+  const shown = await G('.gymsays b').innerText().catch(() => '');
+  if (shown !== c4.screen) problems.push(`learning: the game screen shows "${shown}"`);
+  if (!(await G('.gymreview').count())) problems.push('learning: no review under the finished game');
+  console.log(`learning from him: lost at move ${lostGame.filter((x) => x).length}; "${c4.screen}" · card "${c4.card}" · "${c4.count}" · review: ${c4.review.join(' | ')} · book ${c4.book} positions, ${c4.lessons} lessons`);
+  await G('.gymreview').scrollIntoViewIfNeeded().catch(() => undefined);
+  await wideCheck('the review after a loss');
+  await page.screenshot({ path: `${out}/gym-c4-review.png` });
+  await G('.gymsays').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.screenshot({ path: `${out}/gym-c4-line.png` });
+}
+await page.evaluate(() => window.__oracle?.terminate());
+// Connect 4's record and the journal go back as they were before the spec's games (nothing pondering meanwhile: the
+// GYM is left first).
+await page.evaluate(() => (location.hash = 'core'));
+await page.waitForTimeout(800);
+await restoreC4(false);
+// The GYM's greeting says what changed since he last looked: the journal's last look moved back a day with nothing
+// counted then, the GYM opened again.
+await seenBack(86_400_000);
+await boot();
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back for the greeting', CARDS);
+await until(() => !!window.__ghosty.gym.c4.greeting, 10000, 'no greeting when the GYM opened');
+const greetTxt = await page.locator('#pg-gym .two > .hero .sub').innerText().catch(() => '');
+if (!/^Since yesterday: (\d+ games? with you, )?(\d+ lessons? from you, )?[\d,]+ games? against myself(, \d+ positions? solved)?\.$/.test(greetTxt)) problems.push(`the GYM's greeting reads "${greetTxt}"`);
+console.log(`the GYM's greeting: "${greetTxt}"`);
+await closeLog();
+await page.screenshot({ path: `${out}/gym-greeting.png` });
+// Then back again (the greeting's look is the spec's too), and the app opened afresh.
+await page.evaluate(() => (location.hash = 'core'));
+await page.waitForTimeout(800);
+await restoreC4(true);
+await boot();
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the learning section', CARDS);
+await closeLog();
+
 // ---- PLAY HIM on the bigger boards: checkers, chess, Go (taps; legal squares light up) ----
 const cellAt = (i) => G('.gymboard button.gymcell').nth(i);
 const lit = () => page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymboard .gymcell.tgt')].length);
@@ -324,7 +546,7 @@ for (const [id, pick, to, label] of [
   if (!(await cellAt(to).evaluate((e) => e.classList.contains('tgt')))) problems.push(`${id}: the square I want is not lit as legal`);
   await page.evaluate(() => (window.__ghosty.gym.play.replies = 0));
   await cellAt(to).click();
-  await until(() => (window.__ghosty.gym.play.replies ?? 0) >= 1 || /He played/.test(document.querySelector('#pg-gym .gymboard .gymcap')?.textContent ?? ''), 30000, `he did not answer my ${id} move`);
+  await until(() => (window.__ghosty.gym.play.replies ?? 0) >= 1 || /I played/.test(document.querySelector('#pg-gym .gymboard .gymcap')?.textContent ?? ''), 30000, `he did not answer my ${id} move`);
   await wideCheck(`playing ${id}`);
   await page.screenshot({ path: `${out}/gym-${id}.png` });
 }
@@ -406,7 +628,7 @@ await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not st
 // ---- RESET: asks first (a "…" menu that says what will go), and an open question does not carry over to another game ----
 await tap('codebreaker');
 await G('.gymmore').click().catch(() => problems.push('the game has no … menu'));
-if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? He forgets/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
+if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? I forget everything I learned in it/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
 await tap('maze');
 if (await G('.gymmenu').isVisible()) problems.push('the RESET menu carried over to another game');
 if (!/maze/i.test(await G('.gymmenu .gymmenunote').textContent())) problems.push('the RESET menu does not name the open game');

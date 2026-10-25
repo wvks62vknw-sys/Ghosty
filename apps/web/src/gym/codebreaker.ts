@@ -151,7 +151,7 @@ class CodeLearner implements Learner {
     const known = lvl(this.level) === 10 ? ' (best possible: 4.340)' : '';
     return {
       mastery: closed(his, naiveAvg(spaceFor(this.level)), y.avg),
-      detail: `${p} pegs, ${k} symbols: he needs ${his.toFixed(3)} guesses on average over all ${n.toLocaleString('en-GB')} codes; Knuth's minimax needs ${y.avg.toFixed(3)}, never more than ${y.worst}${known}; guessing the first code that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(3)} (0%).`,
+      detail: `${p} pegs, ${k} symbols: I need ${his.toFixed(3)} guesses on average over all ${n.toLocaleString('en-GB')} codes; Knuth's minimax needs ${y.avg.toFixed(3)}, never more than ${y.worst}${known}; guessing the first code that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(3)} (0%).`,
     };
   }
   save(): CodeSaveData {

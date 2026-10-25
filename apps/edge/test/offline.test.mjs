@@ -226,6 +226,8 @@ await import('./gym2a.test.mjs');
 // The GYM's next level: league play against his past selves, puzzles at his edge, records from checked work,
 // the REPORT CARD's LOOPS card (BRIEF-GYM-IDEAS).
 await import('./gymideas.test.mjs');
+// PLAY HIM at full strength, lessons from the owner's games, the tactical floor on the other boards (gym2).
+await import('./gymvs.test.mjs');
 
 // The offline brain's weekly self-training on Kaggle (apps/edge/src/selftrain): its tests live in
 // selftrain.test.mjs (run from here for the same reason).

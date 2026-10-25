@@ -1,8 +1,8 @@
-# Where everything stands — 24 October 2026, 20:00 UK
+# Where everything stands — 25 October 2026, 08:30 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 at 10:12, PR #33 at 19:12)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #39, the last at 08:13 UK on 25 Oct)
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -40,28 +40,25 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - UNDO everywhere: a 12-second UNDO bar on every removal or big change, a one-tap confirm when it cannot come back.
 - The plain-words guide for life after 14 November.
 
-## 2. Done, going up now as PR #34 (checked here: brain suite 1,163 of 1,163)
+**Live since last night (PR #34 to PR #39)**
+- The offline brain is kept between opens (Ghosty's own update step was wiping it); the biggest brain downloads in 32 MB parts that survive a close; the panel says what the phone holds.
+- A bigger brain to choose (Qwen3 0.6B, Qwen3.5 2B, Qwen3.5 4B), the big-brain crash fix, and training beyond Kaggle's hours.
+- The navigation: the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda in sections behind pills, the hubs in your own readings.
+- The Iron Man look: instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures.
+- The boot cinematic (MIND waking, once a day until the pull request below).
+- The scroll audit at your phone's size; an exam paper is never trained on.
+- Upgrade passes merged, ten-odd fixes each: Threats, God's Eye, the Lens, the Brief, voice, Workshop, Memory, the Library, Settings, Markets, Radio, Reverse.
 
-- A BIGGER BRAIN: Qwen3 0.6B / Qwen3.5 2B / Qwen3.5 4B to choose in SETTINGS → OFFLINE BRAIN; the weekly training follows the brain in use.
-- The THREATS upgrade pass: no false all-clear, two dead feeds revived (space weather, launches), the recon report in plain words.
-- The GOD'S EYE upgrade pass: cards and the CCTV grid no longer overlap, layer choices kept, names stay off the bars, the readout in words.
-- The LENS upgrade pass: results above the tab bar, STOP from the moment the camera opens, plain status lines, the empty viewfinder explains itself.
+## 2. Done, going up now in the pull request after #39
+
+- The GYM: Connect 4 plays you at full strength whatever his level (the four trick lines that beat him every time now never win); every game with you is kept, a loss is studied and becomes a lesson he plays right; he speaks as "I" and tells you what changed since yesterday.
+- The boot on every cold open, a richer 3.9 s cut (depths, trails, the sphere from the inside out, the name over a line of light), held to a frame budget; it can never leave the app behind the black.
+- Little tabs inside every long screen: Settings, the Library, Memory, School, the Workshop, Threats and Links, like System and the Agenda; one section at a time, the one you picked remembered.
+- Four checks that were written but never run by GitHub now run on every push (the boot, the hub cards, SPENDING, UNDO).
 
 ## 3. Happening right now
 
-- Live on your phone with the next open: PR #36 (02:08 UK: the big-brain crash fix, the Brief, voice, Workshop and Memory passes, the scroll audit, the boot cinematic), PR #37 (03:31 UK: the Iron Man look on every hub, the Library pass, an exam paper you add never trained on) and PR #38 (04:55 UK: the Settings and Markets passes). PR #39 (opened 05:35 UK) carries the navigation build (the little tabs on System and Agenda, a long press on a tab fans out its tools, the GYM in pages of six, the hubs in your own words) and the Radio and Reverse passes; I merge it when its checks are green.
-- Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
-- Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
-- Merged at 01:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
-- Merged at 01:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
-- Merged at 02:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
-- Merged at 04:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
-- Upgrade pass running since 02:30 UK: Reverse.
-- Merged at 03:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
-- Telegram's pass: dropped at your word.
-
-- Merged at 05:45 UK and on its way in PR #39: the brain kept between opens. The cause was Ghosty's own update step wiping the downloaded brains every time a new version arrived (several times a day this week), now fixed; the biggest download comes in 32 MB parts that survive a close, the panel says exactly what your phone holds, and a download that cannot fit is refused before it starts.
-- Being built from your messages this morning: little tabs inside every long screen (Settings, Library, Memory, School, Workshop, Threats, Links); the GYM's Connect 4 at full strength with lessons from your games and the Machine's voice; the boot on every cold open and cooler.
+- Waiting on you: the four steps on the Offline Brain panel (in my message), and the picks for Ghosty and you as Harold and the Machine.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
@@ -77,7 +74,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 
-- Done: 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
+- Done: 47 the brain kept between opens (live), 48 the little tabs, 49 the boot on every open and 52 the GYM (going up now); 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
 - Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: twelve merged; Agenda and System to go, after the little tabs land in them), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
 - Waiting on you: 21/29 the self-edit trial's results, 23 the phone's arrival, 37 (a)–(l) the taps only you can do, the voice blind check.
 
