@@ -27,6 +27,11 @@ rails, small chunks, the credit rules).
     said 19:00 — so target the clock but confirm the real usage % has actually ticked over before firing builders).
     Current window 23→30 Oct, so building starts at the next reset: **Fri 30 Oct, 18:00 UK**. Then 30 Oct→6 Nov,
     6→13 Nov. Merge to `main` at the end of each week.
+  - **Build scope (his call, 26 Oct):** items 1–54 are built/shipped — do NOT re-chew them. The remaining build
+    backlog is **OWNER-ISSUES 55–78** (the Machine/Harold vision). A few items below 55 have only "confirm it on
+    the phone" threads still open (his usage, not build work). Build order within 55–78 (decided): the school-sit
+    crash (57c, live bug) → the conversational pass + fail-closed on-device routing (64, 72) → the one shared mind
+    (74, the keystone) → then outward; the weekly training + independence meter (65, 78) early since use compounds.
 
 ## 1. What we need from you to start (only you can do these)
 
