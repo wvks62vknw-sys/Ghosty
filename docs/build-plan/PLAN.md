@@ -23,8 +23,10 @@ rails, small chunks, the credit rules).
   - **Kaggle's free GPUs**: about 30 GPU-hours a week, 12 hours per run, two T4s of 16 GB (Kaggle retired the P100
     on 15 Sep 2026: RESEARCH-FREE-GPU.md; the hours are a user-reported figure, Kaggle does not publish them; the
     account must be phone-verified to get GPUs and internet in a notebook).
-  - **Deadline**: Claude Max ends 14 Nov; usage resets Fridays at 19:00 UK. Three windows: 23 to 30 Oct, 30 Oct to
-    6 Nov, 6 to 13 Nov. Merge to `main` at the end of each week.
+  - **Deadline**: Claude Max ends 14 Nov; usage resets Fridays at 18:00 UK (his confirmation, 26 Oct; the doc had
+    said 19:00 — so target the clock but confirm the real usage % has actually ticked over before firing builders).
+    Current window 23→30 Oct, so building starts at the next reset: **Fri 30 Oct, 18:00 UK**. Then 30 Oct→6 Nov,
+    6→13 Nov. Merge to `main` at the end of each week.
 
 ## 1. What we need from you to start (only you can do these)
 
