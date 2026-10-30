@@ -619,6 +619,75 @@ folder that no longer exists; ignore those paths).
   daily jobs) can hold the single thread when the question lands. The spec now waits 120 s, and when no cited reply
   comes it reports the last message's class and words and skips the chip, source and click checks (no throw), so a
   second red names the cause. Pushed as the next head; the spec is clean here.
+- 25 Oct 12:12 UK: PR #40 MERGED (f1d9cc6) after run 245 (4959c11) went green: brain 10:55–11:05, smoke 10:55–12:11,
+  interface, deploy-build and Workers Builds green; all 73 specs reported, cited in 15 s (run 244's red did not come
+  back: a one-off on the runner, and the hardened spec names the cause if it does), nav 299 s and routec 315 s on their
+  720 s. The branch fast-forwarded to main. Live on the owner's phone with
+  his next open: the GYM at full strength, the boot on every cold open, the little tabs on seven more screens, the four
+  specs in CI's loop. Next pull request: #41, from whatever lands next (the Agenda and System passes wait for the
+  allowance reset; the owner's answers wait: the four Offline Brain steps, the Harold/Machine picks, the usage numbers).
+- 25 Oct 12:20 UK: two leftovers of the sections rollout done by hand (no builder): System's report-card link opens the
+  Offline Brain panel (features/system/reportcard.ts: goToPanel instead of go), and the deck's twenty miniatures made
+  again on a fresh preview (tests/deckshots.spec.mjs; all twenty change bytes, the sectioned screens change looks).
+  Seen in the new pictures, for the Settings pass: the Appearance section holds one row (THEME), so the screen opens
+  nearly empty under its pills — Appearance and You may belong together, or You should come first (a design pick for
+  the owner, or the pass). Pushed as PR #41.
+- 25 Oct 12:30 UK: the owner's numbers, corrected at 12:40: ALL MODELS weekly 95 %, Fable weekly 60 % (OWNER-ISSUES 53).
+  RULE FROM HERE: no builder starts until the weekly reset (every model counts against the 95 %); the orchestrator spends
+  almost nothing: merge PR #41 on green, answer the owner, write the first brief for the reset once he picks. Ask him
+  when the window resets (the app shows it). A fresh session starts from HANDOFF, STATUS and OWNER-ISSUES 53.
+- 25 Oct 13:00 UK: his two bugs (OWNER-ISSUES 54) fixed by hand and pushed onto PR #41: assistant/session.ts (an
+  AbortError after a stop says nothing; the stop words widened) and agent.ts `[links]` (build_app's link treated like
+  publish_site's). Verified: web and edge typecheck, sites.test 81/81, voice, apps, direct specs. Spent as little as
+  possible (all models at 95 %).
+- 25 Oct 14:05 UK: PR #41's runs on its earlier heads (e3d451e, 2090fc4) went red on the upgrades spec ("THINK NOW did not
+  show the new idea first") and once on radio ("controls under 44 pt", every one printed as 44). Causes: the upgrades
+  spec stubs /api/upgrades* with page.route(), but once the app's service worker controls the page those requests bypass
+  the stubs and the real brain answers THINK NOW with the scripted model's list, whose first idea has the same title as
+  the stub's old one; a slow runner lost that race (13:05 UTC, three runs at once). Fixed: `serviceWorkers: 'block'` on
+  the spec's context (as the safari spec's voice context does). Radio measured its controls while the screen's entry
+  animation still scaled them: it now waits for the animations to finish. Both clean here; pushed as the next head.
+  Cloudflare's "Workers Builds" check on 5bb1925 failed at the second it started with no output while the repo's own
+  dry run (deploy-build) was green: one standing-down comment on the PR; the owner was asked for the build page's last
+  lines. The owner's asks of the afternoon are OWNER-ISSUES 55 and 56 (the Machine's eyes, the guardian, the social
+  side, the cousin by Telegram or email); first briefs after the weekly reset (all models at 95 %).
+- 25 Oct 15:42 UK: PR #41 MERGED (002f7b3) after 232f804 went green on all six checks (smoke 14:02–15:41; Cloudflare's
+  build too, so its instant failure on 5bb1925 was a one-off). Live with the owner's next open: a stop goes quiet, a
+  built app's link in the reply's words, the report-card link, the deck pictures. Nothing building; the next pull request
+  starts with the first brief after the weekly reset (OWNER-ISSUES 55/56: the Machine's eyes, the guardian, the social
+  side). Waiting on him: Telegram or email for the cousin, the four Offline Brain steps, his Connect 4 trick, the reset time.
+- 25 Oct 15:55 UK: OWNER-ISSUES 57: the school sitting on the offline brain crashes the page on his phone (first fix
+  after the reset: memory headroom while sitting, the smallest brain by default, resume after a crash); no mastery cap
+  in the GYM; a working 3-D engine and car knowledge; the full Machine/Harold list put to him. Builders wait for the reset.
+- 30 Oct 20:50 UK (the weekly reset; Fable): main had moved — the guard (`check.yml`'s `guard` job, user `ghosty-guard`)
+  reverted PR #41 at 16:57 UK on 25 Oct ("Undo broken change: restore f1d9cc6 (checks failed on 002f7b3)"), so the
+  stop-goes-quiet and built-app-link fixes were OFF the owner's phone all week. Cause, read from run 253's log: ONE spec
+  failed, `voice`, step 3 ("with no connection the owner was told ''"). NOT a regression from #41: the STT no-connection
+  path (`voiceTurn` → `listen()` → `brain.stt` TypeError → `Error(NO_SIGNAL)` → the toast in `features/core/index.ts`)
+  never touches session.ts. A timing flake: the recogniser's first 20 animation frames calibrate the noise floor and learn
+  any voice heard then AS the room; the spec spoke 400 ms after the tap, for 700 ms, which on a runner drawing 500 ms frames
+  fell inside calibration → nothing heard, nothing sent, no toast (and the spec tolerated `listening` never arriving).
+  Passed locally twice. Fix in the spec: `tapAndSpeak` (tap → wait for the mic to really open via `__mic.calls` → wait for
+  `listening` → a calibration wait scaled to the page's MEASURED frame rate, capped under the 12 s quiet limit → speak 1 s),
+  at the three identical sites; the no-connection toast wait 8 → 15 s. One real app bug found alongside, one line: a fresh
+  mic tap resets the `quiet` count (a new conversation after a quiet-ended one died on its first silent listen). Verified:
+  interface typecheck, the web bundle rebuilt, voice spec clean on the fresh preview. Lessons: (1) the guard is right to
+  exist and did its job — a FLAKY SPEC is what turns it into a liability, so any spec that drives timing against animation
+  frames waits on a measured signal, never a fixed pause; (2) `pkill -f` matches the calling shell's own command line —
+  anchor the pattern (`^node tests/preview-server\.mjs$`) or it kills the chain it runs in; (3) `apps/web/dist` is
+  gitignored and built by apps/edge's postinstall — a local spec run after a web change needs `npm run build` in apps/web
+  first, or it tests the old bundle. Re-landed in the pull request opened right after this note (the branch merged with
+  main by `-s ours`, so it carries the guard's revert in history and restores #41's tree). The build backlog is
+  OWNER-ISSUES 55–79 (his call, 26 Oct); batch 1 = BRIEF-DEPENDABILITY.md (57c, 64a, 72, 79) on one Opus builder.
+- TOKEN BUDGET (owner, 25 Oct, OWNER-ISSUES 67 and clarified in 68): the rule is EFFICIENCY, NOT SLOWNESS — fast is fine,
+  waste is not. Maximise output per credit across BOTH all-models and Fable weekly. Means: the cheapest model that does
+  the job (Sonnet mechanical, Opus only hard design/architecture, Fable plan/review/merge); batch related work into one
+  builder rather than fanning out several; one CI run per batch, validate locally first; small fixes by hand not a
+  builder; the orchestrator reads minimally (grep not whole files, log tails not whole logs, no re-reads); no redundant
+  push-fix-push cycles. Speed is allowed; wasted credits are not. (All-models hit 95 % in a day this week via several
+  concurrent Opus builders + many CI pushes — that was the waste to avoid, not the speed.) The BRIEF-MACHINE vision is
+  fully in OWNER-ISSUES 55–68; build next (conversational pass first per 64, then the Abilities tab per 68), stop
+  expanding the spec.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
