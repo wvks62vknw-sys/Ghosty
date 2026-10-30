@@ -659,6 +659,26 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 15:55 UK: OWNER-ISSUES 57: the school sitting on the offline brain crashes the page on his phone (first fix
   after the reset: memory headroom while sitting, the smallest brain by default, resume after a crash); no mastery cap
   in the GYM; a working 3-D engine and car knowledge; the full Machine/Harold list put to him. Builders wait for the reset.
+- 30 Oct 20:50 UK (the weekly reset; Fable): main had moved — the guard (`check.yml`'s `guard` job, user `ghosty-guard`)
+  reverted PR #41 at 16:57 UK on 25 Oct ("Undo broken change: restore f1d9cc6 (checks failed on 002f7b3)"), so the
+  stop-goes-quiet and built-app-link fixes were OFF the owner's phone all week. Cause, read from run 253's log: ONE spec
+  failed, `voice`, step 3 ("with no connection the owner was told ''"). NOT a regression from #41: the STT no-connection
+  path (`voiceTurn` → `listen()` → `brain.stt` TypeError → `Error(NO_SIGNAL)` → the toast in `features/core/index.ts`)
+  never touches session.ts. A timing flake: the recogniser's first 20 animation frames calibrate the noise floor and learn
+  any voice heard then AS the room; the spec spoke 400 ms after the tap, for 700 ms, which on a runner drawing 500 ms frames
+  fell inside calibration → nothing heard, nothing sent, no toast (and the spec tolerated `listening` never arriving).
+  Passed locally twice. Fix in the spec: `tapAndSpeak` (tap → wait for the mic to really open via `__mic.calls` → wait for
+  `listening` → a calibration wait scaled to the page's MEASURED frame rate, capped under the 12 s quiet limit → speak 1 s),
+  at the three identical sites; the no-connection toast wait 8 → 15 s. One real app bug found alongside, one line: a fresh
+  mic tap resets the `quiet` count (a new conversation after a quiet-ended one died on its first silent listen). Verified:
+  interface typecheck, the web bundle rebuilt, voice spec clean on the fresh preview. Lessons: (1) the guard is right to
+  exist and did its job — a FLAKY SPEC is what turns it into a liability, so any spec that drives timing against animation
+  frames waits on a measured signal, never a fixed pause; (2) `pkill -f` matches the calling shell's own command line —
+  anchor the pattern (`^node tests/preview-server\.mjs$`) or it kills the chain it runs in; (3) `apps/web/dist` is
+  gitignored and built by apps/edge's postinstall — a local spec run after a web change needs `npm run build` in apps/web
+  first, or it tests the old bundle. Re-landed in the pull request opened right after this note (the branch merged with
+  main by `-s ours`, so it carries the guard's revert in history and restores #41's tree). The build backlog is
+  OWNER-ISSUES 55–79 (his call, 26 Oct); batch 1 = BRIEF-DEPENDABILITY.md (57c, 64a, 72, 79) on one Opus builder.
 - TOKEN BUDGET (owner, 25 Oct, OWNER-ISSUES 67 and clarified in 68): the rule is EFFICIENCY, NOT SLOWNESS — fast is fine,
   waste is not. Maximise output per credit across BOTH all-models and Fable weekly. Means: the cheapest model that does
   the job (Sonnet mechanical, Opus only hard design/architecture, Fable plan/review/merge); batch related work into one

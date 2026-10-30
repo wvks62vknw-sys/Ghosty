@@ -1,8 +1,12 @@
-# Where everything stands — 25 October 2026, 15:45 UK
+# Where everything stands — 30 October 2026, 21:00 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
 ## 1. Done and live on your phone (merged to main: PR #32 to PR #41, the last at 15:42 UK on 25 Oct)
+
+- NOTE (30 Oct): PR #41 (a stop goes quiet, a built app's link always delivered, the report-card link, the deck pictures) was
+  automatically reverted on main by the guard at 16:57 UK on 25 Oct after a flaky spec step — so those four were NOT on your
+  phone this week. Restored in the pull request opened 30 Oct (with that spec made robust); live again once it merges.
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
