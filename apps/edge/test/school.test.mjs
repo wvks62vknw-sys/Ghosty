@@ -1375,15 +1375,17 @@ test('the tools know the banks and official papers: school_status says where eac
   assert.doesNotMatch(text2, /not written yet/);
 });
 
+/** sit.ts with its browser-only imports stubbed (its pure parts are tested: the exam prompt, the brain and the cap). */
+const buildSit = () => build({
+  entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
+  plugins: [{ name: 'stub', setup(b) {
+    b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"",brainsHere=0,currentModel=0,offlineBrain=0,offlineModels=0,sitOn=0,unloadOffline=0;' }));
+  } }],
+});
+
 test('the exam prompt: the shared one (sent to Kaggle and to the online model) is the phone\'s own, word for word', async () => {
-  // sit.ts with its browser-only imports stubbed: only examPrompt is used
-  await build({
-    entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
-    plugins: [{ name: 'stub', setup(b) {
-      b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
-      b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"";' }));
-    } }],
-  });
+  await buildSit();
   const SIT = await import('./.build/school/sit.mjs');
   const FIXT = JSON.parse(readFileSync(at('../../../training/kaggle/fixtures.json'), 'utf8'));
   assert.ok(FIXT.examPrompts.length >= 5);
@@ -1400,6 +1402,79 @@ test('the exam prompt: the shared one (sent to Kaggle and to the online model) i
     const p = P.makePaper(stage, subject, P.PAPER_SEED_FLOOR + 7);
     for (const it of p.items) assert.deepEqual(S.examMessages(it, it.passage ? p.passages.find((x) => x.id === it.passage) : undefined), SIT.examPrompt(it, p.passages ?? []));
   }
+});
+
+test('sitting on the phone (57c): a bigger brain writes shorter, and a paper is sat on the smallest brain here unless he chose the bigger one for school', async () => {
+  await buildSit();
+  const SIT = await import('./.build/school/sit.mjs');
+  const M = await import('./.build/offline-models.mjs');
+  const [small, half] = M.MODELS;
+  const [b08, b2, b4] = M.BIGGER;
+  // the writing cap by brain size: the small brains keep the shared 350, every bigger one writes no longer than an answer
+  assert.equal(SIT.writingCap(small), SIT.TOKENS.writing);
+  assert.equal(SIT.writingCap(half), SIT.TOKENS.writing);
+  for (const m of [b08, b2, b4]) assert.equal(SIT.writingCap(m), SIT.TOKENS.item, m.label);
+  assert.ok(SIT.TOKENS.item < SIT.TOKENS.writing);
+  // a trained week of a bigger base is a bigger brain too; one of the 0.6B is not
+  const weeks = M.trainedModels([{ week: 3, label: 'w3', repo: 'ghosty/w3', commit: 'a'.repeat(40), base: 'qwen3.5-2b' }, { week: 4, label: 'w4', repo: 'ghosty/w4', commit: 'b'.repeat(40) }], '', `/api/w/${'c'.repeat(48)}/`);
+  assert.equal(weeks.length, 2);
+  assert.equal(SIT.writingCap(weeks[0]), SIT.TOKENS.item);
+  assert.equal(SIT.writingCap(weeks[1]), SIT.TOKENS.writing);
+  // which brain sits it
+  assert.equal(SIT.sitBrain(small, [small, b2], null).id, small.id, 'a small brain in use sits it');
+  assert.equal(SIT.sitBrain(small, [half, small], null).id, small.id, 'never moved between the small ones');
+  assert.equal(SIT.sitBrain(b2, [b2, small], null).id, small.id, 'the smallest on this phone, not the 2B in use');
+  assert.equal(SIT.sitBrain(weeks[0], [weeks[0], small], null).id, small.id, 'a trained 2B week too');
+  assert.equal(SIT.sitBrain(b4, [b4, b08], null).id, b08.id, 'the smallest here, even a bigger one');
+  assert.equal(SIT.sitBrain(b2, [b2], null).id, b2.id, 'nothing smaller here: the brain in use');
+  assert.equal(SIT.sitBrain(b2, [small, b2], b2.id).id, b2.id, 'he chose the 2B for school');
+  assert.equal(SIT.sitBrain(b2, [small, b2], b4.id).id, small.id, 'a choice of another brain is not a choice of this one');
+  // the one line that says which brain is sitting
+  assert.equal(SIT.brainLine({ brain: small, cur: b2, chosen: false }, true), "I'm sitting it on Qwen3 0.6B, the smallest brain on this phone: a paper is long work.");
+  assert.equal(SIT.brainLine({ brain: small, cur: small, chosen: false }, false), 'I sit papers on Qwen3 0.6B.');
+  assert.equal(SIT.brainLine({ brain: b2, cur: b2, chosen: true }, false), 'I sit papers on Qwen3.5 2B, as you chose: my written answers are kept shorter on it.');
+});
+
+test('sitting on the phone (57c): every answer is saved as it is written, and a failed brain stops the paper there (no blank answer for every question left)', async () => {
+  await buildSit();
+  const SIT = await import('./.build/school/sit.mjs');
+  const items = Array.from({ length: 6 }, (_, i) => ({ id: `q${i + 1}`, q: `What is ${i} + 1?`, type: i === 5 ? 'extended' : 'number', marks: 1 }));
+  const paper = { id: 'p', stage: 'nursery', subject: 'numbers', title: 'Nursery Numbers · written by Ghosty', official: false, maxMarks: 6, items, passages: [] };
+  const run = (gen, done = new Set(), writing) => {
+    const saves = [];
+    const asked = [];
+    const r = SIT.runPaper(paper, { gen: async (m, o) => (asked.push(o.max), gen(m, o)), save: async (a) => void saves.push(a.map((x) => x.id)), done, signal: new AbortController().signal, onProgress: () => undefined, writing });
+    return { r, saves, asked };
+  };
+  // every answer goes to the brain at once (not every 5)
+  let x = run(async () => 'Answer: 1');
+  assert.deepEqual(await x.r, { rest: [], stopped: false });
+  assert.deepEqual(x.saves, [['q1'], ['q2'], ['q3'], ['q4'], ['q5'], ['q6']]);
+  // the writing cap reaches the piece of writing, and only it
+  x = run(async () => 'Answer: done', new Set(), SIT.writingCap({ id: 'Qwen3.5-2B-q4f16_1-MLC', brain: 'qwen3.5-2b' }));
+  await x.r;
+  assert.deepEqual(x.asked, [200, 200, 200, 200, 200, 200]);
+  x = run(async () => 'Answer: done');
+  await x.r;
+  assert.equal(x.asked.at(-1), 350);
+  // one question the model could not answer: a blank for it, and on to the next
+  let n = 0;
+  x = run(async () => (++n === 2 ? Promise.reject(new Error('Prompt tokens exceed context window size')) : 'Answer: 1'));
+  assert.equal((await x.r).rest.length, 0);
+  assert.equal(x.saves.length, 6);
+  // the model itself failed at question 3 (WebGPU lost its device): q1 and q2 kept, nothing more asked, the question reached thrown
+  n = 0;
+  x = run(async () => {
+    if (++n === 3) throw Object.assign(new Error('Device was lost'), { gone: true });
+    return 'Answer: 1';
+  });
+  await assert.rejects(x.r, (e) => e.gone === true && e.n === 3 && e.of === 6);
+  assert.deepEqual(x.saves, [['q1'], ['q2']]);
+  assert.equal(x.asked.length, 3, 'no question after the failure');
+  // carried on later from where it stopped: q1 and q2 are not asked again
+  x = run(async () => 'Answer: 1', new Set(['q1', 'q2']));
+  await x.r;
+  assert.deepEqual(x.saves, [['q3'], ['q4'], ['q5'], ['q6']]);
 });
 
 // ---- MARK MY WORK (school/markwork.ts): the owner's own page, read in the Lens, corrected by him, marked once ----
