@@ -95,10 +95,11 @@ he resolved "kiddo" to a stored person (the owner's cousin) and invented a confi
   `node tests/preview-server.mjs &` and run every spec you touched or whose area you changed
   (`school`, `offlinebrain`, `telegram`, `direct`, `routec`, `thinkharder`, `bigbrain`, plus any you add) — the
   loop and its timeouts are in `.github/workflows/check.yml`. A spec you add goes into that loop.
-- **Push once, open one pull request** against `main` when everything is green locally; do not push to kick CI,
-  do not push partial work. The PR body: what each item fixes, how you proved it (commands and results), what you
-  could not verify without the owner's phone, and anything you deliberately left out. Do **not** merge: the
-  orchestrator reviews and merges.
+- **Do not push and do not open a pull request.** Commit on your worktree's branch (one commit per item) and stop
+  when everything is green locally; the orchestrator reviews your branch, merges it into the session branch and
+  opens the one pull request (one CI run per batch is the budget). Your report is that PR's source: what each item
+  fixes, how you proved it (commands and results), what you could not verify without the owner's phone, and anything
+  you deliberately left out.
 - Conventions: the interface is built with `h()`/`svgEl` only, never `innerHTML`; every word on screen is in the
   first person, plain, his voice — never a raw error string ("Failed to fetch", "aborted", "undefined") reaches the
   owner; targets ≥ 44 pt; nothing new that can bill the owner; no new dependencies; keep the mock model
