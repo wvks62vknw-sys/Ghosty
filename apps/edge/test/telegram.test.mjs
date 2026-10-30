@@ -54,7 +54,7 @@ const jpeg = (n = 300) => {
  * method; a file download answers with the bytes for its path. Anything else fails like a lost
  * connection, as test/no-network.mjs does.
  */
-const tg = { calls: [], answers: {}, files: {}, fail: null };
+const tg = { calls: [], answers: {}, files: {}, fail: null, web: {} };
 const real = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
@@ -79,6 +79,11 @@ globalThis.fetch = async (input, init = {}) => {
     tg.calls.push({ token: file[1], method: 'download', body: { file: file[2] } });
     const bytes = tg.files[file[2]];
     return bytes ? new Response(bytes) : new Response('not found', { status: 404 });
+  }
+  // A public address a test serves (a TikTok's oEmbed card, its cover), recorded like the rest.
+  if (tg.web[url]) {
+    tg.calls.push({ method: 'web', body: { url } });
+    return tg.web[url]();
   }
   throw new TypeError(`fetch failed: tests have no network (${url.slice(0, 120)})`);
 };
@@ -628,6 +633,67 @@ test("an iPhone original sent as a file (4 MB, or HEIC) is read from Telegram's 
   await hook(msg(OWNER_CHAT, { document: { file_id: 'heic2', mime_type: 'image/heic', file_name: 'IMG_0003.HEIC', file_size: 3_000_000 } }), secret);
   assert.equal(sent('getFile').length, 0);
   assert.deepEqual(texts(), ['I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.']);
+  tg.calls.length = 0;
+});
+
+// OWNER-ISSUES 79: a 2-minute TikTok video and "what do you think of this kiddo" — the video was dropped (no video branch),
+// and the words left over were answered with a confident account of his cousin. Now it is never dropped silently.
+const FRAME = { file_id: 'vframe', width: 320, height: 568, file_size: 500 };
+const SAID = "🎞 I can't watch videos yet: I'm going by one still frame of it, and I can't hear its sound.";
+
+test("a video (79): its one still frame goes the photo's way with the caption as the question; the honest line comes first; the model is told; the video itself is never fetched", async () => {
+  tg.files.vframe = jpeg(500);
+  tg.calls.length = 0;
+  const r = await hook(msg(OWNER_CHAT, { caption: 'what do you think of this kiddo', video: { file_id: 'vid1', mime_type: 'video/mp4', duration: 120, file_size: 9_000_000, thumbnail: FRAME } }), secret);
+  assert.equal(r.status, 200);
+  assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['vframe'], 'only the frame is fetched');
+  // the reply: the honest line, then the model's answer — which shows it was told it saw one picture of a video
+  assert.deepEqual(texts(), [`${SAID}\n\nI can only see one picture of it, as I was told. what do you think of this kiddo`]);
+  // the history keeps the owner's words and the picture's marker, never the note
+  const turns = (await (await call('/api/history')).json()).turns;
+  assert.equal(turns.at(-2).text, 'what do you think of this kiddo [photo]');
+  tg.calls.length = 0;
+});
+
+test('a video over 20 MB says so plainly; a GIF, a round video note and a video sent as a file go the same way; with no frame nothing is guessed', async () => {
+  tg.files.vframe = jpeg(500);
+  tg.calls.length = 0;
+  // over the Bot API's 20 MB: said in plain words (and still only the frame is fetched)
+  await hook(msg(OWNER_CHAT, { video: { file_id: 'vbig', file_size: 48_000_000, thumbnail: FRAME } }), secret);
+  assert.deepEqual(texts(), [`${SAID} It's 48 MB, and Telegram only lets me fetch files up to 20 MB.\n\nI can only see one picture of it, as I was told. What do you make of this video?`]);
+  assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['vframe']);
+  tg.calls.length = 0;
+  // a GIF (Telegram sends it as animation AND as document): no sound to speak of
+  await hook(msg(OWNER_CHAT, { animation: { file_id: 'gif1', mime_type: 'video/mp4', thumbnail: FRAME }, document: { file_id: 'gif1', mime_type: 'video/mp4', thumbnail: FRAME } }), secret);
+  assert.match(texts()[0] ?? '', /^🎞 I can't watch GIFs yet: I'm going by one still frame of it\.\n\nI can only see one picture of it, as I was told\. What do you make of this GIF\?$/);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { video_note: { file_id: 'vn1', duration: 9, thumbnail: FRAME } }), secret);
+  assert.match(texts()[0] ?? '', /^🎞 I can't watch video notes yet: I'm going by one still frame of it, and I can't hear its sound\.\n\n/);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { caption: 'look', document: { file_id: 'mp4doc', mime_type: 'video/mp4', file_name: 'clip.mp4', file_size: 5_000_000, thumbnail: FRAME } }), secret);
+  assert.match(texts()[0] ?? '', /^🎞 I can't watch videos yet/, 'a video sent as a file is a video, not "other files"');
+  tg.calls.length = 0;
+  // no frame at all: the plain way out, no turn, nothing fetched
+  await hook(msg(OWNER_CHAT, { caption: 'thoughts?', video: { file_id: 'vbare', file_size: 70_000_000 } }), secret);
+  assert.deepEqual(texts(), ["I can't watch videos yet, and this one came without a still frame I could get, so I can't see anything of it. It's 70 MB, and Telegram only lets me fetch files up to 20 MB. Tell me what's in it, or send a screenshot."]);
+  assert.equal(sent('getFile').length, 0);
+  tg.calls.length = 0;
+});
+
+test('a TikTok link: its public card (oEmbed) — title, author and cover — with the honest line; one that will not open is said plainly', async () => {
+  const link = 'https://www.tiktok.com/@ghostyfan/video/7300000000000000001';
+  tg.web[`https://www.tiktok.com/oembed?url=${encodeURIComponent(link)}`] = () => new Response(JSON.stringify({ title: 'Kid tries a card trick', author_name: 'ghostyfan', thumbnail_url: 'https://p16-sign.tiktokcdn.test/cover.jpeg' }), { headers: { 'content-type': 'application/json' } });
+  tg.web['https://p16-sign.tiktokcdn.test/cover.jpeg'] = () => new Response(jpeg(700));
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: `what do you think of this ${link}` }), secret);
+  assert.deepEqual(texts(), [`🎞 I can't watch TikToks yet: I'm going by its title and author, and its cover picture.\n\nI can only see one picture of it, as I was told. what do you think of this ${link}`]);
+  assert.equal(sent('getFile').length, 0, 'nothing from Telegram to fetch');
+  tg.calls.length = 0;
+  // gone or private: said plainly, and the turn still runs with the note that nothing came
+  const gone = 'https://vm.tiktok.com/ZZgone123/';
+  tg.web[`https://www.tiktok.com/oembed?url=${encodeURIComponent(gone)}`] = () => new Response('{"code":400}', { status: 400 });
+  await hook(msg(OWNER_CHAT, { text: `is this one funny ${gone}` }), secret);
+  assert.match(texts()[0] ?? '', /^🎞 I couldn't open that TikTok \(it may be private or gone\), and I can't watch videos yet\.\n\n/);
   tg.calls.length = 0;
 });
 

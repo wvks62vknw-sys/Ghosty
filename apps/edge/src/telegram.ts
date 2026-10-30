@@ -18,7 +18,10 @@
  * NOT NOW buttons answered through a callback. A voice note is answered in text AND in Ghosty's
  * own voice (MeloTTS gives MP3, which sendVoice takes as it is; sendAudio if a chat refuses
  * voice messages). A photo (or a picture sent as a file) goes the Lens's way: the picture itself
- * to a model that can see, the caption as the question.
+ * to a model that can see, the caption as the question. A video, a video note or a GIF (OWNER-ISSUES
+ * 79: one was dropped, and the words left over answered blind) goes the same way as Telegram's one
+ * still frame of it, and the owner and the model are both told plainly that it could not be watched
+ * or heard; a TikTok link brings its public title, author and cover (oEmbed) the same way.
  *
  * Buttons carry signed, expiring data (an HMAC keyed by the bot token, which never leaves the
  * vault): a press is acted on only from the owner's chat, by the owner, within a day, with a
@@ -32,7 +35,7 @@ import type { Env } from './env';
 import type { Vault } from './kernel/vault';
 import { durableDelete, durableGet, durablePut, storageError } from './kv';
 import { MAX_IMAGE_BYTES, sniffImage } from './lens';
-import type { ClientContext } from './prompt';
+import { unreadNote, type ClientContext } from './prompt';
 import { MAX_AUDIO_BYTES, MAX_TTS_CHARS, SpeechError, speakable, synthesize, toBase64, transcribe } from './speech';
 import { loadIdeas } from './upgrades';
 import type { UpgradeIdea } from '../../../packages/shared/src/protocol';
@@ -49,6 +52,8 @@ const CAPTION = 1024;
 /** How long a Telegram message waits for a turn the interface started before saying the brain is busy. */
 const WAIT_FOR_TURN_MS = 60_000;
 const API = 'https://api.telegram.org';
+/** The Bot API lets a bot fetch files of at most 20 MB (getFile). */
+export const MAX_FETCH_BYTES = 20 * 1024 * 1024;
 /** A button press counts for this long after the message was sent. */
 export const BUTTON_TTL_MS = 24 * 3600_000;
 /** Answers given on Telegram, kept for the app to show (the newest few). */
@@ -89,7 +94,7 @@ export interface TelegramHost {
   /** The turn slot: waits up to `waitMs` for a turn the interface started rather than cutting it short; null when it stayed busy. */
   claimTurn(waitMs: number): Promise<{ signal: AbortSignal; done: () => void } | null>;
   /** A normal brain turn — the interface's chat path, same tools, same history — with its events going to `emit`. */
-  runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal): Promise<void>;
+  runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, note?: string): Promise<void>;
   /** The owner's answer to an approval, carried on with `run`; or why nothing was waiting. */
   takeApproval(id: string, allow: boolean): Promise<{ error: string } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }>;
   /** One line for /status: models ready, keys set — never a secret. */
@@ -120,6 +125,12 @@ interface TgFile {
   mime_type?: string;
   file_size?: number;
 }
+/** A video, a round video note or a GIF (an `animation`, which Telegram also sends as `document`): the parts read here. */
+interface TgVideo extends TgFile {
+  duration?: number;
+  thumbnail?: TgPhotoSize;
+  thumb?: TgPhotoSize;
+}
 interface TgMessage {
   message_id: number;
   chat: TgChat;
@@ -131,6 +142,9 @@ interface TgMessage {
   document?: TgFile & { file_name?: string; thumbnail?: TgPhotoSize; thumb?: TgPhotoSize };
   voice?: TgFile;
   audio?: TgFile;
+  video?: TgVideo;
+  video_note?: TgVideo;
+  animation?: TgVideo;
 }
 export interface TgUpdate {
   update_id: number;
@@ -645,9 +659,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     await durablePut(host.env, host.storage, LINK_KEY, withNewCode(rest));
     return tgSend(token, chatId, 'Unpaired: I will not answer this chat any more. To pair again, open LINKS → TELEGRAM in Ghosty and send me the new code.');
   }
-  // A turn: text, a photo with its caption, or a voice note.
+  // A turn: text, a photo with its caption, a video's still frame, or a voice note.
   const images: string[] = [];
   let heard = '';
+  /** What could not be taken in, said first in the reply (`shown`) and told to the model (`note`, prompt.ts unreadNote). */
+  let shown = '';
+  let note = '';
   if (m.photo?.length) {
     // The Lens's way: the picture itself to a model that can see, the caption as the question.
     try {
@@ -656,6 +673,21 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
       return tgSend(token, chatId, `I couldn't get that photo: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
     }
     if (!text) text = 'What is in this picture?';
+  } else if (m.video || m.video_note || m.animation || /^video\//i.test(m.document?.mime_type ?? '')) {
+    // A video (OWNER-ISSUES 79: one went unnoticed and the words left over were answered blind). Nothing in a Worker can take
+    // a video apart, so it cannot be watched or heard here yet: Telegram's one still frame of it goes the photo's way, the
+    // caption as the question, and the owner and the model are both told plainly what of it did not come through.
+    const v = (m.video ?? m.video_note ?? m.animation ?? m.document)!;
+    const kind = m.video_note ? 'video note' : m.animation ? 'GIF' : 'video';
+    const sound = kind === 'GIF' ? '' : ", and I can't hear its sound";
+    const over = (v.file_size ?? 0) > MAX_FETCH_BYTES ? ` It's ${Math.round(v.file_size! / 1e6)} MB, and Telegram only lets me fetch files up to 20 MB.` : '';
+    const thumb = v.thumbnail ?? v.thumb;
+    const frame = thumb ? await photoDataUrl(token, [thumb]).catch(() => '') : '';
+    if (!frame) return tgSend(token, chatId, `I can't watch ${kind}s yet, and this one came without a still frame I could get, so I can't see anything of it.${over} Tell me what's in it, or send a screenshot.`);
+    images.push(frame);
+    shown = `🎞 I can't watch ${kind}s yet: I'm going by one still frame of it${sound}.${over}`;
+    note = unreadNote(kind, `one still frame of it (the picture with this message)${sound ? ', and none of its sound' : ''}`);
+    if (!text) text = `What do you make of this ${kind}?`;
   } else if (m.document && /^image\//i.test(m.document.mime_type ?? '')) {
     // A picture sent as a file: an iPhone original is often 2–5 MB or HEIC. Read whole when it can be
     // (JPEG, PNG or WebP within the limit — the size checked before any download), else Telegram's preview of it.
@@ -686,16 +718,26 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     if (!heard) return tgSend(token, chatId, "I couldn't make out any words in that voice note.");
     text = heard;
   }
+  // A TikTok link (no file came): its public oEmbed — title, author and cover — the same honest way. (A YouTube link needs
+  // nothing here: the youtube tool reads its captions.)
+  const tiktok = !images.length && !heard ? TIKTOK.exec(text)?.[0] : undefined;
+  if (tiktok) {
+    const card = await tiktokCard(tiktok);
+    const cover = card?.cover ? await pictureAt(card.cover).catch(() => '') : '';
+    if (cover) images.push(cover);
+    shown = card ? `🎞 I can't watch TikToks yet: I'm going by its title and author${cover ? ', and its cover picture' : ''}.` : "🎞 I couldn't open that TikTok (it may be private or gone), and I can't watch videos yet.";
+    note = unreadNote('TikTok video, as a link', card ? `its public title "${card.title}" by ${card.author}${cover ? ', and its cover picture (with this message)' : ''}` : 'nothing of it: the link could not be opened');
+  }
   if (!text) return tgSend(token, chatId, 'Send me text, a voice note or a photo.');
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
   const busy = typing(token, chatId);
-  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : '', (id) => noteAsked(host.storage, id));
+  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : shown ? `${shown}\n\n` : '', (id) => noteAsked(host.storage, id));
   try {
     const client = await host.client();
     // Spoken to: answered in the spoken style (persona.ts SPOKEN), and in Ghosty's voice below.
     if (heard) client.voice = true;
-    await host.runTurn(text, images, client, out.emit, slot.signal);
+    await host.runTurn(text, images, client, out.emit, slot.signal, note || undefined);
   } catch (e) {
     out.emit({ t: 'error', message: storageError(e) ?? scrub(String((e as Error)?.message ?? e), token).slice(0, 300) });
   } finally {
@@ -772,6 +814,33 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
 }
 
 // ---- files from Telegram ----
+
+/** A TikTok link (www., vm., vt. or m.tiktok.com) in a message's words. */
+export const TIKTOK = /https?:\/\/(?:[\w-]+\.)?tiktok\.com\/\S+/i;
+
+/** A TikTok's public card (its oEmbed, free and keyless): title, author and cover address; null when it would not open. */
+export async function tiktokCard(url: string): Promise<{ title: string; author: string; cover: string } | null> {
+  try {
+    const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { title?: unknown; author_name?: unknown; thumbnail_url?: unknown };
+    const title = String(j.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    const author = String(j.author_name ?? '').trim().slice(0, 80);
+    return title || author ? { title: title || '(no title)', author: author || 'someone', cover: typeof j.thumbnail_url === 'string' ? j.thumbnail_url : '' } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A picture at a public https address (a TikTok's cover) as a data URL: within the picture limit, JPEG, PNG or WebP; else ''. */
+async function pictureAt(url: string): Promise<string> {
+  if (!/^https:\/\//i.test(url)) return '';
+  const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!r.ok || Number(r.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) return '';
+  const bytes = await r.arrayBuffer();
+  const type = bytes.byteLength <= MAX_IMAGE_BYTES ? sniffImage(bytes) : null;
+  return type ? `data:${type};base64,${toBase64(bytes)}` : '';
+}
 
 /** A file's bytes (getFile → the file server), at most `max` bytes. */
 async function download(token: string, fileId: string, max: number): Promise<ArrayBuffer> {
