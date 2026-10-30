@@ -35,6 +35,18 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/**
+ * ON THIS PHONE (OWNER-ISSUES 72): the next message stays on the phone, as every one does with the offline brain on
+ * "always" — my offline brain answers it and nothing of it is sent anywhere. Off again once that message is sent.
+ */
+let hereNext = false;
+let paintHere = (): void => undefined;
+const takeHere = (): boolean => {
+  const on = hereNext;
+  hereNext = false;
+  paintHere();
+  return on;
+};
 /** Listens in a row that heard nothing: after two (about 25 s of quiet) the conversation ends and the microphone goes off. */
 let quiet = 0;
 
@@ -47,8 +59,15 @@ async function voiceTurn(): Promise<void> {
   // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
   holdMic(true);
   try {
+    // Kept on the phone ("always", or ON THIS PHONE): only the phone's own recogniser may hear it (the brain's gets the recording).
+    const here = settings.get().offlineBrain === 'always' || hereNext;
+    if (here && !voiceSupport.browserStt) {
+      endConversation();
+      toast("I can't hear you on the phone alone in this browser: it has no speech recognition of its own. Type it instead.", 'warn');
+      return;
+    }
     // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
-    const text = await listen(whisper || speechCaps.get().stt, (t) => chat.set({ live: t }));
+    const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }));
     if (!conversation) return;
     if (!text) {
       if (++quiet >= 2) {
@@ -60,7 +79,7 @@ async function voiceTurn(): Promise<void> {
       return;
     }
     quiet = 0;
-    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true });
+    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true, here: takeHere() });
     // wait for speech to finish, then listen again
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
     wait();
@@ -261,8 +280,16 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       }
       return el;
     }
-    case 'error':
-      return h('div.msg.err', h('small', 'PROBLEM'), h('span', e.text));
+    case 'error': {
+      const box = h('div.msg.err', h('small', e.ask ? 'KEPT ON THIS PHONE' : 'PROBLEM'), h('span', e.text));
+      // A task kept on the phone that the phone could not do: the brain only by this tap, while it can be reached (OWNER-ISSUES 72).
+      if (e.ask && ui.get().connected) {
+        const ask = button('ASK THE BIG BRAIN', () => void askBigBrain(e.ask!), 'bigbrain');
+        ask.title = 'Send this message to my big brain: it leaves the phone';
+        box.append(h('div.row', ask));
+      }
+      return box;
+    }
     case 'approval': {
       const box = h('div.approval', h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason));
       if (e.state === 'waiting') box.append(h('div.row', button('APPROVE', () => void answerApproval(e.id, true), 'on'), button('DECLINE', () => void answerApproval(e.id, false), 'warn')));
@@ -321,7 +348,7 @@ export const coreTab: TabDef = {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
       input.value = '';
-      void send(t, { speak: settings.get().speak });
+      void send(t, { speak: settings.get().speak, here: takeHere() });
     };
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit();
@@ -364,6 +391,22 @@ export const coreTab: TabDef = {
     }, `citedbtn${settings.get().cited ? ' on' : ''}`);
     citedBtn.setAttribute('aria-pressed', String(settings.get().cited));
     citedBtn.title = 'Answers with numbered sources, each claim checked';
+    // ON THIS PHONE: a small toggle by the microphone (hereNext above); the field says so while it is on. Hidden with the
+    // offline brain on "always" (every message stays on the phone then, and the field says that instead).
+    const hereBtn = h('button.herebtn', { type: 'button', 'aria-pressed': 'false', 'aria-label': 'On this phone only: my offline brain answers the next message, and nothing of it leaves the phone' });
+    hereBtn.addEventListener('click', () => {
+      hereNext = !hereNext;
+      paintHere();
+    });
+    paintHere = () => {
+      const always = settings.get().offlineBrain === 'always';
+      hereBtn.hidden = always;
+      hereBtn.classList.toggle('on', hereNext);
+      hereBtn.setAttribute('aria-pressed', String(hereNext));
+      input.placeholder = hereNext || always ? 'Ask on this phone only' : 'Ask anything';
+    };
+    paintHere();
+    settings.subscribe((s, prev) => s.offlineBrain !== prev.offlineBrain && paintHere());
     const voiceBtn = button(settings.get().speak ? 'VOICE ON' : 'VOICE OFF', (b) => {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
@@ -464,7 +507,7 @@ export const coreTab: TabDef = {
     // Today card and the two tiles.
     const rwrap = h('div.rwrap', reactor.el);
     const rc = routeCHome(rwrap);
-    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, mic));
+    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);

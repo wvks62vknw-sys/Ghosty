@@ -133,9 +133,10 @@ let progress = { parts: [] as string[], i: 0, owner: undefined as string | undef
  * Read `text` aloud. `owner`: which chat entry this is (session.ts passes the reply's own tag), so
  * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE);
  * `brief`: a reply read out by itself — a long one stops after about half a minute, "The rest is on
- * screen." (LISTEN reads the whole of it).
+ * screen." (LISTEN reads the whole of it). `here`: a reply kept on the phone (OWNER-ISSUES 72): only the
+ * phone's own voice reads it, never Ghosty's (the brain makes that voice from the words).
  */
-export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean } = {}): Promise<void> {
+export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean; here?: boolean } = {}): Promise<void> {
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
@@ -146,7 +147,7 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
   stopClip?.();
   // Ghosty's own voice first; whatever it could not say, the phone says. The reactor shows "speaking" at
   // once: the first clip takes a moment to arrive, and a hands-free turn must not reopen the mic meanwhile.
-  if (ghostyVoice(choice)) {
+  if (!opts.here && ghostyVoice(choice)) {
     ui.set({ voice: 'speaking' });
     return speakGhosty(parts, token, choice).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token, choice, from) : undefined));
   }
