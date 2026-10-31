@@ -5,15 +5,18 @@
  * cannot work yet because a key or a link is missing — "needs a key: SYSTEM → KEYS", honestly. The phone joins these with
  * the app's own abilities (apps/web/src/abilities/registry.ts) on the ABILITIES screen.
  *
+ * Also here: the owner's learning goals ("Want me to learn it?" → YES: an `upgrades:ideas` entry `from: 'owner'` with his
+ * words, upgrades.ts `addOwnerGoal`).
  *   GET  /abilities          → AbilitiesInfo (the abilities, his goals, the roadmap's open steps, offered and used)
+ *   POST /abilities/learn    {ask} → the goal recorded (the same words twice: the one goal)
  */
 import { askOf, iCan, patternWords, type Ability, type AbilitiesInfo, type AbilityCat } from '../../../packages/shared/src/abilities';
 import { TOOL_GROUPS, type ToolGroup } from './tools';
 import { loadRoadmap } from './tools/evolve';
-import { loadIdeas } from './upgrades';
+import { addOwnerGoal, loadIdeas } from './upgrades';
 
 // (the shared words and search, re-exported for the brain's tests: test/abilities.test.mjs)
-export { askOf, iCan, patternWords } from '../../../packages/shared/src/abilities';
+export { askOf, bestAsk, canYouAsked, iCan, patternWords, queryWords, searchAbilities, stem, whatAbout } from '../../../packages/shared/src/abilities';
 
 export const OFFERED_KEY = 'abilities:offered';
 export const USED_KEY = 'abilities:used';
@@ -126,7 +129,14 @@ export async function abilitiesInfo(d: AbilitiesDeps): Promise<AbilitiesInfo> {
   };
 }
 
-export async function abilitiesRoute(_req: Request, path: string, method: string, d: AbilitiesDeps): Promise<Response> {
+export async function abilitiesRoute(req: Request, path: string, method: string, d: AbilitiesDeps): Promise<Response> {
   if (path === '/abilities' && method === 'GET') return json(await abilitiesInfo(d));
+  if (path === '/abilities/learn' && method === 'POST') {
+    const b = (await req.json().catch(() => ({}))) as { ask?: unknown };
+    const ask = typeof b.ask === 'string' ? b.ask.replace(/\s+/g, ' ').trim().slice(0, 300) : '';
+    if (!ask) return json({ error: 'say what to learn' }, 400);
+    const goal = await addOwnerGoal(d.storage, ask);
+    return json({ goal: { id: goal.id, ask: goal.ask ?? ask, title: goal.title, at: goal.at } });
+  }
   return json({ error: 'not found' }, 404);
 }

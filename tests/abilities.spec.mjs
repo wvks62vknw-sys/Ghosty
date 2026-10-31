@@ -4,6 +4,8 @@
 // screens, games, Lens modes and school stages); every GO and every ask lands somewhere real, and the ones tapped land
 // where they say (a screen, a panel on it, a command, the chat box); one that needs a key says so and GO goes to KEYS;
 // LEARNING opens with "I can learn anything you teach me"; nothing sideways at 440 or 390; every target 44 pt.
+// "Can you …?" (item 2): in the box and in the chat, the ability and GO, a near miss, or "Not yet. Want me to learn it?" →
+// YES keeps it as a learning goal (LEARNING, the brain, the Workshop); a request ("…at 5") still goes to the brain.
 //   BASE=http://localhost:8866 node tests/abilities.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -94,6 +96,9 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   // honest about what needs a key: this preview brain has no GitHub token, so changing his own code says so
   if (!look.off.some((o) => /^Needs a key: SYSTEM → KEYS → GitHub token$/.test(o))) problems.push(`[${W}] nothing says it needs the GitHub key: ${look.off.join(' | ')}`);
   if (!/^I can learn anything you teach me/.test(look.learn)) problems.push(`[${W}] LEARNING opens with "${look.learn}"`);
+  // nothing in the list is marked as the answer to a question nobody asked
+  const marked = await page.locator('#pg-abilities .abcat .abask.best').count();
+  if (marked) problems.push(`[${W}] ${marked} asks in the list are marked as the one that fits`);
   // every GO and every ask lands somewhere real (a screen this build has, a command it registered, the chat box)
   if (s.broken.length) problems.push(`[${W}] GO or an ask goes nowhere: ${s.broken.slice(0, 4).join(' | ')}`);
   for (const x of await sideways(page, '#pg-abilities *')) problems.push(`[${W}] sticks out sideways: ${x}`);
@@ -140,6 +145,71 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     await page.click('#deck .dkcard[data-id="abilities"]').catch(() => problems.push('no Abilities card in the deck'));
     await page.click('#deck .dkx[data-id="abilities"] .dkopen').catch(() => problems.push('the deck card has no OPEN'));
     await until(page, () => document.body.dataset.tab === 'abilities', null, 6000, 'the deck did not open ABILITIES');
+
+    // ---- "Can you …?" (item 2): the ability and GO, a near miss, or "Not yet. Want me to learn it?"
+    const canYou = async (words) => {
+      await page.evaluate(() => (location.hash = 'abilities'));
+      await until(page, () => document.body.dataset.tab === 'abilities', null, 5000, 'ABILITIES did not come back');
+      await page.locator('#pg-abilities .canin').fill(words);
+      await page.locator('#pg-abilities .canin').press('Enter');
+      await page.waitForTimeout(300);
+      return state(page);
+    };
+    let st = await canYou('can you translate signs?');
+    if (st.answer !== 'hit' || !st.found.includes('s:lens')) problems.push(`"can you translate signs?" → ${st.answer} ${st.found.join(', ')} (want the Lens)`);
+    const best = page.locator('#pg-abilities .canans .abil[data-id="s:lens"] button.abask.best');
+    if ((await best.textContent().catch(() => '')) !== 'Translate a sign or a menu') problems.push(`the Lens's ask that fits is not marked: "${await best.textContent().catch(() => '')}"`);
+    await best.click().catch(() => problems.push('no ask to tap under "translate signs"'));
+    await until(page, () => document.body.dataset.tab === 'lens' && window.__ghosty?.lens?.mode === 'scan' && window.__ghosty?.scan?.sub === 'translate', null, 15000, '"Translate a sign or a menu" did not open the Lens on SCAN → TRANSLATE');
+    st = await canYou("can you check my car's MOT");
+    if (st.answer !== 'hit' || st.found[0] !== 'g:vehicle') problems.push(`"can you check my car's MOT" → ${st.answer} ${st.found.join(', ')} (want the vehicle check)`);
+    st = await canYou('can you fly a plane?');
+    if (st.answer !== 'near') problems.push(`"can you fly a plane?" → ${st.answer} (want a near miss)`);
+    if (!(await page.locator('#pg-abilities .canans', { hasText: 'Not quite. The nearest I’ve got:' }).count())) problems.push('a near miss does not say "Not quite"');
+    await page.locator('#pg-abilities .canans button.learnno').click().catch(() => problems.push('no NO under a near miss'));
+    if ((await page.locator('#pg-abilities .canans *').count()) || (await page.inputValue('#pg-abilities .canin')) !== '') problems.push('NO did not just close the offer');
+    // (two made-up words, so this run's goal is never the same goal as an earlier run's: the brain keeps one of each)
+    const nonce = () => Array.from({ length: 4 }, () => 'bcdfghjklmnpqrstvwxz'[Math.floor(Math.random() * 20)]).join('');
+    const want = `make me a ${nonce()} ${nonce()} sandwich`;
+    st = await canYou(`can you ${want}?`);
+    if (st.answer !== 'none' || !(await page.locator('#pg-abilities .canans', { hasText: 'Not yet. Want me to learn it?' }).count())) problems.push(`"can you ${want}?" → ${st.answer} (want "Not yet. Want me to learn it?")`);
+    await page.screenshot({ path: `${out}/abilities-notyet.png` });
+    await page.locator('#pg-abilities .canans button.learnyes').click().catch(() => problems.push('no YES under "Not yet"'));
+    await until(page, () => window.__ghosty?.abilities?.answer === 'learned', null, 8000, 'YES did not record the learning goal');
+    await until(page, (w) => [...document.querySelectorAll('#pg-abilities .ablearn .abgoal b')].some((b) => b.textContent.includes(w)), want, 8000, 'the goal is not shown under LEARNING');
+    const goals = (await api('/abilities'))?.goals ?? [];
+    if (!goals.some((g) => g.ask.includes(want))) problems.push(`the brain did not keep the goal: ${JSON.stringify(goals.slice(0, 3))}`);
+    // and in the Workshop's UPGRADE IDEAS, marked as his and first
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await until(page, (w) => { const first = document.querySelector('#pg-workshop .idea'); return !!first && first.classList.contains('mine') && first.textContent.includes(w); }, want, 10000, 'the Workshop does not list his goal first, marked as his');
+
+    // ---- the chat answers the same question the same way, with no model
+    const asked = [];
+    page.on('request', (r) => r.url().includes('/api/chat') && r.method() === 'POST' && asked.push(r.postData() ?? ''));
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(600);
+    // the conversation open (on a phone it sits behind its button; GO above may have opened it already)
+    if (!(await page.evaluate(() => document.querySelector('#pg-core .hud.core')?.classList.contains('logopen')))) await page.click('.logbtn').catch(() => undefined);
+    await page.waitForTimeout(300);
+    await page.fill('#cin', 'can you beat me at chess?');
+    await page.press('#cin', 'Enter');
+    await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Yes\. I teach myself by playing \d+ games/.test(m.textContent ?? '') && /Play me at Chess/.test(m.textContent ?? '')), null, 8000, 'the chat did not answer "can you beat me at chess?" from the abilities');
+    await page.waitForTimeout(800);
+    if (asked.some((b) => /beat me at chess/.test(b))) problems.push('"can you beat me at chess?" went to the model');
+    await page.screenshot({ path: `${out}/abilities-chat.png` });
+    await page.locator('#pg-core .localacts button.localgo').first().click().catch(() => problems.push('no GO under the chat answer'));
+    await until(page, () => document.body.dataset.tab === 'gym', null, 8000, 'GO under the chat answer did not open the GYM');
+    // a request is not a question about him: it goes to the brain as always
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(600);
+    await page.fill('#cin', 'can you remind me to call mum at 5');
+    await page.press('#cin', 'Enter');
+    await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Mock reply to: can you remind me to call mum at 5/i.test(m.textContent ?? '')), null, 20000, 'a request ("can you remind me…at 5") was not answered by the brain');
+    // nothing it cannot do yet goes to the model either: "Not yet. Want me to learn it?" in the chat too
+    await page.fill('#cin', 'can you juggle?');
+    await page.press('#cin', 'Enter');
+    await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /^.*Not (?:yet|quite)/.test(m.textContent ?? '')), null, 8000, '"can you juggle?" was not answered "Not yet" in the chat');
+    if (asked.some((b) => /juggle/.test(b))) problems.push('"can you juggle?" went to the model');
   }
   await ctx.close();
 }
@@ -149,4 +219,4 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets.');
+console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain.');

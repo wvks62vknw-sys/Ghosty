@@ -144,3 +144,174 @@ export function patternWords(src: string): string {
     .filter((w) => w.length >= 3)
     .join(' ');
 }
+
+// ---------------------------------------------------------------- "can you …?": the search
+
+/** Words that never decide what is being asked for. */
+const STOP = new Set(
+  ('can could would will you u ya do does did please pls me my mine i im a an the to too for of on in at and or is are be it its this that these those with by ' +
+    'from your yourself how what which some any thing things stuff really actually even ever also just still able know knew help let us we our up out ' +
+    'about into there here then than so if when where who whom why like want wanna gonna get got make made give one ones way something anything everything ' +
+    'bit lot lots more most much many all every each other new good best better well yes no not now ok okay hey ghosty mate bro thanks thank')
+    .split(' '),
+);
+/** Verbs that say little on their own ("check my car's MOT" is about the car and the MOT): dropped when other words remain. */
+const WEAK = new Set(['check', 'track', 'see', 'show', 'find', 'look', 'give', 'keep', 'use', 'tell', 'say', 'put', 'take', 'run', 'go', 'have', 'need']);
+/** A few everyday words for what the registries call by another name: search recall, never a claim. */
+const SYN: Record<string, string> = {
+  beat: 'play', game: 'play', against: 'play', vs: 'play', versus: 'play', watch: 'see', film: 'video', movie: 'video', clip: 'video',
+  tube: 'train', song: 'music', tune: 'music', snap: 'photo', pic: 'picture', image: 'picture', remind: 'reminder', email: 'mail', car: 'vehicle',
+  motor: 'vehicle', reg: 'plate', sign: 'translate', menu: 'translate', language: 'translate', french: 'translate', spanish: 'translate',
+  german: 'translate', italian: 'translate', polish: 'translate', urdu: 'translate', arabic: 'translate', chinese: 'translate', punjabi: 'translate',
+  cctv: 'camera', webcam: 'camera', plane: 'aircraft', worried: 'watch', worry: 'watch', money: 'spending', spend: 'spending', receipt: 'spending',
+  bank: 'spending', site: 'website', page: 'website', app: 'build', code: 'build', teach: 'tutor', homework: 'tutor', revise: 'learn', exam: 'school',
+  quiz: 'learn',
+};
+
+/** One word as the search compares it: lower case, no possessive, the plain ending (cars → car, translating → translat). */
+export function stem(word: string): string {
+  let w = word.toLowerCase().replace(/[’']s$/, '').replace(/[^a-z0-9]/g, '');
+  if (w.length > 4 && w.endsWith('ies')) w = `${w.slice(0, -3)}y`;
+  else if (w.length > 4 && /(?:ches|shes|sses|xes|zes|uses)$/.test(w)) w = w.slice(0, -2);
+  else if (w.length > 3 && w.endsWith('s') && !/(?:ss|us|is)$/.test(w)) w = w.slice(0, -1);
+  if (w.length > 5 && w.endsWith('ing')) w = w.slice(0, -3);
+  else if (w.length > 4 && w.endsWith('ed')) w = w.slice(0, -2);
+  return w;
+}
+
+const tokens = (s: string) => (s.toLowerCase().match(/[a-z0-9’']+/g) ?? []).map((w) => w.replace(/[’']/g, "'"));
+/** The words of a question that decide it (stop words out; a weak verb too, when anything else is left), each with its everyday other name. */
+export function queryWords(q: string): string[][] {
+  const out: (string[] & { weak?: boolean })[] = [];
+  for (const w of tokens(q)) {
+    const bare = w.replace(/'s$/, '').replace(/'/g, '');
+    if (STOP.has(bare) || bare.length < 2) continue;
+    const forms: string[] & { weak?: boolean } = [stem(bare)];
+    const syn = SYN[bare] ?? SYN[stem(bare)];
+    if (syn) forms.push(stem(syn));
+    if (WEAK.has(bare)) forms.weak = true;
+    if (!out.some((o) => o[0] === forms[0])) out.push(forms);
+  }
+  return out.some((f) => !f.weak) ? out.filter((f) => !f.weak) : out;
+}
+
+/** Does a word of the question match a word of the ability (the same stem, or one a short ending of the other)? */
+const like = (q: string, w: string) => q === w || (q.length >= 3 && w.startsWith(q) && w.length - q.length <= 3) || (w.length >= 4 && q.startsWith(w) && q.length - w.length <= 2);
+
+export interface AbilityHit {
+  ability: Ability;
+  /** How many of the question's words it matched, and how strongly (the line counts most). */
+  matched: number;
+  score: number;
+}
+
+/** Asked for something said in words alone (a poem, a joke, an explanation, a plan): the chat itself is that ability. */
+const IN_WORDS = /^(?:(?:can|could) (?:you|u) )?(?:write|tell|explain|say|describe|summari[sz]e|draft|answer|chat|talk|think|suggest|recommend|advise|calculate|solve|compare|brainstorm|help|proofread|rewrite|define|spell|joke|reason|argue|debate|discuss)\b/i;
+/** The chat's own ability (the deck's CORE screen): what a words-only ask is answered with. */
+export const TALK_ID = 's:core';
+
+/**
+ * "can you …?" over the abilities: `hit` when one covers most of what was asked (more than half of its words, and not
+ * only by the words it is found by), `near` when the best covers only part of it (the nearest are shown, with the offer to
+ * learn it properly), `none` when nothing does ("Not yet. Want me to learn it?"). Something asked for in words alone ("a
+ * poem", "a joke") is the chat's own ability when it is in the list. Best first; at most `max`.
+ */
+export function searchAbilities(list: Ability[], q: string, max = 3): { kind: 'hit' | 'near' | 'none'; hits: AbilityHit[] } {
+  const r = searchOnly(list, q, max);
+  const talk = r.kind === 'hit' ? null : list.find((a) => a.id === TALK_ID);
+  if (talk && IN_WORDS.test(clean(q))) return { kind: 'hit', hits: [{ ability: talk, matched: 1, score: 3 }] };
+  return r;
+}
+
+function searchOnly(list: Ability[], q: string, max: number): { kind: 'hit' | 'near' | 'none'; hits: AbilityHit[] } {
+  const want = queryWords(q);
+  if (!want.length) return { kind: 'none', hits: [] };
+  const scored: AbilityHit[] = [];
+  for (const a of list) {
+    const fields: [string[], number][] = [
+      [tokens(a.line).map(stem), 3],
+      [tokens(a.asks.join(' ')).map(stem), 2],
+      [tokens(a.words ?? '').map(stem), 1],
+    ];
+    let matched = 0;
+    let score = 0;
+    for (const forms of want) {
+      let best = 0;
+      for (const [words, weight] of fields) if (weight > best && forms.some((f) => words.some((w) => like(f, w)))) best = weight;
+      if (best) {
+        matched++;
+        score += best;
+      }
+    }
+    if (matched) scored.push({ ability: a, matched, score });
+  }
+  // most of the question first, then how strongly; a working ability before one that needs a key; then the one whose
+  // fitting ask is the most precise ("Play me at Chess" before "Watch me play: mazes, sudoku, chess, Go")
+  const askLen = (a: Ability) => {
+    const i = bestAsk(a, q);
+    return i < 0 ? Infinity : a.asks[i]!.length;
+  };
+  scored.sort((x, y) => y.matched - x.matched || y.score - x.score || Number(!!x.ability.off) - Number(!!y.ability.off) || askLen(x.ability) - askLen(y.ability));
+  const top = scored[0];
+  if (!top) return { kind: 'none', hits: [] };
+  const need = want.length === 1 ? 1 : Math.floor(want.length / 2) + 1;
+  // a hit needs the words of the question in its line or its asks, not only in what it is found by
+  const kind = top.matched >= need && top.score >= 2 * need ? 'hit' : 'near';
+  return { kind, hits: scored.filter((s) => (kind === 'hit' ? s.matched >= need && s.score >= 2 * need : true)).slice(0, max) };
+}
+
+/** Which of an ability's asks fits the question best (its index), or -1 when none of them says any of it. */
+export function bestAsk(a: Ability, q: string): number {
+  const want = queryWords(q);
+  let best = -1;
+  let most = 0;
+  a.asks.forEach((ask, i) => {
+    const words = tokens(ask).map(stem);
+    const n = want.filter((forms) => forms.some((f) => words.some((w) => like(f, w)))).length;
+    if (n > most) {
+      most = n;
+      best = i;
+    }
+  });
+  return best;
+}
+
+// ---------------------------------------------------------------- the three questions answered with no model
+
+/** The dressing around a question ("hey ghosty, …", "so …", "…?!") that does not change it. */
+const lead = /^(?:(?:hey|hi|so|ok|okay|oi|and|but|ghosty|mate)[,!]?\s+)*/i;
+
+/** Asked for something now, not whether he can: "remind me to …", "tell me …", "play me …". */
+const REQUEST = /^(?:remind|tell|send|show|give|find|get|book|text|call|e-?mail|ping|wake|bring|take|help|write|draw|make|build|play|put|read|sing|teach|quiz|test|order|buy|pick|grab|sort|check)\s+(?:me|us)\b/i;
+/** Anything that makes it about one particular thing now: a number, a link, a time, "this", a name. */
+const SPECIFIC = /\d|https?:|www\.|["“”]|\b(?:this|that|these|those|it|them|today|tonight|tomorrow|now|later|morning|afternoon|evening|asap|right away|at once|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next|in an? (?:hour|minute)|o'?clock|am|pm)\b/i;
+
+/**
+ * A question about what he can do, typed in chat: "can you translate signs?", "are you able to check my car's MOT",
+ * "do you know how to play chess" → what was asked about ("translate signs"). A polite request is left alone ("can you
+ * remind me at 5 to call mum", "could you check the weather in Leeds?", "can you summarise this?"): those are for doing.
+ */
+export function canYouAsked(text: string): string | null {
+  const t = clean(text).replace(lead, '');
+  if (!t || t.length > 120 || /[.!?]\s+\S/.test(t)) return null;
+  const firm = /^(?:are you (?:able|capable) (?:to|of)|do you know how to|is it possible for you to|is there a way (?:for you )?to|do you have a way to|have you got a way to|can you even|could you ever|can you ever)\s+(.+?)[\s?!.]*$/i.exec(t);
+  const soft = firm ? null : /^(?:can|could) (?:you|u|ya)\s+(.+?)[\s?!.]*$/i.exec(t);
+  const thing = clean((firm ?? soft)?.[1] ?? '');
+  if (!thing) return null;
+  // "can you …" is a request as often as a question: only a short, general one is taken as a question about him
+  if (soft) {
+    const words = thing.split(' ');
+    if (words.length > 8 || REQUEST.test(thing) || SPECIFIC.test(thing)) return null;
+    // a name or a place in the middle ("in Leeds", "to Sarah"): something particular, so a request (a shouted MOT is not a name)
+    if (/\s(?:[A-Z][a-z]+)/.test(` ${words.slice(1).join(' ')}`)) return null;
+  }
+  return thing;
+}
+
+/** What a "can you …?" typed in the ABILITIES box is about, whatever its shape ("can you check my car's MOT?" → "check my car's MOT"). */
+export function whatAbout(text: string): string {
+  return clean(text)
+    .replace(lead, '')
+    .replace(/^(?:(?:can|could|would) (?:you|u|ya)(?: (?:ever|even|actually|also))?|are you (?:able|capable) (?:to|of)|do you know how to|is it possible for you to|is there a way (?:for you )?to|do you have a way to)\s+/i, '')
+    .replace(/[\s?!.]+$/, '');
+}

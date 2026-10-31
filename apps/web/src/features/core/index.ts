@@ -26,6 +26,7 @@ import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
+import { localRow } from './localcard';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
@@ -250,6 +251,8 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
     case 'assistant': {
       if (e.think) return renderThink(e);
       const el = plainReply(e, askedAt);
+      // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
+      if (e.local) el.append(localRow(e) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.

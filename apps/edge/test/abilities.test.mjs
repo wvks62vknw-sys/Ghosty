@@ -126,3 +126,117 @@ test('GET /api/abilities through the agent: the abilities, no goals yet, the roa
   assert.deepEqual(info.used, []);
   assert.equal((await call('/abilities/nope')).status, 404);
 });
+
+// ---------------------------------------------------------------- item 2: "can you …?" and "want me to learn it?"
+
+const U = await import('./.build/upgrades.mjs');
+/** The brain's abilities and a few of the phone's, shaped as abilities/registry.ts makes them (the deck's lines, the GYM, the Lens). */
+const FAKES = [
+  ...A.brainAbilities((n) => n !== 'github'),
+  { id: 's:core', cat: 'talk', line: 'Talk or type, and I get it done.', asks: ['Ask with sources, each claim checked'], go: { open: 'core' }, from: 'app' },
+  { id: 's:lens', cat: 'see', line: 'Point the camera and I name what I see.', asks: ['Translate a sign or a menu', 'Measure a wall or a sofa from a photo', 'Label the planes and ships you point at', 'Read a UK number plate: its MOT history'], go: { open: 'lens' }, from: 'app' },
+  { id: 'gym:games', cat: 'play', line: 'I teach myself by playing 22 games, and you can play me at 7 of them.', asks: ['Play me at Tic-tac-toe', 'Play me at Connect 4', 'Play me at Chess', 'Watch me learn Sudoku'], go: { open: 'gym' }, from: 'app' },
+];
+
+test('the search: hits, near misses and nothing at all, best first', () => {
+  const s = (q) => A.searchAbilities(FAKES, q);
+  let r = s("check my car's MOT");
+  assert.equal(r.kind, 'hit');
+  assert.equal(r.hits[0].ability.id, 'g:vehicle');
+  r = s('translate signs');
+  assert.equal(r.kind, 'hit');
+  assert.ok(r.hits.some((h) => h.ability.id === 's:lens'), 'the Lens translates signs');
+  assert.equal(A.bestAsk(FAKES.find((a) => a.id === 's:lens'), 'translate signs'), 0, 'its ask that fits: "Translate a sign or a menu"');
+  r = s('beat me at chess');
+  assert.equal(r.kind, 'hit');
+  assert.equal(r.hits[0].ability.id, 'gym:games');
+  assert.equal(A.bestAsk(r.hits[0].ability, 'beat me at chess'), 2, '"Play me at Chess"');
+  assert.equal(s('play some music').hits[0].ability.id, 'g:media');
+  assert.equal(s('set an alarm').hits[0].ability.id, 'g:agenda');
+  assert.equal(s('find a part for my dishwasher').hits[0].ability.id, 'g:gadgets');
+  // a near miss: something of it, not what was asked ("fly" is the globe's camera, not a plane)
+  r = s('fly a plane');
+  assert.equal(r.kind, 'near');
+  assert.ok(r.hits.length >= 1);
+  r = s('book a flight');
+  assert.equal(r.kind, 'near');
+  // nothing at all
+  assert.deepEqual(s('make me a sandwich'), { kind: 'none', hits: [] });
+  assert.deepEqual(s('see in the dark'), { kind: 'none', hits: [] });
+  assert.deepEqual(s('   '), { kind: 'none', hits: [] });
+  // something said in words alone is the chat's own ability, never "not yet"
+  for (const q of ['write a poem', 'tell me a joke', 'explain black holes']) {
+    r = s(q);
+    assert.equal(r.kind, 'hit', q);
+    assert.equal(r.hits[0].ability.id, 's:core', q);
+  }
+  // a working ability before one that needs a key, when they fit as well
+  const keyless = A.brainAbilities(() => false);
+  assert.equal(A.searchAbilities(keyless, 'change your own source code').hits[0].ability.off, 'needs a key: SYSTEM → KEYS → GitHub token');
+});
+
+test('"can you …?" in chat: a question about him is taken; a request is left for the brain', () => {
+  for (const [t, want] of [
+    ['can you translate signs?', 'translate signs'],
+    ["Can you check my car's MOT", "check my car's MOT"],
+    ['hey ghosty, can you beat me at chess?', 'beat me at chess'],
+    ['are you able to read my emails', 'read my emails'],
+    ['do you know how to play chess?', 'play chess'],
+    ['could you ever fly a plane?', 'fly a plane'],
+  ]) assert.equal(A.canYouAsked(t), want, t);
+  for (const t of [
+    'can you remind me to call mum at 5',
+    'can you remind me to call mum',
+    'could you check the weather in Leeds?',
+    'can you summarise this?',
+    'can you play it now',
+    'can you tell me a joke',
+    'can you send Sarah a message',
+    'what can you do',
+    'can you translate this sign. it is in french',
+    'remind me at 5',
+  ]) assert.equal(A.canYouAsked(t), null, t);
+  assert.equal(A.whatAbout("Can you check my car's MOT?"), "check my car's MOT");
+  assert.equal(A.whatAbout('translate signs'), 'translate signs');
+});
+
+test('"want me to learn it?" → YES: a learning goal in his words, kept first and never pushed out; the nightly pass reads it first', async () => {
+  const storage = new MemStorage();
+  const g = await U.addOwnerGoal(storage, "can you check my car's MOT?", 1000);
+  assert.equal(g.from, 'owner');
+  assert.equal(g.ask, "can you check my car's MOT?");
+  assert.equal(g.title, "Learn to check your car's MOT");
+  assert.deepEqual(g.steps, []);
+  // the same goal asked again is the one goal
+  assert.equal((await U.addOwnerGoal(storage, "Can you check my car's MOT", 2000)).id, g.id);
+  assert.equal((await U.loadIdeas(storage)).length, 1);
+  // another thing that shares most of its words is another goal ("a sandwich" is not "a cheese sandwich")
+  assert.notEqual((await U.addOwnerGoal(storage, 'can you make me a sandwich', 2100)).id, (await U.addOwnerGoal(storage, 'can you make me a cheese sandwich', 2200)).id);
+  await storage.put(U.UPGRADES_KEY, (await U.loadIdeas(storage)).filter((i) => i.id === g.id));
+  assert.equal(U.goalTitle('are you able to beat me at chess'), 'Learn to beat you at chess');
+  assert.equal(U.goalTitle('juggle'), 'Learn: juggle');
+  // Ghosty's own ideas never push his goal out, and never jump in front of it
+  const twelve = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima'].map((w) => ({ title: `A ${w} upgrade`, why: 'w', steps: ['s'] }));
+  const { list } = U.mergeIdeas(await U.loadIdeas(storage), twelve, 3000);
+  assert.equal(list[0].id, g.id, 'his goal first');
+  assert.equal(list.filter((i) => i.from !== 'owner').length, 10, 'ten of his own at most');
+  await storage.put(U.UPGRADES_KEY, list);
+  // the nightly pass: his goals are the first thing it reads, in his words, and not among "already proposed"
+  const context = await U.gather({ storage, library: { available: false }, audit: async () => 'ABILITIES (1 tools): weather', ask: async () => '', notify: async () => undefined });
+  assert.match(context, /^WHAT THE OWNER ASKED YOU TO LEARN[^\n]*\n[\s\S]*can you check my car's MOT\?/);
+  assert.doesNotMatch(context.slice(context.indexOf('ALREADY PROPOSED')), /check your car/);
+});
+
+test('through the agent: POST /abilities/learn records it; ABILITIES and the Workshop both show it, his first', async () => {
+  const { call } = agentOf();
+  assert.equal((await call('/abilities/learn', { method: 'POST', body: JSON.stringify({ ask: '' }) })).status, 400);
+  const r = await call('/abilities/learn', { method: 'POST', body: JSON.stringify({ ask: '  can you   translate signs? ' }) });
+  assert.equal(r.status, 200);
+  assert.equal(r.json().goal.ask, 'can you translate signs?');
+  assert.equal(r.json().goal.title, 'Learn to translate signs');
+  const info = (await call('/abilities')).json();
+  assert.deepEqual(info.goals.map((x) => x.ask), ['can you translate signs?']);
+  const ideas = (await call('/upgrades')).json().ideas;
+  assert.equal(ideas[0].from, 'owner');
+  assert.equal(ideas[0].title, 'Learn to translate signs');
+});

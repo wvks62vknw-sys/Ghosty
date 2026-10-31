@@ -23,6 +23,7 @@ import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
+import { localTurn, type LocalAnswer } from './local';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -49,7 +50,7 @@ export type Entry =
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
    *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean }
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -441,9 +442,10 @@ const hereStopped = (why: string) => `I can't do this on the phone right now: ${
 
 /**
  * Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline
- * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message.
+ * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message. `plain`: never answered
+ * here from what Ghosty knows of himself (DO IT under such an answer sends his words on, as a request).
  */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean } = {}): Promise<void> {
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
@@ -468,6 +470,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   }
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
+  // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: settings.get().offlineBrain === 'always' || !!opts.here }))) return;
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const mode = settings.get().offlineBrain;
