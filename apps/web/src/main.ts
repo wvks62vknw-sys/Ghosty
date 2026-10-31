@@ -165,6 +165,13 @@ async function boot(): Promise<void> {
   if (ui.get().connected) startNight();
   // the app is up underneath: the cinematic may land (or, on a plain open, the black simply goes)
   bootReady();
+  // a fresh phone: three things I can do, said once (abilities/firstrun.ts); on any other day, a while after it opens and with
+  // nothing under way, at most one "did you know I can …?" (abilities/offer.ts)
+  void import('./abilities/firstrun').then(async (f) => {
+    const o = await import('./abilities/offer');
+    if (f.firstRun()) o.noteFirstRun();
+    else if (ui.get().connected) setTimeout(() => void o.dailyOffer().catch(() => undefined), 15_000);
+  }).catch(() => undefined);
   gfx.post.flash = 0.6;
 }
 

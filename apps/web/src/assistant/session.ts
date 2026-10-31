@@ -24,6 +24,8 @@ import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
+import { localTurn, type LocalAnswer } from './local';
+import { argWords } from '../../../../packages/shared/src/abilities';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -50,9 +52,10 @@ export type Entry =
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
    *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean }
-  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
-  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer }
+  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
+   *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
+  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string; ask?: string }
@@ -73,7 +76,7 @@ function kept(entries: Entry[]): Entry[] {
     // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
     .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
-  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
+  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && (e.detail || e.args) ? { ...e, ...(e.detail ? { detail: redactPlates(e.detail, checkedPlates) } : {}), ...(e.args ? { args: redactPlates(e.args, checkedPlates) } : {}) } : e));
 }
 
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
@@ -186,7 +189,7 @@ function handle(ev: ChatEvent): void {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
       }
-      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
+      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running', tool: ev.name, args: argWords(ev.args) });
       break;
     case 'progress':
       // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
@@ -462,9 +465,10 @@ const hereStopped = (why: string) => `I can't do this on the phone right now: ${
 
 /**
  * Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline
- * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message.
+ * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message. `plain`: never answered
+ * here from what Ghosty knows of himself (DO IT under such an answer sends his words on, as a request).
  */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean } = {}): Promise<void> {
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
@@ -489,6 +493,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   }
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
+  // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: settings.get().offlineBrain === 'always' || !!opts.here }))) return;
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const mode = settings.get().offlineBrain;
@@ -555,6 +561,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     rescue,
   );
   lap.end();
+  // Abilities revealed in context (OWNER-ISSUES 67b): one line offering what the turn plainly called for (abilities/offer.ts)
+  void import('../abilities/offer').then((o) => o.offerAfterTurn(t)).catch(() => undefined);
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

@@ -16,6 +16,7 @@ import type { Category, ImportResult, SpendingSummary } from '../../../../packag
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
+import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -403,6 +404,16 @@ export const brain = {
   upgrades: () => req<{ ideas: UpgradeIdea[]; next: number | null; last: string | null }>('GET', '/upgrades'),
   dismissUpgrade: (id: string) => req<{ removed: boolean }>('DELETE', `/upgrades/${encodeURIComponent(id)}`),
   thinkUpgrades: () => req<{ ideas: UpgradeIdea[]; added: number; note: string }>('POST', '/upgrades/now'),
+  /** ABILITIES (apps/edge/src/abilities.ts): everything the brain can do, his learning goals, what was offered in context. */
+  abilities: () => req<AbilitiesInfo>('GET', '/abilities'),
+  /** "Want me to learn it?" → YES: his words become a learning goal (kept with the upgrade ideas, before Ghosty's own). */
+  learnGoal: (ask: string) => req<{ goal: LearningGoal }>('POST', '/abilities/learn', { ask }),
+  /** What he did today, from what the brain keeps (apps/edge/src/today.ts), the day counted in the owner's time zone. */
+  today: (tz: string) => req<{ items: DayItem[] }>('GET', `/today?tz=${encodeURIComponent(tz)}`),
+  /** An ability offered in context once (and the day's one): remembered by the brain, never offered again. */
+  abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
+  /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
+  why: () => req<{ trails: Trail[] }>('GET', '/why'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

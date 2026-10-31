@@ -45,7 +45,7 @@ export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
   ['Make', ['studio', 'workshop', 'reverse', 'space']],
   ['Learn and plan', ['learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
-  ['Me', ['memory', 'settings', 'system', 'links']],
+  ['Me', ['memory', 'settings', 'system', 'links', 'abilities']],
 ];
 
 const lens = (mode: string): DeckAct => ({ run: 'open_lens', args: { mode } });
@@ -254,6 +254,18 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Live traffic from TomTom', act: { open: 'links', panel: 'LIVE TRAFFIC' } },
     ],
     dyk: 'Every key you give him goes into an encrypted vault and is never shown again.',
+  },
+  // ABILITIES (OWNER-ISSUES 68): made from what he really has (abilities/registry.ts), so it is always true
+  abilities: {
+    name: 'Abilities',
+    promise: 'Everything he can do, and what he learns',
+    can: [
+      { text: 'Ask “can you…?” and he says, or learns it', act: { open: 'abilities', panel: 'CAN YOU' } },
+      { text: 'Every ability, each with GO to try it', act: { open: 'abilities' } },
+      { text: 'What he is learning for you', act: { open: 'abilities', panel: 'LEARNING' } },
+      { text: 'Anything he still needs a key for', act: { open: 'system', panel: 'KEYS' } },
+    ],
+    dyk: 'The list is made from what he really has, so a new ability shows up there by itself.',
   },
 };
 

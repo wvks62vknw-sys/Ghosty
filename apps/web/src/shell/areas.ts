@@ -43,7 +43,7 @@ export const AREAS: Area[] = [
   { id: 'make', title: 'Make', sub: 'Build, take apart and plan real things.', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/>', tabs: ['studio', 'workshop', 'reverse', 'space'], tint: '#ff9f0a' },
   { id: 'learn', title: 'Learn', sub: 'Courses for you; games, school and a library for me.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
   { id: 'plan', title: 'Plan', sub: 'Your days, the markets, the world’s alerts and the radio.', icon: '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>', tabs: ['agenda', 'markets', 'threats', 'radio'], tint: '#ff375f' },
-  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links'], tint: '#8e8e93' },
+  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links', 'abilities'], tint: '#8e8e93' },
 ];
 
 /**
@@ -320,6 +320,8 @@ export function openMe(openDeck: () => void): void {
     h('div.megroup.rcgroup', { dataset: { part: 'screens' } }, ...ME_ROWS.map(([id, label, sub]) => row(id, label, sub, () => navTo(id, 'push')))),
     h('div.megroup.rcgroup', { dataset: { part: 'more' } },
       row('links', 'Links', 'Email, Spotify and your phone', () => navTo('links', 'push')),
+      // ABILITIES (OWNER-ISSUES 68): everything I can do, so he never has to remember it
+      row('abilities', 'Abilities', 'Everything I can do for you', () => navTo('abilities', 'push')),
       row('deck', 'Every screen', 'All of Ghosty at once', openDeck),
     ),
     build,
@@ -530,7 +532,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
-  if (tab === 'memory' || tab === 'settings') return { back: '', backTo: '', title: niceCase(t.title) };
+  if (tab === 'memory' || tab === 'settings' || tab === 'abilities') return { back: '', backTo: '', title: niceCase(t.title) };
   if (tab === 'system' || tab === 'links') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }
