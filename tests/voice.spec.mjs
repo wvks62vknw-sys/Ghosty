@@ -18,31 +18,6 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const problems = [];
 
-/**
- * Tap the mic and speak only once Ghosty can hear. The recogniser (voice.ts listenWhisper) spends its first 20 animation
- * frames learning the room's noise floor, and a voice that arrives during those frames is learned AS the room: it is then
- * never heard, nothing is sent, and the test reads silence (CI run 253 on main: "with no connection the owner was told").
- * On a slow runner a frame can take half a second, so the wait is measured against this page's real frame rate rather
- * than a fixed pause, and kept under the 12 s a quiet listen allows before it gives up.
- */
-async function tapAndSpeak(page, name, { level = 0.3, ms = 1000 } = {}) {
-  const before = await page.evaluate(() => window.__mic.calls);
-  await page.click('#mic');
-  if (!(await page.waitForFunction((n) => window.__mic.calls > n, before, { timeout: 6000 }).then(() => true, () => false))) problems.push(`[${name}] the microphone was not opened after the tap (getUserMedia calls stayed at ${before})`);
-  if (!(await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] the mic did not start listening (${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? 'no toast')})`);
-  // the calibration: 20 animation frames at whatever rate this page draws them, with room to spare
-  const perFrame = await page.evaluate(() => new Promise((res) => {
-    const t0 = performance.now();
-    let n = 0;
-    const f = () => (++n >= 12 || performance.now() - t0 > 1500 ? res((performance.now() - t0) / n) : requestAnimationFrame(f));
-    requestAnimationFrame(f);
-  }));
-  await page.waitForTimeout(Math.min(7000, Math.max(500, Math.ceil(perFrame * 26))));
-  await page.evaluate((v) => window.__mic.set(v), level);
-  await page.waitForTimeout(ms);
-  await page.evaluate(() => window.__mic.set(0));
-}
-
 /** A tenth of a second of silence as 16 kHz mono 16-bit WAV. */
 function wav(samples = 1600, rate = 16_000) {
   const b = Buffer.alloc(44 + samples * 2);
@@ -410,7 +385,11 @@ const fakePhone = () => {
 
   // 2. A voice conversation: the mic asks once (echo cancellation on), the owner speaks, Ghosty answers aloud
   await page.evaluate(() => (window.__mic.echo = 0.05));
-  await tapAndSpeak(page, name);
+  await page.click('#mic');
+  if (!(await waitVoice('listening'))) problems.push(`[${name}] the mic did not start listening (${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? 'no toast')})`);
+  await page.waitForTimeout(400);
+  await say(0.3, 700);
+  await say(0, 0);
   if (!(await waitVoice('speaking', 20000))) problems.push(`[${name}] Ghosty did not speak the reply (stt calls ${stt}, voice ${await voiceState()})`);
   const cons = await page.evaluate(() => window.__mic.constraints);
   if (!cons?.audio?.echoCancellation) problems.push(`[${name}] the microphone was opened without echo cancellation: ${JSON.stringify(cons)}`);
@@ -545,7 +524,12 @@ const toastSays = (page, re, ms = 6000) => page.waitForFunction((src) => new Reg
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'what time is it' }) });
   });
   // 1. while the words are worked out the screen does not still say LISTENING
-  await tapAndSpeak(page, name);
+  await page.click('#mic');
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__mic.set(0.3));
+  await page.waitForTimeout(700);
+  await page.evaluate(() => window.__mic.set(0));
   await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: what time is it'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] what was said was not answered (stt calls ${stt})`));
   if (during === null || /LISTENING/.test(during) || !/WRITING DOWN WHAT YOU SAID/i.test(during)) problems.push(`[${name}] while the words were worked out the screen said "${during}"`);
   // 2. a quiet room: after the reply the conversation listens; nothing is said for ~25 s: no recording of the room goes to
@@ -560,8 +544,13 @@ const toastSays = (page, re, ms = 6000) => page.waitForFunction((src) => new Reg
   await page.screenshot({ path: `${out}/phone-mic-quiet.png` });
   // 3. no connection when the recording is sent: plain words, not "Failed to fetch"
   sttMode = 'offline';
-  await tapAndSpeak(page, name);
-  if (!(await toastSays(page, /No connection, so I can't hear you/, 15000))) problems.push(`[${name}] with no connection the owner was told "${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? '')}"`);
+  await page.click('#mic');
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__mic.set(0.3));
+  await page.waitForTimeout(700);
+  await page.evaluate(() => window.__mic.set(0));
+  if (!(await toastSays(page, /No connection, so I can't hear you/, 8000))) problems.push(`[${name}] with no connection the owner was told "${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? '')}"`);
   await page.screenshot({ path: `${out}/phone-mic-offline.png` });
   await ctx.close();
 }

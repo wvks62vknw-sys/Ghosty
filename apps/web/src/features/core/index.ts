@@ -350,7 +350,6 @@ export const coreTab: TabDef = {
         return;
       }
       conversation = true;
-      quiet = 0; // a fresh tap starts a fresh conversation: the quiet listens that ended the last one do not count against it
       quiet = 0;
       mic.classList.add('on');
       void voiceTurn().finally(() => mic.classList.toggle('on', conversation));
