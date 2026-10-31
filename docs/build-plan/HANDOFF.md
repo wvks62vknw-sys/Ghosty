@@ -946,6 +946,11 @@ folder that no longer exists; ignore those paths).
   under software rendering (the spec allows 10 s and prints it): his phone decides the 2 s; (4) the owner's lowercase name
   edge above. Next: PR up, CI ~2 h (81 specs now), merge, then the free docs push; the owner's picks for the social self
   remain unanswered, so the workshop and knowledge batch is the one to brief next.
+- 31 Oct 19:15 UK: PR #47 MERGED (main 466fcd4, merge commit at 19:10 UK) after a green run on c335138 (smoke 95 min with
+  81 specs, brain 9 min; the whole run 1 h 35 min). BATCH 6 LIVE: ⑥ done. Main's own push run follows with the guard live:
+  confirmed at the 21:05 check-in when `git log origin/main --oneline -3` shows no "Undo broken change" on top of 466fcd4.
+  Next: BRIEF-WORKSHOP (⑦ the workshop and knowledge), planned from an inventory first; ⑧ the social self and rituals
+  stays last until the owner answers his four Harold / Machine picks.
 
 
 
