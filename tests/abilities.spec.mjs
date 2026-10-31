@@ -7,6 +7,7 @@
 // "Can you …?" (item 2): in the box and in the chat, the ability and GO, a near miss, or "Not yet. Want me to learn it?" →
 // YES keeps it as a learning goal (LEARNING, the brain, the Workshop); a request ("…at 5") still goes to the brain.
 // WHY (item 3): a reply's trail in a sheet, from its WHY or a long press; "why did you do that?" answered in the chat, no model.
+// Today (item 4): "what did you do today?" lists the day, no model; a fresh phone hears three things it can do once, never again.
 //   BASE=http://localhost:8866 node tests/abilities.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -33,8 +34,9 @@ const small = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.getCl
 }).filter(Boolean).slice(0, 5));
 const state = (page) => page.evaluate(() => window.__ghosty?.abilities ?? null);
 
-async function phone(viewport) {
+async function phone(viewport, init) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+  if (init) await ctx.addInitScript(init);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -251,7 +253,38 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     await until(page, (f) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes(`Why I did that:\nYou asked: “remember ${f}”\n1. Remembered`)), fact, 8000, '"why did you do that?" was not answered with the trail in the chat');
     await page.waitForTimeout(600);
     if (asked.length !== before) problems.push('"why did you do that?" went to the model');
+
+    // ---- what did you do today (item 4): the brain's day and this phone's, newest first, no model
+    const before2 = asked.length;
+    await page.fill('#cin', 'what did you do today?');
+    await page.press('#cin', 'Enter');
+    await until(page, (f) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Today, newest first \(\d+ things?\):\n• \d\d:\d\d — /.test(m.textContent ?? '') && (m.textContent ?? '').includes(`Remembered (text: ${f})`)), fact, 10000, '"what did you do today?" did not list the day with the fact just remembered');
+    await page.waitForTimeout(600);
+    if (asked.length !== before2) problems.push('"what did you do today?" went to the model');
+    await page.screenshot({ path: `${out}/abilities-today.png` });
   }
+  await ctx.close();
+}
+
+// ---- the first run (item 4): a fresh phone hears three things it can do, once, then never again
+{
+  const { ctx, page } = await phone(PHONE, () => { window.__ghostyFirstRun = true; });
+  const first = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].filter((m) => (m.textContent ?? '').includes('Three things I can do for you, to start:')).length);
+  await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Three things I can do for you, to start:')), null, 10000, 'a fresh phone was not told three things it can do');
+  const said = await page.evaluate(() => {
+    const m = [...document.querySelectorAll('#pg-core .msg:not(.me)')].find((x) => (x.textContent ?? '').includes('Three things I can do for you'));
+    return { lines: (m?.querySelector(':scope > span')?.textContent ?? '').split('\n').filter((l) => l.startsWith('• ')).length, chips: [...(m?.querySelectorAll('.localacts button') ?? [])].map((b) => b.textContent), caption: document.querySelector('#ccap')?.textContent ?? '' };
+  });
+  if (said.lines !== 3) problems.push(`[first run] ${said.lines} things said (want three)`);
+  if (said.chips.join('|') !== 'God’s eye|Brief|Gym|Everything I can do') problems.push(`[first run] its buttons are ${said.chips.join(', ')}`);
+  if (!said.caption.includes('Three things I can do for you')) problems.push(`[first run] Home's line does not say it: "${said.caption.slice(0, 60)}"`);
+  await page.screenshot({ path: `${out}/abilities-firstrun.png` });
+  if ((await first()) !== 1) problems.push(`[first run] said ${await first()} times`);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 }).catch(() => undefined);
+  await page.waitForTimeout(2500);
+  if ((await first()) !== 0) problems.push('[first run] said again after the phone was opened again');
+  if (!(await page.evaluate(() => !!localStorage.getItem('ghosty.firstrun')))) problems.push('[first run] the phone does not remember it said it');
   await ctx.close();
 }
 
@@ -260,4 +293,4 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain; WHY: the sheet from a reply’s WHY and from a long press (what he asked, the step with its arguments and outcome, the reason), and "why did you do that?" answered in the chat with no model.');
+console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain; WHY: the sheet from a reply’s WHY and from a long press (what he asked, the step with its arguments and outcome, the reason), and "why did you do that?" answered in the chat with no model; "what did you do today?" lists the day with no model; a fresh phone hears three things once (God’s eye, Brief, Gym, everything), never again after it is opened again.');

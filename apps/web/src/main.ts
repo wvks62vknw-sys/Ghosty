@@ -165,6 +165,8 @@ async function boot(): Promise<void> {
   if (ui.get().connected) startNight();
   // the app is up underneath: the cinematic may land (or, on a plain open, the black simply goes)
   bootReady();
+  // a fresh phone: three things I can do, said once (abilities/firstrun.ts)
+  void import('./abilities/firstrun').then((f) => f.firstRun()).catch(() => undefined);
   gfx.post.flash = 0.6;
 }
 

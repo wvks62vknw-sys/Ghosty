@@ -41,6 +41,8 @@ import { loadIdeas } from './upgrades';
 import type { UpgradeIdea } from '../../../packages/shared/src/protocol';
 import { stopIntent } from '../../../packages/shared/src/intent';
 import { whyReply } from './why'; // [abilities]
+import { dayDoings } from './today'; // [abilities]
+import { dayLines, todayAsked } from '../../../packages/shared/src/abilities'; // [abilities]
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -742,6 +744,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   // ran nothing is about what was said, so it goes to the model as a message
   const why = !images.length ? await whyReply(host.storage, text).catch(() => null) : null;
   if (why) return tgSend(token, chatId, why);
+  // "what did you do today?" (OWNER-ISSUES 68c): the day's doings from what the brain keeps, newest first, no model (today.ts)
+  if (!images.length && todayAsked(text)) {
+    const tz = (await host.client().catch(() => ({}) as ClientContext)).tz;
+    const items = await dayDoings({ storage: host.storage, env: host.env }, tz).catch(() => []);
+    return tgSend(token, chatId, dayLines(items, tz).join('\n'));
+  }
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
   const busy = typing(token, chatId);

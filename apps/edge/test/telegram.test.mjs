@@ -243,6 +243,14 @@ test('"why?" on Telegram (OWNER-ISSUES 67d): the last turn’s trail in plain wo
   await hook(msg(OWNER_CHAT, { text: 'why?' }), secret);
   assert.ok(texts().length >= 1 && !/^Why I did that/.test(texts()[0]), `the model answered it: ${texts()[0]}`);
   tg.calls.length = 0;
+  // "what did you do today?" (OWNER-ISSUES 68c): the day's doings from what the brain keeps, newest first, no model, no turn
+  const turns = (await (await call('/api/history')).json()).turns.length;
+  await hook(msg(OWNER_CHAT, { text: 'what did you do today?' }), secret);
+  assert.equal(texts().length, 1);
+  assert.match(texts()[0], /^Today, newest first \(\d+ things?\):\n• \d\d:\d\d — /);
+  assert.match(texts()[0], /— Remembered \(text: my bike is blue\)/);
+  assert.equal((await (await call('/api/history')).json()).turns.length, turns, 'asking is not a turn');
+  tg.calls.length = 0;
 });
 
 test('a long reply is sent in pieces under the limit, in order', async () => {

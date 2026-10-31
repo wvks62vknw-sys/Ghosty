@@ -8,12 +8,20 @@ import { abilityById, learnIt, setLearn } from '../../assistant/local';
 import { send, type Entry } from '../../assistant/session';
 import { h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
+import { navTo } from '../../shell/areas';
 
 export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement | null {
   const l = e.local;
   if (!l) return null;
   const row = h('div.row.wrap.localacts', { dataset: { case: 'keep' } });
   for (const g of l.go ?? []) {
+    if (g.open) {
+      const b = button(g.label, () => navTo(g.open!, 'push'));
+      b.dataset.case = 'keep';
+      b.classList.add('localgo');
+      row.append(b);
+      continue;
+    }
     const a = abilityById(g.id);
     if (!a) continue;
     const doIt = a.from === 'brain' && !a.off;

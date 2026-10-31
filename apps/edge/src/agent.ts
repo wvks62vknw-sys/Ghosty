@@ -61,7 +61,8 @@ import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { abilitiesRoute } from './abilities'; // [abilities]
-import { keepTrail, trailRecorder } from './why'; // [abilities]
+import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
+import { todayRoute } from './today'; // [abilities]
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
 import { ensureTrainJob, hookRoute, rateReply, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
@@ -415,6 +416,8 @@ export class GhostyAgent {
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
       // [abilities] everything he can do, made from the tool registry; the owner's learning goals (abilities.ts)
       if (path === '/abilities' || path.startsWith('/abilities/')) return await abilitiesRoute(req, path, method, { storage: this.storage, vaultGet: (n) => this.vault.get(n) });
+      if (path === '/today') return await todayRoute(url, method, { storage: this.storage, env: this.env }); // [abilities] what he did today (today.ts)
+      if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);

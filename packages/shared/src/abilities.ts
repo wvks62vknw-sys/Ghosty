@@ -324,6 +324,13 @@ export function whyAsked(text: string): 'bare' | 'full' | null {
   return null;
 }
 
+/** "what did you do today?" and its everyday forms. */
+export function todayAsked(text: string): boolean {
+  const t = clean(text).replace(lead, '').replace(/[\s?!.]+$/, '').toLowerCase();
+  return /^(?:what (?:did|have) you (?:do|done|been doing|been up to|get up to|got up to)(?: (?:today|so far(?: today)?|this (?:morning|afternoon|evening)))?|what(?:'ve| have) you been (?:up to|doing)(?: today)?|what have you done(?: today| so far)?|what did you get up to(?: today)?|tell me what you did today|anything (?:you did|done) today)$/.test(t) &&
+    /\b(?:today|so far|this (?:morning|afternoon|evening)|been (?:up to|doing))\b/.test(t);
+}
+
 // ---------------------------------------------------------------- WHY: a reply's trail in plain words
 
 /** One tool at work in a reply: its name, its arguments in plain words, and how it went (null: stopped or still working). */
@@ -410,4 +417,36 @@ export function whyLines(t: Trail, abilities: Ability[]): string[] {
   const own = t.said ? ownReason(t.said) : '';
   if (own) out.push(`In my words: “${clip(own, 200)}”`);
   return out;
+}
+
+// ---------------------------------------------------------------- what he did today
+
+/** One thing he did: when, and what in plain words. */
+export interface DayItem {
+  at: number;
+  text: string;
+}
+
+/** The time of day on the owner's clock ("14:05"). */
+export function clock(ms: number, tz?: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, ...(tz ? { timeZone: tz } : {}) }).format(ms);
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }).format(ms);
+  }
+}
+
+/** Today's doings as one short list, newest first, the same thing said once. */
+export function dayLines(items: DayItem[], tz?: string, max = 20): string[] {
+  const seen = new Set<string>();
+  const list = [...items].sort((a, b) => b.at - a.at).filter((i) => {
+    const k = clean(i.text).toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!list.length) return ['Nothing yet today: no tools run, no jobs on schedule, nothing studied or built.'];
+  const shown = list.slice(0, max).map((i) => `• ${clock(i.at, tz)} — ${clip(i.text, 160)}`);
+  if (list.length > max) shown.push(`…and ${list.length - max} more, earlier.`);
+  return [`Today, newest first (${list.length} thing${list.length === 1 ? '' : 's'}):`, ...shown];
 }

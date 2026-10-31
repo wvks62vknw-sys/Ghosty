@@ -299,3 +299,62 @@ test('"why?": the words that ask it, and the last turn kept for it (30 turns, tw
   assert.match(await W.whyReply(storage, 'why did you do that?'), /^Why I did that:\nYou asked: “newest”\nI didn’t run anything/);
   assert.equal(await W.whyReply(storage, 'hello'), null);
 });
+
+// ---------------------------------------------------------------- item 4: what did you do today
+
+const D = await import('./.build/today.mjs');
+
+test('what he did today, from fakes: the tools turns ran, jobs on schedule, what he was told, study, papers, things made, lessons, upgrades — newest first, only today', async () => {
+  const storage = new MemStorage();
+  // 15:00 London on 31 Oct 2026 (GMT): the day began at 00:00 UTC
+  const now = Date.UTC(2026, 9, 31, 15, 0);
+  const at = (h, m = 0) => Date.UTC(2026, 9, 31, h, m);
+  const yesterday = Date.UTC(2026, 9, 30, 22, 0);
+  await storage.put('why:turns', [
+    { at: yesterday, asked: 'old question', steps: [{ tool: 'weather', args: 'place: Leeds', ok: true }] },
+    { at: at(9, 5), asked: 'trains to London?', steps: [{ tool: 'plan_journey', args: 'to: London', ok: true }, { tool: 'web_search', args: 'query: strike', ok: false, note: 'no key' }] },
+  ]);
+  await storage.put('jobs', [
+    { id: 'j1', kind: 'study', title: 'Self-study', text: '', next: now + 1, repeat: 'hourly', tz: 'UTC', createdAt: 0, lastRun: at(14, 30), lastResult: 'read 3 pieces' },
+    { id: 'j2', kind: 'task', title: 'Morning brief', text: 'brief me', next: now + 1, repeat: 'daily', tz: 'UTC', createdAt: 0, lastRun: yesterday },
+  ]);
+  await storage.put('inbox', [
+    { id: 'i1', at: at(8), kind: 'reminder', title: 'Call Mum', text: 'Call Mum' },
+    { id: 'i2', at: at(10), kind: 'error', title: 'A check failed', text: 'x' },
+  ]);
+  await storage.put('lessons', [{ id: 'l1', text: 'Check the build before shipping', tags: [], at: at(11), n: 1 }]);
+  await storage.put('upgrades:ideas', [{ id: 'u1', title: 'A rain radar panel', why: '', steps: ['x'], at: at(5, 40) }, { id: 'u2', title: 'Learn to juggle', why: '', steps: [], at: at(12), from: 'owner', ask: 'can you juggle?' }]);
+  await storage.put('widget:snake', { name: 'snake', title: 'Snake', html: '<p>', at: at(13) });
+  const items = await D.dayDoings({ storage }, 'Europe/London', now);
+  assert.deepEqual(items.map((i) => i.text), [
+    'Ran on schedule: Self-study — read 3 pieces',
+    'Made a widget: Snake',
+    'Put on my learning list: “can you juggle?”',
+    'Learned a lesson: Check the build before shipping',
+    'Hit a problem: A check failed',
+    'Planned journey (to: London)',
+    'Used web search (query: strike): it didn’t work',
+    'Told you: Call Mum',
+    'Thought of an upgrade for myself: A rain radar panel',
+  ]);
+  assert.ok(items.every((i, n) => n === 0 || items[n - 1].at >= i.at), 'newest first');
+  // in plain words, his clock
+  const lines = A.dayLines(items, 'Europe/London');
+  assert.equal(lines[0], 'Today, newest first (9 things):');
+  assert.equal(lines[1], '• 14:30 — Ran on schedule: Self-study — read 3 pieces');
+  assert.deepEqual(A.dayLines([], 'Europe/London'), ['Nothing yet today: no tools run, no jobs on schedule, nothing studied or built.']);
+  // a store that cannot be read is left out, never the whole list
+  const broken = new MemStorage();
+  broken.get = async (k) => { if (k === 'jobs') throw new Error('paused'); return undefined; };
+  assert.deepEqual(await D.dayDoings({ storage: broken }, 'Europe/London', now), []);
+  for (const t of ['what did you do today?', 'What have you been up to', "what've you been doing today", 'what did you get up to today', 'so what have you done so far today?']) assert.equal(A.todayAsked(t), true, t);
+  for (const t of ['what did you do?', 'what should I do today', 'what did you do to my code']) assert.equal(A.todayAsked(t), false, t);
+});
+
+test('through the agent: GET /api/today has the turns of the day, in his time zone', async () => {
+  const { call } = agentOf();
+  await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'remember I keep bees', context: { tz: 'Europe/London' } }) });
+  const r = await call('/today?tz=Europe/London');
+  assert.equal(r.status, 200);
+  assert.ok(r.json().items.some((i) => i.text === 'Remembered (text: I keep bees)'), JSON.stringify(r.json().items));
+});

@@ -62,6 +62,14 @@ export async function keepTrail(storage: DurableObjectStorage, t: Trail, now = D
   await storage.put(WHY_KEY, list.slice(-KEEP));
 }
 
+const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+
+/** GET /why: the kept trails, for the phone's WHY on a reply whose steps it no longer holds (it was closed since). */
+export async function whyRoute(method: string, storage: DurableObjectStorage): Promise<Response> {
+  if (method !== 'GET') return json({ error: 'not found' }, 404);
+  return json({ trails: await loadTrails(storage) });
+}
+
 /**
  * "why?" answered from the last turn's trail, in plain words; null when it is better left to the model: a bare "why?" after a
  * reply that ran nothing (then it is about what was said, not what was done), or no turn kept at all.

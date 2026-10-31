@@ -4,11 +4,14 @@
  *    "Not yet. Want me to learn it?", whose YES becomes a learning goal. Only a question about him is taken: a polite
  *    request ("can you remind me at 5 to call mum") goes to the brain as always (shared/abilities.ts canYouAsked);
  *  - "why did you do that?" (OWNER-ISSUES 67d): the last reply's trail in plain words (features/core/why.ts); a bare "why?"
- *    after a reply that ran nothing is about what was said, so it goes to the brain.
+ *    after a reply that ran nothing is about what was said, so it goes to the brain;
+ *  - "what did you do today?" (OWNER-ISSUES 68c): the brain's day (GET /api/today) with this phone's own (the GYM's games
+ *    and the games he played me), one short list, newest first.
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
-import { bestAsk, canYouAsked, searchAbilities, whyAsked, whyLines, type Ability } from '../../../../packages/shared/src/abilities';
-import { lastReplyAt, trailOf } from '../features/core/why';
+import { bestAsk, canYouAsked, dayLines, searchAbilities, todayAsked, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
+import { timeZone } from '../state/app';
+import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
@@ -16,9 +19,9 @@ import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why';
-  /** Found, best first: the ability (by id) and which of its asks fits (−1: its own GO). */
-  go?: { id: string; ask: number; label: string }[];
+  kind: 'can' | 'why' | 'today' | 'first';
+  /** Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`). */
+  go?: { id: string; ask: number; label: string; open?: string }[];
   /** The offer to learn it, with his words, and what he said to it. */
   learn?: { ask: string; state: 'open' | 'yes' | 'no' };
   /** His words, for DO IT: when he meant it as a request after all, the brain takes it from here. */
@@ -89,15 +92,54 @@ export function setLearn(at: number, state: 'yes' | 'no'): void {
  * Answer here, with no model, when the message is a question about Ghosty himself; false when it is anything else (the
  * brain answers it as always). `voice`: he asked by voice, so the answer is said too.
  */
+/** This phone's own doings today: the GYM's training (its day points) and the games he played me (the journal). */
+export async function phoneDay(now = Date.now()): Promise<DayItem[]> {
+  const out: DayItem[] = [];
+  try {
+    const gym = await import('../features/gym/store');
+    const { META } = await import('../gym/meta');
+    const name = (id: string) => {
+      const t = META.find((g) => g.id === id)?.title ?? id;
+      return t.charAt(0) + t.slice(1).toLowerCase();
+    };
+    const day = new Date(now).toISOString().slice(0, 10);
+    const start = new Date(now).setHours(0, 0, 0, 0);
+    for (const r of (await gym.loadAll()).values()) {
+      const p = r.days?.find((x) => x.d === day);
+      if (p && r.updated >= start) out.push({ at: r.updated, text: `Trained in the GYM at ${name(r.id)}: level ${r.level}, ${Math.round(r.mastery * 100)}% mastered` });
+    }
+    for (const g of (await gym.loadJournal()).c4) if (!g.spec && g.at >= start) out.push({ at: g.at, text: `You played me at Connect 4: ${g.result === 'you' ? 'you won' : g.result === 'me' ? 'I won' : 'a draw'}` });
+  } catch {
+    /* no GYM on this phone yet: nothing of it to say */
+  }
+  return out;
+}
+
 export async function localTurn(text: string, opts: { voice?: boolean; private?: boolean } = {}): Promise<boolean> {
+  if (todayAsked(text)) {
+    const tz = timeZone;
+    const [brainSide, phone] = await Promise.all([
+      Promise.race([brain.today(tz).then((r) => r.items), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null),
+      phoneDay(),
+    ]);
+    const lines = dayLines([...(brainSide ?? []), ...phone], tz);
+    if (!brainSide) lines.push('I can’t reach my brain right now, so this is only what this phone did.');
+    const reply = lines.join('\n');
+    add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
+    add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'today' }, ...(opts.private ? { private: true } : {}) });
+    chat.set({ live: reply });
+    if (opts.voice) void speak(reply).catch(() => undefined);
+    return true;
+  }
   const why = whyAsked(text);
   if (why) {
     const at = lastReplyAt();
-    const t = at ? trailOf(chat.get().entries, at) : null;
-    if (!t || (why === 'bare' && !t.steps.length)) return false;
-    const reply = ['Why I did that:', ...whyLines(t, allAbilities())].join('\n');
+    const r = at ? await resolveTrail(at) : null;
+    if (!r || (why === 'bare' && !r.trail.steps.length)) return false;
+    const reply = ['Why I did that:', ...whyLines(r.trail, allAbilities()), ...(r.note ? [r.note] : [])].join('\n');
     add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
     add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'why' }, ...(opts.private ? { private: true } : {}) });
+    chat.set({ live: reply });
     if (opts.voice) void speak(reply).catch(() => undefined);
     return true;
   }
@@ -111,6 +153,7 @@ export async function localTurn(text: string, opts: { voice?: boolean; private?:
   local.doIt = text;
   add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
   add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local, ...(opts.private ? { private: true } : {}) });
+  chat.set({ live: reply });
   if (opts.voice) void speak(reply).catch(() => undefined);
   return true;
 }

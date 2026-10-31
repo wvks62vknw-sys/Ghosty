@@ -16,7 +16,7 @@ import { loadRoadmap } from './tools/evolve';
 import { addOwnerGoal, loadIdeas } from './upgrades';
 
 // (the shared words and search, re-exported for the brain's tests: test/abilities.test.mjs)
-export { argWords, askOf, bestAsk, canYouAsked, doneOf, iCan, patternWords, queryWords, searchAbilities, stem, whatAbout, whyAsked, whyLines } from '../../../packages/shared/src/abilities';
+export { argWords, askOf, bestAsk, canYouAsked, dayLines, doneOf, iCan, patternWords, queryWords, searchAbilities, stem, todayAsked, whatAbout, whyAsked, whyLines } from '../../../packages/shared/src/abilities';
 
 export const OFFERED_KEY = 'abilities:offered';
 export const USED_KEY = 'abilities:used';
