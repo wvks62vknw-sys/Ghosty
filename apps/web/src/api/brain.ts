@@ -17,6 +17,7 @@ import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
+import type { GuardianInfo } from '../../../../packages/shared/src/guardian';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -414,6 +415,9 @@ export const brain = {
   abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
+  /** THE GUARDIAN (apps/edge/src/guardian.ts): the watch over his places. */
+  guardian: () => req<GuardianInfo>('GET', '/guardian'),
+  guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

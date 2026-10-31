@@ -425,7 +425,7 @@ LONG.push({ // WORKSHOP: one stacked page now, no BUILD / PAGES & WIDGETS switch
 LONG.push({ // THREATS
   tab: 'threats',
   pills: ['Signals', 'Near you', 'Space weather', 'Launches'],
-  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR YOU/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
+  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR (YOU|HOME)/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
   tap: 'Space weather', link: { row: /Recon/i, pill: 'Launches', panel: /^RECON/ },
 });
 LONG.push({ // LINKS: the list's own groups (shell/layout.ts)

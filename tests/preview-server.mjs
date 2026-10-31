@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
+import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -87,6 +88,10 @@ globalThis.fetch = async (input, init) => {
   // Test only: the PHOTO TOOLS Spaces (tests/photo.spec.mjs), from their real answers.
   const photo = await photoSpaces(u, init);
   if (photo) return photo;
+  // Test only: the guardian's public feeds (tests/fixtures/guardian-feeds.mjs): never the live ones, whichever spec runs
+  // when the hourly watch looks.
+  const guard = guardianFeeds(u);
+  if (guard) return guard;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -167,6 +172,14 @@ createServer(async (req, res) => {
     if (url.pathname === '/__test/photo-mode') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(setPhotoMode(url.searchParams)));
+      return;
+    }
+    // Test only: the guardian's feeds switched on and off (tests/guardian.spec.mjs: ?flood=1&weather=1, back with 0).
+    if (url.pathname === '/__test/guardian') {
+      // ?reset=1: the watch forgets what it told (the spec runs again on the same brain, as CI's retry does)
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['guardian:watch']);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(setGuardMode(url.searchParams)));
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

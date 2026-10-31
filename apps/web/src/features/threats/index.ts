@@ -1,4 +1,4 @@
-/** THREATS tab: earthquakes, natural events, space weather and launches, worst first. */
+/** THREATS tab: earthquakes, natural events, space weather and launches, worst first; NEAR HOME: the guardian's watch over his places. */
 import { flyTo } from '../../commands/builtin';
 import { clear, fmt, h } from '../../core/dom';
 import { events, kp, launches, launchStatus, liveEvents, quakes, signals, threatLevel, type Launch, type Signal } from '../../data/hazards';
@@ -11,6 +11,7 @@ import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { reconPanel } from './recon';
+import { nearHomePanel } from './nearhome'; // [guardian]
 
 /** A distance in plain kilometres: "340 km", "5,410 km" (not "5.4k km"). */
 const km = (x: number): string => `${Math.round(x >= 1000 ? Math.round(x / 10) * 10 : x).toLocaleString('en-GB')} km`;
@@ -37,12 +38,14 @@ export const threatsTab: TabDef = {
     const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
     const lp = panel('LAUNCH WINDOW', { footer: true, cls: 'launches' });
     const lg = pager(lp, 46, (l: Launch) => row(launchStatus(l.status), l.name.replace(/\s*\|\s*/g, ' · '), new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { wrap: true, onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
-    P.right.append(near.el, space.el, lp.el, reconPanel());
+    // [guardian] NEAR HOME: what is active near each saved place (flood, weather, the month's street crime), beside NEAR YOU
+    const nearHome = nearHomePanel();
+    P.right.append(near.el, nearHome.el, space.el, lp.el, reconPanel());
     // Sections (ui/sections.ts): what is happening now, what is near him, the sky, and what is going up (with RECON, the
     // one thing here he runs himself, after the launches).
     sections(root, 'threats', [
       { id: 'signals', label: 'Signals', match: /^ACTIVE SIGNALS/ },
-      { id: 'near', label: 'Near you', match: /^NEAR YOU/ },
+      { id: 'near', label: 'Near you', match: /^NEAR (YOU|HOME)/ },
       { id: 'space', label: 'Space weather', match: /^SPACE WEATHER/ },
       { id: 'launches', label: 'Launches', match: /^(LAUNCH|RECON)/ },
     ]);
@@ -91,6 +94,7 @@ export const threatsTab: TabDef = {
       enter() {
         for (const f of [quakes, events, launches, kp]) f.start();
         paint();
+        nearHome.refresh();
       },
       describe: () => `Threats: level ${P.big.textContent}; ${P.sub.textContent}`,
     };

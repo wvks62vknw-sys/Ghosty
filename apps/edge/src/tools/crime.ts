@@ -25,7 +25,9 @@ const LABEL: Record<string, string> = {
   'violent-crime': 'violence and sexual offences',
   'other-crime': 'other crime',
 };
-const label = (c: string) => LABEL[c] ?? c.replace(/-/g, ' ');
+/** A police.uk category in plain words ("violent-crime" → "violence and sexual offences"). */
+export const crimeLabel = (c: string) => LABEL[c] ?? c.replace(/-/g, ' ');
+const label = crimeLabel;
 
 interface ApiCrime {
   category: string;

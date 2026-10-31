@@ -1,0 +1,102 @@
+// THE GUARDIAN on the owner's phone (440 × 956; OWNER-ISSUES 55, 58), against the preview brain with its public feeds
+// stood in (tests/fixtures/guardian-feeds.mjs: never the live ones):
+//  1. his home saved: THREATS → NEAR HOME says "Nothing active near Home." in his voice, the feeds' last look and the month's
+//     street crime as police.uk published it (a count, never a forecast);
+//  2. a flood alert and a weather warning appear: CHECK NOW tells him, the brain's ONE notification is in the inbox with
+//     both lines, the card shows each with its source and since when; the same look again says nothing new; they lift:
+//     the all-clear, once;
+//  then everything is put back (the place, the feeds quiet, the inbox read) for the specs after it.
+//   BASE=http://localhost:8788 node tests/guardian.spec.mjs [outDir]
+import { mkdirSync } from 'node:fs';
+import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
+
+const out = process.argv[2] ?? 'tests/.shots';
+mkdirSync(out, { recursive: true });
+const base = process.env.BASE ?? 'http://localhost:8788';
+const KEY = 'preview-owner-key-0123456789';
+const problems = [];
+const check = (ok, what) => void (ok || problems.push(what));
+
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, serviceWorkers: 'block' });
+const page = await ctx.newPage();
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
+const sent = [];
+await ctx.route('**/*', (route) => {
+  const r = route.request();
+  sent.push({ url: r.url(), body: r.postData() ?? '' });
+  return route.continue();
+});
+const feeds = (q) => fetch(`${base}/__test/guardian?${q}`).then((r) => r.json());
+// quiet, and nothing told yet (CI retries a failed spec on the same brain)
+await feeds('flood=0&weather=0&reset=1');
+const t0 = Date.now() - 1000;
+
+await page.goto(base, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('#pair input', { timeout: 20000 });
+await page.fill('#pair input', KEY);
+await page.click('#pair button.on');
+await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+const api = (path, init = {}) => page.evaluate(async ([p, i, k]) => (await fetch(`/api${p}`, { ...i, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': k } })).json(), [path, init, KEY]);
+const toasts = () => page.evaluate(() => document.querySelector('#toasts')?.textContent ?? '');
+const until = (fn, arg, ms, what) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => (problems.push(what), false));
+const text = (sel) => page.evaluate((s) => document.querySelector(s)?.textContent?.replace(/\s+/g, ' ').trim() ?? '', sel);
+
+// his home, as Memory → ME → PLACES keeps it
+const had = (await api('/profile/places')).places ?? [];
+await api('/profile/places', { method: 'POST', body: JSON.stringify({ found: { id: 'home', label: 'Home', query: 'B13 8PX', address: 'B13 8PX, Moseley, Birmingham', lat: 52.443186, lon: -1.892525 } }) });
+
+// ---- 1. NEAR HOME, quiet
+await page.evaluate(() => (location.hash = 'threats'));
+await openSection(page, 'threats', 'Near you');
+const card = '#pg-threats .pn.nearhome';
+await page.waitForSelector(card, { timeout: 10000 });
+const checkNow = () => page.locator(`${card} button`, { hasText: 'CHECK NOW' }).click();
+await checkNow();
+await until((s) => /I'm watching Home\. Nothing active\. Last look \d\d:\d\d\./.test(document.querySelector(`${s} .watchline`)?.textContent ?? ''), card, 15000, `NEAR HOME's line: "${await text(`${card} .watchline`)}"`);
+const quiet = await text(card);
+check(/HOME\s*Nothing active near Home\./.test(quiet), `NEAR HOME does not say "Nothing active near Home.": ${quiet}`);
+check(/Street crime near Home, \w+: 3 reported within a mile — anti-social behaviour 2, vehicle crime 1\. A count as police\.uk published it/.test(quiet), `the month's crime: ${quiet}`);
+check(/Last looked: Environment Agency \d\d:\d\d · Met Office \d\d:\d\d · police\.uk \d\d:\d\d\./.test(quiet), `the feeds' last look: ${quiet}`);
+/** This run's inbox items (CI's one preview brain keeps every earlier run's). */
+const mine = async () => ((await api('/inbox')).items ?? []).filter((i) => i.at >= t0);
+const inboxCount = async (title) => (await mine()).filter((i) => i.title === title).length;
+
+// ---- 2. a flood alert and a weather warning appear: told once; the all-clear once
+await feeds('flood=1&weather=1');
+await checkNow();
+await until((s) => (document.querySelector(s)?.textContent ?? '').includes('River Cole'), card, 15000, `the warnings did not come: ${await text(card)}`);
+const loud = await text(card);
+check(/Flood alert: River Cole at Kings Heath and Moseley · Environment Agency · since \d\d:\d\d/.test(loud), `the flood row: ${loud}`);
+check(/Yellow warning of wind · Met Office · since \d\d:\d\d · until \d\d:\d\d/.test(loud), `the weather row: ${loud}`);
+check(/I'm watching Home\. 2 warnings active\./.test(loud), `the line with warnings: ${loud}`);
+check(/Flood alert near Home|Yellow warning of wind near Home/.test(await toasts()), `CHECK NOW did not tell him: "${await toasts()}"`);
+const told = (await mine()).filter((i) => i.title === '2 warnings near your places');
+check(told.length === 1 && /Flood alert near Home: River Cole/.test(told[0]?.text ?? '') && /Yellow warning of wind near Home \(Met Office, since/.test(told[0]?.text ?? '') && told[0]?.kind === 'error', `the notification: ${JSON.stringify(told)}`);
+await page.screenshot({ path: `${out}/guardian-nearhome.png` });
+await checkNow();
+await page.waitForTimeout(800);
+check((await inboxCount('2 warnings near your places')) === 1, 'the same warnings were told twice');
+
+// they lift: the all-clear, once
+await feeds('flood=0&weather=0');
+await checkNow();
+await until((s) => /Nothing active near Home\./.test(document.querySelector(s)?.textContent ?? ''), card, 15000, 'the card did not go quiet');
+const clear = (await mine()).filter((i) => i.title === 'All clear');
+check(clear.length === 1 && /The flood alert near Home has lifted \(Environment Agency\)\./.test(clear[0]?.text ?? '') && /The yellow wind warning near Home has lifted \(Met Office\)\./.test(clear[0]?.text ?? ''), `the all-clear: ${JSON.stringify(clear)}`);
+await checkNow();
+await page.waitForTimeout(800);
+check((await inboxCount('All clear')) === 1, 'the all-clear was said twice');
+
+// ---- put back what this spec changed, for the specs after it on the same brain
+if (!had.some((p) => p.id === 'home')) await api('/profile/places?id=home', { method: 'DELETE' });
+await feeds('flood=0&weather=0');
+await api('/inbox/read', { method: 'POST', body: JSON.stringify({ ids: 'all' }) });
+
+await browser.close();
+if (problems.length) {
+  console.error(`FAIL guardian:\n- ${problems.join('\n- ')}`);
+  process.exit(1);
+}
+console.log('ok: THE GUARDIAN — NEAR HOME quiet, a warning told once with its notification, the all-clear once');
