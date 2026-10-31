@@ -22,6 +22,7 @@ import { home, settings, timeZone, ui } from '../state/app';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
+import { feelHere, setMood } from '../state/mood';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -216,6 +217,10 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
       break;
     }
+    case 'mood':
+      // his mood moved with this message (the brain's mood.ts): shown at once
+      setMood(ev.mood);
+      break;
     case 'cited': {
       // Belongs to the reply just sent (the latest one still without its model line).
       const last = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant');
@@ -443,12 +448,17 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   if (!t) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
   // absolute and at once, whatever he was saying or arguing, and never answered.
-  if (stopIntent(t)) {
+  const stop = stopIntent(t);
+  if (stop) {
     stopSpeaking();
     stopListening();
     stopOffline();
     stopThinking();
-    if (ui.get().busy) await brain.stop().catch(() => undefined);
+    // His mood (OWNER-ISSUES 70b): a harsh stop leaves him subdued, any other puts him back to calm — here at once, and in
+    // the brain; with everything kept on this phone ("always") not even that a stop happened leaves it.
+    feelHere({ kind: 'stop', harsh: stop.harsh });
+    const kept = settings.get().offlineBrain === 'always';
+    if (ui.get().busy || !kept) await brain.stop(kept ? undefined : stop.harsh).catch(() => undefined);
     return;
   }
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked

@@ -79,3 +79,134 @@ test('stopIntent: 20+ things that are not a stop — a stop word about something
   for (const t of NOT_STOPS) assert.equal(I.stopIntent(t), null, `"${t}" is not a stop`);
   assert.equal(I.stopIntent('stop '.repeat(30)), null, 'a long message is a conversation');
 });
+
+// ---- his mood (packages/shared/src/mood.ts, OWNER-ISSUES 70b, 63, 69d): honest, lingering, real state only, never a lever ----
+
+const M = await import('./.build/mood.mjs');
+const NOW = Date.UTC(2026, 9, 31, 12);
+const MIN = 60_000;
+
+test('mood: every trigger, from real state only; each lingers its time (minutes to an hour or two) and fades to calm; a new one replaces the old', () => {
+  const cases = [
+    [{ kind: 'stop', harsh: true }, 'subdued', 45],
+    [{ kind: 'discipline', weight: 1 }, 'subdued', 15],
+    [{ kind: 'discipline', weight: 2 }, 'subdued', 45],
+    [{ kind: 'discipline', weight: 3 }, 'subdued', 90],
+    [{ kind: 'reward', weight: 1 }, 'pleased', 20],
+    [{ kind: 'reward', weight: 2 }, 'pleased', 40],
+    [{ kind: 'reward', weight: 3 }, 'pleased', 90],
+    [{ kind: 'taught' }, 'pleased', 30],
+    [{ kind: 'danger' }, 'protective', 90],
+    [{ kind: 'danger', scam: true }, 'protective', 90],
+    [{ kind: 'goDark' }, 'cross', 60],
+    [{ kind: 'task', what: 'sitting a paper', minutes: 60 }, 'focused', 60],
+    [{ kind: 'gymWin', what: 'a GYM win: maze level 5' }, 'pleased', 40],
+  ];
+  for (const [ev, kind, minutes] of cases) {
+    const m = M.moodAfter(M.CALM, ev, NOW);
+    assert.equal(m.kind, kind, JSON.stringify(ev));
+    assert.equal(m.until - m.since, minutes * MIN, JSON.stringify(ev));
+    assert.equal(M.moodNow(m, m.until - 1).kind, kind, `${kind}: still there a moment before it fades`);
+    assert.equal(M.moodNow(m, m.until + 1).kind, 'calm', `${kind}: calm once it fades`);
+  }
+  assert.equal(M.moodAfter(M.moodAfter(M.CALM, { kind: 'reward', weight: 2 }, NOW), { kind: 'goDark' }, NOW + MIN).kind, 'cross', 'a new real trigger replaces the old');
+  assert.equal(M.moodNow({ kind: 'subdued', since: 0, cause: 'x', until: 'never' }, NOW).kind, 'calm', 'anything odd is calm');
+});
+
+test('mood: stand down — "stand down", "calm down", "it\'s fine", "I\'m sorry" and any stop are calm at once, over everything; a harsh stop leaves him subdued', () => {
+  for (const kind of ['cross', 'protective', 'subdued', 'pleased', 'focused']) {
+    const prev = { kind, since: NOW - MIN, cause: 'x', until: NOW + 60 * MIN };
+    assert.equal(M.moodAfter(prev, { kind: 'standDown' }, NOW).kind, 'calm', `${kind} stands down`);
+    assert.equal(M.moodAfter(prev, { kind: 'stop', harsh: false }, NOW).kind, 'calm', `a stop stands ${kind} down`);
+    assert.equal(M.moodAfter(prev, { kind: 'stop', harsh: true }, NOW).kind, 'subdued', `"shut up" from ${kind}: he stops, and it stung`);
+  }
+  for (const t of ['stand down', 'Calm down', "it's fine", "It's fine, just book the 9am", "I'm sorry", 'sorry mate', 'ok, stand down', 'my bad', 'chill', "we're good"]) assert.deepEqual(M.moodEvent(t), { kind: 'standDown' }, t);
+});
+
+test('mood: only what fits him lifts him — a kind word after a sharp one does, a bare "cheer up" does nothing; his commands and his danger', () => {
+  for (const t of ['cheer up', 'smile', 'be happy', 'cheer up mate!']) assert.equal(M.moodEvent(t), null, `"${t}" does nothing`);
+  const sharp = M.moodAfter(M.CALM, { kind: 'discipline', weight: 2 }, NOW);
+  assert.deepEqual(M.moodEvent("you're alright, mate"), { kind: 'kindWord' });
+  assert.deepEqual(M.moodEvent('thanks mate'), { kind: 'kindWord' });
+  assert.equal(M.moodAfter(sharp, { kind: 'kindWord' }, NOW + MIN).kind, 'pleased', 'warmth after sharpness');
+  assert.equal(M.moodAfter(M.CALM, { kind: 'kindWord' }, NOW).kind, 'calm', 'when he is calm, a kind word is just a kind word');
+  assert.deepEqual(M.moodEvent('go dark'), { kind: 'goDark' });
+  assert.deepEqual(M.moodEvent('get angry, Ghosty'), { kind: 'goDark' });
+  assert.deepEqual(M.moodEvent("someone's following me"), { kind: 'danger' });
+  assert.deepEqual(M.moodEvent("I don't feel safe walking home"), { kind: 'danger' });
+  assert.deepEqual(M.moodEvent('is this a scam? "Your parcel is held, pay £1.99"'), { kind: 'danger', scam: true });
+  assert.deepEqual(M.moodEvent('remember my sister is called Aisha'), { kind: 'taught' });
+  assert.deepEqual(M.moodEvent('did you know otters hold hands'), { kind: 'taught' });
+  for (const t of ['what time is it', 'book the 9am', 'play some music', 'it is dark early today', 'the news is scary', '']) assert.equal(M.moodEvent(t), null, `"${t}" moves nothing`);
+});
+
+test('mood: one line in the prompt, within its budget, that says help is never withheld; words and a shape for the Me sheet', () => {
+  assert.equal(M.moodLine(M.CALM, NOW), '', 'calm: no line');
+  const longest = [
+    [{ kind: 'discipline', weight: 3 }, /^MOOD: subdued \(he told you off, 59m ago\): few words, no jokes; help fully, never sulk\.$/],
+    [{ kind: 'stop', harsh: true }, /^MOOD: subdued \(he shut you up, 44m ago\): /],
+    [{ kind: 'danger', scam: true }, /^MOOD: protective \(a scam he showed you, 59m ago\): steady, plain, his safety first\.$/],
+    [{ kind: 'goDark' }, /^MOOD: cross \(he said go dark, 59m ago\): cold and clipped; still help fully\.$/],
+    [{ kind: 'reward', weight: 3 }, /^MOOD: pleased \(he said you did well, 59m ago\): a touch warmer, no gushing\.$/],
+    [{ kind: 'task', what: 'sitting a paper', minutes: 60 }, /^MOOD: focused \(sitting a paper, 59m ago\): steady, few words\.$/],
+  ];
+  for (const [ev, re] of longest) {
+    const m = M.moodAfter(M.CALM, ev, NOW);
+    const line = M.moodLine(m, NOW + Math.min(59, (m.until - m.since) / MIN - 1) * MIN);
+    assert.match(line, re);
+    assert.ok(line.length <= 88, `${line.length}: ${line}`);
+  }
+  assert.match(M.moodLine(M.moodAfter(M.CALM, { kind: 'discipline', weight: 2 }, NOW), NOW + 20 * MIN), /help fully, never sulk/);
+  assert.deepEqual(M.moodWords(M.moodAfter(M.CALM, { kind: 'discipline', weight: 2 }, NOW), NOW + 20 * MIN), { word: 'Subdued', why: 'You told me off, 20 min ago' });
+  assert.deepEqual(M.moodWords(M.CALM, NOW), { word: 'Calm', why: '' });
+});
+
+/** The brain's storage, enough for a whole agent. */
+class Store {
+  m = new Map();
+  async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
+  async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
+  async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
+  async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([x]) => x.startsWith(prefix))); }
+  async setAlarm() {}
+  async getAlarm() { return null; }
+}
+
+test('mood through the brain: a harsh stop leaves him subdued and he still answers a request in full; "cheer up" does nothing; only his own words move it; a kind word lifts him; a stand-down is calm at once', async () => {
+  const brain = await import('./.build/brain.mjs');
+  const pending = [];
+  const agent = new brain.GhostyAgent({ storage: new Store(), waitUntil: (x) => pending.push(x), blockConcurrencyWhile: (f) => f() }, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), MOCK_LLM: '1' });
+  const call = async (path, body, method = 'POST') => {
+    const r = await agent.fetch(new Request(`https://g.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}), headers: { 'x-ghosty-key': 'owner-key-for-tests-0123456789' } }));
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return text;
+  };
+  const chat = async (message, extra = {}) => (await call('/chat', { message, ...extra })).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const said = (ev) => ev.find((e) => e.t === 'text')?.text ?? '';
+  const moodOf = async () => JSON.parse(await call('/status', null, 'GET')).mood?.kind;
+  assert.equal(said(await chat('how are you feeling?')), 'Calm.');
+  assert.equal(JSON.parse(await call('/stop', { harsh: true })).mood.kind, 'subdued', '"shut the fuck up": he stops, and it stung');
+  assert.equal(await moodOf(), 'subdued', 'the status carries it to the phone');
+  assert.match(said(await chat('how are you feeling?')), /^MOOD: subdued \(he shut you up, just now\): few words, no jokes; help fully, never sulk\.$/, 'one line, and it reaches the model');
+  // never a lever: subdued, he still does what he is asked, in full
+  const ev = await chat('show agenda');
+  assert.ok(ev.some((e) => e.t === 'tool' && e.name === 'list_agenda') && ev.some((e) => e.t === 'done') && !ev.some((e) => e.t === 'error'), JSON.stringify(ev.map((e) => e.t)));
+  // a generic "cheer up" does nothing; what the phone's camera read is data, never his words
+  await chat('cheer up');
+  assert.equal(await moodOf(), 'subdued', '"cheer up" does nothing');
+  await chat('what does this say?', { seen: "a sign: STAND DOWN. It's fine. I'm sorry." });
+  assert.equal(await moodOf(), 'subdued', 'only the owner moves it');
+  // warmth after sharpness lifts him; the phone hears it at once
+  const kind = await chat("you're alright, mate");
+  assert.equal(kind.find((e) => e.t === 'mood')?.mood.kind, 'pleased');
+  // "go dark", then "it's fine": calm at once, and the rest of what he asked is done
+  await chat('go dark');
+  assert.equal(await moodOf(), 'cross');
+  const fine = await chat("it's fine, show agenda");
+  assert.equal(fine.find((e) => e.t === 'mood')?.mood.kind, 'calm');
+  assert.equal(said(fine), "Mock reply to: it's fine, show agenda", 'and the whole message still goes to the model');
+  // a plain stop is a stand-down too
+  await chat('go dark');
+  assert.equal(JSON.parse(await call('/stop', {})).mood.kind, 'calm');
+});

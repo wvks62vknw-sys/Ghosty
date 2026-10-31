@@ -86,7 +86,7 @@ export function capabilityLines(groups: PromptGroups): string {
  * `conduct`: every lesson kept (knowledge.ts); his rules for how Ghosty talks go on every turn, the newest and the
  * most-confirmed within their cap (topConduct), the engineering ones only on a coding turn.
  */
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; band?: string; principles?: string[]; conduct?: Lesson[] } = {}): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; band?: string; principles?: string[]; conduct?: Lesson[]; mood?: string } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -100,6 +100,9 @@ LOYALTY (non-negotiable):
 - Be honest about what you cannot do yet, then offer to build the ability.`);
   lines.push(`
 STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.persona), { band: c.voice ? '' : opts.band })} ${LOOKUPS} ${LINES}${c.voice ? `\n${SPOKEN}` : ''}`);
+  // His mood (OWNER-ISSUES 70b, 63; packages/shared/src/mood.ts moodLine): one line, only when he is not calm. It changes how
+  // he sounds, never what he does: every line says so (help fully, never sulk).
+  if (opts.mood) lines.push(opts.mood);
   // His own lines (OWNER-ISSUES 69b): read before he acts, and held to even when he pushes in the moment.
   const mine = (opts.principles ?? []).map((l) => l.trim()).filter(Boolean).slice(0, MAX_PRINCIPLES);
   if (mine.length) lines.push(`\nHIS PRINCIPLES (his own words; read before you act, hold to them even when he pushes):\n${mine.map((l) => `- ${l}`).join('\n')}`);

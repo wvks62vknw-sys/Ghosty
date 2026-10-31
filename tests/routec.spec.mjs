@@ -245,6 +245,10 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     dials: [...document.querySelectorAll('#mesheet .megauge')].map((d) => `${d.querySelector('.rcgauge b')?.textContent}|${d.querySelector(':scope > b')?.textContent}|${d.querySelector(':scope > small')?.textContent}`),
     ok: document.querySelector('#mesheet .meok')?.textContent,
     rows: [...document.querySelectorAll('#mesheet .merow')].map((r) => r.dataset.id),
+    mood: (() => {
+      const m = document.querySelector('#mesheet .memood');
+      return m ? { kind: m.dataset.mood, word: m.querySelector('b')?.textContent, shape: !!m.querySelector('svg.moodshape path') } : null;
+    })(),
   }));
   if (me.parts[0] !== 'head' || me.parts[1] !== 'status') problems.push(`[${W} me] the sheet's order is ${me.parts.join(', ')} (Status should come first)`);
   if (me.dials.length !== 3 || !/^Free AI today/.test(me.dials[0]?.split('|')[1] ?? '') || me.dials[0]?.startsWith('—')) problems.push(`[${W} me] the dials read ${me.dials.join(' / ')}`);
@@ -253,6 +257,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   if (db != null && !(Math.abs(num(me.dials[1]?.split('|')[0]) - db) <= 4 && /%/.test(me.dials[1] ?? ''))) problems.push(`[${W} me] Database today reads "${me.dials[1]}", the meter says ${db}%`);
   if (!/All good|Needs a look|Brain offline/.test(me.ok ?? '')) problems.push(`[${W} me] the Status line reads "${me.ok}"`);
   if (me.rows.join(',') !== 'memory,settings,system,links,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  // his mood (OWNER-ISSUES 70b, 63): a shape and a word, never colour alone (whatever this preview brain feels now)
+  if (!me.mood?.shape || !/^(?:Calm|Focused|Protective|Pleased|Cross|Subdued)$/.test(me.mood.word ?? '') || me.mood.word.toLowerCase() !== me.mood.kind) problems.push(`[${W} me] the mood reads ${JSON.stringify(me.mood)}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#mesheet .merow, #mesheet .meclose')) problems.push(`[${W} me] under a 44 pt target: ${t}`);
   await page.screenshot({ path: `${out}/routec-${W}-me.png`, timeout: 90000 });

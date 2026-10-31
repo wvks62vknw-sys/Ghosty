@@ -103,7 +103,9 @@ test('keys are stored encrypted and never returned', async () => {
 
 test('agent loop: remember tool then reply', async () => {
   const ev = await chat('remember I prefer my coffee black');
-  assert.deepEqual(ev.map((e) => e.t).filter((t) => t !== 'status'), ['tool', 'tool_result', 'text', 'done']);
+  // (being taught something pleases him: the phone hears it first — mood.ts, OWNER-ISSUES 70b)
+  assert.deepEqual(ev.map((e) => e.t).filter((t) => t !== 'status'), ['mood', 'tool', 'tool_result', 'text', 'done']);
+  assert.equal(ev[0].t === 'mood' ? ev[0].mood.kind : ev.find((e) => e.t === 'mood')?.mood.kind, 'pleased');
   const mem = await (await call('/api/memory')).json();
   assert.equal(mem.facts[0].text, 'I prefer my coffee black');
 });

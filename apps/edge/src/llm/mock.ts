@@ -44,6 +44,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     const mine = (system.split('\nHIS PRINCIPLES (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
     return { message: { role: 'assistant', content: mine.length ? `You told me: ${mine.join(' / ').replace(/\.$/, '')}.` : 'You have not given me any yet.' }, model };
   }
+  // His mood (packages/shared/src/mood.ts moodLine): the MOOD line said back as the prompt carries it, or "Calm."
+  if (owner === 'how are you feeling?') return { message: { role: 'assistant', content: system.match(/^MOOD: .*$/m)?.[0] ?? 'Calm.' }, model };
   // His corrections kept as standing rules (prompt.ts HOW HE TOLD YOU TO BE): said back as the prompt carries them.
   if (owner === 'what did i tell you?') {
     const rules = (system.split('\nHOW HE TOLD YOU TO BE (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));

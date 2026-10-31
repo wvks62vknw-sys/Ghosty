@@ -13,6 +13,8 @@ import { BUILD } from '../state/build';
 import { statusDials } from '../ui/statusdials';
 import { settings, ui } from '../state/app';
 import { THEMES } from '../state/theme';
+import { mood, moodShape } from '../state/mood';
+import { moodWords } from '../../../../packages/shared/src/mood';
 import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
@@ -266,6 +268,7 @@ export function openMe(openDeck: () => void): void {
   const s = settings.get();
   const close = () => {
     if (!sheet) return;
+    offMood();
     const el = sheet;
     sheet = null;
     el.classList.add('out');
@@ -284,11 +287,21 @@ export function openMe(openDeck: () => void): void {
   // ---- Status: three dials (free AI today, the database today, the offline brain) and four lines
   const okLine = h('span.meok', { dataset: { tone: 'idle' } }, h('i'), h('span', 'Checking…'));
   const dials = statusDials();
-  const lines = { ghosty: h('span.v', '…'), self: h('span.v', '…'), phone: h('span.v', ownerKey.get() ? 'Paired with your owner key' : 'Signed in with Cloudflare Access'), version: h('span.v', '…') };
+  const lines = { mood: h('span.v.memood'), ghosty: h('span.v', '…'), self: h('span.v', '…'), phone: h('span.v', ownerKey.get() ? 'Paired with your owner key' : 'Signed in with Cloudflare Access'), version: h('span.v', '…') };
+  // His mood (OWNER-ISSUES 70b, 63): a shape and the word, why and when — never colour alone (SMALL-GAPS L)
+  const paintMood = () => {
+    const m = mood.get().now;
+    const w = moodWords(m);
+    lines.mood.dataset.mood = m.kind;
+    clear(lines.mood, moodShape(m.kind), h('b', w.word), ...(w.why ? [h('small', w.why)] : []));
+  };
+  paintMood();
+  const offMood = mood.subscribe(paintMood);
   const status = h('section.rccard.mestatus', { dataset: { part: 'status' } },
     h('div.mesth', h('b', 'Status'), okLine),
     dials.el,
     h('div.merows',
+      h('div.mer', h('span.k', 'Mood'), lines.mood),
       h('div.mer', h('span.k', 'Ghosty'), lines.ghosty),
       h('div.mer', h('span.k', 'Self-edit'), lines.self),
       h('div.mer', h('span.k', 'This phone'), lines.phone),

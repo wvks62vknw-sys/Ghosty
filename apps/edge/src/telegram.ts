@@ -100,8 +100,8 @@ export interface TelegramHost {
   takeApproval(id: string, allow: boolean): Promise<{ error: string } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }>;
   /** One line for /status: models ready, keys set — never a secret. */
   statusLine(): Promise<string>;
-  /** Stop the turn under way (/stop). */
-  stop(): void;
+  /** Stop the turn under way (/stop, or a stop by intent: `harsh` leaves him subdued, any other is calm; mood.ts). */
+  stop(harsh?: boolean): void;
 }
 
 // ---- Telegram's own shapes (the parts Ghosty reads) ----
@@ -732,8 +732,9 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   if (!text) return tgSend(token, chatId, 'Send me text, a voice note or a photo.');
   // A stop by intent ("shut up", "enough", "leave it": intent.ts), typed or in a voice note: whatever is under way stops,
   // and nothing is said back (OWNER-ISSUES 70a). /stop above is the command; this is the owner talking.
-  if (!images.length && stopIntent(text)) {
-    host.stop();
+  const stop = !images.length ? stopIntent(text) : null;
+  if (stop) {
+    host.stop(stop.harsh);
     return;
   }
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);

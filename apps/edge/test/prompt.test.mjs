@@ -236,14 +236,18 @@ test('the dials change the words (never the rules) and stay compact', () => {
   assert.deepEqual(P.readPersona({ dry: 9, brief: '2', warm: 2, fire: 7 }), { dry: 1, brief: 1, warm: 2, fire: 1 }, 'odd values fall back to the default');
 });
 
-test('the prompt budget holds for every dial setting on every channel: app, spoken, Telegram and a Telegram voice note', () => {
+test('the prompt budget holds for every dial setting on every channel: app, spoken, Telegram and a Telegram voice note', async () => {
   const channels = { plain: client, spoken: { ...client, voice: true }, telegram: { ...client, tab: 'telegram', screen: TG_SCREEN }, telegramVoice: { ...client, tab: 'telegram', screen: TG_SCREEN, voice: true } };
-  // with his length's longest line (persona.ts lengthBand) on a typed turn
+  // with his length's longest line (persona.ts lengthBand) on a typed turn, and his mood's longest line (mood.ts moodLine:
+  // subdued, told off sharply, 59 minutes on) — the budget holds with everything that can be on at once
   const band = 'He writes at length: a paragraph is fine.';
+  const MOOD = await import('./.build/mood.mjs');
+  const mood = MOOD.moodLine(MOOD.moodAfter(MOOD.CALM, { kind: 'discipline', weight: 3 }, 0), 59 * 60_000);
+  assert.equal(mood.length, 86, mood);
   for (const [name, c] of Object.entries(channels)) {
     let worst = { n: 0, dials: null };
     for (const dials of ALL_DIALS) {
-      const n = P.systemPrompt(c, [], true, [], { groups: hello(), profile: withDials(dials), band }).length;
+      const n = P.systemPrompt(c, [], true, [], { groups: hello(), profile: withDials(dials), band, mood }).length;
       if (n > worst.n) worst = { n, dials };
     }
     assert.ok(worst.n <= 5500, `${name}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
@@ -381,6 +385,14 @@ test('raising him through the brain: "too long" is kept as his rule and answered
   // a rule said again is confirmed, not doubled
   await chat('way too long');
   assert.deepEqual((await storage.get('lessons')).map((l) => [l.text, l.hits]), [['way too long', 2]], 'the fuller wording kept');
+});
+
+test('his mood (70b, 63): one line after the character when he is not calm, none when he is', () => {
+  const line = 'MOOD: subdued (he told you off, 20m ago): few words, no jokes; help fully, never sulk.';
+  const sys = P.systemPrompt(client, [], true, [], { groups: hello(), mood: line });
+  assert.equal(sys.split(line).length, 2, 'once');
+  assert.ok(sys.indexOf(line) > sys.indexOf('CHARACTER:') && sys.indexOf(line) < sys.indexOf('WHAT YOU CAN DO NOW'), 'right after the character');
+  assert.ok(!/\nMOOD: /.test(P.systemPrompt(client, [], true, [], { groups: hello(), mood: '' })), 'calm: no line');
 });
 
 test('SETTINGS → CHARACTER round-trips through the brain and reaches the prompt; the profile keeps it', async () => {

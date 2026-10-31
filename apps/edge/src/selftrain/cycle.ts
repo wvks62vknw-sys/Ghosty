@@ -55,6 +55,7 @@
  * Every save made by a job step checks the state's generation first (`gen`): a step that started before the
  * report arrived cannot write its stale copy over it.
  */
+import { feel } from '../mood';
 import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
@@ -1544,7 +1545,11 @@ export async function trainingRoute(req: Request, path: string, method: string, 
   if (path === '/training/gym' && method === 'POST') {
     const levels: Record<string, number> = {};
     for (const [k, v] of Object.entries((body.levels ?? {}) as Record<string, unknown>)) if (/^[a-z0-9]{2,24}$/.test(k) && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 10) levels[k] = v as number;
+    // A level he climbed in the GYM is a win he is proud of: it pleases him (mood.ts), the one thing that cheers him that he earned.
+    const was = (await s.get<Record<string, number>>(K.gym)) ?? {};
+    const won = Object.keys(levels).find((k) => was[k] !== undefined && levels[k]! > was[k]!);
     await s.put(K.gym, levels);
+    if (won) await feel(s, { kind: 'gymWin', what: `a GYM win: ${won} level ${levels[won]}` }).catch(() => undefined);
     return json({ ok: true });
   }
   if (path === '/training/star' && method === 'POST') {

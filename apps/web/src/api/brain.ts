@@ -306,7 +306,8 @@ export const brain = {
       .catch(() => [])
       .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library }, ...(cited ? { cited: true } : {}) }, onEvent, signal)),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
-  stop: () => req<{ ok: boolean }>('POST', '/stop'),
+  /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
+  stop: (harsh?: boolean) => req<{ ok: boolean }>('POST', '/stop', harsh === undefined ? undefined : { harsh }),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
   addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),
