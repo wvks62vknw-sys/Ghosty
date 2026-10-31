@@ -31,6 +31,21 @@ export const PROFILE_KEY = 'profile';
  * profile, waits on a model, then saves it — a dial changed meanwhile must not be undone by that.
  */
 export const PERSONA_KEY = 'persona';
+/**
+ * His PRINCIPLES (OWNER-ISSUES 64, 69b): the lines he sets in his own words (SETTINGS → CHARACTER, MEMORY), read before
+ * Ghosty acts. Under their own key, like the dials. At most MAX_PRINCIPLES lines of at most 160 characters.
+ */
+export const PRINCIPLES_KEY = 'principles';
+export const MAX_PRINCIPLES = 8;
+
+/** His principles as kept: each line his own words, tidied of spare spaces, never empty or over 160 characters. */
+export function readPrinciples(v: unknown): string[] {
+  return (Array.isArray(v) ? v : []).map((l) => String(l ?? '').replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).slice(0, MAX_PRINCIPLES);
+}
+
+export async function loadPrinciples(storage: DurableObjectStorage): Promise<string[]> {
+  return readPrinciples(await storage.get<string[]>(PRINCIPLES_KEY));
+}
 export const REFLECT_KEY = 'reflect:last';
 export const DIARY_DOC = 'notes_diary';
 /** The chat history agent.ts keeps (its TURNS_KEY). */
@@ -326,8 +341,9 @@ export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
 
 /**
  * The Memory tab's ME and DIARY panels: GET /profile, POST /profile {section, text}, DELETE /profile?section=&i=,
- * POST /profile/reflect. SETTINGS → CHARACTER: GET /profile/persona, POST /profile/persona {dry, brief, warm}
- * (each 0, 1 or 2; the answer carries the character text the prompt will use).
+ * POST /profile/reflect. SETTINGS → CHARACTER: GET /profile/persona, POST /profile/persona {dry, brief, warm, fire}
+ * (each 0, 1 or 2; the answer carries the character text the prompt will use); GET /profile/principles,
+ * POST /profile/principles {lines} (his own lines, the whole list each time).
  */
 export async function profileRoute(req: Request, path: string, method: string, url: URL, deps: ProfileDeps): Promise<Response> {
   const { storage, library } = deps;
@@ -370,6 +386,14 @@ export async function profileRoute(req: Request, path: string, method: string, u
     if (method === 'POST') await storage.put(PERSONA_KEY, readPersona(await req.json().catch(() => ({}))));
     const persona = readPersona((await loadProfile(storage)).persona);
     return json({ persona, character: character(persona) });
+  }
+  if (path === '/profile/principles' && (method === 'GET' || method === 'POST')) {
+    if (method === 'POST') {
+      const lines = readPrinciples(((await req.json().catch(() => ({}))) as { lines?: unknown }).lines);
+      if (lines.some(looksSecret)) return json({ error: 'that looks like a password, key or card number: Ghosty keeps nothing like that in its memory of you' }, 400);
+      await storage.put(PRINCIPLES_KEY, lines);
+    }
+    return json({ lines: await loadPrinciples(storage), max: MAX_PRINCIPLES });
   }
   return json({ error: 'not found' }, 404);
 }

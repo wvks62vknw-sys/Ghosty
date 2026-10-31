@@ -6,8 +6,8 @@
  * anyway — leaving code, links and quoted words exactly as they were.
  *
  * The character is short on purpose: the prompt goes with every call and free models count
- * every token (apps/edge/test/prompt.test.mjs holds the budget). The owner tunes three dials in
- * SETTINGS → CHARACTER (how dry, how brief, how warm); the brain keeps them in the profile
+ * every token (apps/edge/test/prompt.test.mjs holds the budget). The owner tunes four dials in
+ * SETTINGS → CHARACTER (how dry, how brief, how warm, how fiery); the brain keeps them in the profile
  * (profile.ts) and they change the words below, never the rules.
  */
 import { VOICE_RULES } from './voice';
@@ -22,9 +22,11 @@ export interface PersonaSettings {
   brief: Dial;
   /** Warmth: cool → warm underneath → openly warm. */
   warm: Dial;
+  /** Conviction (OWNER-ISSUES 69a): says his view once → disagrees openly and holds it → blunt, passionate, rude back. */
+  fire: Dial;
 }
 
-export const DEFAULT_PERSONA: PersonaSettings = { dry: 1, brief: 1, warm: 1 };
+export const DEFAULT_PERSONA: PersonaSettings = { dry: 1, brief: 1, warm: 1, fire: 1 };
 
 /** The words that open the character in every prompt; the router's post-filter looks for them. */
 export const CHARACTER_MARK = 'CHARACTER:';
@@ -34,6 +36,7 @@ export const PERSONA_DIALS: { key: keyof PersonaSettings; label: string; steps: 
   { key: 'dry', label: 'HOW DRY', steps: ['PLAIN', 'DRY', 'VERY DRY'] },
   { key: 'brief', label: 'HOW BRIEF', steps: ['FULLER', 'LIKE YOU', 'TERSE'] },
   { key: 'warm', label: 'HOW WARM', steps: ['COOL', 'WARM', 'WARMER'] },
+  { key: 'fire', label: 'HOW FIERY', steps: ['MILD', 'FIRM', 'FIERY'] },
 ];
 
 const dial = (v: unknown): Dial | null => (v === 0 || v === 1 || v === 2 ? v : null);
@@ -41,12 +44,15 @@ const dial = (v: unknown): Dial | null => (v === 0 || v === 1 || v === 2 ? v : n
 /** Settings from storage or a request, every dial checked; anything missing or odd is the default. */
 export function readPersona(v: unknown): PersonaSettings {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  return { dry: dial(o.dry) ?? DEFAULT_PERSONA.dry, brief: dial(o.brief) ?? DEFAULT_PERSONA.brief, warm: dial(o.warm) ?? DEFAULT_PERSONA.warm };
+  return { dry: dial(o.dry) ?? DEFAULT_PERSONA.dry, brief: dial(o.brief) ?? DEFAULT_PERSONA.brief, warm: dial(o.warm) ?? DEFAULT_PERSONA.warm, fire: dial(o.fire) ?? DEFAULT_PERSONA.fire };
 }
 
 const DRY = ['plain-spoken', 'sharp, dry', 'very dry, deadpan'];
 const WARM = ['businesslike', 'warm underneath', 'openly warm'];
 const BRIEF = ['Short by default, fuller when it helps.', 'Short by default: a sentence or three.', 'As short as it can be.'];
+/** How hard he argues: one line per step (the offline brain's in fewer words). A stop ends any argument (intent.ts). */
+const FIRE = ['Give your view once, then let it go.', 'Disagree openly; hold your view till he gives a reason.', 'Argue hard and blunt, rude back if he is.'];
+const FIRE_SHORT = ['Say your view once.', 'Hold your view.', 'Argue hard.'];
 
 /**
  * The character for the prompt: one compact paragraph. `short`: the offline brain's version
@@ -57,12 +63,12 @@ export function character(s: PersonaSettings = DEFAULT_PERSONA, opts: { short?: 
   const p = readPersona(s);
   const who = `${DRY[p.dry]}, quietly confident, ${WARM[p.warm]}`;
   const brief = p.brief === 1 && opts.band ? opts.band : BRIEF[p.brief];
-  if (opts.short) return `${CHARACTER_MARK} ${who}. Plain British English. Answer first, no preamble. ${brief} No chatbot phrases ("Great question", "I hope this helps"), no emoji, no forced jokes. Unsure? Say so plainly.`;
+  if (opts.short) return `${CHARACTER_MARK} ${who}. Plain British English. Answer first, no preamble. ${brief} No chatbot phrases ("Great question", "I hope this helps"), no emoji, no forced jokes. Unsure? Say so plainly. ${FIRE_SHORT[p.fire]}`;
   return (
     `${CHARACTER_MARK} ${who}. Plain British English. Answer first, no preamble. ${brief} ` +
     // The owner's rule (OWNER-ISSUES 12) in one line; voice.ts is the detector that holds the training and polish to it.
     `Sound like a person, not an AI. Never chatbot filler ("Great question", "I'd be happy to", "As an AI", "Certainly!", "I hope this helps", "Let me know if", "delve"), emoji, padding, over-apologising, or unasked lists, tables or headings. ` +
-    `No forced jokes or catchphrases. Unsure? Say so.`
+    `No forced jokes or catchphrases. Unsure? Say so. ${FIRE[p.fire]}`
   );
 }
 
@@ -86,7 +92,7 @@ export function lengthBand(owner: string[]): string {
 }
 
 /** A turn that will be heard, not read (the app's microphone, a Telegram voice note). */
-export const SPOKEN = 'SPOKEN: heard, not read: 1–3 short sentences, no lists, links or markdown.';
+export const SPOKEN = 'SPOKEN: heard, not read: 1–3 short sentences; no lists, links, markdown.';
 
 // ---------------------------------------------------------------- the post-filter
 

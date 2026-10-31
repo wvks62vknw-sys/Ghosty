@@ -39,6 +39,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
   if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
   if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
+  // His principles (prompt.ts HIS PRINCIPLES): said back as the prompt carries them, so a test sees they reached the model.
+  if (owner === 'what are my principles?') {
+    const mine = (system.split('\nHIS PRINCIPLES (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
+    return { message: { role: 'assistant', content: mine.length ? `You told me: ${mine.join(' / ').replace(/\.$/, '')}.` : 'You have not given me any yet.' }, model };
+  }
   // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
   // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
   if (/^pineapple on pizza\b/.test(owner)) {

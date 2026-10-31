@@ -195,7 +195,7 @@ const client2 = { name: 'Sam', now: 'Fri 17 Oct 14:05', tz: 'Europe/London', tab
 const hello = () => T.selectGroups('hello', new Set(), false);
 /** What agent.ts's telegramHost puts in the client context for a Telegram turn (copied word for word). */
 const TG_SCREEN = 'The owner is talking from the Telegram app, not from your interface: answer in plain text (no markdown tables or headings); screen actions (tabs, the globe, maps, the Lens, widgets) do not show there, so say what you would show instead, or tell them to open Ghosty on their phone.';
-const ALL_DIALS = [0, 1, 2].flatMap((dry) => [0, 1, 2].flatMap((brief) => [0, 1, 2].map((warm) => ({ dry, brief, warm }))));
+const ALL_DIALS = [0, 1, 2].flatMap((dry) => [0, 1, 2].flatMap((brief) => [0, 1, 2].flatMap((warm) => [0, 1, 2].map((fire) => ({ dry, brief, warm, fire })))));
 const withDials = (persona) => ({ summary: '', sections: { about: [], likes: [], dislikes: [], people: [], places: [], routines: [], goals: [], work: [], other: [] }, updatedAt: 0, persona });
 
 test('the character is in the prompt on every channel: app chat, coding, voice, Telegram, paused and background runs', () => {
@@ -227,11 +227,13 @@ test('the dials change the words (never the rules) and stay compact', () => {
   assert.match(words({ dry: 1, brief: 0, warm: 2 }), /openly warm\..*fuller when it helps/);
   for (const dials of ALL_DIALS) {
     const t = words(dials);
-    assert.ok(t.length <= 450, `${JSON.stringify(dials)}: ${t.length} characters`);
+    // (450 for three dials; the fourth, HOW FIERY — OWNER-ISSUES 69a — adds its one line, at most 56 characters. The whole
+    // prompt pays for it inside the unchanged 5,500 below.)
+    assert.ok(t.length <= 506, `${JSON.stringify(dials)}: ${t.length} characters`);
     assert.match(t, /Never chatbot filler/);
     assert.ok(P.character(dials, { short: true }).length <= 300);
   }
-  assert.deepEqual(P.readPersona({ dry: 9, brief: '2', warm: 2 }), { dry: 1, brief: 1, warm: 2 }, 'odd values fall back to the default');
+  assert.deepEqual(P.readPersona({ dry: 9, brief: '2', warm: 2, fire: 7 }), { dry: 1, brief: 1, warm: 2, fire: 1 }, 'odd values fall back to the default');
 });
 
 test('the prompt budget holds for every dial setting on every channel: app, spoken, Telegram and a Telegram voice note', () => {
@@ -257,17 +259,79 @@ class Mem {
 
 const profileCall = (deps) => async (method, path, body) => (await PR.profileRoute(new Request(`https://g.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {}) }), path, method, new URL(`https://g.example/api${path}`), deps)).json();
 
+// ---- OWNER-ISSUES 69: conviction (the fire dial), the lines that stay, and his own principles ----
+
+test('HOW FIERY: one line per step in the character, on every channel; a stop still ends any argument (it is never answered)', () => {
+  const lines = ['Give your view once, then let it go.', 'Disagree openly; hold your view till he gives a reason.', 'Argue hard and blunt, rude back if he is.'];
+  for (const fire of [0, 1, 2]) {
+    const t = P.character({ dry: 1, brief: 1, warm: 1, fire });
+    assert.equal(t.split(lines[fire]).length, 2, `fire ${fire}: its line, once`);
+    for (const other of lines.filter((_, i) => i !== fire)) assert.ok(!t.includes(other), `fire ${fire} has no other step's line`);
+    assert.ok(P.character({ dry: 1, brief: 1, warm: 1, fire }, { short: true }).length <= 300, 'the phone\'s offline character stays small');
+  }
+  assert.ok(P.character().includes(lines[1]), 'FIRM by default');
+  const sys = P.systemPrompt({ ...client, tab: 'telegram', screen: TG_SCREEN, voice: true }, [], true, [], { groups: hello(), profile: withDials({ dry: 1, brief: 1, warm: 1, fire: 2 }) });
+  assert.ok(sys.includes(lines[2]) && sys.includes(P.LINES), 'the dial and the lines reach a Telegram voice note too');
+});
+
+test('the lines that stay (69b): argue anything, never flip on his safety, harm, spying or crime — on every channel, once', () => {
+  assert.match(P.LINES, /^Discuss anything; never flip under pressure on his safety, harm to anyone, spying or crime: say why\.$/);
+  for (const c of [client, { ...client, voice: true }, { ...client, tab: 'telegram', screen: TG_SCREEN }]) assert.equal(P.systemPrompt(c, [], true, [], { groups: hello() }).split(P.LINES).length, 2);
+  assert.ok(P.systemPrompt(client, [], true, [], { code: true, groups: T.selectGroups('build me a game', new Set(), true) }).includes(P.LINES), 'on a coding turn too');
+});
+
+/** The brain's storage, enough for a whole agent (list, alarms, several keys at once). */
+class Mem2 extends Mem {
+  async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : super.get(k); }
+  async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
+  async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([x]) => x.startsWith(prefix))); }
+  async setAlarm() {}
+  async getAlarm() { return null; }
+}
+
+test('his principles: in the prompt when he has set them (his words, read before acting), never when he has none; at most 8', async () => {
+  const mine = ['Never lie to me, even to be kind.', 'My mum comes first.'];
+  const sys = P.systemPrompt(client, [], true, [], { groups: hello(), principles: mine });
+  assert.ok(sys.includes('\nHIS PRINCIPLES (his own words; read before you act, hold to them even when he pushes):\n- Never lie to me, even to be kind.\n- My mum comes first.'), 'his words, as he wrote them');
+  assert.ok(!P.systemPrompt(client, [], true, [], { groups: hello() }).includes('HIS PRINCIPLES'), 'none set: no section');
+  const many = Array.from({ length: 12 }, (_, i) => `Line ${i + 1}.`);
+  assert.equal(P.systemPrompt(client, [], true, [], { groups: hello(), principles: many }).split('\n- Line ').length - 1, 8);
+  // kept by the brain: his own words, tidied; a key or a card number is refused; at most 8 lines of at most 160 characters
+  const storage = new Mem();
+  const call = profileCall({ storage, library: { available: false }, ai: async () => '{}' });
+  assert.deepEqual(await call('GET', '/profile/principles'), { lines: [], max: 8 });
+  const set = await call('POST', '/profile/principles', { lines: ['  Never lie to me,   even to be kind. ', '', 'x'.repeat(300), ...many] });
+  assert.equal(set.lines[0], 'Never lie to me, even to be kind.');
+  assert.equal(set.lines[1].length, 160);
+  assert.equal(set.lines.length, 8);
+  assert.match((await call('POST', '/profile/principles', { lines: ['my pin is 4471 2231 9902 1123'] })).error ?? '', /password, key or card number/);
+  assert.equal((await call('GET', '/profile/principles')).lines.length, 8, 'a refused list changes nothing');
+  // and through the brain to the model
+  const brain = await import('./.build/brain.mjs');
+  const pending = [];
+  const agent = new brain.GhostyAgent({ storage: new Mem2(), waitUntil: (x) => pending.push(x), blockConcurrencyWhile: (f) => f() }, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), MOCK_LLM: '1' });
+  const api = async (path, body) => {
+    const r = await agent.fetch(new Request(`https://g.example/api${path}`, { method: 'POST', body: JSON.stringify(body), headers: { 'x-ghosty-key': 'owner-key-for-tests-0123456789' } }));
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return text;
+  };
+  await api('/profile/principles', { lines: mine });
+  const said = (await api('/chat', { message: 'what are my principles?' })).split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((e) => e.t === 'text')?.text;
+  assert.equal(said, 'You told me: Never lie to me, even to be kind. / My mum comes first.');
+});
+
 test('SETTINGS → CHARACTER round-trips through the brain and reaches the prompt; the profile keeps it', async () => {
   const storage = new Mem();
   const call = profileCall({ storage, library: { available: false }, ai: async () => '{}' });
   const first = await call('GET', '/profile/persona');
   assert.deepEqual(first.persona, P.DEFAULT_PERSONA);
   assert.equal(first.character, P.character());
-  const saved = await call('POST', '/profile/persona', { dry: 2, brief: 2, warm: 0, extra: 'ignored' });
-  assert.deepEqual(saved.persona, { dry: 2, brief: 2, warm: 0 });
+  const saved = await call('POST', '/profile/persona', { dry: 2, brief: 2, warm: 0, fire: 2, extra: 'ignored' });
+  assert.deepEqual(saved.persona, { dry: 2, brief: 2, warm: 0, fire: 2 });
   assert.match(saved.character, /very dry, deadpan/);
   await call('POST', '/profile', { section: 'likes', text: 'strong tea' });
-  assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 2, brief: 2, warm: 0 });
+  assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 2, brief: 2, warm: 0, fire: 2 });
   const profile = await PR.loadProfile(storage);
   assert.ok(P.systemPrompt(client2, [], false, [], { groups: hello(), profile }).includes('CHARACTER: very dry, deadpan, quietly confident, businesslike.'));
 });
@@ -290,7 +354,7 @@ test('a dial changed while the nightly reflection waits on its model is not undo
   await call('POST', '/profile/persona', { dry: 2, brief: 1, warm: 1 });
   const r = await PR.reflect(deps, now);
   assert.equal(r.ok, true, r.skipped);
-  assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 0, brief: 2, warm: 2 }, 'the newer dials stand');
+  assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 0, brief: 2, warm: 2, fire: 1 }, 'the newer dials stand');
   assert.deepEqual((await PR.loadProfile(storage)).sections.likes, ['tea'], 'and the reflection was saved');
 });
 

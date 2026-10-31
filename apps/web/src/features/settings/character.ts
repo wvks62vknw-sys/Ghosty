@@ -1,5 +1,5 @@
 /**
- * SETTINGS → CHARACTER: three dials for how Ghosty talks — how dry, how brief, how warm — each
+ * SETTINGS → CHARACTER: four dials for how Ghosty talks — how dry, how brief, how warm, how fiery — each
  * LESS / DEFAULT / MORE. The brain keeps them (POST /api/profile/persona, profile.ts) and puts
  * them into the character every prompt carries (packages/shared/src/persona.ts), so the app,
  * the voice, Telegram and notifications all change together. The phone keeps a copy in its
@@ -16,10 +16,10 @@ import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSet
 /** "Now: dry, warm, answers as long as yours, as he comes." — the dials in plain words (the steps' own names, in small letters). */
 export function nowLine(p: PersonaSettings): string {
   const step = (k: keyof PersonaSettings) => PERSONA_DIALS.find((d) => d.key === k)!.steps[p[k]].toLowerCase();
-  const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm;
+  const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm && p.fire === DEFAULT_PERSONA.fire;
   // HOW BRIEF's default follows his own length (persona.ts lengthBand)
   const length = p.brief === 1 ? 'answers as long as yours' : `${step('brief')} answers`;
-  return `Now: ${step('dry')}, ${step('warm')}, ${length}${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
+  return `Now: ${step('dry')}, ${step('warm')}, ${step('fire')}, ${length}${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
 }
 
 export function characterPanel(): Panel & { refresh(): void } {

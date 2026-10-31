@@ -78,13 +78,13 @@ export interface ToolGroup {
  */
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
 export const TOOL_GROUPS: ToolGroup[] = [
-  { name: 'memory', tools: memoryTools, when: 'always', about: 'You can remember lasting facts the owner tells you (remember), list them (list_memory) and drop one (forget); forget_everything needs approval.' },
-  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch).' },
+  { name: 'memory', tools: memoryTools, when: 'always', about: 'You can remember lasting facts he tells you (remember), list them (list_memory), drop one (forget); forget_everything needs approval.' },
+  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON (web_fetch).' },
   {
     name: 'ui',
     tools: uiTools,
     when: 'always',
-    about: "You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow the owner's drive (road_ahead) and open their camera (open_lens: nine modes, from SEE to SOUND).",
+    about: 'You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead) and open his camera (open_lens).',
   },
   {
     name: 'widgets',
