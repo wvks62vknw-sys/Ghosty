@@ -14,6 +14,7 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { AbilitiesInfo } from '../../../../packages/shared/src/abilities';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -401,6 +402,8 @@ export const brain = {
   upgrades: () => req<{ ideas: UpgradeIdea[]; next: number | null; last: string | null }>('GET', '/upgrades'),
   dismissUpgrade: (id: string) => req<{ removed: boolean }>('DELETE', `/upgrades/${encodeURIComponent(id)}`),
   thinkUpgrades: () => req<{ ideas: UpgradeIdea[]; added: number; note: string }>('POST', '/upgrades/now'),
+  /** ABILITIES (apps/edge/src/abilities.ts): everything the brain can do, his learning goals, what was offered in context. */
+  abilities: () => req<AbilitiesInfo>('GET', '/abilities'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

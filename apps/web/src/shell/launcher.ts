@@ -73,7 +73,7 @@ function reveal(tab: string, title: string): void {
 }
 
 /** The conversation, open (on a phone the chat sits behind its own button). */
-function openChat(): void {
+export function openChat(): void {
   if (ui.get().tab !== 'core') navTo('core', 'pop');
   setTimeout(() => {
     const hud = document.querySelector('#pg-core .hud.core');
@@ -82,7 +82,7 @@ function openChat(): void {
 }
 
 /** Do what a YOU CAN line, a pick or the pill asks for. */
-function perform(a: DeckAct): void {
+export function perform(a: DeckAct): void {
   if ('ask' in a) {
     openChat();
     void send(a.ask);

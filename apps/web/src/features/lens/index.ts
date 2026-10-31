@@ -139,7 +139,7 @@ export interface LensContext {
   active(): boolean;
 }
 
-const TILES: { id: LensMode; label: string; hint: string }[] = [
+export const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'see', label: 'SEE', hint: 'what is in view' },
   { id: 'read', label: 'READ', hint: 'text in a picture' },
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },

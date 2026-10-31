@@ -1,0 +1,152 @@
+// ABILITIES (OWNER-ISSUES 68, 67b, 67d, 68c) on the owner's phone (440 × 956) and a smaller one (390): the screen opens from
+// the Me sheet and from the Every screen deck, in his voice ("I can …"), grouped SEE · KNOW · BUILD · WATCH OVER YOU · PLAY ·
+// LEARN · DO FOR YOU · TALK, made from what is really there (the brain's tool groups through /api/abilities and the app's
+// screens, games, Lens modes and school stages); every GO and every ask lands somewhere real, and the ones tapped land
+// where they say (a screen, a panel on it, a command, the chat box); one that needs a key says so and GO goes to KEYS;
+// LEARNING opens with "I can learn anything you teach me"; nothing sideways at 440 or 390; every target 44 pt.
+//   BASE=http://localhost:8866 node tests/abilities.spec.mjs [outDir]
+import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK, standDown } from './nav.mjs';
+import { mkdirSync } from 'node:fs';
+
+const out = process.argv[2] ?? 'tests/.shots';
+mkdirSync(out, { recursive: true });
+const base = process.env.BASE ?? 'http://localhost:8788';
+const KEY = 'preview-owner-key-0123456789';
+const problems = [];
+await standDown(base, KEY);
+const api = (path, init = {}) => fetch(`${base}/api${path}`, { ...init, headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json', ...(init.headers ?? {}) } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const until = (page, fn, arg, ms, why) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => (problems.push(why), false));
+const sideways = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => {
+  if (!e.getClientRects().length) return false;
+  const r = e.getBoundingClientRect();
+  return r.width > 0 && (r.left < -1 || r.right > innerWidth + 1);
+}).slice(0, 5).map((e) => `${e.tagName.toLowerCase()}.${[...e.classList].join('.')} "${(e.textContent ?? '').trim().slice(0, 40)}"`));
+const small = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => {
+  const r = e.getBoundingClientRect();
+  return r.width < 43.5 || r.height < 43.5 ? `${e.className} "${(e.textContent ?? '').trim().slice(0, 30)}" ${Math.round(r.width)}×${Math.round(r.height)}` : null;
+}).filter(Boolean).slice(0, 5));
+const state = (page) => page.evaluate(() => window.__ghosty?.abilities ?? null);
+
+async function phone(viewport) {
+  const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', KEY);
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  return { ctx, page };
+}
+
+/** Open ABILITIES from the Me sheet's row, and wait for the brain's abilities to be on it. */
+async function openFromMe(page, W) {
+  if (!(await page.locator('#top .you').isVisible().catch(() => false))) {
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(500);
+  }
+  await page.click('#top .you');
+  await page.waitForSelector('#mesheet .merow[data-id="abilities"]', { timeout: 5000 }).catch(() => problems.push(`[${W}] no Abilities row on the Me sheet`));
+  await page.waitForTimeout(400);
+  await page.click('#mesheet .merow[data-id="abilities"]');
+  await until(page, () => document.body.dataset.tab === 'abilities' && !document.querySelector('#mesheet'), null, 6000, `[${W}] the Me sheet's Abilities row did not open ABILITIES`);
+  await until(page, () => (window.__ghosty?.abilities?.brain ?? 0) > 20, null, 15000, `[${W}] the brain's abilities never arrived`);
+  await settle(page);
+}
+/** The push transition done (the screen slides in from the side): measured only once nothing is moving. */
+const settle = (page) => page.waitForTimeout(150).then(() => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))))).catch(() => undefined);
+
+for (const viewport of [PHONE, { width: 390, height: 844 }]) {
+  const W = viewport.width;
+  const { ctx, page } = await phone(viewport);
+  await openFromMe(page, W);
+  const s = await state(page);
+  const look = await page.evaluate(() => ({
+    title: document.querySelector('#top .navtitle')?.textContent ?? '',
+    big: document.querySelector('#pg-abilities .bigv')?.textContent ?? '',
+    sub: document.querySelector('#pg-abilities .hero .sub')?.textContent ?? '',
+    panels: [...document.querySelectorAll('#pg-abilities .pn.abcat:not([hidden]) .ptitle')].map((t) => t.textContent),
+    lines: [...document.querySelectorAll('#pg-abilities .abil .abline')].map((l) => l.textContent),
+    gos: document.querySelectorAll('#pg-abilities .abil button.abgo').length,
+    cards: document.querySelectorAll('#pg-abilities .abil').length,
+    brainCards: document.querySelectorAll('#pg-abilities .abil[data-from="brain"]').length,
+    learn: document.querySelector('#pg-abilities .ablearn .ablead')?.textContent ?? '',
+    off: [...document.querySelectorAll('#pg-abilities .abil[data-off] .aboff')].map((x) => x.textContent),
+  }));
+  const want = ['SEE', 'KNOW', 'BUILD', 'WATCH OVER YOU', 'PLAY', 'LEARN', 'DO FOR YOU', 'TALK'];
+  if (look.panels.join('|') !== want.join('|')) problems.push(`[${W}] the groups are ${look.panels.join(', ')} (want ${want.join(', ')})`);
+  if (!/^\d+ THINGS$/.test(look.big) || Number.parseInt(look.big, 10) !== s.count) problems.push(`[${W}] the hero reads "${look.big}" (count ${s.count})`);
+  if (!/^Everything I can do for you/.test(look.sub)) problems.push(`[${W}] the line under the title reads "${look.sub}"`);
+  if (look.cards !== s.count || look.gos !== s.count) problems.push(`[${W}] ${look.cards} cards and ${look.gos} GO buttons for ${s.count} abilities`);
+  // the brain's abilities: one per tool group (from its registry, read the same way the screen does)
+  const info = await api('/abilities');
+  if (!info || look.brainCards !== info.abilities.length) problems.push(`[${W}] ${look.brainCards} of the brain's abilities shown, it has ${info?.abilities.length}`);
+  // his voice: the brain's every line starts "I can"; the screens' lines are his promises ("I …"), never "he"
+  const notMine = look.lines.filter((l) => /\b(?:he|him|his|the owner)\b/i.test(l) || /_/.test(l));
+  if (notMine.length) problems.push(`[${W}] lines not in his voice: ${notMine.slice(0, 3).join(' | ')}`);
+  if (!look.lines.includes('I can learn anything you teach me.')) problems.push(`[${W}] "I can learn anything you teach me." is not listed`);
+  if (!look.lines.some((l) => /^I teach myself by playing \d+ games/.test(l))) problems.push(`[${W}] the GYM's games are not listed`);
+  if (!look.lines.some((l) => /^I see through your camera/.test(l))) problems.push(`[${W}] the Lens's modes are not listed`);
+  if (!look.lines.some((l) => /^I go to school and sit real exams, stage by stage: Nursery/.test(l))) problems.push(`[${W}] SCHOOL's stages are not listed`);
+  // honest about what needs a key: this preview brain has no GitHub token, so changing his own code says so
+  if (!look.off.some((o) => /^Needs a key: SYSTEM → KEYS → GitHub token$/.test(o))) problems.push(`[${W}] nothing says it needs the GitHub key: ${look.off.join(' | ')}`);
+  if (!/^I can learn anything you teach me/.test(look.learn)) problems.push(`[${W}] LEARNING opens with "${look.learn}"`);
+  // every GO and every ask lands somewhere real (a screen this build has, a command it registered, the chat box)
+  if (s.broken.length) problems.push(`[${W}] GO or an ask goes nowhere: ${s.broken.slice(0, 4).join(' | ')}`);
+  for (const x of await sideways(page, '#pg-abilities *')) problems.push(`[${W}] sticks out sideways: ${x}`);
+  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`[${W}] the page scrolls sideways`);
+  await page.screenshot({ path: `${out}/abilities-${W}.png` });
+  // the asks hidden behind "+N more" are opened first, so every target is measured
+  for (const m of await page.$$('#pg-abilities button.abmore')) await m.click().catch(() => undefined);
+  for (const t of await small(page, '#pg-abilities :is(button.abgo, button.abask, button.abmore, .ablearn button)')) problems.push(`[${W}] under 44 pt: ${t}`);
+
+  if (W === PHONE.width) {
+    // ---- GO lands where it says
+    const tap = async (sel) => {
+      await page.evaluate(() => (location.hash = 'abilities'));
+      await until(page, () => document.body.dataset.tab === 'abilities', null, 5000, 'ABILITIES did not come back');
+      await page.waitForTimeout(250);
+      await page.locator(sel).first().scrollIntoViewIfNeeded().catch(() => undefined);
+      await page.locator(sel).first().click({ timeout: 5000 }).catch((e) => problems.push(`could not tap ${sel}: ${e.message.split('\n')[0]}`));
+    };
+    // a screen: SPACE
+    await tap('#pg-abilities .abil[data-id="s:space"] button.abgo');
+    await until(page, () => document.body.dataset.tab === 'space', null, 6000, 'GO on Space did not open SPACE');
+    // a panel on a screen: the System's BACKUP (an ask of the System screen)
+    await tap('#pg-abilities .abil[data-id="s:system"] button.abask[data-go="open:system/BACKUP"]');
+    await until(page, () => document.body.dataset.tab === 'system' && [...document.querySelectorAll('#pg-system .pn')].some((p) => /^BACKUP/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length), null, 8000, 'the System ask did not land on BACKUP');
+    // a command: the GYM on chess
+    await tap('#pg-abilities .abil[data-id="gym:games"] button.abmore');
+    await tap('#pg-abilities .abil[data-id="gym:games"] button.abask:has-text("Play me at Chess")');
+    await until(page, () => document.body.dataset.tab === 'gym', null, 8000, '"Play me at Chess" did not open the GYM');
+    // the brain's: the example into the chat box, not sent
+    const sentBefore = await page.evaluate(() => document.querySelectorAll('#pg-core .msg.me').length);
+    await tap('#pg-abilities .abil[data-id="g:journeys"] button.abgo');
+    await until(page, () => document.body.dataset.tab === 'core' && document.querySelector('#cin')?.value === 'Plan journey', null, 6000, 'GO on journeys did not put "Plan journey" in the chat box');
+    if ((await page.evaluate(() => document.querySelectorAll('#pg-core .msg.me').length)) !== sentBefore) problems.push('GO sent the example instead of leaving it in the box');
+    await page.evaluate(() => { const b = document.querySelector('#cin'); if (b) b.value = ''; });
+    // one that needs a key: SET UP goes to SYSTEM → KEYS
+    await tap('#pg-abilities .abil[data-id="g:repo"] button.abgo');
+    await until(page, () => document.body.dataset.tab === 'system' && [...document.querySelectorAll('#pg-system .pn')].some((p) => /^KEYS/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length), null, 8000, 'SET UP on changing my own code did not land on SYSTEM → KEYS');
+    // ---- from the deck: the Me group's Abilities card opens it
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(500);
+    await page.click('#top .you');
+    await page.click('#mesheet .merow[data-id="deck"]');
+    await until(page, () => !!document.querySelector('#deck.on'), null, 5000, 'the deck did not open');
+    await page.click('#deck .dkcard[data-id="abilities"]').catch(() => problems.push('no Abilities card in the deck'));
+    await page.click('#deck .dkx[data-id="abilities"] .dkopen').catch(() => problems.push('the deck card has no OPEN'));
+    await until(page, () => document.body.dataset.tab === 'abilities', null, 6000, 'the deck did not open ABILITIES');
+  }
+  await ctx.close();
+}
+
+await browser.close();
+if (problems.length) {
+  console.log(`PROBLEMS:\n${problems.join('\n')}`);
+  process.exit(1);
+}
+console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets.');

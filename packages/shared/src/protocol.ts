@@ -519,6 +519,10 @@ export interface UpgradeIdea {
   steps: string[];
   /** When it was proposed. */
   at: number;
+  /** A learning goal the owner asked for on ABILITIES ("Want me to learn it?" → YES): kept before Ghosty's own ideas. */
+  from?: 'owner';
+  /** His own words ("can you check my car's MOT?"). */
+  ask?: string;
 }
 
 export interface JobInfo {
