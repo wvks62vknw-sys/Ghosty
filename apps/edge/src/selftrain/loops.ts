@@ -14,7 +14,7 @@
  * the first day kept, if that is later: the card then says from when).
  */
 import type { BrainLoops } from '../../../../packages/shared/src/loops';
-import { examMean, recordProblem, type TrainRecord, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { examMean, recordProblem, stopWords, type TrainRecord, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { loadStudy } from '../library/study';
 import { loadState as loadSchool } from '../school/state';
 import { practiceView } from '../school/practice';
@@ -167,6 +167,8 @@ export async function brainLoops(s: DurableObjectStorage, status: TrainStatus | 
           economy: status.phase !== 'idle' && status.plan ? (status.plan.mode === 'economy' ? status.plan.why : null) : r?.plan?.mode === 'economy' ? r.plan.why : null,
           // the daily GPU's checked samples this week (pool.ts)
           daily: status.pool?.week ?? 0,
+          // why it stopped, in his words (the install step names the pin)
+          ...(r?.error ? { stopped: stopWords(r) } : {}),
         }
       : null,
     voice: r ? { trained: r.trained?.voice ?? 0, before: r.before?.voice ?? null, after: r.after?.voice ?? null, rejected: voiceRejected } : null,

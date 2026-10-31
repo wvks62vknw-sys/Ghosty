@@ -962,3 +962,106 @@ test('patterns are true and useful: what he asks Ghosty to do is never a topic; 
   assert.ok(!again.some((p) => /allotment|shed/.test(p.text)), JSON.stringify(again));
   assert.ok(again.some((p) => p.id === 'topic:greenhouse'), JSON.stringify(again));
 });
+
+
+// ---- memory that forgets well (OWNER-ISSUES 75a): the nightly reflection consolidates (memories.ts consolidate) ----------
+const DAYMS = 86_400_000;
+const londonDay = (t) => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+
+test('forgetting well: what he relies on or says again weighs more; inferred trivia fades at three weeks and is let go at five (UNDO for a day); never a locked fact, never one he wrote or asked for', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const now = T0 + 40 * DAYMS;
+  const old = T0;
+  await st.put('owner:ctx', { tz: 'Europe/London' });
+  await st.put('memory', [
+    { id: 'a', text: 'has an allotment with a shed', at: old, src: { kind: 'reflection', at: old } },
+    { id: 'b', text: 'once mentioned a cousin in Leeds', at: old, src: { kind: 'reflection', at: old } },
+    { id: 'c', text: 'watched a film about pandas', at: now - 25 * DAYMS, src: { kind: 'reflection', at: now - 25 * DAYMS } },
+    { id: 'd', text: 'a locked bit of trivia', at: old, src: { kind: 'reflection', at: old }, locked: true },
+    { id: 'e', text: 'typed this one myself', at: old, src: { kind: 'owner', at: old } },
+    { id: 'f', text: 'the gate code is blue', at: old, src: { kind: 'chat', at: old } },
+    { id: 'g', text: 'likes flat whites', at: old, src: { kind: 'reflection', at: old }, weight: 2 },
+  ]);
+  await st.put('turns', turns([['user', 'Off to the allotment shed after work'], ['user', 'I like flat whites, as you know']], now - 3600_000));
+  const ai = async () => JSON.stringify({ summary: '', facts: ['likes flat whites', 'cycles to work'], sections: {}, diary: 'A day at the allotment.' });
+  const r = await P.reflect({ storage: st, library: lib, ai }, now);
+  assert.equal(r.ok, true);
+  assert.deepEqual([r.heard, r.faded], [2, 1], 'two heard again (relied on; one also said again, counted once), one let go');
+  const facts = new Map(st.m.get('memory').map((f) => [f.id, f]));
+  assert.equal(facts.get('a').weight, 2, 'relied on: the allotment and its shed');
+  assert.equal(facts.get('g').weight, 3, 'said again and relied on the same night: one more, not two');
+  assert.ok(!facts.has('b'), 'five weeks unheard: let go');
+  for (const id of ['c', 'd', 'e', 'f']) assert.ok(facts.has(id), `${id} stays`);
+  assert.equal(facts.get('d').weight ?? 1, 1, 'a locked one is never touched');
+  assert.ok([...facts.values()].some((f) => f.text === 'cycles to work' && (f.weight ?? 1) === 1), 'a new fact starts heard once');
+  assert.match(P.reflectSummary(r), /2 heard again, 1 let go/);
+  // let go is forgotten like anything else: a day under RECENTLY FORGOTTEN, with UNDO
+  const gone = await P.recentlyForgotten(st, now);
+  assert.equal(gone[0].text, 'once mentioned a cousin in Leeds');
+  // FADING: inferred, three weeks unheard — on MEMORY's list (never the locked, typed, asked-for or heard-twice ones)
+  const items = await P.timeline({ storage: st, library: lib }, now);
+  assert.deepEqual(items.filter((i) => i.fading).map((i) => i.id), ['f:c']);
+  assert.equal(items.find((i) => i.id === 'f:g').weight, 3);
+  // the route lists them (on the brain's own clock)
+  const rs = new MemStorage();
+  await rs.put('memory', [{ id: 'p', text: 'watched a film about pandas', at: Date.now() - 25 * DAYMS, src: { kind: 'reflection', at: Date.now() - 25 * DAYMS } }]);
+  const listed = await (await route('/profile/timeline', 'GET', undefined, { storage: rs, library: new Library(rs, {}), ai })).json();
+  assert.deepEqual(listed.fading.map((i) => i.text), ['watched a film about pandas']);
+  // KEEP: heard again — it weighs more and stops fading for good
+  const kept = await P.changeMemory({ storage: st, library: lib }, 'f:c', 'keep', undefined, now);
+  assert.deepEqual([kept.weight, kept.fading], [2, undefined]);
+  const later = await P.timeline({ storage: st, library: lib }, now + 60 * DAYMS);
+  assert.equal(later.find((i) => i.id === 'f:c').fading, undefined, 'kept: heard twice never fades');
+  assert.equal(later.find((i) => i.text === 'cycles to work').fading, true, 'while new trivia heard once does');
+  // UNDO brings the one let go back, as it was
+  await P.changeMemory({ storage: st, library: lib }, gone[0].id, 'restore', undefined, now + 1000);
+  assert.ok(st.m.get('memory').some((f) => f.id === 'b'));
+  // and with no model at all, the consolidation still runs
+  await st.put('memory', [{ id: 'x', text: 'liked a song once', at: old, src: { kind: 'reflection', at: old } }]);
+  const quiet = await P.reflect({ storage: st, library: lib, ai: async () => { throw new Error('no model free'); } }, now + 2 * DAYMS);
+  assert.equal(quiet.ok, false);
+  assert.equal(quiet.faded, 1);
+  assert.deepEqual(st.m.get('memory'), []);
+});
+
+test('the day log: days older than two weeks go into the diary, a paragraph a day (a locked day under "(later)"), in date order; the rest stay in the log', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const now = T0 + 30 * DAYMS;
+  const d20 = now - 20 * DAYMS;
+  const d18 = now - 18 * DAYMS;
+  const d3 = now - 3 * DAYMS;
+  await st.put('owner:ctx', { tz: 'Europe/London' });
+  await st.put('mind:log', [
+    { at: d20, kind: 'turn', text: 'asked: "is the M5 open?"', via: 'app' },
+    { at: d20 + 60_000, kind: 'tool', text: 'set a reminder: bins out' },
+    { at: d20 + 120_000, kind: 'built', text: 'published a website: Acme Bakery' },
+    { at: d18, kind: 'game', text: 'reached Connect 4 level 5 in the GYM', via: 'gym' },
+    { at: d3, kind: 'turn', text: 'asked: "what time is it?"' },
+  ]);
+  // the 18th's diary entry is locked: its paragraph goes under a "(later)" heading instead
+  await st.put('diary:locks', [londonDay(d18)]);
+  const r = await P.reflect({ storage: st, library: lib, ai: async () => '{}' }, now);
+  assert.equal(r.folded, 2);
+  const diary = P.diaryEntries(lib);
+  assert.deepEqual(diary.map((e) => e.heading), [`${londonDay(d18)} (later)`, londonDay(d20)], 'newest first, by date');
+  assert.equal(diary[1].text, 'From the day log: Done: set a reminder: bins out; published a website: Acme Bakery. He asked "is the M5 open?".');
+  assert.equal(diary[0].text, 'From the day log: Done: reached Connect 4 level 5 in the GYM.');
+  assert.deepEqual(st.m.get('mind:log').map((e) => e.at), [d3], 'the last two weeks stay in the log');
+  // a day already in the diary is carried on, not written twice; nothing old left: nothing more folded
+  assert.equal((await P.reflect({ storage: st, library: lib, ai: async () => '{}' }, now + 1000)).folded, undefined);
+  assert.equal(P.dayParagraph([]), '');
+});
+
+test('one line of what changed about him: what the reflection reworded or dropped, written into the day\'s diary', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  await st.put('owner:ctx', { tz: 'Europe/London' });
+  await P.saveProfile(st, profileWith({ work: ['works at Arup'], places: ['lives in Leeds'] }));
+  await st.put('turns', turns([['user', 'I work at Atkins now'], ['user', 'and I moved out of Leeds']]));
+  const ai = async () => JSON.stringify({ summary: 'You work at Atkins.', facts: [], sections: {}, diary: 'A day of news.', replace: [{ old: 'work: works at Arup', new: 'works at Atkins' }], drop: ['places: lives in Leeds'] });
+  const r = await P.reflect({ storage: st, library: lib, ai }, T0 + 10 * 60_000);
+  assert.equal(r.changed, 'What changed about him: “works at Arup” is now “works at Atkins”; “lives in Leeds” is no longer so.');
+  assert.equal(P.diaryEntries(lib)[0].text, `A day of news.\n\n${r.changed}`);
+});

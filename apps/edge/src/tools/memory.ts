@@ -21,7 +21,8 @@ export async function addFact(storage: DurableObjectStorage, text: string, src?:
   if (!t) return null;
   const facts = await loadMemory(storage);
   if (facts.some((f) => f.text.toLowerCase() === t.toLowerCase())) return null;
-  const at = Date.now();
+  // (dated when its source says: the nightly reflection's facts by the reflection's own time)
+  const at = src?.at ?? Date.now();
   const fact: MemoryFact = { id: crypto.randomUUID().slice(0, 8), text: t, at, src: src ?? { kind: 'owner', at } };
   facts.push(fact);
   while (facts.length > MAX_FACTS) {

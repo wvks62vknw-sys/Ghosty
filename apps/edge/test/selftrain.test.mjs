@@ -17,7 +17,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', 'src/selftrain/pool.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
+  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', 'src/selftrain/ledger.ts', 'src/selftrain/pool.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -38,6 +38,7 @@ const S = await load('packages/shared/src/selftrain');
 const T = await load('packages/shared/src/toolcall');
 const W = await load('apps/edge/src/selftrain/weights');
 const LO = await load('apps/edge/src/selftrain/loops');
+const L = await load('apps/edge/src/selftrain/ledger');
 const P = await load('apps/edge/src/selftrain/pool');
 const M = await load('apps/web/src/offline/models');
 const RL = await load('apps/web/src/features/core/ratelist');
@@ -1183,7 +1184,8 @@ test('a run that reports an error is never promoted, even with a passing exam an
   assert.deepEqual(d.svc.state.tags, [], 'not tagged');
   assert.equal(st.report.gate.pass, false, 'shown as NOT KEPT');
   assert.equal(st.report.published, undefined);
-  assert.match(st.note, /did not finish: HfHubHTTPError/);
+  // (in his words: the error without its programming name, SMALL-GAPS A)
+  assert.match(st.note, /did not finish: 500 Server Error uploading adapters\/week-0001\.$/);
   assert.ok(st.report.rejected.some((r) => /reported a problem/.test(r.why)), JSON.stringify(st.report.rejected));
 });
 
@@ -2154,4 +2156,151 @@ test('the daily GPU sits a SCHOOL paper when Kaggle\'s hours are short for it (t
       assert.equal(remote.last.error, "Kaggle's free GPU hours are short this week (11 left) and the weekly training needs them: sit the paper on the phone.");
     }
   }
+});
+
+
+// 25 Oct: the weekly run stopped at the notebook's install step with only "CalledProcessError … exit status 1", which reached
+// the owner as it was. Now the notebook names the pin in plain words (training/kaggle: InstallError), and the brain says it.
+test('the install step in his words: the note, the notification and the LOOPS card name the pin; a stuck install is not pushed again; the pre-flight holds the same notebook that would stop the same way (TRAIN NOW tries anyway)', async () => {
+  const install = { pin: 'transformers==5.5.4', kind: 'python', why: "it doesn't support Python 3.13 (it asks for >=3.14)", python: '3.13.15' };
+  const said = "I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13 (it asks for >=3.14)";
+  // the words: the notebook's own sentence, the old run's CalledProcessError, any other error without its programming name
+  assert.equal(S.stopWords({ error: `${said}.`, install }), said);
+  assert.equal(S.stopWords({ error: "CalledProcessError: Command '['/usr/bin/python3', '-m', 'pip', 'install', '-q', 'transformers==5.5.4', 'peft==0.19.1', 'accelerate==1.13.0', 'huggingface_hub==1.10.1', 'safetensors==0.5.3']' returned non-zero exit status 1." }), "I couldn't install the training's packages on Kaggle (that run didn't say which one: the next one does)");
+  assert.equal(S.stopWords({ error: 'RuntimeError: CUDA out of memory' }), 'CUDA out of memory');
+  assert.equal(S.stopWords({}), '');
+  // a week whose run stopped installing (a trouble that does not pass by itself): ended at once, never pushed again
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  const cfg = configOf(d.svc.state.pushes[0]);
+  await (await hookReq(d, cfg.ticket)).json();
+  const report = { week: 1, startedAt: 1, finishedAt: 2, base: 'stock', items: {}, before: {}, after: {}, gate: { pass: false, why: 'not finished' }, trained: {}, rejected: [], phases: [], error: `${said}.`, install, python: '3.13.15' };
+  assert.deepEqual(await (await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) })).json(), { ok: true, published: false });
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.phase, 'idle', 'not pushed again: it would stop the same way');
+  assert.equal(st.note, `This week's training stopped before it started. ${said}. Nothing changed on your phone.`);
+  assert.equal(d.notes.at(-1).text, st.note, 'the notification says the same');
+  assert.equal(st.report.notebook, C.notebookTag(), 'the report knows which notebook ran');
+  assert.equal((await route(d, '/training/loops')).week.stopped, said, 'the REPORT CARD\'s LOOPS card says it');
+  // next week: the pre-flight holds the same notebook, in his words, and pushes nothing
+  d.tick(8 * 86_400_000);
+  await stepUntil(d, 'push');
+  const held = await C.trainTick(d.deps);
+  assert.equal(held.note, `I haven't started this week's training. Last time ${said}. Nothing has changed since, so it would stop the same way: I need an update first (TRAIN NOW tries anyway).`);
+  assert.equal((await s.get('train:state')).phase, 'push', 'waiting, not given up');
+  assert.equal(d.svc.state.pushes.length, 1, 'nothing pushed');
+  // TRAIN NOW tries anyway
+  await route(d, '/training/now', 'POST', {});
+  await C.trainTick(d.deps);
+  assert.equal(d.svc.state.pushes.length, 2, 'pushed after TRAIN NOW');
+  assert.equal((await s.get('train:state')).tryAnyway, undefined, 'used up by the push');
+  // a network failure passes by itself: pushed again as before, its note in plain words
+  const cfg2 = configOf(d.svc.state.pushes[1]);
+  await (await hookReq(d, cfg2.ticket)).json();
+  const net = { ...report, error: "I couldn't install the packages on Kaggle's Python 3.13: the notebook couldn't reach PyPI (Kaggle's internet may be off for this run).", install: { pin: '', kind: 'network', why: "the notebook couldn't reach PyPI", python: '3.13.15' } };
+  await hookReq(d, cfg2.ticket, { method: 'POST', body: JSON.stringify({ report: net }) });
+  const again = await s.get('train:state');
+  assert.equal(again.phase, 'push');
+  assert.equal(again.note, "The Kaggle run hit a problem (I couldn't install the packages on Kaggle's Python 3.13: the notebook couldn't reach PyPI (Kaggle's internet may be off for this run)); starting it again from where it got to.");
+  // the rules: only a trouble that does not pass by itself, only the same notebook, never past TRAIN NOW
+  const last = { install, notebook: 'abc', error: said };
+  assert.match(C.installHold(last, 'abc'), /^I haven't started this week's training\. Last time I couldn't install transformers 5\.5\.4/);
+  assert.equal(C.installHold(last, 'abc', true), '');
+  assert.equal(C.installHold(last, 'def'), '', 'an update changed the notebook: it goes');
+  assert.equal(C.installHold({ ...last, install: { ...install, kind: 'network' } }, 'abc'), '', 'the network passes by itself');
+  assert.equal(C.installHold({ error: 'x', notebook: 'abc' }, 'abc'), '');
+  assert.match(C.notebookTag(), /^[0-9a-f]{8}$/);
+});
+
+
+// THE INDEPENDENCE METER (OWNER-ISSUES 78): the brain's copy of the phone's days — counts only, merged by day — and its weeks.
+test('the independence meter\'s days reach the brain as counts only, merged by day; GET gives the week and the weeks', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.UTC(2026, 9, 31, 12) });
+  assert.deepEqual(await route(d, '/training/meter', 'POST', { days: [{ d: '2026-10-30', n: { phone: 54, library: 17, cloud: 29 }, c: { groq: 29 }, a: { live: 20, long: 9 }, q: 'never kept' }] }), { ok: true });
+  await route(d, '/training/meter', 'POST', { days: [{ d: '2026-10-23', n: { phone: 64, cloud: 36 }, c: {}, a: {} }, { d: '2026-10-30', n: { phone: 55, library: 17, cloud: 29 }, c: { groq: 29 }, a: { live: 20, long: 9 } }] });
+  assert.ok(!JSON.stringify(await s.get('train:meter')).includes('never kept'), 'never a word, only counts');
+  const m = await route(d, '/training/meter');
+  assert.equal(m.week.total, 101, 'the newer copy of a day wins: no day counted twice');
+  assert.deepEqual(m.week.by, { phone: 55, library: 17, think: 0, kit: 0, cloud: 29 });
+  assert.deepEqual(m.weeks.slice(-2), [64, 71]);
+});
+
+// THE CAPABILITY LEDGER (OWNER-ISSUES 65): "What I learned to do this week" — the REPORT CARD's card and the Sunday note.
+test('the capability ledger: the card from fakes — the GYM levels reached (from the best before the week) and the games new to it, the SCHOOL stage passed, a tool the offline brain gained, the training\'s exam (passed, not passed, stopped), the meter\'s movement; nothing new: no lines', () => {
+  const DAY = 86_400_000;
+  const now = Date.UTC(2026, 10, 1, 5, 40); // Sunday 1 November, the morning digest
+  const ledger = {
+    gym: {
+      connect4: { name: 'Connect 4', steps: [{ level: 4, at: 0 }, { level: 5, at: now - 9 * DAY }, { level: 6, at: now - 3 * DAY }, { level: 7, at: now - DAY }] },
+      sudoku: { name: 'Sudoku', steps: [{ level: 2, at: 0 }] },
+      chess: { name: 'Chess', steps: [{ level: 1, at: now - 2 * DAY }] },
+      maze: { name: 'Maze', steps: [{ level: 3, at: 0 }, { level: 4, at: now - 6 * DAY }] },
+    },
+    tools: { weather: 0, play_radio: now - 2 * DAY, translate_text: now - 20 * DAY },
+  };
+  const school = { stage: 'ks1', passed: { nursery: { at: now - 40 * DAY, grades: {} }, reception: { at: now - 2 * DAY, grades: {} } } };
+  const report = { week: 12, startedAt: now - 3 * DAY, finishedAt: now - 2 * DAY, base: 'stock', before: { gym: 0.6, general: 0.68 }, after: { gym: 0.7, general: 0.72 }, items: {}, gate: { pass: true, why: '' }, trained: {}, rejected: [] };
+  const meter = [{ d: '2026-10-25', n: { phone: 64, cloud: 36 }, c: {}, a: {} }, { d: '2026-10-31', n: { phone: 54, library: 17, cloud: 29 }, c: {}, a: {} }];
+  assert.deepEqual(L.ledgerLines({ now, ledger, school, report, meter }), [
+    'In the GYM I reached Connect 4 level 7 (from 5) and Maze level 4 (from 3).',
+    'New in the GYM: Chess (level 1).',
+    "At SCHOOL I passed Reception: I'm on Key Stage 1 now.",
+    'My offline brain can use a new tool: play radio.',
+    "My offline brain passed week 12's exam (64% → 71%): the new one is ready in SETTINGS → OFFLINE BRAIN.",
+    'Your own brains answered 71% of what you asked this week (64% the week before).',
+  ]);
+  const one = (r) => L.ledgerLines({ now, ledger: { gym: {}, tools: {} }, school: null, report: { ...report, ...r }, meter: [] });
+  assert.deepEqual(one({ gate: { pass: false, why: 'GYM PUZZLES fell' } }), ["Week 12's training did not pass its exam (64% → 71%: GYM PUZZLES fell), so I kept the brain I had."], 'a new brain counts only when it passed');
+  const said = "I couldn't install trl==0.24.0 on Kaggle's Python 3.13: none of its versions is made for it";
+  assert.deepEqual(one({ gate: { pass: false, why: '' }, error: `${said}.`, install: { pin: 'trl==0.24.0', kind: 'python', why: 'none of its versions is made for it', python: '3.13' }, before: {}, after: {} }), [`The weekly training (week 12) stopped: ${said}.`]);
+  assert.deepEqual(one({ finishedAt: now - 8 * DAY }), [], 'a run that finished before the week is not this week\'s');
+  // a level reached is kept: the first levels ever sent were reached before the ledger; one lower later changes nothing
+  const l = { gym: {}, tools: {} };
+  assert.deepEqual(L.noteGym(l, { connect4: 5, sudoku: 2 }, { connect4: 'Connect 4' }, now - 10 * DAY), []);
+  assert.deepEqual(L.noteGym(l, { connect4: 4, sudoku: 3, go: 1 }, { sudoku: 'Sudoku', go: 'Go 9×9' }, now - DAY), [{ name: 'Sudoku', level: 3 }], 'up a level: for the day log (a game new to the GYM is not one)');
+  assert.deepEqual(l.gym.connect4.steps, [{ level: 5, at: 0 }]);
+  assert.deepEqual(L.ledgerLines({ now, ledger: l, school: null, report: null, meter: [] }), ['In the GYM I reached Sudoku level 3 (from 2).', 'New in the GYM: Go 9×9 (level 1).']);
+  // the offline brain's tools: all there at the first look; one seen later joined then
+  assert.equal(L.noteTools(l, ['weather', 'remember'], now - 30 * DAY), true);
+  assert.deepEqual(l.tools, { weather: 0, remember: 0 });
+  assert.equal(L.noteTools(l, ['weather', 'remember'], now), false);
+  assert.deepEqual(L.ledgerLines({ now, ledger: { gym: {}, tools: l.tools }, school: { stage: 'ks1', passed: {} }, report: null, meter: [] }), [], 'nothing new: no lines');
+});
+
+test('the capability ledger through the brain: the phone\'s GYM levels (a level reached is kept; one gone up goes in the day log), GET /training/ledger, and the Sunday note — on his Sunday, once, and only when there is something new', async () => {
+  const DAY = 86_400_000;
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.UTC(2026, 9, 24, 9) }); // Saturday 24 October
+  await s.put('owner:ctx', { tz: 'Europe/London' });
+  // the first levels ever sent were reached before the ledger began: nothing new yet
+  await route(d, '/training/gym', 'POST', { levels: { connect4: 5, maze: 3 }, names: { connect4: 'Connect 4', maze: 'Maze', sudoku: 'no level sent' } });
+  assert.deepEqual(await route(d, '/training/ledger'), { lines: [], since: d.deps.now() - 7 * DAY });
+  assert.deepEqual(await C.sundayNote(d.deps), [], 'not his Sunday');
+  // Monday: Connect 4 goes up; the maze is lower on the phone (it was reset): the ledger keeps level 3; Chess is new
+  d.tick(2 * DAY);
+  await route(d, '/training/gym', 'POST', { levels: { connect4: 6, maze: 1, chess: 1 }, names: { connect4: 'Connect 4', maze: 'Maze', chess: 'Chess\u0007' } });
+  assert.deepEqual(await s.get('train:gym'), { connect4: 6, maze: 1, chess: 1 }, 'the week\'s puzzles follow the phone');
+  const led = await s.get('train:ledger');
+  assert.deepEqual(led.gym.maze.steps.map((x) => x.level), [3], 'a level reached is kept');
+  assert.equal(led.gym.chess.name, 'Chess');
+  assert.ok(!('sudoku' in led.gym));
+  assert.deepEqual(((await s.get('mind:log')) ?? []).map((e) => [e.kind, e.text, e.via]), [['game', 'reached Connect 4 level 6 in the GYM', 'gym']], 'the day log has the level gone up');
+  // a tool the offline brain gained since the last look joined now
+  d.deps.tools = [...d.deps.tools, { name: 'tide_times', description: 'Tide times at a harbour.', parameters: { type: 'object', properties: {} } }];
+  const week = ['In the GYM I reached Connect 4 level 6 (from 5).', 'New in the GYM: Chess (level 1).', 'My offline brain can use a new tool: tide times.'];
+  assert.deepEqual((await route(d, '/training/ledger')).lines, week);
+  // his Sunday morning (the digest): one note, the card's words
+  d.tick(6 * DAY - (3 * 3600_000 + 20 * 60_000)); // Sunday 1 November, 05:40
+  const n = d.notes.length;
+  assert.deepEqual(await C.sundayNote(d.deps), week);
+  assert.deepEqual(d.notes.slice(n), [{ title: 'What I learned to do this week', text: week.join('\n') }]);
+  assert.deepEqual(await C.sundayNote(d.deps), [], 'once a week');
+  assert.equal(d.notes.length, n + 1);
+  // the next Sunday, with nothing new: no note
+  d.tick(7 * DAY);
+  assert.deepEqual(await C.sundayNote(d.deps), []);
+  assert.equal(d.notes.length, n + 1);
+  assert.equal((await s.get('train:ledger')).sent, '2026-11-08');
 });

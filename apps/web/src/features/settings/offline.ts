@@ -35,6 +35,7 @@ import { homeScreenApp } from '../system/storage';
 import { settings } from '../../state/app';
 import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
 import { meaningBlock } from './meaning';
+import { independenceBlock } from '../system/independence';
 
 /** The device's memory when the browser says it (Chrome, at most 8); Safari does not, and the picker uses the 18 Pro Max's 12 GB. */
 const deviceGB = (): number | null => {
@@ -435,6 +436,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('div.lab', 'WHEN THE PHONE ANSWERS'),
     mode,
     think,
+    // How much of his week his own brains answered, and SOVEREIGN MODE (Always) with what still needed the cloud (OWNER-ISSUES 78)
+    independenceBlock(),
     // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
     // free brains; this one is for no signal. No size here: the brain in use says its own above.
     h('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),

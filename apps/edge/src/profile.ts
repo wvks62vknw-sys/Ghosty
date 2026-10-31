@@ -19,7 +19,7 @@ import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
 import { character, readPersona } from '../../../packages/shared/src/persona';
 import { asData } from './kernel/permissions';
 import type { Library } from './library/store';
-import { bestTurn, changeMemory, DIARY_LOCKS_KEY, lineKey, loadLineMeta, lockedLines, memoryRoute, noteDays, pruneForgotten, saveLineMeta } from './memories';
+import { bestTurn, changeMemory, consolidate, DIARY_LOCKS_KEY, heardAgain, lineKey, loadLineMeta, lockedLines, memoryRoute, noteDays, pruneForgotten, saveLineMeta } from './memories';
 import { fmtLocal, safeTz, zoned } from './time';
 import { addFact, loadMemory, MEMORY_KEY } from './tools/memory';
 import { placesRoute } from './places';
@@ -203,10 +203,14 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
   await noteDays(storage, now).catch(() => 0);
   await pruneForgotten(storage, now).catch(() => 0);
   const profile = await loadProfile(storage);
-  const none = (skipped: string): ReflectInfo => ({ ok: false, skipped, facts: [], lines: [], diary: '', summary: profile.summary, profile });
   const tz = safeTz(((await storage.get<{ tz?: string }>('owner:ctx')) ?? {}).tz);
   const last = (await storage.get<number>(REFLECT_KEY)) ?? 0;
   const turns = ((await storage.get<ChatTurn[]>(TURNS_KEY)) ?? []).filter((t) => t.at > last && t.at <= now).slice(-MAX_TURNS);
+  // CONSOLIDATION (memories.ts; no model needed): what he relied on weighs more, unconfirmed trivia fades and goes, the day
+  // log's old days go into the diary — memory that forgets well (OWNER-ISSUES 75a)
+  const settled = await consolidate(deps, turns.filter((t) => t.role === 'user'), tz, now).catch(() => ({ heard: 0, faded: 0, folded: 0 }));
+  const counted = (heard: number) => ({ ...(heard ? { heard } : {}), ...(settled.faded ? { faded: settled.faded } : {}), ...(settled.folded ? { folded: settled.folded } : {}) });
+  const none = (skipped: string): ReflectInfo => ({ ok: false, skipped, facts: [], lines: [], diary: '', summary: profile.summary, profile, ...counted(settled.heard) });
   if (turns.filter((t) => t.role === 'user').length < 2) return none('nothing new to reflect on');
   let conversation = '';
   // Only what the owner said: Ghosty's own replies quote web pages and tool output, which must never become a "fact about the owner".
@@ -279,10 +283,24 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
   for (const x of r.drop) change(x, null);
   if (factsChanged) await storage.put(MEMORY_KEY, factList);
   const facts: string[] = [];
+  // a fact he said again is heard again (it weighs more and never fades), not kept twice
+  const again = new Set<string>();
   for (const f of r.facts) {
     if (looksSecret(f)) continue;
+    const known = factList.find((x) => lineKey(x.text) === lineKey(f));
+    if (known) {
+      again.add(known.id);
+      continue;
+    }
     const added = await addFact(storage, f, source(f)).catch(() => null);
     if (added) facts.push(added.text);
+  }
+  let bumped = 0;
+  if (again.size) {
+    const list = await loadMemory(storage);
+    // (not twice in one night: one he relied on was heard already)
+    for (const x of list) if (again.has(x.id) && x.seen !== now) (heardAgain(x, now), bumped++);
+    await storage.put(MEMORY_KEY, list);
   }
   const lines: ReflectInfo['lines'] = [];
   for (const s of PROFILE_SECTIONS) {
@@ -296,8 +314,10 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
   profile.updatedAt = now;
   await saveProfile(storage, profile);
   await saveLineMeta(storage, meta, PROFILE_SECTIONS.flatMap((s) => profile.sections[s]));
+  // One line of what changed about him today, from what was reworded or dropped (written into the day's diary).
+  const changed = revised.length || dropped.length ? `What changed about him: ${[...revised.map((x) => `“${x.from}” is now “${x.to}”`), ...dropped.map((x) => `“${x}” is no longer so`)].join('; ')}.` : '';
   let diary = '';
-  if (r.diary && library.available) {
+  if ((r.diary || changed) && library.available) {
     try {
       // A day's entry the owner locked stays as it is: a later reflection that day goes under a second heading.
       // "(later)", "(later 2)" …: the first heading of the day that is not locked.
@@ -309,7 +329,7 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
       // A second reflection the same day (REFLECT NOW) carries on the day's entry rather than starting another.
       const prev = library.sectionText(DIARY_DOC, heading, 3000);
       library.removeSection(DIARY_DOC, heading);
-      diary = `${prev ? `${prev}\n\n` : ''}${r.diary}`.slice(0, 3900);
+      diary = `${prev ? `${prev}\n\n` : ''}${[r.diary, changed].filter(Boolean).join('\n\n')}`.slice(0, 3900);
       await library.addPassages(DIARY_DOC, [{ heading, text: diary }]);
       library.finish(DIARY_DOC);
     } catch {
@@ -317,13 +337,13 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
     }
   }
   await storage.put(REFLECT_KEY, now);
-  return { ok: true, facts, lines, ...(revised.length ? { revised } : {}), ...(dropped.length ? { dropped } : {}), ...(refused ? { refused } : {}), diary, summary: profile.summary, profile };
+  return { ok: true, facts, lines, ...(revised.length ? { revised } : {}), ...(dropped.length ? { dropped } : {}), ...(refused ? { refused } : {}), ...counted(settled.heard + bumped), ...(changed ? { changed } : {}), diary, summary: profile.summary, profile };
 }
 
 /** What a reflection did, in a line (the job's result in the Agenda tab). */
 export const reflectSummary = (r: ReflectInfo): string =>
   r.skipped ??
-  `${r.facts.length} new fact${r.facts.length === 1 ? '' : 's'}, ${r.lines.length} profile line${r.lines.length === 1 ? '' : 's'}${r.revised?.length ? `, ${r.revised.length} updated` : ''}${r.dropped?.length ? `, ${r.dropped.length} dropped` : ''}${r.refused ? `, ${r.refused} locked kept` : ''}${r.diary ? ', diary written' : ''}`;
+  `${r.facts.length} new fact${r.facts.length === 1 ? '' : 's'}, ${r.lines.length} profile line${r.lines.length === 1 ? '' : 's'}${r.revised?.length ? `, ${r.revised.length} updated` : ''}${r.dropped?.length ? `, ${r.dropped.length} dropped` : ''}${r.refused ? `, ${r.refused} locked kept` : ''}${r.heard ? `, ${r.heard} heard again` : ''}${r.faded ? `, ${r.faded} let go` : ''}${r.folded ? `, ${r.folded} day${r.folded === 1 ? '' : 's'} of the day log in the diary` : ''}${r.diary ? ', diary written' : ''}`;
 
 /** The latest diary entries, newest first. */
 export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
@@ -336,7 +356,8 @@ export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
     if (r.next === null) break;
     after = r.next;
   }
-  return all.slice(-n).reverse();
+  // (in date order: an older day folded in from the day log, or one put back by UNDO, keeps its place)
+  return all.sort((a, b) => a.heading.localeCompare(b.heading)).slice(-n).reverse();
 }
 
 /**
@@ -399,7 +420,7 @@ export async function profileRoute(req: Request, path: string, method: string, u
 }
 
 // The TIMELINE, its edits and PATTERNS live in memories.ts; exported here too for the tests.
-export { bestTurn, changeMemory, findPatterns, lineKey, moodsIn, noteDays, patterns, recentlyForgotten, tallyDays, timeline } from './memories';
+export { bestTurn, changeMemory, consolidate, dayParagraph, FADE_DAYS, findPatterns, isFading, LET_GO_DAYS, lineKey, moodsIn, noteDays, patterns, recentlyForgotten, tallyDays, timeline } from './memories';
 
 // Saved places and spending (places.ts, spending.ts, their tools and the shared pure parts), exported here for the tests.
 export * as places from './places';

@@ -397,8 +397,83 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
+/**
+ * FADING (OWNER-ISSUES 75a): what the reflection worked out that nothing has confirmed for three weeks, on the TIMELINE with
+ * KEEP and LET GO (UNDO), and a fact's weight in words ("heard four times"). The brain's own rules (consolidation, decay)
+ * are checked in apps/edge/test/profile.test.mjs; here the brain is stood in, and what the page asks of it is recorded.
+ */
+async function fading(name, viewport) {
+  const ctx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name} fading] pageerror: ${e.message}`));
+  const t = Date.now();
+  const src = { kind: 'reflection', at: t - 25 * 86_400_000 };
+  const panda = { id: 'f:p1', kind: 'fact', text: 'watched a film about pandas', at: src.at, src, locked: false, weight: 1, fading: true };
+  const leeds = { id: 'f:l1', kind: 'fact', text: 'once mentioned a cousin in Leeds', at: src.at, src, locked: false, weight: 1, fading: true };
+  const tea = { id: 'f:t1', kind: 'fact', text: 'likes strong tea', at: t - 86_400_000, src: { kind: 'chat', at: t - 86_400_000 }, locked: false, weight: 4 };
+  const state = { items: [panda, leeds, tea], ops: [] };
+  await page.route('**/api/profile/**', async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const json = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    if (url.pathname === '/api/profile/timeline') return json({ items: state.items, patterns: [], forgotten: [], fading: state.items.filter((i) => i.fading) });
+    if (url.pathname === '/api/profile/item') {
+      const b = req.postDataJSON();
+      state.ops.push(`${b.op} ${b.id}`);
+      const it = state.items.find((i) => i.id === b.id);
+      if (b.op === 'keep' && it) return json({ item: Object.assign(it, { weight: 2, fading: undefined }) });
+      if (b.op === 'forget') {
+        state.items = state.items.filter((i) => i.id !== b.id);
+        return json({ item: null });
+      }
+      if (b.op === 'restore') {
+        state.items.push(leeds);
+        return json({ item: leeds });
+      }
+    }
+    return route.continue();
+  });
+  await page.goto(base);
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.evaluate(() => (location.hash = 'memory'));
+  if (viewport.width < 900) {
+    await page.waitForSelector('#pg-memory .secpills .secpill', { state: 'visible', timeout: 10000 }).catch(() => undefined);
+    await openSection(page, 'memory', 'Timeline');
+  }
+  const box = page.locator('#pg-memory .pn.tl .fading');
+  if (!(await box.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false))) problems.push(`[${name} fading] no FADING list`);
+  const said = ((await box.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
+  if (!/FADING \(2\)/.test(said) || !/haven't heard again for three weeks\. I let each go after five, unless you keep it\./.test(said) || !/watched a film about pandas/.test(said)) problems.push(`[${name} fading] FADING reads "${said.slice(0, 300)}"`);
+  // the weight in words, on the fact
+  const heard = await page.evaluate(() => [...document.querySelectorAll('#pg-memory .pn.tl .mi')].find((m) => /likes strong tea/.test(m.textContent ?? ''))?.querySelector('.miw')?.textContent ?? '');
+  if (heard !== 'heard four times') problems.push(`[${name} fading] the fact heard four times says "${heard}"`);
+  // ≥ 44 pt to tap (its laid-out size: the panes settle into place with a short animation, which a bounding box catches mid-way)
+  for (const b of await box.locator('button').all()) {
+    const r = await b.evaluate((e) => ({ width: e.offsetWidth, height: e.offsetHeight })).catch(() => null);
+    if (!r || r.height < 44 || r.width < 44) problems.push(`[${name} fading] "${await b.textContent()}" is ${r ? `${r.width}×${r.height}` : 'not shown'}`);
+  }
+  await box.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/${name}-memory-fading.png` });
+  // LET GO: forgotten, with UNDO on screen; UNDO brings it back
+  await box.locator('.fgi', { hasText: 'cousin in Leeds' }).locator('button:has-text("LET GO")').click();
+  const undoBar = page.locator('.undo.undofloat:not([hidden]) button:has-text("UNDO")');
+  if (!(await undoBar.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false))) problems.push(`[${name} fading] LET GO shows no UNDO`);
+  else await undoBar.click();
+  await page.waitForFunction(() => /cousin in Leeds/.test(document.querySelector('#pg-memory .pn.tl .fading')?.textContent ?? ''), null, { timeout: 8000, polling: 250 }).catch(() => problems.push(`[${name} fading] UNDO did not bring it back to FADING`));
+  if (!state.ops.includes('forget f:l1') || !state.ops.includes('restore f:l1')) problems.push(`[${name} fading] LET GO then UNDO asked the brain: ${state.ops.join(', ')}`);
+  // KEEP: heard again; it leaves FADING
+  await box.locator('.fgi', { hasText: 'pandas' }).locator('button:has-text("KEEP")').click();
+  await page.waitForFunction(() => !/pandas/.test(document.querySelector('#pg-memory .pn.tl .fading')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name} fading] KEEP did not take it off FADING`));
+  if (!state.ops.includes('keep f:p1')) problems.push(`[${name} fading] KEEP asked the brain: ${state.ops.join(', ')}`);
+  await ctx.close();
+}
+
+await fading('phone', PHONE);
+
 await run('desktop', DESKTOP);
 await run('phone', PHONE);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME first and in his words, DIARY (its days in words), REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo on screen however deep, filters), PATTERNS, one voice, offline said plainly, every target 44 pt.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: FADING (KEEP, LET GO with UNDO, heard four times), ME first and in his words, DIARY (its days in words), REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo on screen however deep, filters), PATTERNS, one voice, offline said plainly, every target 44 pt.');
 process.exit(problems.length ? 1 : 0);

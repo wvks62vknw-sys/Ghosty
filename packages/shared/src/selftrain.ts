@@ -290,6 +290,12 @@ export interface TrainReport {
   /** Exam and STaR items he still gets wrong (replayed next week). */
   failures?: { prompt: string; answer?: string; task?: TaskRef; why: string }[];
   error?: string;
+  /** The install step stopped the run (the notebook's InstallError): the pin, the kind of trouble, why in plain words, Kaggle's Python. */
+  install?: { pin: string; kind: string; why: string; python: string };
+  /** The Python Kaggle's image had (the notebook says). */
+  python?: string;
+  /** Which notebook ran (cycle.ts notebookTag): the pre-flight holds a notebook that already stopped where it would again. */
+  notebook?: string;
   /** The monthly retrain: trained from the stock model on every week kept (not added to the brain in use); the gate is the same. */
   scratch?: boolean;
   /** Where it ran (the notebook's host: 'kaggle'), and in how many sessions (a run saves its place and carries on). */
@@ -376,3 +382,19 @@ export interface TrainStatus {
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */
 export const weightsBase = (origin: string, weights: string, commit: string): string => `${origin.replace(/\/$/, '')}${weights}resolve/${commit}/`;
+
+/** Install troubles that do not pass by themselves: the same notebook on the same Kaggle image stops the same way. */
+export const STUCK_INSTALL = ['missing', 'yanked', 'python', 'wheel', 'conflict', 'nopip', 'managed', 'uninstall'];
+
+/**
+ * Why a run stopped, in his words, with no full stop (SMALL-GAPS A: never a raw error to the owner): the notebook's own
+ * sentence for an install failure; for a run from before it had one (25 Oct: "CalledProcessError: Command '[… pip
+ * install …]' returned non-zero exit status 1"), that the packages would not install; otherwise the error without its
+ * programming name. '' when it did not stop.
+ */
+export function stopWords(r: { error?: string; install?: unknown }): string {
+  const e = String(r.error ?? '').replace(/\s+/g, ' ').trim();
+  if (!e) return '';
+  if (!r.install && /CalledProcessError/.test(e) && /pip/.test(e) && /install/.test(e)) return "I couldn't install the training's packages on Kaggle (that run didn't say which one: the next one does)";
+  return (r.install ? e : e.replace(/^[A-Z][A-Za-z]*(?:Error|Exception): /, '')).replace(/[.\s]+$/, '');
+}

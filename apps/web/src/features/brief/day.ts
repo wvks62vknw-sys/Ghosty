@@ -3,7 +3,7 @@
  * date, when it will rain, the day's diary, and the one plain sentence the hero shows and READ IT TO ME says.
  * Everything here is pure so the spec and the page agree on the wording.
  */
-import type { AgendaEventInfo, JobInfo } from '../../../../../packages/shared/src/protocol';
+import type { DayLine } from '../../../../../packages/shared/src/mind';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const hhmm = (ms: number) => {
@@ -47,24 +47,14 @@ export interface DayItem {
   at: number;
 }
 
-/** What is left of today: diary events not yet over and reminders still to go off, in time order. */
-export function todayItems(events: AgendaEventInfo[], jobs: JobInfo[], now: number): DayItem[] {
-  const end = new Date(now).setHours(24, 0, 0, 0);
-  const evs = events
-    .filter((e) => (e.end ?? e.start) > now && e.start < end)
-    .map((e): DayItem => ({ when: e.allDay ? 'All day' : e.start <= now ? 'Now' : hhmm(e.start), title: e.title, ...(e.location ? { where: e.location } : {}), at: e.allDay ? 0 : e.start }));
-  // A diary event's own reminder is the same thing twice: only the event is listed.
-  const own = new Set(events.map((e) => e.id));
-  const rem = jobs
-    .filter((j) => (j.kind === 'reminder' || j.kind === 'task') && j.next >= now && j.next < end && !(j.eventId && own.has(j.eventId)))
-    .map((j): DayItem => ({ when: hhmm(j.next), title: j.title || j.text, at: j.next }));
-  return [...evs, ...rem].sort((a, b) => a.at - b.at);
-}
-
-/** The first thing after today (for "Nothing more today · tomorrow: …"). */
-export function nextAfterToday(events: AgendaEventInfo[], now: number): AgendaEventInfo | undefined {
-  const end = new Date(now).setHours(24, 0, 0, 0);
-  return events.filter((e) => e.start >= end).sort((a, b) => a.start - b.start)[0];
+/**
+ * What is left of today, from the one shared mind (GET /api/mind: the brain works the day out, the same picture the chat
+ * reads; apps/edge/src/mind.ts dayLines): what went by since it was asked is dropped, and an event that has started reads
+ * "Now". A copy kept on this phone from another day is not today's: null, as when the diary can't be reached.
+ */
+export function stillToday(today: { day: string; items: DayLine[] }, now: number): DayItem[] | null {
+  if (today.day !== isoDay(new Date(now))) return null;
+  return today.items.filter((x) => x.allDay || (x.end ?? x.at) > now || (x.kind === 'reminder' && x.at >= now)).map((x) => (!x.allDay && x.kind === 'event' && x.at <= now ? { ...x, when: 'Now' } : x));
 }
 
 /** "2 things today, first Dentist at 09:30" — or "Nothing in your diary for the rest of today". */

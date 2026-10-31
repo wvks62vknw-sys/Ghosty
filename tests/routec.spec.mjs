@@ -207,6 +207,33 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await sideways(page, '#pg-core *, #top *')) problems.push(`[${W} chat] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#cbar .plusbtn, #cbar #mic, #cbar .citedbtn, #top .logbtn, #top .you, .convo .msg.latest .rcacts button')) problems.push(`[${W} chat] under a 44 pt target: ${t}`);
   await page.screenshot({ path: `${out}/routec-${W}-chat.png`, timeout: 90000 });
+
+  // ---- One mind (OWNER-ISSUES 74): the Brief's YOUR DAY and the chat read the same picture of today (the brain's
+  // mind.ts, GET /api/mind). The mock model reads its day back from its CONTEXT block word for word. Call Mum (seeded
+  // above) is in both when it is today's; past midnight it is tomorrow's and both say what is left instead. Compared only
+  // when the brain's day did not turn between the Brief and the chat (the wall clock: see the Today card above).
+  if (W === PHONE.width) {
+    const before = await brainGet('/mind?tz=Europe/London');
+    await page.evaluate(() => (location.hash = 'brief'));
+    await page.waitForFunction(() => /LEFT|CLEAR|CAN’T CHECK/.test(document.querySelector('#pg-brief .pn.brday h3')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    const yourDay = (await page.textContent('#pg-brief .pn.brday').catch(() => ''))?.replace(/\s+/g, ' ').trim() ?? '';
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(600);
+    await page.click('#cbar .logbtn').catch(() => undefined);
+    await page.fill('#cin', 'what does my day look like to you?');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => /Today: |Nothing more today|Nothing in my context/.test(document.querySelector('.convo .log')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
+    const told = (await page.evaluate(() => [...document.querySelectorAll('.convo .log .msg')].map((m) => m.textContent ?? '').reverse().find((t) => /Today: |Nothing more today|Nothing in my context/.test(t)) ?? ''))?.replace(/\s+/g, ' ').trim();
+    const after = await brainGet('/mind?tz=Europe/London');
+    const titles = (before?.today?.items ?? []).slice(0, 4).map((x) => x.title);
+    if (!before || !after) problems.push(`[${W} one mind] /api/mind did not answer`);
+    else if (before.today.day === after.today.day) {
+      if (callMumToday && !/Call Mum/.test(yourDay)) problems.push(`[${W} one mind] YOUR DAY on the Brief has no Call Mum: "${yourDay}"`);
+      if (callMumToday && !/Call Mum/.test(told)) problems.push(`[${W} one mind] the chat's context has no Call Mum: "${told}"`);
+      const inOrder = titles.every((t, i) => told.includes(t) && yourDay.includes(t) && (i === 0 || told.indexOf(titles[i - 1]) < told.indexOf(t)));
+      if (titles.length ? !inOrder : !/Nothing more today|Nothing in my context/.test(told)) problems.push(`[${W} one mind] the chat and the Brief disagree about today: the chat says "${told}", the Brief "${yourDay}"`);
+    }
+  }
   await page.click('#top .logbtn');
   await page.waitForTimeout(500);
 
@@ -511,5 +538,5 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
 
 if (made?.event?.id) await fetch(`${base}/api/agenda/events/${made.event.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).catch(() => undefined);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion; one look: Settings → Theme applies Reactor or Graphite at once (the accent token, the lit tab and the live dot follow, Home’s layout does not move) and keeps it after a restart, a phone on the old default settles on Reactor’s cyan, a classic look’s name starts on Reactor, and nothing of the classic looks is left in the page or the stylesheet; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, the Brief’s YOUR DAY and the chat’s context agree about today (one mind), every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion; one look: Settings → Theme applies Reactor or Graphite at once (the accent token, the lit tab and the live dot follow, Home’s layout does not move) and keeps it after a restart, a phone on the old default settles on Reactor’s cyan, a classic look’s name starts on Reactor, and nothing of the classic looks is left in the page or the stylesheet; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
 process.exit(problems.length ? 1 : 0);

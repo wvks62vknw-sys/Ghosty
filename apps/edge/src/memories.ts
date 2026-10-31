@@ -20,7 +20,8 @@ import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
 import { LESSONS_KEY, loadLessons } from './knowledge';
 import type { Library } from './library/store';
 import { DIARY_DOC, diaryEntries, loadProfile, looksSecret, saveProfile, type ProfileDeps } from './profile';
-import { safeTz, zoned } from './time';
+import { isoLocal, safeTz, startOfDay, zoned } from './time';
+import { loadLog, LOG_KEY, type Episode } from './mind';
 import { loadMemory, MEMORY_KEY } from './tools/memory';
 
 export const META_KEY = 'profile:meta';
@@ -129,7 +130,7 @@ function withQuote(src: MemorySource, owner: ChatTurn[]): MemorySource {
 }
 
 /** Everything remembered about the owner, newest first. */
-export async function timeline(deps: Pick<ProfileDeps, 'storage' | 'library'>): Promise<MemoryItem[]> {
+export async function timeline(deps: Pick<ProfileDeps, 'storage' | 'library'>, now = Date.now()): Promise<MemoryItem[]> {
   const { storage, library } = deps;
   const [profile, meta, facts, lessons, dlocks, turns] = await Promise.all([
     loadProfile(storage),
@@ -148,7 +149,8 @@ export async function timeline(deps: Pick<ProfileDeps, 'storage' | 'library'>): 
       items.push({ id: `p:${lineKey(text)}`, kind: 'profile', section, text, at, src: withQuote(m?.src ?? { kind: 'unknown', at }, owner), locked: !!m?.locked, ...(m?.edited ? { edited: m.edited } : {}) });
     }
   }
-  for (const f of facts) items.push({ id: `f:${f.id}`, kind: 'fact', text: f.text, at: f.at, src: withQuote(f.src ?? { kind: 'unknown', at: f.at }, owner), locked: !!f.locked, ...(f.edited ? { edited: f.edited } : {}) });
+  // (a fact's weight: how often it was heard; fading: inferred trivia nothing has confirmed for three weeks)
+  for (const f of facts) items.push({ id: `f:${f.id}`, kind: 'fact', text: f.text, at: f.at, src: withQuote(f.src ?? { kind: 'unknown', at: f.at }, owner), locked: !!f.locked, ...(f.edited ? { edited: f.edited } : {}), weight: weightOf(f), ...(isFading(f, now) ? { fading: true } : {}) });
   const locked = new Set(dlocks ?? []);
   for (const d of diaryEntries(library, 60)) {
     const at = noon(d.heading);
@@ -215,6 +217,15 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
   const key = id.slice(2);
   if (!key || !['p:', 'f:', 'd:', 'l:'].includes(kind)) throw new MemoryError(400, 'unknown memory');
   if (op === 'restore') return restore(deps, id, now);
+  // KEEP (MEMORY's FADING list): a fact he wants kept is heard again — it weighs more and stops fading
+  if (op === 'keep' && kind === 'f:') {
+    const facts = await loadMemory(storage);
+    const f = facts.find((x) => x.id === key);
+    if (!f) throw new MemoryError(404, 'that memory is not there any more');
+    heardAgain(f, now);
+    await storage.put(MEMORY_KEY, facts);
+    return (await timeline(deps, now)).find((x) => x.id === id) ?? null;
+  }
   if (!['edit', 'forget', 'lock', 'unlock'].includes(op)) throw new MemoryError(400, 'unknown change');
   const lock = op === 'lock' ? true : op === 'unlock' ? false : undefined;
   let text = '';
@@ -386,6 +397,90 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
   await storage.put(FORGOTTEN_KEY, list.filter((x) => x !== f));
   if (f.facts) return null;
   return (await timeline(deps)).find((x) => x.id === (f.profile ? `p:${lineKey(f.profile.text)}` : id)) ?? null;
+}
+
+// ---------- forgetting well (OWNER-ISSUES 75a): weight, fading, the day log folded into the diary ----------
+
+/**
+ * A fact the nightly reflection inferred (never one he typed, never one he asked Ghosty to remember, never a locked one)
+ * that nothing has confirmed again FADES after three weeks — MEMORY's FADING list, KEEP or let go — and is let go after
+ * five, kept a day for UNDO like anything forgotten. Saying it again, relying on it or KEEP makes a fact weigh more
+ * ("heard twice"), and a fact heard twice never fades.
+ */
+export const FADE_DAYS = 21;
+export const LET_GO_DAYS = 35;
+/** The day log's days are kept this long (mind.ts), then folded into the diary, a paragraph each. */
+export const LOG_KEEP_DAYS = 14;
+const DAY_MS = 86_400_000;
+
+export const weightOf = (f: Pick<MemoryFact, 'weight'>): number => (Number.isInteger(f.weight) && f.weight! > 0 ? f.weight! : 1);
+const heardAt = (f: MemoryFact): number => f.seen ?? f.at;
+const mayFade = (f: MemoryFact): boolean => !f.locked && f.src?.kind === 'reflection' && weightOf(f) <= 1;
+/** On MEMORY's FADING list: inferred trivia, unconfirmed for three weeks. */
+export const isFading = (f: MemoryFact, now: number): boolean => mayFade(f) && now - heardAt(f) >= FADE_DAYS * DAY_MS;
+/** Heard again (said again, relied on, KEEP): it weighs one more, from now. */
+export function heardAgain(f: MemoryFact, now: number): void {
+  f.weight = weightOf(f) + 1;
+  f.seen = now;
+}
+
+/** A day of the day log as the diary keeps it, in a paragraph: what was done (built, played, set), then what he asked. */
+export function dayParagraph(eps: Episode[]): string {
+  const uniq = (xs: string[]) => [...new Set(xs)];
+  const did = uniq(eps.filter((e) => e.kind !== 'turn').map((e) => e.text));
+  const asked = uniq(eps.filter((e) => e.kind === 'turn').map((e) => e.text.replace(/^asked: /, '')));
+  const parts: string[] = [];
+  if (did.length) parts.push(`Done: ${did.slice(0, 8).join('; ')}${did.length > 8 ? `; and ${did.length - 8} more` : ''}.`);
+  if (asked.length) parts.push(`He asked ${asked.slice(0, 5).join(', ')}${asked.length > 5 ? ` and ${asked.length - 5} more things` : ''}.`);
+  return parts.length ? `From the day log: ${parts.join(' ')}` : '';
+}
+
+/**
+ * The nightly CONSOLIDATION (reflect() runs it first, with or without a model): the facts he relied on in what he said
+ * since the last reflection weigh more; trivia unconfirmed for five weeks is let go (a day for UNDO); the day log's days
+ * older than two weeks go into the diary, a paragraph each (a locked day's under a "(later)" heading). Never a locked
+ * memory, never one he wrote or asked for himself. A diary that can't be written keeps the day log for the next night.
+ */
+export async function consolidate(deps: Pick<ProfileDeps, 'storage' | 'library'>, owner: { text: string; at: number }[], tz: string, now = Date.now()): Promise<{ heard: number; faded: number; folded: number }> {
+  const { storage, library } = deps;
+  const facts = await loadMemory(storage);
+  let heard = 0;
+  for (const f of facts) {
+    if (!owner.some((t) => t.at > heardAt(f) && bestTurn(f.text, [t]) !== undefined)) continue;
+    heardAgain(f, now);
+    heard++;
+  }
+  const gone = facts.filter((f) => mayFade(f) && now - heardAt(f) >= LET_GO_DAYS * DAY_MS);
+  if (gone.length === 1) await stash(storage, { id: `f:${gone[0]!.id}`, gone: now, fact: { ...gone[0]! } });
+  else if (gone.length) await stash(storage, { id: `f:*faded*${now}`, gone: now, facts: gone.map((f) => ({ ...f })), label: `${gone.length} things I had not heard for five weeks` });
+  if (heard || gone.length) await storage.put(MEMORY_KEY, facts.filter((f) => !gone.includes(f)));
+  let folded = 0;
+  const cut = startOfDay(now - LOG_KEEP_DAYS * DAY_MS, tz);
+  const log = await loadLog(storage);
+  const old = log.filter((e) => e.at < cut);
+  if (old.length && library.available) {
+    const byDay = new Map<string, Episode[]>();
+    for (const e of old) byDay.set(isoLocal(e.at, tz).slice(0, 10), [...(byDay.get(isoLocal(e.at, tz).slice(0, 10)) ?? []), e]);
+    const locks = new Set((await storage.get<string[]>(DIARY_LOCKS_KEY)) ?? []);
+    try {
+      if (!library.doc(DIARY_DOC)) library.createDoc({ id: DIARY_DOC, title: 'Diary', source: 'written by Ghosty', kind: 'notes' });
+      for (const [day, eps] of byDay) {
+        const para = dayParagraph(eps);
+        if (!para) continue;
+        let heading = day;
+        for (let k = 1; locks.has(heading); k++) heading = `${day} (later${k > 1 ? ` ${k}` : ''})`;
+        const prev = library.sectionText(DIARY_DOC, heading, 3000);
+        library.removeSection(DIARY_DOC, heading);
+        await library.addPassages(DIARY_DOC, [{ heading, text: `${prev ? `${prev}\n\n` : ''}${para}`.slice(0, 3900) }]);
+        folded++;
+      }
+      library.finish(DIARY_DOC);
+    } catch {
+      return { heard, faded: gone.length, folded: 0 };
+    }
+    await storage.put(LOG_KEY, log.filter((e) => e.at >= cut));
+  }
+  return { heard, faded: gone.length, folded };
 }
 
 // ---------- patterns ----------
@@ -608,7 +703,11 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
  * /profile/patterns/clear (CLEAR CONVERSATION). Null when the path is not one of these.
  */
 export async function memoryRoute(req: Request, path: string, method: string, deps: ProfileDeps): Promise<Response | null> {
-  if (path === '/profile/timeline' && method === 'GET') return json({ items: await timeline(deps), patterns: await patterns(deps), forgotten: await recentlyForgotten(deps.storage) });
+  if (path === '/profile/timeline' && method === 'GET') {
+    const items = await timeline(deps);
+    // FADING: what will be let go unless he keeps it (OWNER-ISSUES 75a)
+    return json({ items, patterns: await patterns(deps), forgotten: await recentlyForgotten(deps.storage), fading: items.filter((i) => i.fading) });
+  }
   if (path === '/profile/item' && method === 'POST') {
     const b = (await req.json().catch(() => ({}))) as { id?: unknown; op?: unknown; text?: unknown };
     try {

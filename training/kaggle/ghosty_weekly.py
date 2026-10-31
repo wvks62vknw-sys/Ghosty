@@ -63,6 +63,7 @@ CONFIG_JSON = None  # GHOSTY-CONFIG: the brain writes this week's settings here 
 import json
 import math
 import os
+import platform
 import random
 import re
 import subprocess
@@ -696,17 +697,210 @@ def fit_count(n_wanted, sec_per_item, seconds):
     return max(0, min(n_wanted, int(seconds / sec_per_item)))
 
 
-def retry(fn, what='', tries=4, pause=20, sleep=None):
+def retry(fn, what='', tries=4, pause=20, sleep=None, give_up=None):
     """fn(), tried again after a pause (20 s, 40 s, 60 s) when it fails: a Hugging Face 5xx or a pip hiccup during
-    set-up should not cost the week. The last failure is raised."""
+    set-up should not cost the week. The last failure is raised; so is one `give_up` says will not pass by itself."""
     for i in range(tries):
         try:
             return fn()
         except Exception as e:
             if i == tries - 1:
                 raise
+            if give_up and give_up(e):
+                raise
             log(f'{what or "a download"} failed ({type(e).__name__}: {str(e)[:200]}); trying again')
             (sleep or time.sleep)(pause * (i + 1))
+
+
+# ---- the install step: the pins checked against PyPI for this Python, and a failure said in plain words ----------
+# On 25 Oct the run stopped at `pip install` with only "CalledProcessError … returned non-zero exit status 1": pip ran
+# quiet, its own error was never kept, so what stopped it could not be read. The pins are not it on their own: every one
+# is on PyPI for Python 3.12 and 3.13 (pypi_pins.json: PyPI's answers, recorded) and pip's resolver takes each family on
+# both. Now the step keeps the image's own torch, keeps pip's last lines in the log and, when pip stops, says what
+# stopped it in plain words naming the pin (asking PyPI about the pins for the Python it is on when pip's words are not
+# plain): the report's `error` and `install`, which the brain says in his voice (and its pre-flight reads, so a run that
+# would stop the same way waits).
+def norm_name(name):
+    """A package's name as PyPI compares them (PEP 503)."""
+    return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def vkey(v):
+    """A version as a sortable key: its release (to six parts), a pre-release or dev build before the release, a post after."""
+    m = re.match(r'\s*v?(\d+(?:\.\d+)*)(.*)', str(v))
+    if not m:
+        return ((0,) * 6, 1, 0)
+    rel = tuple(int(x) for x in m.group(1).split('.'))[:6]
+    rest = m.group(2).lower()
+    post = re.search(r'post[-_.]?(\d*)', rest)
+    return (rel + (0,) * (6 - len(rel)), 0 if re.match(r'[-_.]?(a|b|c|rc|alpha|beta|pre|preview|dev)', rest) else 1, int(post.group(1) or 0) + 1 if post else 0)
+
+
+def spec_ok(version, spec):
+    """Does `version` meet a requirement's specifiers ('>=3.10.0', '<2.0,>=1.5.0', '!=3.0.*', '~=3.5')? '' meets anything."""
+    for part in [p.strip() for p in (spec or '').split(',') if p.strip()]:
+        m = re.match(r'(~=|===|==|!=|<=|>=|<|>)\s*(.+)', part)
+        if not m:
+            continue
+        op, want = m.group(1), m.group(2).strip()
+        got = vkey(version)
+        if want.endswith('.*'):
+            prefix = tuple(int(x) for x in re.findall(r'\d+', want[:-2]))
+            same = got[0][:len(prefix)] == prefix
+            if (op == '==' and not same) or (op == '!=' and same):
+                return False
+            continue
+        w = vkey(want)
+        if op == '~=':
+            n = max(1, len(re.findall(r'\d+', re.match(r'[\d.]*', want).group(0))) - 1)
+            if got < w or got[0][:n] != w[0][:n]:
+                return False
+        elif not {'==': got == w, '===': str(version) == want, '!=': got != w, '<=': got <= w, '>=': got >= w, '<': got < w, '>': got > w}[op]:
+            return False
+    return True
+
+
+def wheel_ok(filename, py):
+    """Can CPython `py` ('3.13.15') on a 64-bit Linux machine (Kaggle's) use this wheel? Pure ones, abi3 ones from an
+    older CPython, and ones built for exactly this one (never a free-threaded build) can."""
+    parts = filename[:-4].split('-') if filename.endswith('.whl') else []
+    if len(parts) < 5:
+        return False
+    pys, abis, plats = parts[-3].split('.'), parts[-2].split('.'), parts[-1].split('.')
+    if not any(p == 'any' or ('linux' in p and 'x86_64' in p and 'musllinux' not in p) for p in plats):
+        return False
+    major, minor = (int(x) for x in re.findall(r'\d+', py)[:2])
+    for t in pys:
+        m = re.match(r'(py|cp)(\d)(\d*)$', t)
+        if not m or int(m.group(2)) != major:
+            continue
+        tag_minor = int(m.group(3) or 0)
+        for abi in abis:
+            if abi == 'none' and (m.group(1) == 'py' and tag_minor <= minor or m.group(1) == 'cp' and tag_minor == minor):
+                return True
+            if abi == 'abi3' and m.group(1) == 'cp' and tag_minor <= minor:
+                return True
+            if abi == f'cp{major}{minor}' and m.group(1) == 'cp' and tag_minor == minor:
+                return True
+    return False
+
+
+def pypi_answer(raw):
+    """PyPI's JSON for one release, trimmed to what pins_problem reads (as pypi_pins.json keeps it); None when it is not one."""
+    if not isinstance(raw, dict) or not isinstance(raw.get('info'), dict):
+        return None
+    i = raw['info']
+    return {'requires_python': i.get('requires_python') or '', 'requires_dist': [r for r in (i.get('requires_dist') or []) if 'extra ==' not in r],
+            'yanked': bool(i.get('yanked')), 'files': [u.get('filename', '') for u in raw.get('urls') or []]}
+
+
+def pins_problem(pins, answers, py):
+    """The first thing PyPI's answers say would stop these pins installing on Python `py`, as (pin, kind, why in plain
+    words); None when nothing would. An answer that is None (PyPI not asked, or not reachable) leaves its pin to pip."""
+    short = '.'.join(re.findall(r'\d+', py)[:2])
+    pinned = {norm_name(p.split('==')[0]): p.split('==')[1] for p in pins}
+    for pin in pins:
+        a = answers.get(pin)
+        if a is None:
+            continue
+        if a.get('missing'):
+            return pin, 'missing', 'PyPI has no such version'
+        if a.get('yanked'):
+            return pin, 'yanked', 'that version was withdrawn from PyPI'
+        if not spec_ok(py, a.get('requires_python', '')):
+            return pin, 'python', f"it doesn't support Python {short} (it asks for {a['requires_python']})"
+        wheels = [f for f in a.get('files', []) if f.endswith('.whl')]
+        if wheels and not any(wheel_ok(f, py) for f in wheels) and any(re.search(r'-cp\d+-', f) for f in wheels):
+            return pin, 'wheel', f'it has no ready-built copy for Python {short}, and building one needs tools this machine lacks'
+    for pin in pins:
+        for req in (answers.get(pin) or {}).get('requires_dist', []):
+            m = re.match(r'\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*\(?([^;)]*)\)?', req)
+            if not m or norm_name(m.group(1)) not in pinned:
+                continue
+            have = pinned[norm_name(m.group(1))]
+            if not spec_ok(have, m.group(2).strip()):
+                return pin, 'conflict', f"it needs {m.group(1)} {m.group(2).strip()}, and the pins say {have}"
+    return None
+
+
+# pip's own words (its last lines) → what stopped it, naming the pin where pip names a package.
+PIP_FAILURES = [
+    ('nopip', r'No module named pip', lambda py: f'pip is not installed for Python {py} on this machine'),
+    ('managed', r'externally-managed-environment', lambda py: f"Python {py} on this machine is locked against pip (it says it is managed by the system)"),
+    ('network', r'Temporary failure in name resolution|Network is unreachable|Failed to establish a new connection|Max retries exceeded|Connection (?:reset|refused|aborted)|Read timed out|ConnectTimeout|NewConnectionError',
+     lambda py: "the notebook couldn't reach PyPI (Kaggle's internet may be off for this run)"),
+    ('disk', r'No space left on device', lambda py: "Kaggle's disk was full"),
+    ('conflict', r'ResolutionImpossible|conflicting dependencies', lambda py: 'the pins need versions of each other that cannot all be installed together'),
+    ('python', r'requires? a different python', lambda py: f"it doesn't support Python {py}"),
+    ('wheel', r'is not a supported wheel|Failed to build|Failed building wheel|subprocess-exited-with-error', lambda py: f'it had to be built from source for Python {py}, and the build failed'),
+    ('uninstall', r'Cannot uninstall|RECORD file not found|distutils installed project', lambda py: "pip couldn't replace the copy that came with Kaggle's image"),
+    ('missing', r'No matching distribution found|Could not find a version that satisfies', lambda py: f'pip found no version of it for Python {py}'),
+]
+
+
+def pip_words(output, pins, py):
+    """pip's failure (its output) as (pin, kind, why in plain words): the pin pip names, else the first pin; an unknown
+    failure says only that pip stopped (its last lines are in the log)."""
+    short = '.'.join(re.findall(r'\d+', py)[:2])
+    text = output or ''
+    named = {norm_name(p.split('==')[0]): p for p in pins}
+    # the package pip names: "for peft==0.19.1", "requirement transformers==5.5.4", "Cannot uninstall regex", "Package 'x'"
+    pin = ''
+    for m in re.finditer(r"(?:found for|requirement|uninstall|Package|build|wheel for|requested)\s+'?([A-Za-z0-9][A-Za-z0-9._-]*)", text):
+        if norm_name(m.group(1)) in named:
+            pin = named[norm_name(m.group(1))]
+            break
+        if not pin and m.group(1).lower() not in ('the', 'a', 'wheel', 'wheels', 'dependencies'):
+            pin = m.group(1)
+    for kind, pattern, why in PIP_FAILURES:
+        if re.search(pattern, text, re.I):
+            return pin, kind, why(short)
+    return pin, 'pip', "pip stopped for a reason it did not make plain (its last lines are in the run's log)"
+
+
+def pypi_answers(pins, get=None):
+    """PyPI's answer for each pin, asked once (None where it could not be asked: pins_problem then leaves it to pip)."""
+    out = {}
+    for pin in pins:
+        name, _, ver = pin.partition('==')
+        try:
+            out[pin] = pypi_answer((get or http_json)(f'https://pypi.org/pypi/{name}/{ver}/json', timeout=20))
+        except Exception as e:
+            out[pin] = {'missing': True} if getattr(e, 'code', None) == 404 else None
+    return out
+
+
+def keep_torch(path):
+    """pip's constraint that keeps the image's own torch (never a multi-gigabyte swap for another build): ['-c', path],
+    or [] when this Python has no torch installed."""
+    try:
+        from importlib.metadata import version
+        v = version('torch')
+    except Exception:
+        return []
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as f:
+        f.write(f'torch=={v}\n')
+    return ['-c', path]
+
+
+class InstallError(RuntimeError):
+    """The install step's failure in plain words, naming the pin (the report's `error`; its facts are `install`)."""
+
+    def __init__(self, pin, kind, why, python=''):
+        self.pin, self.kind, self.why, self.python = pin, kind, why, python
+        short = '.'.join(re.findall(r'\d+', python)[:2])
+        super().__init__(f"I couldn't install {pin.replace('==', ' ') if pin else 'the packages'} on Kaggle's Python {short}: {why}.")
+
+
+def error_words(e):
+    """What the report says stopped the run: the install step's own sentence, else the error with its type."""
+    return str(e) if isinstance(e, InstallError) else f'{type(e).__name__}: {str(e)[:400]}'
+
+
+def install_facts(e):
+    """The report's `install` for an install failure (the brain's pre-flight reads it), else None."""
+    return {'pin': e.pin, 'kind': e.kind, 'why': e.why, 'python': e.python} if isinstance(e, InstallError) else None
 
 
 # ---- hosts, cards and time: training that survives a host's hours running out ---------------------------------
@@ -1409,9 +1603,25 @@ class Run:
 
     # -- set-up
     def install(self):
-        """The pinned packages for this base's family (Qwen3.5 needs transformers 5), and nothing it must not have."""
+        """The pinned packages for this base's family (Qwen3.5 needs transformers 5), and nothing it must not have:
+        checked against PyPI for this Python first, the image's own torch kept, and a failure said in plain words
+        (InstallError) — tried again only when it was the network."""
         fam = FAMILIES[self.base['family']]
-        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *fam['pins']], check=True), 'installing the packages')
+        py = platform.python_version()
+        cmd = [sys.executable, '-m', 'pip', 'install', '-q', *keep_torch(f'{WORK}/pip-constraints.txt'), *fam['pins']]
+
+        def once():
+            p = subprocess.run(cmd, capture_output=True, text=True)
+            if p.returncode:
+                out = f"{p.stdout or ''}\n{p.stderr or ''}"
+                for line in [x for x in out.splitlines() if x.strip()][-12:]:
+                    log('pip:', line[:300])
+                found = pip_words(out, fam['pins'], py)
+                # a pin's own trouble: PyPI's answer for this Python names it exactly, where pip did not make it plain
+                if found[1] in ('pip', 'missing', 'conflict', 'python', 'wheel'):
+                    found = pins_problem(fam['pins'], pypi_answers(fam['pins']), py) or found
+                raise InstallError(*found, python=py)
+        retry(once, 'installing the packages', give_up=lambda e: getattr(e, 'kind', '') != 'network')
         if fam['drop']:
             subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *fam['drop']], check=False)
 
@@ -1439,6 +1649,7 @@ class Run:
 
     def setup(self):
         # Every download here is tried a few times with a pause (retry): one 5xx or pip hiccup must not end the week.
+        self.report['python'] = platform.python_version()
         self.install()
         self.choose_devices()
         # The token, once, for this week's one-time ticket (in a header: never in an address that could be logged).
@@ -2326,7 +2537,10 @@ class Run:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            self.report['error'] = f'{type(e).__name__}: {str(e)[:400]}'
+            # (an install failure in plain words, naming the pin, and its facts for the brain's pre-flight)
+            self.report['error'] = error_words(e)
+            if install_facts(e):
+                self.report['install'] = install_facts(e)
         self.report['finishedAt'] = int(time.time() * 1000)
         with open(f'{OUT}/ghosty_report.json', 'w') as f:
             json.dump(self.report, f)
@@ -2485,7 +2699,7 @@ class ExamRun(Run):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            self.report['error'] = f'{type(e).__name__}: {str(e)[:400]}'
+            self.report['error'] = error_words(e)
         with open(f'{OUT}/ghosty_report.json', 'w') as f:
             json.dump({'kind': 'school', 'paperId': self.report['paperId'], 'answered': len(self.report['answers']), **({'error': self.report['error']} if 'error' in self.report else {})}, f)
         self.hook({'report': self.report})

@@ -57,6 +57,27 @@ const AGENDA = {
     { id: 'j3', kind: 'reflect', title: 'Reflect', text: '', next: at('2026-10-27T03:20:00Z'), repeat: 'daily', tz: 'Europe/London' },
   ],
 };
+// What the brain's one shared mind (apps/edge/src/mind.ts, GET /api/mind) makes of AGENDA at 07:00 — the Brief shows his
+// day from it, the same picture the chat's context is made from: the rest of today only. (Leaving out the run that is
+// over, tomorrow's gym, the Dentist's own reminder and the nightly job is the brain's rule now: checked on this same
+// agenda in apps/edge/test/mind.test.mjs.)
+const MIND = {
+  at: NOW,
+  owner: { name: 'boss', summary: '', lines: [], facts: [], rules: [], principles: [] },
+  now: { iso: '2026-10-26T07:00', weekday: 'Mon', tz: 'Europe/London', day: '2026-10-26' },
+  today: {
+    day: '2026-10-26',
+    items: [
+      { at: at('2026-10-26T09:30:00Z'), end: at('2026-10-26T10:00:00Z'), when: '09:30', title: 'Dentist', where: 'High Street', kind: 'event' },
+      { at: at('2026-10-26T14:00:00Z'), when: '14:00', title: 'Team call', kind: 'event' },
+      { at: at('2026-10-26T19:00:00Z'), when: '19:00', title: 'Take the bins out', kind: 'reminder' },
+    ],
+    doing: [],
+  },
+  recent: [],
+  ahead: [],
+  can: [],
+};
 const PLACES = [
   { id: 'home', label: 'Home', query: 'B13', address: 'Kings Heath, Birmingham', lat: 52.4351, lon: -1.8912, at: 1 },
   { id: 'work', label: 'Work', query: 'B15', address: 'Edgbaston, Birmingham', lat: 52.4531, lon: -1.9416, at: 1 },
@@ -106,6 +127,7 @@ async function open(browser, { viewport = PHONE, places = PLACES, drive = LIVE_D
     return r.fulfill({ status: 404, body: 'not in this spec' });
   });
   await page.route(/\/api\/agenda\?/, (r) => (down.has('agenda') ? json(r, { error: 'down' }, 500) : json(r, AGENDA)));
+  await page.route(/\/api\/mind\?/, (r) => (down.has('agenda') ? json(r, { error: 'down' }, 500) : json(r, MIND)));
   await page.route(/\/api\/inbox$/, (r) => json(r, { items: [], unread: 2 }));
   await page.route(/\/api\/profile\/places$/, (r) => json(r, { places }));
   await page.route(/\/api\/traffic\/commute\//, (r) => (down.has('drive') ? json(r, { error: 'the route service answered 502' }, 502) : json(r, drive)));
