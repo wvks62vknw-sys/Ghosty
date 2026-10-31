@@ -206,6 +206,8 @@ test('the shipped models: small, free, vendored with their licence; SFace runs i
   ort.env.wasm.proxy = false;
   ort.env.wasm.wasmPaths = ortDir.pathname;
   ort.env.logLevel = 'error';
+  // the cap the phone's workers set (the vendored glue reads it): the session runs under 256 MB, the retry's cap
+  globalThis.GHOSTY_WASM_MAX_PAGES = 4096;
   const session = await ort.InferenceSession.create(readFileSync(new URL('face_recognition_sface_2021dec_int8.onnx', dir)), { executionProviders: ['wasm'], logSeverityLevel: 3 });
   // a smooth picture of 112 × 112 (no face: the arithmetic, not a person)
   const pic = (shift, gain) => {
@@ -220,4 +222,15 @@ test('the shipped models: small, free, vendored with their licence; SFace runs i
   const brighter = await run(pic(0, 1.08));
   const other = await run(pic(37, 0.7));
   assert.ok(F.cosine(a, brighter) > F.cosine(a, other), `a brighter copy stays nearer (${F.cosine(a, brighter).toFixed(3)}) than another picture (${F.cosine(a, other).toFixed(3)})`);
+});
+
+test("the runtime's memory cap: the vendored glue reads GHOSTY_WASM_MAX_PAGES and both workers set it (an iPhone refuses the stock 4 GB shared reservation)", () => {
+  const glue = readFileSync(new URL('public/vendor/clip/ort-wasm-simd-threaded.mjs', WEB), 'utf8');
+  assert.match(glue, /new WebAssembly\.Memory\(\{initial:256,maximum:\(globalThis\.GHOSTY_WASM_MAX_PAGES\|0\)\|\|65536,shared:!0\}\)/, 'the one-line change survives a re-vendoring');
+  assert.match(readFileSync(new URL('public/vendor/faces/worker.mjs', WEB), 'utf8'), /globalThis\.GHOSTY_WASM_MAX_PAGES = Number\(new URL\(self\.location\.href\)\.searchParams\.get\('maxPages'\)\) \|\| 16384;/);
+  assert.match(readFileSync(new URL('public/vendor/clip/worker.mjs', WEB), 'utf8'), /globalThis\.GHOSTY_WASM_MAX_PAGES = 16384;/);
+  const engine = code('src/vision/faces.ts');
+  assert.match(engine, /const MAX_PAGES = \[16384, 4096\] as const;/);
+  assert.match(engine, /new Worker\(`\$\{FACE_FILES\.worker\}\?maxPages=\$\{maxPages\}`, \{ type: 'module' \}\)/);
+  assert.match(engine, /if \(!memoryTrouble\(e\)\) break;/, 'only a memory failure is retried');
 });

@@ -11,6 +11,13 @@ worker after the first use. Nothing here talks to the network on its own.
 | `core.labels.json` + `core.f16.bin` | 4,624 names × 512 half floats (little-endian), each row length 1 | 4.8 MB |
 | `extended.labels.json` + `extended.i8.bin` | 28,223 names: 28,223 float32 scales, then 28,223 × 512 int8 (value = int8 × the row's scale) | 14.9 MB |
 
+Our one change to the runtime (31 Oct 2026): in `ort-wasm-simd-threaded.mjs` the shared memory's maximum reads
+`globalThis.GHOSTY_WASM_MAX_PAGES` (pages of 64 KB) before the stock 65536 (4 GB). WebKit reserves a shared memory's whole
+maximum up front, and an iPhone refuses 4 GB once another runtime (MediaPipe's, in the page) holds memory too: "no
+available backend found … RangeError: Out of memory". `worker.mjs` sets 16384 (1 GB); the face worker (`../faces/worker.mjs`)
+takes it from its address (1 GB, then 256 MB on one retry). Re-vendoring the runtime must keep the change
+(`apps/edge/test/faces.test.mjs` checks for it).
+
 Why the half-float encoder and not the 11.8 MB `vision_model_quantized.onnx`: checked on 2026-10-17 with
 four photos, both 8-bit versions (`_quantized`/`_uint8` and `_int8`) give meaningless names under ONNX
 Runtime Web's WebAssembly backend (a banana came out as "lego", a cat as "wicker"); the half-float and
