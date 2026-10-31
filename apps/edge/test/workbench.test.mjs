@@ -266,3 +266,85 @@ test('a case outside a formula’s range says so and stops; inputs that are not 
     }
   }
 });
+
+test('his words: the kind and the inputs they carry, nothing guessed; what the chat answers with no model', () => {
+  const p = (t) => W.parseProblem(t);
+  let r = p('3 m steel beam 5 kN in the middle');
+  assert.equal(r.kind, 'beam');
+  assert.deepEqual({ span: r.inputs.span, load: r.inputs.load, at: r.inputs.at, material: r.inputs.material }, { span: 3, load: 5000, at: 1.5, material: 's275' });
+  r = p('how strong is a 3 m steel beam with 5 kn in the middle');
+  assert.equal(r.inputs.load, 5000, '"5 kn" on a beam is a force, never five knots');
+  assert.equal(r.inputs.span, 3);
+  r = p('a 2.4 m timber joist 47x195 with 2 kN/m along it');
+  assert.deepEqual({ kind: r.kind, span: r.inputs.span, udl: r.inputs.udl, material: r.inputs.material, sec: r.inputs.section }, { kind: 'beam', span: 2.4, udl: 2000, material: 'c24', sec: { shape: 'rect', b: 0.047, h: 0.195 } });
+  r = p('cantilever shelf 600 mm with 20 kg at the end');
+  assert.equal(r.inputs.support, 'cantilever');
+  close(r.inputs.load, 196.133, 1e-9, 'a mass on a beam is its weight');
+  r = p("what's the gear ratio of 50 and 11 teeth");
+  assert.deepEqual({ kind: r.kind, stages: r.inputs.stages }, { kind: 'gears', stages: [{ kind: 'gear', driver: 50, driven: 11 }] });
+  r = p('gear train 20:60, 15:45 and 10:40 at 1800 rpm');
+  assert.deepEqual(r.inputs.stages.map((s) => [s.driver, s.driven]), [[20, 60], [15, 45], [10, 40]]);
+  assert.equal(r.inputs.rpm, 1800);
+  r = p('bike gear 50/11 on 700c wheels at 90 rpm');
+  assert.deepEqual({ kind: r.kind, cr: r.inputs.chainring, sp: r.inputs.sprocket, w: r.inputs.wheel, c: r.inputs.cadence }, { kind: 'bike', cr: 50, sp: 11, w: 0.672, c: 90 });
+  r = p('2.0 litre turbo engine at 6000 rpm');
+  assert.deepEqual({ kind: r.kind, d: r.inputs.displacement, t: r.inputs.type, rpm: r.inputs.rpm }, { kind: 'engine', d: 0.002, t: 'turbo', rpm: 6000 });
+  r = p('led resistor 5v 20ma');
+  assert.deepEqual({ kind: r.kind, ...r.inputs }, { kind: 'circuit', mode: 'led', supply: 5, current: 0.02 });
+  close(W.solve('circuit', r.inputs).values.r, 150, 1e-12, 'and it solves to 150 Ω');
+  r = p('100 and 100 ohm in parallel');
+  assert.deepEqual(r.inputs.rs, [100, 100]);
+  r = p('orbit at 400 km around mars');
+  assert.deepEqual({ kind: r.kind, alt: r.inputs.altitude, body: r.inputs.body }, { kind: 'orbit', alt: 400_000, body: 'mars' });
+  r = p('wing naca 4412 at 6 degrees, 60 m/s, 10 m span, 15 m²');
+  assert.deepEqual({ kind: r.kind, naca: r.inputs.naca, span: r.inputs.span, area: r.inputs.area, v: r.inputs.speed }, { kind: 'wing', naca: '4412', span: 10, area: 15, v: 60 });
+  close(r.inputs.alpha, (6 * Math.PI) / 180, 1e-12, '6 degrees');
+  r = p('u-value of brick 102, cavity 50, block 100, plaster 13');
+  assert.deepEqual(r.inputs.layers.map((l) => l.mat), ['brick', 'cavity', 'block', 'plaster']);
+  r = p('shadow of a 12 m building at 3pm on 21 december');
+  assert.deepEqual({ kind: r.kind, h: r.inputs.height, t: r.inputs.time, d: r.inputs.date }, { kind: 'sun', h: 12, t: '15:00', d: '12-21' });
+  assert.equal(p('wind tunnel').kind, 'tunnel');
+  for (const t of ['hello', 'I ran 5 km in 30 min', 'what time is it', 'remind me at 5pm', 'the sun is out today']) assert.equal(p(t), null, `"${t}" is not a workbench problem`);
+  // the chat with no model: a command opens a panel, a bare problem with two numbers is answered, a question goes to the brain
+  const a = (t) => W.workbenchAsked(t);
+  for (const [t, panel] of [['wind tunnel', 'tunnel'], ['open the workbench', ''], ['beam calculator', 'beam'], ['gear ratio', 'gears'], ['engine power', 'engine'], ['orbit', 'orbit'], ['sun and shadow', 'sun'], ['led resistor', 'circuit'], ['Open the wind tunnel please', 'tunnel'], ['heat loss', 'heat']]) {
+    assert.deepEqual(a(t), { panel, problem: null }, `"${t}" opens ${panel || 'the workbench'}`);
+  }
+  const bare = a('3 m steel beam 5 kN in the middle');
+  assert.equal(bare.panel, 'beam');
+  assert.equal(bare.problem.inputs.load, 5000);
+  assert.equal(a('beam').panel, 'beam');
+  for (const t of ['how strong is a 3 m steel beam with 5 kn in the middle', "what's the gear ratio of 50 and 11 teeth", 'is a 3 m steel beam with 5 kN ok?', 'hello', 'steel beam']) assert.equal(a(t), null, `"${t}" goes to the brain`);
+});
+
+test('the brain’s estimate tool: his words through the shared solvers, fields with their units, the sun at his saved home, the caveat always', async () => {
+  const T = await import('./.build/tools/index.mjs');
+  const tool = T.toolByName.get('estimate');
+  assert.ok(tool && tool.risk === 'auto' && tool.pure === true, 'estimate: pure, never asks');
+  assert.ok(tool.description.length <= 1000, `${tool.description.length} characters`);
+  const group = T.TOOL_GROUPS.find((g) => g.name === 'workbench');
+  assert.deepEqual(group.tools.map((t) => t.name), ['estimate']);
+  const store = new Map([['owner:ctx', { tz: 'Europe/London' }], ['places', [{ id: 'home', label: 'Home', lat: 52.443186, lon: -1.892525, at: 1 }]]]);
+  const ctx = { storage: { get: async (k) => store.get(k) }, vault: { get: async () => null } };
+  const run = (a) => tool.run(a, ctx);
+  let t = await run({ kind: 'beam', words: 'how strong is a 3 m steel beam with 5 kn in the middle' });
+  assert.match(t, /Max deflection: 0\.201 mm/);
+  assert.match(t, /First estimate, not certified — .*A chartered engineer signs this, not me\.\n\n\(Answer his question/);
+  t = await run({ kind: 'beam', words: 'a steel beam', span: '4 m', load: '10 kN', b: 100, h: 200 });
+  assert.match(t, /Beam: 4 m, simply supported/);
+  assert.match(t, /Max deflection: 0\.952 mm/, 'PL³/48EI at 4 m and 10 kN');
+  t = await run({ kind: 'gears', words: "what's the gear ratio of 50 and 11 teeth" });
+  assert.match(t, /Overall ratio: 1 : 4\.55/);
+  t = await run({ kind: 'gears', words: 'a gearbox', teeth: '20:60, 15:45, 10:40', rpm: 1800 });
+  assert.match(t, /Overall ratio: 36 : 1/);
+  t = await run({ kind: 'sun', words: 'shadow of a 10 m building at noon on 21 june' });
+  assert.match(t, /Sun and shadow: his home/);
+  assert.match(t, /At noon that day: 61° high/);
+  t = await run({ kind: 'car', words: 'hatchback at 70 mph', units: 'imperial' });
+  assert.match(t, /Power to push the air: \d+(?:\.\d)? hp/);
+  t = await run({ kind: 'nonsense', words: 'hello there' });
+  assert.match(t, /^Nothing estimated/);
+  t = await run({ kind: 'wing', words: 'wing at 40 degrees' });
+  assert.match(t, /far past any stall/);
+  assert.match(t, /First estimate, not certified/);
+});

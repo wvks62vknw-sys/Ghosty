@@ -69,7 +69,7 @@ const barTop = (page) => page.$eval('#dock .tabcap', (e) => e.getBoundingClientR
 const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
 // what each hub holds (shell/areas.ts AREAS; Ask adds Voice)
-const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space'], learn: ['learn', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
+const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench'], learn: ['learn', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
 const WORDS = ['LIVE', 'READY', 'TRAINING', 'OFF'];
 const NONE = /^(Not yet|None yet|None|Nothing|Off air|Start one|Not set up|—)$/;
 

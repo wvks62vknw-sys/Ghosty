@@ -10,7 +10,8 @@
 import { caveatFor, confidenceOf, problemEstimate, type Estimate, type EstLine } from './estimate';
 import { num, show, type UnitSystem } from './units';
 
-export type StageKind = 'gear' | 'belt' | 'chain';
+/** A spur gear pair by its teeth, a belt or chain by its pulleys or sprockets, or a bare ratio (taken as one gear pair). */
+export type StageKind = 'gear' | 'belt' | 'chain' | 'ratio';
 
 export interface Stage {
   kind?: StageKind;
@@ -55,7 +56,7 @@ export function solveGears(input: GearsIn = {}, system: UnitSystem = 'metric'): 
   const torque = ok(input.torque) ? input.torque : ((defaulted = true), GEARS_DEFAULTS.torque);
   const mesh = ok(input.mesh) && input.mesh <= 1 ? input.mesh : MESH;
   const ratio = stages.reduce((r, s) => r * (s.driven / s.driver), 1);
-  const gearsN = stages.filter((s) => (s.kind ?? 'gear') === 'gear').length;
+  const gearsN = stages.filter((s) => (s.kind ?? 'gear') === 'gear' || s.kind === 'ratio').length;
   const beltsN = stages.length - gearsN;
   const eff = mesh ** gearsN * BELT ** beltsN;
   const outRpm = rpm / ratio;
@@ -68,7 +69,7 @@ export function solveGears(input: GearsIn = {}, system: UnitSystem = 'metric'): 
     { label: 'Efficiency', value: `${num(eff * 100, 3)} %`, note: `${gearsN} mesh${gearsN === 1 ? '' : 'es'}${beltsN ? `, ${beltsN} belt${beltsN === 1 ? '' : 's'}` : ''}` },
     { label: 'Output turns', value: reversed ? 'the other way' : 'the same way', note: gearsN ? `${gearsN} external mesh${gearsN === 1 ? '' : 'es'}` : 'belts keep the direction' },
   ];
-  if (stages.length > 1) stages.forEach((s, i) => lines.push({ label: `Stage ${i + 1}`, value: ratioWords(s.driven / s.driver), note: `${num(s.driver, 4)} → ${num(s.driven, 4)}${(s.kind ?? 'gear') === 'gear' ? ' teeth' : ` (${s.kind})`}` }));
+  if (stages.length > 1) stages.forEach((s, i) => lines.push({ label: `Stage ${i + 1}`, value: ratioWords(s.driven / s.driver), note: `${num(s.driver, 4)} → ${num(s.driven, 4)}${(s.kind ?? 'gear') === 'gear' ? ' teeth' : s.kind === 'ratio' ? ' (a ratio)' : ` (${s.kind})`}` }));
   return {
     kind: 'gears',
     title: `${title}: ${stages.length} stage${stages.length === 1 ? '' : 's'}`,

@@ -401,6 +401,16 @@ export function planInst(): SVGSVGElement {
   );
 }
 
+/** Workbench: an aerofoil in the flow, the streamlines bending over it and its lift drawn up. */
+export function benchInst(): SVGSVGElement {
+  return root(160, 92, 'i-art',
+    p('ln2', 'M18 30C56 26 98 18 142 28M18 74C58 76 102 74 142 66'),
+    p('ln', 'M40 54C60 36 104 36 126 50C104 56 62 60 40 54Z'),
+    p('lit', 'M80 42V14M75 20l5-6 5 6'),
+    p('ln2', 'M18 52H34M130 52h12'),
+  );
+}
+
 /** A game's mastery (0–1) with the pass mark's tick (null: no mark, e.g. mastered). */
 export function masteryMeter(m: number, bar: number | null): HTMLElement {
   const fill = h('i', { style: { width: `${Math.round(clamp(m, 0, 1) * 100)}%` } });

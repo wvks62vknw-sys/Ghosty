@@ -159,6 +159,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
       const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
+    // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
+    if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
     const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
     const tc = prev?.tool_calls?.[0]?.function;
@@ -353,6 +355,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
   if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
   if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
+  // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
+  if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
+  if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };
   if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
   if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };

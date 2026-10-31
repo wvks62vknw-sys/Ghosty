@@ -36,8 +36,10 @@ import { machineState } from '../features/eye/machine';
 import { schoolState } from '../features/school/index';
 import { homePlan } from '../features/space/home';
 import { SAMPLES } from '../features/studio/index';
+import { lastPanel } from '../features/workbench/index';
+import { PANELS as BENCH } from '../features/workbench/panels';
 import { listKept } from '../features/studio/catalog';
-import { countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
+import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
@@ -265,6 +267,15 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Floor', value: k ? areaIn(k.m2, settings.get().units) : null, none: '—' },
       ];
     },
+  },
+  workbench: {
+    title: 'Engineering estimates',
+    status: () => 'READY',
+    instrument: benchInst,
+    readouts: () => [
+      { label: 'Solvers', value: String(BENCH.reduce((n, p) => n + p.modes.length, 0)) },
+      { label: 'Last', value: lastPanel(), none: 'None yet' },
+    ],
   },
   learn: {
     title: 'Learn anything',

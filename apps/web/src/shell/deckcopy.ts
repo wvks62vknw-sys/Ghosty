@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench']],
   ['Learn and plan', ['learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
   ['Me', ['memory', 'settings', 'system', 'links', 'abilities']],
 ];
@@ -136,6 +136,17 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Doors, windows and L-shaped rooms', act: { open: 'space', panel: 'ROOMS' } },
     ],
     dyk: 'Gaps narrower than a 70 cm walkway show in red, so you can see where you would squeeze past.',
+  },
+  workbench: {
+    name: 'Workbench',
+    promise: 'Engineering first estimates, never certified',
+    can: [
+      { text: 'Will a beam hold? Bend and stress', act: { open: 'workbench', panel: 'BEAM' } },
+      { text: 'Gear ratios and an engine’s power', act: { open: 'workbench', panel: 'GEARS' } },
+      { text: 'Wings, cars, projectiles and orbits', act: { open: 'workbench', panel: 'WING' } },
+      { text: 'Heat loss, sun and shadow, circuits', act: { open: 'workbench', panel: 'HEAT' } },
+    ],
+    dyk: 'Every answer says how it was worked out, what it assumed and what would change it — and that it is a first estimate, never certified.',
   },
   learn: {
     name: 'Learn',

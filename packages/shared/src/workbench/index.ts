@@ -24,6 +24,7 @@ export * from './motion';
 export * from './heat';
 export * from './sun';
 export * from './circuits';
+export * from './words';
 
 /** Every kind the solvers answer (the wind tunnel lives on the phone: it needs a screen). */
 export const WORK_KINDS: WorkKind[] = ['beam', 'column', 'gears', 'bike', 'engine', 'wing', 'car', 'fall', 'projectile', 'orbit', 'heat', 'sun', 'circuit'];
@@ -58,7 +59,7 @@ export function solve(kind: WorkKind, raw: Raw = {}, system: UnitSystem = 'metri
         return solveColumn({ length: n(r.length), ends: oneOf<Ends>(r.ends, Object.keys(K_FACTOR) as Ends[]), load: n(r.load), material: oneOf<MaterialId>(r.material, Object.keys(MATERIALS) as MaterialId[]), section: sectionFrom(r) } satisfies ColumnIn, system);
       case 'gears': {
         const stages = Array.isArray(r.stages)
-          ? (r.stages as Raw[]).map((x) => ({ kind: oneOf(x?.kind, ['gear', 'belt', 'chain'] as const), driver: n(x?.driver) ?? NaN, driven: n(x?.driven) ?? NaN }) as Stage)
+          ? (r.stages as Raw[]).map((x) => ({ kind: oneOf(x?.kind, ['gear', 'belt', 'chain', 'ratio'] as const), driver: n(x?.driver) ?? NaN, driven: n(x?.driven) ?? NaN }) as Stage)
           : undefined;
         return solveGears({ stages, rpm: n(r.rpm), torque: n(r.torque), mesh: n(r.mesh) }, system);
       }

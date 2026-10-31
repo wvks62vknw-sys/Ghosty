@@ -25,6 +25,8 @@ const RESULT_BUDGET: Record<string, number> = {
   repo_search: 12000,
   change_status: 12000,
   wait_for_checks: 12000,
+  // A workbench estimate (tools/workbench.ts): estimateText is at most 900 characters, with one line for the model.
+  estimate: 1200,
 };
 const DEFAULT_BUDGET = 3500;
 
