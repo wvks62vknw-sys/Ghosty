@@ -825,6 +825,43 @@ folder that no longer exists; ignore those paths).
   no-billing rule are in its first section) added, and its builder started from this commit (port 8855). The owner got his
   ONE morning summary in this session right after this push. Open from his side: his principles, the named person
   (cousin: Telegram or email), the four Harold/Machine picks, the phone tests of batches 1–4.
+- 31 Oct 13:40 UK (the clocks went back on 25 Oct: UK = UTC now; every "UK" time written on 31 Oct before this line is an hour late): BATCH 5 BUILT, REVIEWED AND MERGED — PR #45 (main 5c81f76, merge commit at 13:33 UK) after a green run on
+  b8f66bc (smoke 113 min: the loop is 79 specs now, with faces and guardian). The builder (BRIEF-GUARDIAN, from bea579c,
+  port 8855; 2 h 20 min, 56 files, +5410/−34, five commits) delivered all six items; its report is recorded as
+  OWNER-ISSUES 86. WHAT IS WHERE: brain `guardian.ts` (the hourly watch: watchTick, warningLine, guardianInfo; GET
+  /guardian, POST /guardian/check), `guardstate.ts` (keys guardian:config / guardian:watch / guardian:walk; guardianMind for
+  mind.ts), `walk.ts` (the named person, the walk's clock walkTick → the next wake or null, the panic phrase, Telegram's
+  walkTelegram / walkButton; routes /guardian/person|test|panic-phrase|panic|walk|walk/end|walk/pos; key guardian:pending),
+  `integrations/warnings.ts` (EA floods, the Met Office regional RSS by postcodes.io area, police.uk's month; pure parsers),
+  `integrations/linkcheck.ts` (BRANDS, lookalike, messageShape, checkLink, verdictWords), `tools/guardian.ts` (threats_near,
+  check_link; group `guardian`, `when:` only); shared `guardian.ts` (the words: walkAsked, homeSaid(text, asked), minutesIn,
+  panicProblem / panicSecret / panicSaid, the messages walkAlert / panicAlert / safeNote / testNote, watchLine); phone
+  `vision/faces.ts` (the engine: the live camera only), `vision/facestore.ts` (IndexedDB ghosty-faces), `vision/facemath.ts`
+  (MAYBE 0.363 / SURE 0.45 / MARGIN 0.06, introAsked / faceAsked / NOT_NAMES), `features/lens/people.ts`,
+  `features/settings/faces.ts` and `settings/guardian.ts`, `features/threats/nearhome.ts`, `state/guardian.ts`,
+  `assistant/guard.ts` (guardTurn runs first in session.ts send(), then faceTurn, then the stop and the raising readings;
+  localStorage ghosty.guardian.panic = the hash only, ghosty.guardian.pos = his yes to position); vendored
+  `apps/web/public/vendor/faces/` (BlazeFace + SFace int8 + worker.mjs on ../clip/'s ONNX runtime; README with sums).
+  Telegram: a signed button kind `w` (I'M HOME); `/start g<code>` from a non-owner chat pairs the named person once, and
+  everything else from them is turned away as before; a forwarded message with a link or a scam's shape is checked with
+  no model. Jobs: a standing `guard` (hourly, first look +3 min) in every brain and a `walk` while a walk runs — the
+  agenda and profile tests list them. MY REVIEW FIXES (b8f66bc): homeSaid(text, asked) — a bare "ok" / "yes" / "done"
+  counts only once "Home?" was asked (before, a stray "ok" in the chat ended the watch quietly); the guardian group out of
+  GROUP_NEEDS (its tools need nothing; the walk's needs are said in SETTINGS → GUARDIAN); the abilities spec waits for
+  Home's caption to finish typing (it read "Three thing…" once under a busy CPU); more NOT_NAMES. VALIDATION: the full
+  brain suite 1296/1296 on the builder's tree; on the merged tree the 158 affected tests, both typechecks, the web build,
+  and websites → apps → faces → guardian → abilities → settings on one preview; every public endpoint answered (the EA
+  floods API gave one transient 500, then 200s: a failed read is "could not be read", never an all-clear). WATCH: (1) the
+  plain prompt has 4 characters of headroom (5,496 / 5,500 on a Telegram voice note): an OFF group is still named in the
+  ALSO list, and "guardian: threats_near, check_link" cost 35 — the next group must trim (shorter tool names, or the ALSO
+  line), never raise the guard; (2) CI's smoke is ~113 min now, a PR's run ~2 h end to end; (3) the two stand-in fixture
+  files (apps/edge/test/guardian.fixture.json for the brain tests, tests/fixtures/guardian-feeds.mjs for the preview) must
+  change together; (4) the Phishing Army list is 3.3 MB and is fetched per link checked (cf cacheTtl 4 h on Workers);
+  (5) no anti-spoofing on faces. LESSONS: running the test script's esbuild part by hand needs node_modules/.bin on PATH
+  (my first subset run used stale bundles and showed six false failures); a finished builder can leave its worktree
+  locked — `git worktree remove --force --force`. Next: the Machine view and foresight (the owner's four Harold/Machine
+  picks shape it; the brief's defaults otherwise), then the workshop and knowledge, then the social self and rituals.
+  Open from his side: batch 5's phone tests (OWNER-ISSUES 86 NEEDS), his principles, the four picks.
 
 
 

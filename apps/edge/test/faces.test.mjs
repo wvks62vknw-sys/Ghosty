@@ -204,8 +204,11 @@ test('the shipped models: small, free, vendored with their licence; SFace runs i
   const ort = await import(new URL('ort.wasm.min.mjs', ortDir).href);
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  ort.env.wasm.wasmPaths = ortDir.pathname;
+  // the phone's workers' own form: the glue by its fresh address (?v=2), the unchanged .wasm by its own
+  ort.env.wasm.wasmPaths = { mjs: `${new URL('ort-wasm-simd-threaded.mjs', ortDir).href}?v=2`, wasm: new URL('ort-wasm-simd-threaded.wasm', ortDir).href };
   ort.env.logLevel = 'error';
+  // the cap the phone's workers set (the vendored glue reads it): the session runs under 256 MB, the retry's cap
+  globalThis.GHOSTY_WASM_MAX_PAGES = 4096;
   const session = await ort.InferenceSession.create(readFileSync(new URL('face_recognition_sface_2021dec_int8.onnx', dir)), { executionProviders: ['wasm'], logSeverityLevel: 3 });
   // a smooth picture of 112 × 112 (no face: the arithmetic, not a person)
   const pic = (shift, gain) => {
@@ -220,4 +223,17 @@ test('the shipped models: small, free, vendored with their licence; SFace runs i
   const brighter = await run(pic(0, 1.08));
   const other = await run(pic(37, 0.7));
   assert.ok(F.cosine(a, brighter) > F.cosine(a, other), `a brighter copy stays nearer (${F.cosine(a, brighter).toFixed(3)}) than another picture (${F.cosine(a, other).toFixed(3)})`);
+});
+
+test("the runtime's memory cap: the vendored glue reads GHOSTY_WASM_MAX_PAGES and both workers set it (an iPhone refuses the stock 4 GB shared reservation)", () => {
+  const glue = readFileSync(new URL('public/vendor/clip/ort-wasm-simd-threaded.mjs', WEB), 'utf8');
+  assert.match(glue, /new WebAssembly\.Memory\(\{initial:256,maximum:\(globalThis\.GHOSTY_WASM_MAX_PAGES\|0\)\|\|65536,shared:!0\}\)/, 'the one-line change survives a re-vendoring');
+  assert.match(readFileSync(new URL('public/vendor/faces/worker.mjs', WEB), 'utf8'), /globalThis\.GHOSTY_WASM_MAX_PAGES = Number\(new URL\(self\.location\.href\)\.searchParams\.get\('maxPages'\)\) \|\| 16384;/);
+  assert.match(readFileSync(new URL('public/vendor/clip/worker.mjs', WEB), 'utf8'), /globalThis\.GHOSTY_WASM_MAX_PAGES = 16384;/);
+  // both workers ask for the glue by a fresh address, past the service worker's cache-first copy of the stock one
+  for (const w of ['public/vendor/faces/worker.mjs', 'public/vendor/clip/worker.mjs']) assert.match(readFileSync(new URL(w, WEB), 'utf8'), /wasmPaths = \{ mjs: `\$\{[A-Z]+\}ort-wasm-simd-threaded\.mjs\?v=2`, wasm: `\$\{[A-Z]+\}ort-wasm-simd-threaded\.wasm` \};/, w);
+  const engine = code('src/vision/faces.ts');
+  assert.match(engine, /const MAX_PAGES = \[16384, 4096\] as const;/);
+  assert.match(engine, /new Worker\(`\$\{FACE_FILES\.worker\}\?maxPages=\$\{maxPages\}`, \{ type: 'module' \}\)/);
+  assert.match(engine, /if \(!memoryTrouble\(e\)\) break;/, 'only a memory failure is retried');
 });

@@ -55,6 +55,10 @@ interface FaceModels {
 }
 
 const NOT_LIVE = 'I only look at faces through the live camera, never at a picture';
+/** The runtime's WebAssembly memory cap (64 KB pages): 1 GB, then 256 MB if the phone refuses that (SFace needs ~50 MB). */
+const MAX_PAGES = [16384, 4096] as const;
+/** The runtime could not get its memory (an iPhone refusing the reservation): worth one try with a smaller cap. */
+const memoryTrouble = (e: unknown) => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(String((e as Error)?.message ?? e));
 
 /**
  * Is this the live camera? A MediaStream from the device (not a file playing, not a picture), with a live video track,
@@ -105,27 +109,58 @@ class FaceEngine {
       const make = (delegate: 'GPU' | 'CPU') => FaceDetector.createFromOptions(files, { baseOptions: { modelAssetBuffer: det, delegate }, runningMode: 'VIDEO', minDetectionConfidence: 0.6 });
       this.detector = await make('GPU').catch(() => make('CPU'));
       const bytes = await fetchModel(FACE_FILES.model, progress, `face model (${FACES_SIZE}, once)`);
-      this.worker = new Worker(FACE_FILES.worker, { type: 'module' });
-      this.worker.onmessage = (ev: MessageEvent<Reply>) => {
-        const c = this.calls.get(ev.data.id);
-        if (!c) return;
-        this.calls.delete(ev.data.id);
-        if (ev.data.t === 'error') c.bad(new Error(ev.data.message ?? 'the face model failed'));
-        else c.ok(ev.data);
-      };
-      this.worker.onerror = (ev) => {
-        ev.preventDefault();
-        for (const c of this.calls.values()) c.bad(new Error(ev.message || 'The face model did not load'));
-        this.calls.clear();
-      };
       progress('starting the face model…');
-      await this.call('load', { model: bytes.slice().buffer }, []);
+      // The runtime's memory cap, 1 GB then 256 MB: an iPhone refuses the stock 4 GB shared reservation once the vision
+      // runtime holds memory too ("no available backend found … RangeError: Out of memory"); a smaller cap is tried once.
+      let failed: unknown = null;
+      for (const pages of MAX_PAGES) {
+        try {
+          await this.startWorker(bytes, pages);
+          failed = null;
+          break;
+        } catch (e) {
+          failed = e;
+          this.stopWorker();
+          if (!memoryTrouble(e)) break;
+        }
+      }
+      if (failed) {
+        const why = String((failed as Error)?.message ?? failed);
+        throw new Error(memoryTrouble(failed) ? `The face model could not start: this phone would not give its runtime enough memory (${why.slice(0, 120)}). Close other tabs, or close and reopen Ghosty, then open PEOPLE again.` : why);
+      }
       progress('face model ready', 1);
     })().catch((e: unknown) => {
       this.release();
       throw e;
     });
     return this.loading;
+  }
+
+  /** A fresh worker on the runtime with this memory cap in its address; done when the model is loaded there. */
+  private async startWorker(bytes: Uint8Array, maxPages: number): Promise<void> {
+    const w = new Worker(`${FACE_FILES.worker}?maxPages=${maxPages}`, { type: 'module' });
+    this.worker = w;
+    w.onmessage = (ev: MessageEvent<Reply>) => {
+      const c = this.calls.get(ev.data.id);
+      if (!c) return;
+      this.calls.delete(ev.data.id);
+      if (ev.data.t === 'error') c.bad(new Error(ev.data.message ?? 'the face model failed'));
+      else c.ok(ev.data);
+    };
+    w.onerror = (ev) => {
+      ev.preventDefault();
+      for (const c of this.calls.values()) c.bad(new Error(ev.message || 'The face model did not load'));
+      this.calls.clear();
+    };
+    await this.call('load', { model: bytes.slice().buffer }, []);
+  }
+
+  /** The worker ended (its memory back); anything still waiting on it is told. */
+  private stopWorker(): void {
+    this.worker?.terminate();
+    this.worker = null;
+    for (const c of this.calls.values()) c.bad(new Error('the face model was closed'));
+    this.calls.clear();
   }
 
   private call(op: string, payload: Record<string, unknown>, transfer: Transferable[]): Promise<Reply> {
@@ -203,10 +238,7 @@ class FaceEngine {
       /* already closed */
     }
     this.detector = null;
-    this.worker?.terminate();
-    this.worker = null;
-    for (const c of this.calls.values()) c.bad(new Error('the face model was closed'));
-    this.calls.clear();
+    this.stopWorker();
     this.loading = null;
   }
 }

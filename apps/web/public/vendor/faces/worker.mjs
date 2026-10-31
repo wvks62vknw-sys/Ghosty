@@ -7,10 +7,20 @@
 // Every answer carries the request's id: { id, t: 'done', ... } or { id, t: 'error', message }.
 import * as ort from '../clip/ort.wasm.min.mjs';
 
+// The runtime's WebAssembly memory is shared (the build is the threaded one, run on one thread), and WebKit reserves its
+// whole maximum up front: the stock 4 GB fails on an iPhone with "no available backend found … RangeError: Out of memory"
+// once another runtime (the vision models', in the page) holds memory too. The page passes the cap in this worker's
+// address (?maxPages=, 64 KB pages: 16384 = 1 GB first, 4096 = 256 MB on the retry; SFace needs about 50 MB);
+// ../clip/ort-wasm-simd-threaded.mjs reads GHOSTY_WASM_MAX_PAGES (our one-line change there, see ../clip/README.md).
+globalThis.GHOSTY_WASM_MAX_PAGES = Number(new URL(self.location.href).searchParams.get('maxPages')) || 16384;
+
 // one thread: iOS has no shared memory for a page that is not cross-origin isolated
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
-ort.env.wasm.wasmPaths = new URL('../clip/', import.meta.url).href;
+// The glue is asked for by a fresh address (?v=2): the service worker keeps vendored files cache-first, and a phone that
+// already held the stock glue would otherwise go on using it. The 14 MB .wasm is unchanged and keeps its address and cache.
+const CLIP = new URL('../clip/', import.meta.url).href;
+ort.env.wasm.wasmPaths = { mjs: `${CLIP}ort-wasm-simd-threaded.mjs?v=2`, wasm: `${CLIP}ort-wasm-simd-threaded.wasm` };
 // (the model keeps its batch-norm numbers as graph inputs: the runtime says so at every load, which is not a problem)
 ort.env.logLevel = 'error';
 

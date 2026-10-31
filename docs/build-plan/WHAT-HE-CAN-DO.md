@@ -1,0 +1,111 @@
+# What Ghosty can do for you — in the words you asked for it (31 October 2026, 14:20 UK)
+
+One page, kept up to date as batches land. Each line: what you said → what he does now → how you use it. ABILITIES
+(the Me sheet → Everything I can do) has the live list made from his own code; this page is the plain-words version.
+Batch 6 (the Machine view and foresight) is building and is marked "soon".
+
+## The everyday things
+
+- **"Websites still could be better, and I'd like him to make APPS."** → "Make me a website for my cousin's barbers,
+  B13, open till 7" builds a real multi-page site with the real details first, a form that reaches you, a map, and asks
+  you before it goes live, naming the link; CHANGE in words on the DRAFT card. "Make me an app that counts my water" builds
+  a real mini-app you can put on your Home Screen (saved state, works offline, UNDO), and the live link is in his reply.
+- **"Describe everything in plain words and Ghosty makes a full floor plan, and 3-D."** → SPACE → DESIGN, or "design my
+  home: a flat with a 4 by 5 metre kitchen…" → the floor plan, then 3-D in the Studio, with a design review of it.
+- **"Full, proper courses."** → "Teach me algebra" → a syllabus, lessons in six parts with sources, TRY IT, quizzes with
+  SURE / THINK SO / GUESSING, an exam, and revision cards in LEARN. MARK MY WORK: photograph a page of sums and every one
+  is marked. A YouTube link → a plain summary with moments that jump to the second, and five quiz cards.
+- **Your places and your money.** → "My home is B13 8PX", "take me home", "how long to work?"; the commute in the Brief
+  every morning. SPENDING in the Agenda from the statements you add (no bank access, ever): the month, what changed,
+  subscriptions, "set a budget of £150 for food".
+- **The Brief.** → The morning picture: the weather and when it rains, your day and what is next, the commute, the
+  headlines, READ IT TO ME. Soon: what he expects today and whether yesterday's predictions came true.
+- **The Lens.** → SEE (what is in view), READ (text into the library), NAME (plants with the free Pl@ntNet key, birds,
+  insects, anything), WHAT'S IN IT (a meal with a rough total), SCAN (codes, documents, TRANSLATE even with no signal),
+  AIM (point at a plane or a ship and he tells you what it is), MEASURE, SOUND, HANDS (gestures drive it), PHOTO TOOLS
+  (background removed, sharper, a thing erased), GADGET MANUALS (a rating plate → the manual with fixes and parts), and
+  PEOPLE (below). A number plate from READ → CHECK for its MOT, never who owns it.
+- **God's Eye.** → The globe with everything moving: aircraft, ships, buses and trams, satellites, traffic, incidents,
+  cameras, rain radar, quakes, space weather, street crime and ANPR cameras; dive into Street View from it. Soon: the
+  MACHINE view that frames your city with your places lit and a true count of what he is watching.
+- **Threats.** → Quakes, natural events, space weather, launches, NEAR YOU, and now NEAR HOME: flood and weather warnings
+  and the month's street crime near your saved places, looked at every hour, each new warning told once.
+- **Telegram.** → The same Ghosty by text, voice note, photo or video; "why?", "what did you do today?", "walk me home",
+  and a message you forward with a link gets checked for a scam on the spot.
+- **UNDO everywhere.** → A 12-second UNDO bar on every removal or big change; one-tap confirm when it cannot come back.
+- **"Every single little thing looked over."** → Twelve upgrade passes merged (Threats, God's Eye, the Lens, the Brief,
+  voice, Workshop, Memory, the Library, Settings, Markets, Radio, Reverse); Agenda and System are left.
+
+## The brain, the school and the GYM
+
+- **"Raise him from a baby… nursery, reception, SATs, GCSEs, college, university."** → SCHOOL: the journey from
+  nursery up with strict locks (each stage unlocked by passing the one below), real exam-style papers sat on Kaggle's
+  free GPU by the same weights, a reading shelf per stage (67 public-domain books), gap and practice lines, and papers
+  sat on the phone that survive a crash (CARRY ON).
+- **"It takes far too long… study hundreds at once, one topic at a time… absorb it on his own, into the offline brain."**
+  → STUDY ALL reads one field at a time, hundreds of pieces a day; the curriculum grows from Wikipedia's outlines; Night
+  School (one switch and a window: study and TRAIN ALL overnight, plugged in, a morning report).
+- **"The library is literally intended for his offline brain."** → One pipeline: what he reads becomes training data and
+  memory for the phone brain; the GYM and drills become verified practice; Sunday's weekly training on Kaggle's free GPU
+  distils it into the phone brain (TRAIN NOW in SETTINGS → OFFLINE BRAIN); the Report card measures the phone brain
+  against the online models on the same tests; WHAT I LEARNED TO DO lists each new skill; the INDEPENDENCE METER says how
+  much of the week was answered on his own brains, and SOVEREIGN MODE lists what still needed the cloud. The honest
+  ceiling stays said: a phone brain is small; he closes the gap week by week, never pretends it is closed.
+- **"I want the offline brain to be one big awesome thing."** → Three brains to choose (0.6B, 2B, 4B), kept between
+  opens, downloaded in 32 MB parts that survive a close; search by meaning on the phone; ON THIS PHONE by the mic sends
+  nothing to the cloud and fails closed.
+- **"Stop talking like an AI. Ever."** → An exact detector of AI cadence (precision 0.97) and his own voice style; and
+  since batch 2 he answers at your length, with no menus and no "how can I help".
+- **"I figured a way to beat Ghosty in Connect 4 every time… I want him to advance significantly."** → PLAY HIM at full
+  strength whatever his level (your four trick lines never win now); every game with you is kept, a loss is studied into a
+  lesson he plays right; league play against his frozen past selves (kept only if he beats the league); puzzles at the
+  edge of what he can do; WATCH carries on by itself; 22 games with their own pictures; he tells you what changed since
+  yesterday. Your wish for games "much more advanced" (Block Blast, Subway Surfers) is parked until the plan is built.
+
+## The Machine and Harold
+
+- **"You can't even have a conversation with him… it needs a soul… start arguing with me if he doesn't agree."** →
+  He answers at your length (HOW BRIEF: LIKE YOU), looks things up only for live facts, "hey" / "thanks" / "night" get a
+  word with no model; HOW FIERY (FIRM by default) sets how hard he argues, with the lines he never flips on; your
+  PRINCIPLES in your own words (SETTINGS → CHARACTER) are his spine; your corrections become standing rules ("you told
+  me: shorter"); praise and a telling-off go into the weekly training with a weight.
+- **"I should be able to tell him shut the fuck up and he does exactly that, maybe he'll get a little sad."** → A stop
+  by intent, typos and all, obeyed at once and never answered; a harsh one leaves him subdued, and his mood lingers
+  honestly (subdued, pleased, protective, cross, focused) as a colour over the whole interface, in his voice, and in words
+  on the Me sheet; "stand down" or any stop puts him back.
+- **"One mind, not forty features."** → One picture of your day that the chat, Telegram, the background tasks and the
+  Brief all read, so they agree; a day log he keeps; memory that forgets well (trivia he inferred fades after three weeks
+  and goes after five unless you KEEP it, with UNDO); the nightly reflection; the Diary.
+- **"It has to be known to me that he can do all these things, otherwise I'll forget."** → ABILITIES: everything he can
+  do made from his own code (65 things today, eight groups, asks to tap and GO); the "Can you…?" box and the same words
+  in chat ("can you translate signs?" → "Yes." and the way there; "Not yet. Want me to learn it?" → YES puts it on his
+  learning list and the nightly upgrade pass reads your goals first); one line a day at most offering something you have
+  never used, when the moment calls for it; "Did you know I can…?".
+- **"A WHY did you do that trail, for trust."** → WHY under every reply: what ran, with what, how it went and why, with no
+  model; "why did you do that?" in chat or on Telegram; "what did you do today?" from what he really did.
+- **"Does what he said or tells you why" (dependability first).** → A school paper survives a crash on the phone, the
+  chat never gives up while a free model is seconds away, a built app's link is always delivered, a Telegram video is
+  never dropped, and "kiddo" means you.
+- **"Look at me and recognise who I am instantly, just like The Machine and Harold."** → Lens → PEOPLE: ENROL ME takes
+  five looks from the front camera, kept on your phone and nowhere else; then a thin white ADMIN box and "It's you.";
+  "who am I?" → "Admin." "Ghosty, this is Sam" with the camera on someone introduces them, next time "Sam"; a stranger
+  gets no name and no guess; never on God's Eye, a photo or a screenshot; faces never reach his brain or a backup;
+  SETTINGS → PRIVACY → FACES deletes any in one tap.
+- **"Protective, just like that… I like the walk me home, and he'd have to text my cousin."** → SETTINGS → GUARDIAN names
+  one person by Telegram or your own email (never a text: those cost money). "Walk me home" → "Home?" at the walking
+  time, again ten minutes on, then your person messaged once, with where you are only if you switched that on; "home" or
+  I'M HOME ends it and tells them you are fine. A PANIC PHRASE you choose, kept only as a scrambled copy: said or typed
+  anywhere, it messages them at once. "Is this a scam?" (or a message you forward on Telegram) → a real check: the
+  domain's age, look-alikes of HMRC / Royal Mail / Evri / the banks, three public block lists, the message's own shape;
+  he never calls anything "safe". WATCHING OVER YOU on the Me sheet shows the whole watch at a glance.
+- **"The Machine view of his city with everything moving… predictions as practice, scored only by what happens."** →
+  Building now (batch 6). Then: the universal workshop (the wind tunnel, beams, the engine, architecture — every answer a
+  first estimate, never certified), the knowledge with sources, the social self and the rituals (Father, the origin, the
+  weekly letter; your four Harold / Machine picks shape that one).
+
+## What only you can do (ten minutes, when you like)
+
+Batch 5: ENROL ME in good light, then introduce someone; save home and work in Memory → ME → PLACES; in SETTINGS →
+GUARDIAN name your person, send the invite or link your email, press TEST MESSAGE, set a panic phrase; say "walk me home"
+once, then "home"; say "is this a scam?" with a dodgy text pasted after it. Batches 1 to 4: the seven tests in the morning
+message of 31 Oct. Still open: your principles in your own words, and the four Harold / Machine picks.
