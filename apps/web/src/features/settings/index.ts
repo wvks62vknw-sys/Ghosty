@@ -10,6 +10,7 @@ import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
+import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
@@ -28,7 +29,9 @@ export const settingsTab: TabDef = {
     const np = panel('NAME & UNITS', { grow: false, status: settings.get().name });
     const vp = panel('VOICE & HOME', { grow: false });
     const cp = characterPanel();
-    P.left.append(lp.el, np.el, cp.el);
+    // [guardian] GUARDIAN goes with You (after CHARACTER, like it with no group of its own): the one person, the panic phrase
+    const gp = guardianPanel();
+    P.left.append(lp.el, np.el, cp.el, gp.el);
     P.right.append(vp.el);
     const op = offlinePanel();
     P.right.append(op.el);
@@ -165,6 +168,7 @@ export const settingsTab: TabDef = {
       enter() {
         op.refresh();
         cp.refresh();
+        gp.refresh();
         void fb.refresh();
         vc.refresh();
         paintThemes();

@@ -65,6 +65,7 @@ import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
+import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
 import { ensureTrainJob, hookRoute, rateReply, sundayNote, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
@@ -425,6 +426,7 @@ export class GhostyAgent {
       // [abilities] everything he can do, made from the tool registry; the owner's learning goals (abilities.ts)
       if (path === '/abilities' || path.startsWith('/abilities/')) return await abilitiesRoute(req, path, method, { storage: this.storage, vaultGet: (n) => this.vault.get(n) });
       if (path === '/today') return await todayRoute(url, method, { storage: this.storage, env: this.env }); // [abilities] what he did today (today.ts)
+      if (/^\/guardian\/(?:person|test|panic|walk)/.test(path)) return await walkRoute(req, path, method, this.guardDeps()); // [guardian] the walk home, the named person, the panic phrase (walk.ts)
       if (path === '/guardian' || path.startsWith('/guardian/')) return await guardianRoute(req, path, method, this.guardDeps()); // [guardian] the watch over his places (guardian.ts)
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
@@ -1415,6 +1417,7 @@ export class GhostyAgent {
       if (job.kind === 'revise') return json({ result: await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router })) });
       if (job.kind === 'train') return json(await trainTick(this.trainDeps())); // [selftrain]
       if (job.kind === 'guard') return json(await watchTick(this.guardDeps())); // [guardian]
+      if (job.kind === 'walk') return json({ next: await walkTick(this.guardDeps()) }); // [guardian]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1490,6 +1493,7 @@ export class GhostyAgent {
         this.busy = null;
         this.state.waitUntil(feel(this.storage, { kind: 'stop', harsh: harsh === true }).catch(() => undefined));
       },
+      guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
     };
   }
 
@@ -1557,6 +1561,11 @@ export class GhostyAgent {
           // [guardian] The hourly look at the public warnings near his places: news and all-clears told once (guardian.ts).
           await watchTick(this.guardDeps());
           await finishJob(this.storage, job.id, 'looked');
+        } else if (job.kind === 'walk') {
+          // [guardian] A walk home's clock: "Home?", again, then the named person; it says when to come back (none: over).
+          const next = await walkTick(this.guardDeps());
+          if (next) await setNext(this.storage, job.id, next);
+          else await removeJob(this.storage, job.id);
         } else if (job.kind === 'revise') {
           // The tutor's flashcards (tutor.ts): a note only when cards are due.
           await finishJob(this.storage, job.id, await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router, notify: (item) => this.notify(item) })));
@@ -1655,9 +1664,9 @@ export class GhostyAgent {
     await ensureGuardJob(this.storage); // [guardian]
   }
 
-  /** [guardian] What the guardian's watch (guardian.ts) may use: the database, the vault and his notifications. */
+  /** [guardian] What the guardian (guardian.ts, walk.ts) may use: the database, the vault, his notifications and the push contact. */
   private guardDeps(): GuardDeps {
-    return { env: this.env, storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+    return { env: this.env, storage: this.storage, vault: this.vault, notify: (item) => this.notify(item), contact: this.contact() };
   }
 
   /** [selftrain] What the weekly self-training needs: the database, the library, the background lane, the vault and the brain's address. */

@@ -1,15 +1,16 @@
 // The guardian's tests' shared kit (not a test file itself): the modules built from source, the recorded answers of every
 // public source (guardian.fixture.json: never the live feeds), a fake web that serves them, and a guardian on a fake
-// clock with everything that would go out written down. Used by guardian.test.mjs (the watch) and linkcheck.test.mjs (a
-// scam or a link).
+// clock with everything that would go out written down. Used by guardian.test.mjs (the watch), linkcheck.test.mjs (a scam
+// or a link) and walk.test.mjs (the walk home, the named person, the panic phrase).
 import { existsSync, readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
-const entries = ['../src/guardian.ts', '../src/integrations/warnings.ts', '../src/integrations/linkcheck.ts', '../src/mind.ts', '../../../packages/shared/src/guardian.ts'].map(at).filter((p) => existsSync(p));
+const entries = ['../src/guardian.ts', '../src/walk.ts', '../src/integrations/warnings.ts', '../src/integrations/linkcheck.ts', '../src/mind.ts', '../../../packages/shared/src/guardian.ts'].map(at).filter((p) => existsSync(p));
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/guardian'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const built = (p) => (existsSync(at(`./.build/guardian/${p}`)) ? import(`./.build/guardian/${p}`) : Promise.resolve(null));
 export const G = await built('apps/edge/src/guardian.mjs');
+export const Wk = await built('apps/edge/src/walk.mjs');
 export const W = await built('apps/edge/src/integrations/warnings.mjs');
 export const L = await built('apps/edge/src/integrations/linkcheck.mjs');
 export const M = await built('apps/edge/src/mind.mjs');
@@ -52,6 +53,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (host === 'security.cloudflare-dns.com') return json(FX[web.cf[url.searchParams.get('name')] ?? 'cf_ok']);
   if (host === 'raw.githubusercontent.com') return new Response(FX.openphish);
   if (host === 'phishing.army') return new Response(FX.phishing_army);
+  if (host === 'routing.openstreetmap.de') return json(FX.osrm_foot);
   throw new TypeError(`fetch failed: tests have no network (${url.href.slice(0, 120)})`);
 };
 
@@ -60,7 +62,7 @@ export function guardian({ places = [HOME], tz = 'Europe/London', name = 'Aqis' 
   const storage = new Mem();
   storage.m.set('places', places);
   storage.m.set('owner:ctx', { tz, name });
-  const out = { notes: [] };
+  const out = { notes: [], telegram: [], email: [], push: [] };
   let now = NOW;
   const d = {
     env: {},
@@ -68,6 +70,20 @@ export function guardian({ places = [HOME], tz = 'Europe/London', name = 'Aqis' 
     vault: { get: async (k) => (k === 'telegram' ? 'token' : k === 'email' ? 'email-config' : null) },
     notify: async (item) => void out.notes.push(item),
     now: () => now,
+    send: {
+      telegram: async (chatId, text, button) => void out.telegram.push({ chatId, text, button }),
+      email: async (to, subject, body) => void out.email.push({ to, subject, body }),
+      push: async (msg) => (out.push.push(msg), 1),
+    },
+    route: async () => 24,
   };
   return { d, storage, out, at: (t) => (now = t), get now() { return now; } };
 }
+
+export async function named(g, person = { name: 'Sam', telegram: '@sam_k', sharePos: false }) {
+  await Wk.setPerson(g.storage, person, g.now);
+  const c = await G.loadConfig(g.storage);
+  // Sam opened the bot with the invite
+  if (c.person.invite && !/^Thanks, Sam\. Aqis has named you/.test(await Wk.personJoined(g.d, c.person.invite.code, 424242, 'sam_k', g.now))) throw new Error('Sam could not join by the invite');
+}
+

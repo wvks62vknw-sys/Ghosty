@@ -1,7 +1,8 @@
 /**
  * THE GUARDIAN as the phone last heard it from the brain (GET /api/guardian; apps/edge/src/guardian.ts): the places watched
- * and what is active near them, and when each feed was last read. THREATS → NEAR HOME paints from it. Fetched once the app
- * is up and again whenever it comes back to the front.
+ * and what is active near them, when each feed was last read, the named person, the panic phrase's scrambled copy and a
+ * walk under way. THREATS → NEAR HOME and Settings → GUARDIAN paint from it; the walk home and the panic phrase
+ * (assistant/guard.ts) follow it. Fetched once the app is up and again whenever it comes back to the front.
  */
 import { brain } from '../api/brain';
 import { createStore } from '../core/store';

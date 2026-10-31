@@ -43,6 +43,8 @@ import { stopIntent } from '../../../packages/shared/src/intent';
 import { whyReply } from './why'; // [abilities]
 import { dayDoings } from './today'; // [abilities]
 import { dayLines, todayAsked } from '../../../packages/shared/src/abilities'; // [abilities]
+import type { GuardDeps } from './guardstate'; // [guardian]
+import { personJoined, walkButton, walkTelegram } from './walk'; // [guardian]
 import { checkLink, linksIn, messageShape, verdictWords } from './integrations/linkcheck'; // [guardian]
 import { feel } from './mood'; // [guardian]
 
@@ -107,6 +109,8 @@ export interface TelegramHost {
   statusLine(): Promise<string>;
   /** Stop the turn under way (/stop, or a stop by intent: `harsh` leaves him subdued, any other is calm; mood.ts). */
   stop(harsh?: boolean): void;
+  /** [guardian] The guardian's ways out (walk.ts): the walk home, the panic phrase, the named person. Absent: none here. */
+  guardian?(): GuardDeps;
 }
 
 // ---- Telegram's own shapes (the parts Ghosty reads) ----
@@ -245,9 +249,9 @@ async function buttonSig(token: string, body: string): Promise<string> {
   return b64url(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))).slice(0, 22);
 }
 
-/** What a button does: `a` an approval waiting in the brain, `u` an upgrade idea; `yes` APPROVE / BUILD IT, else NOT NOW. */
+/** What a button does: `a` an approval waiting in the brain, `u` an upgrade idea, `w` I'M HOME on a walk; `yes` APPROVE / BUILD IT, else NOT NOW. */
 export interface ButtonPress {
-  kind: 'a' | 'u';
+  kind: 'a' | 'u' | 'w';
   id: string;
   yes: boolean;
 }
@@ -260,12 +264,12 @@ export async function signButton(token: string, press: ButtonPress, now = Date.n
 
 /** A pressed button's data, checked: the press, or why it is refused (made elsewhere or changed: `forged`; too old: `expired`). */
 export async function readButton(token: string, data: string, now = Date.now()): Promise<ButtonPress | { refused: 'forged' | 'expired' }> {
-  const m = /^([au]):([\w-]{1,16}):([01]):([0-9a-z]{1,9}):([\w-]{22})$/.exec(data);
+  const m = /^([auw]):([\w-]{1,16}):([01]):([0-9a-z]{1,9}):([\w-]{22})$/.exec(data);
   if (!m) return { refused: 'forged' };
   const body = `${m[1]}:${m[2]}:${m[3]}:${m[4]}`;
   if (!sameSecret(await buttonSig(token, body), m[5]!)) return { refused: 'forged' };
   if (parseInt(m[4]!, 36) * 1000 < now) return { refused: 'expired' };
-  return { kind: m[1] as 'a' | 'u', id: m[2]!, yes: m[3] === '1' };
+  return { kind: m[1] as ButtonPress['kind'], id: m[2]!, yes: m[3] === '1' };
 }
 
 /** A reply cut into messages Telegram accepts: at a paragraph break, else a sentence end, else a space. */
@@ -323,6 +327,11 @@ async function tgAsk(token: string, chatId: number, text: string, kind: ButtonPr
 }
 
 const tgApproval = (token: string, chatId: number, reason: string, id: string): Promise<void> => tgAsk(token, chatId, `Needs your approval: ${reason}`, 'a', id);
+
+/** [guardian] A line with one signed button ("Home?" with I'M HOME): the press is acted on only in his chat, by him. */
+export async function tgButton(token: string, chatId: number, text: string, kind: ButtonPress['kind'], id: string, label: string): Promise<void> {
+  await api(token, 'sendMessage', { chat_id: chatId, text, reply_markup: { inline_keyboard: [[{ text: label, callback_data: await signButton(token, { kind, id, yes: true }) }]] } });
+}
 
 // ---- Ghosty's voice, back ----
 
@@ -627,6 +636,13 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   const chatId = m.chat.id;
   let text = (m.text ?? m.caption ?? '').trim();
   if (link.chatId !== chatId) {
+    // [guardian] The named person opening his bot with the invite (t.me/<bot>?start=g…): their chat is kept so a walk's
+    // message can reach them. Nothing they send is ever acted on; anyone else is turned away as before.
+    const invite = /^\/start g([a-z0-9]{8,16})$/i.exec(text)?.[1];
+    if (invite && host.guardian && m.chat.type === 'private') {
+      const said = await personJoined(host.guardian(), invite, chatId, m.from?.username).catch(() => null);
+      if (said) return tgSend(token, chatId, said);
+    }
     // Not the owner's chat. The pairing code, while it is valid, makes it the owner's; anything else is turned away, once an hour, and never acted on.
     const guess = text.replace(/\s+/g, '');
     const wrong = wrongCodes.get(chatId);
@@ -740,6 +756,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     note = unreadNote('TikTok video, as a link', card ? `its public title "${card.title}" by ${card.author}${cover ? ', and its cover picture (with this message)' : ''}` : 'nothing of it: the link could not be opened');
   }
   if (!text) return tgSend(token, chatId, 'Send me text, a voice note or a photo.');
+  // [guardian] Before anything else: his panic phrase (typed or in a voice note), the walk home's "home", "walk me home"
+  // and its "how long?" (walk.ts) — no model, no turn slot.
+  if (!images.length && host.guardian) {
+    const g = await walkTelegram(host.guardian(), text).catch(() => null);
+    if (g) return tgSend(token, chatId, g);
+  }
   // [guardian] A message he forwarded with a link in it, or the shape of a scam: checked from public records, no model
   // (integrations/linkcheck.ts); any other forward is talked about as usual.
   if (!images.length && (m.forward_origin || m.forward_date || m.forward_from || m.forward_sender_name) && (linksIn(text).length || messageShape(text).length)) {
@@ -807,7 +829,7 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
   // A button sent before buttons were signed ("ap:<id>:1"), pressed by the owner: treated as expired, never acted on.
   const legacy = ours && /^ap:[\w-]{1,16}:[01]$/.test(q.data ?? '');
   const expired = legacy || (!!press && 'refused' in press && press.refused === 'expired');
-  const note = ok ? (ok.yes ? (ok.kind === 'u' ? 'Building it' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
+  const note = ok ? (ok.yes ? (ok.kind === 'u' ? 'Building it' : ok.kind === 'w' ? 'Good' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
   await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(note ? { text: note } : {}) }).catch(() => undefined);
   if (!ours || chatId === undefined) return;
   const unbutton = () => (q.message ? api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined) : Promise.resolve());
@@ -816,6 +838,11 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
     return tgSend(token, chatId, legacy ? 'That button is from before an update and no longer works. Answer it in the app.' : 'That button has expired. Ask me again, or answer it in the app.');
   }
   if (!ok) return;
+  // [guardian] I'M HOME under "Home?": the walk ends (no model, no turn slot)
+  if (ok.kind === 'w') {
+    await unbutton();
+    return tgSend(token, chatId, host.guardian ? await walkButton(host.guardian(), ok.id).catch(() => 'That walk is already over.') : 'That walk is already over.');
+  }
   if (ok.kind === 'u' && !ok.yes) {
     await unbutton();
     return tgSend(token, chatId, 'Left in Workshop → UPGRADE IDEAS for later.');

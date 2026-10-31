@@ -48,6 +48,8 @@ export const GROUP_NEEDS: Record<string, { any: string[]; where: string; open: {
   repo: { any: ['github'], where: 'needs a key: SYSTEM → KEYS → GitHub token', open: { open: 'system', panel: 'KEYS' } },
   reverse: { any: ['github'], where: 'needs a key: SYSTEM → KEYS → GitHub token', open: { open: 'system', panel: 'KEYS' } },
   vehicle: { any: ['dvsa_mot', 'dvla_ves'], where: 'needs a key: SYSTEM → KEYS → DVSA MOT history', open: { open: 'system', panel: 'KEYS' } },
+  // [guardian] the walk home's message to his one named person goes by Telegram (his bot) or his own email — never a text
+  guardian: { any: ['telegram', 'email'], where: 'needs linking: LINKS → TELEGRAM (or EMAIL) to reach your named person', open: { open: 'links', panel: 'TELEGRAM' } },
 };
 
 /** The first sentence of a tool's description, for when a group has no line of its own. */

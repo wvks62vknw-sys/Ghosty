@@ -264,8 +264,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'guardian',
     tools: guardianTools,
-    when: /\b(?:floods?|flooding|flooded|(?:weather|storm|wind|rain|snow|fog|ice|flood|severe weather|met office) (?:warnings?|alerts?)|warnings? near|storms?|crime (?:near|round|around|by)|is it safe|safe (?:round|around|near|at|to walk)|legit|scam\w*|phish\w*|dodgy|suspicious (?:link|text|email|message)|fake (?:link|text|email|message|site)|is (?:this|it|that) real|genuine|fraud\w*|smish\w*|guardian)\b/i,
-    about: 'You can watch over the owner: flood and weather warnings and crime counts near his saved places (threats_near), and check a link or message for a scam (check_link; never call one safe).',
+    when: /\b(?:floods?|flooding|flooded|(?:weather|storm|wind|rain|snow|fog|ice|flood|severe weather|met office) (?:warnings?|alerts?)|warnings? near|storms?|crime (?:near|round|around|by)|is it safe|safe (?:round|around|near|at|to walk)|legit|scam\w*|phish\w*|dodgy|suspicious (?:link|text|email|message)|fake (?:link|text|email|message|site)|is (?:this|it|that) real|genuine|fraud\w*|smish\w*|walk me home|guardian|named person|panic phrase|emergency phrase)\b/i,
+    about: 'You can watch over the owner: flood and weather warnings and crime counts near his saved places (threats_near), and check a link or message for a scam (check_link; never call one safe). "Walk me home" starts his walk.',
   },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {

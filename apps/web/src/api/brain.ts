@@ -17,7 +17,7 @@ import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
-import type { GuardianInfo } from '../../../../packages/shared/src/guardian';
+import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -415,9 +415,19 @@ export const brain = {
   abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
-  /** THE GUARDIAN (apps/edge/src/guardian.ts): the watch over his places. */
+  /** THE GUARDIAN (apps/edge/src/guardian.ts, walk.ts): the watch over his places, the named person, the panic phrase, the walk home. */
   guardian: () => req<GuardianInfo>('GET', '/guardian'),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
+  guardianPerson: (p: { name: string; telegram?: string; email?: string; sharePos: boolean; ownerName?: string }) => req<GuardianInfo>('POST', '/guardian/person', p),
+  guardianPersonRemove: () => req<GuardianInfo>('DELETE', '/guardian/person'),
+  guardianTest: () => req<{ sent: boolean; via?: string; error?: string }>('POST', '/guardian/test', {}),
+  /** The panic phrase as only a keyed hash (made on this phone: the words never leave it). */
+  panicPhrase: (s: PanicSecret) => req<GuardianInfo>('POST', '/guardian/panic-phrase', s),
+  panicPhraseRemove: () => req<GuardianInfo>('DELETE', '/guardian/panic-phrase'),
+  panic: (pos?: { lat: number; lon: number }) => req<{ sent: boolean; why?: string }>('POST', '/guardian/panic', pos ? { pos } : {}),
+  walkStart: (b: { minutes?: number; from?: { lat: number; lon: number } }) => req<{ said: string; walk: WalkInfo | null } | { ask: string }>('POST', '/guardian/walk', b),
+  walkEnd: (how: 'home' | 'cancelled') => req<{ said: string; walk: WalkInfo | null }>('POST', '/guardian/walk/end', { how }),
+  walkPos: (p: { lat: number; lon: number }) => req<{ kept: boolean }>('POST', '/guardian/walk/pos', p),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

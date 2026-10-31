@@ -25,6 +25,7 @@ import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
+import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
 
@@ -472,8 +473,10 @@ const hereStopped = (why: string) => `I can't do this on the phone right now: ${
 export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  // [guardian] Before anything reads his words: with PEOPLE open in the Lens, an introduction or "who's this?" is
+  // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
+  // chat or the model), then the walk home's words; with PEOPLE open in the Lens, an introduction or "who's this?" is
   // answered there, on the phone — the stop and the raising readings never see them, and the brain never does.
+  if (await guardTurn(t, { voice: opts.voice })) return;
   if (await faceTurn(t, opts.voice)) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
   // absolute and at once, whatever he was saying or arguing, and never answered.

@@ -6,21 +6,22 @@
  * line), a line in the day log (mind.ts observe) and in the one mind's `doing` (guardstate.ts guardianMind); never the
  * same warning twice; the all-clear said once when it lifts; a warning's end honoured; a feed that could not be read is
  * never an all-clear. Crime is shown, never announced: a month's count is not a warning, and nothing is extrapolated
- * from it.
+ * from it. (The walk home, the named person and the panic phrase are walk.ts.)
  *
  * Routes (owner only):
- *   GET    /guardian          → GuardianInfo (THREATS → NEAR HOME)
+ *   GET    /guardian          → GuardianInfo (THREATS → NEAR HOME, Settings → GUARDIAN)
  *   POST   /guardian/check    → a look now (NEAR HOME's CHECK NOW)
  */
-import { clockIn, FEED_NAMES, type FeedId, type GuardianInfo, type GuardWarning } from '../../../packages/shared/src/guardian';
+import { clockIn, FEED_NAMES, type FeedId, type GuardianInfo, type GuardWarning, type PersonInfo, type WalkInfo } from '../../../packages/shared/src/guardian';
 import { crimeMonth, floods, metWarnings, placeArea, touches, type MetWarning } from './integrations/warnings';
 import { observe } from './mind';
 import { loadPlaces } from './places';
 import { addJob, loadJobs, removeJob } from './schedule';
-import { levelWord, loadWatch, nowOf, WATCH_KEY, zoneOf, type GuardDeps } from './guardstate';
+import { loadLink } from './telegram';
+import { levelWord, loadConfig, loadWalk, loadWatch, nowOf, personRoute, WATCH_KEY, zoneOf, type GuardDeps } from './guardstate';
 
-export { guardianMind, loadWatch, WATCH_KEY } from './guardstate';
-export type { GuardDeps, PlaceState, Told, WatchState } from './guardstate';
+export { CONFIG_KEY, guardianMind, loadConfig, loadWalk, loadWatch, WALK_KEY, WATCH_KEY } from './guardstate';
+export type { GuardConfig, GuardDeps, Person, PlaceState, Told, WatchState, WalkState } from './guardstate';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -169,8 +170,16 @@ export async function watchTick(d: GuardDeps, opts: { quiet?: boolean } = {}): P
 // ---------------------------------------------------------------- what the phone shows
 
 export async function guardianInfo(d: GuardDeps): Promise<GuardianInfo> {
-  const [places, st, zone] = await Promise.all([loadPlaces(d.storage), loadWatch(d.storage), zoneOf(d.storage)]);
+  const [places, st, c, w, zone] = await Promise.all([loadPlaces(d.storage), loadWatch(d.storage), loadConfig(d.storage), loadWalk(d.storage), zoneOf(d.storage)]);
   const now = nowOf(d);
+  let person: PersonInfo | null = null;
+  if (c.person) {
+    const link = await loadLink(d.env, d.storage).catch(() => undefined);
+    const via = await personRoute(d, c.person);
+    const invite = c.person.invite && !c.person.chatId && link?.bot ? `https://t.me/${link.bot}?start=g${c.person.invite.code}` : undefined;
+    person = { name: c.person.name, telegram: c.person.telegram ?? '', email: c.person.email ?? '', linked: !!c.person.chatId, via, sharePos: c.person.sharePos, ...(invite ? { invite } : {}) };
+  }
+  const walk: WalkInfo | null = w ? (({ pos: _p, via: _v, tries: _t, safeSent: _s, alertVia: _a, askedAt: _q, asked2At: _q2, ...rest }) => rest)(w) : null;
   return {
     places: places.map((p) => {
       const ps = st.places[p.id];
@@ -178,6 +187,9 @@ export async function guardianInfo(d: GuardDeps): Promise<GuardianInfo> {
     }),
     checked: st.checked,
     failed: st.failed,
+    person,
+    panic: c.panic ?? null,
+    walk: walk && walk.stage === 'done' && walk.endedAt && now - walk.endedAt > DAY ? null : walk,
     tz: zone,
   };
 }

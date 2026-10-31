@@ -395,7 +395,7 @@ const sweep = async (page, L, W) => {
 LONG.push({ // SETTINGS: the list's own groups (shell/layout.ts); CHARACTER has no group and goes with the one above it
   tab: 'settings', list: true,
   pills: ['Appearance', 'You', 'Voice & home', 'Ghosty', 'About'],
-  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
+  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER|GUARDIAN)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
   tap: 'You', link: { row: /voice he speaks in/i, pill: 'Voice & home', panel: /^VOICE/ },
 });
 LONG.push({ // LIBRARY

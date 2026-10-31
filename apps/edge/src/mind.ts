@@ -232,8 +232,8 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   const z = zoned(now, tz);
   const spend = await tryOr(() => spendFlag(storage, `${z.y}-${String(z.m).padStart(2, '0')}`), '');
   if (spend) m.today.doing.push(spend);
-  // [guardian] what is active near his places (guardstate.ts): in what he is doing, and a warning that starts later in
-  // what is ahead
+  // [guardian] what is active near his places and a walk home under way (guardstate.ts): in what he is doing, and the walk's
+  // "Home?" (or a warning that starts later) in what is ahead
   const guard = await tryOr(() => guardianMind(storage, now, tz), { doing: [] as string[], ahead: [] as DayLine[] });
   m.today.doing.push(...guard.doing);
   if (guard.ahead.length) m.ahead = [...m.ahead, ...guard.ahead.filter((x) => x.at < now + AHEAD)].sort((a, b) => a.at - b.at);
