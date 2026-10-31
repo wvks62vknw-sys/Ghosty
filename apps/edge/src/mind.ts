@@ -17,6 +17,7 @@ import { SUBJECT_LABEL } from '../../../packages/shared/src/school';
 import type { Vault } from './kernel/vault';
 import { loadLessons } from './knowledge';
 import { loadStudy } from './library/study';
+import { guardianMind } from './guardstate'; // [guardian] (its light half: no Telegram, no feeds)
 import { loadPlaces } from './places';
 import { loadProfile, looksSecret, profileLines } from './profile';
 import { baseMind, type ClientContext } from './prompt';
@@ -231,6 +232,11 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   const z = zoned(now, tz);
   const spend = await tryOr(() => spendFlag(storage, `${z.y}-${String(z.m).padStart(2, '0')}`), '');
   if (spend) m.today.doing.push(spend);
+  // [guardian] what is active near his places and a walk home under way (guardstate.ts): in what he is doing, and the walk's
+  // "Home?" (or a warning that starts later) in what is ahead
+  const guard = await tryOr(() => guardianMind(storage, now, tz), { doing: [] as string[], ahead: [] as DayLine[] });
+  m.today.doing.push(...guard.doing);
+  if (guard.ahead.length) m.ahead = [...m.ahead, ...guard.ahead.filter((x) => x.at < now + AHEAD)].sort((a, b) => a.at - b.at);
 
   // what happened: the day log's last day
   m.recent = (await tryOr(() => loadLog(storage), [])).filter((e) => e.at > now - DAY && e.at <= now).slice(-8);

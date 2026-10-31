@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
+import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -87,6 +88,10 @@ globalThis.fetch = async (input, init) => {
   // Test only: the PHOTO TOOLS Spaces (tests/photo.spec.mjs), from their real answers.
   const photo = await photoSpaces(u, init);
   if (photo) return photo;
+  // Test only: the guardian's public feeds, the walking route and the scam check's sources (tests/fixtures/guardian-feeds.mjs):
+  // never the live ones, whichever spec runs when the hourly watch looks.
+  const guard = guardianFeeds(u);
+  if (guard) return guard;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -140,7 +145,7 @@ function headersFor(path) {
   return h;
 }
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
+const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
@@ -167,6 +172,25 @@ createServer(async (req, res) => {
     if (url.pathname === '/__test/photo-mode') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(setPhotoMode(url.searchParams)));
+      return;
+    }
+    // Test only: the guardian's feeds switched on and off (tests/guardian.spec.mjs: ?flood=1&weather=1, back with 0).
+    if (url.pathname === '/__test/guardian') {
+      // ?reset=1: the watch forgets what it told (the spec runs again on the same brain, as CI's retry does)
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['guardian:watch', 'guardian:walk', 'guardian:pending']);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(setGuardMode(url.searchParams)));
+      return;
+    }
+    // Test only: a walk home's "Home?" now (its ETA moved to now and the brain's alarm run), as the clock would at the ETA.
+    if (url.pathname === '/__test/walk-due') {
+      const w = await state.storage.get('guardian:walk');
+      if (w) await state.storage.put('guardian:walk', { ...w, eta: Date.now() - 1000 });
+      const jobs = (await state.storage.get('jobs')) ?? [];
+      await state.storage.put('jobs', jobs.map((j) => (j.kind === 'walk' ? { ...j, next: Date.now() - 500 } : j)));
+      if (agent) await agent.alarm();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ walk: await state.storage.get('guardian:walk') }));
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

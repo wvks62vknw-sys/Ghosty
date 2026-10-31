@@ -4655,3 +4655,36 @@ html #pg-workshop .idea .ideafrom { font: 600 11px/13px var(--sf); letter-spacin
 .whybody .whyask { font-weight: 600; }
 .whybody .whyreason { margin: -4px 0 12px 18px; font-size: 15px; line-height: 20px; color: var(--ink2); }
 .whybody .whyown { color: var(--ink2); font-style: italic; }
+
+/* THE GUARDIAN (OWNER-ISSUES 55, 56, 58, 60): the Lens's PEOPLE, Settings → PRIVACY → FACES and → GUARDIAN, THREATS → NEAR
+   HOME, the Me sheet's WATCHING OVER YOU and the "Home?" bar of a walk home. */
+.people .pplsay { min-height: 26px; font: 600 20px/26px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+.people .pplsay:empty { display: none; }
+.people .pplnote, .people .pplpriv { font: 400 14px/19px var(--sf); color: var(--ink2); }
+.people .pplpriv { color: var(--ink3); font-size: 13px; }
+.people .pplask { gap: 8px; min-width: 0; }
+.people .pplask .pplin { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 22px; font: 400 16px/22px var(--sf); }
+.people .pplask button { flex: none !important; min-height: 44px !important; min-width: 56px; border-radius: 22px; }
+.people > button { min-height: 44px !important; }
+.faces { margin-top: 10px; }
+.faces .facecount { margin: 4px 0 6px; }
+.faces .facelist .rw { flex-wrap: wrap; }
+.faces .facebtns { display: inline-flex; gap: 8px; margin-left: auto; }
+.faces .facebtns button { min-height: 44px !important; }
+.faces button.facedel { min-width: 44px; min-height: 44px !important; height: auto !important; margin-left: auto; background: none; border: 0; color: var(--l3); font-size: 15px; cursor: pointer; }
+.faces button.facedel:hover { color: var(--r); }
+.pn .guardstate, .pn .panicstate { margin: 6px 0; color: var(--ink2); }
+.pn .guardinvite { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font: 400 14px/19px var(--sf); color: var(--ink2); }
+.pn .guardinvite:empty { display: none; }
+.pn .guardinvite .guardlink { overflow-wrap: anywhere; min-width: 0; color: var(--c); }
+.pn .guardinvite button, .pn .guardbtns button { min-height: 44px !important; }
+.pn .guardlimit { margin-top: 10px; color: var(--ink3); }
+.nearhome .watchline { margin: 0 0 6px; font: 600 16px/22px var(--sf); color: var(--ink); }
+.nearhome .crimerow { font-size: 13px; color: var(--ink2); }
+.nearhome .feedsline { margin: 6px 0; color: var(--ink3); font-size: 13px; }
+.nearhome .row button { min-height: 44px !important; }
+html button.rccard.meguard { margin-top: 12px; width: 100%; padding: 14px 16px 2px; }
+html .meguard .megline { margin: 6px 0 4px; font: 400 15px/20px var(--sf); color: var(--ink); white-space: normal; }
+html .meguard .mer .v { white-space: normal; }
+#walkask { position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 58px); z-index: 170; max-width: 440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 18px; border-radius: 18px; background: rgba(28,28,30,.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px var(--hair2), 0 8px 24px rgba(0,0,0,.45); color: var(--ink); font: 600 17px/22px var(--sf); }
+#walkask button { flex: none; min-height: 44px !important; border-radius: 22px; padding: 0 18px; }

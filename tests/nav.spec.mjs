@@ -395,7 +395,7 @@ const sweep = async (page, L, W) => {
 LONG.push({ // SETTINGS: the list's own groups (shell/layout.ts); CHARACTER has no group and goes with the one above it
   tab: 'settings', list: true,
   pills: ['Appearance', 'You', 'Voice & home', 'Ghosty', 'About'],
-  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
+  panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER|GUARDIAN)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
   tap: 'You', link: { row: /voice he speaks in/i, pill: 'Voice & home', panel: /^VOICE/ },
 });
 LONG.push({ // LIBRARY
@@ -425,7 +425,7 @@ LONG.push({ // WORKSHOP: one stacked page now, no BUILD / PAGES & WIDGETS switch
 LONG.push({ // THREATS
   tab: 'threats',
   pills: ['Signals', 'Near you', 'Space weather', 'Launches'],
-  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR YOU/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
+  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR (YOU|HOME)/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
   tap: 'Space weather', link: { row: /Recon/i, pill: 'Launches', panel: /^RECON/ },
 });
 LONG.push({ // LINKS: the list's own groups (shell/layout.ts)
