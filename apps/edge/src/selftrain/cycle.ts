@@ -55,7 +55,7 @@
  * Every save made by a job step checks the state's generation first (`gen`): a step that started before the
  * report arrived cannot write its stale copy over it.
  */
-import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, stopWords, STUCK_INSTALL, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { NIGHT_CALLS, nightStep } from '../school/night';
@@ -210,6 +210,10 @@ export interface State {
   kindWhy?: string;
   /** TRAIN FROM SCRATCH was pressed: the next run is the monthly retrain whatever the date. */
   force?: boolean;
+  /** TRAIN NOW was pressed: the next push goes ahead even when the pre-flight's install check would hold it (installHold). */
+  tryAnyway?: boolean;
+  /** Which notebook this week pushed (notebookTag): its report carries it. */
+  notebook?: string;
   /** When the last retrain from scratch started. */
   scratchAt?: number;
   /** This week's plan, fixed at its first push: full or smaller (economy), why, STaR samples, earlier weeks replayed at most. */
@@ -440,7 +444,7 @@ async function weekTick(d: CycleDeps): Promise<{ next: number; note: string }> {
 }
 
 function failedReport(st: State, why: string, now: number): TrainReport {
-  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: st.base?.label ?? '', ...(st.baseId ? { baseId: st.baseId } : {}), before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why };
+  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: st.base?.label ?? '', ...(st.baseId ? { baseId: st.baseId } : {}), before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why, ...(st.notebook ? { notebook: st.notebook } : {}) };
 }
 
 async function step(d: CycleDeps, st: State): Promise<{ next: number; note: string }> {
@@ -882,6 +886,27 @@ async function upload(d: CycleDeps, st: State, token: string): Promise<{ next: n
 }
 
 /** The notebook as pushed: its settings written into the CONFIG_JSON line. */
+let tagMemo = '';
+/** Which notebook this brain pushes (a hash of NOTEBOOK_PY): a report carries it, so the pre-flight knows when the notebook changed since. */
+export function notebookTag(): string {
+  if (!tagMemo) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < NOTEBOOK_PY.length; i++) h = Math.imul(h ^ NOTEBOOK_PY.charCodeAt(i), 0x01000193) >>> 0;
+    tagMemo = h.toString(16).padStart(8, '0');
+  }
+  return tagMemo;
+}
+
+/**
+ * The pre-flight's install check (OWNER-ISSUES 78): the last run could not install its packages for a reason that does not
+ * pass by itself, and this is the same notebook, so pushing it again would stop the same way: the week waits, saying so in
+ * his words, until an update changes the notebook (or TRAIN NOW tries anyway). '' when it may go.
+ */
+export function installHold(last: Pick<TrainReport, 'install' | 'notebook' | 'error'> | null | undefined, tag: string, tryAnyway = false): string {
+  if (!last?.install || tryAnyway || last.notebook !== tag || !STUCK_INSTALL.includes(last.install.kind)) return '';
+  return `I haven't started this week's training. Last time ${stopWords(last)}. Nothing has changed since, so it would stop the same way: I need an update first (TRAIN NOW tries anyway).`;
+}
+
 export function notebookSource(config: Record<string, unknown>): string {
   const line = `CONFIG_JSON = ${JSON.stringify(JSON.stringify(config))}  # GHOSTY-CONFIG: written by the brain`;
   const out = NOTEBOOK_PY.replace(/^CONFIG_JSON = None\b.*$/m, line);
@@ -1019,6 +1044,12 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     if (now - st.startedAt > WEEK) return endWeek(d, st, failedReport(st, nob, now), `This week's training did not start: ${nob}`);
     return { next: 6 * 3600_000, note: nob };
   }
+  // The install check: the same notebook that already stopped installing for a reason that does not pass by itself waits.
+  const held = installHold(await d.storage.get<TrainReport>(K.report), notebookTag(), !!st.tryAnyway);
+  if (held) {
+    if (now - st.startedAt > WEEK) return endWeek(d, st, failedReport(st, held, now), held);
+    return { next: 6 * 3600_000, note: held };
+  }
   st.gpu = { left: q.left, total: q.total };
   // The brain to beat is the one in use of the chosen base (the same gate); a weekly run trains on it, the monthly
   // retrain on that base's stock model.
@@ -1062,6 +1093,8 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     ...(resume ? { resume: true, session: (st.pushes ?? 0) + 1 } : {}),
   };
   const r = await pushKernel(fetchOf(d), kaggle, notebookSource(config), { timeoutS: Math.round(plan.timeoutHours * 3600) });
+  st.notebook = notebookTag();
+  delete st.tryAnyway;
   st.kernelUrl = r.url;
   st.pushedAt = now;
   st.pushes = (st.pushes ?? 0) + 1;
@@ -1097,7 +1130,7 @@ async function watch(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typ
     st.completeAt ??= now;
     if (now - st.completeAt < REPORT_GRACE) return { next: 15 * 60_000, note: 'The Kaggle run has finished; waiting for its report.' };
     const out = await kernelOutput(fetchOf(d), kaggle).catch(() => null);
-    const err = out?.report?.error ? String(out.report.error).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…').slice(0, 300) : '';
+    const err = out?.report?.error ? stopWords({ error: String(out.report.error), install: out.report.install }).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…').slice(0, 300) : '';
     const why = err ? `the notebook stopped: ${err}` : 'its report never reached Ghosty (no internet on Kaggle, or Ghosty could not be reached)';
     const log = out?.logTail ? ` The end of its log: ${out.logTail}` : '';
     return endWeek(d, st, failedReport(st, `the Kaggle run finished without reporting back: ${why}.${log}`, now), `The Kaggle run finished without reporting back: ${why}.${log}`);
@@ -1364,13 +1397,15 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
   }
   const r = body?.report;
   if (!r || typeof r !== 'object' || !scoresOk(r.before) || !scoresOk(r.after)) return json({ error: 'not a report' }, 400);
-  if (r.error && !Object.keys(r.after).length && restarts(st) < 3) {
+  // (an install step that stopped for a reason that does not pass by itself would only stop the same way again: the week ends)
+  const stuck = !!r.install && STUCK_INSTALL.includes(String((r.install as { kind?: unknown }).kind));
+  if (r.error && !Object.keys(r.after).length && restarts(st) < 3 && !stuck) {
     // It hit a problem before its exam (a Hugging Face 5xx, pip or node during set-up): pushed again by the next
     // job step, resuming from its checkpoint, like a run Kaggle stopped (three runs at most). Its ticket is spent.
     st.phase = 'push';
     delete st.ticket;
     delete st.completeAt;
-    st.note = `The Kaggle run hit a problem (${String(r.error).slice(0, 160)}); starting it again from where it got to.`;
+    st.note = `The Kaggle run hit a problem (${stopWords(r).slice(0, 160)}); starting it again from where it got to.`;
     await saveState(d.storage, st);
     return json({ ok: true, published: false });
   }
@@ -1420,6 +1455,8 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     rejected: [...((await d.storage.get<{ why: string; n: number }[]>(K.rejected)) ?? []), ...(Array.isArray(r.rejected) ? r.rejected : [])].slice(0, 40),
     failures: (r.failures ?? []).slice(0, 120),
     ...(st.scratch ? { scratch: true } : {}),
+    // (which notebook ran: the pre-flight's install check reads it)
+    ...(st.notebook ? { notebook: st.notebook } : {}),
     // (the brain's plan for the week: a smaller run when Kaggle's hours were short)
     ...(st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
     ...(st.daily ? { daily: st.daily } : {}),
@@ -1452,7 +1489,8 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     if (pub) report.rejected.push({ why: err ? `the new brain was uploaded (${pub.commit.slice(0, 7)}) but the run reported a problem: not offered to the phone` : `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam check here: not offered to the phone`, n: 1 });
     delete report.published;
     const which = st.scratch ? "This month's retrain from scratch" : "This week's training";
-    note = r.error ? `${which} did not finish: ${String(r.error).slice(0, 160)}` : `${which} did not beat the current brain (${report.gate.why}); nothing changed.`;
+    // (in his words: the install step's own sentence names the pin; never the raw error)
+    note = r.install ? `${which} stopped before it started. ${stopWords(r)}. Nothing changed on your phone.` : r.error ? `${which} did not finish: ${stopWords(r).slice(0, 200)}.` : `${which} did not beat the current brain (${report.gate.why}); nothing changed.`;
   }
   // Only the ratings this week's data really held are used up; the others wait for the next week.
   const used = new Set(st.ratingIds ?? []);
@@ -1572,11 +1610,13 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     // TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain whatever the date.
     const scratch = path === '/training/scratch';
     if (scratch) st.force = true;
+    // (his press also goes past the pre-flight's install check: installHold)
+    st.tryAnyway = true;
     if (st.phase === 'idle') {
       st.nextRun = 0;
       st.note = scratch ? 'Starting now: the retrain from scratch.' : 'Starting now.';
     }
-    if (scratch || st.phase === 'idle') await saveState(s, st);
+    await saveState(s, st);
     await ensureTrainJob(s);
     const j = (await loadJobs(s)).find((x) => x.kind === 'train');
     if (j) {

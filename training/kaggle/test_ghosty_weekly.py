@@ -1923,5 +1923,155 @@ class ScratchOnTheChosenBase(unittest.TestCase):
         self.assertTrue(any('transformers==5.5.4' in c for c in pip if 'install' in c))
 
 
+# PyPI's answers for every pin, recorded 31 Oct 2026 (pypi_pins.json): the install step's pins resolution is checked on them.
+PINS = json.load(open(os.path.join(HERE, 'pypi_pins.json')))['answers']
+
+
+class InstallStep(unittest.TestCase):
+    """The install step (25 Oct: the run stopped at `pip install` with only "CalledProcessError … exit status 1"): every
+    family's pins against PyPI's recorded answers for Python 3.12 and 3.13, the resolution logic on fakes, pip's failures
+    in plain words naming the pin, the image's torch kept, and only the network tried again."""
+
+    def test_every_familys_pins_install_on_python_312_and_313(self):
+        for family, f in G.FAMILIES.items():
+            for pin in f['pins']:
+                self.assertIn(pin, PINS, f'{family}: {pin} has a recorded PyPI answer (record one when a pin changes)')
+            for py in ('3.12.3', '3.13.15'):
+                self.assertIsNone(G.pins_problem(f['pins'], PINS, py), f'{family} on Python {py}')
+        # the pins the 25 Oct run asked for are among them: the pins on their own were not what stopped it
+        self.assertEqual(G.FAMILIES['qwen3_5']['pins'], ['transformers==5.5.4', 'peft==0.19.1', 'accelerate==1.13.0', 'huggingface_hub==1.10.1', 'safetensors==0.5.3'])
+
+    def test_the_resolution_logic_names_the_pin_on_fakes(self):
+        pins = G.FAMILIES['qwen3_5']['pins']
+
+        def check(change, py='3.13.15'):
+            answers = {k: dict(v) for k, v in PINS.items()}
+            change(answers)
+            return G.pins_problem(pins, answers, py)
+        self.assertEqual(check(lambda a: a.update({'peft==0.19.1': {'missing': True}})), ('peft==0.19.1', 'missing', 'PyPI has no such version'))
+        self.assertEqual(check(lambda a: a['accelerate==1.13.0'].update(yanked=True)), ('accelerate==1.13.0', 'yanked', 'that version was withdrawn from PyPI'))
+        too_new = lambda a: a['transformers==5.5.4'].update(requires_python='<3.13,>=3.9')
+        self.assertEqual(check(too_new), ('transformers==5.5.4', 'python', "it doesn't support Python 3.13 (it asks for <3.13,>=3.9)"))
+        self.assertIsNone(check(too_new, '3.12.3'), 'the same pin is fine on 3.12')
+        only312 = lambda a: a['safetensors==0.5.3'].update(files=['safetensors-0.5.3-cp312-cp312-manylinux_2_17_x86_64.whl', 'safetensors-0.5.3-cp313-cp313t-manylinux_2_17_x86_64.whl', 'safetensors-0.5.3.tar.gz'])
+        self.assertEqual(check(only312)[:2], ('safetensors==0.5.3', 'wheel'), 'a compiled pin with no wheel for 3.13 (a free-threaded one does not count)')
+        self.assertIsNone(check(only312, '3.12.3'))
+        self.assertIsNone(check(lambda a: a['peft==0.19.1'].update(files=['peft-0.19.1.tar.gz'])), 'source only and pure: pip builds it')
+        old_hub = G.pins_problem(['transformers==5.5.4', 'huggingface_hub==0.30.2'], PINS, '3.13.15')
+        self.assertEqual(old_hub, ('transformers==5.5.4', 'conflict', 'it needs huggingface-hub <2.0,>=1.5.0, and the pins say 0.30.2'))
+        self.assertIsNone(check(lambda a: a.update({'peft==0.19.1': None})), 'PyPI not reachable: that pin is left to pip')
+
+    def test_versions_specifiers_and_wheel_tags(self):
+        for v, spec, ok in [('3.13.15', '>=3.10.0', True), ('3.13.15', '<3.13', False), ('3.13.15', '<3.14,>=3.9', True), ('3.13.15', '!=3.13.*', False), ('3.12.3', '==3.12.*', True),
+                            ('3.13.15', '~=3.5', True), ('3.12.3', '~=3.13', False), ('1.10.1', '<2.0,>=1.5.0', True), ('0.22.2', '<=0.23.0,>=0.22.0', True), ('0.23.3', '<=0.23.0,>=0.22.0', False),
+                            ('1.0rc1', '>=1.0', False), ('2.11.0+cu128', '>=2.0.0', True), ('5.5.4', '', True)]:
+            self.assertEqual(G.spec_ok(v, spec), ok, f'{v} {spec}')
+        for name, py, ok in [('x-1-py3-none-any.whl', '3.13.15', True), ('x-1-py2.py3-none-any.whl', '3.12.3', True), ('s-1-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl', '3.13.15', True),
+                             ('r-1-cp313-cp313-manylinux_2_17_x86_64.whl', '3.13.15', True), ('r-1-cp312-cp312-manylinux_2_17_x86_64.whl', '3.13.15', False), ('r-1-cp313-cp313t-manylinux_2_17_x86_64.whl', '3.13.15', False),
+                             ('r-1-cp313-cp313-musllinux_1_2_x86_64.whl', '3.13.15', False), ('r-1-cp313-cp313-win_amd64.whl', '3.13.15', False), ('s-1-cp314-abi3-manylinux_2_17_x86_64.whl', '3.13.15', False), ('x.tar.gz', '3.13.15', False)]:
+            self.assertEqual(G.wheel_ok(name, py), ok, f'{name} on {py}')
+
+    def test_pips_failures_in_plain_words(self):
+        pins = G.FAMILIES['qwen3_5']['pins']
+        cases = [
+            ('ERROR: Could not find a version that satisfies the requirement transformers==5.5.4 (from versions: 4.0.0, 4.1.0)\nERROR: No matching distribution found for transformers==5.5.4',
+             ('transformers==5.5.4', 'missing', 'pip found no version of it for Python 3.13')),
+            ("WARNING: Retrying (Retry(total=4)) after connection broken by 'NewConnectionError(': Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/transformers/\nERROR: Could not find a version that satisfies the requirement transformers==5.5.4 (from versions: none)",
+             ('transformers==5.5.4', 'network', "the notebook couldn't reach PyPI (Kaggle's internet may be off for this run)")),
+            ('ERROR: Cannot install huggingface_hub==0.30.2 and transformers==5.5.4 because these package versions have conflicting dependencies.\n\nThe conflict is caused by:\n    The user requested huggingface_hub==0.30.2\n    transformers 5.5.4 depends on huggingface-hub<2.0 and >=1.5.0\nERROR: ResolutionImpossible: for help visit https://pip.pypa.io',
+             ('huggingface_hub==1.10.1', 'conflict', 'the pins need versions of each other that cannot all be installed together')),
+            ('error: externally-managed-environment\n\n× This environment is externally managed', ('', 'managed', 'Python 3.13 on this machine is locked against pip (it says it is managed by the system)')),
+            ('/usr/bin/python3: No module named pip', ('', 'nopip', 'pip is not installed for Python 3.13 on this machine')),
+            ('ERROR: Cannot uninstall regex 2024.11.6, RECORD file not found. Hint: The package was installed by debian.', ('regex', 'uninstall', "pip couldn't replace the copy that came with Kaggle's image")),
+            ("ERROR: Ignored the following versions that require a different python version: 5.5.4 Requires-Python >=3.14\nERROR: Could not find a version that satisfies the requirement transformers==5.5.4", ('transformers==5.5.4', 'python', "it doesn't support Python 3.13")),
+            ('ERROR: something odd happened', ('', 'pip', "pip stopped for a reason it did not make plain (its last lines are in the run's log)")),
+        ]
+        for out, want in cases:
+            self.assertEqual(G.pip_words(out, pins, '3.13.15'), want, out[:60])
+        e = G.InstallError('transformers==5.5.4', 'python', "it doesn't support Python 3.13", python='3.13.15')
+        self.assertEqual(str(e), "I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13.")
+        self.assertEqual(G.error_words(e), str(e), 'the report says it as is: no programming name')
+        self.assertEqual(G.install_facts(e), {'pin': 'transformers==5.5.4', 'kind': 'python', 'why': "it doesn't support Python 3.13", 'python': '3.13.15'})
+        self.assertEqual(G.error_words(ValueError('x')), 'ValueError: x')
+        self.assertIsNone(G.install_facts(ValueError('x')))
+        self.assertEqual(str(G.InstallError('', 'managed', 'it is locked', python='3.13.15')), "I couldn't install the packages on Kaggle's Python 3.13: it is locked.")
+
+    def install(self, stderr, answers=None, torch=None):
+        """Run.install() for the Qwen3.5 base as on Kaggle's Python 3.13.15, pip failing with `stderr` (None: it works), PyPI
+        answering from the recorded answers (changed by `answers`; 404 for a pin it lacks), `torch` the image's version."""
+        cmds, pauses, asked = [], [], []
+        real = (G.subprocess.run, G.http_json, G.platform.python_version, G.time.sleep, G.keep_torch, G.WORK)
+        G.subprocess.run = lambda cmd, **k: cmds.append(cmd) or subprocess.CompletedProcess(cmd, 1 if stderr is not None else 0, stdout='', stderr=stderr or '')
+
+        def pypi(url, data=None, method=None, timeout=60, headers=None):
+            name, ver = url.split('/pypi/')[1].split('/')[:2]
+            asked.append(f'{name}=={ver}')
+            a = {**PINS, **(answers or {})}.get(f'{name}=={ver}')
+            if a is None:
+                import urllib.error
+                raise urllib.error.HTTPError(url, 404, 'Not Found', {}, None)
+            return {'info': {'requires_python': a['requires_python'], 'requires_dist': a['requires_dist'], 'yanked': a['yanked']}, 'urls': [{'filename': f} for f in a['files']]}
+        G.http_json = pypi
+        G.platform.python_version = lambda: '3.13.15'
+        G.time.sleep = pauses.append
+        G.WORK = tempfile.mkdtemp()
+        if torch:
+            G.keep_torch = lambda path: (open(path, 'w').write(f'torch=={torch}\n'), ['-c', path])[1]
+        r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c', **BASES['qwen3.5-2b']['config']})
+        err = None
+        try:
+            r.install()
+        except G.InstallError as e:
+            err = e
+        finally:
+            G.subprocess.run, G.http_json, G.platform.python_version, G.time.sleep, G.keep_torch, G.WORK = real
+        return r, err, cmds, pauses, asked
+
+    def test_install_says_what_stopped_it_and_tries_again_only_for_the_network(self):
+        # it works: one pip call, the image's torch kept by a constraint, PyPI never asked
+        r, err, cmds, pauses, asked = self.install(None, torch='2.11.0+cu128')
+        self.assertIsNone(err)
+        self.assertEqual(len(cmds), 1)
+        self.assertEqual(cmds[0][3:6], ['install', '-q', '-c'])
+        with open(cmds[0][6]) as f:
+            self.assertEqual(f.read(), 'torch==2.11.0+cu128\n', "the image's own torch, never another build")
+        self.assertEqual(cmds[0][7:], G.FAMILIES['qwen3_5']['pins'])
+        self.assertEqual(asked, [], 'PyPI is asked only when pip stops')
+        # the weekly run's report says which Python Kaggle had (the exam run's report keeps its own shape)
+        r, *_ = PreFlight.run_setup(self)
+        self.assertEqual(r.report['python'], G.platform.python_version())
+        # a pin pip could not find, which PyPI says is not for this Python: named, in plain words, tried once
+        r, err, cmds, pauses, asked = self.install('ERROR: No matching distribution found for transformers==5.5.4', answers={'transformers==5.5.4': {**PINS['transformers==5.5.4'], 'requires_python': '>=3.14'}})
+        self.assertEqual(str(err), "I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13 (it asks for >=3.14).")
+        self.assertEqual((err.pin, err.kind, len(cmds), pauses), ('transformers==5.5.4', 'python', 1, []), 'a failure that will not pass by itself is not tried again')
+        # a version PyPI does not have
+        _, err, *_ = self.install('ERROR: No matching distribution found for peft==0.19.1', answers={'peft==0.19.1': None})
+        self.assertEqual((err.pin, err.kind, str(err)), ('peft==0.19.1', 'missing', "I couldn't install peft 0.19.1 on Kaggle's Python 3.13: PyPI has no such version."))
+        # pip's own words, when PyPI finds nothing wrong with the pins
+        _, err, cmds, *_ = self.install('error: externally-managed-environment')
+        self.assertEqual((err.kind, len(cmds)), ('managed', 1))
+        # the network: tried again (four times in all, with pauses), then said plainly
+        _, err, cmds, pauses, asked = self.install('ERROR: Could not find a version (from versions: none)\nTemporary failure in name resolution')
+        self.assertEqual((err.kind, len(cmds), pauses, asked), ('network', 4, [20, 40, 60], []))
+        self.assertIn("couldn't reach PyPI", str(err))
+
+    def test_the_run_reports_an_install_failure_in_plain_words(self):
+        e = G.InstallError('peft==0.19.1', 'missing', 'PyPI has no such version', python='3.13.15')
+        r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        posted = []
+        real = (G.OUT, G.WORK)
+        r.phase_setup = lambda: (_ for _ in ()).throw(e)
+        r.hook = posted.append
+        r.clean_wip = lambda: None
+        G.OUT = G.WORK = tempfile.mkdtemp()
+        try:
+            r.main()
+        finally:
+            G.OUT, G.WORK = real
+        report = posted[-1]['report']
+        self.assertEqual(report['error'], "I couldn't install peft 0.19.1 on Kaggle's Python 3.13: PyPI has no such version.")
+        self.assertEqual(report['install'], {'pin': 'peft==0.19.1', 'kind': 'missing', 'why': 'PyPI has no such version', 'python': '3.13.15'})
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

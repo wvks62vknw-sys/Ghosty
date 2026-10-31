@@ -1162,7 +1162,8 @@ test('a run that reports an error is never promoted, even with a passing exam an
   assert.deepEqual(d.svc.state.tags, [], 'not tagged');
   assert.equal(st.report.gate.pass, false, 'shown as NOT KEPT');
   assert.equal(st.report.published, undefined);
-  assert.match(st.note, /did not finish: HfHubHTTPError/);
+  // (in his words: the error without its programming name, SMALL-GAPS A)
+  assert.match(st.note, /did not finish: 500 Server Error uploading adapters\/week-0001\.$/);
   assert.ok(st.report.rejected.some((r) => /reported a problem/.test(r.why)), JSON.stringify(st.report.rejected));
 });
 
@@ -2133,4 +2134,59 @@ test('the daily GPU sits a SCHOOL paper when Kaggle\'s hours are short for it (t
       assert.equal(remote.last.error, "Kaggle's free GPU hours are short this week (11 left) and the weekly training needs them: sit the paper on the phone.");
     }
   }
+});
+
+
+// 25 Oct: the weekly run stopped at the notebook's install step with only "CalledProcessError … exit status 1", which reached
+// the owner as it was. Now the notebook names the pin in plain words (training/kaggle: InstallError), and the brain says it.
+test('the install step in his words: the note, the notification and the LOOPS card name the pin; a stuck install is not pushed again; the pre-flight holds the same notebook that would stop the same way (TRAIN NOW tries anyway)', async () => {
+  const install = { pin: 'transformers==5.5.4', kind: 'python', why: "it doesn't support Python 3.13 (it asks for >=3.14)", python: '3.13.15' };
+  const said = "I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13 (it asks for >=3.14)";
+  // the words: the notebook's own sentence, the old run's CalledProcessError, any other error without its programming name
+  assert.equal(S.stopWords({ error: `${said}.`, install }), said);
+  assert.equal(S.stopWords({ error: "CalledProcessError: Command '['/usr/bin/python3', '-m', 'pip', 'install', '-q', 'transformers==5.5.4', 'peft==0.19.1', 'accelerate==1.13.0', 'huggingface_hub==1.10.1', 'safetensors==0.5.3']' returned non-zero exit status 1." }), "I couldn't install the training's packages on Kaggle (that run didn't say which one: the next one does)");
+  assert.equal(S.stopWords({ error: 'RuntimeError: CUDA out of memory' }), 'CUDA out of memory');
+  assert.equal(S.stopWords({}), '');
+  // a week whose run stopped installing (a trouble that does not pass by itself): ended at once, never pushed again
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  const cfg = configOf(d.svc.state.pushes[0]);
+  await (await hookReq(d, cfg.ticket)).json();
+  const report = { week: 1, startedAt: 1, finishedAt: 2, base: 'stock', items: {}, before: {}, after: {}, gate: { pass: false, why: 'not finished' }, trained: {}, rejected: [], phases: [], error: `${said}.`, install, python: '3.13.15' };
+  assert.deepEqual(await (await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) })).json(), { ok: true, published: false });
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.phase, 'idle', 'not pushed again: it would stop the same way');
+  assert.equal(st.note, `This week's training stopped before it started. ${said}. Nothing changed on your phone.`);
+  assert.equal(d.notes.at(-1).text, st.note, 'the notification says the same');
+  assert.equal(st.report.notebook, C.notebookTag(), 'the report knows which notebook ran');
+  assert.equal((await route(d, '/training/loops')).week.stopped, said, 'the REPORT CARD\'s LOOPS card says it');
+  // next week: the pre-flight holds the same notebook, in his words, and pushes nothing
+  d.tick(8 * 86_400_000);
+  await stepUntil(d, 'push');
+  const held = await C.trainTick(d.deps);
+  assert.equal(held.note, `I haven't started this week's training. Last time ${said}. Nothing has changed since, so it would stop the same way: I need an update first (TRAIN NOW tries anyway).`);
+  assert.equal((await s.get('train:state')).phase, 'push', 'waiting, not given up');
+  assert.equal(d.svc.state.pushes.length, 1, 'nothing pushed');
+  // TRAIN NOW tries anyway
+  await route(d, '/training/now', 'POST', {});
+  await C.trainTick(d.deps);
+  assert.equal(d.svc.state.pushes.length, 2, 'pushed after TRAIN NOW');
+  assert.equal((await s.get('train:state')).tryAnyway, undefined, 'used up by the push');
+  // a network failure passes by itself: pushed again as before, its note in plain words
+  const cfg2 = configOf(d.svc.state.pushes[1]);
+  await (await hookReq(d, cfg2.ticket)).json();
+  const net = { ...report, error: "I couldn't install the packages on Kaggle's Python 3.13: the notebook couldn't reach PyPI (Kaggle's internet may be off for this run).", install: { pin: '', kind: 'network', why: "the notebook couldn't reach PyPI", python: '3.13.15' } };
+  await hookReq(d, cfg2.ticket, { method: 'POST', body: JSON.stringify({ report: net }) });
+  const again = await s.get('train:state');
+  assert.equal(again.phase, 'push');
+  assert.equal(again.note, "The Kaggle run hit a problem (I couldn't install the packages on Kaggle's Python 3.13: the notebook couldn't reach PyPI (Kaggle's internet may be off for this run)); starting it again from where it got to.");
+  // the rules: only a trouble that does not pass by itself, only the same notebook, never past TRAIN NOW
+  const last = { install, notebook: 'abc', error: said };
+  assert.match(C.installHold(last, 'abc'), /^I haven't started this week's training\. Last time I couldn't install transformers 5\.5\.4/);
+  assert.equal(C.installHold(last, 'abc', true), '');
+  assert.equal(C.installHold(last, 'def'), '', 'an update changed the notebook: it goes');
+  assert.equal(C.installHold({ ...last, install: { ...install, kind: 'network' } }, 'abc'), '', 'the network passes by itself');
+  assert.equal(C.installHold({ error: 'x', notebook: 'abc' }, 'abc'), '');
+  assert.match(C.notebookTag(), /^[0-9a-f]{8}$/);
 });

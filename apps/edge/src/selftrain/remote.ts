@@ -165,16 +165,16 @@ export async function kaggleQuota(f: Fetch, c0: KaggleCreds): Promise<GpuQuota> 
  * `kaggle kernels output`): the end of its log, and its saved report (`ghosty_report.json`, fetched from the signed
  * address Kaggle gives, without the Kaggle key). Either may be missing.
  */
-export async function kernelOutput(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ logTail: string; report: { error?: unknown } | null }> {
+export async function kernelOutput(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ logTail: string; report: { error?: unknown; install?: unknown } | null }> {
   const c = await kaggleUser(f, c0);
   const j = await kaggleRpc<{ files?: { url?: string; fileName?: string }[]; log?: string }>(f, c, 'kernels.KernelsApiService', 'ListKernelSessionOutput', { userName: c.username, kernelSlug: slug });
-  let report: { error?: unknown } | null = null;
+  let report: { error?: unknown; install?: unknown } | null = null;
   const file = (j.files ?? []).find((x) => x.fileName === 'ghosty_report.json' && /^https:\/\//.test(String(x.url)));
   if (file) {
     try {
       const r = await f(String(file.url));
       const text = r.ok ? await r.text() : '';
-      if (text.length < 4_000_000) report = JSON.parse(text) as { error?: unknown };
+      if (text.length < 4_000_000) report = JSON.parse(text) as { error?: unknown; install?: unknown };
     } catch {
       report = null;
     }

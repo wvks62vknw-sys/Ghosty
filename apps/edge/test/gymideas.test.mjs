@@ -445,6 +445,8 @@ test('LOOPS: a week that ran smaller because Kaggle\'s hours were short says so 
   // and what the daily GPU (Hugging Face) added this week
   assert.equal(row({ ...week, daily: 312 }).practised, 'week 7: running now · 312 checked samples this week from the daily GPU');
   assert.equal(row({ ...week, daily: 1 }).practised, 'week 7: running now · 1 checked sample this week from the daily GPU');
+  // a run that stopped says why, in his words (the install step names the pin: selftrain.ts stopWords)
+  assert.equal(row({ ...week, phase: 'idle', stopped: "I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13" }).practised, "week 7 stopped: I couldn't install transformers 5.5.4 on Kaggle's Python 3.13: it doesn't support Python 3.13");
 });
 
 test('LOOPS: a game\'s week from the GYM record — units and levels since the day\'s point a week ago, the league\'s rating then and now, its decisions this week, his tries at the edge', () => {
