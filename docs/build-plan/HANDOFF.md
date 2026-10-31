@@ -825,7 +825,7 @@ folder that no longer exists; ignore those paths).
   no-billing rule are in its first section) added, and its builder started from this commit (port 8855). The owner got his
   ONE morning summary in this session right after this push. Open from his side: his principles, the named person
   (cousin: Telegram or email), the four Harold/Machine picks, the phone tests of batches 1–4.
-- 31 Oct 14:35 UK: BATCH 5 BUILT, REVIEWED AND MERGED — PR #45 (main 5c81f76, merge commit at 14:33 UK) after a green run on
+- 31 Oct 13:40 UK (the clocks went back on 25 Oct: UK = UTC now; every "UK" time written on 31 Oct before this line is an hour late): BATCH 5 BUILT, REVIEWED AND MERGED — PR #45 (main 5c81f76, merge commit at 13:33 UK) after a green run on
   b8f66bc (smoke 113 min: the loop is 79 specs now, with faces and guardian). The builder (BRIEF-GUARDIAN, from bea579c,
   port 8855; 2 h 20 min, 56 files, +5410/−34, five commits) delivered all six items; its report is recorded as
   OWNER-ISSUES 86. WHAT IS WHERE: brain `guardian.ts` (the hourly watch: watchTick, warningLine, guardianInfo; GET

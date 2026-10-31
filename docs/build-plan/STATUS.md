@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 14:35 UK
+# Where everything stands — 31 October 2026, 13:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #45, the last at 14:33 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #45, the last at 13:33 UK on 31 Oct)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -10,7 +10,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   (dependability): a school paper survives on the phone (heavy mode, the smallest brain, saved per answer, CARRY ON after a
   close), the chat never gives up while a free model is seconds away, ON THIS PHONE fails closed (a toggle by the mic; the
   cloud only by a tap), a Telegram video is never dropped and "kiddo" means him, never your cousin.
-- LIVE since 09:49 UK on 31 Oct (PR #44), three batches at once:
+- LIVE since 08:49 UK on 31 Oct (PR #44), three batches at once:
   BATCH 2, the conversation and the soul — he answers at your length (HOW BRIEF's default is LIKE YOU), no AI cadence,
   looks things up only for live facts, "hey" / "thanks" / "night" answered with no model at all, a stop by intent ("shut
   up", "enough", "leave it", typos and all) obeyed at once and never answered, a HOW FIERY dial (FIRM by default) with the
@@ -33,7 +33,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   Telegram too); "what did you do today?" answered from what he really did, newest first (chat and Telegram); on a fresh
   phone, three things he can do said once; and one gentle line a day at most offering an ability you have never used,
   when the moment calls for it (a plate typed, a YouTube link, a worry, a receipt) or as a "Did you know I can…?".
-- LIVE since 14:33 UK on 31 Oct (PR #45): BATCH 5, the eyes and the guardian — the Lens's PEOPLE mode (ENROL ME: five
+- LIVE since 13:33 UK on 31 Oct (PR #45): BATCH 5, the eyes and the guardian — the Lens's PEOPLE mode (ENROL ME: five
   looks from the front camera, kept on your phone and nowhere else; then a thin white ADMIN box and "It's you." when he
   sees you; "Ghosty, this is Sam" with the camera on someone introduces them, next time "Sam"; a stranger gets no name and
   no guess; never on God's Eye, a photo or a screenshot; faces never reach his brain or a backup; SETTINGS → PRIVACY →
@@ -106,7 +106,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Nothing waiting: everything built so far is live (PR #45 merged at 14:33 UK on 31 Oct).
+- Nothing waiting: everything built so far is live (PR #45 merged at 13:33 UK on 31 Oct).
 
 ## 3. Happening right now
 
@@ -117,9 +117,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   "is this a scam?" once each for real. Also your principles in your own words (SETTINGS → CHARACTER → PRINCIPLES) and
   the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between
   opens (47) and your Connect 4 trick no longer wins (52).
-- Batch 5 landed at 14:33 UK; nothing is building this minute. Next, in order: the Machine view and foresight (your four
-  Harold / Machine picks shape it; without them I take the brief's defaults and you change them), the workshop and
-  knowledge, the social self and rituals. Left for a later batch: twelve more themes, his self-model and the timing of his
+- Batch 5 landed at 13:33 UK. Building now (since 13:55 UK): batch 6, the Machine view and foresight (BRIEF-MACHINE-VIEW):
+  a MACHINE mode on God's Eye that frames your city with everything moving and your places lit, with a true count of what
+  he is watching; and foresight, a prediction ledger (rain at home, your commute, your first train or bus, and what you ask
+  him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
+  knowledge, then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
   messages, search by meaning in the "Can you…?" box, anti-spoofing for faces (a printed photo held to the live camera
   still counts as the camera).
 
