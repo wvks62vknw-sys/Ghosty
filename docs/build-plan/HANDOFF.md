@@ -783,6 +783,26 @@ folder that no longer exists; ignore those paths).
   BATCH 4 (BRIEF-ABILITIES) builder started 03:50 UK from 0a0d23b (batch 1 + 2, NOT batch 3), port 8866, worktree
   agent-a62f6bb3…: expect merge work in features/system/*.ts and agent.ts when it reports. Main stayed at ab09c3c (no
   guard revert after the batch-1 merge).
+- 31 Oct 06:00 UK: BATCH 4 (BRIEF-ABILITIES) BUILT, REVIEWED AND MERGED on top of batch 3; pushed into PR #44 with
+  batches 2 and 3 (one CI run for all three; the push restarts the PR's run). Record: OWNER-ISSUES 85. The next session
+  must know: packages/shared/src/abilities.ts (pure: iCan, searchAbilities, canYouAsked/whyAsked/todayAsked, whyLines,
+  dayLines, offerFor/didYouKnow); apps/edge/src/abilities.ts (GET /abilities, POST /abilities/learn {ask}, POST
+  /abilities/offered {id}; keys 'abilities:offered', 'abilities:used'; GROUP_CAT places each tool group, GROUP_NEEDS names
+  the keys/links a group needs — the tests check them against keys.ts), why.ts ('why:turns': 30 turns / 2 days; the
+  trailRecorder wraps `out` in agent.ts chat() with a `finally { keepTrail }`; GET /why), today.ts (GET /today?tz=),
+  upgrades.ts addOwnerGoal/goalTitle (owner goals first, cap 30, never pushed out; `gather` reads them first); telegram.ts
+  answers "why?" and "what did you do today?" before claimTurn. Web: abilities/registry.ts (the app's abilities from the
+  deck, GYM META, Lens TILES, SCHOOL STAGES; the brain's as last heard in localStorage 'ghosty.abilities'), offer.ts
+  ('ghosty.offered', 'ghosty.opened'; under a test runner only with window.__ghostyOffers), firstrun.ts ('ghosty.firstrun';
+  only with window.__ghostyFirstRun under a runner — the OWNER'S OWN PHONE will show the three-things message once on its
+  first open after this lands), assistant/local.ts (localTurn runs first in send(), before the offline/kept logic; skipped
+  for cloud/plain sends), features/abilities/index.ts (#abilities), core/why.ts + localcard.ts; new tests/abilities.spec.mjs
+  in the loop (after undo; 77 specs now). MERGE: two conflicts only (check.yml's loop line — both new specs kept;
+  api/brain.ts imports). MY FIX (74e7cf9): "can you hear me?" / "can you see us?" return null from canYouAsked (the
+  brain answers). Builder's follow-ups for a cheaper model: meaning search in the box (features/abilities/index.ts ask()
+  when meaningPossible()); batch 3's day log as a source in today.ts dayDoings; a Lens receipt offer (lens/read.ts →
+  offer.ts say()); the deck miniature (tests/deckshots.spec.mjs → public/deck/abilities.jpg).
+
 
 
 

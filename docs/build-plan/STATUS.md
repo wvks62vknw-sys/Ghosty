@@ -1,4 +1,4 @@
-# Where everything stands — 31 October 2026, 05:00 UK
+# Where everything stands — 31 October 2026, 06:00 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
@@ -69,7 +69,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Built, reviewed and going up in ONE pull request (opened early on 31 Oct; live once its checks pass and it merges):
+- Built, reviewed and going up in ONE pull request (PR #44, 31 Oct; live once its checks pass and it merges):
   BATCH 2, the conversation and the soul — he answers at your length (HOW BRIEF's default is LIKE YOU), no AI cadence,
   looks things up only for live facts, "hey" / "thanks" / "night" answered with no model at all, a stop by intent ("shut
   up", "enough", "leave it", typos and all) obeyed at once and never answered, a HOW FIERY dial (FIRM by default) with the
@@ -83,11 +83,20 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   holds back a notebook that would stop the same way), the INDEPENDENCE METER ("This week 71% of what you asked was
   answered on your own brains…") with SOVEREIGN MODE's list of what still needed the cloud, and the capability ledger
   (WHAT I LEARNED TO DO on the Report card, and a note on Sunday mornings).
+  BATCH 4, ABILITIES — a screen of everything he can do, made from his own registries so it is never out of date (65
+  things today: 42 of the brain's, 23 of the app's; SEE · KNOW · BUILD · WATCH OVER YOU · PLAY · LEARN · DO FOR YOU · TALK,
+  each with asks you can tap and GO; a missing key says so and GO takes you to it), reached from the Me sheet, the deck and
+  #abilities; a "Can you…?" box (and the same in chat: "can you translate signs?" → "Yes." with the way there; "Not yet.
+  Want me to learn it?" → YES puts it on his learning list, first in Workshop → UPGRADE IDEAS, and the nightly upgrade
+  pass reads your goals first); WHY under every reply (what ran, with what, how it went, and why — no model; "why?" on
+  Telegram too); "what did you do today?" answered from what he really did, newest first (chat and Telegram); on a fresh
+  phone, three things he can do said once; and one gentle line a day at most offering an ability you have never used,
+  when the moment calls for it (a plate typed, a YouTube link, a worry, a receipt) or as a "Did you know I can…?".
 
 ## 3. Happening right now
 
 - Waiting on you: the three phone tests of batch 1 (sit a paper with GYM training running; "Always" with no brain downloaded → the explanation and ASK THE BIG BRAIN, the toggle by the mic; re-send the TikTok with "what do you think of this kiddo"), and the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between opens (47) and your Connect 4 trick no longer wins (52).
-- Building now: batch 4, the ABILITIES tab (everything he can do, generated from his own registries so it is never out of date; "Can you…?"; "want me to learn it?"; WHY he did that; what he did today). Left for a later batch: twelve more themes (batch 2, item 7), his self-model and the timing of his messages (batch 3, items 3 and 4).
+- Building now: nothing — batches 2, 3 and 4 are all up in the one pull request. Next, in order: the eyes and the guardian, the Machine view and foresight, the workshop and knowledge, the social self and rituals (PLAN.md). Left for a later batch: twelve more themes (batch 2, item 7), his self-model and the timing of his messages (batch 3, items 3 and 4), search by meaning in the "Can you…?" box (batch 4).
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
