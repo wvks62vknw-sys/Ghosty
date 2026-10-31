@@ -4631,7 +4631,7 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation:
 #pg-abilities .canans:not(:empty) { margin-top: 12px; }
 #pg-abilities .canline { margin: 0 0 10px; font: 600 17px/22px var(--sf); color: var(--ink); }
 #pg-abilities .canoffer { gap: 8px; margin: 0 0 4px; }
-#pg-abilities .canoffer button, .localacts button { min-height: 44px !important; padding: 0 18px; border-radius: 22px; }
+#pg-abilities .canoffer button, .localacts button { min-height: 44px !important; padding: 0 18px; border-radius: 22px; text-transform: none; }
 #pg-abilities button.abask.best { color: var(--c); box-shadow: inset 0 0 0 1px rgba(var(--cr), .4); }
 .localacts { gap: 8px; margin-top: 10px; min-width: 0; }
 .localacts button { max-width: 100%; white-space: normal; text-align: left; text-transform: none; overflow-wrap: anywhere; line-height: 20px; }
