@@ -152,8 +152,9 @@ export async function localTurn(text: string, opts: { voice?: boolean; private?:
   if (!allAbilities().some((a) => a.from === 'brain')) await Promise.race([loadBrainSide(), new Promise((r) => setTimeout(r, 1500))]);
   else void loadBrainSide();
   const { text: reply, local } = canAnswer(thing);
-  // DO IT sends what he typed, as he typed it
+  // DO IT sends what he typed, as he typed it; a learning goal keeps his own words too
   local.doIt = text;
+  if (local.learn) local.learn.ask = text;
   add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
   add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local, ...(opts.private ? { private: true } : {}) });
   chat.set({ live: reply });
