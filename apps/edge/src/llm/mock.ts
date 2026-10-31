@@ -39,6 +39,13 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
   if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
   if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
+  // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
+  // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
+  if (/^pineapple on pizza\b/.test(owner)) {
+    const short = system.includes('He writes short: reply in a line or two.');
+    const body = short ? 'It works: sweet against salt.' : 'It works, and here is why:\n- sweet against salt\n- the acid cuts the cheese\n- the ham carries both';
+    return { message: { role: 'assistant', content: `Certainly! ${body}\n\nI hope this helps! How can I help you further?` }, model };
+  }
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);

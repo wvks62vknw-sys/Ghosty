@@ -460,12 +460,12 @@ test('the paused database: the link lives on in KV, so the webhook still answers
   state.storage.put = async () => quota();
   state.storage.delete = async () => quota();
   try {
-    const r = await hook(msg(OWNER_CHAT, { text: 'hello' }), live);
+    const r = await hook(msg(OWNER_CHAT, { text: 'say hello' }), live);
     assert.equal(r.status, 200);
     const reply = texts();
     assert.ok(reply.length >= 1, 'answered while paused');
     assert.ok(!reply.some((t) => /Exceeded allowed rows/.test(t)), `no raw database error: ${reply.join(' | ')}`);
-    assert.ok(reply.some((t) => /^Mock reply to: hello/.test(t)), reply.join(' | '));
+    assert.ok(reply.some((t) => /^Mock reply to: say hello/.test(t)), reply.join(' | '));
   } finally {
     state.storage.get = realGet;
     delete state.storage.put;

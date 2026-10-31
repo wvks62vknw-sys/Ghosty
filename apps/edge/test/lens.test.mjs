@@ -338,7 +338,7 @@ test('a photo with a message reaches the model as parts; the history keeps only 
     assert.equal(bad.status, 400, JSON.stringify(images).slice(0, 60));
     assert.match((await bad.json()).error, /JPEG, PNG or WebP/);
   }
-  assert.equal((await chat({ message: 'hello', images: [] })).find((e) => e.t === 'text').text, 'Mock reply to: hello', 'an empty list is just a message');
+  assert.equal((await chat({ message: 'say hello', images: [] })).find((e) => e.t === 'text').text, 'Mock reply to: say hello', 'an empty list is just a message');
 });
 
 test('with no model that can see, a photo gets an honest answer that passes on what the phone itself saw', async () => {

@@ -291,7 +291,7 @@ export const memoryTab: TabDef = {
       lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
     };
     const cp = panel('CONVERSATION', { footer: true });
-    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask me anything from Home.');
+    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said between us yet.');
     // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));

@@ -79,7 +79,7 @@ export interface ToolGroup {
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
 export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'memory', tools: memoryTools, when: 'always', about: 'You can remember lasting facts the owner tells you (remember), list them (list_memory) and drop one (forget); forget_everything needs approval.' },
-  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch) — use them for anything current or that you are unsure about.' },
+  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch).' },
   {
     name: 'ui',
     tools: uiTools,
@@ -169,7 +169,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your library of books, PDFs, papers, notes, code and the starter library (library_search; relevant passages also come in on their own); cite the source.',
+    about: 'You can search your library (library_search; relevant passages also come in on their own); cite the source.',
   },
   {
     name: 'library-admin',

@@ -53,6 +53,41 @@ export function directPlan(text: string, c: Pick<ClientContext, 'location'>): Di
   return null;
 }
 
+// ---- small talk: greetings and acknowledgements need no model at all (OWNER-ISSUES 64d: "hey" met "no free model")
+
+/** His name, a "mate", and the dressing around a word ("hey ghosty!!", "ok then mate 👍") — none of it changes what was said. */
+const DRESS = /(?:^|\s)(?:ghosty|ghost|mate|bro|man|pal|buddy|kiddo|lad|boss|then|x+)(?=\s|$)/g;
+const GREET = /^(?:hey+|hi+|hiya|hello+|hullo|yo+|sup|wassup|what'?s up|alright|ay+|oi|evening|morning|afternoon|good (?:morning|afternoon|evening)|hey there|hi there|you there|you about|you up)$/;
+const HOW = /^(?:how are you|how are ya|how're you|how you doing|how are you doing|how'?s it going|how are things|you alright|you ok|you okay|u ok|you good)$/;
+const THANKS = /^(?:thanks|thank you|thank u|thanks a lot|thanks so much|cheers|ta|thx|ty|tysm|many thanks|appreciate it|much appreciated)$/;
+const ACK = /^(?:ok|okay|k|kk|okey|okie|cool|got it|gotcha|right|righto|fair|fair enough|noted|sure|yep|yup|yeah|ya|aye|sound|safe|bet|understood|makes sense|fine|all good)$/;
+const NIGHT = /^(?:night|nite|goodnight|good night|night night|nighty night|gn|sleep well|off to bed|going to bed|i'?m off to bed|bed ?time)$/;
+const BYE = /^(?:bye|bye bye|see you|see ya|see you later|cya|later|laters|catch you later|ttyl|speak later|talk later)$/;
+
+/** A reply that asked him something or offered to do something: a bare "ok" or "yeah" after it is an answer, for the model. */
+const ASKED = /\?|\b(?:i can|i could|shall i|should i|want me|i'll|would you like|do you want)\b/i;
+
+/**
+ * A greeting, a thank-you, an acknowledgement, goodnight or goodbye, answered as a person would — one short line, no
+ * model, no menu, no "how can I help". null for anything else (anything with more in it is a conversation). `last`: his
+ * own last reply: after a question or an offer, "ok" and "yeah" are answers, so they go to the model.
+ */
+export function smallTalk(text: string, c: Pick<ClientContext, 'tz' | 'name'>, last = '', now = Date.now()): string | null {
+  const t = text.toLowerCase().replace(/[’']/g, "'").replace(/[^\p{L}\p{N}' ]+/gu, ' ').replace(DRESS, ' ').replace(/\s+/g, ' ').trim();
+  if (!t || t.length > 40) return null;
+  const name = c.name?.trim() || 'boss';
+  const hour = zoned(now, safeTz(c.tz)).h;
+  // A steady choice between two lines (so it is never the same word twice in a row, and a test can know it).
+  const pick = (a: string, b: string) => (Math.floor(now / 60_000) % 2 ? b : a);
+  if (GREET.test(t)) return hour < 5 ? `Still up, ${name}?` : hour < 12 ? `Morning, ${name}.` : hour < 18 ? `Afternoon, ${name}.` : `Evening, ${name}.`;
+  if (HOW.test(t)) return pick('All quiet this end. You?', 'Good. Quiet here. You?');
+  if (THANKS.test(t)) return pick('Any time.', `Any time, ${name}.`);
+  if (NIGHT.test(t)) return `Night, ${name}. I'll keep watch.`;
+  if (BYE.test(t)) return `Later, ${name}.`;
+  if (ACK.test(t) && !ASKED.test(last)) return pick('Right.', 'Good.');
+  return null;
+}
+
 /** "It is Fri 17 Oct 2026, 14:05 (Europe/London)." */
 export function localTimeAnswer(c: Pick<ClientContext, 'tz'>, now = Date.now()): string {
   const tz = safeTz(c.tz);

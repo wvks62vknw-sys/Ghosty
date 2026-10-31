@@ -4,7 +4,8 @@
 //  - a change is saved by the brain (POST /api/profile/persona) and comes back from the brain after
 //    a reload even when this phone's copy is gone; DEFAULT puts the character back;
 //  - in the chat, a model's chatbot slip ("Great question! … I hope this helps!") reaches the owner
-//    polished, and a typed message is answered in the written style;
+//    polished, a typed message is answered in the written style, and a short message gets a short reply
+//    (his length, OWNER-ISSUES 64b) with no assistant cadence (64c); the empty chat says "Here, Boss." (67a);
 //  - nothing scrolls sideways at iPhone width.
 //   BASE=http://localhost:8876 node tests/character.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -52,12 +53,12 @@ const told = () => page.locator('#pg-settings .character .charsays').textContent
 await openSettings();
 let d = await dials();
 check(d.dry?.label === 'HOW DRY' && d.dry.steps.join('|') === 'PLAIN|DRY|VERY DRY' && d.dry.on === 'DRY', `dry dial: ${JSON.stringify(d.dry)}`);
-check(d.brief?.label === 'HOW BRIEF' && d.brief.steps.join('|') === 'FULLER|SHORT|TERSE' && d.brief.on === 'SHORT', `brief dial: ${JSON.stringify(d.brief)}`);
+check(d.brief?.label === 'HOW BRIEF' && d.brief.steps.join('|') === 'FULLER|LIKE YOU|TERSE' && d.brief.on === 'LIKE YOU', `brief dial: ${JSON.stringify(d.brief)}`);
 check(d.warm?.label === 'HOW WARM' && d.warm.steps.join('|') === 'COOL|WARM|WARMER' && d.warm.on === 'WARM', `warm dial: ${JSON.stringify(d.warm)}`);
 check(/^CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\./.test((await told()) ?? ''), `default words: ${await told()}`);
 // how he sounds, in plain words, first; the exact words he is given one tap away (not a wall of prompt text)
 const nowLine = () => page.locator('#pg-settings .character .charnow').textContent().catch(() => '');
-check((await nowLine()) === 'Now: dry, warm, short answers, as he comes. The app, the voice, Telegram and notifications all sound like this.', `the plain line: "${await nowLine()}"`);
+check((await nowLine()) === 'Now: dry, warm, answers as long as yours, as he comes. The app, the voice, Telegram and notifications all sound like this.', `the plain line: "${await nowLine()}"`);
 check(!(await page.locator('#pg-settings .character .charsays').isVisible()) && (await page.locator('#pg-settings .character details.charwords summary').textContent()) === 'The exact words Ghosty is given', 'the exact words are folded behind "The exact words Ghosty is given"');
 await page.locator('#pg-settings .character').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/character-${engine}-default.png` });
@@ -100,6 +101,10 @@ check(JSON.stringify(saves.at(-1)) === JSON.stringify({ dry: 1, brief: 1, warm: 
 await page.evaluate(() => (location.hash = 'core'));
 await page.waitForSelector('#cin', { timeout: 15000 });
 await page.click('.logbtn').catch(() => undefined);
+// an empty conversation reads as someone already there (OWNER-ISSUES 67a): his name, no menu, no "how can I help"
+const idle = ((await page.locator('.log .logidle').textContent({ timeout: 5000 }).catch(() => '')) ?? '').trim();
+check(idle === 'Here, Boss.', `the empty chat: "${idle}"`);
+check((await page.locator('#cin').getAttribute('placeholder')) === 'Talk to me', 'the field invites talk, not a query');
 const reply = async (text) => {
   const before = await page.locator('.log .msg:not(.me)').count();
   await page.fill('#cin', text);
@@ -112,6 +117,11 @@ const chatty = await reply('say something chatty');
 check(/The kettle is on\.$/.test(chatty) && !/Great question|hope this helps|Let me know/.test(chatty), `polished reply: "${chatty}"`);
 const style = await reply('how will you answer?');
 check(/In writing\.$/.test(style), `typed style: "${style}"`);
+// his length (64b) and no assistant cadence (64c): a short message gets a short reply, without "Certainly!" or the closing offer
+const short = await reply('pineapple on pizza?');
+check(/It works: sweet against salt\.$/.test(short) && !/acid|ham/.test(short), `a short message, a short reply: "${short}"`);
+check(!/Certainly|hope this helps|How can I help|Let me know/i.test(short), `no assistant cadence: "${short}"`);
+check(!(await page.locator('.log .logidle').count()), 'the quiet line goes once there is a conversation');
 await page.screenshot({ path: `${out}/character-${engine}-chat.png` });
 
 await browser.close();

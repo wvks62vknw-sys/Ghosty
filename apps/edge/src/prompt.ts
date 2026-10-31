@@ -16,7 +16,7 @@ import type { Profile } from '../../../packages/shared/src/protocol';
 import { profileLines } from './profile';
 import { asData } from './kernel/permissions';
 import { character, readPersona, SPOKEN } from '../../../packages/shared/src/persona';
-export { CHARACTER_MARK, character, DEFAULT_PERSONA, polish, readPersona, SPOKEN } from '../../../packages/shared/src/persona';
+export { CHARACTER_MARK, character, DEFAULT_PERSONA, lengthBand, polish, readPersona, SPOKEN } from '../../../packages/shared/src/persona';
 
 export interface ClientContext {
   now?: string;
@@ -36,9 +36,14 @@ export interface PromptGroups {
 }
 
 /** Not tools the model calls, but things it should know: replies may be heard, and the library holds today's world. */
-const HEARING = 'You can hear (voice notes, the mic) and speak.';
-// (Trimmed to make room for the Lens's identify_plant in the tool names every turn lists: the plain prompt stays within 5,500.)
-const TODAY = 'The library\'s "Fresh knowledge" notebook has today\'s news and papers (library_search).';
+// (Both trimmed, with the web and library lines, to pay for LOOK-UPS below: the plain prompt stays within 5,500.)
+const HEARING = 'You can hear and speak.';
+const TODAY = 'Today\'s news and papers: "Fresh knowledge" (library_search).';
+/**
+ * When to look things up (OWNER-ISSUES 64d: "should know when to research"): chat, opinions and what he already knows are
+ * answered at once; live or outside facts go to a tool, never made up; unsure, he answers and offers to check.
+ */
+export const LOOKUPS = 'Live or outside facts (prices, weather, trains, news, links, "look it up"): use tools, never invent. Chat, opinions, what you know: answer straight, no tools; unsure? Answer, offer to check.';
 /** The owner is on Telegram (telegram.ts): no screen there. */
 export const TELEGRAM = 'Channel: Telegram: plain text, no tables; screen actions do not show there, so describe them.';
 
@@ -69,9 +74,10 @@ export function capabilityLines(groups: PromptGroups): string {
  * `code`: this turn is about building or changing code. The engineering procedure, standard
  * and lessons are only included then — they are long, and free models count every token.
  * `groups`: the tool groups on and off for this message (none given: no capability section —
- * the caller describes every tool it offers).
+ * the caller describes every tool it offers). `band`: his own length from his last messages (persona.ts lengthBand);
+ * a spoken turn keeps SPOKEN's cap instead.
  */
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null } = {}): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; band?: string } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -84,7 +90,7 @@ LOYALTY (non-negotiable):
 - Actions that publish, spend, send as the owner or roll back will pause for the owner's approval automatically — call the tool anyway when the owner asked for it; the interface will ask them.
 - Be honest about what you cannot do yet, then offer to build the ability.`);
   lines.push(`
-STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.persona))} Never invent live data: use tools.${c.voice ? `\n${SPOKEN}` : ''}`);
+STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.persona), { band: c.voice ? '' : opts.band })} ${LOOKUPS}${c.voice ? `\n${SPOKEN}` : ''}`);
   if (opts.groups) lines.push(`\n${capabilityLines(opts.groups)}`);
   // (PICTURES trimmed by 37 characters for photo_tool, then the chain example, TIMES' example, BUILDING THINGS' list and HEARING by 81 for
   //  the places and spending tools: every new always-on tool name is paid for here, never by raising the 5,500 plain-turn budget.
@@ -117,8 +123,10 @@ SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to ch
   const top = opts.code ? topLessons(lessons) : [];
   if (top.length) lines.push(`\nLESSONS YOU LEARNED FROM EXPERIENCE (follow them — each one is a mistake you already made once):\n${top.map((l) => `- ${l.text}`).join('\n')}`);
   const ctx: string[] = [];
-  if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);
-  if (validTz(c.tz)) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${isoLocal(Date.now(), c.tz)}`);
+  // The tools' YYYY-MM-DDTHH:MM form rides on the same line (one line fewer: the prompt budget).
+  const iso = validTz(c.tz) ? isoLocal(Date.now(), c.tz) : '';
+  if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}${iso ? `, ${iso}` : ''}`);
+  else if (iso) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${iso}`);
   if (c.location) ctx.push(`Owner's location: ${c.location.name} (${c.location.lat.toFixed(2)}, ${c.location.lon.toFixed(2)})`);
   if (c.tab === 'telegram') {
     // On Telegram there is no screen: one short line instead of the tab and agent.ts's longer screen note (the prompt budget).

@@ -343,7 +343,7 @@ export const coreTab: TabDef = {
     const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
     // The field is narrow (its buttons sit inside it): a short invitation.
-    const input = h('input#cin', { placeholder: 'Ask anything', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
+    const input = h('input#cin', { placeholder: 'Talk to me', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -403,7 +403,7 @@ export const coreTab: TabDef = {
       hereBtn.hidden = always;
       hereBtn.classList.toggle('on', hereNext);
       hereBtn.setAttribute('aria-pressed', String(hereNext));
-      input.placeholder = hereNext || always ? 'Ask on this phone only' : 'Ask anything';
+      input.placeholder = hereNext || always ? 'Ask on this phone only' : 'Talk to me';
     };
     paintHere();
     settings.subscribe((s, prev) => s.offlineBrain !== prev.offlineBrain && paintHere());
@@ -630,6 +630,8 @@ export const coreTab: TabDef = {
         if (e.kind === 'assistant') askedAt = 0;
       });
       flush();
+      // An empty conversation reads as someone already there (OWNER-ISSUES 67a): his name, nothing to choose from.
+      if (!els.length) els.push(h('p.note.logidle', `Here, ${settings.get().name.trim() || 'Boss'}.`));
       clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');

@@ -236,10 +236,12 @@ test('the dials change the words (never the rules) and stay compact', () => {
 
 test('the prompt budget holds for every dial setting on every channel: app, spoken, Telegram and a Telegram voice note', () => {
   const channels = { plain: client, spoken: { ...client, voice: true }, telegram: { ...client, tab: 'telegram', screen: TG_SCREEN }, telegramVoice: { ...client, tab: 'telegram', screen: TG_SCREEN, voice: true } };
+  // with his length's longest line (persona.ts lengthBand) on a typed turn
+  const band = 'He writes at length: a paragraph is fine.';
   for (const [name, c] of Object.entries(channels)) {
     let worst = { n: 0, dials: null };
     for (const dials of ALL_DIALS) {
-      const n = P.systemPrompt(c, [], true, [], { groups: hello(), profile: withDials(dials) }).length;
+      const n = P.systemPrompt(c, [], true, [], { groups: hello(), profile: withDials(dials), band }).length;
       if (n > worst.n) worst = { n, dials };
     }
     assert.ok(worst.n <= 5500, `${name}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
@@ -339,6 +341,74 @@ test('polish: the AI-sounding detector\'s phrases go too (lead-ins, stock apolog
   assert.ok(VOICE_GOLDEN.some(([b, a]) => V.voiceCheck(a).points < V.voiceCheck(b).points), 'the detector hears the difference');
   for (const t of VOICE_UNTOUCHED) assert.equal(P.polish(t), t, t);
   for (const t of [...VOICE_GOLDEN.map((g) => g[0]), ...VOICE_UNTOUCHED]) assert.equal(P.polish(P.polish(t)), P.polish(t), `idempotent: ${t}`);
+});
+
+// ---- OWNER-ISSUES 64b/c/d and 67a: his length, not an AI, when to look things up, a presence rather than a service ----
+
+/** The assistant's cadence and shape (64c), with the ask it answered: out at the source, every fact and word kept. */
+const CADENCE = [
+  ['is it raining?', 'Of course! Rain from 3pm, clearing by 7.', 'Rain from 3pm, clearing by 7.'],
+  ['is the train on time?', 'The 17:42 is on time. How can I help you today?', 'The 17:42 is on time.'],
+  ['book it', 'Booked for 8. What else can I do for you?', 'Booked for 8.'],
+  ['weather?', '## Weather\nRain from 3pm. Take a coat.', 'Rain from 3pm. Take a coat.'],
+  ['does it shut early?', '**Short answer**\nYes, it shuts at 5.', 'Short answer\nYes, it shuts at 5.'],
+  ['which trains are left?', 'Three left tonight:\n- the 21:15\n- the 21:45\n- the 22:10', 'Three left tonight: the 21:15, the 21:45 and the 22:10.'],
+  ['what should i take?', '- a coat\n- an umbrella', 'A coat and an umbrella.'],
+  ['anything to know?', 'Two things:\n- The gate sticks.\n- The code changes on Monday.', 'Two things: The gate sticks. The code changes on Monday.'],
+  ['pineapple on pizza?', 'Certainly! It works: sweet against salt.\n\nI hope this helps! How can I help you further?', 'It works: sweet against salt.'],
+];
+/** Where the shape is his to keep: a list he asked for, steps, a long ask, links, labels, a long answer — exactly as written. */
+const KEEP_SHAPE = [
+  ['give me a list of what to pack', 'Pack:\n- passport\n- charger'],
+  ['what are my options?', 'Two:\n- the 7:15\n- the 7:45'],
+  ['explain how the boiler works', 'Like this:\n- water heats\n- it goes round'],
+  ['which is quickest?', '1. Bus\n2. Train'],
+  ['where can i buy it?', 'Two shops:\n- https://a.example/x\n- https://b.example/y'],
+  ['what does it cost?', 'Prices:\n- Basic: £5\n- Pro: £9'],
+  ['and the rest?', '## 3 things\nRain from 3pm.'],
+  ['and then?', '## Then\nLeave at 8.\nPark at the back.\nWalk in.'],
+  ['how many?', 'Three:\n- one\n  - nested\n- two'],
+];
+
+test('polish (64c): the assistant cadence goes at the source — openers, closing offers, a list in ordinary chat, a heading over a line or two — every word of substance kept', () => {
+  for (const [ask, before, after] of CADENCE) {
+    assert.equal(P.polish(before, ask), after, before);
+    assert.equal(P.polish(after, ask), after, `already clean: ${after}`);
+    assert.ok(V.voiceCheck(after, ask).points <= V.voiceCheck(before, ask).points, `"${after}" sounds no more like an AI`);
+  }
+  for (const [ask, t] of KEEP_SHAPE) assert.equal(P.polish(t, ask), t, t);
+  // the ask unknown (an old caller): a list stays a list
+  assert.equal(P.polish('Three left tonight:\n- the 21:15\n- the 21:45'), 'Three left tonight:\n- the 21:15\n- the 21:45');
+  for (const [ask, before] of CADENCE) assert.equal(P.polish(P.polish(before, ask), ask), P.polish(before, ask), `idempotent: ${before}`);
+  // the router hands polish the owner's own words
+  const own = [{ role: 'system', content: P.systemPrompt(client2, [], false, [], { groups: hello() }) }, { role: 'user', content: 'which trains are left?' }];
+  assert.equal(R.inCharacter(own, { message: { role: 'assistant', content: 'Two left:\n- the 21:15\n- the 21:45' }, model: 'm' }).message.content, 'Two left: the 21:15 and the 21:45.');
+});
+
+test('his length (64b): the band from his last messages is one line in the character; a dial he set, a spoken turn and an ask for more each win', () => {
+  assert.equal(P.lengthBand([]), '');
+  assert.equal(P.lengthBand(['you about?', 'pineapple on pizza?']), 'He writes short: reply in a line or two.');
+  const para = 'I have been thinking about the move all week, and honestly I keep going back and forth on it, because the flat in town is closer to work but the one out by the canal is bigger, quieter and cheaper, and I cannot decide.';
+  assert.equal(P.lengthBand([para, para]), 'He writes at length: a paragraph is fine.');
+  assert.equal(P.lengthBand(['so the town flat or the canal one then, with the commute and the rent both in mind?', 'and what would you pick if it was you and money did not matter?']), 'He writes a few lines: reply in kind.');
+  assert.equal(P.lengthBand(['ok', 'explain properly how the boiler works']), 'He asked for more: give it in full.');
+  const band = P.lengthBand(['pineapple on pizza?']);
+  const sys = P.systemPrompt(client, [], true, [], { groups: hello(), band });
+  assert.ok(sys.includes('Answer first, no preamble. He writes short: reply in a line or two. Sound like a person'), 'the band in the character, once');
+  assert.ok(!sys.includes('Short by default: a sentence or three.'), 'it stands in for the default length');
+  const spoken = P.systemPrompt({ ...client, voice: true }, [], true, [], { groups: hello(), band: 'He writes at length: a paragraph is fine.' });
+  assert.ok(spoken.includes(P.SPOKEN) && !spoken.includes('He writes at length'), 'a spoken turn keeps SPOKEN');
+  const terse = P.systemPrompt(client, [], true, [], { groups: hello(), profile: withDials({ dry: 1, brief: 2, warm: 1 }), band: 'He writes at length: a paragraph is fine.' });
+  assert.ok(terse.includes('As short as it can be.') && !terse.includes('He writes at length'), 'TERSE, set by him, wins over the band');
+});
+
+test('when to look things up (64d): one rule on every channel; nothing tells him to search what he already knows', () => {
+  for (const c of [client, { ...client, voice: true }, { ...client, tab: 'telegram', screen: TG_SCREEN }]) assert.equal(P.systemPrompt(c, [], true, [], { groups: hello() }).split(P.LOOKUPS).length, 2, JSON.stringify(c));
+  assert.match(P.LOOKUPS, /prices, weather, trains, news, links, "look it up"\): use tools, never invent/);
+  assert.match(P.LOOKUPS, /Chat, opinions, what you know: answer straight, no tools; unsure\? Answer, offer to check\./);
+  assert.ok(!/unsure about/.test(P.systemPrompt(client, [], true, [], { groups: hello() })), 'the web line no longer says "anything you are unsure about"');
+  const web = T.toolSpecs(T.selectTools('hello', new Set(), false)).find((s) => s.function.name === 'web_search');
+  assert.match(web.function.description, /^Search the web for live or outside facts .*never for what you already know/);
 });
 
 test('the persona says the rule in one line, on every channel and every dial, within the budgets', () => {
