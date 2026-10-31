@@ -45,7 +45,7 @@ test('stopIntent: 40+ ways of saying stop, typed or spoken, with his name, swear
 const REWARDS = [['good boy', 2], ['Good boy!', 2], ['well done', 2], ['nice one mate', 2], ["that's it", 2], ['spot on', 2], ['nailed it', 2], ['thanks, well done', 2], ['proud of you', 3], ["I'm so proud of you kiddo", 3], ['you legend', 3], ['absolute legend', 3], ['good', 1], ['perfect', 1], ['great', 1]];
 const DISCIPLINES = [['wrong', 1], ["that's not right", 1], ['that was wrong', 2], ['bad boy', 2], ['out of order', 2], ['that was out of line', 2], ["don't ever do that again", 2], ['what was that', 2], ['bloody wrong', 2], ['useless', 3], ["you're useless", 3], ['fucking useless', 3], ['what the fuck was that', 3], ['bad, really bad', 2]];
 const RULES = [['too long', true], ['way too long mate', true], ['shorter please', true], ['get to the point', true], ['never call me that', false], ['always tell me the price first', false], ['stop saying certainly', false], ["don't call me boss", false], ['call me Aqis', false], ['no more emojis', false], ["don't do that", false], ['from now on, answer in Spanish', false], ['next time tell me the price first', false], ['never guess the time', false]];
-const NOT_RAISING = ['learn TS2532 came from indexing an array without a fallback. Rule: always use arr[i]! or ?? for indexed values.', 'stop the timer', 'always remind me at 8', "don't forget the milk", 'never mind', 'good morning', 'thanks', 'ok', "don't tell mum", 'that is a good idea', 'what time is it', 'shut up', 'is it good?', 'the good place near me', 'right', 'no', ''];
+const NOT_RAISING = ['learn TS2532 came from indexing an array without a fallback. Rule: always use arr[i]! or ?? for indexed values.', 'stop the timer', 'always remind me at 8', "don't forget the milk", 'never mind', 'good morning', 'thanks', 'ok', "don't tell mum", 'come on', 'Good. Now what about the trains?', 'that is a good idea', 'what time is it', 'shut up', 'is it good?', 'the good place near me', 'right', 'no', ''];
 
 test('raising: praise by strength (1 "good", 2 "good boy", 3 "proud of you"), a telling-off by strength, a swear makes it sharper', () => {
   for (const [t, w] of REWARDS) assert.deepEqual([I.raising(t)?.kind, I.raising(t)?.weight, I.raising(t)?.rest], ['reward', w, ''], t);
@@ -135,6 +135,14 @@ test('mood: only what fits him lifts him — a kind word after a sharp one does,
   assert.deepEqual(M.moodEvent("someone's following me"), { kind: 'danger' });
   assert.deepEqual(M.moodEvent("I don't feel safe walking home"), { kind: 'danger' });
   assert.deepEqual(M.moodEvent('is this a scam? "Your parcel is held, pay £1.99"'), { kind: 'danger', scam: true });
+  // tightened at review: "go dark" is his command, said to him, not a question about the screen; a plea for help with homework
+  // is not danger; an ordinary message from his bank is not a scam, one "saying it's from" the bank is
+  assert.deepEqual(M.moodEvent('ok go dark'), { kind: 'goDark' });
+  assert.equal(M.moodEvent('does the screen go dark when it locks?'), null);
+  assert.equal(M.moodEvent('help me please with my maths homework'), null);
+  assert.equal(M.moodEvent('an email from my bank about the statement'), null);
+  assert.deepEqual(M.moodEvent("a text saying it's from Evri about a parcel"), { kind: 'danger', scam: true });
+  assert.deepEqual(M.moodEvent('this looks like a scam'), { kind: 'danger', scam: true });
   assert.deepEqual(M.moodEvent('remember my sister is called Aisha'), { kind: 'taught' });
   assert.deepEqual(M.moodEvent('did you know otters hold hands'), { kind: 'taught' });
   for (const t of ['what time is it', 'book the 9am', 'play some music', 'it is dark early today', 'the news is scary', '']) assert.equal(M.moodEvent(t), null, `"${t}" moves nothing`);

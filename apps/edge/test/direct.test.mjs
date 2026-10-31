@@ -238,6 +238,9 @@ test('small talk: a greeting, thanks, ok, goodnight — one line as a person say
   assert.equal(D.smallTalk('Night', c, '', at(23)), "Night, Sam. I'll keep watch.");
   assert.match(D.smallTalk('thanks', c, '', at(9)), /^Any time(, Sam)?\.$/);
   assert.match(D.smallTalk('ok then', c, 'The 17:42 is on time.', at(9)), /^(Right|Good)\.$/);
+  // "alright" is a yes or an ok, never a greeting: after his question it is an answer (the model's), after a statement an acknowledgement
+  assert.equal(D.smallTalk('alright', c, 'Shall I book the 9am?', at(9)), null);
+  assert.match(D.smallTalk('alright', c, 'The 17:42 is on time.', at(9)), /^(Right|Good)\.$/);
   assert.match(D.smallTalk('how are you?', c, '', at(9)), /You\?$/);
   assert.equal(D.smallTalk('bye', {}, '', at(9)), 'Later, boss.');
   for (const [word, last] of [['ok', 'Shall I book the 9am?'], ['yeah', 'I can move it to Friday.'], ['sure', 'Want me to remind you at 8?']]) assert.equal(D.smallTalk(word, c, last, at(9)), null, `"${word}" after "${last}" is an answer`);

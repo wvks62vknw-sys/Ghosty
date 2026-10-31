@@ -152,7 +152,7 @@ const REWARD: [RegExp, 1 | 2 | 3][] = [
 const DISCIPLINE: [RegExp, 1 | 2 | 3][] = [
   [/^(?:you(?:'re| are) )?(?:(?:fucking|bloody|so|absolutely) )?(?:useless|pathetic|terrible|awful|stupid|garbage|disgraceful)$|^(?:wtf|what the (?:fuck|hell) (?:was that|is this|is that))$/, 3],
   [/^(?:bad(?: boy| lad| ghosty)?|naughty|(?:that(?:'s| is| was) )?(?:not ok(?:ay)?|out of order|out of line|unacceptable|rubbish|poor|sloppy|not good enough)|(?:that was|that'?s|that is) wrong|(?:don'?t|never) (?:ever )?do that again|what was that|behave(?: yourself)?|do better|not cool)$/, 2],
-  [/^(?:(?:that(?:'s| is| was)|it(?:'s| is| was)) )?(?:wrong|not quite|not right|not great|not good)$|^(?:come on|meh)$/, 1],
+  [/^(?:(?:that(?:'s| is| was)|it(?:'s| is| was)) )?(?:wrong|not quite|not right|not great|not good)$|^meh$/, 1],
 ];
 /** "Thanks", "ok", "mate": a clause that adds nothing to what the message asks. */
 const NOTHING = /^(?:thanks|thank you|cheers|ta|ok|okay|right|yes|yeah|yep|no|nope|and|but|so|now|then)?$/;
@@ -218,8 +218,9 @@ export function raising(text: string, last = ''): Raising | null {
     else if (r) reward = Math.max(reward, r);
     else if (!ruled && !NOTHING.test(b)) rest.push(c);
   }
-  // "good" or "great" after his question or offer is an answer (yes), not praise
-  if (reward === 1 && !discipline && !rule && OFFERED.test(last)) return null;
+  // "good" or "great" after his question or offer is an answer (yes), not praise; a bare "Good." leading into the next thing
+  // ("Good. Now what about the trains?") is a pivot, not praise: the weakest praise counts only when it is the whole message
+  if (reward === 1 && !discipline && !rule && (rest.length || OFFERED.test(last))) return null;
   if (!reward && !discipline && !rule) return null;
   // a telling-off wins over praise in the same breath; a swear makes it sharper
   const kind = discipline ? 'discipline' : reward ? 'reward' : undefined;

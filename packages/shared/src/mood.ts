@@ -84,16 +84,16 @@ export function moodAfter(prev: Mood | null | undefined, ev: MoodEvent, now = Da
 
 /** "Stand down", "calm down", "it's fine", "I'm sorry", at the start of what he said or as all of it. */
 const STAND_DOWN = /^(?:(?:ok(?:ay)?|alright|right|hey|ghosty|mate)[,.!]?\s+)*(?:stand down|calm down|chill(?: out)?|relax|easy(?: now| tiger)?|it'?s (?:fine|ok(?:ay)?|alright|all good)|(?:i'?m |i am )?(?:so |really )?sorry|my bad|no worries|we'?re (?:fine|good|ok(?:ay)?)|forget it,? (?:it'?s|we'?re) fine)\b/i;
-/** "Go dark", "get angry": his command for cross. */
-const GO_DARK = /\b(?:go dark|get angry|get mad|be angry|go evil|go cold|turn (?:evil|dark))\b/i;
+/** "Go dark", "get angry": his command for cross — said to him, at the start of the message (a "go dark" inside a question about the screen is not). */
+const GO_DARK = /^(?:(?:ok(?:ay)?|alright|right|hey|ghosty|mate)[,.!]?\s+)*(?:go dark|get angry|get mad|be angry|go evil|go cold|turn (?:evil|dark))\b/i;
 /** Warmth: a kind word (only lifts him after a sharp one; a bare "cheer up" is not one). */
 const KIND = /\b(?:you'?re (?:alright|ok(?:ay)?|good|great|the best)|love you|appreciate (?:you|it)|thanks?,? (?:mate|lad|pal|buddy|kiddo|ghosty)|(?:i'?m |i am )?not (?:angry|mad|cross) (?:any ?more|at you)|didn'?t mean (?:it|that)|i was (?:harsh|out of order|too harsh)|good lad|good boy|well done)\b/i;
 /** Being taught something new: "remember …", "did you know", "TIL", "fun fact". */
 const TAUGHT = /^(?:remember (?:that )?|did you know\b|til\b|today i learned\b|fun fact\b|here'?s (?:something|a thing) (?:new|for you)\b|learn this\b)/i;
 /** He may be in danger: in his own words, about himself. */
-const DANGER = /\b(?:(?:someone|somebody|a (?:guy|man|car|van))(?:'s| is)? (?:following|watching|outside|behind) me|i(?:'m| am) (?:scared|frightened|being followed|in danger|not safe|unsafe)|i (?:don'?t|do not) feel safe|help me,? (?:please|now)|call (?:the police|999|911)|there'?s someone (?:outside|in (?:my|the) house))\b/i;
-/** A possible scam he shows me. */
-const SCAM = /\b(?:is (?:this|it|that) (?:a )?(?:scam|legit|real|phishing|fake)|scam(?:mer|med)?\b|phishing|(?:text|email|call|message) (?:from|saying it'?s from) (?:my |the )?(?:bank|hmrc|royal mail|dpd|evri|amazon|paypal))/i;
+const DANGER = /\b(?:(?:someone|somebody|a (?:guy|man|car|van))(?:'s| is)? (?:following|watching|outside|behind) me|i(?:'m| am) (?:scared|frightened|being followed|in danger|not safe|unsafe)|i (?:don'?t|do not) feel safe|call (?:the police|999|911)|there'?s someone (?:outside|in (?:my|the) house))\b/i;
+/** A possible scam he shows me: asked about or named as one (an ordinary message from his bank is not). */
+const SCAM = /\b(?:is (?:this|it|that) (?:a )?(?:scam|legit|real|phishing|fake)|(?:this|it|that)(?:'s| is| looks like| seems like) (?:a )?(?:scam|phishing|fake)|scammers?|scammed|phishing|(?:text|email|call|message) saying it'?s from (?:my |the )?(?:bank|hmrc|royal mail|dpd|evri|amazon|paypal))\b/i;
 
 /**
  * What his words did to the mood (one event, the strongest), or null. Only his own message is read here: never a page, a
@@ -139,5 +139,5 @@ export function moodLine(m: Mood | null | undefined, now = Date.now()): string {
 export function moodWords(m: Mood | null | undefined, now = Date.now()): { word: string; why: string } {
   const x = moodNow(m, now);
   if (x.kind === 'calm') return { word: 'Calm', why: '' };
-  return { word: x.kind[0]!.toUpperCase() + x.kind.slice(1), why: `${x.cause[0]!.toUpperCase()}${x.cause.slice(1)}, ${ago(x.since, now)}` };
+  return { word: x.kind[0]!.toUpperCase() + x.kind.slice(1), why: `${(x.cause[0] ?? '').toUpperCase()}${x.cause.slice(1)}, ${ago(x.since, now)}` };
 }

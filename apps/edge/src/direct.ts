@@ -58,10 +58,10 @@ export function directPlan(text: string, c: Pick<ClientContext, 'location'>): Di
 
 /** His name, a "mate", and the dressing around a word ("hey ghosty!!", "ok then mate 👍") — none of it changes what was said. */
 const DRESS = /(?:^|\s)(?:ghosty|ghost|mate|bro|man|pal|buddy|kiddo|lad|boss|then|x+)(?=\s|$)/g;
-const GREET = /^(?:hey+|hi+|hiya|hello+|hullo|yo+|sup|wassup|what'?s up|alright|ay+|oi|evening|morning|afternoon|good (?:morning|afternoon|evening)|hey there|hi there|you there|you about|you up)$/;
+const GREET = /^(?:hey+|hi+|hiya|hello+|hullo|yo+|sup|wassup|what'?s up|ay+|oi|evening|morning|afternoon|good (?:morning|afternoon|evening)|hey there|hi there|you there|you about|you up)$/;
 const HOW = /^(?:how are you|how are ya|how're you|how you doing|how are you doing|how'?s it going|how are things|you alright|you ok|you okay|u ok|you good)$/;
 const THANKS = /^(?:thanks|thank you|thank u|thanks a lot|thanks so much|cheers|ta|thx|ty|tysm|many thanks|appreciate it|much appreciated)$/;
-const ACK = /^(?:ok|okay|k|kk|okey|okie|cool|got it|gotcha|right|righto|fair|fair enough|noted|sure|yep|yup|yeah|ya|aye|sound|safe|bet|understood|makes sense|fine|all good)$/;
+const ACK = /^(?:ok|okay|alright|k|kk|okey|okie|cool|got it|gotcha|right|righto|fair|fair enough|noted|sure|yep|yup|yeah|ya|aye|sound|safe|bet|understood|makes sense|fine|all good)$/;
 const NIGHT = /^(?:night|nite|goodnight|good night|night night|nighty night|gn|sleep well|off to bed|going to bed|i'?m off to bed|bed ?time)$/;
 const BYE = /^(?:bye|bye bye|see you|see ya|see you later|cya|later|laters|catch you later|ttyl|speak later|talk later)$/;
 
