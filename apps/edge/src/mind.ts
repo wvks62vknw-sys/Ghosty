@@ -12,6 +12,7 @@
  * into the DAY LOG (`mind:log`), which the nightly reflection consolidates (profile.ts).
  */
 import type { DayLine, Episode, EpisodeKind, MindSnapshot } from '../../../packages/shared/src/mind';
+import { expectLines, FORESIGHT_KEY, readLedger } from '../../../packages/shared/src/foresight'; // [foresight] (the ledger read here, written there)
 import { findPlates, mentionsPlate, redactPlates } from '../../../packages/shared/src/plates';
 import { SUBJECT_LABEL } from '../../../packages/shared/src/school';
 import type { Vault } from './kernel/vault';
@@ -237,6 +238,10 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   const guard = await tryOr(() => guardianMind(storage, now, tz), { doing: [] as string[], ahead: [] as DayLine[] });
   m.today.doing.push(...guard.doing);
   if (guard.ahead.length) m.ahead = [...m.ahead, ...guard.ahead.filter((x) => x.at < now + AHEAD)].sort((a, b) => a.at - b.at);
+
+  // [foresight] today's open predictions, at most two, for the phone (never rendered into the prompt: its budget)
+  const expect = expectLines(readLedger(await tryOr(() => storage.get<unknown>(FORESIGHT_KEY), undefined)).items, now, tz).slice(0, 2);
+  if (expect.length) m.expect = expect;
 
   // what happened: the day log's last day
   m.recent = (await tryOr(() => loadLog(storage), [])).filter((e) => e.at > now - DAY && e.at <= now).slice(-8);

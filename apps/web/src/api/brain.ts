@@ -18,6 +18,7 @@ import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
+import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -415,6 +416,9 @@ export const brain = {
   abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
+  /** FORESIGHT (apps/edge/src/foresight.ts): the prediction ledger — today's expectations, yesterday, the record; his word on his own questions. */
+  foresight: () => req<ForesightInfo>('GET', `/foresight?tz=${encodeURIComponent(TZ)}`),
+  resolveForesight: (id: string, right: boolean | null) => req<ForesightInfo & { resolved: string; said: string }>('POST', '/foresight/resolve', { id, right }),
   /** THE GUARDIAN (apps/edge/src/guardian.ts, walk.ts): the watch over his places, the named person, the panic phrase, the walk home. */
   guardian: () => req<GuardianInfo>('GET', '/guardian'),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),

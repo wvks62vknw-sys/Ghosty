@@ -251,6 +251,18 @@ test('"why?" on Telegram (OWNER-ISSUES 67d): the last turn’s trail in plain wo
   assert.match(texts()[0], /— Remembered \(text: my bike is blue\)/);
   assert.equal((await (await call('/api/history')).json()).turns.length, turns, 'asking is not a turn');
   tg.calls.length = 0;
+  // FORESIGHT (foresight.ts): "how often are you right?" from the ledger, and "you were right" on his open question — no
+  // model, no turn
+  const now = Date.now();
+  state.storage.m.set('foresight:ledger', { items: [{ id: 'q', at: now - 3600_000, kind: 'answer', subject: 'will it rain on Saturday?', expect: 'rain on Saturday', confidence: 0.6, by: now + 86_400_000 }, { id: 'd', at: now - 86_400_000, kind: 'departure', subject: 'the 08:12 train from Birmingham New Street', expect: 'late by 3 min or more', confidence: 0.7, by: now - 80_000_000, outcome: { at: now - 80_000_000, actual: '6 minutes late', right: true, how: 'feed', value: 360 } }], samples: { dep: {}, com: {} }, made: { day: '' }, firstTrue: now - 80_000_000 });
+  await hook(msg(OWNER_CHAT, { text: 'how often are you right?' }), secret);
+  assert.deepEqual(texts(), ["I've only scored 1 so far about trains."]);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'you were right' }), secret);
+  assert.deepEqual(texts(), ['Noted: right.']);
+  assert.equal(state.storage.m.get('foresight:ledger').items[0].outcome.how, 'owner');
+  assert.equal((await (await call('/api/history')).json()).turns.length, turns, 'neither is a turn');
+  tg.calls.length = 0;
 });
 
 test('a long reply is sent in pieces under the limit, in order', async () => {

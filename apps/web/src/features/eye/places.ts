@@ -9,7 +9,7 @@ import { clear, h, icon } from '../../core/dom';
 
 const PIN = '<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>';
 
-export function myPlaces(fly: (p: SavedPlace) => void): { el: HTMLElement; refresh(): Promise<void>; find(words: string): SavedPlace | null } {
+export function myPlaces(fly: (p: SavedPlace) => void): { el: HTMLElement; refresh(): Promise<void>; find(words: string): SavedPlace | null; list(): SavedPlace[] } {
   let places: SavedPlace[] = [];
   const el = h('div.myplaces', { hidden: true, 'aria-label': 'Your places' });
   const paint = () => {
@@ -31,5 +31,7 @@ export function myPlaces(fly: (p: SavedPlace) => void): { el: HTMLElement; refre
       paint();
     },
     find: (words) => matchPlace(words, places),
+    /** The places as last read (the Machine view lights them). */
+    list: () => places,
   };
 }

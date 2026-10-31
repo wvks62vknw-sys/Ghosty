@@ -8,6 +8,7 @@ import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '.
 import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
 import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts } from './day';
+import { briefForesight } from './foresight';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
@@ -125,7 +126,9 @@ export const briefTab: TabDef = {
     // then one line saying where to save them).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
     commute.el.hidden = true;
-    P.left.append(dp.el, commute.el, wp.el);
+    // FORESIGHT (foresight.ts): today's expectations, yesterday's score and his questions on record, after the drive to work.
+    const fore = briefForesight();
+    P.left.append(dp.el, commute.el, fore.el, wp.el);
     const paintCommute = async () => {
       try {
         const places = (await brain.places()).places ?? [];
@@ -264,6 +267,7 @@ export const briefTab: TabDef = {
         if (g) g.brief = { describe };
         void paintDay();
         void paintCommute();
+        void fore.paint();
         weather.start();
         air.start();
         news.start();
