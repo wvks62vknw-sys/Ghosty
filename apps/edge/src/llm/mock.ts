@@ -38,7 +38,28 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
   const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
   if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  // The one shared mind (mind.ts): the day as the chat's CONTEXT has it, read back word for word (routec: the Brief and the chat agree).
+  if (owner === 'what does my day look like to you?') return { message: { role: 'assistant', content: system.match(/\n(Today: [^\n]*|Nothing more today\. Next: [^\n]*)/)?.[1] ?? 'Nothing in my context about today.' }, model };
   if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
+  // His principles (prompt.ts HIS PRINCIPLES): said back as the prompt carries them, so a test sees they reached the model.
+  if (owner === 'what are my principles?') {
+    const mine = (system.split('\nHIS PRINCIPLES (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
+    return { message: { role: 'assistant', content: mine.length ? `You told me: ${mine.join(' / ').replace(/\.$/, '')}.` : 'You have not given me any yet.' }, model };
+  }
+  // His mood (packages/shared/src/mood.ts moodLine): the MOOD line said back as the prompt carries it, or "Calm."
+  if (owner === 'how are you feeling?') return { message: { role: 'assistant', content: system.match(/^MOOD: .*$/m)?.[0] ?? 'Calm.' }, model };
+  // His corrections kept as standing rules (prompt.ts HOW HE TOLD YOU TO BE): said back as the prompt carries them.
+  if (owner === 'what did i tell you?') {
+    const rules = (system.split('\nHOW HE TOLD YOU TO BE (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
+    return { message: { role: 'assistant', content: rules.length ? `You told me: ${rules.join(' / ')}` : 'Nothing yet.' }, model };
+  }
+  // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
+  // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
+  if (/^pineapple on pizza\b/.test(owner)) {
+    const short = system.includes('He writes short: reply in a line or two.');
+    const body = short ? 'It works: sweet against salt.' : 'It works, and here is why:\n- sweet against salt\n- the acid cuts the cheese\n- the ham carries both';
+    return { message: { role: 'assistant', content: `Certainly! ${body}\n\nI hope this helps! How can I help you further?` }, model };
+  }
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);

@@ -734,6 +734,93 @@ folder that no longer exists; ignore those paths).
   could not run here because WebKit is not installed (they always launch WebKit; CI installs it). Nothing the automated
   checks cover is broken. The owner's "really bad" points are therefore design and behaviour, not crashes: they are the
   Week 1 list. Per-spec timings and 218 screenshots are in the scratchpad (not kept).
+- 31 Oct 02:40 UK: PR #43 MERGED (main ab09c3c, a merge commit at 02:31) once all five checks were green on 88d985a (smoke
+  took 1 h 55 min). Main's own run on the merge (push event; the guard live, the retry loop in) started at the merge; the
+  06:02 check-in must find no "Undo broken change" commit on main — if the guard fired, read the failing job's log and fix
+  the cause, never the guard. The session branch fast-forwarded to main and pushed (no PR open → a branch push runs no CI,
+  so docs ride free until the next PR opens). Committed the parked drafts: BRIEF-ABILITIES.md (batch 4: the ABILITIES tab,
+  "Can you…?", "want me to learn it?", WHY he did that, what he did today; port 8866) and OWNER-ISSUES 81–82 (his questions
+  about the guard, the reminder commitment, the two phone confirmations, the games wish parked by his own word).
+  IN FLIGHT: the batch-2 builder (BRIEF-CONVERSATION, worktree from 80a8fb2, port 8899) and the batch-3 builder
+  (BRIEF-ONE-MIND, worktree from 88d985a, port 8877). On each report: read the risky diffs in full, validate on the final
+  tree (brain suite, `build.mjs --check`, the notebook tests, web typecheck + build, the touched specs on a fresh preview),
+  merge into the session branch — expect conflicts in prompt.ts / session.ts between the two — one PR each, merge when
+  green, remove the worktree; batch 4 starts when either lands (two builders at once at most). The owner is asleep: ONE
+  morning summary (what landed, what is live, the three phone tests, anything only he can do), nothing before.
+- 31 Oct 05:00 UK: BATCHES 2 AND 3 BUILT, REVIEWED AND MERGED onto the session branch, going up in ONE pull request (one
+  CI run for both), pushed once the combined tree's validation is clean (brain suite, web build, notebook tests, assets
+  check, nine specs). The record of each is OWNER-ISSUES 83 (batch 2) and 84 (batch 3); the builders' full reports are in
+  this session only. What the next session must know:
+  BATCH 2 (BRIEF-CONVERSATION; builder worktree from 80a8fb2; 49 files, +1799/−150; items 1–6, item 7 the twelve themes
+  NOT built): new packages/shared/src/intent.ts (stopIntent, raising), packages/shared/src/mood.ts (pure) + apps/edge/src/
+  mood.ts (one key 'mood'), apps/web/src/state/mood.ts (mirror + the `mood` chat event), theme.ts applyMood (an overlay,
+  never saved), features/settings/principles.ts, profile.ts PRINCIPLES_KEY 'principles' (GET/POST /profile/principles),
+  knowledge.ts conduct lessons (kind 'conduct', cap 30, topConduct 6 lines / 480 chars), direct.ts smallTalk/raisedReply,
+  selftrain rateReply (kind, weight 1–3; the weekly run holds a pair weight-many times), persona.ts lengthBand + the fire
+  dial + polish's proseList/plainShape. The plain-turn prompt's WORST case was 5,498/5,500 after batch 2 (the CHARACTER
+  sub-limit raised 450→506, accepted: the whole-prompt guard holds); batch 3's CONTEXT block gave ~78 back. MY REVIEW FIXES
+  (0a0d23b): GO_DARK anchored to the start of the message; "help me please" is not danger; "email from my bank" is not a
+  scam; "alright" is an ack, not a greeting; "come on" is not a telling-off; the weakest praise counts only when it is the
+  whole message; moodWords guards an empty cause. Validated on the merged tree: brain 1235/1235, web clean, 11 specs clean.
+  BATCH 3 (BRIEF-ONE-MIND; builder worktree from 88d985a; 48 files, +2698/−105; items 1, 5, 6, 2, 7; items 3 self-model and
+  4 timing NOT built — they need batch 2's shapes): apps/edge/src/mind.ts (mindSnapshot once per turn/alarm, observe → the
+  day log 'mind:log' ≤600 entries/100 KB, plates redacted, secrets never kept; GET /api/mind; prompt.ts contextLines renders
+  CONTEXT from it), memories.ts consolidate (weight/seen; only reflection-inferred, unlocked, weight≤1 facts FADE at 21 d
+  and go at 35 d with a day of UNDO; day log >14 d folded into the diary), training/kaggle/ghosty_weekly.py install step
+  (keep_torch constraint, pip's last lines logged, InstallError in plain words naming the pin, pypi_pins.json fixture) +
+  selftrain.ts stopWords/STUCK_INSTALL + cycle.ts installHold pre-flight (TRAIN NOW = tryAnyway) and no 3× re-push of a
+  stuck install, packages/shared/src/independence.ts + apps/web/src/core/independence.ts (localStorage
+  'ghosty.independence'; the brain's copy hourly via POST /training/meter, counts only, kept tasks never), selftrain/
+  ledger.ts ('train:ledger', only ever more demanding; GET /training/ledger; sundayNote with Sunday's digest),
+  tests/independence.spec.mjs in the loop after thinkharder. MERGE CONFLICTS, kept both sides: agent.ts (imports; loop():
+  band + principles + conduct + mood AND mind, all passed to systemPrompt), prompt.ts (batch 3's contextLines replaces the
+  CONTEXT block; batch 2's merged time line is subsumed), cycle.ts (/training/gym: the gymWin mood AND the ledger; batch 3's
+  `was` renamed `before`), web api/brain.ts (rate kind/weight AND gym names, ledger, meter).
+  WATCH: mindSnapshot races the calendar feeds for ≤1.5 s on every chat turn (a slow feed adds up to 1.5 s a turn: the
+  SPEED card will show it; cache the feeds if it does); the length band says "a line or two" for ≤12-word messages (his
+  call: FULLER on the dial). Both builders saw spec flakes only under heavy CPU load (direct, telegram's expired-code
+  check, gymideas's 221 ms CPU limit, memory's deep row): the loop's one retry covers a single one.
+  BATCH 4 (BRIEF-ABILITIES) builder started 03:50 UK from 0a0d23b (batch 1 + 2, NOT batch 3), port 8866, worktree
+  agent-a62f6bb3…: expect merge work in features/system/*.ts and agent.ts when it reports. Main stayed at ab09c3c (no
+  guard revert after the batch-1 merge).
+- 31 Oct 06:00 UK: BATCH 4 (BRIEF-ABILITIES) BUILT, REVIEWED AND MERGED on top of batch 3; pushed into PR #44 with
+  batches 2 and 3 (one CI run for all three; the push restarts the PR's run). Record: OWNER-ISSUES 85. The next session
+  must know: packages/shared/src/abilities.ts (pure: iCan, searchAbilities, canYouAsked/whyAsked/todayAsked, whyLines,
+  dayLines, offerFor/didYouKnow); apps/edge/src/abilities.ts (GET /abilities, POST /abilities/learn {ask}, POST
+  /abilities/offered {id}; keys 'abilities:offered', 'abilities:used'; GROUP_CAT places each tool group, GROUP_NEEDS names
+  the keys/links a group needs — the tests check them against keys.ts), why.ts ('why:turns': 30 turns / 2 days; the
+  trailRecorder wraps `out` in agent.ts chat() with a `finally { keepTrail }`; GET /why), today.ts (GET /today?tz=),
+  upgrades.ts addOwnerGoal/goalTitle (owner goals first, cap 30, never pushed out; `gather` reads them first); telegram.ts
+  answers "why?" and "what did you do today?" before claimTurn. Web: abilities/registry.ts (the app's abilities from the
+  deck, GYM META, Lens TILES, SCHOOL STAGES; the brain's as last heard in localStorage 'ghosty.abilities'), offer.ts
+  ('ghosty.offered', 'ghosty.opened'; under a test runner only with window.__ghostyOffers), firstrun.ts ('ghosty.firstrun';
+  only with window.__ghostyFirstRun under a runner — the OWNER'S OWN PHONE will show the three-things message once on its
+  first open after this lands), assistant/local.ts (localTurn runs first in send(), before the offline/kept logic; skipped
+  for cloud/plain sends), features/abilities/index.ts (#abilities), core/why.ts + localcard.ts; new tests/abilities.spec.mjs
+  in the loop (after undo; 77 specs now). MERGE: two conflicts only (check.yml's loop line — both new specs kept;
+  api/brain.ts imports). MY FIX (74e7cf9): "can you hear me?" / "can you see us?" return null from canYouAsked (the
+  brain answers). Builder's follow-ups for a cheaper model: meaning search in the box (features/abilities/index.ts ask()
+  when meaningPossible()); batch 3's day log as a source in today.ts dayDoings; a Lens receipt offer (lens/read.ts →
+  offer.ts say()); the deck miniature (tests/deckshots.spec.mjs → public/deck/abilities.jpg).
+- 31 Oct 07:40 UK: PR #44's FIRST RUN ON 932eb17 FAILED on the LAST spec of the loop, `abilities` (batch 4's new spec),
+  twice (the loop's retry): four page errors "Failed to read the 'serviceWorker' property from 'Navigator': Service worker
+  is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag". NOT a flake and not the batch's
+  code: CI runs all 77 specs against ONE preview brain, so by the last spec the brain holds the websites and apps the
+  websites/apps/studiomake specs built; the abilities spec opens the Workshop (for UPGRADE IDEAS), whose DRAFT cards
+  preview those apps in sandboxed frames, and the app kit's runtime (packages/shared/src/appkit/runtime/core.ts offline())
+  read navigator.serviceWorker there, which throws in a sandboxed frame; Playwright reports a frame's error as the page's.
+  Locally every run had a fresh brain with no apps, so it never showed (the builder's nine specs and my fifteen all passed).
+  REPRODUCED locally in 4 minutes: websites.spec, apps.spec, then abilities.spec on one preview → the same four errors.
+  FIXED at both ends: the kit reads navigator.serviceWorker inside try/catch (a previewed app now just has no offline copy,
+  no error — the owner's Workshop console too), and tests/browser.mjs's shared noise filter counts that frame notice as
+  noise in every browser (nav.spec already filtered it on its own; the filter was WebKit-only and spelt "Service Worker").
+  LESSON for every new spec that opens the Workshop, Links or Memory late in the loop: the brain is not fresh in CI — run
+  it locally after websites.spec and apps.spec on the same preview before trusting a clean run; and a new spec goes
+  somewhere in the loop before websites/apps unless it must see their state.
+
+
+
+
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:

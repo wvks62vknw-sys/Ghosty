@@ -11,10 +11,12 @@ export const engine = process.env.BROWSER === 'webkit' ? 'webkit' : 'chromium';
 export const isWebKit = engine === 'webkit';
 
 /** WebKit reports things as page errors that are not: a fetch the page itself caught ("… due to access control
- *  checks", e.g. a data mirror that is down; an uncaught one still shows as an unhandled rejection), the
- *  ResizeObserver loop notice, and — in a sandboxed widget frame, once service workers are blocked below — a
- *  notice that they are off there. Chromium reports none of these, so this is always false there. */
-export const webkitNoise = (e) => isWebKit && /ResizeObserver loop completed|due to access control checks|Service Worker is disabled because the context is sandboxed/.test(e.message);
+ *  checks", e.g. a data mirror that is down; an uncaught one still shows as an unhandled rejection) and the
+ *  ResizeObserver loop notice. Both browsers report one more that is not the page's own: a sandboxed frame (a widget,
+ *  or a built app previewed on the Workshop's DRAFT card) saying service workers are off in it — a built app's own
+ *  notice, so it counts as noise whatever browser says it (CI's one preview brain holds every earlier spec's apps). */
+const SANDBOXED_FRAME = /[Ss]ervice [Ww]orker is disabled because the context is sandboxed/;
+export const webkitNoise = (e) => SANDBOXED_FRAME.test(e.message) || (isWebKit && /ResizeObserver loop completed|due to access control checks/.test(e.message));
 
 export async function launch(options = {}) {
   if (!isWebKit) return chromium.launch(options);

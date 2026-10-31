@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { Mood } from './mood';
 import type { PersonaSettings } from './persona';
 import type { SpeedSummary } from './speed';
 
@@ -18,7 +19,9 @@ export type ChatEvent =
   | { t: 'done'; model: string }
   | { t: 'error'; message: string }
   /** A cited answer (CITED on, or "with sources"): its numbered sources and each claim checked against them; sent after its `text`. */
-  | ({ t: 'cited' } & CitedInfo);
+  | ({ t: 'cited' } & CitedInfo)
+  /** His mood changed with this message (packages/shared/src/mood.ts): the phone shows it at once, not at the next status. */
+  | { t: 'mood'; mood: Mood };
 
 /** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
 export interface Citation {
@@ -149,6 +152,11 @@ export interface Lesson {
   hits: number;
   /** Locked in the Memory tab: never reworded, merged away or dropped (memories.ts). */
   locked?: boolean;
+  /**
+   * 'conduct': a standing rule about how he talks and acts, in the owner's own words ("too long", "never call me that";
+   * OWNER-ISSUES 64 RAISING HIM), on every turn. None: an engineering lesson, on coding turns only.
+   */
+  kind?: 'conduct';
 }
 
 export interface ChatTurn {
@@ -174,6 +182,10 @@ export interface MemoryFact {
   locked?: boolean;
   /** When the owner last edited its words. */
   edited?: number;
+  /** How often it was heard: 1 when first kept, one more each time he says it again, relies on it, or KEEPs it (memories.ts). */
+  weight?: number;
+  /** When it was last heard (said again, relied on, kept); unset: when it was first kept. */
+  seen?: number;
 }
 
 /**
@@ -204,6 +216,10 @@ export interface MemoryItem {
   src: MemorySource;
   locked: boolean;
   edited?: number;
+  /** A saved fact: how often it was heard ("heard four times"). */
+  weight?: number;
+  /** A fact the reflection inferred that nothing has confirmed for three weeks: let go after five unless he KEEPs it. */
+  fading?: boolean;
 }
 
 /** A memory forgotten in the last day, which UNDO can still bring back (the Memory tab's RECENTLY FORGOTTEN). */
@@ -262,6 +278,12 @@ export interface ReflectInfo {
   dropped?: string[];
   /** Changes the reflection asked for on locked memories, refused. */
   refused?: number;
+  /** The consolidation (memories.ts): facts heard again, trivia let go, days of the day log folded into the diary. */
+  heard?: number;
+  faded?: number;
+  folded?: number;
+  /** One line of what changed about him today (from the lines reworded or dropped), written into the diary. */
+  changed?: string;
   diary: string;
   summary: string;
   profile: Profile;
@@ -376,6 +398,8 @@ export interface BrainStatus {
   capacity?: AiCapacity;
   /** The brain's stopwatch (apps/edge/src/speed.ts): today's and last week's medians, in numbers and plain words, for the SPEED card. */
   speed?: SpeedSummary;
+  /** His mood now (packages/shared/src/mood.ts): shown in words and a shape on the Me sheet's Status card. */
+  mood?: Mood;
 }
 
 /** One provider's free allowance right now. */
@@ -509,6 +533,10 @@ export interface UpgradeIdea {
   steps: string[];
   /** When it was proposed. */
   at: number;
+  /** A learning goal the owner asked for on ABILITIES ("Want me to learn it?" → YES): kept before Ghosty's own ideas. */
+  from?: 'owner';
+  /** His own words ("can you check my car's MOT?"). */
+  ask?: string;
 }
 
 export interface JobInfo {

@@ -10,13 +10,13 @@
  * (what it added this week) and TURN OFF. With a key missing it says which, and where to get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
  * made at and just beyond them) and gives the offline brain the list of trained models to choose from.
  */
-import { AREA_LABEL, baseById, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type TrainStatus } from '../../../../../packages/shared/src/selftrain';
+import { AREA_LABEL, baseById, EXAM_AREAS, examMean, stopWords, type ExamArea, type TrainReport, type TrainStatus } from '../../../../../packages/shared/src/selftrain';
 import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
 import { flushStars } from '../../offline/starbox';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
-import { loadAll } from '../gym/store';
+import { sendGymLevels } from './ledger';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -128,7 +128,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
       box.append(h('div.lab', 'LEFT OUT, AND WHY'));
       for (const x of r.rejected.slice(0, 12)) box.append(row(null, x.why, fmt.n(x.n), { wrap: true }));
     }
-    if (r.error) box.append(h('div.note.bad', `The run stopped: ${r.error}`));
+    // in his words: the install step's own sentence names the pin; never the raw error (SMALL-GAPS A)
+    if (r.error) box.append(h('div.note.bad', `${r.install ? 'The run stopped before training. ' : 'The run stopped: '}${stopWords(r)}.`));
     return box;
   };
 
@@ -245,14 +246,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
     paint();
     // Checked work waiting on this phone goes to the brain for next week's run (quietly; it waits otherwise).
     void flushStars();
-    // The GYM levels on this phone, for the week's puzzles (quietly; an old brain without the route is fine).
-    try {
-      const levels: Record<string, number> = {};
-      for (const [id, rec] of await loadAll()) levels[id] = rec.level;
-      if (Object.keys(levels).length) await brain.selftrain.gym(levels);
-    } catch {
-      /* not reachable: next time */
-    }
+    // The GYM levels on this phone, for the week's puzzles and the ledger (quietly; an old brain without the route is fine).
+    await sendGymLevels().catch(() => undefined);
   }
 
   return Object.assign(p, { refresh: () => void refresh() });

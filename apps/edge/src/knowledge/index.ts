@@ -60,6 +60,8 @@ export function playbookIndex(): string {
 
 export const LESSONS_KEY = 'lessons';
 const MAX_LESSONS = 80;
+/** Conduct lessons (the owner's rules for how he talks) kept: their own cap, never crowding out the engineering ones. */
+const MAX_CONDUCT = 30;
 
 export async function loadLessons(storage: DurableObjectStorage): Promise<Lesson[]> {
   return (await storage.get<Lesson[]>(LESSONS_KEY)) ?? [];
@@ -78,13 +80,16 @@ function similar(a: string, b: string): boolean {
   return common / small.size >= 0.8;
 }
 
-/** Save a lesson. Re-learning the same lesson bumps it instead of duplicating it. */
-export async function addLesson(storage: DurableObjectStorage, text: string, tags: string[] = []): Promise<{ lesson: Lesson; repeat: boolean }> {
+/**
+ * Save a lesson. Re-learning the same lesson bumps it instead of duplicating it. `kind` 'conduct': the owner's own rule for
+ * how he talks (his words, however short: "too long"), matched only against the other conduct lessons.
+ */
+export async function addLesson(storage: DurableObjectStorage, text: string, tags: string[] = [], kind?: 'conduct'): Promise<{ lesson: Lesson; repeat: boolean }> {
   const t = text.replace(/\s+/g, ' ').trim().slice(0, 300);
-  if (t.length < 12) throw new Error('a lesson needs a real sentence: what went wrong and the rule that prevents it');
+  if (t.length < (kind ? 3 : 12)) throw new Error('a lesson needs a real sentence: what went wrong and the rule that prevents it');
   const list = await loadLessons(storage);
   const cleanTags = tags.map((x) => String(x).toLowerCase().trim().slice(0, 24)).filter(Boolean).slice(0, 6);
-  const same = list.find((l) => similar(l.text, t));
+  const same = list.find((l) => l.kind === kind && similar(l.text, t));
   if (same) {
     same.hits++;
     same.at = Date.now();
@@ -94,14 +99,14 @@ export async function addLesson(storage: DurableObjectStorage, text: string, tag
     await storage.put(LESSONS_KEY, list);
     return { lesson: same, repeat: true };
   }
-  const lesson: Lesson = { id: crypto.randomUUID().slice(0, 6), text: t, tags: cleanTags, at: Date.now(), hits: 1 };
+  const lesson: Lesson = { id: crypto.randomUUID().slice(0, 6), text: t, tags: cleanTags, at: Date.now(), hits: 1, ...(kind ? { kind } : {}) };
   list.push(lesson);
-  // Over the cap: drop the least useful (fewest repeats, then oldest) — never a locked one.
-  while (list.length > MAX_LESSONS) {
+  // Over the cap (each kind its own): drop the least useful (fewest repeats, then oldest) — never a locked one.
+  while (list.filter((l) => l.kind === kind).length > (kind ? MAX_CONDUCT : MAX_LESSONS)) {
     let worst = -1;
     for (let i = 0; i < list.length; i++) {
       const a = list[i]!;
-      if (a.locked) continue;
+      if (a.locked || a.kind !== kind) continue;
       const w = worst < 0 ? null : list[worst]!;
       if (!w || a.hits < w.hits || (a.hits === w.hits && a.at < w.at)) worst = i;
     }
@@ -122,9 +127,26 @@ export async function removeLesson(storage: DurableObjectStorage, idOrText: stri
   return list.length - keep.length;
 }
 
-/** The lessons worth putting in the prompt: most repeated and most recent first, within a size budget. */
+/** The lessons worth putting in the prompt: most repeated and most recent first, within a size budget. Engineering only. */
 export function topLessons(list: Lesson[], max = 12, budget = 1800): Lesson[] {
-  const ranked = [...list].sort((a, b) => b.hits - a.hits || b.at - a.at);
+  const ranked = list.filter((l) => !l.kind).sort((a, b) => b.hits - a.hits || b.at - a.at);
+  const out: Lesson[] = [];
+  let size = 0;
+  for (const l of ranked) {
+    if (out.length >= max || size + l.text.length > budget) break;
+    out.push(l);
+    size += l.text.length;
+  }
+  return out;
+}
+
+/**
+ * The owner's rules for how he talks (conduct lessons) for every turn, capped by the prompt budget: the newest and the
+ * most-confirmed win (each time he says it again counts as a week newer), at most `max` lines and `budget` characters.
+ */
+export function topConduct(list: Lesson[], max = 6, budget = 480): Lesson[] {
+  const WEEK = 7 * 86400_000;
+  const ranked = list.filter((l) => l.kind === 'conduct').sort((a, b) => b.at + (b.hits - 1) * WEEK - (a.at + (a.hits - 1) * WEEK));
   const out: Lesson[] = [];
   let size = 0;
   for (const l of ranked) {

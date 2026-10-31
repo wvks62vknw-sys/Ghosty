@@ -15,7 +15,7 @@
 //    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openPanel, openSection } from './nav.mjs';
+import { PHONE, UK, openDeck, openPanel, openSection, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -207,6 +207,33 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await sideways(page, '#pg-core *, #top *')) problems.push(`[${W} chat] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#cbar .plusbtn, #cbar #mic, #cbar .citedbtn, #top .logbtn, #top .you, .convo .msg.latest .rcacts button')) problems.push(`[${W} chat] under a 44 pt target: ${t}`);
   await page.screenshot({ path: `${out}/routec-${W}-chat.png`, timeout: 90000 });
+
+  // ---- One mind (OWNER-ISSUES 74): the Brief's YOUR DAY and the chat read the same picture of today (the brain's
+  // mind.ts, GET /api/mind). The mock model reads its day back from its CONTEXT block word for word. Call Mum (seeded
+  // above) is in both when it is today's; past midnight it is tomorrow's and both say what is left instead. Compared only
+  // when the brain's day did not turn between the Brief and the chat (the wall clock: see the Today card above).
+  if (W === PHONE.width) {
+    const before = await brainGet('/mind?tz=Europe/London');
+    await page.evaluate(() => (location.hash = 'brief'));
+    await page.waitForFunction(() => /LEFT|CLEAR|CAN’T CHECK/.test(document.querySelector('#pg-brief .pn.brday h3')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    const yourDay = (await page.textContent('#pg-brief .pn.brday').catch(() => ''))?.replace(/\s+/g, ' ').trim() ?? '';
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(600);
+    await page.click('#cbar .logbtn').catch(() => undefined);
+    await page.fill('#cin', 'what does my day look like to you?');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => /Today: |Nothing more today|Nothing in my context/.test(document.querySelector('.convo .log')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
+    const told = (await page.evaluate(() => [...document.querySelectorAll('.convo .log .msg')].map((m) => m.textContent ?? '').reverse().find((t) => /Today: |Nothing more today|Nothing in my context/.test(t)) ?? ''))?.replace(/\s+/g, ' ').trim();
+    const after = await brainGet('/mind?tz=Europe/London');
+    const titles = (before?.today?.items ?? []).slice(0, 4).map((x) => x.title);
+    if (!before || !after) problems.push(`[${W} one mind] /api/mind did not answer`);
+    else if (before.today.day === after.today.day) {
+      if (callMumToday && !/Call Mum/.test(yourDay)) problems.push(`[${W} one mind] YOUR DAY on the Brief has no Call Mum: "${yourDay}"`);
+      if (callMumToday && !/Call Mum/.test(told)) problems.push(`[${W} one mind] the chat's context has no Call Mum: "${told}"`);
+      const inOrder = titles.every((t, i) => told.includes(t) && yourDay.includes(t) && (i === 0 || told.indexOf(titles[i - 1]) < told.indexOf(t)));
+      if (titles.length ? !inOrder : !/Nothing more today|Nothing in my context/.test(told)) problems.push(`[${W} one mind] the chat and the Brief disagree about today: the chat says "${told}", the Brief "${yourDay}"`);
+    }
+  }
   await page.click('#top .logbtn');
   await page.waitForTimeout(500);
 
@@ -251,6 +278,10 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     dials: [...document.querySelectorAll('#mesheet .megauge')].map((d) => `${d.querySelector('.rcgauge b')?.textContent}|${d.querySelector(':scope > b')?.textContent}|${d.querySelector(':scope > small')?.textContent}`),
     ok: document.querySelector('#mesheet .meok')?.textContent,
     rows: [...document.querySelectorAll('#mesheet .merow')].map((r) => r.dataset.id),
+    mood: (() => {
+      const m = document.querySelector('#mesheet .memood');
+      return m ? { kind: m.dataset.mood, word: m.querySelector('b')?.textContent, shape: !!m.querySelector('svg.moodshape path') } : null;
+    })(),
   }));
   if (me.parts[0] !== 'head' || me.parts[1] !== 'status') problems.push(`[${W} me] the sheet's order is ${me.parts.join(', ')} (Status should come first)`);
   if (me.dials.length !== 3 || !/^Free AI today/.test(me.dials[0]?.split('|')[1] ?? '') || me.dials[0]?.startsWith('—')) problems.push(`[${W} me] the dials read ${me.dials.join(' / ')}`);
@@ -258,7 +289,9 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const db = st2?.meter ? Math.round(st2.meter.level * 100) : null;
   if (db != null && !(Math.abs(num(me.dials[1]?.split('|')[0]) - db) <= 4 && /%/.test(me.dials[1] ?? ''))) problems.push(`[${W} me] Database today reads "${me.dials[1]}", the meter says ${db}%`);
   if (!/All good|Needs a look|Brain offline/.test(me.ok ?? '')) problems.push(`[${W} me] the Status line reads "${me.ok}"`);
-  if (me.rows.join(',') !== 'memory,settings,system,links,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  if (me.rows.join(',') !== 'memory,settings,system,links,abilities,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  // his mood (OWNER-ISSUES 70b, 63): a shape and a word, never colour alone (whatever this preview brain feels now)
+  if (!me.mood?.shape || !/^(?:Calm|Focused|Protective|Pleased|Cross|Subdued)$/.test(me.mood.word ?? '') || me.mood.word.toLowerCase() !== me.mood.kind) problems.push(`[${W} me] the mood reads ${JSON.stringify(me.mood)}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#mesheet .merow, #mesheet .meclose')) problems.push(`[${W} me] under a 44 pt target: ${t}`);
   await page.screenshot({ path: `${out}/routec-${W}-me.png`, timeout: 90000 });
@@ -291,6 +324,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       localStorage.removeItem('ghosty.themes1');
     }
   }, [KEY, HOME]);
+  // a theme's own colours are measured here: he starts calm (a mood is a live overlay on the accent)
+  await standDown(base, KEY);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => problems.push(`[themes] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -367,6 +402,34 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
   const kept = await look();
   if (kept.theme !== 'graphite' || kept.c !== THEMES.graphite) problems.push(`[themes] Graphite was not kept after a restart: ${JSON.stringify(kept)}`);
+  // his mood on the whole interface (OWNER-ISSUES 63): a live overlay on the accent, never the saved theme — "go dark" and
+  // the accent, the lit tab and Mind's light go red; "stand down" puts the chosen theme back exactly (at once with Reduce
+  // Motion); the saved theme is untouched, and stays after a reload
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(600);
+  await page.fill('#cin', 'go dark');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.documentElement.dataset.mood === 'cross', null, { timeout: 15000 }).catch(() => problems.push('[mood] "go dark" did not make him cross'));
+  // eased over about a second: wait on the token itself, never a fixed pause
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--c').trim() === '#ff453a', null, { timeout: 8000 }).catch(() => undefined);
+  // (the lit tab has a colour transition of its own: wait on its colour too)
+  await page.waitForFunction(() => /^rgba?\(255, 69, 58(, 1)?\)$/.test(getComputedStyle(document.querySelector('#dock .tabcap button.on') ?? document.body).color), null, { timeout: 4000 }).catch(() => undefined);
+  const dark = await look();
+  if (dark.c !== '#ff453a' || dark.acc !== '#ff453a') problems.push(`[mood] cross did not turn the accent red: ${JSON.stringify(dark)}`);
+  if (dark.theme !== 'graphite' || dark.saved !== 'graphite') problems.push(`[mood] the mood touched the saved theme: ${JSON.stringify(dark)}`);
+  if (solid(dark.tab) !== rgb('#ff453a')) problems.push(`[mood] the lit tab is ${dark.tab}, not his red`);
+  await page.screenshot({ path: `${out}/routec-mood-cross.png` });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.fill('#cin', 'stand down');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction((hex) => getComputedStyle(document.documentElement).getPropertyValue('--c').trim() === hex, THEMES.graphite, { timeout: 2000 }).catch(() => undefined);
+  const calm = await look();
+  if (calm.c !== THEMES.graphite || calm.c2 !== '#dbe6ef' || (await page.evaluate(() => document.documentElement.dataset.mood)) !== 'calm') problems.push(`[mood] "stand down" did not put Graphite back exactly and at once: ${JSON.stringify(calm)}`);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  const after = await look();
+  if (after.c !== THEMES.graphite || after.saved !== 'graphite') problems.push(`[mood] after a reload: ${JSON.stringify(after)}`);
   // no element on any screen still carries a classic look's class
   const classic = await page.$$eval('.tcard, .tprev, .lookback, .morestyles, .themes, [data-finish]', (els) => els.map((e) => e.className));
   if (classic.length) problems.push(`[themes] classic-look elements are still made: ${classic.join(', ')}`);
@@ -475,5 +538,5 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
 
 if (made?.event?.id) await fetch(`${base}/api/agenda/events/${made.event.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).catch(() => undefined);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion; one look: Settings → Theme applies Reactor or Graphite at once (the accent token, the lit tab and the live dot follow, Home’s layout does not move) and keeps it after a restart, a phone on the old default settles on Reactor’s cyan, a classic look’s name starts on Reactor, and nothing of the classic looks is left in the page or the stylesheet; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, the Brief’s YOUR DAY and the chat’s context agree about today (one mind), every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion; one look: Settings → Theme applies Reactor or Graphite at once (the accent token, the lit tab and the live dot follow, Home’s layout does not move) and keeps it after a restart, a phone on the old default settles on Reactor’s cyan, a classic look’s name starts on Reactor, and nothing of the classic looks is left in the page or the stylesheet; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
 process.exit(problems.length ? 1 : 0);

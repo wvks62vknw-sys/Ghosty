@@ -296,7 +296,8 @@ export const workshopTab: TabDef = {
     const nextNote = h('span.note', '');
     const buildIdea = (i: UpgradeIdea) => {
       go('core');
-      void send(`Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.`);
+      // (a learning goal he asked for has no steps until the nightly pass has thought about it)
+      void send(`Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}${i.steps.length ? `Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.` : ''}`.trim());
     };
     const paintIdeas = () => {
       const shown = ideas.filter((x) => !ideasGoing.has(x.id));
@@ -305,7 +306,8 @@ export const workshopTab: TabDef = {
       nextNote.textContent = ideasNext ? `next look ${new Date(ideasNext).toLocaleDateString([], { weekday: 'short' })} ${fmt.time(new Date(ideasNext))}` : 'every morning';
       if (!shown.length) ip.body.append(empty('NONE', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. THINK NOW asks him now.', 'No ideas yet'));
       for (const i of shown) {
-        const card = h('div.idea', h('b', i.title), i.why ? h('div.note', i.why) : null, h('ol', ...i.steps.map((s) => h('li', s))));
+        // a learning goal he asked for on ABILITIES ("Want me to learn it?" → YES) says so, and comes first
+        const card = h(`div.idea${i.from === 'owner' ? '.mine' : ''}` as 'div', i.from === 'owner' ? h('small.ideafrom', { dataset: { case: 'keep' } }, 'You asked me to learn this') : null, h('b', i.title), i.why ? h('div.note', i.why) : null, i.steps.length ? h('ol', ...i.steps.map((s) => h('li', s))) : null);
         card.append(
           // DISMISS: off the list with UNDO; the brain drops it only when the bar goes
           h('div.row', button('BUILD', () => buildIdea(i), 'on'), button('DISMISS', () => {

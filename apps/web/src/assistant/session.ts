@@ -16,11 +16,16 @@ import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
+import { noteAnswer, noteStopped } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
+import { stopIntent } from '../../../../packages/shared/src/intent';
+import { feelHere, setMood } from '../state/mood';
+import { localTurn, type LocalAnswer } from './local';
+import { argWords } from '../../../../packages/shared/src/abilities';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -47,9 +52,10 @@ export type Entry =
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
    *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean }
-  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
-  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer }
+  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
+   *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
+  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string; ask?: string }
@@ -70,7 +76,7 @@ function kept(entries: Entry[]): Entry[] {
     // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
     .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
-  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
+  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && (e.detail || e.args) ? { ...e, ...(e.detail ? { detail: redactPlates(e.detail, checkedPlates) } : {}), ...(e.args ? { args: redactPlates(e.args, checkedPlates) } : {}) } : e));
 }
 
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
@@ -178,11 +184,12 @@ function handle(ev: ChatEvent): void {
       ui.set({ status: ev.text });
       break;
     case 'tool':
+      toolRan = true;
       if (ev.name === 'vehicle_check') {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
       }
-      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
+      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running', tool: ev.name, args: argWords(ev.args) });
       break;
     case 'progress':
       // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
@@ -202,6 +209,7 @@ function handle(ev: ChatEvent): void {
       void run(ev.name, ev.args);
       break;
     case 'approval':
+      approvalAsked = true;
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       followApproval(ev.id);
       if (speakReplies && settings.get().speak) void speak(ev.reason);
@@ -215,6 +223,10 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
       break;
     }
+    case 'mood':
+      // his mood moved with this message (the brain's mood.ts): shown at once
+      setMood(ev.mood);
+      break;
     case 'cited': {
       // Belongs to the reply just sent (the latest one still without its model line).
       const last = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant');
@@ -256,6 +268,8 @@ function handle(ev: ChatEvent): void {
  */
 async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>): Promise<void> {
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
+  const since = Date.now();
+  toolRan = approvalAsked = false;
   try {
     await fn(handle);
   } catch (e) {
@@ -286,9 +300,24 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   } finally {
     vehicleTurn = false;
     settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
+    tally(since);
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
   }
+}
+
+/** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
+let toolRan = false;
+let approvalAsked = false;
+
+/**
+ * The independence meter (core/independence.ts): the answer this stream gave, counted once by where it was answered (its
+ * model line). One that ended asking for an approval is counted when the approved part answers; THINK HARDER counts itself.
+ */
+function tally(since: number): void {
+  if (approvalAsked) return;
+  const a = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at >= since && !!e.text.trim() && !e.think);
+  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length });
 }
 
 const OFFLINE_MODEL = 'On this phone · offline';
@@ -362,7 +391,7 @@ function lastQuestion(): string {
   for (const u of users.reverse()) {
     const ask = thinkAsk(u.text);
     if (ask) return ask;
-    if (ask === null && !/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(u.text.trim())) return u.text;
+    if (ask === null && !stopIntent(u.text)) return u.text;
   }
   return '';
 }
@@ -412,6 +441,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     });
     const secs = Math.round((Date.now() - t0) / 1000);
     update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
+    if (!r.stopped && (r.text || r.answer)) noteAnswer(THINK_MODEL, { kept, length: (r.text || r.answer || '').length });
     const said = r.answer ? `${r.answer} (${r.line})` : r.line;
     chat.set({ live: said });
     if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at), here: kept });
@@ -435,17 +465,25 @@ const hereStopped = (why: string) => `I can't do this on the phone right now: ${
 
 /**
  * Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline
- * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message.
+ * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message. `plain`: never answered
+ * here from what Ghosty knows of himself (DO IT under such an answer sends his words on, as a request).
  */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean } = {}): Promise<void> {
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  if (/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(t)) {
+  // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
+  // absolute and at once, whatever he was saying or arguing, and never answered.
+  const stop = stopIntent(t);
+  if (stop) {
     stopSpeaking();
     stopListening();
     stopOffline();
     stopThinking();
-    if (ui.get().busy) await brain.stop().catch(() => undefined);
+    // His mood (OWNER-ISSUES 70b): a harsh stop leaves him subdued, any other puts him back to calm — here at once, and in
+    // the brain; with everything kept on this phone ("always") not even that a stop happened leaves it.
+    feelHere({ kind: 'stop', harsh: stop.harsh });
+    const kept = settings.get().offlineBrain === 'always';
+    if (ui.get().busy || !kept) await brain.stop(kept ? undefined : stop.harsh).catch(() => undefined);
     return;
   }
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
@@ -455,6 +493,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   }
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
+  // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: settings.get().offlineBrain === 'always' || !!opts.here }))) return;
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const mode = settings.get().offlineBrain;
@@ -491,6 +531,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       if (ready && (await answerHere(t, recent, true))) return;
       const why = mode === 'off' ? 'my offline brain is switched off (Settings → Offline brain)' : ready ? "my offline brain couldn't answer it" : "my offline brain isn't on this phone yet (Settings → Offline brain → DOWNLOAD, on Wi-Fi)";
       push({ kind: 'error', text: hereStopped(why), ask: t });
+      // SOVEREIGN MODE's list (core/independence.ts): what stopped for want of the cloud, kept on this phone only
+      noteStopped(t, why);
     });
     return;
   }
@@ -519,6 +561,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     rescue,
   );
   lap.end();
+  // Abilities revealed in context (OWNER-ISSUES 67b): one line offering what the turn plainly called for (abilities/offer.ts)
+  void import('../abilities/offer').then((o) => o.offerAfterTurn(t)).catch(() => undefined);
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

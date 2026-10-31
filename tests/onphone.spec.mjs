@@ -176,7 +176,7 @@ s = await lastStop();
 if (!stopLine.test(s.text) || !s.ask) problems.push(`[switch] the stop reads "${s.text}" (offer: ${s.ask})`);
 if (carrying(MARK.c).length) problems.push(`[switch] the marker left the page: ${carrying(MARK.c).map((r) => r.path).join(', ')}`);
 if (chats() !== chats0) problems.push(`[switch] the brain's chat was asked ${chats() - chats0} time(s) without a tap`);
-if ((await here.getAttribute('aria-pressed')) !== 'false' || (await page.locator('#cin').getAttribute('placeholder')) !== 'Ask anything') problems.push('[switch] it stayed on after the message (it is for one message)');
+if ((await here.getAttribute('aria-pressed')) !== 'false' || (await page.locator('#cin').getAttribute('placeholder')) !== 'Talk to me') problems.push('[switch] it stayed on after the message (it is for one message)');
 await page.screenshot({ path: `${out}/onphone-switch-stopped.png` });
 chats0 = chats();
 await say('and what is the weather like');

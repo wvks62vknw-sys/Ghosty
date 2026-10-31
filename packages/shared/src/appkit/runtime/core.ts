@@ -247,9 +247,13 @@ function offline() {
   if (location.pathname === base.slice(0, -1)) {
     try { history.replaceState(null, '', base + location.search + location.hash); } catch (e) { /* stays as it is */ }
   }
-  if (!('serviceWorker' in navigator) || location.pathname.indexOf(base) !== 0) { A.offline = 'no'; status(); return; }
+  // (reading navigator.serviceWorker throws in a sandboxed frame — the Workshop's DRAFT card previews this page in one: no
+  //  offline copy there, and no error)
+  var workers = null;
+  try { workers = 'serviceWorker' in navigator ? navigator.serviceWorker : null; } catch (e) { workers = null; }
+  if (!workers || location.pathname.indexOf(base) !== 0) { A.offline = 'no'; status(); return; }
   // (not navigator.serviceWorker.ready: a page first opened as /s/<name>, without the slash, is outside the scope until it reloads)
-  navigator.serviceWorker.register(base + 'page', { scope: base }).then(function (reg) {
+  workers.register(base + 'page', { scope: base }).then(function (reg) {
     var on = function () { A.offline = 'yes'; status(); };
     if (reg.active) return on();
     var sw = reg.installing || reg.waiting;

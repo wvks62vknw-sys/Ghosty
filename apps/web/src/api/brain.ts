@@ -14,6 +14,9 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { MindSnapshot } from '../../../../packages/shared/src/mind';
+import type { MeterDay } from '../../../../packages/shared/src/independence';
+import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -306,7 +309,8 @@ export const brain = {
       .catch(() => [])
       .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library }, ...(cited ? { cited: true } : {}) }, onEvent, signal)),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
-  stop: () => req<{ ok: boolean }>('POST', '/stop'),
+  /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
+  stop: (harsh?: boolean) => req<{ ok: boolean }>('POST', '/stop', harsh === undefined ? undefined : { harsh }),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
   addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),
@@ -321,15 +325,18 @@ export const brain = {
   /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
   reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
   /** The Memory tab's TIMELINE (everything remembered, newest first, with sources) and PATTERNS (memories.ts on the brain). */
-  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[]; forgotten?: ForgottenItem[] }>('GET', '/profile/timeline'),
+  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[]; forgotten?: ForgottenItem[]; fading?: MemoryItem[] }>('GET', '/profile/timeline'),
   /** Edit, forget, undo a forget (restore), lock or unlock one memory; the item as it now is (null once forgotten). */
-  memoryChange: (id: string, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock', text?: string) => req<{ item: MemoryItem | null }>('POST', '/profile/item', { id, op, ...(text !== undefined ? { text } : {}) }),
+  memoryChange: (id: string, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock' | 'keep', text?: string) => req<{ item: MemoryItem | null }>('POST', '/profile/item', { id, op, ...(text !== undefined ? { text } : {}) }),
   /** CLEAR CONVERSATION: what was noticed from it goes too (the patterns' day log). */
   clearPatterns: () => req<{ ok: boolean }>('POST', '/profile/patterns/clear', {}),
   dismissPattern: (id: string) => req<{ ok: boolean; patterns: MemoryPattern[] }>('POST', '/profile/patterns/dismiss', { id }),
   /** SETTINGS → CHARACTER (profile.ts): how dry, how brief, how warm Ghosty talks, and the words that makes. */
   persona: () => req<{ persona: PersonaSettings; character: string }>('GET', '/profile/persona'),
   setPersona: (p: PersonaSettings) => req<{ persona: PersonaSettings; character: string }>('POST', '/profile/persona', p),
+  /** His PRINCIPLES (profile.ts): his own lines, the whole list each time. */
+  principles: () => req<{ lines: string[]; max: number }>('GET', '/profile/principles'),
+  setPrinciples: (lines: string[]) => req<{ lines: string[]; max: number }>('POST', '/profile/principles', { lines }),
   /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
@@ -397,6 +404,16 @@ export const brain = {
   upgrades: () => req<{ ideas: UpgradeIdea[]; next: number | null; last: string | null }>('GET', '/upgrades'),
   dismissUpgrade: (id: string) => req<{ removed: boolean }>('DELETE', `/upgrades/${encodeURIComponent(id)}`),
   thinkUpgrades: () => req<{ ideas: UpgradeIdea[]; added: number; note: string }>('POST', '/upgrades/now'),
+  /** ABILITIES (apps/edge/src/abilities.ts): everything the brain can do, his learning goals, what was offered in context. */
+  abilities: () => req<AbilitiesInfo>('GET', '/abilities'),
+  /** "Want me to learn it?" → YES: his words become a learning goal (kept with the upgrade ideas, before Ghosty's own). */
+  learnGoal: (ask: string) => req<{ goal: LearningGoal }>('POST', '/abilities/learn', { ask }),
+  /** What he did today, from what the brain keeps (apps/edge/src/today.ts), the day counted in the owner's time zone. */
+  today: (tz: string) => req<{ items: DayItem[] }>('GET', `/today?tz=${encodeURIComponent(tz)}`),
+  /** An ability offered in context once (and the day's one): remembered by the brain, never offered again. */
+  abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
+  /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
+  why: () => req<{ trails: Trail[] }>('GET', '/why'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),
@@ -410,6 +427,8 @@ export const brain = {
   deleteJob: (id: string) => req('DELETE', `/jobs/${encodeURIComponent(id)}`),
   runJob: (id: string) => req<{ item: InboxEntry }>('POST', `/jobs/${encodeURIComponent(id)}/run`),
   inbox: () => req<{ items: InboxEntry[]; unread: number }>('GET', '/inbox'),
+  /** The one shared mind (apps/edge/src/mind.ts): his day as the chat sees it — the Brief's YOUR DAY and morning line. */
+  mind: () => req<MindSnapshot>('GET', `/mind?tz=${encodeURIComponent(TZ)}`),
   markRead: (ids?: string[]) => req('POST', '/inbox/read', ids ? { ids } : {}),
   addFeed: (name: string, url: string) => req<{ feed: FeedInfo }>('POST', '/feeds', { name, url, tz: TZ }),
   deleteFeed: (id: string) => req('DELETE', `/feeds/${encodeURIComponent(id)}`),
@@ -463,9 +482,14 @@ export const brain = {
     /** The daily GPU (a Space on his Hugging Face account, its free minutes): his yes (it is made at the next step) or no. */
     pool: (allow: boolean) => req<TrainStatus>('POST', '/training/pool', { allow }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
-    rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
-    /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
-    gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
+    /** `kind`/`weight` (OWNER-ISSUES 69c): a 👍 is a reward, a 👎 a telling-off, weight 1 (his words weigh more: intent.ts). */
+    rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean; kind?: 'reward' | 'discipline'; weight?: number }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
+    /** The GYM levels reached on this phone (and the games' names): the week's puzzles are made at and just beyond them; the capability ledger keeps the best. */
+    gym: (levels: Record<string, number>, names?: Record<string, string>) => req<{ ok: boolean }>('POST', '/training/gym', { levels, ...(names ? { names } : {}) }),
+    /** What I learned to do this week, in his words (the REPORT CARD's WHAT I LEARNED TO DO card; the Sunday note says the same). */
+    ledger: () => req<{ lines: string[]; since: number }>('GET', '/training/ledger'),
+    /** The independence meter's days from this phone (core/independence.ts): counts only, never a kept task's. */
+    meter: (days: MeterDay[]) => req<{ ok: boolean }>('POST', '/training/meter', { days }),
     /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */
     star: (records: unknown[]) => req<{ kept: number; refused: { why: string; n: number }[]; waiting: number }>('POST', '/training/star', { records }),
     /** This week's numbers for the brain's loops (the REPORT CARD's LOOPS card). */

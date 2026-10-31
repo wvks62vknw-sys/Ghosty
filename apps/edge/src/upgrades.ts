@@ -95,14 +95,45 @@ export function parseIdeas(text: string): { title: string; why: string; steps: s
   return out;
 }
 
-/** New ideas in front of the old ones, the same idea never twice, at most MAX_IDEAS (the oldest go). */
+/**
+ * New ideas in front of the old ones, the same idea never twice, at most MAX_IDEAS of his own (the oldest go). The owner's
+ * learning goals (`from: 'owner'`) stay in front of them all and never count against the limit: only he dismisses one.
+ */
 export function mergeIdeas(existing: UpgradeIdea[], fresh: { title: string; why: string; steps: string[] }[], now: number): { list: UpgradeIdea[]; added: UpgradeIdea[] } {
   const added: UpgradeIdea[] = [];
   for (const f of fresh) {
     if (existing.some((e) => sameIdea(e.title, f.title)) || added.some((e) => sameIdea(e.title, f.title))) continue;
     added.push({ id: crypto.randomUUID().slice(0, 6), ...f, at: now });
   }
-  return { list: [...added, ...existing].slice(0, MAX_IDEAS), added };
+  const owner = existing.filter((e) => e.from === 'owner');
+  return { list: [...owner, ...[...added, ...existing.filter((e) => e.from !== 'owner')].slice(0, MAX_IDEAS)], added };
+}
+
+/** His words as a goal's title, from Ghosty's side: "can you check my car's MOT?" → "Learn to check your car's MOT". */
+export function goalTitle(ask: string): string {
+  const t = ask.replace(/\s+/g, ' ').trim().replace(/[?!.\s]+$/, '');
+  const m = /^(?:(?:hey|so|ok|okay|ghosty)[,!]?\s+)*(?:can|could|would) (?:you|u) (?:ever |even |actually |also )?(?:learn (?:how )?to )?|^(?:are you (?:able|capable) (?:to|of)|do you know how to|is it possible for you to|learn (?:how )?to|learn) /i.exec(t);
+  const thing = (m ? t.slice(m[0].length) : t).replace(/\bmy\b/gi, 'your').replace(/\bme\b/gi, 'you').replace(/\bI\b/g, 'you');
+  const title = m ? `Learn to ${thing}` : `Learn: ${thing}`;
+  return title.length > 80 ? `${title.slice(0, 79)}…` : title;
+}
+
+/**
+ * A learning goal the owner asked for on ABILITIES ("Not yet. Want me to learn it?" → YES): kept with his own words, in front
+ * of every idea of Ghosty's own; the nightly pass reads it first (`gather`). The same goal asked again is the one goal.
+ */
+export async function addOwnerGoal(storage: DurableObjectStorage, ask: string, now = Date.now()): Promise<UpgradeIdea> {
+  const list = await loadIdeas(storage);
+  const title = goalTitle(ask);
+  // the same words asked again (however they were dressed: "can you …?", a capital, a question mark) are the one goal
+  const key = (s: string) => goalTitle(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const had = list.find((i) => i.from === 'owner' && key(i.ask ?? i.title) === key(ask));
+  if (had) return had;
+  const goal: UpgradeIdea = { id: crypto.randomUUID().slice(0, 6), title, why: `You asked me: “${ask}”`, steps: [], at: now, from: 'owner', ask };
+  const owner = list.filter((i) => i.from === 'owner');
+  // at most 30 of his goals are kept (the oldest go); Ghosty's own ideas stay as they are
+  await storage.put(UPGRADES_KEY, [goal, ...owner].slice(0, 30).concat(list.filter((i) => i.from !== 'owner')));
+  return goal;
 }
 
 /** Everything the model is shown, gathered without any AI: what Ghosty has, and what the week showed. */
@@ -127,11 +158,15 @@ export async function gather(deps: UpgradeDeps): Promise<string> {
   const errors = (await loadInbox(deps.storage)).filter((i) => i.kind === 'error' && now - i.at <= WEEK).slice(-10);
   const facts = (await loadMemory(deps.storage)).slice(-40);
   const existing = await loadIdeas(deps.storage);
+  // the owner's own learning goals ("Want me to learn it?" → YES on ABILITIES) come first: his words, newest first
+  const asked = existing.filter((e) => e.from === 'owner');
+  if (asked.length) parts.unshift(`WHAT THE OWNER ASKED YOU TO LEARN (his own words; propose how to build these first):\n${asData('his learning goals', asked.slice(0, 10).map((e) => `- ${e.ask ?? e.title}`).join('\n'))}`);
   parts.push(`WHAT THE OWNER ASKED ABOUT THIS WEEK (${research.length} research notes):\n${research.length ? asData("your research notes' headings", research.slice(-20).map((h) => `- ${h}`).join('\n')) : '(nothing researched this week)'}`);
   parts.push(`QUESTIONS YOUR LIBRARY COULD NOT ANSWER:\n${st.gaps.length ? asData('your study gaps', st.gaps.slice(-10).map((g) => `- ${g}`).join('\n')) : '(none)'}`);
   parts.push(`WHAT WENT WRONG THIS WEEK (${errors.length} errors in your inbox):\n${errors.length ? asData('your inbox', errors.map((e) => `- ${e.title}: ${e.text.slice(0, 160)}`).join('\n')) : '(nothing)'}`);
   parts.push(`ABOUT THE OWNER (${facts.length} facts):\n${facts.length ? asData('your memory of the owner', facts.map((f) => `- ${f.text}`).join('\n')) : '(nothing remembered yet)'}`);
-  if (existing.length) parts.push(`ALREADY PROPOSED (never repeat these):\n${existing.map((e) => `- ${e.title}`).join('\n')}`);
+  const proposed = existing.filter((e) => e.from !== 'owner');
+  if (proposed.length) parts.push(`ALREADY PROPOSED (never repeat these):\n${proposed.map((e) => `- ${e.title}`).join('\n')}`);
   return parts.join('\n\n');
 }
 

@@ -37,7 +37,8 @@ export function questionFor(entries: Entry[], reply: Reply): string {
 
 /** Whether a reply can be rated: a finished, kept reply with words in it (never a vehicle record shown once). */
 // (never a reply kept on the phone: a rating sends the question and the reply to the brain's training — OWNER-ISSUES 72)
-export const rateable = (e: Reply): boolean => !!e.text.trim() && !e.once && !e.private && e.text.trim() !== '…';
+// (an answer made on the phone from what he knows of himself is not a model's: nothing for the training to learn from)
+export const rateable = (e: Reply): boolean => !!e.text.trim() && !e.once && !e.private && !e.local && e.text.trim() !== '…';
 
 function setRated(id: number, v: 1 | -1 | undefined): void {
   ratings.set({ list: withRating(Array.isArray(ratings.get().list) ? ratings.get().list : [], id, v) });
@@ -54,7 +55,7 @@ export function rateRow(e: Reply): HTMLElement {
     const next = was === v ? undefined : v;
     setRated(id, next);
     void brain.selftrain
-      .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}) })
+      .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}), ...(next === undefined ? {} : { kind: next === 1 ? ('reward' as const) : ('discipline' as const), weight: 1 }) })
       .then(() => {
         if (next === -1) toast('Thanks — Ghosty will learn a better answer to that in its weekly training', 'ok');
       })

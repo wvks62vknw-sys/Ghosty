@@ -56,8 +56,8 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/direct-tip.png` });
 
 // 5. the model is back: an ordinary reply, and nothing stuck from the fallback
-await ask('hello');
-if (!(await seen(/Mock reply to: hello/))) problems.push('an ordinary turn after the fallback did not answer');
+await ask('say hello');
+if (!(await seen(/Mock reply to: say hello/))) problems.push('an ordinary turn after the fallback did not answer');
 if (await page.locator('.convo .log .act.live').count()) problems.push('a tool row is still live after the turns ended');
 
 await browser.close();

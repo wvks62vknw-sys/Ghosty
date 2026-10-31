@@ -226,6 +226,33 @@ test('a text from the paired chat runs a normal turn: the reply comes back as a 
   tg.calls.length = 0;
 });
 
+test('"why?" on Telegram (OWNER-ISSUES 67d): the last turn’s trail in plain words, with no model and no turn of its own; a bare "why?" after a reply that ran nothing is for the model', async () => {
+  await hook(msg(OWNER_CHAT, { text: 'remember my bike is blue' }), secret);
+  const before = (await (await call('/api/history')).json()).turns.length;
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why?' }), secret);
+  assert.equal(texts().length, 1);
+  assert.match(texts()[0], /^Why I did that:\nYou asked: “remember my bike is blue”\n1\. Remembered — text: my bike is blue: it worked\.\n {3}Why: you asked about “remember”, and I can remember lasting facts you tell me, list them, drop one\.$/);
+  assert.equal((await (await call('/api/history')).json()).turns.length, before, 'asking why is not a turn: the history is as it was');
+  // a reply that ran nothing: "why did you do that?" is answered from the trail, a bare "why?" goes to the model
+  await hook(msg(OWNER_CHAT, { text: 'hello' }), secret);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why did you do that?' }), secret);
+  assert.match(texts()[0], /^Why I did that:\nYou asked: “hello”\nI didn’t run anything for that one: I answered from what I know\.$/);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why?' }), secret);
+  assert.ok(texts().length >= 1 && !/^Why I did that/.test(texts()[0]), `the model answered it: ${texts()[0]}`);
+  tg.calls.length = 0;
+  // "what did you do today?" (OWNER-ISSUES 68c): the day's doings from what the brain keeps, newest first, no model, no turn
+  const turns = (await (await call('/api/history')).json()).turns.length;
+  await hook(msg(OWNER_CHAT, { text: 'what did you do today?' }), secret);
+  assert.equal(texts().length, 1);
+  assert.match(texts()[0], /^Today, newest first \(\d+ things?\):\n• \d\d:\d\d — /);
+  assert.match(texts()[0], /— Remembered \(text: my bike is blue\)/);
+  assert.equal((await (await call('/api/history')).json()).turns.length, turns, 'asking is not a turn');
+  tg.calls.length = 0;
+});
+
 test('a long reply is sent in pieces under the limit, in order', async () => {
   const long = `${'The forecast says rain in the afternoon. '.repeat(220)}`.trim();
   await TG.tgSend(TOKEN, OWNER_CHAT, long);
@@ -377,6 +404,17 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   await hook(msg(OWNER_CHAT, { text: '/stop' }), secret);
   assert.deepEqual(texts(), ['Stopped.']);
   tg.calls.length = 0;
+  // a stop by intent, not the command (OWNER-ISSUES 70a): it stops him, and it is never answered — not even "Stopped."
+  for (const t of ['shut the fuck up', 'enough mate', 'leave it', 'Ghosty stop']) {
+    await hook(msg(OWNER_CHAT, { text: t }), secret);
+    await settle();
+    assert.deepEqual(texts(), [], `"${t}" is never answered`);
+  }
+  // "stop the timer" is a request, not a stop: it is answered
+  await hook(msg(OWNER_CHAT, { text: 'stop the timer' }), secret);
+  await settle();
+  assert.ok(texts().some((t) => /stop the timer/.test(t)), texts().join(' | '));
+  tg.calls.length = 0;
   // a reminder run now: the inbox item goes to Telegram too
   const job = (await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text: 'Call the dentist', at: Date.now() + 3600_000, repeat: 'none', tz: 'UTC' }) })).json()).job;
   await call(`/api/jobs/${job.id}/run`, { method: 'POST' });
@@ -460,12 +498,12 @@ test('the paused database: the link lives on in KV, so the webhook still answers
   state.storage.put = async () => quota();
   state.storage.delete = async () => quota();
   try {
-    const r = await hook(msg(OWNER_CHAT, { text: 'hello' }), live);
+    const r = await hook(msg(OWNER_CHAT, { text: 'say hello' }), live);
     assert.equal(r.status, 200);
     const reply = texts();
     assert.ok(reply.length >= 1, 'answered while paused');
     assert.ok(!reply.some((t) => /Exceeded allowed rows/.test(t)), `no raw database error: ${reply.join(' | ')}`);
-    assert.ok(reply.some((t) => /^Mock reply to: hello/.test(t)), reply.join(' | '));
+    assert.ok(reply.some((t) => /^Mock reply to: say hello/.test(t)), reply.join(' | '));
   } finally {
     state.storage.get = realGet;
     delete state.storage.put;

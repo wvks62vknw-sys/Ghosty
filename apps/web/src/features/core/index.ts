@@ -26,6 +26,8 @@ import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
+import { localRow } from './localcard';
+import { holdForWhy, whyButton } from './why';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
@@ -250,6 +252,8 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
     case 'assistant': {
       if (e.think) return renderThink(e);
       const el = plainReply(e, askedAt);
+      // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
+      if (e.local) el.append(localRow(e) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.
@@ -257,6 +261,11 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
       if (rateable(e)) acts.append(rateRow(e));
       if (e.text && !e.offline) acts.append(replyActs(e.text));
+      // WHY (OWNER-ISSUES 67d): what ran for this reply and why, from the chat's own trail (why.ts); a long press too
+      if (!e.local) {
+        (acts.querySelector('.msgacts') ?? acts).append(whyButton(e.at));
+        holdForWhy(el, e.at);
+      }
       if (q) acts.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
       if (acts.childElementCount) el.append(acts);
       return el;
@@ -343,7 +352,7 @@ export const coreTab: TabDef = {
     const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
     // The field is narrow (its buttons sit inside it): a short invitation.
-    const input = h('input#cin', { placeholder: 'Ask anything', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
+    const input = h('input#cin', { placeholder: 'Talk to me', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -403,7 +412,7 @@ export const coreTab: TabDef = {
       hereBtn.hidden = always;
       hereBtn.classList.toggle('on', hereNext);
       hereBtn.setAttribute('aria-pressed', String(hereNext));
-      input.placeholder = hereNext || always ? 'Ask on this phone only' : 'Ask anything';
+      input.placeholder = hereNext || always ? 'Ask on this phone only' : 'Talk to me';
     };
     paintHere();
     settings.subscribe((s, prev) => s.offlineBrain !== prev.offlineBrain && paintHere());
@@ -630,6 +639,8 @@ export const coreTab: TabDef = {
         if (e.kind === 'assistant') askedAt = 0;
       });
       flush();
+      // An empty conversation reads as someone already there (OWNER-ISSUES 67a): his name, nothing to choose from.
+      if (!els.length) els.push(h('p.note.logidle', `Here, ${settings.get().name.trim() || 'Boss'}.`));
       clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');

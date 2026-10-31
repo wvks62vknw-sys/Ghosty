@@ -333,3 +333,7 @@ test('GET stores what WebLLM looks up, a big piece in parts, and the storage lin
   assert.equal(M.roomProblem(mid, 0, 0), '', 'a browser that does not say: no refusal');
   assert.match(M.roomProblem({ label: 'Tiny', mb: 3, largest: 0 }, 1e6, 0), /^This phone gives Ghosty 1 MB of space \(1 MB of it free\); the Tiny needs 3 MB\. Nothing was downloaded/, 'no parts, no room for them');
 });
+
+// THE INDEPENDENCE METER (packages/shared/src/independence.ts): its tests live in independence.test.mjs (run from here: the
+// test list in package.json is protected).
+await import('./independence.test.mjs');

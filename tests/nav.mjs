@@ -65,3 +65,12 @@ export async function openSection(page, tab, label) {
   await page.waitForTimeout(250);
   return true;
 }
+
+/**
+ * His mood back to calm on the preview brain (OWNER-ISSUES 63: a mood is a live overlay on the accent). A spec that measures
+ * a theme's own colours stands him down first, so a mood an earlier spec left (being taught something pleases him for half
+ * an hour) cannot colour what it measures.
+ */
+export async function standDown(base, key = 'preview-owner-key-0123456789') {
+  await fetch(`${base}/api/stop`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': key, 'content-type': 'application/json' }, body: '{}' }).catch(() => undefined);
+}

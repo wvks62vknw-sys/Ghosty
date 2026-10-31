@@ -10,7 +10,7 @@ import type { ModelHealth } from '../../../../packages/shared/src/protocol';
 import type { AiCapacity, ProviderRoom } from '../../../../packages/shared/src/protocol';
 import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
-import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+import { hasImage, IMAGE_TOKENS, ownerWords, textOf, type Content } from './content';
 import { cost, neurons } from '../neurons';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
 import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
@@ -44,7 +44,9 @@ export interface Msg {
 export function inCharacter<T extends { message: Msg }>(messages: Msg[], r: T): T {
   const sys = messages[0]?.role === 'system' ? textOf(messages[0].content) : '';
   if (!sys.includes(CHARACTER_MARK) || typeof r.message.content !== 'string' || !r.message.content) return r;
-  return { ...r, message: { ...r.message, content: polish(r.message.content) } };
+  // The owner's message it answers: a short list he never asked for is said as a sentence (persona.ts).
+  const asked = [...messages].reverse().find((m) => m.role === 'user');
+  return { ...r, message: { ...r.message, content: polish(r.message.content, asked ? ownerWords(textOf(asked.content)) : undefined) } };
 }
 
 export interface ToolSpec {
