@@ -817,6 +817,15 @@ folder that no longer exists; ignore those paths).
   LESSON for every new spec that opens the Workshop, Links or Memory late in the loop: the brain is not fresh in CI — run
   it locally after websites.spec and apps.spec on the same preview before trusting a clean run; and a new spec goes
   somewhere in the loop before websites/apps unless it must see their state.
+- 31 Oct 09:50 UK: PR #44 MERGED (main 6d7cb42, merge commit) after a green run on 3a57da0 (smoke 81 min): batches 2, 3 and
+  4 are LIVE. Main's own post-merge run (the guard live) started at the merge; the next check-in confirms no "Undo broken
+  change" on main. The session branch fast-forwarded to main; BRIEF-GUARDIAN.md (batch 5: the eyes and the guardian —
+  his face on his phone with the ADMIN label, people he introduces, threats near his places from public feeds, a scam or
+  link check, WALK ME HOME with the one named person and a panic phrase, the GUARDIAN card; the face rules and the
+  no-billing rule are in its first section) added, and its builder started from this commit (port 8855). The owner got his
+  ONE morning summary in this session right after this push. Open from his side: his principles, the named person
+  (cousin: Telegram or email), the four Harold/Machine picks, the phone tests of batches 1–4.
+
 
 
 

@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 06:00 UK
+# Where everything stands — 31 October 2026, 09:50 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #43, the last at 02:31 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #44, the last at 09:49 UK on 31 Oct)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -10,6 +10,29 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   (dependability): a school paper survives on the phone (heavy mode, the smallest brain, saved per answer, CARRY ON after a
   close), the chat never gives up while a free model is seconds away, ON THIS PHONE fails closed (a toggle by the mic; the
   cloud only by a tap), a Telegram video is never dropped and "kiddo" means him, never your cousin.
+- LIVE since 09:49 UK on 31 Oct (PR #44), three batches at once:
+  BATCH 2, the conversation and the soul — he answers at your length (HOW BRIEF's default is LIKE YOU), no AI cadence,
+  looks things up only for live facts, "hey" / "thanks" / "night" answered with no model at all, a stop by intent ("shut
+  up", "enough", "leave it", typos and all) obeyed at once and never answered, a HOW FIERY dial (FIRM by default) with the
+  lines he never flips on, your PRINCIPLES page (SETTINGS → CHARACTER and MEMORY), praise and a telling-off recorded for
+  the weekly training with a weight, your corrections kept as his standing rules ("you told me: shorter"), and an honest
+  mood that lingers (subdued, pleased, protective, cross, focused; "stand down" or any stop puts him back) shown as colour
+  over the whole interface, in his voice, and on the Me sheet in words.
+  BATCH 3, one shared mind — one picture of your day that the chat, Telegram, the background tasks and the Brief all read
+  (they agree now), memory that forgets well (trivia he inferred fades after three weeks and goes after five unless you
+  KEEP it, with UNDO), the weekly training's install step says what stopped it in plain words naming the package (and he
+  holds back a notebook that would stop the same way), the INDEPENDENCE METER ("This week 71% of what you asked was
+  answered on your own brains…") with SOVEREIGN MODE's list of what still needed the cloud, and the capability ledger
+  (WHAT I LEARNED TO DO on the Report card, and a note on Sunday mornings).
+  BATCH 4, ABILITIES — a screen of everything he can do, made from his own registries so it is never out of date (65
+  things today: 42 of the brain's, 23 of the app's; SEE · KNOW · BUILD · WATCH OVER YOU · PLAY · LEARN · DO FOR YOU · TALK,
+  each with asks you can tap and GO; a missing key says so and GO takes you to it), reached from the Me sheet, the deck and
+  #abilities; a "Can you…?" box (and the same in chat: "can you translate signs?" → "Yes." with the way there; "Not yet.
+  Want me to learn it?" → YES puts it on his learning list, first in Workshop → UPGRADE IDEAS, and the nightly upgrade
+  pass reads your goals first); WHY under every reply (what ran, with what, how it went, and why — no model; "why?" on
+  Telegram too); "what did you do today?" answered from what he really did, newest first (chat and Telegram); on a fresh
+  phone, three things he can do said once; and one gentle line a day at most offering an ability you have never used,
+  when the moment calls for it (a plate typed, a YouTube link, a worry, a receipt) or as a "Did you know I can…?".
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -69,34 +92,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Built, reviewed and going up in ONE pull request (PR #44, 31 Oct; live once its checks pass and it merges):
-  BATCH 2, the conversation and the soul — he answers at your length (HOW BRIEF's default is LIKE YOU), no AI cadence,
-  looks things up only for live facts, "hey" / "thanks" / "night" answered with no model at all, a stop by intent ("shut
-  up", "enough", "leave it", typos and all) obeyed at once and never answered, a HOW FIERY dial (FIRM by default) with the
-  lines he never flips on, your PRINCIPLES page (SETTINGS → CHARACTER and MEMORY), praise and a telling-off recorded for
-  the weekly training with a weight, your corrections kept as his standing rules ("you told me: shorter"), and an honest
-  mood that lingers (subdued, pleased, protective, cross, focused; "stand down" or any stop puts him back) shown as colour
-  over the whole interface, in his voice, and on the Me sheet in words.
-  BATCH 3, one shared mind — one picture of your day that the chat, Telegram, the background tasks and the Brief all read
-  (they agree now), memory that forgets well (trivia he inferred fades after three weeks and goes after five unless you
-  KEEP it, with UNDO), the weekly training's install step says what stopped it in plain words naming the package (and he
-  holds back a notebook that would stop the same way), the INDEPENDENCE METER ("This week 71% of what you asked was
-  answered on your own brains…") with SOVEREIGN MODE's list of what still needed the cloud, and the capability ledger
-  (WHAT I LEARNED TO DO on the Report card, and a note on Sunday mornings).
-  BATCH 4, ABILITIES — a screen of everything he can do, made from his own registries so it is never out of date (65
-  things today: 42 of the brain's, 23 of the app's; SEE · KNOW · BUILD · WATCH OVER YOU · PLAY · LEARN · DO FOR YOU · TALK,
-  each with asks you can tap and GO; a missing key says so and GO takes you to it), reached from the Me sheet, the deck and
-  #abilities; a "Can you…?" box (and the same in chat: "can you translate signs?" → "Yes." with the way there; "Not yet.
-  Want me to learn it?" → YES puts it on his learning list, first in Workshop → UPGRADE IDEAS, and the nightly upgrade
-  pass reads your goals first); WHY under every reply (what ran, with what, how it went, and why — no model; "why?" on
-  Telegram too); "what did you do today?" answered from what he really did, newest first (chat and Telegram); on a fresh
-  phone, three things he can do said once; and one gentle line a day at most offering an ability you have never used,
-  when the moment calls for it (a plate typed, a YouTube link, a worry, a receipt) or as a "Did you know I can…?".
+- Nothing waiting: everything built so far is live (PR #44 merged at 09:49 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- Waiting on you: the three phone tests of batch 1 (sit a paper with GYM training running; "Always" with no brain downloaded → the explanation and ASK THE BIG BRAIN, the toggle by the mic; re-send the TikTok with "what do you think of this kiddo"), and the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between opens (47) and your Connect 4 trick no longer wins (52).
-- Building now: nothing — batches 2, 3 and 4 are all up in the one pull request. Next, in order: the eyes and the guardian, the Machine view and foresight, the workshop and knowledge, the social self and rituals (PLAN.md). Left for a later batch: twelve more themes (batch 2, item 7), his self-model and the timing of his messages (batch 3, items 3 and 4), search by meaning in the "Can you…?" box (batch 4).
+- Waiting on you: the phone tests in my morning message (batches 1 to 4), your principles in your own words (SETTINGS → CHARACTER → PRINCIPLES), the four picks for Ghosty and you as Harold and the Machine, and the one named person for WALK ME HOME (your cousin: Telegram or email). Confirmed on your phone on 31 Oct: the brain kept between opens (47) and your Connect 4 trick no longer wins (52).
+- Building now: batch 5, the eyes and the guardian (BRIEF-GUARDIAN): his face on his phone with the ADMIN label (enrolled by him, kept on the phone only), people he introduces in person, threats near his saved places (flood warnings, weather warnings, street crime) by notification and in the Brief, a scam or a link checked for real, WALK ME HOME with the one named person and a panic phrase, and the GUARDIAN card. Next, in order: the Machine view and foresight, the workshop and knowledge, the social self and rituals. Left for a later batch: twelve more themes, his self-model and the timing of his messages, search by meaning in the "Can you…?" box.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
