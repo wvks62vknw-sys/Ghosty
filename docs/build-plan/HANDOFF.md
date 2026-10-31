@@ -951,6 +951,23 @@ folder that no longer exists; ignore those paths).
   confirmed at the 21:05 check-in when `git log origin/main --oneline -3` shows no "Undo broken change" on top of 466fcd4.
   Next: BRIEF-WORKSHOP (⑦ the workshop and knowledge), planned from an inventory first; ⑧ the social self and rituals
   stays last until the owner answers his four Harold / Machine picks.
+- 31 Oct 19:35 UK: BRIEF-WORKSHOP WRITTEN (e6750f2) and the batch-7 builder started (a worktree from e6750f2, port 8866).
+  Planned from an inventory (an Explore agent on a cheaper model): the cited pipeline proves only "read this turn" (no
+  tier, label or lead-vs-source idea), the Digest list is nine hard-coded feeds with no primary among them, no offline
+  Wikipedia or solver or physics or unit code exists (lengths only), WebGPU is used only by the offline brain and CI has
+  none, the "Workshop" tab is Ghosty editing himself (17 specs name it: not to be repurposed), 6 characters of prompt
+  headroom. SCOPE: (1) pure solvers in `packages/shared/src/workbench/` (units, beams + Euler, gears, the Otto/Diesel
+  cycle, aero forces, projectile + orbit, heat, sun, circuits) tested against textbook values; (2) a new WORKBENCH tab in
+  MAKE with five sections and the standing label FIRST ESTIMATE · NOT CERTIFIED, the `estimate` tool in a keyword-gated
+  group paid for by ≥ 24 characters trimmed from TODAY/HEARING, chat words with no model, `workbench.spec`; (3) the wind
+  tunnel: a D2Q9 lattice-Boltzmann flow in plain typed arrays (CPU, in the shared worker; no WebGPU this batch) with
+  NACA/circle/plate/car/drawn shapes and Cl/Cd by momentum exchange, `tunnel.spec`; (4) knowledge with sources:
+  `sources.ts` tiers (primary/credible/press/reference/lead/unknown) and the six claim labels with code caps, carried
+  through the cited pipeline, CITED_PROMPT (not under the guard), cited-by-default words for contested public matters,
+  tiered search results, a refusal detector, and a Digest FEEDS registry with primary/credible RSS (each URL verified by
+  hand). NOT IN IT: offline Wikipedia, rights-and-law curriculum topics, new always-on persona words. The lines that
+  hold: public matters and public figures only as the documents say, never a private person; nothing billable; every
+  number a first estimate; the sourcing caps are code. Next wake: the hand-back or the 21:03 check-in.
 
 
 

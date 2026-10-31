@@ -1,4 +1,4 @@
-# Where everything stands — 31 October 2026, 19:15 UK
+# Where everything stands — 31 October 2026, 19:35 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
@@ -135,8 +135,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK, and batch 6 (PR #47, the Machine view and foresight, BRIEF-MACHINE-VIEW) at 19:10 UK:
   MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
   count of what he is watching; foresight is a prediction ledger (rain at home, your commute, your first train or bus, and
-  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
-  knowledge, then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
+  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Building now (since 19:35 UK): batch 7, the workbench and knowledge with sources
+  (BRIEF-WORKSHOP) — first-estimate engineering solvers (beams and columns, gears, the engine cycle, wings and cars,
+  projectiles and orbits, heat, sun and shadow, circuits) and a 2-D wind tunnel on your phone, every answer labelled NOT
+  CERTIFIED; in cited answers every source gets a tier (primary / credible / press / reference / lead) and every claim a
+  label (established fact … debunked), TikTok, X and YouTube count as leads never sources, and credible primary feeds join
+  the Digest. Then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
   messages, search by meaning in the "Can you…?" box, anti-spoofing for faces (a printed photo held to the live camera
   still counts as the camera).
 
@@ -144,7 +148,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
-foresight (live) → the workshop and knowledge → the social self and rituals. The older list below still stands after those.
+foresight (live) → the workbench and knowledge (building now) → the social self and rituals. The older list below still stands after those.
 
 1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.

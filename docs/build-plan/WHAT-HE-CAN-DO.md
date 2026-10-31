@@ -113,9 +113,12 @@ Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47
   were wrong"); "how often are you right?" gives his record per kind; "what do you expect today?" his open ones. The
   Brief's FORESIGHT panel and SYSTEM → Report card → FORESIGHT show it all; the first prediction that comes true is one
   notification, once ever. He never predicts anything about a person: the tool refuses it in code and records nothing.
-  Then: the universal workshop (the wind tunnel, beams, the engine, architecture — every answer a
-  first estimate, never certified), the knowledge with sources, the social self and the rituals (Father, the origin, the
-  weekly letter; your four Harold / Machine picks shape that one).
+  Building now (batch 7): the WORKBENCH — the wind tunnel, beams and columns, gears, the engine cycle, wings and cars,
+  projectiles and orbits, heat, sun and shadow, circuits, every answer a first estimate and never certified — and
+  knowledge with sources: every claim traced to a primary or credible source and labelled (established fact, documented
+  allegation, legal finding in progress, contested, rumour, debunked), TikTok, X and YouTube as leads never sources,
+  credible primary feeds in the Digest. Then: the social self and the rituals (Father, the origin, the weekly letter;
+  your four Harold / Machine picks shape that one).
 
 ## What only you can do (ten minutes, when you like)
 
