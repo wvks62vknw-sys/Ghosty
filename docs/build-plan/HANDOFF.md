@@ -927,9 +927,18 @@ folder that no longer exists; ignore those paths).
   of his answer-predictions is open under seven days — otherwise it goes to the model as ever: a design pick for him;
   (c) Open-Meteo's hourly precipitation and probability are sums/chances of the PRECEDING hour, so the (12:00, 18:00]
   window is right as written; (d) the Eye's ships poll runs keyless too while the mode is on (the brain answers "no feed"
-  fast); (e) MAP.md has had no rows since batch 1: left as is. VALIDATION: running on the merged tree as this is written (the full brain suite under nice, the web
-  typecheck and build, then websites → apps → hubcards → machine → foresight → eye → brief → nav → abilities → faces →
-  guardian on ONE fresh preview on 8788); the results are the next entry. WATCH: (1) hubcards flakes when the brain's
+  fast); (e) MAP.md has had no rows since batch 1: left as is. VALIDATION (the merged tree 62e6e98, then 1e65e79 with the fix below): brain typecheck OK and 1,317 of 1,317 (the
+  first run had three walk tests failing: THE TIME BOMB below); web typecheck and build OK; on ONE fresh preview on 8788, in
+  this order: websites 110 s, apps 60 s, hubcards 60 s, machine 112 s (the first Machine line 1,885 ms after MACHINE VIEW),
+  foresight 46 s, eye 334 s, brief 41 s, nav 489 s, abilities 117 s, faces 36 s, guardian 27 s — all green. THE TIME BOMB
+  (1e65e79): the batch-5 walk tests run on a fixed fake clock (guardian-kit.mjs NOW = 16:30 UTC on 31 Oct 2026); startWalk
+  plans the ETA on that clock, but addJob judged "that time is in the past" against Date.now(), so from 16:51 UTC the three
+  walk-me-home tests failed with no change to the code under test (they passed in PR #45, PR #46 and main's runs, all before
+  16:51; the NEXT push run on main would have failed brain and the guard would have reverted main). Fixed at cause: addJob
+  takes the caller's clock (default Date.now(): nothing changes in the brain) and startWalk passes its own; walk + guardian
+  15/15, then the full suite 1,317/1,317. LESSON: a fake clock anchored to a real date must never meet the real clock
+  anywhere on the path under test; a suite that passes in the morning and fails in the afternoon with no code change has a
+  fixed timestamp in it. WATCH: (1) hubcards flakes when the brain's
   self-study job (first run +10 min after a fresh brain, then every 15 min) writes passages between its two reads, and
   sees the amber 'protective' light when run straight after guardian — CI's order leaves both where they were (hubcards
   near the end, far from guardian); my chain runs hubcards third and guardian last; (2) the prompt has 6 characters of

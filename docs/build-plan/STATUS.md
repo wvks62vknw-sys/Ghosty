@@ -1,4 +1,4 @@
-# Where everything stands — 31 October 2026, 17:05 UK
+# Where everything stands — 31 October 2026, 17:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
@@ -124,7 +124,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between
   opens (47) and your Connect 4 trick no longer wins (52).
 - Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK. Batch 6, the Machine view and foresight
-  (BRIEF-MACHINE-VIEW), is built, reviewed and in its pull request (opened about 17:05 UK; its checks take about two hours,
+  (BRIEF-MACHINE-VIEW), is built, reviewed, validated and in its pull request (opened about 17:40 UK; its checks take about two hours,
   then I merge it): MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
   count of what he is watching; foresight is a prediction ledger (rain at home, your commute, your first train or bus, and
   what you ask him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
