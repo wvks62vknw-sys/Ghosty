@@ -314,7 +314,7 @@ export const schoolTab: TabDef = {
         ? h('div.schlive.schresume',
             h('div.schliveh', h('b', re.line)),
             re.of ? bar('PAPER', kept / re.of, `${kept}/${re.of}`) : null,
-            h('div.keyrow', button('CARRY ON', () => start(re.stage as StageId, re.subjects, true), 'on')),
+            h('div.keyrow', Object.assign(button('CARRY ON', () => start(re.stage as StageId, re.subjects, true), 'on'), { disabled: !!re.blocked })),
           )
         : null;
       // Which brain sits the papers, in one line; when the brain in use is a bigger one, he may choose it for school.

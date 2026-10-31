@@ -18,7 +18,7 @@ import { heavy } from '../core/heavy';
 import { createStore } from '../core/store';
 import { brainsHere, currentModel, loadOffline, mayUse, offlineBrain, offlineModels, offlineReady, offlineReply, sitOn, unloadOffline, withModel, type OfflineMsg } from '../offline/brain';
 import { modelKey } from '../offline/harder';
-import { isBigger, type ModelDef } from '../offline/models';
+import { isBigger, MODELS, type ModelDef } from '../offline/models';
 
 export type { PaperResult, StageId };
 
@@ -231,6 +231,8 @@ interface SitMark {
 export interface Resume extends SitMark {
   why: 'closed' | 'gone';
   line: string;
+  /** CARRY ON waits: the only brain here closed Ghosty while answering, and the line says what to do. */
+  blocked?: boolean;
 }
 
 /**
@@ -287,6 +289,11 @@ function offer(why: Resume['why'], m: SitMark): Resume {
   const at = m.n && m.of ? `, at question ${m.n} of ${m.of}` : '';
   const kept = m.n > 1 ? '. My answers before it are kept' : '';
   const on = next.id !== m.brain ? `${next.label}, the smallest brain on this phone` : next.label;
+  // The brain that was answering closed Ghosty and nothing smaller is here (31 Oct, the 0.6B): no blind retry of the same
+  // brain; the way on is said (GET the stand-in, or USE as his yes).
+  if (!mayUse(next)) {
+    return { ...m, why, blocked: true, line: `${head}${at}${kept}. ${next.label} closed Ghosty while answering, so CARRY ON waits for a brain this phone can hold: in Settings → Offline brain, GET the smaller ${MODELS[1]!.label} or press USE to try ${next.label} again.` };
+  }
   return { ...m, why, line: `${head}${at}${why === 'gone' ? ' (most likely the phone ran short of memory)' : ''}${kept}. CARRY ON ${m.n ? 'picks up there' : 'starts it again'}, on ${on}.` };
 }
 

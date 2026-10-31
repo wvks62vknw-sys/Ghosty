@@ -968,6 +968,25 @@ folder that no longer exists; ignore those paths).
   hand). NOT IN IT: offline Wikipedia, rights-and-law curriculum topics, new always-on persona words. The lines that
   hold: public matters and public figures only as the documents say, never a private person; nothing billable; every
   number a first estimate; the sourcing caps are code. Next wake: the hand-back or the 21:03 check-in.
+- 31 Oct 22:15 UK: HIS SECOND LIVE BUG OF THE DAY, FIXED ON THE BRANCH (OWNER-ISSUES 89): "when i try to sit an exam on
+  any brain it just crashes and closes". His three answers placed it: the sitting record said "at question 1 of 10" on the
+  0.6B, so the load fits and the FIRST ANSWER kills the page (the working memory the model takes when it first computes);
+  the 2B still dies on load. Only the bigger brains had a crash record, so the 0.6B was retried blind on every SIT.
+  THE FIX (dae96c8 + the follow-up): every brain's load under the load record (guarded), every reply under a record of its
+  own (ghosty.offlinebrain.answering) written before the model runs and cleared after — and cleared on pagehide while a
+  reply is in flight, because a user's reload or tap away is not a kill (a jetsam kill fires nothing). On opening the
+  brain is marked closed with its phase (Held.phase), mayLoad refuses it until USE, the words say what to do; the Qwen2.5
+  0.5B stand-in (keyed on its own: models.ts heldKey) is offered first in WHICH BRAIN and takes over when on the phone;
+  SCHOOL's pickBrain never sits a closed brain while another may be used; CARRY ON waits with the words otherwise.
+  LESSONS: (a) a crash record that covers only the brains we thought dangerous leaves the safe-looking one to kill the
+  app blind — record every size, and record the PHASE (loading vs answering): the phase is what diagnosed this; (b) in a
+  spec, page.reload() mid-answer is a user reload (pagehide fires), not a kill — the sit spec's "iOS closed Ghosty" step
+  reloads mid-question and must still carry on, so the record clears on pagehide only when a reply is in flight, and a
+  record a spec plants from outside survives the reload. VALIDATION: web typecheck and build; node offline-brain 47/47;
+  specs bigbrain, offlinebrain, school, sit, onphone, independence green (bigbrain's new section 11 covers the record,
+  the words, TEST asking, GET and USE of the stand-in, a reply's record written and cleared, SCHOOL sitting on it).
+  HONEST LIMIT: whether the 0.5B fits his phone is only known by trying; the words say so if it does not. NEXT: lands
+  with batch 7's PR (one CI run); then he GETs and USEs the 0.5B before SIT (the old close's record predates the fix).
 
 
 

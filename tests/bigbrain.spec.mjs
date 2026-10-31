@@ -747,7 +747,7 @@ check(await tagIs(cp, ID.least, 'ON THIS PHONE', 30000), '[closed] GET did not s
 await press(cp, ID.least, 'USE');
 check(await tagIs(cp, ID.least, 'IN USE', 10000), '[closed] USE did not make the smallest brain the one in use');
 crows = await rows(cp);
-check(!crows.find((r) => r.model === ID.small)?.tag, `[closed] the 0.6B is no longer marked in use: ${JSON.stringify(crows.map((r) => [r.model, r.tag]))}`);
+check(crows.find((r) => r.model === ID.small)?.tag === 'ON THIS PHONE', `[closed] the 0.6B is on the phone but no longer in use: ${JSON.stringify(crows.map((r) => [r.model, r.tag]))}`);
 check((await engine(cp)).loads.at(-1) === ID.least, `[closed] USE loaded the smallest brain: ${JSON.stringify((await engine(cp)).loads)}`);
 // a reply goes under its record (written before the model runs, cleared after)
 await cp.evaluate(() => {
