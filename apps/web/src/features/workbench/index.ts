@@ -1,7 +1,8 @@
 /**
  * THE WORKBENCH tab (OWNER-ISSUES 61b; MAKE area): engineering first estimates on the phone, by the in-house solvers
- * (packages/shared/src/workbench) — no model, no fetch. Sections (ui/sections.ts): STRUCTURE (BEAM, COLUMN) · DRIVE (GEARS,
- * ENGINE) · FLIGHT (WING & CAR, PROJECTILE, ORBIT) · HOME (HEAT, SUN & SHADOW, CIRCUIT). Each panel is a compact form in his
+ * (packages/shared/src/workbench) — no model, no fetch. Sections (ui/sections.ts): WIND TUNNEL (features/workbench/tunnel.ts:
+ * a live 2-D flow, run only while its section is on screen) · STRUCTURE (BEAM, COLUMN) · DRIVE (GEARS, ENGINE) · FLIGHT
+ * (WING & CAR, PROJECTILE, ORBIT) · HOME (HEAT, SUN & SHADOW, CIRCUIT). Each panel is a compact form in his
  * units (settings.units) with sensible defaults; a change answers at once (no button) on the card below it, which always
  * carries FIRST ESTIMATE · NOT CERTIFIED (features/workbench/card.ts). Nothing goes to the brain; the last inputs of every
  * panel are kept on this phone (`ghosty.workbench`) so a reload keeps his problem.
@@ -17,6 +18,7 @@ import { panel as mkPanel } from '../../ui/components';
 import { page } from '../../ui/page';
 import { revealPanel, sections } from '../../ui/sections';
 import { estimateCard } from './card';
+import { tunnelPanel, tunnelState } from './tunnel';
 import { modeFor, PANELS, type Field, type Mode, type PanelSpec, type Values } from './panels';
 
 const KEY = 'ghosty.workbench';
@@ -145,7 +147,8 @@ export const workbenchTab: TabDef = {
 
     const paintHero = (e: Estimate | undefined) => {
       const first = e && !e.problem ? e.lines[0] : undefined;
-      P.big.textContent = first ? first.value : 'First estimates';
+      // (in a span that keeps its case: the hero's value is otherwise shown in sentence case, and "kN" is not "kn")
+      clear(P.big, h('span.wbbig', first ? first.value : 'First estimates'));
       P.sub.textContent = e ? `${e.title}${first ? ` · ${first.label.toLowerCase()}` : ''} · first estimate, not certified` : 'Engineering first estimates · never certified';
     };
 
@@ -255,12 +258,20 @@ export const workbenchTab: TabDef = {
       return { spec, el: pn.el, render, estimate };
     };
 
+    // the wind tunnel first: "the wind tunnel on his phone"
+    const tunnel = tunnelPanel((o) => {
+      if (secs.current() !== 'tunnel' || !Number.isFinite(o.cd)) return;
+      clear(P.big, h('span.wbbig', `Cl ${num(o.cl, 2)} · Cd ${num(o.cd, 2)}`));
+      P.sub.textContent = `Wind tunnel: ${o.shapeName} · a 2-D first estimate, not certified`;
+    });
+    P.left.append(tunnel.el);
     for (const spec of PANELS) {
       const m = mountPanel(spec);
       mounted.push(m);
       (['beam', 'column', 'gears', 'engine'].includes(spec.id) ? P.left : P.right).append(m.el);
     }
-    sections(root, 'workbench', [
+    const secs = sections(root, 'workbench', [
+      { id: 'tunnel', label: 'Wind tunnel', match: /^WIND TUNNEL/ },
       { id: 'structure', label: 'Structure', match: /^(BEAM|COLUMN)/ },
       { id: 'drive', label: 'Drive', match: /^(GEARS|ENGINE)/ },
       { id: 'flight', label: 'Flight', match: /^(WING|PROJECTILE|ORBIT)/ },
@@ -278,9 +289,28 @@ export const workbenchTab: TabDef = {
         m.estimate();
       }
       paintHero(workbenchState.estimates[workbenchState.panel]);
+      tunnel.units();
     });
 
+    // The tunnel runs only while it can be seen: the tab on screen, the page showing, and its section picked (a wide screen
+    // shows every panel at once). Leaving any of these ends the worker.
+    let onScreen = false;
+    const phone = matchMedia('(max-width: 899px)');
+    const syncTunnel = () => {
+      const want = onScreen && !document.hidden && (secs.current() === 'tunnel' || !phone.matches);
+      if (secs.current() !== 'tunnel') paintHero(workbenchState.estimates[workbenchState.panel]);
+      if (want) tunnel.start();
+      else tunnel.stop();
+    };
+    new MutationObserver(syncTunnel).observe(secs.el, { attributes: true, attributeFilter: ['data-current'] });
+    document.addEventListener('visibilitychange', syncTunnel);
+    phone.addEventListener('change', syncTunnel);
+
     const show = (id: string) => {
+      if (id === 'tunnel') {
+        secs.select('tunnel');
+        return syncTunnel();
+      }
       const m = mounted.find((x) => x.spec.id === id);
       if (!m) return;
       revealPanel(m.el);
@@ -290,6 +320,10 @@ export const workbenchTab: TabDef = {
       fill(panel, problem) {
         const found = problem ? modeFor(problem.kind, problem.inputs) : null;
         const id = found?.panel.id ?? panel;
+        if (id === 'tunnel') {
+          show('tunnel');
+          return null;
+        }
         const m = mounted.find((x) => x.spec.id === id);
         if (!m) return null;
         if (found && problem) {
@@ -315,10 +349,19 @@ export const workbenchTab: TabDef = {
     workbenchState.ready = true;
     expose();
     return {
+      enter() {
+        onScreen = true;
+        syncTunnel();
+      },
+      leave() {
+        onScreen = false;
+        syncTunnel();
+      },
       open(arg) {
-        if (PANELS.some((p) => p.id === arg)) show(arg);
+        if (arg === 'tunnel' || PANELS.some((p) => p.id === arg)) show(arg);
       },
       describe: () => {
+        if (secs.current() === 'tunnel' && tunnelState.running) return `Workbench, wind tunnel: ${tunnelState.shapeName}, Cl ${tunnelState.cl.toFixed(2)}, Cd ${tunnelState.cd.toFixed(2)} at the lattice's Reynolds number ${Math.round(tunnelState.re)} (a 2-D first estimate, not certified)`;
         const e = workbenchState.estimates[workbenchState.panel];
         return e ? `Workbench, ${e.title}: ${e.problem ?? e.lines.slice(0, 3).map((l) => `${l.label} ${l.value}`).join('; ')} (first estimate, not certified)` : 'Workbench';
       },

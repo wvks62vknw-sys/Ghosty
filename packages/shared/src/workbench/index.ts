@@ -25,6 +25,8 @@ export * from './heat';
 export * from './sun';
 export * from './circuits';
 export * from './words';
+export * from './flow';
+export * from './shapes';
 
 /** Every kind the solvers answer (the wind tunnel lives on the phone: it needs a screen). */
 export const WORK_KINDS: WorkKind[] = ['beam', 'column', 'gears', 'bike', 'engine', 'wing', 'car', 'fall', 'projectile', 'orbit', 'heat', 'sun', 'circuit'];

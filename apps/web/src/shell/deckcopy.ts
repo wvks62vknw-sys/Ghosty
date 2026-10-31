@@ -141,6 +141,7 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'Workbench',
     promise: 'Engineering first estimates, never certified',
     can: [
+      { text: 'The wind tunnel: air round a wing, live', act: { open: 'workbench', panel: 'WIND TUNNEL' } },
       { text: 'Will a beam hold? Bend and stress', act: { open: 'workbench', panel: 'BEAM' } },
       { text: 'Gear ratios and an engine’s power', act: { open: 'workbench', panel: 'GEARS' } },
       { text: 'Wings, cars, projectiles and orbits', act: { open: 'workbench', panel: 'WING' } },

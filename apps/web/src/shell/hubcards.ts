@@ -273,7 +273,8 @@ export const CARDS: Record<string, HubCard> = {
     status: () => 'READY',
     instrument: benchInst,
     readouts: () => [
-      { label: 'Solvers', value: String(BENCH.reduce((n, p) => n + p.modes.length, 0)) },
+      // every mode of every panel, and the wind tunnel
+      { label: 'Solvers', value: String(BENCH.reduce((n, p) => n + p.modes.length, 0) + 1) },
       { label: 'Last', value: lastPanel(), none: 'None yet' },
     ],
   },

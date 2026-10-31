@@ -317,6 +317,71 @@ test('his words: the kind and the inputs they carry, nothing guessed; what the c
   for (const t of ['how strong is a 3 m steel beam with 5 kn in the middle', "what's the gear ratio of 50 and 11 teeth", 'is a 3 m steel beam with 5 kN ok?', 'hello', 'steel beam']) assert.equal(a(t), null, `"${t}" goes to the brain`);
 });
 
+test('the wind tunnel’s flow: a cylinder’s drag, a flat plate’s lift (none at 0°, some at 10°), the stability guard, the same answer every time', () => {
+  // a cylinder 6 cells across in a 64 × 32 tunnel, 400 steps (τ 0.53, inlet 0.1: Re 60)
+  const f = W.createFlow({ nx: 64, ny: 32, inlet: 0.1, tau: 0.53 });
+  f.setObstacle(W.circleMask(64, 32, 16, 15.5, 3), 6);
+  f.step(400);
+  const cd = f.meanForce().cd;
+  within(cd, 1, 3, 'the cylinder’s Cd after 400 steps');
+  assert.ok(f.stable(), 'every number finite, every speed bounded');
+  const v = f.velocity();
+  assert.ok(v.every((x) => Number.isFinite(x)) && Math.max(...v) < 3, `speeds within 3× the inlet: ${Math.max(...v)}`);
+  assert.ok(f.vorticity().every((x) => Number.isFinite(x)));
+  close(f.reynolds(), (0.1 * 6) / ((0.53 - 0.5) / 3), 1e-12, 'Re = U·D/ν, ν = (τ − ½)/3');
+  // the same flow again gives the same numbers (pure and deterministic)
+  const g = W.createFlow({ nx: 64, ny: 32, inlet: 0.1, tau: 0.53 });
+  g.setObstacle(W.circleMask(64, 32, 16, 15.5, 3), 6);
+  g.step(400);
+  assert.equal(g.meanForce().cd, cd);
+  // a flat plate: no lift at 0° (by symmetry), lift upwards at 10° nose up
+  const plate = (alpha) => {
+    const s = W.shapeMask({ kind: 'plate', alpha }, 64, 32);
+    const p = W.createFlow({ nx: 64, ny: 32, inlet: 0.1, tau: 0.6 });
+    p.setObstacle(s.mask, s.chord);
+    p.step(400);
+    return p.meanForce().cl;
+  };
+  assert.ok(Math.abs(plate(0)) < 0.1, `a plate at 0°: Cl ${plate(0)}`);
+  assert.ok(plate(10) > 0, `a plate at 10°: Cl ${plate(10)}`);
+  // the guard: τ at least 0.52, the inlet at most 0.1, and it says so
+  const wild = W.createFlow({ nx: 32, ny: 16, inlet: 0.3, tau: 0.5 });
+  assert.equal(wild.tau, 0.52);
+  assert.equal(wild.inlet, 0.1);
+  assert.equal(wild.clamped.length, 2);
+  assert.match(wild.clamped.join(' '), /τ raised from 0\.500 to 0\.52.*inlet slowed from 0\.300 to 0\.1/);
+});
+
+test('the wind tunnel’s shapes: the NACA 2412 outline is closed and one chord long, a circle’s cells, a plate symmetric at 0°, a free shape from three points', () => {
+  const n = W.nacaOutline('2412');
+  assert.ok(n.length > 50);
+  const [a, z] = [n[0], n[n.length - 1]];
+  assert.ok(Math.hypot(a[0] - z[0], a[1] - z[1]) < 1e-9, 'closed: the first point is the last');
+  const xs = n.map((p) => p[0]);
+  close(Math.max(...xs) - Math.min(...xs), 1, 1e-6, 'the chord');
+  const ys = n.map((p) => p[1]);
+  close(Math.max(...ys) - Math.min(...ys), 0.12, 0.05, 'about 12 % of the chord thick (the camber line is nearly flat where it is thickest)');
+  assert.ok(Math.max(...ys) > -Math.min(...ys), 'cambered: more above the chord line than below');
+  const placed = W.place(n, 40, 0, 50, 20);
+  close(Math.max(...placed.map((p) => p[0])) - Math.min(...placed.map((p) => p[0])), 40, 1e-6, 'placed at 40 cells');
+  assert.equal(W.nacaOutline('banana'), null);
+  const r = 8;
+  const cells = W.circleMask(64, 32, 30, 15.5, r).reduce((s, x) => s + x, 0);
+  close(cells, Math.PI * r * r, 0.05, 'a circle’s cells ≈ πr² (±5 %)');
+  const pl = W.shapeMask({ kind: 'plate', alpha: 0 }, 64, 32).mask;
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 64; x++) assert.equal(pl[y * 64 + x], pl[(31 - y) * 64 + x], `the plate mirrors at (${x}, ${y})`);
+  const free = W.shapeMask({ kind: 'free', points: [[20, 10], [34, 16], [20, 22]] }, 64, 32);
+  close(free.cells, W.area([[20, 10], [34, 16], [20, 22]]), 0.2, 'three points: a triangle');
+  assert.equal(free.name, 'your shape');
+  const line = W.shapeMask({ kind: 'free', points: [[20, 10], [30, 12]] }, 64, 32);
+  assert.ok(line.cells > 10, 'two points: a drawn line, thickened');
+  for (const kind of ['naca', 'circle', 'square', 'plate', 'car']) {
+    const s = W.shapeMask({ kind, code: '0012', alpha: 5 }, 192, 96);
+    assert.ok(s.cells > 20 && s.chord > 5 && s.outline.length >= 2, `${kind}: ${s.cells} cells`);
+    assert.ok(![...Array(96).keys()].some((y) => s.mask[y * 192]), `${kind}: the inlet column stays open`);
+  }
+});
+
 test('the brain’s estimate tool: his words through the shared solvers, fields with their units, the sun at his saved home, the caveat always', async () => {
   const T = await import('./.build/tools/index.mjs');
   const tool = T.toolByName.get('estimate');

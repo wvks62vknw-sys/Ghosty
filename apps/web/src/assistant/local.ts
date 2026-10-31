@@ -158,7 +158,7 @@ export async function localTurn(text: string, opts: { voice?: boolean; private?:
   if (bench) {
     const e = openWorkbench(bench.panel, bench.problem);
     const title = BENCH.find((p) => p.id === bench.panel)?.title;
-    const name = title ? title.toLowerCase() : '';
+    const name = bench.panel === 'tunnel' ? 'the wind tunnel' : title ? title.toLowerCase() : '';
     return answer(text, e ? estimateText(e) : name ? `The Workbench is open on ${name}. Change any number and the answer follows; every one is a first estimate, never certified.` : 'The Workbench is open: beams, gears, engines, flight, heat, sun and circuits. Every answer is a first estimate, never certified.', { kind: 'workbench' }, opts);
   }
   const fore = foresightAsked(text);

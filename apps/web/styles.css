@@ -4733,7 +4733,7 @@ html .hubtile .hline[hidden] { display: none; }
    FIRST ESTIMATE · NOT CERTIFIED on every card as a shape and its words (never colour alone). Every row 44 pt or more. */
 html .pn.wb .bd { display: flex; flex-direction: column; }
 html .wbmodes { display: flex; gap: 6px; margin: 4px 0 6px; }
-html .wbmodes button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 8px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pg-workbench .wbmodes button { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 0 8px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .wbform { display: flex; flex-direction: column; }
 html .wbf { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid var(--hair); }
 html .wbf > label { flex: 1 1 auto; min-width: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
@@ -4768,3 +4768,17 @@ html .wbfold p { padding-left: 0; }
 html .wbproblem { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; font: 500 15px/20px var(--sf); color: var(--ink); }
 html .wbcaveat { margin: 10px 0 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
 @media (prefers-reduced-motion: reduce) { html .wbfold > summary::after { transition: none; } }
+/* the WIND TUNNEL (features/workbench/tunnel.ts): the flow drawn at the lattice's own 192 × 96, scaled smoothly to the card;
+   while DRAW is on, a touch draws instead of scrolling. */
+html .tunwrap { position: relative; margin: 4px 0 8px; border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--hair2); background: #06101a; }
+html .tuncanvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; image-rendering: auto; touch-action: pan-y; }
+html .tuncanvas.drawing { touch-action: none; cursor: crosshair; box-shadow: inset 0 0 0 2px var(--amber); }
+html .tundraw { margin: 0 0 6px; }
+html .tundraw[hidden] { display: none; }
+html .wbf.rng > input[type="range"] { flex: 1 1 auto; width: auto; min-width: 0; min-height: 40px; padding: 0; background: none; box-shadow: none; accent-color: var(--c); }
+html .wbf.rng > label { flex: 0 0 auto; width: 118px; }
+html .wbf.rng > .tunval { flex: none; width: 92px; text-align: right; font: 500 14px/18px var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; }
+html .tunbtns { display: flex; gap: 8px; margin: 6px 0 2px; }
+#pg-workbench .tunbtns button { flex: 1 1 0; min-width: 0; min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px: the id wins it) */
+html .tunbtns button[hidden] { display: none; }
+#pg-workbench .bigv .wbbig { text-transform: none; } /* units and coefficients as written: kN, MPa, Cl, Cd */
