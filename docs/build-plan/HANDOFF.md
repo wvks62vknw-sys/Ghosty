@@ -1007,9 +1007,10 @@ folder that no longer exists; ignore those paths).
   FINDS: nav.spec 807 > 792 px with five MAKE cards (f4cde4c: 52 px instruments on hubs of five or six); tunnel.spec once read a
   circle's lift 0.22 (vortex shedding at Re ≈ 60: e382415 averages the card over a shedding cycle). BUILDER'S VALIDATION
   (e382415): both typechecks, web build, brain suite 1,342/1,342, twelve specs clean on 8866, prompt worst case 5,490 of 5,500.
-  MERGED-TREE VALIDATION (37a244c): running now — brain typecheck + suite, web typecheck + build, the chain websites → apps →
-  hubcards → workbench → tunnel → cited → library → brief → nav → abilities → eye → sit → bigbrain → guardian on 8788; the
-  numbers go into the PR body and this entry when done. NEXT: PR #48 (one CI run for the batch and the fix), merge when green.
+  MERGED-TREE VALIDATION (37a244c, 23:27 UK): brain typecheck; brain suite 1,342 of 1,342 (three sitting tests first failed to BUILD: school.test.mjs stubs the phone's brain and lacked the fix's new export mayUse — the stub gained it, 66a7366; 40/40 then); web typecheck and build; fourteen specs on one fresh preview (8788), in order, all clean: websites 111 s, apps 62, hubcards 57, workbench 23, tunnel 30, cited 32, library 60, brief 40, nav 451, abilities 122, eye 291, sit 67, bigbrain 141, guardian 21. LESSON: a test that stubs a module by a fixed export list breaks silently
+  when the module gains an import elsewhere — the suite's "Build failed" is the stub, not the code; check the stub first.
+  NEXT: PR #48 (one CI run for the batch and the fix; smoke now 83 specs), merge when green; then the post-merge docs and
+  WHAT-HE-CAN-DO as live facts, and his one-tap test (GET and USE the 0.5B, then SIT).
 
 
 
