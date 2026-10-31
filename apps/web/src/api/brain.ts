@@ -417,7 +417,7 @@ export const brain = {
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
   /** FORESIGHT (apps/edge/src/foresight.ts): the prediction ledger — today's expectations, yesterday, the record; his word on his own questions. */
-  foresight: () => req<ForesightInfo>('GET', '/foresight'),
+  foresight: () => req<ForesightInfo>('GET', `/foresight?tz=${encodeURIComponent(TZ)}`),
   resolveForesight: (id: string, right: boolean | null) => req<ForesightInfo & { resolved: string; said: string }>('POST', '/foresight/resolve', { id, right }),
   /** THE GUARDIAN (apps/edge/src/guardian.ts, walk.ts): the watch over his places, the named person, the panic phrase, the walk home. */
   guardian: () => req<GuardianInfo>('GET', '/guardian'),

@@ -429,7 +429,12 @@ export class GhostyAgent {
       if (path === '/today') return await todayRoute(url, method, { storage: this.storage, env: this.env }); // [abilities] what he did today (today.ts)
       if (/^\/guardian\/(?:person|test|panic|walk)/.test(path)) return await walkRoute(req, path, method, this.guardDeps()); // [guardian] the walk home, the named person, the panic phrase (walk.ts)
       if (path === '/guardian' || path.startsWith('/guardian/')) return await guardianRoute(req, path, method, this.guardDeps()); // [guardian] the watch over his places (guardian.ts)
-      if (path === '/foresight' || path.startsWith('/foresight/')) return await foresightRoute(req, path, method, this.foreDeps()); // [foresight] the prediction ledger (foresight.ts)
+      if (path === '/foresight' || path.startsWith('/foresight/')) {
+        // [foresight] the prediction ledger (foresight.ts); the phone's zone kept, as /mind does, so "today" is his
+        const tz = url.searchParams.get('tz') ?? '';
+        if (tz) await this.rememberClient({ tz });
+        return await foresightRoute(req, path, method, this.foreDeps());
+      }
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
