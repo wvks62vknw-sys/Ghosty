@@ -862,6 +862,32 @@ folder that no longer exists; ignore those paths).
   locked — `git worktree remove --force --force`. Next: the Machine view and foresight (the owner's four Harold/Machine
   picks shape it; the brief's defaults otherwise), then the workshop and knowledge, then the social self and rituals.
   Open from his side: batch 5's phone tests (OWNER-ISSUES 86 NEEDS), his principles, the four picks.
+- 31 Oct 15:55 UK (updated 16:30): HIS FIRST LIVE BUG OF THE DAY, FIXED ON PR #46 (merged at 16:25 UK, main 5fdd8ff, after a
+  green run on 99a5544: smoke 108 min). He woke, sent the usage picture (All models 19%, this model 15%, reset
+  Friday 17:59; the app's "run out Tuesday night" is a straight-line guess from the overnight pace) and asked for the plain
+  page of everything Ghosty does in his own pitches: `docs/build-plan/WHAT-HE-CAN-DO.md` (b381e8b), to be kept current as
+  batches land. Then: Lens → PEOPLE → ENROL ME on his iPhone showed "no available backend found. ERR: [wasm] RangeError".
+  CAUSE: the vendored ONNX Runtime Web 1.30.0 (the threaded build, run on one thread) creates its WebAssembly memory
+  SHARED with the stock maximum of 65,536 pages (4 GB); WebKit reserves a shared memory's whole maximum up front and
+  refuses once another runtime holds memory, which in PEOPLE is MediaPipe (BlazeFace) loaded first (known upstream:
+  microsoft/onnxruntime#22086). FIX (5d6a089): one line in `vendor/clip/ort-wasm-simd-threaded.mjs` reads
+  `globalThis.GHOSTY_WASM_MAX_PAGES` before 65536; `vendor/faces/worker.mjs` takes the cap from its address
+  (`?maxPages=`, default 16,384 = 1 GB); `vision/faces.ts` starts the worker at 1 GB and, only on a memory failure
+  (`memoryTrouble`), ends it and tries once at 4,096 pages (256 MB; SFace needs about 50 MB), else a plain reason on the
+  Lens ("this phone would not give its runtime enough memory … close and reopen Ghosty"); the NAME worker sets 1 GB
+  too. THE TRAP (99a5544): the service worker serves `/vendor/` cache-first (`ghosty-vendor-v1`), so a phone that already
+  held the stock glue would keep it for ever — both workers now ask for the glue as `ort-wasm-simd-threaded.mjs?v=2`
+  (cache keys include the query string: fetched fresh once, then cached). Never bump `ghosty-vendor-v1` for this: the
+  offline brain reads that cache too (`offline/brain.ts`). `faces.test.mjs` pins all of it (the glue regex, both workers'
+  lines, the retry form, the ?v=2 addresses) and runs SFace in the real runtime under the 256 MB cap: 10/10. Chromium
+  loaded the namer through ?v=2 on a fresh preview ("named the lemon photo lemon 96%"). NOT TESTABLE HERE: iOS Safari
+  itself; his phone is the test (close Ghosty fully, reopen, Lens → PEOPLE → ENROL ME; if it still fails he sends the
+  whole error line and whether Lens → NAME works). Main's own run after #45 (run 265) finished green at 15:23: no revert.
+  Batch 6 (BRIEF-MACHINE-VIEW) building since 13:55 on port 8844: at 15:55 its branch holds five commits (+3136/−50:
+  foresight ledger + `foresee` job + tool, the Brief and Report-card panels, the Machine view, docs/VISION) and it is in
+  its final checks. This record and OWNER-ISSUES 87 waited on a local ref (refs/parked) until #46 merged (a push to an
+  open PR restarts its 2 h run; the stop hook asks for a push at every turn end, so the commit was kept off the branch
+  and said so), then went up free with no PR open.
 
 
 
