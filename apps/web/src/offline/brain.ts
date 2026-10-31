@@ -30,7 +30,7 @@ import { clearLog, fill, filled, markStored, PARTS_STORE, pieceLine, presence, r
 import { settings } from '../state/app';
 import { checkStorage, storageState } from '../features/system/storage';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
-import { BIGGER, brainModels, brainOf, downloadFailure, goneLine, isBigger, limitsProblem, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, sizeText, slotOf, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
+import { BIGGER, brainModels, brainOf, downloadFailure, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
@@ -375,16 +375,24 @@ const setLoading = (v: { loading: string; at: number } | null) => {
   }
 };
 
-/** Remember what a load of this brain did on this phone (the picker's "can hold" line, and whether USE asks first). */
-function setHeld(m: ModelDef, s: Held['s'], at = Date.now()): void {
-  offlineBrain.set({ held: { ...(offlineBrain.get().held ?? {}), [slotOf(m)]: { s, at } } });
+/** Remember what a load (or an answer) of this brain did on this phone (the picker's "can hold" line, and whether USE asks first). */
+function setHeld(m: ModelDef, s: Held['s'], at = Date.now(), phase?: Held['phase']): void {
+  offlineBrain.set({ held: { ...(offlineBrain.get().held ?? {}), [heldKey(m)]: { s, at, ...(phase ? { phase } : {}) } } });
 }
-export const heldOf = (m: ModelDef): Held | undefined => (offlineBrain.get().held ?? {})[slotOf(m)];
+export const heldOf = (m: ModelDef): Held | undefined => (offlineBrain.get().held ?? {})[heldKey(m)];
 
-/** The bigger brains the owner said yes to loading in this session (USE's question): only these may load after a close. */
+/** The brains the owner said yes to loading in this session (USE's question): only these may load after a close. */
 const approved = new Set<string>();
 /** The owner said yes to loading this brain (USE's or TEST's question). */
-export const approveLoad = (m: ModelDef): void => void approved.add(slotOf(m));
+export const approveLoad = (m: ModelDef): void => void approved.add(heldKey(m));
+/** Whether this brain may be loaded by itself: one that closed Ghosty on this phone waits for the owner's yes (USE). */
+export const mayUse = (m: ModelDef): boolean => heldOf(m)?.s !== 'closed' || approved.has(heldKey(m));
+const stamp = (at: number) => new Date(at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+/** Why a brain that closed Ghosty is not loaded again by itself. */
+const closedRefusal = (m: ModelDef, held: Held): string =>
+  held.phase === 'answering'
+    ? `${m.label} closed Ghosty while answering on this phone (${stamp(held.at)}), so it is not loaded again until you say so (SETTINGS → OFFLINE BRAIN → USE).`
+    : `${m.label} closed Ghosty the last time it loaded on this phone, so it is not loaded again until you say so (SETTINGS → OFFLINE BRAIN → USE).`;
 /** Whether this phone can run it (models.ts limitsProblem), remembered as "could not start" when not: '' when fine. */
 export async function checkBrain(m: ModelDef): Promise<string> {
   const why = await precheck(m);
@@ -396,12 +404,13 @@ export async function checkBrain(m: ModelDef): Promise<string> {
 const refusal = (msg: string) => Object.assign(new Error(msg), { refuse: true });
 
 /**
- * May this brain go into graphics memory? A bigger one that closed Ghosty before needs the owner's yes again (USE asks),
- * and one whose pieces are bigger than this phone's WebGPU gives a page is never tried.
+ * May this brain go into graphics memory? One that closed Ghosty before (loading, or answering) needs the owner's yes
+ * again (USE asks), and a bigger one whose pieces are bigger than this phone's WebGPU gives a page is never tried.
  */
 async function mayLoad(m: ModelDef): Promise<void> {
+  const held = heldOf(m);
+  if (held?.s === 'closed' && !approved.has(heldKey(m))) throw refusal(closedRefusal(m, held));
   if (!isBigger(m)) return;
-  if (heldOf(m)?.s === 'closed' && !approved.has(slotOf(m))) throw refusal(`${m.label} closed Ghosty the last time it loaded on this phone, so it is not loaded again until you say so (SETTINGS → OFFLINE BRAIN → USE).`);
   const why = await precheck(m);
   if (why) {
     setHeld(m, 'refused');
@@ -409,9 +418,8 @@ async function mayLoad(m: ModelDef): Promise<void> {
   }
 }
 
-/** Load a bigger brain under the crash record: set before, cleared after, and what happened remembered. */
+/** Load a brain under the crash record: set before, cleared after, and what happened remembered (every size: the 0.6B closed Ghosty too). */
 async function guarded<T>(m: ModelDef, fn: () => Promise<T> | T): Promise<T> {
-  if (!isBigger(m)) return fn();
   setLoading({ loading: m.id, at: Date.now() });
   try {
     const r = await fn();
@@ -434,7 +442,22 @@ async function guarded<T>(m: ModelDef, fn: () => Promise<T> | T): Promise<T> {
 async function fallBack(e: unknown): Promise<boolean> {
   const m = currentModel();
   const refused = !!(e as { refuse?: boolean })?.refuse;
-  if (!isBigger(m) || !(refused || tooBig(e))) return false;
+  if (!(refused || tooBig(e))) return false;
+  if (!isBigger(m)) {
+    // The 0.6B (or a week trained from it) could not run here: the smaller Qwen2.5 stand-in takes over when it is on this
+    // phone and has not closed Ghosty itself; else the failure stands, in its own words (GET for the stand-in is the way on).
+    const least = MODELS[1]!;
+    if (m.id === least.id || !(offlineBrain.get().have ?? []).includes(least.id) || !mayUse(least)) return false;
+    freeModel();
+    offlineBrain.set({
+      model: least.id,
+      downloaded: true,
+      loaded: false,
+      fellBack: refused ? `${(e as Error).message} Ghosty is using ${least.label}, the smallest brain.` : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${least.label}, the smallest brain, instead.`,
+    });
+    checkedAt = 0;
+    return true;
+  }
   freeModel();
   const small = MODELS[0]!;
   const have = offlineBrain.get().have ?? [];
@@ -616,7 +639,7 @@ export async function useBrain(id: string): Promise<ModelDef> {
   const m = offlineModels().find((x) => x.id === id);
   if (!m) throw new Error('That brain is not offered here.');
   if (modelJob.get().job) throw new Error('The offline brain is busy right now: try again in a moment.');
-  if (isBigger(m)) approved.add(slotOf(m));
+  approved.add(heldKey(m));
   if (!chooseBrain(id)) throw new Error('The offline brain is busy right now: try again in a moment.');
   const t = testEngine();
   if (t) await testLoad(t, false);
@@ -634,27 +657,85 @@ let closedWhileGetting = false;
 /** The download in the log was cut short by Ghosty closing (it was there when Ghosty opened). */
 export const wasClosedWhileGetting = (): boolean => closedWhileGetting && !!readLog();
 
-function closedWords(m: ModelDef, at: number | null, here: boolean): string {
-  const when = at ? ` (${new Date(at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})` : ' the last time it was tried';
-  return `Loading ${m.label} closed Ghosty${when}: the phone could not hold it. Ghosty is back on ${MODELS[0]!.label}${here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)'}. ${m.label}'s download stays on this phone, and USE asks before it tries again.`;
+function closedWords(m: ModelDef, at: number | null, here: boolean, phase: NonNullable<Held['phase']>): string {
+  const when = at ? ` (${stamp(at)})` : ' the last time it was tried';
+  const did = phase === 'answering' ? `${m.label} closed Ghosty while answering${when}` : `Loading ${m.label} closed Ghosty${when}`;
+  return `${did}: the phone could not hold it. Ghosty is back on ${MODELS[0]!.label}${here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)'}. ${m.label}'s download stays on this phone, and USE asks before it tries again.`;
 }
 
-function backToSmall(m: ModelDef, at: number | null): void {
+function backToSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']> = 'loading'): void {
   const have = offlineBrain.get().have ?? [];
   const small = MODELS[0]!;
   const here = have.includes(small.id);
-  setHeld(m, 'closed', at || Date.now());
-  offlineBrain.set({ have: [...new Set([...have, m.id])], ...(isBigger(currentModel()) ? { model: small.id, downloaded: here, loaded: false } : {}), fellBack: closedWords(m, at, here) });
+  setHeld(m, 'closed', at || Date.now(), phase);
+  offlineBrain.set({ have: [...new Set([...have, m.id])], ...(isBigger(currentModel()) ? { model: small.id, downloaded: here, loaded: false } : {}), fellBack: closedWords(m, at, here, phase) });
   checkedAt = 0;
 }
+
+/**
+ * The 0.6B (or the smallest brain itself) closed Ghosty while loading or answering (31 Oct: on the first answer of a
+ * SCHOOL paper): remembered, so it is not tried again by itself; the Qwen2.5 0.5B stand-in takes over when it is on
+ * this phone, else GET for it in SETTINGS is the way on. Said in plain words beside the brains (`fellBack`).
+ */
+function closedSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']>): void {
+  const least = MODELS[1]!;
+  const have = offlineBrain.get().have ?? [];
+  const toLeast = m.id !== least.id && have.includes(least.id) && mayUse(least) && currentModel().id === m.id;
+  setHeld(m, 'closed', at || Date.now(), phase);
+  const did = `closed Ghosty while ${phase}${at ? ` (${stamp(at)})` : ''}`;
+  const words =
+    m.id === least.id
+      ? `${m.label}, the smallest brain, ${did}: no brain runs in this phone's browser yet, so Ghosty answers from the cloud. USE asks before it is tried again.`
+      : `${m.label} ${did}: this phone could not hold it while it worked. ${toLeast ? `Ghosty answers on this phone on the smaller ${least.label} now.` : `The smaller ${least.label} (about ${sizeText(least.mb)}, ${memText(least.vram)} when running) may fit: GET it in WHICH BRAIN, on Wi-Fi, and Ghosty uses it.`} ${m.label} stays on this phone, and USE asks before it is tried again.`;
+  offlineBrain.set({ ...(toLeast ? { model: least.id, downloaded: true } : {}), loaded: false, fellBack: words });
+  checkedAt = 0;
+}
+
+/** A brain closed Ghosty while loading or answering: a bigger one goes back to the 0.6B, a small one to the stand-in. */
+function closedHere(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']>): void {
+  if (isBigger(m)) backToSmall(m, at, phase);
+  else closedSmall(m, at, phase);
+}
+
+/** The record of a reply being written on this phone (localStorage, synchronously before the model runs): still there on opening, the brain closed Ghosty while answering. */
+const ANSWER_KEY = 'ghosty.offlinebrain.answering';
+const readAnswering = (): { model: string; at: number } | null => {
+  try {
+    const v = JSON.parse(localStorage.getItem(ANSWER_KEY) ?? 'null') as { model?: unknown; at?: unknown } | null;
+    return v && typeof v.model === 'string' ? { model: v.model, at: Number(v.at) || 0 } : null;
+  } catch {
+    return null;
+  }
+};
+const setAnswering = (v: { model: string; at: number } | null) => {
+  try {
+    if (v) localStorage.setItem(ANSWER_KEY, JSON.stringify(v));
+    else localStorage.removeItem(ANSWER_KEY);
+  } catch {
+    /* blocked storage: the reply still runs */
+  }
+};
+/** The reply being written now, for the record: held back while Ghosty is in the background (a page iOS drops there was not the brain's doing). */
+let answeringNow: { model: string; at: number } | null = null;
+const noteAnswering = (v: { model: string; at: number } | null) => {
+  answeringNow = v;
+  setAnswering(typeof document !== 'undefined' && document.hidden ? null : v);
+};
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => setAnswering(document.hidden ? null : answeringNow));
 
 export function recoverFromClose(): void {
   if (typeof localStorage === 'undefined') return;
   const mark = readLoading();
   if (mark) {
     setLoading(null);
-    const m = offlineModels().find((x) => x.id === mark.loading) ?? PICKER.find((x) => x.id === mark.loading);
-    if (m) backToSmall(m, mark.at);
+    const m = offlineModels().find((x) => x.id === mark.loading) ?? PICKER.concat(MODELS).find((x) => x.id === mark.loading);
+    if (m) closedHere(m, mark.at, 'loading');
+  }
+  const ans = readAnswering();
+  if (ans) {
+    setAnswering(null);
+    const m = offlineModels().find((x) => x.id === ans.model) ?? PICKER.concat(MODELS).find((x) => x.id === ans.model);
+    if (m) closedHere(m, ans.at, 'answering');
   }
   closedWhileGetting = !!readLog();
   if (offlineBrain.get().guarded) return;
@@ -665,7 +746,7 @@ export function recoverFromClose(): void {
   void (async () => {
     const t = testEngine();
     const whole = t && !t.files ? (offlineBrain.get().have ?? []).includes(cur.id) : await filled(cur);
-    if (whole) backToSmall(cur, null);
+    if (whole) backToSmall(cur, null, 'loading');
     else {
       const have = offlineBrain.get().have ?? [];
       offlineBrain.set({ model: MODELS[0]!.id, downloaded: have.includes(MODELS[0]!.id), loaded: false });
@@ -825,6 +906,8 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   // A "stop" while the model was loading: an abort that already happened never fires again for a
   // listener added now, so it is checked here, and no reply is written at all.
   if (signal?.aborted) throw stopped();
+  // The crash record of a reply (the 0.6B closed Ghosty on its first answer): written before the model runs, cleared after.
+  noteAnswering({ model: currentModel().id, at: Date.now() });
   try {
     if (t) {
       const r = await t.chat(messages, on, signal, opts);
@@ -849,6 +932,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
       offlineBrain.set({ busy: '' });
     }
   } finally {
+    noteAnswering(null);
     armIdle();
   }
 }

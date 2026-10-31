@@ -31,7 +31,8 @@
 import type { PaperResult, StageId, StageRow, StageView } from '../../school/sit';
 import { STAGES, SUBJECT_LABEL } from '../../../../../packages/shared/src/school';
 import { clear, h, icon } from '../../core/dom';
-import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
+import { mayUse, offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
+import { MODELS } from '../../offline/models';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
 import { brainLine, notDownloaded, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
@@ -325,13 +326,18 @@ export const schoolTab: TabDef = {
           }), p.chosen ? 'Sit on the smallest' : `Sit on ${p.cur.label}`)
         : null;
       const which = p ? h('div.schbrain', h('div.note', brainLine(p, false)), choose ? h('div.keyrow', choose) : null) : null;
-      sitAll.disabled = busy || !ready || !cur.papers;
+      // The only brain here closed Ghosty on this phone (31 Oct: the 0.6B on a paper's first answer): no SIT by itself;
+      // the words say what to do (the smaller brain, or USE in SETTINGS as his yes).
+      const blocked = p && !mayUse(p.brain) ? offlineBrain.get().fellBack || `${p.brain.label} closed Ghosty on this phone: in Settings → Offline brain, GET the smaller ${MODELS[1]!.label} or press USE to try it again.` : '';
+      sitAll.disabled = busy || !ready || !cur.papers || !!blocked;
       gpuAll.disabled = gpuBusy() || !cur.papers;
       gpuAll.hidden = !gpuOk();
       stop.hidden = !busy;
-      toSettings.hidden = ready !== false || can === false;
+      toSettings.hidden = (ready !== false || can === false) && !blocked;
       const why =
-        can === false
+        blocked
+          ? blocked
+          : can === false
           ? 'This phone cannot run the offline brain, so he cannot sit exams on it.'
           : ready === false
             ? notDownloaded

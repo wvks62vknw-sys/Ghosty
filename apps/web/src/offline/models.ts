@@ -71,6 +71,12 @@ export const brainOf = (m: Pick<ModelDef, 'brain'>): BaseId => m.brain ?? DEFAUL
 export const slotOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.alone ? m.id : brainOf(m));
 /** A brain bigger than the 0.6B (or its Qwen2.5 stand-in): one that may be too big for the phone's graphics memory. */
 export const isBigger = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): boolean => slotOf(m) !== DEFAULT_BASE;
+/**
+ * The key a brain's record on this phone is kept under (`Held`): its picker row (`slotOf`), except the Qwen2.5 0.5B
+ * stand-in, which has its own, so the smallest brain closing Ghosty is never mistaken for the 0.6B doing so (31 Oct:
+ * the 0.6B closed Ghosty on the first answer of a SCHOOL paper; the stand-in is the one smaller brain to try).
+ */
+export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.id === MODELS[1]!.id ? m.id : slotOf(m));
 /** "2B": the short name the owner reads in a warning ("Qwen3.5 2B" → "2B"). */
 export const shortName = (m: Pick<ModelDef, 'label'>): string => m.label.split(' ').at(-1) ?? m.label;
 
@@ -159,10 +165,12 @@ export function limitsProblem(m: Pick<ModelDef, 'label' | 'largest'>, l: GpuLimi
   return '';
 }
 
-/** What happened when a brain was loaded on this phone (kept per picker row, `slotOf`). */
+/** What happened when a brain was loaded or answered on this phone (kept per `heldKey`: the picker row, or the stand-in's own). */
 export interface Held {
   s: 'loaded' | 'closed' | 'failed' | 'refused';
   at: number;
+  /** For `closed`: Ghosty closed while the brain was loading (the old record, when absent) or while it was answering. */
+  phase?: 'loading' | 'answering';
 }
 
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -177,16 +185,19 @@ export function holdLine(limits: GpuLimits | null, held: Record<string, Held>, m
     const fit = models.filter((m) => (m.largest ?? 0) <= most && !webllmAsks(limits).why).map(shortName);
     parts.push(`its graphics chip takes pieces of up to ${Math.round(most / MiB).toLocaleString('en-GB')} MB, enough for ${fit.length === models.length ? 'every brain here' : fit.length ? `the ${fit.join(', ')}` : 'none of the brains'}`);
   }
-  const named = (s: Held['s']) => models.filter((m) => held[slotOf(m)]?.s === s).map((m) => `${m.label} (${day(held[slotOf(m)]!.at)})`);
+  const named = (s: Held['s'], phase?: NonNullable<Held['phase']>) =>
+    models.filter((m) => held[heldKey(m)]?.s === s && (!phase || (held[heldKey(m)]!.phase ?? 'loading') === phase)).map((m) => `${m.label} (${day(held[heldKey(m)]!.at)})`);
   const ran = named('loaded');
-  const closed = named('closed');
+  const closed = named('closed', 'loading');
+  const closedAnswering = named('closed', 'answering');
   const short = named('failed');
   const refused = named('refused');
   if (ran.length) parts.push(`has run ${ran.join(', ')}`);
   if (closed.length) parts.push(`closed Ghosty loading ${closed.join(', ')}`);
+  if (closedAnswering.length) parts.push(`closed Ghosty answering on ${closedAnswering.join(', ')}`);
   if (short.length) parts.push(`ran out of memory loading ${short.join(', ')}`);
   if (refused.length) parts.push(`could not start ${refused.join(', ')}`);
-  const untried = models.filter((m) => !held[slotOf(m)]).map((m) => m.label);
+  const untried = models.filter((m) => !held[heldKey(m)]).map((m) => m.label);
   if (untried.length && untried.length < models.length) parts.push(`not tried yet: ${untried.join(', ')}`);
   return `What this phone can hold: ${parts.length ? parts.join('; ') : 'nothing tried yet'}. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.`;
 }
