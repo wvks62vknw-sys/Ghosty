@@ -32,6 +32,7 @@ import { gymControl, gymState } from '../features/gym/index';
 import * as gymStore from '../features/gym/store';
 import { dueCards, learn } from '../features/learn/store';
 import { LENS_MODES } from '../features/lens/index';
+import { machineState } from '../features/eye/machine';
 import { schoolState } from '../features/school/index';
 import { homePlan } from '../features/space/home';
 import { SAMPLES } from '../features/studio/index';
@@ -61,6 +62,9 @@ export interface HubCard {
   why?(): string;
   /** Light reads made when the hub opens (throttled inside). */
   load?(): Promise<unknown>;
+  /** A status line of its own under the readouts, and where a tap on it goes (God's Eye: the Machine view, `eye?machine`). */
+  line?(): string;
+  lineTo?: string;
 }
 
 /* ------------------------------------------------------------------ the few reads a hub makes */
@@ -192,12 +196,16 @@ export const CARDS: Record<string, HubCard> = {
   },
   eye: {
     title: 'The planet, live',
-    status: () => (air.list.size || sats.list.length ? 'LIVE' : 'READY'),
+    status: () => (machineState.on || air.list.size || sats.list.length ? 'LIVE' : 'READY'),
     instrument: () => globeInst({ home: home(), planes: [...air.list.values()].map((a) => [a.lat, a.lon] as [number, number]), sats: sats.list.length }),
+    // while the Machine view is on, its reading first ("WATCHING · 41 AIR · 188 TRANSIT": the quick switcher shows it too)
     readouts: () => [
-      { label: 'Aircraft', value: air.list.size ? fmt.n(air.list.size) : null, live: air.list.size > 0 },
+      machineState.on ? { label: 'Machine', value: machineState.hub || 'WATCHING', live: true } : { label: 'Aircraft', value: air.list.size ? fmt.n(air.list.size) : null, live: air.list.size > 0 },
       { label: 'Quakes 24 h', value: n(quakesToday()), live: quakesToday() != null },
     ],
+    // the status line: a tap opens God's Eye in the Machine view
+    line: () => (machineState.on ? machineState.hub || 'WATCHING' : 'MACHINE VIEW'),
+    lineTo: 'eye?machine',
     why: () => (air.list.size ? '' : `Planes over ${city()} load when you open it`),
     load: () => quakes.refresh(),
   },

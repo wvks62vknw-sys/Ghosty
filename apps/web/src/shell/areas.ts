@@ -126,10 +126,17 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   const title = h('span.t');
   const reads = h('span.reads');
   const why = h('span.why');
+  // a card's own status line (God's Eye: MACHINE VIEW), which opens somewhere of its own rather than the tool
+  const line = h('span.hline', { hidden: true });
+  line.addEventListener('click', (e) => {
+    if (!c?.lineTo) return;
+    e.stopPropagation();
+    navTo(c.lineTo, 'push');
+  });
   const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
     ins,
     h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, reads, why,
+    title, reads, why, line,
   );
   let insKey: Element | null = null;
   const paint = () => {
@@ -152,6 +159,9 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
     const w = rs.some((r) => r.value == null) ? c.why?.() ?? '' : '';
     why.textContent = w;
     why.hidden = !w;
+    const ln = c.line?.() ?? '';
+    if (line.textContent !== ln) line.textContent = ln;
+    line.hidden = !ln;
   };
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }

@@ -2,7 +2,7 @@
  * THE GUARDIAN's kept state, and what it adds to the one shared mind (guardian.ts does the watching, walk.ts the walking).
  * Apart so that mind.ts reads it without pulling in Telegram, email and the feeds: only the database and his places.
  */
-import { clockIn, FEED_NAMES, type FeedId, type GuardWarning, type PanicSecret, type PlaceWatch, type WalkInfo } from '../../../packages/shared/src/guardian';
+import { clockIn, FEED_NAMES, levelWord, type FeedId, type GuardWarning, type PanicSecret, type PlaceWatch, type WalkInfo } from '../../../packages/shared/src/guardian';
 import type { DayLine } from '../../../packages/shared/src/mind';
 import type { Env } from './env';
 import type { PlaceArea } from './integrations/warnings';
@@ -124,8 +124,8 @@ export async function loadWalk(storage: DurableObjectStorage): Promise<WalkState
   return v && typeof v === 'object' && typeof v.eta === 'number' ? v : null;
 }
 
-/** A warning as it is named in a line: "flood alert", "yellow wind warning". */
-export const levelWord = (w: GuardWarning) => (w.feed === 'flood' ? w.title.split(':')[0]!.toLowerCase() : w.title.toLowerCase().replace(/^(red|amber|yellow) warning of (.*)$/, '$1 $2 warning'));
+/** A warning as it is named in a line: "flood alert", "yellow wind warning" (the shared words: the Machine view says it too). */
+export { levelWord };
 
 /** What the guardian adds to the one shared mind (mind.ts): what is active near his places, a walk under way, and its "Home?". */
 export async function guardianMind(storage: DurableObjectStorage, now: number, zone: string): Promise<{ doing: string[]; ahead: DayLine[] }> {

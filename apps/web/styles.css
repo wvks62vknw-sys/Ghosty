@@ -2785,12 +2785,12 @@ html .eyebot .btns { display: block; padding: 12px; border-radius: 26px; backgro
 html .eyebot .bgroup { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 html .eyebot .bgroup .bcap { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
 html .eyebot .bgroup .bcap .bplace { display: block; font: 500 11px/13px var(--sf); font-style: normal; letter-spacing: .02em; text-transform: none; color: var(--ink2); }
-html .eyebot .bgroup:first-child .bcap { margin-bottom: 10px; }
-html .eyebot .bgroup:first-child button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; height: auto; min-height: 66px !important; padding: 0; border-radius: 14px; background: none !important; box-shadow: none !important; color: var(--ink); }
-html .eyebot .bgroup:first-child button .bic { display: grid; place-items: center; order: -1; width: 46px; height: 46px; border-radius: 23px; background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--hair); transition: transform var(--rcsp) var(--spring); }
-html .eyebot .bgroup:first-child button:active .bic { transform: scale(.92); }
-html .eyebot .bgroup:first-child button.on .bic { color: var(--c); background: rgba(var(--cr), .14); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); }
-html .eyebot .bgroup:first-child button[data-label]::before { --lfs: 11px; font-weight: 500; line-height: 13px; white-space: nowrap; letter-spacing: 0; }
+html .eyebot .bgroup:first-of-type .bcap { margin-bottom: 10px; }
+html .eyebot .bgroup:first-of-type button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; height: auto; min-height: 66px !important; padding: 0; border-radius: 14px; background: none !important; box-shadow: none !important; color: var(--ink); }
+html .eyebot .bgroup:first-of-type button .bic { display: grid; place-items: center; order: -1; width: 46px; height: 46px; border-radius: 23px; background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--hair); transition: transform var(--rcsp) var(--spring); }
+html .eyebot .bgroup:first-of-type button:active .bic { transform: scale(.92); }
+html .eyebot .bgroup:first-of-type button.on .bic { color: var(--c); background: rgba(var(--cr), .14); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); }
+html .eyebot .bgroup:first-of-type button[data-label]::before { --lfs: 11px; font-weight: 500; line-height: 13px; white-space: nowrap; letter-spacing: 0; }
 html .eyebot .bic .ic { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 html .eyebot .bgroup + .bgroup { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); }
 html .eyebot .bgroup + .bgroup .bcap { flex: none; width: 54px; padding: 0 6px; }
@@ -2801,7 +2801,7 @@ html .eyebot .bgroup + .bgroup button .bic .ic { width: 15px; height: 15px; colo
 html .eyebot .bgroup + .bgroup button[data-label]::before { --lfs: 13px; font-weight: 500; white-space: nowrap; }
 html .eyebot .bgroup + .bgroup button.on { background: rgba(var(--cr), .14) !important; color: var(--c); }
 @media (max-width: 409px) { html .lchip:not(.ico) .ic { display: none; } html .lchip:not(.ico) { padding: 0 12px; } }
-@media (max-width: 400px) { html .eyebot .bgroup + .bgroup .bcap { display: none; } html .eyebot .bgroup:first-child button[data-label]::before { --lfs: 10px; } }
+@media (max-width: 400px) { html .eyebot .bgroup + .bgroup .bcap { display: none; } html .eyebot .bgroup:first-of-type button[data-label]::before { --lfs: 10px; } }
 
 /* ---------- GYM (features/gym/index.ts; mockups/c/gym.png) ---------- */
 .gymlvhd, .gymlvls, .gymsec, .gymswitch .bic { display: none; }
@@ -4700,3 +4700,31 @@ html .foresightrc .lab { margin: 10px 0 4px; }
 html .foresightrc .foreok .k { color: var(--ok); font-size: 16px; }
 html .foresightrc .forebad .k { color: #ff6961; font-size: 16px; }
 html .foresightrc .foreok .n, html .foresightrc .forebad .n { color: var(--ink3); }
+
+/* THE MACHINE VIEW (features/eye/machineview.ts): his things in thin white boxes with mono labels, white on black (the
+   Lens's ADMIN box); an amber ring pulsing once a second where a warning is active; the nearest bus or tram in cyan; the
+   count line above the bar; the mode's button first in the bar, in the same style. */
+html .mchboxes { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+html .mchboxes[hidden], html .mchbox[hidden], html .mchbox .mchsub[hidden] { display: none; }
+html .mchbox { position: absolute; left: 0; top: 0; box-sizing: border-box; border: 1.5px solid #fff; border-radius: 0; will-change: transform; }
+html .mchbox .mchlab, html .mchbox .mchsub { position: absolute; left: -1.5px; padding: 2px 6px; font: 600 11px/14px var(--mono); letter-spacing: .04em; color: #fff; background: rgba(2, 7, 13, .82); white-space: nowrap; }
+html .mchbox .mchlab { top: -21px; }
+html .mchbox .mchsub { top: calc(100% + 3px); }
+html .mchbox[data-kind="transit"] { border-color: #5ce1ff; }
+html .mchbox[data-kind="transit"] .mchlab { color: #5ce1ff; }
+html .mchbox .mchring { display: none; }
+html .mchbox.warn { border-color: #ffb340; }
+html .mchbox.warn .mchlab { color: #ffb340; }
+html .mchbox.warn .mchring { display: block; position: absolute; inset: -10px; border: 2px solid #ffb340; border-radius: 50%; animation: mpulse 1s ease-out infinite; }
+@keyframes mpulse { 0% { transform: scale(.55); opacity: 1; } 100% { transform: scale(1.45); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { html .mchbox.warn .mchring { animation: none; opacity: .8; } }
+html .eyebot .mchview { margin-bottom: 8px; padding: 8px 10px; border: 1.5px solid rgba(255, 255, 255, .9); border-radius: 0; background: rgba(2, 7, 13, .78); pointer-events: auto; }
+html .eyebot .mchview[hidden] { display: none; }
+html .eyebot .mchview .mchline { margin: 0; font: 500 12px/17px var(--mono); color: #fff; letter-spacing: .01em; }
+html .eyebot .mchview .mchnote { margin: 0 0 6px; font: 400 12px/16px var(--sf); color: #ffd27a; }
+html .eyebot .mchview .mchnote[hidden] { display: none; }
+html .hud.eye.machinemode .eyebot .readout { display: none; }
+html .eyebot .btns .machinebtn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 0 12px; border: 1.5px solid #fff; border-radius: 0; background: #000; box-shadow: none; color: #fff; font: 600 12px/14px var(--mono); letter-spacing: .14em; }
+html .eyebot .btns .machinebtn.on { background: #fff; color: #000; }
+html .hubtile .hline { order: 7; display: flex; align-items: center; min-height: 46px; flex: none; margin-top: 8px; padding: 0 10px; border: 1.5px solid rgba(255, 255, 255, .85); border-radius: 0; background: rgba(2, 7, 13, .6); font: 600 11px/14px var(--mono); letter-spacing: .08em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .hubtile .hline[hidden] { display: none; }

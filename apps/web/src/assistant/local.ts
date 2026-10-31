@@ -9,13 +9,16 @@
  *    and the games he played me), one short list, newest first;
  *  - FORESIGHT (OWNER-ISSUES 61a): "what do you expect today?", "how often are you right?", "were you right?" from the
  *    brain's ledger (GET /api/foresight, kept a minute), and "you were right" / "you were wrong" on his latest open question
- *    (under seven days old): his word kept with POST /api/foresight/resolve.
+ *    (under seven days old): his word kept with POST /api/foresight/resolve;
+ *  - THE MACHINE VIEW (OWNER-ISSUES 61c): "machine view", "show me my city", "what are you watching?", "what can you see?"
+ *    open God's Eye in the mode, and the answer is its count line (features/eye/machine.ts).
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
 import { bestAsk, canYouAsked, dayLines, searchAbilities, todayAsked, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
 import { ANSWER_DAYS, foresightAsked, foresightWords, notedWords, rightSaid } from '../../../../packages/shared/src/foresight';
 import { loadForesight, resolveForesight } from '../state/foresight';
-import { timeZone } from '../state/app';
+import { machineAsked, machineState } from '../features/eye/machine';
+import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
@@ -24,7 +27,7 @@ import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -136,6 +139,13 @@ function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?:
 const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
 export async function localTurn(text: string, opts: { voice?: boolean; private?: boolean } = {}): Promise<boolean> {
+  // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
+  if (machineAsked(text) && !(ui.get().tab === 'lens' && /\bsee\b/i.test(text))) {
+    location.hash = 'eye?machine';
+    const t0 = Date.now();
+    while (!(machineState.on && machineState.ready) && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    return answer(text, machineState.line || 'I couldn’t open God’s Eye just now. Try MACHINE VIEW in its bar.', { kind: 'machine' }, opts);
+  }
   const fore = foresightAsked(text);
   if (fore) {
     const info = await within(loadForesight());

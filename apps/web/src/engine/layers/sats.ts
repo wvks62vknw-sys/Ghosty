@@ -51,6 +51,8 @@ export class SatLayer implements GlobeLayer {
   source = '';
   selected: Satellite | null = null;
   showOrbit = true;
+  /** How bright the dots are drawn (the Machine view dims them to 0.4: the city comes first). */
+  dim = 1;
   private lastProp = 0;
   private pts = new PointSet(1500);
   private orbit = new LineSet(200);
@@ -175,7 +177,7 @@ export class SatLayer implements GlobeLayer {
 
   draw(_cs: CamState, rel: Mat4, oc: DrawOpts, sizeMul: number, now: number): void {
     const P = this.pts.clear();
-    for (const s of this.list) P.add(s.w, [s.col[0], s.col[1], s.col[2], s.group === 'geo' ? 0.55 : 0.95], (s.group === 'stations' ? 11 : s.group === 'geo' ? 5 : 6) * sizeMul, 4);
+    for (const s of this.list) P.add(s.w, [s.col[0], s.col[1], s.col[2], (s.group === 'geo' ? 0.55 : 0.95) * this.dim], (s.group === 'stations' ? 11 : s.group === 'geo' ? 5 : 6) * sizeMul, 4);
     P.draw(rel, { ...oc, px: 1 });
     const sel = this.selected;
     if (sel && this.showOrbit) {
