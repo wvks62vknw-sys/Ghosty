@@ -376,19 +376,22 @@ export class Router {
     // When every capable provider is full or only briefly rate-limited, wait for the soonest one (up to
     // maxWait in all) and try again, instead of failing halfway through a long task. 0 never waits.
     const maxWait = opts.maxWaitMs ?? (lane === 'background' ? 90_000 : 45_000);
-    const deadline = Date.now() + maxWait;
     // The stopwatch: this completion's waits and model time, and the turn it belongs to (its signal).
     const clock: Clock = { wait: 0, model: 0 };
     this.speed.callStart(signal);
     try {
-      for (let round = 0; ; round++) {
+      for (let freeNow = 0; ; ) {
         const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane, clock);
         if ('message' in r) {
           this.speed.callEnd(signal, { ...clock, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
           return inCharacter(messages, r);
         }
-        const left = deadline - Date.now();
-        if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
+        // maxWait is time spent WAITING (clock.wait): a model call that was slow, or ran to its timeout, never uses it
+        // up — that used to leave "no time" and fail with a model free that very second (OWNER-ISSUES 64a). A model free
+        // now is always tried (12 times at most, so one that never really is still ends); a later one is sat
+        // through whenever it is within what is left of the wait. Only then does it fail, naming the real soonest time.
+        const left = maxWait - clock.wait;
+        if (signal?.aborted || (r.waitMs > 0 ? r.waitMs > left : ++freeNow > 12)) throw new RouterError(r.error, r.waitMs);
         // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
         // background work uses the tick to deliver reminders that fall due meanwhile.
         let ms = r.waitMs + (r.full ? 50 : 500);
@@ -695,7 +698,9 @@ export class Router {
     }
     if (!tried && !lastErr && !fits && tooBig.size) return { error: 'Every model I can reach is too small for a request this big on its free plan. Try a shorter message, or start a new chat.', waitMs: Infinity };
     if (!lastErr) return { error: `Every model I can reach is cooling down after rate limits.${wait} Another free key in the System tab gives me more room.`, waitMs: soonest };
-    return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).${wait}`, waitMs: soonest };
+    // (what the last one said, in plain words: never the provider's raw reply, which reaches the owner — SMALL-GAPS family A)
+    const why = lastErr.code === 'no-room' ? lastErr.message : classify(lastErr).why;
+    return { error: `Every model I can reach is busy or failing right now (the last one: ${why === 'error' ? 'an error' : why}).${wait}`, waitMs: soonest };
   }
 
   /**

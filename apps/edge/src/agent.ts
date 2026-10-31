@@ -635,11 +635,12 @@ export class GhostyAgent {
    * paused — the paused-mode answer instead. `seen`/`scan`: what the phone's camera saw and
    * read, marked as data; `recent`/`offline`: what the device sends for paused mode.
    */
-  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean } = {}): Promise<void> {
+  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean; note?: string } = {}): Promise<void> {
     const seen = extra.seen ?? '';
     this.citedTurn = !!extra.cited || citedAsked(text);
     this.turnRead = [];
-    const turn = withSeen(text, seen, extra.scan ?? '');
+    // (`note`: what of an attachment could not be taken in — prompt.ts unreadNote — for the model only, never the history)
+    const turn = `${withSeen(text, seen, extra.scan ?? '')}${extra.note ? `\n\n${extra.note}` : ''}`;
     this.turnLinks = [];
     // Did any reply text go out before a failure? (Then paused mode must not answer again.)
     let said = false;
@@ -1376,7 +1377,7 @@ export class GhostyAgent {
         while (this.busy && Date.now() < until) await new Promise((ok) => setTimeout(ok, 500));
         return this.busy ? null : this.claim();
       },
-      runTurn: (text, images, client, emit, signal) => this.runTurn(text, images, client, emit, signal),
+      runTurn: (text, images, client, emit, signal, note) => this.runTurn(text, images, client, emit, signal, note ? { note } : {}),
       takeApproval: (id, allow) => this.takeApproval(id, allow),
       statusLine: async () => {
         const st = await this.status('owner');

@@ -122,7 +122,23 @@ const testEngine = (): TestEngine | null => {
   return e && typeof e.chat === 'function' ? e : null;
 };
 
-export const currentModel = (): ModelDef => offlineModels().find((m) => m.id === offlineBrain.get().model) ?? MODELS[0]!;
+/** The brain a SCHOOL paper is being sat on when it is not the one in use (sitOn): never saved, so a close keeps his choice. */
+let sitWith: string | null = null;
+export const currentModel = (): ModelDef => (sitWith ? offlineModels().find((m) => m.id === sitWith) : undefined) ?? offlineModels().find((m) => m.id === offlineBrain.get().model) ?? MODELS[0]!;
+
+/**
+ * A SCHOOL paper is sat on this brain instead of the one in use (null: back to his). The model in memory leaves, so the
+ * next load is the right one (school/sit.ts; SMALL-GAPS family G).
+ */
+export function sitOn(id: string | null): void {
+  if (id === sitWith) return;
+  freeModel();
+  sitWith = id;
+  checkedAt = 0;
+}
+
+/** The model leaves memory now, so the next use loads it afresh (a sitting whose brain failed mid-paper: school/sit.ts). */
+export const unloadOffline = (): void => freeModel();
 
 // ---------------------------------------------------------------------------------------
 // Can this phone run it?

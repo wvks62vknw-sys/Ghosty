@@ -9,13 +9,15 @@
  * Light on the battery: three.js loads only when Home is first shown, the way the 3D STUDIO loads it
  * (studio/three.ts: the vendored module, never bundled, nothing from the network). There is one WebGL context.
  * It draws at 30 fps when idle and 60 fps for a second after a change, and not at all while the tab is hidden or the
- * hero is scrolled out of view. The pixel ratio is capped at 2. With "reduce motion" it draws one still frame for
- * each change and runs no loop. reactor.ts keeps today's 2-D reactor whenever this cannot run.
+ * hero is scrolled out of view. The pixel ratio is capped at 2. With "reduce motion", and while a paper is sat on the
+ * phone's brain (heavy mode, core/heavy.ts), it draws one still frame for each change and runs no loop. reactor.ts keeps
+ * today's 2-D reactor whenever this cannot run.
  *
  * Its light is the theme's accent (state/theme.ts writes it as --c, and a pale tint of it as --c2): the sphere's rim,
  * the lit nodes, their links and the pulses running along them all take it, and change with the theme at once.
  */
 import { brain } from '../../api/brain';
+import { heavy } from '../../core/heavy';
 import type { VoiceState } from '../../state/app';
 import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
@@ -504,7 +506,8 @@ export class Mind {
     this.t += dt;
     if (performance.now() - this.fetchedAt > 300_000) void this.refresh();
     if (document.hidden || !this.inView) return;
-    const still = reduced();
+    // (heavy mode, core/heavy.ts: a paper being sat on the phone's brain gets the graphics; one still frame per change)
+    const still = reduced() || heavy.get().on;
     heroState.loop = !still;
     if (still) {
       if (!this.dirty) return;

@@ -84,7 +84,8 @@ test("Pollinations' pacing (402 + Retry-After) cools it for that long, and the s
     return new Response('{"error":"FREE_LIMIT","message":"wait 30s"}', { status: 402, headers: { 'retry-after': '30' } });
   };
   const r = new R.Router(new MemStorage(), vaultWith({}), {});
-  await assert.rejects(r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }), /busy or failing.*402.*frees up in about 3[0-9] seconds/);
+  // (in plain words: the provider's raw reply never reaches the owner)
+  await assert.rejects(r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }), /Every model I can reach is busy or failing right now \(the last one: free limit · one reply every 30 s\)\. The first one frees up in about 3[0-9] seconds\.$/);
   assert.equal(calls, 1);
   const row = (await r.summary()).find((m) => m.provider === 'Pollinations');
   assert.equal(row.state, 'cool');
@@ -613,6 +614,74 @@ test("background work out of free Workers AI room skips quietly: the owner's cha
   const chat = await r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }).catch((e) => ({ model: String(e?.message ?? e) }));
   assert.match(chat.model, /^Workers AI/, `the owner's chat still reaches Workers AI (got ${chat.model})`);
   assert.ok(!(await r.summary()).some((m) => m.provider === 'Workers AI' && m.state === 'cool'), 'no Workers AI model was cooled for an hour');
+});
+
+// OWNER-ISSUES 64a: "he'll just think for ages and then respond with there's no free models right now and one comes up in
+// 0 seconds". The wait used to be counted from the start of the call, so time spent in model calls (a slow reply, one
+// that ran to its timeout) used it up; a pass then found a model free that very second and still failed.
+/** Gemini's five models (no other provider): 3.8-flash and the lites fail after these delays with a 503; 3.6-flash answers. */
+const slowFailures = (log, delays) => async (url, init) => {
+  const model = JSON.parse(init.body).model;
+  log.push({ model, at: Date.now() });
+  if (model === 'gemini-3.6-flash') return ok(model);
+  await new Promise((done) => setTimeout(done, delays[model] ?? 0));
+  return new Response('{"error":{"message":"overloaded"}}', { status: 503 });
+};
+
+test('a free model 0 s away after slow failures: no "no free model", it goes and answers (64a)', async () => {
+  const log = [];
+  // 3.8-flash fails fast; 3.6-flash is cooling for 1.2 s, too long for this call's 0.5 s wait, so it is passed over;
+  // the lites then fail slowly, and by the end of the pass 3.6-flash has been free for a while (soonest = 0)
+  globalThis.fetch = slowFailures(log, { 'gemini-3.8-flash': 50, 'gemini-3.5-flash-lite': 700, 'gemini-2.5-flash': 300, 'gemini-2.5-flash-lite': 300 });
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  await r.mark('gemini|gemini-3.6-flash', { cool: Date.now() + 1200, why: 'rate limit' });
+  const out = await r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 500 }).catch((e) => ({ model: `failed: ${e.message}` }));
+  assert.equal(out.model, 'Gemini · gemini-3.6-flash', out.model);
+  assert.deepEqual(log.map((l) => l.model), ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.6-flash']);
+});
+
+test('a free model 1 s before the end of the wait after slow failures: the chat sits through it and answers (64a)', async () => {
+  const log = [];
+  // a 3 s wait; 3.6-flash is cooling for 3.3 s (passed over: longer than the wait) and the slow failures take 1.3 s,
+  // so it frees up 2 s into the wait — 1 s before its end. The time the failing calls took is not waiting.
+  globalThis.fetch = slowFailures(log, { 'gemini-3.8-flash': 100, 'gemini-3.5-flash-lite': 400, 'gemini-2.5-flash': 400, 'gemini-2.5-flash-lite': 400 });
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  const free = Date.now() + 3300;
+  await r.mark('gemini|gemini-3.6-flash', { cool: free, why: 'rate limit' });
+  const said = [];
+  const out = await r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 3000, onWait: (t) => said.push(t) }).catch((e) => ({ model: `failed: ${e.message}` }));
+  assert.equal(out.model, 'Gemini · gemini-3.6-flash', out.model);
+  assert.ok(log.at(-1).at >= free, 'asked once it was free, not before');
+  assert.match(said[0] ?? '', /^waiting for free AI room · \d s$/, 'with the countdown');
+  // a wait truly longer than the one left still fails, naming the real soonest time
+  globalThis.fetch = slowFailures([], {});
+  const r2 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  await r2.mark('gemini|gemini-3.6-flash', { cool: Date.now() + 20_000, why: 'rate limit' });
+  const err = await r2.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 3000 }).then(() => null, (e) => e);
+  assert.ok(err?.name === 'RouterError', String(err));
+  assert.match(err.message, /^Every model I can reach is busy or failing right now \(the last one: server busy\)\. The first one frees up in about (19|20) seconds\.$/);
+  assert.doesNotMatch(err.message, /\{|"error"|503/, "never the provider's raw reply");
+  assert.ok(err.waitMs > 18_000 && err.waitMs <= 20_000, String(err.waitMs));
+});
+
+test('a reply slower than the short wait (8 s) is an answer: the model is not cooled or marked dead (64a)', async () => {
+  const log = [];
+  globalThis.fetch = async (url, init) => {
+    const model = JSON.parse(init.body).model;
+    log.push(model);
+    await new Promise((done) => setTimeout(done, 8500));
+    return ok(model);
+  };
+  const storage = new MemStorage();
+  const r = new R.Router(storage, vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Gemini · gemini-3.8-flash');
+  assert.deepEqual(log, ['gemini-3.8-flash'], 'nothing else was asked meanwhile');
+  const h = storage.m.get('llm:health')['gemini|gemini-3.8-flash'];
+  assert.equal(h.cool, 0);
+  assert.equal(h.dead, 0);
+  assert.ok(h.ms >= 8000, String(h.ms));
+  assert.equal(await r.nextFree(), 0, 'free again at once');
 });
 
 // The stopwatch's tests (speed.ts and the phone's core/stopwatch.ts) run with these.

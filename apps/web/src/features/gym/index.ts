@@ -18,6 +18,7 @@
  * level-ups is one toast, and there is never more than one GYM toast on screen.
  */
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
+import { heavy } from '../../core/heavy';
 import { onFrame } from '../../engine/scheduler';
 import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
 import { cardLine, countLine, greeting, lessons, type OwnerGame, review, screenLine, type Study, type Totals } from '../../gym/c4talk';
@@ -339,7 +340,16 @@ export const gymTab: TabDef = {
         });
       });
     /** Train game `id` in the worker (once the saved games are in, and if it is still the one to train). */
-    const sendTrain = (id: string) => void ready.then(() => training === id && send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0, carry: carryNow() }));
+    const sendTrain = (id: string) => {
+      // A paper being sat (heavy mode, core/heavy.ts): he trains once it is handed in (onVisible carries on then).
+      if (heavy.get().on) {
+        resumeOnShow = id;
+        training = null;
+        gymToast("I'm sitting a school paper: I'll train as soon as it's handed in", 'warn');
+        return;
+      }
+      void ready.then(() => training === id && send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0, carry: carryNow() }));
+    };
     const onWorker = (m: GymOut) => {
       if (m.gym === 'reply') {
         replies.get(m.req)?.(m);
@@ -869,7 +879,7 @@ export const gymTab: TabDef = {
     /** Once a second: count his training time, move on when this game's time is up, keep the line live. */
     const allClock = () => {
       const run = prefs.all;
-      if (!allOn || !run || document.hidden) return;
+      if (!allOn || !run || document.hidden || heavy.get().on) return;
       const t = Date.now();
       // (only time he really trains counts: not while the app was away, nor a timer that slept)
       if (training === run.current) {
@@ -1017,7 +1027,7 @@ export const gymTab: TabDef = {
     };
     /** Study the latest loss not studied yet — only while nothing trains (the GYM is idle). */
     const studyNext = () => {
-      if (studying || training) return;
+      if (studying || training || heavy.get().on) return;
       const g = [...journal.c4].reverse().find((x) => x.result === 'you' && !x.study && !tried.has(x.at));
       if (!g) return;
       studying = g;
@@ -1040,7 +1050,7 @@ export const gymTab: TabDef = {
     let idleGames = -1;
     /** While nothing trains and the GYM is on screen, he solves positions from your games (the worker stops when asked, or when training starts). */
     const syncIdle = () => {
-      const want = !training && !studying && !document.hidden && ui.get().tab === 'gym' && journal.c4.some((g) => g.ghosty === 2) && !gymState.play.thinking;
+      const want = !training && !studying && !document.hidden && !heavy.get().on && ui.get().tab === 'gym' && journal.c4.some((g) => g.ghosty === 2) && !gymState.play.thinking;
       if (want && (!idleOn || idleGames !== journal.c4.length)) {
         idleOn = true;
         idleGames = journal.c4.length;
@@ -1327,17 +1337,18 @@ export const gymTab: TabDef = {
     };
     secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
 
-    // ======================= hidden app → pause (and save); back → carry on
+    // ======================= hidden app, or a paper being sat (heavy mode) → pause (and save); back → carry on
+    const away = () => document.hidden || heavy.get().on;
     const onVisible = () => {
-      note(`visibility ${document.visibilityState}`);
-      if (document.hidden && training) {
+      note(`visibility ${document.visibilityState}${heavy.get().on ? ' · heavy' : ''}`);
+      if (away() && training) {
         resumeOnShow = training;
         resumeWatch = watchOn;
         send({ gym: 'pause' });
         training = null;
         stopWatch();
         paint();
-      } else if (!document.hidden && resumeOnShow) {
+      } else if (!away() && resumeOnShow) {
         const id = resumeOnShow;
         resumeOnShow = '';
         training = id;
@@ -1355,6 +1366,7 @@ export const gymTab: TabDef = {
       syncIdle();
     };
     document.addEventListener('visibilitychange', onVisible);
+    heavy.subscribe((s, p) => s.on !== p.on && onVisible());
     addEventListener('pagehide', () => training && send({ gym: 'pause' }));
 
     opener = (id) => id && select(id);
