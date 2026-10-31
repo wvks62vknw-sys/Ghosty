@@ -2190,3 +2190,17 @@ test('the install step in his words: the note, the notification and the LOOPS ca
   assert.equal(C.installHold({ error: 'x', notebook: 'abc' }, 'abc'), '');
   assert.match(C.notebookTag(), /^[0-9a-f]{8}$/);
 });
+
+
+// THE INDEPENDENCE METER (OWNER-ISSUES 78): the brain's copy of the phone's days — counts only, merged by day — and its weeks.
+test('the independence meter\'s days reach the brain as counts only, merged by day; GET gives the week and the weeks', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.UTC(2026, 9, 31, 12) });
+  assert.deepEqual(await route(d, '/training/meter', 'POST', { days: [{ d: '2026-10-30', n: { phone: 54, library: 17, cloud: 29 }, c: { groq: 29 }, a: { live: 20, long: 9 }, q: 'never kept' }] }), { ok: true });
+  await route(d, '/training/meter', 'POST', { days: [{ d: '2026-10-23', n: { phone: 64, cloud: 36 }, c: {}, a: {} }, { d: '2026-10-30', n: { phone: 55, library: 17, cloud: 29 }, c: { groq: 29 }, a: { live: 20, long: 9 } }] });
+  assert.ok(!JSON.stringify(await s.get('train:meter')).includes('never kept'), 'never a word, only counts');
+  const m = await route(d, '/training/meter');
+  assert.equal(m.week.total, 101, 'the newer copy of a day wins: no day counted twice');
+  assert.deepEqual(m.week.by, { phone: 55, library: 17, think: 0, kit: 0, cloud: 29 });
+  assert.deepEqual(m.weeks.slice(-2), [64, 71]);
+});

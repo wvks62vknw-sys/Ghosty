@@ -12,6 +12,7 @@ import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain'
 import { modelKey, needsCheck, reportCard, runReportCard, stopThinking, thinking } from '../../offline/harder';
 import { goToPanel } from '../../ui/sections';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
+import { independenceBlock } from './independence';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const secs = (ms: number) => (ms >= 90_000 ? `${Math.round(ms / 60_000)} min` : `${Math.max(0, Math.round(ms / 1000))} s`);
@@ -123,6 +124,8 @@ export function reportCardPanel(): Panel & { refresh(): void } {
     prog,
     card,
     past,
+    // the independence meter: how much of his week his own brains answered (OWNER-ISSUES 78)
+    independenceBlock(),
     h('div.note', 'Measured on this phone, not claimed: the same 20 questions each time, one try each as in chat, then THINK HARDER (which here may only use checks that work an answer out — never ones that already know it — so its score is the model’s own). Timings depend on the phone and how warm it is.'),
   );
   reportCard.subscribe(paint);

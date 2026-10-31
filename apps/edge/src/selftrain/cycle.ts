@@ -66,6 +66,7 @@ import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
 import { fromZoned, zoned } from '../time';
 import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from './assets';
+import { meterDays, weekOf as meterWeek, weeksOf as meterWeeks, type MeterDay } from '../../../../packages/shared/src/independence';
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
   addRecords,
@@ -251,6 +252,8 @@ const K = {
   active: 'train:active',
   ratings: 'train:ratings',
   gym: 'train:gym',
+  // the independence meter's days from the phone (packages/shared/src/independence.ts): counts only
+  meter: 'train:meter',
   exam: 'train:exam',
   privateData: 'train:private',
   rejected: 'train:rejected',
@@ -1564,6 +1567,17 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     if (body.up !== null && body.up !== undefined) list.push({ at, up: !!body.up, question, reply, ...(body.offline ? { offline: true } : {}) });
     await s.put(K.ratings, list.slice(-300));
     return json({ ok: true, ratings: list.length });
+  }
+  if (path === '/training/meter' && method === 'POST') {
+    // THE INDEPENDENCE METER (OWNER-ISSUES 78): the phone's days, as counts only (never words, never a task kept on the
+    // phone), merged by day: the brain's copy for the weeks (the capability ledger reads it).
+    await s.put(K.meter, meterDays(body.days, (await s.get<MeterDay[]>(K.meter)) ?? []));
+    return json({ ok: true });
+  }
+  if (path === '/training/meter' && method === 'GET') {
+    const days = (await s.get<MeterDay[]>(K.meter)) ?? [];
+    const today = new Date(nowOf(d)).toISOString().slice(0, 10);
+    return json({ week: meterWeek(days, today), weeks: meterWeeks(days, today, 8) });
   }
   if (path === '/training/gym' && method === 'POST') {
     const levels: Record<string, number> = {};

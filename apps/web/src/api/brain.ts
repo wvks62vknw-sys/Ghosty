@@ -15,6 +15,7 @@ import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
+import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -469,6 +470,8 @@ export const brain = {
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
     gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
+    /** The independence meter's days from this phone (core/independence.ts): counts only, never a kept task's. */
+    meter: (days: MeterDay[]) => req<{ ok: boolean }>('POST', '/training/meter', { days }),
     /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */
     star: (records: unknown[]) => req<{ kept: number; refused: { why: string; n: number }[]; waiting: number }>('POST', '/training/star', { records }),
     /** This week's numbers for the brain's loops (the REPORT CARD's LOOPS card). */

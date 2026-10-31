@@ -16,6 +16,7 @@ import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
+import { noteAnswer, noteStopped } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
@@ -178,6 +179,7 @@ function handle(ev: ChatEvent): void {
       ui.set({ status: ev.text });
       break;
     case 'tool':
+      toolRan = true;
       if (ev.name === 'vehicle_check') {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
@@ -202,6 +204,7 @@ function handle(ev: ChatEvent): void {
       void run(ev.name, ev.args);
       break;
     case 'approval':
+      approvalAsked = true;
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       followApproval(ev.id);
       if (speakReplies && settings.get().speak) void speak(ev.reason);
@@ -256,6 +259,8 @@ function handle(ev: ChatEvent): void {
  */
 async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>): Promise<void> {
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
+  const since = Date.now();
+  toolRan = approvalAsked = false;
   try {
     await fn(handle);
   } catch (e) {
@@ -286,9 +291,24 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   } finally {
     vehicleTurn = false;
     settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
+    tally(since);
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
   }
+}
+
+/** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
+let toolRan = false;
+let approvalAsked = false;
+
+/**
+ * The independence meter (core/independence.ts): the answer this stream gave, counted once by where it was answered (its
+ * model line). One that ended asking for an approval is counted when the approved part answers; THINK HARDER counts itself.
+ */
+function tally(since: number): void {
+  if (approvalAsked) return;
+  const a = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at >= since && !!e.text.trim() && !e.think);
+  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length });
 }
 
 const OFFLINE_MODEL = 'On this phone · offline';
@@ -412,6 +432,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     });
     const secs = Math.round((Date.now() - t0) / 1000);
     update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
+    if (!r.stopped && (r.text || r.answer)) noteAnswer(THINK_MODEL, { kept, length: (r.text || r.answer || '').length });
     const said = r.answer ? `${r.answer} (${r.line})` : r.line;
     chat.set({ live: said });
     if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at), here: kept });
@@ -491,6 +512,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       if (ready && (await answerHere(t, recent, true))) return;
       const why = mode === 'off' ? 'my offline brain is switched off (Settings → Offline brain)' : ready ? "my offline brain couldn't answer it" : "my offline brain isn't on this phone yet (Settings → Offline brain → DOWNLOAD, on Wi-Fi)";
       push({ kind: 'error', text: hereStopped(why), ask: t });
+      // SOVEREIGN MODE's list (core/independence.ts): what stopped for want of the cloud, kept on this phone only
+      noteStopped(t, why);
     });
     return;
   }
