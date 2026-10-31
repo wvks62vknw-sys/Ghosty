@@ -26,6 +26,9 @@ const KINDS: [string, string][] = [
 
 const when = (at: number) => new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const TIMES = ['', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times', 'ten times'];
+/** A fact's weight in words ("heard four times"); nothing for once (OWNER-ISSUES 75a). */
+export const heardWords = (n?: number): string => (n && n >= 2 ? `heard ${TIMES[n] ?? `${n} times`}` : '');
 
 /** No connection: fetch's own TypeError, or the phone says it is offline. */
 export const offlineNow = (e?: unknown): boolean => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
@@ -107,12 +110,16 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   const forgotBox = h('details.forgot', { hidden: true });
   p.el.insertBefore(forgotBox, p.body);
   let forgotten: ForgottenItem[] = [];
+  // FADING (OWNER-ISSUES 75a): what I worked out that nothing has confirmed for three weeks: KEEP it, or let it go (UNDO).
+  const fadeBox = h('div.fading', { hidden: true });
+  p.el.insertBefore(fadeBox, p.body);
+  let fading: MemoryItem[] = [];
   let items: MemoryItem[] = [];
   let shown = 30;
   let editing = '';
   const state = { el: p.el, refresh, patterns: [] as MemoryPattern[] };
 
-  const change = async (m: MemoryItem, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock', text?: string): Promise<boolean> => {
+  const change = async (m: MemoryItem, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock' | 'keep', text?: string): Promise<boolean> => {
     try {
       const r = await brain.memoryChange(m.id, op, text);
       const i = items.findIndex((x) => x.id === m.id);
@@ -121,10 +128,10 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       else items = items.filter((x) => x.id !== m.id);
       paint();
       onChange();
-      if (op === 'forget' || op === 'restore') void refresh();
+      if (op === 'forget' || op === 'restore' || op === 'keep') void refresh();
       return true;
     } catch (e) {
-      toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${why(e)}`, 'bad');
+      toast(`Could not ${op === 'restore' ? 'undo' : op === 'forget' ? 'let go of' : op} it: ${why(e)}`, 'bad');
       return false;
     }
   };
@@ -138,7 +145,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
 
   const row = (m: MemoryItem): HTMLElement => {
     const el = h(`div.mi${m.locked ? '.locked' : ''}` as 'div', { 'data-id': m.id });
-    const head = h('div.mih', h('span.k', day(m.at)), h('span.mik', tag(m)), m.locked ? h('span.milock', 'LOCKED') : null);
+    const head = h('div.mih', h('span.k', day(m.at)), h('span.mik', tag(m)), heardWords(m.weight) ? h('span.miw', heardWords(m.weight)) : null, m.locked ? h('span.milock', 'LOCKED') : null);
     if (editing === m.id) {
       const box = h('textarea', { 'aria-label': 'New words for this memory', rows: m.kind === 'diary' ? 6 : 2 });
       box.value = m.text;
@@ -222,6 +229,32 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     forgotBox.open = open;
   }
 
+  function paintFading(): void {
+    fadeBox.hidden = !fading.length;
+    clear(
+      fadeBox,
+      h('div.lab', `FADING (${fading.length})`),
+      h('div.note.small', "Things I worked out about you that I haven't heard again for three weeks. I let each go after five, unless you keep it."),
+      ...fading.map((m) =>
+        h(
+          'div.fgi',
+          { 'data-id': m.id },
+          h('span.fgt', short(m.text)),
+          button('KEEP', async (b) => {
+            b.disabled = true;
+            if (await change(m, 'keep')) toast('Kept: I won’t let it go', 'ok');
+            else b.disabled = false;
+          }, 'on'),
+          button('LET GO', async (b) => {
+            b.disabled = true;
+            if (await change(m, 'forget')) showUndo(m);
+            else b.disabled = false;
+          }, 'warn'),
+        ),
+      ),
+    );
+  }
+
   function filtered(): MemoryItem[] {
     const k = kindSel.value;
     const q = find.value.trim().toLowerCase();
@@ -263,12 +296,14 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       items = Array.isArray(r.items) ? r.items : [];
       state.patterns = Array.isArray(r.patterns) ? r.patterns : [];
       forgotten = Array.isArray(r.forgotten) ? r.forgotten : [];
+      fading = Array.isArray(r.fading) ? r.fading : [];
     } catch {
       p.setStatus('OFFLINE', 'off');
       if (!items.length) clear(p.body, empty('OFFLINE'));
       return;
     }
     paintForgotten();
+    paintFading();
     if (!editing) paint();
   }
   paint();

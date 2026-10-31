@@ -174,6 +174,10 @@ export interface MemoryFact {
   locked?: boolean;
   /** When the owner last edited its words. */
   edited?: number;
+  /** How often it was heard: 1 when first kept, one more each time he says it again, relies on it, or KEEPs it (memories.ts). */
+  weight?: number;
+  /** When it was last heard (said again, relied on, kept); unset: when it was first kept. */
+  seen?: number;
 }
 
 /**
@@ -204,6 +208,10 @@ export interface MemoryItem {
   src: MemorySource;
   locked: boolean;
   edited?: number;
+  /** A saved fact: how often it was heard ("heard four times"). */
+  weight?: number;
+  /** A fact the reflection inferred that nothing has confirmed for three weeks: let go after five unless he KEEPs it. */
+  fading?: boolean;
 }
 
 /** A memory forgotten in the last day, which UNDO can still bring back (the Memory tab's RECENTLY FORGOTTEN). */
@@ -262,6 +270,12 @@ export interface ReflectInfo {
   dropped?: string[];
   /** Changes the reflection asked for on locked memories, refused. */
   refused?: number;
+  /** The consolidation (memories.ts): facts heard again, trivia let go, days of the day log folded into the diary. */
+  heard?: number;
+  faded?: number;
+  folded?: number;
+  /** One line of what changed about him today (from the lines reworded or dropped), written into the diary. */
+  changed?: string;
   diary: string;
   summary: string;
   profile: Profile;

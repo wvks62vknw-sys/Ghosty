@@ -323,9 +323,9 @@ export const brain = {
   /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
   reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
   /** The Memory tab's TIMELINE (everything remembered, newest first, with sources) and PATTERNS (memories.ts on the brain). */
-  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[]; forgotten?: ForgottenItem[] }>('GET', '/profile/timeline'),
+  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[]; forgotten?: ForgottenItem[]; fading?: MemoryItem[] }>('GET', '/profile/timeline'),
   /** Edit, forget, undo a forget (restore), lock or unlock one memory; the item as it now is (null once forgotten). */
-  memoryChange: (id: string, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock', text?: string) => req<{ item: MemoryItem | null }>('POST', '/profile/item', { id, op, ...(text !== undefined ? { text } : {}) }),
+  memoryChange: (id: string, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock' | 'keep', text?: string) => req<{ item: MemoryItem | null }>('POST', '/profile/item', { id, op, ...(text !== undefined ? { text } : {}) }),
   /** CLEAR CONVERSATION: what was noticed from it goes too (the patterns' day log). */
   clearPatterns: () => req<{ ok: boolean }>('POST', '/profile/patterns/clear', {}),
   dismissPattern: (id: string) => req<{ ok: boolean; patterns: MemoryPattern[] }>('POST', '/profile/patterns/dismiss', { id }),
