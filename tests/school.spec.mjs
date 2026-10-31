@@ -87,7 +87,9 @@ const sec = async (page, label) => {
 };
 
 async function signIn(ready) {
-  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK });
+  // The service worker is blocked: once it controls the page (it claims it soon after the first load), the page's /api
+  // requests no longer reach page.route, so the stand-in training status and paper files below would be bypassed by chance.
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(engine, ready);

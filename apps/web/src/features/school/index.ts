@@ -33,13 +33,13 @@ import { STAGES, SUBJECT_LABEL } from '../../../../../packages/shared/src/school
 import { clear, h, icon } from '../../core/dom';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
-import { notDownloaded, runPaper, school, sitSubjects, sitting, stopSitting, type Gen, type SitPaper } from '../../school/sit';
+import { brainLine, notDownloaded, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
-import { loadOffline, offlineReply, withModel } from '../../offline/brain';
+import { loadOffline, withModel } from '../../offline/brain';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { goToPanel, sections } from '../../ui/sections';
+import { goToPanel, revealSection, sections } from '../../ui/sections';
 
 const LOCK = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>';
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -49,7 +49,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
+export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', brain: '', resume: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -99,10 +99,14 @@ export const schoolTab: TabDef = {
     P.left.append(ladderP.el, stageP.el, placeP.el);
     P.right.append(resultsP.el, offP.el, weakP.el, setP.el);
 
+    /** The brain the next paper is sat on, and the smaller one he could choose instead (school/sit.ts sitPlan). */
+    let plan: Awaited<ReturnType<typeof sitPlan>> | null = null;
+
     // ======================= sitting
-    const start = (stage: StageId, subjects: string[]) => {
+    /** `small`: CARRY ON after a close or a failed brain sits on the smallest brain here. */
+    const start = (stage: StageId, subjects: string[], small = false) => {
       if (sitting.get().busy) return;
-      void sitSubjects(stage, subjects)
+      void sitSubjects(stage, subjects, { small })
         .then((rs) => {
           const last = rs.at(-1);
           if (sitting.get().stopped) toast(rs.length ? 'Stopped: the answers so far were handed in' : 'Stopped', 'warn');
@@ -298,9 +302,29 @@ export const schoolTab: TabDef = {
         ? h('div.schlive',
             h('div.schliveh', h('b', st.line || 'Sitting…'), h('small', `${subjectName(st.subject)}${st.left.length ? ` · then ${st.left.length} more` : ''}`)),
             st.of ? bar('PAPER', st.n / st.of, `${st.n}/${st.of}`) : null,
+            st.brain ? h('div.note.schbrain', st.brain) : null,
             h('div.note', 'Keep Ghosty open while he sits it. STOP hands in the answers so far.'),
           )
         : null;
+      // A sitting that closed Ghosty, or whose brain failed: the one line, how far it got, and CARRY ON (never by itself).
+      const re = busy ? null : st.resume;
+      const kept = re ? Math.max(0, re.n - 1) : 0;
+      const resume = re
+        ? h('div.schlive.schresume',
+            h('div.schliveh', h('b', re.line)),
+            re.of ? bar('PAPER', kept / re.of, `${kept}/${re.of}`) : null,
+            h('div.keyrow', button('CARRY ON', () => start(re.stage as StageId, re.subjects, true), 'on')),
+          )
+        : null;
+      // Which brain sits the papers, in one line; when the brain in use is a bigger one, he may choose it for school.
+      const p = ready && !busy ? plan : null;
+      const choose = p?.least
+        ? named(button(p.chosen ? 'SIT ON THE SMALLEST' : `SIT ON ${p.cur.label.toUpperCase()}`, () => {
+            sitPrefs.set({ brain: p.chosen ? '' : p.cur.id });
+            void sitPlan().then((x) => ((plan = x), paint()));
+          }), p.chosen ? 'Sit on the smallest' : `Sit on ${p.cur.label}`)
+        : null;
+      const which = p ? h('div.schbrain', h('div.note', brainLine(p, false)), choose ? h('div.keyrow', choose) : null) : null;
       sitAll.disabled = busy || !ready || !cur.papers;
       gpuAll.disabled = gpuBusy() || !cur.papers;
       gpuAll.hidden = !gpuOk();
@@ -318,11 +342,13 @@ export const schoolTab: TabDef = {
       clear(
         stageP.body,
         h('div.schhead', h('b', short(cur.label)), h('small', `${row?.years ?? ''} · his stage now`)),
+        resume,
         h('div.note.schpass', `To move up: ${cur.pass}.${row && /scaled score|grade|A\*/.test(cur.pass) ? ' Until the official papers come, the papers Ghosty writes count with their top band (85%+).' : ''} ${done} of ${cur.subjects.length} subjects at top grades.`),
         h('div.schsubs', ...rows),
         live,
         why ? h('div.note.schwhy', why) : null,
         !cur.papers && cur.bank ? writeBlock(cur.stage) : null,
+        which,
         h('div.keyrow.schbtns', sitAll, gpuAll, stop, toSettings),
         gpuOk() ? (gpuLine() ?? h('div.note.schgpunote', 'Sit on the free GPU · about 10 minutes a paper, no phone time: the same brain sits it on Kaggle’s free GPU, one subject after another.')) : null,
         gpuWhy() ? h('div.note.schgpuwhy', gpuWhy()) : null,
@@ -531,6 +557,8 @@ export const schoolTab: TabDef = {
       const st = sitting.get();
       schoolState.sitting = st.busy;
       schoolState.line = st.line;
+      schoolState.brain = st.busy ? st.brain : plan && ready ? brainLine(plan, false) : '';
+      schoolState.resume = st.resume?.line ?? '';
       if (!view) {
         P.big.textContent = 'School';
         P.sub.textContent = schoolState.error ? 'The school record cannot be shown right now' : 'Looking up his record…';
@@ -562,8 +590,9 @@ export const schoolTab: TabDef = {
 
     async function refresh(): Promise<void> {
       try {
-        const [v, sup, rd] = await Promise.all([school.view() as Promise<WiredView>, offlineSupport().catch(() => ({ ok: false, reason: '' })), offlineReady().catch(() => false)]);
+        const [v, sup, rd, pl] = await Promise.all([school.view() as Promise<WiredView>, offlineSupport().catch(() => ({ ok: false, reason: '' })), offlineReady().catch(() => false), sitting.get().busy ? Promise.resolve(plan) : sitPlan().catch(() => null)]);
         view = v;
+        plan = pl;
         // The run on the free GPU comes with the record (the brain files a finished one first).
         if (v.remote) remote = v.remote;
         ensurePoll();
@@ -599,8 +628,6 @@ export const schoolTab: TabDef = {
     let checkLive: { id: string; title: string; borrow: boolean; n: number; of: number; line: string } | null = null;
     let checkCtl: AbortController | null = null;
     let lastCheck: { line: string; passed: boolean } | null = null;
-    const genOffline: Gen = async (messages, o) => (await offlineReply(messages, () => undefined, o.signal, { temperature: o.temperature, max: o.max })).text;
-
     async function loadReading(): Promise<void> {
       try {
         reading = await rcall<ReadView>('GET', '');
@@ -657,7 +684,7 @@ export const schoolTab: TabDef = {
           set({ line: 'getting ready (loading the model)…', of: got.paper.items.length, n: got.done.length });
           await loadOffline();
           const save = (answers: { id: string; given: string }[], final: boolean) => rcall<{ result?: { raw: number; max: number; pct: number; passed: boolean }; line?: string }>('POST', '/answers', { id: r.id, checkId: got.paper.id, answers, final });
-          const { rest, stopped } = await runPaper(got.paper, { gen: genOffline, save: (a) => save(a, false), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}` }) });
+          const { rest, stopped } = await runPaper(got.paper, { gen: sitGen, save: (a) => save(a, false), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}` }) });
           if (stopped) {
             await save(rest, false).catch(() => undefined);
             toast('Stopped: the answers so far are kept — SIT THE READING CHECK carries on', 'warn');
@@ -778,6 +805,8 @@ export const schoolTab: TabDef = {
     return {
       enter() {
         shown = true;
+        // Opened after a sitting that closed Ghosty: straight to the stage, where CARRY ON is.
+        if (sitting.get().resume && !sitting.get().busy) revealSection('school', 'THIS STAGE');
         void refresh();
         void loadKeys();
         void loadOfficial();

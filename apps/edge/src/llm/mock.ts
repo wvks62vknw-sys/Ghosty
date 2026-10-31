@@ -173,6 +173,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     const meal = { foods: [{ name: 'fish in batter', grams: 150, packaged: false }, { name: 'chips', grams: 150, packaged: false }, { name: 'mushy peas', grams: 80, packaged: false }], sure: 'fairly sure' };
     return { message: { role: 'assistant', content: JSON.stringify(meal) }, model };
   }
+  // A video's still frame (or a TikTok's cover) with the note that the rest could not be taken in (telegram.ts, prompt.ts
+  // unreadNote): it says what it was told, so a test can see the note reached the model.
+  if (last.role === 'user' && imagesIn(last.content) && textOf(last.content).includes('<<external content from Telegram (what reached you of this message)')) return { message: { role: 'assistant', content: `I can only see one picture of it, as I was told. ${ownerWords(textOf(last.content))}`.trim() }, model };
   if (last.role === 'user' && imagesIn(last.content)) return { message: { role: 'assistant', content: `I can see a picture. ${ownerWords(textOf(last.content))}`.trim() }, model };
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);

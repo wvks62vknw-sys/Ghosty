@@ -35,19 +35,24 @@ export interface ThinkInfo {
   secs?: number;
 }
 
+/**
+ * `private` (user and assistant entries): a task kept on the phone (OWNER-ISSUES 72: the offline brain set to "always", or
+ * ON THIS PHONE for that message). Its words never go to the brain afterwards either: not as recent turns, not in a rating.
+ * An error's `ask`: the question the phone could not answer, offered to the brain only by a tap (ASK THE BIG BRAIN).
+ */
 export type Entry =
-  | { kind: 'user'; text: string; at: number }
+  | { kind: 'user'; text: string; at: number; private?: boolean }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
    *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string } }
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
-  | { kind: 'error'; text: string }
+  | { kind: 'error'; text: string; ask?: string }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
   | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number };
@@ -254,7 +259,9 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   try {
     await fn(handle);
   } catch (e) {
-    if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
+    if ((e as Error)?.name === 'AbortError') {
+      // the owner said stop (or STOP, or spoke over him): he goes quiet, and says nothing about it
+    } else if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
       // answered on the phone
     } else if (e instanceof AuthError) {
       ui.set({ connected: false });
@@ -289,25 +296,26 @@ const OFFLINE_MODEL = 'On this phone · offline';
 const HANDLED = '\u0000handled';
 
 /** A website built on the phone (no brain needed): the questions, or the finished site with its buttons. */
-async function siteHere(t: string): Promise<void> {
+async function siteHere(t: string, priv = false): Promise<void> {
   ui.set({ status: 'building on your phone…' });
   const r = await offlineSiteReply(t);
-  push({ kind: 'assistant', text: r.text, at: Date.now(), model: 'On this phone · website kit', offline: true, ...(r.site ? { site: r.site } : {}) });
+  push({ kind: 'assistant', text: r.text, at: Date.now(), model: 'On this phone · website kit', offline: true, ...(r.site ? { site: r.site } : {}), ...(priv ? { private: true } : {}) });
   chat.set({ live: r.text });
 }
 
 /**
  * Answer on the phone itself with the offline brain (offline/brain.ts): the reply streams into
  * its entry like any other and is spoken the usual way. False (and nothing left on screen) if the
- * model could not answer; true, with nothing spoken, when the owner said "stop".
+ * model could not answer; true, with nothing spoken, when the owner said "stop". `priv`: a task kept on the phone (its
+ * reply is marked private and read out in the phone's own voice: Ghosty's voice is made by the brain).
  */
-async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[]): Promise<boolean> {
+async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[], priv = false): Promise<boolean> {
   const at = stamp();
   const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.offline;
   const show = (text: string) => patch(mine, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), text }));
   // "Translate this into Spanish" with no signal: the same small model, asked only to translate (roughly; the card says so).
   const tr = translateAsk(t, [...recent].reverse().find((x) => x.role === 'assistant')?.text ?? '');
-  push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}) });
+  push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}), ...(priv ? { private: true } : {}) });
   ui.set({ status: tr ? 'translating on your phone…' : 'thinking on your phone…' });
   let raw = '';
   let painted = 0;
@@ -330,7 +338,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     show(r.text);
     chat.set({ live: r.text });
     // (a translation is read aloud in its own language's voice by its READ ALOUD button, not in Ghosty's English one)
-    if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at), brief: true });
+    if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at), brief: true, here: priv });
     return true;
   } catch (e) {
     // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
@@ -354,7 +362,7 @@ function lastQuestion(): string {
   for (const u of users.reverse()) {
     const ask = thinkAsk(u.text);
     if (ask) return ask;
-    if (ask === null && !/^(stop|cancel|quiet|be quiet|shut up)$/i.test(u.text.trim())) return u.text;
+    if (ask === null && !/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(u.text.trim())) return u.text;
   }
   return '';
 }
@@ -362,11 +370,16 @@ function lastQuestion(): string {
 /**
  * THINK HARDER: the offline brain on this phone spends up to about a minute on the question (several
  * attempts, a search over reasoning steps, exact checks where there are any) and answers with how sure it
- * is. Never a cloud model. `asked`: the owner's message is already in the log (they typed "think harder").
+ * is. Never a cloud model. `asked`: the owner's message is already in the log (they typed "think harder"); `private`: a
+ * task kept on the phone (its entries are marked so, and the answer is read out in the phone's own voice).
  */
-export async function thinkHarderAbout(question: string, opts: { asked?: boolean } = {}): Promise<void> {
+export async function thinkHarderAbout(question: string, opts: { asked?: boolean; private?: boolean } = {}): Promise<void> {
   const q = question.trim() || lastQuestion();
-  if (!opts.asked) push({ kind: 'user', text: `Think harder: ${q || '(no question)'}`, at: stamp() });
+  // A question that was kept on the phone stays there when it is thought about harder (its button, or "think harder" said
+  // after it): its entries are private too, and the answer is read in the phone's own voice (OWNER-ISSUES 72).
+  const kept = !!opts.private || chat.get().entries.some((e) => e.kind === 'user' && !!e.private && (e.text === q || e.text === `Think harder: ${q}`));
+  const priv = kept ? { private: true } : {};
+  if (!opts.asked) push({ kind: 'user', text: `Think harder: ${q || '(no question)'}`, at: stamp(), ...priv });
   if (!q) {
     push({ kind: 'error', text: 'Think harder about what? Ask the question first, or say "think harder: …" with it.' });
     return;
@@ -378,7 +391,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
       const a = e as Extract<Entry, { kind: 'assistant' }>;
       return { ...a, ...(text !== undefined ? { text } : {}), think: { ...a.think!, ...think } };
     });
-  push({ kind: 'assistant', text: '', at, model: THINK_MODEL, offline: true, think: { q, state: 'running', line: 'starting…' } });
+  push({ kind: 'assistant', text: '', at, model: THINK_MODEL, offline: true, think: { q, state: 'running', line: 'starting…' }, ...priv });
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking harder on your phone…' });
   const t0 = Date.now();
   let painted = 0;
@@ -401,7 +414,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
     const said = r.answer ? `${r.answer} (${r.line})` : r.line;
     chat.set({ live: said });
-    if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at) });
+    if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at), here: kept });
   } catch (e) {
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
     if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: String((e as Error)?.message ?? e) });
@@ -417,11 +430,17 @@ export function askBigBrain(question: string): Promise<void> {
   return send(question, { speak: settings.get().speak, cloud: true });
 }
 
-/** Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline brain on "always". */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean } = {}): Promise<void> {
+/** Why a task kept on the phone stopped: nothing of it went anywhere, and the brain is only an offer he taps (OWNER-ISSUES 72). */
+const hereStopped = (why: string) => `I can't do this on the phone right now: ${why}. Nothing of it left the phone.`;
+
+/**
+ * Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline
+ * brain on "always". `here`: ON THIS PHONE for this one message, as "always" is for every message.
+ */
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  if (/^(stop|cancel|quiet|be quiet|shut up)$/i.test(t)) {
+  if (/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(t)) {
     stopSpeaking();
     stopListening();
     stopOffline();
@@ -438,33 +457,40 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await flushUndo();
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
-  const recent = chat
+  const mode = settings.get().offlineBrain;
+  // Kept on the phone (OWNER-ISSUES 72: it fails CLOSED): "always", or ON THIS PHONE for this message. Only ASK THE BIG
+  // BRAIN, which he taps, ever sends such a message to the brain.
+  const priv = !opts.cloud && (mode === 'always' || !!opts.here);
+  const turns = chat
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
-    .slice(-12)
-    .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
-  push({ kind: 'user', text: t, at: Date.now() });
+    .slice(-12);
+  const recent = turns.map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  // What the brain may read of the conversation: never a turn that was kept on the phone.
+  const shared = turns.filter((e) => !e.private).map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  push({ kind: 'user', text: t, at: Date.now(), ...(priv ? { private: true } : {}) });
   chat.set({ live: t });
   // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
   const lap = stopwatch.reply();
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
   // Never with the offline brain switched off: then it is an ordinary message for the brain.
-  const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
-  if (harder !== null) return thinkHarderAbout(harder, { asked: true });
-  const mode = settings.get().offlineBrain;
-  // A website with no brain to ask (offline mode 'always', or no connection): built here from the website kit. Never a
+  const harder = opts.cloud || mode === 'off' ? null : thinkAsk(t);
+  if (harder !== null) return thinkHarderAbout(harder, { asked: true, private: priv });
+  // A website with no brain to ask (kept on the phone, or no connection): built here from the website kit. Never a
   // message taken over while the brain can be asked (the answers to the phone's questions then go to the brain too).
-  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false)) {
-    await stream(async () => siteHere(t));
+  if (!opts.cloud && offlineSiteTurn(t) && (priv || navigator.onLine === false)) {
+    await stream(async () => siteHere(t, priv));
     return;
   }
-  if (mode === 'always' && !opts.cloud) {
-    // The owner chose the phone's own brain: the cloud brain is never asked.
+  if (priv) {
+    // The phone's own brain or nothing: not the first try, not a retry, not a fallback reaches the brain. When it cannot
+    // answer, the task stops and says why; the brain is only an offer (ASK THE BIG BRAIN on the message, a tap).
     await stream(async () => {
       // Never a 352 MB download on the first message (perhaps on mobile data): only DOWNLOAD in Settings fetches it.
-      const ready = await offlineReady().catch(() => false);
-      if (ready && (await answerHere(t, recent))) return;
-      push({ kind: 'error', text: ready ? "The offline brain on this phone couldn't answer. Try again, or set it to 'only when needed' in Settings → Offline brain." : "Offline brain is set to 'always', but it isn't on this phone yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi)." });
+      const ready = mode !== 'off' && (await offlineReady().catch(() => false));
+      if (ready && (await answerHere(t, recent, true))) return;
+      const why = mode === 'off' ? 'my offline brain is switched off (Settings → Offline brain)' : ready ? "my offline brain couldn't answer it" : "my offline brain isn't on this phone yet (Settings → Offline brain → DOWNLOAD, on Wi-Fi)";
+      push({ kind: 'error', text: hereStopped(why), ask: t });
     });
     return;
   }
@@ -486,7 +512,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
           return;
         }
         cb(ev);
-      }, undefined, recent, settings.get().cited);
+      }, undefined, shared, settings.get().cited);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t)),

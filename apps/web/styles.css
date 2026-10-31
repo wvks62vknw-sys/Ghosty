@@ -2541,6 +2541,14 @@ html .hud.core #cbar .sendbtn { display: none !important; position: relative; fl
 html .hud.core #cbar:has(#cin:not(:placeholder-shown)) .sendbtn { display: grid !important; place-items: center; }
 html .hud.core #cbar:has(#cin:not(:placeholder-shown)) #mic { display: none; }
 html .hud.core #cbar:has(#cin:not(:placeholder-shown)) .logbtn { display: none !important; }
+/* ON THIS PHONE (OWNER-ISSUES 72): the next message stays on the phone — a small toggle by the microphone, in the accent when on */
+html .hud.core #cbar .herebtn { --g: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6.5' y='2.5' width='11' height='19' rx='2.6'/%3E%3Cpath d='M10.2 11.2V10a1.8 1.8 0 013.6 0v1.2'/%3E%3Crect x='9.3' y='11.2' width='5.4' height='4.3' rx='1' fill='black'/%3E%3C/svg%3E"); display: grid; place-items: center; flex: none; width: 44px; height: 44px; min-height: 44px !important; margin: 0 4px 0 0; padding: 0; border: 0; border-radius: 22px; background: none; box-shadow: none; }
+html .hud.core #cbar .herebtn::before { content: ''; width: 20px; height: 20px; background: var(--ink2); -webkit-mask: var(--g) center / contain no-repeat; mask: var(--g) center / contain no-repeat; }
+html .hud.core #cbar .herebtn.on { background: rgba(var(--cr), .16); box-shadow: inset 0 0 0 1px rgba(var(--cr), .4); }
+html .hud.core #cbar .herebtn.on::before { background: var(--c); }
+html .hud.core #cbar .herebtn[hidden] { display: none; }
+/* its offer when the phone could not do a task kept on it: ASK THE BIG BRAIN, a full-size target */
+.msg.err .bigbrain { min-height: 44px; }
 @media (max-width: 899px) {
   html body.tabbar #dock.areas { padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px)); }
   html body.tabbar .hud.core { padding-bottom: calc(64px + 20px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))); }
