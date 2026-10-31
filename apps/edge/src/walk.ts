@@ -347,7 +347,7 @@ export async function walkTelegram(d: GuardDeps, text: string): Promise<string |
   }
   const w = await loadWalk(d.storage);
   const walking = !!w && w.stage !== 'done';
-  if (walking && homeSaid(text)) return endWalk(d, 'home');
+  if (walking && homeSaid(text, w!.stage !== 'walking')) return endWalk(d, 'home');
   if (walking && walkCancelled(text)) return endWalk(d, 'cancelled');
   const start = walkStart(text);
   if (start) {

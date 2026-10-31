@@ -135,10 +135,17 @@ export function walkAsked(text: string): boolean {
   return /^(?:walk me (?:home|back)|walk home with me|see me home(?: safe(?:ly)?)?|watch me (?:get |walk )?home|keep an eye on me (?:getting|walking|on the way) home|im walking home(?: keep an eye on me| watch me)?|walking home keep an eye on me)$/.test(t);
 }
 
-/** "I'm home", "home", "yes", "made it": the walk is over (read only while one is under way). */
-export function homeSaid(text: string): boolean {
-  const t = plainWords(text).replace(DRESS, '').replace(TAIL, '');
-  return /^(?:(?:yes|yeah|yep|yup|ya|aye)(?: (?:im|i am) home| home| safe)?|home|home now|home safe|safe(?: and sound)?|im (?:home|in|back|safe|here)|i am (?:home|in|back|safe|here)|im home safe|made it(?: home)?|i made it(?: home)?|got home|i got home|back home|all good|im good|im fine|im ok|im okay|ok|okay|done|in)$/.test(t) || /^(?:👍|✅|🏠)+$/u.test(String(text ?? '').trim());
+const YES = '(?:yes|yeah|yep|yup|ya|aye)';
+/**
+ * "I'm home", "home", "made it": the walk is over (read only while one is under way). A bare "yes", "ok", "done", "in",
+ * "all good" or a thumbs-up counts only once "Home?" has been asked (`asked`): before that it is an answer to something
+ * else, and must never end the watch quietly.
+ */
+export function homeSaid(text: string, asked = true): boolean {
+  const raw = String(text ?? '').trim();
+  const t = plainWords(raw).replace(DRESS, '').replace(TAIL, '');
+  if (new RegExp(`^(?:${YES} (?:(?:im|i am) )?home(?: safe)?|home|home now|home safe|im (?:home|back)|i am (?:home|back)|im home safe|made it(?: home)?|i made it(?: home)?|got home|i got home|back home|safe and sound)$`).test(t) || /^🏠+$/u.test(raw)) return true;
+  return asked && (new RegExp(`^(?:${YES}(?: safe)?|safe|im (?:in|safe|here)|i am (?:in|safe|here)|all good|im good|im fine|im ok|im okay|ok|okay|done|in)$`).test(t) || /^(?:👍|✅)+$/u.test(raw));
 }
 
 /** "Cancel the walk", "I'm not going home": the walk ends with nothing sent. */

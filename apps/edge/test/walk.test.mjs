@@ -5,7 +5,8 @@
 //  - the panic phrase (only a keyed hash kept) sends at once, with the position, and never twice for one call;
 //  - the named person: a Telegram handle or an email, never a phone number; joining by the invite on Telegram;
 //  - through the real brain: the invite, his own chat's "walk me home", "how long?", I'M HOME — with no model;
-//  - the ABILITIES screen says what the group needs: a way to reach the named person.
+//  - the ABILITIES screen: the group needs no key or link (threats and the scam check work as they are; the walk's named
+//    person is set, and its needs said, in Settings → GUARDIAN).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
@@ -149,6 +150,9 @@ test('the walk\'s words: start, the answers that end it, how long, and the messa
   assert.equal(S.walkStart('walk me home from the station'), null);
   for (const t of ['home', "I'm home", 'yes', 'yep home', 'made it', '🏠', 'im in']) assert.ok(S.homeSaid(t), t);
   for (const t of ['home is where the heart is', 'are you home?', 'yes but']) assert.ok(!S.homeSaid(t), t);
+  // before "Home?" is asked (the walk still 'walking'), a bare yes or an okay is about something else: it never ends the watch
+  for (const t of ['yes', 'ok', 'okay', 'done', 'in', 'all good', "I'm fine", '👍']) assert.ok(!S.homeSaid(t, false), `${t}: not home before "Home?"`);
+  for (const t of ["I'm home", 'home', 'made it home', 'yep home', 'got home', '🏠']) assert.ok(S.homeSaid(t, false), `${t}: home, said plainly, any time`);
   assert.equal(S.minutesIn('20'), 20);
   assert.equal(S.minutesIn('about 25 mins'), 25);
   assert.equal(S.minutesIn('an hour'), 60);
@@ -181,13 +185,13 @@ test('the named person: a Telegram handle or an email, never a phone number; the
   assert.equal((await G.loadConfig(g.storage)).person.chatId, 3);
 });
 
-test('the ABILITIES screen: the guardian group says what it needs to reach his named person — Telegram or his email', () => {
+test('the ABILITIES screen: the guardian group works with nothing linked (the named person is Settings → GUARDIAN\'s business)', () => {
   const g = T.TOOL_GROUPS.find((x) => x.name === 'guardian');
   assert.deepEqual(g.tools.map((t) => t.name), ['threats_near', 'check_link']);
-  assert.deepEqual(A.GROUP_NEEDS.guardian.any, ['telegram', 'email']);
-  const ab = A.brainAbilities(() => true).find((a) => a.id === 'g:guardian');
+  assert.equal(A.GROUP_NEEDS.guardian, undefined, 'threats_near and check_link need no key or link');
+  const ab = A.brainAbilities(() => false).find((a) => a.id === 'g:guardian');
   assert.deepEqual(ab.asks, ['Threats near', 'Check link']);
-  assert.match(A.brainAbilities(() => false).find((a) => a.id === 'g:guardian').off, /^needs linking: LINKS → TELEGRAM/);
+  assert.equal(ab.off, undefined, 'never shown as needing linking: the watch and the scam check work as they are');
   assert.ok(T.selectGroups('walk me home', new Set(), false).on.some((x) => x.name === 'guardian'));
 });
 

@@ -207,7 +207,8 @@ export async function guardTurn(text: string, opts: { voice?: boolean } = {}): P
     return true;
   }
   const w = guardian.get().info?.walk;
-  if (walking(w) && homeSaid(text)) {
+  // before "Home?" is asked, only "home" said plainly ends it: a bare "ok" or "yes" about something else never does
+  if (walking(w) && homeSaid(text, w.stage !== 'walking')) {
     await endWalk('home', text, voice);
     return true;
   }
