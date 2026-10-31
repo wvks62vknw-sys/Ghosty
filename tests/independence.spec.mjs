@@ -5,7 +5,9 @@
 //     writing." — with the bar and the weeks' trend, and the per cents add up to 100.
 //  2. Every answer is counted where it was answered, from the line it carries: a cloud reply (the mock brain), the phone's
 //     own brain when the brain can't be reached; the numbers still add up after them.
-//  3. The REPORT CARD says the same week.
+//  3. The REPORT CARD says the same week; its WHAT I LEARNED TO DO card (the capability ledger, OWNER-ISSUES 65) says the
+//     meter's movement from the counts the brain was given: "Your own brains answered 71% of what you asked this week
+//     (64% the week before)."
 //  4. The brain is given the days as counts only (never words), once.
 //  5. SOVEREIGN MODE (Always): a kept answer is counted as the phone's and kept; one the phone can't give stops ("Nothing of
 //     it left the phone") and is listed under SOVEREIGN MODE with why; nothing reaches the brain, the meter's copy neither.
@@ -141,8 +143,10 @@ const copies = sent.filter((r) => r.path === '/api/training/meter');
 check(4, copies.length === 1, `the brain was given the days ${copies.length} times`);
 const copy = JSON.parse(copies[0]?.body || '{}');
 check(4, Array.isArray(copy.days) && copy.days.some((x) => x.n?.library === 17) && !/"q"|stopped|Hello/.test(copies[0]?.body ?? ''), `the brain's copy is not counts only: ${(copies[0]?.body ?? '').slice(0, 200)}`);
-const held = await fetch(`${base}/api/training/meter`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).then((r) => r.json()).catch(() => null);
-check(4, held?.week?.by?.library === 17 && held?.week?.total === 100, `the brain's week reads ${JSON.stringify(held?.week)}`);
+const brainMeter = () => fetch(`${base}/api/training/meter`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).then((r) => r.json()).catch(() => null);
+const held = await brainMeter();
+// (the preview's brain is shared with the specs run before this one, whose answers today it may hold too: at least this page's week)
+check(4, (held?.week?.by?.library ?? 0) >= 17 && (held?.week?.total ?? 0) >= 100, `the brain's week reads ${JSON.stringify(held?.week)}`);
 
 // 2. Answers counted where they were answered: the cloud (the mock brain), then the phone's own brain with no brain to reach.
 await pn.locator('button:has-text("DOWNLOAD")').click();
@@ -163,6 +167,17 @@ await page.unroute('**/api/chat');
 await page.evaluate(() => (location.hash = 'system'));
 await openPanel(page, 'system', 'OFFLINE BRAIN REPORT');
 const rc = ((await page.locator('#pg-system .pn.reportcard .indep .indline').textContent().catch(() => '')) ?? '').trim();
+// WHAT I LEARNED TO DO, beside it: the meter's movement as the brain holds it (from the days it was given in 1; on a
+// fresh brain "Your own brains answered 71% of what you asked this week (64% the week before).")
+await openPanel(page, 'system', 'WHAT I LEARNED');
+const led = page.locator('#pg-system .pn.ledger');
+await page.waitForFunction(() => /answered/.test(document.querySelector('#pg-system .pn.ledger .ledlines')?.textContent ?? ''), null, { timeout: 8000, polling: 250 }).catch(() => undefined);
+const learned = ((await led.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
+const [was, own] = ((await brainMeter())?.weeks ?? []).slice(-2);
+const moved = own == null ? '(no week in the brain)' : `Your own brains answered ${own}% of what you asked this week${was != null ? ` (${was}% the week before)` : ''}.`;
+check(3, (await led.isVisible().catch(() => false)) && /WHAT I LEARNED TO DO/.test(learned) && /This week, since /.test(learned) && learned.includes(moved), `WHAT I LEARNED TO DO reads "${learned.slice(0, 400)}", not "${moved}"`);
+await led.scrollIntoViewIfNeeded().catch(() => undefined);
+await page.screenshot({ path: `${out}/independence-ledger.png` });
 await page.evaluate(() => (location.hash = 'settings'));
 await openPanel(page, 'settings', 'OFFLINE');
 check(3, rc && rc === (await line()), `the REPORT CARD reads "${rc}", Settings "${await line()}"`);
@@ -193,5 +208,5 @@ await page.screenshot({ path: `${out}/independence-sovereign.png` });
 check(0, !(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), 'the page scrolls sideways');
 await ctx.close();
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Independence run clean: the week in his voice from the counts on the phone (71%: phone 54%, library 17%; the cloud 29%, mostly live facts and long writing), the bar and the trend, the per cents add up; a cloud reply and the phone\'s own answer counted where they were answered; the REPORT CARD says the same; the brain given counts only, once; Sovereign Mode: a kept answer counted as the phone\'s, the one it could not give listed with why, nothing sent.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Independence run clean: the week in his voice from the counts on the phone (71%: phone 54%, library 17%; the cloud 29%, mostly live facts and long writing), the bar and the trend, the per cents add up; a cloud reply and the phone\'s own answer counted where they were answered; the REPORT CARD says the same, and its WHAT I LEARNED TO DO card the meter\'s movement (71%, 64% the week before); the brain given counts only, once; Sovereign Mode: a kept answer counted as the phone\'s, the one it could not give listed with why, nothing sent.');
 process.exit(problems.length ? 1 : 0);

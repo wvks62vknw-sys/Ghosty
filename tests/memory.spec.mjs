@@ -405,10 +405,10 @@ async function fading(name, viewport) {
   // the weight in words, on the fact
   const heard = await page.evaluate(() => [...document.querySelectorAll('#pg-memory .pn.tl .mi')].find((m) => /likes strong tea/.test(m.textContent ?? ''))?.querySelector('.miw')?.textContent ?? '');
   if (heard !== 'heard four times') problems.push(`[${name} fading] the fact heard four times says "${heard}"`);
-  // ≥ 44 pt to tap
+  // ≥ 44 pt to tap (its laid-out size: the panes settle into place with a short animation, which a bounding box catches mid-way)
   for (const b of await box.locator('button').all()) {
-    const r = await b.boundingBox();
-    if (!r || r.height < 44 || r.width < 44) problems.push(`[${name} fading] "${await b.textContent()}" is ${r ? `${Math.round(r.width)}×${Math.round(r.height)}` : 'not shown'}`);
+    const r = await b.evaluate((e) => ({ width: e.offsetWidth, height: e.offsetHeight })).catch(() => null);
+    if (!r || r.height < 44 || r.width < 44) problems.push(`[${name} fading] "${await b.textContent()}" is ${r ? `${r.width}×${r.height}` : 'not shown'}`);
   }
   await box.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/${name}-memory-fading.png` });

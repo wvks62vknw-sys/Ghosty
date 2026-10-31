@@ -64,7 +64,7 @@ import { acceptRemoteReport, EXAM_GPU_HOURS, EXAM_LIMIT, gapTick, loadRemote, pa
 import { loadPaper, loadState as loadSchool, STATE_KEY as SCHOOL_STATE } from '../school/state';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
-import { fromZoned, zoned } from '../time';
+import { fromZoned, isoLocal, safeTz, zoned } from '../time';
 import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from './assets';
 import { meterDays, weekOf as meterWeek, weeksOf as meterWeeks, type MeterDay } from '../../../../packages/shared/src/independence';
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
@@ -119,6 +119,8 @@ import {
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { brainLoops, drainStars, noteDays, takeStars } from './loops';
+import { ledgerLines, LEDGER_KEY, loadLedger, noteGym, noteTools } from './ledger';
+import { observe } from '../mind';
 import { drainPool, loadPool, poolAnswer, poolReady, poolSit, poolStep, poolView, type PoolWeek } from './pool';
 import { revokeCap, weightsCap } from './weights';
 
@@ -1507,6 +1509,32 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
 
 // ---- the owner's side: status, ratings, GYM levels, TRAIN NOW, ROLLBACK ---------------------------------------
 
+/** [ledger] This week's lines of the capability ledger (ledger.ts); the offline brain's tools are noted first (one new since the last look joined now). */
+async function ledgerNow(d: CycleDeps): Promise<string[]> {
+  const s = d.storage;
+  const now = nowOf(d);
+  const ledger = await loadLedger(s);
+  if (noteTools(ledger, d.tools.map((t) => t.name), now)) await s.put(LEDGER_KEY, ledger);
+  const school = (await s.get(SCHOOL_STATE)) ? await loadSchool({ storage: s }).catch(() => null) : null;
+  return ledgerLines({ now, ledger, school, report: (await s.get<TrainReport>(K.report)) ?? null, meter: (await s.get<MeterDay[]>(K.meter)) ?? [] });
+}
+
+/**
+ * [ledger] The Sunday note: on Sunday (the owner's day), with the morning digest (agent.ts), what I learned to do this week
+ * — the REPORT CARD's card, as a note. Once a week, and only when there is something new to say.
+ */
+export async function sundayNote(d: CycleDeps): Promise<string[]> {
+  const s = d.storage;
+  const now = nowOf(d);
+  const tz = safeTz((await s.get<{ tz?: string }>('owner:ctx'))?.tz);
+  const day = isoLocal(now, tz).slice(0, 10);
+  if (zoned(now, tz).wd !== 0 || (await loadLedger(s)).sent === day) return [];
+  const lines = await ledgerNow(d);
+  await s.put(LEDGER_KEY, { ...(await loadLedger(s)), sent: day });
+  if (lines.length) await d.notify?.('What I learned to do this week', lines.join('\n')).catch(() => undefined);
+  return lines;
+}
+
 export async function loadModels(s: DurableObjectStorage): Promise<KeptModel[]> {
   return (await s.get<KeptModel[]>(K.models)) ?? [];
 }
@@ -1583,7 +1611,19 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     const levels: Record<string, number> = {};
     for (const [k, v] of Object.entries((body.levels ?? {}) as Record<string, unknown>)) if (/^[a-z0-9]{2,24}$/.test(k) && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 10) levels[k] = v as number;
     await s.put(K.gym, levels);
+    // [ledger] a level reached is kept (never lowered), under the name the phone gives the game; one reached now goes in the day log
+    const names: Record<string, string> = {};
+    for (const [k, v] of Object.entries((body.names ?? {}) as Record<string, unknown>)) if (k in levels && typeof v === 'string' && v.trim()) names[k] = v.replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 40);
+    const ledger = await loadLedger(s);
+    const was = JSON.stringify(ledger);
+    const up = noteGym(ledger, levels, names, nowOf(d));
+    if (JSON.stringify(ledger) !== was) await s.put(LEDGER_KEY, ledger);
+    for (const u of up) await observe(s, { kind: 'game', text: `reached ${u.name} level ${u.level} in the GYM`, via: 'gym' }, nowOf(d));
     return json({ ok: true });
+  }
+  if (path === '/training/ledger' && method === 'GET') {
+    // [ledger] the REPORT CARD's WHAT I LEARNED TO DO card (ledger.ts): this week, in his words
+    return json({ lines: await ledgerNow(d), since: nowOf(d) - 7 * DAY });
   }
   if (path === '/training/star' && method === 'POST') {
     // Checked work from the phone (GYM ideas, part 3): each record checked again, at most the day's cap.

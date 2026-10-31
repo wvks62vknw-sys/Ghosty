@@ -16,7 +16,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
 import { flushStars } from '../../offline/starbox';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
-import { loadAll } from '../gym/store';
+import { sendGymLevels } from './ledger';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -246,14 +246,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
     paint();
     // Checked work waiting on this phone goes to the brain for next week's run (quietly; it waits otherwise).
     void flushStars();
-    // The GYM levels on this phone, for the week's puzzles (quietly; an old brain without the route is fine).
-    try {
-      const levels: Record<string, number> = {};
-      for (const [id, rec] of await loadAll()) levels[id] = rec.level;
-      if (Object.keys(levels).length) await brain.selftrain.gym(levels);
-    } catch {
-      /* not reachable: next time */
-    }
+    // The GYM levels on this phone, for the week's puzzles and the ledger (quietly; an old brain without the route is fine).
+    await sendGymLevels().catch(() => undefined);
   }
 
   return Object.assign(p, { refresh: () => void refresh() });

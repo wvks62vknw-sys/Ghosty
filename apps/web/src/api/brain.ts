@@ -468,8 +468,10 @@ export const brain = {
     pool: (allow: boolean) => req<TrainStatus>('POST', '/training/pool', { allow }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
-    /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
-    gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
+    /** The GYM levels reached on this phone (and the games' names): the week's puzzles are made at and just beyond them; the capability ledger keeps the best. */
+    gym: (levels: Record<string, number>, names?: Record<string, string>) => req<{ ok: boolean }>('POST', '/training/gym', { levels, ...(names ? { names } : {}) }),
+    /** What I learned to do this week, in his words (the REPORT CARD's WHAT I LEARNED TO DO card; the Sunday note says the same). */
+    ledger: () => req<{ lines: string[]; since: number }>('GET', '/training/ledger'),
     /** The independence meter's days from this phone (core/independence.ts): counts only, never a kept task's. */
     meter: (days: MeterDay[]) => req<{ ok: boolean }>('POST', '/training/meter', { days }),
     /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */

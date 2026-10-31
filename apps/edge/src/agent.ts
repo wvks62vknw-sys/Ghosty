@@ -60,7 +60,7 @@ import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finis
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
-import { ensureTrainJob, hookRoute, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
+import { ensureTrainJob, hookRoute, sundayNote, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
 import { offlineToolSpecs } from './selftrain/factory';
 import { weightsRoute } from './selftrain/weights';
 import { schoolDaily, schoolRoute } from './school'; // [school] the offline brain's school journey (school/index.ts)
@@ -1456,6 +1456,7 @@ export class GhostyAgent {
           // Quiet too: what the nightly reflection and the morning digest found is in the profile, the diary and the library.
           await finishJob(this.storage, job.id, await this.runDaily(job.kind));
           if (job.kind === 'digest') await schoolDaily({ env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] pending marks again + the school report, with the morning digest (never a buzz at night)
+          if (job.kind === 'digest') await sundayNote(this.trainDeps()).catch(() => undefined); // [ledger] on Sunday: what I learned to do this week (selftrain/ledger.ts)
         } else if (job.kind === 'upgrade') {
           // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
           await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);

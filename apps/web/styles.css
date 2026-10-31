@@ -2222,6 +2222,9 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .loops .loopline .k { color: var(--l2); }
 .loops .loopline .v { color: var(--fg); overflow-wrap: anywhere; }
 .loops button.loopback { margin-top: 8px; min-height: 44px; }
+/* WHAT I LEARNED TO DO (system/ledger.ts): a line a kind, like a LOOPS row */
+.ledger .ledlines { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
+.ledger .ledline { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); font: 400 15px/1.4 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
 
 /* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
 .msg .siterow { flex-wrap: wrap; }
