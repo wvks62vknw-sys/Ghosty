@@ -80,9 +80,18 @@ jobs:
             # rollout, which roughly doubled nav; they get 12 minutes, the rest 8.
             t=480; case $s in nav|routec) t=720;; esac
             if ! timeout $t node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
-              fail=1
-              # Annotations are readable through the API (Ghosty reads them to fix its changes).
-              echo "::error title=browser check: $s::$(grep -v '^\s*$' out-$s.txt | tail -n 12 | cut -c1-200 | tr '\n' '|')"
+              # [retry] One more try before it counts: a real failure fails twice; a flake that passes the second time is
+              # said loudly (never hidden) so it gets fixed. The guard reverted main twice in a week on single-run flakes
+              # (voice near a slow calibration, routec across midnight): HANDOFF, 31 Oct.
+              echo "::warning title=browser check: $s failed once::$(grep -v '^\s*$' out-$s.txt | tail -n 6 | cut -c1-200 | tr '\n' '|')"
+              cat out-$s.txt
+              if ! timeout $t node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
+                fail=1
+                # Annotations are readable through the API (Ghosty reads them to fix its changes).
+                echo "::error title=browser check: $s::$(grep -v '^\s*$' out-$s.txt | tail -n 12 | cut -c1-200 | tr '\n' '|')"
+              else
+                echo "::warning title=flaky spec: $s::failed once, passed on the second try: fix the flake at its cause"
+              fi
             fi
             cat out-$s.txt
           done

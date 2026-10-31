@@ -138,9 +138,15 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const want = left.slice(0, 2).map((e) => e.title);
   const first = left[0];
   const soon = !!first && !first.allDay && first.start - nowT < 3 * 3600_000;
-  if (!left.some((e) => e.title === 'Call Mum')) problems.push(`[${W}] the brain's agenda has no Call Mum left today (${left.map((e) => e.title).join(', ') || 'nothing'})`);
-  const inOrder = want.length > 0 && want.every((t) => today.includes(t)) && (want.length < 2 || today.indexOf(want[0]) < today.indexOf(want[1]));
-  if (!inOrder || !new RegExp(`(^|\\D)${left.length} left`).test(today) || (soon && !/in (\d+ min|\d+ h)/.test(today))) problems.push(`[${W}] the Today card reads "${today}"; the agenda's soonest today: ${left.map((e) => `${e.title} ${new Date(e.start).toISOString().slice(11, 16)}Z`).join(', ') || 'nothing'}`);
+  // Seeded seven minutes out, Call Mum is TOMORROW's in the last seven minutes of the day (main's run 257 straddled midnight,
+  // 31 Oct, and the guard reverted main): then the card rightly says "Nothing more today" and lists it under Tmrw, and what
+  // is left today may be nothing at all.
+  const callMumToday = at < dayEnd;
+  if (callMumToday && !left.some((e) => e.title === 'Call Mum')) problems.push(`[${W}] the brain's agenda has no Call Mum left today (${left.map((e) => e.title).join(', ') || 'nothing'})`);
+  if (!callMumToday && !/Tmrw.*Call Mum/.test(today)) problems.push(`[${W}] Call Mum is tomorrow's (seeded ${new Date(at).toISOString().slice(11, 16)}Z, past midnight) but the Today card does not list it under tomorrow: "${today}"`);
+  const inOrder = left.length === 0 ? /Nothing more today/i.test(today) : want.every((t) => today.includes(t)) && (want.length < 2 || today.indexOf(want[0]) < today.indexOf(want[1]));
+  const countOk = left.length === 0 || new RegExp(`(^|\\D)${left.length} left`).test(today);
+  if (!inOrder || !countOk || (soon && !/in (\d+ min|\d+ h)/.test(today))) problems.push(`[${W}] the Today card reads "${today}"; the agenda's soonest today: ${left.map((e) => `${e.title} ${new Date(e.start).toISOString().slice(11, 16)}Z`).join(', ') || 'nothing'}`);
   await page.waitForFunction(() => /M6/.test(document.querySelector('.rcroad')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
   const road = (await page.textContent('.rcroad'))?.replace(/\s+/g, ' ').trim();
   if (!/M6 J6–J7/.test(road ?? '') || !/\+12 min/.test(road ?? '') || !/Clears by \d\d:\d\d/i.test(road ?? '')) problems.push(`[${W}] the Roads tile reads "${road}"`);
