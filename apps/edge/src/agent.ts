@@ -1497,6 +1497,7 @@ export class GhostyAgent {
         this.state.waitUntil(feel(this.storage, { kind: 'stop', harsh: harsh === true }).catch(() => undefined));
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
+      foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
     };
   }
 

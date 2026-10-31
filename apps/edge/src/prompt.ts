@@ -126,7 +126,8 @@ export function capabilityLines(groups: PromptGroups): string {
   // Hearing and speaking are not tools the model calls, but it should know replies may be heard, not read.
   // ("extra" holds tools in no group yet: their own descriptions say what they do, and "You can use the extras." said nothing)
   const out = [`WHAT YOU CAN DO NOW:\n${groups.on.filter((g) => g.name !== 'extra').map(line).join('\n')}\n- ${HEARING}\n- ${TODAY}`];
-  if (groups.off.length) out.push(`ALSO (call by name; described next turn):\n${groups.off.map((g) => `${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
+  // (the header was "ALSO (call by name; described next turn):" — 21 characters shorter now, paying for the foresight group's line)
+  if (groups.off.length) out.push(`ALSO (call by name):\n${groups.off.map((g) => `${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
   return out.join('\n');
 }
 

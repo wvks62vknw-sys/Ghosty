@@ -12,8 +12,9 @@ import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
-await build({ entryPoints: [at('../src/foresight.ts'), at('../../../packages/shared/src/foresight.ts')], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/foresight'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+await build({ entryPoints: [at('../src/foresight.ts'), at('../src/tools/foresight.ts'), at('../../../packages/shared/src/foresight.ts')], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/foresight'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const F = await import('./.build/foresight/apps/edge/src/foresight.mjs');
+const FT = await import('./.build/foresight/apps/edge/src/tools/foresight.mjs');
 const S = await import('./.build/foresight/packages/shared/src/foresight.mjs');
 const X = await import('./.build/integrations/transitous.mjs');
 const FIX = JSON.parse(readFileSync(new URL('./transitous.fixture.json', import.meta.url), 'utf8'));
@@ -387,6 +388,50 @@ test('his word on his own questions: right, wrong or unknown; a feed-scored one 
   assert.match(await F.foresightReply(k.d, 'how often are you right?'), /^I've only scored 1 so far about your questions\.$/);
 });
 
+// ---------------------------------------------------------------- the tool, its group, the words
+
+test('the foresee tool: his question on record (never a person), today, the record; when it can be checked in his words', async () => {
+  const k = kit();
+  const ctx = { storage: k.storage, vault: k.d.vault };
+  const tool = FT.foresightTools[0];
+  assert.equal(tool.name, 'foresee');
+  assert.ok(tool.description.length <= 1000);
+  assert.equal(tool.pure({ what: 'record' }), true);
+  assert.equal(tool.pure({ what: 'expect' }), false, 'putting one on record writes');
+  assert.equal(await tool.run({ what: 'today' }, ctx), S.NONE_YET);
+  const said = await tool.run({ what: 'expect', subject: 'will the price of a PS5 drop at Argos by Friday?', expect: 'the price to drop by Friday', by: 'Friday 18:00', confidence: 0.65 }, ctx);
+  assert.match(said, /^On record: I expect the price to drop by Friday \(65%\), to be checked on Friday\. Tell him your expectation in a line and that it's on record/);
+  const p = k.ledger().items[0];
+  assert.equal(p.kind, 'answer');
+  assert.equal(new Date(p.by).getUTCDay(), 5, 'Friday');
+  assert.equal(await tool.run({ what: 'expect', subject: 'will my mum call tonight?', expect: 'yes', confidence: 0.6 }, ctx), "I don't make predictions about people. (Nothing was recorded. Say exactly that to him, and say nothing about the person.)");
+  assert.equal(k.ledger().items.length, 1, 'nothing recorded about a person');
+  assert.match(await tool.run({ what: 'record' }, ctx), /^Nothing has been scored yet/);
+  // when, in his words (his zone): Monday 2 November 2026, 10:00
+  const now = day(10);
+  assert.equal(FT.byWhen('', TZ, now), day(9, 0, 3), 'tomorrow 09:00 by default');
+  assert.equal(FT.byWhen('tomorrow 18:00', TZ, now), day(18, 0, 3));
+  assert.equal(FT.byWhen('Saturday', TZ, now), day(20, 0, 7), 'a day: its evening');
+  assert.equal(FT.byWhen('on Friday at 5pm', TZ, now), day(17, 0, 6));
+  assert.equal(FT.byWhen('Monday', TZ, now), day(20, 0, 9), 'a week on, not today');
+  assert.equal(FT.byWhen('next week', TZ, now), day(9, 0, 9));
+  assert.equal(FT.byWhen('in 3 hours', TZ, now), day(13));
+  assert.equal(FT.byWhen('gibberish', TZ, now), day(9, 0, 3));
+});
+
+test('the group: on by his words, never always; named in the plain turn as "foresight: foresee"; under WATCH OVER YOU', async () => {
+  const T = await import('./.build/tools/index.mjs');
+  const A = await import('./.build/abilities.mjs');
+  const g = T.TOOL_GROUPS.find((x) => x.name === 'foresight');
+  assert.deepEqual(g.tools.map((t) => t.name), ['foresee']);
+  assert.notEqual(g.when, 'always');
+  for (const m of ['what do you reckon, will it rain tomorrow?', 'what do you think will happen with the price?', 'will I finish by Friday?', 'will the price drop?', 'how often are you right?', 'were you right?', 'any predictions?', 'what is the forecast like']) assert.ok(T.selectGroups(m, new Set(), false).on.some((x) => x.name === 'foresight'), m);
+  for (const m of ['hello', 'what is the forecast for Leeds', 'will you marry me', 'remind me at 5']) assert.ok(!T.selectGroups(m, new Set(), false).on.some((x) => x.name === 'foresight'), m);
+  assert.ok(g.about.length <= 220 && /^You can/.test(g.about) && g.about.includes('foresee') && /never a person/.test(g.about));
+  assert.equal(A.GROUP_CAT.foresight, 'watch');
+  assert.equal(A.GROUP_NEEDS.foresight, undefined, 'it needs no key');
+});
+
 // ---------------------------------------------------------------- through the real brain
 
 test('the brain: GET /api/foresight, POST /api/foresight/resolve, one standing foresee job, run now', async () => {
@@ -429,4 +474,20 @@ test('the brain: GET /api/foresight, POST /api/foresight/resolve, one standing f
   const run = await call(`/jobs/${jobs[0].id}/run`, { method: 'POST', body: '{}' });
   assert.equal(run.status, 200);
   assert.ok(run.body.next > Date.now(), JSON.stringify(run.body));
+  // the chat: the model puts its expectation on record with the tool, and reads the record back
+  const chat = async (message) => {
+    const r = await mod.default.fetch(new Request('https://ghosty.me.workers.dev/api/chat', { method: 'POST', headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY }, body: JSON.stringify({ message, context: { tz: TZ, name: 'Aqis' } }) }), env, { waitUntil: (p) => pending.push(p) });
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  };
+  const asked = await chat('what do you reckon, will it rain tomorrow?');
+  assert.ok(asked.some((e) => e.t === 'tool' && e.name === 'foresee'), JSON.stringify(asked.map((e) => e.t)));
+  const kept = state.storage.m.get(S.FORESIGHT_KEY).items.find((p) => p.subject === 'rain at Home tomorrow');
+  assert.ok(kept && kept.kind === 'answer' && kept.expect === 'rain' && kept.confidence === 0.6);
+  assert.equal(S.hhmm(kept.by, TZ), '18:00');
+  assert.equal(S.dayOf(kept.by, TZ), S.dayOf(Date.now() + 24 * HOUR, TZ), 'tomorrow');
+  const rec = await chat('how often are you right?');
+  assert.ok(rec.some((e) => e.t === 'tool' && e.name === 'foresee'));
+  assert.match(rec.filter((e) => e.t === 'text').map((e) => e.text).join(''), /I've only scored 1 so far about your questions/);
 });

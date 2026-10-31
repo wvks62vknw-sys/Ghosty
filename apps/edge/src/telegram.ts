@@ -47,6 +47,7 @@ import type { GuardDeps } from './guardstate'; // [guardian]
 import { personJoined, walkButton, walkTelegram } from './walk'; // [guardian]
 import { checkLink, linksIn, messageShape, verdictWords } from './integrations/linkcheck'; // [guardian]
 import { feel } from './mood'; // [guardian]
+import { foresightReply, type ForeDeps } from './foresight'; // [foresight]
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -111,6 +112,8 @@ export interface TelegramHost {
   stop(harsh?: boolean): void;
   /** [guardian] The guardian's ways out (walk.ts): the walk home, the panic phrase, the named person. Absent: none here. */
   guardian?(): GuardDeps;
+  /** [foresight] The prediction ledger (foresight.ts): "how often are you right?", "you were right". Absent: none here. */
+  foresight?(): ForeDeps;
 }
 
 // ---- Telegram's own shapes (the parts Ghosty reads) ----
@@ -787,6 +790,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     const tz = (await host.client().catch(() => ({}) as ClientContext)).tz;
     const items = await dayDoings({ storage: host.storage, env: host.env }, tz).catch(() => []);
     return tgSend(token, chatId, dayLines(items, tz).join('\n'));
+  }
+  // [foresight] "what do you expect today?", "how often are you right?", "were you right?", and "you were right" on his
+  // latest open question: from the ledger, no model and no turn slot (foresight.ts)
+  if (!images.length && host.foresight) {
+    const f = await foresightReply(host.foresight(), text).catch(() => null);
+    if (f) return tgSend(token, chatId, f);
   }
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");

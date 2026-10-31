@@ -350,6 +350,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // [guardian] THE GUARDIAN's tools (tools/guardian.ts): "is this a scam? <the message>", "any warnings near home?"
   if ((m = ownerWords(textOf(last.content)).match(/^is this (?:a scam|legit)\??\s+([\s\S]+)$/i)) && has('check_link')) return { message: call('check_link', { text: m[1]!.trim() }), model };
   if ((m = text.match(/^any warnings near (\w+)\??$/)) && has('threats_near')) return { message: call('threats_near', { place: m[1] }), model };
+  // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
+  if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
+  if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
   if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
   if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
