@@ -679,6 +679,30 @@ folder that no longer exists; ignore those paths).
   first, or it tests the old bundle. Re-landed in the pull request opened right after this note (the branch merged with
   main by `-s ours`, so it carries the guard's revert in history and restores #41's tree). The build backlog is
   OWNER-ISSUES 55–79 (his call, 26 Oct); batch 1 = BRIEF-DEPENDABILITY.md (57c, 64a, 72, 79) on one Opus builder.
+- 30 Oct 22:51 UK: PR #42 merged (main 78f82ef): #41 restored, the voice spec robust; main's own run checked at ~00:20 (the
+  guard). BATCH 1 (BRIEF-DEPENDABILITY; one Opus builder in a worktree, 2 h 19 m, ~760k tokens; branch
+  worktree-agent-ae2743014d05a616f, commits 8191924 / 9af9c38 / a48e085 / 5997c7c) reviewed (router wait and the privacy
+  marking read in full) and validated on its final tree: brain 1213/1213, notebook checks 84 OK, assets.ts up to date, web
+  typecheck + build, ten specs clean (sit, onphone, school, telegram, voice, direct, routec, thinkharder, gym, hero); merged
+  into the branch; its pull request opens on the owner's word. REAL CAUSES: 64a — the 45 s chat wait was counted from the
+  start of the call, so a slow or hung model call used it up and "frees up in about 0 seconds" threw (now only time spent
+  waiting counts; a model free now is tried up to 12 times); 72 — "always" never called the brain's chat, but five side
+  paths leaked a kept task's words (Ghosty's voice via /api/tts, the brain's recogniser, the last 12 turns, ratings, THINK
+  HARDER) — all closed, plus a per-message ON THIS PHONE toggle by the mic and onphone.spec watching every request; 57c —
+  the real crash cause is unknown (no device log; the owner "honestly does not remember"), built defensively (heavy mode,
+  the smallest brain, saved per answer, CARRY ON), and a real bug found: a failed model mid-paper wrote blanks and carried
+  on; 79 — no video branch in telegram.ts; now the still frame goes to the vision path, an unreadNote marked as data, the
+  PEOPLE rule. OWNER'S CALLS (30 Oct ~23:30): kept tasks keep the iPhone's own dictation for voice (said plainly on screen);
+  papers sit on the smallest brain by default (the 2B button stays); "I just want the offline brain to be one big awesome
+  thing" → OWNER-ISSUES 78 (the weekly training + the independence meter) moves forward into batch 3. LESSONS: (1) an
+  Agent worktree may start at MAIN, not the branch tip (this one began at 15b1da8; the builder checked and reset to
+  da40927) — always name the base commit in the prompt and have the builder verify it; (2) Playwright: once Ghosty's
+  service worker controls the page, Chromium stops reporting the page's requests to the test, and request events stall
+  after a streamed reply — a spec that watches requests blocks the worker and records through interception; (3) the
+  plain-turn prompt is at 5,488 of 5,500 characters: the next always-on line is paid for by a trim; (4) orchestration waste
+  tonight, named by the owner: replies on quiet events and three safety-net check-ins where one would do, two doc-only
+  pushes that each restarted a PR's CI — from here no replies on bot noise or quiet check-ins, one check-in per wait, docs
+  ride with code pushes, one builder at a time, the absolute maximum output for the least credits.
 - TOKEN BUDGET (owner, 25 Oct, OWNER-ISSUES 67 and clarified in 68): the rule is EFFICIENCY, NOT SLOWNESS — fast is fine,
   waste is not. Maximise output per credit across BOTH all-models and Fable weekly. Means: the cheapest model that does
   the job (Sonnet mechanical, Opus only hard design/architecture, Fable plan/review/merge); batch related work into one

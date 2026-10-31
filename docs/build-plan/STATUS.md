@@ -6,7 +6,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 - NOTE (30 Oct): PR #41 (a stop goes quiet, a built app's link always delivered, the report-card link, the deck pictures) was
   automatically reverted on main by the guard at 16:57 UK on 25 Oct after a flaky spec step — so those four were NOT on your
-  phone this week. Restored in the pull request opened 30 Oct (with that spec made robust); live again once it merges.
+  phone this week. Restored by PR #42, merged 22:51 UK on 30 Oct (with that spec made robust): live again on your next open.
+- BUILT 30 Oct, not yet live (its pull request opens on your word): batch 1 — a school paper survives on the phone (heavy
+  mode, the smallest brain, saved per answer, CARRY ON after a close), the chat never gives up while a free model is seconds
+  away, ON THIS PHONE fails closed (a toggle by the mic; the cloud only by a tap), a Telegram video is never dropped and
+  "kiddo" means him, never your cousin.
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
