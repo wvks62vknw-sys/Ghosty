@@ -59,8 +59,8 @@ const TT = 'https://api.tomtom.com';
 
 export class TrafficError extends Error {}
 
-async function tt<T>(url: string): Promise<T> {
-  const r = await fetch(url, { headers: { Accept: 'application/json' } });
+async function tt<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const r = await fetch(url, { headers: { Accept: 'application/json' }, ...(signal ? { signal } : {}) });
   if (r.status === 401 || r.status === 403) throw new TrafficError('TomTom did not accept the traffic key. Check it in the System tab (TomTom traffic).');
   if (r.status === 429) throw new TrafficError('TomTom traffic limit reached for today; it resets tomorrow.');
   if (!r.ok) throw new TrafficError(`TomTom traffic answered ${r.status}`);
@@ -138,12 +138,12 @@ export interface Commute {
  * key, its route with live traffic; without it (or when TomTom fails), the free OpenStreetMap route's time with
  * clear roads, said so. Only the two points go to the route service, never the places' names.
  */
-export async function commute(key: string | null | undefined, from: { lat: number; lon: number }, to: { lat: number; lon: number }): Promise<Commute> {
+export async function commute(key: string | null | undefined, from: { lat: number; lon: number }, to: { lat: number; lon: number }, signal?: AbortSignal): Promise<Commute> {
   const ll = (p: { lat: number; lon: number }) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
   if (key) {
     try {
       type R = { routes?: { summary: { lengthInMeters: number; travelTimeInSeconds: number; trafficDelayInSeconds?: number } }[] };
-      const j = await tt<R>(`${TT}/routing/1/calculateRoute/${ll(from)}:${ll(to)}/json?traffic=true&travelMode=car&routeType=fastest&key=${encodeURIComponent(key)}`);
+      const j = await tt<R>(`${TT}/routing/1/calculateRoute/${ll(from)}:${ll(to)}/json?traffic=true&travelMode=car&routeType=fastest&key=${encodeURIComponent(key)}`, signal);
       const s = j.routes?.[0]?.summary;
       if (s) {
         const minutes = Math.max(1, Math.round(s.travelTimeInSeconds / 60));
@@ -154,7 +154,7 @@ export async function commute(key: string | null | undefined, from: { lat: numbe
       /* TomTom refused or is down: the free route below, said plainly */
     }
   }
-  const r = await fetch(`https://routing.openstreetmap.de/routed-car/route/v1/driving/${from.lon.toFixed(5)},${from.lat.toFixed(5)};${to.lon.toFixed(5)},${to.lat.toFixed(5)}?overview=false`, { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/json' } });
+  const r = await fetch(`https://routing.openstreetmap.de/routed-car/route/v1/driving/${from.lon.toFixed(5)},${from.lat.toFixed(5)};${to.lon.toFixed(5)},${to.lat.toFixed(5)}?overview=false`, { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/json' }, ...(signal ? { signal } : {}) });
   if (!r.ok) throw new TrafficError(`the route service answered ${r.status}`);
   const j = (await r.json()) as { routes?: { duration: number; distance: number }[] };
   const route = j.routes?.[0];

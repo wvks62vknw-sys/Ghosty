@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
+import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -92,6 +93,10 @@ globalThis.fetch = async (input, init) => {
   // never the live ones, whichever spec runs when the hourly watch looks.
   const guard = guardianFeeds(u);
   if (guard) return guard;
+  // Test only: foresight's feeds — the hourly rain, the journey plan, a stop's departures, the drive time
+  // (tests/fixtures/foresight-feeds.mjs): never the live ones, whichever spec runs when the hourly foresee job looks.
+  const fore = foresightFeeds(u);
+  if (fore) return fore;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -191,6 +196,27 @@ createServer(async (req, res) => {
       if (agent) await agent.alarm();
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ walk: await state.storage.get('guardian:walk') }));
+      return;
+    }
+    // Test only: foresight's feeds switched (tests/foresight.spec.mjs: ?rain=0&late=0), the ledger forgotten (?reset=1),
+    // or a day of foresight put in it (?made=1: yesterday's train scored, one of his questions open, today's two open), so
+    // the spec never depends on the clock.
+    if (url.pathname === '/__test/foresight') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete('foresight:ledger');
+      if (url.searchParams.get('made') === '1') await state.storage.put('foresight:ledger', seedLedger());
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(setForeMode(url.searchParams)));
+      return;
+    }
+    // Test only: what is open now due (its time moved to now) and the brain's alarm run, as the clock would at that time.
+    if (url.pathname === '/__test/foresee-due') {
+      const L = await state.storage.get('foresight:ledger');
+      if (L) await state.storage.put('foresight:ledger', { ...L, items: L.items.map((p) => (!p.outcome && p.kind !== 'answer' ? { ...p, by: Date.now() - 1000 } : p)) });
+      const jobs = (await state.storage.get('jobs')) ?? [];
+      await state.storage.put('jobs', jobs.map((j) => (j.kind === 'foresee' ? { ...j, next: Date.now() - 500 } : j)));
+      if (agent) await agent.alarm();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ledger: await state.storage.get('foresight:ledger') }));
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

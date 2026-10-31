@@ -76,4 +76,6 @@ export interface MindSnapshot {
   ahead: DayLine[];
   /** The tool groups on for this turn. */
   can: string[];
+  /** Today's open predictions in his voice, at most two (foresight.ts), for the phone; never rendered into the prompt. */
+  expect?: string[];
 }
