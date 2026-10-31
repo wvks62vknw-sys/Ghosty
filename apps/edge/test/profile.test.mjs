@@ -190,7 +190,7 @@ test('in the brain: the ME and DIARY routes, REFLECT NOW through the mock model,
   await api('GET', '/profile');
   await api('GET', '/profile');
   const kinds = (await S.loadJobs(storage)).map((j) => j.kind).filter((k) => k !== 'study').sort();
-  assert.deepEqual(kinds, ['digest', 'reflect', 'train', 'upgrade']); // train: the offline brain's weekly self-training (selftrain/cycle.ts), made once with the others
+  assert.deepEqual(kinds, ['digest', 'guard', 'reflect', 'train', 'upgrade']); // train: the offline brain's weekly self-training (selftrain/cycle.ts); guard: the guardian's hourly watch (guardian.ts) — each made once with the others
   const empty = await api('GET', '/profile');
   assert.deepEqual(empty.profile.sections.likes, []);
   assert.deepEqual(empty.diary, []);

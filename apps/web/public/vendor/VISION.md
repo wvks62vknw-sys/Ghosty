@@ -27,6 +27,8 @@ from the model's text encoder (see `clip/README.md`). Apple Machine Learning Res
 under the Apple Machine Learning Research Model License Agreement.
 | `zxing/` | ZXing-C++ barcode and QR reader, WebAssembly (`zxing_reader.wasm`, 931 KB) and its ES module bundled into one file (`zxing-reader.mjs`, 36 KB) | zxing-wasm 3.1.4 (reader build; zxing-cpp inside) | MIT (zxing-wasm, `zxing/LICENSE`), Apache-2.0 (zxing-cpp, `zxing/LICENSE-zxing-cpp.txt`) |
 | `depth/dav2-metric-indoor-small.v1.int8.onnx.part1`, `.part2`, `depth/worker.mjs` | Depth Anything V2 Metric Indoor Small: metres to every pixel of a photo (MEASURE's AUTO scale, the planner's FROM PHOTO), int8 weights, one file in two parts, run by the `clip/` runtime in its own worker (ended on leaving MEASURE) — 35.6 MB | depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf, exported for Ghosty (see `depth/README.md`) | code Apache-2.0 (`depth/LICENSE-depth-anything-v2.txt`); the Small model is stated Apache-2.0 upstream, but this metric checkpoint has no licence tag on Hugging Face and was fine-tuned on Hypersim (CC BY-SA 3.0): see `depth/README.md` |
+| `faces/blaze_face_short_range.tflite` | MediaPipe's BlazeFace (short range): finds faces and their eyes, nose, mouth and ears, run by the `mediapipe/` runtime (the Lens's PEOPLE only) — 230 KB | mediapipe-models face_detector/blaze_face_short_range/float16/latest | Apache-2.0 |
+| `faces/face_recognition_sface_2021dec_int8.onnx`, `faces/worker.mjs` | SFace (a MobileFaceNet trained with the SFace loss), int8: one lined-up 112 × 112 face → 128 numbers, run by the `clip/` runtime in its own worker (ended on leaving PEOPLE) — 9.9 MB | opencv/face_recognition_sface on Hugging Face (`face_recognition_sface_2021dec_int8.onnx`, OpenCV Zoo) | Apache-2.0 (`faces/LICENSE-sface.txt`) |
 | `three/` | three.js (the 3D STUDIO's 3-D engine): `three.module.min.js` + GLTFLoader, OrbitControls, RoomEnvironment and the two utils the loader needs, `import 'three'` rewritten to relative paths (see `three/README.md`) — 742 KB + 85 KB | three 0.186.1 | MIT (`three/LICENSE`) |
 
 One change to the upstream files: `mediapipe/vision_bundle.mjs` had a usage-logging call to
@@ -39,5 +41,9 @@ by `/vendor/zxing/`, so the reader can never fetch code from elsewhere (scan/bar
 `locateFile`). The WebAssembly is byte-for-byte the package's (SHA-256 e8af31ed…5d86fb2, which the
 module itself records).
 
-Nothing here recognises faces or reads number plates on purpose: no face model is included, and
-Ghosty never tries to identify a person.
+Faces, narrowly (OWNER-ISSUES 55, 56): the two `faces/` models are used by the Lens's PEOPLE mode only, on
+the live front or rear camera, to know the owner (enrolled by himself) and the people he introduces in person.
+Their numbers stay on the phone (IndexedDB `ghosty-faces`), are never sent anywhere, are left out of backups and
+go in one tap (Settings → PRIVACY → FACES). Nobody else is ever named or guessed; nothing here runs on God's Eye,
+CCTV, a web picture, a screenshot or a photo, and NAME and PHOTO TOOLS keep their "never faces" rule. Nothing
+here reads number plates on purpose.

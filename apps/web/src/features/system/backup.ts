@@ -11,7 +11,9 @@
  * Left out: what the brain keeps itself (the conversation, memory and agenda, and the changes still
  * waiting to be sent to it — merge.ts NOT_RESTORED), big things that come back by themselves (the
  * offline brain's model, map tiles, the vendored libraries, the copy of the brain's library, the last
- * answers kept for offline reading) and the owner key itself.
+ * answers kept for offline reading), the owner key itself — and the faces this phone knows (the Lens's
+ * PEOPLE: his own and the people he introduced, vision/facestore.ts), which never leave the phone at all,
+ * not even sealed: only the keys listed below and the library's own documents are ever read here.
  */
 import { brain, ownerKey, type BackupInfo, type SealedBackup } from '../../api/brain';
 import { onFlushed } from '../../api/offline';

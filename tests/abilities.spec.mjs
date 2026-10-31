@@ -272,6 +272,8 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   const { ctx, page } = await phone(PHONE, () => { window.__ghostyFirstRun = true; });
   const first = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].filter((m) => (m.textContent ?? '').includes('Three things I can do for you, to start:')).length);
   await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Three things I can do for you, to start:')), null, 10000, 'a fresh phone was not told three things it can do');
+  // Home's line types itself in: wait for it (on a busy runner it once read "Three thing…" when looked at too soon)
+  await until(page, () => (document.querySelector('#ccap')?.textContent ?? '').includes('Three things I can do for you'), null, 8000, "[first run] Home's line does not say it within 8 s");
   const said = await page.evaluate(() => {
     const m = [...document.querySelectorAll('#pg-core .msg:not(.me)')].find((x) => (x.textContent ?? '').includes('Three things I can do for you'));
     return { lines: (m?.querySelector(':scope > span')?.textContent ?? '').split('\n').filter((l) => l.startsWith('• ')).length, chips: [...(m?.querySelectorAll('.localacts button') ?? [])].map((b) => b.textContent), caption: document.querySelector('#ccap')?.textContent ?? '' };

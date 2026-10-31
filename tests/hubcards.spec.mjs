@@ -111,7 +111,7 @@ for (const [a, ids] of Object.entries(TOOLS)) {
 // ---- the readouts are the app's own numbers
 const read = (a, id, k) => seen[a]?.find((c) => c.id === id)?.reads.find((r) => r.k === k)?.v;
 if (read('see', 'lens', 'Names') !== '4,624') problems.push(`[see lens] Names reads "${read('see', 'lens', 'Names')}"`);
-if (read('see', 'lens', 'Modes') !== '9') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 9 modes)`);
+if (read('see', 'lens', 'Modes') !== '10') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 10 modes: PEOPLE joined on 31 Oct)`);
 if (read('make', 'studio', 'Built in') !== '5') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}"`);
 if (!/^Birmingham today$/.test(seen.ask?.find((c) => c.id === 'brief')?.title ?? '')) problems.push(`[ask brief] the title does not name his city: "${seen.ask?.find((c) => c.id === 'brief')?.title}"`);
 const lib = await brainGet('/library');
