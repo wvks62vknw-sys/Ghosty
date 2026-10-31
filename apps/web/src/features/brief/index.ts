@@ -7,7 +7,7 @@ import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
-import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
+import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts } from './day';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
@@ -97,21 +97,22 @@ export const briefTab: TabDef = {
     let dayItems: DayItem[] | null = null;
     const paintDay = async () => {
       if (dayItems === null) clear(dp.body, row(null, 'Checking your diary…', null));
-      const [ag, inbox] = await Promise.all([brain.agenda(2).catch(() => null), brain.inbox().catch(() => null)]);
-      const now = Date.now();
-      if (!ag) {
+      // (the one shared mind: the same picture of today the chat's context is made from)
+      const [mind, inbox] = await Promise.all([brain.mind().catch(() => null), brain.inbox().catch(() => null)]);
+      const items = mind ? stillToday(mind.today, Date.now()) : null;
+      if (!mind || !items) {
         dp.setStatus('CAN’T CHECK', 'mid');
         clear(dp.body, row(null, 'Your diary can’t be reached right now. It tries again when you next open the Brief.', null, { wrap: true }));
         return;
       }
-      dayItems = todayItems(ag.events, ag.jobs, now);
+      dayItems = items;
       const open = () => go('agenda');
       const rows = dayItems.slice(0, 5).map((x) => row(x.when, x.title, x.where ?? null, { wrap: true, onClick: open }));
       if (dayItems.length > 5) rows.push(row(null, `${dayItems.length - 5} more today`, '›', { onClick: open }));
       if (!dayItems.length) {
         rows.push(row(null, 'Nothing in your diary for the rest of today', null, { wrap: true, onClick: open }));
-        const next = nextAfterToday(ag.events, now);
-        if (next) rows.push(row('NEXT', next.title, next.allDay ? new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' }) : `${new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' })} ${hhmm(next.start)}`, { wrap: true, onClick: open }));
+        const next = mind.today.next;
+        if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       }
       const unread = inbox?.unread ?? 0;
       if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { onClick: open }));

@@ -225,6 +225,16 @@ export async function spendingSummary(storage: DurableObjectStorage, month?: str
   };
 }
 
+/** The one shared mind's spending flag (mind.ts): the budget furthest gone this month once it is 90 % spent, in a few words ('' for none). */
+export async function spendFlag(storage: DurableObjectStorage, month: string): Promise<string> {
+  const idx = await loadIndex(storage);
+  const budgets = Object.entries(idx.budgets);
+  if (!budgets.length || !idx.months.includes(month)) return '';
+  const rows = await allRows(storage, idx);
+  const worst = budgets.map(([c, v]) => budgetStatus(c as Category, v!, rows, month)).sort((a, b) => b.frac - a.frac)[0];
+  return worst && worst.frac >= 0.9 ? `${worst.category} budget: ${worst.line}` : '';
+}
+
 export async function spendingCsv(storage: DurableObjectStorage): Promise<string> {
   const idx = await loadIndex(storage);
   return toCsv(await allRows(storage, idx));

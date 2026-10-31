@@ -9,6 +9,7 @@
  * called. The engineering procedure, standard and lessons come only on a coding turn.
  */
 import type { MemoryFact } from '../../../packages/shared/src/protocol';
+import type { DayLine, MindSnapshot } from '../../../packages/shared/src/mind';
 import { engineeringEssentials, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
 import type { ToolGroup } from './tools';
@@ -53,6 +54,58 @@ export function unreadNote(kind: string, got: string): string {
 }
 
 /**
+ * The part of the one shared mind (mind.ts) that the client's own context gives: his name, his time and where the phone
+ * says he is. mind.ts's mindSnapshot starts from it and adds his day; a prompt built without a snapshot (paused mode,
+ * a test) renders its CONTEXT from this alone.
+ */
+export function baseMind(c: ClientContext, now = Date.now()): MindSnapshot {
+  const tz = validTz(c.tz) ? c.tz : '';
+  const iso = tz ? isoLocal(now, tz) : '';
+  const weekday = tz ? new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: tz }).format(now) : '';
+  const where = c.location && Number.isFinite(c.location.lat) && Number.isFinite(c.location.lon) ? `${c.location.name} (${c.location.lat.toFixed(2)}, ${c.location.lon.toFixed(2)})` : '';
+  return {
+    at: now,
+    owner: { name: c.name || 'boss', summary: '', lines: [], facts: [], rules: [], principles: [] },
+    now: { iso, weekday, tz, day: iso.slice(0, 10), ...(where ? { where } : {}) },
+    today: { day: iso.slice(0, 10), items: [], doing: [] },
+    recent: [],
+    ahead: [],
+    can: [],
+  };
+}
+
+const dayText = (x: DayLine) => `${x.when} ${x.title}${x.where ? ` (${x.where})` : ''}`;
+
+/**
+ * The CONTEXT block, rendered from the one shared mind: his time (with the weekday, in the YYYY-MM-DDTHH:MM form TIMES
+ * asks for), where he is, what is left of today (or the next thing), what he is in the middle of, what happened earlier
+ * today, then the screen (or Telegram's one line). A line each, only what is there. A calendar feed's events are
+ * someone else's words: the day goes in marked as data whenever one of them is in it.
+ */
+export function contextLines(m: MindSnapshot, c: ClientContext): string[] {
+  const out: string[] = [];
+  if (m.now.iso) out.push(`Now: ${m.now.weekday} ${m.now.iso} (${m.now.tz})`);
+  else if (c.now) out.push(`Now: ${c.now}`);
+  if (m.now.where) out.push(`Location: ${m.now.where}${m.now.place ? `, his saved place "${m.now.place}"` : ''}`);
+  const items = m.today.items;
+  const shown = items.length ? items.slice(0, 4) : m.today.next ? [m.today.next] : [];
+  const day = items.length ? `Today: ${shown.map(dayText).join('; ')}${items.length > 4 ? `; ${items.length - 4} more` : ''}` : shown.length ? `Nothing more today. Next: ${dayText(shown[0]!)}` : '';
+  if (day) out.push(shown.some((x) => x.from) ? asData('his calendars', day) : day);
+  if (m.today.doing.length) out.push(`Doing: ${m.today.doing.slice(0, 3).join('; ')}`);
+  // (his own messages are in the conversation already: the day log adds what happened elsewhere)
+  const earlier = m.recent.filter((e) => e.kind !== 'turn').slice(-3);
+  if (earlier.length && m.now.tz) out.push(`Earlier: ${earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).join('; ')}`);
+  if (c.tab === 'telegram') {
+    // On Telegram there is no screen: one short line instead of the tab and agent.ts's longer screen note (the prompt budget).
+    out.push(TELEGRAM);
+  } else {
+    if (c.tab) out.push(`Open tab: ${c.tab}`);
+    if (c.screen) out.push(`On screen: ${c.screen.slice(0, 400)}`);
+  }
+  return out;
+}
+
+/**
  * WHAT YOU CAN DO NOW: one line per group that is on (its `about`, or its tool names for a
  * group that has none yet), then every group that is off as "name: tool, tool" so the model
  * can still call one by name.
@@ -71,7 +124,7 @@ export function capabilityLines(groups: PromptGroups): string {
  * `groups`: the tool groups on and off for this message (none given: no capability section —
  * the caller describes every tool it offers).
  */
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null } = {}): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; mind?: MindSnapshot | null } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -116,17 +169,8 @@ SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to ch
   if (opts.code) lines.push(`\n${engineeringEssentials(name)}\nGAMES AND MINI-APPS: build them as instant widgets on the GK widget kit — study "game kit" (a complete working game to copy), "game design" and "game recipes", or "app widgets". A finished game has a title screen, keyboard AND touch controls, score + best score, rising difficulty, sound/particles, game over and restart.`);
   const top = opts.code ? topLessons(lessons) : [];
   if (top.length) lines.push(`\nLESSONS YOU LEARNED FROM EXPERIENCE (follow them — each one is a mistake you already made once):\n${top.map((l) => `- ${l.text}`).join('\n')}`);
-  const ctx: string[] = [];
-  if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);
-  if (validTz(c.tz)) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${isoLocal(Date.now(), c.tz)}`);
-  if (c.location) ctx.push(`Owner's location: ${c.location.name} (${c.location.lat.toFixed(2)}, ${c.location.lon.toFixed(2)})`);
-  if (c.tab === 'telegram') {
-    // On Telegram there is no screen: one short line instead of the tab and agent.ts's longer screen note (the prompt budget).
-    ctx.push(TELEGRAM);
-  } else {
-    if (c.tab) ctx.push(`Interface tab open: ${c.tab}`);
-    if (c.screen) ctx.push(`On screen: ${c.screen.slice(0, 400)}`);
-  }
+  // (from the one shared mind: the same picture of his day the Brief and every other feature read; mind.ts)
+  const ctx = contextLines(opts.mind ?? baseMind(c), c);
   if (ctx.length) lines.push(`\nCONTEXT:\n${ctx.join('\n')}`);
   // The owner in their own words (profile.ts: the nightly reflection), then the facts they told Ghosty to remember.
   const me = opts.profile ? profileLines(opts.profile) : [];

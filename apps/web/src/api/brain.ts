@@ -14,6 +14,7 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -410,6 +411,8 @@ export const brain = {
   deleteJob: (id: string) => req('DELETE', `/jobs/${encodeURIComponent(id)}`),
   runJob: (id: string) => req<{ item: InboxEntry }>('POST', `/jobs/${encodeURIComponent(id)}/run`),
   inbox: () => req<{ items: InboxEntry[]; unread: number }>('GET', '/inbox'),
+  /** The one shared mind (apps/edge/src/mind.ts): his day as the chat sees it — the Brief's YOUR DAY and morning line. */
+  mind: () => req<MindSnapshot>('GET', `/mind?tz=${encodeURIComponent(TZ)}`),
   markRead: (ids?: string[]) => req('POST', '/inbox/read', ids ? { ids } : {}),
   addFeed: (name: string, url: string) => req<{ feed: FeedInfo }>('POST', '/feeds', { name, url, tz: TZ }),
   deleteFeed: (id: string) => req('DELETE', `/feeds/${encodeURIComponent(id)}`),
