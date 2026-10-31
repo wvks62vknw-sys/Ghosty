@@ -251,6 +251,9 @@ export function watchLine(info: Pick<GuardianInfo, 'places' | 'checked' | 'tz'>)
 
 // ---------------------------------------------------------------- the words that go out
 
+/** A warning as it is named in a line: "flood alert", "yellow wind warning" (the brain's lines and the Machine view's labels). */
+export const levelWord = (w: Pick<GuardWarning, 'feed' | 'title'>) => (w.feed === 'flood' ? w.title.split(':')[0]!.toLowerCase() : w.title.toLowerCase().replace(/^(red|amber|yellow) warning of (.*)$/, '$1 $2 warning'));
+
 /** "22:10" in his zone. */
 export function clockIn(t: number, tz: string): string {
   try {

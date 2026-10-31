@@ -264,7 +264,7 @@ if (P.labels.length > 6) problems.push(`[system] ${P.labels.length} pills (six a
 if (P.on !== 'Status' || P.selected !== 1) problems.push(`[system] a new phone opens on "${P.on}" (want Status, the one he uses most)`);
 if (P.pillH < 44) problems.push(`[system] a pill is ${P.pillH} pt high (want 44)`);
 if (!visible(P, /^(STATUS|KEYS|AI MODELS|AI ROOM)/)) problems.push(`[system] Status does not show STATUS and the brain's keys: ${JSON.stringify(P.panels)}`);
-if (!hiddenIn(P, /^(LOOPS|NIGHT SCHOOL|STORAGE|BACKUP|OFFLINE BRAIN)/)) problems.push('[system] the other sections\' panels are not hidden under Status');
+if (!hiddenIn(P, /^(LOOPS|FORESIGHT|NIGHT SCHOOL|STORAGE|BACKUP|OFFLINE BRAIN)/)) problems.push('[system] the other sections\' panels are not hidden under Status');
 if (!(await page.locator('#pg-system .pn.nightsch').count())) problems.push('[system] NIGHT SCHOOL was taken out of the page (a hidden panel must stay, hidden)');
 for (const t of await target44(page, '#pg-system .secpill')) problems.push(`[system] a pill under a 44 pt target: ${t}`);
 const statusH = P.scrollH;
@@ -274,11 +274,16 @@ await page.waitForTimeout(300);
 P = await pills(page, 'system');
 if (P.scrollTop < 300 || P.top == null || P.top < P.hudTop - 1 || P.top > P.hudTop + 30) problems.push(`[system] scrolled ${P.scrollTop} px the pills are at ${P.top} (the page's top is ${P.hudTop}): not held in reach`);
 await page.screenshot({ path: `${out}/nav-system-scrolled.png` });
+// FORESIGHT (features/system/foresight.ts) is the Report card's, beside WHAT I LEARNED TO DO
+await page.locator('#pg-system .secpill', { hasText: 'Report card' }).click({ timeout: 5000 }).catch(() => problems.push('[system] no Report card pill to tap'));
+await page.waitForTimeout(400);
+P = await pills(page, 'system');
+if (P.on !== 'Report card' || !P.panels.some((x) => /^FORESIGHT/.test(x.t)) || !visible(P, /^(WHAT I LEARNED|FORESIGHT|LOOPS)/) || !hiddenIn(P, /^(STATUS|KEYS|NIGHT SCHOOL|STORAGE|BACKUP)/)) problems.push(`[system] Report card does not hold FORESIGHT with WHAT I LEARNED TO DO: ${JSON.stringify(P.panels.map((x) => `${x.t}${x.hidden ? ' (hidden)' : ''}`))}`);
 // a tap shows that section alone, and the page is shorter
 await page.locator('#pg-system .secpill', { hasText: 'Training' }).click({ timeout: 5000 }).catch(() => problems.push('[system] no Training pill to tap'));
 await page.waitForTimeout(400);
 P = await pills(page, 'system');
-if (P.on !== 'Training' || !visible(P, /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/) || !hiddenIn(P, /^(STATUS|KEYS|LOOPS|STORAGE|BACKUP)/)) problems.push(`[system] Training does not show its section alone: ${JSON.stringify(P.panels.map((x) => `${x.t}${x.hidden ? ' (hidden)' : ''}`))}`);
+if (P.on !== 'Training' || !visible(P, /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/) || !hiddenIn(P, /^(STATUS|KEYS|LOOPS|FORESIGHT|STORAGE|BACKUP)/)) problems.push(`[system] Training does not show its section alone: ${JSON.stringify(P.panels.map((x) => `${x.t}${x.hidden ? ' (hidden)' : ''}`))}`);
 if (!(P.scrollH < statusH)) problems.push(`[system] the page is no shorter under Training (${P.scrollH} px, Status ${statusH})`);
 if (P.scrollTop > 0 && P.top > P.hudTop + 30) problems.push('[system] after a pill, the page does not start at the pills');
 await page.screenshot({ path: `${out}/nav-system-training.png` });

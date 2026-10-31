@@ -17,6 +17,8 @@ import type { Readout, StatusWord } from './hubcards';
 export interface TabInstance {
   enter?(): void;
   leave?(): void;
+  /** What follows a '?' in its address (#eye?machine: God's Eye in the Machine view), after enter(). */
+  open?(arg: string): void;
   /** One line describing what is on screen, sent to Ghosty as context. */
   describe?(): string;
 }
@@ -100,10 +102,15 @@ export function ensureMounted(id: string): boolean {
 }
 
 export function go(id: string): boolean {
-  const def = defs.find((d) => d.id === id || d.title.toLowerCase() === id.toLowerCase());
+  // "eye?machine": the tab, then what follows the '?' handed to it (a notification or a link can land in a mode)
+  const [name, arg] = id.split('?') as [string, string | undefined];
+  const def = defs.find((d) => d.id === name || d.title.toLowerCase() === name.toLowerCase());
   if (!def) return false;
   const prev = ui.get().tab;
-  if (prev === def.id && mounted.has(def.id)) return true;
+  if (prev === def.id && mounted.has(def.id)) {
+    if (arg) mounted.get(def.id)!.inst.open?.(arg);
+    return true;
+  }
   const switching = mounted.has(prev);
   // The stopwatch (core/stopwatch.ts): from here to the first paint after the tab is on screen.
   const timed = stopwatch.tab(def.id, def.title, !mounted.has(def.id));
@@ -120,6 +127,7 @@ export function go(id: string): boolean {
     /* ignore */
   }
   m.inst.enter?.();
+  if (arg) m.inst.open?.(arg);
   timed();
   return true;
 }

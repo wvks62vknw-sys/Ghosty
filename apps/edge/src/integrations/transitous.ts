@@ -111,12 +111,12 @@ const km = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(x)));
 };
 
-async function ask<T>(path: string, params: Record<string, string | number | boolean | undefined>): Promise<T> {
+async function ask<T>(path: string, params: Record<string, string | number | boolean | undefined>, signal?: AbortSignal): Promise<T> {
   const u = new URL(`${BASE}/${path}`);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') u.searchParams.set(k, String(v));
   let r: Response;
   try {
-    r = await fetch(u.toString(), { headers: HEADERS });
+    r = await fetch(u.toString(), { headers: HEADERS, ...(signal ? { signal } : {}) });
   } catch {
     throw new JourneyError("The journey planner (Transitous) isn't reachable right now; try again in a minute.");
   }
@@ -323,6 +323,8 @@ export interface PlanRequest {
   maxTransfers?: number;
   /** The router's mode words to allow (BUS, TRAM, RAIL, SUBWAY, FERRY, COACH); default: all. */
   modes?: string[];
+  /** Stops waiting (foresight.ts gives every read a time limit). */
+  signal?: AbortSignal;
 }
 
 const iso = (ms: number) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace('.000Z', 'Z');
@@ -338,7 +340,7 @@ export async function plan(req: PlanRequest): Promise<Journey[]> {
     numItineraries: 5,
     maxTransfers: typeof req.maxTransfers === 'number' && req.maxTransfers >= 0 ? Math.min(6, Math.round(req.maxTransfers)) : undefined,
     transitModes: req.modes?.length ? [...new Set(req.modes)].join(',') : undefined,
-  });
+  }, req.signal);
   const out = (Array.isArray(raw.itineraries) ? raw.itineraries : [])
     .filter((it) => it && typeof it === 'object')
     .slice(0, 5)
@@ -455,7 +457,7 @@ export interface Departure {
 }
 
 /** Next departures from a stop (by id), or from every stop within `radiusM` of a point. */
-export async function departures(at: { stopId?: string; lat?: number; lon?: number }, n = 10, opts: { time?: number; radiusM?: number } = {}): Promise<{ place: JourneyPlace; list: Departure[] }> {
+export async function departures(at: { stopId?: string; lat?: number; lon?: number }, n = 10, opts: { time?: number; radiusM?: number; signal?: AbortSignal } = {}): Promise<{ place: JourneyPlace; list: Departure[] }> {
   const byPoint = !at.stopId && typeof at.lat === 'number' && typeof at.lon === 'number';
   const raw = await ask<RawStopTimes>('stoptimes', {
     stopId: at.stopId || undefined,
@@ -463,7 +465,7 @@ export async function departures(at: { stopId?: string; lat?: number; lon?: numb
     radius: byPoint ? Math.round(opts.radiusM ?? 400) : undefined,
     n: Math.max(1, Math.min(30, Math.round(n))),
     time: opts.time ? iso(opts.time) : undefined,
-  });
+  }, opts.signal);
   const list: Departure[] = [];
   for (const s of Array.isArray(raw.stopTimes) ? raw.stopTimes : []) {
     if (!s || typeof s !== 'object') continue;

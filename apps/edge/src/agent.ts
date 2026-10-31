@@ -66,6 +66,7 @@ import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
+import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
 import { ensureTrainJob, hookRoute, rateReply, sundayNote, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
@@ -428,6 +429,12 @@ export class GhostyAgent {
       if (path === '/today') return await todayRoute(url, method, { storage: this.storage, env: this.env }); // [abilities] what he did today (today.ts)
       if (/^\/guardian\/(?:person|test|panic|walk)/.test(path)) return await walkRoute(req, path, method, this.guardDeps()); // [guardian] the walk home, the named person, the panic phrase (walk.ts)
       if (path === '/guardian' || path.startsWith('/guardian/')) return await guardianRoute(req, path, method, this.guardDeps()); // [guardian] the watch over his places (guardian.ts)
+      if (path === '/foresight' || path.startsWith('/foresight/')) {
+        // [foresight] the prediction ledger (foresight.ts); the phone's zone kept, as /mind does, so "today" is his
+        const tz = url.searchParams.get('tz') ?? '';
+        if (tz) await this.rememberClient({ tz });
+        return await foresightRoute(req, path, method, this.foreDeps());
+      }
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
@@ -1418,6 +1425,7 @@ export class GhostyAgent {
       if (job.kind === 'train') return json(await trainTick(this.trainDeps())); // [selftrain]
       if (job.kind === 'guard') return json(await watchTick(this.guardDeps())); // [guardian]
       if (job.kind === 'walk') return json({ next: await walkTick(this.guardDeps()) }); // [guardian]
+      if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1494,6 +1502,7 @@ export class GhostyAgent {
         this.state.waitUntil(feel(this.storage, { kind: 'stop', harsh: harsh === true }).catch(() => undefined));
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
+      foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
     };
   }
 
@@ -1566,6 +1575,13 @@ export class GhostyAgent {
           const next = await walkTick(this.guardDeps());
           if (next) await setNext(this.storage, job.id, next);
           else await removeJob(this.storage, job.id);
+        } else if (job.kind === 'foresee') {
+          // [foresight] The hourly foresight: what is due scored against the feeds, the morning's predictions made once; it
+          // says when to come back (a departure due to be scored, the commute's minute, six o'clock). Steps aside when the
+          // day's database allowance is low (meter.ts).
+          const next = await this.meter.as('foresee', () => foreseeTick({ ...this.foreDeps(), spare: this.meter.spare() }));
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
         } else if (job.kind === 'revise') {
           // The tutor's flashcards (tutor.ts): a note only when cards are due.
           await finishJob(this.storage, job.id, await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router, notify: (item) => this.notify(item) })));
@@ -1662,6 +1678,12 @@ export class GhostyAgent {
     await ensureJob(this.storage, UPGRADE_JOB);
     await ensureTrainJob(this.storage); // [selftrain]
     await ensureGuardJob(this.storage); // [guardian]
+    await ensureForeseeJob(this.storage); // [foresight]
+  }
+
+  /** [foresight] What foresight (foresight.ts) may use: the database, the vault (the TomTom key) and his notifications. */
+  private foreDeps(): ForeDeps {
+    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
   }
 
   /** [guardian] What the guardian (guardian.ts, walk.ts) may use: the database, the vault, his notifications and the push contact. */

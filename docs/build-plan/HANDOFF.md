@@ -862,6 +862,90 @@ folder that no longer exists; ignore those paths).
   locked — `git worktree remove --force --force`. Next: the Machine view and foresight (the owner's four Harold/Machine
   picks shape it; the brief's defaults otherwise), then the workshop and knowledge, then the social self and rituals.
   Open from his side: batch 5's phone tests (OWNER-ISSUES 86 NEEDS), his principles, the four picks.
+- 31 Oct 15:55 UK (updated 16:30): HIS FIRST LIVE BUG OF THE DAY, FIXED ON PR #46 (merged at 16:25 UK, main 5fdd8ff, after a
+  green run on 99a5544: smoke 108 min). He woke, sent the usage picture (All models 19%, this model 15%, reset
+  Friday 17:59; the app's "run out Tuesday night" is a straight-line guess from the overnight pace) and asked for the plain
+  page of everything Ghosty does in his own pitches: `docs/build-plan/WHAT-HE-CAN-DO.md` (b381e8b), to be kept current as
+  batches land. Then: Lens → PEOPLE → ENROL ME on his iPhone showed "no available backend found. ERR: [wasm] RangeError".
+  CAUSE: the vendored ONNX Runtime Web 1.30.0 (the threaded build, run on one thread) creates its WebAssembly memory
+  SHARED with the stock maximum of 65,536 pages (4 GB); WebKit reserves a shared memory's whole maximum up front and
+  refuses once another runtime holds memory, which in PEOPLE is MediaPipe (BlazeFace) loaded first (known upstream:
+  microsoft/onnxruntime#22086). FIX (5d6a089): one line in `vendor/clip/ort-wasm-simd-threaded.mjs` reads
+  `globalThis.GHOSTY_WASM_MAX_PAGES` before 65536; `vendor/faces/worker.mjs` takes the cap from its address
+  (`?maxPages=`, default 16,384 = 1 GB); `vision/faces.ts` starts the worker at 1 GB and, only on a memory failure
+  (`memoryTrouble`), ends it and tries once at 4,096 pages (256 MB; SFace needs about 50 MB), else a plain reason on the
+  Lens ("this phone would not give its runtime enough memory … close and reopen Ghosty"); the NAME worker sets 1 GB
+  too. THE TRAP (99a5544): the service worker serves `/vendor/` cache-first (`ghosty-vendor-v1`), so a phone that already
+  held the stock glue would keep it for ever — both workers now ask for the glue as `ort-wasm-simd-threaded.mjs?v=2`
+  (cache keys include the query string: fetched fresh once, then cached). Never bump `ghosty-vendor-v1` for this: the
+  offline brain reads that cache too (`offline/brain.ts`). `faces.test.mjs` pins all of it (the glue regex, both workers'
+  lines, the retry form, the ?v=2 addresses) and runs SFace in the real runtime under the 256 MB cap: 10/10. Chromium
+  loaded the namer through ?v=2 on a fresh preview ("named the lemon photo lemon 96%"). NOT TESTABLE HERE: iOS Safari
+  itself; his phone is the test (close Ghosty fully, reopen, Lens → PEOPLE → ENROL ME; if it still fails he sends the
+  whole error line and whether Lens → NAME works). Main's own run after #45 (run 265) finished green at 15:23: no revert.
+  Batch 6 (BRIEF-MACHINE-VIEW) building since 13:55 on port 8844: at 15:55 its branch holds five commits (+3136/−50:
+  foresight ledger + `foresee` job + tool, the Brief and Report-card panels, the Machine view, docs/VISION) and it is in
+  its final checks. This record and OWNER-ISSUES 87 waited on a local ref (refs/parked) until #46 merged (a push to an
+  open PR restarts its 2 h run; the stop hook asks for a push at every turn end, so the commit was kept off the branch
+  and said so), then went up free with no PR open.
+- 31 Oct 17:05 UK: BATCH 6 BUILT, REVIEWED AND MERGED onto the branch (merge 62e6e98 on cd1d9c0), going up in ONE pull
+  request. The builder (BRIEF-MACHINE-VIEW, from 11ead4e, port 8844; 2 h 42 min, 47 files, +3136/−50, five commits: f4b5f35
+  the ledger + job + routes + stand-ins + tests, f2307a1 the tool + the ALSO trim + mock + no-model words + ABILITIES,
+  9f4f4a6 the Brief and Report-card panels + specs, 7f3302c the Machine view, 80c2376 docs/VISION.md + the CI loop) delivered
+  both items; its report is recorded as OWNER-ISSUES 88. WHAT IS WHERE: shared `foresight.ts` (the pure parts: shapes,
+  predictRain/Departure/Commute, scoreRain/Departure/Commute, calibration, calibrationLine, scoreLine, expectLines,
+  yesterdayLine, proofLine, foresightAsked, rightSaid, personProblem + NOT_PEOPLE, readLedger, prune ≤400, addSample ≤30);
+  brain `foresight.ts` (key `foresight:ledger`; the hourly `foresee` job: ≤8 reads a tick with 10 s limits, steps aside
+  when meter.spare() is false; scoring at `by`, the commute sampled 08:00 and 17:30 on weekdays with the TomTom key, the
+  morning's predictions once after six, firstTrue once ever; GET /foresight (?tz= kept as /mind does), POST
+  /foresight/resolve; foresightReply for Telegram), `tools/foresight.ts` (`foresee` what: expect|today|record; byWhen; the
+  group `foresight`, when: FORESIGHT_WHEN only, about 218 chars), agent.ts (route, job tick under meter.as, foreDeps,
+  ensureForeseeJob), telegram.ts (foresightReply before claimTurn, no turn slot), mind.ts (`expect` ≤2 lines, never in the
+  prompt), prompt.ts (`ALSO (call by name):`, 21 chars shorter; worst case 5,494 of 5,500 — 6 chars headroom, the guard
+  unchanged, prompt.test.mjs:46 updated), mock.ts two lines; phone `features/eye/machine.ts` (pure: MACHINE_LAYERS, within,
+  nearest, elevation/overhead, airTag, transitTag, placeTag, walkTag, warningSentence, countLine, hubLine, machineAsked,
+  machineState → `window.__ghosty.machine`), `features/eye/machineview.ts` (createMachine: enter/leave with `before` =
+  vis + camera + autoSpin + sats.showOrbit + sats.dim, put back exactly; the drift; the boxes; one poller every 8 s while
+  on; the Eye's own air/ship ticks and keepLayers() stand aside while `machineState.on`), eye/index.ts (`open('machine')`
+  for #eye?machine, the bar's first button, ROAD AHEAD and leaving the tab end the mode), shell/tabs.ts (`go('eye?machine')`
+  → inst.open(arg)), hubcards/areas (a card's status line `line`/`lineTo`: the Eye card reads WATCHING · N AIR · N TRANSIT),
+  assistant/local.ts (machineAsked → the view and its line; foresightAsked; rightSaid only while one of his questions is
+  open under 7 days), `state/foresight.ts` (60 s cache), `features/brief/foresight.ts` (FORESIGHT after COMMUTE; RIGHT /
+  WRONG), `features/system/foresight.ts` (Report card → FORESIGHT: bars per kind, last ten, still open with UNKNOWN too),
+  styles (.mch*, .foreacts, .hline; seven `.eyebot .bgroup:first-child` rules became `:first-of-type` so MACHINE VIEW can be
+  first), `engine/layers/sats.ts` `dim`, places.ts `list()`, shared guardian.ts `levelWord` (moved, re-exported from
+  guardstate.ts); tests `apps/edge/test/foresight.test.mjs` (13 tests), `machine.test.mjs` (5); specs `tests/machine.spec.mjs`
+  (after eye in CI), `tests/foresight.spec.mjs` (before websites); stand-ins `tests/fixtures/foresight-feeds.mjs` (Open-Meteo
+  past_days=1 hourly, Transitous plan/stoptimes moved to the time asked, TomTom route) + `/__test/foresight?rain=&late=
+  &made=1&reset=1`, `/__test/foresee-due`; brief.spec check 11 and nav.spec extended; package.json bundles machine.ts and
+  lists both tests; docs/VISION.md (new, the Eye section). MY REVIEW (read in full: both foresight modules, the tool, the
+  agent/telegram/local/prompt/tabs/hubcards/eye diffs, machine.ts, machineview.ts, the fixture, the preview routes; no model
+  names in the diff): NOTHING TO FIX. Notes kept: (a) personProblem catches pronouns, relations, "someone/people", owned
+  roles and CAPITALISED names before/after a modal — a lowercase name ("will sam be late") passes it; the tool's description
+  carries the rule, the model normally capitalises names, and a dictionary check would refuse too much of his real
+  questions: a known edge, recorded in 88; (b) "you were right" / "that was wrong" is consumed as his verdict ONLY while one
+  of his answer-predictions is open under seven days — otherwise it goes to the model as ever: a design pick for him;
+  (c) Open-Meteo's hourly precipitation and probability are sums/chances of the PRECEDING hour, so the (12:00, 18:00]
+  window is right as written; (d) the Eye's ships poll runs keyless too while the mode is on (the brain answers "no feed"
+  fast); (e) MAP.md has had no rows since batch 1: left as is. VALIDATION (the merged tree 62e6e98, then 1e65e79 with the fix below): brain typecheck OK and 1,317 of 1,317 (the
+  first run had three walk tests failing: THE TIME BOMB below); web typecheck and build OK; on ONE fresh preview on 8788, in
+  this order: websites 110 s, apps 60 s, hubcards 60 s, machine 112 s (the first Machine line 1,885 ms after MACHINE VIEW),
+  foresight 46 s, eye 334 s, brief 41 s, nav 489 s, abilities 117 s, faces 36 s, guardian 27 s — all green. THE TIME BOMB
+  (1e65e79): the batch-5 walk tests run on a fixed fake clock (guardian-kit.mjs NOW = 16:30 UTC on 31 Oct 2026); startWalk
+  plans the ETA on that clock, but addJob judged "that time is in the past" against Date.now(), so from 16:51 UTC the three
+  walk-me-home tests failed with no change to the code under test (they passed in PR #45, PR #46 and main's runs, all before
+  16:51; the NEXT push run on main would have failed brain and the guard would have reverted main). Fixed at cause: addJob
+  takes the caller's clock (default Date.now(): nothing changes in the brain) and startWalk passes its own; walk + guardian
+  15/15, then the full suite 1,317/1,317. LESSON: a fake clock anchored to a real date must never meet the real clock
+  anywhere on the path under test; a suite that passes in the morning and fails in the afternoon with no code change has a
+  fixed timestamp in it. WATCH: (1) hubcards flakes when the brain's
+  self-study job (first run +10 min after a fresh brain, then every 15 min) writes passages between its two reads, and
+  sees the amber 'protective' light when run straight after guardian — CI's order leaves both where they were (hubcards
+  near the end, far from guardian); my chain runs hubcards third and guardian last; (2) the prompt has 6 characters of
+  headroom: the next tool group must trim something of its own, never the guard; (3) the first Machine line took 1.6–3.1 s
+  under software rendering (the spec allows 10 s and prints it): his phone decides the 2 s; (4) the owner's lowercase name
+  edge above. Next: PR up, CI ~2 h (81 specs now), merge, then the free docs push; the owner's picks for the social self
+  remain unanswered, so the workshop and knowledge batch is the one to brief next.
 
 
 

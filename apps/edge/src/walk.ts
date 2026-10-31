@@ -188,7 +188,7 @@ export async function startWalk(d: GuardDeps, o: { minutes?: number | null; from
   const w: WalkState = { id: code().slice(0, 8), startedAt: now, eta: now + minutes * MIN, to: home?.label ?? 'Home', stage: 'walking', via: o.via, ...(okPos(o.from) ? { pos: { lat: o.from.lat, lon: o.from.lon, at: now }, posAt: now } : {}) };
   await d.storage.put(WALK_KEY, w);
   for (const j of (await loadJobs(d.storage)).filter((x) => x.kind === 'walk')) await removeJob(d.storage, j.id);
-  await addJob(d.storage, { kind: 'walk', title: 'Walk me home', text: w.id, next: w.eta, repeat: 'none', tz: 'UTC' });
+  await addJob(d.storage, { kind: 'walk', title: 'Walk me home', text: w.id, next: w.eta, repeat: 'none', tz: 'UTC' }, now);
   const zone = await zoneOf(d.storage);
   await observe(d.storage, { kind: 'place', text: `set off home at ${clockIn(now, zone)}, due ${clockIn(w.eta, zone)}`, via: o.via }, now).catch(() => null);
   return { walk: w, said: startWords(w, zone, (await personRoute(d, c.person)) ? c.person!.name : '', c.person?.name ?? '') };

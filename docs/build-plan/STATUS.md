@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 13:40 UK
+# Where everything stands — 31 October 2026, 17:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #45, the last at 13:33 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #46, the last at 16:25 UK on 31 Oct)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -47,6 +47,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   never a text; "walk me home" → "Home?" at the walking time, again ten minutes on, then your person messaged once, with
   where you are only if you switched that on; "home" or I'M HOME ends it and tells them you're fine), a PANIC PHRASE kept
   only as a scrambled copy (said or typed anywhere, it messages them at once), and WATCHING OVER YOU on the Me sheet.
+- LIVE since 16:25 UK on 31 Oct (PR #46): PEOPLE on your iPhone fixed — the face runtime asked the phone for 4 GB of
+  shared memory up front and iOS refused it once the camera runtime was loaded ("no available backend found … RangeError");
+  it now asks for 1 GB, tries once more at 256 MB, and says plainly on the Lens if even that fails. Close Ghosty fully
+  and open it again before you try ENROL ME, so the phone fetches the fixed runtime.
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -106,21 +110,24 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Nothing waiting: everything built so far is live (PR #45 merged at 13:33 UK on 31 Oct).
+- Nothing waiting: everything built so far is live (PR #46 merged at 16:25 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- Waiting on you: the phone tests in my morning message (batches 1 to 4), and these for batch 5 — ENROL ME in good light
+- Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 once it is live: save Home and Work in
+  Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
+  free TomTom key in SYSTEM → KEYS if you want commute predictions; and these for batch 5, now that PEOPLE is fixed (PR #46; close Ghosty fully and open it again first) — ENROL ME in good light
   (Lens → PEOPLE), then introduce someone; save home in Memory → ME → PLACES; in SETTINGS → GUARDIAN name your person
   (your cousin: a Telegram handle or an email), send them the invite or link your email, press TEST MESSAGE, choose
   "Share where I am", set a panic phrase; allow location and notifications on the first walk; try "walk me home" and
   "is this a scam?" once each for real. Also your principles in your own words (SETTINGS → CHARACTER → PRINCIPLES) and
   the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between
   opens (47) and your Connect 4 trick no longer wins (52).
-- Batch 5 landed at 13:33 UK. Building now (since 13:55 UK): batch 6, the Machine view and foresight (BRIEF-MACHINE-VIEW):
-  a MACHINE mode on God's Eye that frames your city with everything moving and your places lit, with a true count of what
-  he is watching; and foresight, a prediction ledger (rain at home, your commute, your first train or bus, and what you ask
-  him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
+- Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK. Batch 6, the Machine view and foresight
+  (BRIEF-MACHINE-VIEW), is built, reviewed, validated and in its pull request (opened about 17:40 UK; its checks take about two hours,
+  then I merge it): MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
+  count of what he is watching; foresight is a prediction ledger (rain at home, your commute, your first train or bus, and
+  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
   knowledge, then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
   messages, search by meaning in the "Can you…?" box, anti-spoofing for faces (a printed photo held to the live camera
   still counts as the camera).
@@ -129,7 +136,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
-foresight → the workshop and knowledge → the social self and rituals. The older list below still stands after those.
+foresight (in its pull request) → the workshop and knowledge → the social self and rituals. The older list below still stands after those.
 
 1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.

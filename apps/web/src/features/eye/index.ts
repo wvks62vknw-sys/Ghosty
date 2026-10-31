@@ -46,6 +46,8 @@ import { incidentLayer } from '../../engine/layers/incidents';
 import { meLayer } from '../../engine/layers/me';
 import { roadAhead, type Me } from '../../data/roadahead';
 import { createRoadAhead } from './roadahead';
+import { machineState } from './machine';
+import { createMachine } from './machineview';
 import { fetchImage } from '../../api/feed';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
@@ -150,6 +152,7 @@ export const eyeTab: TabDef = {
     let selected: Pickable | null = null;
     let airTimer = 0;
     let shipTimer = 0;
+    let machine: ReturnType<typeof createMachine> | null = null;
 
     // ---------- top: search + sensor modes ----------
     const q = h('input', { placeholder: 'Search place, flight, ship, satellite…', autocomplete: 'off', enterKeyHint: 'search', 'aria-label': 'Search the globe' });
@@ -264,6 +267,8 @@ export const eyeTab: TabDef = {
     const layerJson = () => JSON.stringify(Object.fromEntries(LAYERS.map(([k]) => [k, globe.vis[k]])));
     let keptVis = layerJson();
     const keepLayers = () => {
+      // (the Machine view's own layers are its own: what he chose is kept, and put back when it ends)
+      if (machineState.on) return;
       const now = layerJson();
       if (now === keptVis) return;
       keptVis = now;
@@ -692,6 +697,7 @@ export const eyeTab: TabDef = {
       flyTo: (lat, lon, rangeKm) => globe.cam.flyTo({ lat, lon, range: rangeKm, tilt: 50 }),
     });
     startRoadAhead = () => {
+      machine?.leave();
       loadCameras();
       ra.start();
       raBtn.classList.add('on');
@@ -900,7 +906,13 @@ export const eyeTab: TabDef = {
     const labels = h('div.labels');
     const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips, mine.el);
     const bot = h('div.eyebot', look, readout, btns);
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), bot));
+    const mid = h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail);
+    const hud = h('div.hud.eye', top, mid, bot);
+    root.append(hud);
+    // THE MACHINE VIEW (machineview.ts): a mode of this globe — his city, everything moving, his things lit, the true count.
+    // Its button comes first in the bar.
+    machine = createMachine({ mid, top, bot, hud, places: () => mine.list(), refreshPlaces: () => mine.refresh(), select: (p) => select(p), active: () => ui.get().tab === 'eye' });
+    btns.prepend(machine.button);
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -1141,7 +1153,7 @@ export const eyeTab: TabDef = {
         vel.x *= 0.92;
         vel.y *= 0.92;
       }
-      if (!globe.cam.fly && !globe.cam.dragging) {
+      if (!globe.cam.fly && !globe.cam.dragging && !machineState.on) {
         const want = globe.cam.target.range < 3200 ? clamp((3200 - globe.cam.target.range) / 3200, 0, 1) * 58 : 0;
         if (globe.cam.target.tilt < want) globe.cam.target.tilt += (want - globe.cam.target.tilt) * Math.min(1, dt * 1.2);
       }
@@ -1197,15 +1209,22 @@ export const eyeTab: TabDef = {
     return {
       enter() {
         void mine.refresh();
+        // (what the Machine view shows, for the specs: window.__ghosty.machine, as the Brief and the Lens do)
+        const g = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;
+        if (g) g.machine = machineState;
+        // (and the chat's own way in, with the globe still open, as the Lens gives it: what he types or says in the chat)
+        if (g && !g.send) g.send = (t: string, voice = false) => send(t, { voice });
         // Live traffic tiles need the TomTom key in the brain (it may have been added since).
         void brain.trafficStatus().then((r) => (trafficState.ready = r.ready)).catch(() => undefined);
         quakes.start();
         events.start();
         launches.start();
-        const tick = () => void air.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+        // (while the Machine view is on it asks the feeds about the frame itself: one poller)
+        const tick = () => void (machineState.on || air.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range));
         tick();
         airTimer = window.setInterval(tick, 8000);
         const shipTick = () => {
+          if (machineState.on) return;
           if (globe.vis.ships) void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
           if (globe.vis.transit) void transit.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
           // Motorway incidents: National Highways lists them by region; the West Midlands is the one Ghosty can place on the map.
@@ -1218,6 +1237,7 @@ export const eyeTab: TabDef = {
         paintModes();
       },
       leave() {
+        machine?.leave(true);
         keepLayers();
         closeLook();
         clearInterval(airTimer);
@@ -1226,7 +1246,10 @@ export const eyeTab: TabDef = {
         gridKey = '';
         clear(grid.body);
       },
-      describe: () => `${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
+      open(arg: string) {
+        if (arg === 'machine') void machine?.enter();
+      },
+      describe: () => `${machine?.describe() ? `${machine.describe()} ` : ''}${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
     };
   },
 };

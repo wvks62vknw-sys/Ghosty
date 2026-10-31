@@ -22,9 +22,10 @@ export interface Job {
    * (profile.ts); digest = the morning gathering of fresh knowledge (library/digest.ts);
    * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
    * upgrade = the daily upgrade ideas (upgrades.ts); train = the offline brain's weekly self-training (selftrain/cycle.ts);
-   * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts)
+   * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts);
+   * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts)
    */
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train' | 'guard' | 'walk';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train' | 'guard' | 'walk' | 'foresee';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;
@@ -115,12 +116,15 @@ export async function rearm(storage: DurableObjectStorage, jobs?: Job[]): Promis
 export async function addJob(
   storage: DurableObjectStorage,
   j: { kind: Job['kind']; title: string; text: string; next: number; repeat?: Repeat; tz: string; eventId?: string },
+  // the clock the caller planned `next` on (the walk home runs on the brain's own clock, and in its tests a fake one):
+  // "in the past" is judged against that clock, never a different one
+  now = Date.now(),
 ): Promise<Job> {
   const tz = safeTz(j.tz);
   const repeat = j.repeat ?? 'none';
   let next = j.next;
   if (!Number.isFinite(next)) throw new Error('that time could not be understood');
-  if (next < Date.now() - 60_000) {
+  if (next < now - 60_000) {
     if (repeat === 'none') throw new Error('that time is in the past');
     next = nextRun(next, repeat, tz) ?? next;
   }

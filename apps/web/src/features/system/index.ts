@@ -8,6 +8,7 @@ import { BUILD } from '../../state/build';
 import { button, confirmSheet, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { ledgerPanel } from './ledger';
+import { foresightPanel } from './foresight';
 import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
@@ -41,10 +42,12 @@ export const systemTab: TabDef = {
     const lp = loopsPanel();
     // What he learned to do this week, in his words (ledger.ts, the capability ledger); LOOPS has the numbers.
     const lg = ledgerPanel();
+    // How often his predictions came out right, per kind (foresight.ts): beside what he learned to do.
+    const fsp = foresightPanel();
     const tp = trainingPanel();
     // NIGHT SCHOOL (night.ts): the phone works through the night, plugged in and open on Ghosty.
     const np = nightPanel();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, lp.el, tp.el, np.el);
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el);
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
@@ -52,7 +55,7 @@ export const systemTab: TabDef = {
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
       { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
-      { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|LOOPS)/ },
+      { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
       { id: 'backup', label: 'Backup', match: /^(STORAGE|BACKUP)/ },
     ]);
@@ -362,6 +365,7 @@ export const systemTab: TabDef = {
         tp.refresh();
         lp.refresh();
         lg.refresh();
+        fsp.refresh();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };

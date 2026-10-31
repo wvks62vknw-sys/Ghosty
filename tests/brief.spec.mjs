@@ -15,6 +15,7 @@
 //  8. With no saved home and work, one line says where to save them (a tap opens Memory).
 //  9. The digest's "Today in one line", and its headlines when the BBC can't be reached.
 // 10. What Ghosty is told is on screen carries the day's facts.
+// 11. FORESIGHT comes after the commute: today's expectations with the confidence as a word, yesterday's line, the score.
 // No page errors, nothing sideways.
 //   BASE=http://localhost:<port> node tests/brief.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -83,6 +84,20 @@ const PLACES = [
   { id: 'work', label: 'Work', query: 'B15', address: 'Edgbaston, Birmingham', lat: 52.4531, lon: -1.9416, at: 1 },
 ];
 const LIVE_DRIVE = { minutes: 24, km: 6.1, delayMin: 5, live: true, line: '24 min by car now, 5 min of it traffic (TomTom live)' };
+// What the brain's foresight ledger (apps/edge/src/foresight.ts, GET /api/foresight) says at 07:00: today's rain and train open.
+const FORESIGHT = {
+  items: [
+    { id: 'r', at: at('2026-10-26T06:00:00Z'), kind: 'rain', subject: 'rain at Home 12:00–18:00', expect: 'rain by 09:00', confidence: 0.7, by: at('2026-10-26T18:30:00Z') },
+    { id: 'd', at: at('2026-10-26T06:00:00Z'), kind: 'departure', subject: 'the 08:12 train from Birmingham New Street (West Midlands Trains)', expect: 'on time', confidence: 0.6, by: at('2026-10-26T08:15:00Z') },
+    { id: 'y', at: at('2026-10-25T06:00:00Z'), kind: 'departure', subject: 'the 08:12 train from Birmingham New Street (West Midlands Trains)', expect: 'late by 3 min or more', confidence: 0.7, by: at('2026-10-25T08:15:00Z'), outcome: { at: at('2026-10-25T08:15:00Z'), actual: '6 minutes late', right: true, how: 'feed', value: 360 } },
+  ],
+  expect: ['I expect the 08:12 on time (60%)', 'I expect rain by 09:00 (70%)'],
+  yesterday: 'Yesterday: right 1 of 1 — I expected the 08:12 late; it was, by 6 minutes.',
+  calibration: { rain: { n: 0, right: 0, share: 0 }, departure: { n: 1, right: 1, share: 1 }, commute: { n: 0, right: 0, share: 0 }, answer: { n: 0, right: 0, share: 0 }, all: { n: 1, right: 1, share: 1 } },
+  score: "I keep score: I've only scored 1 so far about trains.",
+  notes: ['The commute needs the free TomTom key, SYSTEM → KEYS.'],
+  tz: 'Europe/London',
+};
 const FREE_DRIVE = { minutes: 12, km: 5.4, delayMin: 0, live: false, line: 'about 12 min by car with clear roads (no live traffic: add the free TomTom key in System for it)' };
 const DIGEST = [
   { rid: 11, heading: '2026-10-25 · BBC News', text: 'Fresh knowledge 2026-10-25 — BBC News (feeds.bbci.co.uk):\n- Yesterday story — old news', page: null },
@@ -131,6 +146,7 @@ async function open(browser, { viewport = PHONE, places = PLACES, drive = LIVE_D
   await page.route(/\/api\/inbox$/, (r) => json(r, { items: [], unread: 2 }));
   await page.route(/\/api\/profile\/places$/, (r) => json(r, { places }));
   await page.route(/\/api\/traffic\/commute\//, (r) => (down.has('drive') ? json(r, { error: 'the route service answered 502' }, 502) : json(r, drive)));
+  await page.route(/\/api\/foresight\?/, (r) => json(r, FORESIGHT));
   await page.route(/\/api\/library$/, (r) => json(r, { docs: [DOC], stats: { docs: 1, passages: DIGEST.length, chars: DOC.chars, bytes: 0, vectors: 0 }, starterReady: true, vectors: false, spare: true }));
   await page.route(/\/api\/library\/docs\/notes_daily\/passages/, (r) => json(r, { passages: DIGEST, next: null }));
   await page.route(/\/api\/tts$/, (r) => {
@@ -216,6 +232,15 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
   // 7. The commute straight after YOUR DAY, live.
   check(7, order[1] === 'commute', `the commute is not straight after YOUR DAY (order: ${order.join(', ')})`);
   check(7, /24 min by car now, 5 min of it traffic \(TomTom live\)/.test(await text(page, '#pg-brief .pn.commute')), 'the live drive is not shown');
+
+  // 11. FORESIGHT after the commute: today's two in the order they come due, the confidence as a word; yesterday; the score.
+  await page.waitForFunction(() => /Yesterday: right 1 of 1/.test(document.querySelector('#pg-brief .pn.foresight')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+  const after = await page.$$eval('#pg-brief .col .pn:not([hidden])', (ps) => ps.map((p) => (p.classList.contains('foresight') ? 'foresight' : p.className.split(' ').find((c) => ['brday', 'commute', 'wx', 'news'].includes(c)) ?? p.className)));
+  check(11, after.indexOf('foresight') === after.indexOf('commute') + 1, `FORESIGHT is not straight after the commute (order: ${after.join(', ')})`);
+  const fl = await page.$$eval('#pg-brief .pn.foresight .foreline .v', (vs) => vs.map((v) => v.textContent));
+  check(11, fl.join(' | ') === 'I think: the 08:12 on time | Likely: rain by 09:00', `FORESIGHT's lines: ${fl.join(' | ')}`);
+  const fs = await text(page, '#pg-brief .pn.foresight');
+  check(11, fs.includes('Yesterday: right 1 of 1 — I expected the 08:12 late; it was, by 6 minutes.') && fs.includes("I keep score: I've only scored 1 so far about trains.") && fs.includes('The commute needs the free TomTom key, SYSTEM → KEYS.'), `FORESIGHT reads: ${fs}`);
 
   // 10. What Ghosty is told is on screen.
   const told = await page.evaluate(() => window.__ghosty?.brief?.describe?.() ?? '');

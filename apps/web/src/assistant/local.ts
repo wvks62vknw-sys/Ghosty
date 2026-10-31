@@ -6,11 +6,19 @@
  *  - "why did you do that?" (OWNER-ISSUES 67d): the last reply's trail in plain words (features/core/why.ts); a bare "why?"
  *    after a reply that ran nothing is about what was said, so it goes to the brain;
  *  - "what did you do today?" (OWNER-ISSUES 68c): the brain's day (GET /api/today) with this phone's own (the GYM's games
- *    and the games he played me), one short list, newest first.
+ *    and the games he played me), one short list, newest first;
+ *  - FORESIGHT (OWNER-ISSUES 61a): "what do you expect today?", "how often are you right?", "were you right?" from the
+ *    brain's ledger (GET /api/foresight, kept a minute), and "you were right" / "you were wrong" on his latest open question
+ *    (under seven days old): his word kept with POST /api/foresight/resolve;
+ *  - THE MACHINE VIEW (OWNER-ISSUES 61c): "machine view", "show me my city", "what are you watching?", "what can you see?"
+ *    open God's Eye in the mode, and the answer is its count line (features/eye/machine.ts).
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
 import { bestAsk, canYouAsked, dayLines, searchAbilities, todayAsked, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
-import { timeZone } from '../state/app';
+import { ANSWER_DAYS, foresightAsked, foresightWords, notedWords, rightSaid } from '../../../../packages/shared/src/foresight';
+import { loadForesight, resolveForesight } from '../state/foresight';
+import { machineAsked, machineState } from '../features/eye/machine';
+import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
@@ -19,7 +27,7 @@ import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -118,7 +126,41 @@ export async function phoneDay(now = Date.now()): Promise<DayItem[]> {
   return out;
 }
 
+/** One question and its answer, said here: in the chat (and aloud when he asked by voice). */
+function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }): true {
+  add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
+  add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local, ...(opts.private ? { private: true } : {}) });
+  chat.set({ live: reply });
+  if (opts.voice) void speak(reply).catch(() => undefined);
+  return true;
+}
+
+/** A read of the brain that gives up after six seconds (null), so the chat never hangs on it. */
+const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
+
 export async function localTurn(text: string, opts: { voice?: boolean; private?: boolean } = {}): Promise<boolean> {
+  // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
+  if (machineAsked(text) && !(ui.get().tab === 'lens' && /\bsee\b/i.test(text))) {
+    location.hash = 'eye?machine';
+    const t0 = Date.now();
+    while (!(machineState.on && machineState.ready) && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    return answer(text, machineState.line || 'I couldn’t open God’s Eye just now. Try MACHINE VIEW in its bar.', { kind: 'machine' }, opts);
+  }
+  const fore = foresightAsked(text);
+  if (fore) {
+    const info = await within(loadForesight());
+    return answer(text, info ? foresightWords(fore, info) : 'I can’t reach my brain right now, so I can’t read my predictions.', { kind: 'foresight' }, opts);
+  }
+  const verdict = rightSaid(text);
+  if (verdict) {
+    // only while one of his questions is open and under a week old; otherwise the words go to the brain as ever
+    const info = await within(loadForesight(true));
+    const open = info?.items.filter((p) => p.kind === 'answer' && !p.outcome && Date.now() - p.at < ANSWER_DAYS * 86_400_000).sort((a, b) => b.at - a.at)[0];
+    if (open) {
+      const done = await within(resolveForesight(open.id, verdict.right));
+      return answer(text, done ? notedWords(verdict.right) : 'I couldn’t reach my brain to note that. Try again when you’re back online.', { kind: 'foresight' }, opts);
+    }
+  }
   if (todayAsked(text)) {
     const tz = timeZone;
     const [brainSide, phone] = await Promise.all([

@@ -1,8 +1,8 @@
-# What Ghosty can do for you — in the words you asked for it (31 October 2026, 14:20 UK)
+# What Ghosty can do for you — in the words you asked for it (31 October 2026, 17:05 UK)
 
 One page, kept up to date as batches land. Each line: what you said → what he does now → how you use it. ABILITIES
 (the Me sheet → Everything I can do) has the live list made from his own code; this page is the plain-words version.
-Batch 6 (the Machine view and foresight) is building and is marked "soon".
+Batch 6 (the Machine view and foresight) is built and reviewed and in its pull request: live about two hours after it opens, and its lines below are written as what he does.
 
 ## The everyday things
 
@@ -19,15 +19,22 @@ Batch 6 (the Machine view and foresight) is building and is marked "soon".
   every morning. SPENDING in the Agenda from the statements you add (no bank access, ever): the month, what changed,
   subscriptions, "set a budget of £150 for food".
 - **The Brief.** → The morning picture: the weather and when it rains, your day and what is next, the commute, the
-  headlines, READ IT TO ME. Soon: what he expects today and whether yesterday's predictions came true.
+  headlines, READ IT TO ME, and FORESIGHT: what he expects today ("Likely: rain by 15:00", "I think: the 08:12 on time"),
+  whether yesterday's came true ("Yesterday: right 2 of 3 — I expected the 08:12 late; it was, by 6 minutes"), your own
+  questions still on record with RIGHT / WRONG, and his standing score line.
 - **The Lens.** → SEE (what is in view), READ (text into the library), NAME (plants with the free Pl@ntNet key, birds,
   insects, anything), WHAT'S IN IT (a meal with a rough total), SCAN (codes, documents, TRANSLATE even with no signal),
   AIM (point at a plane or a ship and he tells you what it is), MEASURE, SOUND, HANDS (gestures drive it), PHOTO TOOLS
   (background removed, sharper, a thing erased), GADGET MANUALS (a rating plate → the manual with fixes and parts), and
   PEOPLE (below). A number plate from READ → CHECK for its MOT, never who owns it.
 - **God's Eye.** → The globe with everything moving: aircraft, ships, buses and trams, satellites, traffic, incidents,
-  cameras, rain radar, quakes, space weather, street crime and ANPR cameras; dive into Street View from it. Soon: the
-  MACHINE view that frames your city with your places lit and a true count of what he is watching.
+  cameras, rain radar, quakes, space weather, street crime and ANPR cameras; dive into Street View from it. MACHINE VIEW,
+  first in its bar (or say "machine view", "show me my city", "what are you watching?"): frames your city from 14 km with
+  everything moving on, your places in thin white boxes (amber with a pulsing ring while a warning is active there,
+  WALKING HOME · DUE under Home during a walk), the three nearest aircraft and the nearest bus or tram tagged, and one
+  true line of what he is tracking within 25 km ("Watching Birmingham. 41 aircraft, 188 buses and trams, 9 satellites
+  overhead; no road incidents. Nothing active near Home."). It drifts slowly round; LEAVE puts your layers and camera
+  back exactly. The SEE hub's Eye card shows its reading.
 - **Threats.** → Quakes, natural events, space weather, launches, NEAR YOU, and now NEAR HOME: flood and weather warnings
   and the month's street crime near your saved places, looked at every hour, each new warning told once.
 - **Telegram.** → The same Ghosty by text, voice note, photo or video; "why?", "what did you do today?", "walk me home",
@@ -99,7 +106,14 @@ Batch 6 (the Machine view and foresight) is building and is marked "soon".
   domain's age, look-alikes of HMRC / Royal Mail / Evri / the banks, three public block lists, the message's own shape;
   he never calls anything "safe". WATCHING OVER YOU on the Me sheet shows the whole watch at a glance.
 - **"The Machine view of his city with everything moving… predictions as practice, scored only by what happens."** →
-  Building now (batch 6). Then: the universal workshop (the wind tunnel, beams, the engine, architecture — every answer a
+  Batch 6, in its pull request. The Machine view is above, under God's Eye. FORESIGHT: every morning at six he predicts
+  the rain at Home for 12:00–18:00, your 08:00 commute (with the free TomTom key) and whether your first train or bus to
+  work will be on time; each is scored at its time by the public feed alone, never adjusted afterwards. Ask him "what do
+  you reckon, will it rain Saturday?" and his answer goes on record, scored only by your word ("you were right", "you
+  were wrong"); "how often are you right?" gives his record per kind; "what do you expect today?" his open ones. The
+  Brief's FORESIGHT panel and SYSTEM → Report card → FORESIGHT show it all; the first prediction that comes true is one
+  notification, once ever. He never predicts anything about a person: the tool refuses it in code and records nothing.
+  Then: the universal workshop (the wind tunnel, beams, the engine, architecture — every answer a
   first estimate, never certified), the knowledge with sources, the social self and the rituals (Father, the origin, the
   weekly letter; your four Harold / Machine picks shape that one).
 
@@ -109,3 +123,8 @@ Batch 5: ENROL ME in good light, then introduce someone; save home and work in M
 GUARDIAN name your person, send the invite or link your email, press TEST MESSAGE, set a panic phrase; say "walk me home"
 once, then "home"; say "is this a scam?" with a dodgy text pasted after it. Batches 1 to 4: the seven tests in the morning
 message of 31 Oct. Still open: your principles in your own words, and the four Harold / Machine picks.
+
+Batch 6: save Home and Work in Memory → ME → PLACES (the rain needs Home; the commute and the train need both, and the
+commute the free TomTom key in SYSTEM → KEYS); open God's Eye → MACHINE VIEW once and tell me how fast the first line
+comes and how the drift feels; the first real morning's predictions are made after 06:00 and scored that evening; try
+"what do you reckon, will it rain tomorrow?" once, then "you were right" or "you were wrong" the day after.
