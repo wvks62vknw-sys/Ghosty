@@ -8,7 +8,7 @@
 // each state.
 //   BASE=http://localhost:8806 node tests/hero.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -68,6 +68,8 @@ async function open({ reducedMotion = 'no-preference', noWebGL = false } = {}) {
   await page.route('**/api/library/study', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(STUDY) }) : r.continue()));
   const three = [];
   page.on('request', (r) => /three/.test(r.url()) && three.push(r.url()));
+  // Mind's light is measured against Reactor's own accent: he starts calm (a mood is a live overlay on it)
+  await standDown(base);
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');

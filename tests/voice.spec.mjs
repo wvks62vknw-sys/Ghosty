@@ -284,7 +284,7 @@ const fakePhone = () => {
     const synth = window.SpeechSynthesis?.prototype ?? window.speechSynthesis;
     synth.getVoices = () => voices;
     synth.speak = (u) => {
-      if (u.text.trim()) window.__said.push({ text: u.text, voice: u.voice?.name ?? null });
+      if (u.text.trim()) window.__said.push({ text: u.text, voice: u.voice?.name ?? null, rate: u.rate, pitch: u.pitch, volume: u.volume });
       setTimeout(() => {
         u.onstart?.();
         setTimeout(() => u.onend?.(), 150);
@@ -393,6 +393,35 @@ const fakePhone = () => {
   await page.waitForFunction((n) => window.__said.length > n, before, { timeout: 8000 }).catch(() => problems.push(`[${name}] with the natural voice used up, the phone did not take over`));
   const fallback = await page.evaluate(() => window.__said.at(-1));
   if (fallback && fallback.voice !== 'Serena (Premium)') problems.push(`[${name}] the fallback spoke in ${fallback.voice}`);
+  // his voice follows his mood (OWNER-ISSUES 63): the phone's voice lower, slower and colder when he is cross, lower, slower
+  // and quieter when subdued, a touch brighter when pleased; calm again, exactly his own
+  {
+    await engineSel.selectOption('phone');
+    const say = async () => {
+      const n = await page.evaluate(() => window.__said.length);
+      await sampleNow();
+      await page.waitForFunction((k) => window.__said.length > k, n, { timeout: 8000 }).catch(() => undefined);
+      return page.evaluate(() => window.__said.at(-1));
+    };
+    // (set on this phone, newer than anything the brain's status can bring meanwhile: state/mood.ts setMood)
+    const feel = (kind) => page.evaluate((k) => window.__ghosty.mood.set({ now: k === 'calm' ? { kind: 'calm', since: Date.now(), cause: '', until: 0 } : { kind: k, since: Date.now(), cause: 'a test', until: Date.now() + 600_000 } }), kind);
+    const near = (a, b) => Math.abs(a - b) < 1e-6;
+    await feel('calm');
+    const calm = await say();
+    const tones = {};
+    for (const k of ['cross', 'subdued', 'pleased', 'protective']) {
+      await feel(k);
+      tones[k] = await say();
+    }
+    await feel('calm');
+    const back = await say();
+    const want = { cross: [0.9, 0.8, 1], subdued: [0.92, 0.9, 0.8], pleased: [1.02, 1.05, 1], protective: [0.95, 1, 1] };
+    for (const [k, [rate, pitch, volume]] of Object.entries(want)) {
+      const u = tones[k];
+      if (!u || !calm || !near(u.rate, rate) || !near(u.pitch / calm.pitch, pitch) || !near(u.volume, volume)) problems.push(`[${name}] ${k}: the phone's voice spoke at ${JSON.stringify(u)} (calm ${JSON.stringify(calm)})`);
+    }
+    if (!back || back.rate !== calm.rate || back.pitch !== calm.pitch || back.volume !== calm.volume) problems.push(`[${name}] calm again, the voice is not his own: ${JSON.stringify(back)} vs ${JSON.stringify(calm)}`);
+  }
   // no voice on the brain at all: the phone speaks (graceful)
   ttsAnswer = { voice: null, note: null, status: 404, seconds: 0.1 };
   await engineSel.selectOption('ghosty');

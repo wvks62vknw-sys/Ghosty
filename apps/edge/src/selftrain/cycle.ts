@@ -55,6 +55,7 @@
  * Every save made by a job step checks the state's generation first (`gen`): a step that started before the
  * report arrived cannot write its stale copy over it.
  */
+import { feel } from '../mood';
 import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
@@ -1473,6 +1474,22 @@ async function loadRatings(s: DurableObjectStorage): Promise<Rating[]> {
   return (await s.get<Rating[]>(K.ratings)) ?? [];
 }
 
+/**
+ * A rating on one of his replies (one per reply: a newer one replaces it, and so does one on the same words), from the
+ * phone's 👍/👎 or his own words (agent.ts, intent.ts raising). `kind`: a reward or a telling-off, `weight` 1–3.
+ */
+export async function rateReply(s: DurableObjectStorage, r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean; kind?: unknown; weight?: unknown }): Promise<number> {
+  const reply = String(r.reply ?? '').slice(0, 3000);
+  const list = (await loadRatings(s)).filter((x) => x.at !== r.at && x.reply !== reply);
+  if (r.up !== null && r.up !== undefined) {
+    const kind = r.kind === 'reward' || r.kind === 'discipline' ? r.kind : r.up ? 'reward' : 'discipline';
+    const weight = Math.max(1, Math.min(3, Math.round(Number(r.weight) || 1)));
+    list.push({ at: r.at, up: !!r.up, question: String(r.question ?? '').slice(0, 2000), reply, ...(r.offline ? { offline: true } : {}), kind, weight });
+  }
+  await s.put(K.ratings, list.slice(-300));
+  return list.length;
+}
+
 export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
   const s = d.storage;
   const st = await loadState(s);
@@ -1519,18 +1536,20 @@ export async function trainingRoute(req: Request, path: string, method: string, 
   const body = method === 'POST' ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
   if (path === '/training/feedback' && method === 'POST') {
     const at = Number(body.at);
-    const question = String(body.question ?? '').slice(0, 2000);
-    const reply = String(body.reply ?? '').slice(0, 3000);
+    const reply = String(body.reply ?? '');
     if (!Number.isFinite(at) || !reply.trim()) return json({ error: 'a rating needs the reply' }, 400);
-    const list = (await loadRatings(s)).filter((r) => r.at !== at);
-    if (body.up !== null && body.up !== undefined) list.push({ at, up: !!body.up, question, reply, ...(body.offline ? { offline: true } : {}) });
-    await s.put(K.ratings, list.slice(-300));
-    return json({ ok: true, ratings: list.length });
+    const up = body.up === null || body.up === undefined ? null : !!body.up;
+    const n = await rateReply(s, { at, up, question: String(body.question ?? ''), reply, offline: !!body.offline, kind: body.kind, weight: body.weight });
+    return json({ ok: true, ratings: n });
   }
   if (path === '/training/gym' && method === 'POST') {
     const levels: Record<string, number> = {};
     for (const [k, v] of Object.entries((body.levels ?? {}) as Record<string, unknown>)) if (/^[a-z0-9]{2,24}$/.test(k) && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 10) levels[k] = v as number;
+    // A level he climbed in the GYM is a win he is proud of: it pleases him (mood.ts), the one thing that cheers him that he earned.
+    const was = (await s.get<Record<string, number>>(K.gym)) ?? {};
+    const won = Object.keys(levels).find((k) => was[k] !== undefined && levels[k]! > was[k]!);
     await s.put(K.gym, levels);
+    if (won) await feel(s, { kind: 'gymWin', what: `a GYM win: ${won} level ${levels[won]}` }).catch(() => undefined);
     return json({ ok: true });
   }
   if (path === '/training/star' && method === 'POST') {

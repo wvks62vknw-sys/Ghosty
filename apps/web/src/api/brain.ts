@@ -306,7 +306,8 @@ export const brain = {
       .catch(() => [])
       .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library }, ...(cited ? { cited: true } : {}) }, onEvent, signal)),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
-  stop: () => req<{ ok: boolean }>('POST', '/stop'),
+  /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
+  stop: (harsh?: boolean) => req<{ ok: boolean }>('POST', '/stop', harsh === undefined ? undefined : { harsh }),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
   addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),
@@ -330,6 +331,9 @@ export const brain = {
   /** SETTINGS → CHARACTER (profile.ts): how dry, how brief, how warm Ghosty talks, and the words that makes. */
   persona: () => req<{ persona: PersonaSettings; character: string }>('GET', '/profile/persona'),
   setPersona: (p: PersonaSettings) => req<{ persona: PersonaSettings; character: string }>('POST', '/profile/persona', p),
+  /** His PRINCIPLES (profile.ts): his own lines, the whole list each time. */
+  principles: () => req<{ lines: string[]; max: number }>('GET', '/profile/principles'),
+  setPrinciples: (lines: string[]) => req<{ lines: string[]; max: number }>('POST', '/profile/principles', { lines }),
   /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
@@ -463,7 +467,8 @@ export const brain = {
     /** The daily GPU (a Space on his Hugging Face account, its free minutes): his yes (it is made at the next step) or no. */
     pool: (allow: boolean) => req<TrainStatus>('POST', '/training/pool', { allow }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
-    rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
+    /** `kind`/`weight` (OWNER-ISSUES 69c): a 👍 is a reward, a 👎 a telling-off, weight 1 (his words weigh more: intent.ts). */
+    rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean; kind?: 'reward' | 'discipline'; weight?: number }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
     gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
     /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */

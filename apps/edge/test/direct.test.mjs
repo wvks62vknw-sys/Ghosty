@@ -224,5 +224,42 @@ test('the scripted model\'s "no model:" phrase drives the same path (the browser
   assert.match(said(await ask('no model: what time is it')), /^No AI model is free right now \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\nIt is /);
   const err = (await ask('no model: tell me a joke')).find((e) => e.t === 'error')?.message ?? '';
   assert.match(err, /^Every model I can reach is cooling down after rate limits\. The first one frees up in about 40 seconds\. The first model is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\. Tip: a free key in SYSTEM \(Groq, Cerebras or NVIDIA\) means never waiting\.$/, err);
-  assert.match(said(await ask('hello')), /^Mock reply to: hello/, 'an ordinary turn is unaffected');
+  assert.match(said(await ask('say hello')), /^Mock reply to: say hello/, 'an ordinary turn is unaffected');
+});
+
+// OWNER-ISSUES 64d: "hey" met "no free model". Greetings and acknowledgements need no model at all.
+test('small talk: a greeting, thanks, ok, goodnight — one line as a person says it, with no model; after a question or an offer, "ok" is an answer', () => {
+  const at = (h) => Date.UTC(2026, 9, 31, h, 5); // 31 Oct: London is on GMT
+  const c = { tz: 'Europe/London', name: 'Sam' };
+  assert.equal(D.smallTalk('hey', c, '', at(9)), 'Morning, Sam.');
+  assert.equal(D.smallTalk('Hey Ghosty!!', c, '', at(14)), 'Afternoon, Sam.');
+  assert.equal(D.smallTalk('hi mate 👋', c, '', at(20)), 'Evening, Sam.');
+  assert.equal(D.smallTalk('yo', c, '', at(2)), 'Still up, Sam?');
+  assert.equal(D.smallTalk('Night', c, '', at(23)), "Night, Sam. I'll keep watch.");
+  assert.match(D.smallTalk('thanks', c, '', at(9)), /^Any time(, Sam)?\.$/);
+  assert.match(D.smallTalk('ok then', c, 'The 17:42 is on time.', at(9)), /^(Right|Good)\.$/);
+  assert.match(D.smallTalk('how are you?', c, '', at(9)), /You\?$/);
+  assert.equal(D.smallTalk('bye', {}, '', at(9)), 'Later, boss.');
+  for (const [word, last] of [['ok', 'Shall I book the 9am?'], ['yeah', 'I can move it to Friday.'], ['sure', 'Want me to remind you at 8?']]) assert.equal(D.smallTalk(word, c, last, at(9)), null, `"${word}" after "${last}" is an answer`);
+  for (const t of ['hey can you check the weather', 'thanks, now book it', 'ok so what about tomorrow', 'night out ideas?', 'hello there friend of mine', 'what time is it', 'say hello', '']) assert.equal(D.smallTalk(t, c, '', at(9)), null, t);
+});
+
+test('in the chat with every model rate-limited, "hey" and "thanks" are answered at once and no model is asked; the exchange stays in the conversation', async () => {
+  const world = fakeWorld();
+  try {
+    const storage = new MemStorage();
+    const a = newAgent(storage, { GROQ_KEY: 'gsk_x', KEYLESS_MODELS: '0' });
+    const ask = async (message) => events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message, context: CTX }) }));
+    let ev = await ask('hey');
+    assert.match(said(ev), /^(?:Still up, boss\?|Morning, boss\.|Afternoon, boss\.|Evening, boss\.)$/, said(ev));
+    assert.equal(ev.find((e) => e.t === 'done')?.model, 'Direct · no AI');
+    assert.ok(!ev.some((e) => e.t === 'error'));
+    ev = await ask('thanks!');
+    assert.match(said(ev), /^Any time/);
+    assert.equal(world.sent.length, 0, 'no model was asked');
+    const ctx = await storage.get('ctx');
+    assert.deepEqual(ctx.map((m) => m.role), ['user', 'assistant', 'user', 'assistant'], 'the model sees the exchange next time');
+  } finally {
+    world.restore();
+  }
 });

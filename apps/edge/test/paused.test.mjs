@@ -81,7 +81,7 @@ test('keys given once are used while the database is paused, from the encrypted 
     // Next day: the database is paused and the brain has restarted (nothing in memory).
     storage.down = true;
     const p = newAgent(storage);
-    const ev = await events(await p.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }, { 'x-ghosty-vault': b.backup }));
+    const ev = await events(await p.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }, { 'x-ghosty-vault': b.backup }));
     assert.equal(ev.find((e) => e.t === 'text')?.text, 'Hello from the AI.');
     assert.match(ai.sent.at(-1).auth, /gsk_given_once/);
     const st = await (await p.call('/status', {}, { 'x-ghosty-vault': b.backup })).json();
@@ -90,7 +90,7 @@ test('keys given once are used while the database is paused, from the encrypted 
     // Someone without the owner key can't open the copy.
     const q = newAgent(storage);
     const before = ai.sent.length;
-    await events(await q.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }, { 'x-ghosty-key': 'wrong-owner-key-000000000', 'x-ghosty-vault': b.backup }));
+    await events(await q.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }, { 'x-ghosty-key': 'wrong-owner-key-000000000', 'x-ghosty-vault': b.backup }));
     assert.ok(!ai.sent.slice(before).some((s) => /gsk_given_once/.test(s.auth)));
   } finally {
     ai.restore();
@@ -107,12 +107,12 @@ test('a key saved while paused works at once and is written to the database once
     assert.equal(r.status, 200, await r.clone().text());
     const b = await (await a.call('/vault/backup')).json();
     assert.equal(b.waiting, 1);
-    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }));
     assert.match(ai.sent.at(-1).auth, /gsk_saved_while_paused/);
 
     // The brain restarts while still paused: the device's copy carries the new key.
     const c = newAgent(storage);
-    await events(await c.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }, { 'x-ghosty-vault': b.backup }));
+    await events(await c.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }, { 'x-ghosty-vault': b.backup }));
     assert.match(ai.sent.at(-1).auth, /gsk_saved_while_paused/);
 
     // Midnight UTC: the database is back; the next copy refresh writes the key to it.
@@ -121,7 +121,7 @@ test('a key saved while paused works at once and is written to the database once
     assert.equal(after.waiting, 0);
     assert.ok(storage.m.has('vault:groq'));
     const fresh = newAgent(storage);
-    await events(await fresh.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    await events(await fresh.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }));
     assert.match(ai.sent.at(-1).auth, /gsk_saved_while_paused/, 'from the database now, no copy needed');
   } finally {
     ai.restore();
@@ -134,7 +134,7 @@ test('Cloudflare secrets count under the usual names (GROQ_API_KEY, GOOGLE_API_K
     const storage = new MemStorage();
     storage.down = true;
     const a = newAgent(storage, { GROQ_API_KEY: 'gsk_from_secret' });
-    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }));
     assert.match(ai.sent.at(-1).auth, /gsk_from_secret/);
   } finally {
     ai.restore();
@@ -297,7 +297,7 @@ test('with the KV mirror: a key saved while paused is kept at once, survives a r
 
     // The brain restarts during the pause; the device sends no copy.
     const b = newAgent(storage, env);
-    await events(await b.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    await events(await b.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }));
     assert.match(ai.sent.at(-1).auth, /gsk_mirrored/, 'the key came from KV');
 
     // Midnight UTC: the database is back. The first request flushes, no device needed.
@@ -344,7 +344,7 @@ test('the database meter counts the brain\'s own reads and writes and shows in /
     const storage = new MemStorage();
     const a = newAgent(storage, { SITES: new FakeKv() });
     await a.call('/keys', { method: 'POST', body: JSON.stringify({ name: 'groq', value: 'gsk_meter' }) });
-    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'say hi' }) }));
     const st = await (await a.call('/status')).json();
     const m = st.meter;
     assert.ok(m && m.reads > 0 && m.writes > 0, JSON.stringify(m));

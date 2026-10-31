@@ -54,7 +54,7 @@ export function rateRow(e: Reply): HTMLElement {
     const next = was === v ? undefined : v;
     setRated(id, next);
     void brain.selftrain
-      .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}) })
+      .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}), ...(next === undefined ? {} : { kind: next === 1 ? ('reward' as const) : ('discipline' as const), weight: 1 }) })
       .then(() => {
         if (next === -1) toast('Thanks — Ghosty will learn a better answer to that in its weekly training', 'ok');
       })

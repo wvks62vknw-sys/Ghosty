@@ -31,6 +31,7 @@
  * Which paper a subject gets (`sourcesFor`): an official paper that is fetched and not yet handed out, else the
  * generators (nursery to Key Stage 2), else its finished question bank; none of these: it cannot be sat.
  */
+import { feel } from '../mood';
 import { boundaryLine, scorePaper, stageById, STAGE_IDS, SUBJECT_LABEL, weakSpots, type ItemResult, type PaperResult, type StageId } from '../../../../packages/shared/src/school';
 import { durableDelete } from '../kv';
 import { BANK_STAGES, bankItems, bankKey, bankName, bankPaper, bankReady, bankRow, bankTick, isBankStage, loadBank, shapeOf, type BankMeta } from './banks';
@@ -313,6 +314,8 @@ export async function handleSchool(req: Request, path: string, method: string, d
   }
 
   if (path === '/school/sit' && method === 'POST') {
+    // A paper being sat: he is focused while he sits it (mood.ts).
+    await feel(d.storage, { kind: 'task', what: 'sitting a paper', minutes: 60 }).catch(() => undefined);
     const stage = String(body.stage ?? '') as StageId;
     const s = stageById(stage);
     if (!s || !STAGE_IDS.includes(stage)) return bad('No such stage.');

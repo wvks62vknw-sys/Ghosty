@@ -377,6 +377,17 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   await hook(msg(OWNER_CHAT, { text: '/stop' }), secret);
   assert.deepEqual(texts(), ['Stopped.']);
   tg.calls.length = 0;
+  // a stop by intent, not the command (OWNER-ISSUES 70a): it stops him, and it is never answered — not even "Stopped."
+  for (const t of ['shut the fuck up', 'enough mate', 'leave it', 'Ghosty stop']) {
+    await hook(msg(OWNER_CHAT, { text: t }), secret);
+    await settle();
+    assert.deepEqual(texts(), [], `"${t}" is never answered`);
+  }
+  // "stop the timer" is a request, not a stop: it is answered
+  await hook(msg(OWNER_CHAT, { text: 'stop the timer' }), secret);
+  await settle();
+  assert.ok(texts().some((t) => /stop the timer/.test(t)), texts().join(' | '));
+  tg.calls.length = 0;
   // a reminder run now: the inbox item goes to Telegram too
   const job = (await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text: 'Call the dentist', at: Date.now() + 3600_000, repeat: 'none', tz: 'UTC' }) })).json()).job;
   await call(`/api/jobs/${job.id}/run`, { method: 'POST' });
@@ -460,12 +471,12 @@ test('the paused database: the link lives on in KV, so the webhook still answers
   state.storage.put = async () => quota();
   state.storage.delete = async () => quota();
   try {
-    const r = await hook(msg(OWNER_CHAT, { text: 'hello' }), live);
+    const r = await hook(msg(OWNER_CHAT, { text: 'say hello' }), live);
     assert.equal(r.status, 200);
     const reply = texts();
     assert.ok(reply.length >= 1, 'answered while paused');
     assert.ok(!reply.some((t) => /Exceeded allowed rows/.test(t)), `no raw database error: ${reply.join(' | ')}`);
-    assert.ok(reply.some((t) => /^Mock reply to: hello/.test(t)), reply.join(' | '));
+    assert.ok(reply.some((t) => /^Mock reply to: say hello/.test(t)), reply.join(' | '));
   } finally {
     state.storage.get = realGet;
     delete state.storage.put;

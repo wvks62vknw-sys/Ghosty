@@ -227,7 +227,7 @@ export async function keylessSearch(query: string): Promise<Hit[]> {
 export const webTools: Tool[] = [
   {
     name: 'web_search',
-    description: 'Search the web. Use for anything current or that you are unsure about. Returns titles, links and snippets.',
+    description: 'Search the web for live or outside facts (prices, news, anything current), never for what you already know. Returns titles, links and snippets.',
     parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
     risk: 'auto',
     pure: true,

@@ -26,7 +26,8 @@ import { bootFault, bootReady, bootState, startBoot } from './shell/boot';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
-import { applyTheme, settleTheme } from './state/theme';
+import { applyMood, applyTheme, settleTheme } from './state/theme';
+import { mood } from './state/mood';
 import { button, toast } from './ui/components';
 
 /**
@@ -115,6 +116,9 @@ onLocalReminder((title, text) => {
 
 async function boot(): Promise<void> {
   applyTheme(settleTheme());
+  // his mood on the whole interface (state/mood.ts → theme.ts applyMood): a live overlay on the accent, never saved
+  applyMood(mood.get().now.kind);
+  mood.subscribe((s) => applyMood(s.now.kind));
   // the cinematic starts at once (in the theme's colour) and plays while everything below gets ready
   startBoot();
   const cv = document.getElementById('gl') as HTMLCanvasElement;
@@ -156,7 +160,7 @@ async function boot(): Promise<void> {
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …
-  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState };
+  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood };
   // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
   if (ui.get().connected) startNight();
   // the app is up underneath: the cinematic may land (or, on a plain open, the black simply goes)

@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { Mood } from './mood';
 import type { PersonaSettings } from './persona';
 import type { SpeedSummary } from './speed';
 
@@ -18,7 +19,9 @@ export type ChatEvent =
   | { t: 'done'; model: string }
   | { t: 'error'; message: string }
   /** A cited answer (CITED on, or "with sources"): its numbered sources and each claim checked against them; sent after its `text`. */
-  | ({ t: 'cited' } & CitedInfo);
+  | ({ t: 'cited' } & CitedInfo)
+  /** His mood changed with this message (packages/shared/src/mood.ts): the phone shows it at once, not at the next status. */
+  | { t: 'mood'; mood: Mood };
 
 /** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
 export interface Citation {
@@ -149,6 +152,11 @@ export interface Lesson {
   hits: number;
   /** Locked in the Memory tab: never reworded, merged away or dropped (memories.ts). */
   locked?: boolean;
+  /**
+   * 'conduct': a standing rule about how he talks and acts, in the owner's own words ("too long", "never call me that";
+   * OWNER-ISSUES 64 RAISING HIM), on every turn. None: an engineering lesson, on coding turns only.
+   */
+  kind?: 'conduct';
 }
 
 export interface ChatTurn {
@@ -376,6 +384,8 @@ export interface BrainStatus {
   capacity?: AiCapacity;
   /** The brain's stopwatch (apps/edge/src/speed.ts): today's and last week's medians, in numbers and plain words, for the SPEED card. */
   speed?: SpeedSummary;
+  /** His mood now (packages/shared/src/mood.ts): shown in words and a shape on the Me sheet's Status card. */
+  mood?: Mood;
 }
 
 /** One provider's free allowance right now. */

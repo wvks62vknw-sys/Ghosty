@@ -226,6 +226,27 @@ test('the owner\'s 👍/👎: 👎 and a better reply make a pair (and a failure
   assert.match(F.betterPrompt(down), /<<external content from the owner's message[\s\S]*<<external content from the disliked reply/);
 });
 
+// OWNER-ISSUES 69c: discipline and reward are real mechanics — recorded with a kind and a weight that the week's run reads.
+test('raising him: a reward or a telling-off weighs as he meant it — the week holds its pair that many times and says which; the route keeps kind and weight', async () => {
+  const down = { at: 1, up: false, question: 'What is 15% of 80?', reply: 'It is 15.', kind: 'discipline', weight: 3 };
+  const recs = F.ratingRecords(down, '15% of 80 is 12.');
+  assert.equal(recs.length, 3, 'a sharp telling-off is held three times');
+  assert.ok(recs.every((r) => r.kind === 'pref' && r.chosen === '15% of 80 is 12.' && r.from === 'owner 👎 + a better reply · discipline ×3'), recs[0]?.from);
+  const up = F.ratingRecords({ at: 2, up: true, question: 'hi', reply: 'Evening.', kind: 'reward', weight: 2 });
+  assert.deepEqual(up.map((r) => r.from), ['owner 👍 · reward ×2', 'owner 👍 · reward ×2']);
+  assert.equal(F.ratingRecords({ at: 3, up: true, question: 'q', reply: 'r' }).length, 1, 'a rating from before kinds weighs 1');
+  assert.equal(F.ratingRecords({ at: 4, up: true, question: 'q', reply: 'r', kind: 'reward', weight: 99 }).length, 3, 'at most 3');
+  // the route (the phone's 👍/👎) and the brain's own (his words): one rating per reply, the newest wins, kind and weight kept
+  const s = new MemStorage();
+  const post = (body) => C.trainingRoute(new Request('https://x/api/training/feedback', { method: 'POST', body: JSON.stringify(body) }), '/training/feedback', 'POST', { storage: s });
+  await post({ at: 21, up: true, question: 'q', reply: 'Booked for 8.' });
+  assert.deepEqual((await s.get('train:ratings')).map((r) => [r.kind, r.weight]), [['reward', 1]], 'a 👍 is a reward of weight 1');
+  await C.rateReply(s, { at: 99, up: true, question: 'q', reply: 'Booked for 8.', kind: 'reward', weight: 2 });
+  assert.deepEqual((await s.get('train:ratings')).map((r) => [r.at, r.kind, r.weight]), [[99, 'reward', 2]], '"good boy" on the same reply replaces the tap');
+  await post({ at: 22, up: false, question: 'q', reply: 'Certainly!', kind: 'discipline', weight: 7 });
+  assert.deepEqual((await s.get('train:ratings')).at(-1).weight, 3, 'the weight is 1 to 3');
+});
+
 test('distillation and failures: the online models\' replies to the owner (not disliked, not live data); last week\'s misses replayed', () => {
   const turns = [
     { role: 'user', text: 'What is a Roth IRA?', at: 1 }, { role: 'assistant', text: 'A US retirement account funded with taxed money.', model: 'groq/llama', at: 2 },

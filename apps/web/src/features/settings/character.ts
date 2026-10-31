@@ -1,9 +1,9 @@
 /**
- * SETTINGS → CHARACTER: three dials for how Ghosty talks — how dry, how brief, how warm — each
+ * SETTINGS → CHARACTER: four dials for how Ghosty talks — how dry, how brief, how warm, how fiery — each
  * LESS / DEFAULT / MORE. The brain keeps them (POST /api/profile/persona, profile.ts) and puts
  * them into the character every prompt carries (packages/shared/src/persona.ts), so the app,
  * the voice, Telegram and notifications all change together. The phone keeps a copy in its
- * settings for the offline brain. Under the dials: how he sounds now, in plain words ("Now: dry, warm, short answers,
+ * settings for the offline brain. Under the dials: how he sounds now, in plain words ("Now: dry, warm, answers as long as yours,
  * as he comes."), and the exact words Ghosty is given one tap away (they read like an instruction to a machine, which
  * is what they are; a wall of them was the panel's main text).
  */
@@ -11,13 +11,16 @@ import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { button, panel, toast, type Panel } from '../../ui/components';
+import { principlesEditor } from './principles';
 import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSettings } from '../../../../../packages/shared/src/persona';
 
-/** "Now: dry, warm, short answers, as he comes." — the dials in plain words (the steps' own names, in small letters). */
+/** "Now: dry, warm, answers as long as yours, as he comes." — the dials in plain words (the steps' own names, in small letters). */
 export function nowLine(p: PersonaSettings): string {
   const step = (k: keyof PersonaSettings) => PERSONA_DIALS.find((d) => d.key === k)!.steps[p[k]].toLowerCase();
-  const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm;
-  return `Now: ${step('dry')}, ${step('warm')}, ${step('brief')} answers${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
+  const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm && p.fire === DEFAULT_PERSONA.fire;
+  // HOW BRIEF's default follows his own length (persona.ts lengthBand)
+  const length = p.brief === 1 ? 'answers as long as yours' : `${step('brief')} answers`;
+  return `Now: ${step('dry')}, ${step('warm')}, ${step('fire')}, ${length}${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
 }
 
 export function characterPanel(): Panel & { refresh(): void } {
@@ -59,24 +62,29 @@ export function characterPanel(): Panel & { refresh(): void } {
       settings.set({ persona: cur });
       state.textContent = 'Saved.';
       paint();
-    } catch (e) {
+    } catch {
       cur = was;
       paint();
       state.textContent = '';
-      toast(`Not saved: ${String((e as Error)?.message ?? e).slice(0, 120)}`, 'bad');
+      // In his words, never the browser's (SMALL-GAPS A).
+      toast("Not saved: I can't reach my brain right now. Try again in a moment.", 'bad');
     }
   };
 
   const reset = button('DEFAULT', () => void save(DEFAULT_PERSONA));
+  // His PRINCIPLES (OWNER-ISSUES 64, 69b): the lines he holds me to, in his words — the same editor as MEMORY's.
+  const princ = principlesEditor();
   p.body.append(
     now,
     dials,
     h('div.row.charreset', reset),
     state,
+    h('div.charprinc', h('span.lab', 'PRINCIPLES'), princ.el),
     h('details.charwords', h('summary', { dataset: { case: 'keep' } }, 'The exact words Ghosty is given'), said),
   );
 
   const refresh = () => {
+    princ.refresh();
     void brain
       .persona()
       .then((r) => {

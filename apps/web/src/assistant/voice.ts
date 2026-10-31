@@ -17,6 +17,22 @@ import { brain, speechCaps } from '../api/brain';
 import { brainVoice, naturalBritish, phoneVoiceScore } from '../../../../packages/shared/src/voices';
 import { settings, ui } from '../state/app';
 import { BargeDetector } from './barge';
+import { mood } from '../state/mood';
+import type { MoodKind } from '../../../../packages/shared/src/mood';
+
+/**
+ * His voice follows his mood (OWNER-ISSUES 63; a design pick the owner may change): the phone's voice in pitch, pace and
+ * loudness — cross lower, slower, colder; subdued lower, slower, quieter; pleased a touch brighter; protective steady and
+ * level. Ghosty's own voice (the brain's clips, MeloTTS or Aura) takes no pitch or speed, so only its pace and loudness
+ * follow, as the clip is played (the pitch kept).
+ */
+export const MOOD_TONE: Partial<Record<MoodKind, { rate: number; pitch: number; volume: number }>> = {
+  cross: { rate: 0.9, pitch: 0.8, volume: 1 },
+  subdued: { rate: 0.92, pitch: 0.9, volume: 0.8 },
+  pleased: { rate: 1.02, pitch: 1.05, volume: 1 },
+  protective: { rate: 0.95, pitch: 1, volume: 1 },
+};
+const tone = () => MOOD_TONE[mood.get().now.kind] ?? { rate: 1, pitch: 1, volume: 1 };
 import { brief, clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 
@@ -187,8 +203,10 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0):
         u.lang = v.lang;
       }
       Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice" });
-      u.rate = 1;
-      u.pitch = v && naturalBritish(v) ? 1 : 0.92;
+      const t = tone();
+      u.rate = t.rate;
+      u.pitch = (v && naturalBritish(v) ? 1 : 0.92) * t.pitch;
+      u.volume = t.volume;
       u.onstart = () => {
         audible = true;
         armBargeIn();
@@ -305,6 +323,11 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
     el.onended = onEnded;
     el.onerror = () => finish(false);
     el.src = url;
+    // his mood in Ghosty's own voice: its pace and loudness (the clip's pitch is kept)
+    const t = tone();
+    el.preservesPitch = true;
+    el.playbackRate = t.rate;
+    el.volume = t.volume;
     el.play().catch(() => finish(false));
   });
 }
