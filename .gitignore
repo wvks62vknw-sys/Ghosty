@@ -10,3 +10,6 @@ tests/.shots/
 .claude/worktrees/
 __pycache__/
 *.pyc
+
+# the weekly notebook's tests write their scratch work here when run from training/kaggle
+training/kaggle/ghosty_work/

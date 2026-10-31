@@ -747,6 +747,43 @@ folder that no longer exists; ignore those paths).
   merge into the session branch — expect conflicts in prompt.ts / session.ts between the two — one PR each, merge when
   green, remove the worktree; batch 4 starts when either lands (two builders at once at most). The owner is asleep: ONE
   morning summary (what landed, what is live, the three phone tests, anything only he can do), nothing before.
+- 31 Oct 05:00 UK: BATCHES 2 AND 3 BUILT, REVIEWED AND MERGED onto the session branch, going up in ONE pull request (one
+  CI run for both), pushed once the combined tree's validation is clean (brain suite, web build, notebook tests, assets
+  check, nine specs). The record of each is OWNER-ISSUES 83 (batch 2) and 84 (batch 3); the builders' full reports are in
+  this session only. What the next session must know:
+  BATCH 2 (BRIEF-CONVERSATION; builder worktree from 80a8fb2; 49 files, +1799/−150; items 1–6, item 7 the twelve themes
+  NOT built): new packages/shared/src/intent.ts (stopIntent, raising), packages/shared/src/mood.ts (pure) + apps/edge/src/
+  mood.ts (one key 'mood'), apps/web/src/state/mood.ts (mirror + the `mood` chat event), theme.ts applyMood (an overlay,
+  never saved), features/settings/principles.ts, profile.ts PRINCIPLES_KEY 'principles' (GET/POST /profile/principles),
+  knowledge.ts conduct lessons (kind 'conduct', cap 30, topConduct 6 lines / 480 chars), direct.ts smallTalk/raisedReply,
+  selftrain rateReply (kind, weight 1–3; the weekly run holds a pair weight-many times), persona.ts lengthBand + the fire
+  dial + polish's proseList/plainShape. The plain-turn prompt's WORST case was 5,498/5,500 after batch 2 (the CHARACTER
+  sub-limit raised 450→506, accepted: the whole-prompt guard holds); batch 3's CONTEXT block gave ~78 back. MY REVIEW FIXES
+  (0a0d23b): GO_DARK anchored to the start of the message; "help me please" is not danger; "email from my bank" is not a
+  scam; "alright" is an ack, not a greeting; "come on" is not a telling-off; the weakest praise counts only when it is the
+  whole message; moodWords guards an empty cause. Validated on the merged tree: brain 1235/1235, web clean, 11 specs clean.
+  BATCH 3 (BRIEF-ONE-MIND; builder worktree from 88d985a; 48 files, +2698/−105; items 1, 5, 6, 2, 7; items 3 self-model and
+  4 timing NOT built — they need batch 2's shapes): apps/edge/src/mind.ts (mindSnapshot once per turn/alarm, observe → the
+  day log 'mind:log' ≤600 entries/100 KB, plates redacted, secrets never kept; GET /api/mind; prompt.ts contextLines renders
+  CONTEXT from it), memories.ts consolidate (weight/seen; only reflection-inferred, unlocked, weight≤1 facts FADE at 21 d
+  and go at 35 d with a day of UNDO; day log >14 d folded into the diary), training/kaggle/ghosty_weekly.py install step
+  (keep_torch constraint, pip's last lines logged, InstallError in plain words naming the pin, pypi_pins.json fixture) +
+  selftrain.ts stopWords/STUCK_INSTALL + cycle.ts installHold pre-flight (TRAIN NOW = tryAnyway) and no 3× re-push of a
+  stuck install, packages/shared/src/independence.ts + apps/web/src/core/independence.ts (localStorage
+  'ghosty.independence'; the brain's copy hourly via POST /training/meter, counts only, kept tasks never), selftrain/
+  ledger.ts ('train:ledger', only ever more demanding; GET /training/ledger; sundayNote with Sunday's digest),
+  tests/independence.spec.mjs in the loop after thinkharder. MERGE CONFLICTS, kept both sides: agent.ts (imports; loop():
+  band + principles + conduct + mood AND mind, all passed to systemPrompt), prompt.ts (batch 3's contextLines replaces the
+  CONTEXT block; batch 2's merged time line is subsumed), cycle.ts (/training/gym: the gymWin mood AND the ledger; batch 3's
+  `was` renamed `before`), web api/brain.ts (rate kind/weight AND gym names, ledger, meter).
+  WATCH: mindSnapshot races the calendar feeds for ≤1.5 s on every chat turn (a slow feed adds up to 1.5 s a turn: the
+  SPEED card will show it; cache the feeds if it does); the length band says "a line or two" for ≤12-word messages (his
+  call: FULLER on the dial). Both builders saw spec flakes only under heavy CPU load (direct, telegram's expired-code
+  check, gymideas's 221 ms CPU limit, memory's deep row): the loop's one retry covers a single one.
+  BATCH 4 (BRIEF-ABILITIES) builder started 03:50 UK from 0a0d23b (batch 1 + 2, NOT batch 3), port 8866, worktree
+  agent-a62f6bb3…: expect merge work in features/system/*.ts and agent.ts when it reports. Main stayed at ab09c3c (no
+  guard revert after the batch-1 merge).
+
 
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him

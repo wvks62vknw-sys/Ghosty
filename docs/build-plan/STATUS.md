@@ -1,4 +1,4 @@
-# Where everything stands — 31 October 2026, 02:40 UK
+# Where everything stands — 31 October 2026, 05:00 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
@@ -69,12 +69,25 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Nothing waiting: everything built so far is live.
+- Built, reviewed and going up in ONE pull request (opened early on 31 Oct; live once its checks pass and it merges):
+  BATCH 2, the conversation and the soul — he answers at your length (HOW BRIEF's default is LIKE YOU), no AI cadence,
+  looks things up only for live facts, "hey" / "thanks" / "night" answered with no model at all, a stop by intent ("shut
+  up", "enough", "leave it", typos and all) obeyed at once and never answered, a HOW FIERY dial (FIRM by default) with the
+  lines he never flips on, your PRINCIPLES page (SETTINGS → CHARACTER and MEMORY), praise and a telling-off recorded for
+  the weekly training with a weight, your corrections kept as his standing rules ("you told me: shorter"), and an honest
+  mood that lingers (subdued, pleased, protective, cross, focused; "stand down" or any stop puts him back) shown as colour
+  over the whole interface, in his voice, and on the Me sheet in words.
+  BATCH 3, one shared mind — one picture of your day that the chat, Telegram, the background tasks and the Brief all read
+  (they agree now), memory that forgets well (trivia he inferred fades after three weeks and goes after five unless you
+  KEEP it, with UNDO), the weekly training's install step says what stopped it in plain words naming the package (and he
+  holds back a notebook that would stop the same way), the INDEPENDENCE METER ("This week 71% of what you asked was
+  answered on your own brains…") with SOVEREIGN MODE's list of what still needed the cloud, and the capability ledger
+  (WHAT I LEARNED TO DO on the Report card, and a note on Sunday mornings).
 
 ## 3. Happening right now
 
 - Waiting on you: the three phone tests of batch 1 (sit a paper with GYM training running; "Always" with no brain downloaded → the explanation and ASK THE BIG BRAIN, the toggle by the mic; re-send the TikTok with "what do you think of this kiddo"), and the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between opens (47) and your Connect 4 trick no longer wins (52).
-- Building now, two builders at once: batch 2 (the conversation and the soul: his length and no AI cadence, stop by intent, conviction, correction and discipline as real mechanics, an honest mood that stands down on your word, moods in colour and voice, more themes) and batch 3 (one shared mind, memory that forgets well, a self-model, timing, the weekly training running for real, the independence meter and Sovereign Mode). Then batch 4, the ABILITIES tab (everything he can do, "Can you…?", why he did that, what he did today) — pulled forward so you never have to remember it yourself.
+- Building now: batch 4, the ABILITIES tab (everything he can do, generated from his own registries so it is never out of date; "Can you…?"; "want me to learn it?"; WHY he did that; what he did today). Left for a later batch: twelve more themes (batch 2, item 7), his self-model and the timing of his messages (batch 3, items 3 and 4).
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
