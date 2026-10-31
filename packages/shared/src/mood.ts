@@ -42,10 +42,12 @@ export type MoodEvent =
 
 const MIN = 60_000;
 
-/** The mood as it is at `now`: past its time, calm again. */
+/** The mood as it is at `now`: past its time, calm again (calm since it faded, so the phone can tell which is newer). */
 export function moodNow(m: Mood | null | undefined, now = Date.now()): Mood {
-  if (!m || typeof m !== 'object' || m.kind === 'calm' || !(Number(m.until) > now)) return CALM;
-  return m;
+  if (!m || typeof m !== 'object') return CALM;
+  const since = Number(m.since) || 0;
+  if (m.kind === 'calm') return since ? { ...CALM, since } : CALM;
+  return Number(m.until) > now ? m : { ...CALM, since: Number(m.until) || since };
 }
 
 const lasting = (kind: Exclude<MoodKind, 'calm'>, cause: string, now: number, minutes: number): Mood => ({ kind, since: now, cause, until: now + minutes * MIN });
@@ -55,9 +57,9 @@ export function moodAfter(prev: Mood | null | undefined, ev: MoodEvent, now = Da
   const was = moodNow(prev, now);
   switch (ev.kind) {
     case 'standDown':
-      return CALM;
+      return { ...CALM, since: now };
     case 'stop':
-      return ev.harsh ? lasting('subdued', 'you shut me up', now, 45) : CALM;
+      return ev.harsh ? lasting('subdued', 'you shut me up', now, 45) : { ...CALM, since: now };
     case 'discipline':
       return lasting('subdued', 'you told me off', now, ev.weight >= 3 ? 90 : ev.weight === 2 ? 45 : 15);
     case 'reward':

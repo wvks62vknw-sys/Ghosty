@@ -24,12 +24,14 @@
 //   BASE=http://localhost:8788 node tests/nav.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { DESKTOP, PHONE, UK, openDeck } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openDeck, standDown } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
+// each theme's own light is compared below: he starts calm (a mood is a live overlay on the accent)
+await standDown(base, KEY);
 const HOME = { name: 'Birmingham', lat: 52.4862, lon: -1.8904 };
 const problems = [];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

@@ -11,12 +11,16 @@ import { CALM, moodAfter, moodNow, type Mood, type MoodEvent, type MoodKind } fr
 export const mood = createStore({ now: CALM as Mood });
 
 let fade = 0;
-/** The mood as it is now; a timer puts him back to calm when it fades (no poll needed). */
-export function setMood(m: Mood | null | undefined): void {
+/**
+ * The mood as it is now; a timer puts him back to calm when it fades (no poll needed). `fromStatus`: a status can have been
+ * read before something newer happened here (a stop said a moment ago): it never puts back what came before it.
+ */
+export function setMood(m: Mood | null | undefined, opts: { fromStatus?: boolean } = {}): void {
   const now = moodNow(m);
+  const was = mood.get().now;
+  if (opts.fromStatus && (now.since || 0) < (was.since || 0)) return;
   clearTimeout(fade);
   if (now.kind !== 'calm') fade = window.setTimeout(() => setMood(CALM), Math.max(1000, now.until - Date.now()) + 500);
-  const was = mood.get().now;
   if (was.kind !== now.kind || was.since !== now.since) mood.set({ now });
 }
 
@@ -42,4 +46,4 @@ export function moodShape(kind: MoodKind): SVGSVGElement {
 }
 
 // every status the phone is given (Home, the Me sheet, the two-minute check) carries the brain's mood
-lastSeen.subscribe((s) => s.status && setMood(s.status.mood));
+lastSeen.subscribe((s) => s.status && setMood(s.status.mood, { fromStatus: true }));

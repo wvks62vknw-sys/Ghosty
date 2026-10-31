@@ -15,7 +15,7 @@
 //    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openPanel, openSection } from './nav.mjs';
+import { PHONE, UK, openDeck, openPanel, openSection, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -291,6 +291,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       localStorage.removeItem('ghosty.themes1');
     }
   }, [KEY, HOME]);
+  // a theme's own colours are measured here: he starts calm (a mood is a live overlay on the accent)
+  await standDown(base, KEY);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => problems.push(`[themes] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -367,6 +369,34 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
   const kept = await look();
   if (kept.theme !== 'graphite' || kept.c !== THEMES.graphite) problems.push(`[themes] Graphite was not kept after a restart: ${JSON.stringify(kept)}`);
+  // his mood on the whole interface (OWNER-ISSUES 63): a live overlay on the accent, never the saved theme — "go dark" and
+  // the accent, the lit tab and Mind's light go red; "stand down" puts the chosen theme back exactly (at once with Reduce
+  // Motion); the saved theme is untouched, and stays after a reload
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(600);
+  await page.fill('#cin', 'go dark');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.documentElement.dataset.mood === 'cross', null, { timeout: 15000 }).catch(() => problems.push('[mood] "go dark" did not make him cross'));
+  // eased over about a second: wait on the token itself, never a fixed pause
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--c').trim() === '#ff453a', null, { timeout: 8000 }).catch(() => undefined);
+  // (the lit tab has a colour transition of its own: wait on its colour too)
+  await page.waitForFunction(() => /^rgba?\(255, 69, 58(, 1)?\)$/.test(getComputedStyle(document.querySelector('#dock .tabcap button.on') ?? document.body).color), null, { timeout: 4000 }).catch(() => undefined);
+  const dark = await look();
+  if (dark.c !== '#ff453a' || dark.acc !== '#ff453a') problems.push(`[mood] cross did not turn the accent red: ${JSON.stringify(dark)}`);
+  if (dark.theme !== 'graphite' || dark.saved !== 'graphite') problems.push(`[mood] the mood touched the saved theme: ${JSON.stringify(dark)}`);
+  if (solid(dark.tab) !== rgb('#ff453a')) problems.push(`[mood] the lit tab is ${dark.tab}, not his red`);
+  await page.screenshot({ path: `${out}/routec-mood-cross.png` });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.fill('#cin', 'stand down');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction((hex) => getComputedStyle(document.documentElement).getPropertyValue('--c').trim() === hex, THEMES.graphite, { timeout: 2000 }).catch(() => undefined);
+  const calm = await look();
+  if (calm.c !== THEMES.graphite || calm.c2 !== '#dbe6ef' || (await page.evaluate(() => document.documentElement.dataset.mood)) !== 'calm') problems.push(`[mood] "stand down" did not put Graphite back exactly and at once: ${JSON.stringify(calm)}`);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  const after = await look();
+  if (after.c !== THEMES.graphite || after.saved !== 'graphite') problems.push(`[mood] after a reload: ${JSON.stringify(after)}`);
   // no element on any screen still carries a classic look's class
   const classic = await page.$$eval('.tcard, .tprev, .lookback, .morestyles, .themes, [data-finish]', (els) => els.map((e) => e.className));
   if (classic.length) problems.push(`[themes] classic-look elements are still made: ${classic.join(', ')}`);
