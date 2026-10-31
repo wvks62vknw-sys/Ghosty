@@ -195,6 +195,8 @@ test('"can you …?" in chat: a question about him is taken; a request is left f
     'what can you do',
     'can you translate this sign. it is in french',
     'remind me at 5',
+    'can you hear me?',
+    'can you see us',
   ]) assert.equal(A.canYouAsked(t), null, t);
   assert.equal(A.whatAbout("Can you check my car's MOT?"), "check my car's MOT");
   assert.equal(A.whatAbout('translate signs'), 'translate signs');

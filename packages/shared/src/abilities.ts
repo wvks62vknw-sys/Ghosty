@@ -300,6 +300,8 @@ export function canYouAsked(text: string): string | null {
   const soft = firm ? null : /^(?:can|could) (?:you|u|ya)\s+(.+?)[\s?!.]*$/i.exec(t);
   const thing = clean((firm ?? soft)?.[1] ?? '');
   if (!thing) return null;
+  // "can you hear me?", "can you see us?": about this moment, not about what he can do — the brain answers as it would
+  if (/^(?:hear|see|understand|listen to|smell|feel)\s+(?:me|us|this|that|it|what)\b/i.test(thing)) return null;
   // "can you …" is a request as often as a question: only a short, general one is taken as a question about him
   if (soft) {
     const words = thing.split(' ');
