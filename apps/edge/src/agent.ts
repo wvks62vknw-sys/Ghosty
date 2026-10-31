@@ -61,6 +61,7 @@ import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { abilitiesRoute } from './abilities'; // [abilities]
+import { keepTrail, trailRecorder } from './why'; // [abilities]
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
 import { ensureTrainJob, hookRoute, rateReply, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
@@ -658,8 +659,11 @@ export class GhostyAgent {
     this.turnLinks = [];
     // Did any reply text go out before a failure? (Then paused mode must not answer again.)
     let said = false;
+    // [abilities] the turn's trail, from the events it sends anyway: "why?" and what he did today read it (why.ts)
+    const trail = trailRecorder(text);
     const out = (ev: ChatEvent) => {
       if (ev.t === 'text') said = true;
+      trail.note(ev);
       emit(ev);
     };
     try {
@@ -703,6 +707,8 @@ export class GhostyAgent {
       // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
       else if (paused) out({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
       else out({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
+    } finally {
+      await keepTrail(this.storage, trail.trail()).catch(() => undefined); // [abilities]
     }
   }
 

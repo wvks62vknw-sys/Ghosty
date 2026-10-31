@@ -27,6 +27,7 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
+import { holdForWhy, whyButton } from './why';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
@@ -260,6 +261,11 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
       if (rateable(e)) acts.append(rateRow(e));
       if (e.text && !e.offline) acts.append(replyActs(e.text));
+      // WHY (OWNER-ISSUES 67d): what ran for this reply and why, from the chat's own trail (why.ts); a long press too
+      if (!e.local) {
+        (acts.querySelector('.msgacts') ?? acts).append(whyButton(e.at));
+        holdForWhy(el, e.at);
+      }
       if (q) acts.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
       if (acts.childElementCount) el.append(acts);
       return el;

@@ -24,6 +24,7 @@ import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
+import { argWords } from '../../../../packages/shared/src/abilities';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -51,8 +52,9 @@ export type Entry =
    *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
   | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer }
-  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
-  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
+  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
+   *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
+  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string; ask?: string }
@@ -73,7 +75,7 @@ function kept(entries: Entry[]): Entry[] {
     // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
     .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
-  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
+  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && (e.detail || e.args) ? { ...e, ...(e.detail ? { detail: redactPlates(e.detail, checkedPlates) } : {}), ...(e.args ? { args: redactPlates(e.args, checkedPlates) } : {}) } : e));
 }
 
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
@@ -185,7 +187,7 @@ function handle(ev: ChatEvent): void {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
       }
-      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
+      push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running', tool: ev.name, args: argWords(ev.args) });
       break;
     case 'progress':
       // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.

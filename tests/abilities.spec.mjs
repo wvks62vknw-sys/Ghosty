@@ -6,6 +6,7 @@
 // LEARNING opens with "I can learn anything you teach me"; nothing sideways at 440 or 390; every target 44 pt.
 // "Can you …?" (item 2): in the box and in the chat, the ability and GO, a near miss, or "Not yet. Want me to learn it?" →
 // YES keeps it as a learning goal (LEARNING, the brain, the Workshop); a request ("…at 5") still goes to the brain.
+// WHY (item 3): a reply's trail in a sheet, from its WHY or a long press; "why did you do that?" answered in the chat, no model.
 //   BASE=http://localhost:8866 node tests/abilities.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -210,6 +211,46 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     await page.press('#cin', 'Enter');
     await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /^.*Not (?:yet|quite)/.test(m.textContent ?? '')), null, 8000, '"can you juggle?" was not answered "Not yet" in the chat');
     if (asked.some((b) => /juggle/.test(b))) problems.push('"can you juggle?" went to the model');
+
+    // ---- WHY did you do that (item 3): a reply's trail in a sheet, from its WHY or a long press; "why did you do that?" typed
+    const fact = `my ${nonce()} cat is called Tom`;
+    await page.fill('#cin', `remember ${fact}`);
+    await page.press('#cin', 'Enter');
+    await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /remember/i.test(m.textContent ?? '') && m.querySelector('.whybtn')), null, 20000, 'the reply to "remember …" has no WHY');
+    const sheet = async (how) => {
+      await page.waitForSelector('.modal .whybody', { timeout: 5000 }).catch(() => problems.push(`${how} did not open the WHY sheet`));
+      const w = await page.evaluate(() => ({
+        title: document.querySelector('.modal .mhead b')?.textContent ?? '',
+        ask: document.querySelector('.modal .whyask')?.textContent ?? '',
+        steps: [...document.querySelectorAll('.modal .whystep')].map((x) => x.textContent),
+        why: [...document.querySelectorAll('.modal .whyreason')].map((x) => x.textContent),
+      }));
+      if (w.title !== 'Why I did that') problems.push(`${how}: the sheet is called "${w.title}"`);
+      if (w.ask !== `You asked: “remember ${fact}”`) problems.push(`${how}: the sheet starts "${w.ask}"`);
+      if (w.steps[0] !== `1. Remembered — text: ${fact}: it worked.`) problems.push(`${how}: the step reads "${w.steps[0]}"`);
+      if (!/^Why: you asked about “remember”, and I can remember lasting facts you tell me/.test(w.why[0] ?? '')) problems.push(`${how}: the reason reads "${w.why[0]}"`);
+      await page.screenshot({ path: `${out}/abilities-why.png` });
+      await page.click('.modal .mhead button').catch(() => undefined);
+      await page.waitForTimeout(300);
+    };
+    const reply = page.locator('#pg-core .msg:not(.me)', { has: page.locator('.whybtn') }).last();
+    await reply.locator('.whybtn').click().catch(() => problems.push('could not tap WHY'));
+    await sheet('WHY');
+    // a long press on the reply's words
+    const box = await reply.locator(':scope > span').first().boundingBox().catch(() => null);
+    if (box) {
+      await page.mouse.move(box.x + 10, box.y + 6);
+      await page.mouse.down();
+      await page.waitForTimeout(800);
+      await page.mouse.up();
+      await sheet('a long press');
+    } else problems.push('no words on the reply to press');
+    const before = asked.length;
+    await page.fill('#cin', 'why did you do that?');
+    await page.press('#cin', 'Enter');
+    await until(page, (f) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes(`Why I did that:\nYou asked: “remember ${f}”\n1. Remembered`)), fact, 8000, '"why did you do that?" was not answered with the trail in the chat');
+    await page.waitForTimeout(600);
+    if (asked.length !== before) problems.push('"why did you do that?" went to the model');
   }
   await ctx.close();
 }
@@ -219,4 +260,4 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain.');
+console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain; WHY: the sheet from a reply’s WHY and from a long press (what he asked, the step with its arguments and outcome, the reason), and "why did you do that?" answered in the chat with no model.');

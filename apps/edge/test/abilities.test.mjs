@@ -240,3 +240,62 @@ test('through the agent: POST /abilities/learn records it; ABILITIES and the Wor
   assert.equal(ideas[0].from, 'owner');
   assert.equal(ideas[0].title, 'Learn to translate signs');
 });
+
+// ---------------------------------------------------------------- item 3: WHY did you do that
+
+const W = await import('./.build/why.mjs');
+
+test('the trail from fake events: tools with their arguments in plain words, how each went, the reason from its ability and his own', () => {
+  const r = W.trailRecorder('how do I get to New Street by train tomorrow?', 1000);
+  r.note({ t: 'status', text: 'thinking' });
+  r.note({ t: 'tool', id: 'a', name: 'plan_journey', args: { to: 'Birmingham New Street', when: '07:30', html: '<p>never shown</p>' } });
+  r.note({ t: 'progress', id: 'a', name: 'plan_journey', label: 'Transitous…' });
+  r.note({ t: 'tool_result', id: 'a', name: 'plan_journey', ok: true, summary: 'Leave 07:12…' });
+  r.note({ t: 'tool', id: 'b', name: 'web_search', args: { query: 'rail strike Birmingham' } });
+  r.note({ t: 'tool_result', id: 'b', name: 'web_search', ok: false, summary: 'Error: no search key answered' });
+  r.note({ t: 'text', text: 'Take the 07:12 from Selly Oak. I checked for strikes because one was planned this week.' });
+  const t = r.trail();
+  assert.deepEqual(t.steps, [
+    { tool: 'plan_journey', args: 'to: Birmingham New Street · when: 07:30', ok: true, note: undefined },
+    { tool: 'web_search', args: 'query: rail strike Birmingham', ok: false, note: 'no search key answered' },
+  ]);
+  const lines = A.whyLines(t, A.brainAbilities(() => true));
+  assert.equal(lines[0], 'You asked: “how do I get to New Street by train tomorrow?”');
+  assert.equal(lines[1], '1. Planned journey — to: Birmingham New Street · when: 07:30: it worked.');
+  assert.match(lines[2], /^ {3}Why: you asked about “train”, and I can plan door-to-door journeys by bus, tram, train/);
+  assert.equal(lines[3], '2. Used web search — query: rail strike Birmingham: it didn’t work (no search key answered).');
+  assert.match(lines[4], /^ {3}Why: .*I can search the web and read any page or JSON\.$/);
+  assert.equal(lines.at(-1), 'In my words: “I checked for strikes because one was planned this week.”');
+  // an approval still waiting says so; a turn with nothing run says it answered from what it knows
+  const r2 = W.trailRecorder('send the email to Sam');
+  r2.note({ t: 'approval', id: 'c', name: 'send_email', args: { to: 'sam@example.com', subject: 'Hi' }, reason: 'Send an email' });
+  assert.match(A.whyLines(r2.trail(), []).join('\n'), /1\. Sent email — to: sam@example\.com · subject: Hi: waiting for your approval\.\n {3}Why: it was the way to answer you\./);
+  assert.deepEqual(A.whyLines({ at: 1, asked: 'hello', steps: [] }, []), ['You asked: “hello”', 'I didn’t run anything for that one: I answered from what I know.']);
+  // a number plate is never kept: not in the question, the arguments or the reply
+  const r3 = W.trailRecorder('check AB12 CDE');
+  r3.note({ t: 'tool', id: 'v', name: 'vehicle_check', args: { plate: 'AB12CDE' } });
+  r3.note({ t: 'tool_result', id: 'v', name: 'vehicle_check', ok: true, summary: 'FORD FIESTA…' });
+  r3.note({ t: 'text', text: 'AB12 CDE is a Ford Fiesta.' });
+  const v = r3.trail();
+  assert.equal(JSON.stringify(v).includes('AB12'), false);
+  assert.equal(v.asked, 'a question about a vehicle');
+});
+
+test('"why?": the words that ask it, and the last turn kept for it (30 turns, two days)', async () => {
+  for (const t of ['why?', 'Why', 'how come?', 'but why']) assert.equal(A.whyAsked(t), 'bare', t);
+  for (const t of ['why did you do that?', "why'd you do that", 'what made you do that?', 'why did you open that', 'Why did you do that?!']) assert.equal(A.whyAsked(t), 'full', t);
+  for (const t of ['why is the sky blue?', 'why not', 'what did you do today']) assert.equal(A.whyAsked(t), null, t);
+  const storage = new MemStorage();
+  assert.equal(await W.whyReply(storage, 'why?'), null, 'nothing kept yet');
+  const now = Date.now();
+  for (let i = 0; i < 35; i++) await W.keepTrail(storage, { at: now - (35 - i) * 1000, asked: `q${i}`, steps: [] }, now);
+  await W.keepTrail(storage, { at: now - 3 * 86_400_000, asked: 'old', steps: [] }, now);
+  const kept = await W.loadTrails(storage);
+  assert.equal(kept.length, 30);
+  assert.equal(kept.at(-1).asked, 'old', 'the newest written last');
+  await W.keepTrail(storage, { at: now, asked: 'newest', steps: [] }, now);
+  assert.ok(!(await W.loadTrails(storage)).some((t) => t.asked === 'old'), 'two days old: gone');
+  assert.equal(await W.whyReply(storage, 'why?'), null, 'a bare why after a reply that ran nothing is for the model');
+  assert.match(await W.whyReply(storage, 'why did you do that?'), /^Why I did that:\nYou asked: “newest”\nI didn’t run anything/);
+  assert.equal(await W.whyReply(storage, 'hello'), null);
+});

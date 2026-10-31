@@ -315,3 +315,99 @@ export function whatAbout(text: string): string {
     .replace(/^(?:(?:can|could|would) (?:you|u|ya)(?: (?:ever|even|actually|also))?|are you (?:able|capable) (?:to|of)|do you know how to|is it possible for you to|is there a way (?:for you )?to|do you have a way to)\s+/i, '')
     .replace(/[\s?!.]+$/, '');
 }
+
+/** "why?" (bare: answered from the trail only when the last reply ran something), or "why did you do that?" (full). */
+export function whyAsked(text: string): 'bare' | 'full' | null {
+  const t = clean(text).replace(lead, '').replace(/[\s?!.]+$/, '').toLowerCase();
+  if (/^(?:why|how come|but why|why tho|why though)$/.test(t)) return 'bare';
+  if (/^(?:why did you do (?:that|this|it)|why'?d you do (?:that|this|it)|why did you (?:say|run|use|check|open|send|pick|choose|look (?:that|it) up) (?:that|this|it)?|what made you do (?:that|this|it)|why (?:that|this) one|why did you do what you did|show me why|what was (?:that|this) for)$/.test(t)) return 'full';
+  return null;
+}
+
+// ---------------------------------------------------------------- WHY: a reply's trail in plain words
+
+/** One tool at work in a reply: its name, its arguments in plain words, and how it went (null: stopped or still working). */
+export interface TrailStep {
+  /** The tool's name ('' when only its label is known: an entry kept from before tools were named in it). */
+  tool: string;
+  /** How the chat labelled it ("Searching the web: cats"), for when the name is not known. */
+  label?: string;
+  args?: string;
+  ok: boolean | null;
+  /** Why it failed, or "waiting for your approval". */
+  note?: string;
+}
+/** A reply's trail: what he was asked, what ran, and what he said (kept short). */
+export interface Trail {
+  at: number;
+  asked: string;
+  steps: TrailStep[];
+  said?: string;
+}
+
+const IRREGULAR: Record<string, string> = {
+  get: 'got', find: 'found', make: 'made', read: 'read', send: 'sent', run: 'ran', set: 'set', put: 'put', build: 'built', draw: 'drew', take: 'took',
+  give: 'gave', see: 'saw', say: 'said', write: 'wrote', keep: 'kept', tell: 'told', think: 'thought', sit: 'sat', begin: 'began', do: 'did', show: 'showed',
+  study: 'studied', stop: 'stopped', plan: 'planned', ship: 'shipped', drop: 'dropped', identify: 'identified', summarise: 'summarised', forget: 'forgot',
+};
+const VERBS = new Set([...Object.keys(IRREGULAR), 'check', 'search', 'list', 'open', 'play', 'add', 'publish', 'remember', 'start', 'translate', 'look', 'lookup', 'track', 'pause', 'resume', 'cancel', 'save', 'schedule', 'design', 'review', 'ask', 'fly', 'measure', 'reload', 'remove', 'delete', 'propose', 'update', 'wait', 'discard', 'restore', 'focus', 'export', 'import', 'push', 'create', 'learn', 'report', 'unpublish', 'detect', 'reverse', 'tutor']);
+
+/** A tool that ran, said as done: "plan_journey" → "Planned journey", "web_search" → "Used web search". */
+export function doneOf(tool: string): string {
+  const [first = '', ...rest] = tool.split('_');
+  if (!VERBS.has(first)) return `Used ${tool.replace(/_/g, ' ')}`;
+  const past = IRREGULAR[first] ?? (first.endsWith('e') ? `${first}d` : /[^aeiou]y$/.test(first) ? `${first.slice(0, -1)}ied` : `${first}ed`);
+  const words = [past, ...rest].join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** A tool's arguments in plain words, the few that say what it was about ("to: London · when: 07:00"); never a blob. */
+export function argWords(args: Record<string, unknown> | undefined): string {
+  if (!args) return '';
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(args)) {
+    // never a blob, and never a number plate, a key or a password (the trail is kept on the phone and in the brain)
+    if (/^(?:html|code|content|files?|edits?|data|image|images|picture|body|text_full|parts?|steps|answers?|svg|json|plate|plates|reg|registration|key|token|password|secret|api_?key)$/i.test(k)) continue;
+    if (v == null || v === '' || typeof v === 'object') continue;
+    const s = clean(String(v));
+    if (!s || s.length > 80 || /^data:/.test(s)) continue;
+    out.push(`${k.replace(/_/g, ' ')}: ${clip(s, 48)}`);
+    if (out.length === 3) break;
+  }
+  return out.join(' · ');
+}
+
+/** The ability a tool belongs to, and the first word of the question it was about (stems compared). */
+function reasonOf(asked: string, a: Ability | undefined): string {
+  if (!a) return 'it was the way to answer you';
+  const can = clip(a.line.replace(/^I can\s+/i, '').replace(/\.$/, ''), 110);
+  const hay = tokens(`${a.line} ${a.asks.join(' ')} ${a.words ?? ''}`).map(stem);
+  const word = tokens(asked).find((w) => !STOP.has(w.replace(/'/g, '')) && w.length > 2 && hay.some((h) => like(stem(w), h)));
+  return word ? `you asked about “${word.replace(/'s$/, '')}”, and I can ${can}` : `of what you asked, and I can ${can}`;
+}
+
+/** The reason in his own words, when the reply gave one ("…because the M6 is closed at junction 6"). */
+export function ownReason(said: string): string {
+  for (const s of clean(said).split(/(?<=[.!?])\s+/)) if (/\b(?:because|since|so that|in order to|as you (?:asked|said|wanted))\b/i.test(s) && s.length <= 220) return s;
+  return '';
+}
+
+/**
+ * A reply's trail in plain words: what he was asked, each tool with its arguments and how it went, and why — a reason
+ * from the tool's ability ("you asked about “trains”, and I can plan door-to-door journeys…") and, when his reply gave
+ * one, his own. Nothing is asked of a model.
+ */
+export function whyLines(t: Trail, abilities: Ability[]): string[] {
+  const out = t.asked ? [`You asked: “${clip(t.asked, 140)}”`] : [];
+  const byTool = new Map<string, Ability>();
+  for (const a of abilities) for (const name of a.tools ?? []) if (!byTool.has(name)) byTool.set(name, a);
+  if (!t.steps.length) out.push('I didn’t run anything for that one: I answered from what I know.');
+  t.steps.forEach((s, i) => {
+    const how = s.ok === true ? 'it worked' : s.ok === false ? `it didn’t work${s.note ? ` (${clip(s.note, 90)})` : ''}` : s.note ? clip(s.note, 90) : 'it stopped before it finished';
+    out.push(`${i + 1}. ${s.tool ? doneOf(s.tool) : clip(s.label ?? 'Worked on it', 80)}${s.args ? ` — ${s.args}` : ''}: ${how}.`);
+    out.push(`   Why: ${reasonOf(t.asked, byTool.get(s.tool))}.`);
+  });
+  const own = t.said ? ownReason(t.said) : '';
+  if (own) out.push(`In my words: “${clip(own, 200)}”`);
+  return out;
+}

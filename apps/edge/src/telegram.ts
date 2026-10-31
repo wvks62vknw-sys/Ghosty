@@ -40,6 +40,7 @@ import { MAX_AUDIO_BYTES, MAX_TTS_CHARS, SpeechError, speakable, synthesize, toB
 import { loadIdeas } from './upgrades';
 import type { UpgradeIdea } from '../../../packages/shared/src/protocol';
 import { stopIntent } from '../../../packages/shared/src/intent';
+import { whyReply } from './why'; // [abilities]
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -737,6 +738,10 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     host.stop(stop.harsh);
     return;
   }
+  // "why?" (OWNER-ISSUES 67d): the last turn's trail in plain words, with no model (why.ts); a bare "why?" after a reply that
+  // ran nothing is about what was said, so it goes to the model as a message
+  const why = !images.length ? await whyReply(host.storage, text).catch(() => null) : null;
+  if (why) return tgSend(token, chatId, why);
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
   const busy = typing(token, chatId);

@@ -226,6 +226,25 @@ test('a text from the paired chat runs a normal turn: the reply comes back as a 
   tg.calls.length = 0;
 });
 
+test('"why?" on Telegram (OWNER-ISSUES 67d): the last turn’s trail in plain words, with no model and no turn of its own; a bare "why?" after a reply that ran nothing is for the model', async () => {
+  await hook(msg(OWNER_CHAT, { text: 'remember my bike is blue' }), secret);
+  const before = (await (await call('/api/history')).json()).turns.length;
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why?' }), secret);
+  assert.equal(texts().length, 1);
+  assert.match(texts()[0], /^Why I did that:\nYou asked: “remember my bike is blue”\n1\. Remembered — text: my bike is blue: it worked\.\n {3}Why: you asked about “remember”, and I can remember lasting facts you tell me, list them, drop one\.$/);
+  assert.equal((await (await call('/api/history')).json()).turns.length, before, 'asking why is not a turn: the history is as it was');
+  // a reply that ran nothing: "why did you do that?" is answered from the trail, a bare "why?" goes to the model
+  await hook(msg(OWNER_CHAT, { text: 'hello' }), secret);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why did you do that?' }), secret);
+  assert.match(texts()[0], /^Why I did that:\nYou asked: “hello”\nI didn’t run anything for that one: I answered from what I know\.$/);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'why?' }), secret);
+  assert.ok(texts().length >= 1 && !/^Why I did that/.test(texts()[0]), `the model answered it: ${texts()[0]}`);
+  tg.calls.length = 0;
+});
+
 test('a long reply is sent in pieces under the limit, in order', async () => {
   const long = `${'The forecast says rain in the afternoon. '.repeat(220)}`.trim();
   await TG.tgSend(TOKEN, OWNER_CHAT, long);
