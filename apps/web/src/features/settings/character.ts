@@ -11,6 +11,7 @@ import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { button, panel, toast, type Panel } from '../../ui/components';
+import { principlesEditor } from './principles';
 import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSettings } from '../../../../../packages/shared/src/persona';
 
 /** "Now: dry, warm, answers as long as yours, as he comes." — the dials in plain words (the steps' own names, in small letters). */
@@ -71,15 +72,19 @@ export function characterPanel(): Panel & { refresh(): void } {
   };
 
   const reset = button('DEFAULT', () => void save(DEFAULT_PERSONA));
+  // His PRINCIPLES (OWNER-ISSUES 64, 69b): the lines he holds me to, in his words — the same editor as MEMORY's.
+  const princ = principlesEditor();
   p.body.append(
     now,
     dials,
     h('div.row.charreset', reset),
     state,
+    h('div.charprinc', h('span.lab', 'PRINCIPLES'), princ.el),
     h('details.charwords', h('summary', { dataset: { case: 'keep' } }, 'The exact words Ghosty is given'), said),
   );
 
   const refresh = () => {
+    princ.refresh();
     void brain
       .persona()
       .then((r) => {

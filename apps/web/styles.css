@@ -4586,3 +4586,12 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation:
 @media (prefers-reduced-motion: reduce) {
   body.bootland :is(#top, #dock, .rcbelow .rccard) { animation-name: bootin-fade; }
 }
+
+/* His PRINCIPLES (features/settings/principles.ts): his lines, each with its ✕, and a field to add one — 44 pt targets. */
+.princ .keyrow { gap: 8px; margin-top: 6px; }
+.princ .keyrow > input, .princ .keyrow > button { min-height: 44px; }
+.princ .rw { align-items: center; }
+.princ .rw .v { flex: 1 1 0; white-space: normal; }
+.princ button.princdel { min-width: 44px; min-height: 44px; background: none; border: 0; color: var(--l3); font-size: 15px; cursor: pointer; }
+.princ button.princdel:hover { color: var(--r); }
+.charprinc { margin-top: 14px; } .charprinc > .lab { display: block; margin-bottom: 4px; }

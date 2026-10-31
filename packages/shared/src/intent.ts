@@ -6,6 +6,10 @@
  * message says stop — "enough", "leave it", "not now", "zip it", "shush", "stand down", with his name, swearing, "please",
  * typos and trailing words — and nothing else. "Stop the timer", "don't stop" and "it stopped raining" are not stops. It
  * is never answered; `harsh` (a "shut up", a swear) is a harsh dismissal, which leaves him subdued (mood.ts).
+ *
+ * `raising` (OWNER-ISSUES 64 RAISING HIM, 69c): praise ("good boy", "well done", "proud of you"), a telling-off ("that was
+ * wrong", "out of order", "useless") and a standing rule about how he talks ("too long", "never call me that", "always tell
+ * me the price first"), each recognised the same way: the brain records them (selftrain/ ratings, conduct lessons).
  */
 
 /** Words that dress a stop without changing it: his name, "please", "now", "just", "mate", "for god's sake". */
@@ -119,4 +123,106 @@ export function stopIntent(text: string): { harsh: boolean } | null {
   }
   if (!STOP.test(said) || (asked && ASKABLE.test(said))) return null;
   return { harsh: harsh || HARSH_PHRASE.test(said) };
+}
+
+// ---------------------------------------------------------------- raising him
+
+/**
+ * Raising him (OWNER-ISSUES 64 RAISING HIM, 69c): a reward, a telling-off and a standing rule, from the owner's words.
+ * `kind` and `weight` (1–3) are recorded on his last reply for the weekly training (selftrain/); `rule` is a conduct lesson
+ * in the owner's own words ("too long", "never call me that", "always tell me the price first"); `rest` is whatever else
+ * the message asks, answered as usual ('' when the message was only this).
+ */
+export interface Raising {
+  kind?: 'reward' | 'discipline';
+  weight?: 1 | 2 | 3;
+  rule?: string;
+  /** The rule is about length ("too long", "shorter"). */
+  length?: boolean;
+  rest: string;
+}
+
+/** Praise, by strength: 1 "good", 2 "good boy", "well done", "spot on", 3 "proud of you", "legend". */
+const REWARD: [RegExp, 1 | 2 | 3][] = [
+  [/^(?:(?:i'?m |i am )?(?:so |really )?proud of you|(?:you(?:'re| are)? )?(?:an? |the )?(?:absolute )?(?:legend|genius|best)|love you|superb|outstanding)$/, 3],
+  [/^(?:good (?:boy|lad|man|job|work|stuff|one)|well done|nice (?:one|work|job)|(?:that'?s|that is) (?:it|the one|more like it|right|perfect|spot on)|spot on|bang on|(?:you )?nailed it|smashed it|love (?:it|that)|brilliant|excellent|top (?:man|work|job)|much better|better|exactly right|perfect answer)$/, 2],
+  [/^(?:good|nice|great|perfect|exactly|correct|lovely|ace|class|mint|sweet|brill)$/, 1],
+];
+/** A telling-off, by strength: 1 "wrong", 2 "bad", "out of order", 3 "useless", "what the fuck was that". */
+const DISCIPLINE: [RegExp, 1 | 2 | 3][] = [
+  [/^(?:you(?:'re| are) )?(?:(?:fucking|bloody|so|absolutely) )?(?:useless|pathetic|terrible|awful|stupid|garbage|disgraceful)$|^(?:wtf|what the (?:fuck|hell) (?:was that|is this|is that))$/, 3],
+  [/^(?:bad(?: boy| lad| ghosty)?|naughty|(?:that(?:'s| is| was) )?(?:not ok(?:ay)?|out of order|out of line|unacceptable|rubbish|poor|sloppy|not good enough)|(?:that was|that'?s|that is) wrong|(?:don'?t|never) (?:ever )?do that again|what was that|behave(?: yourself)?|do better|not cool)$/, 2],
+  [/^(?:(?:that(?:'s| is| was)|it(?:'s| is| was)) )?(?:wrong|not quite|not right|not great|not good)$|^(?:come on|meh)$/, 1],
+];
+/** "Thanks", "ok", "mate": a clause that adds nothing to what the message asks. */
+const NOTHING = /^(?:thanks|thank you|cheers|ta|ok|okay|right|yes|yeah|yep|no|nope|and|but|so|now|then)?$/;
+
+/** What a standing rule is about: how he talks and acts (not a task: "always remind me", "don't forget the milk"). */
+const CONDUCT = /\b(?:say(?:ing)?|said|call(?:ing)?|use|using|talk(?:ing)?|speak(?:ing)?|answer(?:ing)?|repl(?:y|ying)|tell(?:ing)?|giv(?:e|ing)|ask(?:ing)?|writ(?:e|ing)|start(?:ing)?|end(?:ing)?|put(?:ting)?|add(?:ing)?|swear(?:ing)?|apologi[sz](?:e|ing)|explain(?:ing)?|mention(?:ing)?|list(?:ing)?|repeat(?:ing)?|guess(?:ing)?|l(?:ie|ying)|interrupt(?:ing)?|rambl(?:e|ing)|waffl(?:e|ing)|read(?:ing)?|show(?:ing)?|suggest(?:ing)?|recommend(?:ing)?|offer(?:ing)?|emojis?|bullets?|headings?|lists|do (?:that|this|it)|that again)\b/;
+/** His length: "too long", "shorter", "get to the point". */
+const LENGTH = /^(?:(?:that(?:'s| is| was)|it(?:'s| is| was)|way|far|a bit|bit|much|so) )*(?:too (?:long|much|wordy|waffly|chatty|formal|stiff)|(?:shorter|briefer|less words)(?: please)?|less (?:waffle|rambling|chat|text)|get to the point|keep it (?:short|brief)|tl ?;? ?dr|stop (?:waffling|rambling)|you(?:'re| are) (?:waffling|rambling))$/;
+
+/** A clause as the families read it: his name and the dressing gone. */
+const bare = (c: string) =>
+  c
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[^\p{L}\p{N}' ;]+/gu, ' ')
+    .replace(/(?:^|\s)(?:ghosty|ghost|mate|bro|man|pal|buddy|kiddo|lad|son|boss|very|really|just|honestly|seriously|bloody|fucking|fuckin|effing|absolutely|totally|completely)(?=\s|$)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** The strongest family a clause belongs to, or 0. */
+const strength = (c: string, fam: [RegExp, 1 | 2 | 3][]): 0 | 1 | 2 | 3 => fam.find(([re]) => re.test(c))?.[1] ?? 0;
+
+/** A standing rule about his conduct, in the clause as he said it. */
+const isRule = (b: string): boolean =>
+  LENGTH.test(b) ||
+  (/^(?:always|never|don'?t ever|do not ever|from now on|in future|next time|no more|stop|quit)\b/.test(b) && CONDUCT.test(b)) ||
+  (/^(?:don'?t|do not)\b/.test(b) && /\b(?:that|this)\b/.test(b) && CONDUCT.test(b)) ||
+  /^(?:(?:don'?t|do not) (?:ever )?)?call me\b/.test(b);
+
+/** A reply that asked him something or offered something: "good" or "great" after it is an answer, not praise. */
+const OFFERED = /\?|\b(?:i can|i could|shall i|should i|want me|i'll|would you like|do you want)\b/i;
+
+/**
+ * Praise, a telling-off and a standing rule in the owner's words, with no model. `last`: his own last reply (after a
+ * question or an offer, a bare "good" is an answer). null when the message holds none of them, or is a stop.
+ */
+export function raising(text: string, last = ''): Raising | null {
+  const raw = String(text ?? '').trim();
+  if (!raw || raw.length > 400 || stopIntent(raw)) return null;
+  const swore = SWEAR.test(raw.toLowerCase());
+  const clauses = raw
+    .replace(/^(from now on|in future|next time),\s*/i, '$1 ')
+    .split(/(?<=[,.!?;:])\s+|\s+[-–—]\s+|(?<!\bfrom)\s+(?=(?:now|but|and now|so now)\s)/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
+  let reward = 0;
+  let discipline = 0;
+  let rule = '';
+  let length = false;
+  const rest: string[] = [];
+  for (const c of clauses) {
+    const b = bare(c);
+    const r = strength(b, REWARD);
+    const d = strength(b, DISCIPLINE);
+    // a rule leads what he says ("too long", "never call me that, and …"): one deep in a longer message ("learn … Rule:
+    // always use arr[i]!") is part of that message, not a rule about how I talk
+    const ruled = !rest.length && raw.length <= 200 && isRule(b);
+    if (ruled) {
+      rule = c.replace(/[.!]+$/, '');
+      length ||= LENGTH.test(b);
+    }
+    if (d) discipline = Math.max(discipline, d);
+    else if (r) reward = Math.max(reward, r);
+    else if (!ruled && !NOTHING.test(b)) rest.push(c);
+  }
+  // "good" or "great" after his question or offer is an answer (yes), not praise
+  if (reward === 1 && !discipline && !rule && OFFERED.test(last)) return null;
+  if (!reward && !discipline && !rule) return null;
+  // a telling-off wins over praise in the same breath; a swear makes it sharper
+  const kind = discipline ? 'discipline' : reward ? 'reward' : undefined;
+  const weight = (discipline ? Math.min(3, discipline + (swore ? 1 : 0)) : reward) as 1 | 2 | 3;
+  return { ...(kind ? { kind, weight } : {}), ...(rule ? { rule: rule.slice(0, 160), length } : {}), rest: rest.join(' ').trim() };
 }

@@ -7,6 +7,7 @@
  * that time too, and the one tip that ends the waiting for good.
  */
 import type { ClientContext } from './prompt';
+import type { Raising } from '../../../packages/shared/src/intent';
 import { fmtLocal, safeTz, zoned } from './time';
 
 /** What to do instead of asking a model: the local time, or one read-only tool with its arguments. */
@@ -85,6 +86,17 @@ export function smallTalk(text: string, c: Pick<ClientContext, 'tz' | 'name'>, l
   if (NIGHT.test(t)) return `Night, ${name}. I'll keep watch.`;
   if (BYE.test(t)) return `Later, ${name}.`;
   if (ACK.test(t) && !ASKED.test(last)) return pick('Right.', 'Good.');
+  return null;
+}
+
+/**
+ * Praise or a standing rule and nothing else (intent.ts raising), acknowledged in one line in his voice — never grovelling,
+ * never a speech, no model. A telling-off is answered by the model (he owns it and puts it right): null.
+ */
+export function raisedReply(r: Raising): string | null {
+  if (r.rest || r.kind === 'discipline') return null;
+  if (r.rule) return r.length ? 'Shorter. Noted.' : "Understood. I'll keep to that.";
+  if (r.kind === 'reward') return r.weight === 3 ? 'That means something. Thank you.' : r.weight === 2 ? "Good. I'll keep it that way." : 'Noted.';
   return null;
 }
 

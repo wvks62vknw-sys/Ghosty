@@ -149,6 +149,11 @@ export interface Lesson {
   hits: number;
   /** Locked in the Memory tab: never reworded, merged away or dropped (memories.ts). */
   locked?: boolean;
+  /**
+   * 'conduct': a standing rule about how he talks and acts, in the owner's own words ("too long", "never call me that";
+   * OWNER-ISSUES 64 RAISING HIM), on every turn. None: an engineering lesson, on coding turns only.
+   */
+  kind?: 'conduct';
 }
 
 export interface ChatTurn {

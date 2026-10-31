@@ -44,6 +44,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     const mine = (system.split('\nHIS PRINCIPLES (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
     return { message: { role: 'assistant', content: mine.length ? `You told me: ${mine.join(' / ').replace(/\.$/, '')}.` : 'You have not given me any yet.' }, model };
   }
+  // His corrections kept as standing rules (prompt.ts HOW HE TOLD YOU TO BE): said back as the prompt carries them.
+  if (owner === 'what did i tell you?') {
+    const rules = (system.split('\nHOW HE TOLD YOU TO BE (')[1]?.split('\n\n')[0] ?? '').split('\n').slice(1).map((l) => l.replace(/^- /, ''));
+    return { message: { role: 'assistant', content: rules.length ? `You told me: ${rules.join(' / ')}` : 'Nothing yet.' }, model };
+  }
   // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
   // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
   if (/^pineapple on pizza\b/.test(owner)) {

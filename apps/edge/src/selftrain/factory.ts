@@ -438,6 +438,12 @@ export interface Rating {
   offline?: boolean;
   /** Set once a week's run used it. */
   used?: number;
+  /**
+   * Raising him (OWNER-ISSUES 69c): a reward or a telling-off — a 👍/👎 (weight 1) or his words (intent.ts raising:
+   * "good boy" 2, "proud of you" 3; "that was wrong" 2, "useless" 3). The weight is how many times the week's records hold it.
+   */
+  kind?: 'reward' | 'discipline';
+  weight?: number;
 }
 
 export const BETTER_SYSTEM =
@@ -451,10 +457,14 @@ export function betterPrompt(r: Rating): string {
 /** 👎 + a better reply → a preference pair (and a failure when the offline brain gave it); 👍 → chosen only. */
 export function ratingRecords(r: Rating, better?: string): TrainRecord[] {
   const msgs: ChatMsg[] = [{ role: 'system', content: PERSONA }, { role: 'user', content: clip(r.question, 1500) }];
-  if (r.up) return [{ kind: 'pref', messages: msgs, chosen: r.reply.trim(), from: 'owner 👍' }];
+  // A reward or a telling-off weighs as much as he meant it: its pair is held that many times (1–3), and says so.
+  const times = Math.max(1, Math.min(3, Math.round(Number(r.weight) || 1)));
+  const as = r.kind ? ` · ${r.kind} ×${times}` : '';
+  const weighed = (x: TrainRecord[]) => x.flatMap((rec) => Array.from({ length: times }, () => rec));
+  if (r.up) return weighed([{ kind: 'pref', messages: msgs, chosen: r.reply.trim(), from: `owner 👍${as}` }]);
   const b = (better ?? '').trim();
   if (!b || REFUSAL.test(b.slice(0, 120)) || overlap(b, r.reply) > 0.9) return [];
-  const out: TrainRecord[] = [{ kind: 'pref', messages: msgs, chosen: b, rejected: r.reply.trim(), from: 'owner 👎 + a better reply' }];
+  const out: TrainRecord[] = weighed([{ kind: 'pref', messages: msgs, chosen: b, rejected: r.reply.trim(), from: `owner 👎 + a better reply${as}` }]);
   if (r.offline) out.push({ kind: 'failure', messages: msgs, answer: b, from: 'offline reply the owner disliked' });
   return out;
 }

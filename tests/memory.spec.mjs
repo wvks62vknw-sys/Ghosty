@@ -40,8 +40,8 @@ async function run(name, viewport) {
     const req = route.request();
     const url = new URL(req.url());
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-    // The timeline is the real brain's (checked below); ME ✕ forgets through it (POST /api/profile/item).
-    if (url.pathname.startsWith('/api/profile/patterns/')) return route.continue();
+    // The timeline is the real brain's (checked below); ME ✕ forgets through it (POST /api/profile/item). PRINCIPLES are the brain's.
+    if (url.pathname.startsWith('/api/profile/patterns/') || url.pathname === '/api/profile/principles') return route.continue();
     if (url.pathname === '/api/profile/timeline') return json({ items: [], patterns: [], forgotten: [] });
     if (url.pathname === '/api/profile/item') {
       const b = req.postDataJSON();
@@ -329,6 +329,50 @@ async function run(name, viewport) {
   await tlp.locator('.mi').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
   await page.waitForTimeout(800);
   if (await pp.locator('.pat', { hasText: topic }).count()) problems.push(`[${name}] the dismissed pattern came back after a reload`);
+  // ---- RAISING HIM (OWNER-ISSUES 64, 69b): a rule said in chat is kept in his words and forgotten from MEMORY like any lesson;
+  // his PRINCIPLES are written here in his own words, kept by the brain, and ✕ takes one away.
+  const rule = `never say ${word()}`;
+  await page.evaluate(() => (location.hash = 'core'));
+  if (narrow) await page.click('.logbtn');
+  // (the same words may already be in the log from an earlier run against this brain: wait for a new reply)
+  const said = await page.locator('#pg-core .log .msg:not(.me)').count();
+  await page.fill('#cin', rule);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction((n) => { const m = [...document.querySelectorAll('#pg-core .log .msg:not(.me)')]; return m.length > n && /Understood\. I'll keep to that\./.test(m.at(-1)?.textContent ?? ''); }, said, { timeout: 10000 }).catch(() => problems.push(`[${name}] "${rule}" was not answered in one line`));
+  if (narrow) await page.click('.logbtn');
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForTimeout(600);
+  await sec('Chat');
+  const ruleRow = page.locator('#pg-memory .rw[data-kind="conduct"]', { hasText: rule });
+  await ruleRow.first().waitFor({ state: 'attached', timeout: 10000 }).catch(() => undefined);
+  await ruleRow.first().scrollIntoViewIfNeeded().catch(() => undefined);
+  if (!(await ruleRow.first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false))) problems.push(`[${name}] MEMORY does not show his rule "${rule}": ${((await page.locator('#pg-memory .pn', { hasText: 'LESSONS LEARNED' }).first().textContent().catch(() => '')) ?? '').slice(0, 300)} (on ${await page.evaluate(() => location.hash)})`);
+  else {
+    const label = (await ruleRow.first().locator('.k').textContent()) ?? '';
+    if (!/you told me/i.test(label)) problems.push(`[${name}] his rule is labelled "${label}"`);
+    await page.screenshot({ path: `${out}/${name}-memory-rule.png` });
+    // the ✕ on its row, shown after Edit (as every memory is forgotten here)
+    const editRule = page.locator('#pg-memory .editbtn');
+    const editingRule = await editRule.isVisible().catch(() => false);
+    if (editingRule) await editRule.click();
+    await ruleRow.first().locator('.n.del').click();
+    if (editingRule) await editRule.click();
+    await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .rw[data-kind="conduct"]')].some((x) => x.textContent.includes(t)), rule, { timeout: 8000 }).catch(() => problems.push(`[${name}] ✕ did not forget his rule`));
+  }
+  await sec('Me');
+  const prp = page.locator('#pg-memory .pn.princpn');
+  const principle = `Never lie to me about ${word()}.`;
+  await prp.locator('input').fill(principle);
+  await prp.locator('button:has-text("ADD")').click();
+  const shown = () => page.evaluate((l) => [...document.querySelectorAll('#pg-memory .pn.princpn .rw .v')].some((x) => x.textContent === l), principle);
+  await page.waitForFunction((l) => [...document.querySelectorAll('#pg-memory .pn.princpn .rw .v')].some((x) => x.textContent === l), principle, { timeout: 8000 }).catch(() => problems.push(`[${name}] the principle was not kept`));
+  const kept = await page.evaluate(async () => (await (await fetch('/api/profile/principles', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } })).json()).lines);
+  if (!kept.includes(principle)) problems.push(`[${name}] the brain does not keep the principle: ${JSON.stringify(kept)}`);
+  await page.screenshot({ path: `${out}/${name}-memory-principles.png` });
+  await prp.locator('.rw', { hasText: principle }).locator('button.princdel').click();
+  await page.waitForFunction((l) => ![...document.querySelectorAll('#pg-memory .pn.princpn .rw .v')].some((x) => x.textContent === l), principle, { timeout: 8000 }).catch(() => undefined);
+  if (await shown()) problems.push(`[${name}] ✕ did not take the principle away`);
+  await sec('Timeline'); // where the next step expects to be
   // OFFLINE: one line says what shows is what I knew before; a FORGET says so plainly (never "Failed to fetch") and keeps the memory
   await ctx.setOffline(true);
   await page.evaluate(() => (location.hash = 'core'));

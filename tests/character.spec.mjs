@@ -20,8 +20,11 @@ const problems = [];
 const check = (ok, what) => void (ok || problems.push(what));
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
-const ctx = await browser.newContext({ viewport: PHONE, ...UK });
+// (the service worker blocked, so every request is the test's to see; the brain's history served empty, so the empty chat
+// is empty whatever earlier specs said to this preview brain)
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, serviceWorkers: 'block' });
 const page = await ctx.newPage();
+await page.route('**/api/history', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ turns: [], pending: null }) }) : r.continue()));
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 const saves = [];
 page.on('request', (r) => {

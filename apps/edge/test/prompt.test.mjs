@@ -275,7 +275,7 @@ test('HOW FIERY: one line per step in the character, on every channel; a stop st
 });
 
 test('the lines that stay (69b): argue anything, never flip on his safety, harm, spying or crime — on every channel, once', () => {
-  assert.match(P.LINES, /^Discuss anything; never flip under pressure on his safety, harm to anyone, spying or crime: say why\.$/);
+  assert.match(P.LINES, /^Discuss anything; never flip under pressure on his safety, harm to anyone, spying or crime: say why\. Own your slips first, in a line\.$/);
   for (const c of [client, { ...client, voice: true }, { ...client, tab: 'telegram', screen: TG_SCREEN }]) assert.equal(P.systemPrompt(c, [], true, [], { groups: hello() }).split(P.LINES).length, 2);
   assert.ok(P.systemPrompt(client, [], true, [], { code: true, groups: T.selectGroups('build me a game', new Set(), true) }).includes(P.LINES), 'on a coding turn too');
 });
@@ -319,6 +319,68 @@ test('his principles: in the prompt when he has set them (his words, read before
   await api('/profile/principles', { lines: mine });
   const said = (await api('/chat', { message: 'what are my principles?' })).split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((e) => e.t === 'text')?.text;
   assert.equal(said, 'You told me: Never lie to me, even to be kind. / My mum comes first.');
+});
+
+// ---- OWNER-ISSUES 64 RAISING HIM, 69c: his corrections kept as standing rules; praise and a telling-off recorded ----
+
+test('his corrections as standing rules: every turn carries them, his words dated, the newest and most-confirmed within their cap; engineering lessons only when coding', () => {
+  const now = Date.UTC(2026, 9, 31, 12);
+  const DAY = 86400_000;
+  const conduct = [
+    { id: 'a', text: 'too long', tags: ['conduct'], at: now - 10 * DAY, hits: 3, kind: 'conduct' },
+    { id: 'b', text: 'never call me that — about: "Right you are, chief."', tags: ['conduct'], at: now - DAY, hits: 1, kind: 'conduct' },
+    { id: 'c', text: 'always tell me the price first', tags: ['conduct'], at: now, hits: 1, kind: 'conduct' },
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `o${i}`, text: `an old rule ${i}`, tags: ['conduct'], at: now - (12 + i) * DAY, hits: 1, kind: 'conduct' })),
+    { id: 'e', text: 'Run the checks before shipping: a broken build never ships.', tags: [], at: now, hits: 5 },
+  ];
+  const sys = P.systemPrompt(client, [], true, conduct, { groups: hello(), conduct });
+  const section = sys.split('\nHOW HE TOLD YOU TO BE (')[1]?.split('\n\n')[0] ?? '';
+  assert.equal(section.split('\n')[0], 'his words; keep to them, and when one bites say so: "you told me: shorter"):');
+  // confirmed three times, it counts as two weeks newer; then the newest; six at most
+  assert.deepEqual(section.split('\n').slice(1), ['- 21 Oct: too long', '- 31 Oct: always tell me the price first', '- 30 Oct: never call me that — about: "Right you are, chief."', '- 19 Oct: an old rule 0', '- 18 Oct: an old rule 1', '- 17 Oct: an old rule 2']);
+  assert.ok(!sys.includes('Run the checks before shipping') && !sys.includes('LESSONS YOU LEARNED'), 'no engineering lesson on a plain turn');
+  const code = P.systemPrompt(client, [], true, conduct, { code: true, groups: T.selectGroups('build me a game', new Set(), true), conduct });
+  const learned = code.split('LESSONS YOU LEARNED')[1] ?? '';
+  assert.ok(learned.includes('Run the checks before shipping') && !learned.split('\n\n')[0].includes('too long'), 'a coding turn: the engineering lesson there, his rules in their own section');
+  assert.ok(!P.systemPrompt(client, [], true, [], { groups: hello(), conduct: [] }).includes('HOW HE TOLD YOU TO BE'), 'none: no section');
+  // their cap: six lines and 480 characters of his words, so the section stays small (it is his, like the facts)
+  const long = Array.from({ length: 6 }, (_, i) => ({ id: `l${i}`, text: `${i} ${'x'.repeat(298)}`, tags: [], at: now - i, hits: 1, kind: 'conduct' }));
+  const big = P.systemPrompt(client, [], true, [], { groups: hello(), conduct: long }).split('\nHOW HE TOLD YOU TO BE (')[1]?.split('\n\n')[0] ?? '';
+  assert.ok(big.length <= 700, `${big.length} characters`);
+});
+
+test('raising him through the brain: "too long" is kept as his rule and answered in one line with no model; "good boy" and "that was wrong" go on the last reply with their weight; the rule reaches the next prompt', async () => {
+  const brain = await import('./.build/brain.mjs');
+  const storage = new Mem2();
+  const pending = [];
+  const agent = new brain.GhostyAgent({ storage, waitUntil: (x) => pending.push(x), blockConcurrencyWhile: (f) => f() }, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), MOCK_LLM: '1' });
+  const chat = async (message) => {
+    const r = await agent.fetch(new Request('https://g.example/api/chat', { method: 'POST', body: JSON.stringify({ message, context: { tz: 'Europe/London' } }), headers: { 'x-ghosty-key': 'owner-key-for-tests-0123456789' } }));
+    const ev = (await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    return { text: ev.find((e) => e.t === 'text')?.text ?? '', model: ev.find((e) => e.t === 'done')?.model ?? '' };
+  };
+  await chat('say hello');
+  let r = await chat('too long');
+  assert.deepEqual(r, { text: 'Shorter. Noted.', model: 'Direct · no AI' });
+  const lessons = await storage.get('lessons');
+  assert.deepEqual(lessons.map((l) => [l.kind, l.text]), [['conduct', 'too long']]);
+  r = await chat('what did i tell you?');
+  assert.match(r.text, /^You told me: \d+ \w+: too long$/);
+  // praise on his last reply ("You told me: …"), with its weight; then a telling-off on the next one
+  r = await chat('good boy');
+  assert.deepEqual(r, { text: "Good. I'll keep it that way.", model: 'Direct · no AI' });
+  let ratings = await storage.get('train:ratings');
+  assert.deepEqual(ratings.map((x) => [x.up, x.kind, x.weight, x.question]), [[true, 'reward', 2, 'what did i tell you?']]);
+  assert.match(ratings[0].reply, /^You told me: /);
+  await chat('say hello again');
+  r = await chat('that was wrong');
+  assert.equal(r.model, 'Mock · scripted', 'a telling-off is answered by the model: he owns it and puts it right');
+  ratings = await storage.get('train:ratings');
+  assert.deepEqual(ratings.at(-1) && [ratings.at(-1).up, ratings.at(-1).kind, ratings.at(-1).weight, ratings.at(-1).reply], [false, 'discipline', 2, 'Mock reply to: say hello again']);
+  // a rule said again is confirmed, not doubled
+  await chat('way too long');
+  assert.deepEqual((await storage.get('lessons')).map((l) => [l.text, l.hits]), [['way too long', 2]], 'the fuller wording kept');
 });
 
 test('SETTINGS → CHARACTER round-trips through the brain and reaches the prompt; the profile keeps it', async () => {

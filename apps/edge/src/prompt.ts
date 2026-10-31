@@ -9,7 +9,7 @@
  * called. The engineering procedure, standard and lessons come only on a coding turn.
  */
 import type { MemoryFact } from '../../../packages/shared/src/protocol';
-import { engineeringEssentials, topLessons, type Lesson } from './knowledge';
+import { engineeringEssentials, topConduct, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
 import type { ToolGroup } from './tools';
 import type { Profile } from '../../../packages/shared/src/protocol';
@@ -49,7 +49,7 @@ export const LOOKUPS = 'Live facts (prices, weather, trains, news, links, "look 
  * and can be talked round (the fire dial, persona.ts); on these he does not flip because he was pushed, and says why. He is
  * never "I can't discuss that". The owner's own lines are his PRINCIPLES (below).
  */
-export const LINES = 'Discuss anything; never flip under pressure on his safety, harm to anyone, spying or crime: say why.';
+export const LINES = 'Discuss anything; never flip under pressure on his safety, harm to anyone, spying or crime: say why. Own your slips first, in a line.';
 /** The owner is on Telegram (telegram.ts): no screen there. */
 export const TELEGRAM = "Telegram: plain text, no tables; screen actions don't show there: describe them.";
 
@@ -83,8 +83,10 @@ export function capabilityLines(groups: PromptGroups): string {
  * `groups`: the tool groups on and off for this message (none given: no capability section —
  * the caller describes every tool it offers). `band`: his own length from his last messages (persona.ts lengthBand);
  * a spoken turn keeps SPOKEN's cap instead. `principles`: his own lines, in his words (SETTINGS → CHARACTER, MEMORY).
+ * `conduct`: every lesson kept (knowledge.ts); his rules for how Ghosty talks go on every turn, the newest and the
+ * most-confirmed within their cap (topConduct), the engineering ones only on a coding turn.
  */
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; band?: string; principles?: string[] } = {}): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null; band?: string; principles?: string[]; conduct?: Lesson[] } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -101,6 +103,10 @@ STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.per
   // His own lines (OWNER-ISSUES 69b): read before he acts, and held to even when he pushes in the moment.
   const mine = (opts.principles ?? []).map((l) => l.trim()).filter(Boolean).slice(0, MAX_PRINCIPLES);
   if (mine.length) lines.push(`\nHIS PRINCIPLES (his own words; read before you act, hold to them even when he pushes):\n${mine.map((l) => `- ${l}`).join('\n')}`);
+  // His corrections, kept as standing rules (OWNER-ISSUES 64 RAISING HIM): his words, dated, one short line each.
+  const rules = topConduct(opts.conduct ?? []);
+  const day = (ms: number) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: validTz(c.tz) ? c.tz : 'UTC' }).format(ms);
+  if (rules.length) lines.push(`\nHOW HE TOLD YOU TO BE (his words; keep to them, and when one bites say so: "you told me: shorter"):\n${rules.map((l) => `- ${day(l.at)}: ${l.text}`).join('\n')}`);
   if (opts.groups) lines.push(`\n${capabilityLines(opts.groups)}`);
   // (PICTURES trimmed by 37 characters for photo_tool, then the chain example, TIMES' example, BUILDING THINGS' list and HEARING by 81 for
   //  the places and spending tools: every new always-on tool name is paid for here, never by raising the 5,500 plain-turn budget.

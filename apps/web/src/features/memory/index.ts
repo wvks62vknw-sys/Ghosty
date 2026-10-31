@@ -17,6 +17,7 @@ import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/c
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { placesBlock } from './places';
+import { principlesEditor } from '../settings/principles';
 import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
 
 /** "today", "yesterday", else "Sat 17 Oct" (when ME was last updated). */
@@ -220,7 +221,11 @@ export const memoryTab: TabDef = {
     P.sub.after(editBtn);
     swipeToDelete(root);
     // ME (who he is) first: it was 6,500 points down, under thirty timeline rows.
-    P.left.append(addRow, mp.el, pats.el, tl.el);
+    // PRINCIPLES (OWNER-ISSUES 64, 69b): his own lines, the same editor as SETTINGS → CHARACTER's.
+    const pr = panel('PRINCIPLES', { status: 'your lines, in your words', cls: 'princpn' });
+    const princ = principlesEditor();
+    pr.body.append(princ.el);
+    P.left.append(addRow, mp.el, pr.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -264,10 +269,13 @@ export const memoryTab: TabDef = {
       void refresh();
     }, 'on'));
     paintDiary();
-    const lp = panel('LESSONS LEARNED', { footer: true, status: 'from my own mistakes' });
+    const lp = panel('LESSONS LEARNED', { footer: true, status: 'my mistakes, and your rules' });
     let lessons: Lesson[] = [];
     const lg = pager(lp, 46, (l: Lesson) => {
-      const r = row(l.hits > 1 ? `×${l.hits}` : fmt.ago(l.at), l.text, '✕', { wrap: true });
+      // His own rules for how I talk (conduct lessons, OWNER-ISSUES 64): his words, dated, deletable like any lesson.
+      const when = l.hits > 1 ? `×${l.hits}` : fmt.ago(l.at);
+      const r = row(l.kind === 'conduct' ? `you told me · ${when}` : when, l.text, '✕', { wrap: true });
+      if (l.kind === 'conduct') r.dataset.kind = 'conduct';
       const x = r.lastChild as HTMLElement;
       x.classList.add('del');
       x.title = 'Forget this lesson';
@@ -297,7 +305,7 @@ export const memoryTab: TabDef = {
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
     P.right.append(dp.el, fp.el, lp.el, cp.el);
     sections(root, 'memory', [
-      { id: 'me', label: 'Me', match: /^ME$/ },
+      { id: 'me', label: 'Me', match: /^(?:ME|PRINCIPLES)$/ },
       { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
       { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
       { id: 'diary', label: 'Diary', match: /^DIARY/ },
@@ -313,6 +321,7 @@ export const memoryTab: TabDef = {
     paintChat();
     return {
       enter() {
+        princ.refresh();
         void refresh();
         void refreshLessons();
         void refreshProfile();

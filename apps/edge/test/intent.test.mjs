@@ -41,6 +41,39 @@ test('stopIntent: 40+ ways of saying stop, typed or spoken, with his name, swear
   }
 });
 
+// OWNER-ISSUES 64 RAISING HIM, 69c: praise, a telling-off and a standing rule, in his own words.
+const REWARDS = [['good boy', 2], ['Good boy!', 2], ['well done', 2], ['nice one mate', 2], ["that's it", 2], ['spot on', 2], ['nailed it', 2], ['thanks, well done', 2], ['proud of you', 3], ["I'm so proud of you kiddo", 3], ['you legend', 3], ['absolute legend', 3], ['good', 1], ['perfect', 1], ['great', 1]];
+const DISCIPLINES = [['wrong', 1], ["that's not right", 1], ['that was wrong', 2], ['bad boy', 2], ['out of order', 2], ['that was out of line', 2], ["don't ever do that again", 2], ['what was that', 2], ['bloody wrong', 2], ['useless', 3], ["you're useless", 3], ['fucking useless', 3], ['what the fuck was that', 3], ['bad, really bad', 2]];
+const RULES = [['too long', true], ['way too long mate', true], ['shorter please', true], ['get to the point', true], ['never call me that', false], ['always tell me the price first', false], ['stop saying certainly', false], ["don't call me boss", false], ['call me Aqis', false], ['no more emojis', false], ["don't do that", false], ['from now on, answer in Spanish', false], ['next time tell me the price first', false], ['never guess the time', false]];
+const NOT_RAISING = ['learn TS2532 came from indexing an array without a fallback. Rule: always use arr[i]! or ?? for indexed values.', 'stop the timer', 'always remind me at 8', "don't forget the milk", 'never mind', 'good morning', 'thanks', 'ok', "don't tell mum", 'that is a good idea', 'what time is it', 'shut up', 'is it good?', 'the good place near me', 'right', 'no', ''];
+
+test('raising: praise by strength (1 "good", 2 "good boy", 3 "proud of you"), a telling-off by strength, a swear makes it sharper', () => {
+  for (const [t, w] of REWARDS) assert.deepEqual([I.raising(t)?.kind, I.raising(t)?.weight, I.raising(t)?.rest], ['reward', w, ''], t);
+  for (const [t, w] of DISCIPLINES) assert.deepEqual([I.raising(t)?.kind, I.raising(t)?.weight], ['discipline', w], t);
+  // "good" or "great" after his question or offer is an answer, not praise; "good boy" is praise whatever came before
+  assert.equal(I.raising('good', 'Shall I book the 9am?'), null);
+  assert.equal(I.raising('great', 'I can move it to Friday.'), null);
+  assert.equal(I.raising('good boy', 'Shall I book the 9am?')?.kind, 'reward');
+});
+
+test('raising: a standing rule in his own words (too long, never call me that, always tell me the price first) — a task or a stop is not one', () => {
+  for (const [t, length] of RULES) {
+    const r = I.raising(t);
+    assert.ok(r?.rule, `"${t}" is a rule`);
+    assert.equal(r.length, length, `"${t}" is ${length ? '' : 'not '}about length`);
+    assert.equal(r.rest, '', `"${t}" asks nothing else`);
+  }
+  assert.equal(I.raising('Never call me that.').rule, 'Never call me that', 'his words, as he said them');
+  for (const t of NOT_RAISING) assert.equal(I.raising(t), null, `"${t}" is none of them`);
+});
+
+test('raising: praise or a telling-off with a request keeps the request; a telling-off with a rule is both', () => {
+  assert.deepEqual(I.raising('good boy, now book the 9am'), { kind: 'reward', weight: 2, rest: 'now book the 9am' });
+  assert.deepEqual(I.raising("wrong, it leaves at 7:45"), { kind: 'discipline', weight: 1, rest: 'it leaves at 7:45' });
+  const both = I.raising("That was wrong. Don't ever do that again.");
+  assert.deepEqual([both.kind, both.weight, both.rule, both.rest], ['discipline', 2, "Don't ever do that again", '']);
+});
+
 test('stopIntent: 20+ things that are not a stop — a stop word about something else, a question, a real word never "corrected"', () => {
   assert.ok(NOT_STOPS.length >= 20, `${NOT_STOPS.length} phrases`);
   for (const t of NOT_STOPS) assert.equal(I.stopIntent(t), null, `"${t}" is not a stop`);
