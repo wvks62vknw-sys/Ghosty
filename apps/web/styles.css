@@ -4655,3 +4655,20 @@ html #pg-workshop .idea .ideafrom { font: 600 11px/13px var(--sf); letter-spacin
 .whybody .whyask { font-weight: 600; }
 .whybody .whyreason { margin: -4px 0 12px 18px; font-size: 15px; line-height: 20px; color: var(--ink2); }
 .whybody .whyown { color: var(--ink2); font-style: italic; }
+
+/* THE GUARDIAN (OWNER-ISSUES 55, 56): the Lens's PEOPLE and Settings → PRIVACY → FACES. */
+.people .pplsay { min-height: 26px; font: 600 20px/26px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+.people .pplsay:empty { display: none; }
+.people .pplnote, .people .pplpriv { font: 400 14px/19px var(--sf); color: var(--ink2); }
+.people .pplpriv { color: var(--ink3); font-size: 13px; }
+.people .pplask { gap: 8px; min-width: 0; }
+.people .pplask .pplin { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 22px; font: 400 16px/22px var(--sf); }
+.people .pplask button { flex: none !important; min-height: 44px !important; min-width: 56px; border-radius: 22px; }
+.people > button { min-height: 44px !important; }
+.faces { margin-top: 10px; }
+.faces .facecount { margin: 4px 0 6px; }
+.faces .facelist .rw { flex-wrap: wrap; }
+.faces .facebtns { display: inline-flex; gap: 8px; margin-left: auto; }
+.faces .facebtns button { min-height: 44px !important; }
+.faces button.facedel { min-width: 44px; min-height: 44px !important; height: auto !important; margin-left: auto; background: none; border: 0; color: var(--l3); font-size: 15px; cursor: pointer; }
+.faces button.facedel:hover { color: var(--r); }

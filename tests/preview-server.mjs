@@ -140,7 +140,7 @@ function headersFor(path) {
   return h;
 }
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
+const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
