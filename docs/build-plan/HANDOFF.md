@@ -734,6 +734,20 @@ folder that no longer exists; ignore those paths).
   could not run here because WebKit is not installed (they always launch WebKit; CI installs it). Nothing the automated
   checks cover is broken. The owner's "really bad" points are therefore design and behaviour, not crashes: they are the
   Week 1 list. Per-spec timings and 218 screenshots are in the scratchpad (not kept).
+- 31 Oct 02:40 UK: PR #43 MERGED (main ab09c3c, a merge commit at 02:31) once all five checks were green on 88d985a (smoke
+  took 1 h 55 min). Main's own run on the merge (push event; the guard live, the retry loop in) started at the merge; the
+  06:02 check-in must find no "Undo broken change" commit on main — if the guard fired, read the failing job's log and fix
+  the cause, never the guard. The session branch fast-forwarded to main and pushed (no PR open → a branch push runs no CI,
+  so docs ride free until the next PR opens). Committed the parked drafts: BRIEF-ABILITIES.md (batch 4: the ABILITIES tab,
+  "Can you…?", "want me to learn it?", WHY he did that, what he did today; port 8866) and OWNER-ISSUES 81–82 (his questions
+  about the guard, the reminder commitment, the two phone confirmations, the games wish parked by his own word).
+  IN FLIGHT: the batch-2 builder (BRIEF-CONVERSATION, worktree from 80a8fb2, port 8899) and the batch-3 builder
+  (BRIEF-ONE-MIND, worktree from 88d985a, port 8877). On each report: read the risky diffs in full, validate on the final
+  tree (brain suite, `build.mjs --check`, the notebook tests, web typecheck + build, the touched specs on a fresh preview),
+  merge into the session branch — expect conflicts in prompt.ts / session.ts between the two — one PR each, merge when
+  green, remove the worktree; batch 4 starts when either lands (two builders at once at most). The owner is asleep: ONE
+  morning summary (what landed, what is live, the three phone tests, anything only he can do), nothing before.
+
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:

@@ -1,18 +1,15 @@
-# Where everything stands — 30 October 2026, 21:00 UK
+# Where everything stands — 31 October 2026, 02:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #41, the last at 15:42 UK on 25 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #43, the last at 02:31 UK on 31 Oct)
 
-- NOTE (30 Oct): PR #41 (a stop goes quiet, a built app's link always delivered, the report-card link, the deck pictures) was
-  automatically reverted on main by the guard at 16:57 UK on 25 Oct after a flaky spec step — so those four were NOT on your
-  phone this week. Restored by PR #42 (merged 22:51 UK on 30 Oct) — then reverted AGAIN by the guard at 00:19 on 31 Oct, on a
-  second test flake (a check that straddled midnight; not the code). So they are OFF your phone again until PR #43 merges,
-  which carries all of it with that flake fixed and the checks now retrying a failing test once before it counts.
-- BUILT 30 Oct, in PR #43 with the above (checks running): batch 1 — a school paper survives on the phone (heavy
-  mode, the smallest brain, saved per answer, CARRY ON after a close), the chat never gives up while a free model is seconds
-  away, ON THIS PHONE fails closed (a toggle by the mic; the cloud only by a tap), a Telegram video is never dropped and
-  "kiddo" means him, never your cousin.
+- LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
+  the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
+  both fixed at the cause, and the checks now give a failing test one more go before it counts) — and batch 1
+  (dependability): a school paper survives on the phone (heavy mode, the smallest brain, saved per answer, CARRY ON after a
+  close), the chat never gives up while a free model is seconds away, ON THIS PHONE fails closed (a toggle by the mic; the
+  cloud only by a tap), a Telegram video is never dropped and "kiddo" means him, never your cousin.
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -50,7 +47,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - UNDO everywhere: a 12-second UNDO bar on every removal or big change, a one-tap confirm when it cannot come back.
 - The plain-words guide for life after 14 November.
 
-**Live since the afternoon (PR #41)**
+**From PR #41 (live since PR #43, 31 Oct)**
 - A stop ("stop", "shutup", STOP, talking over him) goes quiet with nothing printed after it.
 - A built app's live link is in the reply's words, not only on a card in the conversation.
 - System's report card opens the Offline Brain panel itself; the deck's pictures show the screens with their tabs.
@@ -76,10 +73,14 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- Waiting on you: the four steps on the Offline Brain panel, the four picks for Ghosty and you as Harold and the Machine, your trick against Connect 4, and the two usage numbers (all in my messages).
-- Nothing is building: the builders are held for the weekly allowance; Agenda and System get their passes after the reset.
+- Waiting on you: the three phone tests of batch 1 (sit a paper with GYM training running; "Always" with no brain downloaded → the explanation and ASK THE BIG BRAIN, the toggle by the mic; re-send the TikTok with "what do you think of this kiddo"), and the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between opens (47) and your Connect 4 trick no longer wins (52).
+- Building now, two builders at once: batch 2 (the conversation and the soul: his length and no AI cadence, stop by intent, conviction, correction and discipline as real mechanics, an honest mood that stands down on your word, moods in colour and voice, more themes) and batch 3 (one shared mind, memory that forgets well, a self-model, timing, the weekly training running for real, the independence meter and Sovereign Mode). Then batch 4, the ABILITIES tab (everything he can do, "Can you…?", why he did that, what he did today) — pulled forward so you never have to remember it yourself.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
+
+The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (building) →
+③ one shared mind and his own brain (building) → ④ the ABILITIES tab → the eyes and the guardian → the Machine view and foresight →
+the workshop and knowledge → the social self and rituals. The older list below still stands after those.
 
 1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
