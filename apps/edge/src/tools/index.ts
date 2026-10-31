@@ -259,13 +259,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     about: "You can save the owner's places (remember_place: look up, show, keep only after his yes; forget_place) — plan_journey and get_directions read them; never a reminder by where he is: no tracking." },
   { name: 'spending', tools: spendingTools, when: /\b(spend|spent|spending|budgets?|subscriptions?|statements?|money|bank|bills?|£\s?\d|pounds|how much did i)\b/i,
     about: 'You can report spending from statements the owner added in Agenda → SPENDING (spending_summary: month, year, changes, subscriptions) and set budgets in his words (set_budget); no bank access, ever.' },
-  // [guardian] THE GUARDIAN (guardian.ts, tools/guardian.ts): warnings near his places, on by his words only (never
-  // always: the plain turn only names it).
+  // [guardian] THE GUARDIAN (guardian.ts, tools/guardian.ts): warnings near his places and a scam check, on by his words only
+  // (never always: the plain turn names it, at 35 characters of the 5,500).
   {
     name: 'guardian',
     tools: guardianTools,
-    when: /\b(?:floods?|flooding|flooded|(?:weather|storm|wind|rain|snow|fog|ice|flood|severe weather|met office) (?:warnings?|alerts?)|warnings? near|storms?|crime (?:near|round|around|by)|is it safe|safe (?:round|around|near|at|to walk)|guardian)\b/i,
-    about: 'You can watch over the owner: flood and weather warnings and crime counts near his saved places (threats_near).',
+    when: /\b(?:floods?|flooding|flooded|(?:weather|storm|wind|rain|snow|fog|ice|flood|severe weather|met office) (?:warnings?|alerts?)|warnings? near|storms?|crime (?:near|round|around|by)|is it safe|safe (?:round|around|near|at|to walk)|legit|scam\w*|phish\w*|dodgy|suspicious (?:link|text|email|message)|fake (?:link|text|email|message|site)|is (?:this|it|that) real|genuine|fraud\w*|smish\w*|guardian)\b/i,
+    about: 'You can watch over the owner: flood and weather warnings and crime counts near his saved places (threats_near), and check a link or message for a scam (check_link; never call one safe).',
   },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {

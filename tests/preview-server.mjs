@@ -88,8 +88,8 @@ globalThis.fetch = async (input, init) => {
   // Test only: the PHOTO TOOLS Spaces (tests/photo.spec.mjs), from their real answers.
   const photo = await photoSpaces(u, init);
   if (photo) return photo;
-  // Test only: the guardian's public feeds (tests/fixtures/guardian-feeds.mjs): never the live ones, whichever spec runs
-  // when the hourly watch looks.
+  // Test only: the guardian's public feeds and the scam check's sources (tests/fixtures/guardian-feeds.mjs): never the
+  // live ones, whichever spec runs when the hourly watch looks.
   const guard = guardianFeeds(u);
   if (guard) return guard;
   return realFetch(input, init);

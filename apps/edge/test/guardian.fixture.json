@@ -218,5 +218,166 @@
    "location_subtype": "",
    "month": "2026-08"
   }
- ]
+ ],
+ "rdap_old": {
+  "rdapConformance": [
+   "rdap_level_0"
+  ],
+  "objectClassName": "domain",
+  "handle": "EXAMPLE.CO.UK",
+  "ldhName": "example.co.uk",
+  "status": [
+   "active"
+  ],
+  "events": [
+   {
+    "eventAction": "registration",
+    "eventDate": "2004-03-12T10:00:00Z"
+   },
+   {
+    "eventAction": "expiration",
+    "eventDate": "2027-06-01T00:00:00Z"
+   },
+   {
+    "eventAction": "last changed",
+    "eventDate": "2026-01-01T00:00:00Z"
+   }
+  ],
+  "entities": [
+   {
+    "objectClassName": "entity",
+    "roles": [
+     "registrar"
+    ],
+    "vcardArray": [
+     "vcard",
+     [
+      [
+       "version",
+       {},
+       "text",
+       "4.0"
+      ],
+      [
+       "fn",
+       {},
+       "text",
+       "Nominet Example Registrar"
+      ]
+     ]
+    ]
+   }
+  ],
+  "nameservers": [
+   {
+    "objectClassName": "nameserver",
+    "ldhName": "ns1.example.net"
+   }
+  ]
+ },
+ "rdap_new": {
+  "rdapConformance": [
+   "rdap_level_0"
+  ],
+  "objectClassName": "domain",
+  "handle": "ROYALMAIL-REDELIVERY-UK.COM",
+  "ldhName": "royalmail-redelivery-uk.com",
+  "status": [
+   "active"
+  ],
+  "events": [
+   {
+    "eventAction": "registration",
+    "eventDate": "2026-10-26T09:00:00Z"
+   },
+   {
+    "eventAction": "expiration",
+    "eventDate": "2027-06-01T00:00:00Z"
+   },
+   {
+    "eventAction": "last changed",
+    "eventDate": "2026-01-01T00:00:00Z"
+   }
+  ],
+  "entities": [
+   {
+    "objectClassName": "entity",
+    "roles": [
+     "registrar"
+    ],
+    "vcardArray": [
+     "vcard",
+     [
+      [
+       "version",
+       {},
+       "text",
+       "4.0"
+      ],
+      [
+       "fn",
+       {},
+       "text",
+       "Cheap Names Inc."
+      ]
+     ]
+    ]
+   }
+  ],
+  "nameservers": [
+   {
+    "objectClassName": "nameserver",
+    "ldhName": "ns1.example.net"
+   }
+  ]
+ },
+ "openphish": "https://admin-suport-update-com.weebly.com/\nhttp://secure-paypa1-login.top/verify\nhttps://evri-parcel-fee.live/pay\n",
+ "phishing_army": "#\n# Title: Phishing Army | Community phishing domain blocklist\n# Entries: 3\n#\nevri-parcel-fee.live\nhmrc-taxrebate.click\nnatwest-secure-alert.com\n",
+ "cf_blocked": {
+  "Status": 0,
+  "TC": false,
+  "RD": true,
+  "RA": true,
+  "AD": false,
+  "CD": false,
+  "Question": [
+   {
+    "name": "blocked.example",
+    "type": 1
+   }
+  ],
+  "Answer": [
+   {
+    "name": "blocked.example",
+    "type": 1,
+    "TTL": 60,
+    "data": "0.0.0.0"
+   }
+  ],
+  "Comment": [
+   "EDE(16): Censored"
+  ]
+ },
+ "cf_ok": {
+  "Status": 0,
+  "TC": false,
+  "RD": true,
+  "RA": true,
+  "AD": true,
+  "CD": false,
+  "Question": [
+   {
+    "name": "example.co.uk",
+    "type": 1
+   }
+  ],
+  "Answer": [
+   {
+    "name": "example.co.uk",
+    "type": 1,
+    "TTL": 300,
+    "data": "93.184.215.14"
+   }
+  ]
+ }
 }

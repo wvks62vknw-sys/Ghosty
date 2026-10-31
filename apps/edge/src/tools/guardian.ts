@@ -1,10 +1,13 @@
 /**
- * THE GUARDIAN's tools (guardian.ts), offered when his words call for them: what is active near his places right now
- * (threats_near). A tool group on by its words, never always: the plain turn only names it.
+ * THE GUARDIAN's tools (guardian.ts, integrations/linkcheck.ts), offered when his words call for them: what is active near
+ * his places right now (threats_near), and a link or a message checked for a scam (check_link). A tool group on by its words,
+ * never always: the plain turn only names it.
  */
 import { FEED_NAMES, clockIn, type GuardWarning } from '../../../../packages/shared/src/guardian';
 import { guardianInfo, warningLine, watchTick, type GuardDeps } from '../guardian';
+import { checkLink, verdictWords } from '../integrations/linkcheck';
 import { asData } from '../kernel/permissions';
+import { feel } from '../mood';
 import { placeLabel } from '../../../../packages/shared/src/places';
 import { arg, type Tool, type ToolContext } from './types';
 
@@ -48,6 +51,21 @@ export const guardianTools: Tool[] = [
       }
       const when = (['flood', 'weather', 'crime'] as const).map((f) => (info.checked[f] ? `${FEED_NAMES[f].name} checked ${clockIn(info.checked[f]!, info.tz)}` : info.failed[f] ? `${FEED_NAMES[f].name}: could not be read (${info.failed[f]})` : '')).filter(Boolean);
       return asData('the public warning feeds (Environment Agency, Met Office, police.uk)', `${lines.join('\n')}\n${when.join('; ')}. Crime counts are a published monthly picture, not a forecast.`);
+    },
+  },
+  {
+    name: 'check_link',
+    description:
+      'Check a link, a domain or a whole message (a text or an email he got) for a scam, from public records with no keys: the domain\'s age and registrar (RDAP), look-alikes of the brands scammers copy (banks, HMRC, Royal Mail, DPD, Evri, Amazon, PayPal…), Cloudflare\'s malware filter and the OpenPhish and Phishing Army lists, and the message\'s own shape (urgency, a fee for a parcel, "verify your account"). Gives a verdict with reasons. Never call anything safe: when nothing is found, say exactly that it is no proof.',
+    parameters: { type: 'object', properties: { text: { type: 'string', description: 'the link, the domain, or the whole message as he got it' } }, required: ['text'] },
+    risk: 'auto',
+    pure: true,
+    async run(a, ctx) {
+      const text = arg.str(a, 'text').slice(0, 4000);
+      const c = await checkLink(text);
+      // the mood's protective turn (mood.ts): a scam caught is real state, fed in once
+      if (c.verdict === 'scam') await feel(ctx.storage, { kind: 'danger', scam: true }).catch(() => undefined);
+      return `${verdictWords(c)}\n(Say the verdict and its reasons as written; never call it safe.)`;
     },
   },
 ];

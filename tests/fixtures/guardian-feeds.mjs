@@ -1,7 +1,7 @@
 // Test only: the guardian's public sources in the preview brain (tests/preview-server.mjs), so no spec — and no hourly
 // 'guard' job on CI's one shared preview — ever reads the live feeds. Quiet by default (nothing in force); the guardian
 // spec switches a flood alert and a weather warning on and off (/__test/guardian?flood=1&weather=1), with times around
-// now so they are in force whatever the day.
+// now so they are in force whatever the day. Also the scam check's sources.
 //   guardianFeeds(url) → a Response for a guardian source, else null.
 
 export const guardMode = { flood: false, weather: false };
@@ -53,5 +53,14 @@ export function guardianFeeds(u) {
   if (u.hostname === 'www.metoffice.gov.uk' && u.pathname.startsWith('/public/data/PWSCache/WarningsRSS/')) return met();
   if (u.hostname === 'api.postcodes.io' && u.pathname === '/postcodes' && u.searchParams.has('lat')) return json({ status: 200, result: [{ postcode: 'B13 8PX', country: 'England', region: 'West Midlands', admin_district: 'Birmingham', admin_county: null }] });
   if (u.hostname === 'data.police.uk' && u.pathname === '/api/crimes-street/all-crime' && u.searchParams.has('lat')) return json([crime('anti-social-behaviour', 'Alcester Road'), crime('anti-social-behaviour', 'Park Road'), crime('vehicle-crime', 'Oxford Road')]);
+  // the scam check's sources: a parcel-fee address is on every list and brand new; anything else is old and clean
+  if (u.hostname === 'rdap.org') {
+    const name = decodeURIComponent(u.pathname.split('/').pop() ?? '');
+    const born = /parcel|redelivery/.test(name) ? new Date(Date.now() - 4 * 86_400_000).toISOString() : '2004-03-12T10:00:00Z';
+    return json({ objectClassName: 'domain', ldhName: name, events: [{ eventAction: 'registration', eventDate: born }], entities: [{ roles: ['registrar'], vcardArray: ['vcard', [['fn', {}, 'text', 'Example Registrar Ltd']]] }] });
+  }
+  if (u.hostname === 'security.cloudflare-dns.com') return json({ Status: 0, Answer: [{ data: /parcel/.test(u.searchParams.get('name') ?? '') ? '0.0.0.0' : '93.184.215.14' }] });
+  if (u.hostname === 'raw.githubusercontent.com' && u.pathname.includes('/openphish/')) return new Response('https://evri-parcel-fee.live/pay\n');
+  if (u.hostname === 'phishing.army') return new Response('# Phishing Army\nevri-parcel-fee.live\n');
   return null;
 }

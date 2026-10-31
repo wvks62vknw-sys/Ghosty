@@ -43,6 +43,8 @@ import { stopIntent } from '../../../packages/shared/src/intent';
 import { whyReply } from './why'; // [abilities]
 import { dayDoings } from './today'; // [abilities]
 import { dayLines, todayAsked } from '../../../packages/shared/src/abilities'; // [abilities]
+import { checkLink, linksIn, messageShape, verdictWords } from './integrations/linkcheck'; // [guardian]
+import { feel } from './mood'; // [guardian]
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -149,6 +151,11 @@ interface TgMessage {
   video?: TgVideo;
   video_note?: TgVideo;
   animation?: TgVideo;
+  /** [guardian] A message he forwarded from somewhere else (a text, an email): checked as a possible scam. */
+  forward_origin?: unknown;
+  forward_date?: number;
+  forward_from?: TgUser;
+  forward_sender_name?: string;
 }
 export interface TgUpdate {
   update_id: number;
@@ -733,6 +740,15 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     note = unreadNote('TikTok video, as a link', card ? `its public title "${card.title}" by ${card.author}${cover ? ', and its cover picture (with this message)' : ''}` : 'nothing of it: the link could not be opened');
   }
   if (!text) return tgSend(token, chatId, 'Send me text, a voice note or a photo.');
+  // [guardian] A message he forwarded with a link in it, or the shape of a scam: checked from public records, no model
+  // (integrations/linkcheck.ts); any other forward is talked about as usual.
+  if (!images.length && (m.forward_origin || m.forward_date || m.forward_from || m.forward_sender_name) && (linksIn(text).length || messageShape(text).length)) {
+    const c = await checkLink(text).catch(() => null);
+    if (c) {
+      if (c.verdict === 'scam') await feel(host.storage, { kind: 'danger', scam: true }).catch(() => undefined);
+      return tgSend(token, chatId, verdictWords(c));
+    }
+  }
   // A stop by intent ("shut up", "enough", "leave it": intent.ts), typed or in a voice note: whatever is under way stops,
   // and nothing is said back (OWNER-ISSUES 70a). /stop above is the command; this is the owner talking.
   const stop = !images.length ? stopIntent(text) : null;

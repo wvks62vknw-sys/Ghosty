@@ -5,6 +5,7 @@
 //  2. a flood alert and a weather warning appear: CHECK NOW tells him, the brain's ONE notification is in the inbox with
 //     both lines, the card shows each with its source and since when; the same look again says nothing new; they lift:
 //     the all-clear, once;
+//  3. a scam check through the chat: the verdict with its reasons, never "safe";
 //  then everything is put back (the place, the feeds quiet, the inbox read) for the specs after it.
 //   BASE=http://localhost:8788 node tests/guardian.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -89,6 +90,20 @@ await checkNow();
 await page.waitForTimeout(800);
 check((await inboxCount('All clear')) === 1, 'the all-clear was said twice');
 
+// ---- 3. a scam check through the chat
+await page.evaluate(() => (location.hash = 'core'));
+await page.waitForSelector('#cin', { state: 'visible', timeout: 10000 });
+const replies = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent?.replace(/\s+/g, ' ').trim() ?? ''));
+const lastReply = async () => (await replies()).at(-1) ?? '';
+const say = async (t) => {
+  await page.fill('#cin', t);
+  await page.keyboard.press('Enter');
+};
+await say('is this a scam? Evri: your parcel is on hold. Pay the £1.45 fee within 24 hours at evri-parcel-fee.live/pay');
+await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /That looks like a scam\./.test(m.textContent ?? '')), null, 20000, `the scam check: "${await lastReply()}"`);
+check(!/\bsafe\b/i.test(await lastReply()), `the verdict said "safe": ${await lastReply()}`);
+for (const s of await page.evaluate(() => [...document.querySelectorAll('#pg-core :is(button, input)')].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect().right))) if (s > PHONE.width + 1) problems.push(`something sticks out sideways at ${Math.round(s)} px`);
+
 // ---- put back what this spec changed, for the specs after it on the same brain
 if (!had.some((p) => p.id === 'home')) await api('/profile/places?id=home', { method: 'DELETE' });
 await feeds('flood=0&weather=0');
@@ -99,4 +114,4 @@ if (problems.length) {
   console.error(`FAIL guardian:\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log('ok: THE GUARDIAN — NEAR HOME quiet, a warning told once with its notification, the all-clear once');
+console.log('ok: THE GUARDIAN — NEAR HOME quiet, a warning told once with its notification, the all-clear once; a scam checked');

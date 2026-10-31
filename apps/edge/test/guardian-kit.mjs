@@ -1,15 +1,17 @@
 // The guardian's tests' shared kit (not a test file itself): the modules built from source, the recorded answers of every
 // public source (guardian.fixture.json: never the live feeds), a fake web that serves them, and a guardian on a fake
-// clock with everything that would go out written down. Used by guardian.test.mjs (the watch).
+// clock with everything that would go out written down. Used by guardian.test.mjs (the watch) and linkcheck.test.mjs (a
+// scam or a link).
 import { existsSync, readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
-const entries = ['../src/guardian.ts', '../src/integrations/warnings.ts', '../src/mind.ts', '../../../packages/shared/src/guardian.ts'].map(at).filter((p) => existsSync(p));
+const entries = ['../src/guardian.ts', '../src/integrations/warnings.ts', '../src/integrations/linkcheck.ts', '../src/mind.ts', '../../../packages/shared/src/guardian.ts'].map(at).filter((p) => existsSync(p));
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/guardian'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const built = (p) => (existsSync(at(`./.build/guardian/${p}`)) ? import(`./.build/guardian/${p}`) : Promise.resolve(null));
 export const G = await built('apps/edge/src/guardian.mjs');
 export const W = await built('apps/edge/src/integrations/warnings.mjs');
+export const L = await built('apps/edge/src/integrations/linkcheck.mjs');
 export const M = await built('apps/edge/src/mind.mjs');
 export const S = await built('packages/shared/src/guardian.mjs');
 export const FX = JSON.parse(readFileSync(new URL('./guardian.fixture.json', import.meta.url), 'utf8'));
@@ -31,7 +33,7 @@ export class Mem {
 }
 
 /** What the fake web answers; `feeds` is switched per test. Every call is written down. */
-export const web = { feeds: { ea: 'ea_alert', met: 'met_wm', police: 'police_b13' }, down: new Set(), calls: [] };
+export const web = { feeds: { ea: 'ea_alert', met: 'met_wm', police: 'police_b13' }, down: new Set(), calls: [], rdap: {}, cf: {} };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.url);
@@ -42,6 +44,14 @@ globalThis.fetch = async (input, init = {}) => {
   if (host === 'www.metoffice.gov.uk') return new Response(FX[web.feeds.met], { headers: { 'content-type': 'application/rss+xml' } });
   if (host === 'api.postcodes.io') return json(FX.postcode_b13);
   if (host === 'data.police.uk') return json(FX[web.feeds.police]);
+  if (host === 'rdap.org') {
+    const name = decodeURIComponent(url.pathname.split('/').pop());
+    const r = web.rdap[name];
+    return r ? json(FX[r]) : new Response('', { status: 404 });
+  }
+  if (host === 'security.cloudflare-dns.com') return json(FX[web.cf[url.searchParams.get('name')] ?? 'cf_ok']);
+  if (host === 'raw.githubusercontent.com') return new Response(FX.openphish);
+  if (host === 'phishing.army') return new Response(FX.phishing_army);
   throw new TypeError(`fetch failed: tests have no network (${url.href.slice(0, 120)})`);
 };
 
