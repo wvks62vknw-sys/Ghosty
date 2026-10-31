@@ -987,6 +987,29 @@ folder that no longer exists; ignore those paths).
   the words, TEST asking, GET and USE of the stand-in, a reply's record written and cleared, SCHOOL sitting on it).
   HONEST LIMIT: whether the 0.5B fits his phone is only known by trying; the words say so if it does not. NEXT: lands
   with batch 7's PR (one CI run); then he GETs and USEs the 0.5B before SIT (the old close's record predates the fix).
+- 31 Oct 23:00 UK: BATCH 7 BUILT, REVIEWED AND MERGED onto the branch (merge 37a244c; the builder's seven commits e093db5,
+  06d3894, 4df9288, 61b81f4, 87dcd4d, f4cde4c, e382415 from e6750f2; 3 h 25 min; 72 files, +6,752/−177) — with his sitting-crash
+  fix (dae96c8, ec05ed4, ba7b7fb) already on the branch; no file overlapped, no conflict. WHAT IS WHERE: the solvers in
+  packages/shared/src/workbench/ (units, estimate, beams, gears, engine, aero, motion, heat, sun, circuits, words, flow, shapes,
+  index); the tab in apps/web/src/features/workbench/ (index, panels, card, tunnel, tunnelwork); the tool apps/edge/src/tools/
+  workbench.ts; the sourcing in packages/shared/src/sources.ts and refusal.ts, carried by cited.ts, tools/web.ts, tools/library.ts,
+  library/digest.ts (the FEEDS registry), llm/router.ts (avoid), agent.ts (the refusal retry); the phone's chips in cited/text.ts
+  and features/core/cited.ts; FRESH TODAY in features/library; specs workbench, tunnel (in the CI loop after studio), cited,
+  library, brief, hubcards, deck updated; tests workbench.test (15), sources.test (3), cited/digest/web tests extended.
+  MY REVIEW: every solver formula read against its textbook form (nothing to fix: the beam cases incl. the fixed-fixed off-centre
+  load, Euler with the end factors, the ISA, thin-aerofoil α₀ for NACA 2412, the Diesel cycle, Hohmann, Newton cooling, NOAA's
+  position, E12 rounding), the lattice (pull streaming, mirror walls, half-way bounce-back, the momentum-exchange sign, the
+  stability guard), the words parser's command/question split, the tool's ALSO payment and both prompt tests, the sources table
+  and capLabel, the refusal retry (ctx.pop() after ctx.push(message): right), the lead note outside asData, the Digest's budget
+  (20 of 24) and tiers (each equal to its host's in the table, asserted). Nothing to fix. REVIEW NOTES, not fixes: WORKBENCH_WHEN
+  has common words (lift, teeth, wings, shadows, engine) — a false-on costs about 1,200 characters on that turn, outside the
+  plain-turn guard; workbenchAsked takes a one-word "orbit"/"shadow"/"circuit" as a command to open a panel. THE BUILDER'S OWN
+  FINDS: nav.spec 807 > 792 px with five MAKE cards (f4cde4c: 52 px instruments on hubs of five or six); tunnel.spec once read a
+  circle's lift 0.22 (vortex shedding at Re ≈ 60: e382415 averages the card over a shedding cycle). BUILDER'S VALIDATION
+  (e382415): both typechecks, web build, brain suite 1,342/1,342, twelve specs clean on 8866, prompt worst case 5,490 of 5,500.
+  MERGED-TREE VALIDATION (37a244c): running now — brain typecheck + suite, web typecheck + build, the chain websites → apps →
+  hubcards → workbench → tunnel → cited → library → brief → nav → abilities → eye → sit → bigbrain → guardian on 8788; the
+  numbers go into the PR body and this entry when done. NEXT: PR #48 (one CI run for the batch and the fix), merge when green.
 
 
 
