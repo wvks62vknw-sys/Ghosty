@@ -15,7 +15,9 @@ Our one change to the runtime (31 Oct 2026): in `ort-wasm-simd-threaded.mjs` the
 `globalThis.GHOSTY_WASM_MAX_PAGES` (pages of 64 KB) before the stock 65536 (4 GB). WebKit reserves a shared memory's whole
 maximum up front, and an iPhone refuses 4 GB once another runtime (MediaPipe's, in the page) holds memory too: "no
 available backend found … RangeError: Out of memory". `worker.mjs` sets 16384 (1 GB); the face worker (`../faces/worker.mjs`)
-takes it from its address (1 GB, then 256 MB on one retry). Re-vendoring the runtime must keep the change
+takes it from its address (1 GB, then 256 MB on one retry). Both workers ask for the glue as `ort-wasm-simd-threaded.mjs?v=2`
+(the `mjs` / `wasm` form of `wasmPaths`): the service worker serves vendored files cache-first, so a phone that held the
+stock glue would otherwise keep using it; the .wasm is unchanged and keeps its address. Re-vendoring the runtime must keep the change
 (`apps/edge/test/faces.test.mjs` checks for it).
 
 Why the half-float encoder and not the 11.8 MB `vision_model_quantized.onnx`: checked on 2026-10-17 with

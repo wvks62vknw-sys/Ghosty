@@ -15,7 +15,10 @@ globalThis.GHOSTY_WASM_MAX_PAGES = 16384;
 // one thread: iOS has no shared memory for a page that is not cross-origin isolated
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
-ort.env.wasm.wasmPaths = new URL('./', import.meta.url).href;
+// The glue is asked for by a fresh address (?v=2): the service worker keeps vendored files cache-first, and a phone that
+// already held the stock glue would otherwise go on using it. The 14 MB .wasm is unchanged and keeps its address and cache.
+const HERE = new URL('./', import.meta.url).href;
+ort.env.wasm.wasmPaths = { mjs: `${HERE}ort-wasm-simd-threaded.mjs?v=2`, wasm: `${HERE}ort-wasm-simd-threaded.wasm` };
 
 let session = null;
 

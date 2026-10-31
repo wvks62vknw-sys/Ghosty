@@ -17,7 +17,10 @@ globalThis.GHOSTY_WASM_MAX_PAGES = Number(new URL(self.location.href).searchPara
 // one thread: iOS has no shared memory for a page that is not cross-origin isolated
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
-ort.env.wasm.wasmPaths = new URL('../clip/', import.meta.url).href;
+// The glue is asked for by a fresh address (?v=2): the service worker keeps vendored files cache-first, and a phone that
+// already held the stock glue would otherwise go on using it. The 14 MB .wasm is unchanged and keeps its address and cache.
+const CLIP = new URL('../clip/', import.meta.url).href;
+ort.env.wasm.wasmPaths = { mjs: `${CLIP}ort-wasm-simd-threaded.mjs?v=2`, wasm: `${CLIP}ort-wasm-simd-threaded.wasm` };
 // (the model keeps its batch-norm numbers as graph inputs: the runtime says so at every load, which is not a problem)
 ort.env.logLevel = 'error';
 
