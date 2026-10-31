@@ -358,3 +358,67 @@ test('through the agent: GET /api/today has the turns of the day, in his time zo
   assert.equal(r.status, 200);
   assert.ok(r.json().items.some((i) => i.text === 'Remembered (text: I keep bees)'), JSON.stringify(r.json().items));
 });
+
+// ---------------------------------------------------------------- item 5: abilities revealed in context
+
+test('an ability offered in context: once, then remembered; never one he has used or this turn ran; one a day; never mid-task', () => {
+  const now = Date.UTC(2026, 9, 31, 12);
+  const none = { offered: [], used: [] };
+  const ctx = (text, more = {}) => ({ text, ran: [], busy: false, ...more });
+  let o = A.offerFor(ctx('the car in front was AB12 CDE, it nearly hit me'), none, now);
+  assert.equal(o.id, 'ctx:plate');
+  assert.equal(o.line, 'I can check that plate for you: its MOT history and mileage, from the official record.');
+  assert.deepEqual(o.go, { run: 'vehicle_check', args: { plate: 'AB12CDE' } });
+  // remembered: never offered again, even days later
+  assert.equal(A.offerFor(ctx('what about XY34 ZZZ?'), { offered: [{ id: 'ctx:plate', at: now - 5 * 86_400_000 }], used: [] }, now), null);
+  // the daily cap: an offer made today (of any kind) means nothing else unprompted today
+  assert.equal(A.offerFor(ctx("I'm worried about my exam"), { offered: [{ id: 'ctx:plate', at: now - 3600_000 }], used: [] }, now), null);
+  assert.equal(A.offerFor(ctx("I'm worried about my exam"), { offered: [{ id: 'ctx:plate', at: now - 25 * 3600_000 }], used: [] }, now).id, 'ctx:worry');
+  // never mid-task
+  assert.equal(A.offerFor(ctx("I'm worried about my exam", { busy: true }), none, now), null);
+  // never an ability he has used, nor one this turn already ran
+  assert.equal(A.offerFor(ctx('watch https://youtu.be/dQw4w9WgXcQ later'), { offered: [], used: ['video'] }, now), null);
+  assert.equal(A.offerFor(ctx('watch https://youtu.be/dQw4w9WgXcQ', { ran: ['summarise_video'] }), none, now), null);
+  o = A.offerFor(ctx('watch https://youtu.be/dQw4w9WgXcQ'), none, now);
+  assert.equal(o.id, 'ctx:youtube');
+  assert.deepEqual(o.go, { ask: 'Summarise this video: https://youtu.be/dQw4w9WgXcQ' });
+  assert.equal(A.offerFor(ctx('I lost the receipt for the TV'), none, now).id, 'ctx:spending');
+  // nothing in it: nothing offered
+  assert.equal(A.offerFor(ctx('thanks, that is great'), none, now), null);
+  assert.equal(A.offerFor(ctx('a plate of chips please'), none, now), null);
+});
+
+test('"did you know I can …?": one a day, an ability never used nor offered, steady through the day; never mid-task, never twice', () => {
+  const day = Date.UTC(2026, 9, 31, 9);
+  const list = [
+    ...A.brainAbilities((n) => n !== 'github'),
+    { id: 's:lens', cat: 'see', line: 'Point the camera and I name what I see.', asks: [], go: { open: 'lens' }, from: 'app' },
+  ];
+  const state = { offered: [], used: ['memory', 'web'], opened: ['lens'] };
+  const a = A.didYouKnow(list, state, false, day);
+  assert.ok(a, 'something to tell him');
+  assert.match(a.line, /^Did you know I can .+\?$/);
+  assert.equal(A.didYouKnow(list, state, false, day + 3600_000).id, a.id, 'the same one all day');
+  assert.notEqual(a.id, 'dyk:g:memory', 'never one he has used');
+  assert.notEqual(a.id, 'dyk:s:lens', 'never a screen he has opened');
+  assert.ok(!a.id.includes('repo') && !a.id.includes('reverse'), 'never one that cannot work yet');
+  assert.equal(A.didYouKnow(list, state, true, day), null, 'never mid-task');
+  assert.equal(A.didYouKnow(list, { ...state, offered: [{ id: 'ctx:worry', at: day - 3600_000 }] }, false, day), null, 'one unprompted line a day');
+  const next = A.didYouKnow(list, { ...state, offered: [{ id: a.id, at: day }] }, false, day + 86_400_000);
+  assert.ok(next && next.id !== a.id, 'never twice for the same thing');
+});
+
+test('the brain remembers what was offered (with when) and what he has used', async () => {
+  const { call, storage } = agentOf();
+  assert.equal((await call('/abilities/offered', { method: 'POST', body: '{}' })).status, 400);
+  const r = await call('/abilities/offered', { method: 'POST', body: JSON.stringify({ id: 'ctx:plate' }) });
+  assert.equal(r.json().offered[0].id, 'ctx:plate');
+  await call('/abilities/offered', { method: 'POST', body: JSON.stringify({ id: 'ctx:plate' }) });
+  assert.deepEqual((await call('/abilities')).json().offered.map((o) => o.id), ['ctx:plate'], 'once');
+  // a turn that ran a tool marks its ability used (why.ts keepTrail)
+  await W.keepTrail(storage, { at: Date.now(), asked: 'weather?', steps: [{ tool: 'weather', ok: true }, { tool: 'web_search', ok: true }] });
+  assert.deepEqual((await call('/abilities')).json().used.sort(), ['data', 'web']);
+  // an old entry kept as a bare id still counts as offered (long ago)
+  await storage.put('abilities:offered', ['ctx:worry']);
+  assert.deepEqual((await call('/abilities')).json().offered, [{ id: 'ctx:worry', at: 0 }]);
+});

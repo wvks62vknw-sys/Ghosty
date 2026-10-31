@@ -3,7 +3,8 @@
  * found (the screen, a command, or — for the brain's — DO IT, which sends his words to the brain as the request he may
  * have meant), and the offer "want me to learn it?" as YES / NO. YES makes it a learning goal; NO just closes.
  */
-import { go } from '../../abilities/registry';
+import { go, intoChat } from '../../abilities/registry';
+import { perform } from '../../shell/launcher';
 import { abilityById, learnIt, setLearn } from '../../assistant/local';
 import { send, type Entry } from '../../assistant/session';
 import { h } from '../../core/dom';
@@ -15,8 +16,8 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
   if (!l) return null;
   const row = h('div.row.wrap.localacts', { dataset: { case: 'keep' } });
   for (const g of l.go ?? []) {
-    if (g.open) {
-      const b = button(g.label, () => navTo(g.open!, 'push'));
+    if (g.open || g.run || g.words != null) {
+      const b = button(g.label, () => (g.open ? navTo(g.open, 'push') : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));
       b.dataset.case = 'keep';
       b.classList.add('localgo');
       row.append(b);

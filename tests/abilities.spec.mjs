@@ -8,6 +8,7 @@
 // YES keeps it as a learning goal (LEARNING, the brain, the Workshop); a request ("…at 5") still goes to the brain.
 // WHY (item 3): a reply's trail in a sheet, from its WHY or a long press; "why did you do that?" answered in the chat, no model.
 // Today (item 4): "what did you do today?" lists the day, no model; a fresh phone hears three things it can do once, never again.
+// In context (item 5): a worry typed gets ONE line offering an ability, once, one a day; the day's one "did you know I can …?".
 //   BASE=http://localhost:8866 node tests/abilities.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -288,9 +289,65 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await ctx.close();
 }
 
+// ---- abilities revealed in context (item 5): one line after a turn that plainly calls for one, once; the day's one
+// "did you know"; the brain's memory of them is stubbed here (abilities:offered), so a run never depends on the one before
+async function offersPhone(kind) {
+  const ctx = await browser.newContext({ viewport: PHONE, screen: PHONE, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+  await ctx.addInitScript((k) => { window.__ghostyOffers = k; }, kind);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[offers] pageerror: ${e.message}`));
+  const told = [];
+  await page.route('**/api/abilities', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    await route.fulfill({ json: { ...j, offered: told.map((id) => ({ id, at: Date.now() })), used: [] } });
+  });
+  await page.route('**/api/abilities/offered', async (route) => {
+    told.push(JSON.parse(route.request().postData() ?? '{}').id);
+    await route.fulfill({ json: { offered: told.map((id) => ({ id, at: Date.now() })) } });
+  });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', KEY);
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(600);
+  if (!(await page.evaluate(() => document.querySelector('#pg-core .hud.core')?.classList.contains('logopen')))) await page.click('.logbtn').catch(() => undefined);
+  return { ctx, page, told };
+}
+{
+  const { ctx, page, told } = await offersPhone('context');
+  const offers = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].filter((m) => (m.textContent ?? '').includes('I can keep an eye on that for you')).length);
+  await page.fill('#cin', 'I’m worried about my driving test');
+  await page.press('#cin', 'Enter');
+  await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('I can keep an eye on that for you')), null, 20000, '[offers] a worry typed was not met with the one line offering to keep an eye on it');
+  if (!told.includes('ctx:worry')) problems.push(`[offers] the brain was not told it was offered: ${told.join(', ')}`);
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${out}/abilities-offer.png` });
+  await page.locator('#pg-core .msg:not(.me)', { hasText: 'I can keep an eye on that for you' }).locator('.localacts button').first().click().catch(() => problems.push('[offers] no tap under the offer'));
+  await until(page, () => document.querySelector('#cin')?.value === 'Remind me ', null, 5000, '[offers] the tap did not start a reminder in the chat box');
+  await page.fill('#cin', 'I’m so stressed about it, I keep forgetting things');
+  await page.press('#cin', 'Enter');
+  await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Mock reply to: I’m so stressed/i.test(m.textContent ?? '')), null, 20000, '[offers] the second message was not answered');
+  await page.waitForTimeout(1200);
+  if ((await offers()) !== 1) problems.push(`[offers] offered ${await offers()} times (once, and one a day)`);
+  if (await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /^Ghosty.*Did you know/.test(m.textContent ?? '')))) problems.push('[offers] a "did you know" came on the same day as an offer');
+  await ctx.close();
+}
+{
+  // the day's one "did you know I can …?", a while after the app opens with nothing under way
+  const { ctx, page } = await offersPhone(true);
+  await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Did you know/.test(m.textContent ?? '')), null, 30000, '[offers] no "did you know" a while after the app opened');
+  await page.waitForTimeout(1500);
+  const dyk = await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].filter((m) => /Did you know/.test(m.textContent ?? '')).map((m) => ({ text: m.querySelector(':scope > span')?.textContent ?? '', taps: m.querySelectorAll('.localacts button').length })));
+  if (dyk.length !== 1 || !dyk[0].taps) problems.push(`[offers] the day's line: ${JSON.stringify(dyk)}`);
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain; WHY: the sheet from a reply’s WHY and from a long press (what he asked, the step with its arguments and outcome, the reason), and "why did you do that?" answered in the chat with no model; "what did you do today?" lists the day with no model; a fresh phone hears three things once (God’s eye, Brief, Gym, everything), never again after it is opened again.');
+console.log('Abilities run clean: opens from the Me sheet and the deck, in his voice, the eight groups in order, one card per brain tool group and per screen, the GYM, the Lens and SCHOOL from their own lists, the key it needs said honestly, every GO and ask lands somewhere real (Space, System → BACKUP, the GYM on chess, the chat box unsent, SYSTEM → KEYS), nothing sideways at 440 or 390, 44 pt targets; "can you…?": translate signs → the Lens on TRANSLATE, the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers the same way with no model, GO opens the GYM, a request still goes to the brain; WHY: the sheet from a reply’s WHY and from a long press (what he asked, the step with its arguments and outcome, the reason), and "why did you do that?" answered in the chat with no model; "what did you do today?" lists the day with no model; a fresh phone hears three things once (God’s eye, Brief, Gym, everything), never again after it is opened again; in context: a worry typed gets the one line offering a reminder, the brain is told, the tap starts one, never again that day; the day’s one “did you know”.');

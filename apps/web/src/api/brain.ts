@@ -14,7 +14,7 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
-import type { AbilitiesInfo, DayItem, LearningGoal, Trail } from '../../../../packages/shared/src/abilities';
+import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -408,6 +408,8 @@ export const brain = {
   learnGoal: (ask: string) => req<{ goal: LearningGoal }>('POST', '/abilities/learn', { ask }),
   /** What he did today, from what the brain keeps (apps/edge/src/today.ts), the day counted in the owner's time zone. */
   today: (tz: string) => req<{ items: DayItem[] }>('GET', `/today?tz=${encodeURIComponent(tz)}`),
+  /** An ability offered in context once (and the day's one): remembered by the brain, never offered again. */
+  abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),

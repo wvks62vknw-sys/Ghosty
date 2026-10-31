@@ -19,9 +19,12 @@ import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first';
-  /** Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`). */
-  go?: { id: string; ask: number; label: string; open?: string }[];
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer';
+  /**
+   * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
+   * command to run (`run` with `args`), or words to put in the chat box (`words`).
+   */
+  go?: { id: string; ask: number; label: string; open?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
   /** The offer to learn it, with his words, and what he said to it. */
   learn?: { ask: string; state: 'open' | 'yes' | 'no' };
   /** His words, for DO IT: when he meant it as a request after all, the brain takes it from here. */

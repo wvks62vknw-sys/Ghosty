@@ -9,14 +9,15 @@
  * words, upgrades.ts `addOwnerGoal`).
  *   GET  /abilities          → AbilitiesInfo (the abilities, his goals, the roadmap's open steps, offered and used)
  *   POST /abilities/learn    {ask} → the goal recorded (the same words twice: the one goal)
+ *   POST /abilities/offered  {id}  → remembered (with when): offered in context once, never again; one a day at most
  */
-import { askOf, iCan, patternWords, type Ability, type AbilitiesInfo, type AbilityCat } from '../../../packages/shared/src/abilities';
+import { askOf, iCan, patternWords, type Ability, type AbilitiesInfo, type AbilityCat, type Offered } from '../../../packages/shared/src/abilities';
 import { TOOL_GROUPS, type ToolGroup } from './tools';
 import { loadRoadmap } from './tools/evolve';
 import { addOwnerGoal, loadIdeas } from './upgrades';
 
 // (the shared words and search, re-exported for the brain's tests: test/abilities.test.mjs)
-export { argWords, askOf, bestAsk, canYouAsked, dayLines, doneOf, iCan, patternWords, queryWords, searchAbilities, stem, todayAsked, whatAbout, whyAsked, whyLines } from '../../../packages/shared/src/abilities';
+export { argWords, askOf, bestAsk, canYouAsked, dayLines, didYouKnow, doneOf, iCan, mayOffer, offerFor, patternWords, queryWords, searchAbilities, stem, todayAsked, whatAbout, whyAsked, whyLines } from '../../../packages/shared/src/abilities';
 
 export const OFFERED_KEY = 'abilities:offered';
 export const USED_KEY = 'abilities:used';
@@ -117,16 +118,42 @@ export async function abilitiesInfo(d: AbilitiesDeps): Promise<AbilitiesInfo> {
   const [ideas, road, offered, used] = await Promise.all([
     loadIdeas(d.storage).catch(() => []),
     loadRoadmap(d.storage).catch(() => null),
-    d.storage.get<string[]>(OFFERED_KEY).catch(() => undefined),
+    loadOffered(d.storage).catch(() => [] as Offered[]),
     d.storage.get<string[]>(USED_KEY).catch(() => undefined),
   ]);
   return {
     abilities: brainAbilities((n) => held.has(n)),
     goals: ideas.filter((i) => i.from === 'owner').map((i) => ({ id: i.id, ask: i.ask ?? i.title, title: i.title, at: i.at })),
     roadmap: { goal: road?.goal ?? '', steps: (road?.steps ?? []).filter((s) => s.status !== 'done').map((s) => s.title) },
-    offered: offered ?? [],
+    offered,
     used: used ?? [],
   };
+}
+
+/** What was offered unprompted, and when (an entry kept before times were kept counts as long ago). */
+export async function loadOffered(storage: DurableObjectStorage): Promise<Offered[]> {
+  const raw = (await storage.get<(Offered | string)[]>(OFFERED_KEY)) ?? [];
+  return raw.map((o) => (typeof o === 'string' ? { id: o, at: 0 } : o)).filter((o) => o && typeof o.id === 'string');
+}
+
+/** Remember that an ability was offered unprompted (never again; the day's one): at most 200 kept. */
+export async function markOffered(storage: DurableObjectStorage, id: string, now = Date.now()): Promise<Offered[]> {
+  const list = await loadOffered(storage);
+  if (!list.some((o) => o.id === id)) {
+    list.push({ id, at: now });
+    await storage.put(OFFERED_KEY, list.slice(-200));
+  }
+  return list;
+}
+
+/** The tool groups used so far (from the tools a turn ran): written only when a new one appears. */
+export async function markUsed(storage: DurableObjectStorage, tools: string[]): Promise<void> {
+  if (!tools.length) return;
+  const groups = TOOL_GROUPS.filter((g) => g.tools.some((t) => tools.includes(t.name))).map((g) => g.name);
+  if (!groups.length) return;
+  const list = (await storage.get<string[]>(USED_KEY)) ?? [];
+  const fresh = groups.filter((g) => !list.includes(g));
+  if (fresh.length) await storage.put(USED_KEY, [...list, ...fresh]);
 }
 
 export async function abilitiesRoute(req: Request, path: string, method: string, d: AbilitiesDeps): Promise<Response> {
@@ -137,6 +164,12 @@ export async function abilitiesRoute(req: Request, path: string, method: string,
     if (!ask) return json({ error: 'say what to learn' }, 400);
     const goal = await addOwnerGoal(d.storage, ask);
     return json({ goal: { id: goal.id, ask: goal.ask ?? ask, title: goal.title, at: goal.at } });
+  }
+  if (path === '/abilities/offered' && method === 'POST') {
+    const b = (await req.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof b.id === 'string' ? b.id.slice(0, 80) : '';
+    if (!id) return json({ error: 'which ability?' }, 400);
+    return json({ offered: await markOffered(d.storage, id) });
   }
   return json({ error: 'not found' }, 404);
 }

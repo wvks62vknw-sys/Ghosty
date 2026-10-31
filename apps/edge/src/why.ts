@@ -10,7 +10,7 @@
  */
 import type { ChatEvent } from '../../../packages/shared/src/protocol';
 import { argWords, whyAsked, whyLines, type Trail } from '../../../packages/shared/src/abilities';
-import { brainAbilities } from './abilities';
+import { brainAbilities, markUsed } from './abilities';
 
 export const WHY_KEY = 'why:turns';
 const KEEP = 30;
@@ -60,6 +60,8 @@ export async function keepTrail(storage: DurableObjectStorage, t: Trail, now = D
   const list = (await loadTrails(storage)).filter((x) => now - x.at <= KEEP_MS);
   list.push(t);
   await storage.put(WHY_KEY, list.slice(-KEEP));
+  // the abilities he has used (an ability used is never offered to him in context: abilities.ts)
+  await markUsed(storage, t.steps.map((x) => x.tool)).catch(() => undefined);
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });

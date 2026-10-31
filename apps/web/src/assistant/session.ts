@@ -538,6 +538,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     rescue,
   );
   lap.end();
+  // Abilities revealed in context (OWNER-ISSUES 67b): one line offering what the turn plainly called for (abilities/offer.ts)
+  void import('../abilities/offer').then((o) => o.offerAfterTurn(t)).catch(() => undefined);
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

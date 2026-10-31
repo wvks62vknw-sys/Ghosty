@@ -9,8 +9,10 @@
  *  - `searchAbilities`: "can you …?" over the abilities by their words — a hit, the nearest (a near miss), or none;
  *  - `canYouAsked`, `whyAsked`, `todayAsked`: the three questions answered with no model, in chat and on Telegram;
  *  - `whyLines`: a reply's trail (the tools that ran, their arguments, how they went, the reason) in plain words;
- *  - `dayLines`: what he did today, newest first.
+ *  - `dayLines`: what he did today, newest first;
+ *  - `offerFor`, `didYouKnow`: an ability offered in context, once, at most one a day, never mid-task.
  */
+import { findPlates } from './plates';
 
 /** The eight ways the owner thinks about what Ghosty does (the tab's groups, in this order). */
 export type AbilityCat = 'see' | 'know' | 'build' | 'watch' | 'play' | 'learn' | 'do' | 'talk';
@@ -62,8 +64,8 @@ export interface AbilitiesInfo {
   goals: LearningGoal[];
   /** The upgrade roadmap's open steps, in order ('' goal when there is none). */
   roadmap: { goal: string; steps: string[] };
-  /** Abilities already offered in context (`abilities:offered`), and the brain's tool groups ever used. */
-  offered: string[];
+  /** Abilities already offered in context (`abilities:offered`: which, and when), and the brain's tool groups ever used. */
+  offered: Offered[];
   used: string[];
 }
 
@@ -449,4 +451,111 @@ export function dayLines(items: DayItem[], tz?: string, max = 20): string[] {
   const shown = list.slice(0, max).map((i) => `• ${clock(i.at, tz)} — ${clip(i.text, 160)}`);
   if (list.length > max) shown.push(`…and ${list.length - max} more, earlier.`);
   return [`Today, newest first (${list.length} thing${list.length === 1 ? '' : 's'}):`, ...shown];
+}
+
+// ---------------------------------------------------------------- abilities revealed in context (OWNER-ISSUES 67b, 53)
+
+/** An ability offered once, unprompted (`abilities:offered`): which, and when. */
+export interface Offered {
+  id: string;
+  at: number;
+}
+
+/** One line offering an ability, and where a tap goes. */
+export interface Offer {
+  /** What is remembered as offered: the trigger ('ctx:plate') or the ability ('dyk:s:lens'). */
+  id: string;
+  line: string;
+  /** The ability it belongs to (its GO when `go` is not given). */
+  ability: string;
+  /** Where a tap goes, when it is not the ability's own GO: a command with its arguments, or words put in the chat box. */
+  go?: { run: string; args: Record<string, unknown> } | { ask: string };
+  label: string;
+}
+
+/** What a turn showed: his words, the tools that ran for it, whether something is still under way. */
+export interface OfferContext {
+  text: string;
+  ran: string[];
+  /** Mid-task: a reply or a tool still working, an approval waiting, a paper being sat, the GYM training. */
+  busy: boolean;
+}
+
+export interface OfferState {
+  offered: Offered[];
+  /** The brain's tool groups ever used ('vehicle', 'video' …: abilities.ts USED_KEY). */
+  used: string[];
+}
+
+const DAY_MS = 86_400_000;
+const YOUTUBE = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?\S*v=|shorts\/|live\/)|youtu\.be\/)[\w-]{6,}\S*/i;
+const WORRY = /\b(?:i'?m|i am|really|so|bit|been)\s+(?:worried|anxious|nervous|stressed|scared|panicking|dreading)\b|\bworr(?:y|ied|ying) (?:about|that)\b|\bcan'?t stop thinking about\b|\bkeep forgetting\b/i;
+const RECEIPT = /\b(?:receipt|till receipt|bank statement|my statement|how much (?:have|did) i spend|overspent|spent too much|my spending)\b/i;
+
+type Found = RegExpMatchArray | string[];
+/**
+ * The context triggers (OWNER-ISSUES 67b: "near a car → I can strip this engine", "a worry typed → I can watch that"): what
+ * in a turn plainly matches an ability, the tool group that ability is (`group`), and the one line that offers it.
+ */
+const TRIGGERS: { id: string; group: string; ability: string; tools: string[]; when(t: string): Found | null; offer(m: Found): Pick<Offer, 'line' | 'go' | 'label'> }[] = [
+  {
+    id: 'ctx:plate', group: 'vehicle', ability: 'g:vehicle', tools: ['vehicle_check'],
+    when: (t) => {
+      const p = findPlates(t.toUpperCase());
+      return p.length === 1 ? p : null;
+    },
+    offer: (m) => ({ line: 'I can check that plate for you: its MOT history and mileage, from the official record.', go: { run: 'vehicle_check', args: { plate: m[0] } }, label: 'Check it' }),
+  },
+  {
+    id: 'ctx:youtube', group: 'video', ability: 'g:video', tools: ['summarise_video'],
+    when: (t) => YOUTUBE.exec(t),
+    offer: (m) => ({ line: 'I can sum that video up for you, with the moments that matter linked to their times.', go: { ask: `Summarise this video: ${m[0]}` }, label: 'Sum it up' }),
+  },
+  {
+    id: 'ctx:worry', group: 'agenda', ability: 'g:agenda', tools: ['set_reminder', 'schedule_task', 'add_event'],
+    when: (t) => WORRY.exec(t),
+    offer: () => ({ line: 'I can keep an eye on that for you: a reminder at the right time, or a check I run on a schedule and tell you.', go: { ask: 'Remind me ' }, label: 'Set one up' }),
+  },
+  {
+    id: 'ctx:spending', group: 'spending', ability: 'g:spending', tools: ['spending_summary', 'set_budget'],
+    when: (t) => RECEIPT.exec(t),
+    offer: () => ({ line: 'I can track your spending: add a statement you downloaded in Agenda → Spending and I sort the month for you, with no bank access.', label: 'Show me' }),
+  },
+];
+
+/** Whether an unprompted offer may be made now: never mid-task, and at most one a day (of any kind). */
+export function mayOffer(state: OfferState, busy: boolean, now = Date.now()): boolean {
+  return !busy && !state.offered.some((o) => now - o.at < DAY_MS);
+}
+
+/**
+ * ONE line offering an ability the turn plainly called for and he has never used (`used`), offered once ever
+ * (`offered`), never mid-task, at most one unprompted offer a day; null otherwise. Nothing that ran this turn is offered.
+ */
+export function offerFor(ctx: OfferContext, state: OfferState, now = Date.now()): Offer | null {
+  if (!mayOffer(state, ctx.busy, now)) return null;
+  for (const t of TRIGGERS) {
+    if (state.offered.some((o) => o.id === t.id) || state.used.includes(t.group) || ctx.ran.some((r) => t.tools.includes(r))) continue;
+    const m = t.when(ctx.text);
+    if (m) return { id: t.id, ability: t.ability, ...t.offer(m) };
+  }
+  return null;
+}
+
+/**
+ * The day's one unprompted "did you know I can …?" (OWNER-ISSUES 53, 68c: "occasional, gentle, never nagging"): an ability
+ * he has never used and was never offered, a different one each day (picked by the day, so it is steady through the
+ * day), never mid-task, and none on a day an offer was already made. `opened`: the screens he has opened on this phone.
+ */
+export function didYouKnow(list: Ability[], state: OfferState & { opened?: string[] }, busy: boolean, now = Date.now()): Offer | null {
+  if (!mayOffer(state, busy, now)) return null;
+  const fresh = list.filter((a) => {
+    if (a.off || a.id === 'g:evolve:learn' || state.offered.some((o) => o.id === `dyk:${a.id}`)) return false;
+    if (a.from === 'brain') return !state.used.includes(a.id.replace(/^g:/, '').split(':')[0]!);
+    return 'open' in a.go && !(state.opened ?? []).includes(a.go.open);
+  });
+  if (!fresh.length) return null;
+  const a = fresh[Math.floor(now / DAY_MS) % fresh.length]!;
+  const can = a.line.replace(/^I can /, '').replace(/\.$/, '');
+  return { id: `dyk:${a.id}`, ability: a.id, line: a.from === 'brain' ? `Did you know I can ${can}?` : `Did you know? ${a.line}`, label: a.from === 'brain' ? 'Try it' : 'Show me' };
 }
