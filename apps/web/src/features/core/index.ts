@@ -1,6 +1,7 @@
 /**
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
+import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
@@ -62,7 +63,8 @@ async function voiceTurn(): Promise<void> {
   holdMic(true);
   try {
     // Kept on the phone ("always", or ON THIS PHONE): only the phone's own recogniser may hear it (the brain's gets the recording).
-    const here = settings.get().offlineBrain === 'always' || hereNext;
+    // [guardian] So too with the Lens's PEOPLE open: an introduction ("this is Sam") is heard on the phone, never by the brain.
+    const here = settings.get().offlineBrain === 'always' || hereNext || peopleOpen();
     if (here && !voiceSupport.browserStt) {
       endConversation();
       toast("I can't hear you on the phone alone in this browser: it has no speech recognition of its own. Type it instead.", 'warn');

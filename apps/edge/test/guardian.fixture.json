@@ -1,0 +1,395 @@
+{
+ "_about": "Recorded answers of the guardian's public sources (their shapes as served on 31 Oct 2026; the values chosen for the tests). The suite never reads the live feeds.",
+ "ea_alert": {
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": {
+   "publisher": "Environment Agency",
+   "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+   "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+   "version": "0.9",
+   "comment": "Status: Beta service"
+  },
+  "items": [
+   {
+    "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/034WAF412",
+    "description": "River Cole at Kings Heath and Moseley",
+    "eaAreaName": "West Midlands",
+    "eaRegionName": "No longer used",
+    "floodArea": {
+     "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034WAF412",
+     "county": "Birmingham",
+     "notation": "034WAF412",
+     "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034WAF412/polygon",
+     "riverOrSea": "River Cole"
+    },
+    "floodAreaID": "034WAF412",
+    "isTidal": false,
+    "message": "River levels are rising on the River Cole. Flooding is possible.",
+    "severity": "Flood Alert",
+    "severityLevel": 3,
+    "timeMessageChanged": "2026-10-31T14:05:00",
+    "timeRaised": "2026-10-31T14:05:00",
+    "timeSeverityChanged": "2026-10-31T14:05:00"
+   },
+   {
+    "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/011WAFDW",
+    "description": "Upper River Derwent",
+    "eaAreaName": "West Midlands",
+    "eaRegionName": "No longer used",
+    "floodArea": {
+     "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/011WAFDW",
+     "county": "Cumberland",
+     "notation": "011WAFDW",
+     "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/011WAFDW/polygon",
+     "riverOrSea": "Derwent"
+    },
+    "floodAreaID": "011WAFDW",
+    "isTidal": false,
+    "message": "River levels are rising on the River Cole. Flooding is possible.",
+    "severity": "Warning no longer in force",
+    "severityLevel": 4,
+    "timeMessageChanged": "2026-10-31T08:44:00",
+    "timeRaised": "2026-10-31T08:44:00",
+    "timeSeverityChanged": "2026-10-31T08:44:00"
+   }
+  ]
+ },
+ "ea_warning": {
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": {
+   "publisher": "Environment Agency",
+   "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+   "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+   "version": "0.9",
+   "comment": "Status: Beta service"
+  },
+  "items": [
+   {
+    "@id": "http://environment.data.gov.uk/flood-monitoring/id/floods/034WAF412",
+    "description": "River Cole at Kings Heath and Moseley",
+    "eaAreaName": "West Midlands",
+    "eaRegionName": "No longer used",
+    "floodArea": {
+     "@id": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034WAF412",
+     "county": "Birmingham",
+     "notation": "034WAF412",
+     "polygon": "http://environment.data.gov.uk/flood-monitoring/id/floodAreas/034WAF412/polygon",
+     "riverOrSea": "River Cole"
+    },
+    "floodAreaID": "034WAF412",
+    "isTidal": false,
+    "message": "River levels are rising on the River Cole. Flooding is possible.",
+    "severity": "Flood Warning",
+    "severityLevel": 2,
+    "timeMessageChanged": "2026-10-31T16:20:00",
+    "timeRaised": "2026-10-31T16:20:00",
+    "timeSeverityChanged": "2026-10-31T16:20:00"
+   }
+  ]
+ },
+ "ea_none": {
+  "@context": "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld",
+  "meta": {
+   "publisher": "Environment Agency",
+   "licence": "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+   "documentation": "http://environment.data.gov.uk/flood-monitoring/doc/reference",
+   "version": "0.9",
+   "comment": "Status: Beta service"
+  },
+  "items": []
+ },
+ "met_wm": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss xmlns:dc=\"http://purl.org/dc/elements/1.1/\" version=\"2.0\">\n    <channel>\n        <title>Met Office warnings for West Midlands</title>\n        <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>\n        <description>Weather warnings of severe and extreme weather from the Met Office</description>\n        <language>en-gb</language>\n        <copyright>(c) Crown copyright</copyright>\n        <pubDate>Sat, 31 Oct 2026 04:12:02 GMT</pubDate>\n        <dc:creator>webteam@metoffice.gov.uk</dc:creator>\n        <item>\n            <title>Yellow warning of fog affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss</link>\n            <description>Yellow warning of fog affecting West Midlands: Shropshire, Staffordshire, Stoke-on-Trent, Telford and Wrekin valid from 0411 Sat 31 Oct to 1000 Sat 31 Oct</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n        <item>\n            <title>Yellow warning of wind affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=7a1c2b3d-1111-4c2e-9d0e-5f6a7b8c9d0e&amp;referrer=rss</link>\n            <description>Yellow warning of wind affecting West Midlands: Birmingham, Coventry, Dudley, Sandwell, Solihull, Walsall, Wolverhampton, Warwickshire valid from 1500 Sat 31 Oct to 2359 Sat 31 Oct</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=7a1c2b3d-1111-4c2e-9d0e-5f6a7b8c9d0e&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n    </channel>\n</rss>",
+ "met_wm_amber": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss xmlns:dc=\"http://purl.org/dc/elements/1.1/\" version=\"2.0\">\n    <channel>\n        <title>Met Office warnings for West Midlands</title>\n        <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>\n        <description>Weather warnings of severe and extreme weather from the Met Office</description>\n        <language>en-gb</language>\n        <copyright>(c) Crown copyright</copyright>\n        <pubDate>Sat, 31 Oct 2026 04:12:02 GMT</pubDate>\n        <dc:creator>webteam@metoffice.gov.uk</dc:creator>\n        <item>\n            <title>Yellow warning of fog affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss</link>\n            <description>Yellow warning of fog affecting West Midlands: Shropshire, Staffordshire, Stoke-on-Trent, Telford and Wrekin valid from 0411 Sat 31 Oct to 1000 Sat 31 Oct</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n        <item>\n            <title>Yellow warning of wind affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=7a1c2b3d-1111-4c2e-9d0e-5f6a7b8c9d0e&amp;referrer=rss</link>\n            <description>Yellow warning of wind affecting West Midlands: Birmingham, Coventry, Dudley, Sandwell, Solihull, Walsall, Wolverhampton, Warwickshire valid from 1500 Sat 31 Oct to 2359 Sat 31 Oct</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=7a1c2b3d-1111-4c2e-9d0e-5f6a7b8c9d0e&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n        <item>\n            <title>Amber warning of rain affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=aa11bb22-3333-4c2e-9d0e-123456789abc&amp;referrer=rss</link>\n            <description>Amber warning of rain affecting West Midlands: Birmingham, Solihull and Warwickshire valid from 1800 Sat 31 Oct to 0600 Sun 1 Nov</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=aa11bb22-3333-4c2e-9d0e-123456789abc&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n    </channel>\n</rss>",
+ "met_wm_fog_only": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss xmlns:dc=\"http://purl.org/dc/elements/1.1/\" version=\"2.0\">\n    <channel>\n        <title>Met Office warnings for West Midlands</title>\n        <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>\n        <description>Weather warnings of severe and extreme weather from the Met Office</description>\n        <language>en-gb</language>\n        <copyright>(c) Crown copyright</copyright>\n        <pubDate>Sat, 31 Oct 2026 04:12:02 GMT</pubDate>\n        <dc:creator>webteam@metoffice.gov.uk</dc:creator>\n        <item>\n            <title>Yellow warning of fog affecting West Midlands</title>\n            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss</link>\n            <description>Yellow warning of fog affecting West Midlands: Shropshire, Staffordshire, Stoke-on-Trent, Telford and Wrekin valid from 0411 Sat 31 Oct to 1000 Sat 31 Oct</description>\n            <guid isPermaLink=\"false\">https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-10-31&amp;id=fb133494-ce52-4fc2-a8ee-8e9990474a2b&amp;referrer=rss&amp;region=West Midlands</guid>\n            <enclosure length=\"15446\" type=\"image/png\" url=\"https://data.consumer-digital.api.metoffice.gov.uk/v1/warnings/rss/image/yellow-fog.png\"/>\n        </item>\n    </channel>\n</rss>",
+ "postcode_b13": {
+  "status": 200,
+  "result": [
+   {
+    "postcode": "B13 8PX",
+    "quality": 1,
+    "country": "England",
+    "longitude": -1.892525,
+    "latitude": 52.443186,
+    "region": "West Midlands",
+    "admin_district": "Birmingham",
+    "admin_county": null,
+    "admin_ward": "Moseley",
+    "parish": "Birmingham, unparished area"
+   }
+  ]
+ },
+ "police_b13": [
+  {
+   "category": "anti-social-behaviour",
+   "location_type": "Force",
+   "location": {
+    "latitude": "52.443",
+    "street": {
+     "id": 1,
+     "name": "On or near Alcester Road"
+    },
+    "longitude": "-1.892"
+   },
+   "context": "",
+   "outcome_status": null,
+   "persistent_id": "",
+   "id": 1,
+   "location_subtype": "",
+   "month": "2026-08"
+  },
+  {
+   "category": "anti-social-behaviour",
+   "location_type": "Force",
+   "location": {
+    "latitude": "52.443",
+    "street": {
+     "id": 1,
+     "name": "On or near Park Road"
+    },
+    "longitude": "-1.892"
+   },
+   "context": "",
+   "outcome_status": null,
+   "persistent_id": "",
+   "id": 1,
+   "location_subtype": "",
+   "month": "2026-08"
+  },
+  {
+   "category": "violent-crime",
+   "location_type": "Force",
+   "location": {
+    "latitude": "52.443",
+    "street": {
+     "id": 1,
+     "name": "On or near Alcester Road"
+    },
+    "longitude": "-1.892"
+   },
+   "context": "",
+   "outcome_status": {
+    "category": "Investigation complete; no suspect identified",
+    "date": "2026-08"
+   },
+   "persistent_id": "",
+   "id": 1,
+   "location_subtype": "",
+   "month": "2026-08"
+  },
+  {
+   "category": "vehicle-crime",
+   "location_type": "Force",
+   "location": {
+    "latitude": "52.443",
+    "street": {
+     "id": 1,
+     "name": "On or near Parking Area"
+    },
+    "longitude": "-1.892"
+   },
+   "context": "",
+   "outcome_status": {
+    "category": "Under investigation",
+    "date": "2026-08"
+   },
+   "persistent_id": "",
+   "id": 1,
+   "location_subtype": "",
+   "month": "2026-08"
+  },
+  {
+   "category": "burglary",
+   "location_type": "Force",
+   "location": {
+    "latitude": "52.443",
+    "street": {
+     "id": 1,
+     "name": "On or near Oxford Road"
+    },
+    "longitude": "-1.892"
+   },
+   "context": "",
+   "outcome_status": {
+    "category": "Under investigation",
+    "date": "2026-08"
+   },
+   "persistent_id": "",
+   "id": 1,
+   "location_subtype": "",
+   "month": "2026-08"
+  }
+ ],
+ "rdap_old": {
+  "rdapConformance": [
+   "rdap_level_0"
+  ],
+  "objectClassName": "domain",
+  "handle": "EXAMPLE.CO.UK",
+  "ldhName": "example.co.uk",
+  "status": [
+   "active"
+  ],
+  "events": [
+   {
+    "eventAction": "registration",
+    "eventDate": "2004-03-12T10:00:00Z"
+   },
+   {
+    "eventAction": "expiration",
+    "eventDate": "2027-06-01T00:00:00Z"
+   },
+   {
+    "eventAction": "last changed",
+    "eventDate": "2026-01-01T00:00:00Z"
+   }
+  ],
+  "entities": [
+   {
+    "objectClassName": "entity",
+    "roles": [
+     "registrar"
+    ],
+    "vcardArray": [
+     "vcard",
+     [
+      [
+       "version",
+       {},
+       "text",
+       "4.0"
+      ],
+      [
+       "fn",
+       {},
+       "text",
+       "Nominet Example Registrar"
+      ]
+     ]
+    ]
+   }
+  ],
+  "nameservers": [
+   {
+    "objectClassName": "nameserver",
+    "ldhName": "ns1.example.net"
+   }
+  ]
+ },
+ "rdap_new": {
+  "rdapConformance": [
+   "rdap_level_0"
+  ],
+  "objectClassName": "domain",
+  "handle": "ROYALMAIL-REDELIVERY-UK.COM",
+  "ldhName": "royalmail-redelivery-uk.com",
+  "status": [
+   "active"
+  ],
+  "events": [
+   {
+    "eventAction": "registration",
+    "eventDate": "2026-10-26T09:00:00Z"
+   },
+   {
+    "eventAction": "expiration",
+    "eventDate": "2027-06-01T00:00:00Z"
+   },
+   {
+    "eventAction": "last changed",
+    "eventDate": "2026-01-01T00:00:00Z"
+   }
+  ],
+  "entities": [
+   {
+    "objectClassName": "entity",
+    "roles": [
+     "registrar"
+    ],
+    "vcardArray": [
+     "vcard",
+     [
+      [
+       "version",
+       {},
+       "text",
+       "4.0"
+      ],
+      [
+       "fn",
+       {},
+       "text",
+       "Cheap Names Inc."
+      ]
+     ]
+    ]
+   }
+  ],
+  "nameservers": [
+   {
+    "objectClassName": "nameserver",
+    "ldhName": "ns1.example.net"
+   }
+  ]
+ },
+ "openphish": "https://admin-suport-update-com.weebly.com/\nhttp://secure-paypa1-login.top/verify\nhttps://evri-parcel-fee.live/pay\n",
+ "phishing_army": "#\n# Title: Phishing Army | Community phishing domain blocklist\n# Entries: 3\n#\nevri-parcel-fee.live\nhmrc-taxrebate.click\nnatwest-secure-alert.com\n",
+ "cf_blocked": {
+  "Status": 0,
+  "TC": false,
+  "RD": true,
+  "RA": true,
+  "AD": false,
+  "CD": false,
+  "Question": [
+   {
+    "name": "blocked.example",
+    "type": 1
+   }
+  ],
+  "Answer": [
+   {
+    "name": "blocked.example",
+    "type": 1,
+    "TTL": 60,
+    "data": "0.0.0.0"
+   }
+  ],
+  "Comment": [
+   "EDE(16): Censored"
+  ]
+ },
+ "cf_ok": {
+  "Status": 0,
+  "TC": false,
+  "RD": true,
+  "RA": true,
+  "AD": true,
+  "CD": false,
+  "Question": [
+   {
+    "name": "example.co.uk",
+    "type": 1
+   }
+  ],
+  "Answer": [
+   {
+    "name": "example.co.uk",
+    "type": 1,
+    "TTL": 300,
+    "data": "93.184.215.14"
+   }
+  ]
+ },
+ "osrm_foot": {
+  "code": "Ok",
+  "routes": [
+   {
+    "duration": 1440.5,
+    "distance": 1830.2,
+    "weight": 1440.5,
+    "legs": []
+   }
+  ],
+  "waypoints": []
+ }
+}

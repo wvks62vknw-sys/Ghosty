@@ -1,9 +1,11 @@
 /**
  * LENS tab: the phone's camera with its modes — SEE (what is in view, boxed and counted), READ
  * (text in a picture, into the library), HANDS (gestures that drive the Lens), ASK (a
- * question with a picture for Ghosty) and NAME (the closest of thousands of names, name.ts). Everything runs on the phone; nothing leaves it until the
- * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition; a number
- * plate is looked up only from READ's chip, on a tap (ui/vehiclecheck.ts): Ghosty does not identify people.
+ * question with a picture for Ghosty), NAME (the closest of thousands of names, name.ts) and PEOPLE (people.ts: the owner,
+ * enrolled by himself, and people he introduces in person — on this phone only). Everything runs on the phone; nothing
+ * leaves it until the owner presses ASK GHOSTY or shares a crop for a picture search, and a face never leaves it at all.
+ * Faces only in PEOPLE (never in NAME, PHOTO TOOLS or a picture); a number plate is looked up only from READ's chip, on a
+ * tap (ui/vehiclecheck.ts): Ghosty never identifies anyone else.
  *
  * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet;
  * photo.ts is PHOTO TOOLS (background, sharper, erase), the bar's chip once a photo is on screen.
@@ -32,6 +34,8 @@ import { createHandsMode } from './hands';
 import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
+import { createPeopleMode, peopleState } from './people'; // [guardian] PEOPLE: his face and the people he introduces (OWNER-ISSUES 55, 56)
+import { faces } from '../../vision/faces';
 import type { MarkState } from './mark';
 import { openPhotoTools } from './photo';
 import { createReadMode } from './read';
@@ -39,8 +43,8 @@ import { createSeeMode } from './see';
 import { createScanMode } from './scan';
 import { createSoundMode } from './sound';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim' | 'measure' | 'sound';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim', 'measure', 'sound'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'people' | 'scan' | 'aim' | 'measure' | 'sound';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'people', 'scan', 'aim', 'measure', 'sound'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -145,6 +149,7 @@ export const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
   { id: 'name', label: 'NAME', hint: 'name anything' },
+  { id: 'people', label: 'PEOPLE', hint: 'you · people you introduce' },
   { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
   { id: 'aim', label: 'AIM', hint: 'point at anything' },
   { id: 'measure', label: 'MEASURE', hint: 'sizes from a photo' },
@@ -179,6 +184,11 @@ function expose(): void {
   const attach = () => {
     if (!w.__ghosty) return false;
     w.__ghosty.lens = lensState;
+    // PEOPLE's state and the face engine (whose only way in is the live camera), for the specs
+    w.__ghosty.people = peopleState;
+    w.__ghosty.faces = faces;
+    // the chat's own way in (assistant/session.ts send), with the Lens still open: what he types or says in the chat
+    w.__ghosty.send = (t: string, voice = false) => import('../../assistant/session').then((m) => m.send(t, { voice }));
     return true;
   };
   if (attach()) return;
@@ -240,7 +250,7 @@ export const lensTab: TabDef = {
     const empty = h('div.lensempty', emptyTitle, emptyText);
     const view = h('div.lensview', video, still, ov, empty, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
-    const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition; a number plate is looked up only when you tap CHECK, never who owns the car — Ghosty does not identify people.');
+    const privacy = h('div.lensprivacy', 'Runs on your phone. Faces only in PEOPLE: you, and people you introduce here — kept on this phone, never anyone else. A number plate is looked up only when you tap CHECK, never who owns the car.');
     const reader = new Reader();
 
     // ---- the viewfinder's size, the overlay's pixels and the frame → view mapping
@@ -463,7 +473,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
@@ -602,6 +612,8 @@ export const lensTab: TabDef = {
       },
       describe: () => {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
+        // PEOPLE: only that it is open — never who is in the picture (a face, a name, a count: none of it leaves the phone)
+        if (S.mode === 'people') return `${bits[0]}.`;
         if (S.counts) bits.push(`in view: ${S.counts}`);
         if (sceneLine(S.scene)) bits.push(`scene: ${sceneLine(S.scene)}`);
         if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);

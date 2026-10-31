@@ -100,6 +100,11 @@ function loadRuntime(progress: Progress): Promise<{ ns: VisionNS; files: unknown
   return runtime;
 }
 
+/** The MediaPipe runtime itself, for a task made elsewhere (vision/faces.ts makes its face detector from it). */
+export function visionRuntime(progress: Progress = () => undefined): Promise<{ ns: unknown; files: unknown }> {
+  return loadRuntime(progress);
+}
+
 const modelBytes = new Map<string, Promise<Uint8Array>>();
 
 /** A model file from this site, with real download progress (kept in memory afterwards). */
