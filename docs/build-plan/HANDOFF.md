@@ -703,6 +703,19 @@ folder that no longer exists; ignore those paths).
   tonight, named by the owner: replies on quiet events and three safety-net check-ins where one would do, two doc-only
   pushes that each restarted a PR's CI — from here no replies on bot noise or quiet check-ins, one check-in per wait, docs
   ride with code pushes, one builder at a time, the absolute maximum output for the least credits.
+- 31 Oct 00:25 UK: THE GUARD REVERTED MAIN AGAIN (d1f3dc4, "checks failed on 78f82ef"). Main's own run 257 after the #42
+  merge failed on ONE spec, routec, at 00:03: it seeds "Call Mum" seven minutes out and asserts it is today's soonest; the
+  run started 22:51, routec ran ~70 min in and straddled midnight, so Call Mum was rightly tomorrow's ("Nothing more today ·
+  Tmrw Call Mum 00:04"). Not the code: the same tree passed three PR runs that finished before midnight. The owner's four
+  fixes are OFF his phone again until #43 merges. Done: (1) routec made date-aware (Call Mum before the page's local
+  midnight → today's assertions; after it → expected under Tmrw, "Nothing more today" accepted, the count checked only when
+  something is left); (2) the smoke loop RETRIES A FAILED SPEC ONCE — a real failure fails twice; a flake that passes the
+  second time is a loud ::warning ("flaky spec: fix at its cause"), never hidden; it applies to PR runs too (fewer
+  re-pushes) and means a single flake can no longer undo main; (3) main's revert merged into the branch with -s ours again
+  (b48a503); PR #43 carries #41 + #42 + batch 1 + these fixes. LESSON: a spec that seeds "N minutes from now" and asserts
+  "today" is wrong in the last N minutes of the day — make the assertion date-aware, and any expectation that depends on
+  the wall clock says so in a comment. The guard stays: it is the owner's protection against a bad merge; the retry is
+  what makes it safe to live with.
 - TOKEN BUDGET (owner, 25 Oct, OWNER-ISSUES 67 and clarified in 68): the rule is EFFICIENCY, NOT SLOWNESS — fast is fine,
   waste is not. Maximise output per credit across BOTH all-models and Fable weekly. Means: the cheapest model that does
   the job (Sonnet mechanical, Opus only hard design/architecture, Fable plan/review/merge); batch related work into one

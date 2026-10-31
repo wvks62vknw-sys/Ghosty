@@ -6,8 +6,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 - NOTE (30 Oct): PR #41 (a stop goes quiet, a built app's link always delivered, the report-card link, the deck pictures) was
   automatically reverted on main by the guard at 16:57 UK on 25 Oct after a flaky spec step — so those four were NOT on your
-  phone this week. Restored by PR #42, merged 22:51 UK on 30 Oct (with that spec made robust): live again on your next open.
-- BUILT 30 Oct, not yet live (its pull request opens on your word): batch 1 — a school paper survives on the phone (heavy
+  phone this week. Restored by PR #42 (merged 22:51 UK on 30 Oct) — then reverted AGAIN by the guard at 00:19 on 31 Oct, on a
+  second test flake (a check that straddled midnight; not the code). So they are OFF your phone again until PR #43 merges,
+  which carries all of it with that flake fixed and the checks now retrying a failing test once before it counts.
+- BUILT 30 Oct, in PR #43 with the above (checks running): batch 1 — a school paper survives on the phone (heavy
   mode, the smallest brain, saved per answer, CARRY ON after a close), the chat never gives up while a free model is seconds
   away, ON THIS PHONE fails closed (a toggle by the mic; the cloud only by a tap), a Telegram video is never dropped and
   "kiddo" means him, never your cousin.
