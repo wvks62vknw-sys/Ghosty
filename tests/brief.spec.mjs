@@ -101,7 +101,7 @@ const FORESIGHT = {
 const FREE_DRIVE = { minutes: 12, km: 5.4, delayMin: 0, live: false, line: 'about 12 min by car with clear roads (no live traffic: add the free TomTom key in System for it)' };
 const DIGEST = [
   { rid: 11, heading: '2026-10-25 · BBC News', text: 'Fresh knowledge 2026-10-25 — BBC News (feeds.bbci.co.uk):\n- Yesterday story — old news', page: null },
-  { rid: 12, heading: '2026-10-26 · BBC News', text: 'Fresh knowledge 2026-10-26 — BBC News (feeds.bbci.co.uk):\n- Digest story one — what happened first\n- Digest story two — and then this\n- Digest story three — and this too', page: null },
+  { rid: 12, heading: '2026-10-26 · BBC News · PRESS', text: 'Fresh knowledge 2026-10-26 — BBC News (feeds.bbci.co.uk):\n- Digest story one — what happened first\n- Digest story two — and then this\n- Digest story three — and this too', page: null },
   { rid: 13, heading: '2026-10-26 · in three levels', text: 'Fresh knowledge 2026-10-26 — the day in three levels:\nIn one line: Storms close the M5 as the clocks go back.\nIn more detail: More.\nFor an expert: Detail.', page: null },
 ];
 const DOC = { id: 'notes_daily', title: 'Fresh knowledge', source: 'gathered daily by Ghosty', kind: 'notes', pages: 0, passages: DIGEST.length, chars: DIGEST.reduce((n, p) => n + p.text.length, 0), status: 'ready', builtin: false, at: NOW };

@@ -174,6 +174,12 @@ export interface CallOptions {
   tier?: 'small' | 'big';
   priority?: Priority;
   onWait?: (text: string) => void;
+  /**
+   * A model to try last (its label as `complete` returns it, "Provider · model"): a cited turn's one retry after that model
+   * declined to engage (OWNER-ISSUES 77e; packages/shared/src/refusal.ts). Never excluded: with no other model free it answers
+   * again, and the answer says it would not engage.
+   */
+  avoid?: string;
 }
 
 /** A reply leaves this many tokens counted before the provider says the real number. */
@@ -349,11 +355,11 @@ export class Router {
   }
 
   /** The scripted mock (tests and the preview), timed like a real call so the SPEED card has something to show there. */
-  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority): Promise<{ message: Msg; model: string }> {
+  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority, avoid?: string): Promise<{ message: Msg; model: string }> {
     this.speed.callStart(signal);
     const t0 = Date.now();
     try {
-      const r = await mockComplete(messages, tools);
+      const r = await mockComplete(messages, tools, avoid);
       const ms = Date.now() - t0;
       this.speed.model({ provider: 'Mock', model: 'scripted', first: ms, ms, wait: 0, ok: true, chat: lane === 'chat' });
       this.speed.callEnd(signal, { wait: 0, model: ms, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
@@ -371,7 +377,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat'));
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat', opts.avoid));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;
@@ -383,7 +389,7 @@ export class Router {
     this.speed.callStart(signal);
     try {
       for (let freeNow = 0; ; ) {
-        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane, clock);
+        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane, clock, opts.avoid);
         if ('message' in r) {
           this.speed.callEnd(signal, { ...clock, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
           return inCharacter(messages, r);
@@ -523,7 +529,7 @@ export class Router {
    * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
    * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
    */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }, avoid?: string): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -560,6 +566,8 @@ export class Router {
     if (cheap) candidates.sort((a, b) => cheapScore(b.model, b.p) - cheapScore(a.model, a.p));
     else if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
     else candidates.sort((a, b) => (a.p.tier ?? 0) - (b.p.tier ?? 0));
+    // a model that would not engage is tried last this time (a cited turn's one retry), never left out
+    if (avoid) candidates.sort((a, b) => Number(`${a.p.name} · ${a.model}` === avoid) - Number(`${b.p.name} · ${b.model}` === avoid));
     // Background work spreads: the next one tried is the one with the most room this minute (in quarters,
     // so the order above still decides between ones about as free), chosen at the moment of trying so
     // calls started together see each other's counts. The owner's chat keeps the best model first.

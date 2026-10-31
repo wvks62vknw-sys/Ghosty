@@ -18,7 +18,7 @@ const client = (name: string, description: string, properties: Record<string, un
 });
 
 export const uiTools: Tool[] = [
-  client('open_tab', 'Switch the interface to a tab, e.g. core, eye (globe), brief, threats, markets, memory, workshop, system.', { tab: { type: 'string' } }, ['tab']),
+  client('open_tab', 'Switch the interface to a tab, e.g. core, eye (globe), brief, threats, markets, memory, workshop, workbench, system.', { tab: { type: 'string' } }, ['tab']),
   client(
     'fly_to',
     "Open the God's Eye globe and fly the camera to a place name or coordinates.",

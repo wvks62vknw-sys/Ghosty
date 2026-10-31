@@ -11,13 +11,20 @@
  *    brain's ledger (GET /api/foresight, kept a minute), and "you were right" / "you were wrong" on his latest open question
  *    (under seven days old): his word kept with POST /api/foresight/resolve;
  *  - THE MACHINE VIEW (OWNER-ISSUES 61c): "machine view", "show me my city", "what are you watching?", "what can you see?"
- *    open God's Eye in the mode, and the answer is its count line (features/eye/machine.ts).
+ *    open God's Eye in the mode, and the answer is its count line (features/eye/machine.ts);
+ *  - THE WORKBENCH (OWNER-ISSUES 61b): "wind tunnel", "beam calculator", "sun and shadow" open its panel; a bare problem
+ *    with its numbers ("3 m steel beam 5 kN in the middle") fills the panel from his words and is answered with the estimate
+ *    (packages/shared/src/workbench words.ts `workbenchAsked`); a question goes to the brain, whose `estimate` tool runs the
+ *    same solvers.
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
 import { bestAsk, canYouAsked, dayLines, searchAbilities, todayAsked, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
 import { ANSWER_DAYS, foresightAsked, foresightWords, notedWords, rightSaid } from '../../../../packages/shared/src/foresight';
 import { loadForesight, resolveForesight } from '../state/foresight';
 import { machineAsked, machineState } from '../features/eye/machine';
+import { estimateText, workbenchAsked } from '../../../../packages/shared/src/workbench';
+import { openWorkbench } from '../features/workbench/index';
+import { PANELS as BENCH } from '../features/workbench/panels';
 import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
@@ -27,7 +34,7 @@ import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -145,6 +152,14 @@ export async function localTurn(text: string, opts: { voice?: boolean; private?:
     const t0 = Date.now();
     while (!(machineState.on && machineState.ready) && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
     return answer(text, machineState.line || 'I couldn’t open God’s Eye just now. Try MACHINE VIEW in its bar.', { kind: 'machine' }, opts);
+  }
+  // the Workbench: a panel opened, or his problem filled in and answered on the phone (no model, no request)
+  const bench = workbenchAsked(text);
+  if (bench) {
+    const e = openWorkbench(bench.panel, bench.problem);
+    const title = BENCH.find((p) => p.id === bench.panel)?.title;
+    const name = bench.panel === 'tunnel' ? 'the wind tunnel' : title ? title.toLowerCase() : '';
+    return answer(text, e ? estimateText(e) : name ? `The Workbench is open on ${name}. Change any number and the answer follows; every one is a first estimate, never certified.` : 'The Workbench is open: beams, gears, engines, flight, heat, sun and circuits. Every answer is a first estimate, never certified.', { kind: 'workbench' }, opts);
   }
   const fore = foresightAsked(text);
   if (fore) {

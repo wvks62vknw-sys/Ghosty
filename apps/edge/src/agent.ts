@@ -75,6 +75,7 @@ import { weightsRoute } from './selftrain/weights';
 import { schoolDaily, schoolRoute } from './school'; // [school] the offline brain's school journey (school/index.ts)
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
+import { refusedWords } from '../../../packages/shared/src/refusal'; // [refusal]
 import { designRoute } from './tools/design';
 import { addSub, loadSubs, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
@@ -1098,6 +1099,8 @@ export class GhostyAgent {
     // The one shared mind, built once for the turn (any channel: the app, Telegram): every step's CONTEXT is rendered from it.
     const can = selectGroups(lastUserText(ctx), usedTools(ctx), codingTurn(ctx)).on.map((g) => g.name);
     const mind = await mindSnapshot(this.storage, { client, vault: this.vault, can }).catch(() => null);
+    // [refusal] A cited turn whose model declined to engage (OWNER-ISSUES 77e) asks once more with that model tried last.
+    let avoid = '';
     for (let step = 0; step < MAX_STEPS; step++) {
       // Stopped between steps (the owner said stop, OWNER-ISSUES 70a): he goes quiet. Nothing is said about it — not
       // "Stopped.", which Telegram would send, and not the step cap's "I have taken 40 steps", which this used to fall into.
@@ -1124,7 +1127,7 @@ export class GhostyAgent {
         (this.citedTurn ? CITED_PROMPT : '');
       let answer: { message: Msg; model: string };
       try {
-        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', onWait: (text) => emit({ t: 'status', text }) });
+        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', onWait: (text) => emit({ t: 'status', text }), ...(avoid ? { avoid } : {}) });
       } catch (e) {
         const why = String((e as Error)?.message ?? e);
         // A photo, but no model that can see it: say so, and pass on what the phone itself saw.
@@ -1158,13 +1161,20 @@ export class GhostyAgent {
       const calls = message.tool_calls ?? [];
       if (!calls.length) {
         let text = textOf(message.content).trim() || 'Done.';
+        // [refusal] declined on a cited turn: once, the same step again with that model tried last (llm/router.ts avoid)
+        if (this.citedTurn && !avoid && step < MAX_STEPS - 2 && refusedWords(text)) {
+          avoid = model;
+          ctx.pop();
+          emit({ t: 'status', text: 'that model would not engage: asking another…' });
+          continue;
+        }
         // A page published this turn is delivered by its link: if the reply left it out, it goes in.
         const missing = this.turnLinks.filter((l) => !text.includes(l.url));
         if (missing.length) text += `\n\n${missing.map((l) => `Live link: ${l.url}`).join('\n')}`;
         const link = this.turnLinks[0];
         this.turnLinks = [];
         // A cited answer: its sources matched to what was read this turn and each claim checked (one cheap call at most).
-        const cited = this.citedTurn ? await citeAnswer(text, ctx, this.turnRead, async (m) => textOf((await this.router.complete(m, [], signal, { tier: 'small', priority: 'background', maxWaitMs: 0 })).message.content), emit).catch(() => null) : null;
+        const cited = this.citedTurn ? await citeAnswer(text, ctx, this.turnRead, async (m) => textOf((await this.router.complete(m, [], signal, { tier: 'small', priority: 'background', maxWaitMs: 0 })).message.content), emit, lastUserText(ctx)).catch(() => null) : null;
         if (cited) text = cited.text;
         emit({ t: 'text', text });
         if (cited) emit({ t: 'cited', ...cited.info });

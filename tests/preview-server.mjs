@@ -82,7 +82,8 @@ globalThis.fetch = async (input, init) => {
   if (u.href === MANUAL_PDF) return new Response(manualPdf(), { headers: { 'content-type': 'application/pdf' } });
   if (u.hostname.endsWith('manualslib.com')) return new Response('the manuals spec must never fetch ManualsLib', { status: 418 });
   if (u.hostname === 'html.duckduckgo.com' && /speed of light/i.test(u.searchParams.get('q') ?? '')) return new Response(citedWeb.search, { headers: { 'content-type': 'text/html' } });
-  if (u.hostname.endsWith('.example.test')) {
+  // (and the fixture's own listed pages on other made-up hosts: physics.example.ac.uk is PRIMARY by the sources table)
+  if (u.hostname.endsWith('.example.test') || citedWeb.pages[u.href]) {
     const page = citedWeb.pages[u.href];
     return page ? new Response(page, { headers: { 'content-type': 'text/html' } }) : new Response('not found', { status: 404 });
   }

@@ -22,11 +22,37 @@ globalThis.fetch = async (input) => {
       return j({ items: long ? [] : [{ title: 'How to merge tiles in 2048 &amp; keep score', link: 'https://stackoverflow.com/q/1', tags: ['javascript'], is_answered: true }] });
     case 'hn.algolia.com':
       return new Response('down', { status: 503 });
+    case 'api.search.brave.com': {
+      // (the tiers test only — its own query: any other search with a Brave key fails, as the thin-search test needs)
+      if (!/\btiers\b/.test(q)) return new Response('not faked', { status: 599 });
+      const r = (url) => ({ title: `Result at ${new URL(url).hostname}`, url, description: 'About provisional measures.' });
+      return j({ web: { results: ['https://www.tiktok.com/@someone/video/1', 'https://blog.example.org/post', 'https://www.bbc.co.uk/news/1', 'https://www.ohchr.org/en/press', 'https://en.wikipedia.org/wiki/X', 'https://www.reddit.com/r/x/1', 'https://www.hrw.org/news/1', 'https://www.icj-cij.org/case/192'].map(r) } });
+    }
+    case 'www.tiktok.com':
+      return new Response('<html><head><title>a video</title></head><body><p>They say the court ruled it all a lie.</p></body></html>', { headers: { 'content-type': 'text/html' } });
     case 'api.github.com':
       return j({ items: long ? [] : [{ full_name: 'gabrielecirulli/2048', html_url: 'https://github.com/gabrielecirulli/2048', description: 'The game 2048', stargazers_count: 12000 }] });
   }
   return new Response('not faked', { status: 599 });
 };
+
+test('search results by tier (OWNER-ISSUES 77): primary first, leads last, ties in the engine’s order, each tagged; a lead’s page comes with its note', async () => {
+  const ctx = { vault: { get: async (k) => (k === 'brave' ? 'a-test-key' : null) } };
+  const out = await T.toolByName.get('web_search').run({ query: 'provisional measures tiers' }, ctx);
+  const urls = [...out.matchAll(/^https:\/\/\S+$/gm)].map((m) => m[0]);
+  assert.deepEqual(urls, ['https://www.ohchr.org/en/press', 'https://www.icj-cij.org/case/192', 'https://www.hrw.org/news/1', 'https://www.bbc.co.uk/news/1', 'https://en.wikipedia.org/wiki/X', 'https://blog.example.org/post', 'https://www.tiktok.com/@someone/video/1', 'https://www.reddit.com/r/x/1']);
+  assert.match(out, /^1\. Result at www\.ohchr\.org \[PRIMARY\]$/m);
+  assert.match(out, /^3\. Result at www\.hrw\.org \[CREDIBLE\]$/m);
+  assert.match(out, /^4\. Result at www\.bbc\.co\.uk \[PRESS\]$/m);
+  assert.match(out, /^5\. Result at en\.wikipedia\.org \[REFERENCE\]$/m);
+  assert.match(out, /^6\. Result at blog\.example\.org$/m, 'a host the table does not know: no tag');
+  assert.match(out, /^7\. Result at www\.tiktok\.com \[LEAD\]$/m);
+  const page = await T.toolByName.get('web_fetch').run({ url: 'https://www.tiktok.com/@someone/video/1' }, ctx);
+  assert.match(page, /^TikTok is a lead, not a source: take the claim from it, then find its root/);
+  assert.match(page, /<<external content[^\n]*>>\n[\s\S]*the court ruled it all a lie/, 'its words still marked as data, after the note');
+  const plain = await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/z' }, ctx);
+  assert.doesNotMatch(plain, /is a lead/);
+});
 
 test('with no search keys and DuckDuckGo blocked, search still finds results (keyless sources)', async () => {
   const out = await T.toolByName.get('web_search').run({ query: 'make me a short simple 2048 block merge game' }, { vault: { get: async () => null } });

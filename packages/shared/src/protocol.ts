@@ -32,6 +32,8 @@ export interface Citation {
   /** The words in the source that back the answer, when found. */
   quote?: string;
   missing?: boolean;
+  /** How far the source can be trusted (packages/shared/src/sources.ts tierOf): primary, credible, press, reference, lead, unknown. */
+  tier?: string;
 }
 
 /** One claim of a cited answer (the exact words of the reply) and whether a source it looked up says it. */
@@ -39,11 +41,15 @@ export interface ClaimCheck {
   claim: string;
   status: 'supported' | 'not_found';
   source?: number;
+  /** How strongly the claim may be put (sources.ts LABELS), capped by the tiers of what backs it: "established fact", "rumour"… */
+  label?: string;
 }
 
 export interface CitedInfo {
   citations: Citation[];
   checks: ClaimCheck[];
+  /** The model declined to engage (sources.ts / refusal.ts): the answer says so first. */
+  refused?: boolean;
 }
 
 /**

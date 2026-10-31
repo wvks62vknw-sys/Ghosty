@@ -13,6 +13,7 @@ import { extraTools, placesTools, schoolTools, spendingTools, videoTools } from 
 import { gadgetTools } from './gadgets';
 import { guardianTools } from './guardian'; // [guardian]
 import { foresightTools, FORESIGHT_ABOUT, FORESIGHT_WHEN } from './foresight'; // [foresight]
+import { workbenchTools, WORKBENCH_ABOUT, WORKBENCH_WHEN } from './workbench'; // [workbench]
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
 import { homePlanTools, HOMEPLAN_ABOUT, HOMEPLAN_WHEN } from './homeplan'; // [homeplan]
@@ -46,7 +47,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools]; // [photo] [places] [guardian] [foresight]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools]; // [photo] [places] [guardian] [foresight] [workbench]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -271,6 +272,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   // [foresight] FORESIGHT (foresight.ts, tools/foresight.ts): what Ghosty expects, put on record when he asks, and the record;
   // on by his words only (the plain turn names it: "foresight: foresee", paid for by the shorter ALSO header in prompt.ts).
   { name: 'foresight', tools: foresightTools, when: FORESIGHT_WHEN, about: FORESIGHT_ABOUT },
+  // [workbench] THE WORKBENCH (tools/workbench.ts, packages/shared/src/workbench): first engineering estimates, never certified;
+  // on by his words only (the plain turn names it: "workbench: estimate", paid for by shorter HEARING and TODAY lines in prompt.ts).
+  { name: 'workbench', tools: workbenchTools, when: WORKBENCH_WHEN, about: WORKBENCH_ABOUT },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',

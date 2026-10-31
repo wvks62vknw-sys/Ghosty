@@ -4,7 +4,7 @@
 // on a FRESH preview server (restart it first) so every screen shows its own default state, not what another spec
 // left behind; then commit the pictures. Not in CI: it writes files into the app.
 //   node tests/preview-server.mjs 8850 &
-//   BASE=http://localhost:8850 node tests/deckshots.spec.mjs
+//   BASE=http://localhost:8850 node tests/deckshots.spec.mjs        (ONLY=workbench … for one screen)
 import { chromium } from 'playwright';
 import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, statSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const outDir = fileURLToPath(new URL('../apps/web/public/deck/', import.meta.url));
 mkdirSync(outDir, { recursive: true });
-const SCREENS = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links'];
+const ALL_SCREENS = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links'];
+// ONLY=workbench,lens: just those screens (a new screen's picture without re-shooting the rest)
+const SCREENS = process.env.ONLY ? ALL_SCREENS.filter((id) => process.env.ONLY.split(',').includes(id)) : ALL_SCREENS;
 // the globe, Home's Mind and the studio draw with WebGL: give them the software GPU and longer to settle
 const GL = new Set(['core', 'eye', 'studio']);
 const WAIT = { core: 6000, eye: 9000, studio: 7000, brief: 4000, markets: 4000, threats: 4000, library: 4000 };

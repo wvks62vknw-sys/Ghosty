@@ -184,7 +184,10 @@ test('a cited answer: one cheap call checks the claims, the reply carries its so
   assert.deepEqual(r.info.checks.map((x) => [x.status, x.source]), [['supported', 1], ['supported', 2], ['not_found', undefined]]);
   assert.deepEqual(r.info.citations.map((x) => [x.n, x.missing ?? false]), [[1, false], [2, false], [3, true]]);
   assert.match(r.info.citations[0].quote, /299,792,458/);
-  assert.match(r.text, /\n\nSOURCES\n\[1\] Physics Reference — https:\/\/physics\.example\.test\/speed-of-light\n\[2\] Physics Notes — your library\n\[3\] no source was listed for this number \(never looked up: not a checked source\)\n\n✓ 2 of 3 claims found in the sources$/);
+  // (each source with its tier, each claim with its label: OWNER-ISSUES 77 — a page on a host the table does not know, and his
+  // library's notes of unknown origin, back a documented allegation at most)
+  assert.match(r.text, /\n\nSOURCES\n\[1\] Physics Reference — https:\/\/physics\.example\.test\/speed-of-light \[UNKNOWN\]\n\[2\] Physics Notes — your library \[UNKNOWN\]\n\[3\] no source was listed for this number \(never looked up: not a checked source\)\n\n✓ 2 of 3 claims found in the sources · 2 documented, 1 contested$/);
+  assert.match(r.text, /^The speed of light is exactly 299,792,458 metres per second \[1\]\. \(documented allegation\) Sunlight/);
   assert.ok(events.some((e) => e.t === 'status' && /checking each claim/.test(e.text)));
 });
 
@@ -260,16 +263,18 @@ test.after(() => {
 test('CITED on: Ghosty searches, reads the best page, answers with markers, flags what it never read, and checks each claim', async () => {
   const ev = await chat({ message: 'what is the speed of light', cited: true });
   assert.deepEqual(ev.filter((e) => e.t === 'tool').map((e) => e.name), ['web_search', 'web_fetch']);
-  assert.ok(fetched.includes('https://physics.example.test/speed-of-light'));
+  assert.ok(fetched.includes('https://physics.example.ac.uk/speed-of-light'));
   const text = ev.find((e) => e.t === 'text').text;
-  assert.match(text, /299,792,458 metres per second \[1\]/);
-  assert.match(text, /\n\nSOURCES\n\[1\] Speed of light — Physics Reference — https:\/\/physics\.example\.test\/speed-of-light\n\[2\] Sunlight travel time — https:\/\/not-looked-up\.example\/sunlight \(never looked up: not a checked source\)\n\[3\] no source was listed for this number/);
-  assert.match(text, /✓ 2 of 4 claims found in the sources$/);
+  assert.match(text, /299,792,458 metres per second \[1\]\. \(established fact\)/, 'each claim\'s label after it, in words (OWNER-ISSUES 77)');
+  assert.match(text, /\n\nSOURCES\n\[1\] Speed of light — Physics Reference — https:\/\/physics\.example\.ac\.uk\/speed-of-light \[PRIMARY\]\n\[2\] Sunlight travel time — https:\/\/not-looked-up\.example\/sunlight \[UNKNOWN\] \(never looked up: not a checked source\)\n\[3\] no source was listed for this number/);
+  assert.match(text, /✓ 2 of 4 claims found in the sources · 2 established, 2 contested$/);
   const cited = ev.find((e) => e.t === 'cited');
   assert.ok(cited, 'a cited event');
   assert.ok(ev.indexOf(cited) > ev.findIndex((e) => e.t === 'text') && ev.indexOf(cited) < ev.findIndex((e) => e.t === 'done'));
   assert.deepEqual(cited.citations.map((x) => [x.n, !!x.missing]), [[1, false], [2, true], [3, true]]);
   assert.deepEqual(cited.checks.map((x) => x.status), ['supported', 'supported', 'not_found', 'not_found']);
+  assert.deepEqual(cited.checks.map((x) => x.label), ['established fact', 'established fact', 'contested', 'contested'], 'a university page backs them (PRIMARY); nothing read backs the rest');
+  assert.deepEqual(cited.citations.map((x) => x.tier), ['primary', 'unknown', undefined]);
   // Kept with the reply, so the phone shows the chips again after a reload.
   const h = await (await api('/api/history')).json();
   assert.deepEqual(h.turns.at(-1).cited, { citations: cited.citations, checks: cited.checks });
@@ -308,4 +313,94 @@ test('the phone: chips where the markers are, unconfirmed claims marked, nothing
   assert.ok(view.looksCited(bare));
   const nothing = 'The moon is far.\n\nI could not look anything up for this, so none of it is checked against a source.';
   assert.equal(view.citedBody(nothing), nothing);
+  // OWNER-ISSUES 77: the labels the brain writes after each claim (for Telegram) and the counts on the check line are drawn from
+  // the data instead: a label piece after each labelled claim, never spoken
+  const tagged = 'Light goes 299,792,458 m/s [1]. (established fact) The Sun is cheese [2]. (contested)\n\nSOURCES\n[1] A — https://a.ac.uk [PRIMARY]\n[2] B — https://b.test [UNKNOWN]\n\n✓ 1 of 2 claims found in the sources · 1 established, 1 contested';
+  const labelledInfo = { citations: [], checks: [{ claim: 'Light goes 299,792,458 m/s [1].', status: 'supported', source: 1, label: 'established fact' }, { claim: 'The Sun is cheese [2].', status: 'not_found', label: 'contested' }] };
+  assert.equal(view.citedBody(tagged), 'Light goes 299,792,458 m/s [1]. The Sun is cheese [2].');
+  assert.deepEqual(view.citedPieces(view.citedBody(tagged), labelledInfo), [
+    { kind: 'text', text: 'Light goes 299,792,458 m/s ' },
+    { kind: 'cite', n: 1 },
+    { kind: 'text', text: '.' },
+    { kind: 'label', label: 'established fact' },
+    { kind: 'text', text: ' ' },
+    { kind: 'text', text: 'The Sun is cheese ', unconfirmed: true },
+    { kind: 'cite', n: 2, unconfirmed: true },
+    { kind: 'text', text: '.', unconfirmed: true },
+    { kind: 'label', label: 'contested' },
+  ]);
+  assert.equal(view.spokenOf(tagged), 'Light goes 299,792,458 m/s. The Sun is cheese.');
+  assert.ok(view.looksCited('Yes.\n\n✓ 1 of 1 claim found in the sources · 1 established'));
+  assert.equal(view.citedBody('Yes.\n\n✓ 1 of 1 claim found in the sources · 1 established'), 'Yes.');
+});
+
+// ---- KNOWLEDGE WITH SOURCES (OWNER-ISSUES 77): tiers on every read, a label on every claim capped by code, cited by default
+// on the contested public matters, the discipline in the cited prompt, and a model that would not engage said to be so.
+const S = await import('./.build/sources/sources.mjs');
+
+test('cited by default: the contested public matters and "is it true", "did … really", "what\'s the evidence", "source?"; not ordinary chat', () => {
+  for (const t of ['what happened at the ICJ hearing', 'is Israel committing genocide in Gaza', 'war crimes in Sudan', 'the ICC arrest warrants', 'human rights in the UK', 'what is in the Epstein files', 'was it a cover-up', 'corruption in the council', 'the Post Office scandal', 'is that a conspiracy theory', 'is it true the moon landing was faked', 'did Boris really say that', "what's the evidence for it", 'source?', 'fact check this: the earth is flat', 'with sources: how hot is the sun']) assert.ok(c.citedAsked(t), t);
+  for (const t of ['hello', 'what time is it', 'remind me at 5pm', 'tell me a joke', 'play some music', 'how strong is a 3 m steel beam', 'the source code for the app', 'did you remind me']) assert.ok(!c.citedAsked(t), t);
+});
+
+test('the cited prompt carries the sourcing discipline (and only on cited turns: it is not part of the plain prompt)', async () => {
+  for (const w of ['trace each claim to its root', 'TikTok, X, YouTube and Reddit are leads', 'established fact, documented allegation, legal finding in progress, contested, rumour or debunked', 'never flatten', 'No false balance', 'no manufactured certainty', 'incompetence before a hidden hand', 'absence of evidence is not evidence', 'say so in one plain line — never a non-answer']) assert.ok(c.CITED_PROMPT.includes(w), w);
+  const added = c.CITED_PROMPT.slice(c.CITED_PROMPT.indexOf(' SOURCING:'));
+  assert.ok(added.length <= 900, `the discipline adds ${added.length} characters`);
+  const P = await import('./.build/prompt.mjs');
+  const T = await import('./.build/tools/index.mjs');
+  assert.ok(!P.systemPrompt({ name: 'boss' }, [], false, [], { groups: T.selectGroups('genocide', new Set(), false) }).includes('SOURCING:'));
+});
+
+test('tiers and labels through the pipeline: a lead alone is a rumour, a primary establishes, one press report is a documented allegation, nothing read is contested', async () => {
+  const msgs = [
+    { role: 'user', content: 'is it true' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'f1', type: 'function', function: { name: 'web_fetch', arguments: '{}' } }, { id: 'f2', type: 'function', function: { name: 'web_fetch', arguments: '{}' } }, { id: 'f3', type: 'function', function: { name: 'web_fetch', arguments: '{}' } }] },
+  ];
+  const read = [
+    { call: 'f1', source: { kind: 'web', title: 'A video', url: 'https://www.tiktok.com/@a/video/1', text: 'The minister resigned on Tuesday after the report.' } },
+    { call: 'f2', source: { kind: 'web', title: 'Judgment', url: 'https://www.judiciary.uk/judgments/x', text: 'The court found the contract unlawful in March 2025.' } },
+    { call: 'f3', source: { kind: 'web', title: 'News', url: 'https://www.bbc.co.uk/news/1', text: 'Officials were accused of hiding the payments for years.' } },
+  ];
+  const answer = 'The minister resigned on Tuesday after the report [1]. The court found the contract unlawful in March 2025 [2]. Officials were accused of hiding the payments for years [3]. The payments went to a secret island bank account [3].\n\nSOURCES\n[1] A video — https://www.tiktok.com/@a/video/1\n[2] Judgment — https://www.judiciary.uk/judgments/x\n[3] News — https://www.bbc.co.uk/news/1';
+  // the checker proposes "established fact" for everything it finds: the code caps each by its sources' tiers
+  const all = async (m) => JSON.stringify({ checks: [1, 2, 3, 4].map((i) => ({ i, found: i < 4, source: i < 4 ? i : undefined, label: 'established fact' })) });
+  const r = await c.citeAnswer(answer, msgs, read, all, () => undefined);
+  assert.deepEqual(r.info.citations.map((x) => x.tier), ['lead', 'primary', 'press']);
+  assert.deepEqual(r.info.checks.map((x) => x.label), ['rumour', 'established fact', 'documented allegation', 'contested']);
+  assert.match(r.text, /\[1\] A video — https:\/\/www\.tiktok\.com\/@a\/video\/1 \[LEAD\]/);
+  assert.match(r.text, /\[2\] Judgment — https:\/\/www\.judiciary\.uk\/judgments\/x \[PRIMARY\]/);
+  assert.match(r.text, /after the report \[1\]\. \(rumour\) The court found/);
+  assert.match(r.text, /✓ 3 of 4 claims found in the sources · 1 established, 1 documented, 1 contested, 1 rumour$/);
+  // no model free: matching words decide, and the labels come from the tiers alone
+  const words = await c.citeAnswer(answer, msgs, read, async () => { throw new Error('no model'); }, () => undefined);
+  assert.deepEqual(words.info.checks.map((x) => [x.status, x.label]), [['supported', 'rumour'], ['supported', 'documented allegation'], ['supported', 'documented allegation'], ['not_found', 'contested']]);
+  // a library passage keeps the tier its tool gave it; a list line that copies a search's tag keeps a clean title
+  const lib = c.splitAnswer('X [1].\n\nSOURCES\n[1] Speed of light — Physics Reference [PRIMARY] — https://physics.example.ac.uk/speed-of-light');
+  assert.equal(lib.listed[0].title, 'Speed of light — Physics Reference');
+  const libRead = [{ call: 'f1', source: { kind: 'library', title: 'Video notes', doc: 'Video notes', text: 'Something said.', tier: 'lead' } }];
+  assert.equal(c.turnSources(msgs, libRead)[0].tier, 'lead');
+  assert.equal(S.tierOf('https://www.judiciary.uk/x'), 'primary');
+});
+
+test('a model that would not engage (77e): asked once more on another model; if none will, said plainly with what the sources say', async () => {
+  // declines, then engages on the retry (the router tries it last): an ordinary cited answer, and the status said so
+  let ev = await chat({ message: 'the model refuses: what is the speed of light', cited: true });
+  assert.ok(ev.some((e) => e.t === 'status' && /that model would not engage: asking another/.test(e.text)), 'the retry is said');
+  let text = ev.find((e) => e.t === 'text').text;
+  assert.doesNotMatch(text, /wouldn't engage/);
+  assert.match(text, /299,792,458 metres per second \[1\]/);
+  assert.ok(!ev.find((e) => e.t === 'cited').refused);
+  // reads first, then declines every time: the honest line, then the sources' own sentences, numbered and checked
+  ev = await chat({ message: 'the model reads then refuses: what is the speed of light', cited: true });
+  text = ev.find((e) => e.t === 'text').text;
+  assert.match(text, /^That model wouldn't engage with this; here is what the sources say:\n\n/);
+  assert.match(text, /\n\nThe speed of light in vacuum[^\n]* \[1\]\. \(established fact\)\n/, 'the page’s own sentence, numbered, checked and labelled');
+  assert.match(text, /\nSOURCES\n\[1\] Speed of light — Physics Reference — https:\/\/physics\.example\.ac\.uk\/speed-of-light \[PRIMARY\]/);
+  assert.equal(ev.find((e) => e.t === 'cited').refused, true);
+  // declines before looking anything up, every time: said, and nothing passed off as an answer
+  ev = await chat({ message: 'the model always refuses: is it genocide' });
+  text = ev.find((e) => e.t === 'text').text;
+  assert.match(text, /^That model wouldn't engage with this, and nothing was looked up before it stopped\. Ask again and I'll try another model\./);
+  assert.doesNotMatch(text, /I'm sorry, but I can't discuss/);
 });
