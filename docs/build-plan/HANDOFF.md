@@ -802,6 +802,22 @@ folder that no longer exists; ignore those paths).
   brain answers). Builder's follow-ups for a cheaper model: meaning search in the box (features/abilities/index.ts ask()
   when meaningPossible()); batch 3's day log as a source in today.ts dayDoings; a Lens receipt offer (lens/read.ts →
   offer.ts say()); the deck miniature (tests/deckshots.spec.mjs → public/deck/abilities.jpg).
+- 31 Oct 07:40 UK: PR #44's FIRST RUN ON 932eb17 FAILED on the LAST spec of the loop, `abilities` (batch 4's new spec),
+  twice (the loop's retry): four page errors "Failed to read the 'serviceWorker' property from 'Navigator': Service worker
+  is disabled because the context is sandboxed and lacks the 'allow-same-origin' flag". NOT a flake and not the batch's
+  code: CI runs all 77 specs against ONE preview brain, so by the last spec the brain holds the websites and apps the
+  websites/apps/studiomake specs built; the abilities spec opens the Workshop (for UPGRADE IDEAS), whose DRAFT cards
+  preview those apps in sandboxed frames, and the app kit's runtime (packages/shared/src/appkit/runtime/core.ts offline())
+  read navigator.serviceWorker there, which throws in a sandboxed frame; Playwright reports a frame's error as the page's.
+  Locally every run had a fresh brain with no apps, so it never showed (the builder's nine specs and my fifteen all passed).
+  REPRODUCED locally in 4 minutes: websites.spec, apps.spec, then abilities.spec on one preview → the same four errors.
+  FIXED at both ends: the kit reads navigator.serviceWorker inside try/catch (a previewed app now just has no offline copy,
+  no error — the owner's Workshop console too), and tests/browser.mjs's shared noise filter counts that frame notice as
+  noise in every browser (nav.spec already filtered it on its own; the filter was WebKit-only and spelt "Service Worker").
+  LESSON for every new spec that opens the Workshop, Links or Memory late in the loop: the brain is not fresh in CI — run
+  it locally after websites.spec and apps.spec on the same preview before trusting a clean run; and a new spec goes
+  somewhere in the loop before websites/apps unless it must see their state.
+
 
 
 
