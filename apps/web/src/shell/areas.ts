@@ -23,6 +23,9 @@ import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
 import { offlineBrain } from '../offline/brain';
+import { guardian, loadGuardian } from '../state/guardian'; // [guardian]
+import { goToPanel } from '../ui/sections'; // [guardian]
+import { clockIn, FEED_NAMES, watchLine, type GuardianInfo } from '../../../../packages/shared/src/guardian'; // [guardian]
 
 export interface Area {
   id: string;
@@ -269,6 +272,7 @@ export function openMe(openDeck: () => void): void {
   const close = () => {
     if (!sheet) return;
     offMood();
+    offGuard();
     const el = sheet;
     sheet = null;
     el.classList.add('out');
@@ -308,6 +312,30 @@ export function openMe(openDeck: () => void): void {
       h('div.mer', h('span.k', 'Version'), lines.version),
     ),
   );
+  // [guardian] WATCHING OVER YOU (OWNER-ISSUES 55, 58): the places watched, the three feeds and when each was last looked at,
+  // the named person and a walk under way, in his voice; a tap opens THREATS → NEAR HOME
+  const gLine = h('p.megline', { dataset: { case: 'keep' } }, 'Checking…');
+  const gRows = h('div.merows.megrows');
+  const guard = h('button.rccard.meguard', { type: 'button', dataset: { part: 'guardian' }, 'aria-label': 'Watching over you: open NEAR HOME' }, h('div.mesth', h('b', 'Watching over you')), gLine, gRows);
+  guard.addEventListener('click', () => {
+    close();
+    goToPanel('threats', 'NEAR HOME');
+  });
+  const paintGuard = (info: GuardianInfo | null) => {
+    if (!info) return;
+    gLine.textContent = watchLine(info);
+    const feeds = (['flood', 'weather', 'crime'] as const).map((f) => `${FEED_NAMES[f].source.replace('Environment Agency', 'Floods').replace('Met Office', 'Weather').replace('police.uk', 'Crime')} ${info.failed[f] ? 'unreachable' : info.checked[f] ? clockIn(info.checked[f]!, info.tz) : '—'}`);
+    const per = info.person;
+    const w = info.walk && info.walk.stage !== 'done' ? info.walk : null;
+    clear(gRows,
+      h('div.mer', h('span.k', 'Feeds'), h('span.v', feeds.join(' · '))),
+      h('div.mer', h('span.k', 'Named person'), h('span.v', per ? `${per.name}${per.via ? ` · ${per.via === 'telegram' ? 'Telegram' : 'email'}` : ' · not reachable yet'}` : 'Nobody yet (Settings → GUARDIAN)')),
+      ...(w ? [h('div.mer', h('span.k', 'Walk home'), h('span.v', w.stage === 'walking' ? `Under way · I ask at ${clockIn(w.eta, info.tz)}` : w.stage === 'alerted' ? 'No answer: your named person was messaged' : 'I asked “Home?”'))] : []),
+    );
+  };
+  paintGuard(guardian.get().info);
+  const offGuard = guardian.subscribe((st) => paintGuard(st.info));
+  void loadGuardian();
   const build = h('p.mebuild', `Ghosty ${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at)).replace(/^(\d+)m ago$/, '$1 minutes ago').replace(/^(\d+)h ago$/, '$1 hours ago').replace(/^(\d+)d ago$/, '$1 days ago')}` : ''}`);
   const box = h('div.mebox', { role: 'dialog', 'aria-label': 'Me' },
     h('i.megrab', { 'aria-hidden': 'true' }),
@@ -317,6 +345,7 @@ export function openMe(openDeck: () => void): void {
       h('button.meclose', { type: 'button', 'aria-label': 'Close', onclick: close }, icon('<path d="M7 7l10 10M17 7L7 17"/>')),
     ),
     status,
+    guard,
     h('div.megroup.rcgroup', { dataset: { part: 'screens' } }, ...ME_ROWS.map(([id, label, sub]) => row(id, label, sub, () => navTo(id, 'push')))),
     h('div.megroup.rcgroup', { dataset: { part: 'more' } },
       row('links', 'Links', 'Email, Spotify and your phone', () => navTo('links', 'push')),

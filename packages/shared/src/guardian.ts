@@ -99,7 +99,7 @@ export interface PanicSecret {
   n: number;
 }
 
-/** GET /api/guardian: everything THREATS → NEAR HOME and Settings → GUARDIAN show. */
+/** GET /api/guardian: everything the THREATS card, the Me sheet and Settings → GUARDIAN show. */
 export interface GuardianInfo {
   places: PlaceWatch[];
   /** When each feed was last read (ms). */
@@ -234,7 +234,7 @@ export async function panicSaid(text: string, secret: PanicSecret | null | undef
 
 const andList = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
-/** NEAR HOME's line (THREATS): "I'm watching Home and Work. Nothing active. Last look 14:05." */
+/** The guardian card's line (the Me sheet, THREATS): "I'm watching Home and Work. Nothing active. Last look 14:05." */
 export function watchLine(info: Pick<GuardianInfo, 'places' | 'checked' | 'tz'>): string {
   if (!info.places.length) return "I'm not watching any places yet: save home in Memory → ME → PLACES.";
   const active = info.places.reduce((n, p) => n + p.active.length, 0);

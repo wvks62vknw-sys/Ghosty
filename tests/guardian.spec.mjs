@@ -5,12 +5,13 @@
 //  2. a flood alert and a weather warning appear: CHECK NOW tells him, the brain's ONE notification is in the inbox with
 //     both lines, the card shows each with its source and since when; the same look again says nothing new; they lift:
 //     the all-clear, once;
-//  3. Settings → GUARDIAN: a named person (an email; never a phone number), TEST MESSAGE says honestly why it cannot go
+//  3. the Me sheet's WATCHING OVER YOU: the places, the three feeds' times, the named person;
+//  4. Settings → GUARDIAN: a named person (an email; never a phone number), TEST MESSAGE says honestly why it cannot go
 //     yet; the panic phrase set as a scrambled copy only — its words in no request (the marker method);
-//  4. WALK ME HOME in the chat: "How long?", "20 minutes", the start in his words with the honest limit; at the ETA (the
+//  5. WALK ME HOME in the chat: "How long?", "20 minutes", the start in his words with the honest limit; at the ETA (the
 //     brain's own alarm, brought forward) "Home?" in the inbox and the bar; I'M HOME ends it;
-//  5. the panic phrase typed in the chat: handled at once, nothing of it in the chat, its words in no request;
-//  6. a scam check through the chat: the verdict with its reasons, never "safe";
+//  6. the panic phrase typed in the chat: handled at once, nothing of it in the chat, its words in no request;
+//  7. a scam check through the chat: the verdict with its reasons, never "safe";
 //  then everything is put back (the place, the person, the phrase, the feeds quiet, the inbox read) for the specs after it.
 //   BASE=http://localhost:8788 node tests/guardian.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -86,6 +87,19 @@ await checkNow();
 await page.waitForTimeout(800);
 check((await inboxCount('2 warnings near your places')) === 1, 'the same warnings were told twice');
 
+// ---- 3. the Me sheet: WATCHING OVER YOU
+await page.click('#top .you');
+await page.waitForSelector('#mesheet .meguard', { timeout: 8000 }).catch(() => problems.push('no WATCHING OVER YOU card on the Me sheet'));
+await page.waitForTimeout(600);
+const me = await text('#mesheet .meguard');
+check(/^Watching over you\s*I'm watching Home\. 2 warnings active\. Last look \d\d:\d\d\./.test(me), `the card: ${me}`);
+check(/Feeds\s*Floods \d\d:\d\d · Weather \d\d:\d\d · Crime \d\d:\d\d/.test(me) && /Named person\s*Nobody yet/.test(me), `the card's rows: ${me}`);
+const parts = await page.evaluate(() => [...document.querySelectorAll('#mesheet [data-part]')].map((x) => x.dataset.part));
+check(parts[0] === 'head' && parts[1] === 'status' && parts[2] === 'guardian', `the sheet's order: ${parts.join(', ')}`);
+await page.screenshot({ path: `${out}/guardian-me.png` });
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+
 // they lift: the all-clear, once
 await feeds('flood=0&weather=0');
 await checkNow();
@@ -96,7 +110,7 @@ await checkNow();
 await page.waitForTimeout(800);
 check((await inboxCount('All clear')) === 1, 'the all-clear was said twice');
 
-// ---- 3. Settings → GUARDIAN
+// ---- 4. Settings → GUARDIAN
 await page.evaluate(() => (location.hash = 'settings'));
 await openPanel(page, 'settings', 'GUARDIAN');
 const gp = '#pg-settings .pn.pushed';
@@ -126,7 +140,7 @@ const box = await page.locator(`${gp} input[aria-label="Your panic phrase"]`).ge
 check(box === 'password', 'the phrase is typed in the open');
 await page.screenshot({ path: `${out}/guardian-settings.png` });
 
-// ---- 4. WALK ME HOME in the chat
+// ---- 5. WALK ME HOME in the chat
 await page.evaluate(() => (location.hash = 'core'));
 await page.waitForSelector('#cin', { state: 'visible', timeout: 10000 });
 const replies = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent?.replace(/\s+/g, ' ').trim() ?? ''));
@@ -153,7 +167,7 @@ await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some(
 check(!(await page.locator('#walkask').count()), 'the bar stayed after I\'M HOME');
 check((await api('/guardian')).walk?.stage === 'done', 'the walk is not over');
 
-// ---- 5. the panic phrase in the chat: at once, nothing of it in the chat
+// ---- 6. the panic phrase in the chat: at once, nothing of it in the chat
 const before = (await page.evaluate(() => document.querySelectorAll('#pg-core .msg').length));
 await say(PHRASE.toLowerCase());
 await until(() => /It couldn't go: your email is not linked|Sent\./.test(document.querySelector('#toasts')?.textContent ?? ''), null, 10000, `the panic phrase: "${await toasts()}"`);
@@ -163,7 +177,7 @@ const leaked = sent.filter((r) => /giraffe/i.test(r.url) || /giraffe/i.test(r.bo
 check(!leaked.length, `the panic phrase's words left the phone: ${leaked.map((r) => r.url).join(', ')}`);
 check(sent.some((r) => r.url.endsWith('/api/guardian/panic')), 'the panic message was not asked for');
 
-// ---- 6. a scam check through the chat
+// ---- 7. a scam check through the chat
 await say('is this a scam? Evri: your parcel is on hold. Pay the £1.45 fee within 24 hours at evri-parcel-fee.live/pay');
 await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /That looks like a scam\./.test(m.textContent ?? '')), null, 20000, `the scam check: "${await lastReply()}"`);
 check(!/\bsafe\b/i.test(await lastReply()), `the verdict said "safe": ${await lastReply()}`);
@@ -181,4 +195,4 @@ if (problems.length) {
   console.error(`FAIL guardian:\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log('ok: THE GUARDIAN — NEAR HOME quiet, a warning told once with its notification, the all-clear once; GUARDIAN set up honestly with the phrase kept scrambled; WALK ME HOME to "Home?" and I\'M HOME; the panic phrase never in the chat or a request; a scam checked');
+console.log('ok: THE GUARDIAN — NEAR HOME quiet, a warning told once with its notification, the all-clear once; WATCHING OVER YOU; GUARDIAN set up honestly with the phrase kept scrambled; WALK ME HOME to "Home?" and I\'M HOME; the panic phrase never in the chat or a request; a scam checked');

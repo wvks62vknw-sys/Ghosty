@@ -9,7 +9,7 @@
  * from it. (The walk home, the named person and the panic phrase are walk.ts.)
  *
  * Routes (owner only):
- *   GET    /guardian          → GuardianInfo (THREATS → NEAR HOME, Settings → GUARDIAN)
+ *   GET    /guardian          → GuardianInfo (THREATS → NEAR HOME, the Me sheet, Settings → GUARDIAN)
  *   POST   /guardian/check    → a look now (NEAR HOME's CHECK NOW)
  */
 import { clockIn, FEED_NAMES, type FeedId, type GuardianInfo, type GuardWarning, type PersonInfo, type WalkInfo } from '../../../packages/shared/src/guardian';
