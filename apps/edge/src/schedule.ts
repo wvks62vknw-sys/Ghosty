@@ -116,12 +116,15 @@ export async function rearm(storage: DurableObjectStorage, jobs?: Job[]): Promis
 export async function addJob(
   storage: DurableObjectStorage,
   j: { kind: Job['kind']; title: string; text: string; next: number; repeat?: Repeat; tz: string; eventId?: string },
+  // the clock the caller planned `next` on (the walk home runs on the brain's own clock, and in its tests a fake one):
+  // "in the past" is judged against that clock, never a different one
+  now = Date.now(),
 ): Promise<Job> {
   const tz = safeTz(j.tz);
   const repeat = j.repeat ?? 'none';
   let next = j.next;
   if (!Number.isFinite(next)) throw new Error('that time could not be understood');
-  if (next < Date.now() - 60_000) {
+  if (next < now - 60_000) {
     if (repeat === 'none') throw new Error('that time is in the past');
     next = nextRun(next, repeat, tz) ?? next;
   }
