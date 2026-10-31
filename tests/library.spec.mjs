@@ -141,6 +141,15 @@ const searched = (ui) =>
 for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
+  // the morning digest as the brain files it since OWNER-ISSUES 77d ("YYYY-MM-DD · source · TIER"), answered here (the preview
+  // brain cannot reach the feeds): yesterday's old-style section is not today's, and the day in three levels has no tier
+  if (name === 'phone') await ctx.route(/\/api\/library\/docs\/notes_daily\/passages/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ next: null, passages: [
+    { rid: 1, heading: '2026-10-30 · BBC News', text: 'Fresh knowledge 2026-10-30 — BBC News (feeds.bbci.co.uk):\n- Yesterday story — old news', page: null },
+    { rid: 2, heading: '2026-10-31 · BBC News · PRESS', text: 'Fresh knowledge 2026-10-31 — BBC News (feeds.bbci.co.uk):\n- Storm story — the M5 closes', page: null },
+    { rid: 3, heading: '2026-10-31 · UN News · PRIMARY', text: 'Fresh knowledge 2026-10-31 — UN News (news.un.org):\n- Rights chief story — a probe is demanded', page: null },
+    { rid: 4, heading: '2026-10-31 · Full Fact · CREDIBLE', text: 'Fresh knowledge 2026-10-31 — Full Fact (fullfact.org):\n- Baseless claim story — no evidence', page: null },
+    { rid: 5, heading: '2026-10-31 · in three levels', text: 'Fresh knowledge 2026-10-31 — the day in three levels:\nIn one line: Storms.', page: null },
+  ] }) }));
   const ui = await ctx.newPage();
   ui.on('pageerror', (er) => webkitNoise(er) || problems.push(`[${name}] pageerror: ${er.message}`));
   ui.on('console', (m) => {
@@ -478,6 +487,13 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
       if (!titles.length || !titles.every((t) => /volcano/i.test(t))) problems.push(`[${name}] FIND "volcano" shows: ${titles.join(' | ') || 'nothing'}`);
       await ui.fill(findBox, '');
     }
+    // FRESH TODAY (77d): each source by its name, its tier as a word beside what it said; the day in three levels has none
+    await openSection(ui, 'library', 'Fresh today');
+    await ui.waitForSelector('#pg-library .pn.fresh .ctier', { timeout: 10000 }).catch(() => undefined);
+    const freshRows = await ui.$$eval('#pg-library .pn.fresh .rw', (n) => n.map((x) => ({ k: x.querySelector('.k')?.textContent ?? '', tier: x.querySelector('.ctier')?.innerText ?? '', shown: (x.querySelector('.ctier')?.getBoundingClientRect().width ?? 0) > 0 })));
+    const freshSeen = freshRows.map((r) => `${r.k}:${r.tier}`).join(' | ');
+    if (freshSeen !== 'BBC News:PRESS | UN News:PRIMARY | Full Fact:CREDIBLE | in three levels:' || !freshRows.slice(0, 3).every((r) => r.shown)) problems.push(`[${name}] FRESH TODAY rows: ${freshSeen || 'none'}`);
+    await ui.screenshot({ path: `${out}/${name}-library-fresh.png` });
   }
   await ctx.close();
 }

@@ -6,6 +6,7 @@
  */
 import { asData } from '../kernel/permissions';
 import { arg, clip, type Tool, type ToolContext } from './types';
+import { leadNote, tierOf, tierWord, type Tier } from '../../../../packages/shared/src/sources';
 
 export const UA = 'Mozilla/5.0 (compatible; GhostyAssistant/2.0; personal assistant)';
 const MAX_BYTES = 350_000;
@@ -54,8 +55,20 @@ export function htmlToText(html: string): { title: string; text: string } {
 const oneLine = (t: string) => t.replace(/\s*\n\s*/g, ' ').trim();
 
 /** Search results as text for the model: "n. title", the address, the snippet; one blank line between. */
+/** Each result with its tier after its title ("[PRIMARY]", "[LEAD]"…; nothing for one the table does not know), so the model can prefer primaries. */
 export function formatSearch(hits: Hit[]): string {
-  return hits.map((h, i) => `${i + 1}. ${oneLine(h.title)}\n${h.url}\n${oneLine(h.text)}`.trim()).join('\n\n');
+  return hits
+    .map((h, i) => {
+      const t = tierOf(h.url);
+      return `${i + 1}. ${oneLine(h.title)}${t === 'unknown' ? '' : ` [${tierWord(t)}]`}\n${h.url}\n${oneLine(h.text)}`.trim();
+    })
+    .join('\n\n');
+}
+
+/** Primary first, leads last (OWNER-ISSUES 77): the results by tier, ties in the engine's own order. */
+const RANK: Record<Tier, number> = { primary: 0, credible: 1, press: 2, reference: 3, unknown: 4, lead: 5 };
+export function byTier<T extends { url: string }>(hits: T[]): T[] {
+  return hits.map((h, i) => ({ h, i, r: RANK[tierOf(h.url)] })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.h);
 }
 
 export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<string> {
@@ -113,7 +126,13 @@ export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>)
   return hits;
 }
 
+/** A search asked now: the engines' results (at most eight), sorted by tier — primary first, leads last. */
 async function searchFresh(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<{ hits: Hit[]; degraded: boolean }> {
+  const r = await searchEngines(query, ctx);
+  return { hits: byTier(r.hits), degraded: r.degraded };
+}
+
+async function searchEngines(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<{ hits: Hit[]; degraded: boolean }> {
   let degraded = false;
   // .catch: with the database paused, fall through to the keyless search.
   const brave = await ctx.vault.get('brave').catch(() => null);
@@ -275,7 +294,8 @@ export const webTools: Tool[] = [
       const { title } = page;
       const read = page.text;
       ctx.found?.({ kind: 'web', title: oneLine(title).slice(0, 200) || hostOf(url).replace(/^www\./, ''), url, text: read.slice(title.length).trim() });
-      return asData(url, note + read);
+      // a social platform is a lead, never a source (OWNER-ISSUES 77): said before its words, outside them
+      return tierOf(url) === 'lead' ? `${leadNote(url)}\n${asData(url, note + read)}` : asData(url, note + read);
     },
   },
 ];

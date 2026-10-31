@@ -52,6 +52,8 @@ export interface LookedUp {
   url?: string;
   doc?: string;
   text: string;
+  /** [sources] How far it can be trusted (packages/shared/src/sources.ts): a web page's from its address when left out. */
+  tier?: string;
 }
 
 export interface Tool {

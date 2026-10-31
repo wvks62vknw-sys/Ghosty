@@ -99,7 +99,7 @@ export function spoken(d: Date, line: string, headlines: string[]): string {
   return `${greeting(d)}. It's ${dayName(d)}. ${said}${top.length ? ` The headlines. ${top.join(' ')}` : ''}`.replace(/\s+/g, ' ').trim();
 }
 
-/** One passage of the library's "Fresh knowledge" notebook: heading "YYYY-MM-DD · source". */
+/** One passage of the library's "Fresh knowledge" notebook: heading "YYYY-MM-DD · source · TIER" (or "YYYY-MM-DD · source"). */
 export interface DigestPassage {
   heading?: string;
   text: string;
@@ -115,7 +115,8 @@ export function digestDay(passages: DigestPassage[]): { day: string; headlines: 
     return /^\d{4}-\d{2}-\d{2}$/.test(k) && k > d ? k : d;
   }, '');
   if (!day) return null;
-  const of = (src: string) => passages.find((p) => p.heading === `${day} · ${src}`)?.text ?? '';
+  // (a source's passage says its tier after its name since OWNER-ISSUES 77d: "2026-10-31 · BBC News · PRESS")
+  const of = (src: string) => passages.find((p) => p.heading === `${day} · ${src}` || p.heading?.startsWith(`${day} · ${src} · `))?.text ?? '';
   const headlines = of('BBC News')
     .split('\n')
     .filter((l) => l.startsWith('- '))
