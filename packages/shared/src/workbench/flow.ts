@@ -59,7 +59,12 @@ export interface Flow {
   vorticity(out?: Float32Array): Float32Array;
   /** The force of the last step and its coefficients. */
   force(): FlowForce;
-  /** The force averaged over the recent steps (an exponential average over about the last 100). */
+  /**
+   * The force as the card shows it, averaged: over about the last 100 steps at first; once two convective times (chord ÷
+   * inlet steps) have passed since the last change, over about one vortex-shedding cycle (eight convective times, 100 to
+   * 4,000 steps). A bluff body sheds vortices and its lift swings either way about a mean; the average is what a tunnel's
+   * balance reads, and the start's surge is left out of it.
+   */
   meanForce(): FlowForce;
   /** The Reynolds number the lattice stands for: inlet × chord ÷ ν. */
   reynolds(): number;
@@ -113,8 +118,19 @@ export function createFlow(o: FlowOpts): Flow {
   const inletEq = new Float64Array(9);
   equilibrium(inletEq, 0, 1, inlet, 0);
   let last: FlowForce = { fx: 0, fy: 0, cd: 0, cl: 0 };
-  let mean: FlowForce = { fx: 0, fy: 0, cd: 0, cl: 0 };
-  let meanN = 0;
+  // meanForce: a short average (about 100 steps) and, once the change has settled, a long one (about a shedding cycle)
+  let short: FlowForce = { fx: 0, fy: 0, cd: 0, cl: 0 };
+  let shortN = 0;
+  let long: FlowForce = { fx: 0, fy: 0, cd: 0, cl: 0 };
+  let longN = 0;
+  let since = 0;
+  const restart = () => {
+    short = { fx: 0, fy: 0, cd: 0, cl: 0 };
+    long = { fx: 0, fy: 0, cd: 0, cl: 0 };
+    shortN = 0;
+    longN = 0;
+    since = 0;
+  };
 
   const build = () => {
     const list: number[] = [];
@@ -179,8 +195,7 @@ export function createFlow(o: FlowOpts): Flow {
     g.set(f);
     flow.steps = 0;
     last = { fx: 0, fy: 0, cd: 0, cl: 0 };
-    mean = { fx: 0, fy: 0, cd: 0, cl: 0 };
-    meanN = 0;
+    restart();
   };
 
   const coeff = (fx: number, fy: number): FlowForce => {
@@ -249,10 +264,16 @@ export function createFlow(o: FlowOpts): Flow {
     g = t;
     flow.steps++;
     last = coeff(fx, fy);
-    // an exponential average over about 100 steps (the first ones weighted as a plain mean)
-    meanN = Math.min(meanN + 1, 100);
-    const w = 1 / meanN;
-    mean = coeff(mean.fx + w * (fx - mean.fx), mean.fy + w * (fy - mean.fy));
+    // exponential averages (the first steps of each weighted as a plain mean): about 100 steps; and, from two convective
+    // times after the change, about one shedding cycle
+    shortN = Math.min(shortN + 1, 100);
+    short = coeff(short.fx + (fx - short.fx) / shortN, short.fy + (fy - short.fy) / shortN);
+    since++;
+    const convective = inlet > 0 ? chord / inlet : 100;
+    if (since > 2 * convective) {
+      longN = Math.min(longN + 1, Math.max(100, Math.min(4000, Math.round(8 * convective))));
+      long = coeff(long.fx + (fx - long.fx) / longN, long.fy + (fy - long.fy) / longN);
+    }
   };
 
   const flow: Flow = {
@@ -299,7 +320,7 @@ export function createFlow(o: FlowOpts): Flow {
         }
       }
       build();
-      meanN = 0;
+      restart();
     },
     step(n = 1) {
       for (let s = 0; s < n; s++) stepOnce();
@@ -324,7 +345,7 @@ export function createFlow(o: FlowOpts): Flow {
       return out;
     },
     force: () => last,
-    meanForce: () => mean,
+    meanForce: () => (longN >= 100 ? long : short),
     reynolds: () => (nu > 0 ? (inlet * chord) / nu : 0),
     stable() {
       for (let c = 0; c < N; c++) {

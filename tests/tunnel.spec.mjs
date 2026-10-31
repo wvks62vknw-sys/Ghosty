@@ -88,7 +88,11 @@ await page.selectOption('#tun-shape', 'circle');
 const circ = await settle(aero.shapeSeq);
 check(/circle/.test(circ.shapeName) && Number.isFinite(circ.cd), `the circle: ${JSON.stringify({ name: circ.shapeName, cd: circ.cd })}`);
 check(Math.abs(circ.cd - aero.cd) > 0.2, `the circle's Cd ${circ.cd} is the aerofoil's ${aero.cd}`);
-check(Math.abs(circ.cl) < 0.2, `a circle in a symmetric tunnel has lift ${circ.cl}`);
+// (at this Reynolds number a circle sheds vortices and its lift swings about ±0.3 either way: the card's lift is averaged
+// over a shedding cycle once the change has settled — two convective times, then the cycle — so it is read after that)
+await until((s) => window.__ghosty.tunnel.steps > s + 2400, (await T()).steps, 30000, 'the flow did not run a shedding cycle on the circle');
+const circLift = (await T()).cl;
+check(Math.abs(circLift) < 0.2, `a circle in a symmetric tunnel has lift ${circLift}`);
 await page.screenshot({ path: `${out}/tunnel-circle.png` });
 
 // ---- 4. DRAW: three synthetic touches make a shape
