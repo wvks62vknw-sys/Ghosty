@@ -1380,7 +1380,7 @@ const buildSit = () => build({
   entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
   plugins: [{ name: 'stub', setup(b) {
     b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
-    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"",brainsHere=0,currentModel=0,offlineBrain=0,offlineModels=0,sitOn=0,unloadOffline=0;' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"",brainsHere=0,currentModel=0,offlineBrain=0,offlineModels=0,sitOn=0,unloadOffline=0,mayUse=()=>true;' }));
   } }],
 });
 
