@@ -722,7 +722,10 @@ const noteAnswering = (v: { model: string; at: number } | null) => {
   setAnswering(typeof document !== 'undefined' && document.hidden ? null : v);
 };
 if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => setAnswering(document.hidden ? null : answeringNow));
+  // (both touch the record only while a reply is in flight here: one left by a page that died is this page's to read, not to clear)
+  document.addEventListener('visibilitychange', () => {
+    if (answeringNow) setAnswering(document.hidden ? null : answeringNow);
+  });
   // A reload or a tap away mid-reply is not the brain's doing: only a page that dies with no warning leaves its record.
   window.addEventListener('pagehide', () => {
     if (answeringNow) setAnswering(null);
