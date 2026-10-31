@@ -21,6 +21,7 @@ import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
+import { stopIntent } from '../../../../packages/shared/src/intent';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -362,7 +363,7 @@ function lastQuestion(): string {
   for (const u of users.reverse()) {
     const ask = thinkAsk(u.text);
     if (ask) return ask;
-    if (ask === null && !/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(u.text.trim())) return u.text;
+    if (ask === null && !stopIntent(u.text)) return u.text;
   }
   return '';
 }
@@ -440,7 +441,9 @@ const hereStopped = (why: string) => `I can't do this on the phone right now: ${
 export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
-  if (/^(stop|stop it|stop talking|cancel|quiet|be quiet|shut ?up|shh+)[.!]*$/i.test(t)) {
+  // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
+  // absolute and at once, whatever he was saying or arguing, and never answered.
+  if (stopIntent(t)) {
     stopSpeaking();
     stopListening();
     stopOffline();

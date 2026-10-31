@@ -673,6 +673,8 @@ export class GhostyAgent {
       }
       await this.loop(ctx, client, out, signal, seen);
     } catch (e) {
+      // A stop goes quiet: the abort is never said back (on Telegram it would arrive as a message, in the browser's words).
+      if (signal.aborted) return;
       const paused = storageError(e);
       if (paused && !said) await this.pausedChat(text, extra.recent, client, out, signal, paused, extra.offline, images, turn, seen);
       // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
@@ -1014,10 +1016,9 @@ export class GhostyAgent {
     // His length (persona.ts lengthBand): from his last few messages, one line in the character.
     const band = lengthBand(ctx.filter((m) => m.role === 'user').map((m) => ownerWords(textOf(m.content))));
     for (let step = 0; step < MAX_STEPS; step++) {
-      if (signal.aborted) {
-        emit({ t: 'error', message: 'Stopped.' });
-        break;
-      }
+      // Stopped between steps (the owner said stop, OWNER-ISSUES 70a): he goes quiet. Nothing is said about it — not
+      // "Stopped.", which Telegram would send, and not the step cap's "I have taken 40 steps", which this used to fall into.
+      if (signal.aborted) return;
       const facts = await loadMemory(this.storage);
       // The owner's profile (nightly reflection) rides along; while the database is paused there is none.
       const profile = await loadProfile(this.storage).catch(() => null);
