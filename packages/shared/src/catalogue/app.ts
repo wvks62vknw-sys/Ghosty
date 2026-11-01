@@ -12,5 +12,6 @@ import { APP_3 } from './app3';
 import { APP_4 } from './app4';
 import { ARCADE_WORDS } from './arcade';
 import { GAMES2_WORDS } from './games2';
+import { GAMES3_WORDS } from './games3';
 
-export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS };
+export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS };

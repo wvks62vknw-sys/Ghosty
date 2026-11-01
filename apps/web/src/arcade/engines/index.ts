@@ -4,6 +4,9 @@
  * engine (games/: the block world and the runner). The shelf shows only the games an engine here plays today.
  */
 import { dosFiles } from '../dos';
+import { arenaEngine } from '../games/arena/index';
+import { hopperEngine } from '../games/hopper/index';
+import { kartEngine } from '../games/kart/index';
 import { runnerEngine } from '../games/runner/index';
 import { voxelEngine } from '../games/voxel/index';
 import { type EngineId, keptAs, type ShelfEntry } from '../shelf';
@@ -12,7 +15,7 @@ import { dosEngine } from './dos';
 import { quake } from './quake';
 import type { Engine, EngineFiles } from './types';
 
-export const ENGINES: Partial<Record<EngineId, Engine>> = { dos: dosEngine, doom, quake, voxel: voxelEngine, runner: runnerEngine };
+export const ENGINES: Partial<Record<EngineId, Engine>> = { dos: dosEngine, doom, quake, voxel: voxelEngine, runner: runnerEngine, kart: kartEngine, hopper: hopperEngine, arena: arenaEngine };
 
 export const engineFor = (e: ShelfEntry): Engine | null => ENGINES[e.engine] ?? null;
 

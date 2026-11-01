@@ -497,14 +497,15 @@ test('the arena keeps the Learnable contract: plain observations, a heading, a s
 
 test('the shelf entries made by us: no data (madeByUs), their own engines, every field, ids of their own', () => {
   const CONTROLS = ['move', 'look', 'fire', 'use', 'weapon', 'jump', 'map'];
-  const taken = new Set([...SHELF.map((e) => e.id), ...GAMES2.map((e) => e.id)]);
+  const taken = new Set(SHELF.filter((x) => !GAMES3.some((g) => g.id === x.id)).map((x) => x.id));
   assert.deepEqual(GAMES3.map((e) => e.id), [KART_ID, HOPPER_ID, ARENA_ID]);
   assert.deepEqual(GAMES3.map((e) => e.engine), ['kart', 'hopper', 'arena']);
   for (const e of GAMES3) {
     assert.ok(e.data !== null || e.madeByUs, `${e.id}: data or madeByUs`);
     assert.equal(e.data, null);
     assert.equal(e.madeByUs, true);
-    assert.ok(!taken.has(e.id), `${e.id}: not an id the shelf has`);
+    assert.ok(!taken.has(e.id), `${e.id}: not an id the shelf's other games have`);
+    assert.equal(SHELF.filter((x) => x.id === e.id).length, 1, `${e.id}: on the shelf once`);
     assert.match(e.title, /^THE [A-Z ]+$/);
     for (const k of ['line', 'ghosty', 'done']) assert.ok(e[k].trim().length > 10 && e[k].length <= 140, `${e.id}.${k}`);
     assert.ok(e.controls.length && e.controls.every((c) => CONTROLS.includes(c)), `${e.id}: controls`);
