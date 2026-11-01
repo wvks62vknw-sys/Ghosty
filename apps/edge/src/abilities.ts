@@ -34,7 +34,7 @@ export const GROUP_CAT: Record<string, AbilityCat> = {
   memory: 'know', web: 'know', video: 'know', data: 'know', library: 'know', scan: 'know', vehicle: 'know', gadgets: 'know',
   traffic: 'see', roads: 'see', maps: 'see', lens: 'see',
   widgets: 'build', sites: 'build', build: 'build', pictures: 'build', repo: 'build', reverse: 'build', home: 'build', homeplan: 'build', photo: 'build', '3d': 'build', workbench: 'build',
-  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch',
+  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch', money: 'watch', body: 'do', kitchen: 'do',
   media: 'play', spotify: 'play',
   school: 'learn', 'library-admin': 'learn', knowledge: 'learn', evolve: 'learn', learn: 'learn',
   ui: 'do', travel: 'do', journeys: 'do', projects: 'do', places: 'do',
@@ -117,8 +117,13 @@ export function brainItems(has: (name: string) => boolean, groups: ToolGroup[] =
     const off = need && !need.any.some(has) ? need.where : undefined;
     return { id: `tool:${t.name}`, kind: 'tool', group, cat: GROUP_CAT[group] ?? 'do', ...(off && need ? { off, offGo: need.open } : {}) };
   });
+  // [packs] each action of a pack's one tool is an ability of its own (BRIEF-PACKS-1), from the tool's own action enum
+  const acts: CatItem[] = groups
+    .filter((g) => g.short && g.tools.length === 1)
+    .flatMap((g) => actionsOf(g.tools[0]!).map((a): CatItem => ({ id: `act:${g.name}:${a}`, kind: 'act', group: g.name, cat: GROUP_CAT[g.name] ?? 'do', since: '2026-11-01' })));
   return [
     ...tools,
+    ...acts,
     ...TELEGRAM_COMMANDS.map((c): CatItem => ({ id: `telegram:${c.cmd}`, kind: 'telegram', cat: 'talk', since: '2026-10-19' })),
     ...TELEGRAM_CAN.map((c): CatItem => ({ id: `telegram:${c.id}`, kind: 'telegram', cat: 'talk', since: c.id === 'forward' ? '2026-10-31' : '2026-10-19' })),
     ...Object.keys(DIRECT_ASKS).map((k): CatItem => ({ id: `say:${k}`, kind: 'say', cat: 'talk', since: '2026-10-19' })),
@@ -126,10 +131,16 @@ export function brainItems(has: (name: string) => boolean, groups: ToolGroup[] =
     ...JOB_KINDS.map((k): CatItem => ({ id: `job:${k}`, kind: 'job', cat: 'do', since: JOB_SINCE[k] })),
   ];
 }
+/** A pack tool's actions: its `action` enum (tools/money.ts and the other packs). */
+export const actionsOf = (t: { parameters: { properties: Record<string, unknown> } }): string[] => {
+  const e = (t.parameters.properties.action as { enum?: unknown } | undefined)?.enum;
+  return Array.isArray(e) ? e.map(String) : [];
+};
+
 /** When each kind of job arrived (STATUS.md's batches; coarse). */
 const JOB_SINCE: Record<(typeof JOB_KINDS)[number], string> = {
   reminder: '2026-10-15', task: '2026-10-15', verify: '2026-10-15', study: '2026-10-15', reflect: '2026-10-18', digest: '2026-10-18', project: '2026-10-17',
-  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31', speak: '2026-11-01',
+  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31', speak: '2026-11-01', follow: '2026-11-01',
 };
 
 export interface AbilitiesDeps {

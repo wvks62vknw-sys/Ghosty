@@ -44,8 +44,9 @@ export { CATS };
 // ---------------------------------------------------------------- the registries' items
 
 /** Where an item comes from (its id's first part). The brain serves the first four. */
-export type CatKind = 'tool' | 'telegram' | 'say' | 'job' | 'screen' | 'panel' | 'section' | 'deck' | 'lens' | 'game' | 'stage' | 'studio' | 'bench' | 'phrase' | 'chat' | 'me' | 'hub' | 'theme' | 'mood' | 'app';
-export const BRAIN_KINDS: CatKind[] = ['tool', 'telegram', 'say', 'job'];
+export type CatKind = 'tool' | 'act' | 'telegram' | 'say' | 'job' | 'screen' | 'panel' | 'section' | 'deck' | 'lens' | 'game' | 'stage' | 'studio' | 'bench' | 'phrase' | 'chat' | 'me' | 'hub' | 'theme' | 'mood' | 'app';
+// ('act': one action of a pack's one tool — BRIEF-PACKS-1 — each an ability of its own, with its own words)
+export const BRAIN_KINDS: CatKind[] = ['tool', 'act', 'telegram', 'say', 'job'];
 
 /** What TRY IT does: a screen (and a panel on it), a command of the app, or words for the chat — sent, or left in the box. */
 export type CatGo = { open: string; panel?: string } | { run: string; args?: Record<string, unknown> } | { ask: string; send?: boolean };
@@ -147,6 +148,7 @@ export const SINCE_GROUP: Record<string, string> = {
   crime: '2026-10-16', roads: '2026-10-16', lens: '2026-10-16', maps: '2026-10-16', recon: '2026-10-16', reverse: '2026-10-16', sites: '2026-10-16',
   school: '2026-10-23', video: '2026-10-25', homeplan: '2026-10-24', photo: '2026-10-24', places: '2026-10-24', spending: '2026-10-24',
   guardian: '2026-10-31', foresight: '2026-10-31', workbench: '2026-10-31',
+  money: '2026-11-01', body: '2026-11-01', kitchen: '2026-11-01',
 };
 /** The phone's screens, by the batch they came in. */
 export const SINCE_SCREEN: Record<string, string> = {
@@ -161,7 +163,7 @@ export const SINCE_SCREEN: Record<string, string> = {
  * group's or its screen's batch, else the first build.
  */
 export function sinceOf(item: CatItem, w?: CatWords): string {
-  return w?.since ?? item.since ?? (item.kind === 'tool' ? SINCE_GROUP[item.group ?? ''] : SINCE_SCREEN[item.screen ?? '']) ?? FIRST;
+  return w?.since ?? item.since ?? (item.kind === 'tool' || item.kind === 'act' ? SINCE_GROUP[item.group ?? ''] : SINCE_SCREEN[item.screen ?? '']) ?? FIRST;
 }
 
 /** Arrived within NEW_DAYS of `now`. */
@@ -218,6 +220,7 @@ function whereOf(item: CatItem, w: CatWords, o: JoinOpts): string {
   const tail = item.id.split(':').slice(2).join(':');
   switch (item.kind) {
     case 'tool': return 'In the chat, and on Telegram';
+    case 'act': return 'In the chat, and on Telegram';
     case 'telegram': return 'On Telegram, once it is paired (LINKS → TELEGRAM)';
     case 'say': return 'In the chat, and on Telegram';
     case 'job': return 'On my own clock, in the brain';
@@ -245,7 +248,7 @@ function goOf(item: CatItem, w: CatWords): CatGo {
   if (item.off && item.offGo) return item.offGo;
   if (w.go) return w.go;
   if (item.go) return item.go;
-  if (item.kind === 'tool' || item.kind === 'say' || item.kind === 'phrase') return { ask: w.say[0] ?? w.name };
+  if (item.kind === 'tool' || item.kind === 'act' || item.kind === 'say' || item.kind === 'phrase') return { ask: w.say[0] ?? w.name };
   if (item.screen) return { open: item.screen };
   return { open: 'core' };
 }
@@ -288,7 +291,7 @@ export function joinCatalogue(items: CatItem[], o: JoinOpts, map: Record<string,
       tryLabel: own.off && own.offGo ? `Set it up: ${own.off}` : v.tryText ?? tryLabel(go, o),
       where: whereOf(own, v, o),
       ...(own.off ? { off: own.off } : {}),
-      ...(own.kind === 'tool' && own.group && GROUP_WHY[own.group] ? { why: GROUP_WHY[own.group] } : {}),
+      ...((own.kind === 'tool' || own.kind === 'act') && own.group && GROUP_WHY[own.group] ? { why: GROUP_WHY[own.group] } : {}),
       ...(own.group ? { group: own.group } : {}),
       ...(own.screen ? { screen: own.screen } : {}),
     });

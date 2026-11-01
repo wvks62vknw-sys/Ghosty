@@ -229,6 +229,14 @@ function threeCards(o: ToolOutcome, at: number): Card[] {
   return [card({ id: `3d:${title.toLowerCase()}`, kind: 'three', at, title, line: typeof a.model === 'string' ? 'Made in 3-D: turn it, take it apart, measure it' : 'In 3-D in the Studio: turn it round', three: { title }, acts: [{ label: 'OPEN STUDIO', run: { name: 'open_studio', args } }] })];
 }
 
+/** [packs] A pack's cards (BRIEF-PACKS-1): made by its own code and sent as `pack_card` screen commands (apps/edge/src/packs/base.ts). */
+function packCards(o: ToolOutcome): Card[] {
+  return (o.shown ?? [])
+    .filter((s) => s.name === 'pack_card')
+    .map((s) => s.args.card as Card)
+    .filter((c): c is Card => !!c && typeof c.id === 'string' && typeof c.title === 'string' && typeof c.line === 'string' && typeof c.kind === 'string');
+}
+
 /**
  * The cards for one tool call, from what it returned and the screen commands it sent — by code, never from the model's
  * words. Tools with nothing to show give none.
@@ -253,6 +261,10 @@ export function cardsFromTool(o: ToolOutcome): Card[] {
       return o.args.what === 'expect' ? foreseeCards(o, at) : [];
     case 'make_3d':
       return threeCards(o, at);
+    case 'money':
+    case 'body':
+    case 'kitchen':
+      return packCards(o);
     default:
       return [];
   }

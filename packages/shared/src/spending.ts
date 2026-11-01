@@ -557,6 +557,8 @@ export interface SpendingSummary {
   view: MonthView | null;
   year: YearView | null;
   changes: string[];
+  /** [packs] Each category's move since the month before, biggest first (the money pack's month card). */
+  moves?: { c: Category; diff: number }[];
   subscriptions: Subscription[];
   budgets: BudgetStatus[];
   rows: SpendRow[];

@@ -19,7 +19,7 @@ import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
  * Every kind of job the brain keeps on its clock: the registry `Job['kind']` is made from (the abilities catalogue lists
  * each one, the ones he asks for and the ones behind the scenes: packages/shared/src/catalogue).
  */
-export const JOB_KINDS = ['reminder', 'task', 'verify', 'study', 'reflect', 'digest', 'project', 'upgrade', 'revise', 'train', 'guard', 'walk', 'foresee', 'speak'] as const;
+export const JOB_KINDS = ['reminder', 'task', 'verify', 'study', 'reflect', 'digest', 'project', 'upgrade', 'revise', 'train', 'guard', 'walk', 'foresee', 'speak', 'follow'] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export interface Job {
@@ -32,7 +32,8 @@ export interface Job {
    * upgrade = the daily upgrade ideas (upgrades.ts); train = the offline brain's weekly self-training (selftrain/cycle.ts);
    * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts);
    * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts);
-   * speak = speaking first: the day's pieces at their minute, under the cadence (speak.ts)
+   * speak = speaking first: the day's pieces at their minute, under the cadence (speak.ts);
+   * follow = the money pack's price watches, read twice a day and a drop told (tools/money.ts followTick)
    */
   kind: JobKind;
   title: string;

@@ -8,6 +8,7 @@ import type { CatValue } from '../catalogue';
 import { TOOLS_1 } from './tools1';
 import { TOOLS_2 } from './tools2';
 import { TOOLS_3 } from './tools3';
+import { PACK_WORDS } from './packs';
 
 /** WHY I MIGHT USE IT MYSELF: when each tool group is in front of me (its `when`, in plain words). */
 export const GROUP_WHY: Record<string, string> = {
@@ -55,6 +56,9 @@ export const GROUP_WHY: Record<string, string> = {
   gadgets: 'When you ask about a gadget’s settings, its manual, a fault code or a spare part.',
   '3d': 'When you ask for a 3-D model, or to take something apart.',
   learn: 'When you ask me to teach you, quiz you or test you.',
+  money: 'When you talk about what you spent, a statement, fuel prices, a price to watch, subscriptions, payday or saving.',
+  body: 'When you talk about exercise, reps, a run, steps, sleep, water, breathing, stretching or your weight.',
+  kitchen: 'When you talk about dinner, your fridge, a recipe, a timer, the shopping list, the oven, or food going off.',
 };
 
 /** Telegram (tghelp.ts), the no-model asks (direct.ts) and the jobs on my clock (schedule.ts). */
@@ -190,4 +194,4 @@ const MORE: Record<string, CatValue> = {
   },
 };
 
-export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE };
+export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS };

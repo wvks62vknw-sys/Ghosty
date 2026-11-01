@@ -230,12 +230,33 @@ test('GET /api/abilities serves every item of the brain’s registries for the p
   assert.match(info.catalogue.find((i) => i.id === 'tool:repo_tree').off, /GitHub token/);
 });
 
+// ---------------------------------------------------------------- the packs (BRIEF-PACKS-1)
+
+test('every action of every pack is a registry item with its own words, its group’s WHY, and a TRY IT', () => {
+  const packs = T.TOOL_GROUPS.filter((g) => g.short);
+  assert.ok(packs.length >= 1, 'a pack group');
+  for (const g of packs) {
+    const acts = A.actionsOf(g.tools[0]);
+    assert.ok(acts.length >= 12, `${g.name}: ${acts.length} actions`);
+    for (const a of acts) {
+      const id = `act:${g.name}:${a}`;
+      assert.ok(brainItems.some((i) => i.id === id && i.kind === 'act' && i.group === g.name), `${id} is an item of its group`);
+      assert.ok(C.CATALOGUE[id] && !('same' in C.CATALOGUE[id]), `${id} has words of its own`);
+      const e = joined.entries.find((x) => x.id === id);
+      assert.ok(e?.why && e.go, `${id}: WHY and TRY IT`);
+    }
+    // the pack's tool itself is the same entry as one of its actions (the tab lists the abilities, not the tool)
+    assert.ok(C.CATALOGUE[`tool:${g.tools[0].name}`] && 'same' in C.CATALOGUE[`tool:${g.tools[0].name}`], `tool:${g.tools[0].name} lands on an action`);
+  }
+});
+
 // ---------------------------------------------------------------- the counts
 
 test('the counts (printed for the report): tools, screens, panels, phrases, games, modes, entries', () => {
   const n = (kind) => items.filter((i) => i.kind === kind).length;
   const counts = {
     tools: n('tool'),
+    'pack actions': n('act'),
     groups: T.TOOL_GROUPS.filter((g) => g.tools.length).length,
     telegram: n('telegram'),
     'no-model asks': n('say'),

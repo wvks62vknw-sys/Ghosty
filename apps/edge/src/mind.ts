@@ -26,6 +26,7 @@ import { agenda, loadEvents, loadJobs, type AgendaEvent, type Job } from './sche
 import { stageName } from './school/papers';
 import { loadState as loadSchool } from './school/state';
 import { spendFlag } from './spending';
+import { packLines } from './packs'; // [packs]
 import { isoLocal, safeTz, startOfDay, validTz, zoned } from './time';
 import { loadMemory } from './tools/memory';
 
@@ -242,6 +243,9 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   // [foresight] today's open predictions, at most two, for the phone (never rendered into the prompt: its budget)
   const expect = expectLines(readLedger(await tryOr(() => storage.get<unknown>(FORESIGHT_KEY), undefined)).items, now, tz).slice(0, 2);
   if (expect.length) m.expect = expect;
+  // [packs] the packs' lines for the Brief (packs/index.ts), for the phone too; never rendered into the prompt (its budget)
+  const packs = await tryOr(() => packLines({ storage, now: () => now }), [] as string[]);
+  if (packs.length) m.packs = packs;
 
   // what happened: the day log's last day
   m.recent = (await tryOr(() => loadLog(storage), [])).filter((e) => e.at > now - DAY && e.at <= now).slice(-8);
