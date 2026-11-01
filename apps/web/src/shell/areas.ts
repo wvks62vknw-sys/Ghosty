@@ -1,6 +1,6 @@
 /**
- * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
- * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
+ * The areas: ASK · SEE · MAKE · LEARN · PLAN · LIFE, and ME.
+ * Every tab belongs to one area. The tab bar shows the six; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
  * its hub: a large title and its tools as instrument cards (shell/hubcards.ts), on one screen with nothing to scroll
  * (six at most; any more in a More row); the recent screens are in Search.
@@ -371,10 +371,13 @@ export function openMe(openDeck: () => void): void {
   })();
 }
 
-/** The tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
+/**
+ * The tab bar: six areas in a frosted capsule (LIFE joined between Plan and Me on 1 Nov: BRIEF-TABS 1); the avatar ("Me")
+ * sits at the top right of the navigation bar, so the seven areas are all one tap away.
+ */
 export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void {
   const cap = h('div.tabcap', { role: 'tablist' });
-  for (const a of AREAS.slice(0, 5)) {
+  for (const a of AREAS.filter((x) => x.id !== 'me')) {
     // data-id is the area's main tab, so hooks that look for #dock button[data-id="core"] or the agenda badge still find it.
     // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
     // something runs in that area right now (liveIn below).
