@@ -7,6 +7,7 @@ import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { imageResponse } from './lens';
+import { demoRoute } from './demo';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -123,6 +124,10 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
+    // [demo] The review link (demo/index.ts): /demo's pages, and the /api calls the demo page makes, answered by the demo brain
+    // only (its own Durable Object, no owner key, no secrets, an allow-list of reads). Everything else goes on as it always did.
+    const demo = await demoRoute(req, env, ctx, { proxy });
+    if (demo) return demo;
     // Pages Ghosty published (publish_site): public links, no sign-in, served sandboxed.
     const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page)?\/?$/);
     if (pub && (req.method === 'GET' || req.method === 'HEAD')) {

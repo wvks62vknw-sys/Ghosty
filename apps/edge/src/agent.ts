@@ -85,6 +85,7 @@ import { addSub, loadSubs, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
+import { demoGate, envFor, isDemoState, SEEDED_KEY, sandboxEnv } from './demo';
 
 const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several times in one go
 /** Steps for a turn while the database is paused, or a task running on its own: room for a chain of tools and a retry or two. */
@@ -182,26 +183,50 @@ function noVisionAnswer(seen: string): string {
 
 
 export class GhostyAgent {
-  private vault: Vault;
-  private router: Router;
+  private vault!: Vault;
+  private router!: Router;
   private busy: AbortController | null = null;
+
+  private env!: Env;
+  /** What Cloudflare gave this object (the demo's brain is built from an empty environment instead: demo/index.ts). */
+  private realEnv: Env;
+  /** This is the demo's brain: built with no secrets, no key copies, no KV and no AI. */
+  private sandboxed = false;
 
   constructor(
     private state: DurableObjectState,
-    private env: Env,
+    realEnv: Env,
   ) {
+    // [demo] The demo's brain (the Durable Object named `demo`) is built with an environment that has nothing in it; the owner's
+    // is the real one. Where the runtime does not give an object its name, a brain whose own storage says it is the demo's is
+    // rebuilt that way before it answers anything, and so is one the demo's door calls while it is still empty (demoGate).
+    this.realEnv = realEnv;
+    this.sandboxed = isDemoState(state);
+    this.build(envFor(state, realEnv));
+    state.blockConcurrencyWhile?.(async () => {
+      if (!this.sandboxed && (await state.storage.get(SEEDED_KEY)) != null) this.demoMode();
+    });
+  }
+
+  private build(env: Env) {
+    this.env = env;
     this.meter = new Meter(env.SITES ?? null);
-    this.store = this.meter.wrapStorage(state.storage);
+    this.store = this.meter.wrapStorage(this.state.storage);
     this.vault = new Vault(this.store, env);
     this.router = new Router(this.store, this.vault, env);
     this.library = new Library(this.store, env);
   }
 
-  private library: Library;
+  private demoMode() {
+    this.sandboxed = true;
+    this.build(sandboxEnv(this.realEnv));
+  }
+
+  private library!: Library;
   /** Counts every row read and written against the free daily allowance (meter.ts). */
-  private meter: Meter;
+  private meter!: Meter;
   /** The Durable Object's storage, counted by the meter. */
-  private store: DurableObjectStorage;
+  private store!: DurableObjectStorage;
 
   private get storage() {
     return this.store;
@@ -288,6 +313,11 @@ export class GhostyAgent {
     this.origin = url.origin;
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
+    // [demo] The demo's rules (demo/index.ts): the owner's brain refuses a request marked as the demo's, and the demo's answers
+    // only its own door, from an allow-list, with no credentials, and with its own chat.
+    const gate = await demoGate(this.state, req, this.state.storage);
+    if (gate.demo && !this.sandboxed) this.demoMode();
+    if (gate.res) return gate.res;
     this.meter.label = `route:${path.split('/')[1] || '/'}`;
     this.state.waitUntil(this.meter.load());
     try {
@@ -1586,6 +1616,8 @@ export class GhostyAgent {
 
   /** Durable Object alarm: run every reminder and task that is due, then re-arm. */
   async alarm(): Promise<void> {
+    // [demo] nothing in the demo's brain is waiting to run
+    if (this.sandboxed) return;
     this.meter.label = 'alarm';
     await this.meter.load();
     await this.vault.flushDirty(true).catch(() => undefined);

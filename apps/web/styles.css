@@ -5362,3 +5362,12 @@ html .ccard[data-fault] .ccsafe + .ccline { -webkit-line-clamp: 2; }
 .coword .comark[data-r="right"] { color: #30d158; }
 .coword .comark[data-r="close"] { color: #ff9f0a; }
 .coword .comark[data-r="wrong"] { color: #ff453a; }
+/* the review link's banner (apps/edge/src/demo/tour.ts DEMO_BANNER; the page is /demo): one line under the phone's own status bar,
+   with the app moved down beneath it, so nothing of the app is covered; modals and the deck open over it */
+#demobar { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; z-index: 50; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; height: 26px; padding: 0 10px; overflow: hidden; white-space: nowrap; background: #ffd60a; color: #111; font: 600 12px/1 var(--sf, system-ui, sans-serif); }
+#demobar span { display: none; font-weight: 400; }
+@media (min-width: 700px) { #demobar span { display: inline; } }
+#demobar a { color: #111; text-decoration: underline; padding: 6px 2px; }
+#demobar[data-reset="1"] { background: #ff9f0a; }
+body.demo #app { top: calc(env(safe-area-inset-top, 0px) + 26px); padding-top: 0; }
+body.demo #pair, body.demo #pairform { display: none !important; }

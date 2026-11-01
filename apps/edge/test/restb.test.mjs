@@ -5,6 +5,7 @@
 // Bundles are built here with esbuild's API (the files are pure), so a stale bundle can never give a false answer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
@@ -21,6 +22,7 @@ const entries = [
   `${web}/coach/progress.ts`,
   `${web}/coach/skills.ts`,
   `${web}/coach/ask.ts`,
+  `${shared}/catalogue.ts`,
 ];
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/restb'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const load = (f) => import(`./.build/restb/${f}.mjs`);
@@ -34,7 +36,6 @@ const Ls = await load('apps/web/src/coach/lessons');
 const Pr = await load('apps/web/src/coach/progress');
 const Sk = await load('apps/web/src/coach/skills');
 const Ask = await load('apps/web/src/coach/ask');
-void shared;
 
 // ---------------------------------------------------------------- 1. CHESS
 
@@ -561,4 +562,429 @@ test('the chat’s words for the coach: the tuner, the lessons, typing, drawing,
   assert.deepEqual(a('teach me to juggle'), { what: 'juggle' });
   // not the coach's
   for (const t of ['teach me spanish', 'play the guitar solo from that song', 'what is the weather', 'I tuned in late', 'draw a bath', 'coach me through my money', 'tune the radio', '']) assert.equal(a(t), null, t);
+});
+
+// ---------------------------------------------------------------- 3. THE REVIEW LINK
+
+// The real Worker and the real brain, bundled fresh, with two Durable Objects (`owner` and `demo`, each with storage of its
+// own) and an environment that has secrets, KV and an AI binding in it that the demo must never touch.
+await build({ entryPoints: [`${at('../src/index.ts')}`, `${at('../src/demo/index.ts')}`, `${at('../src/demo/tour.ts')}`, `${at('../src/demo/seed.ts')}`], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/restb/edge'), outbase: at('../src'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+const brain = await import('./.build/restb/edge/index.mjs');
+const Demo = await import('./.build/restb/edge/demo/index.mjs');
+const Tour = await import('./.build/restb/edge/demo/tour.mjs');
+const Seed = await import('./.build/restb/edge/demo/seed.mjs');
+const Cat = await load('packages/shared/src/catalogue');
+
+class MemStorage {
+  m = new Map();
+  async get(k) {
+    if (Array.isArray(k)) return new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))]));
+    return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
+  }
+  async put(k, v) {
+    if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b));
+    else this.m.set(k, structuredClone(v));
+  }
+  async delete(k) {
+    if (Array.isArray(k)) return k.filter((x) => this.m.delete(x)).length;
+    return this.m.delete(k);
+  }
+  async list({ prefix = '' } = {}) {
+    return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).sort().map(([k, v]) => [k, structuredClone(v)]));
+  }
+  async setAlarm() {}
+  async getAlarm() { return null; }
+}
+
+const OWNER_KEY = 'test-owner-key-0123456789abcdef';
+const SECRET = 'sk-the-owners-secret-never-in-the-demo';
+const pend = [];
+const states = {
+  owner: { storage: new MemStorage(), waitUntil: (p) => pend.push(p), blockConcurrencyWhile: (f) => f(), id: { name: 'owner' } },
+  demo: { storage: new MemStorage(), waitUntil: (p) => pend.push(p), blockConcurrencyWhile: (f) => f(), id: { name: 'demo' } },
+};
+const used = { ai: 0, kv: 0 };
+const kv = { get: async () => (used.kv++, null), put: async () => void used.kv++, delete: async () => void used.kv++ };
+const names = [];
+const reached = [];
+const agents = {};
+const denv = {
+  OWNER_KEY,
+  OWNER_EMAIL: 'owner@example.com',
+  PUBLIC_ORIGIN: 'https://ghosty.test',
+  GITHUB_REPO: 'owner/ghosty',
+  GITHUB_TOKEN: SECRET,
+  GROQ_KEY: SECRET,
+  TOMTOM_KEY: SECRET,
+  VAULT_KEY: Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('base64'),
+  MOCK_LLM: '1',
+  AI: { run: async () => { used.ai++; throw new Error('the AI binding was used'); } },
+  SITES: kv,
+  VAULT: kv,
+  ASSETS: { fetch: async () => new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Ghosty</title></head><body><div id="app"></div><script type="module" src="/app.js"></script></body></html>', { headers: { 'content-type': 'text/html', 'content-security-policy': "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'" } }) },
+};
+denv.AGENT = {
+  idFromName: (n) => (names.push(n), n),
+  get: (id) => ({ fetch: (r) => (reached.push({ id, url: new URL(r.url).pathname, method: r.method, headers: Object.fromEntries(r.headers) }), (agents[id] ??= new brain.GhostyAgent(states[id], denv)).fetch(r)) }),
+};
+const dctx = { waitUntil: (p) => pend.push(p), passThroughOnException() {} };
+const ghosty = (path, init = {}, who = 'owner') => brain.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'x-ghosty': '1', ...(init.method && init.method !== 'GET' ? { 'content-type': 'application/json' } : {}), ...(who === 'owner' ? { 'x-ghosty-key': OWNER_KEY } : who === 'demo' ? { 'x-ghosty-demo': '1' } : {}), ...(init.headers ?? {}) } }), denv, dctx);
+/** What the demo page sends: the mark, and (by mistake or malice) the owner's key and cookies as well. */
+const asDemo = (path, init = {}) => ghosty(path, { ...init, headers: { 'x-ghosty-demo': '1', 'x-ghosty-key': OWNER_KEY, cookie: 'session=the-owners', authorization: 'Bearer the-owners', 'cf-access-jwt-assertion': 'a.b.c', ...(init.headers ?? {}) } }, 'demo');
+const settle = () => Promise.allSettled(pend.splice(0));
+
+test('the demo page: the app with the demo’s bootstrap first and its banner on top, served by the Worker with no brain touched', async () => {
+  const r = await brain.default.fetch(new Request('https://ghosty.test/demo'), denv, dctx);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/html/);
+  assert.match(r.headers.get('content-security-policy'), /default-src 'self'/, 'the app’s own security policy goes with it');
+  assert.match(r.headers.get('x-robots-tag'), /noindex/);
+  const html = await r.text();
+  assert.match(html, /This is a demo of Ghosty with sample data/);
+  assert.ok(html.indexOf('<script src="/demo/boot.js"></script>') > 0 && html.indexOf('/demo/boot.js') < html.indexOf('type="module"'), 'the bootstrap runs before the app');
+  assert.match(html, /<body class="demo">\s*<div id="demobar"/);
+  assert.match(html, /<title>Ghosty \(demo\)<\/title>/);
+  assert.match(html, /href="\/demo\/tour"/);
+  assert.deepEqual(names, [], 'no Durable Object was asked for');
+  assert.equal(used.kv + used.ai, 0);
+  // read-only
+  assert.equal((await brain.default.fetch(new Request('https://ghosty.test/demo', { method: 'POST' }), denv, dctx)).status, 405);
+  // the same page for a path under /demo
+  assert.equal((await brain.default.fetch(new Request('https://ghosty.test/demo/'), denv, dctx)).status, 200);
+});
+
+test('the bootstrap script keeps the real app’s storage out of it, marks every /api call as the demo’s and strips the key (run in a fake page)', async () => {
+  const src = await (await brain.default.fetch(new Request('https://ghosty.test/demo/boot.js'), denv, dctx)).text();
+  assert.doesNotThrow(() => new vm.Script(src), 'it parses');
+  // a page of fakes: a real localStorage with the owner's key in it, a fetch that records what it is sent
+  const real = new Map([['ghosty.ownerKey', OWNER_KEY], ['ghosty.settings', '{"theme":"real"}']]);
+  const realStorage = { getItem: (k) => real.get(k) ?? null, setItem: (k, v) => real.set(k, String(v)), removeItem: (k) => real.delete(k), clear: () => real.clear(), key: () => null, length: 0 };
+  const sent = [];
+  const opened = [];
+  const win = {
+    localStorage: realStorage,
+    sessionStorage: { ...realStorage },
+    location: { href: 'https://ghosty.test/demo', origin: 'https://ghosty.test' },
+    fetch: async (input, init) => (sent.push({ url: String(input), headers: Object.fromEntries(new Headers(init?.headers)) }), new Response('{}')),
+    caches: { open: async (n) => n, delete: async (n) => n, has: async (n) => n },
+    navigator: { serviceWorker: { register: async () => 'registered' } },
+    document: { getElementById: () => null },
+    setTimeout: () => 0,
+    URL,
+    Headers,
+    Request,
+    Storage: function Storage() {},
+    IDBFactory: function IDBFactory() {},
+  };
+  win.window = win;
+  win.IDBFactory.prototype.open = function (n) { opened.push(['open', n]); };
+  win.IDBFactory.prototype.deleteDatabase = function (n) { opened.push(['delete', n]); };
+  vm.runInNewContext(src, { ...win, globalThis: win }, { filename: 'boot.js' });
+  assert.equal(win.__GHOSTY_DEMO__, true);
+  // storage: the page's localStorage is now a memory that holds only the demo's own placeholder key, never the real one
+  assert.notEqual(win.localStorage.getItem('ghosty.ownerKey'), OWNER_KEY);
+  assert.match(win.localStorage.getItem('ghosty.ownerKey'), /^demo-visitor-key/);
+  assert.equal(win.localStorage.getItem('ghosty.settings'), null, 'his settings are not seen');
+  win.localStorage.setItem('ghosty.settings', '{"theme":"demo"}');
+  assert.equal(real.get('ghosty.settings'), '{"theme":"real"}', 'and nothing is written to the real one');
+  assert.equal(real.get('ghosty.ownerKey'), OWNER_KEY);
+  // databases and caches go under the demo's own names
+  new win.IDBFactory().open('ghosty-gym', 1);
+  new win.IDBFactory().deleteDatabase('ghosty-library');
+  assert.deepEqual(opened, [['open', 'demo:ghosty-gym'], ['delete', 'demo:ghosty-library']]);
+  assert.equal(await win.caches.open('models'), 'demo:models');
+  // no service worker
+  await assert.rejects(win.navigator.serviceWorker.register('/sw.js'), /no service worker/);
+  // every /api call is marked, and the key is thrown away on the way out; other addresses are left alone
+  await win.fetch('/api/status', { headers: { 'x-ghosty-key': OWNER_KEY, 'x-ghosty-vault': 'sealed', 'x-ghosty': '1' } });
+  await win.fetch('https://ghosty.test/api/chat', { method: 'POST', headers: { 'x-ghosty-key': OWNER_KEY } });
+  await win.fetch('https://example.com/other', { headers: { 'x-ghosty-key': 'kept' } });
+  assert.equal(sent[0].headers['x-ghosty-demo'], '1');
+  assert.equal(sent[0].headers['x-ghosty-key'], undefined);
+  assert.equal(sent[0].headers['x-ghosty-vault'], undefined);
+  assert.equal(sent[0].headers['x-ghosty'], '1', 'the app’s own header stays');
+  assert.equal(sent[1].headers['x-ghosty-demo'], '1');
+  assert.equal(sent[2].headers['x-ghosty-demo'], undefined, 'another address is not touched');
+});
+
+test('the owner is never reachable from the demo: its Durable Object has the fixed name `demo`, the owner key is not accepted there, and the owner’s refuses a demo request', async () => {
+  names.length = 0;
+  reached.length = 0;
+  // a demo call, carrying the owner's key and cookies as well: they are thrown away at the door
+  const r = await asDemo('/api/memory');
+  assert.equal(r.status, 200);
+  assert.deepEqual(names, ['demo'], 'the only brain asked for is the one named demo');
+  assert.equal(Demo.DEMO_NAME, 'demo');
+  assert.notEqual(Demo.DEMO_NAME, 'owner');
+  assert.equal(reached.length, 1);
+  assert.equal(reached[0].id, 'demo');
+  for (const k of ['x-ghosty-key', 'cookie', 'authorization', 'cf-access-jwt-assertion', 'x-ghosty-vault']) assert.equal(reached[0].headers[k], undefined, `${k} did not get in`);
+  assert.equal(reached[0].headers['x-ghosty-demo'], '1');
+  const facts = (await r.json()).facts.map((f) => f.text);
+  assert.ok(facts.includes('My name is Sam.'));
+  // the demo is no way in: without the mark and without the key the same route is turned away as ever
+  assert.equal((await ghosty('/api/memory', { headers: { 'x-ghosty-key': '' } }, 'nobody')).status, 401);
+  // a call made straight at the demo's brain: with no mark it is refused, with a key it is refused
+  const direct = (id, headers) => (agents[id] ??= new brain.GhostyAgent(states[id], denv)).fetch(new Request('https://ghosty.test/api/memory', { headers }));
+  assert.equal((await direct('demo', {})).status, 403, 'the demo brain answers only its own door');
+  assert.equal((await direct('demo', { 'x-ghosty-key': OWNER_KEY })).status, 403);
+  assert.equal((await direct('demo', { 'x-ghosty-demo': '1', 'x-ghosty-key': OWNER_KEY })).status, 400, 'the owner key is not accepted there');
+  assert.equal((await direct('demo', { 'x-ghosty-demo': '1', cookie: 'a=b' })).status, 400);
+  // and the owner's brain turns away anything marked as the demo's
+  const own = await direct('owner', { 'x-ghosty-demo': '1', 'x-ghosty-key': OWNER_KEY });
+  assert.equal(own.status, 403);
+  assert.match((await own.json()).error, /never reaches this brain/);
+  // through the Worker, a marked call lands on the demo whatever key it carries: the owner's storage was never touched
+  await settle();
+  assert.equal(states.owner.storage.m.size, 0, 'nothing was written to the owner’s storage');
+  assert.ok(['memory', 'places', 'turns', Demo.SEEDED_KEY].every((k) => states.demo.storage.m.has(k)), 'the sample data is in the demo’s storage');
+  // the owner's own route still works for the owner, on the owner's brain
+  names.length = 0;
+  assert.equal((await ghosty('/api/memory')).status, 200);
+  assert.deepEqual(names, ['owner']);
+});
+
+test('the demo brain is built with nothing in its environment: no secret, no key copy, no KV, no AI, no other brain', async () => {
+  const sand = Demo.sandboxEnv(denv);
+  assert.deepEqual(Object.keys(sand).sort(), ['AGENT', 'IS_DEMO', 'KEYLESS_MODELS', 'PUBLIC_ORIGIN']);
+  for (const [k, v] of Object.entries(sand)) assert.ok(!String(typeof v === 'string' ? v : '').includes(SECRET), k);
+  assert.throws(() => sand.AGENT.idFromName('owner'), /not available in the demo/);
+  assert.equal(Demo.envFor(states.owner, denv), denv, 'the owner’s brain keeps its real environment');
+  assert.equal(Demo.envFor({}, denv), denv, 'a Durable Object with no name is not the demo');
+  assert.notEqual(Demo.envFor(states.demo, denv), denv);
+  // seen through the brains themselves: the demo's status finds no key at all, and touches no KV and no AI...
+  const kvBefore = used.kv;
+  const dem = await (await asDemo('/api/status')).json();
+  await asDemo('/api/memory');
+  await asDemo('/api/agenda');
+  await settle();
+  assert.ok(dem.keys.every((k) => !k.set), `keys set in the demo: ${dem.keys.filter((k) => k.set).map((k) => k.name)}`);
+  assert.equal(dem.repo, null);
+  assert.equal(used.ai, 0, 'the AI binding was never used by the demo');
+  assert.equal(used.kv, kvBefore, 'no KV (his published pages, backups or vault mirror) was read or written by the demo');
+  // ...while the owner's status, on the real environment, finds the GitHub token
+  const own = await (await ghosty('/api/status')).json();
+  assert.equal(own.keys.find((k) => k.name === 'github').set, true);
+});
+
+test('the demo refuses to send, post, pay, call, build, change keys or change anything: "this is the demo", and the request goes no further', async () => {
+  const before = reached.length;
+  const acts = [
+    ['POST', '/api/keys', { name: 'github', value: 'ghp_x' }],
+    ['POST', '/api/approve', { id: 'x', ok: true }],
+    ['POST', '/api/agenda/events', { title: 'x', start: 'tomorrow' }],
+    ['POST', '/api/memory', { text: 'I am rich' }],
+    ['DELETE', '/api/history'],
+    ['DELETE', '/api/memory/abc'],
+    ['POST', '/api/telegram/test'],
+    ['POST', '/api/email/send', { to: 'a@b.c' }],
+    ['POST', '/api/library/import', {}],
+    ['POST', '/api/stt'],
+    ['POST', '/api/tts'],
+    ['POST', '/api/push/test'],
+    ['POST', '/api/spotify/play'],
+    ['POST', '/api/m3d/generate', { prompt: 'a car' }],
+    ['POST', '/api/kernel', {}],
+    ['POST', '/api/models/order', {}],
+    ['POST', '/api/projects', { title: 'build me a site' }],
+    ['POST', '/api/packs/do', { pack: 'money', action: 'month' }],
+    ['PUT', '/api/memory', {}],
+    ['DELETE', '/api/sites/a'],
+  ];
+  for (const [method, path, body] of acts) {
+    const r = await asDemo(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+    assert.equal(r.status, 403, `${method} ${path}`);
+    assert.match((await r.json()).error, /this is the demo/i, `${method} ${path}`);
+  }
+  // reads that are not part of the demo (the owner's published pages, backups, vault, 3-D models, a scan of someone's domain)
+  for (const path of ['/api/sites', '/api/backup', '/api/backup/list', '/api/vault/backup', '/api/m3d', '/api/recon?target=example.com', '/api/keys', '/api/changes', '/api/telegram/status', '/api/push/devices', '/api/email/status']) {
+    const r = await asDemo(path);
+    assert.equal(r.status, 403, path);
+    assert.match((await r.json()).error, /this is the demo/i, path);
+  }
+  assert.equal(reached.length, before, 'none of them reached a brain at all');
+  // the policy itself, by name
+  for (const [m, p] of [['GET', '/status'], ['GET', '/memory'], ['GET', '/agenda'], ['GET', '/profile/places'], ['GET', '/abilities'], ['POST', '/chat']]) assert.ok(Demo.demoPolicy(m, p).ok, `${m} ${p} is allowed`);
+  for (const [m, p] of [['POST', '/keys'], ['GET', '/sites'], ['GET', '/backup'], ['POST', '/approve'], ['DELETE', '/history'], ['GET', '/vault/backup']]) assert.ok(!Demo.demoPolicy(m, p).ok, `${m} ${p} is refused`);
+  // another site may not call it, and a change needs the page's own header, as on the owner's door
+  const cross = await ghosty('/api/memory', { headers: { 'sec-fetch-site': 'cross-site' } }, 'demo');
+  assert.equal(cross.status, 403);
+  const nohdr = await brain.default.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', headers: { 'x-ghosty-demo': '1' }, body: '{}' }), denv, dctx);
+  assert.equal(nohdr.status, 403);
+});
+
+test('the demo’s chat is a script, not a model: it says this is the demo to anything that acts, answers the sample week, and keeps nothing', async () => {
+  const say = async (message) => {
+    const r = await asDemo('/api/chat', { method: 'POST', body: JSON.stringify({ message }) });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type'), /x-ndjson/);
+    return (await r.text()).trim().split('\n').map((l) => JSON.parse(l));
+  };
+  const turnsBefore = (await (await asDemo('/api/history')).json()).turns.length;
+  const act = await say('email my boss that I am running late');
+  assert.equal(act[0].t, 'text');
+  assert.match(act[0].text, /This is the demo/);
+  assert.deepEqual(act.at(-1), { t: 'done', model: 'demo' });
+  for (const w of ['pay my rent', 'post this on Bluesky', 'call my mum', 'build me a website', 'change my key']) assert.match((await say(w))[0].text, /This is the demo/, w);
+  const week = (await say("what's on tomorrow?"))[0].text;
+  assert.match(week, /Sam's sample week/);
+  assert.match(week, /Library shift|Guitar practice|Spanish/);
+  assert.match((await say('what can you do?'))[0].text, /Everything tab/);
+  assert.match((await say('quantum chromodynamics'))[0].text, /This is the demo/);
+  assert.equal((await (await asDemo('/api/history')).json()).turns.length, turnsBefore, 'the conversation is not kept');
+  await settle();
+  assert.equal(used.ai, 0);
+  assert.equal((await asDemo('/api/chat', { method: 'POST', body: JSON.stringify({ message: '  ' }) })).status, 400);
+  assert.equal((await (await asDemo('/api/stop', { method: 'POST', body: '{}' })).json()).ok, true);
+});
+
+test('public feeds may be read through the demo’s door (the Worker’s own allow-list of public hosts), nothing else may', async () => {
+  const bad = await asDemo(`/api/proxy?url=${encodeURIComponent('https://evil.example/steal')}`);
+  assert.equal(bad.status, 403);
+  assert.match((await bad.json()).error, /host not allowed: evil\.example/, 'it reached the proxy, and the proxy refused the host');
+  assert.equal((await asDemo(`/api/proxy?url=${encodeURIComponent('http://api.open-meteo.com/x')}`)).status, 403, 'not over plain http');
+});
+
+test('the sample data: a made-up Sam, made-up places and a sample week that is always the coming week, kept apart from the owner', async () => {
+  const places = (await (await asDemo('/api/profile/places')).json()).places;
+  assert.deepEqual(places.map((p) => p.id).sort(), ['gym', 'home', 'parents', 'work']);
+  assert.ok(places.every((p) => /made up/.test(p.address)), 'every address says it is made up');
+  const ag = await (await asDemo('/api/agenda?days=14')).json();
+  assert.ok(ag.events.length >= 8, `${ag.events.length} events`);
+  assert.ok(ag.events.every((e) => e.start > Date.now() - 24 * 3_600_000 && e.start < Date.now() + 15 * 24 * 3_600_000), 'all within the coming days');
+  assert.ok(ag.events.some((e) => /Guitar/.test(e.title)));
+  const hist = (await (await asDemo('/api/history')).json()).turns;
+  assert.equal(hist.length, 4);
+  assert.ok(hist.every((t) => t.model === 'demo'));
+  const all = JSON.stringify([...states.demo.storage.m]);
+  for (const real of ['aqishussain', 'wvks62', 'owner@example.com', SECRET, OWNER_KEY]) assert.ok(!all.includes(real), `the demo’s storage holds ${real}`);
+  assert.deepEqual(Seed.SAMPLE_FACTS.length, 8);
+});
+
+test('twenty minutes on, the demo brain wipes what is in it and puts the sample data back; busy beyond 150 requests a minute', async () => {
+  const realNow = Date.now;
+  try {
+    const key = 'junk:left-by-a-visitor';
+    states.demo.storage.m.set(key, 1);
+    const seededAt = states.demo.storage.m.get(Demo.SEEDED_KEY);
+    assert.equal(typeof seededAt, 'number');
+    // 19 minutes: nothing is touched
+    Date.now = () => seededAt + 19 * 60_000;
+    await asDemo('/api/lessons');
+    assert.ok(states.demo.storage.m.has(key), 'a visit within twenty minutes changes nothing');
+    // 21 minutes: wiped and seeded again
+    Date.now = () => seededAt + 21 * 60_000;
+    const r = await asDemo('/api/memory');
+    assert.equal(r.status, 200);
+    assert.ok(!states.demo.storage.m.has(key), 'what was left is gone');
+    assert.equal(states.demo.storage.m.get(Demo.SEEDED_KEY), seededAt + 21 * 60_000);
+    assert.equal((await r.json()).facts.length, 8);
+    // the cap: 150 a minute for the whole demo
+    let last = 200;
+    let n = 0;
+    Date.now = () => seededAt + 30 * 60_000;
+    while (last === 200 && n < 200) {
+      n++;
+      last = (await asDemo('/api/lessons')).status;
+    }
+    assert.equal(last, 429);
+    assert.ok(n >= 149 && n <= 152, `the ${n}th request was the first turned away`);
+    Date.now = () => seededAt + 30 * 60_000 + 61_000;
+    assert.equal((await asDemo('/api/lessons')).status, 200, 'a minute later it answers again');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('the tour: in his voice, every fact in the HTML, what he can do counted from the catalogue, the lines that hold, what a reviewer cannot see, a way to leave notes with no form', async () => {
+  const r = await brain.default.fetch(new Request('https://ghosty.test/demo/tour'), denv, dctx);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-security-policy'), /default-src 'none'/);
+  const html = await r.text();
+  // generated from the catalogue
+  const entries = Object.values(Cat.CATALOGUE).filter((v) => !('same' in v));
+  assert.ok(entries.length > 400, `${entries.length} entries`);
+  assert.match(html, new RegExp(`I can do <b>${entries.length} things</b>`));
+  for (const s of Cat.SCENES) {
+    const n = entries.filter((e) => e.scene.includes(s.id)).length;
+    if (n) assert.match(html, new RegExp(`<b>${s.label.toLowerCase().replace(/[’']/g, '.')}</b> — ${n} things?:`), `scene ${s.id}: ${n}`);
+  }
+  // each scene names three of its newest (every name quoted here is a real entry)
+  const names = new Set(entries.map((e) => e.name));
+  const quoted = [...html.matchAll(/“([^”]+)”/g)].map((m) => m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')).filter((n) => names.has(n));
+  assert.ok(quoted.length >= 15, `${quoted.length} named entries`);
+  // the sections a reviewer needs
+  for (const head of ['What I am', 'What I can do', 'The lines that hold', 'What to try', 'What you cannot see', 'What you think']) assert.match(html, new RegExp(`<h2>${head}</h2>`), head);
+  assert.match(html, /Nothing of the owner's data is here/);
+  assert.match(html, /Nothing here bills/);
+  assert.match(html, /No contact with other people/);
+  assert.match(html, /Only lessons and music of our own/);
+  assert.match(html, /What each part of Ghosty is for, in plain words/, 'VISION.md’s first line');
+  assert.match(html, /a real model answering|the demo's chat is a script/);
+  assert.match(html, /<a href="https:\/\/ghosty\.test\/demo#abilities">/);
+  // notes: copied, never sent
+  assert.doesNotMatch(html, /<form/i, 'no form');
+  assert.match(html, /<textarea id="notes"/);
+  assert.match(html, /nothing you write here is sent or stored/);
+  assert.match(html, /<script src="\/demo\/tour\.js"><\/script>/);
+  assert.doesNotMatch(html, /<script>/, 'no inline script');
+  const js = await (await brain.default.fetch(new Request('https://ghosty.test/demo/tour.js'), denv, dctx)).text();
+  assert.doesNotThrow(() => new vm.Script(js));
+  assert.match(js, /clipboard\.writeText/);
+  assert.doesNotMatch(js, /fetch\(|XMLHttpRequest|sendBeacon/, 'the notes are never sent');
+  // nothing of the owner in it
+  assert.doesNotMatch(html, /aqishussain|owner@example\.com|wvks62/);
+  assert.deepEqual(Tour.catalogueFacts().total, entries.length);
+});
+
+test('where the runtime does not give a Durable Object its name, the demo is told by its storage; a brain with anything in it is never wiped or answered as the demo', async () => {
+  const bare = () => ({ storage: new MemStorage(), waitUntil: (p) => pend.push(p), blockConcurrencyWhile: (f) => f() });
+  const marked = (path, extra = {}) => new Request(`https://ghosty.test${path}`, { headers: { 'x-ghosty-demo': '1', 'x-ghosty': '1', ...extra } });
+  // (a) an empty brain called by the demo's door becomes the demo's: seeded, marked, and built with the empty environment
+  const fresh = bare();
+  const a1 = new brain.GhostyAgent(fresh, denv);
+  const r1 = await a1.fetch(marked('/api/status'));
+  assert.equal(r1.status, 200);
+  assert.ok((await r1.json()).keys.every((k) => !k.set), 'no key, though the real environment has a GitHub token');
+  assert.ok(fresh.storage.m.has(Demo.SEEDED_KEY));
+  // (b) restarted (a new object over the same storage): it still is the demo's, and still sandboxed
+  const a2 = new brain.GhostyAgent(fresh, denv);
+  const r2 = await a2.fetch(marked('/api/status'));
+  assert.ok((await r2.json()).keys.every((k) => !k.set));
+  assert.equal((await a2.fetch(new Request('https://ghosty.test/api/memory', { headers: { 'x-ghosty-key': OWNER_KEY, 'x-ghosty': '1' } }))).status, 403, 'unmarked: refused');
+  await a2.alarm();
+  assert.equal(await fresh.storage.getAlarm(), null, 'no alarm in the demo');
+  // (c) a brain with something in it and no mark is the owner's: a demo request is refused and nothing is wiped
+  const mine = bare();
+  mine.storage.m.set('turns', [{ role: 'user', text: 'private', at: 1 }]);
+  mine.storage.m.set('memory', [{ id: 'a', text: 'private fact', at: 1 }]);
+  const a3 = new brain.GhostyAgent(mine, denv);
+  const r3 = await a3.fetch(marked('/api/memory'));
+  assert.equal(r3.status, 403);
+  assert.deepEqual([...mine.storage.m.keys()].sort(), ['memory', 'turns'], 'nothing was wiped or added');
+  assert.equal(JSON.stringify(mine.storage.m.get('memory')).includes('private fact'), true);
+  // and its own owner is answered as ever, on the real environment
+  const r4 = await a3.fetch(new Request('https://ghosty.test/api/memory', { headers: { 'x-ghosty-key': OWNER_KEY, 'x-ghosty-owner': 'x', 'x-ghosty': '1' } }));
+  assert.equal(r4.status, 200);
+  assert.equal((await r4.json()).facts[0].text, 'private fact');
+});
+
+test('the owner can close the demo’s door with one variable; closed, a marked request is still never served from the owner’s brain', async () => {
+  denv.DEMO_OFF = '1';
+  try {
+    names.length = 0;
+    const page = await brain.default.fetch(new Request('https://ghosty.test/demo/boot.js'), denv, dctx);
+    assert.doesNotMatch(await page.text(), /__GHOSTY_DEMO__/, 'the demo’s script is not served');
+    assert.deepEqual(names, [], 'no brain asked for');
+    // the demo page's own call (marked, no key) is just an unauthorised call now
+    const anon = await ghosty('/api/memory', { headers: { 'x-ghosty-demo': '1' } }, 'nobody');
+    assert.equal(anon.status, 401);
+    // and with the owner's key and the mark it reaches the owner's brain, which refuses anything marked as the demo's
+    const marked = await asDemo('/api/memory');
+    assert.equal(marked.status, 403);
+    assert.match((await marked.json()).error, /never reaches this brain/);
+  } finally {
+    delete denv.DEMO_OFF;
+  }
+  assert.equal((await asDemo('/api/memory')).status, 200, 'and open again when the variable is gone');
 });

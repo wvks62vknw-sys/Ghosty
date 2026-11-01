@@ -4,7 +4,8 @@
 //     is answered by the engine, HINT names a move in words and makes the game unrated, RESIGN of a hint-free game is a rated
 //     loss that gives a rating and shows it on the card ("You: about … · ±…"), CHECK MY GAME names what the game cost;
 //     RATE ME has Ghosty play the engine; the chat answers "what's my chess rating?" from this phone.
-//  (the coach, the review link and the first run are the sections below it)
+//  2. THE COACH (the tuner through a fake microphone, a lesson, typing, drawing, words) and 3. THE REVIEW LINK (/demo, its separation
+//     from the real app, /demo/tour) are the sections below it
 //   BASE=http://localhost:8733 node tests/restb.spec.mjs tests/.shots
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -18,6 +19,8 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const problems = [];
 const t0 = Date.now();
+// ONLY=chess|coach|demo|firstrun runs one section (while it is being worked on); with nothing set every section runs
+const want = (n) => !process.env.ONLY || process.env.ONLY === n;
 await standDown(base, KEY);
 const log = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)} s · ${s}`);
 const check = (ok, msg) => {
@@ -92,7 +95,7 @@ const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('#
 const state = (page, key) => page.evaluate((k) => JSON.parse(JSON.stringify(window.__ghosty?.[k] ?? null)), key);
 
 // ================================================================ 1. CHESS WITH A REAL RATING
-{
+if (want('chess')) {
   const { ctx, page } = await phone(PHONE);
   log('chess');
   // the chat knows no rating yet and says how to get one
@@ -161,7 +164,7 @@ const state = (page, key) => page.evaluate((k) => JSON.parse(JSON.stringify(wind
 }
 
 // ================================================================ 2. THE INSTRUMENT AND SKILLS COACH
-{
+if (want('coach')) {
   const { ctx, page } = await phone(PHONE);
   log('coach');
   const coach = () => state(page, 'coach');
@@ -283,6 +286,80 @@ const state = (page, key) => page.evaluate((k) => JSON.parse(JSON.stringify(wind
     await narrow.page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
   }
   await narrow.ctx.close();
+}
+
+// ================================================================ 3. THE REVIEW LINK
+if (want('demo')) {
+  log('demo');
+  // the owner's own app first: paired, with its key and a setting saved in this browser's storage
+  const real = await phone(PHONE);
+  await real.page.evaluate(() => localStorage.setItem('ghosty.restb.marker', 'the-owners-own'));
+  const ownerKeyBefore = await real.page.evaluate(() => localStorage.getItem('ghosty.ownerKey'));
+  check(ownerKeyBefore === KEY, 'the real app is paired with its owner key in this browser');
+  // the demo, opened in the same browser (the same address and storage): it must see none of it
+  await real.page.goto(`${base}/demo`, { waitUntil: 'domcontentloaded' });
+  await real.page.waitForSelector('#demobar', { timeout: 15000 });
+  await real.page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  const bar = await real.page.locator('#demobar').innerText();
+  check(/This is a demo of Ghosty with sample data/.test(bar), `the banner says so ("${bar.replace(/\s+/g, ' ').slice(0, 80)}")`);
+  const inDemo = await real.page.evaluate(() => ({ demo: window.__GHOSTY_DEMO__, storage: window.__GHOSTY_DEMO_STORAGE__, key: localStorage.getItem('ghosty.ownerKey'), settings: localStorage.getItem('ghosty.restb.marker') }));
+  check(inDemo.demo === true && inDemo.storage === 'memory', `the demo keeps its own storage in memory (${inDemo.storage})`);
+  check(inDemo.key !== KEY && /^demo-visitor-key/.test(inDemo.key) && inDemo.settings === null, 'the demo sees neither the owner key nor anything else the real app saved here');
+  check(await real.page.locator('#pair, #pairform').count() === 0 || !(await real.page.locator('#pair input').isVisible().catch(() => false)), 'the demo asks for no key');
+  await real.page.evaluate(() => (location.hash = 'core'));
+  await real.page.waitForSelector('#cin', { timeout: 15000 });
+  // the demo's chat says this is the demo to anything that acts
+  await say(real.page, "email my boss that I'm running late");
+  await until(real.page, () => /This is the demo/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? ''), null, 20000, 'the demo chat did not say this is the demo');
+  await say(real.page, "what's on tomorrow?");
+  await until(real.page, () => /sample week/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? ''), null, 20000, "the demo chat did not read Sam's sample week");
+  check(/Library shift|Guitar practice|Spanish/.test(await lastReply(real.page)), 'it reads the sample week back');
+  // a request that would change something is refused by the demo's door, whoever makes it
+  const refused = await real.page.evaluate(async () => {
+    const r = await fetch('/api/keys', { method: 'POST', headers: { 'x-ghosty': '1', 'content-type': 'application/json' }, body: JSON.stringify({ name: 'github', value: 'ghp_x' }) });
+    return { status: r.status, body: await r.json() };
+  });
+  check(refused.status === 403 && /this is the demo/i.test(refused.body.error), `changing a key is refused in the demo ("${refused.body.error.slice(0, 50)}…")`);
+  // the sample data is on the screens
+  await real.page.evaluate(() => (location.hash = 'agenda'));
+  await until(real.page, () => /Guitar practice|Library shift/.test(document.body.innerText), null, 20000, "Sam's sample week is not on the Agenda");
+  check(true, "Sam's sample week is on the Agenda");
+  await real.page.screenshot({ path: `${out}/restb-demo.png` });
+  const sw = await sideways(real.page, '#demobar, #demobar *');
+  check(sw.length === 0, 'the banner stays inside the screen');
+  // back to the real app: its key and settings are exactly as they were
+  await real.page.goto(base, { waitUntil: 'domcontentloaded' });
+  await real.page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  const after = await real.page.evaluate(() => ({ key: localStorage.getItem('ghosty.ownerKey'), marker: localStorage.getItem('ghosty.restb.marker') }));
+  check(after.key === KEY && after.marker === 'the-owners-own', `the real app’s key and what it saved are untouched by the demo (${after.key === KEY ? 'key kept' : 'KEY CHANGED'}, marker ${after.marker ?? 'GONE'})`);
+  // and the owner's own brain has nothing of the demo in it
+  const mem = await fetch(`${base}/api/memory`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).then((r) => r.json());
+  check(!mem.facts.some((f) => /Sam/.test(f.text)), 'the owner’s brain holds none of the demo’s sample facts');
+  const ownerAsDemo = await fetch(`${base}/api/memory`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'x-ghosty-demo': '1' } }).then((r) => r.json());
+  check(ownerAsDemo.facts.some((f) => f.text === 'My name is Sam.') && !ownerAsDemo.facts.some((f) => !/Sam|guitar|Spanish|vegetarian|Alex|bike|two sentences|walk/i.test(f.text)), 'with the demo mark the owner key still reads only the demo’s sample facts');
+  await real.ctx.close();
+
+  // THE TOUR, on a phone
+  const tour = await phone({ width: 390, height: 844 }, { permissions: ['clipboard-read', 'clipboard-write'] });
+  await tour.page.goto(`${base}/demo/tour`, { waitUntil: 'domcontentloaded' });
+  await tour.page.waitForSelector('h1', { timeout: 15000 });
+  const text = await tour.page.locator('main').innerText();
+  const total = Number(/I can do (\d+) things/.exec(text)?.[1] ?? 0);
+  check(total > 400, `the tour counts what Ghosty can do from the catalogue (${total} things)`);
+  for (const h of ['What I am', 'What I can do', 'The lines that hold', 'What to try', 'What you cannot see', 'What you think']) check(text.includes(h), `the tour has “${h}”`);
+  check(/Nothing of the owner's data is here/.test(text) && /Nothing here bills/.test(text) && /Only lessons and music of our own/.test(text), 'the lines that hold are said');
+  check((await tour.page.locator('form').count()) === 0, 'the tour has no form');
+  const sc = await sideways(tour.page, 'main, main *');
+  check(sc.length === 0, `nothing sticks out sideways on the tour at 390 px (${sc.join('; ')})`);
+  await tour.page.locator('#notes').fill('Liked the tuner. The chat felt scripted.');
+  await tour.page.locator('#copy').click();
+  await until(tour.page, () => /Copied/.test(document.getElementById('copystatus')?.textContent ?? ''), null, 10000, 'COPY did not say it copied');
+  const clip = await tour.page.evaluate(() => navigator.clipboard.readText());
+  check(clip === 'Liked the tuner. The chat felt scripted.', 'the notes are on the clipboard, nothing sent');
+  await tour.page.screenshot({ path: `${out}/restb-tour.png`, fullPage: false });
+  const un = await unnamed(tour.page, 'main');
+  check(un.length === 0, `every control on the tour has a name (${un.join(', ')})`);
+  await tour.ctx.close();
 }
 
 // ================================================================ the end
