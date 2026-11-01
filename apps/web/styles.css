@@ -4886,3 +4886,29 @@ html #pg-workbench .two > .hero .sub, html #pg-workbench .two > .hero .sub:empty
 .g2vox .g2chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .g2vox .g2chip { padding: 0 12px; font-size: 13px; text-transform: none; letter-spacing: 0; }
 @media (prefers-reduced-motion: reduce) { .g2ui .g2say, .g2ui button { transition: none; } }
+/* the runner: the distance and coins, the power-ups' timers, the shadow's red edge, a swipe anywhere */
+.g2run .g2swipe { position: absolute; inset: 0; }
+.g2run .g2hud { position: absolute; left: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px); text-shadow: 0 2px 6px rgba(0,0,0,.45); pointer-events: none; }
+.g2run .g2dist { display: block; font: 800 30px/1 var(--sf, system-ui); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.g2run .g2sub { display: flex; align-items: center; gap: 12px; margin-top: 6px; font: 700 14px/1 var(--sf, system-ui); font-variant-numeric: tabular-nums; }
+.g2run .g2coins { color: #ffd34d; }
+.g2run .g2coins::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff2b0, #ffcf3a 55%, #d99a12); vertical-align: -1px; }
+.g2run .g2score { color: rgba(255,255,255,.82); font-weight: 600; font-size: 12px; letter-spacing: .06em; }
+.g2run .g2pause { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; width: 44px; padding: 0; font-weight: 800; }
+.g2run .g2powers { position: absolute; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 66px); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.g2run .g2pw { display: none; align-items: center; gap: 6px; width: 84px; padding: 5px 8px; border-radius: 12px; background: rgba(9,13,21,.66); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.g2run .g2pw.on { display: flex; }
+.g2run .g2pw b { width: 22px; font: 800 13px/1 var(--sf, system-ui); text-align: center; }
+.g2run .g2pw i { flex: 1; height: 5px; border-radius: 3px; background: currentColor; transform-origin: left; }
+.g2run .g2pw.magnet { color: #ff7a6a; } .g2run .g2pw.shield { color: #6adcff; } .g2run .g2pw.double { color: #ffd34d; } .g2run .g2pw.boost { color: #6ae07a; }
+.g2run .g2hint { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 34px); max-width: calc(100% - 32px); padding: 9px 14px; border-radius: 14px; background: rgba(9,13,21,.66); font: 600 13px/1.3 var(--sf, system-ui); text-align: center; opacity: 0; transform: translateX(-50%); transition: opacity .3s; pointer-events: none; }
+.g2run .g2hint.on { opacity: 1; }
+.g2run .g2chase { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 52%, rgba(120,10,30,.55) 100%); opacity: 0; transition: opacity .4s; pointer-events: none; }
+.g2run .g2chase.on { opacity: 1; animation: g2pulse 1.1s ease-in-out infinite; }
+@keyframes g2pulse { 50% { opacity: .55; } }
+.g2run .g2moves { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.g2run:not([data-mode="play"]) :is(.g2hud, .g2pause, .g2powers, .g2hint) { display: none; }
+.g2run[data-mode="over"] .g2hud { display: block; }
+.g2run:not([data-mode="play"]) .g2swipe { pointer-events: none; }
+.g2ui[data-mode="over"] .g2card { box-shadow: 0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,120,120,.25); }
+@media (prefers-reduced-motion: reduce) { .g2run .g2chase.on { animation: none; } }
