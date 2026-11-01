@@ -5,8 +5,11 @@
  */
 import type { Control, EngineId } from './shelf';
 
-/** What a button does in a game. */
-export type Action = 'fire' | 'use' | 'weapon' | 'weaponPrev' | 'jump' | 'map' | 'run' | 'pause';
+/**
+ * What a button does in a game. A DOS game's CONTROLS block (dos.ts) puts its own keys in these slots, plus 'menu'
+ * (its own menu, ESC), 'ok' (ENTER), 'crouch' and 'special' (a game's extra button).
+ */
+export type Action = 'fire' | 'use' | 'weapon' | 'weaponPrev' | 'jump' | 'map' | 'run' | 'pause' | 'menu' | 'ok' | 'crouch' | 'special';
 
 /** What the player is doing this frame. */
 export interface Intent {
@@ -72,6 +75,8 @@ export const AXIS = { MOVE_X: 0, MOVE_Y: 1, LOOK_X: 2, LOOK_Y: 3 } as const;
 export const PAD_BUTTONS: Record<EngineId, Partial<Record<number, Action>>> = {
   doom: { [BTN.RT]: 'fire', [BTN.A]: 'use', [BTN.X]: 'use', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.Y]: 'map', [BTN.SELECT]: 'map', [BTN.LT]: 'run', [BTN.START]: 'pause' },
   quake: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.LT]: 'jump', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.X]: 'run', [BTN.START]: 'pause' },
+  // a DOS game fills these slots with its own keys (its CONTROLS block); VIEW is its menu (ESC), a stick click ENTER
+  dos: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.B]: 'use', [BTN.X]: 'weapon', [BTN.Y]: 'map', [BTN.RB]: 'special', [BTN.LB]: 'crouch', [BTN.LT]: 'run', [BTN.START]: 'pause', [BTN.SELECT]: 'menu', [BTN.LS]: 'ok', [BTN.RS]: 'ok' },
 };
 
 /** The parts of a Gamepad this reads (so the tests can hand it a plain object). */

@@ -10,7 +10,9 @@
  * Engine CODE is vendored under public/vendor/<engine>/ with its LICENCE and SOURCE.md.
  */
 
-export type EngineId = 'doom' | 'quake';
+import type { DosSetup } from './dos';
+
+export type EngineId = 'doom' | 'quake' | 'dos';
 
 /** What a game is played with (the touch layer draws only these; the gamepad layer maps the standard pad to them). */
 export type Control = 'move' | 'look' | 'fire' | 'use' | 'weapon' | 'jump' | 'map';
@@ -25,6 +27,11 @@ export interface Take {
   from: string[];
   inner?: string;
   sha256?: string;
+  /**
+   * Keep a whole archive as one bundle for the DOS engine (its members become drive C:): the package itself as it
+   * came when `from` is empty, else the archive `from` joins, its members written into a fresh ZIP on the phone.
+   */
+  bundle?: boolean;
 }
 
 export interface GameData {
@@ -56,8 +63,10 @@ export interface ShelfEntry {
   since: string;
   /** Ghosty's own line about it, on the card. */
   ghosty: string;
-  /** Ghosty's line when a level is finished. */
+  /** Ghosty's line when a level is finished (a DOS game, which says nothing of its levels: when he stops playing). */
   done: string;
+  /** A DOS game's set-up: what DOS runs, DOSBox's speed, our set-up files and its CONTROLS block (engine 'dos'). */
+  dos?: DosSetup;
 }
 
 /** The Internet Archive's CORS door for a file of an item, or for one member of a ZIP the item holds (served alone). */
