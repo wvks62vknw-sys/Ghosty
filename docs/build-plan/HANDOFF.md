@@ -1192,6 +1192,18 @@ folder that no longer exists; ignore those paths).
   (it still reached the wall, not the chat). The poller now records announced ids (the last 300) instead. Verified: cards,
   brief, social, notifications and agenda on ONE brain in that order. The clock-stub change in the spec stays (harmless).
   LESSON: a spec that stamps an item in the future must not be assumed harmless for the specs after it.
+- 1 Nov 18:35 UK: PACKS-3 APPLIED (OWNER-ISSUES 117; the squash route from its base a59329d: the builder's own trial-merge
+  patch applied cleanly onto a5d6f28; six both-added spots kept both: the loop's `packs3` after `packs2` inside the sharded
+  `all=` list, the brain's test list, the local asks' import line and its entries after `house`, the phrases' imports and entries
+  after `house` (the coach's `skill` stays first: 117's TWO DOORS), the command list's three open_* entries, the end of
+  styles.css). On the tip: both typechecks, 28 bundles, prompt 36 (the dials 5,369 / 5,440 / 5,429 / 5,500), catalogue 11,
+  outside 20, homeadmin 18, learning 21, abilities 16, the web build; specs ui, packs3, hubcards, cards, deck on one preview
+  (8844) in that order. The builder's full brain suite: 1,626/1,626 at its HEAD, 1,729/1,729 on its trial merge at 057d7df.
+  Its worktree and branch removed. NOT PUSHED yet: a push restarts PR #50's run (head 1375080, started 17:43 UK, the
+  two-and-a-quarter-hour loop); packs-3 and the four-shard checks (a5d6f28) go up as PR #51 once PR #50 merges. KNOWN: the
+  packs spec's 3-squat camera step is frame-rate dependent (fails at load 14 on 4 cores, passes at normal load, base and new
+  alike); the catalogue is now 911 say-phrases, all probed in the merged order (none moved to the three new entries). Next: the
+  depth pass (BRIEF-DEPTH, 8666) from the local tip.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

@@ -158,8 +158,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   ⑧ CONVERT (41 conversions on the phone: pictures, PDFs, Word, tables, sound, QR codes, units), DOCUMENTS (read, written
   from the chat, edited as suggestions, translated side by side) and the RIGHTS-AND-LAW base (your rights in the UK with the
   helplines, and the courts' own documents on the big matters).
-- BUILDING NOW: ④ the outside, home and learning packs. Last of all: the UI depth pass. HELD for your opinion: the twelve
-  themes and the Cinematic touch-up.
+- BUILT, GOING UP AS PR #51 the moment PR #50 merges (1 Nov, evening): ④ THE OUTSIDE, HOME AND LEARNING PACKS (50 more real
+  abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
+  statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
+  box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). BUILDING NEXT: the UI depth pass. HELD
+  for your opinion: the twelve themes and the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
