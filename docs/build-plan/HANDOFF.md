@@ -1065,6 +1065,16 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 03:55 UK (OWNER-ISSUES 97): School still "crashing to my knowledge" (he never did GET → USE); builder ⑥ part 1
   BRIEF-SMALLEST started (Opus, 8833): a floor brain, the chain, one-tap GET-and-sit, a 600-token sitting prompt. The PS5
   opens Ghosty (older WebKit: the Eye and the new centre piece fail) → TV MODE in ⑧. Four builders run.
+- 1 Nov 04:40–05:00 UK: the ARCADE's first half handed back engine-free (the proxy refuses GitHub archive and API URLs;
+  `git clone` of a public repository works, which the builder did not know) → merged 0e542d6; BRIEF-LIBRARY (the DOS
+  engine from npm `emulators` + the arcade screen; Opus, 8855) started; the owner allowed the two engine repos and "all
+  access in future" → `.claude/settings.json` allows add_repo; doomgeneric and WebQuake cloned read-only under /home/user;
+  BRIEF-ENGINES (native DOOM and Quake behind a shared Engine adapter; Opus, 8811) started. Five builders at once: load
+  ~12–14 on 4 cores, so specs run 1.5–2× slower; do not start a sixth.
+- 1 Nov 05:25 UK: BATCH ① MERGED onto the branch (f91ca18; OWNER-ISSUES 99). Light validation on the merged tree
+  (typechecks, web build, catalogue + arcade tests 19/19) on top of the builder's full run at its HEAD; CI carries the
+  rest (free). PR #49 opened; merge when green. From here every merge must add catalogue words for the batch's new
+  registry items (the completeness test names them).
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)

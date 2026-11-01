@@ -119,15 +119,18 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- Batch ①, THE EVERYTHING TAB (PR #49, in the checks from 05:30 UK on 1 Nov): the Abilities screen rebuilt as a complete
+  catalogue of every single thing he can do, generated from his own code (375 things, 98 new), each with a plain line, an
+  example, TRY IT, where it lives and what it needs; search; scenes; counted; plus the two Workbench layout bugs fixed.
+
 - Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- BUILDING NOW (from 02:35 UK, 1 Nov): batch ①, THE EVERYTHING TAB — the Abilities screen rebuilt as a complete catalogue
-  of every single thing he can do, generated from his own code (every tool, screen, panel, mode, game, phrase and command;
-  300 to 400 entries), each with a plain line, an example and TRY IT; searchable, counted, new ones badged; a test proves
-  nothing is missing. Plus the two Workbench layout bugs from your screenshots. Then review, local validation, one PR,
-  merged when green (about 2 hours of checks).
+- BUILDING NOW (1 Nov, from 03:40 UK): ② SIDEWAYS (live cards in the chat, the trigger table, the speak-first cadence,
+  Home as your wall); ⑥ part 1 THE SMALL BRAIN (one tap from SIT: GET the smaller brain and sit; a third, tiny brain as the
+  floor; a shorter sitting prompt); ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
+  Archive on your tap) and, separately, DOOM and Quake natively in the browser. Each: review, one PR, merged when green.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
