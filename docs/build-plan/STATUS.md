@@ -8,9 +8,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
-  minutes instead of two hours and a quarter; a newer push cancels the run before it). STOPPED: the UI depth pass builder went down
-  with an interrupted turn on 1 Nov evening (its work abandoned, nothing merged); it restarts on your word. HELD for your
-  opinion: the twelve themes and the Cinematic touch-up.
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). BUILDING NOW (from 21:40 UK, overnight): EVERY FEATURE A TAB
+  (BRIEF-TABS, your words in OWNER-ISSUES 119): a seventh area LIFE on the dock for the eight life packs; the fourteen sheets become
+  real tabs with screens, cards, deck entries and words for the jump bar; every hub shows everything in its area. The UI depth
+  pass's other families (one voice, 44 pt, nothing baffling) follow if credits allow. HELD for your opinion: the twelve themes and
+  the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through
   Ghosty's own site when archive.org does not answer from your phone, MAKE's DOCUMENTS row no longer cut off, and four tests fixed at
   their cause.
