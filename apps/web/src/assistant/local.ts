@@ -34,6 +34,7 @@ import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/regis
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
+import { chessRatingTurn } from './restb';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { speak } from './voice';
 
@@ -213,6 +214,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   },
   today: (text, opts) => todayTurn(text, opts),
   why: (text, opts) => whyTurn(text, opts),
+  chessrating: (text, opts) => packAnswer(chessRatingTurn(text), opts),
   canyou: (text, opts) => canYouTurn(text, opts),
 };
 

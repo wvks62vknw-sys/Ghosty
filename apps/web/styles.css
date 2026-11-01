@@ -5288,3 +5288,20 @@ html .ccard[data-fault] .ccsafe + .ccline { -webkit-line-clamp: 2; }
 .carguidecamnote:empty { display: none; }
 .carguidelooks { margin: 0; font: 400 16px/1.4 var(--sf); }
 .carguidehonest { font: 400 12px/1.4 var(--sf); color: var(--ink3); }
+
+/* ---- BATCH 8 PART B (BRIEF-REST-B) ---------------------------------------------------------------------------------------
+   Rated chess in the GYM (features/gym/chessrated.ts), the coach sheet (coach/sheet.ts), the review link's banner and the
+   first run (features/system/firstrunui.ts). */
+.chessrate .crpick { align-items: center; gap: 10px; flex-wrap: nowrap; }
+.chessrate .crpick button { flex: none; min-width: 44px; min-height: 44px; }
+.chessrate .crlevel { flex: 1; min-width: 0; font: 500 15px/1.3 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.chessrate .cractions { gap: 8px; margin: 6px 0 2px; }
+.chessrate .cractions button { min-height: 44px; }
+.chessrate .crboard:empty { display: none; }
+.chessrate .crsay { margin: 6px 0 0; font: 400 14px/1.4 var(--sf); color: var(--l2); overflow-wrap: anywhere; }
+.chessrate .crsay:empty { display: none; }
+.chessrate .crextra:empty, .chessrate .crreview:empty { display: none; }
+.chessrate .crreview { margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); }
+.chessrate .crreview p { margin: 4px 0; font: 400 14px/1.4 var(--sf); color: var(--fg); }
+.chessrate .crreview ul { margin: 4px 0 4px 18px; padding: 0; font: 500 14px/1.4 var(--sf); color: var(--fg); }
+.chessrate .crfine { margin-top: 6px; }

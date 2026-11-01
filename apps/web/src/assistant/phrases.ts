@@ -22,6 +22,7 @@ import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
+import { ratingAsked } from '../gym/chessrate';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -47,6 +48,8 @@ export const LOCAL_ASKS = [
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },
   { id: 'why', test: (t: string) => !!whyAsked(t) },
+  // [restb] chess with a real rating: both ratings in words (assistant/restb.ts, gym/chessrate.ts)
+  { id: 'chessrating', test: (t: string) => ratingAsked(t) },
   { id: 'canyou', test: (t: string) => canYouAsked(t) !== null },
 ] as const;
 export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];
