@@ -104,6 +104,12 @@ export async function flyTo(args: { place?: string; lat?: number; lon?: number; 
 }
 
 export function registerBuiltins(): void {
+  // [packs] a reload carries on the kitchen timers this phone kept (features/kitchen/timers.ts)
+  try {
+    if ((localStorage.getItem('ghosty:timers')?.length ?? 0) > 2) void import('../features/kitchen/timers');
+  } catch {
+    /* private mode: no timers were kept */
+  }
   register(
     { id: 'open_tab', title: 'Open tab', hidden: true, run: (a) => void (go(String(a?.tab ?? 'core')) || toast(`No tab called ${a?.tab}`, 'warn')) },
     { id: 'fly_to', title: 'Fly to', hidden: true, run: (a) => void flyTo(a ?? {}) },
@@ -410,6 +416,26 @@ export function registerBuiltins(): void {
       run: async (a) => {
         const { openBody } = await import('../features/body');
         await openBody(typeof a?.what === 'string' ? a.what : 'reps', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [packs] THE KITCHEN PACK's sheets (features/kitchen): the timers, the shopping list, the week's meal plan.
+      id: 'open_kitchen',
+      title: 'Kitchen: timers, shopping list, meal plan',
+      group: 'GO',
+      run: async (a) => {
+        const { openKitchen } = await import('../features/kitchen');
+        await openKitchen(typeof a?.what === 'string' ? a.what : 'timers');
+      },
+    },
+    {
+      // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
+      id: 'kitchen_timer',
+      title: 'Kitchen timer',
+      hidden: true,
+      run: async (a) => {
+        const { timerCommand } = await import('../features/kitchen');
+        timerCommand(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
       },
     },
     {

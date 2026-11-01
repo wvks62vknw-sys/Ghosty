@@ -148,7 +148,7 @@ export const SINCE_GROUP: Record<string, string> = {
   crime: '2026-10-16', roads: '2026-10-16', lens: '2026-10-16', maps: '2026-10-16', recon: '2026-10-16', reverse: '2026-10-16', sites: '2026-10-16',
   school: '2026-10-23', video: '2026-10-25', homeplan: '2026-10-24', photo: '2026-10-24', places: '2026-10-24', spending: '2026-10-24',
   guardian: '2026-10-31', foresight: '2026-10-31', workbench: '2026-10-31',
-  money: '2026-11-01', body: '2026-11-01',
+  money: '2026-11-01', body: '2026-11-01', kitchen: '2026-11-01',
 };
 /** The phone's screens, by the batch they came in. */
 export const SINCE_SCREEN: Record<string, string> = {

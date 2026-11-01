@@ -58,6 +58,7 @@ export const GROUP_WHY: Record<string, string> = {
   learn: 'When you ask me to teach you, quiz you or test you.',
   money: 'When you talk about what you spent, a statement, fuel prices, a price to watch, subscriptions, payday or saving.',
   body: 'When you talk about exercise, reps, a run, steps, sleep, water, breathing, stretching or your weight.',
+  kitchen: 'When you talk about dinner, your fridge, a recipe, a timer, the shopping list, the oven, or food going off.',
 };
 
 /** Telegram (tghelp.ts), the no-model asks (direct.ts) and the jobs on my clock (schedule.ts). */

@@ -18,6 +18,7 @@ import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
+import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -31,6 +32,10 @@ export const LOCAL_ASKS = [
   { id: 'breathe', test: (t: string) => bodyAsked(t)?.what === 'breathe' },
   { id: 'stretch', test: (t: string) => bodyAsked(t)?.what === 'stretch' },
   { id: 'water', test: (t: string) => bodyAsked(t)?.what === 'water' },
+  // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
+  { id: 'timer', test: (t: string) => !!timerAsked(t) },
+  { id: 'shopping', test: (t: string) => shoppingAsked(t) },
+  { id: 'oven', test: (t: string) => !!ovenAsked(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
