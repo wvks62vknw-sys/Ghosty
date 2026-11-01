@@ -1,0 +1,325 @@
+// BRIEF-REST-A (batch ⑧ part A): WIKIPEDIA, OFFLINE (Kiwix's vendored reader on a fixture ZIM read in pieces, the article
+// made safe with its links rewritten, the first paragraph, the chat's words), the Worker's passthrough for the files, Siri
+// Shortcuts' links (say, do, a stranger, the links made) and MORSE (both ways, its timing, the tap timer, a letter a day).
+// The phone's modules are bundled here with esbuild; the fixture is made from our own words (tests/fixtures/zim).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
+import { ARTICLES, XZ_ARTICLES, buildZim } from '../../../tests/fixtures/zim/fixture.mjs';
+
+const at = (p) => new URL(p, import.meta.url).pathname;
+await build({
+  entryPoints: {
+    zim: at('../../web/src/wiki/zim.ts'),
+    html: at('../../web/src/wiki/html.ts'),
+    words: at('../../web/src/wiki/words.ts'),
+    files: at('../../web/src/wiki/files.ts'),
+    links: at('../../web/src/features/settings/deeplinks.ts'),
+    morse: at('../../web/src/morse/code.ts'),
+    pass: at('../src/zim.ts'),
+    catalogue: at('../../../packages/shared/src/catalogue.ts'),
+    resta: at('../../../packages/shared/src/catalogue/resta.ts'),
+  },
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  outdir: at('./.build/resta'),
+  outExtension: { '.js': '.mjs' },
+  logLevel: 'error',
+});
+const Z = await import('./.build/resta/zim.mjs');
+const H = await import('./.build/resta/html.mjs');
+const W = await import('./.build/resta/words.mjs');
+const F = await import('./.build/resta/files.mjs');
+const L = await import('./.build/resta/links.mjs');
+const M = await import('./.build/resta/morse.mjs');
+const P = await import('./.build/resta/pass.mjs');
+const C = await import('./.build/resta/catalogue.mjs');
+const R = await import('./.build/resta/resta.mjs');
+
+const VENDOR = at('../../web/public/vendor/kiwix/');
+Z.setReaderBase(pathToFileURL(VENDOR).href, { xz: readFileSync(`${VENDOR}xzdec-wasm.wasm`), zstd: readFileSync(`${VENDOR}zstddec-wasm.wasm`) });
+
+/** The fixture as wiki/store.ts hands it to the reader: pieces (small ones here, so reads cross from one to the next). */
+function pieces(bytes, size) {
+  const out = [];
+  for (let a = 0, i = 0; a < bytes.length; a += size, i++) {
+    const part = bytes.slice(a, Math.min(bytes.length, a + size));
+    out.push({ name: `test.zim.p${String(i).padStart(5, '0')}`, size: part.length, slice: (s, e) => ({ arrayBuffer: async () => part.slice(s, e).buffer }) });
+  }
+  return out.reverse(); // the reader puts them in order by name
+}
+const zim = buildZim();
+
+// ---------------------------------------------------------------- the reader
+
+test('Kiwix’s reader reads the fixture ZIM in pieces: its metadata, the title index, each kind of cluster, redirects, a picture', async () => {
+  assert.deepEqual([...zim.slice(0, 4)], [0x5a, 0x49, 0x4d, 0x04], 'a ZIM file');
+  const a = await Z.openArchive(pieces(zim, 700));
+  assert.equal(a.meta.title, 'Ghosty test Wikipedia');
+  assert.equal(a.meta.date, '2026-10-15');
+  assert.equal(a.meta.language, 'eng');
+  assert.equal(a.meta.articles, 7, 'five articles and two redirects in the title index');
+  // the title search: a prefix as typed, and in the usual capitalisations; redirects are titles too
+  assert.deepEqual((await a.search('Black h')).map((x) => x.title), ['Black hole', 'Black holes']);
+  assert.deepEqual((await a.search('black')).map((x) => x.title), ['Black hole', 'Black holes'], 'lower case finds the capitalised title');
+  assert.deepEqual((await a.search('s')).map((x) => x.path), ['C/Star', 'C/Sun']);
+  assert.deepEqual(await a.search('zebra'), []);
+  assert.deepEqual(await a.search('   '), []);
+  assert.equal((await a.search('', 5)).length, 0);
+  // an exact title, redirects followed
+  assert.deepEqual(await a.find(['Black holes']), { title: 'Black hole', path: 'C/Black_hole' });
+  assert.deepEqual(await a.find(['cats', 'Cats']), { title: 'Cat', path: 'C/Cat' });
+  assert.equal(await a.find(['Unicorn']), null);
+  // articles from the zstd cluster and the xz cluster, byte for byte
+  assert.equal((await a.article('C/Black_hole')).html, ARTICLES.Black_hole, 'zstd');
+  assert.equal((await a.article('C/Volcano')).html, ARTICLES.Volcano, 'zstd, the last blob');
+  assert.equal((await a.article('C/Cat')).html, XZ_ARTICLES.Cat, 'xz');
+  assert.equal((await a.article('C/Sun')).html, XZ_ARTICLES.Sun, 'xz, the second blob');
+  const r = await a.article('C/Black_holes');
+  assert.equal(r.path, 'C/Black_hole', 'a redirect opens its article');
+  assert.equal(await a.article('C/General_relativity'), null, 'not in this file');
+  assert.equal(await a.article('C/_assets_/x/Dot.png'), null, 'a picture is not an article');
+  // the picture, from the uncompressed cluster
+  const png = await a.bytes('C/_assets_/x/Dot.png');
+  assert.equal(png.mime, 'image/png');
+  assert.deepEqual([...png.data.slice(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  // a random article is an article
+  for (let i = 0; i < 5; i++) assert.match((await a.random()).path, /^C\/(Black_hole|Star|Volcano|Cat|Sun)$/);
+  // one piece or many: the same file
+  const one = await Z.openArchive(pieces(zim, zim.length));
+  assert.equal((await one.article('C/Star')).html, ARTICLES.Star);
+});
+
+// ---------------------------------------------------------------- the article, made safe
+
+test('an entry path from a link or a picture, relative to the article (Kiwix’s own addresses)', () => {
+  assert.equal(H.resolvePath('C/Ray_Charles', 'A_Fool_for_You'), 'C/A_Fool_for_You');
+  assert.equal(H.resolvePath('C/Ray_Charles', './Georgia_on_My_Mind#Covers'), 'C/Georgia_on_My_Mind');
+  assert.equal(H.resolvePath('C/Ray_Charles', 'Would_You_Believe%3F_(Ray_Charles_album)'), 'C/Would_You_Believe?_(Ray_Charles_album)');
+  assert.equal(H.resolvePath('C/Ray_Charles', './_assets_/0c70/Home%252C_Greenville.JPG'), 'C/_assets_/0c70/Home%2C_Greenville.JPG', 'decoded once, as the entry is named');
+  assert.equal(H.resolvePath('C/AC/DC', '../Foo'), 'C/Foo');
+  assert.equal(H.resolvePath('A/Cat', '../I/m/cat.png'), 'I/m/cat.png', 'the old layout');
+  for (const off of ['https://en.wikipedia.org/wiki/Cat', '//example.org/x', '#cite_note-1', 'mailto:a@b.c', 'javascript:alert(1)', '']) assert.equal(H.resolvePath('C/Cat', off), null, off);
+});
+
+test('the link rewriter: other articles open in place, the web is marked, nothing runs or loads from anywhere, pictures by entry', () => {
+  const r = H.rewriteArticle(ARTICLES.Black_hole, 'C/Black_hole');
+  assert.equal(r.title, 'Black hole');
+  assert.deepEqual(r.links, ['C/Star', 'C/General_relativity']);
+  assert.match(r.doc, /<a href="about:blank#zim=C%2FStar" data-zim="C\/Star" title="Star">star<\/a>/);
+  assert.match(r.doc, /href="about:blank#ext=https%3A%2F%2Fexample\.org%2Ffar"[^>]*class="ext"/);
+  assert.deepEqual(r.images, [{ i: 0, path: 'C/_assets_/x/Dot.png' }]);
+  assert.match(r.doc, /<img data-zim-src="C\/_assets_\/x\/Dot\.png" data-i="0" alt="A dark dot" width="2" height="2">/);
+  for (const bad of [/<script/i, /<iframe/i, /<link/i, /\bon(?:click|mouseover)=/i, /javascript:/i, /src="\.\/_assets_/, /href="#cite/]) assert.doesNotMatch(r.doc, bad, String(bad));
+  assert.match(r.doc, /<a>\[1\]<\/a>/, 'a footnote mark stays, inert');
+  assert.match(r.doc, /^<!doctype html>.*<meta charset="utf-8">.*<article class="wiki">/s);
+  // a style that would load from elsewhere loses the address; a quoted ">" does not break a tag
+  const s = H.rewriteArticle('<body><p style="background:url(https://x.example/a.png);color:red" data-mw=\'{"a":"<b>"}\' title="a > b">x</p><style>@import url(https://x.example/s.css); p{background:url(//x.example/b.png)}</style></body>', 'C/X');
+  assert.doesNotMatch(s.doc, /x\.example/);
+  assert.match(s.doc, /<p style="background:none;color:red" title="a &gt; b">x<\/p>/);
+});
+
+test('the first paragraph: not the infobox’s, not an empty one, no footnote marks; READ IT TO ME stops at the sources', () => {
+  assert.equal(H.firstParagraph(ARTICLES.Black_hole), 'A black hole is a place in space where gravity pulls so hard that not even light can get out. It forms when a very big star falls in on itself, as general relativity says.');
+  assert.equal(H.firstParagraph(XZ_ARTICLES.Cat), 'The cat is a small furry animal that people keep as a pet. Cats like to sleep, play and hunt mice.');
+  assert.equal(H.firstParagraph('<p>Too short.</p><p>Coordinates: 51°N 0°W and some more words here</p><p>&ldquo;Quoted&rdquo; words &amp; more words, long enough to count.</p>'), '“Quoted” words & more words, long enough to count.');
+  assert.ok(H.firstParagraph(`<p>${'word '.repeat(400)}</p>`, 200).length <= 201);
+  const t = H.articleText(ARTICLES.Black_hole);
+  assert.match(t, /^Black hole\.\nA black hole is a place in space/);
+  assert.match(t, /\nFormation\.\nMost black holes form/);
+  assert.doesNotMatch(t, /book about space|Infobox|alert/);
+  assert.equal(H.decodeEntities('&amp;&lt;&#39;&#x2014;&nbsp;&unknown;'), '&<\'— &unknown;');
+});
+
+test('his words for it: offline Wikipedia, "look it up offline", and the "what is X?" the chat offers it for', () => {
+  assert.deepEqual(W.wikiAsked('offline wikipedia black holes'), { thing: 'black holes', offline: true });
+  assert.deepEqual(W.wikiAsked('Wikipedia offline: volcanoes'), { thing: 'volcanoes', offline: true });
+  assert.deepEqual(W.wikiAsked('Look it up offline.'), { thing: '', offline: true });
+  assert.deepEqual(W.wikiAsked('look up the moon offline'), { thing: 'the moon', offline: true });
+  assert.deepEqual(W.wikiAsked('look stars up offline'), { thing: 'stars', offline: true });
+  assert.deepEqual(W.wikiAsked('What does Wikipedia say about volcanoes (offline)?'), { thing: 'volcanoes', offline: true });
+  assert.deepEqual(W.wikiAsked('what does wikipedia say about volcanoes?'), { thing: 'volcanoes', offline: false });
+  for (const t of ['what is wikipedia', 'look it up', 'open wikipedia', 'offline brain', 'is wikipedia offline?']) assert.equal(W.wikiAsked(t), null, t);
+  assert.equal(W.whatIsAsked('what is a cat?'), 'cat');
+  assert.equal(W.whatIsAsked('Who was Ray Charles'), 'Ray Charles');
+  assert.equal(W.whatIsAsked('what’s a black hole'), 'black hole');
+  assert.equal(W.whatIsAsked('tell me about volcanoes'), 'volcanoes');
+  for (const t of ['what is the time?', 'what is my name', 'what is it', 'what are you doing', 'how are you']) assert.equal(W.whatIsAsked(t), null, t);
+  assert.deepEqual(W.titleVariants('black holes'), ['black holes', 'Black holes', 'Black Holes', 'BLACK HOLES']);
+  assert.deepEqual(W.titleVariants('the Sun'), ['Sun', 'sun', 'SUN']);
+});
+
+test('the two files offered: their sizes said first, never the whole English Wikipedia, the licence said', () => {
+  assert.equal(F.WIKI_FILES.length, 2);
+  for (const f of F.WIKI_FILES) assert.match(f.file, /^wikipedia_en[-_a-z0-9]+_\d{4}-\d{2}\.zim$/);
+  assert.match(P.ZIM_NAME.source, /wikipedia/);
+  for (const f of F.WIKI_FILES) assert.ok(P.ZIM_NAME.test(f.file), `the Worker lets ${f.file} through`);
+  assert.deepEqual(F.WIKI_FILES.map((f) => F.sizeWords(f.bytes)), ['53 MB', '1.1 GB']);
+  assert.ok(F.WIKI_FILES.every((f) => f.bytes < P.ZIM_MAX_FILE));
+  assert.match(F.WHY_NOT_ALL, /119 GB/);
+  assert.match(F.LICENCE, /CC BY-SA/);
+  assert.equal(F.monthWords('2026-09-28'), 'September 2026');
+  assert.equal(F.keptLine(F.WIKI_FILES[1], 1_094_936_257, '2026-09-28'), 'Simple English Wikipedia, September 2026, 1.1 GB on your phone');
+});
+
+// ---------------------------------------------------------------- the Worker's passthrough
+
+test('the Worker passes a piece of a Kiwix file through, streamed and kept nowhere; anything else is refused', async () => {
+  const asked = [];
+  const kiwix = (status, headers = {}) => async (url, init) => {
+    asked.push({ url, init });
+    return new Response(status === 206 ? new Uint8Array(8) : null, { status, headers });
+  };
+  const get = (file, range, fetcher, method = 'GET') => P.zimPassthrough(new Request(`https://g.example/api/zim/${file}`, { method, headers: range ? { range } : {} }), file, fetcher);
+  const file = 'wikipedia_en-simple_all_nopic_2026-09.zim';
+  const ok = await get(file, 'bytes=0-7', kiwix(206, { 'content-range': 'bytes 0-7/1094936257', 'content-length': '8', 'last-modified': 'Mon, 28 Sep 2026 01:12:38 GMT' }));
+  assert.equal(ok.status, 206);
+  assert.equal(ok.headers.get('content-range'), 'bytes 0-7/1094936257');
+  assert.equal(ok.headers.get('cache-control'), 'no-store');
+  assert.equal(ok.headers.get('content-type'), 'application/octet-stream');
+  assert.equal((await ok.arrayBuffer()).byteLength, 8);
+  assert.equal(asked[0].url, `https://download.kiwix.org/zim/wikipedia/${file}`);
+  assert.equal(asked[0].init.headers.range, 'bytes=0-7');
+  assert.equal(asked[0].init.cache, 'no-store');
+  // only Wikipedia files by their Kiwix names; a piece at a time, 64 MB at most; never a file over 4 GB
+  assert.equal((await get('../etc/passwd', 'bytes=0-7', kiwix(206))).status, 404);
+  assert.equal((await get('gutenberg_en_all_2026-01.zim', 'bytes=0-7', kiwix(206))).status, 404);
+  assert.equal((await get(file, '', kiwix(206))).status, 416, 'no range: no whole file');
+  assert.equal((await get(file, `bytes=0-${64 * 1024 * 1024}`, kiwix(206))).status, 416);
+  assert.equal((await get('wikipedia_en_all_maxi_2026-08.zim', 'bytes=0-7', kiwix(206, { 'content-range': 'bytes 0-7/119000000000' }))).status, 413);
+  assert.equal((await get(file, 'bytes=0-7', kiwix(200, { 'content-length': '1094936257' }))).status, 502, 'a mirror that sends the whole file');
+  assert.equal((await get(file, 'bytes=0-7', kiwix(404))).status, 404);
+  assert.equal((await get(file, 'bytes=0-7', async () => { throw new TypeError('fetch failed'); })).status, 502);
+  assert.equal((await get(file, '', kiwix(200, { 'content-length': '1094936257' }), 'POST')).status, 405);
+  const head = await get(file, '', kiwix(200, { 'content-length': '1094936257' }), 'HEAD');
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('content-length'), '1094936257');
+  // the route sits behind the owner's sign-in in the Worker, and never reaches the brain
+  const index = readFileSync(at('../src/index.ts'), 'utf8');
+  assert.ok(index.indexOf("startsWith('/api/zim/')") > index.indexOf('const auth = await authenticate(req, env)'), 'after the sign-in check');
+  assert.ok(index.indexOf("startsWith('/api/zim/')") < index.indexOf("env.AGENT.get(env.AGENT.idFromName('owner'));\n    const fwd"), 'before the brain');
+});
+
+// ---------------------------------------------------------------- Siri Shortcuts' links
+
+const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'library', 'school', 'arcade', 'settings'];
+test('a link’s say, do and open, for the owner only; a stranger gets the sign-in', () => {
+  const owner = { owner: true, tabs: TABS };
+  assert.deepEqual(L.parseLink('?say=what%20is%20a%20cat', owner), { kind: 'say', text: 'what is a cat', send: true });
+  assert.deepEqual(L.parseLink('?say=What%E2%80%99s+on+today%3F', owner), { kind: 'say', text: 'What’s on today?', send: true });
+  assert.deepEqual(L.parseLink('?say=remind%20me%20to%20call%20mum%20at%205', owner), { kind: 'say', text: 'remind me to call mum at 5', send: false }, 'starts something: left in the box');
+  for (const t of ['Send Sam a message', 'delete my memories', 'buy milk', 'from now on call me boss', 'Good job', 'play some jazz', 'turn the heating on']) assert.equal(L.sayAction(t), 'box', t);
+  for (const t of ['what is a cat', 'weather tomorrow', 'how far is the moon?', 'show me my agenda', 'translate hello into French', 'the news']) assert.equal(L.sayAction(t), 'send', t);
+  assert.deepEqual(L.parseLink('?do=timer:10m', owner), { kind: 'do', what: { cmd: 'timer', secs: 600 } });
+  assert.deepEqual(L.parseLink('?do=timer:1h30', owner), { kind: 'do', what: { cmd: 'timer', secs: 5400 } });
+  assert.deepEqual(L.parseLink('?do=open:lens', owner), { kind: 'do', what: { cmd: 'open', tab: 'lens' } });
+  assert.deepEqual(L.parseLink('?do=lens:SCAN', owner), { kind: 'do', what: { cmd: 'lens', mode: 'scan' } });
+  assert.deepEqual(L.parseLink('?do=arcade', owner), { kind: 'do', what: { cmd: 'arcade' } });
+  assert.deepEqual(L.parseLink('?do=sit', owner), { kind: 'do', what: { cmd: 'sit' } });
+  assert.deepEqual(L.parseLink('?do=walkhome', owner), { kind: 'do', what: { cmd: 'walkhome' } });
+  assert.deepEqual(L.parseLink('?do=remind:bins%20at%207pm', owner), { kind: 'do', what: { cmd: 'remind', text: 'bins at 7pm' } });
+  assert.deepEqual(L.parseLink('?do=morse:SOS', owner), { kind: 'do', what: { cmd: 'morse', text: 'SOS' } });
+  for (const bad of ['?do=open:nowhere', '?do=lens:xray', '?do=timer:forever', '?do=rm%20-rf', '?do=remind', '?open=nowhere', '?say=%20']) assert.equal(L.parseLink(bad, owner).kind, 'unknown', bad);
+  assert.deepEqual(L.parseLink('?open=library&panel=Wikipedia', owner), { kind: 'open', tab: 'library', panel: 'WIKIPEDIA' });
+  assert.equal(L.parseLink('', owner), null);
+  assert.equal(L.parseLink('?code=abc&state=x', owner), null, 'not ours (Spotify’s sign-in comes back this way)');
+  // a stranger (not signed in): the sign-in, and nothing run, whatever the link asks
+  for (const q of ['?say=what%20is%20a%20cat', '?do=walkhome', '?open=library']) assert.deepEqual(L.parseLink(q, { owner: false, tabs: TABS }), { kind: 'signin' }, q);
+});
+
+test('the shortcut links made for him, the twelve ready ones, and the steps', () => {
+  assert.equal(L.shortcutUrl('https://g.example/', { do: 'timer:10m' }), 'https://g.example/?do=timer:10m');
+  assert.equal(L.shortcutUrl('https://g.example', { say: 'What’s on today?' }), 'https://g.example/?say=What%E2%80%99s%20on%20today%3F');
+  assert.equal(L.shortcutUrl('https://g.example', { open: 'library', panel: 'WIKIPEDIA' }), 'https://g.example/?open=library&panel=WIKIPEDIA');
+  assert.equal(L.READY.length, 12);
+  assert.equal(new Set(L.READY.map((r) => r.name)).size, 12);
+  for (const r of L.READY) {
+    assert.match(r.name, /^Ghosty /);
+    const link = L.parseLink(new URL(L.shortcutUrl('https://g.example', r.ask)).search, { owner: true, tabs: TABS });
+    assert.ok(link && link.kind !== 'unknown' && link.kind !== 'signin', `${r.name}: ${JSON.stringify(link)}`);
+  }
+  assert.equal(L.parseLink(new URL(L.shortcutUrl('https://g.example', L.READY.find((r) => r.name === 'Ghosty remind me').ask)).search, { owner: true, tabs: TABS }).send, false);
+  assert.match(L.STEPS, /Open URLs/);
+  assert.match(L.NOT_INSTALLED, /iPhone lets no web page/);
+  assert.equal(L.durationSecs('90s'), 90);
+  assert.equal(L.durationSecs('1:30'), 90);
+  assert.equal(L.durationSecs('25'), 1500);
+  assert.equal(L.durationSecs('soon'), 0);
+});
+
+// ---------------------------------------------------------------- Morse
+
+test('Morse both ways, its timing at a speed, and his words for it', () => {
+  assert.equal(M.toMorse('SOS'), '... --- ...');
+  assert.equal(M.toMorse('Hello, world!'), '.... . .-.. .-.. --- --..-- / .-- --- .-. .-.. -.. -.-.--');
+  assert.equal(M.toMorse('café'), '-.-. .- ..-. .', 'accents off');
+  assert.equal(M.fromMorse('... --- ...'), 'SOS');
+  assert.equal(M.fromMorse('.... ..   - .... . .-. .'), 'HI THERE', 'three spaces part words');
+  assert.equal(M.fromMorse('·−/−···'), 'A B', 'the other marks');
+  assert.equal(M.fromMorse('...---... .-.-.-.-'), '??');
+  for (const c of M.CHART) assert.equal(M.fromMorse(M.toMorse(c)), c);
+  assert.equal(M.unitMs(20), 60);
+  // PARIS: 43 units without the gap after the word
+  assert.equal(M.duration(M.toMorse('PARIS'), 20), 43 * 60);
+  assert.deepEqual(M.timeline('.- / -', 10).map((x) => [x.on, x.ms]), [[true, 120], [false, 120], [true, 360], [false, 840], [true, 360]]);
+  assert.deepEqual(M.morseAsked('morse'), { mode: 'text' });
+  assert.deepEqual(M.morseAsked('in morse'), { mode: 'text' });
+  assert.deepEqual(M.morseAsked('SOS in morse'), { mode: 'text', text: 'SOS' });
+  assert.deepEqual(M.morseAsked('how do you say hello in morse code?'), { mode: 'text', text: 'hello' });
+  assert.deepEqual(M.morseAsked('decode morse'), { mode: 'decode' });
+  assert.deepEqual(M.morseAsked('decode ... --- ...'), { mode: 'decode', text: '... --- ...' });
+  assert.deepEqual(M.morseAsked('... --- ...'), { mode: 'decode', text: '... --- ...' });
+  assert.deepEqual(M.morseAsked('learn morse'), { mode: 'learn' });
+  assert.deepEqual(M.morseAsked('morse chart'), { mode: 'chart' });
+  assert.deepEqual(M.morseAsked('tap morse'), { mode: 'tap' });
+  for (const t of ['...', 'what is morse code?', 'read the news', 'morse is cool, isn’t it']) assert.equal(M.morseAsked(t), null, t);
+});
+
+test('the tap timer: his presses into dots, dashes, letters and words, at his own pace', () => {
+  // A: a short press, a long one; then SOS with pauses between the letters; then two words
+  const seq = (spec, t0 = 1000) => {
+    const out = [];
+    let t = t0;
+    for (const [len, gap] of spec) {
+      out.push({ down: t, up: t + len });
+      t += len + gap;
+    }
+    return out;
+  };
+  assert.deepEqual(M.decodeTaps(seq([[90, 90], [300, 0]])), { code: '.-', text: 'A', dot: 90 });
+  const sos = M.decodeTaps(seq([[80, 80], [80, 80], [80, 320], [260, 80], [260, 80], [260, 320], [80, 80], [80, 80], [80, 0]]));
+  assert.equal(sos.code, '... --- ...');
+  assert.equal(sos.text, 'SOS');
+  assert.equal(M.decodeTaps(seq([[100, 100], [100, 800], [300, 0]])).text, 'I T', 'a long pause starts a word');
+  // all dots, or all dashes: the speed set decides (15 WPM: a unit of 80 ms, the line at 160 ms)
+  assert.equal(M.decodeTaps(seq([[70, 70], [70, 70], [70, 0]]), 15).text, 'S');
+  assert.equal(M.decodeTaps(seq([[260, 80], [260, 80], [260, 0]]), 15).text, 'O');
+  assert.deepEqual(M.decodeTaps([]), { code: '', text: '', dot: 80 });
+});
+
+test('a letter a day (Koch’s order) and its five-letter quiz', () => {
+  assert.deepEqual(M.letterOfDay('2026-11-01', '2026-11-01'), { letter: 'K', known: ['K'], day: 1 });
+  assert.deepEqual(M.letterOfDay('2026-11-01', '2026-11-03'), { letter: 'R', known: ['K', 'M', 'R'], day: 3 });
+  assert.equal(M.letterOfDay('2026-01-01', '2026-11-01').letter, 'X', 'the last letter stays once all are learnt');
+  let s = 1;
+  const rand = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const q = M.quizLetters(['K', 'M', 'R'], 'R', rand);
+  assert.equal(q.length, 5);
+  assert.ok(q.filter((x) => x === 'R').length >= 2, 'today’s letter twice at least');
+  assert.ok(q.every((x) => ['K', 'M', 'R'].includes(x)));
+});
+
+// ---------------------------------------------------------------- the catalogue
+
+test('every new thing has its words: the Wikipedia panel, the chat’s two phrases, SHORTCUTS, and the Morse sheet (its phrase)', () => {
+  assert.deepEqual(Object.keys(R.RESTA_WORDS).sort(), ['panel:library:WIKIPEDIA, OFFLINE', 'panel:settings:SHORTCUTS', 'phrase:morse', 'phrase:wiki']);
+  for (const [k, v] of Object.entries(R.RESTA_WORDS)) {
+    assert.deepEqual(C.wordProblems(k, v), [], k);
+    assert.ok(C.CATALOGUE[k], `${k} joined into the catalogue`);
+  }
+  assert.match(R.RESTA_WORDS['panel:library:WIKIPEDIA, OFFLINE'].more, /my brain never reads it/);
+  assert.match(R.RESTA_WORDS['phrase:wiki'].more, /never reads the file/);
+});

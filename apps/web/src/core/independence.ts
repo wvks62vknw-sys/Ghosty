@@ -6,7 +6,7 @@
  * answers), kept here only. The brain is given the days as counts (`brainDays`), never a kept task's. (Specs read the
  * kept copy: localStorage `ghosty.independence`.)
  */
-import { addAnswer, forBrain, type MeterDay } from '../../../../packages/shared/src/independence';
+import { addAnswer, dropAnswer, forBrain, type MeterDay } from '../../../../packages/shared/src/independence';
 import { createStore } from './store';
 
 /** A task kept on the phone that stopped: the question (it never left the phone) and why, for SOVEREIGN MODE's list. */
@@ -23,9 +23,17 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** This phone's day, "2026-10-31". */
 export const phoneDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** One answer, complete: where it came from (its model line), whether it was kept on the phone, a tool's run, its length. */
-export function noteAnswer(model: string | undefined, o: { kept?: boolean; tool?: boolean; length?: number } = {}): void {
+/**
+ * One answer, complete: where it came from (its model line), whether it was kept on the phone, a tool's run, its length,
+ * and the kind of ask it was (offline/trust.ts `categorise`).
+ */
+export function noteAnswer(model: string | undefined, o: { kept?: boolean; tool?: boolean; length?: number; cat?: string } = {}): void {
   meter.set((s) => ({ days: addAnswer(s.days, phoneDay(), model, o) }));
+}
+
+/** An answer taken back (ASK THE CLOUD under one the phone gave first): off the count of the day it was given. */
+export function unnoteAnswer(model: string | undefined, at: number, o: { kept?: boolean; cat?: string } = {}): void {
+  meter.set((s) => ({ days: dropAnswer(s.days, phoneDay(new Date(at)), model, o) }));
 }
 
 /** A kept task that stopped for want of the cloud (two weeks, thirty at most). */

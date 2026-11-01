@@ -204,7 +204,7 @@ await page.evaluate(() => (location.hash = 'arcade'));
 await until(() => !!document.querySelector('#pg-arcade .arccard') && getComputedStyle(document.getElementById('pg-arcade')).display !== 'none', 10000, '#arcade did not open the arcade');
 
 // ---------- the shelf: every game with its size on GET (nothing is on this phone yet); the games made by us: PLAY
-const MADE = ['block-world', 'runner'];
+const MADE = ['block-world', 'runner', 'kart-racer', 'hopper', 'arena'];
 const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard:not(.arcpack)')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
 if (shelf.length < 2) problems.push(`the shelf has ${shelf.length} games`);
 for (const g of shelf) {

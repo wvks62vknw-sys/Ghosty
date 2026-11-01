@@ -24,6 +24,8 @@ import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
+import { mountWiki } from '../../wiki/view';
+import { openRights, rightsCount, rightsTopics } from '../../docs/rights';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
 const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
@@ -364,6 +366,11 @@ export const libraryTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.askrow', q, button('ASK', () => void search(), 'on')), sp.body);
     idle();
     P.left.append(sp.el);
+    // [resta] WIKIPEDIA, OFFLINE (wiki/view.ts): a Kiwix file kept on this phone, searched and read here with no signal. It
+    // goes at the foot of the other column (the asking column is ASK THE LIBRARY's whole height on a wide screen); on a
+    // phone the Ask pill shows the two together.
+    const wp = panel('WIKIPEDIA, OFFLINE', { grow: false, cls: 'wiki' });
+    mountWiki(wp);
 
     // ---- shelf
     const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
@@ -391,6 +398,11 @@ export const libraryTab: TabDef = {
       return r;
     }, () => 'SYNC', 'Add a book or a file above, or import a page from the web: it is on the shelf in seconds.');
     // ---- GADGETS: the manuals the brain found for his gadgets (gadget_manual), each with where it came from and its licence
+    // [reste] RIGHTS AND LAW (docs/rights.ts; BRIEF-REST-E part 3): the rights-and-law base's topics, each opened as a page
+    // of its documents, read and dated; under the Shelf pill (the Library's six pills are all taken)
+    const rights = panel('RIGHTS AND LAW', { grow: false, cls: 'rights' });
+    rights.setStatus(`${rightsCount()} DOCS`, 'ok');
+    clear(rights.body, ...rightsTopics().map((t) => row(t.scope === 'uk' ? 'UK' : 'WORLD', t.title, String(t.docs.length), { wrap: true, onClick: () => openRights(t.id) })));
     const gadgets = panel('GADGETS', { grow: false, cls: 'gadgets' });
     const paintGadgets = (list: LibraryDoc[]) => {
       const manuals = list.filter((d) => d.kind === 'manual');
@@ -691,13 +703,14 @@ export const libraryTab: TabDef = {
     }, 'on');
     fresh.foot!.prepend(digestBtn);
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
-    P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
+    P.right.append(ap.el, shelf.el, rights.el, gadgets.el, study.el, fresh.el, wp.el);
     // Sections (ui/sections.ts; the navigation sheet): asking first, then his shelf (his own documents at its top, then
     // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
     // himself, and the two things he does least, adding a book and the gadgets' manuals.
     sections(root, 'library', [
-      { id: 'ask', label: 'Ask', match: /^ASK/ },
-      { id: 'shelf', label: 'Shelf', match: /^SHELF/ },
+      // [resta] asking holds WIKIPEDIA, OFFLINE too (the row already has the six pills it can hold)
+      { id: 'ask', label: 'Ask', match: /^(ASK|WIKIPEDIA)/ },
+      { id: 'shelf', label: 'Shelf', match: /^(SHELF|RIGHTS)/ },
       { id: 'study', label: 'Self-study', match: /^SELF-STUDY/ },
       { id: 'fresh', label: 'Fresh today', match: /^FRESH/ },
       { id: 'add', label: 'Add', match: /^ADD/ },

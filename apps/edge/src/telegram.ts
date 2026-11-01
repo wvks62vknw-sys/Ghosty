@@ -51,6 +51,8 @@ import { foresightReply, type ForeDeps } from './foresight'; // [foresight]
 import { TELEGRAM_CAN, TELEGRAM_COMMANDS } from './tghelp'; // [everything]
 export { TELEGRAM_CAN, TELEGRAM_COMMANDS };
 import { cardText, type Card } from '../../../packages/shared/src/cards'; // [cards] the cards as text (BRIEF-SIDEWAYS 5)
+import { draftText, type Draft } from '../../../packages/shared/src/social'; // [social] a draft with APPROVE · EDIT · NO
+import type { SocialTelegram } from './social'; // [social]
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -117,6 +119,8 @@ export interface TelegramHost {
   guardian?(): GuardDeps;
   /** [foresight] The prediction ledger (foresight.ts): "how often are you right?", "you were right". Absent: none here. */
   foresight?(): ForeDeps;
+  /** [social] His drafts' buttons (social/index.ts): APPROVE, NO, and EDIT whose new words are his next message. Absent: none here. */
+  social?(): Promise<SocialTelegram>;
 }
 
 // ---- Telegram's own shapes (the parts Ghosty reads) ----
@@ -256,9 +260,12 @@ async function buttonSig(token: string, body: string): Promise<string> {
   return b64url(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))).slice(0, 22);
 }
 
-/** What a button does: `a` an approval waiting in the brain, `u` an upgrade idea, `w` I'M HOME on a walk; `yes` APPROVE / BUILD IT, else NOT NOW. */
+/**
+ * What a button does: `a` an approval waiting in the brain, `u` an upgrade idea, `w` I'M HOME on a walk, `s` a draft for his
+ * own accounts (APPROVE, or NO), `e` EDIT on a draft; `yes` APPROVE / BUILD IT, else NOT NOW (NO on a draft).
+ */
 export interface ButtonPress {
-  kind: 'a' | 'u' | 'w';
+  kind: 'a' | 'u' | 'w' | 's' | 'e';
   id: string;
   yes: boolean;
 }
@@ -271,7 +278,7 @@ export async function signButton(token: string, press: ButtonPress, now = Date.n
 
 /** A pressed button's data, checked: the press, or why it is refused (made elsewhere or changed: `forged`; too old: `expired`). */
 export async function readButton(token: string, data: string, now = Date.now()): Promise<ButtonPress | { refused: 'forged' | 'expired' }> {
-  const m = /^([auw]):([\w-]{1,16}):([01]):([0-9a-z]{1,9}):([\w-]{22})$/.exec(data);
+  const m = /^([auwse]):([\w-]{1,16}):([01]):([0-9a-z]{1,9}):([\w-]{22})$/.exec(data);
   if (!m) return { refused: 'forged' };
   const body = `${m[1]}:${m[2]}:${m[3]}:${m[4]}`;
   if (!sameSecret(await buttonSig(token, body), m[5]!)) return { refused: 'forged' };
@@ -334,6 +341,16 @@ async function tgAsk(token: string, chatId: number, text: string, kind: ButtonPr
 }
 
 const tgApproval = (token: string, chatId: number, reason: string, id: string): Promise<void> => tgAsk(token, chatId, `Needs your approval: ${reason}`, 'a', id);
+
+/** [social] A draft for one of his accounts: its words in full, APPROVE · EDIT · NO (signed; acted on only in his chat, by him). */
+export async function tgDraft(token: string, chatId: number, d: Draft): Promise<void> {
+  const live = (d.state === 'waiting' || d.state === 'failed') && Date.now() <= d.expires;
+  await api(token, 'sendMessage', {
+    chat_id: chatId,
+    text: draftText(d).slice(0, CHUNK),
+    ...(live ? { reply_markup: { inline_keyboard: [[{ text: 'APPROVE', callback_data: await signButton(token, { kind: 's', id: d.id, yes: true }) }, { text: 'EDIT', callback_data: await signButton(token, { kind: 'e', id: d.id, yes: true }) }, { text: 'NO', callback_data: await signButton(token, { kind: 's', id: d.id, yes: false }) }]] } } : {}),
+  });
+}
 
 /** [guardian] A line with one signed button ("Home?" with I'M HOME): the press is acted on only in his chat, by him. */
 export async function tgButton(token: string, chatId: number, text: string, kind: ButtonPress['kind'], id: string, label: string): Promise<void> {
@@ -443,7 +460,9 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
       // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText); a card that
       // came after the reply (the car he named) goes at once, one that came before it waits for it
       else if (ev.t === 'cards' && ev.cards.length) {
-        cards.push(...ev.cards.map((c) => `▸ ${cardText(c, origin)}`));
+        // [social] a draft for his accounts comes as itself, with APPROVE · EDIT · NO, never as a line of text
+        for (const c of ev.cards) if (c.kind === 'draft' && c.draft) queue(() => tgDraft(token, chatId, c.draft!));
+        cards.push(...ev.cards.filter((c) => c.kind !== 'draft').map((c) => `▸ ${cardText(c, origin)}`));
         if (replies.length) sendCards();
       } else if (ev.t === 'error') {
         queue(() => tgSend(token, chatId, ev.message));
@@ -711,6 +730,11 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     await durablePut(host.env, host.storage, LINK_KEY, withNewCode(rest));
     return tgSend(token, chatId, 'Unpaired: I will not answer this chat any more. To pair again, open LINKS → TELEGRAM in Ghosty and send me the new code.');
   }
+  // [social] EDIT pressed on a draft: his next message is its new words (a fresh draft card comes back; still waits for APPROVE)
+  if (!cmd && text && host.social) {
+    const edit = await (await host.social()).editWith(text).catch(() => null);
+    if (edit) return 'error' in edit ? tgSend(token, chatId, edit.error) : tgDraft(token, chatId, edit.draft);
+  }
   // A turn: text, a photo with its caption, a video's still frame, or a voice note.
   const images: string[] = [];
   let heard = '';
@@ -860,7 +884,7 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
   // A button sent before buttons were signed ("ap:<id>:1"), pressed by the owner: treated as expired, never acted on.
   const legacy = ours && /^ap:[\w-]{1,16}:[01]$/.test(q.data ?? '');
   const expired = legacy || (!!press && 'refused' in press && press.refused === 'expired');
-  const note = ok ? (ok.yes ? (ok.kind === 'u' ? 'Building it' : ok.kind === 'w' ? 'Good' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
+  const note = ok ? (ok.kind === 'e' ? 'Send the new words' : ok.kind === 's' ? (ok.yes ? 'Sending it' : 'Dropped') : ok.yes ? (ok.kind === 'u' ? 'Building it' : ok.kind === 'w' ? 'Good' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
   await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(note ? { text: note } : {}) }).catch(() => undefined);
   if (!ours || chatId === undefined) return;
   const unbutton = () => (q.message ? api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined) : Promise.resolve());
@@ -873,6 +897,13 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
   if (ok.kind === 'w') {
     await unbutton();
     return tgSend(token, chatId, host.guardian ? await walkButton(host.guardian(), ok.id).catch(() => 'That walk is already over.') : 'That walk is already over.');
+  }
+  // [social] a draft for his accounts: APPROVE sends it once, NO drops it, EDIT waits for his next message (no model, no turn)
+  if (ok.kind === 's' || ok.kind === 'e') {
+    await unbutton();
+    if (!host.social) return tgSend(token, chatId, 'That draft is gone.');
+    const social = await host.social();
+    return tgSend(token, chatId, ok.kind === 'e' ? await social.editAsk(ok.id) : ok.yes ? await social.approve(ok.id) : await social.refuse(ok.id));
   }
   if (ok.kind === 'u' && !ok.yes) {
     await unbutton();

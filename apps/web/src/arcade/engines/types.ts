@@ -51,7 +51,7 @@ export interface StartOptions {
 /** start() takes a canvas no engine has drawn on: a canvas keeps the kind of drawing it began with (DOOM draws in
  *  2-D, Quake in WebGL), so the player makes a fresh one for each game it starts. */
 export interface Engine {
-  id: 'doom' | 'quake' | 'dos' | 'voxel' | 'runner';
+  id: 'doom' | 'quake' | 'dos' | 'voxel' | 'runner' | 'kart' | 'hopper' | 'arena';
   start(canvas: HTMLCanvasElement, files: EngineFiles, intent: Intent, ev: EngineEvents, opts: StartOptions): Promise<EngineHandle>;
 }
 

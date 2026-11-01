@@ -167,7 +167,7 @@ const me = async () => {
 await me();
 for (const f of await filled('#mesheet :is(.rctile, .sq, .rowic)')) problems.push(`a Me sheet glyph has a filled background: ${f}`);
 const rows = await page.$$eval('#mesheet .merow', (rs) => rs.map((r) => r.dataset.id));
-if (rows.join(',') !== 'memory,settings,system,links,abilities,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
+if (rows.join(',') !== 'memory,settings,system,links,abilities,origin,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
 await page.screenshot({ path: `${out}/deck-440-me.png` });
 for (const id of ['memory', 'settings', 'links', 'abilities']) {
   if (id !== 'memory') await me();

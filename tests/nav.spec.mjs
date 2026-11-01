@@ -435,8 +435,9 @@ LONG.push({ // THREATS
 });
 LONG.push({ // LINKS: the list's own groups (shell/layout.ts)
   tab: 'links', list: true,
-  pills: ['Accounts', 'This phone', 'Services'],
-  panels: { Accounts: /^(EMAIL|SPOTIFY|TELEGRAM)/, 'This phone': /^(PHONE|NOTIFICATIONS)/, Services: /^(LIVE|AI|GITHUB)/ },
+  pills: ['Accounts', 'Social', 'This phone', 'Services'],
+  // (Social: the accounts he made for me — BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL — BRIEF-SOCIAL)
+  panels: { Accounts: /^(EMAIL|SPOTIFY|TELEGRAM(?! CHANNEL))/, Social: /^(BLUESKY|MASTODON|DISCORD|TELEGRAM CHANNEL)/, 'This phone': /^(PHONE|NOTIFICATIONS)/, Services: /^(LIVE|AI|GITHUB)/ },
   tap: 'This phone', link: { row: /Live traffic/i, pill: 'Services', panel: /^LIVE TRAFFIC/ },
 });
 

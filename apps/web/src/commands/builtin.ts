@@ -439,6 +439,88 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
+      id: 'open_people',
+      title: 'People: who is who, group plan',
+      group: 'GO',
+      run: async (a) => {
+        const { openPeople } = await import('../features/people/sheet');
+        await openPeople(typeof a?.what === 'string' ? a.what : 'who');
+      },
+    },
+    {
+      // [packs2] THE WORK PACK's sheets (features/work): a document to copy or share, interview practice, the to-do list.
+      id: 'open_work',
+      title: 'Work: documents, interview practice, to-do',
+      group: 'GO',
+      run: async (a) => {
+        const { openWork } = await import('../features/work/sheet');
+        await openWork(typeof a?.what === 'string' ? a.what : 'doc', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [packs2] THE CREATIVE PACK's sheets (features/creative): a song, a poster, a comic strip, a card, a logo, a palette, a beat.
+      id: 'open_creative',
+      title: 'Creative: song, poster, comic, card, logo, palette, beat',
+      group: 'GO',
+      run: async (a) => {
+        const { openCreative } = await import('../features/creative/sheet');
+        await openCreative(typeof a?.what === 'string' ? a.what : 'song', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [restd] DESIGN A BUILD's sheet (apps/web/src/build): the plan, the bill and the build, from the chat's buttons
+      id: 'open_build',
+      title: 'Design a build: plan, bill of materials, 3-D',
+      group: 'TOOLS',
+      run: async (a) => {
+        const { openBuild } = await import('../build/sheet');
+        const side = a?.side === 'bill' || a?.side === 'build' || a?.side === 'plan' ? a.side : undefined;
+        openBuild({ ...(side ? { side } : {}), ...(typeof a?.words === 'string' ? { words: a.words } : {}) });
+      },
+    },
+    {
+      // [restd] THE HOUSE sheet (apps/web/src/house): his Home Assistant's rooms and things, each with its control
+      id: 'open_house',
+      title: 'House: lights, heating, blinds, the TV',
+      group: 'TOOLS',
+      run: async () => {
+        const { openHouse } = await import('../house/sheet');
+        openHouse();
+      },
+    },
+    {
+      // [restd] a house reply's button: done on his tap, the guarded set only after his confirm (house/sheet.ts houseDo)
+      id: 'house_do',
+      title: 'Do it in the house',
+      hidden: true,
+      run: async (a) => {
+        if (typeof a?.entity !== 'string' || typeof a.service !== 'string') return;
+        const { houseDo } = await import('../house/sheet');
+        await houseDo({ id: a.entity, name: typeof a.name === 'string' ? a.name : a.entity, domain: typeof a.domain === 'string' ? a.domain : a.entity.split('.')[0]!, guarded: a.guarded === true }, a.service, a.data && typeof a.data === 'object' ? (a.data as Record<string, unknown>) : {}, typeof a.said === 'string' ? a.said : '');
+      },
+    },
+    {
+      // [reste] THE CONVERTER (convert/sheet.ts): files turned into other formats on this phone; a tool that needs no file.
+      id: 'open_convert',
+      title: 'Convert: pictures, PDFs, Word, tables, sound, QR codes',
+      group: 'GO',
+      run: async (a) => {
+        const { openConvert } = await import('../convert/sheet');
+        await openConvert([], { ...(typeof a?.tool === 'string' ? { tool: a.tool } : {}), ...(typeof a?.conversion === 'string' ? { conversion: a.conversion } : {}) });
+      },
+    },
+    {
+      // [reste] DOCUMENTS (docs/sheet.ts): my documents; one read, written in the chat and laid out, edited, translated.
+      id: 'open_docs',
+      title: 'Documents: read, write, edit, translate',
+      group: 'GO',
+      run: async (a) => {
+        const { openDocs } = await import('../docs/sheet');
+        await openDocs(a && typeof a === 'object' ? (a as Parameters<typeof openDocs>[0]) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

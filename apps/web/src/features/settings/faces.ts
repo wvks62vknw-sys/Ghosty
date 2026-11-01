@@ -9,13 +9,18 @@ import { button, row, undo } from '../../ui/components';
 import { forgetFace, knownFaces, putBack } from '../../vision/facestore';
 import { enrolNext } from '../lens/people';
 import { openLens } from '../lens/index';
+import { liveCheckOn, liveSetting } from '../lens/liveness'; // [restc] CHECK IT'S LIVE
+import { switchRow } from './switch';
 
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
 export function facesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
   const count = h('p.note.facecount', { dataset: { case: 'keep' } });
   const list = h('div.facelist');
-  const el = h('div.faces', h('div.lab', 'FACES ON THIS PHONE'), count, list);
+  // [restc] CHECK IT'S LIVE (on by default): a blink or a turn before a face is saved, so a photo held up cannot pass
+  const live = switchRow('CHECK IT’S LIVE', 'Before I save a face (yours, or someone you introduce): blink twice or turn your head, so a photo can’t pass. Saying hello by name skips it.', liveCheckOn, (on) => liveSetting.set({ on }));
+  live.el.classList.add('livesw');
+  const el = h('div.faces', h('div.lab', 'FACES ON THIS PHONE'), count, list, live.el);
 
   const refresh = async () => {
     const all = await knownFaces();

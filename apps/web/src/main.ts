@@ -84,7 +84,11 @@ async function connect(): Promise<void> {
     return;
   }
   if (!health.secured) {
-    await pair('The brain is running but not secured yet: set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md). Until then it refuses every request.');
+    // [restb] A fresh deployment has no owner yet: the first-run wizard makes the owner key on this phone, says what to put in
+    // Cloudflare, pairs this phone and names the owner (features/system/firstrunui.ts; docs/DEPLOY-YOUR-OWN.md).
+    const { firstRun } = await import('./features/system/firstrunui');
+    if (await firstRun(pair)) ui.set({ connected: true });
+    else await brain.status().then(() => ui.set({ connected: true }), () => undefined);
     return;
   }
   try {
@@ -157,6 +161,8 @@ async function boot(): Promise<void> {
   const first = spotify ? 'links' : location.hash.slice(1);
   if (!go(first)) go('core');
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
+  // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
+  void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …

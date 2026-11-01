@@ -36,6 +36,7 @@ import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
 import { page } from '../../ui/page';
 import { gameArt } from './art';
+import { ratedCardLine, ratedSection, leaveRated } from './chessrated';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
 
@@ -339,6 +340,8 @@ export const gymTab: TabDef = {
           send({ ...m, req: id, rec: recFor(String(m.id)), epoch: epochs[String(m.id)] ?? 0 });
         });
       });
+    // [restb] RATED CHESS (chessrated.ts): a real engine on this phone, and a Glicko-2 rating for him and for me
+    const rated = ratedSection({ renderFrame, ask, changed: () => paintCards() });
     /** Train game `id` in the worker (once the saved games are in, and if it is still the one to train). */
     const sendTrain = (id: string) => {
       // A paper being sat (heavy mode, core/heavy.ts): he trains once it is handed in (onVisible carries on then).
@@ -399,6 +402,7 @@ export const gymTab: TabDef = {
           if (v?.games) gymToast(`${gameById(rec.id)?.title}: ${v.kept ? `new version kept · rating ${v.rating.toLocaleString('en-GB')} (+${v.rating - v.before})` : `new version thrown away · it rated ${v.rating.toLocaleString('en-GB')}, not above ${v.before.toLocaleString('en-GB')}`}`, v.kept ? 'ok' : 'warn');
           note(`league ${rec.id} ${v?.kept ? 'kept' : 'thrown away'}`);
         } else if (m.event) {
+          if (rec.id === 'chess') rated.afterLevelUp();
           // A run of level-ups close together is one toast ("Levels 4–6 passed"), the one GYM toast on screen.
           levelNote = joinLevels(levelNote, rec.id, m.event === 'mastered' ? rec.level : rec.level - 1, Date.now(), m.event === 'mastered');
           gymToast(`${gameById(rec.id)?.title}: ${levelText(levelNote, carryNow())}`, 'ok');
@@ -654,10 +658,17 @@ export const gymTab: TabDef = {
         c.rate.textContent = lg?.versions.length ? `Rating ${lg.rating.toLocaleString('en-GB')} · ${d > 0 ? `up ${d}` : d < 0 ? `down ${-d}` : 'no change'}` : '';
         c.rate.hidden = !lg?.versions.length;
         c.b.classList.toggle('rated', !!lg?.versions.length);
+        // chess: both ratings against the real engine (chessrated.ts) take the line
+        const cr = g.id === 'chess' ? ratedCardLine() : '';
+        if (cr) {
+          c.rate.textContent = cr;
+          c.rate.hidden = false;
+          c.b.classList.add('rated');
+        }
         // the next level and the mark that reaches it (or the level he is on, at the top)
         const lv = r?.level ?? 1;
         c.small.textContent = r?.mastered ? 'Every level passed' : lv >= 10 ? `Lv 10 passes at ${Math.round(g.bar(10) * 100)}%` : `Lv ${lv + 1} at ${Math.round(g.bar(lv) * 100)}%`;
-        c.small.hidden = !!lg?.versions.length;
+        c.small.hidden = !!lg?.versions.length || !!cr;
         if (c.say) c.say.textContent = gymState.c4.card = cardLine(journal.c4);
         // nothing has happened yet: an empty meter and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
@@ -751,6 +762,7 @@ export const gymTab: TabDef = {
           h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
+      if (open.id === 'chess') parts.push(rated.el);
       const e = r?.edge;
       const line = edgeLine(e);
       if (line) parts.push(h('div.gymidea.edge', h('b', 'Puzzles at my edge'), h('span.gymedgeline', line), h('small', 'I make my own puzzles where I solve about half, and practise on them. The levels above are still the exam.')));
@@ -1063,6 +1075,7 @@ export const gymTab: TabDef = {
       gymState.c4.pondering = idleOn;
     };
     ui.subscribe((st2, prev) => st2.tab !== prev.tab && syncIdle());
+    ui.subscribe((st2, prev) => st2.tab !== prev.tab && st2.tab !== 'gym' && leaveRated());
     /** Positions he keeps (from his saved record, until the worker says). */
     const bookOf = () => {
       const sv = recs.get('connect4')?.saved as { book?: Record<string, string> } | null | undefined;

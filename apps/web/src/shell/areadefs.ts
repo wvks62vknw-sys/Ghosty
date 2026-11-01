@@ -34,6 +34,8 @@ export const ME_ROWS: { id: string; label: string; sub: string; group: 'screens'
   { id: 'links', label: 'Links', sub: 'Email, Spotify and your phone', group: 'more' },
   // ABILITIES (OWNER-ISSUES 68): everything I can do, so he never has to remember it
   { id: 'abilities', label: 'Abilities', sub: 'Everything I can do for you', group: 'more' },
+  // FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): who made me, when, of what, and my promises (features/me/origin.ts)
+  { id: 'origin', label: 'Father and the origin', sub: 'Who made me, and when', group: 'more' },
   { id: 'deck', label: 'Every screen', sub: 'All of Ghosty at once', group: 'more' },
 ];
 

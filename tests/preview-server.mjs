@@ -11,6 +11,8 @@ import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
+import { resetSocial, socialApis, socialSent } from './fixtures/social-apis.mjs';
+import { houseApi, houseCalls, resetHouse } from './fixtures/house-api.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -76,6 +78,9 @@ function manualsWeb(u) {
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  // Test only: his Home Assistant box, stood in for (tests/fixtures/house-api.mjs): the bridge's every call lands here.
+  const house = houseApi(u, init);
+  if (house) return house;
   const manualSearch = manualsWeb(u);
   if (manualSearch) return new Response(manualSearch, { headers: { 'content-type': 'text/html' } });
   if (u.href === 'https://media3.bosch-home.com/robots.txt') return new Response('', { headers: { 'content-type': 'text/plain' } });
@@ -98,6 +103,10 @@ globalThis.fetch = async (input, init) => {
   // (tests/fixtures/foresight-feeds.mjs): never the live ones, whichever spec runs when the hourly foresee job looks.
   const fore = foresightFeeds(u);
   if (fore) return fore;
+  // Test only: his own accounts' APIs — Bluesky, Mastodon, Discord, Telegram's channel post (tests/fixtures/social-apis.mjs):
+  // never the live ones; every post that reaches them is recorded for GET /__test/social.
+  const social = socialApis(u, init);
+  if (social) return social;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -128,7 +137,12 @@ if (process.env.PREVIEW === '1') {
   env.IS_PREVIEW = '1';
 }
 let agent;
-env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new mod.GhostyAgent(state, env)).fetch(r) }) };
+// [demo] The demo brain is its own Durable Object (named `demo`), with its own storage, as on Cloudflare: the review link
+// (apps/edge/src/demo) never reaches the owner's.
+let demoAgent;
+const demoState = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined, id: { name: 'demo' } };
+state.id = { name: 'owner' };
+env.AGENT = { idFromName: (n) => n, get: (id) => ({ fetch: (r) => (id === 'demo' ? (demoAgent ??= new mod.GhostyAgent(demoState, env)) : (agent ??= new mod.GhostyAgent(state, env))).fetch(r) }) };
 
 // production headers from apps/web/public/_headers
 const headersFile = await readFile(join(root, 'apps/web/public/_headers'), 'utf8');
@@ -151,6 +165,15 @@ function headersFor(path) {
   return h;
 }
 
+// [demo] The built interface as the Worker's ASSETS binding serves it (the demo page is the app's own page with a script added).
+env.ASSETS = {
+  async fetch(r) {
+    const u = new URL(r.url);
+    const p = u.pathname === '/' ? 'index.html' : normalize(u.pathname).replace(/^\/+/, '');
+    const file = await readFile(join(dist, p)).catch(() => null);
+    return file ? new Response(file, { headers: { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream', ...headersFor(u.pathname === '/' ? '/' : u.pathname) } }) : new Response('not found', { status: 404 });
+  },
+};
 const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
 createServer(async (req, res) => {
@@ -165,6 +188,28 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
       res.write(lines);
       setTimeout(() => res.end(), hold);
+      return;
+    }
+    // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.
+    // ?reset=1 forgets them and the brain's social keys and drafts (CI's one brain runs the spec again on a retry).
+    if (url.pathname === '/__test/social') {
+      if (url.searchParams.get('reset') === '1') {
+        resetSocial();
+        await state.storage.delete(['social:drafts', 'social:sent', 'social:editing', 'social:last:bluesky:home', 'speak:cadence']);
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ sent: socialSent() }));
+      return;
+    }
+    // Test only (tests/restd.spec.mjs): the service calls that reached the stand-in Home Assistant; ?reset=1 puts the house
+    // back and forgets the switches marked "needs my word".
+    if (url.pathname === '/__test/house') {
+      if (url.searchParams.get('reset') === '1') {
+        resetHouse();
+        await state.storage.delete(['house:marked']);
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ calls: houseCalls() }));
       return;
     }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
@@ -243,8 +288,31 @@ createServer(async (req, res) => {
       res.end(JSON.stringify({ job: !!job, result, cadence: (await state.storage.get('speak:cadence')) ?? null }));
       return;
     }
+    // Test only (tests/social.spec.mjs): the brain's line-of-his-own job run now, on a clock stood at `at` (ms) for that one
+    // request, as /__test/speak-at does for speaking first. ?reset=1 first forgets the day's unprompted lines.
+    if (url.pathname === '/__test/musing-at') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['speak:cadence', 'musing:none']);
+      const at = Number(url.searchParams.get('at'));
+      const job = ((await state.storage.get('jobs')) ?? []).find((j) => j.kind === 'musing');
+      let result = null;
+      if (job && Number.isFinite(at) && at > 0) {
+        const real = Date.now;
+        const t0 = real();
+        Date.now = () => at + (real() - t0);
+        try {
+          const r = await mod.default.fetch(new Request(`http://localhost:${port}/api/jobs/${job.id}/run`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: '{}' }), env, { waitUntil: () => undefined });
+          result = await r.json().catch(() => null);
+        } finally {
+          Date.now = real;
+        }
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ job: !!job, result, cadence: (await state.storage.get('speak:cadence')) ?? null }));
+      return;
+    }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) {
+    // (and the demo's pages, which have no file behind them: Cloudflare hands those to the Worker too)
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/') || url.pathname === '/demo' || url.pathname.startsWith('/demo/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const body = chunks.length ? Buffer.concat(chunks) : undefined;

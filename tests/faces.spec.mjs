@@ -15,6 +15,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openPanel } from './nav.mjs';
+import { faceSequence } from './fixtures/livefaces.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -41,7 +42,7 @@ await ctx.route('**/*', (route) => {
   sent.push({ url: r.url(), body: r.postData() ?? '' });
   return route.continue();
 });
-await page.addInitScript(() => {
+await page.addInitScript((live) => {
   // Three people's faces as the model would see them: each a direction in 128 numbers (seeded), each look a little off it.
   let seed = 4242;
   const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
@@ -68,8 +69,16 @@ await page.addInitScript(() => {
       window.__embs.push(v);
       return v;
     },
+    // CHECK IT'S LIVE (BRIEF-REST-C; restc.spec tests it in full): a live face blinking twice, one look at a time, so
+    // ENROL ME and "this is …" pass their live-face check here
+    challenge: 'blink',
+    points() {
+      const i = (window.__liveAt = (window.__liveAt ?? -1) + 1);
+      const f = live[i % live.length];
+      return { t: f.t + Math.floor(i / live.length) * (live[live.length - 1].t + 33), faces: [f.p] };
+    },
   };
-});
+}, faceSequence('blink', { seed: 5 }));
 
 await page.goto(base);
 await page.fill('#pair input', 'preview-owner-key-0123456789');

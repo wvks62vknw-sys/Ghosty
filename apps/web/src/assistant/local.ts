@@ -16,6 +16,8 @@
  *    with its numbers ("3 m steel beam 5 kN in the middle") fills the panel from his words and is answered with the estimate
  *    (packages/shared/src/workbench words.ts `workbenchAsked`); a question goes to the brain, whose `estimate` tool runs the
  *    same solvers.
+ *  - THE CAR (BRIEF-CAR): what is wrong with a car ("my dad's car grinds when I brake") puts the fault table's suspects on
+ *    its CAR card, and "open the bonnet", "show me the brakes", "what's under it" open the 3D STUDIO on it (car/ask.ts).
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
 import { bestAsk, canYouAsked, dayLines, searchAbilities, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
@@ -31,12 +33,18 @@ import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
+import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
+import { chessRatingTurn, coachTurn } from './restb';
+import { convertTurn, docsTurn, numbersTurn } from './reste';
+import { carFaultTurn, carViewTurn } from '../car/ask';
+import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
+import { originLines } from '../../../../packages/shared/src/social';
+import { card } from '../../../../packages/shared/src/cards';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -162,6 +170,11 @@ type Opts = { voice?: boolean; private?: boolean };
  * after a reply that ran nothing).
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
+  // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
+  independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
+  // the car (car/ask.ts): its views open in the Studio; what is wrong with it lands on its CAR card
+  carview: (text, opts) => carViewTurn(text, opts, answer),
+  carfault: (text, opts) => carFaultTurn(text, opts),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
@@ -172,6 +185,59 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page
+  origin(text, opts) {
+    answer(text, originLines().join(' '), { kind: 'origin' }, opts);
+    const c = card({ id: 'origin', kind: 'brief', title: 'Father and the origin', line: 'Who made me, when, of what, what I learned and my promises', brief: { icon: 'origin' }, acts: [{ label: 'OPEN', run: { name: 'open_origin', args: {} } }] });
+    void import('../features/core/cards').then((c2) => c2.postCard(c)).catch(() => undefined);
+    return true;
+  },
+  // [resta] WIKIPEDIA, OFFLINE from the file on this phone (wiki/ask.ts): the first paragraph and a card that opens it; with no
+  // file here, "what does wikipedia say about …" (no "offline") is the brain's as before
+  async wiki(text, opts) {
+    const last = [...chat.get().entries].reverse().find((e) => e.kind === 'user')?.text ?? '';
+    const r = await import('../wiki/ask').then((w) => w.wikiTurn(text, last)).catch(() => null);
+    return r ? packAnswer(r, opts) : false;
+  },
+  // [resta] MORSE: the sheet on the side his words asked for, and the conversion said in the chat (morse/sheet.ts)
+  async morse(text, opts) {
+    const ask = morseAsked(text);
+    if (!ask) return false;
+    void import('../morse/sheet').then((s) => s.openMorse(ask));
+    const reply =
+      ask.mode === 'text' && ask.text
+        ? `“${ask.text}” in Morse: ${toMorse(ask.text) || '(no letters Morse has)'}`
+        : ask.mode === 'decode' && ask.text
+          ? `${ask.text} reads “${fromMorse(ask.text)}”.`
+          : ask.mode === 'learn'
+            ? 'Morse, a letter a day: today’s is on the sheet, with a five-letter quiz.'
+            : ask.mode === 'tap'
+              ? 'Tap on the pad: a short press is a dot, a long one a dash.'
+              : 'The Morse sheet is open: type words or dots and dashes, play them, flash them, or tap them out.';
+    return answer(text, reply, { kind: 'pack' }, opts);
+  },
+  people: async (text, opts) => packAnswer(await peopleTurn(text), opts),
+  interview: async (text, opts) => packAnswer(await workTurn(text), opts),
+  pomodoro: async (text, opts) => packAnswer(await workTurn(text), opts),
+  beat: async (text, opts) => packAnswer(await creativeTurn(text), opts),
+  drawing: async (text, opts) => packAnswer(await creativeTurn(text), opts),
+  // [restc] "draw a room with my hands": the Lens opens on SHAPES (hands/mode.ts); the camera starts on his tap there
+  shapes(text, opts) {
+    void import('../hands/mode').then((m) => m.openShapes()).catch(() => undefined);
+    return answer(text, 'SHAPES is open in the Lens: point one finger to draw a room in the air, pinch to finish, then tell me one real length.', { kind: 'shapes' }, opts);
+  },
+  // [restc] "TV mode on" / "off": the setting (tv/setting.ts), at once
+  async tvmode(text, opts) {
+    const { tvAsked } = await import('../tv/detect');
+    const { tvSetting } = await import('../tv/setting');
+    const on = tvAsked(text) === 'on';
+    tvSetting.set({ mode: on ? 'on' : 'off' });
+    return answer(text, on ? 'TV mode is on: big buttons, and the arrow keys or a controller’s d-pad move between them. Say “TV mode off” to go back.' : 'TV mode is off.', { kind: 'tv' }, opts);
+  },
+  // [restd] DESIGN A BUILD (build/ask.ts): a design from his words, the 3-D, a part's prices, a change; no model
+  build: (text, opts) => import('../build/ask').then((b) => b.buildTurn(text, opts, answer)).catch(() => false),
+  // [restd] THE HOUSE (house/ask.ts): his things by their names, a guarded one only by his tap with a confirm; no model
+  house: (text, opts) => import('../house/ask').then((x) => x.houseTurn(text, opts, answer)).catch(() => false),
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;
@@ -207,8 +273,24 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   },
   today: (text, opts) => todayTurn(text, opts),
   why: (text, opts) => whyTurn(text, opts),
+  chessrating: (text, opts) => packAnswer(chessRatingTurn(text), opts),
+  tuner: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  coach: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  skill: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  // [reste] the converter, and its units and numbers answered here (assistant/reste.ts, convert/)
+  convert: async (text, opts) => packAnswer(await convertTurn(text), opts),
+  docs: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  units: (text, opts) => numberAnswer(text, opts),
+  base64: (text, opts) => numberAnswer(text, opts),
+  unixtime: (text, opts) => numberAnswer(text, opts),
   canyou: (text, opts) => canYouTurn(text, opts),
 };
+
+/** A unit, base64 or Unix-time answer, or the next table's turn. */
+function numberAnswer(text: string, opts: Opts): boolean {
+  const r = numbersTurn(text);
+  return r ? packAnswer(r, opts) : false;
+}
 
 /** The questions about Ghosty himself, answered here with no model: the first table that matches and has an answer. */
 export async function localTurn(text: string, opts: Opts = {}): Promise<boolean> {

@@ -29,6 +29,7 @@ import { clockIn, FEED_NAMES, watchLine, type GuardianInfo } from '../../../../p
 
 // (the areas and the Me sheet's rows: pure lists the ABILITIES catalogue reads too, shell/areadefs.ts)
 import { AREAS, ME_CARDS, ME_ROWS, type Area } from './areadefs';
+import { openOrigin, ORIGIN_ICON } from '../features/me/origin'; // [social] FATHER AND THE ORIGIN
 export { AREAS, ME_CARDS, ME_ROWS, type Area };
 
 /**
@@ -164,6 +165,9 @@ function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void)
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
 
+const CONVERT_GLYPH = '<path d="M4 7.5h12.5l-3-3M20 16.5H7.5l3 3"/>';
+const DOCS_GLYPH = '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7H18M9 11h6M9 14.5h6M9 18h4"/>';
+
 /** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
 export const HUB_MAX = 6;
 
@@ -172,6 +176,8 @@ type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () 
 function areaTools(a: Area): Tool[] {
   const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
   if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+  // [reste] MAKE's two sheets (BRIEF-REST-E): the converter, and the documents
+  if (a.id === 'make') tools.push(['convert', 'Convert', CONVERT_GLYPH, null, () => void import('../convert/sheet').then((s) => s.openConvert())], ['docs', 'Documents', DOCS_GLYPH, null, () => void import('../docs/sheet').then((s) => s.openDocs())]);
   return tools;
 }
 
@@ -249,7 +255,7 @@ const MEMORY_GLYPH = '<path d="M12 4.5c-1.2-1.3-3.6-1.4-4.8.1-1.3-.1-2.6 1-2.5 2
 const SETTINGS_GLYPH = '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>';
 const SYSTEM_GLYPH = '<rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/><path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3"/>';
 const LINKS_GLYPH = '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1.2-1.2"/>';
-const GLYPHS: Record<string, string> = { memory: MEMORY_GLYPH, settings: SETTINGS_GLYPH, system: SYSTEM_GLYPH, links: LINKS_GLYPH, deck: DECK_GLYPH };
+const GLYPHS: Record<string, string> = { memory: MEMORY_GLYPH, settings: SETTINGS_GLYPH, system: SYSTEM_GLYPH, links: LINKS_GLYPH, deck: DECK_GLYPH, origin: ORIGIN_ICON };
 let sheet: HTMLElement | null = null;
 /** What the Me sheet shows, for specs (window.__ghosty.me): the order of its parts and the dials' readings. */
 export const meState = { parts: [] as string[], dials: {} as Record<string, string>, ok: '' };
@@ -334,7 +340,7 @@ export function openMe(openDeck: () => void): void {
     // (the cards and the rows from their lists, shell/areadefs.ts: the ABILITIES catalogue reads the same ones)
     ...ME_CARDS.map((c) => ({ status, guardian: guard })[c.id]),
     ...(['screens', 'more'] as const).map((g) => h('div.megroup.rcgroup', { dataset: { part: g } },
-      ...ME_ROWS.filter((r) => r.group === g).map((r) => row(r.id, r.label, r.sub, r.id === 'deck' ? openDeck : () => navTo(r.id, 'push'))))),
+      ...ME_ROWS.filter((r) => r.group === g).map((r) => row(r.id, r.label, r.sub, r.id === 'deck' ? openDeck : r.id === 'origin' ? openOrigin : () => navTo(r.id, 'push'))))),
     build,
   );
   sheet = h('div#mesheet', box);

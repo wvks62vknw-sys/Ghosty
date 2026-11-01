@@ -34,11 +34,11 @@ export const GROUP_CAT: Record<string, AbilityCat> = {
   memory: 'know', web: 'know', video: 'know', data: 'know', library: 'know', scan: 'know', vehicle: 'know', gadgets: 'know',
   traffic: 'see', roads: 'see', maps: 'see', lens: 'see',
   widgets: 'build', sites: 'build', build: 'build', pictures: 'build', repo: 'build', reverse: 'build', home: 'build', homeplan: 'build', photo: 'build', '3d': 'build', workbench: 'build',
-  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch', money: 'watch', body: 'do', kitchen: 'do',
+  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch', money: 'watch', body: 'do', kitchen: 'do', people: 'do', work: 'do', creative: 'build',
   media: 'play', spotify: 'play',
   school: 'learn', 'library-admin': 'learn', knowledge: 'learn', evolve: 'learn', learn: 'learn',
   ui: 'do', travel: 'do', journeys: 'do', projects: 'do', places: 'do',
-  email: 'talk', notify: 'talk',
+  email: 'talk', notify: 'talk', social: 'talk',
 };
 
 /**
@@ -140,7 +140,7 @@ export const actionsOf = (t: { parameters: { properties: Record<string, unknown>
 /** When each kind of job arrived (STATUS.md's batches; coarse). */
 const JOB_SINCE: Record<(typeof JOB_KINDS)[number], string> = {
   reminder: '2026-10-15', task: '2026-10-15', verify: '2026-10-15', study: '2026-10-15', reflect: '2026-10-18', digest: '2026-10-18', project: '2026-10-17',
-  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31', speak: '2026-11-01', follow: '2026-11-01',
+  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31', speak: '2026-11-01', follow: '2026-11-01', musing: '2026-11-01',
 };
 
 export interface AbilitiesDeps {

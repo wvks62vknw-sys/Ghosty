@@ -25,6 +25,8 @@ import { creditLine, goodMatch, GROUPS, searchCatalog, standIn, type CatalogItem
 import { fetchModel, forget, keep, keptFile, keptInMemory, listKept, loadCatalog, readLines, thumbUrl, type Kept } from './catalog';
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
 import type { WalkState } from '../../studio/walk';
+import { carPane } from '../../car/panel';
+import { buildPane } from '../../build/pane';
 
 // (the samples and the panes: a pure list the ABILITIES catalogue reads too)
 import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
@@ -143,6 +145,10 @@ export const studioTab: TabDef = {
     const modeBar = h('div.studiomodes');
     view.append(h('div.studiohud', vtitle, vstat), vmeasure, credit, stick, modeBar);
     const V = new Viewer(view);
+    // THE CAR (BRIEF-CAR): its own stage over the view, shown by the CAR · FIX IT pane (the lab bench sleeps meanwhile)
+    const car = carPane(view);
+    // [restd] DESIGN A BUILD (BRIEF-REST-D 1b): the build in 3-D on a stage of its own, the way the car has one
+    const bld = buildPane(view);
     let stickId: number | null = null;
     const stickMove = (e: PointerEvent) => {
       const r = stick.getBoundingClientRect();
@@ -727,13 +733,28 @@ export const studioTab: TabDef = {
       make: { el: makePane, paint: paintMake },
       room: { el: roomPane, paint: paintRoom },
       spline: { el: splinePane, paint: paintSpline },
+      car: { el: car.el, paint: () => undefined },
+      build: { el: bld.el, paint: () => undefined },
     };
     function show(p: Pane) {
+      const was = pane;
       pane = p;
       for (const b of segBtns) b.classList.toggle('on', b.dataset.pane === p);
       panes[p].paint();
       clear(panel, panes[p].el);
       hud.dataset.pane = p;
+      if (was === 'build' && p !== 'build') bld.leave();
+      if (p === 'car') {
+        V.stop();
+        if (active) void car.enter();
+      } else if (was === 'car') {
+        car.leave();
+        if (active && p !== 'build') V.start();
+      }
+      if (p === 'build') {
+        V.stop();
+        if (active) void bld.enter();
+      } else if (was === 'build' && p !== 'car' && active) V.start();
     }
 
     // ---- the viewer's state onto the screen
@@ -769,6 +790,8 @@ export const studioTab: TabDef = {
     let current: ModelSource | null = null;
     const loadAny = async (src: ModelSource, back = false): Promise<boolean> => {
       asked = true;
+      // a model asked for while the car is up: back to the bench
+      if (pane === 'car' || pane === 'build') show('models');
       vstat.textContent = 'loading…';
       try {
         await V.load(src);
@@ -792,6 +815,14 @@ export const studioTab: TabDef = {
       toast(`Back to ${V.info.title || 'the model before'}`, 'ok');
     };
     const loadSample = async (id: SampleId | string) => {
+      if (id === 'car') {
+        asked = true;
+        return show('car');
+      }
+      if (id === 'build') {
+        asked = true;
+        return show('build');
+      }
       const s = SAMPLES.find((x) => x.id === id);
       if (!s) return;
       asked = true;
@@ -936,6 +967,14 @@ export const studioTab: TabDef = {
           }
           if (!active) return;
           V.start();
+          if (pane === 'car') {
+            V.stop();
+            void car.enter();
+          }
+          if (pane === 'build') {
+            V.stop();
+            void bld.enter();
+          }
           const a = wanted;
           wanted = null;
           if (a && (a.sample || a.catalog || a.make || a.model || a.room || a.spline)) apply(a);
@@ -954,6 +993,8 @@ export const studioTab: TabDef = {
         stickEnd();
         V.stop();
         V.setTurntable(false);
+        car.leave();
+        bld.leave();
       },
       describe: () =>
         V.parts.length

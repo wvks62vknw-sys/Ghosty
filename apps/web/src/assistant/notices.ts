@@ -12,18 +12,22 @@ import { speak } from './voice';
 
 export const inbox = createStore({ items: [] as InboxEntry[], unread: 0 });
 
-const SEEN = 'ghosty.inbox.seen';
+// What was already announced, by id (the last 300). A time watermark was the record before: one item stamped ahead of the
+// clock (a piece set for the morning) raised it past everything that arrived before that time, and those were never announced.
+const SEEN = 'ghosty.inbox.seen.ids';
 const seen = {
-  get(): number {
+  get(): Set<string> {
     try {
-      return Number(localStorage.getItem(SEEN)) || 0;
+      const v = JSON.parse(localStorage.getItem(SEEN) ?? '[]');
+      return new Set(Array.isArray(v) ? v.map(String) : []);
     } catch {
-      return 0;
+      return new Set();
     }
   },
-  set(v: number) {
+  add(ids: string[]) {
+    if (!ids.length) return;
     try {
-      localStorage.setItem(SEEN, String(v));
+      localStorage.setItem(SEEN, JSON.stringify([...seen.get(), ...ids].slice(-300)));
     } catch {
       /* ignore */
     }
@@ -36,9 +40,9 @@ export async function pollInbox(): Promise<void> {
   try {
     const r = await brain.inbox();
     inbox.set({ items: r.items, unread: r.unread });
-    const last = seen.get();
-    const fresh = r.items.filter((i) => i.at > last && !i.read).reverse();
-    if (fresh.length) seen.set(Math.max(...fresh.map((i) => i.at)));
+    const had = seen.get();
+    const fresh = r.items.filter((i) => !i.read && !had.has(i.id)).reverse();
+    seen.add(fresh.map((i) => i.id));
     // On first load only announce things from the last 10 minutes.
     // A kind switched off in LINKS → NOTIFICATIONS comes marked quiet: it stays in the Agenda inbox, with no toast, voice or notification.
     for (const it of (first ? fresh.filter((i) => Date.now() - i.at < 10 * 60_000) : fresh).filter((i) => !i.quiet)) announce(it);

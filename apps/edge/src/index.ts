@@ -7,6 +7,8 @@ import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { imageResponse } from './lens';
+import { zimPassthrough } from './zim';
+import { demoRoute } from './demo';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -123,6 +125,10 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
+    // [demo] The review link (demo/index.ts): /demo's pages, and the /api calls the demo page makes, answered by the demo brain
+    // only (its own Durable Object, no owner key, no secrets, an allow-list of reads). Everything else goes on as it always did.
+    const demo = await demoRoute(req, env, ctx, { proxy });
+    if (demo) return demo;
     // Pages Ghosty published (publish_site): public links, no sign-in, served sandboxed.
     const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page)?\/?$/);
     if (pub && (req.method === 'GET' || req.method === 'HEAD')) {
@@ -152,6 +158,9 @@ export default {
     // Telegram's webhook (telegram.ts): Telegram itself calls it, so no owner sign-in — the brain
     // checks the secret it gave Telegram when it set the webhook, and turns away anything else.
     if (url.pathname === '/api/telegram/hook' && req.method === 'POST') return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
+    // [social] Discord's interactions for his own bot (social/discord.ts): Discord calls it, so no owner sign-in — the brain
+    // checks Discord's Ed25519 signature with his application's public key before it reads a word, and turns away the rest.
+    if (url.pathname === '/api/discord/interactions' && req.method === 'POST') return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
     // [selftrain] The weekly Kaggle notebook's hook (selftrain/cycle.ts): Kaggle's machine calls it, so no owner
     // sign-in — the brain turns away anything without this week's one-time ticket.
     if (url.pathname === '/api/training/hook' && (req.method === 'POST' || req.method === 'GET')) return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
@@ -166,6 +175,9 @@ export default {
     const auth = await authenticate(req, env);
     if (!auth.ok) return json({ error: auth.reason, auth: true }, auth.status);
     if (url.pathname === '/api/proxy') return proxy(req, ctx);
+    // [resta] WIKIPEDIA, OFFLINE: the owner's phone fetches a Kiwix file a piece at a time through here (zim.ts), streamed
+    // and kept nowhere; the brain never reads it.
+    if (url.pathname.startsWith('/api/zim/')) return zimPassthrough(req, url.pathname.slice('/api/zim/'.length));
     const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
     const fwd = new Request(req);
     fwd.headers.set('x-ghosty-owner', auth.who);

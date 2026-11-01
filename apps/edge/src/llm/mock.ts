@@ -28,6 +28,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const ex = EXERCISES.find((e) => e.prompt === messages[1]?.content);
     if (ex) return { message: { role: 'assistant', content: messages.length > 2 ? `\`\`\`js\n${ex.reference}\n\`\`\`` : `\`\`\`js\nfunction ${ex.entry}() { return null; }\n\`\`\`` }, model };
   }
+  // [social] the line of his own a day (social/musing.ts): from the first of its facts, as a model would put it
+  if (/^ONE LINE OF YOUR OWN/.test(String(messages[0]?.content ?? ''))) {
+    const fact = textOf(last.content).match(/^- (?:Read this morning \([^)]*\): |On your Bluesky timeline: |What I learned this week: )?(.+)$/m)?.[1] ?? '';
+    return { message: { role: 'assistant', content: fact ? `Been thinking about this one: ${fact.replace(/\.$/, '').slice(0, 140)}.` : 'NOTHING' }, model };
+  }
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
@@ -139,6 +144,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const claims = [...textOf(last.content).split('\n\nSOURCES:')[0]!.matchAll(/^(\d+)\. (.*)$/gm)];
     return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1, label: 'established fact' } : { i: Number(c[1]), found: false })) }) }, model };
   }
+  // [reste] A question the rights-and-law base answers (knowledge/rights): the answer from its documents, as a model would
+  // write it, each fact marked and the SOURCES listed by title and address (no search: the documents came with the turn).
+  if (/FROM YOUR RIGHTS-AND-LAW BASE/.test(system) && last.role === 'user') {
+    const docs = [...system.matchAll(/^\[R(\d+)\] (.+?) — .*? (https:\/\/\S+)\nFinding: ([^\n]+)/gm)].slice(0, 3);
+    const callLine = /^Not legal advice[^\n]*/m.exec(system)?.[0] ?? '';
+    const facts = docs.map((d, i) => `${d[4]!.split(/(?<=\.)\s/)[0]} [${i + 1}]`).join(' ');
+    return { message: { role: 'assistant', content: `${facts}${callLine ? `\n\n${callLine}` : ''}\n\nSOURCES\n${docs.map((d, i) => `[${i + 1}] ${d[2]} — ${d[3]}`).join('\n')}` }, model };
+  }
   if (/CITED ANSWER/.test(system) && offered('web_search') && chainUser) {
     const asked = ownerWords(textOf(chainUser.content)).replace(/^(cite|fact check|with sources)[:,]?\s*/i, '').trim();
     if (!chainDid('web_search')) return { message: call('web_search', { query: asked }), model };
@@ -167,6 +180,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
       const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
+    // [social] After social: what it read or drafted, as it came (authors and times; never "posted" for a draft).
+    if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
+    // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
+    if (lastCall && ['people', 'work', 'creative'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -211,6 +228,21 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
+  // [reste] DOCUMENTS (BRIEF-REST-E): a letter he asks for in the chat, as a model writes one (its chatter before and after
+  // included, for the phone to leave out); the phone's own asks come back numbered — an edit changes each long paragraph
+  // (its first sentence only, for "shorter"; else the same with "Please note: " before it), a translation every one.
+  if (last.role === 'user' && /^write (?:me )?a letter to my landlord about the damp/.test(text)) {
+    return { message: { role: 'assistant', content: "Here's a letter you can send:\n\n[Your name]\n12 High Street\nBirmingham B1 1AA\n\n[Date]\n\nDear Mr Khan,\n\nI am writing about the **damp** in the back bedroom of the flat. Black mould has been growing on the wall behind the wardrobe since August, and it has now spread to the ceiling. It smells, and it is affecting my health.\n\nPlease arrange for the cause to be found and repaired within 14 days.\n\nYours sincerely,\n[Your name]\n\nWant me to make it more formal?" }, model };
+  }
+  const docAsk = last.role === 'user' ? ownerWords(textOf(last.content)) : '';
+  if (/^DOCUMENT (?:EDIT|TRANSLATE)\b/.test(docAsk)) {
+    const paras = [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((x) => ({ n: Number(x[1]), text: x[2]! }));
+    const lang = /^DOCUMENT TRANSLATE into ([^.]+)\./.exec(docAsk)?.[1];
+    const lines = lang
+      ? paras.map((p) => `[${p.n}] ${/urdu/i.test(lang) ? 'ترجمہ' : lang}: ${p.text}`)
+      : paras.filter((p) => p.text.length > 60).map((p) => `[${p.n}] ${/shorter/.test(docAsk) ? (p.text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? p.text) : `Please note: ${p.text}`}`);
+    return { message: { role: 'assistant', content: lines.join('\n') || 'No changes.' }, model };
+  }
   // the fact keeps the owner's own capitals ("Aisha", "I")
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: textOf(last.content).replace(/^scheduled task "[^"]*": /i, '').replace(/^remember /i, '') }), model };
   // A day-at-a-glance answer for the preview's screenshots (MOCK_LLM only).
@@ -363,6 +395,21 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
   if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
   if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
+  // [social] HIS OWN ACCOUNTS (tools/social.ts): "what's on bluesky?", "search bluesky for …", "post on bluesky: …", "follow … on bluesky".
+  if ((m = text.match(/^what'?s on (bluesky|mastodon|discord|my discord)\??$/)) && has('social')) return { message: call('social', { action: 'read', account: m[1]!.replace('my ', '') }), model };
+  if ((m = text.match(/^search (bluesky|mastodon) for (.+?)\??$/)) && has('social')) return { message: call('social', { action: 'search', account: m[1], query: m[2] }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^post (?:this |that )?(?:on|to) (bluesky|mastodon|discord|my channel|my telegram channel): ([\s\S]+)$/i)) && has('social')) return { message: call('social', { action: 'draft', account: /channel/i.test(m[1]!) ? 'channel' : m[1]!.toLowerCase(), text: m[2]!.trim() }), model };
+  if ((m = text.match(/^(un)?follow (\S+) on (bluesky|mastodon)$/)) && has('social')) return { message: call('social', { action: 'follow_ask', account: m[3], who: m[2], ...(m[1] ? { undo: true } : {}) }), model };
+  // [packs2] THE PEOPLE PACK (tools/people.ts): a birthday kept, gift ideas, a thank-you note — from his own words.
+  if (/^(?:my )?.+['’]s birthday is .+$/.test(text) && has('people')) return { message: call('people', { action: 'birthday', words: ownerWords(textOf(last.content)) }), model };
+  if ((m = text.match(/^gift ideas for (.+?)(?: (?:under|around|about) .+)?$/)) && has('people')) return { message: call('people', { action: 'gift', who: m[1], words: ownerWords(textOf(last.content)) }), model };
+  // [packs2] THE WORK PACK (tools/work.ts): a cover letter for a pasted ad, pay after tax.
+  if ((m = ownerWords(textOf(last.content)).match(/^write (?:me )?a cover letter for this job:\s*([\s\S]+)$/i)) && has('work')) return { message: call('work', { action: 'cover', text: m[1]!.trim() }), model };
+  if (/^what is £?[\d,]+ ?k? (?:a year|a month|an hour) after tax\??$/.test(text) && has('work')) return { message: call('work', { action: 'pay', words: ownerWords(textOf(last.content)) }), model };
+  // [packs2] THE CREATIVE PACK (tools/creative.ts): the mock writes the words of a song (the tune is made by code), a poster, a comic strip.
+  if ((m = ownerWords(textOf(last.content)).match(/^write me a song about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'song', words: `a song about ${m[1]}`, lyrics: 'The kettle sings at half past six\nA grey sky leans against the glass\nI hum along to nothing much\nAnd let the Monday pass\n\n[Chorus]\nRain, rain on my window\nSlow, slow goes the day\nI will keep the lamp on\nAnd let the clouds drift away' }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^a poster for (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'poster', words: m[1] }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^a comic about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'comic', words: m[1], captions: /\bcat\b/i.test(m[1]!) ? ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] : [`${m[1]![0]!.toUpperCase()}${m[1]!.slice(1)}.`, 'Then something goes wrong!', 'So they try again, a new way.', 'It works out in the end, happily.'] }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };

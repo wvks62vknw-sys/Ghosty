@@ -18,6 +18,9 @@ import { createStore } from '../../core/store';
 import { guardian } from '../../state/guardian';
 import { openChat, perform } from '../../shell/launcher';
 import { button } from '../../ui/components';
+import { carExtra } from '../../car/card';
+import { keepRecord } from '../../car/state';
+import { draftEl } from '../links/drafts'; // [social] a draft for his accounts: APPROVE · EDIT · NO (BRIEF-SOCIAL)
 
 export type { Card } from '../../../../../packages/shared/src/cards';
 
@@ -33,6 +36,11 @@ const ICONS: Record<string, string> = {
   foresight: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/>',
   pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
   read: '<path d="M4 5.5h16M4 9.5h16M4 13.5h11M4 17.5h8"/>',
+  // [social] a line of his own (BRIEF-SOCIAL item 7) and FATHER AND THE ORIGIN (item 1)
+  musing: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M8 10h8M8 13h5"/>',
+  origin: '<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.8a4.2 4.2 0 017.5 2.5c0 5.6-7.5 10.2-7.5 10.2z"/><path d="M12 3.5v4.3"/>',
+  // [reste] a reply laid out as a document (docs/ask.ts offerDocument)
+  document: '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7H18M9 11h6M9 14.5h6M9 18h4"/>',
 };
 
 const COLOUR: Record<string, string> = {
@@ -185,6 +193,7 @@ export function onCarTap(f: (plate: string) => Promise<void>): void {
 
 /** One card, as the chat and Home's wall draw it. */
 export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
+  if (c.kind === 'draft' && c.draft) return draftEl(c);
   const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS));
   const first = c.acts?.find((a) => a.open || a.run);
   if (first && !opts.wall) {
@@ -193,24 +202,31 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
   }
   // on Home's wall the whole card is the button: its first act (the screen, the question, the car)
   const tap = opts.wall ? c.acts?.[0] : undefined;
-  const acts = (opts.wall ? [] : (c.acts ?? []).slice(0, 2)).map((a, i) => {
-    const b = button(a.label, () => act(a), i === 0 ? 'on' : '');
+  // THE CAR (BRIEF-CAR): a car's record gains WHAT'S WRONG? and SHOW ME; once something is wrong, the safety line
+  // (first) and the top suspect take the line (car/card.ts)
+  const car = opts.wall ? null : carExtra(c);
+  const acts = [...(car ? [car.showMe] : []), ...(opts.wall ? [] : (c.acts ?? []).slice(0, 2)).map((a, i) => {
+    const b = button(a.label, () => act(a), i === 0 && !car ? 'on' : '');
+    return b;
+  })].slice(0, 2);
+  for (const b of acts) {
     b.dataset.case = 'keep';
     b.classList.add('ccbtn');
-    return b;
-  });
+  }
   const el = h(
     `article.ccard${opts.wall ? '.wall' : ''}` as 'article',
     // (no label of its own: VoiceOver reads the title, then the line, then the buttons; the picture is hidden from it)
-    { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger ? { danger: '1' } : {}) } },
+    { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger || car?.safe ? { danger: '1' } : {}), ...(car?.fault ? { fault: '1' } : {}) } },
     vis,
     h(
       'div.ccbody',
       h('b.cctitle', c.title),
-      h('span.ccline', c.line),
+      car?.safe ?? null,
+      h('span.ccline', car?.line ?? c.line),
       c.kind === 'estimate' ? h('small.cctag', 'First estimate, not certified') : null,
       // a line he did not ask for says why it came (the speak-first cadence recorded it)
       c.why ? h('small.ccwhy', `Why: ${c.why}`) : null,
+      car?.box ?? null,
       acts.length ? h('div.ccacts', ...acts) : null,
     ),
   );
@@ -312,6 +328,7 @@ async function showCar(plate: string): Promise<void> {
   } catch {
     answer = { ok: false, reason: 'failed', message: 'I couldn’t reach my brain for the record. Try again in a moment.', links: [] };
   }
+  keepRecord(p, answer);
   const c = carCard(answer, p, named);
   // the offer becomes the car, where it was
   const es = chat.get().entries;

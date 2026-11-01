@@ -68,8 +68,9 @@ const cardsOf = (page, a) => page.$$eval(`#pg-area-${a} .hubgrid > *`, (els) => 
 const barTop = (page) => page.$eval('#dock .tabcap', (e) => e.getBoundingClientRect().top);
 const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
-// what each hub holds (shell/areas.ts AREAS; Ask adds Voice)
-const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench'], learn: ['learn', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
+// what each hub holds (shell/areas.ts AREAS; Ask adds Voice; Make adds its two sheets, CONVERT and DOCUMENTS: BRIEF-REST-E,
+// 1 Nov, so Make has seven tools, the first six as cards and the seventh in the More row)
+const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs'], learn: ['learn', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
 const WORDS = ['LIVE', 'READY', 'TRAINING', 'OFF'];
 const NONE = /^(Not yet|None yet|None|Nothing|Off air|Start one|Not set up|—)$/;
 
@@ -80,7 +81,7 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const cards = await cardsOf(page, a);
   seen[a] = cards;
   const got = cards.map((c) => c.id).join(',');
-  if (got !== ids.join(',')) problems.push(`[${a}] the hub's tools are "${got}", want "${ids.join(',')}"`);
+  if (got !== ids.slice(0, 6).join(',')) problems.push(`[${a}] the hub's cards are "${got}", want "${ids.slice(0, 6).join(',')}"`);
   const bar = await barTop(page);
   for (const c of cards) {
     const at = `[${a} ${c.id}]`;
@@ -104,15 +105,17 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const scroll = await page.$eval(`#pg-area-${a} .hub`, (e) => ({ sh: e.scrollHeight, ch: e.clientHeight }));
   if (scroll.sh > scroll.ch + 1) problems.push(`[${a}] the hub scrolls (${scroll.sh} > ${scroll.ch})`);
   if (cards.length > 6) problems.push(`[${a}] ${cards.length} cards (six at most; the rest belong in the More row)`);
-  if (cards.length <= 6 && (await page.locator(`#pg-area-${a} .hubmore:not([hidden])`).count())) problems.push(`[${a}] a More row with six tools or fewer`);
+  // the More row holds the tools past the sixth, and is there only then
+  const more = await page.$$eval(`#pg-area-${a} .hubmore:not([hidden]) .hubmini`, (els) => els.map((e) => e.dataset.id).join(','));
+  if (more !== ids.slice(6).join(',')) problems.push(`[${a}] the More row holds "${more}", want "${ids.slice(6).join(',')}"`);
   await page.screenshot({ path: `${out}/hubcards-${a}.png` });
 }
 
 // ---- the readouts are the app's own numbers
 const read = (a, id, k) => seen[a]?.find((c) => c.id === id)?.reads.find((r) => r.k === k)?.v;
 if (read('see', 'lens', 'Names') !== '4,624') problems.push(`[see lens] Names reads "${read('see', 'lens', 'Names')}"`);
-if (read('see', 'lens', 'Modes') !== '10') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 10 modes: PEOPLE joined on 31 Oct)`);
-if (read('make', 'studio', 'Built in') !== '5') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}"`);
+if (read('see', 'lens', 'Modes') !== '11') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 11 modes: PEOPLE joined on 31 Oct, SHAPES on 1 Nov)`);
+if (read('make', 'studio', 'Built in') !== '7') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}" (seven: the five samples, the car from its plate and Design a build, which joined on 1 Nov)`);
 if (!/^Birmingham today$/.test(seen.ask?.find((c) => c.id === 'brief')?.title ?? '')) problems.push(`[ask brief] the title does not name his city: "${seen.ask?.find((c) => c.id === 'brief')?.title}"`);
 const lib = await brainGet('/library');
 const passages = num(read('learn', 'library', 'Passages'));

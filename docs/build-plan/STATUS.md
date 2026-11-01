@@ -1,8 +1,8 @@
-# Where everything stands — 1 November 2026, 02:40 UK
+# Where everything stands — 1 November 2026, 11:55 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #48, the last at 01:23 UK on 1 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #49, the last at 11:52 UK on 1 Nov)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -117,32 +117,49 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - The scroll audit at your phone's size; an exam paper is never trained on.
 - Upgrade passes merged, ten-odd fixes each: Threats, God's Eye, the Lens, the Brief, voice, Workshop, Memory, the Library, Settings, Markets, Radio, Reverse.
 
+- LIVE since 11:52 UK on 1 Nov (PR #49, main 4821e1b), five batches at once:
+  BATCH ①, THE EVERYTHING TAB — the Abilities screen rebuilt as a complete catalogue of every single thing he can do,
+  generated from his own code (now over 400 things), each with a plain line, an example, TRY IT, where it lives and what
+  it needs; search; scenes; counted; NEW badges; plus the two Workbench layout bugs fixed.
+  BATCH ②, SIDEWAYS — live cards in the chat (a map, a car from its plate, a person you introduced, an estimate, what the
+  camera read, a piece of the day), he brings things up himself from what you type, what the camera sees, the people and
+  cars you've named and the day, speaks first a few times a day at most (SETTINGS → CHARACTER → SPEAK FIRST; any stop
+  word silences the day), Home is your wall, Telegram and the lock screen carry the same cards.
+  BATCH ③, THE ARCADE — a new screen: twelve free DOS classics running as they are (Duke Nukem 3D, Heretic, Rise of the
+  Triad, Blake Stone, Raptor, Tyrian, One Must Fall 2097, Commander Keen 1 and 4, Jill of the Jungle, Wacky Wheels, Epic
+  Pinball), DOOM's free episode natively at 35 fps, Freedoom Phase 1 and 2, a dozen free fan level packs, Quake's free
+  episode (tell me if it stutters), and two games of our own in 3-D: THE BLOCK WORLD where Ghosty builds what you say,
+  and THE RUNNER. Everything fetched once on Wi-Fi on your tap, with its size said; saves survive a reload.
+  BATCH ④ part 1, THE MONEY, BODY AND KITCHEN PACKS — 39 small real things (your month from a pasted statement, fuel near
+  a saved place, a price watch, subscriptions; reps by camera, a running coach, Health export, water, breathing; dinner
+  from a fridge photo, voice timers, a shopping list, allergens by barcode), each on the everything tab.
+  BATCH ⑥ part 1, THE SMALL BRAIN — press SIT and it works, or the next smaller brain is one tap away; a third, tiny brain
+  (SmolLM2 360M, 212 MB) that fits any phone; why the 0.6B died (its library sets aside ~630 MB at the first question).
+
 ## 2. Done, going up next
 
-- Batch ①, THE EVERYTHING TAB (PR #49, in the checks from 05:30 UK on 1 Nov): the Abilities screen rebuilt as a complete
-  catalogue of every single thing he can do, generated from his own code (375 things, 98 new), each with a plain line, an
-  example, TRY IT, where it lives and what it needs; search; scenes; counted; plus the two Workbench layout bugs fixed.
-- Batch ⑥ part 1, THE SMALL BRAIN (PR #49 with ①): press SIT and it works, or the next smaller brain is one tap away —
-  "GET Qwen2.5 0.5B (290 MB) and sit", then a third, tiny brain (SmolLM2 360M, 212 MB) that fits any phone; a shorter
-  sitting prompt; one line after a close saying which brain closed and what SIT uses next. Why the 0.6B died: its
-  library sets aside about 630 MB of working space at the first question; the tiny one needs 22 MB.
-- Batch ②, SIDEWAYS (PR #49 too): live cards in the chat (a map, a car from its plate, a person you introduced, an
-  estimate, what the camera read, a piece of the day), he brings things up himself from what you type, what the camera
-  sees, the people and cars you've named and the day, speaks first a few times a day at most (SETTINGS → CHARACTER →
-  SPEAK FIRST: QUIET · SOME · CHATTY; any stop word silences the day), Home is your wall ("Now": what matters first,
-  the deck below), and Telegram and the lock screen carry the same cards.
-- Batch ③ part 5, THE ARCADE (PR #49 too): a new ARCADE screen with 13 real classic games free to pass on — DOOM, Heretic,
-  Duke Nukem 3D, Rise of the Triad, Blake Stone, Raptor, Tyrian, One Must Fall 2097, Commander Keen 1 and 4, Jill of the
-  Jungle, Wacky Wheels, Epic Pinball — fetched once on Wi-Fi, running in a DOS machine built into the page with a stick
-  and buttons under your thumbs, a controller when attached, sound, and saves that survive a reload.
-
-- Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
+- Nothing: PR #50 is being opened with the next batches (below).
 
 ## 3. Happening right now
 
-- BUILDING NOW (1 Nov): ③ wiring DOOM, Freedoom, Quake and the two 3-D games into the arcade; ③ the kart racer, the
-  hopper and the arena; ⑤ the car in 3-D from its plate; ④ the people, work and creative packs next. Merged and waiting
-  for the next PR: native DOOM and Quake, the block world and the runner, the money, body and kitchen packs (39 things).
+- GOING UP IN PR #50 (1 Nov, afternoon; one CI run of about two hours and a quarter, merged when green): ③ the kart racer,
+  the hopper and the arena (every made-by-us game wired to the shelf); ⑤ YOUR DAD'S CAR OR HARIS'S IN 3-D from its plate
+  (bonnet up, the likely culprits lit, DIY or garage with a rough cost — a stand-in model said to be one, every number a
+  first estimate); ⑦ HIS SOCIAL SELF (Father and the origin; the approval queue — every post a draft you APPROVE, EDIT or
+  refuse, in the chat and on Telegram; Bluesky, Mastodon, Discord and your own Telegram channel once you link them in
+  SYSTEM → KEYS; "A thought of mine" a few times a day at most); ⑧ OFFLINE WIKIPEDIA (Library → Ask), SIRI SHORTCUTS
+  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities); ⑧ CHESS WITH A REAL
+  RATING, THE INSTRUMENT AND SKILLS COACH, the review link (/demo) and "deploy your own Ghosty"; ⑧ CHECK IT'S LIVE for
+  faces (a blink or a turn before a face is saved), SHAPES (a room drawn in the air becomes a blueprint and a 3-D room) and
+  TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
+  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card); ⑧ DESIGN
+  A BUILD with a bill of materials (a shed, a garden room, a garage, a room, furniture, a PC; the Studio's eighth pane) and THE
+  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm);
+  ⑧ CONVERT (41 conversions on the phone: pictures, PDFs, Word, tables, sound, QR codes, units), DOCUMENTS (read, written
+  from the chat, edited as suggestions, translated side by side) and the RIGHTS-AND-LAW base (your rights in the UK with the
+  helplines, and the courts' own documents on the big matters).
+- BUILDING NOW: ④ the outside, home and learning packs. Last of all: the UI depth pass. HELD for your opinion: the twelve
+  themes and the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

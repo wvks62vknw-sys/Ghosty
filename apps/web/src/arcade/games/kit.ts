@@ -8,14 +8,16 @@
  */
 import { h } from '../../core/dom';
 import type { Engine } from '../engines/types';
-import type { Intent } from '../input';
+import { type Intent, touchMove } from '../input';
 
 // ---------------------------------------------------------------- the games' ids and engine shape
 
 export type GameId = 'voxel' | 'runner';
-/** An Engine whose id is one of ours (the merge adds 'voxel' | 'runner' to Engine's id). */
-export interface GameEngine extends Omit<Engine, 'id'> {
-  id: GameId;
+/** The three that followed (BRIEF-GAMES-3): the kart racer, the hopper and the arena (the merge adds them to Engine's id too). */
+export type Game3Id = 'kart' | 'hopper' | 'arena';
+/** An Engine whose id is one of ours (the merge adds 'voxel' | 'runner', then Game3Id, to Engine's id). */
+export interface GameEngine<I extends string = GameId> extends Omit<Engine, 'id'> {
+  id: I;
 }
 
 // ---------------------------------------------------------------- three.js, typed for what we use
@@ -236,6 +238,25 @@ export class Geo {
         const m = q.reduce((s, p) => [s[0]! + p[0]! - cx, s[1]! + p[1]! - cy, s[2]! + p[2]! - cz], [0, 0, 0]);
         this.face(q, [m[0]!, m[1]!, m[2]!], c, glow);
       }
+    }
+    return this;
+  }
+  /** A quad from four corners in order round it, its front facing `out` (give the true normal: it lights the face). */
+  quad4(p: number[][], out: [number, number, number], hex: number, glow = 0): this {
+    this.face(p, out, rgb(hex), glow);
+    return this;
+  }
+  /** An upright cone (or, with `top`, a frustum) of n sides standing on the centre of its base at height y0. */
+  cone(cx: number, y0: number, cz: number, r: number, hgt: number, hex: number, n = 8, glow = 0, top = 0): this {
+    const c = rgb(hex);
+    const slope = (r - top) / hgt;
+    for (let i = 0; i < n; i++) {
+      const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
+      const b0 = [cx + Math.sin(a0) * r, y0, cz + Math.cos(a0) * r], b1 = [cx + Math.sin(a1) * r, y0, cz + Math.cos(a1) * r];
+      const t0 = [cx + Math.sin(a0) * top, y0 + hgt, cz + Math.cos(a0) * top], t1 = [cx + Math.sin(a1) * top, y0 + hgt, cz + Math.cos(a1) * top];
+      this.face([b0, b1, t1, t0], [Math.sin(am), slope, Math.cos(am)], c, glow);
+      this.face([[cx, y0, cz], b1, b0, [cx, y0, cz]], [0, -1, 0], c, glow);
+      if (top > 0) this.face([[cx, y0 + hgt, cz], t0, t1, [cx, y0 + hgt, cz]], [0, 1, 0], c, glow);
     }
     return this;
   }
@@ -733,3 +754,183 @@ export const cssSize = (canvas: HTMLCanvasElement): { w: number; h: number } => 
 
 /** Number words for the HUD: 12,345. */
 export const num = (n: number): string => Math.round(n).toLocaleString('en-GB');
+
+// ---------------------------------------------------------------- bits that fly, and a stick under the thumb (BRIEF-GAMES-3)
+
+/**
+ * Short-lived bits — sparks, spray, dust, feathers, crumbs: one instanced mesh for all of them (one draw call), each a
+ * small shape that flies, falls, spins and shrinks away; when every one is busy the oldest is used again.
+ */
+export class Bits {
+  readonly mesh: IMesh;
+  private readonly s: Float32Array; // per bit: x y z vx vy vz left life size spin
+  private readonly c: Float32Array; // r g b
+  private next = 0;
+  private readonly dummy: Obj3;
+  private readonly col: Col;
+  constructor(T: ThreeNS, readonly n: number, shape: Geom, mat: Mat) {
+    this.s = new Float32Array(n * 10);
+    this.c = new Float32Array(n * 3);
+    this.mesh = new T.InstancedMesh(shape, mat, n);
+    this.mesh.frustumCulled = false;
+    this.mesh.setColorAt(0, new T.Color(0xffffff));
+    this.mesh.count = 0;
+    this.dummy = new T.Object3D();
+    this.col = new T.Color();
+  }
+  /** One bit at (x, y, z) flying at (vx, vy, vz) m/s for `life` seconds, `size` across, in colour `hex`. */
+  emit(x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size: number, hex: number): void {
+    const i = this.next;
+    this.next = (i + 1) % this.n;
+    const o = i * 10;
+    this.s.set([x, y, z, vx, vy, vz, life, life, size, (Math.random() - 0.5) * 14], o);
+    this.c[i * 3] = ((hex >> 16) & 255) / 255;
+    this.c[i * 3 + 1] = ((hex >> 8) & 255) / 255;
+    this.c[i * 3 + 2] = (hex & 255) / 255;
+  }
+  /** Moves them on (gravity pulls them down, drag slows them, none goes below `floor`) and draws the live ones. */
+  update(dt: number, gravity = 0, drag = 0, floor = -1e9): void {
+    const s = this.s, m = this.mesh, d = this.dummy;
+    const f = drag ? Math.exp(-drag * dt) : 1;
+    let k = 0;
+    for (let i = 0; i < this.n; i++) {
+      const o = i * 10;
+      const left = s[o + 6]! - dt;
+      if (left <= 0) {
+        s[o + 6] = 0;
+        continue;
+      }
+      s[o + 6] = left;
+      const vx = s[o + 3]! * f, vy = (s[o + 4]! - gravity * dt) * f, vz = s[o + 5]! * f;
+      s[o + 3] = vx;
+      s[o + 4] = vy;
+      s[o + 5] = vz;
+      const x = s[o]! + vx * dt, z = s[o + 2]! + vz * dt;
+      let y = s[o + 1]! + vy * dt;
+      if (y < floor) (y = floor), (s[o + 4] = 0);
+      s[o] = x;
+      s[o + 1] = y;
+      s[o + 2] = z;
+      const a = left / s[o + 7]!;
+      const sc = s[o + 8]! * (0.3 + 0.7 * a);
+      const spin = s[o + 9]! * (1 - a);
+      d.position.set(x, y, z);
+      d.rotation.set(spin, spin * 0.7, 0);
+      d.scale.set(sc, sc, sc);
+      d.updateMatrix();
+      m.setMatrixAt(k, d.matrix);
+      m.setColorAt(k, this.col.setRGB(this.c[i * 3]!, this.c[i * 3 + 1]!, this.c[i * 3 + 2]!));
+      k++;
+    }
+    m.count = k;
+    if (k) {
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    }
+  }
+  clear(): void {
+    for (let i = 0; i < this.n; i++) this.s[i * 10 + 6] = 0;
+    this.mesh.count = 0;
+  }
+}
+
+/**
+ * A stick that appears where the thumb lands inside `area` (a touch `accept` turns down is left alone): `base`, with
+ * the knob as its first child, is drawn there; x is right and y forward (up the screen), each −1…1 through input.ts's
+ * touchMove, so the dead zone and the curve are the arcade's own.
+ */
+export class ThumbStick {
+  x = 0;
+  y = 0;
+  private id = -1;
+  private x0 = 0;
+  private y0 = 0;
+  constructor(
+    private readonly area: HTMLElement,
+    private readonly base: HTMLElement,
+    private readonly radius = 56,
+    private readonly accept: (e: PointerEvent, box: DOMRect) => boolean = () => true,
+    private readonly onStart?: () => void,
+  ) {
+    area.addEventListener('pointerdown', this.down);
+    area.addEventListener('pointermove', this.move);
+    area.addEventListener('pointerup', this.up);
+    area.addEventListener('pointercancel', this.up);
+  }
+  get active(): boolean {
+    return this.id >= 0;
+  }
+  private down = (e: PointerEvent) => {
+    const box = this.area.getBoundingClientRect();
+    if (this.id >= 0 || !this.accept(e, box)) return;
+    e.preventDefault();
+    try {
+      this.area.setPointerCapture(e.pointerId);
+    } catch {
+      /* fine */
+    }
+    this.id = e.pointerId;
+    this.x0 = e.clientX;
+    this.y0 = e.clientY;
+    this.base.style.transform = `translate(${this.x0 - box.left}px, ${this.y0 - box.top}px)`;
+    this.base.classList.add('on');
+    this.onStart?.();
+  };
+  private move = (e: PointerEvent) => {
+    if (e.pointerId !== this.id) return;
+    const dx = e.clientX - this.x0, dy = e.clientY - this.y0;
+    const m = touchMove(dx, dy, this.radius);
+    this.x = m.moveX;
+    this.y = m.moveY;
+    const len = Math.hypot(dx, dy), k = len > this.radius ? this.radius / len : 1;
+    (this.base.firstElementChild as HTMLElement | null)?.style.setProperty('transform', `translate(${dx * k}px, ${dy * k}px)`);
+  };
+  private up = (e: PointerEvent) => {
+    if (e.pointerId === this.id) this.reset();
+  };
+  reset(): void {
+    this.id = -1;
+    this.x = this.y = 0;
+    this.base.classList.remove('on');
+    (this.base.firstElementChild as HTMLElement | null)?.style.removeProperty('transform');
+  }
+}
+
+/** Ghosty's colour from the theme (the games give it to his kart, his hopper and his cells). */
+export function accentHex(fallback = 0x64d2ff): number {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--c').trim();
+    if (/^#[0-9a-f]{6}$/i.test(v)) return parseInt(v.slice(1), 16);
+  } catch {
+    /* no styles: the default */
+  }
+  return fallback;
+}
+
+/** A seeded random number generator (0…1), the same numbers for the same seed. */
+export function seeded(seed: number): () => number {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/** Where a point lands on the screen (CSS px from the canvas's top left) for a camera at `eye` looking at `at`, with
+ *  vertical field of view `fov` (degrees) and aspect w/h; null behind the camera. No matrices needed. */
+export function project(eye: readonly number[], at: readonly number[], fov: number, w: number, hgt: number, p: readonly number[]): { x: number; y: number; d: number } | null {
+  let fx = at[0]! - eye[0]!, fy = at[1]! - eye[1]!, fz = at[2]! - eye[2]!;
+  const fl = Math.hypot(fx, fy, fz) || 1;
+  (fx /= fl), (fy /= fl), (fz /= fl);
+  // right = forward × up; up' = right × forward
+  let rx = -fz, rz = fx;
+  const rl = Math.hypot(rx, rz) || 1;
+  (rx /= rl), (rz /= rl);
+  const ux = -rz * fy, uy = rz * fx - rx * fz, uz = rx * fy;
+  const dx = p[0]! - eye[0]!, dy = p[1]! - eye[1]!, dz = p[2]! - eye[2]!;
+  const zc = dx * fx + dy * fy + dz * fz;
+  if (zc < 0.05) return null;
+  const t = Math.tan((fov * Math.PI) / 360);
+  const xn = (dx * rx + dz * rz) / (zc * t * (w / hgt)), yn = (dx * ux + dy * uy + dz * uz) / (zc * t);
+  return { x: (xn * 0.5 + 0.5) * w, y: (0.5 - yn * 0.5) * hgt, d: zc };
+}

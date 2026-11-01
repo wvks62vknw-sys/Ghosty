@@ -5,6 +5,8 @@
  *  - LOCAL_ASKS: the questions about Ghosty himself, in the order assistant/local.ts `localTurn` tries them — it dispatches
  *    from this list (a table added here needs its handler there, or the typecheck fails; a handler not listed here is never
  *    asked). A table that matches but has nothing to say (no open question for "you were right") lets the next one try.
+ *    The car's two come first (BRIEF-CAR): what is wrong with a car (car/faults.ts, the fault table), and the words that
+ *    open its views ("open the bonnet", "show me the engine": before the Workbench's engine panel, which has them too).
  *  - FIRST_ASKS: what assistant/session.ts `send` reads before anything else, with the same matchers it uses: the walk home
  *    (assistant/guard.ts), a stop by intent, "reboot".
  * The panic phrase is his own words, checked by their hash only (Settings → GUARDIAN), so it has no table here; PEOPLE's
@@ -19,11 +21,30 @@ import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
+import { symptomOf, viewAsked } from '../car/faults';
+import { originAsked } from '../../../../packages/shared/src/social';
+import { wikiAsked } from '../wiki/words';
+import { morseAsked } from '../morse/code';
+import { PEOPLE_ASK } from '../../../../packages/shared/src/people';
+import { INTERVIEW_ASK, POMO_ASK } from '../../../../packages/shared/src/work';
+import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
+import { ratingAsked } from '../gym/chessrate';
+import { coachAsked } from '../coach/ask';
+import { shapesAsked } from '../hands/words';
+import { tvAsked } from '../tv/detect';
+import { INDEPENDENT_ASK } from '../offline/trust';
+import { buildAsked } from '../build/words';
+import { houseAsked } from '../../../../packages/shared/src/house';
+import { convertAsked } from '../convert/asks';
+import { docsAsked } from '../docs/asks';
+import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
 export const LOCAL_ASKS = [
+  { id: 'carview', test: (t: string) => viewAsked(t) !== null },
+  { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
@@ -36,12 +57,47 @@ export const LOCAL_ASKS = [
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   { id: 'shopping', test: (t: string) => shoppingAsked(t) },
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
+  // [social] "who made you?", "where did you come from?": FATHER AND THE ORIGIN's first lines and its card (features/me)
+  { id: 'origin', test: (t: string) => originAsked(t) },
+  // [resta] Wikipedia from the file on this phone (wiki/ask.ts) and the Morse sheet (morse/sheet.ts), both with no model
+  { id: 'wiki', test: (t: string) => !!wikiAsked(t) },
+  { id: 'morse', test: (t: string) => !!morseAsked(t) },
+  // [packs2] the people pack's who's who, on the phone (features/people); the work and creative packs' phrases follow
+  { id: 'people', test: (t: string) => PEOPLE_ASK.test(t.trim()) },
+  { id: 'interview', test: (t: string) => INTERVIEW_ASK.test(t.trim()) },
+  { id: 'pomodoro', test: (t: string) => POMO_ASK.test(t.trim()) },
+  { id: 'beat', test: (t: string) => BEAT_ASK.test(t.trim()) },
+  // [restb] the coach's skills first: its DRAW lesson (the prompt of the day with his picture beside it) answers "what should I
+  // draw" and "drawing prompt" ahead of the creative pack's one-line prompt below, which keeps the forms the coach does not take
+  { id: 'skill', test: (t: string) => ['typing', 'draw', 'words', 'juggle'].includes(coachAsked(t)?.what ?? '') },
+  { id: 'drawing', test: (t: string) => DRAW_ASK.test(t.trim()) },
+  // [restc] "draw a room with my hands": the Lens on SHAPES (apps/web/src/hands)
+  { id: 'shapes', test: (t: string) => shapesAsked(t) },
+  // [restc] "TV mode on" / "TV mode off": the big layout for a television (apps/web/src/tv)
+  { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
+  // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
+  { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
+  // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
+  { id: 'build', test: (t: string) => !!buildAsked(t) },
+  // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
+  { id: 'house', test: (t: string) => !!houseAsked(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },
   { id: 'why', test: (t: string) => !!whyAsked(t) },
+  // [restb] chess with a real rating: both ratings in words (assistant/restb.ts, gym/chessrate.ts)
+  { id: 'chessrating', test: (t: string) => ratingAsked(t) },
+  // [restb] the instrument and skills coach on the phone: the tuner, the lessons, and typing, drawing and words (assistant/restb.ts, coach/)
+  { id: 'tuner', test: (t: string) => coachAsked(t)?.what === 'tuner' },
+  { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
+  // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
+  { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  { id: 'docs', test: (t: string) => !!docsAsked(t) },
+  { id: 'units', test: (t: string) => !!unitsAsked(t) },
+  { id: 'base64', test: (t: string) => !!base64Asked(t) },
+  { id: 'unixtime', test: (t: string) => !!unixAsked(t) },
   { id: 'canyou', test: (t: string) => canYouAsked(t) !== null },
 ] as const;
 export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];

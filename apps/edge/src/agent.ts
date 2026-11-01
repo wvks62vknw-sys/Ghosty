@@ -68,6 +68,11 @@ import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
+import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { houseJob, houseRoute, houseTurnFacts, morningHouseLine, type HouseDeps } from './house'; // [restd] his own Home Assistant, the Worker the only thing that talks to it (BRIEF-REST-D 2)
+import { discordInteraction } from './social/discord'; // [social] his own bot in his own server: /ask, signature checked first
+import { ensureMusingJob, musingTick, type MusingDeps } from './social/musing'; // [social] one line of his own a day, under the cadence
+import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -78,13 +83,15 @@ import { offlineToolSpecs } from './selftrain/factory';
 import { weightsRoute } from './selftrain/weights';
 import { schoolDaily, schoolRoute } from './school'; // [school] the offline brain's school journey (school/index.ts)
 import { model3dRoute } from './model3d';
-import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
+import { CITED_PROMPT, citeAnswer, citedAsked, GIVEN, type Read } from './cited';
+import { findRights, RIGHTS_HEAD, rightsRead, rightsText } from './knowledge/rights';
 import { refusedWords } from '../../../packages/shared/src/refusal'; // [refusal]
 import { designRoute } from './tools/design';
 import { addSub, loadSubs, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
+import { demoGate, envFor, isDemoState, sandboxEnv } from './demo';
 
 const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several times in one go
 /** Steps for a turn while the database is paused, or a task running on its own: room for a chain of tools and a retry or two. */
@@ -97,7 +104,7 @@ const TURNS_KEY = 'turns';
 const DIRECT = 'Direct · no AI';
 const PENDING_KEY = 'pending';
 /** Everything in the vault: the owner's keys and the Spotify link. */
-const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify'];
+const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify', 'bluesky', 'mastodon', 'discord']; // [social] his own accounts' keys (social/*)
 
 interface Pending {
   id: string;
@@ -182,26 +189,47 @@ function noVisionAnswer(seen: string): string {
 
 
 export class GhostyAgent {
-  private vault: Vault;
-  private router: Router;
+  private vault!: Vault;
+  private router!: Router;
   private busy: AbortController | null = null;
+
+  private env!: Env;
+  /** What Cloudflare gave this object (the demo's brain is built from an empty environment instead: demo/index.ts). */
+  private realEnv: Env;
+  /** This is the demo's brain: built with no secrets, no key copies, no KV and no AI. */
+  private sandboxed = false;
 
   constructor(
     private state: DurableObjectState,
-    private env: Env,
+    realEnv: Env,
   ) {
+    // [demo] The demo's brain (the Durable Object named `demo`) is built with an environment that has nothing in it; the owner's
+    // is the real one. Where the runtime does not give an object its name, the demo door's first call (demoGate) tells it by its
+    // storage, and it is rebuilt that way before it answers anything. Nothing is read from storage here.
+    this.realEnv = realEnv;
+    this.sandboxed = isDemoState(state);
+    this.build(envFor(state, realEnv));
+  }
+
+  private build(env: Env) {
+    this.env = env;
     this.meter = new Meter(env.SITES ?? null);
-    this.store = this.meter.wrapStorage(state.storage);
+    this.store = this.meter.wrapStorage(this.state.storage);
     this.vault = new Vault(this.store, env);
     this.router = new Router(this.store, this.vault, env);
     this.library = new Library(this.store, env);
   }
 
-  private library: Library;
+  private demoMode() {
+    this.sandboxed = true;
+    this.build(sandboxEnv(this.realEnv));
+  }
+
+  private library!: Library;
   /** Counts every row read and written against the free daily allowance (meter.ts). */
-  private meter: Meter;
+  private meter!: Meter;
   /** The Durable Object's storage, counted by the meter. */
-  private store: DurableObjectStorage;
+  private store!: DurableObjectStorage;
 
   private get storage() {
     return this.store;
@@ -288,11 +316,18 @@ export class GhostyAgent {
     this.origin = url.origin;
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
+    // [demo] The demo's rules (demo/index.ts): the owner's brain refuses a request marked as the demo's, and the demo's answers
+    // only its own door, from an allow-list, with no credentials, and with its own chat.
+    const gate = await demoGate(this.state, req, this.state.storage, Date.now(), this.sandboxed);
+    if (gate.demo && !this.sandboxed) this.demoMode();
+    if (gate.res) return gate.res;
     this.meter.label = `route:${path.split('/')[1] || '/'}`;
     this.state.waitUntil(this.meter.load());
     try {
       // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
+      // [social] Discord's interactions (social/discord.ts): public — Discord calls it; its Ed25519 signature is checked before anything is read.
+      if (path === '/discord/interactions' && method === 'POST') return await discordInteraction(req, await this.socialDeps(), (words) => this.discordTurn(words), (p) => this.state.waitUntil(p));
       // [selftrain] The Kaggle notebook's hook: public like Telegram's — it is turned away without this week's ticket.
       if (path === '/training/hook') return await hookRoute(req, this.trainDeps());
       // [selftrain] A trained brain's weights for the phone (selftrain/weights.ts): public like the hook, closed without the capability.
@@ -413,7 +448,7 @@ export class GhostyAgent {
         const was = name === 'telegram' ? await this.vault.get('telegram').catch(() => null) : null;
         await this.vault.set(name, v);
         await this.router.resetHealth(true); // a provider known to be out of allowance today stays known
-        if (!['github', 'email', 'telegram'].includes(name) && v) this.state.waitUntil(this.router.discover(true));
+        if (!['github', 'email', 'telegram', 'homeassistant'].includes(name) && v) this.state.waitUntil(this.router.discover(true));
         const check = name === 'telegram' ? await telegramKey(this.telegramHost(), v, was) : v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
         // waiting > 0: the database is paused — the key is in use now (memory, KV, this device) and written to it after the reset.
         return json({ ok: true, works: check.ok, info: check.info, waiting: await this.vault.waiting() });
@@ -446,6 +481,8 @@ export class GhostyAgent {
       if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
       if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
       if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
+      if (path === '/social' || path.startsWith('/social/')) return await socialRoute(req, path, method, url, await this.socialDeps()); // [social] his accounts: link, drafts, APPROVE · EDIT · NO (social/index.ts)
+      if (path === '/house' || path.startsWith('/house/')) return await houseRoute(req, path, method, this.houseDeps()); // [restd] the HOUSE sheet and his house words (house.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1242,6 +1279,17 @@ export class GhostyAgent {
         /* the library is a bonus; never block a reply on it */
       }
     }
+    // [restd] his house's state as a fact for this turn only, when his words are about it and his Home Assistant is linked (no tool)
+    const house = code ? '' : await houseTurnFacts(this.houseDeps(), text).catch(() => '');
+    if (house) prompt += `\n\nHIS HOUSE NOW (read from his Home Assistant for this message; you cannot change it: the HOUSE sheet and his own words do):\n${asData('his Home Assistant', house)}`;
+    // [reste] the rights-and-law base (knowledge/rights): its matching topics as the turn's data, the documents counted as
+    // read this turn, and the answer a cited one, so its SOURCES are checked against them and carry their tiers
+    const rights = code ? [] : findRights(text);
+    if (rights.length) {
+      prompt += `\n\n${RIGHTS_HEAD}\n${asData('your rights-and-law base', rightsText(rights))}`;
+      this.citedTurn = true;
+      this.turnRead.push(...rightsRead(rights).map((source) => ({ call: GIVEN, source })));
+    }
     if (code) {
       const book = findPlaybooks(text, 1)[0];
       if (book) prompt += `\n\nPLAYBOOK FOR THIS TASK (from your handbook; study other topics if needed):\n### ${book.title}\n${book.body.slice(0, 5000)}`;
@@ -1468,7 +1516,9 @@ export class GhostyAgent {
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
       if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
       if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
-      const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
+      if (job.kind === 'musing') return json({ next: await musingTick(await this.musingDeps()) }); // [social]
+      // [restd] a task whose words are a house action is acted as a job, the guarded set refused (house.ts); any other runs as ever
+      const result = job.kind === 'task' ? ((await houseJob(this.houseDeps(), job).catch(() => null)) ?? (await this.runBackground(job))) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
     }
@@ -1555,6 +1605,7 @@ export class GhostyAgent {
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
       foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
+      social: async () => socialTelegram(await this.socialDeps()), // [social] a draft's APPROVE · EDIT · NO on Telegram
     };
   }
 
@@ -1586,6 +1637,8 @@ export class GhostyAgent {
 
   /** Durable Object alarm: run every reminder and task that is due, then re-arm. */
   async alarm(): Promise<void> {
+    // [demo] nothing in the demo's brain is waiting to run
+    if (this.sandboxed) return;
     this.meter.label = 'alarm';
     await this.meter.load();
     await this.vault.flushDirty(true).catch(() => undefined);
@@ -1637,6 +1690,11 @@ export class GhostyAgent {
         } else if (job.kind === 'speak') {
           // [cards] Speaking first (speak.ts): the day's pieces at their minute, under the cadence; it says when to look again.
           const next = await speakTick(this.speakDeps());
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'musing') {
+          // [social] One line of his own a day (social/musing.ts): under the cadence, the model asked only when it may go.
+          const next = await musingTick(await this.musingDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'follow') {
@@ -1742,11 +1800,49 @@ export class GhostyAgent {
     await ensureGuardJob(this.storage); // [guardian]
     await ensureForeseeJob(this.storage); // [foresight]
     await ensureSpeakJob(this.storage); // [cards] speaking first
+    await ensureMusingJob(this.storage); // [social] one line of his own a day
   }
 
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
-    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item), houseLine: () => morningHouseLine(this.houseDeps()) }; // [restd] the morning's one house line
+  }
+
+  /** [restd] What the Home Assistant bridge needs: the database (the marked switches, the WHY ledger) and the vault's key. */
+  private houseDeps(): HouseDeps {
+    return { storage: this.storage, vault: this.vault };
+  }
+
+  /**
+   * [social] /ask from him in his own Discord server (social/discord.ts): one brain turn, as on Telegram (plain text, no screen),
+   * its reply as text. A draft or an approval it makes waits for him in the app or on Telegram, never answered from Discord.
+   */
+  private async discordTurn(words: string): Promise<string> {
+    const host = this.telegramHost();
+    const slot = await host.claimTurn(20_000);
+    if (!slot) return "I'm busy with something from your phone. Ask me again in a minute.";
+    const out: string[] = [];
+    try {
+      await host.runTurn(words, [], await host.client(), (ev) => {
+        if (ev.t === 'text') out.push(ev.text);
+        else if (ev.t === 'error') out.push(ev.message);
+        else if (ev.t === 'approval') out.push('That needs your approval: answer it in the app or on Telegram.');
+        else if (ev.t === 'cards') for (const c of ev.cards) if (c.kind === 'draft') out.push('The draft waits for your APPROVE in the app (LINKS → its account) or on Telegram.');
+      }, slot.signal);
+    } finally {
+      slot.done();
+    }
+    return out.join('\n\n').trim();
+  }
+
+  /** [social] What the line of his own (social/musing.ts) may use: speaking first's, a cheap model, the library, his accounts. */
+  private async musingDeps(): Promise<MusingDeps> {
+    return { ...this.speakDeps(), ai: this.studyAi(), library: this.library, social: await this.socialDeps() };
+  }
+
+  /** [social] What his accounts (social/*) may use: the database, the vault (their keys), his time zone and his pictures. */
+  private async socialDeps(): Promise<SocialDeps> {
+    return { storage: this.storage, vault: this.vault, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(this.storage), images: this.env.SITES ?? null };
   }
 
   /** [packs] What the packs (packs/index.ts) may use: the database and his notifications (with the card). */
@@ -1780,7 +1876,7 @@ export class GhostyAgent {
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */
   private dailyDeps() {
-    return { storage: this.storage, library: this.library, ai: this.studyAi() };
+    return { storage: this.storage, library: this.library, ai: this.studyAi(), more: async () => socialDigest(await this.socialDeps()) }; // [social] his Bluesky, as a LEAD
   }
 
   /** One daily job (never throws: a miss is tried again tomorrow, and the owner is not told). */

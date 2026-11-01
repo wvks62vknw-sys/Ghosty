@@ -20,6 +20,8 @@ import { bestMatch, faceAsked, iou, introAsked, steadyLooks, type FaceMatch, typ
 import { faces, FACES_SIZE, type FaceSeen } from '../../vision/faces';
 import { addPerson, knownFaces, saveMe } from '../../vision/facestore';
 import type { LensContext, Mode } from './index';
+// [restc] CHECK IT'S LIVE: a quick challenge before a face is saved (features/lens/liveness.ts)
+import { confirmLive, liveEye, liveState, needsLive } from './liveness';
 
 /**
  * [cards] Someone he introduced, recognised for sure: their PERSON card in the chat once a session — only when the guardian
@@ -55,6 +57,8 @@ export const peopleState = {
   faces: [] as { label: string; me: boolean; sure: boolean }[],
   said: '',
   enrolling: false,
+  /** [restc] the live-face check: running, its challenge, its last verdict (numbers only, no face). */
+  live: liveState,
 };
 
 /** "It's you." once a session. */
@@ -233,6 +237,8 @@ export function createPeopleMode(L: LensContext): Mode {
     const mine = visit;
     try {
       if (!(await ready(true))) return void toast('The camera or the face models did not start', 'warn');
+      // [restc] his face becomes ADMIN: a live face first (a photo held up is not him), unless he turned the check off
+      if (needsLive('enrol') && !(await confirmLive('enrol', L.camera, { who: 'me', say: (t) => speakIt(t, false), alive: () => mine === visit, status: (t) => L.status(t, 'mid') }))) return;
       const looks: number[][] = [];
       const until = Date.now() + 30_000;
       while (looks.length < 5 && Date.now() < until && mine === visit) {
@@ -274,6 +280,10 @@ export function createPeopleMode(L: LensContext): Mode {
     if (others.length > 1) return speakIt('I can see more than one face: introduce them one at a time.', voice);
     const already = others[0]!.match;
     if (already?.sure) return speakIt(already.name.toLowerCase() === name.toLowerCase() ? `I know them already: ${already.name}.` : `I know them as ${already.name}. If that’s wrong, forget ${already.name} in Settings → PRIVACY → FACES first.`, voice);
+    // [restc] a person is saved: a live face first, the one being introduced (the face nearest where they were)
+    const mine = visit;
+    const at = others[0]!.box;
+    if (needsLive('introduce') && !(await confirmLive('introduce', L.camera, { who: 'them', near: () => ({ x: at.x + at.w / 2, y: at.y + at.h / 2 }), say: (t) => speakIt(t, voice), alive: () => mine === visit, status: (t) => L.status(t, 'mid') }))) return;
     const looks: number[][] = [others[0]!.emb!].filter(Boolean);
     for (let i = 0; i < 4 && looks.length < 3; i++) {
       await wait(450);
@@ -365,10 +375,11 @@ export function createPeopleMode(L: LensContext): Mode {
       peopleState.faces = [];
       // the face models go with the mode (their memory back); the files stay in the cache
       faces.release();
+      liveEye.release();
       loadingModels = null;
     },
     tick(now) {
-      if (busy || peopleState.enrolling || now - lastLook < LOOK_MS) return;
+      if (busy || peopleState.enrolling || liveState.running || now - lastLook < LOOK_MS) return;
       lastLook = now;
       busy = true;
       void step(now)

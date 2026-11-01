@@ -1109,6 +1109,89 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 09:25 UK: ARCADE-WIRE MERGED (1b52633; OWNER-ISSUES 106): DOOM, Freedoom, the free levels, Quake and the two 3-D
   games on the shelf. Deck/arcade/games2/engines specs run on the merged tree (val5); if green it joins #49 (checks ~35 min
   old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (Opus).
+- 1 Nov 09:50 UK: ARCADE-WIRE joined PR #49 (cf13efb; five batches, the full arcade); the engines spec had failed once
+  under load 10 (Freedoom's first level: inputs before the level was ready) and passed alone. SOCIAL started (Opus, 8755).
+- 1 Nov 10:15 UK: GAMES-3 MERGED AND WIRED by hand (7e6ebc6, 0644646; OWNER-ISSUES 107): five games of our own on the
+  shelf, eight engines. Specs deck/arcade/games3 run on the merged tree (val6). From here nothing more joins #49: it
+  must finish; everything after cf13efb goes to PR #50. Running: car (8777), packs-2 (8766), social (8755).
+- 1 Nov 10:30 UK: REST-A started (Opus, 8744: offline Wikipedia, Shortcuts, Morse). The arcade spec learnt the five games
+  of our own (ca2ac3d).
+- 1 Nov 10:50 UK: CAR MERGED (34313e5; OWNER-ISSUES 108). A merge committed with conflict markers once more (local.ts,
+  phrases.ts: my resolver printed UNHANDLED and the commit went through anyway) and was amended: ALWAYS grep for markers
+  before committing a merge. Specs cards/car/studio/deck/packs run on the merged tree (val7). REST-B next (Sonnet).
+- 1 Nov 11:52 UK: PR #49 MERGED (main 4821e1b): ①, ②, ③ (the full arcade), ④a, ⑥a live. The checks took 2 h on the
+  final head after four restarts from joining batches (lesson: join only while the run is young; after that, a new PR).
+  Main's own push run with the guard finishes ~13:55 UK: confirm no "Undo broken change" then. PR #50 opens now with
+  games-3 wired and the car (studio and packs specs stalled on screenshots under load 20 here; CI judges them).
+- 1 Nov 12:10 UK: SOCIAL MERGED (24c7aa9; OWNER-ISSUES 109). Specs social/deck/character/cards/routec run on the merged
+  tree (val8); if green it joins PR #50 while its checks are young. Running: packs-2 (8766), rest-A (8744, final tests),
+  rest-B (8733), rest-C (8722: liveness, hand blueprints, TV mode). Themes and Cinematic stay HELD for his opinion.
+- 1 Nov 12:50 UK: REST-A MERGED (7851a18; OWNER-ISSUES 110) and PACKS-2 MERGED (bd8ff25 + the prompt's 5 at d73bb0e; 111). Both
+  the social and packs-2 batches trimmed the same "full" — when two batches trim the prompt, re-run the prompt test after
+  the merge and pay the difference once. Pushing to PR #50 now (its run was 11:54: one restart, three batches more in it).
+  Running: rest-B (8733), rest-C (8722), rest-D (8711: design a build + Home Assistant), packs-3 (8700). Briefs ready for
+  the next slots: BRIEF-OFFLINE-DEFAULT (⑥b, Opus), BRIEF-REST-E (converter + documents + rights-and-law, Opus). After
+  everything: the UI depth pass (Opus, last). Themes and Cinematic HELD for his opinion.
+- 1 Nov 13:00 UK: THE PUSH WAS BLOCKED by GitHub's push protection: the social test's fake Discord bot token matched the
+  real pattern (`[MN]…24.6.27+`). Fixed by rewriting the 29 unpushed commits (git filter-branch, tree filter on that one
+  line) so no pushed diff ever held it; the token is now `fake-bot-token-for-tests-only.middle.not-a-real-…`, which still
+  passes the code's own shape check. RULE: a fake token in a test must never match a real provider's pattern (start it
+  with words). CONSEQUENCE for the builders that branched from the old history: their bases were rewritten — old 24c7aa9 →
+  98f04cd (rest-C), e425869 → cf5cee2 (rest-D), a59329d → 0e5c28a (packs-3); integrate each with `git rebase --onto <new>
+  <old> <worktree-branch>` (their own commits replay; never a plain merge, which would drag the old blob back in).
+  rest-B's base 3879ae2 is in the pushed history: a normal merge. The old→new map is in the session's scratchpad
+  (sha-map.txt). The packs spec's three-squats step failed once at load 11 and passed alone (167 s): load, as PACKS-2 said.
+- 1 Nov 13:10 UK: PUSHED to PR #50 (46d6e81; its checks restarted at 13:01, done ~15:20). REST-B MERGED locally (OWNER-ISSUES
+  112; a normal merge, its base is in the pushed history); held for PR #51, which opens the moment #50 merges. ⑥b started
+  (8688, Opus). Running: rest-C (8722), rest-D (8711), packs-3 (8700), offline-default (8688). REST-E starts when a slot frees.
+- 1 Nov 14:00 UK: PR #50's FIRST run (head 6970462) finished RED at 13:56 on hubcards: the MAKE hub's Studio card says
+  "Built in 6" since the car's stand-in joined the samples, and the spec pinned 5 (twice: a real failure, not a flake).
+  Fixed in the spec with the reason, as the Lens's "10 modes" line is. LESSON: a batch that adds a Studio sample, a Lens
+  mode or anything a hub card counts must run `hubcards`; a push does NOT cancel the run before it (no concurrency rule in
+  check.yml), so the 13:01 run will also go red on the same line and can be ignored; the run from this push is the one.
+  Pushed with REST-B and the two merge fixes: PR #50 now carries six batches.
+- 1 Nov 14:15 UK: REST-C APPLIED (OWNER-ISSUES 113) as one squashed change (`git diff --binary <old base> <head> | git apply -3`,
+  then the usual marker resolution: the apply's markers read `ours`/`theirs`), because its base was in the rewritten history.
+  The same route for rest-D (old base e425869) and packs-3 (old base a59329d). Held for PR #51 behind #50's run (14:00).
+  REST-E started (8677, Opus). Running: rest-D (8711), packs-3 (8700), offline-default (8688), rest-E (8677).
+- 1 Nov 14:30 UK: MAIN'S RUN AFTER PR #49 WENT RED (routec, twice: the Home quick chips read as under 44 pt at 440 because a
+  scroll to the end was taken before the wall's last card landed, so the chips sat below the fold and the finger probe read the
+  dock — a race, reproduced once here and not the next time; nothing is broken for him). THE GUARD COULD NOT REVERT: its push
+  was refused ("refusing to allow a GitHub App to create or update workflow .github/workflows/check.yml without workflows
+  permission") because PR #49 changed the smoke loop's list; every batch PR changes it, so the guard cannot revert any of
+  this week's merges. Left as it is (the guard is not to be touched); said to the owner in the next message: the revert of a
+  bad merge is by hand (a revert PR). The fix for the race is in routec.spec (it lets the page settle before the probe);
+  the lens spec failed once on the REST-C tree (41 s, START not found) and is re-run alone before judging.
+- 1 Nov 15:00 UK: THE 13:01 RUN (head 46d6e81) showed what the smoke loop does to a batch's spec that passed alone: FIVE specs
+  red, each twice — hubcards (the car's sixth sample), packs2 (its BASE default was the builder's own port 8766: CI sets no
+  BASE, every spec must default to 8788), social (the mock writes the thought from the FIRST fact; on the loop's shared
+  brain that is a digest headline from an earlier spec, not his Bluesky line), resta ("…and is not sent" scanned every
+  message of his in a chat that already held an earlier spec's "remind me to call mum"), ui (the LINKS list drew the
+  Accounts heading twice: layout.ts's groups matched TELEGRAM CHANNEL as an account while the sections list had it under
+  Social). RULE FOR EVERY BRIEF FROM NOW: the smoke loop runs every spec against ONE preview brain in order, so a spec must
+  not assume a fresh brain (check the last message, not any; name what it posted, not what the mock would say on an empty
+  brain), must default BASE to 8788, and a new Links/Settings/System panel must be matched in BOTH `shell/layout.ts` GROUPS and
+  the screen's `sections(...)` list. All five fixed here; routec's probe scrolls until the wall stops growing; lens is load.
+- 1 Nov 16:20 UK: the 14:00 run (c5c7f81) added two more: abilities ("can you juggle?" went to REST-B's coach phrase
+  instead of the catalogue's "Not yet": coachAsked now leaves any "can/could/do you …" question alone) and upgrades (THINK NOW
+  did not show the new idea first, twice on CI, never here in three runs on fresh and used brains; left to the 15:17 run to
+  show again or not). ⑥b MERGED (OWNER-ISSUES 114). PR #50's 15:17 run is doomed by the abilities line: the next push
+  (⑥b + the coach fix) restarts it. Running: rest-D (8711), packs-3 (8700), rest-E (8677). Next: the UI depth pass brief.
+- 1 Nov 16:35 UK: REST-D APPLIED (OWNER-ISSUES 115; the squash route; nine conflicts incl. the command list, whose shared
+  closing braces sat in the tail — check `builtin.ts` compiles after a both-sides join). BRIEF-DEPTH written (the last batch;
+  launch after packs-3 and rest-E merge). The next push carries ⑥b, REST-D, the coach fix and the docs. Running: packs-3
+  (8700), rest-E (8677).
+- 1 Nov 17:20 UK: the 15:17 run (85d3c6b) showed two more: safari (REST-C's TV map was sized with 100vh: dvh, as the arcade
+  does) and social again — the musing's card never reached the chat because the clock stub stood at 14:00 and the page shows
+  only what is newer than what it has: after 14:00 real time the card is stamped in the past. The stub's clock is now 14:00 or
+  a minute from now, whichever is later (tomorrow's 14:00 after 23:00). REST-E MERGED (OWNER-ISSUES 116; a plain merge).
+  Running: packs-3 (8700), the last builder; then the depth pass.
+- 1 Nov 17:45 UK: THE REAL CAUSE of social's loop failures, found with a probe on a used brain: the page's notices poller kept
+  a TIME watermark of what it had announced, and one inbox item stamped ahead of the clock (the cards spec's "Good morning"
+  set for tomorrow's waking) raised it past everything that arrived before then, so the musing's card was never announced
+  (it still reached the wall, not the chat). The poller now records announced ids (the last 300) instead. Verified: cards,
+  brief, social, notifications and agenda on ONE brain in that order. The clock-stub change in the spec stays (harmless).
+  LESSON: a spec that stamps an item in the future must not be assumed harmless for the specs after it.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

@@ -1,5 +1,5 @@
 /**
- * THE PACKS (BRIEF-PACKS-1; OWNER-ISSUES 92 ④): money, body and kitchen — small real abilities, each one tool with an
+ * THE PACKS (BRIEF-PACKS-1; OWNER-ISSUES 92 ④): money, body, kitchen, people, work and creative — small real abilities, each one tool with an
  * `action` enum on the brain (apps/edge/src/tools/money.ts, body.ts, kitchen.ts) and the phone's screens where a screen
  * is needed (apps/web/src/features/body, features/kitchen). This file is what they share: the days on his calendar, the
  * distance between two points, money and amounts in his words, and the shape of a pack action's answer. Pure: no storage,
@@ -7,7 +7,7 @@
  */
 import type { Card } from './cards';
 
-export const PACKS = ['money', 'body', 'kitchen'] as const;
+export const PACKS = ['money', 'body', 'kitchen', 'people', 'work', 'creative'] as const;
 export type PackName = (typeof PACKS)[number];
 
 /** What one pack action gives back: his words, the cards for the chat, data for a screen, a screen to open on the phone. */
