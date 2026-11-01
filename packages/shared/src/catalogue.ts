@@ -155,6 +155,11 @@ export const SINCE_SCREEN: Record<string, string> = {
   'area-ask': '2026-10-28', 'area-see': '2026-10-28', 'area-make': '2026-10-28', 'area-learn': '2026-10-28', 'area-plan': '2026-10-28', 'area-me': '2026-10-28',
 };
 
+/**
+ * When an entry arrived: its words' own `since` (a thing newer than its screen or group: the day it first appeared in the
+ * history, for the panels, chat controls and phrases built in the last weeks), else its registry item's, else its tool
+ * group's or its screen's batch, else the first build.
+ */
 export function sinceOf(item: CatItem, w?: CatWords): string {
   return w?.since ?? item.since ?? (item.kind === 'tool' ? SINCE_GROUP[item.group ?? ''] : SINCE_SCREEN[item.screen ?? '']) ?? FIRST;
 }

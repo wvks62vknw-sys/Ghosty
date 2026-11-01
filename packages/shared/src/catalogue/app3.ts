@@ -56,6 +56,7 @@ export const APP_3: Record<string, CatValue> = {
     name: 'The guardian: your person', line: 'You can name one person I message if you need help, and set a panic phrase only you know.',
     more: 'By their Telegram or your own email, never a text. The panic phrase is kept only as a scrambled copy; said anywhere, it messages them at once.',
     say: ['Set up walk me home'], scene: ['watching'], cat: 'watch',
+    since: '2026-10-31',
   },
   'panel:settings:THEME': {
     name: 'Pick my colour', line: 'You can pick my colour: Reactor or Graphite, applied at once.',
@@ -102,6 +103,7 @@ export const APP_3: Record<string, CatValue> = {
     name: 'Describe your home', line: 'You can describe your home or a room in your own words and I draw the plan.',
     more: 'Sizes in any unit, upstairs as another floor. I say every size I had to assume.',
     say: ['My lounge is 5 by 4 metres with the door on the left'], scene: ['making'], cat: 'build',
+    since: '2026-10-24',
   },
   'panel:space:ROOM PLAN': {
     name: 'Your room to scale', line: 'You can see your room to scale and drag furniture round it, with walkways and clashes marked red.',
@@ -175,16 +177,19 @@ export const APP_3: Record<string, CatValue> = {
     name: 'What I learned this week', line: 'You can read what I learned to do this week, in plain lines.',
     more: 'From my training and my games: measured, never just claimed. A note comes on Sunday mornings.',
     say: ['What did you learn this week?'], scene: ['behind', 'school'], cat: 'learn',
+    since: '2026-10-31',
   },
   'panel:system:LOOPS': {
     name: 'How I improve myself', line: 'You can see every way I improve myself: what each practised, what got better, what was rejected.',
     more: 'A change is only kept if it beats the old one on tests it never trained on.',
     say: ['How are you improving?'], scene: ['behind', 'school'], cat: 'learn',
+    since: '2026-10-24',
   },
   'panel:system:NIGHT SCHOOL': {
     name: 'Night School on your phone', line: 'You can let me study through the night on your phone while it charges, between the times you set.',
     more: 'Plugged in and open on me, from 23:00 to 06:00 unless you change it. The screen dims and I get on with it.',
     say: ['Turn on Night School'], scene: ['phone', 'school', 'behind'], cat: 'learn', needs: ['offline'],
+    since: '2026-10-24',
   },
   'panel:system:OFFLINE BRAIN REPORT CARD': {
     name: 'The phone brain’s report card', line: 'You can see an honest report card for the brain on your phone, area by area.',
@@ -341,6 +346,7 @@ export const APP_3: Record<string, CatValue> = {
     name: 'What’s new this week', line: 'You can read what changed in me this week, in plain words, once per update.',
     more: 'At the top of the Workshop when something new has landed.',
     say: ['What’s new?'], scene: ['behind'], cat: 'do',
+    since: '2026-10-23',
   },
   'panel:workshop:TRAINING GROUND': {
     name: 'My coding practice', line: 'You can watch me practise coding on exercises with hidden tests, and see how I do.',

@@ -38,6 +38,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'Your spending, sorted', line: 'You can add a bank statement you downloaded and I sort your month: categories, budgets, subscriptions.',
     more: 'A CSV from your bank’s app. No bank access, ever; only the shop names my rules cannot place go to a free AI to sort.',
     say: ['How much did I spend on food?'], scene: ['money'], cat: 'watch', needs: ['statement'],
+    since: '2026-10-24',
   },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
@@ -45,6 +46,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'The rest of your day', line: 'You can see the rest of today at the top of the Brief: your events, your reminders, my messages.',
     more: 'Built on your phone from your Agenda, every time you open it.',
     say: ['What’s left today?'], scene: ['morning'], cat: 'know',
+    since: '2026-10-24',
   },
   'panel:brief:WEATHER': {
     name: 'Rain, hour by hour', line: 'You can see the rain chance and the temperature hour by hour, with the rain said in words.',
@@ -55,6 +57,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'Your commute, in full', line: 'You can see your commute between home and work: the roads and the trains, before you leave.',
     more: 'It needs your home and work saved. With a free TomTom key it also gives the road speeds against normal.',
     say: ['How’s my commute?'], scene: ['morning', 'out'], cat: 'know', needs: ['home', 'work', 'key:tomtom'],
+    since: '2026-10-24',
   },
   'panel:brief:HEADLINES': {
     name: 'Headlines by section', line: 'You can read the headlines by section: world, tech, science, and the morning digest’s line.',
@@ -131,6 +134,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'Your gadgets’ manuals', line: 'You can open the manuals I found for your gadgets, each kept with where it came from.',
     more: 'Ask me about a fault code and I answer from these pages, saying which page.',
     say: ['Find the manual for my dishwasher'], scene: ['making', 'money'], cat: 'know',
+    since: '2026-10-24',
   },
   'panel:library:SELF-STUDY': { same: 'job:study' },
   'panel:library:FRESH TODAY': { same: 'job:digest' },
@@ -206,6 +210,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'Your rules for me', line: 'You can write your own rules for how I behave, in your own words.',
     more: 'The lines I keep to whatever we talk about. The same page is in Settings → CHARACTER.',
     say: ['Never swear at me'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-31',
   },
   'panel:memory:DIARY': { same: 'job:reflect' },
   'panel:memory:LESSONS LEARNED': { same: 'tool:list_lessons' },

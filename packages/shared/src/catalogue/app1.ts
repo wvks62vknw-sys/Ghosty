@@ -165,11 +165,13 @@ export const APP_1: Record<string, CatValue> = {
     name: 'Am I all right?', line: 'You can see at a glance whether I am all right: free AI left today, my storage, the offline brain, my mood.',
     more: 'The Status card on the Me sheet: three dials and a few lines, all read live. "All good" or "Needs a look".',
     say: ['(tap your initial)'], scene: ['behind'], cat: 'do', tryText: 'Opens the Me sheet',
+    since: '2026-10-23',
   },
   'me:guardian': {
     name: 'Watching over you, at a glance', line: 'You can see what I am watching over: your places, the warnings feeds, your named person, a walk home.',
     more: 'On the Me sheet; tap it for THREATS → NEAR HOME.',
     say: ['(tap your initial)'], scene: ['watching'], cat: 'watch', tryText: 'Opens the Me sheet',
+    since: '2026-10-31',
   },
   // ---- the themes
   'theme:reactor': {
@@ -244,6 +246,7 @@ export const APP_1: Record<string, CatValue> = {
     name: 'Keep a message on this phone', line: 'You can tap ON THIS PHONE and your next message is answered by the brain on your phone, and never leaves it.',
     more: 'If that brain cannot answer, the task stops and says why: nothing falls back to the cloud. Only ASK THE BIG BRAIN, which you tap, sends it online.',
     say: ['(tap ON THIS PHONE by the microphone)'], scene: ['phone', 'talking'], cat: 'talk', needs: ['offline'],
+    since: '2026-10-30',
   },
   'chat:cited': {
     name: 'Answers with sources', line: 'You can switch on CITED and my answers come with numbered sources, every claim checked against them.',
@@ -284,6 +287,7 @@ export const APP_1: Record<string, CatValue> = {
     name: 'Why I did that', line: 'You can tap WHY on any reply to see what I ran, with what, how it went, and why.',
     more: 'In plain words, with no AI: what you asked, each step and its reason. A long press on a reply opens it too.',
     say: ['Why did you do that?'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-31',
   },
   'chat:rate': {
     name: 'Thumbs up or down', line: 'You can give any reply a thumbs up or down, and it counts in my weekly training.',
@@ -306,51 +310,61 @@ export const APP_1: Record<string, CatValue> = {
     more: 'I ask "Home?" at your walking time and again ten minutes later; if there is still no answer five minutes after that, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',
     say: ['Walk me home', 'Walk me home, 20 minutes', 'Home'], scene: ['watching', 'out'], cat: 'watch', needs: ['person'],
     go: { ask: 'Walk me home', send: false },
+    since: '2026-10-31',
   },
   'phrase:stop': {
     name: 'Stop, at once', line: 'You can say stop, enough, leave it, or worse, and I stop at once and say nothing back.',
     more: 'Typed, said or on Telegram, typos and all. A request like "stop the timer" is still a request.',
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-31',
   },
   'phrase:reboot': {
     name: 'Watch me reboot', line: 'You can say "reboot" and I wake up again with my boot cinematic, right there on the phone.',
     more: 'Just the show: nothing is lost and my brain is not asked.',
     say: ['Reboot'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-24',
   },
   'phrase:machine': {
     name: 'The Machine view', line: 'You can say "machine view" and I show your city from above with everything moving, your places boxed.',
     more: 'God’s eye from 14 km: aircraft, buses, your places in thin white boxes, one true count line. LEAVE puts everything back.',
     say: ['Machine view', 'Show me my city', 'What are you watching?'], scene: ['watching', 'out'], cat: 'see', needs: ['home'],
     go: { open: 'eye?machine' }, tryText: 'Opens God’s eye on the Machine view',
+    since: '2026-10-31',
   },
   'phrase:workbench': {
     name: 'Estimates by words', line: 'You can say "beam calculator" or "3 m steel beam 5 kN in the middle" and I answer on the phone, no AI.',
     more: 'A calculator’s name opens it; a problem with its numbers is filled in and answered at once. A question goes to my brain.',
     say: ['Beam calculator', 'Wind tunnel', '3 m steel beam 5 kN in the middle'], scene: ['making'], cat: 'build',
+    since: '2026-10-31',
   },
   'phrase:foresight': {
     name: 'What I expect, and my record', line: 'You can ask what I expect today, or how often I am right, and I answer from my record.',
     more: 'No AI needed: straight from my predictions and their scores. On Telegram too.',
     say: ['What do you expect today?', 'How often are you right?', 'Were you right?'], scene: ['morning'], cat: 'know',
+    since: '2026-10-31',
   },
   'phrase:right': {
     name: 'Tell me if I was right', line: 'You can tell me "you were right" or "you were wrong" about my last prediction, and I note it.',
     more: 'Only your own questions are scored by your word; the rest the live feeds score. On Telegram too.',
     say: ['You were right', 'You were wrong'], scene: ['morning'], cat: 'know', go: { ask: 'You were right', send: false },
+    since: '2026-10-31',
   },
   'phrase:today': {
     name: 'What I did today', line: 'You can ask what I did today and I list it, newest first: what I ran, studied, built and learned.',
     more: 'From what really happened, on the phone and in my brain, with no AI. On Telegram too.',
     say: ['What did you do today?', 'What have you been up to?'], scene: ['talking', 'behind'], cat: 'talk',
+    since: '2026-10-31',
   },
   'phrase:why': {
     name: 'Ask me why', line: 'You can ask "why did you do that?" and I explain my last reply step by step, with no AI.',
     more: 'What you asked, what I ran and why. A bare "why?" after a plain answer goes to my brain as a question. On Telegram too.',
     say: ['Why did you do that?', 'Why?'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-31',
   },
   'phrase:canyou': {
     name: 'Ask me “can you…?”', line: 'You can ask "can you…?" about anything and I say yes with the way to do it, or "not yet" and offer to learn it.',
     more: 'The same search as this list. Say yes to "want me to learn it?" and it goes on my learning list. "Can you remind me at 5…" is a request, and I just do it.',
     say: ['Can you translate signs?', 'Can you check my car’s MOT?'], scene: ['talking'], cat: 'talk',
+    since: '2026-10-31',
   },
 };
