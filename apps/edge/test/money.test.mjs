@@ -282,6 +282,11 @@ test('the tool: one action enum; its cards go to the screen as pack_card and the
   assert.equal(cards.length, 1);
   assert.equal(cards[0].id, 'money:subs');
   await assert.rejects(tool.run({ action: 'buy' }, ctx), /money has no action "buy"/);
+  // a scheduled task or a project's step (nobody there): the reads work, the writes wait for him
+  const away = { ...ctx, unattended: true };
+  assert.match(await tool.run({ action: 'split', words: 'split £10 between Ali and Sam' }, away), /^£10: Ali £5, Sam £5\./);
+  await assert.rejects(tool.run({ action: 'spent', words: 'spent 5 on lunch' }, away), /money spent changes what he keeps, so it waits for him/);
+  await assert.rejects(tool.run({ action: 'watch', url: 'https://shop.example/x' }, away), /waits for him/);
 });
 
 test('the phone’s buttons: POST /packs/do runs one action with no model (a card’s UNDO); anything else is refused', async () => {

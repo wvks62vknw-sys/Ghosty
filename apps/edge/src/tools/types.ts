@@ -31,6 +31,11 @@ export interface ToolContext {
    * and on the HUD ("crt.sh… 3 of 7" with done/total). Tagged with this call's id by the agent.
    */
   progress: ProgressFn;
+  /**
+   * A scheduled task or a project's step: nobody is there. The packs (packs/base.ts) refuse their writes then — a list, a
+   * watch, a reminder — as the kernel keeps set_reminder and the rest from unattended runs; their reads still work.
+   */
+  unattended?: boolean;
   /** True while the owner has unlocked the kernel from the Workshop tab. */
   kernelUnlocked: () => Promise<boolean>;
   /** GitHub client for Ghosty's own repository, or null if not configured. */

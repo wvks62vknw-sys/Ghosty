@@ -1808,7 +1808,7 @@ export class GhostyAgent {
         const groups: PromptGroups = { on: picked.on.map((g) => ({ ...g, tools: g.tools.filter(ok) })).filter((g) => g.tools.length), off: picked.off.map((g) => ({ ...g, tools: g.tools.filter(ok) })).filter((g) => g.tools.length) };
         return { tools: groups.on.flatMap((g) => g.tools), prompt: capabilityLines(groups) };
       },
-      tctx: this.toolContext(() => undefined),
+      tctx: { ...this.toolContext(() => undefined), unattended: true }, // [packs] nobody there: a pack's writes wait for him
       system: async () => {
         const client: ClientContext = { ...((await this.storage.get<ClientContext>('owner:ctx')) ?? {}) };
         client.now = fmtLocal(Date.now(), safeTz(client.tz));
@@ -1893,7 +1893,7 @@ export class GhostyAgent {
       const tools = TOOLS.filter(allowed);
       const facts = await loadMemory(this.storage);
       const ctx: Msg[] = [{ role: 'user', content: `Scheduled task "${job.title}": ${job.text}` }];
-      const tctx = this.toolContext(() => undefined);
+      const tctx = { ...this.toolContext(() => undefined), unattended: true }; // [packs] nobody there: a pack's writes wait for him
       // (the same picture of his day the chat has: the report it writes is the one mind's too)
       const mind = await mindSnapshot(this.storage, { client, vault: this.vault }).catch(() => null);
       for (let step = 0; step < CHAIN_STEPS; step++) {

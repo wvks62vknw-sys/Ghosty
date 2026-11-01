@@ -414,7 +414,7 @@ export function registerBuiltins(): void {
       title: 'Body: reps, run, breathe, stretch',
       group: 'GO',
       run: async (a) => {
-        const { openBody } = await import('../features/body');
+        const { openBody } = await import('../features/body/sheet');
         await openBody(typeof a?.what === 'string' ? a.what : 'reps', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
       },
     },
@@ -424,7 +424,7 @@ export function registerBuiltins(): void {
       title: 'Money: paste a statement',
       group: 'GO',
       run: async () => {
-        const { openMoney } = await import('../features/money');
+        const { openMoney } = await import('../features/money/sheet');
         openMoney();
       },
     },
@@ -434,7 +434,7 @@ export function registerBuiltins(): void {
       title: 'Kitchen: timers, shopping list, meal plan',
       group: 'GO',
       run: async (a) => {
-        const { openKitchen } = await import('../features/kitchen');
+        const { openKitchen } = await import('../features/kitchen/sheet');
         await openKitchen(typeof a?.what === 'string' ? a.what : 'timers');
       },
     },
@@ -444,7 +444,7 @@ export function registerBuiltins(): void {
       title: 'Kitchen timer',
       hidden: true,
       run: async (a) => {
-        const { timerCommand } = await import('../features/kitchen');
+        const { timerCommand } = await import('../features/kitchen/sheet');
         timerCommand(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
       },
     },

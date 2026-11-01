@@ -12,7 +12,7 @@ import { Camera, cameraMessage } from '../../vision/camera';
 import { fetchModel, visionRuntime } from '../../vision/models';
 import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
-import { bodyState, type Screen } from './index';
+import { bodyState, type Screen } from './sheet';
 
 export const POSE_MODEL = '/vendor/pose/pose_landmarker_lite.task';
 

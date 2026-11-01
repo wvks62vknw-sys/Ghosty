@@ -10,7 +10,7 @@ import { h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { timeZone } from '../../state/app';
 import { brain } from '../../api/brain';
-import { bodyState, type Screen } from './index';
+import { bodyState, type Screen } from './sheet';
 
 export function healthScreen(): Screen {
   const input = h('input', { type: 'file', accept: '.zip,.xml,application/zip,text/xml', 'aria-label': 'Your Apple Health export (export.zip or export.xml)', hidden: true }) as HTMLInputElement;

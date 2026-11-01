@@ -9,7 +9,7 @@ import { h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
-import { bodyState, type Screen } from './index';
+import { bodyState, type Screen } from './sheet';
 
 export function runScreen(): Screen {
   let s: RunState = runStart(Date.now());

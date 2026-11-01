@@ -8,7 +8,7 @@ import { BREATHS, breathAt, STRETCHES, stretchAt, STRETCH_SECS } from '../../../
 import { h } from '../../core/dom';
 import { button } from '../../ui/components';
 import { brain } from '../../api/brain';
-import { bodyState, type Screen } from './index';
+import { bodyState, type Screen } from './sheet';
 
 const ROUNDS = 4;
 

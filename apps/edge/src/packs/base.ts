@@ -76,6 +76,8 @@ export function packTool(o: { name: string; description: string; actions: Record
       const action = String(a.action ?? '');
       const fn = o.actions[action];
       if (!fn) throw new Error(`${o.name} has no action "${action}": ${names.join(', ')}`);
+      // unattended (a scheduled task, a project's step): only the actions that read — nothing kept, watched or reminded
+      if (ctx.unattended && !o.reads.includes(action)) throw new Error(`${o.name} ${action} changes what he keeps, so it waits for him: not from a scheduled task`);
       const out = await fn(a, { storage: ctx.storage, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(ctx.storage) });
       for (const c of out.cards ?? []) ctx.emit({ t: 'client', name: 'pack_card', args: { card: c } });
       if (out.open) ctx.emit({ t: 'client', name: out.open.name, args: out.open.args });

@@ -29,7 +29,7 @@ const prevMonth = (m: string) => (m.slice(5, 7) === '01' ? `${+m.slice(0, 4) - 1
 export const PASTE_ASK = /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i;
 export async function statementOrBox(text: string): Promise<PackReply> {
   if (!PASTE_ASK.test(text.trim())) return statementTurn(text);
-  const { openMoney } = await import('../features/money');
+  const { openMoney } = await import('../features/money/sheet');
   openMoney();
   return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only, read by code.' };
 }
@@ -68,7 +68,7 @@ export async function bodyTurn(text: string): Promise<PackReply> {
       return { said: text, reply: 'My brain didn’t answer, so that glass isn’t kept: try again in a moment.' };
     }
   }
-  const { openBody } = await import('../features/body');
+  const { openBody } = await import('../features/body/sheet');
   void openBody(ask.what, ask.what === 'reps' ? { exercise: ask.exercise } : ask.what === 'breathe' ? { pattern: ask.pattern } : {});
   const reply =
     ask.what === 'reps' ? `The camera counts your ${EXERCISES.find((e) => e.id === ask.exercise)!.say} here on the phone and says each one. Prop it up so it sees all of you, then START.`
@@ -82,7 +82,7 @@ export async function bodyTurn(text: string): Promise<PackReply> {
 export async function kitchenTurn(text: string): Promise<PackReply> {
   const oven = ovenAsked(text);
   if (oven) return { said: text, reply: oven };
-  const k = await import('../features/kitchen');
+  const k = await import('../features/kitchen/sheet');
   if (shoppingAsked(text)) {
     void k.openKitchen('shopping');
     return { said: text, reply: 'Your shopping list is open: tick things off as you go, or SHARE AS TEXT to send it.' };
