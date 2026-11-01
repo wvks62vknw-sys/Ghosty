@@ -140,9 +140,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- BUILDING NOW (1 Nov): ③ DOOM and Quake natively in the browser (Freedoom and the free levels with them); ③ two games
-  of our own in 3-D (the block world where Ghosty builds what you say; the runner); ④ the money, body and kitchen packs.
-  Each: review, one PR, merged when green.
+- BUILDING NOW (1 Nov): ③ wiring DOOM, Freedoom, Quake and the two 3-D games into the arcade; ③ the kart racer, the
+  hopper and the arena; ⑤ the car in 3-D from its plate; ④ the people, work and creative packs next. Merged and waiting
+  for the next PR: native DOOM and Quake, the block world and the runner, the money, body and kitchen packs (39 things).
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

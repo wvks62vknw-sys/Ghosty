@@ -1098,6 +1098,13 @@ folder that no longer exists; ignore those paths).
   the player; three add/add conflicts (two builders created types/saves/audio from the same spec) resolved as unions.
   Held locally with the docs; the engines builder continues with the integration step on the branch tip (its worktree
   kept); all of it goes to PR #50 after #49 merges.
+- 1 Nov 08:50 UK: CI on the old heads failed on three specs: SELFTRAIN (the chooser's list; fixed 6ddc5a6), BOOT (the
+  greeting's first tap landed on a wall card and counted as "busy": only typing or signing in count now, e86dde4) and the
+  Workshop's PROJECTS lists (passes here; watched on the current head). The engines test is scoped to doom/quake entries
+  (c36aac4). Everything local was pushed at 08:18 (c36aac4): #49 now carries ①②③a⑥a + the inert engines and two games.
+- 1 Nov 08:55 UK: PACKS-1 MERGED (0ea2e8d; OWNER-ISSUES 105): money, body, kitchen; the prompt at exactly 5,500 on the worst
+  dial. Held for PR #50 with the wiring. Running: arcade-wire (8811, final tests), games-3 (8799), car (8777); PACKS-2
+  next on Sonnet (the pattern is set).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
