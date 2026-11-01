@@ -20,7 +20,8 @@ export const KEYS: Readonly<Record<string, number>> = {
   rshift: 344, rctrl: 345, ralt: 346, mouse1: -1, mouse2: -2,
 };
 
-/** One button under the thumb: the slot it fills (the gamepad presses the same slot), the DOS key, its label. */
+/** One button under the thumb: the slot it fills (the gamepad presses the same slot), the DOS key ("ctrl+alt" for two
+ * together), its label. */
 export interface DosButton {
   act: Action;
   key: string;
@@ -73,7 +74,8 @@ export function dosConf(s: DosSetup): string {
     '[joystick]', 'joysticktype=none', '',
     '[dos]', 'xms=true', 'ems=true', 'umb=true', 'keyboardlayout=auto', '',
     '[ipx]', 'ipx=false', '',
-    '[autoexec]', 'echo off', 'mount c .', 'c:', ...s.run, '',
+    // the BLASTER variable is how DOS games find the card without asking
+    '[autoexec]', 'echo off', 'mount c .', 'c:', 'SET BLASTER=A220 I7 D1 H5 T6', ...s.run, '',
   ].join('\n');
 }
 
@@ -117,9 +119,12 @@ export function keysHeld(intent: Intent, c: DosControls, st: DosInputState): Set
   st.y = axis(intent.moveY, st.y);
   const k = STICKS[c.stick];
   const out = new Set<number>();
+  // a button may press keys together ("ctrl+alt": Keen 1's raygun)
   const add = (name: string | undefined) => {
-    const code = name === undefined ? undefined : KEYS[name];
-    if (code !== undefined) out.add(code);
+    for (const part of name?.split('+') ?? []) {
+      const code = KEYS[part];
+      if (code !== undefined) out.add(code);
+    }
   };
   if (st.y === 1) add(k.up);
   if (st.y === -1) add(k.down);

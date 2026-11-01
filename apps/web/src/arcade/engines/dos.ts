@@ -8,13 +8,13 @@
  * (`emulators.backend`, in /vendor/dos/emulators.js) talks to it. Sound goes straight from that worker to an
  * AudioWorklet (the package's own player, /vendor/dos/audio-worklet.js) on the arcade's one AudioContext.
  *
- * The game's bundle (its files, built on the phone at GET) and the text files the player adds (dosbox.conf with the
- * autoexec, the game's own set-up file, the controls block) go in first, then what the game saved last time (one
- * bundle in IndexedDB, through the SaveStore), then dosbox.conf again last so ours always rules. What the game writes
- * (its saved games, its set-up) is taken back with the emulator's persistence on PAUSE, on QUIT, when the page is
- * hidden and every two minutes, merged into that bundle.
+ * DOSBox unpacks bundles in order after it has written any loose files, so everything goes in as bundles: the game's
+ * own (its files, built on the phone at GET), then what the game saved last time (one bundle in IndexedDB, through the
+ * SaveStore), then ours last (dosbox.conf with the autoexec and the game's own set-up file, so the sound card and the
+ * keys our buttons press always rule). What the game writes (its saved games) is taken back with the emulator's
+ * persistence on PAUSE, on QUIT, when the page is hidden and every two minutes, merged into its saved bundle.
  */
-import { CONF_PATH, CONTROLS_PATH, type DosControls, freshInput, KEYS, keyOfEvent, keysHeld, mouseSteps } from '../dos';
+import { CONTROLS_PATH, type DosControls, freshInput, KEYS, keyOfEvent, keysHeld, mouseSteps } from '../dos';
 import { zipEntries, zipRead, zipStore } from '../zip';
 import { arcadeAudio } from './audio';
 import type { SaveStore } from './saves';
@@ -116,12 +116,16 @@ async function soundOut(): Promise<{ port: MessagePort; gain: GainNode; node: Au
 /** A Uint8Array that owns its whole buffer (the protocol sends `.buffer`, so a view into a larger one would send too much). */
 const own = (u: Uint8Array): Uint8Array => (u.byteOffset === 0 && u.byteLength === u.buffer.byteLength ? u : u.slice());
 
-/** The saved bundle and what the game changed this visit, as one bundle (this visit's files win; our set-up is never kept). */
-export async function mergeSaves(old: Uint8Array | null, fresh: Uint8Array | null): Promise<Uint8Array | null> {
+/**
+ * The saved bundle and what the game changed this visit, as one bundle: this visit's files win; our set-up (the
+ * .jsdos folder and the files the player adds, `ours`, any case) is never kept, it comes fresh each time.
+ */
+export async function mergeSaves(old: Uint8Array | null, fresh: Uint8Array | null, ours: readonly string[] = []): Promise<Uint8Array | null> {
+  const skip = new Set(ours.map((p) => p.toUpperCase()));
   const m = new Map<string, Uint8Array>();
   for (const z of [old, fresh]) {
     if (!z || z.length < 22 || z[0] !== 0x50 || z[1] !== 0x4b) continue;
-    for (const e of zipEntries(z)) if (!e.name.endsWith('/') && !e.name.startsWith('.jsdos/')) m.set(e.name, await zipRead(z, e));
+    for (const e of zipEntries(z)) if (!e.name.endsWith('/') && !e.name.startsWith('.jsdos/') && !skip.has(e.name.toUpperCase())) m.set(e.name, await zipRead(z, e));
   }
   return m.size ? zipStore([...m]) : null;
 }
@@ -135,16 +139,16 @@ export const dosEngine: Engine = {
     Object.assign(dosStats, { frames: 0, fps: 0, loadMs: 0, speed: 0, cycles: 0, running: false });
     let controls: DosControls = { stick: 'arrows', drag: 'none', buttons: [] };
     const init: unknown[] = [];
-    let conf: string | null = null;
+    const ours: [string, Uint8Array][] = [];
     for (const [path, bytes] of Object.entries(files)) {
       if (path === CONTROLS_PATH) controls = JSON.parse(new TextDecoder().decode(bytes)) as DosControls;
-      else if (path === CONF_PATH) conf = new TextDecoder().decode(bytes);
       else if (/\.jsdos$/i.test(path)) init.push(own(bytes));
-      else init.push({ path, contents: own(bytes) });
+      else ours.push([path, bytes]);
     }
     const saved = await opts.saves.get(SAVE_NAME).catch(() => null);
     if (saved) init.push(own(saved));
-    if (conf !== null) init.push(conf);
+    if (ours.length) init.push(zipStore(ours));
+    const oursNames = ours.map(([p]) => p);
 
     const [emu, out] = await Promise.all([loadClient(), soundOut()]);
     if (out) out.gain.gain.value = opts.sound ? 1 : 0;
@@ -293,7 +297,7 @@ export const dosEngine: Engine = {
         try {
           const fresh = await withTimeout(ci.persist(true), 8000);
           if (!fresh) return;
-          const merged = await mergeSaves(await opts.saves.get(SAVE_NAME), fresh);
+          const merged = await mergeSaves(await opts.saves.get(SAVE_NAME), fresh, oursNames);
           if (merged) await opts.saves.put(SAVE_NAME, merged);
         } catch {
           /* the next save tries again */
@@ -363,4 +367,4 @@ export const dosEngine: Engine = {
 };
 
 /** The DOS keys a game's buttons press, as the CONTROLS panel says them ("CTRL", "SPACE"). */
-export const keyWord = (key: string): string => (key === 'mouse1' ? 'MOUSE' : key === 'mouse2' ? 'RIGHT MOUSE' : key in KEYS ? key.toUpperCase() : key);
+export const keyWord = (key: string): string => key.split('+').map((k) => (k === 'mouse1' ? 'MOUSE' : k === 'mouse2' ? 'RIGHT MOUSE' : k === 'quote' ? "'" : k in KEYS ? k.toUpperCase() : k)).join('+');
