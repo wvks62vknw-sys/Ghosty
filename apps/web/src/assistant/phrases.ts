@@ -59,6 +59,9 @@ export const LOCAL_ASKS = [
   { id: 'interview', test: (t: string) => INTERVIEW_ASK.test(t.trim()) },
   { id: 'pomodoro', test: (t: string) => POMO_ASK.test(t.trim()) },
   { id: 'beat', test: (t: string) => BEAT_ASK.test(t.trim()) },
+  // [restb] the coach's skills first: its DRAW lesson (the prompt of the day with his picture beside it) answers "what should I
+  // draw" and "drawing prompt" ahead of the creative pack's one-line prompt below, which keeps the forms the coach does not take
+  { id: 'skill', test: (t: string) => ['typing', 'draw', 'words', 'juggle'].includes(coachAsked(t)?.what ?? '') },
   { id: 'drawing', test: (t: string) => DRAW_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
@@ -71,7 +74,6 @@ export const LOCAL_ASKS = [
   // [restb] the instrument and skills coach on the phone: the tuner, the lessons, and typing, drawing and words (assistant/restb.ts, coach/)
   { id: 'tuner', test: (t: string) => coachAsked(t)?.what === 'tuner' },
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
-  { id: 'skill', test: (t: string) => ['typing', 'draw', 'words', 'juggle'].includes(coachAsked(t)?.what ?? '') },
   { id: 'canyou', test: (t: string) => canYouAsked(t) !== null },
 ] as const;
 export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];
