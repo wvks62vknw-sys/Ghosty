@@ -6,7 +6,9 @@
  * A new revision means a new download for the owner: change `rev` together with the libs.
  */
 
+import { EXAM_SYSTEM } from '../../../../packages/shared/src/school';
 import { baseById, DEFAULT_BASE, weightsBase, type BaseId } from '../../../../packages/shared/src/selftrain';
+import { estimateTokens, type OfflineMsg } from './prompt';
 
 export interface ModelDef {
   id: string;
@@ -39,11 +41,26 @@ export interface ModelDef {
   alone?: true;
 }
 
-/** The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it. Both Apache-2.0. */
+/**
+ * The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it; and the floor, SmolLM2 360M, when neither
+ * can (1 Nov: the 0.6B loaded on his 18 Pro Max and closed Ghosty at its first answer). Qwen Apache-2.0, SmolLM2 Apache-2.0.
+ * The floor exactly as WebLLM 0.2.85's own list names it (model id, compiled library from binary-mlc-llm-libs
+ * `web-llm-models/v0_2_84/base`, 376.06 MB needed at 4,096 tokens), pinned to its repo's last commit (3a622fd, Sept 2025,
+ * which only added tensor-cache.json, the list this WebLLM reads; the weights are unchanged since Nov 2024). `mb` is all
+ * GET fetches, as for the two above: seven shards, the list, the tokenizer, the config and the 5.7 MB library (211,553,449
+ * bytes). Its weights (194 MB) and its library's largest working space (21.9 MB: a vocabulary of 49,152, against the Qwens'
+ * 151,936) make `work`; the cache is 40 KB a token, so it runs in about 296 MB at the phone's 2,048 tokens.
+ */
 export const MODELS: ModelDef[] = [
   { id: 'Qwen3-0.6B-q4f16_1-MLC', label: 'Qwen3 0.6B', repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm', mb: 352, vram: 1403.34, largest: 77_791_232, work: 955.34 },
   { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label: 'Qwen2.5 0.5B', repo: 'mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', rev: '32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad', lib: 'Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 290, vram: 944.62, largest: 68_067_328 },
+  { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', label: 'SmolLM2 360M', repo: 'mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC', rev: '3a622fd89e0216e8bb10c410c007c786baa8a033', lib: 'SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 212, vram: 376.06, largest: 23_592_960, work: 216.06 },
 ];
+/** The stand-ins for the 0.6B, smaller each: the Qwen2.5 0.5B, then the floor. */
+export const STAND_INS: ModelDef[] = [MODELS[1]!, MODELS[2]!];
+/** The floor: the smallest brain WebLLM 0.2.85 ships prebuilt (SmolLM2 360M). */
+export const FLOOR: ModelDef = MODELS[2]!;
+const isStandIn = (m: Pick<ModelDef, 'id'>): boolean => STAND_INS.some((x) => x.id === m.id);
 
 /**
  * The bigger brains he can try (SETTINGS → OFFLINE BRAIN): Qwen3.5 0.8B, 2B and 4B (Apache-2.0), exactly as WebLLM
@@ -65,20 +82,114 @@ export const BIGGER: ModelDef[] = [
 /** The brains the picker offers, smallest first: today's Qwen3 0.6B (also the fallback), then the bigger ones. */
 export const PICKER: ModelDef[] = [MODELS[0]!, ...BIGGER];
 
-/** Which base a model is (a stock one, a bigger one, or a trained week of either); the Qwen2.5 stand-in counts as the 0.6B. */
+/** Which base a model is (a stock one, a bigger one, or a trained week of either); the two stand-ins count as the 0.6B. */
 export const brainOf = (m: Pick<ModelDef, 'brain'>): BaseId => m.brain ?? DEFAULT_BASE;
 /** Its row in the picker: its base, or its own id for a brain the training does not follow (the 0.8B). */
 export const slotOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.alone ? m.id : brainOf(m));
-/** A brain bigger than the 0.6B (or its Qwen2.5 stand-in): one that may be too big for the phone's graphics memory. */
+/** A brain bigger than the 0.6B (or its stand-ins): one that may be too big for the phone's graphics memory. */
 export const isBigger = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): boolean => slotOf(m) !== DEFAULT_BASE;
 /**
- * The key a brain's record on this phone is kept under (`Held`): its picker row (`slotOf`), except the Qwen2.5 0.5B
- * stand-in, which has its own, so the smallest brain closing Ghosty is never mistaken for the 0.6B doing so (31 Oct:
- * the 0.6B closed Ghosty on the first answer of a SCHOOL paper; the stand-in is the one smaller brain to try).
+ * The key a brain's record on this phone is kept under (`Held`): its picker row (`slotOf`), except the stand-ins (the
+ * Qwen2.5 0.5B and the floor), which have their own, so a smaller brain closing Ghosty is never mistaken for the 0.6B
+ * doing so (31 Oct: the 0.6B closed Ghosty on the first answer of a SCHOOL paper; the stand-ins are the smaller ones to try).
  */
-export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.id === MODELS[1]!.id ? m.id : slotOf(m));
+export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (isStandIn(m) ? m.id : slotOf(m));
 /** "2B": the short name the owner reads in a warning ("Qwen3.5 2B" → "2B"). */
 export const shortName = (m: Pick<ModelDef, 'label'>): string => m.label.split(' ').at(-1) ?? m.label;
+
+/**
+ * SCHOOL's chain (1 Nov: "press SIT and it works"): the 0.6B, then the Qwen2.5 0.5B, then the floor. A paper is sat on
+ * the largest of them that is on this phone and has not closed Ghosty here; after a close, the next one down is one tap
+ * away (GET it and sit); never on a cloud model: School is his own brain or nothing.
+ */
+export const CHAIN: ModelDef[] = MODELS;
+/** The rung a brain is on (by its record: a week trained from the 0.6B is on the 0.6B's); -1 for a bigger brain. */
+export const rungOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): number => CHAIN.findIndex((r) => heldKey(r) === heldKey(m));
+/** The truth when the floor has closed Ghosty too: no cloud sitting, and no pretending. */
+export const NO_BRAIN = "No brain runs in this phone's browser yet. I keep my schooling for when one does.";
+
+/**
+ * The chain's pick, from the brains on this phone (`here`) and whether each may be loaded (`usable`: it has not closed
+ * Ghosty here, or he said yes since): `sit`, the largest rung here and usable; else, once a rung has closed Ghosty,
+ * `get`, the largest usable rung below the lowest one that closed (`after`), to GET and sit in one tap; `none` when the
+ * floor has closed too and nothing here may sit. Nothing closed and nothing here (a new phone): neither, and DOWNLOAD in
+ * SETTINGS is the way, as it always was.
+ */
+export function chainPick(here: Pick<ModelDef, 'id'>[], usable: (m: ModelDef) => boolean): { sit: ModelDef | null; get: ModelDef | null; after: ModelDef | null; none: boolean } {
+  const on = new Set(here.map((m) => m.id));
+  const sit = CHAIN.find((m) => on.has(m.id) && usable(m)) ?? null;
+  const closed = CHAIN.map((m) => !usable(m));
+  const lowest = closed.lastIndexOf(true);
+  const after = lowest < 0 ? null : CHAIN[lowest]!;
+  const get = sit || !after ? null : (CHAIN.slice(lowest + 1).find((m) => usable(m) && !on.has(m.id)) ?? null);
+  return { sit, get, after, none: !sit && !get && closed.at(-1) === true };
+}
+
+/**
+ * SIT and CARRY ON when no brain School may sit on is here: ONE button, "GET <brain> (<size>) and sit", which on Wi-Fi
+ * gets it, loads it and sits (`go`); on mobile data it says so and waits, the button staying. No brain left (`m` null):
+ * no button, and the words say the truth.
+ */
+export function sitOffer(m: Pick<ModelDef, 'label' | 'mb'> | null, mobile: boolean): { button: string; line: string; go: boolean } {
+  if (!m) return { button: '', line: NO_BRAIN, go: false };
+  const button = `GET ${m.label} (${sizeText(m.mb)}) and sit`;
+  return mobile ? { button, line: `You are on mobile data, and ${m.label} is ${sizeText(m.mb)}: it waits for Wi-Fi. Join Wi-Fi, then tap it again.`, go: false } : { button, line: '', go: true };
+}
+/**
+ * After a close, the one line said when Ghosty is open again (once per record): "<brain> closed Ghosty while
+ * <loading|answering>. Next time SIT uses <brain>." — or, with no brain left to try, the truth.
+ */
+export const closeLine = (m: Pick<ModelDef, 'label'>, phase: 'loading' | 'answering', next: Pick<ModelDef, 'label'> | null): string =>
+  `${m.label} closed Ghosty while ${phase}. ${next ? `Next time SIT uses ${next.label}.` : NO_BRAIN}`;
+/** Why the one button is there, in one line: the brain that closed Ghosty and the smaller one to try. */
+export const sitOfferWhy = (after: Pick<ModelDef, 'label'> | null, m: Pick<ModelDef, 'label' | 'mb'>): string =>
+  `${after ? `${after.label} closed Ghosty on this phone. ` : ''}The smaller ${m.label} may fit: one tap gets it (${sizeText(m.mb)}, on Wi-Fi) and I sit on it.`;
+
+/**
+ * The most a SCHOOL question's prompt may take on a small brain (1 Nov: the 0.6B closed Ghosty at its first answer):
+ * tokens by offline/prompt.ts estimateTokens, counted as the chat's budget counts them (4 more a message).
+ */
+export const SIT_BUDGET = 600;
+/** A brain's sitting budget: 600 on a small one (the 0.6B, its weeks, the stand-ins); 0 on a bigger one, which keeps the shared exam prompt. */
+export const sitBudget = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): number => (isBigger(m) ? 0 : SIT_BUDGET);
+/** The instruction every brain sits with, the shared exam's own system line (the marking reads what follows "Answer:"). */
+export const SIT_ASK = EXAM_SYSTEM;
+/** …and for a piece of writing. */
+export const SIT_WRITE = `${EXAM_SYSTEM}. For a piece of writing, write the whole piece, then finish with 'Answer: done'.`;
+const tokensOf = (msgs: OfflineMsg[]): number => msgs.reduce((n, x) => n + estimateTokens(x.content) + 4, 0);
+/** The first `n` characters, ended at a word and marked as cut. */
+const cutTo = (s: string, n: number): string => (s.length <= n ? s : n < 2 ? '' : `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…`);
+
+/**
+ * SCHOOL's prompt on a small brain: the question and the instruction only, in at most `budget` tokens. The framing goes
+ * ("Read this:" before a passage, the marks in brackets); what the answer needs stays: the passage (its title and its
+ * start, cut to fit), the question, the choices A–D and every instruction the marking reads (the exam's system line,
+ * "Answer with the letter.", "Explain briefly.", "Answer: done"). Over budget, the passage is cut first, then the
+ * question; never the choices or the instructions. A bigger brain keeps school/sit.ts examPrompt, the shared one.
+ */
+export function sitMessages(item: { q: string; type: string; marks: number; options?: string[] }, passage?: { title: string; text: string }, budget: number = SIT_BUDGET): OfflineMsg[] {
+  const system = item.type === 'extended' ? SIT_WRITE : SIT_ASK;
+  const tail: string[] = [];
+  if (item.type === 'mcq' && item.options) tail.push(`${item.options.map((o, i) => `${'ABCD'[i] ?? i + 1}) ${o}`).join('\n')}\nAnswer with the letter.`);
+  if (item.type === 'short') tail.push('Explain briefly.');
+  if (item.type === 'extended') tail.push('Write it out in full.');
+  const build = (p: string, q: string): OfflineMsg[] => [
+    { role: 'system', content: system },
+    { role: 'user', content: [p, q, ...tail].filter(Boolean).join('\n\n') },
+  ];
+  let p = passage ? `"${passage.title}"\n${passage.text.trim()}` : '';
+  let q = item.q.trim();
+  let msgs = build(p, q);
+  // (each step takes off what is over, in characters as the estimate counts them, and a little for the cut mark)
+  for (let i = 0; i < 40 && tokensOf(msgs) > budget; i++) {
+    const over = Math.ceil((tokensOf(msgs) - budget) * 3.5) + 4;
+    if (p) p = p.length - over >= 80 ? cutTo(p, p.length - over) : '';
+    else if (q.length > 40) q = cutTo(q, Math.max(40, q.length - over));
+    else break;
+    msgs = build(p, q);
+  }
+  return msgs;
+}
 
 /**
  * WebLLM's own memory figure at another context window: the weights and the library's largest working space are fixed,

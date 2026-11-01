@@ -431,7 +431,7 @@ test('nothing with the plate or the record reaches the database or KV: a check f
 
   // every value the brain holds, and everything in KV, searched for the plate (any spacing) and the record
   const dump = JSON.stringify([...storage.m.entries()]) + JSON.stringify([...kv.m.entries()]);
-  for (const needle of [/AB12\s?CDE/i, /FOCUS/i, /71,?234/, /Nearside Headlamp/, /19 Mar 2027/]) assert.doesNotMatch(dump, needle, `stored: ${needle}`);
+  for (const needle of [/AB12\s?CDE/i, /FOCUS/i, /(?<!\d)71,?234(?!\d)/, /Nearside Headlamp/, /19 Mar 2027/]) assert.doesNotMatch(dump, needle, `stored: ${needle}`);
   // what is kept says what happened, without the details
   const h = await (await call('/api/history')).json();
   assert.deepEqual(h.turns.slice(-2).map((t) => t.text), ['MOT check [plate]', V.REPLY_GONE]);

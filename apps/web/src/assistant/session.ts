@@ -4,6 +4,7 @@
  */
 import { normalisePlate, redactPlates } from '../../../../packages/shared/src/plates';
 import type { ChatEvent, CitedInfo } from '../../../../packages/shared/src/protocol';
+import type { Card } from '../../../../packages/shared/src/cards';
 import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
@@ -25,6 +26,7 @@ import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
+import { REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
@@ -63,7 +65,9 @@ export type Entry =
   | { kind: 'error'; text: string; ask?: string }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
-  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number };
+  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number }
+  /** A live card (features/core/cards.ts): from a tool's result, the trigger table or a piece of the day. `once`: a vehicle's record, never kept. */
+  | { kind: 'card'; card: Card; at: number; once?: boolean };
 
 /**
  * A vehicle check from the chat is shown once (integrations/vehicle.ts on the brain): the plates
@@ -72,13 +76,20 @@ export type Entry =
  */
 const checkedPlates = new Set<string>();
 let vehicleTurn = false;
+/** A plate whose car was shown from a card (features/core/cards.ts): kept on this phone as "[plate]" from now on, as a check's. */
+export function notePlate(plate: string): void {
+  const p = normalisePlate(plate);
+  if (!p || checkedPlates.has(p)) return;
+  checkedPlates.add(p);
+  chat.set((s) => ({ entries: [...s.entries] }));
+}
 function kept(entries: Entry[]): Entry[] {
   const out = entries
-    .filter((e) => !(e.kind === 'assistant' && e.once))
+    .filter((e) => !(e.kind === 'assistant' && e.once) && !(e.kind === 'card' && (e.once || e.card.once)))
     // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
     .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
-  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && (e.detail || e.args) ? { ...e, ...(e.detail ? { detail: redactPlates(e.detail, checkedPlates) } : {}), ...(e.args ? { args: redactPlates(e.args, checkedPlates) } : {}) } : e));
+  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && (e.detail || e.args) ? { ...e, ...(e.detail ? { detail: redactPlates(e.detail, checkedPlates) } : {}), ...(e.args ? { args: redactPlates(e.args, checkedPlates) } : {}) } : e.kind === 'card' ? { ...e, card: { ...e.card, title: redactPlates(e.card.title, checkedPlates), line: redactPlates(e.card.line, checkedPlates) } } : e));
 }
 
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
@@ -228,6 +239,12 @@ function handle(ev: ChatEvent): void {
     case 'mood':
       // his mood moved with this message (the brain's mood.ts): shown at once
       setMood(ev.mood);
+      break;
+    case 'cards':
+      // [cards] what a tool found, as live cards under its line (built by code on the brain: packages/shared/src/cards.ts)
+      for (const card of ev.cards) push({ kind: 'card', card, at: stamp(), ...(vehicleTurn || card.once ? { once: true } : {}) });
+      // a plate he named shows its car at once; a car he just named is known from now on (cards.ts)
+      void import('../features/core/cards').then((c) => c.arrived(ev.cards)).catch(() => undefined);
       break;
     case 'cited': {
       // Belongs to the reply just sent (the latest one still without its model line).
@@ -496,7 +513,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     return;
   }
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
-  if (/^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i.test(t)) {
+  if (REBOOT.test(t)) {
     await import('../shell/boot').then((b) => b.reboot());
     return;
   }
@@ -570,8 +587,9 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     rescue,
   );
   lap.end();
-  // Abilities revealed in context (OWNER-ISSUES 67b): one line offering what the turn plainly called for (abilities/offer.ts)
-  void import('../abilities/offer').then((o) => o.offerAfterTurn(t)).catch(() => undefined);
+  // He brings things up himself (BRIEF-SIDEWAYS 2): the trigger table's cards for what his words called for (assistant/triggers.ts,
+  // features/core/cards.ts bringUp); with none, the abilities revealed in context (OWNER-ISSUES 67b: abilities/offer.ts)
+  void import('../features/core/cards').then((c) => c.bringUp(t)).catch(() => undefined);
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

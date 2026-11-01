@@ -58,9 +58,10 @@ const look = await page.evaluate(() => ({
   wide: document.documentElement.scrollWidth > innerWidth || [...document.querySelectorAll('#deck .dkcard, #deck .dkgo, #deck .dkhead')].some((e) => { const r = e.getBoundingClientRect(); return r.left < -1 || r.right > innerWidth + 1; }),
 }));
 if (look.kick !== 'Every screen' || look.title !== 'At your service, Boss' || look.sub !== 'Tap any screen to find out what it can do.') problems.push(`the deck's header reads ${JSON.stringify([look.kick, look.title, look.sub])}`);
-if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
+// (the ARCADE, 1 Nov, is the first screen in no group yet: it shows under "More" until shell/deckcopy.ts places it)
+if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me,More') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
 // (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
-const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities'];
+const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities', 'arcade'];
 if (look.cards.length !== ALL.length || ALL.some((id) => !look.cards.includes(id))) problems.push(`the deck has ${look.cards.length} cards: ${look.cards.join(', ')}`);
 for (const c of look.cut) problems.push(`a promise runs past two lines: ${c}`);
 if (!/^Online/.test(look.core.live) || !look.core.hot) problems.push(`Core's live line is "${look.core.live}" (lit: ${look.core.hot})`);
@@ -202,4 +203,4 @@ if (problems.length) {
   console.error(`FAIL deck\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('deck: OK (22 cards in four groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');
+console.log('deck: OK (23 cards in four groups and More, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');

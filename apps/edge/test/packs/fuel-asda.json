@@ -1,0 +1,81 @@
+{
+ "last_updated": "31/10/2026 11:00:00",
+ "stations": [
+  {
+   "site_id": "gcqdtxr60tsb",
+   "brand": "Asda",
+   "address": "Powick Road, Birmingham",
+   "postcode": "B23 7PG",
+   "location": {
+    "latitude": 52.510235,
+    "longitude": -1.858839
+   },
+   "prices": {
+    "E10": 175.9,
+    "E5": 194.9,
+    "B7": 203.9,
+    "SDV": 222.9
+   }
+  },
+  {
+   "site_id": "gcqdsgr183jg",
+   "brand": "Asda",
+   "address": "305 Corporation Street, Birmingham",
+   "postcode": "B4 7DT",
+   "location": {
+    "latitude": 52.488816,
+    "longitude": -1.89097
+   },
+   "prices": {
+    "E10": 174.9,
+    "E5": 193.9,
+    "B7": 202.9,
+    "SDV": 221.9
+   }
+  },
+  {
+   "site_id": "gcqd6fyv9z95",
+   "brand": "Asda",
+   "address": "51 Barnes Hill, Birmingham",
+   "postcode": "B29 5UP",
+   "location": {
+    "latitude": 52.442849,
+    "longitude": -1.979179
+   },
+   "prices": {
+    "E10": 167.7,
+    "B7": 196.7
+   }
+  },
+  {
+   "site_id": "gcqf2gm95zy5",
+   "brand": "Asda",
+   "address": "Coventry Road, Solihull",
+   "postcode": "B92 0EH",
+   "location": {
+    "latitude": 52.444819,
+    "longitude": -1.72183
+   },
+   "prices": {
+    "E10": 174.9,
+    "E5": 193.9,
+    "B7": 202.9,
+    "SDV": 221.9
+   }
+  },
+  {
+   "site_id": "gcq6xf23nj93",
+   "brand": "Asda",
+   "address": "Pearson Street, Brierley Hill",
+   "postcode": "DY5 3BJ",
+   "location": {
+    "latitude": 52.481396,
+    "longitude": -2.117811
+   },
+   "prices": {
+    "E10": 173.7,
+    "B7": 198.7
+   }
+  }
+ ]
+}

@@ -13,6 +13,7 @@
  *  - `offerFor`, `didYouKnow`: an ability offered in context, once, at most one a day, never mid-task.
  */
 import { findPlates } from './plates';
+import type { CatItem } from './catalogue';
 
 /** The eight ways the owner thinks about what Ghosty does (the tab's groups, in this order). */
 export type AbilityCat = 'see' | 'know' | 'build' | 'watch' | 'play' | 'learn' | 'do' | 'talk';
@@ -60,6 +61,8 @@ export interface LearningGoal {
 /** What GET /api/abilities returns. */
 export interface AbilitiesInfo {
   abilities: Ability[];
+  /** THE EVERYTHING TAB: every item of the brain's registries (tools, Telegram, no-model asks, jobs), for the catalogue's words. */
+  catalogue?: CatItem[];
   /** The owner's learning goals, newest first. */
   goals: LearningGoal[];
   /** The upgrade roadmap's open steps, in order ('' goal when there is none). */

@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 19:35 UK
+# Where everything stands — 1 November 2026, 02:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #47, the last at 19:10 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #48, the last at 01:23 UK on 1 Nov)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -119,9 +119,30 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- Batch ①, THE EVERYTHING TAB (PR #49, in the checks from 05:30 UK on 1 Nov): the Abilities screen rebuilt as a complete
+  catalogue of every single thing he can do, generated from his own code (375 things, 98 new), each with a plain line, an
+  example, TRY IT, where it lives and what it needs; search; scenes; counted; plus the two Workbench layout bugs fixed.
+- Batch ⑥ part 1, THE SMALL BRAIN (PR #49 with ①): press SIT and it works, or the next smaller brain is one tap away —
+  "GET Qwen2.5 0.5B (290 MB) and sit", then a third, tiny brain (SmolLM2 360M, 212 MB) that fits any phone; a shorter
+  sitting prompt; one line after a close saying which brain closed and what SIT uses next. Why the 0.6B died: its
+  library sets aside about 630 MB of working space at the first question; the tiny one needs 22 MB.
+- Batch ②, SIDEWAYS (PR #49 too): live cards in the chat (a map, a car from its plate, a person you introduced, an
+  estimate, what the camera read, a piece of the day), he brings things up himself from what you type, what the camera
+  sees, the people and cars you've named and the day, speaks first a few times a day at most (SETTINGS → CHARACTER →
+  SPEAK FIRST: QUIET · SOME · CHATTY; any stop word silences the day), Home is your wall ("Now": what matters first,
+  the deck below), and Telegram and the lock screen carry the same cards.
+- Batch ③ part 5, THE ARCADE (PR #49 too): a new ARCADE screen with 13 real classic games free to pass on — DOOM, Heretic,
+  Duke Nukem 3D, Rise of the Triad, Blake Stone, Raptor, Tyrian, One Must Fall 2097, Commander Keen 1 and 4, Jill of the
+  Jungle, Wacky Wheels, Epic Pinball — fetched once on Wi-Fi, running in a DOS machine built into the page with a stick
+  and buttons under your thumbs, a controller when attached, sound, and saves that survive a reload.
+
 - Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
+
+- BUILDING NOW (1 Nov): ③ wiring DOOM, Freedoom, Quake and the two 3-D games into the arcade; ③ the kart racer, the
+  hopper and the arena; ⑤ the car in 3-D from its plate; ④ the people, work and creative packs next. Merged and waiting
+  for the next PR: native DOOM and Quake, the block world and the runner, the money, body and kitchen packs (39 things).
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
@@ -135,7 +156,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK, and batch 6 (PR #47, the Machine view and foresight, BRIEF-MACHINE-VIEW) at 19:10 UK:
   MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
   count of what he is watching; foresight is a prediction ledger (rain at home, your commute, your first train or bus, and
-  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Built on the branch at 22:10 UK, to land with batch 7's PR: the fix for his second live bug of the day (OWNER-ISSUES 89: sitting an exam closed Ghosty on any brain — a crash record for every brain's load and reply, the brain that closed Ghosty refused until USE with the words, the smaller Qwen2.5 0.5B offered and sat on). Batch 7 built, merged onto the branch at 23:00 UK (37a244c) and validated on the merged tree (brain 1,342/1,342, fourteen specs green); PR #48 open at 23:30 UK: the workbench and knowledge with sources
+  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Built on the branch at 22:10 UK, to land with batch 7's PR: the fix for his second live bug of the day (OWNER-ISSUES 89: sitting an exam closed Ghosty on any brain — a crash record for every brain's load and reply, the brain that closed Ghosty refused until USE with the words, the smaller Qwen2.5 0.5B offered and sat on). LIVE since 01:23 UK on 1 Nov (PR #48, main 9340874): batch 7, the workbench and knowledge with sources
   (BRIEF-WORKSHOP) — first-estimate engineering solvers (beams and columns, gears, the engine cycle, wings and cars,
   projectiles and orbits, heat, sun and shadow, circuits) and a 2-D wind tunnel on your phone, every answer labelled NOT
   CERTIFIED; in cited answers every source gets a tier (primary / credible / press / reference / lead) and every claim a
@@ -145,6 +166,16 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   still counts as the camera).
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
+
+The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your words in OWNER-ISSUES 91 and 92):
+① the everything-tab · ② sideways (everything lands in the chat as live cards; he brings things up himself; Home as your
+wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
+packs (money, body, kitchen, people, work, creative, out and about, home admin) · ⑤ the car in 3-D and show-me-don't-
+tell-me · ⑥ the offline brain runs, then smarter every week, used by default · ⑦ the social self and the rituals (your
+four picks, settled) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes), and the PS5 test (a
+message to yourself with Ghosty's address, opened from Game Base: does Ghosty open?). All four picks are settled (OWNER-
+ISSUES 93, 94): no fixed name, he may speak first, Bluesky with approval and reading, no weekly letter. Games: ten made by
+us at a high bar plus a library of a few hundred real free games (94). "The rest is cool": the order stands. TARGET: everything merged by Thursday 5 Nov, 22:00 UK (OWNER-ISSUES 98). HELD for his opinion: the twelve themes and the Cinematic touch-up.
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and

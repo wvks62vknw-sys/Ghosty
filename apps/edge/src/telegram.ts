@@ -48,6 +48,9 @@ import { personJoined, walkButton, walkTelegram } from './walk'; // [guardian]
 import { checkLink, linksIn, messageShape, verdictWords } from './integrations/linkcheck'; // [guardian]
 import { feel } from './mood'; // [guardian]
 import { foresightReply, type ForeDeps } from './foresight'; // [foresight]
+import { TELEGRAM_CAN, TELEGRAM_COMMANDS } from './tghelp'; // [everything]
+export { TELEGRAM_CAN, TELEGRAM_COMMANDS };
+import { cardText, type Card } from '../../../packages/shared/src/cards'; // [cards] the cards as text (BRIEF-SIDEWAYS 5)
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -170,13 +173,14 @@ export interface TgUpdate {
   callback_query?: { id: string; from: TgUser; message?: TgMessage; data?: string };
 }
 
+// The help and the commands are made from the list of what he can do here (tghelp.ts: the ABILITIES catalogue reads it too).
+const COMMAND = new RegExp(`^\\/(${TELEGRAM_COMMANDS.map((c) => c.cmd).join('|')})(?:@\\w+)?(?:\\s|$)`, 'i');
+
 const HELP = [
   "I'm Ghosty, your own AI. Here you can:",
-  '• ask me anything, by text or a voice note',
-  '• send a photo with a question',
-  '• get my reminders and the results of tasks I ran for you',
+  ...TELEGRAM_CAN.map((c) => `• ${c.what}`),
   '',
-  '/status — what is ready · /stop — stop what I am doing · /unpair — forget this chat',
+  TELEGRAM_COMMANDS.filter((c) => c.cmd !== 'start').map((c) => `/${c.cmd} — ${c.what}`).join(' · '),
   'Things on screen (the globe, maps, the camera, widgets) only work in the Ghosty app on your phone.',
 ].join('\n');
 
@@ -413,6 +417,14 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
   const queue = (fn: () => Promise<void>) => void (chain = chain.then(fn).catch(() => undefined));
   let first = true;
   const replies: string[] = [];
+  // [cards] a tool's cards come before the reply that uses them: held, and sent as text lines after it
+  let cards: string[] = [];
+  const sendCards = () => {
+    if (!cards.length) return;
+    const lines = cards.join('\n');
+    cards = [];
+    queue(() => tgSend(token, chatId, lines));
+  };
   return {
     emit(ev) {
       if (ev.t === 'text') {
@@ -420,6 +432,7 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
         first = false;
         replies.push(ev.text);
         queue(() => tgReply(token, chatId, text, origin));
+        sendCards();
       } else if (ev.t === 'approval') {
         queue(async () => {
           await tgApproval(token, chatId, ev.reason, ev.id);
@@ -427,7 +440,15 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
         });
       }
       else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
-      else if (ev.t === 'error') queue(() => tgSend(token, chatId, ev.message));
+      // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText); a card that
+      // came after the reply (the car he named) goes at once, one that came before it waits for it
+      else if (ev.t === 'cards' && ev.cards.length) {
+        cards.push(...ev.cards.map((c) => `▸ ${cardText(c, origin)}`));
+        if (replies.length) sendCards();
+      } else if (ev.t === 'error') {
+        queue(() => tgSend(token, chatId, ev.message));
+        sendCards();
+      } else if (ev.t === 'done') sendCards();
     },
     flush: () => chain,
     said: () => replies.join('\n\n'),
@@ -593,13 +614,14 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
 }
 
 /** A notification (reminder, task result, error) to the paired chat, if there is one. */
-export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' | 'vault' | 'origin'>, item: { kind: string; title: string; text: string }): Promise<boolean> {
+export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' | 'vault' | 'origin'>, item: { kind: string; title: string; text: string; card?: Card }): Promise<boolean> {
   const link = await loadLink(host.env, host.storage).catch(() => undefined);
   if (!link?.chatId) return false;
   const token = await host.vault.get('telegram').catch(() => null);
   if (!token) return false;
   const head = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-  await tgReply(token, link.chatId, `${head}\n${item.text}`, host.origin);
+  // [cards] a card he did not ask for (speak.ts): the same card as text — title · line · the deep link
+  await tgReply(token, link.chatId, item.card ? `✦ ${cardText(item.card, host.origin)}` : `${head}\n${item.text}`, host.origin);
   // New upgrade ideas (upgrades.ts names them in the text): each with BUILD IT / NOT NOW.
   if (item.title === 'Upgrade idea') {
     const ideas = (await loadIdeas(host.storage).catch(() => [])).filter((i) => item.text.includes(i.title)).slice(0, 3);
@@ -677,7 +699,7 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     await tgSend(token, chatId, 'This bot answers only to its owner.').catch(() => undefined);
     return;
   }
-  const cmd = /^\/(start|status|stop|unpair)(?:@\w+)?(?:\s|$)/i.exec(text)?.[1]?.toLowerCase();
+  const cmd = COMMAND.exec(text)?.[1]?.toLowerCase();
   if (cmd === 'start') return tgSend(token, chatId, HELP);
   if (cmd === 'status') return tgSend(token, chatId, await host.statusLine());
   if (cmd === 'stop') {

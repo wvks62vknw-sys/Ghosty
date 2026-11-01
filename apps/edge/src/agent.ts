@@ -64,6 +64,10 @@ import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './u
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
+import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
+import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
+import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
+import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -325,6 +329,8 @@ export class GhostyAgent {
         // a stop by intent from the phone (intent.ts): a harsh one leaves him subdued, any other puts him back to calm
         const b = (await req.json().catch(() => ({}))) as { harsh?: unknown };
         const mood = await feel(this.storage, { kind: 'stop', harsh: b.harsh === true }).catch(() => undefined);
+        // [cards] any stop word silences the rest of his day: nothing more unasked but danger (speak.ts)
+        await stopSpeaking(this.storage).catch(() => undefined);
         return json({ ok: true, ...(mood ? { mood } : {}) });
       }
       if (path === '/history' && method === 'GET') return json({ turns: (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [], pending: await this.pendingInfo() });
@@ -437,6 +443,9 @@ export class GhostyAgent {
         return await foresightRoute(req, path, method, this.foreDeps());
       }
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
+      if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
+      if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
+      if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -712,6 +721,17 @@ export class GhostyAgent {
         const mood = await feel(this.storage, ev);
         if (mood.kind !== before.kind || mood.since !== before.since) out({ t: 'mood', mood });
       }
+      // [cards] a car he names ("my dad's car is RX15 KNG") is kept in his memory, and a plate on its own is offered as
+      // its car: by code, no model, on every channel (cars.ts)
+      const car = plain && !raised ? await carTurn({ storage: this.storage, vault: this.vault }, text).catch(() => null) : null;
+      if (car) {
+        out({ t: 'text', text: car.text });
+        if (car.cards.length) out({ t: 'cards', cards: car.cards });
+        out({ t: 'done', model: DIRECT });
+        await this.addTurn({ role: 'assistant', text: car.text, at: Date.now(), model: DIRECT });
+        await this.storage.put(CTX_KEY, trimContext([...ctx, { role: 'assistant', content: car.text }]));
+        return;
+      }
       // "hey", "thanks", "ok", "night" (direct.ts smallTalk), and praise or a rule on its own (raisedReply): answered with
       // no model at all, so they never meet "no free model".
       const small = plain ? (raised ? raisedReply(raised) : null) ?? smallTalk(text, client, lastReply(prev)) : null;
@@ -899,6 +919,7 @@ export class GhostyAgent {
 
   /** Run tool calls while paused. Returns true when it stopped to ask the owner's approval (kept in memory). */
   private async pausedCalls(ctx: Msg[], calls: ToolCall[], tools: Tool[], tctx: ToolContext, emit: (ev: ChatEvent) => void, keep: { sys: string; client: ClientContext; passages: DevicePassage[]; text: string }, first?: 'approved' | 'declined'): Promise<boolean> {
+    const shown: Shown[] = [];
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i]!;
       const tool = tools.find((t) => t.name === call.function.name);
@@ -927,13 +948,17 @@ export class GhostyAgent {
         try {
           // Not offered while paused (memory, agenda, library imports, self-editing…): say that, not that it needs the database.
           if (!tool) throw new Error(`${call.function.name} is not available while my database is paused (it is back at midnight UTC)`);
-          result = await tool.run(args, forCall(tctx, emit, call.id, tool.name));
+          result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), emit: watching(tctx.emit, shown) });
         } catch (e) {
           ok = false;
           result = `Error: ${String((e as Error)?.message ?? e)}`;
         }
       }
       emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
+      // [cards] what it found, as live cards in the chat: by code from its result (packages/shared/src/cards.ts)
+      const got = shown.splice(0);
+      const cards = ok ? cardsFromTool({ name: call.function.name, args, result, shown: got }) : [];
+      if (cards.length) emit({ t: 'cards', cards });
       ctx.push({ role: 'tool', tool_call_id: call.id, content: clipResult(call.function.name, result) });
     }
     return false;
@@ -1064,15 +1089,20 @@ export class GhostyAgent {
   /** One tool call: its `tool`, progress and `tool_result` events, and the text the model reads (errors included), cut to the tool's budget (context.ts). */
   private async runOne(call: ToolCall, tool: Tool, args: Record<string, unknown>, tctx: ToolContext, emit: (ev: ChatEvent) => void, code = false): Promise<string> {
     emit({ t: 'tool', id: call.id, name: tool.name, args });
+    // [cards] the screen commands this call sends (a map, a model): its card is drawn from them, by code
+    const shown: Shown[] = [];
     try {
       const read: Read[] = [];
-      const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), found: (source) => read.push({ call: call.id, source }) });
+      const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), emit: watching(tctx.emit, shown), found: (source) => read.push({ call: call.id, source }) });
       this.turnRead.push(...read);
       if (tool.name === 'publish_site' || tool.name === 'build_app') { // [links] a mini-app's link is delivered like a page's
         const title = result.match(/^Published (?:the mini-app )?"([^"]*)"/)?.[1] ?? result.match(/^"([^"]*)" is live at/)?.[1] ?? '';
         for (const url of linksIn(result)) if (!this.turnLinks.some((l) => l.url === url)) this.turnLinks.push({ url, title });
       }
       emit({ t: 'tool_result', id: call.id, name: tool.name, ok: true, summary: result.slice(0, 280) });
+      // [cards] what it found, as live cards in the chat: by code from its result, never the model's words (cards.ts)
+      const cards = cardsFromTool({ name: tool.name, args, result, shown });
+      if (cards.length) emit({ t: 'cards', cards });
       // What it changed goes in the day log (mind.ts: only the tools that do something, in his own words).
       const ep = toolEpisode(tool.name, args);
       if (ep) await observe(this.storage, ep).catch(() => null);
@@ -1436,6 +1466,8 @@ export class GhostyAgent {
       if (job.kind === 'guard') return json(await watchTick(this.guardDeps())); // [guardian]
       if (job.kind === 'walk') return json({ next: await walkTick(this.guardDeps()) }); // [guardian]
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
+      if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
+      if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1461,16 +1493,25 @@ export class GhostyAgent {
   }
 
   /** Something for the owner's attention: kept in the inbox and pushed to their devices. */
-  private async notify(item: Omit<InboxItem, 'id' | 'at' | 'quiet'>): Promise<InboxItem> {
+  private async notify(note: Omit<InboxItem, 'id' | 'at' | 'quiet' | 'card'> & { danger?: boolean; card?: Card }): Promise<InboxItem> {
     // The sender says which switch it falls under (`pushKind`; none: always sent). Switched off in
     // LINKS → NOTIFICATIONS: it goes in the inbox marked quiet, with no push, Telegram or alert in the app.
+    const { danger, card: given, ...item } = note;
+    // [cards] its live card, by code: a reminder he set, a warning about one of his places (cards.ts inboxCard)
+    const card = given ?? inboxCard({ ...item, danger });
+    // (a warning about one of his places is never held, but it is recorded with the unprompted lines: WHY and his day list it)
+    if (danger && card) await noteDanger(this.storage, card).catch(() => undefined);
     const wanted = await pushWanted(this.storage, item.pushKind ?? null);
-    const it = await addInbox(this.storage, wanted ? item : { ...item, quiet: true });
+    const it = await addInbox(this.storage, { ...item, ...(card ? { card } : {}), ...(wanted ? {} : { quiet: true }) });
     if (!wanted) return it;
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-    this.state.waitUntil(pushIfWanted(this.storage, null, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    // [cards] a line he did not ask for (speak.ts, under the cadence) goes as its card: the title, the line, and a tap that
+    // opens the app where the card's OPEN goes; Telegram gets title · line · the deep link (telegram.ts telegramNotify)
+    const spoken = card?.why ? card : undefined;
+    const msg = spoken ? { title: spoken.title, body: spoken.line, tag: it.id, url: deepLink(spoken, '') } : { title, body: item.text, tag: it.id };
+    this.state.waitUntil(pushIfWanted(this.storage, null, msg, this.contact()).catch(() => 0));
     // The owner's Telegram chat gets it too, once paired (telegram.ts).
-    this.state.waitUntil(telegramNotify(this.telegramHost(), item).catch(() => false));
+    this.state.waitUntil(telegramNotify(this.telegramHost(), spoken ? { ...item, card: spoken } : item).catch(() => false));
     return it;
   }
 
@@ -1510,6 +1551,7 @@ export class GhostyAgent {
         this.busy?.abort();
         this.busy = null;
         this.state.waitUntil(feel(this.storage, { kind: 'stop', harsh: harsh === true }).catch(() => undefined));
+        this.state.waitUntil(stopSpeaking(this.storage).catch(() => undefined)); // [cards] silent for the rest of his day
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
       foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
@@ -1590,6 +1632,16 @@ export class GhostyAgent {
           // says when to come back (a departure due to be scored, the commute's minute, six o'clock). Steps aside when the
           // day's database allowance is low (meter.ts).
           const next = await this.meter.as('foresee', () => foreseeTick({ ...this.foreDeps(), spare: this.meter.spare() }));
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'speak') {
+          // [cards] Speaking first (speak.ts): the day's pieces at their minute, under the cadence; it says when to look again.
+          const next = await speakTick(this.speakDeps());
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'follow') {
+          // [packs] The money pack's price watches (tools/money.ts): each page read again, a drop told once; twice a day.
+          const next = await packsTick(this.packsDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'revise') {
@@ -1689,6 +1741,17 @@ export class GhostyAgent {
     await ensureTrainJob(this.storage); // [selftrain]
     await ensureGuardJob(this.storage); // [guardian]
     await ensureForeseeJob(this.storage); // [foresight]
+    await ensureSpeakJob(this.storage); // [cards] speaking first
+  }
+
+  /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
+  private speakDeps(): SpeakDeps {
+    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+  }
+
+  /** [packs] What the packs (packs/index.ts) may use: the database and his notifications (with the card). */
+  private packsDeps(): PacksDeps {
+    return { storage: this.storage, notify: (item) => this.notify(item) };
   }
 
   /** [foresight] What foresight (foresight.ts) may use: the database, the vault (the TomTom key) and his notifications. */
@@ -1745,7 +1808,7 @@ export class GhostyAgent {
         const groups: PromptGroups = { on: picked.on.map((g) => ({ ...g, tools: g.tools.filter(ok) })).filter((g) => g.tools.length), off: picked.off.map((g) => ({ ...g, tools: g.tools.filter(ok) })).filter((g) => g.tools.length) };
         return { tools: groups.on.flatMap((g) => g.tools), prompt: capabilityLines(groups) };
       },
-      tctx: this.toolContext(() => undefined),
+      tctx: { ...this.toolContext(() => undefined), unattended: true }, // [packs] nobody there: a pack's writes wait for him
       system: async () => {
         const client: ClientContext = { ...((await this.storage.get<ClientContext>('owner:ctx')) ?? {}) };
         client.now = fmtLocal(Date.now(), safeTz(client.tz));
@@ -1830,7 +1893,7 @@ export class GhostyAgent {
       const tools = TOOLS.filter(allowed);
       const facts = await loadMemory(this.storage);
       const ctx: Msg[] = [{ role: 'user', content: `Scheduled task "${job.title}": ${job.text}` }];
-      const tctx = this.toolContext(() => undefined);
+      const tctx = { ...this.toolContext(() => undefined), unattended: true }; // [packs] nobody there: a pack's writes wait for him
       // (the same picture of his day the chat has: the report it writes is the one mind's too)
       const mind = await mindSnapshot(this.storage, { client, vault: this.vault }).catch(() => null);
       for (let step = 0; step < CHAIN_STEPS; step++) {
@@ -1946,6 +2009,14 @@ function pureCall(call: ToolCall): boolean {
     return false;
   }
 }
+
+/** A screen command a tool sent while it ran (show_map, open_studio…): what its live card is drawn from. */
+type Shown = { name: string; args: Record<string, unknown> };
+/** The tool's own `emit`, noting each screen command it sends on the way through. */
+const watching = (emit: (ev: ChatEvent) => void, shown: Shown[]) => (ev: ChatEvent) => {
+  if (ev.t === 'client') shown.push({ name: ev.name, args: ev.args });
+  emit(ev);
+};
 
 /** The tool context for one call: its progress reports carry the call's id, so the chat shows them under that tool's line. */
 function forCall(tctx: ToolContext, emit: (ev: ChatEvent) => void, id: string, name: string): ToolContext {

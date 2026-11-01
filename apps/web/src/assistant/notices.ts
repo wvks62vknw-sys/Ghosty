@@ -60,6 +60,9 @@ function announce(it: InboxEntry): void {
     }
   }
   if (settings.get().speak && !document.hidden) void speak(it.kind === 'reminder' ? `Reminder: ${it.text}` : `${it.title}. ${it.text}`.slice(0, 400));
+  // [cards] a piece of the day — a reminder, the morning, a warning near his places — as its card in the chat (BRIEF-SIDEWAYS 2c)
+  const card = it.card;
+  if (card) void import('../features/core/cards').then((c) => c.dayCard(card)).catch(() => undefined);
 }
 
 export function startNotices(): void {

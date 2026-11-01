@@ -79,7 +79,8 @@ export interface GuardDeps {
   storage: DurableObjectStorage;
   vault: Pick<Vault, 'get'>;
   /** The owner's notification: the inbox, his phone and his Telegram (agent.ts notify). */
-  notify(item: { kind: 'reminder' | 'task' | 'error'; title: string; text: string }): Promise<unknown>;
+  /** `danger`: a warning about one of his places — its card leads the wall and the speak-first cadence never holds it. */
+  notify(item: { kind: 'reminder' | 'task' | 'error'; title: string; text: string; danger?: boolean }): Promise<unknown>;
   contact?: string;
   now?: () => number;
   /** For the tests: what would go out, instead of Telegram, email and the push service. */

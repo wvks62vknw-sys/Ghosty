@@ -1,0 +1,170 @@
+--- a/Client/WebQuake/S.js
++++ b/Client/WebQuake/S.js
+@@ -27,11 +27,9 @@
+ 
+ 	S.started = true;
+ 
+-	// createBuffer is broken, disable Web Audio for now.
+-	/* if (window.AudioContext != null))
+-		S.context = new AudioContext();
+-	else if (window.webkitAudioContext != null)
+-		S.context = new webkitAudioContext(); */
++	// Ghosty: Web Audio, from the context the page made in the tap that started the game (Sys.audio, played
++	// into Sys.audioOut); with none, the game starts with -nosound.
++	S.context = Sys.audio;
+ 
+ 	var i, ambient_sfx = ['water1', 'wind2'], ch, nodes;
+ 	for (i = 0; i < ambient_sfx.length; ++i)
+@@ -49,7 +47,7 @@
+ 		{
+ 			nodes = {
+ 				source: S.context.createBufferSource(),
+-				gain: S.context.createGainNode()
++				gain: S.context.createGain()
+ 			};
+ 			ch.nodes = nodes;
+ 			nodes.source.buffer = ch.sfx.cache.data;
+@@ -57,7 +55,7 @@
+ 			nodes.source.loopStart = ch.sfx.cache.loopstart;
+ 			nodes.source.loopEnd = nodes.source.buffer.length;
+ 			nodes.source.connect(nodes.gain);
+-			nodes.gain.connect(S.context.destination);
++			nodes.gain.connect(Sys.audioOut);
+ 		}
+ 		else
+ 			ch.audio = ch.sfx.cache.data.cloneNode();
+@@ -66,19 +64,24 @@
+ 	Con.sfx_talk = S.PrecacheSound('misc/talk.wav');
+ };
+ 
++// Ghosty: today's Web Audio (start and stop, once each) in place of noteOn, noteOff and playbackState; a stopped
++// source is let go of (every caller is done with it).
+ S.NoteOff = function(node)
+ {
+-	if ((node.playbackState === 1) || (node.playbackState === 2))
++	if (node.playing === true)
+ 	{
+-		try { node.noteOff(0.0); } catch (e) {}
++		node.playing = false;
++		try { node.stop(0.0); } catch (e) {}
+ 	}
++	try { node.disconnect(); } catch (e) {}
+ }
+ 
+ S.NoteOn = function(node)
+ {
+-	if ((node.playbackState === 0) || (node.playbackState === 3))
++	if (node.started !== true)
+ 	{
+-		try { node.noteOn(0.0); } catch (e) {}
++		node.started = node.playing = true;
++		try { node.start(0.0); } catch (e) {}
+ 	}
+ }
+ 
+@@ -219,8 +222,8 @@
+ 			source: S.context.createBufferSource(),
+ 			merger1: S.context.createChannelMerger(2),
+ 			splitter: S.context.createChannelSplitter(2),
+-			gain0: S.context.createGainNode(),
+-			gain1: S.context.createGainNode(),
++			gain0: S.context.createGain(),
++			gain1: S.context.createGain(),
+ 			merger2: S.context.createChannelMerger(2)
+ 		};
+ 		target_chan.nodes = nodes;
+@@ -246,7 +249,7 @@
+ 			volume = 1.0;
+ 		nodes.gain1.gain.value = volume * S.volume.value;
+ 		nodes.gain1.connect(nodes.merger2, 0, 1);
+-		nodes.merger2.connect(S.context.destination);
++		nodes.merger2.connect(Sys.audioOut);
+ 		var i, check, skip;
+ 		for (i = 0; i < S.channels.length; ++i)
+ 		{
+@@ -263,7 +266,8 @@
+ 			}
+ 			target_chan.pos += skip;
+ 			target_chan.end -= skip;
+-			nodes.source.noteGrainOn(0.0, skip, nodes.source.buffer.length - skip);
++			nodes.source.started = nodes.source.playing = true;
++			nodes.source.start(0.0, skip);
+ 			break;
+ 		}
+ 		S.NoteOn(nodes.source);
+@@ -320,7 +324,7 @@
+ 		ch = S.ambient_channels[i];
+ 		ch.master_vol = 0.0;
+ 		if (ch.nodes != null)
+-			S.NoteOff(ch.nodes.source);
++			ch.nodes.gain.gain.value = 0.0; // Ghosty: silent, still looping (a stopped source never starts again)
+ 		else if (ch.audio != null)
+ 			ch.audio.pause();
+ 	}
+@@ -375,8 +379,8 @@
+ 			source: S.context.createBufferSource(),
+ 			merger1: S.context.createChannelMerger(2),
+ 			splitter: S.context.createChannelSplitter(2),
+-			gain0: S.context.createGainNode(),
+-			gain1: S.context.createGainNode(),
++			gain0: S.context.createGain(),
++			gain1: S.context.createGain(),
+ 			merger2: S.context.createChannelMerger(2)
+ 		};
+ 		ss.nodes = nodes;
+@@ -391,7 +395,7 @@
+ 		nodes.splitter.connect(nodes.gain1, 1);
+ 		nodes.gain0.connect(nodes.merger2, 0, 0);
+ 		nodes.gain1.connect(nodes.merger2, 0, 1);
+-		nodes.merger2.connect(S.context.destination);
++		nodes.merger2.connect(Sys.audioOut);
+ 	}
+ 	else
+ 	{
+@@ -443,7 +447,7 @@
+ 			ch.master_vol = 0.0;
+ 			if (ch.nodes != null)
+ 			{
+-				S.NoteOff(ch.nodes.source);
++				ch.nodes.gain.gain.value = 0.0; // Ghosty: silent, still looping
+ 			}
+ 			else if (ch.audio != null)
+ 			{
+@@ -480,7 +484,7 @@
+ 		{
+ 			if (S.context != null)
+ 			{
+-				S.NoteOff(ch.nodes.source);
++				ch.nodes.gain.gain.value = 0.0; // Ghosty: silent, still looping
+ 			}
+ 			else
+ 			{
+@@ -567,8 +571,8 @@
+ 				ch.leftvol = 1.0;
+ 			if (ch.rightvol > 1.0)
+ 				ch.rightvol = 1.0;
+-			ch.nodes.gain0.gain.volume = ch.leftvol * S.volume.value;
+-			ch.nodes.gain1.gain.volume = ch.rightvol * S.volume.value;
++			ch.nodes.gain0.gain.value = ch.leftvol * S.volume.value; // Ghosty: .value (was .volume)
++			ch.nodes.gain1.gain.value = ch.rightvol * S.volume.value;
+ 		}
+ 		else
+ 		{
+@@ -613,7 +617,7 @@
+ 			ch = S.static_channels[i];
+ 			if ((ch.leftvol === 0.0) && (ch.rightvol === 0.0))
+ 			{
+-				S.NoteOff(ch.nodes.source);
++				ch.nodes.gain0.gain.value = ch.nodes.gain1.gain.value = 0.0; // Ghosty: silent, still looping
+ 				continue;
+ 			}
+ 			if (ch.leftvol > 1.0)
+@@ -816,7 +820,7 @@
+ 	view.setUint32(40, datalen, true);
+ 	(new Uint8Array(out, 44, datalen)).set(new Uint8Array(data, dataofs, datalen));
+ 	if (S.context != null)
+-		sc.data = S.context.createBuffer(out, true);
++		sc.data = Sys.WavBuffer(out); // Ghosty: the samples decoded here (createBuffer(data) is long gone)
+ 	else
+ 		sc.data = new Audio('data:audio/wav;base64,' + Q.btoa(new Uint8Array(out)));
+ 

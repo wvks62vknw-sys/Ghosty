@@ -31,12 +31,15 @@ interface Saved {
   panels: Record<string, PanelState>;
   /** The panel he last changed. */
   last?: string;
+  /** The panels he changed or opened, the latest last (the hero shows the picked section's latest of them). */
+  order?: string[];
 }
 
 function load(): Saved {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Saved>;
-    return { panels: s.panels && typeof s.panels === 'object' ? s.panels : {}, last: typeof s.last === 'string' ? s.last : undefined };
+    const order = Array.isArray(s.order) ? s.order.filter((x): x is string => typeof x === 'string').slice(-24) : undefined;
+    return { panels: s.panels && typeof s.panels === 'object' ? s.panels : {}, last: typeof s.last === 'string' ? s.last : undefined, ...(order ? { order } : {}) };
   } catch {
     return { panels: {} };
   }
@@ -151,6 +154,10 @@ export const workbenchTab: TabDef = {
       clear(P.big, h('span.wbbig', first ? first.value : 'First estimates'));
       P.sub.textContent = e ? `${e.title}${first ? ` · ${first.label.toLowerCase()}` : ''} · first estimate, not certified` : 'Engineering first estimates · never certified';
     };
+    /** A panel he changed or opened: the latest of its section from now on (what the hero shows while that section is picked). */
+    const touched = (id: string) => {
+      saved.order = [...(saved.order ?? []).filter((x) => x !== id), id].slice(-24);
+    };
 
     const mountPanel = (spec: PanelSpec): Mounted => {
       const pn = mkPanel(spec.title, { cls: `wb.wb-${spec.id}`, grow: false });
@@ -172,6 +179,7 @@ export const workbenchTab: TabDef = {
       const changed = () => {
         saved.panels[spec.id] = st;
         saved.last = spec.id;
+        touched(spec.id);
         save(saved);
         workbenchState.panel = spec.id;
         paintHero(estimate());
@@ -278,7 +286,23 @@ export const workbenchTab: TabDef = {
       { id: 'home', label: 'Home', match: /^(HEAT|SUN|CIRCUIT)/ },
     ]);
     workbenchState.panel = saved.last ?? 'beam';
-    paintHero(workbenchState.estimates[workbenchState.panel]);
+    const phone = matchMedia('(max-width: 899px)');
+    /**
+     * The hero says what the picked section last worked out, or nothing of its own (his screenshots, 31 Oct: a wing's
+     * lift was still there over GEARS). On a phone: the panel of this section he changed or opened last, the tunnel's own
+     * numbers while it runs, else the screen's plain line. On a wide screen every panel shows: the latest of them all.
+     */
+    const paintSection = () => {
+      if (!phone.matches) return paintHero(workbenchState.estimates[workbenchState.panel]);
+      const sec = secs.current();
+      if (sec === 'tunnel') {
+        if (tunnelState.running && Number.isFinite(tunnelState.cd)) return;
+        return paintHero(undefined);
+      }
+      const latest = [...(saved.order ?? [])].reverse().find((id) => mounted.find((m) => m.spec.id === id)?.el.dataset.sec === sec);
+      paintHero(latest ? workbenchState.estimates[latest] : undefined);
+    };
+    paintSection();
 
     // his units changed in SETTINGS: every form and card in the new units, at once
     settings.subscribe((s, prev) => {
@@ -288,17 +312,16 @@ export const workbenchTab: TabDef = {
         m.render();
         m.estimate();
       }
-      paintHero(workbenchState.estimates[workbenchState.panel]);
+      paintSection();
       tunnel.units();
     });
 
     // The tunnel runs only while it can be seen: the tab on screen, the page showing, and its section picked (a wide screen
     // shows every panel at once). Leaving any of these ends the worker.
     let onScreen = false;
-    const phone = matchMedia('(max-width: 899px)');
     const syncTunnel = () => {
       const want = onScreen && !document.hidden && (secs.current() === 'tunnel' || !phone.matches);
-      if (secs.current() !== 'tunnel') paintHero(workbenchState.estimates[workbenchState.panel]);
+      paintSection();
       if (want) tunnel.start();
       else tunnel.stop();
     };
@@ -336,9 +359,11 @@ export const workbenchTab: TabDef = {
           Object.assign(st.v, valuesFrom(problem));
           saved.panels[id] = st;
           saved.last = id;
-          save(saved);
           m.render();
         }
+        // opened by name, or filled from his words: this panel is its section's latest now
+        touched(id);
+        save(saved);
         workbenchState.panel = id;
         const e = m.estimate();
         paintHero(e);

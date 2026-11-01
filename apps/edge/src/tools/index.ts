@@ -46,8 +46,11 @@ import { uiTools } from './ui';
 import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
+import { moneyTools, MONEY_ABOUT, MONEY_WHEN } from './money'; // [packs] the money pack (BRIEF-PACKS-1)
+import { bodyTools, BODY_ABOUT, BODY_WHEN } from './body'; // [packs] the body pack
+import { kitchenTools, KITCHEN_ABOUT, KITCHEN_WHEN } from './kitchen'; // [packs] the kitchen pack
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools]; // [photo] [places] [guardian] [foresight] [workbench]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -71,6 +74,12 @@ export interface ToolGroup {
   /** When the group's tools are described in full: always, on a coding turn, or when the owner's words match. */
   when: RegExp | 'always' | 'code';
   about?: string;
+  /**
+   * A PACK (BRIEF-PACKS-1: money, body, kitchen): one tool with an `action` enum, named when it is off by these two words
+   * ("money pack") instead of its tools, so a pack of twenty abilities costs the plain prompt one short line; its `about`
+   * describes the actions when his words turn it on. The first word is the tool's own name.
+   */
+  short?: string;
 }
 
 /**
@@ -87,7 +96,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'ui',
     tools: uiTools,
     when: 'always',
-    about: 'You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead) and open his camera (open_lens).',
+    // (", open his camera" was " and open his camera": 3 characters for the kitchen pack's "kitchen pack" on the plain turn, BRIEF-PACKS-1)
+    about: 'You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead), open his camera (open_lens).',
   },
   {
     name: 'widgets',
@@ -172,7 +182,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your library (library_search; relevant passages also come in on their own); cite the source.',
+    // (was "relevant passages also come in on their own": 10 characters for the body pack's "body pack" on the plain turn, BRIEF-PACKS-1)
+    about: 'You can search your library (library_search; relevant passages come in unasked); cite the source.',
   },
   {
     name: 'library-admin',
@@ -304,6 +315,10 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(teach(?:es|ing)? me|learn\w*|lessons?|tutor\w*|quiz(?:zes)? me|test me|flash ?cards?|revis(?:e|ion|ing)|explain (?:it )?like|courses?|spaced repetition)\b/i,
     about: "You can be the owner's patient tutor at their level (tutor: start a course from the library and Wikipedia, give the next lesson with its sources and check question, quiz them, revise flashcards; LEARN tab).",
   },
+  // [packs] THE PACKS (BRIEF-PACKS-1): one tool each with an action enum, named off in two words ("money pack"), described on.
+  { name: 'money', tools: moneyTools, when: MONEY_WHEN, about: MONEY_ABOUT, short: 'money pack' },
+  { name: 'body', tools: bodyTools, when: BODY_WHEN, about: BODY_ABOUT, short: 'body pack' },
+  { name: 'kitchen', tools: kitchenTools, when: KITCHEN_WHEN, about: KITCHEN_ABOUT, short: 'kitchen pack' },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

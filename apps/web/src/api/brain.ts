@@ -13,12 +13,23 @@ import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
+import type { PackOut } from '../../../../packages/shared/src/packs';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
+import type { NamedCar } from '../../../../packages/shared/src/cards';
+import type { Dial, Spoken } from '../../../../packages/shared/src/cadence';
+
+/** GET /api/speak: the speak-first dial, its cap, whether a stop word silenced today, and today's unprompted lines. */
+export interface SpeakInfo {
+  dial: Dial;
+  cap: number;
+  stopped: boolean;
+  today: Spoken[];
+}
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -350,7 +361,9 @@ export const brain = {
     req<{ minutes: number; km: number; delayMin: number; live: boolean; line: string }>('GET', `/traffic/commute/${from.lat.toFixed(5)},${from.lon.toFixed(5)}/${to.lat.toFixed(5)},${to.lon.toFixed(5)}`),
   /** Agenda → SPENDING (spending.ts): the statements he added, by month; no bank access of any kind. */
   spending: (month?: string) => req<SpendingSummary>('GET', `/profile/spending${month ? `?month=${encodeURIComponent(month)}` : ''}`),
-  spendingImport: (csv: string) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv }),
+  spendingImport: (csv: string, rulesOnly = false) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv, ...(rulesOnly ? { rulesOnly } : {}) }),
+  /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
+  packDo: (pack: 'money' | 'body' | 'kitchen', action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
   spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),
   spendingBudget: (words: string, month: string) => req<SpendingSummary & { set: { category: Category; monthly: number } }>('POST', '/profile/spending/budget', { words, month }),
   spendingForget: () => req<SpendingSummary>('DELETE', '/profile/spending'),
@@ -414,6 +427,15 @@ export const brain = {
   today: (tz: string) => req<{ items: DayItem[] }>('GET', `/today?tz=${encodeURIComponent(tz)}`),
   /** An ability offered in context once (and the day's one): remembered by the brain, never offered again. */
   abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
+  /** The cars he named (apps/edge/src/cars.ts): kept in his memory; `said` is his own sentence, read by the brain's own code. */
+  cars: () => req<{ cars: NamedCar[] }>('GET', '/cars'),
+  carSave: (said: string) => req<{ car: NamedCar; cars: NamedCar[] }>('POST', '/cars', { said }),
+  carMonths: (plate: string, m: { mot?: string; tax?: string }) => req<{ car: NamedCar }>('POST', '/cars/months', { plate, ...m }),
+  carForget: (plate: string) => req<{ forgotten: boolean; cars: NamedCar[] }>('DELETE', `/cars/${encodeURIComponent(plate)}`),
+  /** SPEAK FIRST (apps/edge/src/speak.ts): the dial and today's unprompted lines (said, or held back and why). */
+  speak: () => req<SpeakInfo>('GET', '/speak'),
+  setSpeakDial: (dial: Dial) => req<SpeakInfo>('POST', '/speak', { dial }),
+  speakAgain: () => req<SpeakInfo>('DELETE', '/speak/stop'),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
   /** FORESIGHT (apps/edge/src/foresight.ts): the prediction ledger — today's expectations, yesterday, the record; his word on his own questions. */

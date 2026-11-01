@@ -21,6 +21,24 @@ import { faces, FACES_SIZE, type FaceSeen } from '../../vision/faces';
 import { addPerson, knownFaces, saveMe } from '../../vision/facestore';
 import type { LensContext, Mode } from './index';
 
+/**
+ * [cards] Someone he introduced, recognised for sure: their PERSON card in the chat once a session — only when the guardian
+ * knows them (his named person, a person whose car he named); anyone else gets nothing. The face never leaves the phone:
+ * the card holds what GUARDIAN shows, not a picture (BRIEF-SIDEWAYS 2b).
+ */
+const carded = new Set<string>();
+function seenPerson(name: string): void {
+  const k = name.toLowerCase();
+  if (carded.has(k)) return;
+  carded.add(k);
+  void import('../core/cards')
+    .then((c) => {
+      const card = c.mayBringUp() ? c.personNow(name) : null;
+      if (card) c.postCard(card);
+    })
+    .catch(() => undefined);
+}
+
 /** One face followed from look to look: where it is, its numbers (and when), who it is. */
 interface Track {
   box: FaceSeen['box'];
@@ -181,6 +199,7 @@ export function createPeopleMode(L: LensContext): Mode {
       c.fillStyle = m.me ? '#05080c' : color;
       c.fillText(label, v.x + 5.25, ty + 13);
       peopleState.faces.push({ label, me: m.me, sure: m.sure });
+      if (!m.me && m.sure) seenPerson(m.name);
     }
   };
 

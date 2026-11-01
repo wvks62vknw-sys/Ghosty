@@ -30,7 +30,7 @@ import { clearLog, fill, filled, markStored, PARTS_STORE, pieceLine, presence, r
 import { settings } from '../state/app';
 import { checkStorage, storageState } from '../features/system/storage';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
-import { BIGGER, brainModels, brainOf, downloadFailure, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
+import { BIGGER, brainModels, brainOf, CHAIN, chainPick, closeLine, downloadFailure, FLOOR, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, rungOf, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
@@ -72,8 +72,10 @@ export const offlineBrain = createStore(
     getting: '',
     /** The legacy check below has run once on this phone. */
     guarded: false,
+    /** The one line to say when Ghosty is open again after a brain closed it (models.ts closeLine): kept until it is said, once per record. */
+    closedNote: '',
   },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase', 'held', 'guarded'] },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase', 'held', 'guarded', 'closedNote'] },
 );
 
 /** Every model this phone can use: the trained ones, the stock Qwen3 and Qwen2.5, and the bigger brains (offline/models.ts). */
@@ -194,6 +196,8 @@ let checkedAt = 0;
 /** The model is on this phone (all of its files are in the browser's cache). */
 export async function offlineReady(): Promise<boolean> {
   const t = testEngine();
+  // A paper sat on a brain that is not the one in use (sitOn: SCHOOL's chain): that brain's own files decide.
+  if (sitWith && sitWith !== offlineBrain.get().model) return sittingHere(sitWith);
   // (a test engine with real files is ready when they are, as on the phone)
   if (t && !t.files) return t.ready !== false;
   if (!offlineBrain.get().downloaded || typeof caches === 'undefined') return false;
@@ -206,6 +210,20 @@ export async function offlineReady(): Promise<boolean> {
   checkedAt = ok ? Date.now() : 0;
   return ok;
 }
+/** The brain a paper is sat on is on this phone: its download finished here and its files are all in the cache. */
+async function sittingHere(id: string): Promise<boolean> {
+  if (!(offlineBrain.get().have ?? []).includes(id)) return false;
+  const t = testEngine();
+  if (t && !t.files) return true;
+  const m = offlineModels().find((x) => x.id === id);
+  return !!m && (await cachedWhole(m));
+}
+
+/** On mobile data, as far as the browser can tell (Safari cannot: the words ask for Wi-Fi). A brain is fetched on Wi-Fi only. */
+export const onMobileData = (): boolean => {
+  const c = (globalThis.navigator as unknown as { connection?: { type?: string; saveData?: boolean } } | undefined)?.connection;
+  return c?.type === 'cellular' || c?.saveData === true;
+};
 
 /** Every file of this model is in the browser's cache: WebLLM's own check, done here without loading WebLLM (the weight list and every shard it names). */
 async function cachedWhole(m: ModelDef): Promise<boolean> {
@@ -443,17 +461,23 @@ async function fallBack(e: unknown): Promise<boolean> {
   const m = currentModel();
   const refused = !!(e as { refuse?: boolean })?.refuse;
   if (!(refused || tooBig(e))) return false;
+  // A SCHOOL paper sat on a brain that is not the one in use (sitOn): its failure is the sitting's to say (school/sit.ts),
+  // and his brain in use stays as it is (a retry here would load the same brain again).
+  if (sitWith) return false;
   if (!isBigger(m)) {
-    // The 0.6B (or a week trained from it) could not run here: the smaller Qwen2.5 stand-in takes over when it is on this
-    // phone and has not closed Ghosty itself; else the failure stands, in its own words (GET for the stand-in is the way on).
-    const least = MODELS[1]!;
-    if (m.id === least.id || !(offlineBrain.get().have ?? []).includes(least.id) || !mayUse(least)) return false;
+    // The 0.6B (or a week trained from it), or a stand-in, could not run here: the next brain down the chain takes over
+    // (the Qwen2.5 0.5B, then the floor) when it is on this phone and has not closed Ghosty itself; else the failure
+    // stands, in its own words (GET for the next one is the way on).
+    const have = offlineBrain.get().have ?? [];
+    const least = CHAIN.slice(rungOf(m) + 1).find((x) => have.includes(x.id) && mayUse(x));
+    if (!least) return false;
+    const which = least.id === FLOOR.id ? 'the tiniest brain' : 'a smaller brain';
     freeModel();
     offlineBrain.set({
       model: least.id,
       downloaded: true,
       loaded: false,
-      fellBack: refused ? `${(e as Error).message} Ghosty is using ${least.label}, the smallest brain.` : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${least.label}, the smallest brain, instead.`,
+      fellBack: refused ? `${(e as Error).message} Ghosty is using ${least.label}, ${which}.` : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${least.label}, ${which}, instead.`,
     });
     checkedAt = 0;
     return true;
@@ -673,20 +697,20 @@ function backToSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['ph
 }
 
 /**
- * The 0.6B (or the smallest brain itself) closed Ghosty while loading or answering (31 Oct: on the first answer of a
- * SCHOOL paper): remembered, so it is not tried again by itself; the Qwen2.5 0.5B stand-in takes over when it is on
- * this phone, else GET for it in SETTINGS is the way on. Said in plain words beside the brains (`fellBack`).
+ * A small brain (the 0.6B, a week trained from it, or a stand-in) closed Ghosty while loading or answering (31 Oct: the
+ * 0.6B on the first answer of a SCHOOL paper): remembered, so it is not tried again by itself; the next brain down the
+ * chain that has not closed Ghosty (the Qwen2.5 0.5B, then the floor) takes over when it is on this phone, else GET for
+ * it is the way on (SETTINGS, or SCHOOL's one tap). Said in plain words beside the brains (`fellBack`).
  */
 function closedSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']>): void {
-  const least = MODELS[1]!;
   const have = offlineBrain.get().have ?? [];
-  const toLeast = m.id !== least.id && have.includes(least.id) && mayUse(least) && currentModel().id === m.id;
   setHeld(m, 'closed', at || Date.now(), phase);
+  const least = CHAIN.slice(rungOf(m) + 1).find((x) => mayUse(x));
+  const toLeast = !!least && have.includes(least.id) && currentModel().id === m.id;
   const did = `closed Ghosty while ${phase}${at ? ` (${stamp(at)})` : ''}`;
-  const words =
-    m.id === least.id
-      ? `${m.label}, the smallest brain, ${did}: no brain runs in this phone's browser yet, so Ghosty answers from the cloud. USE asks before it is tried again.`
-      : `${m.label} ${did}: this phone could not hold it while it worked. ${toLeast ? `Ghosty answers on this phone on the smaller ${least.label} now.` : `The smaller ${least.label} (about ${sizeText(least.mb)}, ${memText(least.vram)} when running) may fit: GET it in WHICH BRAIN, on Wi-Fi, and Ghosty uses it.`} ${m.label} stays on this phone, and USE asks before it is tried again.`;
+  const words = !least
+    ? `${m.label}, ${m.id === FLOOR.id ? 'the tiniest brain' : 'with no smaller brain left to try'}, ${did}: no brain runs in this phone's browser yet, so Ghosty answers from the cloud. USE asks before it is tried again.`
+    : `${m.label} ${did}: this phone could not hold it while it worked. ${toLeast ? `Ghosty answers on this phone on the smaller ${least.label} now.` : `The smaller ${least.label} (about ${sizeText(least.mb)}, ${memText(least.vram)} when running) may fit: GET it in WHICH BRAIN, on Wi-Fi, and Ghosty uses it.`} ${m.label} stays on this phone, and USE asks before it is tried again.`;
   offlineBrain.set({ ...(toLeast ? { model: least.id, downloaded: true } : {}), loaded: false, fellBack: words });
   checkedAt = 0;
 }
@@ -695,6 +719,11 @@ function closedSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['ph
 function closedHere(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']>): void {
   if (isBigger(m)) backToSmall(m, at, phase);
   else closedSmall(m, at, phase);
+  // The one line for when Ghosty is open again (SCHOOL says it, once): which brain closed it, and what SIT uses next —
+  // the chain's pick from what is on this phone now, or the one tap's brain, or no brain left.
+  const pick = chainPick(CHAIN.filter((x) => (offlineBrain.get().have ?? []).includes(x.id)), mayUse);
+  const line = closeLine(m, phase, pick.sit ?? pick.get ?? (pick.none ? null : CHAIN[0]!));
+  offlineBrain.set({ closedNote: [offlineBrain.get().closedNote, line].filter(Boolean).join(' ') });
 }
 
 /** The record of a reply being written on this phone (localStorage, synchronously before the model runs): still there on opening, the brain closed Ghosty while answering. */

@@ -11,6 +11,8 @@ import { settings } from '../../state/app';
 import { button, panel, toast } from '../../ui/components';
 import { panicProblem, panicSecret, type GuardianInfo } from '../../../../../packages/shared/src/guardian';
 import { switchRow } from './switch';
+import { cars, loadCars } from '../core/cards'; // [cards] PEOPLE: the people he introduced and the cars he named (BRIEF-SIDEWAYS 2d)
+import type { NamedCar } from '../../../../../packages/shared/src/cards';
 
 export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   const p = panel('GUARDIAN', { grow: false, status: 'Not set' });
@@ -29,6 +31,8 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   const setPhrase = button('SET', () => void savePhrase(), 'on');
   const dropPhrase = button('REMOVE', () => void removePhrase(), 'warn');
   const phraseState = h('p.note.panicstate', { dataset: { case: 'keep' } });
+  // PEOPLE: whoever he introduced — the named person, and everyone whose car he named in the chat — with their cars
+  const people = h('div.guardpeople', { dataset: { case: 'keep' } });
   phrase.addEventListener('keydown', (e) => e.key === 'Enter' && setPhrase.click());
 
   p.body.append(
@@ -46,7 +50,32 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
     h('div.keyrow.wrapit', phrase, setPhrase, dropPhrase),
     phraseState,
     h('p.note.guardlimit', 'The honest limits: I only know where you are while I’m open, only on a walk you started, and only after you said yes once. The check-in itself runs on my brain, so “Home?” comes even if your phone is asleep.'),
+    h('div.lab', 'PEOPLE'),
+    h('p.note', 'Tell me in the chat — “my dad’s car is RX15 KNG” — and the car goes under them here. Only yours and the people you introduce; a plate gives the car’s public record, never anything about who keeps it.'),
+    people,
   );
+  const paintPeople = () => {
+    const per = guardian.get().info?.person ?? null;
+    const list = cars.get().list;
+    const names = [...new Map([...(per ? [per.name] : []), ...list.map((c) => (c.whose === 'me' ? 'You' : c.whose))].map((n) => [n.toLowerCase(), n])).values()];
+    const carRow = (c: NamedCar) =>
+      h('div.guardcar', { dataset: { plate: c.plate } },
+        h('span.ccplate', c.plate),
+        h('span', [c.nickname, c.mot ? `MOT due ${c.mot}` : '', c.tax ? `tax due ${c.tax}` : ''].filter(Boolean).join(' · ') || 'its MOT and tax: type the plate in the chat'),
+        button('FORGET', async () => {
+          try {
+            cars.set({ list: (await brain.carForget(c.plate)).cars, at: Date.now() });
+            toast(`Forgotten: ${c.plate}`, 'ok');
+          } catch (e) {
+            toast(said(e), 'bad');
+          }
+        }, 'warn'));
+    clear(people, ...(names.length ? names.map((n) => {
+      const theirs = list.filter((c) => (n === 'You' ? c.whose === 'me' : c.whose.toLowerCase() === n.toLowerCase()));
+      return h('div.guardperson', { dataset: { name: n } }, h('b', n), h('span.note', per && per.name.toLowerCase() === n.toLowerCase() ? 'your named person' : n === 'You' ? 'your own' : 'introduced in the chat'), ...theirs.map(carRow));
+    }) : [h('p.note', 'Nobody yet.')]));
+  };
+  cars.subscribe(paintPeople);
 
   const paint = (info: GuardianInfo | null) => {
     const per = info?.person ?? null;
@@ -134,10 +163,17 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
     }
   };
 
-  guardian.subscribe((s) => paint(s.info));
+  guardian.subscribe((s) => {
+    paint(s.info);
+    paintPeople();
+  });
   paint(guardian.get().info);
+  paintPeople();
   return {
     el: p.el,
-    refresh: () => void brain.guardian().then(setGuardian, () => undefined),
+    refresh: () => {
+      void brain.guardian().then(setGuardian, () => undefined);
+      void loadCars();
+    },
   };
 }

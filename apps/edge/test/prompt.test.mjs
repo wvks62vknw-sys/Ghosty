@@ -60,6 +60,54 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.ok(!/WHAT YOU CAN DO NOW/.test(P.systemPrompt(client, [], false)));
 });
 
+// THE PACKS (BRIEF-PACKS-1): a pack is ONE tool with an `action` enum; off, the prompt names it in its two words ("money pack"),
+// never its actions; on, its about line describes every action. The plain prompt pays one short line a pack.
+const actionsOf = (g) => g.tools[0]?.parameters?.properties?.action?.enum ?? [];
+test('a pack group: off, its short name and nothing else; on, its about line describes every action', () => {
+  const demo = { name: 'demo', short: 'demo pack', tools: [{ name: 'demo', parameters: { type: 'object', properties: { action: { type: 'string', enum: ['alpha', 'beta'] } } } }], when: /\bdemo\b/i, about: 'You can run the demo pack (demo: alpha, beta).' };
+  const off = P.capabilityLines({ on: [], off: [demo] });
+  assert.match(off, /^demo pack$/m, 'off: the pack in its two words');
+  assert.ok(!/alpha|beta|demo: /.test(off), 'off: never its actions, nor its tool list');
+  const on = P.capabilityLines({ on: [demo], off: [] });
+  assert.match(on, /^- You can run the demo pack \(demo: alpha, beta\)\.$/m, 'on: its actions described');
+  assert.ok(!/^demo pack$/m.test(on), 'on: described, not named');
+  // every real pack keeps the shape: one tool named as the first of its two words, an action enum, each action in its about line
+  for (const g of T.TOOL_GROUPS.filter((x) => x.short)) {
+    assert.equal(g.tools.length, 1, `${g.name}: one tool`);
+    assert.match(g.short, new RegExp(`^${g.tools[0].name} [a-z]+$`), `${g.name}: two words, the first its tool's name`);
+    assert.ok(actionsOf(g).length >= 12, `${g.name}: ${actionsOf(g).length} actions`);
+    for (const a of actionsOf(g)) assert.match(g.about, new RegExp(`\\b${a}\\b`), `${g.name}: its about line names ${a}`);
+    const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
+    assert.match(plain, new RegExp(`^${g.short}$`, 'm'), `${g.name}: a plain turn names it "${g.short}"`);
+    assert.ok(!plain.includes(g.about), `${g.name}: a plain turn does not describe it`);
+  }
+});
+
+test('the three packs (money, body, kitchen): off on small talk as two words each, on by his words with every action described', () => {
+  const packs = Object.fromEntries(T.TOOL_GROUPS.filter((g) => g.short).map((g) => [g.name, g]));
+  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money']);
+  const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
+  for (const line of ['money pack', 'body pack', 'kitchen pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
+  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
+  const on = {
+    money: ['how much have I spent this week?', 'cheapest petrol near dad', 'watch the price of this kettle', 'payday is the 28th', 'split the bill between 3'],
+    body: ['count my push-ups', 'how did I sleep this week?', 'I weigh 82 kg', 'remind me to drink water', 'start a run'],
+    kitchen: ['what can I make with chicken and rice', 'timer 8 minutes for the pasta', 'add milk to the shopping list', 'fan 180 in gas mark', 'the spinach is going off'],
+  };
+  for (const [name, asks] of Object.entries(on)) {
+    for (const t of asks) {
+      const g = T.selectGroups(t, new Set(), false);
+      assert.ok(g.on.some((x) => x.name === name), `"${t}" turns the ${name} pack on`);
+      const sys = P.systemPrompt(client, [], true, [], { groups: g });
+      assert.ok(sys.includes(`- ${packs[name].about}`), `"${t}": the ${name} pack described`);
+      assert.ok(!new RegExp(`^${name} pack$`, 'm').test(sys), `"${t}": described, not named`);
+    }
+  }
+  for (const t of ['hello', 'what time is it', 'how are you', 'thanks']) assert.ok(!T.selectGroups(t, new Set(), false).on.some((x) => x.short), `"${t}" leaves every pack off`);
+  // a pack the conversation already used stays on
+  assert.ok(T.selectGroups('and the other one?', new Set(['kitchen']), false).on.some((x) => x.name === 'kitchen'));
+});
+
 test('LOYALTY is verbatim, and the persona, STYLE, TIMES, PICTURES, WORK IN CHAINS, context and memory are there', () => {
   const sys = P.systemPrompt({ name: 'Sam', now: 'Fri 17 Oct 14:05', tz: 'Europe/London' }, [{ id: 'a', text: 'likes tea', at: 1 }], false, [], { groups: T.selectGroups('hi', new Set(), false) });
   for (const line of [

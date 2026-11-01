@@ -6,7 +6,7 @@
  * (six at most; any more in a More row); the recent screens are in Search.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
  */
-import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
+import { addPaletteDecor, register, togglePalette, type Command } from '../commands/registry';
 import { clear, fmt, h, icon } from '../core/dom';
 import { brain, ownerKey } from '../api/brain';
 import { BUILD } from '../state/build';
@@ -27,27 +27,9 @@ import { guardian, loadGuardian } from '../state/guardian'; // [guardian]
 import { goToPanel } from '../ui/sections'; // [guardian]
 import { clockIn, FEED_NAMES, watchLine, type GuardianInfo } from '../../../../packages/shared/src/guardian'; // [guardian]
 
-export interface Area {
-  id: string;
-  title: string;
-  /** One line under the hub's title, in Ghosty's voice ("I"): the plain line, for when the phone has no reading for
-   *  the personal one (shell/hubcards.ts hubWords: his school stage, his next event, his city, his latest project). */
-  sub: string;
-  icon: string;
-  /** Its tabs, in order; the first is where the tab bar goes when the area has no hub (ASK → the reactor). */
-  tabs: string[];
-  /** The area's own colour (its tab-bar glyph never uses it: tools are coloured by what they do, see TINT). */
-  tint: string;
-}
-
-export const AREAS: Area[] = [
-  { id: 'ask', title: 'Ask', sub: 'Talk to me, or get the day in one look.', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/>', tabs: ['core', 'brief'], tint: '#3fc3ff' },
-  { id: 'see', title: 'See', sub: 'The world live, and the camera that understands it.', icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/>', tabs: ['eye', 'lens'], tint: '#0a84ff' },
-  { id: 'make', title: 'Make', sub: 'Build, take apart and plan real things.', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/>', tabs: ['studio', 'workshop', 'reverse', 'space', 'workbench'], tint: '#ff9f0a' },
-  { id: 'learn', title: 'Learn', sub: 'Courses for you; games, school and a library for me.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
-  { id: 'plan', title: 'Plan', sub: 'Your days, the markets, the world’s alerts and the radio.', icon: '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>', tabs: ['agenda', 'markets', 'threats', 'radio'], tint: '#ff375f' },
-  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links', 'abilities'], tint: '#8e8e93' },
-];
+// (the areas and the Me sheet's rows: pure lists the ABILITIES catalogue reads too, shell/areadefs.ts)
+import { AREAS, ME_CARDS, ME_ROWS, type Area } from './areadefs';
+export { AREAS, ME_CARDS, ME_ROWS, type Area };
 
 /**
  * The old per-tool colours. The one icon language (OWNER-ISSUES 32) no longer draws them: every glyph is a bare
@@ -262,11 +244,6 @@ addPaletteDecor({
 // ---------- the "Me" sheet: the avatar's menu (iOS's account sheet); route C (mockups/c/settings.png):
 // you, then the Status card first (three dials and four lines, all read from the brain and this phone),
 // then the screens as grouped rows, then which build this is.
-const ME_ROWS: [string, string, string][] = [
-  ['memory', 'Memory', 'What I know about you'],
-  ['settings', 'Settings', 'Look, voice, home and about'],
-  ['system', 'System', 'Keys, models, storage and backups'],
-];
 const DECK_GLYPH = '<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>';
 const MEMORY_GLYPH = '<path d="M12 4.5c-1.2-1.3-3.6-1.4-4.8.1-1.3-.1-2.6 1-2.5 2.5C3.4 7.8 3 9.6 4 10.8c-.9 1.2-.6 3 .7 3.7-.2 1.6 1 3 2.6 2.9.6 1.5 2.6 2.1 3.9 1.1.3.1.5.1.8 0V4.5z"/><path d="M12 4.5c1.2-1.3 3.6-1.4 4.8.1 1.3-.1 2.6 1 2.5 2.5 1.3.7 1.7 2.5.7 3.7.9 1.2.6 3-.7 3.7.2 1.6-1 3-2.6 2.9-.6 1.5-2.6 2.1-3.9 1.1"/>';
 const SETTINGS_GLYPH = '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>';
@@ -354,15 +331,10 @@ export function openMe(openDeck: () => void): void {
       h('span.mertxt', h('b', { dataset: { case: 'keep' } }, s.name), h('small', `${THEMES[s.theme]?.label ?? 'Ghosty'} · ${s.units === 'metric' ? '°C, km' : '°F, miles'}`)),
       h('button.meclose', { type: 'button', 'aria-label': 'Close', onclick: close }, icon('<path d="M7 7l10 10M17 7L7 17"/>')),
     ),
-    status,
-    guard,
-    h('div.megroup.rcgroup', { dataset: { part: 'screens' } }, ...ME_ROWS.map(([id, label, sub]) => row(id, label, sub, () => navTo(id, 'push')))),
-    h('div.megroup.rcgroup', { dataset: { part: 'more' } },
-      row('links', 'Links', 'Email, Spotify and your phone', () => navTo('links', 'push')),
-      // ABILITIES (OWNER-ISSUES 68): everything I can do, so he never has to remember it
-      row('abilities', 'Abilities', 'Everything I can do for you', () => navTo('abilities', 'push')),
-      row('deck', 'Every screen', 'All of Ghosty at once', openDeck),
-    ),
+    // (the cards and the rows from their lists, shell/areadefs.ts: the ABILITIES catalogue reads the same ones)
+    ...ME_CARDS.map((c) => ({ status, guardian: guard })[c.id]),
+    ...(['screens', 'more'] as const).map((g) => h('div.megroup.rcgroup', { dataset: { part: g } },
+      ...ME_ROWS.filter((r) => r.group === g).map((r) => row(r.id, r.label, r.sub, r.id === 'deck' ? openDeck : () => navTo(r.id, 'push'))))),
     build,
   );
   sheet = h('div#mesheet', box);
@@ -468,6 +440,8 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
     if (press === -1) return void (press = 0);
     openMe(openDeck);
   });
+  // the Me sheet as a command too: ABILITIES' TRY IT opens it for what lives there (his mood, the Status card, WATCHING OVER YOU)
+  register({ id: 'open_me', title: 'Me', hidden: true, run: () => openMe(openDeck) });
   // a long press on the avatar opens every screen at once (the home-screen grid)
   let press = 0;
   you.addEventListener('pointerdown', () => (press = window.setTimeout(() => ((press = -1), openDeck()), 550)));

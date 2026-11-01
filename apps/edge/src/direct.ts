@@ -22,6 +22,12 @@ const AGENDA = /\b(?:agenda|my (?:plans|schedule|calendar|diary)|what(?:'s| is) 
 const TRANSIT = /\b(?:bus|buses|tram|trams|metro)\b/;
 const ROADS = /\b(?:traffic|motorways?|m6|m5|m42|m54|a38|jams?|incidents?|roadworks|road closures?)\b/;
 
+/**
+ * The quick asks answered with no model while none is free, by the table that recognises them (directPlan reads them from
+ * here; the abilities catalogue lists each one: packages/shared/src/catalogue).
+ */
+export const DIRECT_ASKS = { time: TIME, weather: WEATHER, memory: MEMORY, agenda: AGENDA, transit: TRANSIT, roads: ROADS } as const;
+
 /** Words that follow "in", "for" or "near" without naming a place. */
 const NOT_A_PLACE = /^(?:me|here|there|town|now|today|tomorrow|tonight|the (?:morning|afternoon|evening|night|day|week|weekend|moment|end|city|area)|a (?:bit|while|minute|moment)|my (?:area|place|location|town|city)|this (?:morning|afternoon|evening|week|weekend))$/;
 
@@ -45,12 +51,13 @@ export function directPlan(text: string, c: Pick<ClientContext, 'location'>): Di
   const here = c.location && Number.isFinite(c.location.lat) && Number.isFinite(c.location.lon) ? { lat: c.location.lat, lon: c.location.lon } : null;
   // The transport and road tools name the spot from `place`; weather would geocode it instead, so it gets coordinates alone.
   const spot = place ? { place } : here ? { ...here, ...(c.location?.name ? { place: c.location.name } : {}) } : null;
-  if (TIME.test(t)) return { kind: 'time' };
-  if (WEATHER.test(t)) return place ? { kind: 'tool', name: 'weather', args: { place } } : here ? { kind: 'tool', name: 'weather', args: here } : null;
-  if (MEMORY.test(t)) return { kind: 'tool', name: 'list_memory', args: {} };
-  if (AGENDA.test(t)) return { kind: 'tool', name: 'list_agenda', args: { days: /\bweek\b/.test(t) ? 7 : /\btomorrow\b/.test(t) ? 2 : 1 } };
-  if (TRANSIT.test(t)) return spot ? { kind: 'tool', name: 'transit_now', args: spot } : null;
-  if (ROADS.test(t)) return spot ? { kind: 'tool', name: 'motorway_now', args: spot } : null;
+  const A = DIRECT_ASKS;
+  if (A.time.test(t)) return { kind: 'time' };
+  if (A.weather.test(t)) return place ? { kind: 'tool', name: 'weather', args: { place } } : here ? { kind: 'tool', name: 'weather', args: here } : null;
+  if (A.memory.test(t)) return { kind: 'tool', name: 'list_memory', args: {} };
+  if (A.agenda.test(t)) return { kind: 'tool', name: 'list_agenda', args: { days: /\bweek\b/.test(t) ? 7 : /\btomorrow\b/.test(t) ? 2 : 1 } };
+  if (A.transit.test(t)) return spot ? { kind: 'tool', name: 'transit_now', args: spot } : null;
+  if (A.roads.test(t)) return spot ? { kind: 'tool', name: 'motorway_now', args: spot } : null;
   return null;
 }
 
@@ -64,6 +71,9 @@ const THANKS = /^(?:thanks|thank you|thank u|thanks a lot|thanks so much|cheers|
 const ACK = /^(?:ok|okay|alright|k|kk|okey|okie|cool|got it|gotcha|right|righto|fair|fair enough|noted|sure|yep|yup|yeah|ya|aye|sound|safe|bet|understood|makes sense|fine|all good)$/;
 const NIGHT = /^(?:night|nite|goodnight|good night|night night|nighty night|gn|sleep well|off to bed|going to bed|i'?m off to bed|bed ?time)$/;
 const BYE = /^(?:bye|bye bye|see you|see ya|see you later|cya|later|laters|catch you later|ttyl|speak later|talk later)$/;
+
+/** The small talk answered with no model, always, by the table that recognises it (smallTalk reads them from here; listed in the catalogue). */
+export const SMALL_TALK = { greet: GREET, how: HOW, thanks: THANKS, ack: ACK, night: NIGHT, bye: BYE } as const;
 
 /** A reply that asked him something or offered to do something: a bare "ok" or "yeah" after it is an answer, for the model. */
 const ASKED = /\?|\b(?:i can|i could|shall i|should i|want me|i'll|would you like|do you want)\b/i;
@@ -80,14 +90,21 @@ export function smallTalk(text: string, c: Pick<ClientContext, 'tz' | 'name'>, l
   const hour = zoned(now, safeTz(c.tz)).h;
   // A steady choice between two lines (so it is never the same word twice in a row, and a test can know it).
   const pick = (a: string, b: string) => (Math.floor(now / 60_000) % 2 ? b : a);
-  if (GREET.test(t)) return hour < 5 ? `Still up, ${name}?` : hour < 12 ? `Morning, ${name}.` : hour < 18 ? `Afternoon, ${name}.` : `Evening, ${name}.`;
-  if (HOW.test(t)) return pick('All quiet this end. You?', 'Good. Quiet here. You?');
-  if (THANKS.test(t)) return pick('Any time.', `Any time, ${name}.`);
-  if (NIGHT.test(t)) return `Night, ${name}. I'll keep watch.`;
-  if (BYE.test(t)) return `Later, ${name}.`;
-  if (ACK.test(t) && !ASKED.test(last)) return pick('Right.', 'Good.');
+  const S = SMALL_TALK;
+  if (S.greet.test(t)) return hour < 5 ? `Still up, ${name}?` : hour < 12 ? `Morning, ${name}.` : hour < 18 ? `Afternoon, ${name}.` : `Evening, ${name}.`;
+  if (S.how.test(t)) return pick('All quiet this end. You?', 'Good. Quiet here. You?');
+  if (S.thanks.test(t)) return pick('Any time.', `Any time, ${name}.`);
+  if (S.night.test(t)) return `Night, ${name}. I'll keep watch.`;
+  if (S.bye.test(t)) return `Later, ${name}.`;
+  if (S.ack.test(t) && !ASKED.test(last)) return pick('Right.', 'Good.');
   return null;
 }
+
+/** The one line for praise (by its weight) or a standing rule (a length rule, or any other): raisedReply says these. Listed in the catalogue. */
+export const RAISED_LINES = {
+  praise: { 3: 'That means something. Thank you.', 2: "Good. I'll keep it that way.", 1: 'Noted.' },
+  rule: { length: 'Shorter. Noted.', other: "Understood. I'll keep to that." },
+} as const;
 
 /**
  * Praise or a standing rule and nothing else (intent.ts raising), acknowledged in one line in his voice — never grovelling,
@@ -95,8 +112,8 @@ export function smallTalk(text: string, c: Pick<ClientContext, 'tz' | 'name'>, l
  */
 export function raisedReply(r: Raising): string | null {
   if (r.rest || r.kind === 'discipline') return null;
-  if (r.rule) return r.length ? 'Shorter. Noted.' : "Understood. I'll keep to that.";
-  if (r.kind === 'reward') return r.weight === 3 ? 'That means something. Thank you.' : r.weight === 2 ? "Good. I'll keep it that way." : 'Noted.';
+  if (r.rule) return r.length ? RAISED_LINES.rule.length : RAISED_LINES.rule.other;
+  if (r.kind === 'reward') return RAISED_LINES.praise[r.weight === 3 ? 3 : r.weight === 2 ? 2 : 1];
   return null;
 }
 

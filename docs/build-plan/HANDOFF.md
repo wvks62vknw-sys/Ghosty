@@ -1011,13 +1011,108 @@ folder that no longer exists; ignore those paths).
   when the module gains an import elsewhere — the suite's "Build failed" is the stub, not the code; check the stub first.
   NEXT: PR #48 (one CI run for the batch and the fix; smoke now 83 specs), merge when green; then the post-merge docs and
   WHAT-HE-CAN-DO as live facts, and his one-tap test (GET and USE the 0.5B, then SIT).
+- 01:23 UK (1 Nov): PR #48 MERGED (main 9340874) — BATCH 7 LIVE (the Workbench, the wind tunnel, knowledge with sources) WITH THE
+  SITTING-CRASH FIX. All checks green on the first run (brain, interface, deploy-build, smoke with 83 specs); the branch
+  fast-forwarded to main; the builder's worktree and branch removed. Post-merge docs: STATUS, OWNER-ISSUES 90, WHAT-HE-CAN-DO
+  as live facts (the Workbench, knowledge with sources, the exam fix's one-tap test). HIS NEXT STEPS (one message sent): GET and
+  USE Qwen2.5 0.5B, then SIT; the wind tunnel once; a contested question with CITED on. NEXT BUILD: ⑧ the social self and the
+  rituals, which needs his four Harold/Machine picks — not started until he answers (or says to go on without them).
 
 
 
 
 
+
+- 1 Nov 01:30–02:40 UK: THE REDIRECTION (OWNER-ISSUES 91, 92; ROADMAP.md). He saw the Workbench tab and said it is not
+  what he meant ("99% sure it isn't what we discussed … baffling … even the dumbest user could use it"). The rule for
+  anything hands-on is SHOW ME, DON'T TELL ME: the real thing in 3-D, in the chat, interactive, the fix on it; the 31 Oct
+  maths stays underneath, the tab of forms goes (batch ⑤). He wants Ghosty "there" without asking: everything lands in
+  the conversation, he brings things up himself, Home as his wall (batch ②). "Moving SIDEWAYS … and significantly
+  UPWARDS." Findability: nudges rejected ("by him telling you once you'll still forget"); the fix is the everything-tab
+  (every single thing, generated from code, tap → plain line + example + TRY IT; batch ①). Games: WOAH-level, the legal
+  line accepted (free classics as they are; faithful mechanics remakes with our own look; never a commercial game's art
+  or names; batch ③). The packs confirmed (④). His two lists of wants are verbatim in OWNER-ISSUES 91 with the triage
+  (free and planned / needs one thing from him / not from a phone app). Order agreed (92): ① → ② → ③ → ④ → ⑤ the car in
+  3-D → ⑥ the offline brain → ⑦ the social self (his four picks, re-asked plainly in ROADMAP) → ⑧ the rest. Written and
+  pushed with no PR open: ROADMAP.md, BRIEF-EVERYTHING.md (its first commit is the two Workbench layout bugs from his
+  screenshots: mode buttons and titles under the sticky pills; the stale hero line). Builder ① started 02:35 UK on one
+  Opus worktree (preview port 8877) from 3b71a08 (= main 9340874 + docs). Main's guard check-in is armed for 03:35 UTC
+  (trig_01UoPMaUEC2ibEYJ2KW4VT6F). Still wanted from him: the 0.5B SIT test; his first ten games; how often Ghosty may
+  speak first in a day; his dad's and Haris's plates with their OK; the four picks. He sleeps; the morning message shows
+  him ROADMAP and the brief (sent as files at 02:40).
+- 1 Nov 02:50 UK: HIS ANSWERS (OWNER-ISSUES 93): the first ten games are left to me (my ten are in 93; DOOM and Quake's free
+  episodes need nothing owned); he may speak first ("idm"); his dad's and Haris's plates given in the chat and kept OUT of
+  the docs (his Ghosty's memory holds them; ⑤ reads the cars he has named; the DVSA key comes when ⑤ is near); no fixed
+  name for Ghosty; the weekly letter explained and pending his yes/no, day and channel; Bluesky posting with approval and
+  reading. Three of the four picks settled; the order unchanged.
+- 1 Nov 03:05 UK: HIS NEXT MESSAGE (OWNER-ISSUES 94): no weekly letter (all four picks settled); games must be "insanely
+  good quality and not just slop" and he wants "hundreds" → the bar written into ROADMAP ③ and the LIBRARY of real free
+  games through browser engines (DOS, ScummVM, DOOM, Quake, OpenArena, PICO-8-compatible, open-source web games; each
+  licence checked); "the rest is school" was a typo for "the rest is cool" (his 03:15 message), so the order stands; other accounts listed (Discord,
+  Mastodon, a Telegram channel, YouTube, Reddit reading, X posting only; Instagram/Threads/TikTok later and fragile); the
+  PS5: no app possible, the hidden browser opens a link sent in a message, controller as pointer → a TV MODE in ⑨ if his
+  test opens Ghosty there. Nothing in the build order changes for ①–⑥.
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
+
+- 1 Nov 03:20 UK (OWNER-ISSUES 95): his usage at 32% all models / 29% Fable for the week after seven batches; the
+  seven rules (Opus builders, review by risk, fewer wakes, short outputs, no rework, free validation, an 85% reserve) are
+  the way of working from here. About 4.5% of a week per batch all-in; 25–35 batches planned; two resets before 14 Nov.
+- 1 Nov 03:40 UK (OWNER-ISSUES 96): the bucket resets FRIDAY; he wants ①–⑧ done by Thursday night at the same bar.
+  Parallel builders in separate areas (Opus for design-heavy, Sonnet for brief-plus-tests work), lean rules in every brief,
+  review by risk with an Opus reviewer for big diffs, PRs paired, docs one commit per merge. Running: ① (8877), ② (8866),
+  ③ part 1 ARCADE (8855).
+- 1 Nov 03:55 UK (OWNER-ISSUES 97): School still "crashing to my knowledge" (he never did GET → USE); builder ⑥ part 1
+  BRIEF-SMALLEST started (Opus, 8833): a floor brain, the chain, one-tap GET-and-sit, a 600-token sitting prompt. The PS5
+  opens Ghosty (older WebKit: the Eye and the new centre piece fail) → TV MODE in ⑧. Four builders run.
+- 1 Nov 04:40–05:00 UK: the ARCADE's first half handed back engine-free (the proxy refuses GitHub archive and API URLs;
+  `git clone` of a public repository works, which the builder did not know) → merged 0e542d6; BRIEF-LIBRARY (the DOS
+  engine from npm `emulators` + the arcade screen; Opus, 8855) started; the owner allowed the two engine repos and "all
+  access in future" → `.claude/settings.json` allows add_repo; doomgeneric and WebQuake cloned read-only under /home/user;
+  BRIEF-ENGINES (native DOOM and Quake behind a shared Engine adapter; Opus, 8811) started. Five builders at once: load
+  ~12–14 on 4 cores, so specs run 1.5–2× slower; do not start a sixth.
+- 1 Nov 05:25 UK: BATCH ① MERGED onto the branch (f91ca18; OWNER-ISSUES 99). Light validation on the merged tree
+  (typechecks, web build, catalogue + arcade tests 19/19) on top of the builder's full run at its HEAD; CI carries the
+  rest (free). PR #49 opened; merge when green. From here every merge must add catalogue words for the batch's new
+  registry items (the completeness test names them).
+- 1 Nov 05:45 UK: BATCH ⑥ PART 1 MERGED (a7d4be4; OWNER-ISSUES 100) and pushed into PR #49 with ① (one CI run for
+  both; the push restarts #49's checks). Seven false failures on the merged tree until the package's 27 esbuild steps
+  were rerun: STALE TEST BUNDLES — always rebuild them before judging a merged tree (a python one-liner over the test
+  script's `&&` parts does it). Building: ② sideways (8866), ③ library + arcade screen (8855), ③ native engines (8811).
+  Next free slot: GAMES-2 (brief ready), then PACKS-1 (brief ready). Hold pushes while a PR is open unless a batch is
+  joining it.
+- 1 Nov 06:25 UK: BATCH ② MERGED (ec681b8; fix-ups c78526f, daa6474; OWNER-ISSUES 101) and pushed into PR #49 (now ①+②+⑥a;
+  the push restarted its checks: the stop hook asked for the push and the builders' work lived only in this container).
+  Rule from here: a batch joins the open PR only while its checks are under ~45 min old; otherwise it waits for the next
+  PR. The merged tree's full suite and eight specs run in the background (scratchpad val2.log). Building: ③ library +
+  arcade screen (8855, finishing), ③ engines (8811), ③ games-2 (8800). Next slot: PACKS-1.
+- 1 Nov 06:40 UK: BATCH ③ PART 5 MERGED (26d12e6; words 8d69309; OWNER-ISSUES 102): the ARCADE tab with 13 free DOS classics
+  on the DOSBox-wasm engine behind the shared Engine adapter. Joins PR #49 once deck + arcade specs pass on the merged tree
+  (running on 8844 while the chain on 8788 finishes nav/brief + the suite). PACKS-1 started (Opus, 8822). Running: engines
+  (8811), games-2 (8800), packs-1 (8822).
+- 1 Nov 07:10 UK: #49's old head failed CI on the SELFTRAIN spec: its brain-chooser list lacked the floor brain (⑥a changed
+  the stock list; the spec was not in that batch's validation list). Fixed (6ddc5a6), proven on a fresh preview, pushed.
+  LESSON: when a batch changes a shared list (brains, tabs, deck groups, jobs), grep every spec for the old list, not
+  just the builder's validation list.
+- 1 Nov 07:40 UK: ENGINES MERGED (9620c71; OWNER-ISSUES 103): native DOOM and Quake behind the adapter, not yet wired into
+  the player; three add/add conflicts (two builders created types/saves/audio from the same spec) resolved as unions.
+  Held locally with the docs; the engines builder continues with the integration step on the branch tip (its worktree
+  kept); all of it goes to PR #50 after #49 merges.
+- 1 Nov 08:50 UK: CI on the old heads failed on three specs: SELFTRAIN (the chooser's list; fixed 6ddc5a6), BOOT (the
+  greeting's first tap landed on a wall card and counted as "busy": only typing or signing in count now, e86dde4) and the
+  Workshop's PROJECTS lists (passes here; watched on the current head). The engines test is scoped to doom/quake entries
+  (c36aac4). Everything local was pushed at 08:18 (c36aac4): #49 now carries ①②③a⑥a + the inert engines and two games.
+- 1 Nov 08:55 UK: PACKS-1 MERGED (0ea2e8d; OWNER-ISSUES 105): money, body, kitchen; the prompt at exactly 5,500 on the worst
+  dial. Held for PR #50 with the wiring. Running: arcade-wire (8811, final tests), games-3 (8799), car (8777); PACKS-2
+  next on Sonnet (the pattern is set).
+- 1 Nov 09:05 UK: PACKS-1 joined PR #49 (bf773b0; five batches). PACKS-2 started on Sonnet (8766).
+- 1 Nov 09:25 UK: ARCADE-WIRE MERGED (1b52633; OWNER-ISSUES 106): DOOM, Freedoom, the free levels, Quake and the two 3-D
+  games on the shelf. Deck/arcade/games2/engines specs run on the merged tree (val5); if green it joins #49 (checks ~35 min
+  old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (Opus).
+- 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
+  wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
+  engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
+  with a brief instead; the three finished worktrees were locked and needed `worktree unlock` before `remove`.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
