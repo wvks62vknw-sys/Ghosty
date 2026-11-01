@@ -1114,6 +1114,11 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 10:15 UK: GAMES-3 MERGED AND WIRED by hand (7e6ebc6, 0644646; OWNER-ISSUES 107): five games of our own on the
   shelf, eight engines. Specs deck/arcade/games3 run on the merged tree (val6). From here nothing more joins #49: it
   must finish; everything after cf13efb goes to PR #50. Running: car (8777), packs-2 (8766), social (8755).
+- 1 Nov 10:30 UK: REST-A started (Opus, 8744: offline Wikipedia, Shortcuts, Morse). The arcade spec learnt the five games
+  of our own (ca2ac3d).
+- 1 Nov 10:50 UK: CAR MERGED (34313e5; OWNER-ISSUES 108). A merge committed with conflict markers once more (local.ts,
+  phrases.ts: my resolver printed UNHANDLED and the commit went through anyway) and was amended: ALWAYS grep for markers
+  before committing a merge. Specs cards/car/studio/deck/packs run on the merged tree (val7). REST-B next (Sonnet).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
