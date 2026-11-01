@@ -26,8 +26,9 @@ export const carNow = createStore<CarNow>({ spec: null, whose: '', view: 'car', 
 
 const records = new Map<string, VehicleAnswer>();
 
-/** Hold a plate's record for this session (memory only, at most a few). */
+/** Hold a plate's record for this session (memory only, at most a few; a missing key or a failure is asked again next time). */
 export function keepRecord(plate: string, answer: VehicleAnswer): void {
+  if (!answer.ok) return;
   const p = normalisePlate(plate);
   records.delete(p);
   records.set(p, answer);

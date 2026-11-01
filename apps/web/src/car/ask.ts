@@ -9,7 +9,7 @@
  *    view. With no car in mind only the bonnet opens (on a stand-in); the rest go to the brain as ever.
  * A car's record is the public one for its plate (the vehicle check, as it is), held while Ghosty is open, never stored.
  */
-import { card, carCard, type Card, type NamedCar } from '../../../../packages/shared/src/cards';
+import { RELATIONS, card, carCard, type Card, type NamedCar } from '../../../../packages/shared/src/cards';
 import { normalisePlate, type VehicleAnswer } from '../../../../packages/shared/src/plates';
 import { headers } from '../api/brain';
 import { run } from '../commands/registry';
@@ -30,7 +30,8 @@ interface CarInMind {
 }
 
 let lastStamp = 0;
-const stamp = () => (lastStamp = Math.max(Date.now(), lastStamp + 1, (chat.get().entries.at(-1) as { at?: number } | undefined)?.at ?? 0) + 0);
+/** A time for a new entry: now, and always after the conversation's last one. */
+const stamp = () => (lastStamp = Math.max(Date.now(), lastStamp + 1, ((chat.get().entries.at(-1) as { at?: number } | undefined)?.at ?? 0) + 1));
 const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
 
 /** The car his words are about. */
@@ -39,7 +40,10 @@ async function carInMind(text: string): Promise<CarInMind | null> {
   const who = whoseIn(text);
   if (who) {
     const named = list.find((c) => (who === 'me' ? c.whose === 'me' : c.whose.toLowerCase() === who));
-    return named ? { plate: named.plate, whose: named.whose, named } : { plate: '', whose: who === 'me' ? 'me' : cap(who) };
+    if (named) return { plate: named.plate, whose: named.whose, named };
+    // a car of someone he has not introduced is only "the car": nothing is looked up, kept or named for them
+    const introduced = who === 'me' || RELATIONS.includes(who) || new RegExp(`\\bmy\\s+(?:[a-z]+\\s+)?${who}'s?\\b`).test(text.toLowerCase().replace(/[‘’]/g, "'"));
+    return { plate: '', whose: introduced ? (who === 'me' ? 'me' : cap(who)) : '' };
   }
   // the car on show in the Studio, then the last CAR card in the conversation (within the hour), then the one he named
   const now = carNow.get();
@@ -81,11 +85,11 @@ function cardFor(m: CarInMind, answer: VehicleAnswer | null): Card {
 }
 
 function toEnd(c: Card): void {
-  chat.set((s) => ({ entries: [...s.entries.filter((e) => !(e.kind === 'card' && e.card.id === c.id)), { kind: 'card' as const, card: c, at: stamp() + 1, once: true }].slice(-120) }));
+  chat.set((s) => ({ entries: [...s.entries.filter((e) => !(e.kind === 'card' && e.card.id === c.id)), { kind: 'card' as const, card: c, at: stamp(), once: true }].slice(-120) }));
 }
 
 function said(text: string, opts: Opts): void {
-  chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text, at: Math.max(Date.now(), stamp() + 1), ...(opts.private ? { private: true } : {}) } as Entry].slice(-120) }));
+  chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text, at: stamp(), ...(opts.private ? { private: true } : {}) } as Entry].slice(-120) }));
 }
 
 /** "my dad's car makes a grinding noise when I brake": the suspects, on that car's card. */

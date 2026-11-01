@@ -208,7 +208,16 @@ export function carPane(view: HTMLElement): CarPane {
 
   scene.onPick = (id) => showSheet(id);
 
-  const enter = async () => {
+  // one at a time: the Studio's own enter and a pane change can both ask while the car is still being built
+  let busy: Promise<void> = Promise.resolve();
+  let want = false;
+  const enter = () => {
+    want = true;
+    return (busy = busy.then(enterNow, enterNow));
+  };
+  const enterNow = async () => {
+    // left again before its turn came
+    if (!want) return;
     on = true;
     stage.hidden = false;
     const spec = carNow.get().spec ?? shown ?? specFrom(null);
@@ -220,6 +229,7 @@ export function carPane(view: HTMLElement): CarPane {
       shown = spec;
       scene.night = new Date().getHours() >= 19 || new Date().getHours() < 7;
       await scene.show(spec);
+      if (!want) return;
       litFor = null;
       sheetId = '';
       clear(sheet, h('p.note.carpicked', 'Tap any part of the car for what it is, a quick check and a rough cost.'));
@@ -232,6 +242,7 @@ export function carPane(view: HTMLElement): CarPane {
     if (on) scene.start();
   };
   const leave = () => {
+    want = false;
     on = false;
     stage.hidden = true;
     scene.stop();
