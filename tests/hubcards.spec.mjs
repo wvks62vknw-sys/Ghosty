@@ -70,7 +70,7 @@ const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
 // what each hub holds (shell/areas.ts AREAS; Ask adds Voice; Make adds its two sheets, CONVERT and DOCUMENTS: BRIEF-REST-E,
 // 1 Nov, so Make has seven tools, the first six as cards and the seventh in the More row)
-const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs'], learn: ['learn', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
+const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs'], learn: ['learn', 'arcade', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
 const WORDS = ['LIVE', 'READY', 'TRAINING', 'OFF'];
 const NONE = /^(Not yet|None yet|None|Nothing|Off air|Start one|Not set up|—)$/;
 

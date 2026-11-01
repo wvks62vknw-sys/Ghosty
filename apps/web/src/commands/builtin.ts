@@ -521,6 +521,36 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
+      id: 'open_outside',
+      title: 'Outside: walk, car parks, toilets, cash, car, lost',
+      group: 'GO',
+      run: async (a) => {
+        const { openOutside } = await import('../features/outside/sheet');
+        await openOutside(typeof a?.what === 'string' ? a.what : 'toilets', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [packs3] THE LEARNING PACK's sheet (features/learning): words, cards, drawing, typing, reading, memory, maths, first aid, a plan, streaks.
+      id: 'open_learning',
+      title: 'Learning: words, drawing, typing, maths, memory, first aid',
+      group: 'GO',
+      run: async (a) => {
+        const { openLearning } = await import('../features/learning/sheet');
+        await openLearning(typeof a?.what === 'string' ? a.what : 'words', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [packs3] THE HOME PACK's sheet (features/homeadmin): what is due, bin days, bills, a meter, a room's things.
+      id: 'open_homeadmin',
+      title: 'Home: what is due, bins, bills, meter, rooms',
+      group: 'GO',
+      run: async (a) => {
+        const { openHomeadmin } = await import('../features/homeadmin/sheet');
+        await openHomeadmin(typeof a?.what === 'string' ? a.what : 'due');
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

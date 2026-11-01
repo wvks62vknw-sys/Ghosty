@@ -33,7 +33,7 @@ import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
+import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn } from './reste';
 import { carFaultTurn, carViewTurn } from '../car/ask';
@@ -238,6 +238,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   build: (text, opts) => import('../build/ask').then((b) => b.buildTurn(text, opts, answer)).catch(() => false),
   // [restd] THE HOUSE (house/ask.ts): his things by their names, a guarded one only by his tap with a confirm; no model
   house: (text, opts) => import('../house/ask').then((x) => x.houseTurn(text, opts, answer)).catch(() => false),
+  outside: async (text, opts) => packAnswer(await outsideTurn(text), opts),
+  homeadmin: async (text, opts) => packAnswer(await homeTurn(text), opts),
+  learning: async (text, opts) => {
+    const r = await learningTurn(text);
+    return r ? packAnswer(r, opts) : false;
+  },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

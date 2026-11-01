@@ -38,6 +38,10 @@ import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
+import { outsideAsked } from '../../../../packages/shared/src/outside';
+import { homeAsked } from '../../../../packages/shared/src/homeadmin';
+import { learningAsked } from '../../../../packages/shared/src/learning';
+import { typingPending } from '../features/learning/typing';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -81,6 +85,11 @@ export const LOCAL_ASKS = [
   { id: 'build', test: (t: string) => !!buildAsked(t) },
   // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
   { id: 'house', test: (t: string) => !!houseAsked(t) },
+  // [packs3] the outside pack on the phone (features/outside): a car park, toilets, the car, "I'm lost", a safer walk; the home and learning packs' phrases follow
+  { id: 'outside', test: (t: string) => outsideAsked(t) !== null },
+  { id: 'homeadmin', test: (t: string) => homeAsked(t) !== null },
+  // (and while a typing test is up in the chat's own box, what he sends next: features/learning/typing.ts)
+  { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

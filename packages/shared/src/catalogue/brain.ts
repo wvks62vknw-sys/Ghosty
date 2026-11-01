@@ -11,6 +11,7 @@ import { TOOLS_3 } from './tools3';
 import { PACK_WORDS } from './packs';
 import { SOCIAL_WORDS } from './social';
 import { PACK2_WORDS } from './packs2';
+import { PACK3_WORDS } from './packs3';
 
 /** WHY I MIGHT USE IT MYSELF: when each tool group is in front of me (its `when`, in plain words). */
 export const GROUP_WHY: Record<string, string> = {
@@ -63,6 +64,9 @@ export const GROUP_WHY: Record<string, string> = {
   kitchen: 'When you talk about dinner, your fridge, a recipe, a timer, the shopping list, the oven, or food going off.',
   social: 'When you talk about Bluesky, Mastodon, your Discord or your Telegram channel, posting something, or following someone.',
   creative: 'When you ask for a song, a poem, a story, a poster, a comic, a birthday card, a logo, a palette, names, rhymes or a beat.',
+  learning: 'When you talk about words in a language, a typing test, a maths or memory drill, reading faster, first aid, a drawing class, or a plan for a skill.',
+  homeadmin: 'When you talk about a bill, a meter reading, bin day, a warranty, a manual, the car’s MOT or insurance, planning near home, rent, or the boiler service.',
+  outside: 'When you talk about a car park, the last train or bus home, a walk at night, toilets or cash near you, rain and a coat, splitting a fare, or where you parked.',
   work: 'When you talk about your CV, a job ad, a cover letter, an interview, meeting notes, a to-do, your pay after tax, your hours, a rota, or a word count.',
   people: 'When you talk about a birthday, a gift, someone you want to call, a thank-you, a card, a group plan, or a friend’s number.',
 };
@@ -200,4 +204,4 @@ const MORE: Record<string, CatValue> = {
   },
 };
 
-export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS };
+export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS, ...PACK3_WORDS };

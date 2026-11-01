@@ -1192,6 +1192,55 @@ folder that no longer exists; ignore those paths).
   (it still reached the wall, not the chat). The poller now records announced ids (the last 300) instead. Verified: cards,
   brief, social, notifications and agenda on ONE brain in that order. The clock-stub change in the spec stays (harmless).
   LESSON: a spec that stamps an item in the future must not be assumed harmless for the specs after it.
+- 1 Nov 18:35 UK: PACKS-3 APPLIED (OWNER-ISSUES 117; the squash route from its base a59329d: the builder's own trial-merge
+  patch applied cleanly onto a5d6f28; six both-added spots kept both: the loop's `packs3` after `packs2` inside the sharded
+  `all=` list, the brain's test list, the local asks' import line and its entries after `house`, the phrases' imports and entries
+  after `house` (the coach's `skill` stays first: 117's TWO DOORS), the command list's three open_* entries, the end of
+  styles.css). On the tip: both typechecks, 28 bundles, prompt 36 (the dials 5,369 / 5,440 / 5,429 / 5,500), catalogue 11,
+  outside 20, homeadmin 18, learning 21, abilities 16, the web build; specs ui, packs3, hubcards, cards, deck on one preview
+  (8844) in that order. The builder's full brain suite: 1,626/1,626 at its HEAD, 1,729/1,729 on its trial merge at 057d7df.
+  Its worktree and branch removed. NOT PUSHED yet: a push restarts PR #50's run (head 1375080, started 17:43 UK, the
+  two-and-a-quarter-hour loop); packs-3 and the four-shard checks (a5d6f28) go up as PR #51 once PR #50 merges. KNOWN: the
+  packs spec's 3-squat camera step is frame-rate dependent (fails at load 14 on 4 cores, passes at normal load, base and new
+  alike); the catalogue is now 911 say-phrases, all probed in the merged order (none moved to the three new entries). Next: the
+  depth pass (BRIEF-DEPTH, 8666) from the local tip.
+- 1 Nov 18:56 UK: PR #50 MERGED at the owner's word (main 80fe744) with its run on 1375080 still going (started 17:43; the run
+  before it was red only on safari and social, both fixed at cause and verified in the loop's order; he asked twice, said he was
+  excited to use it, and was told plainly what the risk is). That run's result and main's own push run (both the unsharded
+  2 h 15 loop) are read at the 20:08 check-in; anything red is fixed forward in PR #51 (the guard cannot revert main). Pushed:
+  the four-shard checks (a5d6f28), packs-3 (c5a1024, a0b4395) and this; PR #51 opened. Running: the depth pass (8666).
+- 1 Nov 20:06 UK: THE LIVE CODE'S LOOP (PR #50's run on 1375080, read after the merge) and PR #51's first sharded run (9ebb730)
+  showed four spec-side failures, none of the phone's: vehicle (System → KEYS has two five-line key boxes now; the spec's bare
+  textarea.keylines found both: by its DVSA label now), upgrades (the Workshop's panels move while a used brain's drafts and
+  projects load, so a tap at THINK NOW or an idea's BUILD landed on a neighbour: a tap waits for its target's box to hold still
+  for half a second; the product-side fix, cards that reserve their height, is the depth pass's), offline2 (the phone's stores
+  save 200 ms after a change; the cloud answered inside that window on the used brain and the spec read the misses first: it
+  waits for the saved miss), restb (the coach's passage typed at 25 ms a key reached 408 wpm on the runner, past the spec's own
+  400 ceiling: 60 ms a key now). games2's block world placed nothing on its first tap once and passed on the retry (the loop's
+  flake warning; cause open). THE OWNER'S FIRST FINDS on the live code: the ARCADE had no card on any hub (a card on LEARN now,
+  second, and in the deck's Learn and plan group; the Learn sub reads 'Courses and free games for you; the gym, school and a
+  library for me.'; hubcards, nav (a five-tool arc) and deck specs follow); every fetched game fails on his phone with
+  'archive.org: Load failed' (Safari's error for no answer at all: his network, most likely a UK filter, blocks the Archive; a
+  builder is adding an own-site pass-through /api/arcade/<item>/<file> on zim.ts's pattern, tried after the Archive itself);
+  'a scroll issue in MAKE' (unconfirmed: the hub fits one screen in Chromium at 440 × 956 and 390 × 844; asked which of three it
+  is). THE DEPTH PASS BUILDER WAS STOPPED when the owner interrupted a turn (the harness cancels the turn's background agents):
+  its 31 uncommitted files sit abandoned in its worktree; a restart waits on his word. Validated here before this push:
+  hubcards, deck, arcade, ui, nav (451 s), websites → apps → upgrades, vehicle, offline2 (twice, once after school → sit), restb.
+- 1 Nov 20:38 UK: MAKE'S CUT-OFF ROW, the owner's find, at its cause: the hub is a column flexbox that scrolls, and its More row has
+  overflow-x, so its automatic minimum height is nothing: when the cards ran past a shorter screen (an iPhone's safe areas,
+  Safari's bars) that row was the one child squeezed — 16 px tall at 390 × 700 in my own earlier measurement, the DOCUMENTS card
+  clipped — and the hub had nothing left to scroll. `html .hubmore { flex: none }`: 64 px at every size now, the hub scrolls when
+  it must (390 × 700: 775 > 648, the row ends above the dock). THE ARCADE'S OWN-SITE MIRROR MERGED (a plain merge of the builder's
+  worktree branch, base 9ebb730; its worktree started on origin/main by mistake and was reset to the local tip before any work):
+  apps/edge/src/arcade.ts `arcadePassthrough` (GET/HEAD, the 18 Archive items of the shelf and levels as an allowlist, names
+  as %XX escapes with no `..`, upstream https://archive.org/cors/<rest> with redirect: follow, streamed unread, a week's cache
+  headers; 404/502 in plain JSON), routed in index.ts after the sign-in beside /api/zim/; store.ts tries the own-site copy of each
+  Archive address after every public mirror failed, with the owner's headers and cookie (GetOptions.ownHeaders from the arcade
+  tab); the reason reads "this site"; arcade-mirror.test.mjs 14 tests (the allowlist held to shelf.ts and levels.ts both ways:
+  a new item must be added to ARCADE_ITEMS). Not verifiable here (no network): the live Archive's 302 to *.us.archive.org and
+  HEAD support; a failure on his phone now reads "(archive.org: Load failed; this site: answered N)": 401 sign-in, 404 not on
+  the list or gone, 502 the Archive unreachable from the Worker. Validated: both typechecks, 28 bundles, arcade-mirror 14,
+  arcade 14, resta 13, catalogue 11, the web build, specs arcade and hubcards; the builder's full brain suite 1,743/1,743.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

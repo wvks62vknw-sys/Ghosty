@@ -58,8 +58,8 @@ const look = await page.evaluate(() => ({
   wide: document.documentElement.scrollWidth > innerWidth || [...document.querySelectorAll('#deck .dkcard, #deck .dkgo, #deck .dkhead')].some((e) => { const r = e.getBoundingClientRect(); return r.left < -1 || r.right > innerWidth + 1; }),
 }));
 if (look.kick !== 'Every screen' || look.title !== 'At your service, Boss' || look.sub !== 'Tap any screen to find out what it can do.') problems.push(`the deck's header reads ${JSON.stringify([look.kick, look.title, look.sub])}`);
-// (the ARCADE, 1 Nov, is the first screen in no group yet: it shows under "More" until shell/deckcopy.ts places it)
-if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me,More') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
+// (the ARCADE sits in Learn and plan since 1 Nov, evening: shell/deckcopy.ts DECK_GROUPS, beside its card on the Learn hub)
+if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
 // (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
 const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities', 'arcade'];
 if (look.cards.length !== ALL.length || ALL.some((id) => !look.cards.includes(id))) problems.push(`the deck has ${look.cards.length} cards: ${look.cards.join(', ')}`);

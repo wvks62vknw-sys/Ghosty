@@ -1,0 +1,41 @@
+{
+  "_": "Hand-built in the format Overpass documents (elements with type, id, lat/lon or a centre, and tags), with real OpenStreetMap tag names: the sandbox this pack was built in could not reach Overpass, so these are not captures.",
+  "parking": {
+    "elements": [
+      { "type": "way", "id": 1, "center": { "lat": 52.4781, "lon": -1.8962 }, "tags": { "amenity": "parking", "name": "Moor Street Surface Car Park", "parking": "surface", "fee": "yes", "charge": "£1.80/hour", "capacity": "120", "operator": "Network Rail" } },
+      { "type": "way", "id": 2, "center": { "lat": 52.4773, "lon": -1.8992 }, "tags": { "amenity": "parking", "name": "Cannon Street Free Parking", "parking": "surface", "fee": "no", "capacity": "30", "maxstay": "2 hours" } },
+      { "type": "way", "id": 3, "center": { "lat": 52.4789, "lon": -1.9005 }, "tags": { "amenity": "parking", "name": "Mailbox Multi-storey", "parking": "multi-storey", "fee": "yes", "capacity": "600", "capacity:disabled": "12", "opening_hours": "24/7" } },
+      { "type": "node", "id": 4, "lat": 52.4777, "lon": -1.8979, "tags": { "amenity": "parking", "name": "Staff car park", "access": "private" } },
+      { "type": "node", "id": 5, "lat": 52.4775, "lon": -1.8999, "tags": { "amenity": "parking", "name": "Residents only", "access": "permit" } },
+      { "type": "node", "id": 6, "lat": 52.4783, "lon": -1.8955, "tags": { "amenity": "parking", "parking": "surface", "capacity": "12" } }
+    ]
+  },
+  "toilets": {
+    "elements": [
+      { "type": "node", "id": 11, "lat": 52.4779, "lon": -1.8981, "tags": { "amenity": "toilets", "name": "New Street Station toilets", "fee": "yes", "charge": "30p", "wheelchair": "yes", "opening_hours": "Mo-Su 05:00-24:00" } },
+      { "type": "node", "id": 12, "lat": 52.4786, "lon": -1.9004, "tags": { "amenity": "toilets", "fee": "no", "wheelchair": "no", "opening_hours": "Mo-Fr 08:00-18:00; Sa,Su 09:00-17:00" } },
+      { "type": "node", "id": 13, "lat": 52.4774, "lon": -1.8969, "tags": { "amenity": "toilets", "name": "Café customers", "access": "customers" } }
+    ]
+  },
+  "atm": {
+    "elements": [
+      { "type": "node", "id": 21, "lat": 52.4777, "lon": -1.8986, "tags": { "amenity": "atm", "operator": "Barclays", "fee": "no" } },
+      { "type": "node", "id": 22, "lat": 52.4781, "lon": -1.8977, "tags": { "amenity": "atm", "operator": "Cashzone", "fee": "yes", "indoor": "yes", "opening_hours": "Mo-Sa 07:00-22:00" } }
+    ]
+  },
+  "water": {
+    "elements": [
+      { "type": "node", "id": 31, "lat": 52.4772, "lon": -1.9020, "tags": { "amenity": "drinking_water", "name": "Victoria Square fountain", "bottle": "yes" } },
+      { "type": "node", "id": 32, "lat": 52.4801, "lon": -1.9033, "tags": { "amenity": "drinking_water", "seasonal": "summer" } }
+    ]
+  },
+  "open": {
+    "elements": [
+      { "type": "node", "id": 41, "lat": 52.4779, "lon": -1.8983, "tags": { "amenity": "pharmacy", "name": "Boots", "opening_hours": "Mo-Sa 08:00-20:00; Su 11:00-17:00" } },
+      { "type": "node", "id": 42, "lat": 52.4782, "lon": -1.8989, "tags": { "amenity": "cafe", "name": "Early Bird", "opening_hours": "Mo-Fr 07:00-15:00" } },
+      { "type": "node", "id": 43, "lat": 52.4776, "lon": -1.8995, "tags": { "amenity": "pub", "name": "The Crown", "opening_hours": "Mo-Su 11:00-23:30" } },
+      { "type": "node", "id": 44, "lat": 52.4785, "lon": -1.8970, "tags": { "amenity": "restaurant", "name": "Night Noodles", "opening_hours": "Mo-Su 17:00-02:00" } },
+      { "type": "node", "id": 45, "lat": 52.4771, "lon": -1.8990, "tags": { "amenity": "cafe", "name": "Sunrise Bakery", "opening_hours": "sunrise-sunset" } }
+    ]
+  }
+}

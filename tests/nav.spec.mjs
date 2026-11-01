@@ -143,7 +143,7 @@ await page.waitForTimeout(700);
 s = await sw(page);
 if (s.tab !== 'area-learn' || s.open) problems.push(`a short press on Learn: tab ${s.tab}, switcher ${s.open ? 'open' : 'closed'}`);
 if (s.aria !== 'true') problems.push(`the closed switcher is not aria-hidden (${s.aria})`);
-// the long press: the arc fans out above the bar, Learn's four tools with their instruments, names and readings
+// the long press: the arc fans out above the bar, Learn's five tools (the arcade joined on 1 Nov) with their instruments, names and readings
 await show(page, 'gym', 900);
 await f.down(at.x, at.y);
 await page.waitForTimeout(600);
@@ -154,7 +154,7 @@ if (!held) problems.push('the held tab does not keep its touch flare while the a
 await settle(page);
 s = await sw(page);
 if (s.aria !== null) problems.push(`the open switcher is still aria-hidden (${s.aria})`);
-if (s.items.map((i) => i.id).join(',') !== 'learn,gym,school,library') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Gym, School, Library)`);
+if (s.items.map((i) => i.id).join(',') !== 'learn,arcade,gym,school,library') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Arcade, Gym, School, Library)`);
 for (const i of s.items) {
   if (!i.drawn) problems.push(`[switcher ${i.id}] no instrument in its face`);
   if (!i.name || !i.read) problems.push(`[switcher ${i.id}] no name or reading ("${i.name}", "${i.read}")`);
@@ -163,7 +163,7 @@ for (const i of s.items) {
   if (Math.hypot(i.x - i.at.x, i.y - i.at.y) > 2) problems.push(`[switcher ${i.id}] did not land where it belongs (${i.x},${i.y} for ${i.at.x},${i.at.y})`);
 }
 // an arc: the outer ones lower than the inner ones
-if (s.items.length === 4 && !(s.items[0].y > s.items[1].y && s.items[3].y > s.items[2].y)) problems.push(`the tools are not on an arc: ${s.items.map((i) => `${i.id} ${i.x},${i.y}`).join(' · ')}`);
+if (s.items.length >= 4 && !(s.items[0].y > s.items[1].y && s.items.at(-1).y > s.items.at(-2).y)) problems.push(`the tools are not on an arc: ${s.items.map((i) => `${i.id} ${i.x},${i.y}`).join(' · ')}`);
 for (const t of await target44(page, '#switcher .switem')) problems.push(`[switcher] under a 44 pt target: ${t}`);
 for (const x of await sideways(page, '#switcher :is(.switem, .swcap)')) problems.push(`[switcher 440] sticks out sideways: ${x}`);
 // the finger slides onto the Library: it lights and is named; lifted there, the Library opens
@@ -548,7 +548,7 @@ await ctx.close();
     await p.route('**/api/agenda?**', (r) => r.fulfill({ status: 503, json: { error: 'down' } }));
   },
 }));
-const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses for you; games, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.' };
+const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you; the gym, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.' };
 for (const [a, want] of Object.entries(PLAIN)) {
   await show(page, `area-${a}`, 2500);
   const w = await page.$eval(`#pg-area-${a} .hubsub`, (e) => ({ text: e.textContent, personal: e.dataset.personal }));

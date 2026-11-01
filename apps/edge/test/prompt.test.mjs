@@ -84,12 +84,12 @@ test('a pack group: off, its short name and nothing else; on, its about line des
   }
 });
 
-test('the six packs (money, body, kitchen, people, work, creative): off on small talk as two words each, on by his words with every action described', () => {
+test('the packs (money, body, kitchen, people, work, creative, outside, home, learning): off on small talk as two words each, on by his words with every action described', () => {
   const packs = Object.fromEntries(T.TOOL_GROUPS.filter((g) => g.short).map((g) => [g.name, g]));
-  assert.deepEqual(Object.keys(packs).sort(), ['body', 'creative', 'kitchen', 'money', 'people', 'social', 'work']);
+  assert.deepEqual(Object.keys(packs).sort(), ['body', 'creative', 'homeadmin', 'kitchen', 'learning', 'money', 'outside', 'people', 'social', 'work']);
   const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
-  for (const line of ['money pack', 'body pack', 'kitchen pack', 'people pack', 'work pack', 'creative pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
-  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers|birthday|cover|rota|poster|haiku)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
+  for (const line of ['money pack', 'body pack', 'kitchen pack', 'people pack', 'work pack', 'creative pack', 'outside pack', 'home pack', 'learning pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
+  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers|birthday|cover|rota|poster|haiku|safewalk|lasthome|halfway|inventory|renewals|readfast|firstaid|converse)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
   const on = {
     money: ['how much have I spent this week?', 'cheapest petrol near dad', 'watch the price of this kettle', 'payday is the 28th', 'split the bill between 3'],
     body: ['count my push-ups', 'how did I sleep this week?', 'I weigh 82 kg', 'remind me to drink water', 'start a run'],
@@ -97,6 +97,9 @@ test('the six packs (money, body, kitchen, people, work, creative): off on small
     work: ['write a cover letter for this job', 'sum up my meeting notes', 'what is £30,000 a year after tax', 'start a pomodoro', 'add to my to-do list: send the invoice', 'interview practice for a shop job'],
     creative: ['write me a song about rain', 'a haiku about autumn', 'make a poster for the fete', 'a comic about my cat', 'what rhymes with light', 'make a beat'],
     people: ['dad’s birthday is 14 march', 'gift ideas for mum under £30', 'remind me to call dad on sunday', 'a thank-you note to jo', 'who’s who'],
+    homeadmin: ['a photo of my gas bill', 'bin day is tuesday', 'my council tax band', 'the warranty on the washing machine', 'what is due at home', 'the boiler service is due in march'],
+    learning: ['ten Spanish words for today', 'a typing test', 'a maths drill', 'how am I doing with my streaks', 'a four week plan for the guitar', 'first aid practice', 'a drawing class', 'help me read faster'],
+    outside: ['which carriage at new street', 'car parks near the bullring', 'a safer walk home from the pub', 'last train home from digbeth', 'toilets near the station', 'where did i park the car', 'split the taxi fare between us', 'will it rain this afternoon'],
   };
   for (const [name, asks] of Object.entries(on)) {
     for (const t of asks) {
@@ -104,7 +107,7 @@ test('the six packs (money, body, kitchen, people, work, creative): off on small
       assert.ok(g.on.some((x) => x.name === name), `"${t}" turns the ${name} pack on`);
       const sys = P.systemPrompt(client, [], true, [], { groups: g });
       assert.ok(sys.includes(`- ${packs[name].about}`), `"${t}": the ${name} pack described`);
-      assert.ok(!new RegExp(`^${name} pack$`, 'm').test(sys), `"${t}": described, not named`);
+      assert.ok(!new RegExp(`^${packs[name].short}$`, 'm').test(sys), `"${t}": described, not named`);
     }
   }
   for (const t of ['hello', 'what time is it', 'how are you', 'thanks']) assert.ok(!T.selectGroups(t, new Set(), false).on.some((x) => x.short), `"${t}" leaves every pack off`);

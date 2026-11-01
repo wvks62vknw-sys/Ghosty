@@ -177,6 +177,8 @@ export const APP_1: Record<string, CatValue> = {
   'hub:space': { same: 'screen:space' }, 'hub:workbench': { same: 'screen:workbench' }, 'hub:learn': { same: 'screen:learn' }, 'hub:gym': { same: 'screen:gym' },
   'hub:school': { same: 'screen:school' }, 'hub:library': { same: 'screen:library' }, 'hub:agenda': { same: 'screen:agenda' }, 'hub:markets': { same: 'screen:markets' },
   'hub:threats': { same: 'screen:threats' }, 'hub:radio': { same: 'screen:radio' },
+  // the ARCADE's card on the LEARN hub (1 Nov, evening: the owner could not find the arcade without one)
+  'hub:arcade': { same: 'screen:arcade' },
   // ---- the Me sheet
   'me:memory': { same: 'screen:memory' }, 'me:settings': { same: 'screen:settings' }, 'me:system': { same: 'screen:system' },
   'me:links': { same: 'screen:links' }, 'me:abilities': { same: 'screen:abilities' },

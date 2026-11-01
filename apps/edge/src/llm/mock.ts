@@ -183,7 +183,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     // [social] After social: what it read or drafted, as it came (authors and times; never "posted" for a draft).
     if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
-    if (lastCall && ['people', 'work', 'creative'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
+    if (lastCall && ['people', 'work', 'creative', 'outside', 'home', 'learning'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -410,6 +410,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = ownerWords(textOf(last.content)).match(/^write me a song about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'song', words: `a song about ${m[1]}`, lyrics: 'The kettle sings at half past six\nA grey sky leans against the glass\nI hum along to nothing much\nAnd let the Monday pass\n\n[Chorus]\nRain, rain on my window\nSlow, slow goes the day\nI will keep the lamp on\nAnd let the clouds drift away' }), model };
   if ((m = ownerWords(textOf(last.content)).match(/^a poster for (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'poster', words: m[1] }), model };
   if ((m = ownerWords(textOf(last.content)).match(/^a comic about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'comic', words: m[1], captions: /\bcat\b/i.test(m[1]!) ? ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] : [`${m[1]![0]!.toUpperCase()}${m[1]!.slice(1)}.`, 'Then something goes wrong!', 'So they try again, a new way.', 'It works out in the end, happily.'] }), model };
+  // [packs3] THE OUTSIDE PACK (tools/outside.ts): a fare split, a bag, the last way home — from his own words (the maps are never asked here).
+  if ((m = ownerWords(textOf(last.content)).match(/^split the (?:fare|taxi|cab|bill): (.+)$/i)) && has('outside')) return { message: call('outside', { action: 'split', words: m[1] }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^pack my bag for (.+)$/i)) && has('outside')) return { message: call('outside', { action: 'pack', plan: m[1] }), model };
+  // [packs3] THE HOME PACK (tools/homeadmin.ts): his bin days, from his own words.
+  if ((m = ownerWords(textOf(last.content)).match(/^(bins are .+)$/i)) && has('home')) return { message: call('home', { action: 'bins', words: m[1] }), model };
+  // [packs3] THE LEARNING PACK (tools/learning.ts): a four-week plan and a logged practice, from his own words.
+  if ((m = ownerWords(textOf(last.content)).match(/^a (?:four|4)[- ]week plan for (.+)$/i)) && has('learning')) return { message: call('learning', { action: 'plan', words: `plan for ${m[1]}` }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^log my (.+?) practice$/i)) && has('learning')) return { message: call('learning', { action: 'done', skill: m[1] }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };

@@ -44,6 +44,9 @@ import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
 import { convertInst, docsInst } from '../convert/inst';
 import { listDocs } from '../docs/store';
+import { fetched, keptAs, SHELF } from '../arcade/shelf';
+import { isHere } from '../arcade/store';
+import { allScores } from '../arcade/scores';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -86,6 +89,8 @@ const every = (ms: number, fn: () => Promise<unknown>) => {
 };
 /** What the hubs read for themselves (null until read; `false` when the read failed). */
 export const hubFacts = {
+  /** The arcade: how many of the shelf's games are ready on this phone (ours always are; a classic once it is fetched). */
+  arcade: null as { here: number } | null,
   gym: null as Map<string, GymRecord> | null,
   study: null as StudyInfo | null,
   school: null as { stage: string; label: string; subjects: number; passed: number } | null | false,
@@ -97,6 +102,10 @@ export const hubFacts = {
   projects: null as Project[] | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
+const loadArcade = every(3_000, async () => {
+  const ready = await Promise.all(SHELF.map((e) => (fetched(e) ? isHere({ id: keptAs(e), data: e.data }) : true)));
+  hubFacts.arcade = { here: ready.filter(Boolean).length };
+});
 const loadLib = every(300_000, async () => {
   const [, st] = await Promise.all([brain.library().catch(() => null), brain.studyStatus().catch(() => null)]);
   if (st) hubFacts.study = st;
@@ -380,6 +389,23 @@ export const CARDS: Record<string, HubCard> = {
       { label: 'Studied', value: n(hubFacts.study?.summary.read) },
     ],
     load: loadLib,
+  },
+  // [arcade] the ARCADE's card on Learn (1 Nov; it had no card, so the owner could not find it): free classics and our own
+  // games, played on this phone; LIVE while one is playing comes from the tab itself (features/arcade: arcadeTab.status)
+  arcade: {
+    title: 'Play free classics, no adverts',
+    status: () => 'READY',
+    instrument: () => levelInst(hubFacts.arcade?.here ?? null, SHELF.length),
+    readouts: () => {
+      const last = Object.entries(allScores()).filter(([k]) => !k.endsWith('/sitting')).sort((a, b) => b[1].when.localeCompare(a[1].when))[0];
+      const title = last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
+      return [
+        { label: 'Games', value: String(SHELF.length), unit: 'free' },
+        { label: 'Last played', value: title, none: 'None yet' },
+      ];
+    },
+    why: () => (hubFacts.arcade ? `${hubFacts.arcade.here} of ${SHELF.length} ready on this phone; the rest are fetched on Wi-Fi when you ask` : ''),
+    load: loadArcade,
   },
   agenda: {
     title: 'Your days',

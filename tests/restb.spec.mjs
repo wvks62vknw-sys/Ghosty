@@ -227,7 +227,9 @@ if (want('coach')) {
   const target = (await coach()).typing.target;
   check(target.length > 40, `a passage to type (${target.length} characters)`);
   await page.locator('.modal .cotype').click();
-  await page.keyboard.type(target, { delay: 25 });
+  // (60 ms a key, about 200 words a minute at most: at 25 ms a fast runner typed the short passage at 408 wpm, past the check's
+  // own ceiling of 400 (CI, 1 Nov); the coach records any speed, the ceiling is this spec's sanity bound)
+  await page.keyboard.type(target, { delay: 60 });
   await until(page, () => window.__ghosty.coach.typing.done, null, 30000, 'the typing test did not finish');
   c = await coach();
   check(c.typing.accuracy === 1 && c.typing.wpm > 20 && c.typing.wpm < 400, `a clean run scores 100% (${c.typing.wpm} wpm, ${c.typing.accuracy})`);
