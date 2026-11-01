@@ -8,11 +8,13 @@
  *  - The grades: SCHOOL's report card per brain (apps/edge/src/school/trust.ts, GET /api/school/trust), kept here. A kind is
  *    trusted for a brain at his bar (SETTINGS → OFFLINE BRAIN → TRUST, 80% unless he moves it) on at least twenty held-out
  *    questions; three ASK THE CLOUD taps on it in a week put it back to the cloud for that brain until its next report card.
+ *  - The meter's sums by kind (the independence sheet, features/system/independence.ts) and the Brief's weekly line.
  *  - What a task kept on the phone does (`keptAnswer`, assistant/session.ts): its brain answers, or it stops with words.
  *    There is no way to the cloud in it: that is the fail-closed line (OWNER-ISSUES 72), tested with a marker
  *    (apps/edge/test/offline2.test.mjs). A trusted kind never changes that: "always" (SOVEREIGN MODE) is the phone's alone.
  * Pure but for the kept store (`trust`, localStorage `ghosty.trust`); offline/brain.ts fetches the table and asks the phone.
  */
+import { OWN_BRAINS, ownShare, weekOf, type MeterDay, type Where } from '../../../../packages/shared/src/independence';
 import { createStore } from '../core/store';
 import { calcExact, exactText, sumIn, toNumber } from './exact';
 import { translateAsk } from './prompt';
@@ -128,6 +130,9 @@ export function categorise(text: string, last = ''): AskCat {
   return 'cloud';
 }
 
+/** "How independent are you?" (and "independence meter", "show me my independence"): the INDEPENDENCE sheet, no model. */
+export const INDEPENDENT_ASK = /^(?:how independent are (?:you|we)|how independent am i|(?:show (?:me )?|open )?(?:the |my |your )?independence(?: meter| sheet)?)\s*[?.!]*$/i;
+
 // ---------------------------------------------------------------- the trust table and the bar
 
 /** One kind's grade for one brain, from SCHOOL's papers (the brain's GET /api/school/trust). */
@@ -230,4 +235,36 @@ export async function keptAnswer(mode: Mode, fx: { ready(): Promise<boolean>; an
   const why = keptWhy(mode, ready);
   fx.stop(why, keptWords(why));
   return false;
+}
+
+// ---------------------------------------------------------------- the meter by kind
+
+const noon = (d: string) => Date.parse(`${d}T12:00:00Z`);
+
+/** The `span` days ending `day`: answers, those on his own brains, the share (null: none), and each kind's. */
+export function spanOf(days: MeterDay[], day: string, span: number): { total: number; own: number; pct: number | null; cats: Record<string, { n: number; o: number }> } {
+  const end = noon(day);
+  let total = 0;
+  let own = 0;
+  const cats: Record<string, { n: number; o: number }> = {};
+  for (const x of days) {
+    const t = noon(x.d);
+    if (!(t <= end && t > end - span * DAY)) continue;
+    for (const [k, v] of Object.entries(x.n) as [Where, number][]) {
+      if (!(v > 0)) continue;
+      total += v;
+      if (OWN_BRAINS.includes(k)) own += v;
+    }
+    for (const [k, v] of Object.entries(x.g ?? {})) cats[k] = { n: (cats[k]?.n ?? 0) + v.n, o: (cats[k]?.o ?? 0) + v.o };
+  }
+  return { total, own, pct: total ? Math.round((own / total) * 100) : null, cats };
+}
+
+/** The Brief's weekly line: "This week 61 per cent of what you asked stayed on your phone, up from 48." ('' when nothing was asked). */
+export function briefLine(days: MeterDay[], day: string): string {
+  const now = ownShare(weekOf(days, day));
+  if (now === null) return '';
+  const before = ownShare(weekOf(days, day, 1));
+  const tail = before === null ? '' : before === now ? ', the same as last week' : `, ${now > before ? 'up' : 'down'} from ${before}`;
+  return `This week ${now} per cent of what you asked stayed on your phone${tail}.`;
 }

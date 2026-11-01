@@ -168,6 +168,8 @@ type Opts = { voice?: boolean; private?: boolean };
  * after a reply that ran nothing).
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
+  // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
+  independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
   // the car (car/ask.ts): its views open in the Studio; what is wrong with it lands on its CAR card
   carview: (text, opts) => carViewTurn(text, opts, answer),
   carfault: (text, opts) => carFaultTurn(text, opts),

@@ -3,6 +3,8 @@
 //    (a time, a place, "remind", "send", "search") or need the cloud, which are never the phone's first;
 //  - the trust table from a grade fixture: SCHOOL's papers per brain into grades per kind (apps/edge/src/school/trust.ts),
 //    then the bar, the twenty-question floor and the misses rule on the phone (apps/web/src/offline/trust.ts);
+//  - the meter's counts from a chat fixture: every answer counted by where it was answered and by its kind, the model-free
+//    asks as his own, ASK THE CLOUD counting the ask where it ended, the seven and thirty days, the Brief's weekly line;
 //  - the fail-closed marker test (OWNER-ISSUES 72): a fictional statement with a distinctive marker, the on-phone route
 //    forced, the local model unavailable (and then failing): the task stops with an explanation, and the marker reaches no
 //    address at all — and no trusted kind ever opens a kept task.
@@ -176,6 +178,51 @@ test('the trust table from a grade fixture: grades per kind per brain, then the 
   assert.equal(judged(smol, { misses: [miss(-3 * DAY), miss(-2 * DAY), miss(-DAY)] }).greet.trusted, true, 'misses before its report card no longer count');
   assert.equal(judged({ ...smol, at: smol.at + 4 * DAY }, { misses: three }).greet.trusted, true, 'a new report card: trusted again');
 
+});
+
+// ---------------------------------------------------------------- the meter
+
+test('the meter’s counts from a chat fixture: by where and by kind, the no-model asks his own, ASK THE CLOUD counted where it ended', () => {
+  const D = '2026-11-01';
+  // the chat's own records: his ask, and the reply's model line (the line each answer carries)
+  const chat = [
+    ['hello', 'On this phone · first'],
+    ['how are you?', 'On this phone · first'],
+    ['what is 17 × 23?', 'On this phone · worked out'],
+    ['how do you spell necessary', 'On this phone · first'],
+    ['what can you do?', 'On this phone · no model'],
+    ["what's the weather like?", 'groq · llama-3.3-70b-versatile'],
+    ['search for cheap flights to Rome', 'gemini · flash'],
+    ['tell me about black holes', 'Library on this device · offline'],
+  ];
+  for (const [, model] of chat) assert.equal(I.whereFrom(model).where === 'cloud', /^(groq|gemini)/.test(model), model);
+  let days = [];
+  for (const [ask, model] of chat) days = I.addAnswer(days, D, model, { cat: T.categorise(ask) });
+  // last week, for the trend and the Brief's line: 48% on his own brains
+  days = I.addAnswer(days, '2026-10-25', 'groq · x', { cat: 'cloud' });
+  for (let i = 0; i < 24; i++) days = I.addAnswer(days, '2026-10-24', i < 12 ? 'On this phone · first' : 'groq · x', { cat: i < 12 ? 'greet' : 'cloud' });
+  const today = days.find((x) => x.d === D);
+  assert.deepEqual(today.n, { phone: 5, cloud: 2, library: 1 });
+  assert.deepEqual(today.g, { greet: { n: 2, o: 2 }, sums: { n: 1, o: 1 }, spelling: { n: 1, o: 1 }, cloud: { n: 4, o: 2 } });
+  assert.equal(I.forBrain(days).find((x) => x.d === D).g, undefined, 'the kinds never leave the phone');
+
+  const w7 = T.spanOf(days, D, 7);
+  assert.deepEqual([w7.total, w7.own, w7.pct], [8, 6, 75]);
+  const w30 = T.spanOf(days, D, 30);
+  assert.deepEqual([w30.total, w30.own, w30.pct], [33, 18, 55]);
+  assert.deepEqual(w30.cats.greet, { n: 14, o: 14 });
+  assert.equal(T.briefLine(days, D), 'This week 75 per cent of what you asked stayed on your phone, up from 48.');
+
+  // ASK THE CLOUD under "hello": the phone's answer comes off, and the cloud's is counted as the cloud's
+  days = I.dropAnswer(days, D, 'On this phone · first', { cat: 'greet' });
+  days = I.addAnswer(days, D, 'groq · x', { cat: 'greet' });
+  const after = days.find((x) => x.d === D);
+  assert.deepEqual([after.n.phone, after.n.cloud], [4, 3]);
+  assert.deepEqual(after.g.greet, { n: 2, o: 1 });
+  assert.equal(T.spanOf(days, D, 7).pct, 63);
+  // nothing to take back: unchanged
+  assert.deepEqual(I.dropAnswer(days, '2026-01-01', 'On this phone · first', { cat: 'greet' }), days);
+  assert.equal(T.briefLine([], D), '');
 });
 
 // ---------------------------------------------------------------- the fail-closed marker test (OWNER-ISSUES 72)

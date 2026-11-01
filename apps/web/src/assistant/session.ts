@@ -18,7 +18,7 @@ import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
-import { noteAnswer, noteStopped } from '../core/independence';
+import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
@@ -340,15 +340,17 @@ let approvalAsked = false;
 function tally(since: number): void {
   if (approvalAsked) return;
   const a = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at >= since && !!e.text.trim() && !e.think);
-  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length });
+  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length, ...(turnCat ? { cat: turnCat } : {}) });
 }
-/** The kind of ask this turn is (offline/trust.ts `categorise`): whether the phone may answer it first. */
+/** The kind of ask this turn is (offline/trust.ts `categorise`): the meter counts each answer by it too. */
 let turnCat: AskCat | undefined;
 
 const OFFLINE_MODEL = 'On this phone · offline';
 /** [offline2] An answer the phone gave FIRST (its kind trusted), and one worked out on it with no model (a sum). */
 const FIRST_MODEL = 'On this phone · first';
 const WORKED_MODEL = 'On this phone · worked out';
+/** A question answered on the phone with no model at all ("can you…?", a timer…): his own, for the meter. */
+const LOCAL_MODEL = 'On this phone · no model';
 /** An offline fallback that already put its own answer in the log. */
 const HANDLED = '\u0000handled';
 
@@ -471,7 +473,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     });
     const secs = Math.round((Date.now() - t0) / 1000);
     update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
-    if (!r.stopped && (r.text || r.answer)) noteAnswer(THINK_MODEL, { kept, length: (r.text || r.answer || '').length });
+    if (!r.stopped && (r.text || r.answer)) noteAnswer(THINK_MODEL, { kept, length: (r.text || r.answer || '').length, cat: categorise(q) });
     const said = r.answer ? `${r.answer} (${r.line})` : r.line;
     chat.set({ live: said });
     if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at), here: kept });
@@ -493,7 +495,7 @@ export function askBigBrain(question: string): Promise<void> {
 /**
  * ASK THE CLOUD under an answer the phone gave FIRST (offline/trust.ts): the same ask to the cloud, the phone's answer
  * kept above it and struck faintly; a miss for its kind on that brain (three in a week put the kind back to the cloud
- * until its next report card).
+ * until its next report card), and the meter counts the ask where it was answered in the end.
  */
 export async function askCloud(at: number): Promise<void> {
   const es = chat.get().entries;
@@ -504,6 +506,7 @@ export async function askCloud(at: number): Promise<void> {
   if (!q) return;
   patch((e) => e.kind === 'assistant' && e.at === at, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), struck: true }));
   noteMiss(a.first.cat, a.first.model);
+  unnoteAnswer(a.model, a.at, { cat: a.first.cat });
   await send(q, { speak: settings.get().speak, cloud: true, again: true });
 }
 
@@ -544,7 +547,12 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
-  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: settings.get().offlineBrain === 'always' || !!opts.here }))) return;
+  const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv }))) {
+    // [offline2] answered on the phone with no model: his own, on the independence meter too
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const mode = settings.get().offlineBrain;
@@ -556,7 +564,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
     .slice(-12);
   const recent = turns.map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
-  // [offline2] the kind of ask (offline/trust.ts): whether the phone may answer it first
+  // [offline2] the kind of ask (offline/trust.ts): whether the phone may answer it first, and the meter's count by kind
   turnCat = categorise(t, [...turns].reverse().find((e) => e.kind === 'assistant')?.text ?? '');
   // What the brain may read of the conversation: never a turn that was kept on the phone, nor an answer he sent on to the cloud.
   let shared = turns.filter((e) => !e.private && !(e.kind === 'assistant' && e.struck)).map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));

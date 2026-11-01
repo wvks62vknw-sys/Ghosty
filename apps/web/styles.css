@@ -5429,3 +5429,14 @@ html .morse .morsecell { min-height: 52px !important; }
 .trustrow.on .trustis { opacity: 1; color: rgb(var(--accr, 120, 200, 255)); }
 .trustrow .trustwhy { grid-column: 1 / -1; font: 400 12px/1.35 var(--sf); opacity: .75; overflow-wrap: anywhere; }
 .trustcard { overflow-wrap: anywhere; }
+/* [offline2] THE INDEPENDENCE SHEET (SYSTEM → INDEPENDENCE) and the Brief's weekly line */
+.indcats { list-style: none; margin: 0; padding: 0; min-width: 0; }
+.indspans, .indsheet .indbrain, .indsheet .indtruth, .indsheet .indceiling { min-width: 0; overflow-wrap: anywhere; }
+.indcat { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid rgba(127, 127, 127, .2); min-width: 0; }
+.indcat b { font: 600 14px/1.3 var(--sf); }
+.indcat .indnums { font: 500 13px var(--mono, monospace); opacity: .85; overflow-wrap: anywhere; }
+.indcat .indwho { font: 400 12px/1.35 var(--sf); opacity: .75; overflow-wrap: anywhere; }
+.indcat.on .indwho { opacity: 1; }
+.indsheet .indtruth { margin-top: 10px; }
+.indsheet .indceiling { margin-top: 6px; opacity: .8; }
+.brindep { margin: 6px 0 0; font: 500 14px/1.35 var(--sf); opacity: .9; overflow-wrap: anywhere; }

@@ -28,6 +28,7 @@ import { morseAsked } from '../morse/code';
 import { PEOPLE_ASK } from '../../../../packages/shared/src/people';
 import { INTERVIEW_ASK, POMO_ASK } from '../../../../packages/shared/src/work';
 import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
+import { INDEPENDENT_ASK } from '../offline/trust';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -58,6 +59,8 @@ export const LOCAL_ASKS = [
   { id: 'pomodoro', test: (t: string) => POMO_ASK.test(t.trim()) },
   { id: 'beat', test: (t: string) => BEAT_ASK.test(t.trim()) },
   { id: 'drawing', test: (t: string) => DRAW_ASK.test(t.trim()) },
+  // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
+  { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
