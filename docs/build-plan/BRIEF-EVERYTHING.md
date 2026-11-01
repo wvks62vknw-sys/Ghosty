@@ -1,7 +1,8 @@
 # BRIEF-EVERYTHING — the Abilities tab rebuilt as a complete, tappable catalogue (batch ①, 1 November 2026)
 
-Worktree from the branch tip (claude/ghosty-ai-training-idwhp9 at or after da4dc79 = main 9340874). Your own preview port:
-8877. Read HANDOFF.md from "- 31 Oct 23:00 UK" and OWNER-ISSUES 68, 81, 86, 91, 92 first. Never push, never open a PR,
+Worktree from the branch tip (claude/ghosty-ai-training-idwhp9 at or after 8578952 = main 9340874 plus docs). Your own
+preview port: 8877. Read HANDOFF.md from "- 31 Oct 23:00 UK" and OWNER-ISSUES 72, 85 (the ABILITIES batch as built), 90,
+91, 92 first. Never push, never open a PR,
 never touch main or the session branch; commit per item; hand back ONE report in the shape at the end.
 
 ## The owner's words (the whole brief in two lines)
@@ -30,8 +31,8 @@ COMPLETENESS and PLAIN WORDS: every single thing, tap it, it explains itself, wi
 
 ## What "every single thing" means — the registries (enumerate all of them)
 
-Brain side (served by GET /api/abilities, extended): every TOOL in `apps/edge/src/tools/index.ts` TOOLS (about 250), not
-only the 13 groups — each tool its own entry under its group; the group's `about` and each tool's description are the raw
+Brain side (served by GET /api/abilities, extended): every TOOL in `apps/edge/src/tools/index.ts` TOOLS (181 definitions under apps/edge/src/tools today; count them
+from the array, not by hand), not only the groups — each tool its own entry under its group; the group's `about` and each tool's description are the raw
 material for the plain line (rewrite them in his voice; the test only checks presence, you write the words); Telegram's
 commands and the phrases it answers without a model (`telegram.ts`, `direct.ts`); the scheduled jobs he can ask for
 (`schedule.ts` kinds: reminders, the digest, the walk, foresight…) as "I can…" entries; the kept-task and ON THIS PHONE
@@ -39,7 +40,7 @@ behaviours (`direct.ts`, OWNER-ISSUES 72).
 Phone side (`apps/web/src/abilities/registry.ts`, extended): every tab in `features/index.ts` TABS and every panel and
 section inside it (the `sections(root, id, [...])` registries, `page()` panels, Settings' panels incl. OFFLINE BRAIN and
 GUARDIAN and CHARACTER, System's panels incl. the report card and keys), the deck's YOU CAN lines (`shell/deckcopy.ts`),
-the Lens's TILES, the GYM's games (`gym/meta.ts` META), SCHOOL's stages and its SIT / placement / reading check, the
+the Lens's TILES, the GYM's games (`gym/meta.ts` META, a GameMeta list), SCHOOL's stages and its SIT / placement / reading check, the
 Workbench's panels and the wind tunnel (until batch ⑤ replaces the screen), the Studio's samples and commands, every
 local phrase the chat answers with no model (`assistant/local.ts`: "can you…?", WHY, "what did you do today", foresight,
 "you were right", the Machine view, the Workbench words — list the phrase tables, not one example each), the voice
@@ -67,12 +68,24 @@ At the bottom of the tab: the existing LEARNING list (goals he set) and WHY / TO
 
 ## The words
 
-You write about 400 plain lines and about 400 sheets. Rules: his voice; verbs he uses; no jargon (if a word needs
+You write a plain line and a sheet for every entry (expect 300 to 400). Rules: his voice; verbs he uses; no jargon (if a word needs
 explaining, explain it in the line); say the limit when there is one ("about 200 m, from the public map, not your live
 position"); never promise what the code does not do (read the code of each tool before writing its line). Put them in
 `packages/shared/src/catalogue.ts` as a map from the registry id to `{ name, line, more, say[], needs?, scene[] }`, so
 the brain and the phone share one copy and the completeness test can diff the map against the registries both ways
 (an entry with no registry item fails too: nothing stale).
+
+## Also in this batch: two Workbench layout bugs from his screenshots (31 Oct)
+
+1. When a Workbench section is selected, its mode buttons (`.wbmodes`: Speed / Swirl under AIR, Gear train / Bicycle under
+   GEARS) and the panel titles scroll UNDER the sticky section pills and cannot be read or tapped until you scroll back.
+   The pills must not cover content: give the panel the pills' height as top padding (or make the pills part of the
+   scrolling panel head), and prove it in `tests/workbench.spec.mjs` by asserting the mode buttons' bounding boxes do not
+   intersect the pills' box after selecting AIR and GEARS.
+2. A stale hero line ("Wing: NACA 2412 at 4° · lift · first estimate, not certified") bleeds through at the top of the tab
+   after moving to another section: the hero must show the selected section's own latest estimate or nothing. Assert in
+   the spec that after choosing GEARS the hero text does not contain "Wing".
+Commit these two as one commit of their own, first, so they merge even if the catalogue runs long.
 
 ## Tests
 
