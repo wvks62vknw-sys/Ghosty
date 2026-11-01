@@ -2,7 +2,7 @@
 // (packages/shared/src/catalogue.ts), GENERATED from the registries the code runs on, never written as a claim.
 //  - every registry item has its words, and every word entry has its registry item (nothing missing, nothing stale) —
 //    the brain's: every tool in TOOLS, Telegram's commands and what it does there, the no-model asks, the jobs on the
-//    clock; the phone's: every screen, every panel in the screens' source, the deck's lines, the Lens's modes, the GYM's
+//    clock; the phone's: every screen, every panel and section (pill) in the screens' source, the deck's lines, the Lens's modes, the GYM's
 //    games, SCHOOL's stages, the Workbench's modes, the studio's samples and panes, the chat's controls and phrases, the
 //    Me sheet, the hub cards, the themes, the moods; a `same` always lands on an entry of its own;
 //  - his words keep the rules: one line of at most 140 characters starting "I " or "You ", no tool name and no code word
@@ -72,6 +72,18 @@ function panelsOfSource() {
   for (const p of B.PANELS) out.add(`panel:workbench:${p.title}`);
   return out;
 }
+/** Every screen's sections (its pills): the `sections(root, '<screen>', [...])` list in features/<screen>/index.ts. */
+function sectionsOfSource() {
+  const out = new Set();
+  for (const d of readdirSync(join(web, 'features'))) {
+    const f = join(web, 'features', d, 'index.ts');
+    if (!statSync(join(web, 'features', d)).isDirectory() || !readdirSync(join(web, 'features', d)).includes('index.ts')) continue;
+    for (const m of readFileSync(f, 'utf8').matchAll(/\bsections\(\s*root,\s*'([^']+)',\s*\[([\s\S]*?)\]\s*\)/g)) {
+      for (const s of m[2].matchAll(/\bid: '([^']+)'/g)) out.add(`section:${m[1]}:${s[1]}`);
+    }
+  }
+  return out;
+}
 
 const tabs = tabsOfSource();
 const hubs = hubsOfSource();
@@ -116,6 +128,22 @@ test('the panels in the catalogue are exactly the panels in the screens’ sourc
   // and each panel's screen is a tab this build has
   const have = new Set(tabs.map((t) => t.id));
   for (const k of keys) assert.ok(have.has(k.split(':')[1]), `${k}: no such screen`);
+});
+
+test('the sections (each screen’s pills) are exactly the screens’ own lists, both ways, and each is a panel of its screen', () => {
+  const src = sectionsOfSource();
+  assert.ok(src.size >= 40, `sections read from the screens' source: ${[...src].join(', ')}`);
+  const keys = new Set(Object.keys(C.CATALOGUE).filter((k) => k.startsWith('section:')));
+  assert.deepEqual([...src].filter((s) => !keys.has(s)), [], 'sections with no words');
+  assert.deepEqual([...keys].filter((k) => !src.has(k)), [], 'words for sections no screen has');
+  for (const k of keys) {
+    assert.ok('same' in C.CATALOGUE[k], `${k}: a pill is the panel it opens on (same), not an entry of its own`);
+    const e = joined.entries.find((x) => x.items.includes(k));
+    assert.ok(e, `${k}: on no entry`);
+    // it lands on a panel of its own screen (Settings' Ghosty pill holds the two rows that open SYSTEM and LINKS)
+    const screen = k.split(':')[1];
+    assert.ok(e.items.some((i) => i.startsWith(`panel:${screen}:`)) || (k === 'section:settings:ghosty' && e.id === 'screen:system'), `${k}: lands on ${e.id}, not a panel of ${screen}`);
+  }
 });
 
 // ---------------------------------------------------------------- his words
@@ -214,6 +242,7 @@ test('the counts (printed for the report): tools, screens, panels, phrases, game
     jobs: n('job'),
     screens: n('screen'),
     panels: n('panel'),
+    sections: n('section'),
     'deck lines': n('deck'),
     phrases: n('phrase'),
     'chat controls': n('chat'),

@@ -61,7 +61,7 @@ export const GROUP_WHY: Record<string, string> = {
 const MORE: Record<string, CatValue> = {
   // ---- Telegram
   'telegram:start': {
-    name: 'Telegram’s help', line: 'You can send /start to my Telegram bot any time to see what I do there.',
+    name: 'What I do on Telegram', line: 'You can send /start to my Telegram bot any time to see what I do there.',
     more: 'A short list of what works on Telegram and its commands. Screens like the globe and the camera only work in the app.',
     say: ['/start'], scene: ['talking'], needs: ['link:telegram'], go: { open: 'links', panel: 'TELEGRAM' },
   },
@@ -76,7 +76,7 @@ const MORE: Record<string, CatValue> = {
     say: ['/stop', 'Enough'], scene: ['talking'], needs: ['link:telegram'], go: { open: 'links', panel: 'TELEGRAM' },
   },
   'telegram:unpair': {
-    name: 'Unpair Telegram', line: 'You can send /unpair and I stop answering that Telegram chat for good.',
+    name: 'Unpair your Telegram chat', line: 'You can send /unpair and I stop answering that Telegram chat for good.',
     more: 'To pair again, LINKS → TELEGRAM gives a new code.',
     say: ['/unpair'], scene: ['talking'], needs: ['link:telegram'], go: { open: 'links', panel: 'TELEGRAM' },
   },

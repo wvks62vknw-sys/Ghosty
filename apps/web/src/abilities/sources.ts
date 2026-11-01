@@ -9,8 +9,9 @@
  * (features/workbench/panels.ts PANELS), the studio's samples and panes (features/studio/samples.ts), the chat's phrases
  * (assistant/phrases.ts), the areas and the Me sheet (shell/areadefs.ts), the hub cards (`hubs`, passed in:
  * shell/hubcards.ts CARDS), the themes (state/theme.ts THEMES) and the moods (shared mood.ts MOOD_KINDS). The screens'
- * panels are made in each screen's mount, so they come from the catalogue's own `panel:` keys for the screens this build
- * has; the test checks those keys against the panels in the screens' source, both ways.
+ * panels and their sections (the pills, ui/sections.ts) are made in each screen's mount, so they come from the catalogue's
+ * own `panel:` and `section:` keys for the screens this build has; the test checks those keys against the panels and the
+ * `sections(root, screen, [...])` lists in the screens' source, both ways. (A section is the panel it opens on: `same`.)
  *
  * Two small lists live here because nothing else lists them: the chat's own controls (CHAT_CONTROLS) and what works on every
  * screen (APP_WIDE). Each names the element it is (`sel`), and the ABILITIES spec checks each is there.
@@ -84,6 +85,9 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const key of Object.keys(CATALOGUE)) {
     const m = /^panel:([^:]+):(.+)$/.exec(key);
     if (m && have.has(m[1]!)) add({ id: key, kind: 'panel', screen: m[1], cat: SCREEN_CAT[m[1]!] ?? 'do', go: { open: m[1]!, panel: m[2]!.replace(/[…?]+$/, '') } });
+    // a screen's sections (its pills): each is the panel it opens on (`same`), so it is counted once
+    const s = /^section:([^:]+):(.+)$/.exec(key);
+    if (s && have.has(s[1]!)) add({ id: key, kind: 'section', screen: s[1], cat: SCREEN_CAT[s[1]!] ?? 'do', go: { open: s[1]! } });
   }
   // the Workbench's modes, where a panel has more than one
   if (have.has('workbench')) for (const p of BENCH) if (p.modes.length > 1) for (const m of p.modes) add({ id: `bench:${p.id}:${m.id}`, kind: 'bench', screen: 'workbench', cat: 'build', go: { open: `workbench?${p.id}` } });

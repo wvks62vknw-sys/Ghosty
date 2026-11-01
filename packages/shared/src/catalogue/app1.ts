@@ -38,7 +38,7 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Anything I should worry about?'], scene: ['watching'], cat: 'watch',
   },
   'screen:markets': {
-    name: 'Markets, live', line: 'I can show you crypto, gold, silver and what a pound buys, live, with the day’s change.',
+    name: 'Live markets and prices', line: 'I can show you crypto, gold, silver and what a pound buys, live, with the day’s change.',
     more: 'From free public prices, refreshed every few minutes. Ask me why something moved and I look it up.',
     say: ['How’s bitcoin doing?', 'What’s a pound worth in euros?'], scene: ['money'], cat: 'know',
   },
@@ -194,7 +194,7 @@ export const APP_1: Record<string, CatValue> = {
     say: ['(it comes by itself)'], scene: ['talking'], cat: 'talk', tryText: 'Opens the Me sheet',
   },
   'mood:protective': {
-    name: 'Protective, when you may be in danger', line: 'I get protective when you might be in danger or show me a likely scam: steady, plain, your safety first.',
+    name: 'Protective, when danger may be near', line: 'I get protective when you might be in danger or show me a likely scam: steady, plain, your safety first.',
     more: 'It lingers a while, then fades. "Stand down" ends it.',
     say: ['(it comes by itself)'], scene: ['watching'], cat: 'talk', tryText: 'Opens the Me sheet',
   },
@@ -291,7 +291,7 @@ export const APP_1: Record<string, CatValue> = {
     say: ['(tap a thumb on a reply)'], scene: ['talking', 'behind'], cat: 'talk',
   },
   'chat:harder': {
-    name: 'Think harder', line: 'You can ask me to think harder: the brain on your phone tries several ways and tells you how sure it is.',
+    name: 'Think harder about it', line: 'You can ask me to think harder: the brain on your phone tries several ways and tells you how sure it is.',
     more: 'It shows its working and, where a sum can be checked, checks it. Slower, but on your phone only.',
     say: ['Think harder', 'Think harder: what is 17 times 23?'], scene: ['phone', 'talking'], cat: 'talk', needs: ['offline'],
   },
@@ -303,7 +303,7 @@ export const APP_1: Record<string, CatValue> = {
   // ---- the phrases answered on the phone with no model
   'phrase:walk': {
     name: 'Walk me home', line: 'You can say "walk me home" and I check you got home, then message your named person if you did not.',
-    more: 'I ask "Home?" at your walking time and again ten minutes later; no answer, and your person is messaged once. "Home" ends it. Your position only goes if you switched that on.',
+    more: 'I ask "Home?" at your walking time and again ten minutes later; five minutes on with no answer, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',
     say: ['Walk me home', 'Walk me home, 20 minutes', 'Home'], scene: ['watching', 'out'], cat: 'watch', needs: ['person'],
     go: { ask: 'Walk me home', send: false },
   },
@@ -313,7 +313,7 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
   },
   'phrase:reboot': {
-    name: 'Reboot me', line: 'You can say "reboot" and I wake up again with my boot cinematic, right there on the phone.',
+    name: 'Watch me reboot', line: 'You can say "reboot" and I wake up again with my boot cinematic, right there on the phone.',
     more: 'Just the show: nothing is lost and my brain is not asked.',
     say: ['Reboot'], scene: ['talking'], cat: 'talk',
   },
@@ -330,12 +330,12 @@ export const APP_1: Record<string, CatValue> = {
   },
   'phrase:foresight': {
     name: 'What I expect, and my record', line: 'You can ask what I expect today, or how often I am right, and I answer from my record.',
-    more: 'No AI needed: straight from my predictions and their scores.',
+    more: 'No AI needed: straight from my predictions and their scores. On Telegram too.',
     say: ['What do you expect today?', 'How often are you right?', 'Were you right?'], scene: ['morning'], cat: 'know',
   },
   'phrase:right': {
     name: 'Tell me if I was right', line: 'You can tell me "you were right" or "you were wrong" about my last prediction, and I note it.',
-    more: 'Only your own questions are scored by your word; the rest the live feeds score.',
+    more: 'Only your own questions are scored by your word; the rest the live feeds score. On Telegram too.',
     say: ['You were right', 'You were wrong'], scene: ['morning'], cat: 'know', go: { ask: 'You were right', send: false },
   },
   'phrase:today': {
@@ -345,7 +345,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   'phrase:why': {
     name: 'Ask me why', line: 'You can ask "why did you do that?" and I explain my last reply step by step, with no AI.',
-    more: 'What you asked, what I ran and why. A bare "why?" after a plain answer goes to my brain as a question.',
+    more: 'What you asked, what I ran and why. A bare "why?" after a plain answer goes to my brain as a question. On Telegram too.',
     say: ['Why did you do that?', 'Why?'], scene: ['talking'], cat: 'talk',
   },
   'phrase:canyou': {

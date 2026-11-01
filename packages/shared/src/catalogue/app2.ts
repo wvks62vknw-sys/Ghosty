@@ -102,7 +102,7 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Next lesson', 'Quiz me'], scene: ['school'], cat: 'learn',
   },
   'panel:learn:COURSES': {
-    name: 'Your courses', line: 'You can see every course you started and how much of each you have mastered.',
+    name: 'Your learning courses', line: 'You can see every course you started and how much of each you have mastered.',
     more: 'Pick one up any time; your streak and your progress are kept.',
     say: ['What courses am I doing?'], scene: ['school'], cat: 'learn',
   },
@@ -141,12 +141,12 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Link my email'], scene: ['money', 'talking'], cat: 'talk',
   },
   'panel:links:SPOTIFY': {
-    name: 'Link Spotify', line: 'You can link your Spotify once, so I can see and play your music.',
+    name: 'Link your Spotify', line: 'You can link your Spotify once, so I can see and play your music.',
     more: 'You sign in on Spotify’s own page. Play, pause and skip need Premium.',
     say: ['Link my Spotify'], scene: ['playing'], cat: 'play',
   },
   'panel:links:TELEGRAM': {
-    name: 'Pair Telegram', line: 'You can pair your own Telegram bot and talk to me there: text, voice notes, photos.',
+    name: 'Pair your Telegram', line: 'You can pair your own Telegram bot and talk to me there: text, voice notes, photos.',
     more: 'Make the bot with Telegram’s BotFather, paste its key in SYSTEM → KEYS, then send it the code shown here. Only you can talk to it.',
     say: ['Set up Telegram'], scene: ['talking', 'out'], cat: 'talk',
   },
@@ -231,7 +231,7 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Play some jazz', 'Play Capital FM'], scene: ['playing'], cat: 'play',
   },
   'panel:radio:NOW PLAYING': {
-    name: 'What’s playing', line: 'You can see what is playing now, and pause or stop it.',
+    name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
     more: 'It quietens by itself while I speak, then comes back up.',
     say: ['Stop the radio'], scene: ['playing'], cat: 'play',
   },

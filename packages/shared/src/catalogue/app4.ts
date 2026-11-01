@@ -1,8 +1,9 @@
 /**
  * The catalogue's words for the phone, part 4: the deck's YOU CAN lines (shell/deckcopy.ts DECK; nearly every one is the
  * very thing a panel or a tool already says, so it is `same` as that entry), the Lens's modes (features/lens/tiles.ts),
- * the GYM's games (gym/meta.ts META), SCHOOL's stages (shared school.ts STAGES) and the 3D studio's samples and panes
- * (features/studio/samples.ts). Rules: packages/shared/src/catalogue.ts `wordProblems`.
+ * the GYM's games (gym/meta.ts META), SCHOOL's stages (shared school.ts STAGES), the 3D studio's samples and panes
+ * (features/studio/samples.ts) and the screens' sections (each the panel its pill opens on). Rules:
+ * packages/shared/src/catalogue.ts `wordProblems`.
  */
 import type { CatValue } from '../catalogue';
 
@@ -116,7 +117,7 @@ export const APP_4: Record<string, CatValue> = {
     say: ['What is this?', 'Is this plant poisonous?'], scene: ['camera', 'talking'], cat: 'see', needs: ['camera'],
   },
   'lens:name': {
-    name: 'Name anything', line: 'I can name what you point the camera at, from everyday things to plants.',
+    name: 'Name anything you see', line: 'I can name what you point the camera at, from everyday things to plants.',
     more: 'Everyday names on the phone itself; a plant’s name from a free plant service with a free key. I say how sure I am.',
     say: ['What is this called?'], scene: ['camera', 'out'], cat: 'see', needs: ['camera', 'key:plantnet'],
   },
@@ -147,22 +148,22 @@ export const APP_4: Record<string, CatValue> = {
   },
   // ---- the GYM's games
   'game:maze': {
-    name: 'Mazes', line: 'I teach myself mazes: which way to step from every square to reach the gold for the least cost.',
+    name: 'Finding the way through mazes', line: 'I teach myself mazes: which way to step from every square to reach the gold for the least cost.',
     more: 'Walls, mud and gold. Watch my level climb as I learn.',
     say: ['Watch you do mazes'], scene: ['playing'], cat: 'play',
   },
   'game:codebreaker': {
-    name: 'Code breaker', line: 'You can play me at code breaker: I crack a hidden code in the fewest guesses, or set one for you.',
+    name: 'Play me at code breaker', line: 'You can play me at code breaker: I crack a hidden code in the fewest guesses, or set one for you.',
     more: 'Mastermind rules. I learn which guess narrows it down fastest.',
     say: ['Play me at code breaker'], scene: ['playing'], cat: 'play',
   },
   'game:colony': {
-    name: 'Colony', line: 'I teach myself to run a little colony: when to mine, when to build, when to rest.',
+    name: 'Running a little colony', line: 'I teach myself to run a little colony: when to mine, when to build, when to rest.',
     more: 'The aim is the most energy without the lights going out.',
     say: ['Watch you run the colony'], scene: ['playing'], cat: 'play',
   },
   'game:trust': {
-    name: 'Trust tournament', line: 'I run a tournament of strategies to learn which kind of trust pays off.',
+    name: 'A tournament of trust', line: 'I run a tournament of strategies to learn which kind of trust pays off.',
     more: 'Cooperate or betray, played over and over; the strategies evolve.',
     say: ['Watch the trust tournament'], scene: ['playing'], cat: 'play',
   },
@@ -172,42 +173,42 @@ export const APP_4: Record<string, CatValue> = {
     say: ['Play me at noughts and crosses'], scene: ['playing'], cat: 'play',
   },
   'game:connect4': {
-    name: 'Connect 4', line: 'You can play me at Connect 4: I bring an exact solver, a search ahead and what your games taught me.',
+    name: 'Play me at Connect 4', line: 'You can play me at Connect 4: I bring an exact solver, a search ahead and what your games taught me.',
     more: 'I learned which lines of four matter by playing myself.',
     say: ['Play me at Connect 4'], scene: ['playing'], cat: 'play',
   },
   'game:tiles': {
-    name: 'Sliding tiles', line: 'I teach myself sliding-tile puzzles, from 8 tiles up to 15, in as few moves as I can.',
+    name: 'Sliding tile puzzles', line: 'I teach myself sliding-tile puzzles, from 8 tiles up to 15, in as few moves as I can.',
     more: 'I learn to guess how far a puzzle is from solved and search with that guess.',
     say: ['Watch you do sliding tiles'], scene: ['playing'], cat: 'play',
   },
   'game:sudoku': {
-    name: 'Sudoku', line: 'I teach myself sudoku: which deduction to try first and where to guess.',
+    name: 'Solving sudoku by deduction', line: 'I teach myself sudoku: which deduction to try first and where to guess.',
     more: 'Fewer steps each level, every solution checked.',
     say: ['Watch you do sudoku'], scene: ['playing'], cat: 'play',
   },
   'game:countdown': {
-    name: 'Countdown numbers', line: 'I teach myself the Countdown numbers round: which sums to try first to hit the target.',
+    name: 'The Countdown numbers round', line: 'I teach myself the Countdown numbers round: which sums to try first to hit the target.',
     more: 'And the 24 game, every answer checked by sum.',
     say: ['Watch you do Countdown'], scene: ['playing'], cat: 'play',
   },
   'game:words': {
-    name: 'Word guess', line: 'You can play me at five-letter word guess, the colours telling us what is right.',
+    name: 'Play me at word guess', line: 'You can play me at five-letter word guess, the colours telling us what is right.',
     more: 'I learn which word to try so the colours tell me the most.',
     say: ['Play me at word guess'], scene: ['playing'], cat: 'play',
   },
   'game:logic': {
-    name: 'Logic puzzles', line: 'I teach myself to prove claims step by step, every one checked by machine.',
+    name: 'Proving logic puzzles step by step', line: 'I teach myself to prove claims step by step, every one checked by machine.',
     more: 'A false claim "proved" counts as a failure.',
     say: ['Watch you do logic'], scene: ['playing', 'school'], cat: 'play',
   },
   'game:brain': {
-    name: 'Mini-brain lab', line: 'I teach myself which shape of tiny network learns a pattern best, tested on data it never saw.',
+    name: 'A lab of mini-brains', line: 'I teach myself which shape of tiny network learns a pattern best, tested on data it never saw.',
     more: 'Layers, size, learning speed: tried and measured.',
     say: ['Watch the mini-brain lab'], scene: ['playing', 'school'], cat: 'play',
   },
   'game:bughunt': {
-    name: 'Bug hunt', line: 'I teach myself to find and fix a bug in a bit of code in fewer tries.',
+    name: 'Hunting bugs in code', line: 'I teach myself to find and fix a bug in a bit of code in fewer tries.',
     more: 'One bug a round; I learn which lines to suspect first.',
     say: ['Watch you hunt bugs'], scene: ['playing'], cat: 'play',
   },
@@ -217,22 +218,22 @@ export const APP_4: Record<string, CatValue> = {
     say: ['Watch you escape'], scene: ['playing'], cat: 'play',
   },
   'game:factcheck': {
-    name: 'Fact-check duel', line: 'I teach myself to fact-check: true, false, or "can’t tell" when the facts do not settle it.',
+    name: 'A fact-checking duel', line: 'I teach myself to fact-check: true, false, or "can’t tell" when the facts do not settle it.',
     more: 'I learn which facts to look up and how to put them together.',
     say: ['Watch you fact-check'], scene: ['playing', 'school'], cat: 'play',
   },
   'game:debate': {
-    name: 'Debate arena', line: 'I teach myself to argue from facts a strict judge accepts, and never to win from the false side.',
+    name: 'Debating from the facts', line: 'I teach myself to argue from facts a strict judge accepts, and never to win from the false side.',
     more: 'The judge checks every fact I cite against the record.',
     say: ['Watch you debate'], scene: ['playing', 'school'], cat: 'play',
   },
   'game:checkers': {
-    name: 'Draughts', line: 'You can play me at draughts: I learned what a position is worth by playing myself.',
+    name: 'Play me at draughts', line: 'You can play me at draughts: I learned what a position is worth by playing myself.',
     more: 'Then I test myself against fixed reference engines, level by level.',
     say: ['Play me at draughts'], scene: ['playing'], cat: 'play',
   },
   'game:chess': {
-    name: 'Chess', line: 'You can play me at chess: I tune what every piece is worth by playing myself, then search ahead.',
+    name: 'Play me at chess', line: 'You can play me at chess: I tune what every piece is worth by playing myself, then search ahead.',
     more: 'My levels are earned against my own fixed reference engines.',
     say: ['Play me at chess'], scene: ['playing'], cat: 'play',
   },
@@ -242,12 +243,12 @@ export const APP_4: Record<string, CatValue> = {
     say: ['Play me at Go'], scene: ['playing'], cat: 'play',
   },
   'game:poker': {
-    name: 'Simple poker', line: 'I teach myself poker by playing every deal against myself until no opponent can beat me.',
+    name: 'Simple poker against myself', line: 'I teach myself poker by playing every deal against myself until no opponent can beat me.',
     more: 'How often to bet, call, fold and bluff, in a bigger game at each level.',
     say: ['Watch you play poker'], scene: ['playing'], cat: 'play',
   },
   'game:sokoban': {
-    name: 'Box pushing', line: 'I teach myself to push boxes onto their spots without getting stuck.',
+    name: 'Pushing boxes into place', line: 'I teach myself to push boxes onto their spots without getting stuck.',
     more: 'I learn which squares are dead ends, so my search finds short solutions.',
     say: ['Watch you push boxes'], scene: ['playing'], cat: 'play',
   },
@@ -302,4 +303,53 @@ export const APP_4: Record<string, CatValue> = {
     more: 'Shown as Spline makes them, with "Powered by Spline" under them.',
     say: ['Open my Spline scene'], scene: ['making'], cat: 'build',
   },
+  // ---- the screens' sections (their pills, `sections(root, screen, [...])` in each screen): a pill is the panel it opens on
+  'section:workbench:tunnel': { same: 'panel:workbench:WIND TUNNEL' },
+  'section:workbench:structure': { same: 'panel:workbench:BEAM' },
+  'section:workbench:drive': { same: 'panel:workbench:GEARS' },
+  'section:workbench:flight': { same: 'panel:workbench:WING & CAR' },
+  'section:workbench:home': { same: 'panel:workbench:HEAT' },
+  'section:agenda:diary': { same: 'panel:agenda:DIARY · NEXT 14 DAYS' },
+  'section:agenda:reminders': { same: 'panel:agenda:REMINDERS & TASKS' },
+  'section:agenda:spending': { same: 'panel:agenda:SPENDING' },
+  'section:agenda:calendars': { same: 'tool:add_calendar_feed' },
+  'section:school:ladder': { same: 'panel:school:THE LADDER' },
+  'section:school:stage': { same: 'panel:school:THIS STAGE' },
+  'section:school:results': { same: 'panel:school:RESULTS' },
+  'section:school:weak': { same: 'panel:school:WEAK SPOTS' },
+  'section:school:papers': { same: 'panel:school:OFFICIAL PAPERS' },
+  'section:school:placement': { same: 'panel:school:PLACEMENT TEST' },
+  'section:library:ask': { same: 'panel:library:ASK THE LIBRARY' },
+  'section:library:shelf': { same: 'panel:library:SHELF' },
+  'section:library:study': { same: 'job:study' },
+  'section:library:fresh': { same: 'job:digest' },
+  'section:library:add': { same: 'panel:library:ADD KNOWLEDGE' },
+  'section:library:gadgets': { same: 'panel:library:GADGETS' },
+  'section:workshop:build': { same: 'panel:workshop:TELL GHOSTY WHAT TO BUILD' },
+  'section:workshop:ideas': { same: 'job:upgrade' },
+  'section:workshop:changes': { same: 'tool:list_changes' },
+  'section:workshop:made': { same: 'tool:list_widgets' },
+  'section:workshop:training': { same: 'panel:workshop:TRAINING GROUND' },
+  'section:settings:appearance': { same: 'panel:settings:THEME' },
+  'section:settings:you': { same: 'panel:settings:NAME & UNITS' },
+  'section:settings:voice': { same: 'panel:settings:VOICE & HOME' },
+  // (its two rows open SYSTEM and LINKS)
+  'section:settings:ghosty': { same: 'screen:system' },
+  'section:settings:about': { same: 'panel:settings:ABOUT' },
+  'section:links:accounts': { same: 'panel:links:EMAIL' },
+  'section:links:phone': { same: 'panel:links:PHONE · APP & NOTIFICATIONS' },
+  'section:links:services': { same: 'panel:links:LIVE TRAFFIC · TOMTOM' },
+  'section:system:status': { same: 'panel:system:STATUS' },
+  'section:system:report': { same: 'panel:system:OFFLINE BRAIN REPORT CARD' },
+  'section:system:training': { same: 'job:train' },
+  'section:system:backup': { same: 'panel:system:BACKUP & RESTORE' },
+  'section:threats:signals': { same: 'panel:threats:ACTIVE SIGNALS' },
+  'section:threats:near': { same: 'panel:threats:NEAR YOU' },
+  'section:threats:space': { same: 'panel:threats:SPACE WEATHER' },
+  'section:threats:launches': { same: 'panel:threats:LAUNCH WINDOW' },
+  'section:memory:me': { same: 'panel:memory:ME' },
+  'section:memory:patterns': { same: 'panel:memory:PATTERNS' },
+  'section:memory:timeline': { same: 'panel:memory:TIMELINE' },
+  'section:memory:diary': { same: 'job:reflect' },
+  'section:memory:chat': { same: 'panel:memory:WHAT I REMEMBER' },
 };

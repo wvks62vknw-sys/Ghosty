@@ -160,7 +160,12 @@ export const TOOLS_1: Record<string, CatValue> = {
     say: ['Make a page for my party and put it online', 'Make me an online CV'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me a one-page invitation for my birthday and put it online', send: false },
   },
-  'tool:draft_site': { same: 'tool:publish_site' },
+  'tool:draft_site': {
+    name: 'Publish a long page in parts', line: 'I can build a long page in parts when it is too big to send in one go, then put it online as one page.',
+    more: 'I do it by myself when a page is long: the parts are joined exactly as written, up to 400 KB in all. Nothing goes online until you tap APPROVE.',
+    say: ['Make a long guide to my town, every café and park, and put it online'], scene: ['making'], cat: 'build',
+    go: { ask: 'Make me a long page about ', send: false },
+  },
   'tool:list_sites': {
     name: 'The pages I put online', line: 'I can list every page I have put online for you, with its link.',
     more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down.',
@@ -173,7 +178,7 @@ export const TOOLS_1: Record<string, CatValue> = {
     go: { ask: 'Take down the page called ', send: false },
   },
   'tool:check_html': {
-    name: 'Check a page before it goes out', line: 'I can check any page, app or game I made for problems before you see it: broken bits, errors, what is missing.',
+    name: 'Check a page before publishing', line: 'I can check any page, app or game I made for problems before you see it: broken bits, errors, what is missing.',
     more: 'The same check that runs before anything is published: it lists each problem with its line. A page with errors is never put online.',
     say: ['Check the page you made me', 'Is my site broken anywhere?'], scene: ['making', 'behind'], cat: 'build',
   },
@@ -259,7 +264,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   // ---- journeys
   'tool:plan_journey': {
-    name: 'Plan a journey by bus or train', line: 'I can plan a door-to-door journey by bus, tram, train or ferry, with live times where they exist.',
+    name: 'Plan a journey door to door', line: 'I can plan a door-to-door journey by bus, tram, train or ferry, with live times where they exist.',
     more: 'Up to five ways there, with when to leave, changes and walking, drawn on the map. It knows your saved places, so "get me home" works.',
     say: ['How do I get to Manchester by train?', 'Get me home by bus'], scene: ['out', 'morning'], cat: 'do',
     go: { run: 'journey_planner' }, tryText: 'Opens the journey planner',

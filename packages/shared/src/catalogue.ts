@@ -6,7 +6,7 @@
  * GENERATED, never written as a claim: every entry is keyed by the id of an item in a registry the code already runs on —
  * the brain's tools (apps/edge/src/tools/index.ts TOOLS, grouped by TOOL_GROUPS), Telegram's commands and what it does
  * there (telegram.ts), the asks answered with no model (direct.ts), the jobs on the brain's clock (schedule.ts JOB_KINDS);
- * the phone's screens, their panels, the deck's YOU CAN lines, the Lens's modes, the GYM's games, SCHOOL's stages, the
+ * the phone's screens, their panels and their sections (the pills), the deck's YOU CAN lines, the Lens's modes, the GYM's games, SCHOOL's stages, the
  * Workbench's modes, the studio's samples and panes, the chat's own controls and phrases, the Me sheet, the hub cards, the
  * themes and the moods (apps/web/src/abilities/sources.ts). The brain serves its items with GET /api/abilities and the phone
  * keeps them (`ghosty.abilities`), so the tab draws with no model and no signal. apps/edge/test/catalogue.test.mjs diffs
@@ -44,7 +44,7 @@ export { CATS };
 // ---------------------------------------------------------------- the registries' items
 
 /** Where an item comes from (its id's first part). The brain serves the first four. */
-export type CatKind = 'tool' | 'telegram' | 'say' | 'job' | 'screen' | 'panel' | 'deck' | 'lens' | 'game' | 'stage' | 'studio' | 'bench' | 'phrase' | 'chat' | 'me' | 'hub' | 'theme' | 'mood' | 'app';
+export type CatKind = 'tool' | 'telegram' | 'say' | 'job' | 'screen' | 'panel' | 'section' | 'deck' | 'lens' | 'game' | 'stage' | 'studio' | 'bench' | 'phrase' | 'chat' | 'me' | 'hub' | 'theme' | 'mood' | 'app';
 export const BRAIN_KINDS: CatKind[] = ['tool', 'telegram', 'say', 'job'];
 
 /** What TRY IT does: a screen (and a panel on it), a command of the app, or words for the chat — sent, or left in the box. */
@@ -218,6 +218,7 @@ function whereOf(item: CatItem, w: CatWords, o: JoinOpts): string {
     case 'job': return 'On my own clock, in the brain';
     case 'phrase': return 'In the chat (typed or said)';
     case 'panel': return `${sc} → ${tail.replace(/[…?]+$/, '')}`;
+    case 'section': return sc;
     case 'deck': return sc;
     case 'lens': return `Lens → ${item.id.split(':')[1]!.toUpperCase()}`;
     case 'game': return 'Gym';
@@ -321,7 +322,8 @@ const CODE = /\b[a-z]+_[a-z0-9_]+\b|[{}<>]|=>|\(\)/;
 export function wordProblems(id: string, w: CatWords, tools: string[] = []): string[] {
   const out: string[] = [];
   const shown = [w.name, w.line, w.more, ...w.say, w.tryText ?? '', w.where ?? ''];
-  if (!w.name || w.name.split(/\s+/).length > 7 || w.name.length > 44) out.push(`${id}: the name "${w.name}" is not 1–7 plain words`);
+  const words = w.name.split(/\s+/).length;
+  if (!w.name || words < 3 || words > 6 || w.name.length > 44) out.push(`${id}: the name "${w.name}" is not 3–6 plain words`);
   if (w.line.length > 140) out.push(`${id}: the line is ${w.line.length} characters (140 at most)`);
   if (!/^(?:I|You) /.test(w.line)) out.push(`${id}: the line does not start "I " or "You ": "${w.line}"`);
   if (!w.more || w.more.length < 40) out.push(`${id}: no explanation`);

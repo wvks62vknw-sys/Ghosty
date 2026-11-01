@@ -83,13 +83,13 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Where is my data kept?'], scene: ['phone', 'behind'], cat: 'do',
   },
   'panel:settings:HELP': {
-    name: 'Quick help', line: 'You can read four quick tips: how to ask, search, see every screen, and make me remember.',
+    name: 'Four quick tips', line: 'You can read four quick tips: how to ask, search, see every screen, and make me remember.',
     more: 'Short and plain. This list has everything else.',
     say: ['How do I use you?'], scene: ['talking'], cat: 'talk',
   },
   'panel:settings:OFFLINE BRAIN': {
     name: 'A brain on your phone', line: 'You can download a small brain onto your phone, so I can answer with no signal and keep things private.',
-    more: 'Off, only when there is no signal, or always (never online). About 350 MB, on Wi-Fi; asked for once, never on its own.',
+    more: 'Off, only when there is no signal, or always: then nothing you ask leaves the phone. It shows how much of your week your own brains answered, and what still needed the cloud. The smallest is about 350 MB, on Wi-Fi; asked for once, never on its own.',
     say: ['Download the offline brain'], scene: ['phone'], cat: 'do', needs: ['wifi'],
   },
   // ---- SPACE
@@ -182,7 +182,7 @@ export const APP_3: Record<string, CatValue> = {
     say: ['How are you improving?'], scene: ['behind', 'school'], cat: 'learn',
   },
   'panel:system:NIGHT SCHOOL': {
-    name: 'Night School', line: 'You can let me study through the night on your phone while it charges, between the times you set.',
+    name: 'Night School on your phone', line: 'You can let me study through the night on your phone while it charges, between the times you set.',
     more: 'Plugged in and open on me, from 23:00 to 06:00 unless you change it. The screen dims and I get on with it.',
     say: ['Turn on Night School'], scene: ['phone', 'school', 'behind'], cat: 'learn', needs: ['offline'],
   },
@@ -209,7 +209,7 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Can I see the northern lights tonight?'], scene: ['watching'], cat: 'watch',
   },
   'panel:threats:LAUNCH WINDOW': {
-    name: 'Rocket launches', line: 'You can see the next rocket launches around the world and when they go.',
+    name: 'Upcoming rocket launches', line: 'You can see the next rocket launches around the world and when they go.',
     more: 'From a public launch schedule, with where each goes up from.',
     say: ['When’s the next rocket launch?'], scene: ['watching'], cat: 'know',
   },
@@ -236,7 +236,7 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Column calculator'], scene: ['making'], cat: 'build',
   },
   'panel:workbench:GEARS': {
-    name: 'Gear ratios', line: 'You can work out a gear train’s ratio, its output speed and its torque, from the teeth.',
+    name: 'Work out gear ratios', line: 'You can work out a gear train’s ratio, its output speed and its torque, from the teeth.',
     more: 'Driver to driven, stage by stage, with the losses. Bicycle gearing is next to it.',
     say: ['Gear calculator', '20 to 60 teeth at 1500 rpm'], scene: ['making'], cat: 'build',
   },
@@ -278,7 +278,7 @@ export const APP_3: Record<string, CatValue> = {
   // the Workbench's modes, where a panel has several
   'bench:gears:train': { same: 'panel:workbench:GEARS' },
   'bench:gears:bike': {
-    name: 'Bicycle gearing', line: 'You can work out a bike’s gear: inches, how far one turn of the pedals takes you, your speed.',
+    name: 'Your bicycle’s gearing', line: 'You can work out a bike’s gear: inches, how far one turn of the pedals takes you, your speed.',
     more: 'From the chainring, the sprocket, the wheel and how fast you pedal.',
     say: ['50 by 11 on a road bike'], scene: ['making', 'out'], cat: 'build',
   },
@@ -300,7 +300,7 @@ export const APP_3: Record<string, CatValue> = {
   },
   'bench:circuit:ohm': { same: 'panel:workbench:CIRCUIT' },
   'bench:circuit:resistors': {
-    name: 'Resistors together', line: 'You can work out resistors in series or in parallel.',
+    name: 'Resistors added together', line: 'You can work out resistors in series or in parallel.',
     more: 'List the values and get the total, either way round.',
     say: ['100 and 220 ohms in parallel'], scene: ['making'], cat: 'build',
   },

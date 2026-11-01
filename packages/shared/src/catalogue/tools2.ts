@@ -166,7 +166,7 @@ export const TOOLS_2: Record<string, CatValue> = {
     go: { ask: 'Queue ', send: false },
   },
   'tool:spotify_playlists': {
-    name: 'Your playlists', line: 'I can list your Spotify playlists, so you can pick one to play.',
+    name: 'Your Spotify playlists', line: 'I can list your Spotify playlists, so you can pick one to play.',
     more: 'Each with who made it and how many songs, so you can pick one to play.',
     say: ['What playlists have I got?'], scene: ['playing'], cat: 'play', needs: ['link:spotify'],
   },
@@ -215,7 +215,12 @@ export const TOOLS_2: Record<string, CatValue> = {
     more: 'Say "carry on" and I start the next step.',
     say: ['How’s the upgrade going?', 'Carry on with the upgrade'], scene: ['behind'], cat: 'learn', where: 'Workshop → UPGRADE ROADMAP, or ask me',
   },
-  'tool:update_step': { same: 'tool:roadmap' },
+  'tool:update_step': {
+    name: 'Mark my upgrade’s progress', line: 'I can mark each step of my upgrade as started, done or stuck, with a note why, so the roadmap always tells the truth.',
+    more: 'I do it as I work: a step is done once its change has shipped, and a stuck one says what blocked it. You see it under UPGRADE ROADMAP.',
+    say: ['Mark step 2 of the upgrade as done', 'Step 3 is stuck: it needs a key'], scene: ['behind'], cat: 'learn',
+    go: { open: 'workshop', panel: 'UPGRADE ROADMAP' },
+  },
   // ---- taking software apart
   'tool:reverse_engineer': {
     name: 'See how any software works', line: 'I can take apart a website, an app package, a code project or a file to see how it works.',
@@ -235,22 +240,48 @@ export const TOOLS_2: Record<string, CatValue> = {
   },
   // ---- my own code
   'tool:repo_tree': {
-    name: 'Read my own code', line: 'I can read my own code: list it, open files and search it, before I change anything.',
-    more: 'I look first, then change. Reading never changes anything.',
-    say: ['Where in your code is the Brief made?'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+    name: 'List my own code', line: 'I can list the files of my own code, all of it or one part, to find my way round before I change anything.',
+    more: 'The live version, with the big data files left out. Looking never changes anything.',
+    say: ['What files make up your chat screen?', 'List the files of your Brief'], scene: ['behind'], cat: 'build', needs: ['key:github'],
   },
-  'tool:repo_read': { same: 'tool:repo_tree' },
-  'tool:repo_read_many': { same: 'tool:repo_tree' },
-  'tool:repo_search': { same: 'tool:repo_tree' },
+  'tool:repo_read': {
+    name: 'Read a file of my code', line: 'I can open any file of my own code and read it, the live version or a change I am working on.',
+    more: 'I read before I change. The files that hold my deploy settings stay closed, even to me. Reading never changes anything.',
+    say: ['Read me the file that draws the Brief'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+  },
+  'tool:repo_read_many': {
+    name: 'Read several files at once', line: 'I can read up to eight files of my own code in one go, so I see everything a change will touch first.',
+    more: 'When I plan a change I read every file it touches together, then decide. Reading never changes anything.',
+    say: ['Read the files behind the Brief and the chat bar'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+  },
+  'tool:repo_search': {
+    name: 'Search my own code', line: 'I can search my own code for a word, to find where something is made, with each line it is on.',
+    more: 'I look through up to 30 files at a time, in the part of my code where it should be. Searching never changes anything.',
+    say: ['Where in your code is the Brief made?', 'Search your code for the word boot'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+  },
   'tool:propose_change': {
     name: 'Change my own code', line: 'I can change my own code when you ask, as a preview you can try before anything goes live.',
     more: 'I make the change, my checks run (types, tests, a real browser), and you get a private preview. Nothing goes live until you ship it.',
     say: ['Add a dark mode switch to the Brief', 'Change your greeting'], scene: ['making', 'behind'], cat: 'build', needs: ['key:github'],
     go: { open: 'workshop', panel: 'TELL GHOSTY WHAT TO BUILD' },
   },
-  'tool:update_change': { same: 'tool:propose_change' },
-  'tool:wait_for_checks': { same: 'tool:propose_change' },
-  'tool:change_status': { same: 'tool:list_changes' },
+  'tool:update_change': {
+    name: 'Fix a change before it ships', line: 'I can fix a change to myself while it waits for you, for example when its checks failed, and run the checks again.',
+    more: 'The fix goes onto the same change and its preview. Nothing goes live until you ship it.',
+    say: ['The checks failed, fix it', 'Make the button bigger on that change'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+    go: { open: 'workshop', panel: 'PROPOSED CHANGES' },
+  },
+  'tool:wait_for_checks': {
+    name: 'Wait for my checks', line: 'I can wait for the checks on a change, up to about six minutes, and tell you exactly what failed, if anything.',
+    more: 'The checks read my code for mistakes, run my tests and build me, and a real browser tries my screens. I wait by myself after every change and every fix.',
+    say: ['Have the checks finished?'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+    go: { open: 'workshop', panel: 'PROPOSED CHANGES' },
+  },
+  'tool:change_status': {
+    name: 'How one change is doing', line: 'I can check one change to myself: did its checks pass, the exact error if not, and its preview link.',
+    more: 'Shipped or still waiting, with what it changes. Checking never changes anything.',
+    say: ['Why did the checks fail on my change?', 'Is change 12 shipped?'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+  },
   'tool:list_changes': {
     name: 'Changes waiting for you', line: 'I can show you the changes to myself that are waiting for you, with how their checks went.',
     more: 'Each with its preview link. Ship it or bin it.',
@@ -268,7 +299,11 @@ export const TOOLS_2: Record<string, CatValue> = {
     say: ['Bin that change'], scene: ['behind'], cat: 'build', needs: ['key:github'],
     go: { open: 'workshop', panel: 'PROPOSED CHANGES' },
   },
-  'tool:list_versions': { same: 'tool:restore_version' },
+  'tool:list_versions': {
+    name: 'My recent versions', line: 'I can list my recent live versions, newest first, with when each went live and what it changed.',
+    more: 'So you can pick one to roll back to. Listing never changes anything.',
+    say: ['What versions of you are there?', 'When were you last updated?'], scene: ['behind'], cat: 'build', needs: ['key:github'], where: 'Workshop → VERSIONS, or ask me',
+  },
   'tool:restore_version': {
     name: 'Roll myself back', line: 'I can roll myself back to an earlier version if a change went wrong, after you approve it.',
     more: 'My recent versions are listed newest first; pick one and I go back to it.',
@@ -288,12 +323,17 @@ export const TOOLS_2: Record<string, CatValue> = {
     say: ['How’s the project going?'], scene: ['behind'], cat: 'do', where: 'Workshop → PROJECTS, or ask me',
   },
   'tool:pause_project': {
-    name: 'Pause or carry on a project', line: 'I can pause a project and carry on later from the step it reached.',
-    more: '"Carry on" picks up a paused project; a step that failed is tried again.',
-    say: ['Pause the project', 'Carry on with the project'], scene: ['behind'], cat: 'do',
+    name: 'Pause a project', line: 'I can pause a running project, so its steps stop until you tell me to carry on.',
+    more: 'The newest running one, or the one you name. Nothing it found is lost.',
+    say: ['Pause the project'], scene: ['behind'], cat: 'do',
     go: { ask: 'Pause the project', send: false },
   },
-  'tool:resume_project': { same: 'tool:pause_project' },
+  'tool:resume_project': {
+    name: 'Carry on with a project', line: 'I can carry on with a paused project from the step it reached, and try again a step that failed.',
+    more: '"Carry on" picks the newest paused project; name another to pick that one. Its next step runs at once.',
+    say: ['Carry on with the project', 'Resume the Japan trip project'], scene: ['behind'], cat: 'do',
+    go: { ask: 'Carry on with the project', send: false },
+  },
   'tool:cancel_project': {
     name: 'Stop a project for good', line: 'I can stop a project for good; what it found stays in my library.',
     more: 'Only when you ask. What it already found stays in my library.',
