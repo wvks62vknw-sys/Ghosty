@@ -17,6 +17,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_convert' }, tryText: 'Opens the converter',
   },
   'phrase:convert': { same: 'hub:convert' },
+  'hub:docs': {
+    name: 'Read, write and translate documents',
+    line: 'You can have a letter written in the chat and laid out, a PDF or Word file read to you, or a document translated.',
+    more: 'Ask me to “write a letter to my landlord about the damp” and the reply comes as a document with your name and the date, to edit and save as PDF, Word, Markdown or a web page. Open a PDF, Word file or e-book and it shows its contents, finds words and reads it aloud. Ask me to make it shorter, more formal or fix the grammar: each change comes as a suggestion you accept or reject. A translation keeps every heading and list in its place, beside the original.',
+    say: ['Write a letter to my landlord about the damp', 'My documents', 'Translate my letter into Urdu'],
+    scene: ['making', 'money', 'school'], cat: 'do', since: SINCE,
+    go: { run: 'open_docs' }, tryText: 'Opens my documents',
+  },
+  'phrase:docs': { same: 'hub:docs' },
   'phrase:units': {
     name: 'Units worked out instantly',
     line: 'You can ask me “3.5 miles in km” or “100 F in C”, and I answer on the phone with no AI.',

@@ -42,7 +42,8 @@ import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
-import { convertInst } from '../convert/inst';
+import { convertInst, docsInst } from '../convert/inst';
+import { listDocs } from '../docs/store';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -293,6 +294,20 @@ export const CARDS: Record<string, HubCard> = {
       ];
     },
     why: () => 'Pictures, PDFs, Word, tables, sound and QR codes, all on this phone.',
+  },
+  // [reste] MAKE → DOCUMENTS (docs/sheet.ts): read, write, edit and translate; kept on this phone
+  docs: {
+    title: 'Read, write, translate',
+    status: () => 'READY',
+    instrument: docsInst,
+    readouts: () => {
+      const all = listDocs();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0]?.title ?? null, none: '—' },
+      ];
+    },
+    why: () => 'Ask me to write a letter in the chat, or open a PDF, Word file or e-book.',
   },
   learn: {
     title: 'Learn anything',

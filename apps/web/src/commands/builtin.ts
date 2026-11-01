@@ -479,6 +479,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [reste] DOCUMENTS (docs/sheet.ts): my documents; one read, written in the chat and laid out, edited, translated.
+      id: 'open_docs',
+      title: 'Documents: read, write, edit, translate',
+      group: 'GO',
+      run: async (a) => {
+        const { openDocs } = await import('../docs/sheet');
+        await openDocs(a && typeof a === 'object' ? (a as Parameters<typeof openDocs>[0]) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

@@ -35,7 +35,7 @@ import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
-import { convertTurn, numbersTurn } from './reste';
+import { convertTurn, docsTurn, numbersTurn } from './reste';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
@@ -260,6 +260,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   skill: async (text, opts) => packAnswer(await coachTurn(text), opts),
   // [reste] the converter, and its units and numbers answered here (assistant/reste.ts, convert/)
   convert: async (text, opts) => packAnswer(await convertTurn(text), opts),
+  docs: async (text, opts) => packAnswer(await docsTurn(text), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

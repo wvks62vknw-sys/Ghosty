@@ -62,8 +62,7 @@ export async function openConvert(files: File[] = [], o: { tool?: string; conver
   const paintFiles = () => {
     convertState.picked = picked.map((p) => ({ name: p.file.name, kind: p.kind, size: p.file.size }));
     clear(list, ...picked.map((p, i) => h('div.cvfile',
-      h('b', p.file.name),
-      h('small', `${KIND_WORDS[p.kind]}, ${sizeWords(p.file.size)}`),
+      h('div.cvoutt', h('b', p.file.name), h('small', `${KIND_WORDS[p.kind]}, ${sizeWords(p.file.size)}`)),
       button('×', () => {
         picked.splice(i, 1);
         paintFiles();
@@ -99,6 +98,8 @@ export async function openConvert(files: File[] = [], o: { tool?: string; conver
       h('div.cvbtns', ...offered.filter((c) => c.group === g).map((c) => {
         const b = button(c.label, () => choose(c, b), 'cvbtn');
         b.dataset.id = c.id;
+        // its own wording, abbreviations and all ("To JPG", "CSV to Excel"), not the buttons' sentence case
+        b.dataset.label = c.label;
         if (c.note) b.title = c.note;
         return b;
       })),

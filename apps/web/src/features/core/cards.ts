@@ -39,6 +39,8 @@ const ICONS: Record<string, string> = {
   // [social] a line of his own (BRIEF-SOCIAL item 7) and FATHER AND THE ORIGIN (item 1)
   musing: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M8 10h8M8 13h5"/>',
   origin: '<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.8a4.2 4.2 0 017.5 2.5c0 5.6-7.5 10.2-7.5 10.2z"/><path d="M12 3.5v4.3"/>',
+  // [reste] a reply laid out as a document (docs/ask.ts offerDocument)
+  document: '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7H18M9 11h6M9 14.5h6M9 18h4"/>',
 };
 
 const COLOUR: Record<string, string> = {

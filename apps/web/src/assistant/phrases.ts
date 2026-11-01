@@ -31,6 +31,7 @@ import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
 import { ratingAsked } from '../gym/chessrate';
 import { coachAsked } from '../coach/ask';
 import { convertAsked } from '../convert/asks';
+import { docsAsked } from '../docs/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
@@ -78,6 +79,7 @@ export const LOCAL_ASKS = [
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
   // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },
