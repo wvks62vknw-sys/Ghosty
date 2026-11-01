@@ -182,6 +182,12 @@ const MORE: Record<string, CatValue> = {
     more: 'Each is scored at its time by the live feeds alone, and your own questions by your word. FORESIGHT shows how often I am right.',
     say: ['What do you expect today?', 'How often are you right?'], scene: ['morning', 'behind'], cat: 'know', needs: ['home', 'work'], go: { open: 'brief', panel: 'FORESIGHT' }, where: 'Brief → FORESIGHT, and System',
   },
+  'job:speak': {
+    name: 'Speaking first, when it matters', line: 'I bring things up myself a few times a day at most: the morning, a car’s MOT month, a warning for a saved place.',
+    more: 'At most four unprompted cards a day across the chat, push and Telegram, never two within two hours, nothing at night unless it is danger. Any stop word silences me for the rest of the day. SETTINGS → CHARACTER → SPEAK FIRST sets QUIET, SOME or CHATTY. WHY and "what did you do today" list every line I said first and why.',
+    say: ['Why did you say that?', 'What did you do today?', 'Quiet.'], scene: ['morning', 'talk'], cat: 'talk',
+    since: '2026-11-01',
+  },
 };
 
 export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE };

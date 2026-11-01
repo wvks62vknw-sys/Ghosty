@@ -129,7 +129,7 @@ export function brainItems(has: (name: string) => boolean, groups: ToolGroup[] =
 /** When each kind of job arrived (STATUS.md's batches; coarse). */
 const JOB_SINCE: Record<(typeof JOB_KINDS)[number], string> = {
   reminder: '2026-10-15', task: '2026-10-15', verify: '2026-10-15', study: '2026-10-15', reflect: '2026-10-18', digest: '2026-10-18', project: '2026-10-17',
-  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31',
+  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31', speak: '2026-11-01',
 };
 
 export interface AbilitiesDeps {
