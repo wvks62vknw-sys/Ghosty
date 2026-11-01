@@ -39,11 +39,26 @@ export interface ModelDef {
   alone?: true;
 }
 
-/** The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it. Both Apache-2.0. */
+/**
+ * The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it; and the floor, SmolLM2 360M, when neither
+ * can (1 Nov: the 0.6B loaded on his 18 Pro Max and closed Ghosty at its first answer). Qwen Apache-2.0, SmolLM2 Apache-2.0.
+ * The floor exactly as WebLLM 0.2.85's own list names it (model id, compiled library from binary-mlc-llm-libs
+ * `web-llm-models/v0_2_84/base`, 376.06 MB needed at 4,096 tokens), pinned to its repo's last commit (3a622fd, Sept 2025,
+ * which only added tensor-cache.json, the list this WebLLM reads; the weights are unchanged since Nov 2024). `mb` is all
+ * GET fetches, as for the two above: seven shards, the list, the tokenizer, the config and the 5.7 MB library (211,553,449
+ * bytes). Its weights (194 MB) and its library's largest working space (21.9 MB: a vocabulary of 49,152, against the Qwens'
+ * 151,936) make `work`; the cache is 40 KB a token, so it runs in about 296 MB at the phone's 2,048 tokens.
+ */
 export const MODELS: ModelDef[] = [
   { id: 'Qwen3-0.6B-q4f16_1-MLC', label: 'Qwen3 0.6B', repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm', mb: 352, vram: 1403.34, largest: 77_791_232, work: 955.34 },
   { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label: 'Qwen2.5 0.5B', repo: 'mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', rev: '32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad', lib: 'Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 290, vram: 944.62, largest: 68_067_328 },
+  { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', label: 'SmolLM2 360M', repo: 'mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC', rev: '3a622fd89e0216e8bb10c410c007c786baa8a033', lib: 'SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 212, vram: 376.06, largest: 23_592_960, work: 216.06 },
 ];
+/** The stand-ins for the 0.6B, smaller each: the Qwen2.5 0.5B, then the floor. */
+export const STAND_INS: ModelDef[] = [MODELS[1]!, MODELS[2]!];
+/** The floor: the smallest brain WebLLM 0.2.85 ships prebuilt (SmolLM2 360M). */
+export const FLOOR: ModelDef = MODELS[2]!;
+const isStandIn = (m: Pick<ModelDef, 'id'>): boolean => STAND_INS.some((x) => x.id === m.id);
 
 /**
  * The bigger brains he can try (SETTINGS → OFFLINE BRAIN): Qwen3.5 0.8B, 2B and 4B (Apache-2.0), exactly as WebLLM
@@ -65,18 +80,18 @@ export const BIGGER: ModelDef[] = [
 /** The brains the picker offers, smallest first: today's Qwen3 0.6B (also the fallback), then the bigger ones. */
 export const PICKER: ModelDef[] = [MODELS[0]!, ...BIGGER];
 
-/** Which base a model is (a stock one, a bigger one, or a trained week of either); the Qwen2.5 stand-in counts as the 0.6B. */
+/** Which base a model is (a stock one, a bigger one, or a trained week of either); the two stand-ins count as the 0.6B. */
 export const brainOf = (m: Pick<ModelDef, 'brain'>): BaseId => m.brain ?? DEFAULT_BASE;
 /** Its row in the picker: its base, or its own id for a brain the training does not follow (the 0.8B). */
 export const slotOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.alone ? m.id : brainOf(m));
-/** A brain bigger than the 0.6B (or its Qwen2.5 stand-in): one that may be too big for the phone's graphics memory. */
+/** A brain bigger than the 0.6B (or its stand-ins): one that may be too big for the phone's graphics memory. */
 export const isBigger = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): boolean => slotOf(m) !== DEFAULT_BASE;
 /**
- * The key a brain's record on this phone is kept under (`Held`): its picker row (`slotOf`), except the Qwen2.5 0.5B
- * stand-in, which has its own, so the smallest brain closing Ghosty is never mistaken for the 0.6B doing so (31 Oct:
- * the 0.6B closed Ghosty on the first answer of a SCHOOL paper; the stand-in is the one smaller brain to try).
+ * The key a brain's record on this phone is kept under (`Held`): its picker row (`slotOf`), except the stand-ins (the
+ * Qwen2.5 0.5B and the floor), which have their own, so a smaller brain closing Ghosty is never mistaken for the 0.6B
+ * doing so (31 Oct: the 0.6B closed Ghosty on the first answer of a SCHOOL paper; the stand-ins are the smaller ones to try).
  */
-export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.id === MODELS[1]!.id ? m.id : slotOf(m));
+export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (isStandIn(m) ? m.id : slotOf(m));
 /** "2B": the short name the owner reads in a warning ("Qwen3.5 2B" → "2B"). */
 export const shortName = (m: Pick<ModelDef, 'label'>): string => m.label.split(' ').at(-1) ?? m.label;
 

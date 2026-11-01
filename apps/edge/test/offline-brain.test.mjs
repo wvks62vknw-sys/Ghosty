@@ -90,7 +90,8 @@ test('replies are cleaned of the empty thinking block and end marks; the downloa
 test('the models are pinned to one Hugging Face commit each, and the vendored WebLLM keeps that revision', async () => {
   const { readFileSync } = await import('node:fs');
   const M = await import(`${B}/offline-models.mjs`);
-  assert.equal(M.MODELS.length, 2);
+  // the 0.6B, its Qwen2.5 stand-in and the floor (1 Nov), each checked below like the first two
+  assert.equal(M.MODELS.length, 3);
   for (const m of M.MODELS) {
     assert.match(m.repo, /^mlc-ai\/[\w.-]+-MLC$/);
     assert.match(m.rev, /^[0-9a-f]{40}$/, `${m.id} is not pinned to a commit`);
@@ -290,6 +291,59 @@ test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, t
   assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' } }), /^What this phone can hold: closed Ghosty answering on Qwen3 0\.6B \(24 Oct\); not tried yet: Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
   assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'loading' }, [M.MODELS[1].id]: { s: 'loaded', at } }, [M.MODELS[1], ...M.PICKER]), /^What this phone can hold: has run Qwen2\.5 0\.5B \(24 Oct\); closed Ghosty loading Qwen3 0\.6B \(24 Oct\); not tried yet: /);
   assert.equal(M.shortName(two), '2B');
+});
+
+test('the floor (1 Nov: the 0.6B closed Ghosty at its first answer): SmolLM2 360M exactly as WebLLM 0.2.85 lists it, its code vendored, a stand-in kept on its own, and what this phone can hold with three small brains', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  const [small, half, floor] = M.MODELS;
+  assert.equal(M.FLOOR, floor);
+  assert.deepEqual(M.STAND_INS.map((m) => m.id), [half.id, floor.id]);
+  assert.deepEqual([floor.id, floor.label, floor.repo, floor.rev, floor.lib], ['SmolLM2-360M-Instruct-q4f16_1-MLC', 'SmolLM2 360M', 'mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC', '3a622fd89e0216e8bb10c410c007c786baa8a033', 'SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm']);
+  // the prebuilt entry in the very runtime the phone runs: same repo and library, its memory figure, 16-bit shaders
+  const entry = src.match(/model: "https:\/\/huggingface\.co\/mlc-ai\/SmolLM2-360M-Instruct-q4f16_1-MLC",\s*model_id: "SmolLM2-360M-Instruct-q4f16_1-MLC",[\s\S]*?\n        \}/)?.[0];
+  assert.ok(entry, "the floor is in WebLLM 0.2.85's own list");
+  assert.match(entry, /"\/SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu\.wasm"/);
+  assert.match(entry, new RegExp(`vram_required_MB: ${floor.vram},`));
+  assert.match(entry, /required_features: \["shader-f16"\]/);
+  // the smallest instruct brain worth having in that list: the one below it is the 135M, unquantised (q0f16), 16 MB less
+  // at 4,096 tokens for 16-bit weights (a bigger download than these 4-bit ones) and a far weaker brain
+  assert.match(src, /model_id: "SmolLM2-135M-Instruct-q0f16-MLC",[\s\S]*?vram_required_MB: 359\.69,/);
+  const lib = new URL(`../../web/public/vendor/webllm/libs/${floor.lib}`, import.meta.url);
+  assert.ok(statSync(lib).size > 5_000_000, 'its compiled code is vendored');
+  const wasm = readFileSync(lib);
+  assert.deepEqual([...wasm.subarray(0, 4)], [0, 0x61, 0x73, 0x6d], 'a WebAssembly file');
+  // WebLLM's figure taken apart: 194.18 MB of weights (203,614,080 bytes in its tensor-cache.json at the pinned commit)
+  // + the library's largest working space + 40 KB a token of cache; as the phone runs it (2,048 tokens), about 296 MB
+  const plan = JSON.parse(`{${wasm.toString('latin1').match(/"memory_usage": \{[^}]*\}/)[0]}}`).memory_usage;
+  const work = Math.max(...Object.values(plan)) / 2 ** 20;
+  assert.ok(Math.abs(floor.work - work - 194.18) < 0.02, `weights 194.18 MB + working space ${work.toFixed(2)} MB = ${floor.work}`);
+  assert.equal(M.memAt(floor, 4096), floor.vram);
+  assert.equal(M.memAt(floor, 2048), 296.06);
+  assert.equal(floor.ctx, undefined, 'the phone gives it 2,048 tokens (brain.ts appConfig), like the other two');
+  // materially smaller: under a third of the 0.6B as the phone runs them, under half the 0.5B's listed figure
+  assert.ok(M.memAt(floor, 2048) < M.memAt(small, 2048) / 3 && floor.vram < half.vram / 2);
+  assert.deepEqual([M.sizeText(floor.mb), M.memText(floor.vram), M.fitLine(floor)], ['212 MB', '0.4 GB', 'fits an 18 Pro Max: yes']);
+  assert.equal(floor.largest, 23_592_960, 'its biggest piece: the embedding table');
+  const safari = { maxBufferSize: 256 * 2 ** 20, maxStorageBufferBindingSize: 128 * 2 ** 20, maxComputeWorkgroupStorageSize: 32768, maxStorageBuffersPerShaderStage: 10, maxComputeInvocationsPerWorkgroup: 1024 };
+  assert.equal(M.limitsProblem(floor, safari, true), '');
+  // a stand-in like the 0.5B: not a bigger brain, the 0.6B's base for the training, its record kept under its own id
+  assert.ok(!M.isBigger(floor) && M.brainOf(floor) === 'qwen3-0.6b' && M.slotOf(floor) === 'qwen3-0.6b');
+  assert.equal(M.heldKey(floor), floor.id);
+  assert.equal(M.heldKey(half), half.id);
+  assert.equal(M.heldKey(small), 'qwen3-0.6b');
+  const [week] = M.trainedModels([{ week: 5, label: 'w5', repo: 'ghosty/w5', commit: 'd'.repeat(40) }], '', `/api/w/${'e'.repeat(48)}/`);
+  assert.equal(M.heldKey(week), 'qwen3-0.6b', "a week trained from the 0.6B is on the 0.6B's record");
+  assert.ok(M.allModels([]).includes(floor) && M.brainModels([]).includes(floor), 'every list the phone loads from has it');
+  // what this phone can hold, three ways: the chip's pieces with the three small brains, the 0.5B that closed Ghosty
+  // with the floor not tried, and the floor's own record kept apart from the 0.6B's
+  const at = Date.UTC(2026, 10, 1, 3);
+  const rows = [floor, half, ...M.PICKER];
+  assert.equal(M.holdLine(safari, {}, rows), 'What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 360M, 0.5B, 0.6B, 0.8B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
+  assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' }, [half.id]: { s: 'closed', at, phase: 'answering' } }, rows), /^What this phone can hold: closed Ghosty answering on Qwen2\.5 0\.5B \(1 Nov\), Qwen3 0\.6B \(1 Nov\); not tried yet: SmolLM2 360M, Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
+  assert.match(M.holdLine(null, { [floor.id]: { s: 'loaded', at }, 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' }, [half.id]: { s: 'closed', at, phase: 'loading' } }, rows), /^What this phone can hold: has run SmolLM2 360M \(1 Nov\); closed Ghosty loading Qwen2\.5 0\.5B \(1 Nov\); closed Ghosty answering on Qwen3 0\.6B \(1 Nov\); not tried yet: Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
+  assert.equal(M.shortName(floor), '360M');
 });
 
 test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {

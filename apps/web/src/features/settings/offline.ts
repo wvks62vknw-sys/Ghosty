@@ -28,7 +28,7 @@ import { overall, voiceLine } from '../../offline/bench';
 import { approveLoad, brainsHere, checkBrain, chooseBrain, deleteOffline, downloadOffline, getBrain, gpuLimits, heldOf, keptHere, noRoom, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, removeBrain, useBrain, wasClosedWhileGetting, withModel } from '../../offline/brain';
 import { readLog } from '../../offline/fill';
 import { reportCard, runReportCard } from '../../offline/harder';
-import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, onPhoneLine, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
+import { BIGGER, brainOf, fitLine, FLOOR, heldKey, holdLine, isBigger, memText, MODELS, onPhoneLine, PICKER, shortName, sizeText, slotOf, STAND_INS, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
 import { homeScreenApp } from '../system/storage';
@@ -214,7 +214,10 @@ export function offlinePanel(): Panel & { refresh(): void } {
     // (a small brain asks only after it closed Ghosty here: the 0.6B did, on 31 Oct, while answering)
     if (held?.s !== 'closed' && (!isBigger(m) || held?.s === 'loaded')) return true;
     const before = held?.s === 'closed' ? `It closed Ghosty on this phone on ${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${held.phase === 'answering' ? ' while answering' : ''}. ` : '';
-    const comeBack = isBigger(m) ? ` on the ${shortName(MODELS[0]!)}` : m.id === MODELS[0]!.id && here.includes(MODELS[1]!.id) ? ` on the ${shortName(MODELS[1]!)}` : '';
+    // (a small one comes back on the next smaller brain here: the 0.6B on the 0.5B, either on the floor)
+    const rung = MODELS.findIndex((x) => heldKey(x) === heldKey(m));
+    const below = rung < 0 ? undefined : MODELS.slice(rung + 1).find((x) => here.includes(x.id));
+    const comeBack = isBigger(m) ? ` on the ${shortName(MODELS[0]!)}` : below ? ` on the ${shortName(below)}` : '';
     const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back${comeBack}.`, 'LOAD IT');
     keepTitle();
     const yes = await asking;
@@ -302,13 +305,19 @@ export function offlinePanel(): Panel & { refresh(): void } {
     return wasClosedWhileGetting() ? `Ghosty was closed while getting ${m.label}${at}. ${how} to carry on from there.` : `Getting ${m.label} stopped${at}. ${how} to carry on from there.`;
   }
 
-  /** The Qwen2.5 0.5B stand-in, the smallest brain: a row of its own once the 0.6B could not run here, or when it is on this phone. */
+  /**
+   * The stand-ins, each a row of its own once the brain above it could not run here, or when it is on this phone: the
+   * Qwen2.5 0.5B ("the smallest") after the 0.6B, the floor ("the tiniest", SmolLM2 360M) after the 0.5B.
+   */
   const least = MODELS[1]!;
-  const leastShown = (): boolean => {
-    const s = heldOf(MODELS[0]!)?.s;
-    return here.includes(least.id) || currentModel().id === least.id || s === 'closed' || s === 'failed' || !!heldOf(least);
+  const shownAfter = (above: ModelDef, m: ModelDef): boolean => {
+    const s = heldOf(above)?.s;
+    return here.includes(m.id) || currentModel().id === m.id || s === 'closed' || s === 'failed' || !!heldOf(m);
   };
-  const pickerRows = (): ModelDef[] => (leastShown() ? [least, ...PICKER] : PICKER);
+  const leastShown = (): boolean => shownAfter(MODELS[0]!, least);
+  const floorShown = (): boolean => shownAfter(least, FLOOR);
+  /** Smallest first: the floor, the 0.5B, then the 0.6B and the bigger brains. */
+  const pickerRows = (): ModelDef[] => [...(floorShown() ? [FLOOR] : []), ...(leastShown() ? [least] : []), ...PICKER];
 
   function paintPick(): void {
     const s = offlineBrain.get();
@@ -322,8 +331,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
       fell,
       getting,
       ...pickerRows().map((m) => {
-        // (the stand-in shares the 0.6B's row in the training, so it is in use only when it is the model itself)
-        const using = m === least ? now.id === least.id : slotOf(m) === inUse && !(m === MODELS[0] && now.id === least.id);
+        // (a stand-in shares the 0.6B's row in the training, so it is in use only when it is the model itself)
+        const stand = (x: ModelDef) => STAND_INS.some((y) => y.id === x.id);
+        const using = stand(m) ? now.id === m.id : slotOf(m) === inUse && !(m === MODELS[0] && stand(now));
         const onPhone = here.includes(m.id) || (using && ready && now.id === m.id);
         const partial = !onPhone && log?.model === m.id;
         const tag = using ? (now.id === m.id ? 'IN USE' : `IN USE: ${now.label}`) : onPhone ? 'ON THIS PHONE' : '';
@@ -341,7 +351,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
           `div.obbrain${using ? '.on' : ''}` as 'div',
           { dataset: { model: m.id } },
           h('div.obname', h('b', m.label), tag ? h('span.obtag', tag) : null),
-          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : m === least ? ' · the smallest' : ''}`),
+          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : m === least ? ' · the smallest' : m === FLOOR ? ' · the tiniest' : ''}`),
           held?.s === 'closed' ? h('div.note.obclosed', `closed Ghosty on this phone (${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})${held.phase === 'answering' ? ', while answering' : ''}: USE asks before trying again`) : null,
           btns.length ? h('div.keyrow', ...btns) : null,
         );
