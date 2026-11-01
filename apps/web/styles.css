@@ -4845,3 +4845,22 @@ html .guardcar > span:nth-child(2) { flex: 1; min-width: 0; }
 html .guardcar button { min-height: 44px; }
 html .ccwhy { overflow: hidden; font: 500 11px/14px var(--sf); color: var(--ink3); white-space: nowrap; text-overflow: ellipsis; text-transform: none; }
 html .speaknow { margin-top: 4px; }
+html .wall { display: flex; flex-direction: column; gap: 8px; }
+html .wallhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+html .wallhead b { font: 600 20px/25px var(--sf); letter-spacing: -.4px; color: var(--ink); text-transform: none; }
+html .wallhead .wallall, html .wall .wallmore { min-height: 44px; padding: 0 14px; }
+html .walllist { display: flex; flex-direction: column; gap: 8px; }
+html .wallempty { margin: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html .wallempty[hidden], html .wall .wallmore[hidden] { display: none; }
+html .ccard.wall { align-items: center; max-height: 96px; margin: 0; padding: 10px 12px; cursor: pointer; }
+html .ccard.wall .ccvis { width: 64px; height: 52px; border-radius: 12px; }
+html .ccard.wall .ccvisin .ic { width: 26px; height: 26px; }
+html .ccard.wall .ccinitial { width: 40px; height: 40px; font-size: 18px; }
+html .ccard.wall .cccar { width: 56px; height: 26px; }
+html .ccard.wall .ccplate { font-size: 10px; padding: 2px 4px; }
+html .ccard.wall .ccring { width: 40px; height: 40px; }
+html .ccard.wall .cc3d { width: 44px; height: 44px; }
+html .ccard.wall .ccnum b { max-width: 60px; font-size: 14px; line-height: 18px; }
+html .ccard.wall .ccline { -webkit-line-clamp: 1; }
+html .ccard.wall .ccwhy, html .ccard.wall .cctag, html .ccard.wall .ccvisin small:not(.ccplate) { display: none; }
+html .ccard.wall:focus-visible { outline: 2px solid rgba(var(--cr), .7); outline-offset: 2px; }

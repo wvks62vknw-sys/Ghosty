@@ -25,6 +25,7 @@ import { citedReply } from './cited';
 import { homeAfterReply, homeCard } from './homecard';
 import { routeCHome } from './home';
 import { cardEl } from './cards';
+import { wallView } from './wall';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
@@ -522,6 +523,9 @@ export const coreTab: TabDef = {
     // Today card and the two tiles.
     const rwrap = h('div.rwrap', reactor.el);
     const rc = routeCHome(rwrap);
+    // [cards] HOME AS HIS WALL (wall.ts): the live cards in order of what matters now, above Home's own cards
+    const wall = wallView();
+    rc.below.prepend(wall.el);
     const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
@@ -720,6 +724,7 @@ export const coreTab: TabDef = {
       // route C's instruments and cards (each refreshes only what is stale)
       rc.tick();
       rc.enter();
+      wall.refresh();
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
       const ms = await latency().catch(() => null);

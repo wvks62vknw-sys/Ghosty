@@ -42,7 +42,10 @@ const COLOUR: Record<string, string> = {
 };
 
 const TILE = 128; // OpenStreetMap's 256 px tiles drawn at half size: crisp on his phone's screen
+/** The picture's box: in the chat, and smaller on Home's wall. */
 const VIS = { w: 104, h: 84 };
+const WALL_VIS = { w: 64, h: 52 };
+type Box = typeof VIS;
 
 /** Web Mercator: where a point sits on the world at zoom `z`, in this card's tile pixels. */
 function world(lat: number, lon: number, z: number): [number, number] {
@@ -52,7 +55,7 @@ function world(lat: number, lon: number, z: number): [number, number] {
 }
 
 /** The MAP picture: the static OpenStreetMap tiles God's Eye already uses, the place pinned, a route drawn. */
-function mapVisual(m: NonNullable<Card['map']>): HTMLElement {
+function mapVisual(m: NonNullable<Card['map']>, VIS: Box): HTMLElement {
   const box = h('div.ccmap');
   const pts = m.path?.length ? m.path : null;
   let z = 15;
@@ -122,12 +125,12 @@ function carVisual(c: NonNullable<Card['car']>): HTMLElement {
   return h('div.ccvisin', svg, h('span.ccplate', c.plate));
 }
 
-function visual(c: Card): HTMLElement {
+function visual(c: Card, box: Box = VIS): HTMLElement {
   switch (c.kind) {
     case 'map':
-      return c.map ? mapVisual(c.map) : h('div.ccvisin', icon(ICONS.pin!));
+      return c.map ? mapVisual(c.map, box) : h('div.ccvisin', icon(ICONS.pin!));
     case 'place':
-      return c.map ? mapVisual(c.map) : h('div.ccvisin', icon(ICONS.pin!));
+      return c.map ? mapVisual(c.map, box) : h('div.ccvisin', icon(ICONS.pin!));
     case 'three':
       return threeVisual();
     case 'person':
@@ -182,19 +185,21 @@ export function onCarTap(f: (plate: string) => Promise<void>): void {
 
 /** One card, as the chat and Home's wall draw it. */
 export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
-  const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c));
+  const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS));
   const first = c.acts?.find((a) => a.open || a.run);
-  if (first) {
+  if (first && !opts.wall) {
     vis.classList.add('tap');
     vis.addEventListener('click', () => act(first));
   }
-  const acts = (c.acts ?? []).slice(0, 2).map((a, i) => {
+  // on Home's wall the whole card is the button: its first act (the screen, the question, the car)
+  const tap = opts.wall ? c.acts?.[0] : undefined;
+  const acts = (opts.wall ? [] : (c.acts ?? []).slice(0, 2)).map((a, i) => {
     const b = button(a.label, () => act(a), i === 0 ? 'on' : '');
     b.dataset.case = 'keep';
     b.classList.add('ccbtn');
     return b;
   });
-  return h(
+  const el = h(
     `article.ccard${opts.wall ? '.wall' : ''}` as 'article',
     // (no label of its own: VoiceOver reads the title, then the line, then the buttons; the picture is hidden from it)
     { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger ? { danger: '1' } : {}) } },
@@ -209,6 +214,13 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
       acts.length ? h('div.ccacts', ...acts) : null,
     ),
   );
+  if (tap) {
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.addEventListener('click', () => act(tap));
+    el.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), act(tap)));
+  }
+  return el;
 }
 
 // ---------------------------------------------------------------- he brings things up himself (item 2): the table's acting half

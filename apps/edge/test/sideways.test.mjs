@@ -363,3 +363,28 @@ test('speaking first through the brain: the morning piece at its minute, the nex
   assert.equal(S.nextLook(at(23, 30), LDN), at(7, 30, 5));
   assert.equal(S.nextLook(at(5), LDN), at(7, 30));
 });
+
+test('the wall’s order: danger, what is due within two hours (soonest first), today’s pieces, people and cars, the rest, progress', () => {
+  const now = at(12);
+  const c = (id, kind, extra = {}) => C.card({ id, kind, title: id, line: id, at: now - 60_000, ...extra });
+  const cards = [
+    c('progress', 'progress', { progress: { frac: 0.5 } }),
+    c('map', 'map'),
+    c('dad', 'person'),
+    c('car', 'car'),
+    c('morning', 'brief', { at: now - 4 * 3_600_000 }),
+    c('dentist', 'brief', { due: now + 90 * 60_000 }),
+    c('call', 'brief', { due: now + 20 * 60_000 }),
+    c('flood', 'brief', { danger: true, at: now - 3 * 3_600_000 }),
+    c('later', 'brief', { due: now + 5 * 3_600_000 }),
+    c('gone', 'brief', { due: now - 3_600_000 }),
+    c('yesterday', 'map', { at: now - 30 * 3_600_000 }),
+    c('dad', 'person', { at: now - 10_000, line: 'newer' }),
+  ];
+  const order = C.wallOrder(cards, now);
+  assert.deepEqual(order.map((x) => x.id), ['flood', 'call', 'dentist', 'later', 'morning', 'dad', 'car', 'map', 'progress']);
+  assert.equal(order.find((x) => x.id === 'dad').line, 'newer', 'one card per id: the newest');
+  assert.equal(C.WALL_CAP, 6);
+  assert.deepEqual(C.wallOrder([], now), []);
+  assert.equal(C.wallRank(c('x', 'lens'), now), 4);
+});

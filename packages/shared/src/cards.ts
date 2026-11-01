@@ -417,3 +417,46 @@ export function dueMonths(answer: VehicleAnswer): { mot?: string; tax?: string }
   const tax = r.dvla?.taxDue ? r.dvla.taxDue.slice(0, 7) : undefined;
   return { ...(mot ? { mot } : {}), ...(tax ? { tax } : {}) };
 }
+
+// ---------------------------------------------------------------- Home as his wall (item 4)
+
+/** How many cards the wall shows before MORE. */
+export const WALL_CAP = 6;
+const HOUR = 3_600_000;
+
+/**
+ * Which kind of news a card is on the wall, most pressing first: 0 danger · 1 due within two hours · 2 today's pieces of
+ * his day · 3 the people's and the cars' news · 4 anything else from today (a place, a number, what the camera read, a
+ * model) · 5 progress (School, the GYM).
+ */
+export function wallRank(c: Card, now: number): number {
+  if (c.danger) return 0;
+  if (c.due !== undefined && c.due >= now - 15 * 60_000 && c.due <= now + 2 * HOUR) return 1;
+  if (c.kind === 'brief') return 2;
+  if (c.kind === 'person' || c.kind === 'car') return 3;
+  if (c.kind === 'progress') return 5;
+  return 4;
+}
+
+/**
+ * The wall's order, by code and nothing else (no model draws it): danger first, then what is due within two hours
+ * (soonest first), then today's pieces, then the people's and cars' news, then the rest of today, then progress; newest
+ * first within each. One card per id (the newest); what is over (due more than a quarter of an hour ago, or from before
+ * yesterday) is gone.
+ */
+export function wallOrder(cards: Card[], now: number): Card[] {
+  const byId = new Map<string, Card>();
+  for (const c of cards) {
+    if (c.at < now - 24 * HOUR) continue;
+    if (c.due !== undefined && c.due < now - 15 * 60_000 && !c.danger) continue;
+    const had = byId.get(c.id);
+    if (!had || had.at <= c.at) byId.set(c.id, c);
+  }
+  return [...byId.values()].sort((a, b) => {
+    const ra = wallRank(a, now);
+    const rb = wallRank(b, now);
+    if (ra !== rb) return ra - rb;
+    if (ra === 1) return (a.due ?? 0) - (b.due ?? 0);
+    return b.at - a.at;
+  });
+}
