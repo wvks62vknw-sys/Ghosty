@@ -213,6 +213,8 @@ export class CarScene {
     this.renderer.setSize(w, h, true);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    // the pins and the name follow the picture at once, not at the next frame
+    this.placeTag();
   }
 
   // ------------------------------------------------------------------ the car
@@ -637,7 +639,12 @@ export class CarScene {
       if (!p) continue;
       // parts close together (the pads inside the caliper): their pins step aside, so each can be tapped
       let tries = 0;
-      while (tries++ < 6 && placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 34)) p.x += 34;
+      const w = this.renderer!.domElement.clientWidth;
+      const step = p.x > w - 60 ? -34 : 34;
+      while (tries++ < 6 && placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 34)) p.x += step;
+      // a part outside the picture has no pin (it is not hidden from the list)
+      l.pin.hidden = p.x < 14 || p.y < 14 || p.x > w - 14 || p.y > this.renderer!.domElement.clientHeight - 14;
+      if (l.pin.hidden) continue;
       placed.push(p);
       l.pin.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
     }
@@ -684,6 +691,40 @@ export class CarScene {
     if (!p) return null;
     const r = this.renderer.domElement.getBoundingClientRect();
     return { x: r.left + p.x, y: r.top + p.y };
+  }
+
+  /**
+   * The stand-in's picture of a part, for the Lens guide (item 5): in the part's own view, the camera brought close
+   * enough to see it and what is round it, one frame drawn, as a JPEG. The camera goes back where it was.
+   */
+  picture(id: string): string | null {
+    if (!this.renderer || !this.camera || !this.controls || !this.lib || !this.scene) return null;
+    if (isPart(id) && viewOf(id) !== this.view) this.setView(viewOf(id), true);
+    const c = this.centreOf(id);
+    if (!c) return null;
+    const T = this.lib.T;
+    const box = new T.Box3();
+    this.car!.traverse((o) => {
+      if (o.userData.part === id && (o as TMesh).isMesh && visibleUp(o)) box.union(new T.Box3().setFromObject(o));
+    });
+    const size = box.isEmpty() ? new T.Vector3(0.2, 0.2, 0.2) : box.getSize(new T.Vector3());
+    const cam = this.camera;
+    const pos0 = cam.position.clone();
+    const tg0 = this.controls.target.clone();
+    const dir = pos0.clone().sub(tg0);
+    dir.multiplyScalar(1 / (dir.length() || 1));
+    const dist = this.fitDistance(Math.max(0.14, size.length() * 0.5)) * 2.1;
+    cam.position.copy(c.clone().add(dir.clone().multiplyScalar(dist)));
+    this.controls.target.copy(c);
+    cam.lookAt(c);
+    this.tick(performance.now());
+    this.renderer.render(this.scene, cam);
+    const url = this.renderer.domElement.toDataURL('image/jpeg', 0.86);
+    cam.position.copy(pos0);
+    this.controls.target.copy(tg0);
+    this.controls.update();
+    this.renderer.render(this.scene, cam);
+    return url;
   }
 
   /** Every part id the car carries (what a tap can name). */

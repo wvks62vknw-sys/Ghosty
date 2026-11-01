@@ -10,6 +10,8 @@
 //    snapshots differ); the frame time printed;
 //  - "open the bonnet" in the chat (no model) → the bay view; "the battery light is on" → the same car's card, its
 //    suspects;
+//  - the Lens guide: the part's picture beside the camera (a fake one here), its plain description, the line that no
+//    recognition is claimed;
 //  - VoiceOver labels; nothing sideways at 390 × 844; nothing of the record in the phone's storage; the security policy
 //    blocked nothing.
 //   BASE=http://localhost:8777 node tests/car.spec.mjs [outDir]
@@ -163,16 +165,38 @@ await until(() => /Likely: the alternator is not charging/.test([...document.que
 c1 = await carCard();
 check(/^Blue Volkswagen Golf$/i.test(c1?.title ?? '') && /If the temperature gauge climbs too, stop the engine/.test(c1.safe), `the battery light's card: ${JSON.stringify(c1)}`);
 
+// ---- 5. the Lens guide: the part's picture beside the camera, its plain words, no recognition claimed
+await page.locator('#pg-core .ccard[data-kind="car"]:not(.wall) .ccacts button', { hasText: 'SHOW ME' }).last().click();
+await until(() => { const s = window.__ghosty.car?.state(); return s?.on && s.view === 'bay' && !s.moving && s.lit[0] === 'alternator'; }, null, 60000, 'SHOW ME for the battery light: no bay view with the alternator lit');
+const findBtn = page.locator('#pg-studio button', { hasText: 'FIND IT ON THE CAR' }).first();
+if (await findBtn.count()) {
+  await findBtn.click();
+  await until(() => { const g = document.querySelector('.carguide'); const v = g?.querySelector('video'); const i = g?.querySelector('img'); return !!g && !!v && v.videoWidth > 0 && !!i && /^data:image\//.test(i.src) && i.naturalWidth > 0; }, null, 30000, 'the Lens guide: no picture beside the camera');
+  const guide = await page.evaluate(() => {
+    const g = document.querySelector('.carguide');
+    const i = g.querySelector('img').getBoundingClientRect();
+    const v = g.querySelector('video').getBoundingClientRect();
+    return { side: Math.abs(i.top - v.top) < 40 && (i.right <= v.left + 2 || v.right <= i.left + 2), text: g.innerText, alt: g.querySelector('img').alt, label: g.getAttribute('aria-label') };
+  });
+  check(guide.side, 'the Lens guide: the picture is not beside the camera');
+  check(/Alternator/.test(guide.text) && /round finned metal unit/.test(guide.text) && /I don’t recognise parts from the camera/.test(guide.text) && /Alternator/.test(guide.alt), `the Lens guide's words: ${JSON.stringify(guide)}`);
+  await page.screenshot({ path: `${out}/car-guide.png` });
+  await page.locator('.carguide button', { hasText: 'CLOSE' }).click();
+  await until(() => !document.querySelector('.carguide'), null, 5000, 'the Lens guide did not close');
+} else problems.push('no FIND IT ON THE CAR button in FIX IT');
+
 // ---- 6. nothing sideways at 390 × 844; the card still a card; nothing of the record kept; the security policy
 await page.setViewportSize({ width: 390, height: 844 });
-await page.waitForTimeout(800);
+// (the software renderer draws a frame a second here: the pins follow the narrower picture on its next frame)
+await page.waitForFunction(() => [...document.querySelectorAll('#pg-studio .carpin')].every((p) => !p.getClientRects().length || p.getBoundingClientRect().right <= innerWidth), null, { timeout: 15000 }).catch(() => undefined);
+await page.waitForTimeout(400);
 const wide = (root) =>
   page.evaluate((r) => {
     const out = [];
     if (document.documentElement.scrollWidth > innerWidth + 1) out.push('page');
     for (const el of document.querySelectorAll(`${r} *`)) {
       const b = el.getBoundingClientRect();
-      if (b.width && el.getClientRects().length && (b.right > innerWidth + 2 || b.left < -2)) out.push(`${el.tagName}.${el.className}`.slice(0, 40));
+      if (b.width && el.getClientRects().length && (b.right > innerWidth + 2 || b.left < -2)) out.push(`${el.tagName}.${el.className} ${Math.round(b.left)}–${Math.round(b.right)} (${el.getAttribute('aria-label') ?? ''}; its box ${Math.round(el.parentElement?.getBoundingClientRect().left ?? 0)}–${Math.round(el.parentElement?.getBoundingClientRect().right ?? 0)})`.slice(0, 140));
     }
     return out.slice(0, 5);
   }, root);
@@ -194,4 +218,4 @@ if (problems.length) {
   console.error(`CAR FAILED (${problems.length}):\n - ${problems.join('\n - ')}`);
   process.exit(1);
 }
-console.log('Car run clean: a plate → the CAR card with WHAT’S WRONG? and SHOW ME; "grinding when I brake" → the safety line first, then the worn pads with their check and a first-estimate cost; SHOW ME → the car in 3-D, the wheel off, the pads lit, FIX IT in order, a tap → its sheet with what the MOT said; frames drawn; "open the bonnet" and "the battery light is on" with no model; labels read; nothing sideways at 390; nothing kept; the security policy quiet.');
+console.log('Car run clean: a plate → the CAR card with WHAT’S WRONG? and SHOW ME; "grinding when I brake" → the safety line first, then the worn pads with their check and a first-estimate cost; SHOW ME → the car in 3-D, the wheel off, the pads lit, FIX IT in order, a tap → its sheet with what the MOT said; frames drawn; "open the bonnet" and "the battery light is on" with no model; the Lens guide beside the camera; labels read; nothing sideways at 390; nothing kept; the security policy quiet.');

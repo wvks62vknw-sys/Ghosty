@@ -12,6 +12,7 @@ import { h, clear } from '../core/dom';
 import { button } from '../ui/components';
 import { costWords, faultFor, symptomOf, type FaultPick } from './faults';
 import { ESTIMATE, PARTS, VIEWS, isPart, money, motFor, viewOf, type MotLine, type View } from './parts';
+import { openGuide } from './guide';
 import { CarScene, labelOf } from './scene';
 import { carNow, motOf, setFault } from './state';
 import { shapeWords, specFrom, standInLine, type CarFacts, type CarSpec } from './spec';
@@ -32,8 +33,16 @@ const day = (iso = '') => {
   return m ? `${Number(m[3])} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1]} ${m[1]}` : '';
 };
 
+/** FIND IT ON THE CAR: the Lens guide for a part (its picture beside the camera). */
+function findBtn(scene: CarScene, id: string): HTMLButtonElement {
+  const b = button('FIND IT ON THE CAR', () => void openGuide(scene, id), 'carfind');
+  b.dataset.case = 'keep';
+  b.setAttribute('aria-label', `Find the ${labelOf(id, scene.spec ?? undefined)} on the real car, with the camera`);
+  return b;
+}
+
 /** A part's sheet, as the pane and the FIX IT list show it. */
-export function sheetEl(id: string, spec: CarSpec | null): HTMLElement {
+export function sheetEl(id: string, spec: CarSpec | null, scene?: CarScene): HTMLElement {
   const name = labelOf(id, spec ?? undefined);
   if (!isPart(id)) return h('section.carsheet', { 'aria-label': name }, h('h3', name));
   const p = PARTS[id];
@@ -52,6 +61,7 @@ export function sheetEl(id: string, spec: CarSpec | null): HTMLElement {
       ...row('A ROUGH COST', `${money(p.cost)}: ${p.covers}. ${ESTIMATE.charAt(0).toUpperCase()}${ESTIMATE.slice(1)}.`),
       ...(mot.length ? row('THE MOT SAID', mot.map((m) => `“${m.text}” (${m.type.toLowerCase()}${m.date ? `, ${day(m.date)}` : ''})`).join(' · ')) : []),
     ),
+    scene ? findBtn(scene, id) : null,
   );
 }
 
@@ -128,7 +138,7 @@ export function carPane(view: HTMLElement): CarPane {
   };
   const showSheet = (id: string) => {
     sheetId = id;
-    clear(sheet, sheetEl(id, shown));
+    clear(sheet, sheetEl(id, shown, scene));
   };
   const go = (v: View) => {
     scene.setView(v);
@@ -171,6 +181,7 @@ export function carPane(view: HTMLElement): CarPane {
               b.dataset.case = 'keep';
               return b;
             })),
+            h('dd', findBtn(scene, x.parts[0]!)),
           )
         : null;
       return h('li', head, body);
