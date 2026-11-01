@@ -1045,6 +1045,13 @@ folder that no longer exists; ignore those paths).
   the docs (his Ghosty's memory holds them; ⑤ reads the cars he has named; the DVSA key comes when ⑤ is near); no fixed
   name for Ghosty; the weekly letter explained and pending his yes/no, day and channel; Bluesky posting with approval and
   reading. Three of the four picks settled; the order unchanged.
+- 1 Nov 03:05 UK: HIS NEXT MESSAGE (OWNER-ISSUES 94): no weekly letter (all four picks settled); games must be "insanely
+  good quality and not just slop" and he wants "hundreds" → the bar written into ROADMAP ③ and the LIBRARY of real free
+  games through browser engines (DOS, ScummVM, DOOM, Quake, OpenArena, PICO-8-compatible, open-source web games; each
+  licence checked); "the rest is school" → SCHOOL UPWARDS is batch ⑧, the rest ⑨; other accounts listed (Discord,
+  Mastodon, a Telegram channel, YouTube, Reddit reading, X posting only; Instagram/Threads/TikTok later and fragile); the
+  PS5: no app possible, the hidden browser opens a link sent in a message, controller as pointer → a TV MODE in ⑨ if his
+  test opens Ghosty there. Nothing in the build order changes for ①–⑥.
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
