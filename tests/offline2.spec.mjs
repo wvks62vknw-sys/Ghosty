@@ -216,7 +216,8 @@ await page.screenshot({ path: `${out}/offline2-trust.png` });
 
 // 5. "how independent are you?": said in the chat, and SYSTEM → INDEPENDENCE open; then the Brief's line
 await say('how independent are you?');
-await page.waitForFunction(() => /^The last seven days, \d+% of what you asked stayed on your own brains/.test([...document.querySelectorAll('.msg')].at(-1)?.textContent?.replace(/^.*?GHOSTY[^A-Z]*/s, '') ?? '') || [...document.querySelectorAll('.msg')].some((m) => /The last seven days, \d+% of what you asked stayed on your own brains/.test(m.textContent ?? '')), null, { timeout: 10000 }).catch(() => problems.push('[5] the chat did not say the week'));
+// (the last message, not any: the smoke loop's one preview brain keeps every earlier spec's conversation)
+await page.waitForFunction(() => /The last seven days, \d+% of what you asked stayed on your own brains \(\d+ of \d+\)/.test([...document.querySelectorAll('.msg')].at(-1)?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('[5] the chat did not say the week'));
 const sheet = page.locator('#pg-system .pn.indsheet');
 await sheet.locator('.indspans').waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push('[5] "how independent are you?" did not open SYSTEM → INDEPENDENCE'));
 const st = ((await sheet.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
