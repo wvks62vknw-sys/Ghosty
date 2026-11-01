@@ -35,6 +35,7 @@ import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
 import { carFaultTurn, carViewTurn } from '../car/ask';
+import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
@@ -186,6 +187,30 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const c = card({ id: 'origin', kind: 'brief', title: 'Father and the origin', line: 'Who made me, when, of what, what I learned and my promises', brief: { icon: 'origin' }, acts: [{ label: 'OPEN', run: { name: 'open_origin', args: {} } }] });
     void import('../features/core/cards').then((c2) => c2.postCard(c)).catch(() => undefined);
     return true;
+  },
+  // [resta] WIKIPEDIA, OFFLINE from the file on this phone (wiki/ask.ts): the first paragraph and a card that opens it; with no
+  // file here, "what does wikipedia say about …" (no "offline") is the brain's as before
+  async wiki(text, opts) {
+    const last = [...chat.get().entries].reverse().find((e) => e.kind === 'user')?.text ?? '';
+    const r = await import('../wiki/ask').then((w) => w.wikiTurn(text, last)).catch(() => null);
+    return r ? packAnswer(r, opts) : false;
+  },
+  // [resta] MORSE: the sheet on the side his words asked for, and the conversion said in the chat (morse/sheet.ts)
+  async morse(text, opts) {
+    const ask = morseAsked(text);
+    if (!ask) return false;
+    void import('../morse/sheet').then((s) => s.openMorse(ask));
+    const reply =
+      ask.mode === 'text' && ask.text
+        ? `“${ask.text}” in Morse: ${toMorse(ask.text) || '(no letters Morse has)'}`
+        : ask.mode === 'decode' && ask.text
+          ? `${ask.text} reads “${fromMorse(ask.text)}”.`
+          : ask.mode === 'learn'
+            ? 'Morse, a letter a day: today’s is on the sheet, with a five-letter quiz.'
+            : ask.mode === 'tap'
+              ? 'Tap on the pad: a short press is a dot, a long one a dash.'
+              : 'The Morse sheet is open: type words or dots and dashes, play them, flash them, or tap them out.';
+    return answer(text, reply, { kind: 'pack' }, opts);
   },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {

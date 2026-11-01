@@ -157,6 +157,8 @@ async function boot(): Promise<void> {
   const first = spotify ? 'links' : location.hash.slice(1);
   if (!go(first)) go('core');
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
+  // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
+  void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …

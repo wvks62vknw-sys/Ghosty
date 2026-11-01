@@ -23,6 +23,8 @@ import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
+import { wikiAsked } from '../wiki/words';
+import { morseAsked } from '../morse/code';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -44,6 +46,9 @@ export const LOCAL_ASKS = [
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
   // [social] "who made you?", "where did you come from?": FATHER AND THE ORIGIN's first lines and its card (features/me)
   { id: 'origin', test: (t: string) => originAsked(t) },
+  // [resta] Wikipedia from the file on this phone (wiki/ask.ts) and the Morse sheet (morse/sheet.ts), both with no model
+  { id: 'wiki', test: (t: string) => !!wikiAsked(t) },
+  { id: 'morse', test: (t: string) => !!morseAsked(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
