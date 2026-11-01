@@ -501,6 +501,26 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [reste] THE CONVERTER (convert/sheet.ts): files turned into other formats on this phone; a tool that needs no file.
+      id: 'open_convert',
+      title: 'Convert: pictures, PDFs, Word, tables, sound, QR codes',
+      group: 'GO',
+      run: async (a) => {
+        const { openConvert } = await import('../convert/sheet');
+        await openConvert([], { ...(typeof a?.tool === 'string' ? { tool: a.tool } : {}), ...(typeof a?.conversion === 'string' ? { conversion: a.conversion } : {}) });
+      },
+    },
+    {
+      // [reste] DOCUMENTS (docs/sheet.ts): my documents; one read, written in the chat and laid out, edited, translated.
+      id: 'open_docs',
+      title: 'Documents: read, write, edit, translate',
+      group: 'GO',
+      run: async (a) => {
+        const { openDocs } = await import('../docs/sheet');
+        await openDocs(a && typeof a === 'object' ? (a as Parameters<typeof openDocs>[0]) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

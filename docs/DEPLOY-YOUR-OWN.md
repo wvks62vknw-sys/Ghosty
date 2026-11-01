@@ -149,6 +149,10 @@ folder holding the licence text and a note of where it came from:
 | `vendor/facemesh` | MediaPipe's face landmarker model, for CHECK IT'S LIVE (a blink or a turn before a face is saved; judged on the phone) | Apache-2.0 (`LICENSE`; `SOURCE.md`, byte-for-byte as Google publishes it) |
 | `vendor/kiwix` | Kiwix's own ZIM reader (kiwix-js: `zimfile.js` and its xz and zstd WebAssembly decoders), for offline Wikipedia in the Library (the Wikipedia files come from Kiwix's mirrors on a tap) | GPL-3.0 (`LICENCE`; the commit and the three small patches in `SOURCE.md`) |
 | `vendor/oswald` | the Oswald font, for posters, cards and logos drawn by the creative pack | SIL Open Font License 1.1 (`LICENCE`; `SOURCE.md`) |
+| `vendor/pdfjs` | pdf.js (Mozilla), reading PDFs on the phone for the converter and the documents | Apache-2.0 (`LICENCE`; `SOURCE.md`) |
+| `vendor/sheetjs` | SheetJS Community Edition (the mini build), Excel and CSV for the converter | Apache-2.0 (`LICENCE`; `SOURCE.md`) |
+| `vendor/mammoth` | mammoth, reading Word documents for the converter and the documents | BSD-2-Clause (`LICENCE`; `SOURCE.md`) |
+| `vendor/lamejs` | lamejs (LAME in JavaScript), writing MP3 for the converter | LGPL-3.0 (`LICENCE`; `SOURCE.md`) |
 | `models` | sample 3-D models from the Khronos glTF sample assets | CC0 / CC BY 4.0, each credited where it is shown |
 
 Because the app ships GPL-licensed engines, anyone you give a copy of your deployed app to is entitled to the source of those

@@ -14,7 +14,7 @@ import type { Draft } from './social';
 
 // ('draft': a post, a follow or an unfollow waiting for his APPROVE — BRIEF-SOCIAL; the phone draws its APPROVE · EDIT · NO)
 export type CardKind = 'map' | 'three' | 'person' | 'car' | 'estimate' | 'lens' | 'brief' | 'progress' | 'place' | 'draft';
-export type BriefIcon = 'morning' | 'rain' | 'diary' | 'reminder' | 'car' | 'warning' | 'foresight' | 'musing' | 'origin';
+export type BriefIcon = 'morning' | 'rain' | 'diary' | 'reminder' | 'car' | 'warning' | 'foresight' | 'musing' | 'origin' | 'document';
 
 /** A card's button: OPEN (a screen and its panel, or a screen command) or ASK (words put in the chat box, not sent). */
 export interface CardAct {

@@ -35,6 +35,7 @@ import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
+import { convertTurn, docsTurn, numbersTurn } from './reste';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
@@ -276,8 +277,20 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   tuner: async (text, opts) => packAnswer(await coachTurn(text), opts),
   coach: async (text, opts) => packAnswer(await coachTurn(text), opts),
   skill: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  // [reste] the converter, and its units and numbers answered here (assistant/reste.ts, convert/)
+  convert: async (text, opts) => packAnswer(await convertTurn(text), opts),
+  docs: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  units: (text, opts) => numberAnswer(text, opts),
+  base64: (text, opts) => numberAnswer(text, opts),
+  unixtime: (text, opts) => numberAnswer(text, opts),
   canyou: (text, opts) => canYouTurn(text, opts),
 };
+
+/** A unit, base64 or Unix-time answer, or the next table's turn. */
+function numberAnswer(text: string, opts: Opts): boolean {
+  const r = numbersTurn(text);
+  return r ? packAnswer(r, opts) : false;
+}
 
 /** The questions about Ghosty himself, answered here with no model: the first table that matches and has an answer. */
 export async function localTurn(text: string, opts: Opts = {}): Promise<boolean> {

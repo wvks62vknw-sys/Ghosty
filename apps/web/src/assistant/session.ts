@@ -651,6 +651,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     rescue,
   );
   lap.end();
+  // [reste] a letter or a document he asked me to write: offered laid out as a DOCUMENT under the reply (docs/ask.ts)
+  void import('../docs/ask').then((d) => d.offerDocument(t)).catch(() => undefined);
   // He brings things up himself (BRIEF-SIDEWAYS 2): the trigger table's cards for what his words called for (assistant/triggers.ts,
   // features/core/cards.ts bringUp); with none, the abilities revealed in context (OWNER-ISSUES 67b: abilities/offer.ts)
   void import('../features/core/cards').then((c) => c.bringUp(t)).catch(() => undefined);

@@ -35,6 +35,9 @@ import { tvAsked } from '../tv/detect';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { buildAsked } from '../build/words';
 import { houseAsked } from '../../../../packages/shared/src/house';
+import { convertAsked } from '../convert/asks';
+import { docsAsked } from '../docs/asks';
+import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -89,6 +92,12 @@ export const LOCAL_ASKS = [
   // [restb] the instrument and skills coach on the phone: the tuner, the lessons, and typing, drawing and words (assistant/restb.ts, coach/)
   { id: 'tuner', test: (t: string) => coachAsked(t)?.what === 'tuner' },
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
+  // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
+  { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  { id: 'docs', test: (t: string) => !!docsAsked(t) },
+  { id: 'units', test: (t: string) => !!unitsAsked(t) },
+  { id: 'base64', test: (t: string) => !!base64Asked(t) },
+  { id: 'unixtime', test: (t: string) => !!unixAsked(t) },
   { id: 'canyou', test: (t: string) => canYouAsked(t) !== null },
 ] as const;
 export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];

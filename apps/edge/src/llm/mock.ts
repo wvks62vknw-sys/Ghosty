@@ -144,6 +144,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const claims = [...textOf(last.content).split('\n\nSOURCES:')[0]!.matchAll(/^(\d+)\. (.*)$/gm)];
     return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1, label: 'established fact' } : { i: Number(c[1]), found: false })) }) }, model };
   }
+  // [reste] A question the rights-and-law base answers (knowledge/rights): the answer from its documents, as a model would
+  // write it, each fact marked and the SOURCES listed by title and address (no search: the documents came with the turn).
+  if (/FROM YOUR RIGHTS-AND-LAW BASE/.test(system) && last.role === 'user') {
+    const docs = [...system.matchAll(/^\[R(\d+)\] (.+?) — .*? (https:\/\/\S+)\nFinding: ([^\n]+)/gm)].slice(0, 3);
+    const callLine = /^Not legal advice[^\n]*/m.exec(system)?.[0] ?? '';
+    const facts = docs.map((d, i) => `${d[4]!.split(/(?<=\.)\s/)[0]} [${i + 1}]`).join(' ');
+    return { message: { role: 'assistant', content: `${facts}${callLine ? `\n\n${callLine}` : ''}\n\nSOURCES\n${docs.map((d, i) => `[${i + 1}] ${d[2]} — ${d[3]}`).join('\n')}` }, model };
+  }
   if (/CITED ANSWER/.test(system) && offered('web_search') && chainUser) {
     const asked = ownerWords(textOf(chainUser.content)).replace(/^(cite|fact check|with sources)[:,]?\s*/i, '').trim();
     if (!chainDid('web_search')) return { message: call('web_search', { query: asked }), model };
@@ -220,6 +228,21 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
+  // [reste] DOCUMENTS (BRIEF-REST-E): a letter he asks for in the chat, as a model writes one (its chatter before and after
+  // included, for the phone to leave out); the phone's own asks come back numbered — an edit changes each long paragraph
+  // (its first sentence only, for "shorter"; else the same with "Please note: " before it), a translation every one.
+  if (last.role === 'user' && /^write (?:me )?a letter to my landlord about the damp/.test(text)) {
+    return { message: { role: 'assistant', content: "Here's a letter you can send:\n\n[Your name]\n12 High Street\nBirmingham B1 1AA\n\n[Date]\n\nDear Mr Khan,\n\nI am writing about the **damp** in the back bedroom of the flat. Black mould has been growing on the wall behind the wardrobe since August, and it has now spread to the ceiling. It smells, and it is affecting my health.\n\nPlease arrange for the cause to be found and repaired within 14 days.\n\nYours sincerely,\n[Your name]\n\nWant me to make it more formal?" }, model };
+  }
+  const docAsk = last.role === 'user' ? ownerWords(textOf(last.content)) : '';
+  if (/^DOCUMENT (?:EDIT|TRANSLATE)\b/.test(docAsk)) {
+    const paras = [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((x) => ({ n: Number(x[1]), text: x[2]! }));
+    const lang = /^DOCUMENT TRANSLATE into ([^.]+)\./.exec(docAsk)?.[1];
+    const lines = lang
+      ? paras.map((p) => `[${p.n}] ${/urdu/i.test(lang) ? 'ترجمہ' : lang}: ${p.text}`)
+      : paras.filter((p) => p.text.length > 60).map((p) => `[${p.n}] ${/shorter/.test(docAsk) ? (p.text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? p.text) : `Please note: ${p.text}`}`);
+    return { message: { role: 'assistant', content: lines.join('\n') || 'No changes.' }, model };
+  }
   // the fact keeps the owner's own capitals ("Aisha", "I")
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: textOf(last.content).replace(/^scheduled task "[^"]*": /i, '').replace(/^remember /i, '') }), model };
   // A day-at-a-glance answer for the preview's screenshots (MOCK_LLM only).
