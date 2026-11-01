@@ -297,13 +297,15 @@ export function countLine(n: number, fresh: number): string {
 
 /** An entry as the search reads it (the same search as "can you…?": shared/abilities.ts searchAbilities and its synonyms). */
 export function searchable(e: CatEntry): Ability {
+  // its name counts most, then its line, then the ways to say it and the rest of what it says (a word only there finds it,
+  // but is never enough for a "yes": "can you fly a plane?" is not God's eye's "planes" with its "fly to New York")
   return {
     id: e.id,
     cat: e.cat,
-    line: `${e.name}. ${e.line}`,
-    asks: e.say,
+    line: e.name,
+    asks: [e.line],
     go: e.go,
-    words: `${e.more} ${e.where} ${SCENES.filter((s) => e.scene.includes(s.id)).map((s) => s.label.toLowerCase()).join(' ')}`,
+    words: `${e.say.join(' ')} ${e.more} ${e.where} ${SCENES.filter((s) => e.scene.includes(s.id)).map((s) => s.label.toLowerCase()).join(' ')}`,
     from: BRAIN_KINDS.includes(e.kind) ? 'brain' : 'app',
   };
 }

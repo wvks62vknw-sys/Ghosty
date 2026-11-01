@@ -43,7 +43,7 @@ export const CHAT_CONTROLS = [
   { id: 'cited', sel: '#cbar .citedbtn' },
   { id: 'voice', sel: '#cbar .plusmenu button:not(#lensbtn)' },
   { id: 'camera', sel: '#cbar #lensbtn' },
-  { id: 'log', sel: '#cbar .logbtn' },
+  { id: 'log', sel: '.logbtn' },
   { id: 'suggest', sel: '#suggest .sugg' },
   { id: 'listen', sel: '.msgact[title="Listen"]' },
   { id: 'copy', sel: '.msgact[title="Copy"]' },

@@ -13,7 +13,7 @@ export const APP_1: Record<string, CatValue> = {
     say: ['(just talk to me)'], scene: ['talking'], cat: 'talk',
   },
   'screen:eye': {
-    name: 'God’s eye: the planet live', line: 'I can show you the whole planet live: planes, ships, satellites, quakes, road cameras and traffic.',
+    name: 'God’s eye: the world live', line: 'I can show you the whole planet live: planes, ships, satellites, quakes, road cameras and traffic.',
     more: 'A 3-D globe of public live data. Tap any spot for Street View, a 3-D map or the traffic there. Live, but never a private camera.',
     say: ['Open God’s eye', 'Fly to New York'], scene: ['out', 'watching'], cat: 'see',
   },

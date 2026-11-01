@@ -8,24 +8,27 @@
  *
  * `go(a, ask?)`: GO — the screen (and its panel) through the deck's own deep links, a command of the app, or the example
  * put into the chat box for him to finish and send.
+ *
+ * THE EVERYTHING TAB (BRIEF-EVERYTHING) reads its entries here too: `catalogue()` joins every registry item (the brain's as
+ * it last told this phone, `catalogueItems`; the phone's from abilities/sources.ts) with the catalogue's words
+ * (packages/shared/src/catalogue.ts); `tryIt` does what an entry's TRY IT says, `runLabel` says it for a command.
  */
-import type { Ability, AbilitiesInfo, AbilityCat, AbilityGo } from '../../../../packages/shared/src/abilities';
+import type { Ability, AbilitiesInfo, AbilityGo } from '../../../../packages/shared/src/abilities';
+import { BRAIN_KINDS, CATALOGUE, joinCatalogue, type CatEntry, type CatGo, type CatItem, type CatKind } from '../../../../packages/shared/src/catalogue';
 import { STAGES } from '../../../../packages/shared/src/school';
 import { brain } from '../api/brain';
+import { allCommands } from '../commands/registry';
 import { createStore } from '../core/store';
-import { TILES } from '../features/lens/index';
+import { TILES } from '../features/lens/tiles';
+import { SAMPLES } from '../features/studio/samples';
 import { META as GAMES } from '../gym/meta';
 import { DECK, type DeckAct } from '../shell/deckcopy';
 import { openChat, perform } from '../shell/launcher';
 import { navTo } from '../shell/areas';
 import { tabs } from '../shell/tabs';
+import { appItems, SCREEN_CAT } from './sources';
 
-/** Where each screen sits among the eight (the owner's way of thinking, a design pick); a screen added since is DO FOR YOU. */
-export const SCREEN_CAT: Record<string, AbilityCat> = {
-  core: 'talk', brief: 'know', eye: 'see', lens: 'see', studio: 'build', workshop: 'build', reverse: 'build', space: 'build', workbench: 'build', learn: 'learn',
-  gym: 'play', school: 'learn', library: 'learn', agenda: 'watch', markets: 'know', threats: 'watch', radio: 'play', memory: 'know',
-  settings: 'talk', system: 'do', links: 'talk',
-};
+export { SCREEN_CAT };
 
 /** An app ability: what each of its asks does when tapped (the deck's own deep links), alongside the asks. */
 export interface AppAbility extends Ability {
@@ -158,6 +161,80 @@ export function goKey(a: Ability, ask = -1): string {
   const act = ask >= 0 ? (a as AppAbility).acts?.[ask] : undefined;
   const g: AbilityGo | DeckAct = act ?? a.go;
   return 'ask' in g ? 'ask' : 'chat' in g ? 'open:core' : 'run' in g ? `run:${g.run}` : `open:${g.open}${g.panel ? `/${g.panel}` : ''}`;
+}
+
+// ---------------------------------------------------------------- THE EVERYTHING TAB (BRIEF-EVERYTHING)
+
+/** A screen's name as he knows it: the deck's ("God’s eye", "3D studio"), else its title in sentence case. */
+export function screenName(id: string): string {
+  if (id === 'core') return 'Home';
+  const area = /^area-(\w+)$/.exec(id)?.[1];
+  if (area) return `the ${area.toUpperCase()} area`;
+  const d = DECK[id]?.name;
+  if (d) return d;
+  const t = tabs().find((x) => x.id === id)?.title ?? id;
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+}
+
+const LENS_NAME: Record<string, string> = { translate: 'SCAN → TRANSLATE' };
+/** What a command's TRY IT will do, in words ("Opens the Lens on SCAN"). */
+export function runLabel(g: { run: string; args?: Record<string, unknown> }): string {
+  const a = g.args ?? {};
+  switch (g.run) {
+    case 'open_lens': return `Opens the Lens on ${LENS_NAME[String(a.mode)] ?? String(a.mode ?? 'SEE').toUpperCase()}`;
+    case 'open_gym': return `Opens the Gym on ${niceName(GAMES.find((x) => x.id === a.game)?.title ?? String(a.game ?? 'its games'))}`;
+    case 'open_studio': return a.sample ? `Opens the 3D studio on the ${(SAMPLES.find((s) => s.id === a.sample)?.title ?? String(a.sample)).toLowerCase()}` : a.make ? `Opens the 3D studio and finds “${String(a.make)}”` : 'Opens the 3D studio';
+    case 'open_learn': return 'Opens your flashcards';
+    case 'open_systems': return 'Opens every screen at once';
+    case 'open_me': return 'Opens the Me sheet';
+    case 'show_cameras': return 'Shows the road cameras nearest home';
+    case 'journey_planner': return 'Opens the journey planner';
+    case 'vehicle_check': return 'Opens the vehicle check: you type the plate';
+    case 'open_photo_tools': return 'Opens the photo tools';
+    default: {
+      const c = allCommands().find((x) => x.id === g.run);
+      return c ? `Does it now: ${c.title}` : 'Does it now';
+    }
+  }
+}
+
+/**
+ * Every item of every registry, brain and phone: the brain's as it last told this phone (GET /api/abilities `catalogue`,
+ * kept here), or — before it ever answered — the brain's items as this build knows them, from the catalogue's own keys
+ * (the catalogue's test holds those to the brain's registries); and the phone's own (abilities/sources.ts).
+ */
+export function catalogueItems(hubs: string[]): CatItem[] {
+  const kept = brainSide.get().info.catalogue;
+  const brainItems: CatItem[] = kept?.length
+    ? kept
+    : Object.keys(CATALOGUE).flatMap((id): CatItem[] => {
+        const kind = id.split(':')[0] as CatKind;
+        return BRAIN_KINDS.includes(kind) ? [{ id, kind }] : [];
+      });
+  return [...brainItems, ...appItems({ tabs: tabs(), hubs })];
+}
+
+/** The entries he sees (and any registry item with no words, which the tab leaves out and its spec reports). */
+export function catalogue(hubs: string[]): { entries: CatEntry[]; missing: string[]; items: number } {
+  const items = catalogueItems(hubs);
+  return { ...joinCatalogue(items, { screenName, runLabel }), items: items.length };
+}
+
+/** Where a TRY IT goes, in words a spec can read: "open:lens", "open:system/KEYS", "run:open_gym", "ask", "fill". */
+export function tryKey(g: CatGo): string {
+  return 'ask' in g ? (g.send === false ? 'fill' : 'ask') : 'run' in g ? `run:${g.run}` : `open:${g.open}${g.panel ? `/${g.panel}` : ''}`;
+}
+
+/** TRY IT: the real thing — a screen and its panel, a command, or words for the chat (sent, or left in the box). */
+export function tryIt(g: CatGo): void {
+  if ('ask' in g) return g.send === false ? intoChat(g.ask) : perform({ ask: g.ask });
+  if ('run' in g) return perform({ run: g.run, args: g.args ?? {} });
+  if (g.open === 'abilities' && g.panel?.startsWith('CAN YOU')) {
+    navTo('abilities', 'push');
+    setTimeout(() => document.querySelector<HTMLInputElement>('#pg-abilities .canin')?.focus(), 350);
+    return;
+  }
+  perform({ open: g.open, ...(g.panel ? { panel: g.panel } : {}) });
 }
 
 /** GO: the ability's own place, or (`ask` ≥ 0) where that example of it goes. */

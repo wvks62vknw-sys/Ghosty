@@ -293,7 +293,7 @@ export const APP_4: Record<string, CatValue> = {
     say: ['Turn this photo into a 3-D model'], scene: ['making', 'camera'], cat: 'build',
   },
   'studio:pane:room': {
-    name: 'Walk round your room in 3-D', line: 'You can build a room in 3-D from its plan, then walk through it or fly over it.',
+    name: 'Walk round your room in 3-D', line: 'You can build a room in 3-D from its plan, then walk through it or look down on it from above.',
     more: 'Walls, doors and windows from your plan in SPACE.',
     say: ['Show my room in 3-D'], scene: ['making'], cat: 'build',
   },

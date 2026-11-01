@@ -179,9 +179,9 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   // ---- the agenda
   'tool:set_reminder': {
-    name: 'Remind you of anything', line: 'I can remind you of anything at the time you say: once, hourly, daily, on weekdays, weekly or monthly.',
+    name: 'Remind you of anything', line: 'I can remind you of anything at the time you say, a birthday or the bins: once, or every day, week or month.',
     more: 'The reminder reaches your phone as a notification and sits in Agenda → NOTIFICATIONS. Timers and alarms work the same way.',
-    say: ['Remind me at 5 to call Mum', 'Remind me every Monday to put the bins out', 'Set a timer for 20 minutes'], scene: ['morning', 'money'], cat: 'watch',
+    say: ['Remind me at 5 to call Mum', 'Remind me of Mum’s birthday on 3 May', 'Set a timer for 20 minutes'], scene: ['morning', 'money'], cat: 'watch',
     go: { ask: 'Remind me ', send: false }, tryText: 'Starts “Remind me…” in the chat box for you', needs: ['link:push'],
   },
   'tool:schedule_task': {
@@ -204,7 +204,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   'tool:add_event': {
     name: 'Put things in your diary', line: 'I can put an event in your diary, with a reminder before it if you like.',
     more: 'Tell me what and when; I add it to your Agenda and remind you beforehand if you ask.',
-    say: ['Put the dentist in my diary for Thursday at 3', 'Add Sam’s party on Saturday night'], scene: ['morning', 'money'], cat: 'watch',
+    say: ['Put the dentist in my diary for Thursday at 3', 'Put Sam’s birthday party in my diary for Saturday'], scene: ['morning', 'money'], cat: 'watch',
     go: { ask: 'Put in my diary: ', send: false },
   },
   'tool:remove_event': {
