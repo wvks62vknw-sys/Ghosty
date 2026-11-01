@@ -6,7 +6,7 @@
  * cards, the inbox, the guardian's warnings, his diary, the cars he named, School and the GYM): nothing on the wall needs a
  * model to draw. An empty wall says one line in his voice.
  */
-import { card, carName, wallOrder, WALL_CAP, type Card } from '../../../../../packages/shared/src/cards';
+import { card, carName, wallOrder, wallRank, WALL_CAP, type Card } from '../../../../../packages/shared/src/cards';
 import { brain, headers } from '../../api/brain';
 import { inbox } from '../../assistant/notices';
 import { chat } from '../../assistant/session';
@@ -120,6 +120,7 @@ export function wallView(): Wall {
     more.dataset.label = open ? 'Less' : `More (${cards.length - WALL_CAP})`;
     // for the specs and the console: the wall as it stands (window.__ghosty.wall)
     wallState.ids = cards.map((c) => c.id);
+    wallState.ranks = cards.map((c) => wallRank(c, Date.now()));
     const w = window as unknown as { __ghosty?: Record<string, unknown> };
     if (w.__ghosty) w.__ghosty.wall = wallState;
   };
@@ -134,4 +135,4 @@ export function wallView(): Wall {
 }
 
 /** What the wall shows, in order (window.__ghosty.wall). */
-export const wallState = { ids: [] as string[] };
+export const wallState = { ids: [] as string[], ranks: [] as number[] };

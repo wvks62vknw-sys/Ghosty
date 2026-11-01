@@ -4801,7 +4801,7 @@ html .tunbtns button[hidden] { display: none; }
 
 /* ==== SIDEWAYS (BRIEF-SIDEWAYS, batch ②): live cards in the chat (features/core/cards.ts), Home's wall (core/wall.ts),
    the people in GUARDIAN and the speak-first dial in CHARACTER. One block, last in the file. ==== */
-html .ccard { display: flex; gap: 12px; align-items: stretch; max-height: 180px; margin: 6px 0; padding: 12px; overflow: hidden; border-radius: var(--card); background: var(--thin); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); color: var(--ink); text-align: left; }
+html .ccard { display: flex; flex: none; gap: 12px; align-items: stretch; max-height: 180px; margin: 6px 0; padding: 12px; overflow: hidden; border-radius: var(--card); background: var(--thin); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); color: var(--ink); text-align: left; }
 html .ccard[data-danger] { box-shadow: inset 0 0 0 1px rgba(255,69,58,.6); }
 html .ccvis { position: relative; flex: none; display: grid; place-items: center; width: 104px; height: 84px; overflow: hidden; border-radius: 14px; background: rgba(255,255,255,.06); }
 html .ccvis.tap { cursor: pointer; }
@@ -4814,7 +4814,7 @@ html .cctitle { overflow: hidden; font: 600 17px/22px var(--sf); letter-spacing:
 html .ccline { display: -webkit-box; overflow: hidden; font: 400 14px/19px var(--sf); color: var(--ink2); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 html .cctag { font: 600 11px/14px var(--sf); color: #ffb340; }
 html .ccacts { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
-html .ccacts .ccbtn { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 10px; font-size: 15px; }
+html .ccacts .ccbtn { flex: 1 1 0; min-width: 0; height: 44px; min-height: 44px !important; padding: 0 10px; font-size: 15px; }
 html .ccmap { position: absolute; inset: 0; }
 html .ccmap img { position: absolute; width: 128px; height: 128px; max-width: none; filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.6); }
 html .ccmapdraw { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -4842,16 +4842,18 @@ html .guardperson { display: flex; flex-direction: column; gap: 6px; padding: 12
 html .guardperson > b { font: 600 17px/22px var(--sf); color: var(--ink); text-transform: none; }
 html .guardcar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 400 14px/19px var(--sf); color: var(--ink2); }
 html .guardcar > span:nth-child(2) { flex: 1; min-width: 0; }
-html .guardcar button { min-height: 44px; }
+html .guardcar button { height: 44px; min-height: 44px !important; }
 html .ccwhy { overflow: hidden; font: 500 11px/14px var(--sf); color: var(--ink3); white-space: nowrap; text-overflow: ellipsis; text-transform: none; }
 html .speaknow { margin-top: 4px; }
-html .wall { display: flex; flex-direction: column; gap: 8px; }
+html #pg-settings .character .speakdial { margin-top: 12px; }
+html #pg-settings .character .speakdial button { height: 44px; min-height: 44px !important; }
+html section.wall { display: flex; flex-direction: column; gap: 8px; }
 html .wallhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 html .wallhead b { font: 600 20px/25px var(--sf); letter-spacing: -.4px; color: var(--ink); text-transform: none; }
-html .wallhead .wallall, html .wall .wallmore { min-height: 44px; padding: 0 14px; }
+html .wallhead .wallall, html section.wall .wallmore { height: 44px; min-height: 44px !important; padding: 0 14px; }
 html .walllist { display: flex; flex-direction: column; gap: 8px; }
 html .wallempty { margin: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
-html .wallempty[hidden], html .wall .wallmore[hidden] { display: none; }
+html .wallempty[hidden], html section.wall .wallmore[hidden] { display: none; }
 html .ccard.wall { align-items: center; max-height: 96px; margin: 0; padding: 10px 12px; cursor: pointer; }
 html .ccard.wall .ccvis { width: 64px; height: 52px; border-radius: 12px; }
 html .ccard.wall .ccvisin .ic { width: 26px; height: 26px; }

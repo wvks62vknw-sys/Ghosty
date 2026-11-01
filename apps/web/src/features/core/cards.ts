@@ -238,18 +238,19 @@ export async function loadCars(): Promise<NamedCar[]> {
 }
 let places: SavedPlace[] = [];
 let placesAt = 0;
-async function savedPlaces(): Promise<SavedPlace[]> {
-  if (Date.now() - placesAt < 5 * 60_000) return places;
+/** His saved places, read again when older than `maxAge` (a turn reads them fresh: he may have just saved one). */
+async function savedPlaces(maxAge = 5 * 60_000): Promise<SavedPlace[]> {
+  if (Date.now() - placesAt < maxAge) return places;
   placesAt = Date.now();
   places = (await brain.places().catch(() => null))?.places ?? places;
   return places;
 }
 
 /** What the table matches against: his places, the people he introduced (the guardian's named person and whose cars he named), the cars. */
-export async function known(): Promise<Known> {
+export async function known(maxAge?: number): Promise<Known> {
   const list = cars.get().at ? cars.get().list : await loadCars();
   const person = guardian.get().info?.person?.name;
-  return { places: await savedPlaces(), people: [...(person ? [person] : []), ...list.filter((c) => c.whose !== 'me').map((c) => c.whose)], cars: list };
+  return { places: await savedPlaces(maxAge), people: [...(person ? [person] : []), ...list.filter((c) => c.whose !== 'me').map((c) => c.whose)], cars: list };
 }
 
 /** Under a test runner the cards he did not ask for wait for the spec to ask (as the offers do): every spec starts on a fresh phone. */
@@ -258,7 +259,7 @@ export const mayBringUp = () => !navigator.webdriver || (globalThis as { __ghost
 /** Put a card in the conversation — once: the same card again within half an hour stays where it is. */
 export function postCard(card: Card, opts: { once?: boolean } = {}): boolean {
   const recent = chat.get().entries.slice(-30);
-  if (recent.some((e) => e.kind === 'card' && e.card.id === card.id && card.at - e.at < 30 * 60_000)) return false;
+  if (recent.some((e) => e.kind === 'card' && e.card.id === card.id && Date.now() - e.at < 30 * 60_000)) return false;
   chat.set((s) => ({ entries: [...s.entries, { kind: 'card' as const, card, at: Math.max(Date.now(), (s.entries.at(-1) as { at?: number } | undefined)?.at ?? 0) + 1, ...(opts.once || card.once ? { once: true } : {}) }].slice(-120) }));
   return true;
 }
@@ -348,7 +349,7 @@ export async function bringUp(text: string, now = Date.now()): Promise<number> {
   if (!mayBringUp()) return offers(), 0;
   const ran = ranThisTurn();
   let n = 0;
-  for (const hit of triggersIn(text, await known(), now)) {
+  for (const hit of triggersIn(text, await known(0), now)) {
     let c: Card | null = null;
     if (hit.row === 'car') void loadCars();
     else if (hit.row === 'plate' && !hit.bare && !ran.includes('vehicle_check')) c = plateOffer(hit.plate, hit.named, now);
@@ -387,4 +388,12 @@ export function lensRead(text: string, now = Date.now()): void {
 /** A piece of the day the brain posted (inbox.ts announce): its card in the chat at its minute, when it has one. */
 export function dayCard(c: Card): void {
   if (mayBringUp()) postCard(c);
+}
+
+// for the specs and the console: what the table matches against now, and what it makes of some words (window.__ghosty.triggers)
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    const w = window as unknown as { __ghosty?: Record<string, unknown> };
+    if (w.__ghosty) w.__ghosty.triggers = { known, of: async (words: string) => triggersIn(words, await known()) };
+  }, 2500);
 }
