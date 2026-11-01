@@ -1119,6 +1119,10 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 10:50 UK: CAR MERGED (34313e5; OWNER-ISSUES 108). A merge committed with conflict markers once more (local.ts,
   phrases.ts: my resolver printed UNHANDLED and the commit went through anyway) and was amended: ALWAYS grep for markers
   before committing a merge. Specs cards/car/studio/deck/packs run on the merged tree (val7). REST-B next (Sonnet).
+- 1 Nov 11:52 UK: PR #49 MERGED (main 4821e1b): ①, ②, ③ (the full arcade), ④a, ⑥a live. The checks took 2 h on the
+  final head after four restarts from joining batches (lesson: join only while the run is young; after that, a new PR).
+  Main's own push run with the guard finishes ~13:55 UK: confirm no "Undo broken change" then. PR #50 opens now with
+  games-3 wired and the car (studio and packs specs stalled on screenshots under load 20 here; CI judges them).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
