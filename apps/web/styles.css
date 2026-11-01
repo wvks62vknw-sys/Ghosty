@@ -5050,3 +5050,74 @@ html .arcloading[hidden], html .arcmenu[hidden], html .arcerr[hidden], html .arc
 .g2run:not([data-mode="play"]) .g2swipe { pointer-events: none; }
 .g2ui[data-mode="over"] .g2card { box-shadow: 0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,120,120,.25); }
 @media (prefers-reduced-motion: reduce) { .g2run .g2chase.on { animation: none; } }
+
+/* ---------------------------------------------------------------- THREE MORE GAMES MADE BY US (BRIEF-GAMES-3)
+   The kart racer, the hopper and the arena draw their overlays with the kit's pieces (the g2 menus, Ghosty's line, the
+   drawn PAUSE) in the app's sentence case, and add their own HUDs and touch controls here. Prefixed g3; nothing here
+   reaches outside them. */
+.g3 .g2title { letter-spacing: .01em; }
+.g3 .g2btn { letter-spacing: 0; }
+.g3 .g3touch { position: absolute; inset: 0; }
+.g3 .g3base { position: absolute; left: 0; top: 0; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 2px rgba(255,255,255,.3); visibility: hidden; pointer-events: none; }
+.g3 .g3base.on { visibility: visible; }
+.g3 .g3knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(255,255,255,.6); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.g3 .g3pause { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; width: 44px; padding: 0; }
+.g3 .g3banner { position: absolute; left: 0; right: 0; top: 30%; padding: 0 16px; text-align: center; font: italic 900 46px/1.05 var(--sf, system-ui); color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 24px rgba(var(--cr), .55); opacity: 0; transform: scale(.82); transition: opacity .2s, transform .2s; pointer-events: none; }
+.g3 .g3banner.on { opacity: 1; transform: scale(1); }
+.g3 .g3banner.go { color: #3bff7a; }
+.g3 .g3banner.final { color: #ffd34d; }
+.g3 .g3banner.warn { color: #ff6a5a; font-size: 34px; }
+.g3 .g3tracks, .g3 .g3list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 2px; }
+.g3 .g3track { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 64px; padding: 10px 14px; text-align: left; white-space: normal; }
+.g3 .g3track b { font: 700 16px/1.2 var(--sf, system-ui); }
+.g3 .g3track span { font: 400 12.5px/1.3 var(--sf, system-ui); color: rgba(255,255,255,.76); }
+.g3 .g3track i { font: 600 12px/1.2 var(--sf, system-ui); font-style: normal; color: var(--c); }
+.g3 .g3track[data-on="true"] { box-shadow: inset 0 0 0 2px var(--c); }
+.g3 .g3table { list-style: none; margin: 4px 0 6px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.g3 .g3table li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.06); font: 600 14px/1.2 var(--sf, system-ui); }
+.g3 .g3table li b { width: 38px; text-align: left; }
+.g3 .g3table li span { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g3 .g3table li i { font-style: normal; font-variant-numeric: tabular-nums; opacity: .8; }
+.g3 .g3table li.you { box-shadow: inset 0 0 0 2px #ff6a3d; }
+.g3 .g3table li.ghosty { box-shadow: inset 0 0 0 2px var(--c); }
+/* the kart racer: place, lap and time; the start light; the minimap; the stick or two steering buttons; DRIFT, ITEM, GAS */
+.g3kart .g3hud { position: absolute; left: 14px; top: calc(env(safe-area-inset-top, 0px) + 10px); text-shadow: 0 2px 6px rgba(0,0,0,.5); pointer-events: none; }
+.g3kart .g3pos { display: flex; align-items: baseline; gap: 6px; }
+.g3kart .g3place { font: italic 800 40px/1 var(--sf, system-ui); }
+.g3kart .g3of { font: 700 13px/1 var(--sf, system-ui); opacity: .8; }
+.g3kart .g3sub { display: flex; gap: 10px; margin-top: 4px; font: 700 14px/1 var(--sf, system-ui); font-variant-numeric: tabular-nums; }
+.g3kart .g3time { opacity: .82; font-weight: 600; }
+.g3kart .g3map { position: absolute; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 64px); width: 108px; height: 108px; pointer-events: none; opacity: .92; }
+.g3kart .g3lights { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 14px); display: flex; gap: 10px; padding: 8px 12px; border-radius: 18px; background: rgba(9,13,21,.78); transform: translateX(-50%); transition: opacity .4s; pointer-events: none; }
+.g3kart .g3lights.off { opacity: 0; }
+.g3kart .g3lights i { width: 26px; height: 26px; border-radius: 50%; background: #2a2f3c; box-shadow: inset 0 0 0 2px rgba(255,255,255,.12); }
+.g3kart .g3lights i.red { background: #ff3b3b; box-shadow: 0 0 16px #ff3b3b; }
+.g3kart .g3lights i.green { background: #3bff7a; box-shadow: 0 0 16px #3bff7a; }
+.g3kart .g3ctl { position: absolute; inset: 0; pointer-events: none; }
+.g3kart .g3steer { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 84px; height: 84px; padding: 0; border-radius: 22px; display: none; }
+.g3kart .g3steer.l { left: 16px; }
+.g3kart .g3steer.r { left: 112px; }
+.g3kart .g3steer::before { content: ''; position: absolute; left: 50%; top: 50%; border: 14px solid transparent; }
+.g3kart .g3steer.l::before { border-right: 22px solid #fff; margin: -14px 0 0 -26px; }
+.g3kart .g3steer.r::before { border-left: 22px solid #fff; margin: -14px 0 0 -8px; }
+.g3kart[data-steer="buttons"] .g3steer { display: block; }
+.g3kart .g3drift { position: absolute; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); width: 96px; height: 96px; padding: 0; border-radius: 50%; font-size: 15px; }
+.g3kart .g3drift[data-level="0"] { box-shadow: 0 0 0 3px #fff1c4; }
+.g3kart .g3drift[data-level="1"] { box-shadow: 0 0 0 3px #58b9ff, 0 0 22px #58b9ff; }
+.g3kart .g3drift[data-level="2"] { box-shadow: 0 0 0 3px #ff9a2e, 0 0 22px #ff9a2e; }
+.g3kart .g3drift[data-level="3"] { box-shadow: 0 0 0 3px #d36bff, 0 0 22px #d36bff; }
+.g3kart .g3item { position: absolute; right: 124px; bottom: calc(env(safe-area-inset-bottom, 0px) + 50px); width: 72px; height: 72px; padding: 0; border-radius: 50%; }
+.g3kart .g3item::before { content: ''; position: absolute; inset: 16px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.28); }
+.g3kart .g3item[data-item="boost"]::before { inset: 14px 18px; border-radius: 0; box-shadow: none; background: linear-gradient(#ffd27a, #ff7a3a); clip-path: polygon(0 0, 55% 0, 100% 50%, 55% 100%, 0 100%, 45% 50%); }
+.g3kart .g3item[data-item="shield"]::before { box-shadow: inset 0 0 0 5px #6adcff, 0 0 14px #6adcff; background: rgba(106,220,255,.18); }
+.g3kart .g3item[data-item="oil"]::before { inset: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: none; background: radial-gradient(circle at 60% 30%, #8a7fd0, #2b2840 55%); }
+.g3kart .g3item[data-item="orb"]::before { box-shadow: 0 0 16px #ffb648; background: radial-gradient(circle at 35% 35%, #fff6c0, #ffd34d 50%, #ff9a3c); }
+.g3kart .g3item[data-item="rolling"]::before { box-shadow: none; background: conic-gradient(#ff6ad5, #6ae0ff, #ffd36a, #8dff8a, #ff6ad5); animation: g3spin .45s linear infinite; }
+@keyframes g3spin { to { transform: rotate(1turn); } }
+.g3kart .g3gas { position: absolute; right: 22px; bottom: calc(env(safe-area-inset-bottom, 0px) + 138px); width: 84px; height: 84px; padding: 0; border-radius: 50%; color: #3bff7a; }
+.g3kart[data-gas="auto"] .g3gas { display: none; }
+.g3kart .g3rush { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 46%, rgba(255,170,90,.28) 100%); opacity: 0; transition: opacity .25s; pointer-events: none; }
+.g3kart .g3rush.on { opacity: 1; }
+.g3kart:not([data-mode="race"]) :is(.g3hud, .g3map, .g3ctl, .g3pause, .g3lights, .g3rush) { display: none; }
+.g3kart:not([data-mode="race"]) .g3touch, .g3kart[data-steer="buttons"] .g3touch { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .g3 .g3banner { transition: none; } .g3kart .g3item[data-item="rolling"]::before { animation: none; } }
