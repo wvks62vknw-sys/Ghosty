@@ -12,7 +12,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['types', 'saves', 'audio', 'doom', 'quake'].map((m) => at(`../../web/src/arcade/engines/${m}.ts`)).concat(at('../../web/src/arcade/input.ts'), at('../../web/src/arcade/shelf.ts')),
+  entryPoints: ['types', 'saves', 'audio', 'doom', 'quake', 'index'].map((m) => at(`../../web/src/arcade/engines/${m}.ts`)).concat(at('../../web/src/arcade/input.ts'), at('../../web/src/arcade/shelf.ts'), at('../../web/src/arcade/dos.ts')),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -27,6 +27,8 @@ const doom = await import('./.build/engines/engines/doom.mjs');
 const quake = await import('./.build/engines/engines/quake.mjs');
 const input = await import('./.build/engines/input.mjs');
 const { SHELF } = await import('./.build/engines/shelf.mjs');
+const engines = await import('./.build/engines/engines/index.mjs');
+const dos = await import('./.build/engines/dos.mjs');
 
 /** A small stand-in for IndexedDB: databases of object stores (key → structured clone), requests answered later. */
 function fakeIDB() {
@@ -235,19 +237,35 @@ test("QUAKE: the buttons are Quake's own commands and menu keys; its files where
 test('every button each game shows on the touch layer and every pad button does something in its engine', () => {
   const doomGame = doom.DOOM_KEYS.game;
   const quakeDoes = (a) => a in quake.QUAKE_HOLD || a in quake.QUAKE_PRESS || a === 'pause';
+  const does = { doom: (a) => doomGame[a] !== undefined, quake: quakeDoes };
+  const known = (k) => k.split('+').every((part) => dos.KEYS[part] !== undefined);
   for (const g of SHELF) {
+    if (g.engine === 'dos') {
+      // a DOS game shows its own CONTROLS block: each button presses DOS keys that exist, and a controller reaches each
+      // (its pad slots are the DOS engine's: the ones the game fills press its keys, START is the player's PAUSE)
+      const shown = g.dos.controls.buttons;
+      assert.ok(shown.length > 0, `${g.id}: buttons`);
+      for (const b of shown) {
+        assert.ok(known(b.key) && (b.cycle ?? []).every(known), `${g.id}: the ${b.label} button presses no DOS key`);
+        assert.ok(Object.values(input.PAD_BUTTONS.dos).includes(b.act), `${g.id}: no pad button reaches ${b.label}`);
+      }
+      continue;
+    }
     const buttons = input.touchButtons(g.controls);
     assert.ok(buttons.length > 0, `${g.id}: buttons`);
-    for (const a of buttons) assert.ok(g.engine === 'doom' ? doomGame[a] !== undefined : quakeDoes(a), `${g.id}: the ${a} button does nothing`);
-    for (const a of Object.values(input.PAD_BUTTONS[g.engine])) assert.ok(g.engine === 'doom' ? doomGame[a] !== undefined : quakeDoes(a), `${g.id}: the pad's ${a} does nothing`);
+    for (const a of buttons) assert.ok(does[g.engine](a), `${g.id}: the ${a} button does nothing`);
+    for (const a of Object.values(input.PAD_BUTTONS[g.engine])) assert.ok(does[g.engine](a), `${g.id}: the pad's ${a} does nothing`);
   }
+  assert.equal(input.PAD_BUTTONS.dos[input.BTN.START], 'pause');
 });
 
 test('the adapter interface: both engines, and a start without the game in the files is refused before it draws', async () => {
   assert.equal(doom.doom.id, 'doom');
   assert.equal(quake.quake.id, 'quake');
   for (const e of [doom.doom, quake.quake]) assert.equal(typeof e.start, 'function');
-  for (const g of SHELF) assert.ok({ doom: doom.doom, quake: quake.quake }[g.engine], `${g.id}: its engine is here`);
+  // the player's own registry: every game on the shelf has its engine there
+  for (const g of SHELF) assert.equal(engines.engineFor(g)?.id, g.engine, `${g.id}: its engine is here`);
+  assert.deepEqual([engines.ENGINES.doom.id, engines.ENGINES.quake.id, engines.ENGINES.dos.id], ['doom', 'quake', 'dos']);
   const canvas = {}; // never touched: the refusal comes first
   const ev = { onError: () => assert.fail('no error event for a refusal: start() itself rejects') };
   await assert.rejects(doom.doom.start(canvas, { 'readme.txt': bytes(1) }, input.idle(), ev, { saves: saves.memorySaves(), sound: false }), /no DOOM game/);

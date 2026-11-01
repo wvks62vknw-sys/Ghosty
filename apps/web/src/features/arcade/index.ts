@@ -12,11 +12,11 @@ import { type Action, BTN, idle, type Intent, merge, PAD_BUTTONS, readPad, touch
 import type { DosButton } from '../../arcade/dos';
 import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
-import { engineFor, filesFor, playsToday } from '../../arcade/engines/index';
+import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
 import { saveStore } from '../../arcade/engines/saves';
 import type { EngineFiles, EngineHandle } from '../../arcade/engines/types';
 import { allScores, recordScore, type Score } from '../../arcade/scores';
-import { SHELF, type ShelfEntry } from '../../arcade/shelf';
+import { keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
 import type { TabDef } from '../../shell/tabs';
 import { button, panel, toast } from '../../ui/components';
@@ -124,6 +124,10 @@ export const arcadeTab: TabDef = {
     P.left.append(shelfPanel.el);
     P.right.append(about.el);
 
+    /** The cards one GET fills (a game, and any card sharing its package: Freedoom's two phases). */
+    const sharers = (e: ShelfEntry) => games.filter((g) => keptAs(g) === keptAs(e));
+    const keeping = (e: ShelfEntry) => ({ id: keptAs(e), data: e.data });
+
     const hero = () => {
       P.big.textContent = here.size ? `${here.size} of ${games.length} ready` : `${games.length} game${games.length === 1 ? '' : 's'}`;
       arcadeState.here = [...here];
@@ -142,7 +146,7 @@ export const arcadeTab: TabDef = {
       const el = h('article.arccard', { role: 'listitem', dataset: { id: e.id }, 'aria-label': e.title }, title, line, said, score, h('div.arcrow', act, more), stat, bar, details);
       const paint = () => {
         const kept = here.has(e.id);
-        const getting = busy.has(e.id);
+        const getting = busy.has(keptAs(e));
         el.classList.toggle('kept', kept);
         el.classList.toggle('getting', getting);
         score.textContent = scoreWords(e, allScores()[e.id]);
@@ -167,7 +171,7 @@ export const arcadeTab: TabDef = {
         del2?.setAttribute('aria-label', `Delete ${e.title} from this phone (your saved games stay)`);
       };
       act.addEventListener('click', () => {
-        if (busy.has(e.id)) busy.get(e.id)!.abort();
+        if (busy.has(keptAs(e))) busy.get(keptAs(e))!.abort();
         else if (here.has(e.id)) void play(e);
         else void get(e);
       });
@@ -186,11 +190,13 @@ export const arcadeTab: TabDef = {
     // ---- GET: his tap, the size already said; on mobile data it waits for Wi-Fi
     const get = async (e: ShelfEntry) => {
       const ctl = new AbortController();
-      busy.set(e.id, ctl);
-      const bar = () => cards.get(e.id)?.el.querySelector<HTMLElement>('.arcbar');
+      busy.set(keptAs(e), ctl);
+      const bars = () => sharers(e).flatMap((g) => [...(cards.get(g.id)?.el.querySelectorAll<HTMLElement>('.arcbar') ?? [])]);
       const say = (t: string) => {
-        status.set(e.id, t);
-        paint(e.id);
+        for (const g of sharers(e)) {
+          status.set(g.id, t);
+          paint(g.id);
+        }
       };
       try {
         if (onMobileData()) {
@@ -199,34 +205,35 @@ export const arcadeTab: TabDef = {
         }
         say(`Fetching ${sizeWords(e.data.bytes)} from the Internet Archive…`);
         const onProgress = (p: Progress) => {
-          const b = bar();
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
-          if (b) {
+          for (const b of bars()) {
             b.style.setProperty('--p', `${pct}%`);
             b.setAttribute('aria-valuenow', String(pct));
           }
           const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
           if (status.get(e.id) !== t) say(t);
         };
-        await getFiles(e, onProgress, { signal: ctl.signal });
-        here.add(e.id);
-        status.set(e.id, `On this phone. ${e.saves ? 'Saved games stay here too.' : ''}`.trim());
+        await getFiles(keeping(e), onProgress, { signal: ctl.signal });
+        for (const g of sharers(e)) here.add(g.id);
+        say(`On this phone. ${e.saves ? 'Saved games stay here too.' : ''}`.trim());
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
-        status.set(e.id, stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${(err as Error)?.message ?? err}`);
+        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${(err as Error)?.message ?? err}`);
       } finally {
-        busy.delete(e.id);
-        paint(e.id);
+        busy.delete(keptAs(e));
+        for (const g of sharers(e)) paint(g.id);
         hero();
       }
     };
 
     const del = async (e: ShelfEntry) => {
-      await removeFiles(e);
-      here.delete(e.id);
-      status.set(e.id, `Deleted from this phone (${sizeWords(e.data.bytes)} back). GET brings it back; your saved games stay.`);
-      paint(e.id);
+      await removeFiles(keeping(e));
+      for (const g of sharers(e)) {
+        here.delete(g.id);
+        status.set(g.id, `Deleted from this phone (${sizeWords(e.data.bytes)} back). GET brings it back; your saved games stay.`);
+        paint(g.id);
+      }
       hero();
     };
 
@@ -250,10 +257,10 @@ export const arcadeTab: TabDef = {
       };
       try {
         const kept: EngineFiles = {};
-        for (const t of e.data.take) {
-          const b = await readKept(e.id, t.name);
-          if (!b) throw new Error(`${t.name} is no longer on this phone: GET it again`);
-          kept[t.name] = b;
+        for (const [at, name] of readsFor(e)) {
+          const b = await readKept(at, name);
+          if (!b) throw new Error(`${name} is no longer on this phone: GET it again`);
+          kept[name] = b;
         }
         handle = await engine.start(p.canvas, filesFor(e, kept), p.intent, {
           onError: (err) => p.fail(err.message),
@@ -279,7 +286,7 @@ export const arcadeTab: TabDef = {
     };
 
     // what is already on this phone
-    void Promise.all(games.map(async (e) => ((await isHere(e)) ? here.add(e.id) : undefined))).then(() => {
+    void Promise.all(games.map(async (e) => ((await isHere(keeping(e))) ? here.add(e.id) : undefined))).then(() => {
       for (const e of games) paint(e.id);
       hero();
     });

@@ -26,7 +26,7 @@ await build({
   outExtension: { '.js': '.mjs' },
   logLevel: 'warning',
 });
-const { SHELF, FREEDOOM } = await import('./.build/arcade/shelf.mjs');
+const { SHELF, FREEDOOM, keptAs } = await import('./.build/arcade/shelf.mjs');
 const { LEVELS } = await import('./.build/arcade/levels.mjs');
 const scores = await import('./.build/arcade/scores.mjs');
 const input = await import('./.build/arcade/input.mjs');
@@ -84,6 +84,21 @@ test('the shelf: every entry whole, Freedoom the default DOOM, mirrors https, si
   assert.deepEqual(sw.from, ['DOOMS_19.1', 'DOOMS_19.2']);
   assert.equal(sw.inner, 'DOOM1.WAD');
   assert.equal(FREEDOOM.take.map((t) => t.name).join(), 'freedoom1.wad,freedoom2.wad');
+  // Freedoom's two phases: two cards, one package (one GET, kept once), each phase handed its own IWAD
+  const fd = SHELF.filter((g) => g.data === FREEDOOM);
+  assert.deepEqual(fd.map((g) => g.id), ['freedoom', 'freedoom2']);
+  assert.deepEqual(fd.map((g) => g.plays), [['freedoom1.wad'], ['freedoom2.wad']]);
+  assert.deepEqual(fd.map((g) => keptAs(g)), ['freedoom', 'freedoom']);
+  for (const g of SHELF) {
+    if (g.shares) {
+      const owner = SHELF.find((x) => x.id === g.shares);
+      assert.ok(owner && !owner.shares && owner.data === g.data, `${g.id}: shares ${g.shares}, which is not a card with the same package`);
+    }
+    for (const p of g.plays ?? []) assert.ok(g.data.take.some((t) => t.name === p), `${g.id}: plays ${p}, which its package does not give`);
+  }
+  // one DOOM: the free episode on the native engine (the DOS engine keeps the other classics)
+  assert.deepEqual(SHELF.filter((g) => /^DOOM\b/.test(g.title)).map((g) => [g.id, g.engine]), [['doom-shareware', 'doom']]);
+  assert.ok(!SHELF.some((g) => g.dos?.run.some((l) => /DOOM\.EXE/i.test(l))), 'no DOOM on the DOS engine');
 });
 
 test('the free levels: a dozen packs, each whole, credited, over the Freedoom phase it needs', () => {
@@ -332,8 +347,8 @@ test('the DOS shelf: a dozen or more classics, each whole, its own licence quote
   const games = SHELF.filter((g) => g.engine === 'dos');
   assert.ok(games.length >= 12, `only ${games.length} DOS games`);
   assert.ok(games.every((g) => engines.playsToday(g)), 'every DOS game plays today');
-  assert.ok(!SHELF.filter((g) => g.engine !== 'dos').some((g) => engines.playsToday(g)), 'Freedoom and Quake wait for their engines');
-  assert.ok(games.some((g) => g.id === 'doom-dos' && /DOOM/.test(g.title)), 'DOOM, the free episode, plays through DOS');
+  assert.ok(SHELF.every((g) => engines.playsToday(g)), 'every game on the shelf plays today: DOOM, Freedoom and Quake on their native engines');
+  assert.deepEqual(Object.keys(engines.ENGINES).sort(), ['doom', 'dos', 'quake']);
   for (const g of games) {
     const d = g.dos;
     assert.ok(d, `${g.id}: no DOS set-up`);
@@ -363,22 +378,29 @@ test('the DOS shelf: a dozen or more classics, each whole, its own licence quote
 });
 
 test('dosbox.conf: Sound Blaster 16 at 220/7/1/5 with its BLASTER variable, the game on C:, then what it runs', () => {
-  const doom = SHELF.find((g) => g.id === 'doom-dos');
-  const conf = dos.dosConf(doom.dos);
+  const heretic = SHELF.find((g) => g.id === 'heretic-sw');
+  const conf = dos.dosConf(heretic.dos);
   for (const line of ['sbtype=sb16', 'sbbase=220', 'irq=7', 'dma=1', 'hdma=5', 'cycles=max', 'machine=svga_s3', 'memsize=16']) assert.ok(conf.split('\n').includes(line), line);
   const auto = conf.slice(conf.indexOf('[autoexec]')).split('\n').filter(Boolean);
-  assert.deepEqual(auto, ['[autoexec]', 'echo off', 'mount c .', 'c:', 'SET BLASTER=A220 I7 D1 H5 T6', 'DOOM.EXE']);
-  assert.match(dos.dosConf({ ...doom.dos, cycles: 20000 }), /^cycles=fixed 20000$/m);
-  const files = dos.dosFiles(doom.dos);
-  assert.deepEqual(Object.keys(files).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'DEFAULT.CFG'].sort());
-  const cfg = new TextDecoder().decode(files['DEFAULT.CFG']);
+  assert.deepEqual(auto, ['[autoexec]', 'echo off', 'mount c .', 'c:', 'SET BLASTER=A220 I7 D1 H5 T6', 'HERETIC.EXE']);
+  assert.match(dos.dosConf({ ...heretic.dos, cycles: 20000 }), /^cycles=fixed 20000$/m);
+  const files = dos.dosFiles(heretic.dos);
+  assert.deepEqual(Object.keys(files).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'HERETIC.CFG'].sort());
+  const cfg = new TextDecoder().decode(files['HERETIC.CFG']);
   assert.ok(cfg.includes('snd_sfxdevice 3\r\n') && cfg.includes('snd_sbport 544\r\n') && !/[^\r]\n/.test(cfg), 'DOS lines end CR LF');
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(files['.jsdos/ghosty-controls.json'])), doom.dos.controls);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(files['.jsdos/ghosty-controls.json'])), heretic.dos.controls);
   // what the player hands the engine: the kept bundle and the set-up
-  const handed = engines.filesFor(doom, { 'doom.jsdos': Uint8Array.of(1) });
-  assert.deepEqual(Object.keys(handed).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'DEFAULT.CFG', 'doom.jsdos'].sort());
-  assert.equal(engines.engineFor(doom).id, 'dos');
-  assert.equal(engines.engineFor(SHELF.find((g) => g.engine === 'quake')), null);
+  const handed = engines.filesFor(heretic, { 'heretic.jsdos': Uint8Array.of(1) });
+  assert.deepEqual(Object.keys(handed).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'HERETIC.CFG', 'heretic.jsdos'].sort());
+  assert.equal(engines.engineFor(heretic).id, 'dos');
+  // each game on its own engine; what PLAY reads for it: the files it plays, from where they are kept
+  const row = (id) => SHELF.find((g) => g.id === id);
+  assert.deepEqual(['doom-shareware', 'freedoom', 'freedoom2', 'quake-shareware'].map((id) => engines.engineFor(row(id)).id), ['doom', 'doom', 'doom', 'quake']);
+  assert.deepEqual(engines.readsFor(row('freedoom2')), [['freedoom', 'freedoom2.wad']]);
+  assert.deepEqual(engines.readsFor(row('freedoom')), [['freedoom', 'freedoom1.wad']]);
+  assert.deepEqual(engines.readsFor(row('quake-shareware')), [['quake-shareware', 'pak0.pak']]);
+  assert.deepEqual(engines.readsFor(heretic), [['heretic-sw', 'heretic.jsdos']]);
+  assert.deepEqual(engines.filesFor(row('doom-shareware'), { 'doom1.wad': Uint8Array.of(1) }), { 'doom1.wad': Uint8Array.of(1) }, 'a native game is handed its files as they are');
 });
 
 test('the thumbs → DOS keys: thresholds that do not chatter, run at full push, keys together, WEAPON walks the numbers', () => {

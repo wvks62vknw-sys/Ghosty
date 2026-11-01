@@ -67,7 +67,17 @@ export interface ShelfEntry {
   done: string;
   /** A DOS game's set-up: what DOS runs, DOSBox's speed, our set-up files and its CONTROLS block (engine 'dos'). */
   dos?: DosSetup;
+  /**
+   * Another entry whose package (and GET) this one shares: one download, two cards (Freedoom's two phases). Its files
+   * are kept, found and deleted under that entry's id.
+   */
+  shares?: string;
+  /** Which of the kept files the engine is handed (all of them when absent): each Freedoom phase plays its own IWAD. */
+  plays?: string[];
 }
+
+/** The id its files are kept under: its own, or the entry's whose package it shares. */
+export const keptAs = (e: Pick<ShelfEntry, 'id' | 'shares'>): string => e.shares ?? e.id;
 
 /** The Internet Archive's CORS door for a file of an item, or for one member of a ZIP the item holds (served alone). */
 export const archive = (item: string, file: string, member?: string): string =>
@@ -102,7 +112,7 @@ const APOGEE_OLD = 'Its own LICENSE.DOC, in the package: Apogee\'s shareware dis
 /** The permission in Epic MegaGames' LICENSE.DOC. */
 const EPIC = 'Its own LICENSE.DOC, in the package: "You may copy and/or distribute the Program only in its original, unaltered form, with all files included unmodified" (Epic MegaGames\' shareware licence; the package is fetched whole).';
 
-/** DOOM's and Heretic's own set-up file (DEFAULT.CFG, HERETIC.CFG): Sound Blaster 16 at 220/7/1 for sound and music;
+/** Heretic's own set-up file (HERETIC.CFG, DOOM's format; DOOM itself plays on its native engine): Sound Blaster 16 at 220/7/1 for sound and music;
  * the up and down arrows walk, left and right strafe (so the stick moves and the drag turns, with the mouse). */
 const DOOMCFG = `mouse_sensitivity 5
 sfx_volume 12
@@ -158,15 +168,30 @@ SBEmu $ffffffff
 export const SHELF: ShelfEntry[] = [
   {
     id: 'freedoom',
-    title: 'FREEDOOM',
+    title: 'FREEDOOM: PHASE 1',
     line: 'DOOM, the free version with its own levels.',
     engine: 'doom',
     data: FREEDOOM,
+    plays: ['freedoom1.wad'],
     controls: ['move', 'look', 'fire', 'use', 'weapon', 'map'],
     saves: true,
     since: '2026-11-01',
     ghosty: 'Thirty-six levels made free by fans, on the real DOOM engine. Start on Hurt Me Plenty.',
     done: "Level down. That kill count is the one I'm chasing now.",
+  },
+  {
+    id: 'freedoom2',
+    title: 'FREEDOOM: PHASE 2',
+    line: 'The free DOOM II: thirty-two more levels and the double-barrelled shotgun, in the same download.',
+    engine: 'doom',
+    data: FREEDOOM,
+    shares: 'freedoom',
+    plays: ['freedoom2.wad'],
+    controls: ['move', 'look', 'fire', 'use', 'weapon', 'map'],
+    saves: true,
+    since: '2026-11-01',
+    ghosty: 'Bigger maps and meaner monsters. The free level packs below play over this one.',
+    done: 'Map cleared. They only get bigger from here.',
   },
   {
     id: 'doom-shareware',
@@ -191,7 +216,7 @@ export const SHELF: ShelfEntry[] = [
   {
     id: 'quake-shareware',
     title: 'QUAKE: DIMENSION OF THE DOOMED',
-    line: "Quake's first episode in real 3-D, as id Software gave it away in 1996.",
+    line: "Quake's first episode in real 3-D, as id Software gave it away in 1996. Your phone decides its frame rate: if it stutters, tell me.",
     engine: 'quake',
     data: {
       // the Internet Archive's software library copy of the Quake 1.06 shareware (its PAK0.PAK is id's own, MD5 5906e599…)
@@ -210,33 +235,6 @@ export const SHELF: ShelfEntry[] = [
   },
   // ---------- THE DOS SHELF: the free classics, each run as it shipped by the DOS engine (engines/dos.ts), each package
   // the Archive's copy with its size and SHA-256 taken from the file itself, each licence quoted from its own text file.
-  {
-    id: 'doom-dos',
-    title: 'DOOM',
-    line: "id Software's own DOOM, its first episode as it shipped in 1993: nine levels of Knee-Deep in the Dead.",
-    engine: 'dos',
-    data: {
-      url: [archive('doom19s_202607', 'doom19s.zip'), archive('Idstuff', 'Idstuff.zip', 'Idstuff/Doom/doom19s.zip')],
-      sha256: 'cacf0142b31ca1af00796b4a0339e07992ac5f21bc3f81e7532fe1b5e1b486e6',
-      bytes: 2_450_688,
-      licence: 'Its own DOOMS_19.DAT, in the package: "SHAREWARE VERSION … PLEASE DISTRIBUTE!!!" (id Software\'s DOOM 1.9 shareware, passed on unmodified).',
-      credit: 'id Software, 1993 (DOOM 1.9 shareware, episode 1).',
-      // the two floppy parts join into one self-extracting ZIP; its files become drive C:
-      take: [{ name: 'doom.jsdos', from: ['DOOMS_19.1', 'DOOMS_19.2'], bundle: true }],
-    },
-    controls: ['move', 'look', 'fire', 'use', 'weapon', 'map'],
-    saves: true,
-    since: '2026-11-01',
-    ghosty: 'The real thing, on the original engine. Stick to move, drag to turn, and open every door twice.',
-    done: 'Saved where you stopped. E1M1 will still be there.',
-    dos: {
-      run: ['DOOM.EXE'],
-      cycles: 'max',
-      // DOOM's own set-up file: Sound Blaster 16 for sound and music, the arrows walk and strafe, the mouse turns
-      files: { 'DEFAULT.CFG': DOOMCFG },
-      controls: { stick: 'arrows', run: 'rshift', drag: 'mouse-x', mouseScale: 20, buttons: [{ act: 'fire', key: 'ctrl', label: 'FIRE' }, { act: 'use', key: 'space', label: 'OPEN' }, WEAPON('2', '3', '4', '5', '1'), MAP, ESC, ENTER] },
-    },
-  },
   {
     id: 'duke3d-sw',
     title: 'DUKE NUKEM 3D',
