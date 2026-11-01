@@ -225,9 +225,16 @@ const scores = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('gh
   // held (the handle's pause) while the slow checks look at it
   await page.locator('.g2btn[data-id="play"]').tap();
   await page.waitForTimeout(400);
-  const a = await shotOf(page);
+  const held = async () => {
+    // a snapshot is slow on a busy machine: the run is held (the handle's pause) while it is taken
+    await page.evaluate(() => window.__g2.handle.pause());
+    const shot = await shotOf(page);
+    await page.evaluate(() => window.__g2.handle.resume());
+    return shot;
+  };
+  const a = await held();
   await page.waitForTimeout(400);
-  const b = await shotOf(page);
+  const b = await held();
   check(Buffer.compare(a, b) !== 0, 'runner: two snapshots of the run differ');
   // swipes change the lane, jump
   await page.mouse.move(200, 520);
