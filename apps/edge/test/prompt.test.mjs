@@ -75,7 +75,8 @@ test('a pack group: off, its short name and nothing else; on, its about line des
   for (const g of T.TOOL_GROUPS.filter((x) => x.short)) {
     assert.equal(g.tools.length, 1, `${g.name}: one tool`);
     assert.match(g.short, new RegExp(`^${g.tools[0].name} [a-z]+$`), `${g.name}: two words, the first its tool's name`);
-    assert.ok(actionsOf(g).length >= 12, `${g.name}: ${actionsOf(g).length} actions`);
+    // (his own accounts — BRIEF-SOCIAL — are one tool in the pack's shape with the five actions its brief names, not a pack of twenty)
+    assert.ok(actionsOf(g).length >= (g.name === 'social' ? 5 : 12), `${g.name}: ${actionsOf(g).length} actions`);
     for (const a of actionsOf(g)) assert.match(g.about, new RegExp(`\\b${a}\\b`), `${g.name}: its about line names ${a}`);
     const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
     assert.match(plain, new RegExp(`^${g.short}$`, 'm'), `${g.name}: a plain turn names it "${g.short}"`);
@@ -85,7 +86,7 @@ test('a pack group: off, its short name and nothing else; on, its about line des
 
 test('the three packs (money, body, kitchen): off on small talk as two words each, on by his words with every action described', () => {
   const packs = Object.fromEntries(T.TOOL_GROUPS.filter((g) => g.short).map((g) => [g.name, g]));
-  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money']);
+  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money', 'social']);
   const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
   for (const line of ['money pack', 'body pack', 'kitchen pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
   assert.ok(!/\b(?:fuel|warranty|breathe|leftovers)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');

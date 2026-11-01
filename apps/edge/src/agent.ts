@@ -68,6 +68,8 @@ import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
+import { socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -97,7 +99,7 @@ const TURNS_KEY = 'turns';
 const DIRECT = 'Direct · no AI';
 const PENDING_KEY = 'pending';
 /** Everything in the vault: the owner's keys and the Spotify link. */
-const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify'];
+const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify', 'bluesky', 'mastodon', 'discord']; // [social] his own accounts' keys (social/*)
 
 interface Pending {
   id: string;
@@ -446,6 +448,7 @@ export class GhostyAgent {
       if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
       if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
       if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
+      if (path === '/social' || path.startsWith('/social/')) return await socialRoute(req, path, method, url, await this.socialDeps()); // [social] his accounts: link, drafts, APPROVE · EDIT · NO (social/index.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1555,6 +1558,7 @@ export class GhostyAgent {
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
       foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
+      social: async () => socialTelegram(await this.socialDeps()), // [social] a draft's APPROVE · EDIT · NO on Telegram
     };
   }
 
@@ -1747,6 +1751,11 @@ export class GhostyAgent {
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
     return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+  }
+
+  /** [social] What his accounts (social/*) may use: the database, the vault (their keys), his time zone and his pictures. */
+  private async socialDeps(): Promise<SocialDeps> {
+    return { storage: this.storage, vault: this.vault, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(this.storage), images: this.env.SITES ?? null };
   }
 
   /** [packs] What the packs (packs/index.ts) may use: the database and his notifications (with the card). */

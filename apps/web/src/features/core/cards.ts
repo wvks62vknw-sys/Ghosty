@@ -18,6 +18,7 @@ import { createStore } from '../../core/store';
 import { guardian } from '../../state/guardian';
 import { openChat, perform } from '../../shell/launcher';
 import { button } from '../../ui/components';
+import { draftEl } from '../links/drafts'; // [social] a draft for his accounts: APPROVE · EDIT · NO (BRIEF-SOCIAL)
 
 export type { Card } from '../../../../../packages/shared/src/cards';
 
@@ -188,6 +189,7 @@ export function onCarTap(f: (plate: string) => Promise<void>): void {
 
 /** One card, as the chat and Home's wall draw it. */
 export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
+  if (c.kind === 'draft' && c.draft) return draftEl(c);
   const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS));
   const first = c.acts?.find((a) => a.open || a.run);
   if (first && !opts.wall) {

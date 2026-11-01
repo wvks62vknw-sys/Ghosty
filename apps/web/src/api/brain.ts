@@ -22,6 +22,7 @@ import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/s
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
 import type { NamedCar } from '../../../../packages/shared/src/cards';
 import type { Dial, Spoken } from '../../../../packages/shared/src/cadence';
+import type { Account, Draft } from '../../../../packages/shared/src/social'; // [social]
 
 /** GET /api/speak: the speak-first dial, its cap, whether a stop word silenced today, and today's unprompted lines. */
 export interface SpeakInfo {
@@ -438,6 +439,14 @@ export const brain = {
   speakAgain: () => req<SpeakInfo>('DELETE', '/speak/stop'),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
+  /** [social] His own accounts (apps/edge/src/social): what is linked, the drafts, and APPROVE · EDIT · NO on one. */
+  social: () => req<SocialInfo>('GET', '/social'),
+  socialLink: (account: Account, fields: Record<string, unknown>) => req<{ ok: boolean; who?: string; info?: string; error?: string }>('POST', '/social/link', { account, ...fields }),
+  socialUnlink: (account: Account) => req<{ ok: boolean }>('DELETE', `/social/link?account=${encodeURIComponent(account)}`),
+  socialDraft: (b: { account: Account; text: string; from?: 'musing' | 'phone' }) => req<DraftAnswer>('POST', '/social/draft', b),
+  socialApprove: (id: string) => req<DraftAnswer & { said?: string }>('POST', '/social/approve', { id }),
+  socialEdit: (id: string, change: { text?: string; alt?: string }) => req<DraftAnswer>('POST', '/social/edit', { id, ...change }),
+  socialNo: (id: string) => req<DraftAnswer>('POST', '/social/no', { id }),
   /** FORESIGHT (apps/edge/src/foresight.ts): the prediction ledger — today's expectations, yesterday, the record; his word on his own questions. */
   foresight: () => req<ForesightInfo>('GET', `/foresight?tz=${encodeURIComponent(TZ)}`),
   resolveForesight: (id: string, right: boolean | null) => req<ForesightInfo & { resolved: string; said: string }>('POST', '/foresight/resolve', { id, right }),
@@ -742,6 +751,19 @@ export async function refreshKeyCopy(): Promise<void> {
     /* try again next time */
   }
 }
+/** [social] What GET /social answers: each account and who is linked, the drafts, and what went out today. */
+export interface SocialInfo {
+  accounts: { id: Account; name: string; who: string | null }[];
+  drafts: Draft[];
+  sent: { at: number; account: Account; kind: string; text: string; who?: string; link?: string }[];
+}
+/** [social] A draft after an answer: the draft and its card, or why not. */
+export interface DraftAnswer {
+  draft?: Draft;
+  card?: import('../../../../packages/shared/src/cards').Card;
+  error?: string;
+}
+
 const rawSetKey = brain.setKey;
 brain.setKey = async (name, value) => {
   const r = await rawSetKey(name, value);
@@ -752,6 +774,19 @@ const rawLink = brain.spotifyLink;
 const rawUnlink = brain.spotifyUnlink;
 brain.spotifyLink = async (p) => {
   const r = await rawLink(p);
+  await refreshKeyCopy();
+  return r;
+};
+// [social] his accounts' keys are in the vault too: this phone's sealed copy follows a link or an unlink
+const rawSocialLink = brain.socialLink;
+const rawSocialUnlink = brain.socialUnlink;
+brain.socialLink = async (account, fields) => {
+  const r = await rawSocialLink(account, fields);
+  await refreshKeyCopy();
+  return r;
+};
+brain.socialUnlink = async (account) => {
+  const r = await rawSocialUnlink(account);
   await refreshKeyCopy();
   return r;
 };

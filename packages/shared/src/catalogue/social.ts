@@ -16,4 +16,37 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     go: { ask: 'Who made you?', send: true },
   },
   'me:origin': { same: 'phrase:origin' },
+
+  // ---------------------------------------------------------------- HIS OWN ACCOUNTS: one tool, five actions (items 2–6)
+  'tool:social': { same: 'act:social:draft' },
+  'act:social:draft': {
+    name: 'Post with your approval', line: 'I can draft a post for your Bluesky, Mastodon, Discord or Telegram channel; nothing goes out until you tap APPROVE.',
+    more: 'The draft is a card with the words, the account, APPROVE, EDIT and NO, here or on Telegram. EDIT changes the words, NO drops it, and it is gone after 24 hours. Every post I send is in WHY and in what I did today.',
+    say: ['Post that on Bluesky', 'Draft a toot about the match'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
+    go: { ask: 'Post on Bluesky: ', send: false },
+  },
+  'act:social:read': {
+    name: 'What is on your timeline', line: 'I can read your Bluesky or Mastodon home timeline, or your Discord channel, and say who said what and when.',
+    more: 'Only your own accounts and public posts, never anyone’s private messages. Posts there are leads, not proof: where a claim is found, never what proves it. Your Bluesky timeline also joins the morning’s fresh knowledge.',
+    say: ['What’s on Bluesky?', 'What’s on my Mastodon?'], scene: ['morning', 'talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
+    go: { ask: 'What’s on Bluesky?', send: true },
+  },
+  'act:social:search': {
+    name: 'Search public posts', line: 'I can search public posts on Bluesky or Mastodon for anything you name, with who posted and when.',
+    more: 'Public posts only, through your own account. What comes back is a lead to follow, never the proof of a claim.',
+    say: ['Search Bluesky for the Villa game', 'What are people saying about the budget on Mastodon?'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
+    go: { ask: 'Search Bluesky for ', send: false },
+  },
+  'act:social:follow_ask': {
+    name: 'Follow someone, with approval', line: 'You can ask me to follow or unfollow an account, and it waits for your APPROVE just like a post.',
+    more: 'A follow is a card with APPROVE and NO, like any post. I never follow anyone on my own, and never a private person you have not named.',
+    say: ['Follow @nasa.gov on Bluesky', 'Unfollow that account'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
+    go: { ask: 'Follow ', send: false },
+  },
+  'act:social:status': {
+    name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
+    more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',
+    say: ['How are my accounts?', 'What did you post today?'], scene: ['talking'], cat: 'talk', since: SINCE,
+    go: { ask: 'How are my accounts?', send: true },
+  },
 };

@@ -38,7 +38,7 @@ export const GROUP_CAT: Record<string, AbilityCat> = {
   media: 'play', spotify: 'play',
   school: 'learn', 'library-admin': 'learn', knowledge: 'learn', evolve: 'learn', learn: 'learn',
   ui: 'do', travel: 'do', journeys: 'do', projects: 'do', places: 'do',
-  email: 'talk', notify: 'talk',
+  email: 'talk', notify: 'talk', social: 'talk',
 };
 
 /**

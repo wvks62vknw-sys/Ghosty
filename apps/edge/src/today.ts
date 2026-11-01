@@ -19,6 +19,7 @@ import { siteStore } from './tools/sites';
 import { loadWidgets } from './tools/widgets';
 import { loadIdeas } from './upgrades';
 import { loadTrails } from './why';
+import { sentLine, sentSince } from './social/queue'; // [social]
 
 export interface TodayDeps {
   storage: DurableObjectStorage;
@@ -73,6 +74,8 @@ export async function dayDoings(d: TodayDeps, tz?: string, now = Date.now()): Pr
   // [cards] what he did not ask for (speak.ts): each line said, or held back and why — with its reason
   const cad = readCadence(await safely(d.storage.get<unknown>(CADENCE_KEY), undefined));
   for (const s of cad.log) if (today(s.at)) out.push({ at: s.at, text: spokenLine(s) });
+  // [social] every post, follow or unfollow sent today, each with his APPROVE (social/queue.ts)
+  for (const s of await safely(sentSince(d.storage, from), [])) if (today(s.at)) out.push({ at: s.at, text: sentLine(s) });
   return out.sort((a, b) => b.at - a.at);
 }
 

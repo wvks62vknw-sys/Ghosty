@@ -237,7 +237,8 @@ test('every action of every pack is a registry item with its own words, its grou
   assert.ok(packs.length >= 1, 'a pack group');
   for (const g of packs) {
     const acts = A.actionsOf(g.tools[0]);
-    assert.ok(acts.length >= 12, `${g.name}: ${acts.length} actions`);
+    // (his own accounts — BRIEF-SOCIAL — are one tool in the pack's shape with the five actions its brief names)
+    assert.ok(acts.length >= (g.name === 'social' ? 5 : 12), `${g.name}: ${acts.length} actions`);
     for (const a of acts) {
       const id = `act:${g.name}:${a}`;
       assert.ok(brainItems.some((i) => i.id === id && i.kind === 'act' && i.group === g.name), `${id} is an item of its group`);

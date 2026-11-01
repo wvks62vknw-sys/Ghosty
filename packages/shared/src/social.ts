@@ -77,7 +77,7 @@ export interface Draft {
   answered?: number;
   link?: string;
   /** Why it did not go (said on the card; a failed send waits for APPROVE again). */
-  error?: string;
+  fault?: string;
 }
 
 /** What a draft says it will do: "Post on Bluesky", "Follow @sam.bsky.social on Mastodon". */
@@ -94,7 +94,7 @@ export function stateWords(d: Draft, now = Date.now()): string {
   if (d.state === 'no') return 'You said no: nothing went out.';
   if (d.state === 'expired' || (d.state === 'waiting' && now > d.expires)) return 'Expired after 24 hours: nothing went out.';
   if (d.state === 'sending') return 'Sending…';
-  if (d.state === 'failed') return `Not sent: ${d.error ?? 'it failed'}. APPROVE to try again.`;
+  if (d.state === 'failed') return `Not sent: ${d.fault ?? 'it failed'}. APPROVE to try again.`;
   const h = Math.max(1, Math.round((d.expires - now) / 3_600_000));
   return `Waiting for your APPROVE (gone in ${h} h if not).`;
 }
