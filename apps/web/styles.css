@@ -5136,3 +5136,4 @@ html .drbox { width: 100%; box-sizing: border-box; min-height: 120px; resize: ve
 html .dralt { width: 100%; box-sizing: border-box; min-height: 44px; }
 html .drcount { align-self: flex-end; font: 500 12px var(--sf); color: var(--ink3); }
 html .drcount.over { color: #ff453a; }
+html code.socialurl { display: block; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.06); font: 500 12px/1.4 ui-monospace, Menlo, monospace; color: var(--ink); overflow-wrap: anywhere; user-select: all; text-transform: none; }

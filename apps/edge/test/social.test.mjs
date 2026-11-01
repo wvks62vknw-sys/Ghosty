@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts'), at('../src/library/digest.ts'), at('../../../packages/shared/src/sources.ts')],
+  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts'), at('../src/library/digest.ts'), at('../src/social/discord.ts'), at('../../../packages/shared/src/sources.ts')],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -398,4 +398,126 @@ test('Mastodon: linked with his server and his own app’s token; posts are publ
   // a 429 in his words
   const slow = depsWith(fakeMastodon({ rateLimited: true }), d.vault);
   await assert.rejects(() => SO.readAccount(slow, 'mastodon', 'x'), /Mastodon says slow down: try again after 15:30\./);
+});
+
+// ---------------------------------------------------------------- 5. DISCORD (REST and the Interactions endpoint, faked here)
+
+const DS = await load('apps/edge/src/social/discord');
+const toHex = (b) => Buffer.from(b).toString('hex');
+
+test('Discord’s signature: a known Ed25519 vector (RFC 8032, test 2) checks; anything changed does not', async () => {
+  const pub = '3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c';
+  const sig = '92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00';
+  // the message is the timestamp and the body together: here the one byte 0x72, "r"
+  assert.equal(await DS.verifyDiscord(pub, sig, 'r', ''), true);
+  assert.equal(await DS.verifyDiscord(pub, sig, 'r', 'x'), false, 'a body changed');
+  assert.equal(await DS.verifyDiscord(pub, sig.replace(/^9/, '8'), 'r', ''), false, 'a signature changed');
+  assert.equal(await DS.verifyDiscord(pub, sig, '', 'r'), false, 'no timestamp');
+  assert.equal(await DS.verifyDiscord('zz', sig, 'r', ''), false, 'not a key');
+});
+
+const OWNER = '111111111111111111';
+const APP = '222222222222222222';
+const GUILD = '333333333333333333';
+const CHANNEL = '444444444444444444';
+const BOT_TOKEN = 'fake-bot-token-for-tests-only.middle.not-a-real-discord-token-at-all-0000';
+function fakeDiscord(o = {}) {
+  const calls = [];
+  const messages = new Map();
+  const ok = (v) => new Response(JSON.stringify(v), { status: 200, headers: { 'content-type': 'application/json' } });
+  const fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+    calls.push({ method: init.method ?? 'GET', path: u.pathname.replace('/api/v10', ''), body, auth: init.headers?.authorization });
+    const path = u.pathname.replace('/api/v10', '');
+    if (path.startsWith('/webhooks/')) return ok({ id: 'edited' });
+    if (init.headers?.authorization !== `Bot ${BOT_TOKEN}`) return new Response(JSON.stringify({ message: '401: Unauthorized' }), { status: 401 });
+    if (path === '/users/@me') return ok({ id: APP, username: 'mybot', bot: true });
+    if (path === '/applications/@me') return ok({ id: APP, verify_key: o.key, owner: { id: OWNER } });
+    if (path === `/channels/${CHANNEL}`) return ok({ id: CHANNEL, guild_id: GUILD, name: 'general', type: 0 });
+    if (path === `/applications/${APP}/guilds/${GUILD}/commands`) return ok(body);
+    if (path === `/channels/${CHANNEL}/messages` && init.method === 'POST') {
+      if (!messages.has(body.nonce)) messages.set(body.nonce, { id: String(900 + messages.size), ...body });
+      return ok(messages.get(body.nonce));
+    }
+    if (path === `/channels/${CHANNEL}/messages`) return o.noRead ? new Response(JSON.stringify({ message: 'Missing Access' }), { status: 403 }) : ok([{ id: '1', content: 'match at 3?', timestamp: '2026-11-01T10:00:00Z', author: { username: 'pal', global_name: 'Pal' } }, { id: '2', content: '', timestamp: '2026-11-01T09:00:00Z', author: { username: 'mate' } }]);
+    return new Response('{}', { status: 404 });
+  };
+  return { fetch, calls, messages };
+}
+
+test('LINKS → DISCORD: every id checked against Discord, the owner learnt from the application, /ask registered in his server', async () => {
+  const keys = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const key = toHex(await crypto.subtle.exportKey('raw', keys.publicKey));
+  const net = fakeDiscord({ key });
+  const d = depsWith(net);
+  const fields = { token: BOT_TOKEN, app: APP, key, guild: GUILD, channel: CHANNEL };
+  await assert.rejects(() => SO.APIS.discord.link(d, { ...fields, token: 'nope' }), /does not look like a bot token/);
+  await assert.rejects(() => SO.APIS.discord.link(d, { ...fields, key: 'a'.repeat(64) }), /not this application’s/);
+  await assert.rejects(() => SO.APIS.discord.link(d, { ...fields, guild: '555555555555555555' }), /That channel is not in that server/);
+  const r = await SO.APIS.discord.link(d, fields);
+  assert.equal(r.who, '#general in your server');
+  assert.match(r.info, /Interactions Endpoint URL/);
+  const put = net.calls.find((c) => c.method === 'PUT');
+  assert.equal(put.path, `/applications/${APP}/guilds/${GUILD}/commands`);
+  assert.deepEqual(put.body.map((c) => c.name), ['ask']);
+  assert.equal(JSON.parse(d.vault.m.get('discord')).owner, OWNER);
+  // posting: through the queue, nobody pinged, never twice
+  const made = await SO.makeDraft(d, { account: 'discord', text: 'Five-a-side at 7, @everyone?', from: 'chat' });
+  const sent = await Q.approveDraft(d.storage, made.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' });
+  assert.equal(sent.said, `Posted on Discord: https://discord.com/channels/${GUILD}/${CHANNEL}/900`);
+  const post = net.calls.find((c) => c.method === 'POST');
+  assert.deepEqual(post.body, { content: 'Five-a-side at 7, @everyone?', allowed_mentions: { parse: [] }, nonce: made.draft.id, enforce_nonce: true });
+  await SO.sendDraft(d, made.draft);
+  assert.equal(net.messages.size, 1);
+  assert.ok(!net.calls.some((c) => /\/users\/@me\/channels/.test(c.path)), 'no DM channel is ever opened');
+  // reading the channel: words hidden without the intent said so; the digest leaves out who said what
+  const read = await SO.readAccount(d, 'discord');
+  assert.equal(read.posts[0].text, 'match at 3?');
+  assert.match(read.posts[1].text, /hidden from bots unless the Message Content intent is on/);
+  const dig = await SO.socialDigest(d);
+  assert.equal(dig.length, 1);
+  assert.equal(dig[0].tier, 'lead');
+  assert.match(dig[0].text, /who said them left out/);
+  assert.ok(!/pal|Pal|mate/.test(dig[0].text), 'no names in the digest');
+  // a follow on Discord: there is none
+  const f = await SO.makeDraft(d, { account: 'discord', kind: 'follow', text: '', who: 'someone', from: 'chat' });
+  assert.match((await Q.approveDraft(d.storage, f.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' })).error, /can't follow anyone on Discord/);
+  assert.match((await SO.readAccount(depsWith(fakeDiscord({ key, noRead: true }), d.vault), 'discord').catch((e) => e)).message, /needs View Channels, Send Messages and Read Message History/);
+});
+
+test('POST /discord/interactions: the signature first; PING → PONG; /ask from him → a deferred answer only he sees; anyone else → one polite line', async () => {
+  const keys = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const key = toHex(await crypto.subtle.exportKey('raw', keys.publicKey));
+  const net = fakeDiscord({ key });
+  const d = depsWith(net);
+  await SO.APIS.discord.link(d, { token: BOT_TOKEN, app: APP, key, guild: GUILD, channel: CHANNEL });
+  const signed = async (o, ts = '1730455200') => {
+    const body = JSON.stringify(o);
+    const sig = toHex(await crypto.subtle.sign({ name: 'Ed25519' }, keys.privateKey, new TextEncoder().encode(ts + body)));
+    return new Request('https://g.example/api/discord/interactions', { method: 'POST', headers: { 'x-signature-ed25519': sig, 'x-signature-timestamp': ts, 'content-type': 'application/json' }, body });
+  };
+  const later = [];
+  const asked = [];
+  const turn = async (w) => (asked.push(w), `You asked: ${w}`);
+  // unsigned, or signed by someone else: 401, nothing read
+  const unsigned = await DS.discordInteraction(new Request('https://g.example/api/discord/interactions', { method: 'POST', body: JSON.stringify({ type: 1 }) }), d, turn, (p) => later.push(p));
+  assert.equal(unsigned.status, 401);
+  const bad = await signed({ type: 1 });
+  bad.headers.set('x-signature-ed25519', '00'.repeat(64));
+  assert.equal((await DS.discordInteraction(bad, d, turn, (p) => later.push(p))).status, 401);
+  // PING
+  assert.deepEqual(await (await DS.discordInteraction(await signed({ type: 1 }), d, turn, (p) => later.push(p))).json(), { type: 1 });
+  // someone else in his server: one polite line, only they see it, and the brain is never asked
+  const other = await (await DS.discordInteraction(await signed({ type: 2, application_id: APP, guild_id: GUILD, token: 'tk', data: { name: 'ask', options: [{ name: 'words', value: 'what does he know about me?' }] }, member: { user: { id: '999999999999999999' } } }), d, turn, (p) => later.push(p))).json();
+  assert.deepEqual(other, { type: 4, data: { content: DS.NOT_YOU, flags: 64, allowed_mentions: { parse: [] } } });
+  assert.equal(asked.length, 0);
+  // him: "thinking…" only he sees, then the answer put in its place
+  const mine = await (await DS.discordInteraction(await signed({ type: 2, application_id: APP, guild_id: GUILD, token: 'tok123', data: { name: 'ask', options: [{ name: 'words', value: 'what is on today?' }] }, member: { user: { id: OWNER } } }), d, turn, (p) => later.push(p))).json();
+  assert.deepEqual(mine, { type: 5, data: { flags: 64 } });
+  await Promise.all(later);
+  assert.deepEqual(asked, ['what is on today?']);
+  const patch = net.calls.find((c) => c.method === 'PATCH');
+  assert.equal(patch.path, `/webhooks/${APP}/tok123/messages/@original`);
+  assert.deepEqual(patch.body, { content: 'You asked: what is on today?', allowed_mentions: { parse: [] } });
 });

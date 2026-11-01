@@ -69,6 +69,7 @@ import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept 
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
 import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { discordInteraction } from './social/discord'; // [social] his own bot in his own server: /ask, signature checked first
 import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
@@ -295,6 +296,8 @@ export class GhostyAgent {
     try {
       // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
+      // [social] Discord's interactions (social/discord.ts): public — Discord calls it; its Ed25519 signature is checked before anything is read.
+      if (path === '/discord/interactions' && method === 'POST') return await discordInteraction(req, await this.socialDeps(), (words) => this.discordTurn(words), (p) => this.state.waitUntil(p));
       // [selftrain] The Kaggle notebook's hook: public like Telegram's — it is turned away without this week's ticket.
       if (path === '/training/hook') return await hookRoute(req, this.trainDeps());
       // [selftrain] A trained brain's weights for the phone (selftrain/weights.ts): public like the hook, closed without the capability.
@@ -1751,6 +1754,28 @@ export class GhostyAgent {
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
     return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+  }
+
+  /**
+   * [social] /ask from him in his own Discord server (social/discord.ts): one brain turn, as on Telegram (plain text, no screen),
+   * its reply as text. A draft or an approval it makes waits for him in the app or on Telegram, never answered from Discord.
+   */
+  private async discordTurn(words: string): Promise<string> {
+    const host = this.telegramHost();
+    const slot = await host.claimTurn(20_000);
+    if (!slot) return "I'm busy with something from your phone. Ask me again in a minute.";
+    const out: string[] = [];
+    try {
+      await host.runTurn(words, [], await host.client(), (ev) => {
+        if (ev.t === 'text') out.push(ev.text);
+        else if (ev.t === 'error') out.push(ev.message);
+        else if (ev.t === 'approval') out.push('That needs your approval: answer it in the app or on Telegram.');
+        else if (ev.t === 'cards') for (const c of ev.cards) if (c.kind === 'draft') out.push('The draft waits for your APPROVE in the app (LINKS → its account) or on Telegram.');
+      }, slot.signal);
+    } finally {
+      slot.done();
+    }
+    return out.join('\n\n').trim();
   }
 
   /** [social] What his accounts (social/*) may use: the database, the vault (their keys), his time zone and his pictures. */

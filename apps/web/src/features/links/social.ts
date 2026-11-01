@@ -28,6 +28,8 @@ interface Form {
   linkLabel: string;
   /** Linked: what to ask. */
   ask: string;
+  /** Linked: anything more to show (Discord's Interactions Endpoint URL). */
+  more?: () => (Node | string)[];
 }
 
 /** Each account's form: the steps in plain words and the boxes they fill. */
@@ -64,12 +66,37 @@ export const FORMS: Partial<Record<Account, Form>> = {
     linkLabel: 'LINK MASTODON',
     ask: 'Ask me “what’s on Mastodon?” or “post that on Mastodon” — every post is public and waits for your APPROVE on a card.',
   },
+  discord: {
+    intro: 'My own bot in your own Discord server: /ask there talks to me (only you get an answer), and I post to your channel only what you APPROVE.',
+    link: { href: 'https://discord.com/developers/applications', label: 'OPEN THE DEVELOPER PORTAL ↗' },
+    steps: [
+      'In the Developer Portal: New Application, named what you call me. Bot → Reset Token, and copy the token.',
+      'Installation → Guild Install with bot and applications.commands, and View Channels, Send Messages and Read Message History; open the install link and add the bot to your own server.',
+      'In Discord: Settings → Advanced → Developer Mode on; then right-click your server and the channel → Copy Server ID, Copy Channel ID.',
+      'Paste the token, the Application ID and Public Key (General Information), the server and the channel here, and press LINK DISCORD.',
+      'Last, in General Information → Interactions Endpoint URL: paste the address shown here once linked, and save.',
+    ],
+    fields: [
+      { key: 'token', label: 'Bot token', placeholder: 'the bot’s token', secret: true },
+      { key: 'app', label: 'Application ID', placeholder: 'a long number' },
+      { key: 'key', label: 'Public key', placeholder: '64 letters and digits' },
+      { key: 'guild', label: 'Server ID', placeholder: 'a long number' },
+      { key: 'channel', label: 'Channel ID', placeholder: 'a long number' },
+    ],
+    linkLabel: 'LINK DISCORD',
+    ask: 'Say /ask in your server, or ask me here “what’s on my Discord?” or “post that to Discord” — every post waits for your APPROVE.',
+    more: () => {
+      const url = `${location.origin}/api/discord/interactions`;
+      return [h('div.lab', 'INTERACTIONS ENDPOINT URL'), h('code.socialurl', url), h('div.keyrow', button('COPY THE ADDRESS', () => void navigator.clipboard?.writeText(url).then(() => toast('Copied', 'ok'), () => undefined)))];
+    },
+  },
 };
 
 /** The panels, by their titles as written (the EVERYTHING tab's catalogue reads each one from this source). */
 const makePanels = (): Partial<Record<Account, Panel>> => ({
   bluesky: panel('BLUESKY', { grow: false, cls: 'socialpanel' }),
   mastodon: panel('MASTODON', { grow: false, cls: 'socialpanel' }),
+  discord: panel('DISCORD', { grow: false, cls: 'socialpanel' }),
 });
 
 /** The panels, one per account with a form, and a paint that fills them from GET /api/social. */
@@ -88,6 +115,7 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
       p.body.append(
         row('ACCOUNT', who),
         h('div.note', f.ask),
+        ...(f.more?.() ?? []),
         h('div.keyrow', button('UNLINK', async () => {
           if (!(await confirmSheet(`Unlink ${a.name}?`, `I stop reading and posting as ${who}. What I kept for it is wiped from my vault: to link it again you paste a new one.`, 'UNLINK'))) return;
           await brain.socialUnlink(a.id).catch(() => undefined);

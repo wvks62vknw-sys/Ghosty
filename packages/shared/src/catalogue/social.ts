@@ -55,6 +55,11 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     more: 'You make the account and an application in its Preferences → Development; I check the token and keep it in my vault. Every post is public and waits for your APPROVE; I read your home timeline when you ask.',
     say: ['Link Mastodon'], scene: ['talking'], cat: 'talk', needs: ['link:mastodon'], since: SINCE,
   },
+  'panel:links:DISCORD': {
+    name: 'My own bot on Discord', line: 'You can give me a bot in your own Discord server: /ask there talks to me, and only you get the answer.',
+    more: 'You make the bot in Discord’s Developer Portal and add it to your server; I check every request’s signature first, answer only you, and give anyone else one polite line. I post to your channel only what you APPROVE.',
+    say: ['Link Discord'], scene: ['talking'], cat: 'talk', needs: ['link:discord'], since: SINCE,
+  },
   'act:social:status': {
     name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
     more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',

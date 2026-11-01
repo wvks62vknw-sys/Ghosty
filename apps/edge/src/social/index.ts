@@ -20,6 +20,7 @@ import type { ImageKv } from '../lens';
 import { addDraft, approveDraft, editDraft, findDraft, loadDrafts, refuseDraft, sentSince, type Sent } from './queue';
 import { BLUESKY, blueskyDigest } from './bluesky';
 import { MASTODON } from './mastodon';
+import { DISCORD } from './discord';
 
 export interface SocialDeps {
   storage: DurableObjectStorage;
@@ -48,11 +49,24 @@ export interface AccountApi {
 }
 
 /** The accounts this brain can use. */
-export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY, mastodon: MASTODON };
+export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY, mastodon: MASTODON, discord: DISCORD };
 
 /** The morning digest's passages from his accounts (library/digest.ts `more`): Bluesky's timeline and search, as LEADs. */
 export async function socialDigest(d: SocialDeps): Promise<{ source: string; tier: 'lead'; text: string }[]> {
-  return blueskyDigest(d).catch(() => []);
+  return [...(await blueskyDigest(d).catch(() => [])), ...(await discordDigest(d).catch(() => []))];
+}
+
+/**
+ * His Discord channel's last messages for the digest, if the bot may read them (and their words only with the Message
+ * Content intent): a LEAD, with who said them left out — the people in his server are private people.
+ */
+async function discordDigest(d: SocialDeps): Promise<{ source: string; tier: 'lead'; text: string }[]> {
+  if (!(await linkedAs(d, 'discord'))) return [];
+  const said = ((await DISCORD.read!(d, 20).catch(() => null)) ?? []).filter((p) => !/^\(its words are hidden/.test(p.text));
+  if (!said.length) return [];
+  const when = (ms: number) => new Intl.DateTimeFormat('en-GB', { timeZone: d.tz, hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }).format(ms);
+  const day = localDay(d.now(), 'UTC');
+  return [{ source: 'Discord', tier: 'lead', text: `Fresh knowledge ${day} — your Discord channel's last messages (who said them left out; leads, never proof):\n${said.slice(0, 12).map((p) => `- ${when(p.at)} — ${p.text.replace(/\s+/g, ' ').slice(0, 240)}`).join('\n')}` }];
 }
 
 /** The last read of an account's timeline or a search, kept for "what's on Bluesky?" when it cannot be read again now. */

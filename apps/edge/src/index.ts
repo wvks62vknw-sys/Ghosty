@@ -152,6 +152,9 @@ export default {
     // Telegram's webhook (telegram.ts): Telegram itself calls it, so no owner sign-in — the brain
     // checks the secret it gave Telegram when it set the webhook, and turns away anything else.
     if (url.pathname === '/api/telegram/hook' && req.method === 'POST') return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
+    // [social] Discord's interactions for his own bot (social/discord.ts): Discord calls it, so no owner sign-in — the brain
+    // checks Discord's Ed25519 signature with his application's public key before it reads a word, and turns away the rest.
+    if (url.pathname === '/api/discord/interactions' && req.method === 'POST') return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
     // [selftrain] The weekly Kaggle notebook's hook (selftrain/cycle.ts): Kaggle's machine calls it, so no owner
     // sign-in — the brain turns away anything without this week's one-time ticket.
     if (url.pathname === '/api/training/hook' && (req.method === 'POST' || req.method === 'GET')) return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
