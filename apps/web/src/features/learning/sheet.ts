@@ -50,7 +50,8 @@ import { libraryPassage, libraryRaw } from './library';
 import { hush, onVoices, sayIn, voiceReport } from './voices';
 
 export type LearnWhat = 'words' | 'review' | 'draw' | 'typing' | 'hand' | 'readfast' | 'memory' | 'maths' | 'spelling' | 'firstaid' | 'plan' | 'progress';
-const VIEWS: { id: LearnWhat; label: string }[] = [
+/** The sheet's pages (its row of buttons, and the LEARNING screen's panels: features/learning/index.ts). */
+export const LEARN_VIEWS: { id: LearnWhat; label: string }[] = [
   { id: 'words', label: 'Words' },
   { id: 'review', label: 'Cards' },
   { id: 'draw', label: 'Draw' },
@@ -151,7 +152,7 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
 // ---------------------------------------------------------------- the sheet
 
 export async function openLearning(what: string, args: Record<string, unknown> = {}): Promise<void> {
-  const v: LearnWhat = VIEWS.find((x) => x.id === what)?.id ?? 'words';
+  const v: LearnWhat = LEARN_VIEWS.find((x) => x.id === what)?.id ?? 'words';
   openSheet?.close();
   const win = window as unknown as { __ghosty?: Record<string, unknown> };
   if (win.__ghosty) win.__ghosty.learning = learnState;
@@ -170,22 +171,9 @@ export async function openLearning(what: string, args: Record<string, unknown> =
     learnState.logged = '';
     pk.dataset.screen = view;
     for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
-    body.replaceChildren(
-      view === 'words' ? wordsView(a)
-      : view === 'review' ? reviewView(a)
-      : view === 'draw' ? drawView(a)
-      : view === 'typing' ? typingView(a)
-      : view === 'hand' ? handView(a)
-      : view === 'readfast' ? readView(a)
-      : view === 'memory' ? memoryView(a)
-      : view === 'maths' ? mathsView()
-      : view === 'spelling' ? spellingView()
-      : view === 'firstaid' ? firstAidView(a)
-      : view === 'plan' ? planView()
-      : progressView(),
-    );
+    body.replaceChildren(viewOf(view, a));
   };
-  for (const t of VIEWS) {
+  for (const t of LEARN_VIEWS) {
     const b = button(t.label, () => show(t.id));
     b.dataset.view = t.id;
     b.setAttribute('aria-label', `${t.label} page`);
@@ -197,6 +185,46 @@ export async function openLearning(what: string, args: Record<string, unknown> =
     learnState.open = '';
   });
   show(v, args);
+}
+
+/** One page, by its own function (what it starts is put away by the sheet's `stop`, or by learningView's). */
+function viewOf(view: LearnWhat, a: Record<string, unknown>): HTMLElement {
+  return view === 'words' ? wordsView(a)
+    : view === 'review' ? reviewView(a)
+    : view === 'draw' ? drawView(a)
+    : view === 'typing' ? typingView(a)
+    : view === 'hand' ? handView(a)
+    : view === 'readfast' ? readView(a)
+    : view === 'memory' ? memoryView(a)
+    : view === 'maths' ? mathsView()
+    : view === 'spelling' ? spellingView()
+    : view === 'firstaid' ? firstAidView(a)
+    : view === 'plan' ? planView()
+    : progressView();
+}
+
+/**
+ * One page of the sheet with its own way to stop (the LEARNING screen's panels, features/learning/index.ts): what the page
+ * starts (its timers, the voices' watch) is kept apart from the sheet's, so putting one page away stops only that one.
+ */
+export function learningView(view: LearnWhat, a: Record<string, unknown> = {}): { el: HTMLElement; stop(): void } {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.learning = learnState;
+  const theirs = cleanups;
+  cleanups = [];
+  try {
+    const el = viewOf(view, a);
+    const mine = cleanups;
+    return {
+      el,
+      stop: () => {
+        for (const c of mine.splice(0)) c();
+        hush();
+      },
+    };
+  } finally {
+    cleanups = theirs;
+  }
 }
 
 // ---------------------------------------------------------------- WORDS

@@ -12,7 +12,9 @@ import { brain } from '../../api/brain';
 import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 
 export type KitchenWhat = 'timers' | 'shopping' | 'plan';
-const TITLES: Record<KitchenWhat, string> = { timers: 'TIMERS', shopping: 'SHOPPING LIST', plan: 'MEAL PLAN' };
+/** Each sheet's name, as its title and as its panel on the KITCHEN screen (features/kitchen/index.ts). */
+export const KITCHEN_TITLES: Record<KitchenWhat, string> = { timers: 'TIMERS', shopping: 'SHOPPING LIST', plan: 'MEAL PLAN' };
+const TITLES = KITCHEN_TITLES;
 
 export const kitchenState = {
   open: '' as '' | KitchenWhat,
@@ -28,8 +30,7 @@ let stopNow: (() => void) | null = null;
 export async function openKitchen(what: string): Promise<void> {
   const w = (Object.keys(TITLES) as KitchenWhat[]).includes(what as KitchenWhat) ? (what as KitchenWhat) : 'timers';
   open?.close();
-  expose();
-  const s = w === 'timers' ? timersSheet() : w === 'shopping' ? shoppingSheet() : planSheet();
+  const s = kitchenScreen(w);
   kitchenState.open = w;
   stopNow = s.stop;
   open = modal(TITLES[w], h('div.pk', { dataset: { pack: 'kitchen', screen: w } }, s.el), () => {
@@ -38,6 +39,12 @@ export async function openKitchen(what: string): Promise<void> {
     open = null;
     kitchenState.open = '';
   });
+}
+
+/** One sheet's page, made by its own function (the sheet's, and the KITCHEN screen's panels). */
+export function kitchenScreen(w: KitchenWhat): { el: HTMLElement; stop(): void } {
+  expose();
+  return w === 'timers' ? timersSheet() : w === 'shopping' ? shoppingSheet() : planSheet();
 }
 
 /** kitchen_timer: the brain's timers (or a stop) for this phone. */

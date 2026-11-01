@@ -43,6 +43,9 @@ export const TINT: Record<string, string> = {
   learn: '#30d158', gym: '#ff375f', school: '#ffd60a', library: '#a2845e',
   agenda: '#ff453a', markets: '#00c7be', threats: '#ffd60a', radio: '#ff6482',
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
+  // [tabs] the screens the sheets became (BRIEF-TABS 2)
+  money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
@@ -165,9 +168,6 @@ function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void)
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
 
-const CONVERT_GLYPH = '<path d="M4 7.5h12.5l-3-3M20 16.5H7.5l3 3"/>';
-const DOCS_GLYPH = '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7H18M9 11h6M9 14.5h6M9 18h4"/>';
-
 /** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
 export const HUB_MAX = 6;
 
@@ -176,8 +176,8 @@ type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () 
 function areaTools(a: Area): Tool[] {
   const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
   if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
-  // [reste] MAKE's two sheets (BRIEF-REST-E): the converter, and the documents
-  if (a.id === 'make') tools.push(['convert', 'Convert', CONVERT_GLYPH, null, () => void import('../convert/sheet').then((s) => s.openConvert())], ['docs', 'Documents', DOCS_GLYPH, null, () => void import('../docs/sheet').then((s) => s.openDocs())]);
+  // ([reste] MAKE's two sheets, the converter and the documents, were added here by hand: since 1 Nov they are screens of
+  // their own in MAKE's tabs, with the house: BRIEF-TABS 2)
   return tools;
 }
 

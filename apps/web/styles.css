@@ -5815,3 +5815,9 @@ canvas.buildplan { display: block; max-width: 100%; }
 .pkpass:empty { display: none; }
 /* (the page he is on, in the tabs of the outside, home and learning sheets and in their toggles: said in the label for VoiceOver, shown here) */
 .pkrow[role="group"] button[aria-pressed="true"] { background: rgba(var(--accr), .22); box-shadow: inset 0 0 0 1px rgba(var(--accr), .55); color: var(--fg); }
+
+/* ---------------------------------------------------------------- [tabs] EVERY FEATURE A SCREEN (BRIEF-TABS; OWNER-ISSUES 119)
+   A sheet's pages on a screen of their own (ui/sheetpage.ts): the panel is the page's frame, so the sheet's own padding and
+   scroller step aside (the page scrolls as one, under the pills). */
+.sheetpg .pn > .bd > :is(.pk, .cvsheet, .dcsheet) { flex: none; padding: 0; overflow: visible; }
+.sheetpg .pn > .bd > .house { padding: 0; }

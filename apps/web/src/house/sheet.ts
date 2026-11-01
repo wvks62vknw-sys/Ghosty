@@ -12,6 +12,8 @@ import { HOUSE_STEPS, stateWords, type HouseEntity } from '../../../../packages/
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
 let open: { close(): void } | null = null;
+/** The sheet's name (its title, and its panel on the HOUSE screen: features/house/index.ts). */
+export const HOUSE_TITLE = 'HOUSE';
 
 const VERBS: Record<string, string> = { turn_on: 'turn on', turn_off: 'turn off', toggle: 'switch', open_cover: 'open', close_cover: 'close', stop_cover: 'stop', set_cover_position: 'move', lock: 'lock', unlock: 'unlock', open: 'open', alarm_disarm: 'disarm', alarm_arm_home: 'arm', alarm_arm_away: 'arm', media_play: 'play', media_pause: 'pause', set_temperature: 'set', set_hvac_mode: 'set', start: 'start', return_to_base: 'send home' };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -160,12 +162,18 @@ function paint(root: HTMLElement): void {
 /** Open the HOUSE sheet (read fresh). */
 export function openHouse(): void {
   if (open) return void loadHouse(true);
+  const s = houseScreen();
+  open = modal(HOUSE_TITLE, s.el, () => {
+    s.stop();
+    open = null;
+  });
+}
+
+/** The house, read fresh and kept up to date while it is shown (the sheet's page, and the HOUSE screen's: features/house/index.ts). */
+export function houseScreen(): { el: HTMLElement; stop(): void } {
   const root = h('div.house');
   const off = houseNow.subscribe(() => paint(root));
   paint(root);
-  open = modal('HOUSE', root, () => {
-    off();
-    open = null;
-  });
   void loadHouse(true);
+  return { el: root, stop: off };
 }

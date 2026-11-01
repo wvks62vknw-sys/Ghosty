@@ -11,7 +11,8 @@ import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 
 export type OutsideWhat = 'safewalk' | 'parking' | 'toilets' | 'cash' | 'refill' | 'open' | 'car' | 'lost' | 'split';
-type View = 'safewalk' | 'nearby' | 'car' | 'lost' | 'split';
+export type OutsideView = 'safewalk' | 'nearby' | 'car' | 'lost' | 'split';
+type View = OutsideView;
 type Near = 'parking' | 'toilets' | 'cash' | 'refill' | 'open';
 interface Pos {
   lat: number;
@@ -41,14 +42,15 @@ interface Walk {
   routes: Route[];
   best: number;
 }
-const NEARS: { id: Near; label: string }[] = [
+export const NEARS: { id: Near; label: string }[] = [
   { id: 'parking', label: 'Car parks' },
   { id: 'toilets', label: 'Toilets' },
   { id: 'cash', label: 'Cash' },
   { id: 'refill', label: 'Water' },
   { id: 'open', label: 'Open now' },
 ];
-const VIEWS: { id: View; label: string }[] = [
+/** The sheet's pages (its row of buttons, and the OUTSIDE screen's pills: features/outside/index.ts). */
+export const OUTSIDE_VIEWS: { id: View; label: string }[] = [
   { id: 'safewalk', label: 'Walk' },
   { id: 'nearby', label: 'Nearby' },
   { id: 'car', label: 'My car' },
@@ -75,9 +77,9 @@ export async function openOutside(what: string, args: Record<string, unknown> = 
     outsideState.open = view;
     pk.dataset.screen = view;
     for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
-    body.replaceChildren(view === 'safewalk' ? walkView(args) : view === 'nearby' ? nearView(args) : view === 'car' ? carView() : view === 'lost' ? lostView() : splitView());
+    body.replaceChildren(outsideView(view, args));
   };
-  for (const t of VIEWS) {
+  for (const t of OUTSIDE_VIEWS) {
     const b = button(t.label, () => show(t.id), '');
     b.dataset.view = t.id;
     b.setAttribute('aria-label', `${t.label} page`);
@@ -88,6 +90,13 @@ export async function openOutside(what: string, args: Record<string, unknown> = 
     outsideState.open = '';
   });
   show(v.view);
+}
+
+/** One page of the sheet, made by its own function (the sheet's, and the OUTSIDE screen's panels). */
+export function outsideView(view: View, args: Record<string, unknown> = {}): HTMLElement {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.outside = outsideState;
+  return view === 'safewalk' ? walkView(args) : view === 'nearby' ? nearView(args) : view === 'car' ? carView() : view === 'lost' ? lostView() : splitView();
 }
 
 async function run(action: string, a: Record<string, unknown>): Promise<{ text: string; data?: unknown }> {

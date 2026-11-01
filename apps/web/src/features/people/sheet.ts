@@ -31,7 +31,9 @@ interface PlanRow {
   maybe: string[];
   asked: string[];
 }
-const TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN' };
+/** Each sheet's name, as its title and as its panel on the PEOPLE screen (features/people/index.ts). */
+export const PEOPLE_TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN' };
+const TITLES = PEOPLE_TITLES;
 
 export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '' };
 
@@ -47,14 +49,19 @@ const dayOf = (iso: string): string => {
 export async function openPeople(what: string): Promise<void> {
   const w: PeopleWhat = what === 'plan' ? 'plan' : 'who';
   open?.close();
-  const win = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (win.__ghosty) win.__ghosty.people = peopleState;
-  const el = w === 'plan' ? planSheet() : whoSheet();
+  const { el } = peopleScreen(w);
   peopleState.open = w;
   open = modal(TITLES[w], h('div.pk', { dataset: { pack: 'people', screen: w } }, el), () => {
     open = null;
     peopleState.open = '';
   });
+}
+
+/** One sheet's page, made by its own function (the sheet's, and the PEOPLE screen's panels). */
+export function peopleScreen(w: PeopleWhat): { el: HTMLElement; stop(): void } {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.people = peopleState;
+  return { el: w === 'plan' ? planSheet() : whoSheet(), stop: () => undefined };
 }
 
 async function say(action: string, args: Record<string, unknown>): Promise<{ text: string; data?: unknown }> {

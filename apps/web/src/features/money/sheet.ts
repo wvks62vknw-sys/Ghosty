@@ -11,8 +11,17 @@ import { button, modal } from '../../ui/components';
 import { statementTurn } from '../../assistant/packs';
 
 export const moneyState = { open: false, read: 0, reply: '' };
+/** The sheet's one page, by name (its title, and its panel on the MONEY screen: features/money/index.ts). */
+export const STATEMENT_TITLE = 'PASTE A STATEMENT';
 
 export function openMoney(): void {
+  const s = statementScreen();
+  moneyState.open = true;
+  modal(STATEMENT_TITLE, h('div.pk', { dataset: { pack: 'money', screen: 'statement' } }, s.el), () => (moneyState.open = false));
+}
+
+/** PASTE A STATEMENT's page (the sheet's, and the MONEY screen's: features/money/index.ts). */
+export function statementScreen(): { el: HTMLElement; stop(): void } {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   if (w.__ghosty) w.__ghosty.money = moneyState;
   const box = h('textarea.pkpaste', { rows: 8, placeholder: 'Paste the statement here: its CSV, or the text copied out of its PDF.', 'aria-label': 'Your statement, pasted' }) as HTMLTextAreaElement;
@@ -43,6 +52,5 @@ export function openMoney(): void {
   go.setAttribute('aria-label', 'Read the pasted statement');
   const pick = button('Pick a file', () => file.click());
   pick.setAttribute('aria-label', 'Pick the statement as a CSV or PDF file');
-  moneyState.open = true;
-  modal('PASTE A STATEMENT', h('div.pk', { dataset: { pack: 'money', screen: 'statement' } }, h('div.pkcol', box, file, h('div.pkrow', go, pick), status)), () => (moneyState.open = false));
+  return { el: h('div.pkcol', box, file, h('div.pkrow', go, pick), status), stop: () => undefined };
 }
