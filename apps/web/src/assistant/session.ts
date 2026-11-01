@@ -25,6 +25,7 @@ import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
+import { REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
@@ -496,7 +497,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     return;
   }
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
-  if (/^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i.test(t)) {
+  if (REBOOT.test(t)) {
     await import('../shell/boot').then((b) => b.reboot());
     return;
   }

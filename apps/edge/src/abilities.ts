@@ -12,7 +12,11 @@
  *   POST /abilities/offered  {id}  → remembered (with when): offered in context once, never again; one a day at most
  */
 import { askOf, iCan, patternWords, type Ability, type AbilitiesInfo, type AbilityCat, type Offered } from '../../../packages/shared/src/abilities';
-import { TOOL_GROUPS, type ToolGroup } from './tools';
+import type { CatItem } from '../../../packages/shared/src/catalogue';
+import { DIRECT_ASKS, RAISED_LINES, SMALL_TALK } from './direct';
+import { JOB_KINDS } from './schedule';
+import { TELEGRAM_CAN, TELEGRAM_COMMANDS } from './tghelp';
+import { TOOL_GROUPS, TOOLS, type ToolGroup } from './tools';
 import { loadRoadmap } from './tools/evolve';
 import { addOwnerGoal, loadIdeas } from './upgrades';
 
@@ -98,6 +102,36 @@ export function brainAbilities(has: (name: string) => boolean, groups: ToolGroup
   return out;
 }
 
+/**
+ * THE EVERYTHING TAB's brain side (BRIEF-EVERYTHING): every item of the brain's own registries, for the phone to join with
+ * the catalogue's words (packages/shared/src/catalogue.ts) — every tool in TOOLS under its group, Telegram's commands and
+ * what it does there (tghelp.ts), the asks answered with no model (direct.ts DIRECT_ASKS, SMALL_TALK, RAISED_LINES) and
+ * every kind of job on the clock (schedule.ts JOB_KINDS). A tool whose group needs a key that is missing says so (`off`).
+ */
+export function brainItems(has: (name: string) => boolean, groups: ToolGroup[] = TOOL_GROUPS): CatItem[] {
+  const groupOf = new Map<string, string>();
+  for (const g of groups) for (const t of g.tools) if (!groupOf.has(t.name)) groupOf.set(t.name, g.name);
+  const tools: CatItem[] = TOOLS.map((t) => {
+    const group = groupOf.get(t.name) ?? 'extra';
+    const need = GROUP_NEEDS[group];
+    const off = need && !need.any.some(has) ? need.where : undefined;
+    return { id: `tool:${t.name}`, kind: 'tool', group, cat: GROUP_CAT[group] ?? 'do', ...(off && need ? { off, offGo: need.open } : {}) };
+  });
+  return [
+    ...tools,
+    ...TELEGRAM_COMMANDS.map((c): CatItem => ({ id: `telegram:${c.cmd}`, kind: 'telegram', cat: 'talk', since: '2026-10-19' })),
+    ...TELEGRAM_CAN.map((c): CatItem => ({ id: `telegram:${c.id}`, kind: 'telegram', cat: 'talk', since: c.id === 'forward' ? '2026-10-31' : '2026-10-19' })),
+    ...Object.keys(DIRECT_ASKS).map((k): CatItem => ({ id: `say:${k}`, kind: 'say', cat: 'talk', since: '2026-10-19' })),
+    ...[...Object.keys(SMALL_TALK), ...Object.keys(RAISED_LINES)].map((k): CatItem => ({ id: `say:${k}`, kind: 'say', cat: 'talk', since: '2026-10-31' })),
+    ...JOB_KINDS.map((k): CatItem => ({ id: `job:${k}`, kind: 'job', cat: 'do', since: JOB_SINCE[k] })),
+  ];
+}
+/** When each kind of job arrived (STATUS.md's batches; coarse). */
+const JOB_SINCE: Record<(typeof JOB_KINDS)[number], string> = {
+  reminder: '2026-10-15', task: '2026-10-15', verify: '2026-10-15', study: '2026-10-15', reflect: '2026-10-18', digest: '2026-10-18', project: '2026-10-17',
+  upgrade: '2026-10-24', revise: '2026-10-17', train: '2026-10-18', guard: '2026-10-31', walk: '2026-10-31', foresee: '2026-10-31',
+};
+
 export interface AbilitiesDeps {
   storage: DurableObjectStorage;
   /** A key or a link the vault holds (a vault that cannot be read counts as missing). */
@@ -123,6 +157,7 @@ export async function abilitiesInfo(d: AbilitiesDeps): Promise<AbilitiesInfo> {
   ]);
   return {
     abilities: brainAbilities((n) => held.has(n)),
+    catalogue: brainItems((n) => held.has(n)),
     goals: ideas.filter((i) => i.from === 'owner').map((i) => ({ id: i.id, ask: i.ask ?? i.title, title: i.title, at: i.at })),
     roadmap: { goal: road?.goal ?? '', steps: (road?.steps ?? []).filter((s) => s.status !== 'done').map((s) => s.title) },
     offered,

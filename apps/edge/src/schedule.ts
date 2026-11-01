@@ -14,6 +14,13 @@ import type { NotifyKind } from './notifyprefs';
 import type { Vault } from './kernel/vault';
 import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
+/**
+ * Every kind of job the brain keeps on its clock: the registry `Job['kind']` is made from (the abilities catalogue lists
+ * each one, the ones he asks for and the ones behind the scenes: packages/shared/src/catalogue).
+ */
+export const JOB_KINDS = ['reminder', 'task', 'verify', 'study', 'reflect', 'digest', 'project', 'upgrade', 'revise', 'train', 'guard', 'walk', 'foresee'] as const;
+export type JobKind = (typeof JOB_KINDS)[number];
+
 export interface Job {
   id: string;
   /**
@@ -25,7 +32,7 @@ export interface Job {
    * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts);
    * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts)
    */
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train' | 'guard' | 'walk' | 'foresee';
+  kind: JobKind;
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;

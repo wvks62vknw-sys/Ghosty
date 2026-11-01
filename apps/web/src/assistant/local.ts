@@ -18,10 +18,10 @@
  *    same solvers.
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
-import { bestAsk, canYouAsked, dayLines, searchAbilities, todayAsked, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
+import { bestAsk, canYouAsked, dayLines, searchAbilities, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
 import { ANSWER_DAYS, foresightAsked, foresightWords, notedWords, rightSaid } from '../../../../packages/shared/src/foresight';
 import { loadForesight, resolveForesight } from '../state/foresight';
-import { machineAsked, machineState } from '../features/eye/machine';
+import { machineState } from '../features/eye/machine';
 import { estimateText, workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { openWorkbench } from '../features/workbench/index';
 import { PANELS as BENCH } from '../features/workbench/panels';
@@ -30,6 +30,7 @@ import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
+import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
@@ -145,64 +146,89 @@ function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?:
 /** A read of the brain that gives up after six seconds (null), so the chat never hangs on it. */
 const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
-export async function localTurn(text: string, opts: { voice?: boolean; private?: boolean } = {}): Promise<boolean> {
+type Opts = { voice?: boolean; private?: boolean };
+
+/**
+ * Each table's answer, by its id in assistant/phrases.ts LOCAL_ASKS (the order they are tried in): true when it answered,
+ * false to let the next table try (the Lens's "what can you see?", "you were right" with no question open, a bare "why?"
+ * after a reply that ran nothing).
+ */
+const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
-  if (machineAsked(text) && !(ui.get().tab === 'lens' && /\bsee\b/i.test(text))) {
+  async machine(text, opts) {
+    if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;
     location.hash = 'eye?machine';
     const t0 = Date.now();
     while (!(machineState.on && machineState.ready) && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
     return answer(text, machineState.line || 'I couldn’t open God’s Eye just now. Try MACHINE VIEW in its bar.', { kind: 'machine' }, opts);
-  }
+  },
   // the Workbench: a panel opened, or his problem filled in and answered on the phone (no model, no request)
-  const bench = workbenchAsked(text);
-  if (bench) {
+  workbench(text, opts) {
+    const bench = workbenchAsked(text);
+    if (!bench) return false;
     const e = openWorkbench(bench.panel, bench.problem);
     const title = BENCH.find((p) => p.id === bench.panel)?.title;
     const name = bench.panel === 'tunnel' ? 'the wind tunnel' : title ? title.toLowerCase() : '';
     return answer(text, e ? estimateText(e) : name ? `The Workbench is open on ${name}. Change any number and the answer follows; every one is a first estimate, never certified.` : 'The Workbench is open: beams, gears, engines, flight, heat, sun and circuits. Every answer is a first estimate, never certified.', { kind: 'workbench' }, opts);
-  }
-  const fore = foresightAsked(text);
-  if (fore) {
+  },
+  async foresight(text, opts) {
+    const fore = foresightAsked(text);
+    if (!fore) return false;
     const info = await within(loadForesight());
     return answer(text, info ? foresightWords(fore, info) : 'I can’t reach my brain right now, so I can’t read my predictions.', { kind: 'foresight' }, opts);
-  }
-  const verdict = rightSaid(text);
-  if (verdict) {
+  },
+  async right(text, opts) {
+    const verdict = rightSaid(text);
+    if (!verdict) return false;
     // only while one of his questions is open and under a week old; otherwise the words go to the brain as ever
     const info = await within(loadForesight(true));
     const open = info?.items.filter((p) => p.kind === 'answer' && !p.outcome && Date.now() - p.at < ANSWER_DAYS * 86_400_000).sort((a, b) => b.at - a.at)[0];
-    if (open) {
-      const done = await within(resolveForesight(open.id, verdict.right));
-      return answer(text, done ? notedWords(verdict.right) : 'I couldn’t reach my brain to note that. Try again when you’re back online.', { kind: 'foresight' }, opts);
-    }
-  }
-  if (todayAsked(text)) {
-    const tz = timeZone;
-    const [brainSide, phone] = await Promise.all([
-      Promise.race([brain.today(tz).then((r) => r.items), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null),
-      phoneDay(),
-    ]);
-    const lines = dayLines([...(brainSide ?? []), ...phone], tz);
-    if (!brainSide) lines.push('I can’t reach my brain right now, so this is only what this phone did.');
-    const reply = lines.join('\n');
-    add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
-    add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'today' }, ...(opts.private ? { private: true } : {}) });
-    chat.set({ live: reply });
-    if (opts.voice) void speak(reply).catch(() => undefined);
-    return true;
-  }
+    if (!open) return false;
+    const done = await within(resolveForesight(open.id, verdict.right));
+    return answer(text, done ? notedWords(verdict.right) : 'I couldn’t reach my brain to note that. Try again when you’re back online.', { kind: 'foresight' }, opts);
+  },
+  today: (text, opts) => todayTurn(text, opts),
+  why: (text, opts) => whyTurn(text, opts),
+  canyou: (text, opts) => canYouTurn(text, opts),
+};
+
+/** The questions about Ghosty himself, answered here with no model: the first table that matches and has an answer. */
+export async function localTurn(text: string, opts: Opts = {}): Promise<boolean> {
+  for (const p of LOCAL_ASKS) if (p.test(text) && (await ANSWERS[p.id](text, opts))) return true;
+  return false;
+}
+
+async function todayTurn(text: string, opts: Opts): Promise<boolean> {
+  const tz = timeZone;
+  const [brainSide, phone] = await Promise.all([
+    Promise.race([brain.today(tz).then((r) => r.items), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null),
+    phoneDay(),
+  ]);
+  const lines = dayLines([...(brainSide ?? []), ...phone], tz);
+  if (!brainSide) lines.push('I can’t reach my brain right now, so this is only what this phone did.');
+  const reply = lines.join('\n');
+  add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
+  add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'today' }, ...(opts.private ? { private: true } : {}) });
+  chat.set({ live: reply });
+  if (opts.voice) void speak(reply).catch(() => undefined);
+  return true;
+}
+
+async function whyTurn(text: string, opts: Opts): Promise<boolean> {
   const why = whyAsked(text);
-  if (why) {
-    const at = lastReplyAt();
-    const r = at ? await resolveTrail(at) : null;
-    if (!r || (why === 'bare' && !r.trail.steps.length)) return false;
-    const reply = ['Why I did that:', ...whyLines(r.trail, allAbilities()), ...(r.note ? [r.note] : [])].join('\n');
-    add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
-    add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'why' }, ...(opts.private ? { private: true } : {}) });
-    chat.set({ live: reply });
-    if (opts.voice) void speak(reply).catch(() => undefined);
-    return true;
-  }
+  if (!why) return false;
+  const at = lastReplyAt();
+  const r = at ? await resolveTrail(at) : null;
+  if (!r || (why === 'bare' && !r.trail.steps.length)) return false;
+  const reply = ['Why I did that:', ...whyLines(r.trail, allAbilities()), ...(r.note ? [r.note] : [])].join('\n');
+  add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
+  add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local: { kind: 'why' }, ...(opts.private ? { private: true } : {}) });
+  chat.set({ live: reply });
+  if (opts.voice) void speak(reply).catch(() => undefined);
+  return true;
+}
+
+async function canYouTurn(text: string, opts: Opts): Promise<boolean> {
   const thing = canYouAsked(text);
   if (thing === null) return false;
   // the brain's abilities as last heard (kept on this phone); a fresh look in the background for next time

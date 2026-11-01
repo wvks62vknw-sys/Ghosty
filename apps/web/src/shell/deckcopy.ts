@@ -272,8 +272,8 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'Abilities',
     promise: 'Everything he can do, and what he learns',
     can: [
-      { text: 'Ask “can you…?” and he says, or learns it', act: { open: 'abilities', panel: 'CAN YOU' } },
-      { text: 'Every ability, each with GO to try it', act: { open: 'abilities' } },
+      { text: 'Search it all: “train”, “scam”, “birthday”', act: { open: 'abilities', panel: 'CAN YOU' } },
+      { text: 'Tap any one: it explains itself, then try it', act: { open: 'abilities' } },
       { text: 'What he is learning for you', act: { open: 'abilities', panel: 'LEARNING' } },
       { text: 'Anything he still needs a key for', act: { open: 'system', panel: 'KEYS' } },
     ],
