@@ -106,6 +106,9 @@ export async function personFor(d: { storage: DurableObjectStorage; vault: Pick<
  * own, its card offer); a plate on its own → the offer of its car ("That's a plate. Want the car?"), or the car he named.
  */
 export async function carTurn(d: { storage: DurableObjectStorage; vault: Pick<Vault, 'get'> }, text: string): Promise<{ text: string; cards: Card[] } | null> {
+  // (no plate, nothing to do: the database is not read for an ordinary message)
+  const plates = platesIn(text);
+  if (!plates.length) return null;
   const known = (await knownPeople(d.storage)).map((n) => n.toLowerCase());
   const car = carSaid(text, known);
   if (car) {
@@ -115,7 +118,6 @@ export async function carTurn(d: { storage: DurableObjectStorage; vault: Pick<Va
     const person = await personFor(d, kept.whose);
     return { text: `Kept: ${kept.whose}'s car is ${kept.plate}${nick}. It's under ${kept.whose} in Settings → Guardian → People.`, cards: person ? [person] : [] };
   }
-  const plates = platesIn(text);
   if (plates.length !== 1 || bareOf(text) !== plates[0]) return null;
   const named = (await listCars(d.storage)).find((c) => normalisePlate(c.plate) === plates[0]);
   return { text: named ? `That's ${carName(named).replace(/^Your\b/, 'your')}.` : "That's a plate. Want the car?", cards: [plateOffer(plates[0]!, named)] };

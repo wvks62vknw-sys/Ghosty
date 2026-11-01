@@ -121,7 +121,7 @@ check(kept.cars?.length === 1 && kept.cars[0].whose === 'Dad' && kept.cars[0].pl
 const memory = await api('/memory');
 const fact = (memory.facts ?? memory.items ?? []).find((f) => /RX15 KNG/.test(f.text ?? ''));
 check(fact?.text === "Dad's car: RX15 KNG" && fact.locked === true, `the memory line: ${JSON.stringify(fact ?? memory).slice(0, 300)}`);
-// …and GUARDIAN → PEOPLE lists it under Dad
+// and GUARDIAN → PEOPLE lists it under Dad
 await page.evaluate(() => (location.hash = 'settings'));
 await openPanel(page, 'settings', 'GUARDIAN');
 await until(() => /RX15 KNG/.test(document.querySelector('#pg-settings .guardperson[data-name="Dad"]')?.textContent ?? ''), null, 10000, `GUARDIAN → PEOPLE does not list Dad's car: "${await page.evaluate(() => document.querySelector('#pg-settings .guardpeople')?.textContent ?? '(no PEOPLE)')}"`);

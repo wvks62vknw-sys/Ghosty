@@ -414,6 +414,14 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
   const queue = (fn: () => Promise<void>) => void (chain = chain.then(fn).catch(() => undefined));
   let first = true;
   const replies: string[] = [];
+  // [cards] a tool's cards come before the reply that uses them: held, and sent as text lines after it
+  let cards: string[] = [];
+  const sendCards = () => {
+    if (!cards.length) return;
+    const lines = cards.join('\n');
+    cards = [];
+    queue(() => tgSend(token, chatId, lines));
+  };
   return {
     emit(ev) {
       if (ev.t === 'text') {
@@ -421,6 +429,7 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
         first = false;
         replies.push(ev.text);
         queue(() => tgReply(token, chatId, text, origin));
+        sendCards();
       } else if (ev.t === 'approval') {
         queue(async () => {
           await tgApproval(token, chatId, ev.reason, ev.id);
@@ -428,9 +437,15 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
         });
       }
       else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
-      // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText)
-      else if (ev.t === 'cards' && ev.cards.length) queue(() => tgSend(token, chatId, ev.cards.map((c) => `▸ ${cardText(c, origin)}`).join('\n')));
-      else if (ev.t === 'error') queue(() => tgSend(token, chatId, ev.message));
+      // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText); a card that
+      // came after the reply (the car he named) goes at once, one that came before it waits for it
+      else if (ev.t === 'cards' && ev.cards.length) {
+        cards.push(...ev.cards.map((c) => `▸ ${cardText(c, origin)}`));
+        if (replies.length) sendCards();
+      } else if (ev.t === 'error') {
+        queue(() => tgSend(token, chatId, ev.message));
+        sendCards();
+      } else if (ev.t === 'done') sendCards();
     },
     flush: () => chain,
     said: () => replies.join('\n\n'),
