@@ -303,7 +303,7 @@ export const APP_1: Record<string, CatValue> = {
   // ---- the phrases answered on the phone with no model
   'phrase:walk': {
     name: 'Walk me home', line: 'You can say "walk me home" and I check you got home, then message your named person if you did not.',
-    more: 'I ask "Home?" at your walking time and again ten minutes later; five minutes on with no answer, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',
+    more: 'I ask "Home?" at your walking time and again ten minutes later; if there is still no answer five minutes after that, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',
     say: ['Walk me home', 'Walk me home, 20 minutes', 'Home'], scene: ['watching', 'out'], cat: 'watch', needs: ['person'],
     go: { ask: 'Walk me home', send: false },
   },

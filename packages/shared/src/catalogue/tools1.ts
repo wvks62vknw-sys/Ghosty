@@ -151,8 +151,9 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:study_site': {
     name: 'Study a website to rebuild it', line: 'I can study any website, its layout, words and colours, so I can rebuild it better.',
-    more: 'Step one of a rebuild: I read the page and its styles and see how it is made. Then I write an improved version and put it online for you.',
+    more: 'Step one of a rebuild: I read the page and its styles and see how it is made. Then I write an improved version and, once you tap APPROVE, put it online.',
     say: ['Rebuild this site but better: https://example.com', 'How is this website made?'], scene: ['making'], cat: 'build',
+    go: { ask: 'Rebuild this site but better: ', send: false },
   },
   'tool:publish_site': {
     name: 'Put a page online', line: 'I can put a page I made online at its own free link the moment you tap APPROVE.',

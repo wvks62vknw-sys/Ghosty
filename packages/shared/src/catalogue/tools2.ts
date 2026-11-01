@@ -218,7 +218,7 @@ export const TOOLS_2: Record<string, CatValue> = {
   'tool:update_step': {
     name: 'Mark my upgrade’s progress', line: 'I can mark each step of my upgrade as started, done or stuck, with a note why, so the roadmap always tells the truth.',
     more: 'I do it as I work: a step is done once its change has shipped, and a stuck one says what blocked it. You see it under UPGRADE ROADMAP.',
-    say: ['Mark step 2 of the upgrade as done', 'Step 3 is stuck: it needs a key'], scene: ['behind'], cat: 'learn',
+    say: ['Mark step 2 of the upgrade as done', 'Step 3 is stuck: it needs a key'], scene: ['behind'], cat: 'learn', where: 'Workshop → UPGRADE ROADMAP, or ask me',
     go: { open: 'workshop', panel: 'UPGRADE ROADMAP' },
   },
   // ---- taking software apart
@@ -268,13 +268,13 @@ export const TOOLS_2: Record<string, CatValue> = {
   'tool:update_change': {
     name: 'Fix a change before it ships', line: 'I can fix a change to myself while it waits for you, for example when its checks failed, and run the checks again.',
     more: 'The fix goes onto the same change and its preview. Nothing goes live until you ship it.',
-    say: ['The checks failed, fix it', 'Make the button bigger on that change'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+    say: ['The checks failed, fix it', 'Make the button bigger on that change'], scene: ['behind'], cat: 'build', needs: ['key:github'], where: 'Workshop → PROPOSED CHANGES, or ask me',
     go: { open: 'workshop', panel: 'PROPOSED CHANGES' },
   },
   'tool:wait_for_checks': {
     name: 'Wait for my checks', line: 'I can wait for the checks on a change, up to about six minutes, and tell you exactly what failed, if anything.',
     more: 'The checks read my code for mistakes, run my tests and build me, and a real browser tries my screens. I wait by myself after every change and every fix.',
-    say: ['Have the checks finished?'], scene: ['behind'], cat: 'build', needs: ['key:github'],
+    say: ['Have the checks finished?'], scene: ['behind'], cat: 'build', needs: ['key:github'], where: 'Workshop → PROPOSED CHANGES, or ask me',
     go: { open: 'workshop', panel: 'PROPOSED CHANGES' },
   },
   'tool:change_status': {
