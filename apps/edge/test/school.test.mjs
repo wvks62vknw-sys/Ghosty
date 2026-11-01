@@ -1380,7 +1380,7 @@ const buildSit = () => build({
   entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
   plugins: [{ name: 'stub', setup(b) {
     b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
-    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"",brainsHere=0,currentModel=0,offlineBrain=0,offlineModels=0,sitOn=0,unloadOffline=0,mayUse=()=>true;' }));
+    b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"",brainsHere=0,currentModel=0,offlineBrain=0,offlineModels=0,sitOn=0,unloadOffline=0,mayUse=()=>true,getBrain=0,onMobileData=()=>false;' }));
   } }],
 });
 
@@ -1433,6 +1433,10 @@ test('sitting on the phone (57c): a bigger brain writes shorter, and a paper is 
   assert.equal(SIT.brainLine({ brain: small, cur: b2, chosen: false }, true), "I'm sitting it on Qwen3 0.6B, the smallest brain on this phone: a paper is long work.");
   assert.equal(SIT.brainLine({ brain: small, cur: small, chosen: false }, false), 'I sit papers on Qwen3 0.6B.');
   assert.equal(SIT.brainLine({ brain: b2, cur: b2, chosen: true }, false), 'I sit papers on Qwen3.5 2B, as you chose: my written answers are kept shorter on it.');
+  // (1 Nov, the chain) the brain sitting is not always the smallest here, and the one in use may not be on the phone at all
+  assert.equal(SIT.brainLine({ brain: small, cur: b2, chosen: false, smallest: false }, false), 'I sit papers on Qwen3 0.6B, a smaller brain on this phone: a paper is long work.');
+  assert.equal(SIT.brainLine({ brain: half, cur: small, chosen: false, curHere: false }, false), 'I sit papers on Qwen2.5 0.5B, the brain on this phone.');
+  assert.equal(SIT.brainLine({ brain: half, cur: small, chosen: false, closed: true }, true), "I'm sitting it on Qwen2.5 0.5B: Qwen3 0.6B closed Ghosty on this phone.");
 });
 
 test('sitting on the phone (57c): every answer is saved as it is written, and a failed brain stops the paper there (no blank answer for every question left)', async () => {

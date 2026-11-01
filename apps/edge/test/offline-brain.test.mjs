@@ -346,6 +346,65 @@ test('the floor (1 Nov: the 0.6B closed Ghosty at its first answer): SmolLM2 360
   assert.equal(M.shortName(floor), '360M');
 });
 
+test('the chain (1 Nov: "press SIT and it works"): the 0.6B, the 0.5B, the floor; the largest here that has not closed Ghosty sits, after a close the next one down is one tap away, and the truth when the floor closed too', async () => {
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  const two = M.BIGGER[1];
+  assert.deepEqual(M.CHAIN.map((m) => m.label), ['Qwen3 0.6B', 'Qwen2.5 0.5B', 'SmolLM2 360M']);
+  assert.deepEqual([small, half, floor, ...M.BIGGER].map(M.rungOf), [0, 1, 2, -1, -1, -1]);
+  const [week] = M.trainedModels([{ week: 6, label: 'w6', repo: 'ghosty/w6', commit: 'f'.repeat(40) }], '', `/api/w/${'a'.repeat(48)}/`);
+  assert.equal(M.rungOf(week), 0, "a week trained from the 0.6B is on the 0.6B's rung");
+  const closed = (...ms) => (m) => !ms.includes(m);
+  const pick = (here, usable) => {
+    const p = M.chainPick(here, usable);
+    return { sit: p.sit?.label ?? null, get: p.get?.label ?? null, after: p.after?.label ?? null, none: p.none };
+  };
+  const nothing = { sit: null, get: null, after: null, none: false };
+  // none here and nothing closed (a new phone): neither; DOWNLOAD in SETTINGS, as it always was
+  assert.deepEqual(pick([], closed()), nothing);
+  // the largest here sits: the 0.6B, even with a smaller one here too
+  assert.deepEqual(pick([half, small], closed()), { ...nothing, sit: 'Qwen3 0.6B' });
+  assert.deepEqual(pick([floor], closed()), { ...nothing, sit: 'SmolLM2 360M' });
+  // the 0.6B closed (his phone, 31 Oct) and the 0.5B here: the 0.5B sits; nothing smaller here: the 0.5B is the one tap
+  assert.deepEqual(pick([small, half], closed(small)), { sit: 'Qwen2.5 0.5B', get: null, after: 'Qwen3 0.6B', none: false });
+  assert.deepEqual(pick([small], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+  assert.deepEqual(pick([], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+  // both closed and the floor here: the floor sits; not here: the floor is the one tap
+  assert.deepEqual(pick([small, half, floor], closed(small, half)), { sit: 'SmolLM2 360M', get: null, after: 'Qwen2.5 0.5B', none: false });
+  assert.deepEqual(pick([small, half], closed(small, half)), { sit: null, get: 'SmolLM2 360M', after: 'Qwen2.5 0.5B', none: false });
+  // after a close the one tap is always a smaller brain, never the bigger 0.6B the phone has not tried
+  assert.deepEqual(pick([], closed(half)), { sit: null, get: 'SmolLM2 360M', after: 'Qwen2.5 0.5B', none: false });
+  // all closed: nothing sits, nothing is offered, and the words say the truth
+  assert.deepEqual(pick([small, half, floor], closed(small, half, floor)), { sit: null, get: null, after: 'SmolLM2 360M', none: true });
+  assert.deepEqual(pick([], closed(small, half, floor)), { sit: null, get: null, after: 'SmolLM2 360M', none: true });
+  // his yes after a close (USE): that brain may sit again
+  assert.deepEqual(pick([small], () => true), { ...nothing, sit: 'Qwen3 0.6B' });
+  // a bigger brain is never the chain's (it sits only when he chose it for school: school/sit.ts sitPlan)
+  assert.deepEqual(pick([two], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+});
+
+test('the one tap (1 Nov): "GET <brain> (<size>) and sit" goes at once on Wi-Fi; on mobile data it says so and waits; the floor closed: no button, the truth', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  // Wi-Fi: the button names the brain and its size; it goes
+  assert.deepEqual(M.sitOffer(half, false), { button: 'GET Qwen2.5 0.5B (290 MB) and sit', line: '', go: true });
+  assert.deepEqual(M.sitOffer(floor, false), { button: 'GET SmolLM2 360M (212 MB) and sit', line: '', go: true });
+  // mobile data: the same button stays, nothing goes, and the line says why
+  assert.deepEqual(M.sitOffer(floor, true), { button: 'GET SmolLM2 360M (212 MB) and sit', line: 'You are on mobile data, and SmolLM2 360M is 212 MB: it waits for Wi-Fi. Join Wi-Fi, then tap it again.', go: false });
+  // the floor closed too: no button, no cloud sitting, the truth
+  const all = M.chainPick([small, half, floor], () => false);
+  assert.deepEqual(M.sitOffer(all.get, false), { button: '', line: M.NO_BRAIN, go: false });
+  assert.equal(M.NO_BRAIN, "No brain runs in this phone's browser yet. I keep my schooling for when one does.");
+  assert.equal(M.sitOfferWhy(small, half), 'Qwen3 0.6B closed Ghosty on this phone. The smaller Qwen2.5 0.5B may fit: one tap gets it (290 MB, on Wi-Fi) and I sit on it.');
+  // SCHOOL's tap: only a brain of the chain that has not closed Ghosty, the network asked before a byte comes, then GET
+  const sit = readFileSync(new URL('../../web/src/school/sit.ts', import.meta.url), 'utf8');
+  assert.match(sit, /export async function getForSit\(id: string, onProgress\?: \(frac: number, text: string\) => void\): Promise<ModelDef> \{\n  const m = CHAIN\.find\(\(x\) => x\.id === id\);\n  if \(!m \|\| !mayUse\(m\)\) throw [^\n]+\n  const o = sitOffer\(m, onMobileData\(\)\);\n  if \(!o\.go\) throw Object\.assign\(new Error\(o\.line\), \{ wait: true \}\);\n  return getBrain\(m\.id, onProgress\);\n\}/);
+  // and a paper is only ever sat on the phone's own model (no cloud sitting)
+  assert.match(sit, /export const sitGen: Gen = async \(messages, o\) => \{\n  try \{\n    return \(await offlineReply\(/);
+  assert.doesNotMatch(sit, /askBigBrain|\/api\/chat|brain\.chat\(/);
+});
+
 test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {
   const { readFileSync } = await import('node:fs');
   // the service worker's activate step, run as a browser runs it on a new version: only its own older caches go

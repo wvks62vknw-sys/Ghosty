@@ -8,6 +8,8 @@
 //     words), asks nothing more of the broken model, and CARRY ON picks up at that question.
 //  D. the brain in use is a bigger one (Qwen3.5 2B): the paper is sat on the smallest brain on this phone and his choice
 //     stays his; SIT ON QWEN3.5 2B is his explicit choice for school, and then it is sat on the 2B.
+//  E. (1 Nov) no brain on the phone and the 0.6B closed Ghosty: SIT is ONE button, "GET Qwen2.5 0.5B (290 MB) and sit",
+//     and after it the paper is sat on the 0.5B, the brain in use still his.
 // Nothing scrolls sideways and every button is at least 44 px tall.
 //   BASE=http://localhost:8788 node tests/sit.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -21,22 +23,29 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 const problems = [];
 const SMALL = 'Qwen3-0.6B-q4f16_1-MLC';
 const BIG = 'Qwen3.5-2B-q4f16_1-MLC';
+const HALF = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 
 /**
  * The phone's model, stood in for: a short wait, then an answer in the exam's format. `failAt`: that call (counted
  * from the first) fails as a lost WebGPU device does; `holdAt`: that call waits until `release()` (or a reload), so the
- * checks made mid-paper never race the paper. `big`: the brain in use is the 2B, with the 0.6B also on the phone.
+ * checks made mid-paper never race the paper. `big`: the brain in use is the 2B, with the 0.6B also on the phone;
+ * 'closed': no brain on the phone and the 0.6B remembered as having closed Ghosty while answering (his phone, 31 Oct).
  */
 const engine = (big) => {
   window.__ghostyHero = true; // Mind draws (automated checks otherwise get the 2-D reactor: mind.ts)
-  if (big && !sessionStorage.getItem('sit-big')) {
+  const closed = big === 'closed';
+  if (closed && !sessionStorage.getItem('sit-closed')) {
+    sessionStorage.setItem('sit-closed', '1');
+    localStorage.setItem('ghosty.offlinebrain', JSON.stringify({ model: 'Qwen3-0.6B-q4f16_1-MLC', downloaded: false, have: [], held: { 'qwen3-0.6b': { s: 'closed', at: Date.now() - 3_600_000, phase: 'answering' } }, guarded: true }));
+  }
+  if (big === true && !sessionStorage.getItem('sit-big')) {
     sessionStorage.setItem('sit-big', '1');
     localStorage.setItem('ghosty.offlinebrain', JSON.stringify({ model: 'Qwen3.5-2B-q4f16_1-MLC', downloaded: true, have: ['Qwen3-0.6B-q4f16_1-MLC', 'Qwen3.5-2B-q4f16_1-MLC'], guarded: true }));
     // (no WebGPU here: the 2B's limits are not checked, so his choice of it loads as on a phone that can hold it)
     Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined, configurable: true });
   }
   window.__ghostyOfflineEngine = {
-    ready: true,
+    ready: !closed,
     calls: [],
     loads: [],
     unloads: 0,
@@ -241,6 +250,43 @@ async function signIn(big = false) {
   await until(page, () => window.__ghosty?.school?.sitting === false, 60000, '[bigger] the paper on the 2B was not handed in');
   loads = await page.evaluate(() => window.__ghostyOfflineEngine.loads);
   if (loads.at(-1) !== BIG) problems.push(`[bigger] his choice of the 2B was not used: loaded ${JSON.stringify(loads)}`);
+  await ctx.close();
+}
+
+// ---- E. (1 Nov: "press SIT and it works") no brain here and the 0.6B closed Ghosty: SIT is ONE button, "GET Qwen2.5 0.5B
+//      (290 MB) and sit"; after it the paper is sat on the 0.5B, and the brain in use stays his
+{
+  const { ctx, page } = await signIn('closed');
+  await school(page);
+  await until(page, () => document.querySelectorAll('#pg-school .schsub').length >= 4, 15000, '[one tap] SCHOOL did not show the stage');
+  await sec(page, 'This stage');
+  const one = page.locator('#pg-school .schstage button.schgetsit');
+  await until(page, () => !!document.querySelector('#pg-school .schstage button.schgetsit'), 10000, '[one tap] no GET-and-sit button');
+  const label = (await one.first().textContent().catch(() => '')) ?? '';
+  if ((await one.count()) !== 1 || label !== 'GET Qwen2.5 0.5B (290 MB) and sit') problems.push(`[one tap] the button: ${await one.count()} × "${label}"`);
+  if (await page.locator('#pg-school .schstage button', { hasText: /^SIT THE EXAM$/ }).isVisible().catch(() => false)) problems.push('[one tap] SIT THE EXAM is shown beside the one button');
+  if (await page.locator('#pg-school .schstage button', { hasText: 'DOWNLOAD IT IN SETTINGS' }).isVisible().catch(() => false)) problems.push('[one tap] the way through SETTINGS is offered beside it');
+  const why = (await page.locator('#pg-school .schstage .schwhy').textContent().catch(() => '')) ?? '';
+  if (why !== 'Qwen3 0.6B closed Ghosty on this phone. The smaller Qwen2.5 0.5B may fit: one tap gets it (290 MB, on Wi-Fi) and I sit on it.') problems.push(`[one tap] the words beside it: "${why}"`);
+  if ((await page.evaluate(() => window.__ghostyOfflineEngine.loads.length)) !== 0) problems.push('[one tap] a brain was loaded before the tap');
+  await smallTargets(page, '[one tap] the one button');
+  await page.locator('#pg-school .schstage .schbtns').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.screenshot({ path: `${out}/sit-one-tap.png` });
+  await one.first().click();
+  await until(page, () => window.__ghosty?.school?.sitting === true, 15000, '[one tap] the paper did not start');
+  await until(page, () => window.__ghostyOfflineEngine.calls.length >= 1, 15000, '[one tap] no question was asked');
+  const live = (await page.locator('#pg-school .schlive .schbrain').textContent().catch(() => '')) ?? '';
+  if (live !== "I'm sitting it on Qwen2.5 0.5B: Qwen3 0.6B closed Ghosty on this phone.") problems.push(`[one tap] while sitting, the brain line is "${live}"`);
+  await until(page, () => window.__ghosty?.school?.sitting === false && !!window.__ghosty.school.last, 60000, '[one tap] the paper was not handed in');
+  const loads = await page.evaluate(() => window.__ghostyOfflineEngine.loads);
+  if (loads.at(-1) !== HALF || loads.includes(SMALL)) problems.push(`[one tap] not sat on the 0.5B: loaded ${JSON.stringify(loads)}`);
+  await page.waitForTimeout(400);
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.offlinebrain') ?? '{}'));
+  if (!kept.have?.includes(HALF) || kept.model !== SMALL || kept.held?.['qwen3-0.6b']?.s !== 'closed') problems.push(`[one tap] after it: ${JSON.stringify({ have: kept.have, model: kept.model, held: kept.held })}`);
+  // the next SIT goes straight to the 0.5B, now on this phone
+  await sec(page, 'This stage');
+  await until(page, () => document.querySelector('#pg-school .schbrain .note')?.textContent === 'I sit papers on Qwen2.5 0.5B: Qwen3 0.6B closed Ghosty on this phone.', 10000, `[one tap] the brain line after it: "${await page.locator('#pg-school .schbrain .note').textContent().catch(() => '')}"`);
+  if (await one.count()) problems.push('[one tap] the one button stayed after the 0.5B was on this phone');
   await ctx.close();
 }
 

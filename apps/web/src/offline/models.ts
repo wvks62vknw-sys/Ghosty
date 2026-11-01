@@ -96,6 +96,48 @@ export const heldKey = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => 
 export const shortName = (m: Pick<ModelDef, 'label'>): string => m.label.split(' ').at(-1) ?? m.label;
 
 /**
+ * SCHOOL's chain (1 Nov: "press SIT and it works"): the 0.6B, then the Qwen2.5 0.5B, then the floor. A paper is sat on
+ * the largest of them that is on this phone and has not closed Ghosty here; after a close, the next one down is one tap
+ * away (GET it and sit); never on a cloud model: School is his own brain or nothing.
+ */
+export const CHAIN: ModelDef[] = MODELS;
+/** The rung a brain is on (by its record: a week trained from the 0.6B is on the 0.6B's); -1 for a bigger brain. */
+export const rungOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): number => CHAIN.findIndex((r) => heldKey(r) === heldKey(m));
+/** The truth when the floor has closed Ghosty too: no cloud sitting, and no pretending. */
+export const NO_BRAIN = "No brain runs in this phone's browser yet. I keep my schooling for when one does.";
+
+/**
+ * The chain's pick, from the brains on this phone (`here`) and whether each may be loaded (`usable`: it has not closed
+ * Ghosty here, or he said yes since): `sit`, the largest rung here and usable; else, once a rung has closed Ghosty,
+ * `get`, the largest usable rung below the lowest one that closed (`after`), to GET and sit in one tap; `none` when the
+ * floor has closed too and nothing here may sit. Nothing closed and nothing here (a new phone): neither, and DOWNLOAD in
+ * SETTINGS is the way, as it always was.
+ */
+export function chainPick(here: Pick<ModelDef, 'id'>[], usable: (m: ModelDef) => boolean): { sit: ModelDef | null; get: ModelDef | null; after: ModelDef | null; none: boolean } {
+  const on = new Set(here.map((m) => m.id));
+  const sit = CHAIN.find((m) => on.has(m.id) && usable(m)) ?? null;
+  const closed = CHAIN.map((m) => !usable(m));
+  const lowest = closed.lastIndexOf(true);
+  const after = lowest < 0 ? null : CHAIN[lowest]!;
+  const get = sit || !after ? null : (CHAIN.slice(lowest + 1).find((m) => usable(m) && !on.has(m.id)) ?? null);
+  return { sit, get, after, none: !sit && !get && closed.at(-1) === true };
+}
+
+/**
+ * SIT and CARRY ON when no brain School may sit on is here: ONE button, "GET <brain> (<size>) and sit", which on Wi-Fi
+ * gets it, loads it and sits (`go`); on mobile data it says so and waits, the button staying. No brain left (`m` null):
+ * no button, and the words say the truth.
+ */
+export function sitOffer(m: Pick<ModelDef, 'label' | 'mb'> | null, mobile: boolean): { button: string; line: string; go: boolean } {
+  if (!m) return { button: '', line: NO_BRAIN, go: false };
+  const button = `GET ${m.label} (${sizeText(m.mb)}) and sit`;
+  return mobile ? { button, line: `You are on mobile data, and ${m.label} is ${sizeText(m.mb)}: it waits for Wi-Fi. Join Wi-Fi, then tap it again.`, go: false } : { button, line: '', go: true };
+}
+/** Why the one button is there, in one line: the brain that closed Ghosty and the smaller one to try. */
+export const sitOfferWhy = (after: Pick<ModelDef, 'label'> | null, m: Pick<ModelDef, 'label' | 'mb'>): string =>
+  `${after ? `${after.label} closed Ghosty on this phone. ` : ''}The smaller ${m.label} may fit: one tap gets it (${sizeText(m.mb)}, on Wi-Fi) and I sit on it.`;
+
+/**
  * WebLLM's own memory figure at another context window: the weights and the library's largest working space are fixed,
  * the cache grows with the context (112 KB a token for Qwen3 0.6B, 48 KB for Qwen3.5 as WebLLM counts it). So a shorter
  * context barely helps the 2B: 2,245 MB at 4,096 tokens, 2,149 at 2,048, 2,101 at 1,024 (its weights are 1,010 and the

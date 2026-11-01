@@ -40,11 +40,15 @@
 //     while answering, in plain words, TEST and USE ask before it is tried again, the smaller Qwen2.5 0.5B is offered
 //     first (GET); stored and USEd, it is the brain in use, its reply writes and clears the record, and SCHOOL sits
 //     papers on it.
+// 12. (1 Nov: "the brain school thing is still crashing") the 0.5B's answer closed Ghosty too: the floor (SmolLM2 360M,
+//     "the tiniest") is offered first; SCHOOL shows ONE button, "GET SmolLM2 360M (212 MB) and sit": on mobile data it
+//     waits with its line and fetches nothing; on Wi-Fi it gets the floor at its pinned commit, loads it and the paper is
+//     sat on it, the 0.5B still his choice.
 //   BASE=http://localhost:8892 node tests/bigbrain.spec.mjs [outDir]
 import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { engine as browserName, launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -57,7 +61,7 @@ let reported = false;
 process.on('exit', (code) => {
   if (!reported && code && problems.length) console.error(`bigbrain spec: ${problems.length} problem(s) before it stopped\n- ${problems.join('\n- ')}`);
 });
-const ID = { least: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', small: 'Qwen3-0.6B-q4f16_1-MLC', mid: 'Qwen3.5-0.8B-q4f16_1-MLC', two: 'Qwen3.5-2B-q4f16_1-MLC', four: 'Qwen3.5-4B-q4f16_1-MLC' };
+const ID = { least: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', small: 'Qwen3-0.6B-q4f16_1-MLC', mid: 'Qwen3.5-0.8B-q4f16_1-MLC', two: 'Qwen3.5-2B-q4f16_1-MLC', four: 'Qwen3.5-4B-q4f16_1-MLC', floor: 'SmolLM2-360M-Instruct-q4f16_1-MLC' };
 const MiB = 2 ** 20;
 const GENEROUS = { maxBufferSize: 4 * 2 ** 30, maxStorageBufferBindingSize: 4 * 2 ** 30, maxComputeWorkgroupStorageSize: 32768, maxStorageBuffersPerShaderStage: 10, maxComputeInvocationsPerWorkgroup: 1024 };
 const SAFARI_DEFAULT = { ...GENEROUS, maxBufferSize: 256 * MiB, maxStorageBufferBindingSize: 128 * MiB };
@@ -78,6 +82,7 @@ const PINS = {
   [ID.mid]: { rev: '0ec138972555613c1d7812a821778ad0398c8790', lib: 'Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm' },
   [ID.two]: { rev: 'dd74e9c8a20c4546df85c844103bff87b6dcacad', lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm' },
   [ID.four]: { rev: '44b42469f9e192814bfd90440e3b377d89ba7a13', lib: 'Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm' },
+  [ID.floor]: { rev: '3a622fd89e0216e8bb10c410c007c786baa8a033', lib: 'SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm' },
 };
 /** A shard's bytes: different in every shard and every position, so a part put back in the wrong place shows. */
 const shardBody = (file) => {
@@ -749,20 +754,77 @@ check(await tagIs(cp, ID.least, 'IN USE', 10000), '[closed] USE did not make the
 crows = await rows(cp);
 check(crows.find((r) => r.model === ID.small)?.tag === 'ON THIS PHONE', `[closed] the 0.6B is on the phone but no longer in use: ${JSON.stringify(crows.map((r) => [r.model, r.tag]))}`);
 check((await engine(cp)).loads.at(-1) === ID.least, `[closed] USE loaded the smallest brain: ${JSON.stringify((await engine(cp)).loads)}`);
-// a reply goes under its record (written before the model runs, cleared after)
+// a reply goes under its record (written before the model runs, cleared after). TEST's reply is the first one asked; the
+// QUICK CHECK that follows it asks twenty more, each under a record of its own, so "after" is read once they are done
+// (read while one of them is being answered, it is that one's record, not a record left behind)
 await cp.evaluate(() => {
   const e = window.__ghostyOfflineEngine;
   const chat = e.chat.bind(e);
-  e.chat = async (...a) => ((window.__answering = localStorage.getItem('ghosty.offlinebrain.answering')), chat(...a));
+  e.chat = async (...a) => {
+    if (!window.__asked) ((window.__asked = true), (window.__answering = localStorage.getItem('ghosty.offlinebrain.answering')));
+    return chat(...a);
+  };
 });
 await cp.locator('#pg-settings .offbrain button', { hasText: /^TEST$/ }).click();
 check(await cp.waitForFunction(() => /tokens a second/.test(document.querySelector('#pg-settings .offbrain .obtest')?.textContent ?? ''), null, { timeout: 20000 }).then(() => true, () => false), '[closed] TEST on the smallest brain gave no speed line');
+check(await cp.waitForFunction(() => /right as in chat|did not run/.test(document.querySelector('#pg-settings .offbrain .obquick')?.textContent ?? ''), null, { timeout: 60000 }).then(() => true, () => false), `[closed] the QUICK CHECK after TEST did not finish: "${await text(cp, '.obquick')}"`);
 const answering = await cp.evaluate(() => ({ during: JSON.parse(window.__answering ?? 'null'), after: localStorage.getItem('ghosty.offlinebrain.answering') }));
 check(answering.during?.model === ID.least && typeof answering.during?.at === 'number' && answering.after === null, `[closed] the reply's record: ${JSON.stringify(answering)}`);
 // SCHOOL sits its papers on the smallest brain now
 await cp.evaluate(() => (location.hash = 'school'));
 check(await cp.waitForFunction(() => /^I sit papers on Qwen2\.5 0\.5B\.$/.test(document.querySelector('#pg-school .schbrain .note')?.textContent ?? ''), null, { timeout: 20000 }).then(() => true, () => false), `[closed] SCHOOL's brain line: "${await cp.locator('#pg-school .schbrain .note').first().textContent().catch(() => '')}"`);
 await shot(cp, 'smallest-after-close');
+
+// ---- 12. (1 Nov: "the brain school thing is still crashing") the 0.5B closed Ghosty too: the floor is offered, and SCHOOL
+//      is ONE button that gets it and sits; on mobile data the button waits with its line and nothing is fetched
+await cp.evaluate((id) => localStorage.setItem('ghosty.offlinebrain.answering', JSON.stringify({ model: id, at: Date.now() - 60_000 })), ID.least);
+await killAndReopen(cp);
+await cp.waitForTimeout(600);
+cst = await stored(cp);
+check(cst.held?.[ID.least]?.s === 'closed' && cst.held?.[ID.least]?.phase === 'answering' && cst.held?.['qwen3-0.6b']?.s === 'closed', `[floor] the 0.5B is remembered as having closed Ghosty while answering, apart from the 0.6B: ${JSON.stringify(cst.held)}`);
+const floorFell = await text(cp, '.obfell');
+check(/^Qwen2\.5 0\.5B closed Ghosty while answering \(\d+ \w+, \d\d:\d\d\): this phone could not hold it while it worked\. The smaller SmolLM2 360M \(about 212 MB, 0\.4 GB when running\) may fit: GET it in WHICH BRAIN, on Wi-Fi, and Ghosty uses it\. Qwen2\.5 0\.5B stays on this phone, and USE asks before it is tried again\.$/.test(floorFell), `[floor] the words after the close: "${floorFell}"`);
+crows = await rows(cp);
+check(crows[0]?.model === ID.floor && crows[0]?.buttons.join() === 'GET' && crows[0]?.facts === '212 MB download · about 0.4 GB of memory when running · fits an 18 Pro Max: yes · the tiniest', `[floor] the floor is offered first: ${JSON.stringify(crows[0])}`);
+check(crows[1]?.model === ID.least && crows[1]?.tag === 'IN USE' && /, while answering: USE asks before trying again$/.test(crows[1]?.closed ?? ''), `[floor] the 0.5B is still in use, with its own note: ${JSON.stringify(crows[1])}`);
+check(/closed Ghosty answering on Qwen2\.5 0\.5B \(\d+ \w+\), Qwen3 0\.6B \(\d+ \w+\); not tried yet: SmolLM2 360M,/.test(await text(cp, '.obhold')), `[floor] the can-hold line: "${await text(cp, '.obhold')}"`);
+await shot(cp, 'floor-offered');
+// SCHOOL: no brain here may sit, so SIT is ONE button with the floor's name and size
+await cp.evaluate(() => (location.hash = 'school'));
+await openSection(cp, 'school', 'This stage').catch(() => undefined);
+const tap = cp.locator('#pg-school .schstage button.schgetsit');
+check(await tap.first().waitFor({ state: 'visible', timeout: 20000 }).then(() => true, () => false), '[floor] SCHOOL shows no GET-and-sit button');
+check((await tap.count()) === 1 && (await tap.first().textContent().catch(() => '')) === 'GET SmolLM2 360M (212 MB) and sit', `[floor] the one button: ${await tap.count()} × "${await tap.first().textContent().catch(() => '')}"`);
+check(!(await cp.locator('#pg-school .schstage button', { hasText: /^SIT THE EXAM$/ }).isVisible().catch(() => false)), '[floor] SIT THE EXAM beside the one button');
+const tapWhy = (await cp.locator('#pg-school .schstage .schwhy').textContent().catch(() => '')) ?? '';
+check(tapWhy === 'Qwen2.5 0.5B closed Ghosty on this phone. The smaller SmolLM2 360M may fit: one tap gets it (212 MB, on Wi-Fi) and I sit on it.', `[floor] the words beside it: "${tapWhy}"`);
+// mobile data: nothing is fetched, the line says so, the button stays
+const hitsBeforeTap = closer.net.hits.length;
+await cp.evaluate(() => (window.__net = 'cellular'));
+await tap.first().click();
+await cp.waitForTimeout(800);
+const waitWhy = (await cp.locator('#pg-school .schstage .schwhy').textContent().catch(() => '')) ?? '';
+check(/You are on mobile data, and SmolLM2 360M is 212 MB: it waits for Wi-Fi\. Join Wi-Fi, then tap it again\.$/.test(waitWhy), `[floor] on mobile data: "${waitWhy}"`);
+check(closer.net.hits.length === hitsBeforeTap && !(await cp.evaluate(() => window.__ghosty?.school?.sitting)), `[floor] the one tap fetched or sat on mobile data (${closer.net.hits.length - hitsBeforeTap} fetches)`);
+check(await tap.first().isVisible().catch(() => false), '[floor] the button went on mobile data');
+await shot(cp, 'floor-mobile-data');
+// Wi-Fi: one tap gets the floor (its pieces into WebLLM's stores), loads it and the paper starts on it
+await cp.evaluate(() => {
+  window.__net = '';
+  window.__ghostyOfflineEngine.calls = [];
+  window.__webllmMissed = [];
+});
+await tap.first().click();
+check(await cp.waitForFunction(() => window.__ghosty?.school?.sitting === true, null, { timeout: 30000 }).then(() => true, () => false), '[floor] the paper did not start after the one tap');
+check(await cp.waitForFunction((id) => window.__ghostyOfflineEngine.calls.some((c) => c.model === id), ID.floor, { timeout: 30000 }).then(() => true, () => false), `[floor] no question went to the floor: ${JSON.stringify(await cp.evaluate(() => window.__ghostyOfflineEngine.calls.slice(0, 2)))}`);
+const sitLine = (await cp.locator('#pg-school .schlive .schbrain').textContent().catch(() => '')) ?? '';
+check(sitLine === "I'm sitting it on SmolLM2 360M: Qwen2.5 0.5B closed Ghosty on this phone.", `[floor] while sitting: "${sitLine}"`);
+check((await engine(cp)).loads.at(-1) === ID.floor, `[floor] loaded: ${JSON.stringify((await engine(cp)).loads)}`);
+check((await cached(cp, ID.floor))['webllm/model'].length === SHARDS + 2 && (await cp.evaluate(() => window.__webllmMissed.length)) === 0, `[floor] the floor's pieces are in WebLLM's own stores: ${JSON.stringify(await cached(cp, ID.floor))}`);
+check(closer.net.hits.slice(hitsBeforeTap).every((u) => u.startsWith(`https://huggingface.co/mlc-ai/${ID.floor}/resolve/${PINS[ID.floor].rev}/`)), '[floor] the one tap fetched something other than the floor at its pinned commit');
+check(await cp.waitForFunction(() => window.__ghosty?.school?.sitting === false, null, { timeout: 90000 }).then(() => true, () => false), '[floor] the paper on the floor was not handed in');
+const afterFloor = await stored(cp);
+check(afterFloor.model === ID.least && afterFloor.have?.includes(ID.floor) && afterFloor.held?.[ID.floor]?.s === 'loaded', `[floor] after it: the 0.5B is still his choice, the floor is on this phone and has run: ${JSON.stringify({ model: afterFloor.model, have: afterFloor.have, held: afterFloor.held?.[ID.floor] })}`);
 await putBack(cp);
 await closer.ctx.close();
 
@@ -772,4 +834,4 @@ if (problems.length) {
   console.error(`bigbrain spec (${browserName}): ${problems.length} problem(s)\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`bigbrain spec (${browserName}): all good — the picker, GET stores pieces one at a time with no graphics memory, the carry-on after a close, USE's limits check and warning, the closed-Ghosty mark, the 0.8B step, the 0.6B fallback, REMOVE, no sideways scroll; what GET stored found on the next open and after a new service worker with no fetch, a big piece in parts resumed at its next part and byte-identical, a GET the space cannot hold refused, the storage lines; the 0.6B that closed Ghosty while answering refused until he says and the smallest brain offered, stored, used and sitting papers`);
+console.log(`bigbrain spec (${browserName}): all good — the picker, GET stores pieces one at a time with no graphics memory, the carry-on after a close, USE's limits check and warning, the closed-Ghosty mark, the 0.8B step, the 0.6B fallback, REMOVE, no sideways scroll; what GET stored found on the next open and after a new service worker with no fetch, a big piece in parts resumed at its next part and byte-identical, a GET the space cannot hold refused, the storage lines; the 0.6B that closed Ghosty while answering refused until he says and the smallest brain offered, stored, used and sitting papers; the 0.5B that closed Ghosty too: the floor offered, SCHOOL's one tap waiting on mobile data and on Wi-Fi getting the floor and sitting the paper on it`);
