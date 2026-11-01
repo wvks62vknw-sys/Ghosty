@@ -5539,7 +5539,7 @@ body.demo #pair, body.demo #pairform { display: none !important; }
 .tvflat { position: relative; z-index: 3; margin: 76px 16px 16px; }
 .tvflat .tvline { margin: 0 0 10px; }
 @media (min-width: 1000px) { .tvflat { margin-left: 104px; } }
-.tvflat .tvmap { position: relative; display: flex; flex-direction: column; gap: 5px; height: calc(100vh - 200px); min-height: 320px; border-radius: 18px; overflow: hidden; }
+.tvflat .tvmap { position: relative; display: flex; flex-direction: column; gap: 5px; height: calc(100dvh - 200px); min-height: 320px; border-radius: 18px; overflow: hidden; }
 body.no3d #pg-studio > :not(.tvline) { display: none !important; }
 /* TV MODE (body.tv): targets of 56 pt at least, a focus ring you can see from the sofa, the deck as big tiles, the chat bigger */
 html body.tv :is(#app, #deck, #tvkb, .modal, #mesheet) :where(button, [role="button"], [role="switch"], [role="tab"], a[href], select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea) { min-height: 56px !important; }

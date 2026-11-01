@@ -1186,6 +1186,12 @@ folder that no longer exists; ignore those paths).
   only what is newer than what it has: after 14:00 real time the card is stamped in the past. The stub's clock is now 14:00 or
   a minute from now, whichever is later (tomorrow's 14:00 after 23:00). REST-E MERGED (OWNER-ISSUES 116; a plain merge).
   Running: packs-3 (8700), the last builder; then the depth pass.
+- 1 Nov 17:45 UK: THE REAL CAUSE of social's loop failures, found with a probe on a used brain: the page's notices poller kept
+  a TIME watermark of what it had announced, and one inbox item stamped ahead of the clock (the cards spec's "Good morning"
+  set for tomorrow's waking) raised it past everything that arrived before then, so the musing's card was never announced
+  (it still reached the wall, not the chat). The poller now records announced ids (the last 300) instead. Verified: cards,
+  brief, social, notifications and agenda on ONE brain in that order. The clock-stub change in the spec stays (harmless).
+  LESSON: a spec that stamps an item in the future must not be assumed harmless for the specs after it.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

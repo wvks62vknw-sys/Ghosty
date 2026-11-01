@@ -131,18 +131,23 @@ log('the queue: EDIT, APPROVE once, WHY, NO');
 // ---- 4. a line of his own on the clock stub, with POST THAT?
 const london = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date()).map((p) => [p.type, p.value]));
 const hour = Number(london.hour) + Number(london.minute) / 60;
-const afternoon = Date.now() + Math.round((14 - hour) * 3_600_000);
+// The clock stands at 14:00 his time, or at a minute from now when that is later: the brain stamps the card with the clock it
+// is given, and the page shows only what is newer than what it has, so a card stamped in the past never reaches the chat (the
+// smoke loop's afternoon runs failed this way). After 23:00 the musing hours are over: tomorrow's 14:00 then.
+const todayAt14 = Date.now() + Math.round((14 - hour) * 3_600_000);
+const afternoon = hour >= 23 ? todayAt14 + 86_400_000 : Math.max(todayAt14, Date.now() + 60_000);
 const mused = await musingAt(afternoon, true);
 check(mused.job && mused.cadence?.log?.some((s) => s.id.startsWith('musing:') && !s.held), `the line of his own was not said on the clock stub: ${JSON.stringify(mused).slice(0, 300)}`);
 await openChat();
 await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 // (the mock writes the line from the FIRST fact it is given; on the smoke loop's shared brain that is a digest headline from an
 // earlier spec, on a fresh one his Bluesky timeline: the card is the check, and the draft must carry the card's own words)
-await until(() => [...document.querySelectorAll('#pg-core .ccard:not(.wall)[data-kind="brief"]')].some((c) => /A thought of mine/.test(c.textContent ?? '') && /Been thinking about this one/.test(c.textContent ?? '')), null, 15000, 'the line of his own did not post its card');
+await until(() => [...document.querySelectorAll('#pg-core .ccard:not(.wall)[data-kind="brief"]')].some((c) => /A thought of mine/.test(c.textContent ?? '') && /Been thinking about this one/.test(c.textContent ?? '')), null, 15000, `the line of his own did not post its card (the stub said ${JSON.stringify(mused).slice(0, 240)})`);
 const thought = page.locator('#pg-core .ccard:not(.wall)[data-kind="brief"]', { hasText: 'A thought of mine' }).last();
-check(/^Why: one line of my own a day, from /.test((await thought.locator('.ccwhy').textContent().catch(() => '')) ?? ''), 'the thought says no why');
-await thought.locator('button', { hasText: /post that/i }).click().catch(() => problems.push('no POST THAT? on the thought'));
-const thoughtLine = ((await thought.textContent()) ?? '').match(/Been thinking about this one: ([^.]{8,60})/)?.[1] ?? 'Been thinking about this one';
+// (short waits with a catch each: with no card there is nothing to read, and one missing card must not crash the run)
+check(/^Why: one line of my own a day, from /.test((await thought.locator('.ccwhy').textContent({ timeout: 5000 }).catch(() => '')) ?? ''), 'the thought says no why');
+await thought.locator('button', { hasText: /post that/i }).click({ timeout: 5000 }).catch(() => problems.push('no POST THAT? on the thought'));
+const thoughtLine = ((await thought.textContent({ timeout: 5000 }).catch(() => '')) ?? '').match(/Been thinking about this one: ([^.]{8,60})/)?.[1] ?? 'Been thinking about this one';
 await until(([c, words]) => [...document.querySelectorAll(c)].some((x) => x.dataset.state === 'waiting' && (x.textContent ?? '').includes(words)), [card, thoughtLine], 10000, 'POST THAT? made no draft');
 check((await stub()).sent.length === 1, 'POST THAT? posted without APPROVE');
 await page.screenshot({ path: `${out}/social-musing.png` });
