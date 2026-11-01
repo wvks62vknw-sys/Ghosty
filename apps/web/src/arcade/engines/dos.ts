@@ -229,7 +229,9 @@ export const dosEngine: Engine = {
       if (paused || done || e.isComposing) return;
       const code = keyOfEvent(e.code, e.key);
       if (code === undefined) return;
+      // the game has the keyboard while it plays: nothing of the app's own (its shortcuts) sees these keys
       e.preventDefault();
+      e.stopPropagation();
       const down = e.type === 'keydown';
       if (down && typed.has(code)) return; // a held key's repeats
       if (down) typed.add(code);
@@ -268,7 +270,9 @@ export const dosEngine: Engine = {
       if (paused || done || e.isComposing) return;
       const code = keyOfEvent(e.code, e.key);
       if (code === undefined) return;
+      // the game has the keyboard while it plays: nothing of the app's own (its shortcuts) sees these keys
       e.preventDefault();
+      e.stopPropagation();
       const down = e.type === 'keydown';
       if (down && typed.has(code)) return; // a held key's repeats
       if (down) typed.add(code);
