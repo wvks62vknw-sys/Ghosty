@@ -8,7 +8,10 @@
 //  4. the chat, no model: "beam calculator" opens BEAM and "3 m steel beam 5 kN in the middle" is answered on the phone, with
 //     no request to /api/chat; "how strong is a 3 m steel beam with 5 kn in the middle" goes to the brain (the mock model)
 //     and its answer carries "First estimate";
-//  5. nothing scrolls sideways, every row is 44 pt or more, and a reload keeps his inputs.
+//  5. nothing scrolls sideways, every row is 44 pt or more, and a reload keeps his inputs;
+//  6. his screenshots (31 Oct), as Safari (no scroll anchoring): after picking AIR (the wind tunnel) or GEARS (Drive) from far
+//     down the page, and after tapping a mode there, no mode button and no panel title is under the held section pills; and
+//     with the wing changed last, the head over GEARS does not read "Wing".
 // It changes only this browser's own storage and puts the units back.
 //   BASE=http://localhost:8788 node tests/workbench.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -182,10 +185,68 @@ const kept = await page.evaluate(() => ({ rpm: document.querySelector('#wb-engin
 check(kept.rpm === '6500' && kept.type === 'turbo', `after a reload the engine reads ${JSON.stringify(kept)}`);
 check(kept.sec === 'drive', `after a reload the section is "${kept.sec}"`);
 
+// ---- 6. his screenshots (31 Oct): after a section is picked its mode buttons and its first panel's title are never under the
+// held pills, and the head shows that section's own latest estimate or nothing of its own (never the wing's over GEARS). As
+// Safari, which has no scroll anchoring to hold the page when the head changes height.
+await page.addStyleTag({ content: '*{overflow-anchor:none!important}' });
+const under = () => page.evaluate(() => {
+  const pills = document.querySelector('#pg-workbench .secpills')?.getBoundingClientRect();
+  if (!pills) return ['no pills'];
+  const vis = (e) => e.getClientRects().length > 0 && !e.closest('[hidden]');
+  const hit = (e) => { const r = e.getBoundingClientRect(); return r.bottom > pills.top + 0.5 && r.top < pills.bottom - 0.5; };
+  const modes = [...document.querySelectorAll('#pg-workbench .wbmodes button')].filter(vis).filter(hit).map((b) => `mode "${b.textContent}"`);
+  const title = [...document.querySelectorAll('#pg-workbench .pn:not([hidden]) > h3')].filter(vis)[0];
+  return [...modes, ...(title && hit(title) ? [`title "${title.textContent}"`] : [])];
+});
+const heroText = () => page.evaluate(() => document.querySelector('#pg-workbench .hero')?.textContent ?? '');
+// the head is one height on every section, whatever it says: a head that grows shorter after a pick pulls the section's first
+// panel up under the held pills where nothing holds the page (Safari)
+const heads = [];
+const headH = () => page.evaluate(() => document.querySelector('#pg-workbench .hero')?.getBoundingClientRect().height ?? 0);
+for (const sec of ['tunnel', 'structure', 'drive', 'flight', 'home', 'tunnel']) {
+  await pill(sec);
+  await page.waitForTimeout(sec === 'tunnel' ? 1500 : 300);
+  heads.push([sec, Math.round(await headH())]);
+}
+check(Math.max(...heads.map((x) => x[1])) - Math.min(...heads.map((x) => x[1])) <= 1, `the head changes height from section to section: ${heads.map((x) => x.join(' ')).join(', ')}`);
+// the wing changed last (its lift on the head), then the page scrolled well down, as he would have
+await pill('flight');
+await page.waitForTimeout(250);
+await page.fill('#wb-wing-wing-alpha', '4');
+await until(() => /Wing/.test(document.querySelector('#pg-workbench .hero')?.textContent ?? ''), null, 3000, 'the wing\'s estimate is not on the head after changing it');
+for (const [sec, what] of [['tunnel', 'AIR (the wind tunnel: Speed / Swirl)'], ['drive', 'GEARS (Gear train / Bicycle)']]) {
+  await page.evaluate(() => document.querySelector('#pg-workbench .hud')?.scrollBy(0, 700));
+  await page.waitForTimeout(250);
+  await pill(sec);
+  await page.waitForTimeout(500);
+  const hidden = await under();
+  check(!hidden.length, `after picking ${what}, under the section pills: ${hidden.join(', ')}`);
+  if (sec === 'drive') {
+    const t = await heroText();
+    check(!/Wing/.test(t), `after choosing GEARS the head still reads the wing: "${t.replace(/\s+/g, ' ').slice(0, 120)}"`);
+  }
+  // and while it is there: the page scrolled to where the mode buttons sit just under the pills, then a mode tapped
+  const modeBtn = sec === 'drive' ? '#pg-workbench .pn.wb-gears .wbmodes button[data-mode="bike"]' : '#pg-workbench .pn.wb-tunnel .wbmodes button[data-view="swirl"]';
+  await page.evaluate((sel) => {
+    const hud = document.querySelector('#pg-workbench .hud');
+    const pills = document.querySelector('#pg-workbench .secpills')?.getBoundingClientRect();
+    const b = document.querySelector(sel)?.getBoundingClientRect();
+    if (hud && pills && b) hud.scrollBy(0, b.top - pills.bottom - 8);
+  }, modeBtn);
+  await page.waitForTimeout(250);
+  await page.click(modeBtn);
+  await page.waitForTimeout(400);
+  const after = await under();
+  check(!after.filter((x) => x.startsWith('mode')).length, `after tapping a mode under ${what}, under the section pills: ${after.join(', ')}`);
+  await shot(`workbench-pills-${sec}`);
+}
+// back to Gear train for the next run
+await page.click('#pg-workbench .pn.wb-gears .wbmodes button[data-mode="train"]').catch(() => undefined);
+
 await browser.close();
 console.log(`(workbench spec: ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Workbench run clean: it opens from MAKE and #workbench, every panel answers with FIRST ESTIMATE · NOT CERTIFIED, the beam is PL³/48EI within 5 % and answers at once, imperial and back, the chat opens and answers with no model and the brain answers "how strong…" with "First estimate", nothing sideways, every row 44 pt, a reload keeps his inputs.');
+console.log('Workbench run clean: it opens from MAKE and #workbench, every panel answers with FIRST ESTIMATE · NOT CERTIFIED, the beam is PL³/48EI within 5 % and answers at once, imperial and back, the chat opens and answers with no model and the brain answers "how strong…" with "First estimate", nothing sideways, every row 44 pt, a reload keeps his inputs; after picking AIR or GEARS nothing is under the section pills, and the head over GEARS is not the wing’s.');

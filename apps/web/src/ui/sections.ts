@@ -126,15 +126,28 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
     el.dataset.current = cur;
     centre();
   };
-  /** Show section `id`: the page starts at the pills (its title scrolled away only if it already was). */
+  /**
+   * Where the page rests with the pills held at their place and nothing above them showing: the pills' own top margin
+   * counted (without it 10 pt of the title's last line showed over the pills), the sticky offset taken off.
+   */
+  const restTop = () => {
+    const cs = getComputedStyle(el);
+    return Math.max(0, mark.offsetTop + (parseFloat(cs.marginTop) || 0) - (parseFloat(cs.top) || 0));
+  };
+  /**
+   * Show section `id`: the page starts at the pills (its title scrolled away only if it already was). Checked again a frame
+   * later, once the screen has redrawn for the section (a head that grew shorter would otherwise pull the section's first
+   * panel up under the held pills: Safari has no scroll anchoring to hold it — his Workbench screenshots, 31 Oct).
+   */
   const select = (id: string) => {
     if (!defs.some((d) => d.id === id)) return;
     cur = id;
     apply();
-    if (hud && phone.matches) {
-      const top = mark.offsetTop - (parseFloat(getComputedStyle(el).top) || 0);
-      if (hud.scrollTop > top) hud.scrollTop = Math.max(0, top);
-    }
+    if (!hud || !phone.matches) return;
+    if (hud.scrollTop > restTop()) hud.scrollTop = restTop();
+    requestAnimationFrame(() => {
+      if (cur === id && hud.scrollTop > restTop()) hud.scrollTop = restTop();
+    });
   };
   const pick = (id: string) => {
     remember(screen, id);

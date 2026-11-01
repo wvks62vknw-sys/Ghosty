@@ -4798,3 +4798,8 @@ html .tunbtns { display: flex; gap: 8px; margin: 6px 0 2px; }
 #pg-workbench .tunbtns button { flex: 1 1 0; min-width: 0; min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px: the id wins it) */
 html .tunbtns button[hidden] { display: none; }
 #pg-workbench .bigv .wbbig { text-transform: none; } /* units and coefficients as written: kN, MPa, Cl, Cd */
+/* The Workbench's head keeps one height whatever it says (his screenshots, 31 Oct): a shorter line after a section was picked
+   pulled the section's first panel — its title, its mode buttons — up under the held pills, and Safari has no scroll anchoring
+   to hold it. One line for the value, two for what it is about (cut with an ellipsis), never fewer. */
+html #pg-workbench .two > .hero .bigv { height: 28px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-workbench .two > .hero .sub, html #pg-workbench .two > .hero .sub:empty { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; height: 40px; }
