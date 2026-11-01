@@ -182,10 +182,12 @@ await until(() => [...document.querySelectorAll('#pg-system button')].some((b) =
 await openPanel(page, 'system', 'KEYS');
 await page.locator('#pg-system button', { hasText: /OPTIONAL KEYS/ }).click();
 await until(() => !!document.querySelector('textarea.keylines[aria-label^="DVSA MOT history"]'), 10000, 'no five-line box for the DVSA key in System → Keys');
-if ((await page.locator('textarea.keylines').getAttribute('rows')) !== '5') problems.push('the DVSA key box is not five lines tall');
-const keyBlock = await page.locator('.keyblock', { has: page.locator('textarea.keylines') }).evaluate((el) => { const r = el.getBoundingClientRect(); return r.right <= innerWidth + 1 && r.left >= -1; });
+// (by its label: KEYS has had a second five-line box since 1 Nov, so a bare textarea.keylines finds two)
+const dvsaBox = page.locator('textarea.keylines[aria-label^="DVSA MOT history"]');
+if ((await dvsaBox.getAttribute('rows')) !== '5') problems.push('the DVSA key box is not five lines tall');
+const keyBlock = await page.locator('.keyblock', { has: dvsaBox }).evaluate((el) => { const r = el.getBoundingClientRect(); return r.right <= innerWidth + 1 && r.left >= -1; });
 if (!keyBlock) problems.push('the DVSA key block sticks out sideways');
-await page.locator('textarea.keylines').scrollIntoViewIfNeeded();
+await dvsaBox.scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/vehicle-key.png` });
 
 // ---- nothing on the phone holds a plate or the record ----

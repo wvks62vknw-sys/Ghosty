@@ -166,6 +166,9 @@ const struck = r2.findIndex((r) => /\bfirst\b/.test(r.cls) && /\bstruck\b/.test(
 check(2, struck >= 0 && struck < r2.length - 1, 'the phone’s answer is not kept above the cloud’s, struck');
 check(2, struck > 0 && /\bme\b/.test(r2[struck - 1].cls) && /hello/.test(r2[struck - 1].text) && !r2.slice(struck + 1).some((r) => /\bme\b/.test(r.cls)), 'the question was shown twice');
 check(2, !(await page.locator('.msg.first.struck button.askcloud, #ccap button.askcloud').count()), 'ASK THE CLOUD is still there after the tap');
+// (the phone's stores save 200 ms after a change (core/store.ts); on the smoke loop's used brain the cloud answered inside that
+// window and this read came first (CI, 1 Nov: "the miss: []" twice), so the saved miss is waited for, briefly)
+await page.waitForFunction(() => (JSON.parse(localStorage.getItem('ghosty.trust') ?? '{}').misses ?? []).length > 0, null, { timeout: 3000 }).catch(() => undefined);
 const misses = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.trust') ?? '{}').misses ?? []);
 check(2, misses.length === 1 && misses[0].cat === 'greet' && /^Qwen3-0\.6B-q4f16_1-MLC@[0-9a-f]{7}$/.test(misses[0].model), `the miss: ${JSON.stringify(misses)}`);
 await page.waitForFunction(() => {

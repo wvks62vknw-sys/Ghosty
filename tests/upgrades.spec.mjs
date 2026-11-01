@@ -25,6 +25,19 @@ let ideas = [
   { id: 'i2', title: 'One-tap commute summary', why: 'Your commute questions repeat every weekday.', steps: ['Add commute_summary to tools/extra.ts'], at: Date.now() - 7200_000 },
 ];
 const json = (route, body) => route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+// The Workshop's panels move while the brain's projects and drafts load under them (many on the smoke loop's used brain:
+// the websites and apps specs ran first), so a tap aimed before the ideas panel has settled lands on a neighbour (CI, 1 Nov:
+// THINK NOW missed, then BUILD built the second idea). A tap waits until the target's box has held still for half a second.
+const settled = async (loc) => {
+  await loc.scrollIntoViewIfNeeded().catch(() => undefined);
+  let last = null;
+  for (let i = 0; i < 20; i++) {
+    const b = await loc.boundingBox().catch(() => null);
+    if (b && last && Math.abs(b.y - last.y) < 0.5 && Math.abs(b.height - last.height) < 0.5) return;
+    last = b;
+    await page.waitForTimeout(500);
+  }
+};
 await page.route('**/api/upgrades', (route) => json(route, { ideas, next: Date.now() + 3600_000, last: null }));
 await page.route('**/api/upgrades/now', (route) => {
   ideas = [{ id: 'i3', title: 'Read the morning emails aloud', why: 'Hands-free mornings.', steps: ['Add a read_inbox_aloud tool to tools/extra.ts'], at: Date.now() }, ...ideas];
@@ -69,11 +82,15 @@ await page.locator('#pg-workshop .idea', { hasText: 'One-tap commute summary' })
 await page.waitForFunction(() => document.querySelectorAll('#pg-workshop .idea').length === 1, null, { timeout: 5000 }).catch(() => problems.push('DISMISS did not remove the idea'));
 
 // 3. THINK NOW asks the brain and shows the new idea first
-await page.locator('#pg-workshop button:has-text("THINK NOW")').tap();
+const thinkNow = page.locator('#pg-workshop button:has-text("THINK NOW")');
+await settled(thinkNow);
+await thinkNow.tap();
 await page.waitForFunction(() => document.querySelector('#pg-workshop .idea b')?.textContent === 'Read the morning emails aloud', null, { timeout: 10000 }).catch(() => problems.push('THINK NOW did not show the new idea first'));
 
 // 4. BUILD: the build request goes to the chat (as the owner's own message) and the Core tab opens; the brain answers
-await page.locator('#pg-workshop .idea').first().locator('button:has-text("BUILD")').tap();
+const firstIdea = page.locator('#pg-workshop .idea').first();
+await settled(firstIdea);
+await firstIdea.locator('button:has-text("BUILD")').tap();
 await page.waitForFunction(() => location.hash === '#core', null, { timeout: 5000 }).catch(async () => problems.push(`BUILD did not open the Core tab (${await page.evaluate(() => location.hash)})`));
 const sent = await page
   .waitForFunction(() => [...document.querySelectorAll('.msg.me span')].map((s) => s.textContent ?? '').find((t) => t.startsWith('Build this upgrade:')) ?? null, null, { timeout: 10000 })
