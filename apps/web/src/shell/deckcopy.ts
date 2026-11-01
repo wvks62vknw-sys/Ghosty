@@ -319,7 +319,7 @@ export const DECK: Record<string, DeckScreen> = {
     can: [
       { text: 'Who’s who: birthdays and what you said', act: { open: 'people', panel: 'YOUR PEOPLE' } },
       { text: 'Gift ideas for Mum', act: { ask: 'Gift ideas for Mum' } },
-      { text: 'Plan a meal out for six', act: { open: 'people', panel: 'GROUP PLAN' } },
+      { text: 'Any birthdays this month?', act: { ask: 'Any birthdays this month?' } },
     ],
     dyk: 'He only knows what you tell him, and he never looks anyone up.',
   },
@@ -359,7 +359,7 @@ export const DECK: Record<string, DeckScreen> = {
     can: [
       { text: 'What is due at home, in date order', act: { open: 'homeadmin', panel: 'DUE' } },
       { text: 'When are the bins?', act: { ask: 'When are the bins?' } },
-      { text: 'Photograph a bill: he keeps the date', act: { open: 'homeadmin', panel: 'BILLS' } },
+      { text: 'What’s due this month?', act: { ask: 'What’s due this month?' } },
     ],
     dyk: 'A photo of a bill is read on the phone; only the supplier, the amount and the date go to his brain.',
   },
