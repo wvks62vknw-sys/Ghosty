@@ -1011,6 +1011,12 @@ folder that no longer exists; ignore those paths).
   when the module gains an import elsewhere — the suite's "Build failed" is the stub, not the code; check the stub first.
   NEXT: PR #48 (one CI run for the batch and the fix; smoke now 83 specs), merge when green; then the post-merge docs and
   WHAT-HE-CAN-DO as live facts, and his one-tap test (GET and USE the 0.5B, then SIT).
+- 01:23 UK (1 Nov): PR #48 MERGED (main 9340874) — BATCH 7 LIVE (the Workbench, the wind tunnel, knowledge with sources) WITH THE
+  SITTING-CRASH FIX. All checks green on the first run (brain, interface, deploy-build, smoke with 83 specs); the branch
+  fast-forwarded to main; the builder's worktree and branch removed. Post-merge docs: STATUS, OWNER-ISSUES 90, WHAT-HE-CAN-DO
+  as live facts (the Workbench, knowledge with sources, the exam fix's one-tap test). HIS NEXT STEPS (one message sent): GET and
+  USE Qwen2.5 0.5B, then SIT; the wind tunnel once; a contested question with CITED on. NEXT BUILD: ⑧ the social self and the
+  rituals, which needs his four Harold/Machine picks — not started until he answers (or says to go on without them).
 
 
 

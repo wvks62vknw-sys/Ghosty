@@ -1,8 +1,9 @@
-# What Ghosty can do for you — in the words you asked for it (31 October 2026, 19:15 UK)
+# What Ghosty can do for you — in the words you asked for it (1 November 2026, 01:25 UK)
 
 One page, kept up to date as batches land. Each line: what you said → what he does now → how you use it. ABILITIES
 (the Me sheet → Everything I can do) has the live list made from his own code; this page is the plain-words version.
-Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47).
+Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47). Batch 7 (the workbench and knowledge with
+sources) and the fix for sitting an exam closing Ghosty went live at 01:23 UK on 1 Nov (PR #48).
 
 ## The everyday things
 
@@ -60,7 +61,9 @@ Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47
   ceiling stays said: a phone brain is small; he closes the gap week by week, never pretends it is closed.
 - **"I want the offline brain to be one big awesome thing."** → Three brains to choose (0.6B, 2B, 4B), kept between
   opens, downloaded in 32 MB parts that survive a close; search by meaning on the phone; ON THIS PHONE by the mic sends
-  nothing to the cloud and fails closed.
+  nothing to the cloud and fails closed. The exam crash of 31 Oct: a brain that closes Ghosty while loading or answering is
+  remembered and not loaded again until you say so (USE), the words say what happened, and the smaller Qwen2.5 0.5B is
+  offered in WHICH BRAIN — GET it on Wi-Fi, USE it, then SIT; SCHOOL sits its papers on it.
 - **"Stop talking like an AI. Ever."** → An exact detector of AI cadence (precision 0.97) and his own voice style; and
   since batch 2 he answers at your length, with no menus and no "how can I help".
 - **"I figured a way to beat Ghosty in Connect 4 every time… I want him to advance significantly."** → PLAY HIM at full
@@ -113,12 +116,31 @@ Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47
   were wrong"); "how often are you right?" gives his record per kind; "what do you expect today?" his open ones. The
   Brief's FORESIGHT panel and SYSTEM → Report card → FORESIGHT show it all; the first prediction that comes true is one
   notification, once ever. He never predicts anything about a person: the tool refuses it in code and records nothing.
-  Building now (batch 7): the WORKBENCH — the wind tunnel, beams and columns, gears, the engine cycle, wings and cars,
-  projectiles and orbits, heat, sun and shadow, circuits, every answer a first estimate and never certified — and
-  knowledge with sources: every claim traced to a primary or credible source and labelled (established fact, documented
-  allegation, legal finding in progress, contested, rumour, debunked), TikTok, X and YouTube as leads never sources,
-  credible primary feeds in the Digest. Then: the social self and the rituals (Father, the origin, the weekly letter;
-  your four Harold / Machine picks shape that one).
+- **"He should be able to do anything and everything: architectural engineering, car mechanics and engineering,
+  aerodynamics… the wind tunnel on his phone."** → Batch 7, live since 01:23 UK on 1 Nov. MAKE → WORKBENCH: a beam or a column
+  (will it hold, how far it bends, Euler buckling), gears, belts and your bike's gear inches, an engine's power and torque,
+  a wing's lift and drag and a car's drag and power, a throw through the air and an orbit, a room's heat loss and a wall's
+  U-value, the sun and a shadow at your home, circuits (an LED's resistor, Ohm, a divider, RC, what a device costs to run)
+  — in your units, worked on the phone with no model, and every answer says how it was worked out, what it assumed, what
+  would change it, a confidence word, and FIRST ESTIMATE · NOT CERTIFIED (a chartered engineer signs anything load-bearing,
+  not him). The WIND TUNNEL is the first section: air flowing live round a wing (camber, thickness, angle), a circle, a
+  plate, a car or a shape you draw with your finger, with Cl and Cd. In the chat: "beam calculator", "wind tunnel", or
+  "3 m steel beam 5 kN in the middle" answered on the phone; "how strong is a 3 m steel beam with 5 kN in the middle?" by
+  the brain's estimate tool. Nothing can bill you, nothing leaves the phone.
+- **"Knowledge with sources: the Epstein files, Gaza, government wrongdoing… the truth, not both sides."** → Batch 7, live
+  since 01:23 UK on 1 Nov. Every cited answer (CITED on, "with sources", "is it true…", "did … really", "what's the evidence",
+  or any question about genocide, war crimes, the ICJ and ICC, Epstein, a cover-up, corruption — cited without asking) shows
+  each source's tier as a word (PRIMARY: the court, the UN, the government's own release, the law, the data, the paper;
+  CREDIBLE: Amnesty, HRW, B'Tselem, ICIJ, Bellingcat, OCCRP, ProPublica, Full Fact; PRESS; REFERENCE; LEAD: TikTok, X,
+  YouTube, Reddit — where a claim is found, never what proves it) and every claim's label in words (established fact,
+  documented allegation, legal finding in progress, contested, rumour, debunked). The code caps the labels, not the model:
+  a lead alone is a rumour at most, an established fact needs a primary source or two credible ones he read in that turn,
+  a claim nothing read supports is contested at best. A model that will not engage is asked again on another; if none
+  will, he says so in one line and gives what the sources say. The morning Digest now reads UN News, the ICC, GOV.UK, new
+  UK legislation, Amnesty, HRW, ICIJ, Bellingcat, OCCRP, ProPublica and Full Fact too, each passage filed with its tier
+  (FRESH TODAY in the Library shows it). Only public sources: no private person is ever searched for or profiled.
+  Then: the social self and the rituals (Father, the origin, the weekly letter; your four Harold / Machine picks shape
+  that one).
 
 ## What only you can do (ten minutes, when you like)
 
@@ -131,3 +153,9 @@ Batch 6: save Home and Work in Memory → ME → PLACES (the rain needs Home; th
 commute the free TomTom key in SYSTEM → KEYS); open God's Eye → MACHINE VIEW once and tell me how fast the first line
 comes and how the drift feels; the first real morning's predictions are made after 06:00 and scored that evening; try
 "what do you reckon, will it rain tomorrow?" once, then "you were right" or "you were wrong" the day after.
+
+Batch 7 and the exam fix: close Ghosty fully and reopen; SETTINGS → OFFLINE BRAIN → WHICH BRAIN: GET Qwen2.5 0.5B on Wi-Fi,
+then USE it, then SCHOOL → SIT (if Ghosty closes again, reopen and read the words under WHICH BRAIN: they now name the
+brain and what it was doing); MAKE → WORKBENCH → WIND TUNNEL once, and tell me how fast the numbers come and whether the
+phone gets warm; try "3 m steel beam 5 kN in the middle" in the chat; ask one contested thing with CITED on and look at
+the tier chips and the labels; your words on the cited-by-default list and the tier table if you want any changed.
