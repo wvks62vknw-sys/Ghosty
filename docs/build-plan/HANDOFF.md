@@ -1062,6 +1062,9 @@ folder that no longer exists; ignore those paths).
   Parallel builders in separate areas (Opus for design-heavy, Sonnet for brief-plus-tests work), lean rules in every brief,
   review by risk with an Opus reviewer for big diffs, PRs paired, docs one commit per merge. Running: ① (8877), ② (8866),
   ③ part 1 ARCADE (8855).
+- 1 Nov 03:55 UK (OWNER-ISSUES 97): School still "crashing to my knowledge" (he never did GET → USE); builder ⑥ part 1
+  BRIEF-SMALLEST started (Opus, 8833): a floor brain, the chain, one-tap GET-and-sit, a 600-token sitting prompt. The PS5
+  opens Ghosty (older WebKit: the Eye and the new centre piece fail) → TV MODE in ⑧. Four builders run.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
