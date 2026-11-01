@@ -25,11 +25,9 @@ const LANG = /\b(spanish|french|german|italian)\b/;
 export function coachAsked(text: string): CoachAsk | null {
   const t = text.toLowerCase().replace(/[’']/g, "'").replace(/[.!?]+$/g, '').trim();
   if (!t || t.length > 120) return null;
-  // "can you juggle?", "could you tune my guitar?": a question about what I can do is the catalogue's to answer ("Not yet",
-  // or the thing with a GO), never a coach ask (the abilities spec: "can you juggle?" is answered "Not yet" in the chat)
-  if (/^(?:can|could|do|would|will|are) you\b/.test(t)) return null;
-  // juggling and tricks by camera: not in, and said so
-  if (/\bjuggl\w*\b|\b(?:learn|teach me|coach me (?:on|with)) (?:a |some )?(?:skateboard|bike|yo-?yo|football|basketball|parkour|dance|ball) tricks?\b/.test(t)) return { what: 'juggle' };
+  // juggling and tricks by camera: not in, and said so — except "can you juggle?", a question about what I can do, which the
+  // catalogue answers ("Not yet": the abilities spec) and the coach leaves alone; "Can you tune my ukulele?" is still the tuner's
+  if (/\bjuggl\w*\b|\b(?:learn|teach me|coach me (?:on|with)) (?:a |some )?(?:skateboard|bike|yo-?yo|football|basketball|parkour|dance|ball) tricks?\b/.test(t)) return /^(?:can|could|do|would|will|are) you\b/.test(t) ? null : { what: 'juggle' };
   // the tuner
   if (/^(?:am i|are we|is it|is this) in tune$/.test(t) || /\bin tune\?*$/.test(t) && /^(?:am i|is my \w+) in tune/.test(t)) return { what: 'tuner', instrument: instrumentOf(t) };
   if (/\b(?:tune|tuning|retune)\b.*\b(?:my|the|a)\s+(?:guitar|bass|ukulele|uke|violin|fiddle)\b/.test(t) || /\b(?:guitar|bass|ukulele|uke|violin|fiddle)\b.*\b(?:tuner|tuning)\b/.test(t)) return { what: 'tuner', instrument: instrumentOf(t) };
