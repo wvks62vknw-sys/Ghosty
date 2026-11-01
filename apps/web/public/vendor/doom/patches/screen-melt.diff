@@ -1,0 +1,92 @@
+--- a/doomgeneric/d_main.c
++++ b/doomgeneric/d_main.c
+@@ -162,6 +162,11 @@
+ 
+ // wipegamestate can be set to -1 to force a wipe on the next draw
+ gamestate_t     wipegamestate = GS_DEMOSCREEN;
++
++// Ghosty: the screen melt in progress (see D_WipeStep).
++static boolean  wipe_running = false;
++static int      wipe_last;
++static boolean  D_WipeStep (void);
+ extern  boolean setsizeneeded;
+ extern  int             showMessages;
+ void R_ExecuteSetViewSize (void);
+@@ -174,11 +179,7 @@
+     static  boolean		fullscreen = false;
+     static  gamestate_t		oldgamestate = -1;
+     static  int			borderdrawcount;
+-    int				nowtime;
+-    int				tics;
+-    int				wipestart;
+     int				y;
+-    boolean			done;
+     boolean			wipe;
+     boolean			redrawsbar;
+ 
+@@ -308,24 +309,34 @@
+     // wipe update
+     wipe_EndScreen(0, 0, SCREENWIDTH, SCREENHEIGHT);
+ 
+-    wipestart = I_GetTime () - 1;
++    // Ghosty: the melt runs one step a frame from doomgeneric_Tick (a browser
++    // shows nothing until a frame returns), instead of looping here.
++    wipe_last = I_GetTime () - 1;
++    wipe_running = true;
++    D_WipeStep ();
++}
+ 
+-    do
+-    {
+-	do
+-	{
+-	    nowtime = I_GetTime ();
+-	    tics = nowtime - wipestart;
+-            I_Sleep(1);
+-	} while (tics <= 0);
+-        
+-	wipestart = nowtime;
+-	done = wipe_ScreenWipe(wipe_Melt
+-			       , 0, 0, SCREENWIDTH, SCREENHEIGHT, tics);
+-	I_UpdateNoBlit ();
+-	M_Drawer ();                            // menu is drawn even on top of wipes
+-	I_FinishUpdate ();                      // page flip or blit buffer
+-    } while (!done);
++// One step of the screen melt; false once it is done.
++static boolean D_WipeStep (void)
++{
++    int nowtime = I_GetTime ();
++    int tics = nowtime - wipe_last;
++    boolean done;
++
++    if (tics <= 0)
++        return true;
++
++    wipe_last = nowtime;
++    done = wipe_ScreenWipe(wipe_Melt
++                           , 0, 0, SCREENWIDTH, SCREENHEIGHT, tics);
++    I_UpdateNoBlit ();
++    M_Drawer ();                            // menu is drawn even on top of wipes
++    I_FinishUpdate ();                      // page flip or blit buffer
++
++    if (done)
++        wipe_running = false;
++
++    return !done;
+ }
+ 
+ //
+@@ -404,6 +415,13 @@
+ 
+ void doomgeneric_Tick()
+ {
++    // Ghosty: while the screen melts, nothing else runs (as in the original's loop).
++    if (wipe_running)
++    {
++        D_WipeStep ();
++        return;
++    }
++
+     // frame syncronous IO operations
+     I_StartFrame ();
+ 

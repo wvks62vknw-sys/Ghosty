@@ -1,0 +1,26 @@
+--- a/doomgeneric/g_game.c
++++ b/doomgeneric/g_game.c
+@@ -172,6 +172,12 @@
+ 
+ static int next_weapon = 0;
+ 
++// Ghosty: analog movement from a touch stick or a game controller, set by
++// the platform before each tic (forwardmove and sidemove units, -50..50).
++
++int dg_analog_forward = 0;
++int dg_analog_side = 0;
++
+ // Used for prev/next weapon keys.
+ 
+ static const struct
+@@ -536,6 +542,10 @@
+ 
+     forward += mousey; 
+ 
++    // Ghosty: the stick's own amount, as an analog joystick would give it.
++    forward += dg_analog_forward;
++    side += dg_analog_side;
++
+     if (strafe) 
+ 	side += mousex*2; 
+     else 
