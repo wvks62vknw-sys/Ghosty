@@ -13,6 +13,8 @@ import { settings } from '../../state/app';
 import { button, panel, toast, type Panel } from '../../ui/components';
 import { principlesEditor } from './principles';
 import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSettings } from '../../../../../packages/shared/src/persona';
+import { DIALS, DEFAULT_DIAL, type Dial } from '../../../../../packages/shared/src/cadence';
+import type { SpeakInfo } from '../../api/brain';
 
 /** "Now: dry, warm, answers as long as yours, as he comes." — the dials in plain words (the steps' own names, in small letters). */
 export function nowLine(p: PersonaSettings): string {
@@ -72,6 +74,33 @@ export function characterPanel(): Panel & { refresh(): void } {
   };
 
   const reset = button('DEFAULT', () => void save(DEFAULT_PERSONA));
+  // SPEAK FIRST (BRIEF-SIDEWAYS 3): how often he may bring something up unasked, across the chat, push and Telegram. The
+  // brain keeps it (speak.ts); it is never part of the words Ghosty is given.
+  const speakDial = h('div.lenschips.learnchips.speakdial', { role: 'group', 'aria-label': 'SPEAK FIRST', 'data-dial': 'speak' });
+  const speakNow = h('p.note.speaknow', { dataset: { case: 'keep' } });
+  let speak: SpeakInfo | null = null;
+  const paintSpeak = () => {
+    const on: Dial = speak?.dial ?? DEFAULT_DIAL;
+    clear(
+      speakDial,
+      h('span.lab', 'SPEAK FIRST'),
+      ...DIALS.map((d) => {
+        const b = button(d.label, () => void setSpeak(d.id), on === d.id ? 'on' : '');
+        b.setAttribute('aria-pressed', String(on === d.id));
+        return b;
+      }),
+    );
+    const said = speak ? speak.today.filter((s) => !s.held && !s.danger).length : 0;
+    speakNow.textContent = `${DIALS.find((d) => d.id === on)!.says}${speak ? ` Today: ${said} said${speak.stopped ? '; you said stop, so I’m quiet until tomorrow' : ''}.` : ''}`;
+  };
+  const setSpeak = async (dial: Dial) => {
+    try {
+      speak = await brain.setSpeakDial(dial);
+      paintSpeak();
+    } catch {
+      toast("Not saved: I can't reach my brain right now. Try again in a moment.", 'bad');
+    }
+  };
   // His PRINCIPLES (OWNER-ISSUES 64, 69b): the lines he holds me to, in his words — the same editor as MEMORY's.
   const princ = principlesEditor();
   p.body.append(
@@ -79,12 +108,21 @@ export function characterPanel(): Panel & { refresh(): void } {
     dials,
     h('div.row.charreset', reset),
     state,
+    speakDial,
+    speakNow,
     h('div.charprinc', h('span.lab', 'PRINCIPLES'), princ.el),
     h('details.charwords', h('summary', { dataset: { case: 'keep' } }, 'The exact words Ghosty is given'), said),
   );
 
   const refresh = () => {
     princ.refresh();
+    void brain
+      .speak()
+      .then((r) => {
+        speak = r;
+        paintSpeak();
+      })
+      .catch(() => undefined);
     void brain
       .persona()
       .then((r) => {
@@ -95,5 +133,6 @@ export function characterPanel(): Panel & { refresh(): void } {
       .catch(() => undefined); // offline: the copy on this phone stays
   };
   paint();
+  paintSpeak();
   return { ...p, refresh };
 }

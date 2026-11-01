@@ -24,9 +24,10 @@ export interface Job {
    * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
    * upgrade = the daily upgrade ideas (upgrades.ts); train = the offline brain's weekly self-training (selftrain/cycle.ts);
    * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts);
-   * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts)
+   * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts);
+   * speak = speaking first: the day's pieces at their minute, under the cadence (speak.ts)
    */
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train' | 'guard' | 'walk' | 'foresee';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train' | 'guard' | 'walk' | 'foresee' | 'speak';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;

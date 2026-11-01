@@ -250,3 +250,116 @@ test('through the brain: a car he names is kept in his memory by code (locked), 
   assert.equal(JSON.parse(await b.call('/cars/RX15%20KNG', null, 'DELETE')).forgotten, true);
   assert.equal(JSON.parse(await b.call('/cars')).cars.length, 0);
 });
+
+// ---------------------------------------------------------------- speak first: the cadence (pure) and the brain's job
+
+const K = await import(`${B}/cadence.mjs`);
+const LDN = 'Europe/London';
+const at = (h, m = 0, day = 4) => Date.UTC(2026, 10, day, h, m); // November: London is on UTC
+const said = (c, t, id, extra = {}) => K.record(c, { at: t, id, title: id, line: '…', why: 'test', ...extra }, LDN);
+
+test('the cadence: four a day on SOME, never two within two hours, nothing at night, a stop word silences the day, danger always', () => {
+  let c = K.readCadence(null);
+  assert.equal(c.dial, 'some');
+  assert.deepEqual(K.maySpeak(c, { now: at(8), tz: LDN }), { ok: true });
+  c = said(c, at(8), 'a');
+  assert.deepEqual(K.maySpeak(c, { now: at(9, 59), tz: LDN }), { ok: false, why: 'one within the last two hours' });
+  assert.deepEqual(K.maySpeak(c, { now: at(10), tz: LDN }), { ok: true }, 'two hours on');
+  c = said(said(said(c, at(10), 'b'), at(12), 'c'), at(14), 'd');
+  assert.deepEqual(K.maySpeak(c, { now: at(17), tz: LDN }), { ok: false, why: 'four already today' }, 'the cap');
+  assert.deepEqual(K.maySpeak(c, { now: at(17), tz: LDN, danger: true }), { ok: true }, 'danger is never held');
+  assert.deepEqual(K.maySpeak(c, { now: at(8, 0, 5), tz: LDN }), { ok: true }, 'a new day');
+  assert.deepEqual(K.maySpeak(K.readCadence(null), { now: at(23, 10), tz: LDN }), { ok: false, why: 'the night (23:00 to 07:00)' });
+  assert.deepEqual(K.maySpeak(K.readCadence(null), { now: at(6, 59), tz: LDN }), { ok: false, why: 'the night (23:00 to 07:00)' });
+  assert.deepEqual(K.maySpeak(K.readCadence(null), { now: at(7), tz: LDN }), { ok: true });
+  // (on his clock: 07:30 in London in June is 06:30 UTC)
+  assert.deepEqual(K.maySpeak(K.readCadence(null), { now: Date.UTC(2026, 5, 10, 6, 30), tz: LDN }), { ok: true });
+  const stopped = K.silence(K.readCadence(null), at(9), LDN);
+  assert.equal(stopped.stopped, '2026-11-04');
+  assert.deepEqual(K.maySpeak(stopped, { now: at(18), tz: LDN }), { ok: false, why: 'you said stop today' });
+  assert.deepEqual(K.maySpeak(stopped, { now: at(18), tz: LDN, danger: true }), { ok: true });
+  assert.deepEqual(K.maySpeak(stopped, { now: at(8, 0, 5), tz: LDN }), { ok: true }, 'the stop lasts his day');
+  assert.equal(K.unsilence(stopped).stopped, undefined);
+  // danger never counts towards the cap or the gap
+  let d = said(K.readCadence(null), at(8), 'w', { danger: true });
+  assert.deepEqual(K.maySpeak(d, { now: at(8, 30), tz: LDN }), { ok: true });
+  d = said(d, at(9), 'h', { held: 'the night' });
+  assert.deepEqual(K.saidToday(d, at(10), LDN).length, 0, 'held and danger lines are not counted');
+});
+
+test('the cadence: the dial changes the cap — QUIET danger only, SOME four, CHATTY eight; every line is recorded with its reason', () => {
+  let c = K.setDial(K.readCadence(null), 'quiet');
+  assert.deepEqual(K.maySpeak(c, { now: at(9), tz: LDN }), { ok: false, why: 'the dial is on QUIET' });
+  assert.deepEqual(K.maySpeak(c, { now: at(9), tz: LDN, danger: true }), { ok: true });
+  c = K.setDial(c, 'chatty');
+  assert.equal(K.capOf(c.dial), 8);
+  for (let i = 0; i < 8; i++) {
+    assert.deepEqual(K.maySpeak(c, { now: at(7 + 2 * i, 1), tz: LDN }), { ok: true }, `line ${i + 1} of eight`);
+    c = said(c, at(7 + 2 * i, 1), `p${i}`);
+  }
+  assert.equal(K.saidToday(c, at(22), LDN).length, 8);
+  assert.deepEqual(K.maySpeak(c, { now: at(22, 30), tz: LDN }), { ok: false, why: 'eight already today' });
+  assert.equal(K.setDial(c, 'nonsense').dial, 'chatty', 'an unknown dial changes nothing');
+  assert.deepEqual(K.DIALS.map((x) => [x.label, x.cap]), [['QUIET', 0], ['SOME', 4], ['CHATTY', 8]]);
+  const held = K.record(K.readCadence(null), { at: at(9), id: 'm', title: 'Good morning', line: 'x', why: 'the morning piece', held: 'one within the last two hours' }, LDN);
+  assert.equal(K.record(held, { ...held.log[0], at: at(9, 30) }, LDN).log.length, 1, 'a held piece is recorded once a day per reason');
+  assert.equal(K.spokenLine(held.log[0]), 'Held back: Good morning (one within the last two hours)');
+  assert.equal(K.spokenLine({ at: 0, id: 'm', title: 'Good morning', line: 'dry today', why: 'the morning piece' }), 'Spoke first: Good morning — dry today (why: the morning piece)');
+  assert.equal(K.alreadySaid(held, 'm'), false, 'held is not said: it can still go');
+});
+
+test('speaking first through the brain: the morning piece at its minute, the next held by the gap, a stop silences the day, WHY and his day list them', async () => {
+  const S = await import('./.build/speak.mjs');
+  const W = await import('./.build/why.mjs');
+  const D = await import('./.build/today.mjs');
+  const storage = new Store();
+  await storage.put('owner:ctx', { tz: LDN });
+  await storage.put('places', [{ id: 'home', label: 'Home', query: 'x', address: '12 Acacia Avenue', lat: 52.44, lon: -1.88, at: 1 }]);
+  await storage.put('memory', [{ id: 'c1', text: "Dad's car: RX15 KNG (the Golf) · MOT due 2026-11", at: 1, locked: true }]);
+  let now = at(7, 40);
+  const sent = [];
+  const deps = {
+    storage, vault: { get: async () => null }, now: () => now,
+    notify: async (item) => void sent.push(item),
+    rain: async () => ({ time: Array.from({ length: 24 }, (_, i) => Date.UTC(2026, 10, 4, i)), prob: Array.from({ length: 24 }, (_, i) => (i >= 15 ? 70 : 10)) }),
+  };
+  assert.equal(await S.speakTick(deps), now + 30 * 60_000, 'looks again in half an hour');
+  assert.equal(sent.length, 1, 'one piece goes; the second waits for the gap');
+  assert.equal(sent[0].card.title, 'Good morning');
+  assert.equal(sent[0].card.line, 'Rain likely from 15:00 · nothing in your diary today');
+  assert.equal(sent[0].card.brief.icon, 'rain');
+  assert.equal(sent[0].card.why, 'the morning piece: your diary and the rain at Home');
+  const log = () => storage.m.get('speak:cadence').log;
+  assert.deepEqual(log().map((s) => [s.id.split(':')[1], s.held ?? 'said']), [['morning', 'said'], ['mot', 'one within the last two hours']]);
+  now = at(9, 45);
+  await S.speakTick(deps);
+  assert.equal(sent.length, 2, 'two hours on, the MOT month goes');
+  assert.equal(sent[1].card.title, 'MOT due this month');
+  assert.equal(sent[1].card.line, "Dad's Golf (RX15 KNG): its MOT falls due in November");
+  await S.speakTick(deps);
+  assert.equal(sent.length, 2, 'each piece once');
+  // "why?" after a line he did not ask for: its reason, with no model
+  assert.equal(await W.whyReply(storage, 'why?'), 'Why I said that: “MOT due this month” — a car you named: its MOT falls due in November.');
+  const day = await D.dayDoings({ storage }, LDN, at(10));
+  assert.ok(day.some((x) => x.text === 'Spoke first: Good morning — Rain likely from 15:00 · nothing in your diary today (why: the morning piece: your diary and the rain at Home)'), JSON.stringify(day));
+  assert.ok(day.some((x) => x.text === 'Held back: MOT due this month (one within the last two hours)'));
+  // a stop word: the rest of the day is silent (the danger path aside)
+  await S.stopSpeaking(storage, at(10));
+  await storage.put('memory', [{ id: 'c1', text: "Dad's car: RX15 KNG · tax due 2026-11", at: 1, locked: true }]);
+  now = at(13);
+  await S.speakTick(deps);
+  assert.equal(sent.length, 2);
+  assert.equal(log().at(-1).held, 'you said stop today');
+  // the dial and the stop through the route
+  const r = await S.speakRoute(new Request('https://g/api/speak', { method: 'POST', body: JSON.stringify({ dial: 'quiet' }) }), '/speak', 'POST', deps);
+  const v = await r.json();
+  assert.deepEqual([v.dial, v.cap, v.stopped], ['quiet', 0, true]);
+  const again = await (await S.speakRoute(new Request('https://g/api/speak/stop', { method: 'DELETE' }), '/speak/stop', 'DELETE', deps)).json();
+  assert.equal(again.stopped, false);
+  now = at(16);
+  await S.speakTick(deps);
+  assert.equal(log().at(-1).held, 'the dial is on QUIET');
+  // the next look: his 07:30 after the night
+  assert.equal(S.nextLook(at(23, 30), LDN), at(7, 30, 5));
+  assert.equal(S.nextLook(at(5), LDN), at(7, 30));
+});

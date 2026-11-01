@@ -7,6 +7,7 @@
  *   GET /today?tz=Europe/London → { items: DayItem[] }
  */
 import { doneOf, type DayItem } from '../../../packages/shared/src/abilities';
+import { CADENCE_KEY, readCadence, spokenLine } from '../../../packages/shared/src/cadence';
 import type { Env } from './env';
 import { loadLessons } from './knowledge';
 import { loadStudy } from './library/study';
@@ -69,6 +70,9 @@ export async function dayDoings(d: TodayDeps, tz?: string, now = Date.now()): Pr
   for (const p of projects) for (const st of p.steps) if (st.status === 'done' && today(st.at)) out.push({ at: st.at!, text: `Worked on the project “${clip(p.title, 50)}”: step ${st.n}, ${clip(st.title, 60)}` });
   for (const l of lessons) if (today(l.at)) out.push({ at: l.at, text: `Learned a lesson: ${clip(l.text, 90)}` });
   for (const i of ideas) if (today(i.at)) out.push({ at: i.at, text: i.from === 'owner' ? `Put on my learning list: “${clip(i.ask ?? i.title, 70)}”` : `Thought of an upgrade for myself: ${clip(i.title, 70)}` });
+  // [cards] what he did not ask for (speak.ts): each line said, or held back and why — with its reason
+  const cad = readCadence(await safely(d.storage.get<unknown>(CADENCE_KEY), undefined));
+  for (const s of cad.log) if (today(s.at)) out.push({ at: s.at, text: spokenLine(s) });
   return out.sort((a, b) => b.at - a.at);
 }
 

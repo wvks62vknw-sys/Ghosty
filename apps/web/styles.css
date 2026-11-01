@@ -4843,3 +4843,5 @@ html .guardperson > b { font: 600 17px/22px var(--sf); color: var(--ink); text-t
 html .guardcar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 400 14px/19px var(--sf); color: var(--ink2); }
 html .guardcar > span:nth-child(2) { flex: 1; min-width: 0; }
 html .guardcar button { min-height: 44px; }
+html .ccwhy { overflow: hidden; font: 500 11px/14px var(--sf); color: var(--ink3); white-space: nowrap; text-overflow: ellipsis; text-transform: none; }
+html .speaknow { margin-top: 4px; }

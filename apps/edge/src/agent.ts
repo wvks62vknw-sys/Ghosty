@@ -66,6 +66,7 @@ import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
 import { cardsFromTool, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
+import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -327,6 +328,8 @@ export class GhostyAgent {
         // a stop by intent from the phone (intent.ts): a harsh one leaves him subdued, any other puts him back to calm
         const b = (await req.json().catch(() => ({}))) as { harsh?: unknown };
         const mood = await feel(this.storage, { kind: 'stop', harsh: b.harsh === true }).catch(() => undefined);
+        // [cards] any stop word silences the rest of his day: nothing more unasked but danger (speak.ts)
+        await stopSpeaking(this.storage).catch(() => undefined);
         return json({ ok: true, ...(mood ? { mood } : {}) });
       }
       if (path === '/history' && method === 'GET') return json({ turns: (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [], pending: await this.pendingInfo() });
@@ -440,6 +443,7 @@ export class GhostyAgent {
       }
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
+      if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1460,6 +1464,7 @@ export class GhostyAgent {
       if (job.kind === 'guard') return json(await watchTick(this.guardDeps())); // [guardian]
       if (job.kind === 'walk') return json({ next: await walkTick(this.guardDeps()) }); // [guardian]
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
+      if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1491,6 +1496,8 @@ export class GhostyAgent {
     const { danger, card: given, ...item } = note;
     // [cards] its live card, by code: a reminder he set, a warning about one of his places (cards.ts inboxCard)
     const card = given ?? inboxCard({ ...item, danger });
+    // (a warning about one of his places is never held, but it is recorded with the unprompted lines: WHY and his day list it)
+    if (danger && card) await noteDanger(this.storage, card).catch(() => undefined);
     const wanted = await pushWanted(this.storage, item.pushKind ?? null);
     const it = await addInbox(this.storage, { ...item, ...(card ? { card } : {}), ...(wanted ? {} : { quiet: true }) });
     if (!wanted) return it;
@@ -1537,6 +1544,7 @@ export class GhostyAgent {
         this.busy?.abort();
         this.busy = null;
         this.state.waitUntil(feel(this.storage, { kind: 'stop', harsh: harsh === true }).catch(() => undefined));
+        this.state.waitUntil(stopSpeaking(this.storage).catch(() => undefined)); // [cards] silent for the rest of his day
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
       foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
@@ -1617,6 +1625,11 @@ export class GhostyAgent {
           // says when to come back (a departure due to be scored, the commute's minute, six o'clock). Steps aside when the
           // day's database allowance is low (meter.ts).
           const next = await this.meter.as('foresee', () => foreseeTick({ ...this.foreDeps(), spare: this.meter.spare() }));
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'speak') {
+          // [cards] Speaking first (speak.ts): the day's pieces at their minute, under the cadence; it says when to look again.
+          const next = await speakTick(this.speakDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'revise') {
@@ -1716,6 +1729,12 @@ export class GhostyAgent {
     await ensureTrainJob(this.storage); // [selftrain]
     await ensureGuardJob(this.storage); // [guardian]
     await ensureForeseeJob(this.storage); // [foresight]
+    await ensureSpeakJob(this.storage); // [cards] speaking first
+  }
+
+  /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
+  private speakDeps(): SpeakDeps {
+    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
   }
 
   /** [foresight] What foresight (foresight.ts) may use: the database, the vault (the TomTom key) and his notifications. */

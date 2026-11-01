@@ -199,7 +199,15 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
     // (no label of its own: VoiceOver reads the title, then the line, then the buttons; the picture is hidden from it)
     { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger ? { danger: '1' } : {}) } },
     vis,
-    h('div.ccbody', h('b.cctitle', c.title), h('span.ccline', c.line), c.kind === 'estimate' ? h('small.cctag', 'First estimate, not certified') : null, acts.length ? h('div.ccacts', ...acts) : null),
+    h(
+      'div.ccbody',
+      h('b.cctitle', c.title),
+      h('span.ccline', c.line),
+      c.kind === 'estimate' ? h('small.cctag', 'First estimate, not certified') : null,
+      // a line he did not ask for says why it came (the speak-first cadence recorded it)
+      c.why ? h('small.ccwhy', `Why: ${c.why}`) : null,
+      acts.length ? h('div.ccacts', ...acts) : null,
+    ),
   );
 }
 
