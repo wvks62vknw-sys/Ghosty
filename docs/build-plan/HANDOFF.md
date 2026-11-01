@@ -1075,6 +1075,12 @@ folder that no longer exists; ignore those paths).
   (typechecks, web build, catalogue + arcade tests 19/19) on top of the builder's full run at its HEAD; CI carries the
   rest (free). PR #49 opened; merge when green. From here every merge must add catalogue words for the batch's new
   registry items (the completeness test names them).
+- 1 Nov 05:45 UK: BATCH ⑥ PART 1 MERGED (a7d4be4; OWNER-ISSUES 100) and pushed into PR #49 with ① (one CI run for
+  both; the push restarts #49's checks). Seven false failures on the merged tree until the package's 27 esbuild steps
+  were rerun: STALE TEST BUNDLES — always rebuild them before judging a merged tree (a python one-liner over the test
+  script's `&&` parts does it). Building: ② sideways (8866), ③ library + arcade screen (8855), ③ native engines (8811).
+  Next free slot: GAMES-2 (brief ready), then PACKS-1 (brief ready). Hold pushes while a PR is open unless a batch is
+  joining it.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)

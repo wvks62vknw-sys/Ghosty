@@ -122,14 +122,17 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Batch ①, THE EVERYTHING TAB (PR #49, in the checks from 05:30 UK on 1 Nov): the Abilities screen rebuilt as a complete
   catalogue of every single thing he can do, generated from his own code (375 things, 98 new), each with a plain line, an
   example, TRY IT, where it lives and what it needs; search; scenes; counted; plus the two Workbench layout bugs fixed.
+- Batch ⑥ part 1, THE SMALL BRAIN (PR #49 with ①): press SIT and it works, or the next smaller brain is one tap away —
+  "GET Qwen2.5 0.5B (290 MB) and sit", then a third, tiny brain (SmolLM2 360M, 212 MB) that fits any phone; a shorter
+  sitting prompt; one line after a close saying which brain closed and what SIT uses next. Why the 0.6B died: its
+  library sets aside about 630 MB of working space at the first question; the tiny one needs 22 MB.
 
 - Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
 
 - BUILDING NOW (1 Nov, from 03:40 UK): ② SIDEWAYS (live cards in the chat, the trigger table, the speak-first cadence,
-  Home as your wall); ⑥ part 1 THE SMALL BRAIN (one tap from SIT: GET the smaller brain and sit; a third, tiny brain as the
-  floor; a shorter sitting prompt); ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
+  Home as your wall); ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
   Archive on your tap) and, separately, DOOM and Quake natively in the browser. Each: review, one PR, merged when green.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
