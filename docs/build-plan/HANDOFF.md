@@ -1090,6 +1090,14 @@ folder that no longer exists; ignore those paths).
   on the DOSBox-wasm engine behind the shared Engine adapter. Joins PR #49 once deck + arcade specs pass on the merged tree
   (running on 8844 while the chain on 8788 finishes nav/brief + the suite). PACKS-1 started (Opus, 8822). Running: engines
   (8811), games-2 (8800), packs-1 (8822).
+- 1 Nov 07:10 UK: #49's old head failed CI on the SELFTRAIN spec: its brain-chooser list lacked the floor brain (⑥a changed
+  the stock list; the spec was not in that batch's validation list). Fixed (6ddc5a6), proven on a fresh preview, pushed.
+  LESSON: when a batch changes a shared list (brains, tabs, deck groups, jobs), grep every spec for the old list, not
+  just the builder's validation list.
+- 1 Nov 07:40 UK: ENGINES MERGED (9620c71; OWNER-ISSUES 103): native DOOM and Quake behind the adapter, not yet wired into
+  the player; three add/add conflicts (two builders created types/saves/audio from the same spec) resolved as unions.
+  Held locally with the docs; the engines builder continues with the integration step on the branch tip (its worktree
+  kept); all of it goes to PR #50 after #49 merges.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
