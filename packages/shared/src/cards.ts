@@ -273,6 +273,9 @@ export function cardsFromTool(o: ToolOutcome): Card[] {
     case 'people':
     case 'work':
     case 'creative':
+    case 'outside':
+    case 'home':
+    case 'learning':
       return packCards(o);
     default:
       return [];

@@ -7,7 +7,7 @@
  */
 import type { Card } from './cards';
 
-export const PACKS = ['money', 'body', 'kitchen', 'people', 'work', 'creative'] as const;
+export const PACKS = ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning'] as const;
 export type PackName = (typeof PACKS)[number];
 
 /** What one pack action gives back: his words, the cards for the chat, data for a screen, a screen to open on the phone. */

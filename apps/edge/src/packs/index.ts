@@ -15,10 +15,13 @@ import { followTick, MONEY, moneyLines } from '../tools/money';
 import { PEOPLE, peopleLines } from '../tools/people';
 import { WORK, workLines } from '../tools/work';
 import { CREATIVE, creativeLines } from '../tools/creative';
+import { OUTSIDE, outsideLines } from '../tools/outside';
+import { HOME, homeLines, planningTick } from '../tools/homeadmin';
+import { LEARNING, learningLines } from '../tools/learning';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK, creative: CREATIVE };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK, creative: CREATIVE, outside: OUTSIDE, homeadmin: HOME, learning: LEARNING };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;
@@ -51,14 +54,18 @@ export async function packsRoute(req: Request, path: string, method: string, d: 
 
 /** The follow job's look (agent.ts): the watched prices; says when to come back. */
 export async function packsTick(d: PacksDeps): Promise<number> {
-  return followTick(await depsOf(d), (title, text, card) => d.notify({ kind: 'task', title, text, card }));
+  const deps = await depsOf(d);
+  const tell = (title: string, text: string, card: Card) => d.notify({ kind: 'task', title, text, card });
+  // (the money pack's price watches and the home pack's planning watch share the one follow job)
+  const [prices, planning] = await Promise.all([followTick(deps, tell), planningTick(deps, tell)]);
+  return Math.min(prices, planning);
 }
 
 /** The Brief's lines from the packs (mind.ts): payday, a renewal tomorrow, a warranty ending soon… Never in the prompt. */
 export async function packLines(d: Pick<PacksDeps, 'storage' | 'now'>): Promise<string[]> {
   const deps = await depsOf(d);
-  const all = await Promise.all([moneyLines(deps), bodyLines(deps), kitchenLines(deps), peopleLines(deps), workLines(deps), creativeLines(deps)].map((p) => p.catch(() => [] as string[])));
-  return all.flat().slice(0, 9);
+  const all = await Promise.all([moneyLines(deps), bodyLines(deps), kitchenLines(deps), peopleLines(deps), workLines(deps), creativeLines(deps), outsideLines(deps), homeLines(deps), learningLines(deps)].map((p) => p.catch(() => [] as string[])));
+  return all.flat().slice(0, 12);
 }
 
 /** The packs' pieces for speaking first (speak.ts piecesNow), each with why: water and the stand-up when he turned them on. */

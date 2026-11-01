@@ -5797,3 +5797,18 @@ canvas.buildplan { display: block; max-width: 100%; }
 .rtcontact b { font: 600 14px/1.35 var(--sf); }
 .rtcontact a { font: 600 18px/1.4 var(--sf); color: var(--c, #0a84ff); text-decoration: none; min-height: 32px; }
 .rtcontact small { font: 400 13px/1.4 var(--sf); color: var(--mute); }
+
+/* [packs3] BRIEF-PACKS-3: the outside, home and learning packs (features/outside, features/homeadmin, features/learning) */
+.pkmap { display: block; width: 100%; max-width: 420px; height: auto; margin: 0 auto; border-radius: 12px; background: rgba(255,255,255,.06); }
+.pkroute { fill: none; stroke: var(--mute); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+.pkroute.best { stroke: var(--acc); stroke-width: 4; opacity: 1; }
+.pkbusy { fill: rgba(255, 69, 58, .35); stroke: #ff453a; stroke-width: 2; }
+/* [packs3] the learning sheet: the drawing guide he traces, a word shown big, a passage, steps to put in order */
+.pkguide { display: block; width: 100%; max-width: min(420px, 56vh); aspect-ratio: 1; height: auto; margin: 0 auto; border-radius: 16px; background: rgba(255,255,255,.06); touch-action: none; cursor: crosshair; }
+.pkguide .g polyline { fill: none; stroke: var(--mute); stroke-width: 2.4; stroke-dasharray: 3 3; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.pkguide .m polyline { fill: none; stroke: var(--acc); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pkword { font: 700 40px/1.15 var(--sfd); min-height: 1.3em; text-align: center; color: var(--fg); overflow-wrap: anywhere; }
+.pkpass { margin: 0; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); font: 400 18px/1.5 var(--sf); color: var(--fg); overflow-wrap: anywhere; min-width: 0; }
+.pkpass:empty { display: none; }
+/* (the page he is on, in the tabs of the outside, home and learning sheets and in their toggles: said in the label for VoiceOver, shown here) */
+.pkrow[role="group"] button[aria-pressed="true"] { background: rgba(var(--accr), .22); box-shadow: inset 0 0 0 1px rgba(var(--accr), .55); color: var(--fg); }

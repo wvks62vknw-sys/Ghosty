@@ -53,8 +53,11 @@ import { kitchenTools, KITCHEN_ABOUT, KITCHEN_WHEN } from './kitchen'; // [packs
 import { peopleTools, PEOPLE_ABOUT, PEOPLE_WHEN } from './people'; // [packs2] the people pack (BRIEF-PACKS-2)
 import { workTools, WORK_ABOUT, WORK_WHEN } from './work'; // [packs2] the work pack
 import { creativeTools, CREATIVE_ABOUT, CREATIVE_WHEN } from './creative'; // [packs2] the creative pack
+import { outsideTools, OUTSIDE_ABOUT, OUTSIDE_WHEN } from './outside'; // [packs3] the outside pack (BRIEF-PACKS-3)
+import { homeAdminTools, HOME_ABOUT, HOME_WHEN } from './homeadmin'; // [packs3] the home pack (its group is "homeadmin": "home" is the furniture finder)
+import { learningTools, LEARNING_ABOUT, LEARNING_WHEN } from './learning'; // [packs3] the learning pack (practice skills beside the LEARN tab)
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools, ...outsideTools, ...homeAdminTools, ...learningTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2] [packs3]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -101,7 +104,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: uiTools,
     when: 'always',
     // (", open his camera" was " and open his camera": 3 characters for the kitchen pack's "kitchen pack" on the plain turn, BRIEF-PACKS-1)
-    about: 'You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead), open his camera (open_lens).',
+    about: 'You can drive the app (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead), open his camera (open_lens).',
   },
   {
     name: 'widgets',
@@ -187,7 +190,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
     // (was "relevant passages also come in on their own": 10 characters for the body pack's "body pack" on the plain turn, BRIEF-PACKS-1)
-    about: 'You can search your library (library_search; relevant passages come in unasked); cite the source.',
+    about: 'You can search your library (library_search; passages come in unasked); cite sources.',
   },
   {
     name: 'library-admin',
@@ -330,6 +333,10 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'people', tools: peopleTools, when: PEOPLE_WHEN, about: PEOPLE_ABOUT, short: 'people pack' },
   { name: 'work', tools: workTools, when: WORK_WHEN, about: WORK_ABOUT, short: 'work pack' },
   { name: 'creative', tools: creativeTools, when: CREATIVE_WHEN, about: CREATIVE_ABOUT, short: 'creative pack' },
+  // [packs3] THE OUTSIDE, HOME AND LEARNING PACKS (BRIEF-PACKS-3), the same shape
+  { name: 'outside', tools: outsideTools, when: OUTSIDE_WHEN, about: OUTSIDE_ABOUT, short: 'outside pack' },
+  { name: 'homeadmin', tools: homeAdminTools, when: HOME_WHEN, about: HOME_ABOUT, short: 'home pack' },
+  { name: 'learning', tools: learningTools, when: LEARNING_WHEN, about: LEARNING_ABOUT, short: 'learning pack' },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

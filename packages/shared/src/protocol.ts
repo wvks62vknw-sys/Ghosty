@@ -107,6 +107,9 @@ export const CLIENT_COMMANDS = [
   'open_kitchen', // [packs] the kitchen pack's sheets
   'kitchen_timer', // [packs] timers on the phone
   'open_people', // [packs] the people pack's who's who and plan (BRIEF-PACKS-2)
+  'open_homeadmin', // [packs3] the home pack's sheet: what is due, bins, bills, meters, the room's things (BRIEF-PACKS-3)
+  'open_learning', // [packs3] the learning pack's sheet: words, drawing, typing, maths, memory, reading, first aid, a plan (BRIEF-PACKS-3)
+  'open_outside', // [packs3] the outside pack's sheet: a safer walk, what is near, the car, lost (BRIEF-PACKS-3)
   'open_work', // [packs] the work pack's documents, interview practice, rota and to-do
   'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
 ] as const;

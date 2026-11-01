@@ -15,6 +15,11 @@ import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { INTERVIEW_ASK, POMO_ASK, pomodoroPlan, questionsFor } from '../../../../packages/shared/src/work';
 import { beatFromWords, DRAW_ASK, drawingPrompt } from '../../../../packages/shared/src/creative';
+import { outsideAsked, type OutsideView } from '../../../../packages/shared/src/outside';
+import { homeAsked, type HomeView } from '../../../../packages/shared/src/homeadmin';
+import { dailyWords, FIRST_AID_LINE, LANGS, learningAsked, lessonFor, TYPING_LINES, typingScore } from '../../../../packages/shared/src/learning';
+import { answerTyping, armTyping } from '../features/learning/typing';
+import { libraryPassage } from '../features/learning/library';
 import { brain } from '../api/brain';
 
 /** What local.ts writes: his message as the chat shows it, the reply, the cards, and the GO chips under it. */
@@ -101,6 +106,144 @@ export async function creativeTurn(text: string): Promise<PackReply> {
   const { openCreative } = await import('../features/creative/sheet');
   void openCreative('beat', { beat });
   return { said: text, reply: `The drum pads are open with a ${beat.name} beat at ${beat.bpm} bpm: tap the squares, or tap the pads along with the loop. You can save it as a WAV or a MIDI file.`, go: [{ id: 'beat', ask: -1, label: 'Open it again', run: 'open_creative', args: { what: 'beat', beat } }] };
+}
+
+/**
+ * [packs3] The outside pack's words on this phone: "where did I park?" answered from my brain's notes; "I parked on Cannon
+ * Street until 3pm" kept there; anything that needs where he is (toilets, cash, a car park near me, "I'm lost") opens the
+ * OUTSIDE sheet, where one tap gives the spot once. No model, and I never see where he is on my own.
+ */
+export async function outsideTurn(text: string): Promise<PackReply> {
+  const view: OutsideView = outsideAsked(text) ?? 'toilets';
+  const t = text.trim();
+  const again = (what: string) => [{ id: 'outside', ask: -1, label: 'Open it again', run: 'open_outside', args: { what } }];
+  if (view === 'car') {
+    try {
+      const r = await brain.packDo('outside', 'parked', {});
+      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}), go: again('car') };
+    } catch {
+      return { said: text, reply: 'My brain didn’t answer, so I can’t say where the car is just now: try again in a moment.' };
+    }
+  }
+  if (view === 'parkedhere' && !/^(?:i(?:'ve| have)?|we(?:'ve| have)?)\s+(?:just\s+)?parked\s*(?:here)?$/i.test(t) && !/^parked here$/i.test(t)) {
+    try {
+      const r = await brain.packDo('outside', 'parked', { words: text });
+      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}), go: again('car') };
+    } catch {
+      return { said: text, reply: 'My brain didn’t answer, so I haven’t kept where you parked: try again in a moment.' };
+    }
+  }
+  const { openOutside } = await import('../features/outside/sheet');
+  void openOutside(view === 'parkedhere' ? 'car' : view);
+  const reply =
+    view === 'parkedhere' ? 'Tell me the street or car park, or tap USE WHERE I AM NOW: I keep that one spot, and the time, so you can ask where the car is. I don’t track you.'
+    : view === 'lost' ? 'Tap USE WHERE I AM NOW once: I show the nearest place you saved, the nearest station and the way. If you feel unsafe, call 999.'
+    : view === 'safewalk' ? 'Pick where from and where to: I count police reports along each way and offer a way round the busiest stretch. “Fewer reports” is not “safe”.'
+    : 'For somewhere near you, tap USE WHERE I AM NOW once (it is used and not kept), or name a place or pick one you saved.';
+  return { said: text, reply, go: again(view === 'parkedhere' ? 'car' : view) };
+}
+
+/**
+ * [packs3] The home pack's words on this phone: "when are the bins?", "what's due at home?" and "my bills" are answered from my
+ * brain's own records with no model (and the HOME sheet a tap away); the meter and the rooms open their pages.
+ */
+export async function homeTurn(text: string): Promise<PackReply> {
+  const view: HomeView = homeAsked(text) ?? 'due';
+  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOME sheet', run: 'open_homeadmin', args: { what: view } }];
+  if (view === 'bins' || view === 'due' || view === 'bills') {
+    try {
+      const r = await brain.packDo('homeadmin', view, view === 'due' ? { days: 14 } : {});
+      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}), go: again };
+    } catch {
+      return { said: text, reply: 'My brain didn’t answer, so I can’t read your home records just now: try again in a moment.' };
+    }
+  }
+  const { openHomeadmin } = await import('../features/homeadmin/sheet');
+  void openHomeadmin(view);
+  return { said: text, reply: view === 'meter' ? 'The meter page is open: photograph the dial, or type the number. I keep the reading and the day, and tell you the usage since last time.' : 'The rooms page is open: list what is in a room, or photograph it and tick what is really there. I can make a CSV for your insurer.', go: again };
+}
+
+/** His local day (YYYY-MM-DD), for the day's ten words and the day's lesson. */
+const localToday = (): string => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * [packs3] The learning pack's words on this phone: "ten Spanish words" answered here from the tables, "typing test" run in
+ * the chat's own box (the clock starts at his first key, the next thing he sends is scored on this phone and the result kept in
+ * my brain), "how am I doing" read from my brain's log; every other practice opens its page of the LEARNING sheet. No model.
+ * null: what he sent is not for the learning pack (a typing test was up and this is not an attempt at it).
+ */
+export async function learningTurn(text: string): Promise<PackReply | null> {
+  const ans = answerTyping(text);
+  if (ans?.kind === 'cancel') return { said: text, reply: 'The typing test is cancelled. Say “typing test” when you want another.' };
+  if (ans?.kind === 'score') {
+    if (ans.pasted) return { said: text, reply: 'That looks pasted, and a paste cannot be timed. Say “typing test” and type it by hand.' };
+    const t = typingScore(ans.target, text, ans.ms);
+    let logged = '';
+    if (t.valid) {
+      try {
+        logged = (await brain.packDo('learning', 'done', { skill: 'typing', score: t.wpm, unit: 'wpm', detail: `${t.accuracy}%` })).text;
+      } catch {
+        logged = 'My brain didn’t answer, so this one is not in your streak.';
+      }
+    }
+    return {
+      said: text,
+      reply: `${t.said}${ans.timed ? '' : ' (I did not see your first key, so this includes the time you spent reading.)'}${logged ? `\n${logged}` : ''}`,
+      go: [{ id: 'learning', ask: -1, label: 'Another passage', run: 'open_learning', args: { what: 'typing' } }],
+    };
+  }
+  const ask = learningAsked(text);
+  if (!ask) return null;
+  const again = (what: string, extra: Record<string, unknown> = {}) => [{ id: 'learning', ask: -1, label: 'Open the LEARNING sheet', run: 'open_learning', args: { what, ...extra } }];
+  if (ask.view === 'typing') {
+    const seed = Math.floor(Math.random() * 9973);
+    const passage = (await libraryPassage(seed)) || TYPING_LINES[seed % TYPING_LINES.length]!;
+    armTyping(passage);
+    return { said: text, reply: `Typing test: type this as fast as you can, then send it. The clock starts at your first key in the box below, and I score words a minute (right letters only) and accuracy.\n\n“${passage}”`, go: again('typing', { passage }) };
+  }
+  if (ask.view === 'words') {
+    let saved = '';
+    try {
+      saved = localStorage.getItem('ghosty.learning.lang') ?? '';
+    } catch {
+      /* a private window */
+    }
+    const l = LANGS.find((x) => x.id === (ask.lang ?? saved));
+    if (!l) {
+      const { openLearning } = await import('../features/learning/sheet');
+      void openLearning('words');
+      return { said: text, reply: `Which language? I have ${LANGS.slice(0, -1).map((x) => x.name).join(', ')} and ${LANGS[LANGS.length - 1]!.name}: say “ten Spanish words”, or pick one on the page.`, go: again('words') };
+    }
+    const d = dailyWords(l.id, localToday());
+    return {
+      said: text,
+      reply: `${l.name}, today’s ten (${d.day}):\n${d.entries.map((e, i) => `${i + 1}. ${e.en} — ${e.word}${e.roman ? ` (${e.roman})` : ''}`).join('\n')}\nThe page says them in your phone’s own ${l.name} voice, and keeps them in a deck.`,
+      go: again('words', { lang: l.id }),
+    };
+  }
+  if (ask.view === 'progress') {
+    try {
+      const r = await brain.packDo('learning', 'progress', {});
+      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}), go: again('progress') };
+    } catch {
+      return { said: text, reply: 'My brain didn’t answer, so I can’t read your streaks just now: try again in a moment.' };
+    }
+  }
+  const { openLearning } = await import('../features/learning/sheet');
+  const lesson = ask.view === 'draw' ? lessonFor(localToday(), ask.shape ?? '') : null;
+  void openLearning(ask.view, lesson ? { shape: lesson.id } : {});
+  const reply =
+    ask.view === 'draw' && lesson ? `Drawing class: ${lesson.title}. ${lesson.tip} The guide is on the canvas: trace it with your finger, then SCORE IT.`
+    : ask.view === 'maths' ? 'The maths drill is open: five minutes at your level. Answer each sum and press ENTER; it moves you up after two sets of 90%.'
+    : ask.view === 'memory' ? 'The memory page is open: pick a number, a list or names, then START. Look, then cover it and say it back.'
+    : ask.view === 'hand' ? 'The writing page is open: write the line on plain paper in dark ink, then photograph it. It is read on this phone and the photo stays here.'
+    : ask.view === 'readfast' ? 'The reading page is open: pick a speed and START. You read one word at a time, then answer three questions about it.'
+    : ask.view === 'firstaid' ? `The first aid page is open: read the steps, or tap them in order. ${FIRST_AID_LINE}`
+    : 'The spelling page is open: I look through your latest messages for the words you often misspell, and say one for you to spell.';
+  return { said: text, reply, go: again(ask.view, lesson ? { shape: lesson.id } : {}) };
 }
 
 /** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */
