@@ -61,6 +61,10 @@ export const APP_WIDE = [
   { id: 'search', sel: '#top .cmd' },
   { id: 'switcher', sel: '#dock button[data-area]' },
   { id: 'offers', sel: '' },
+  // [restc] CHECK IT'S LIVE: the face check before a face is saved (features/lens/liveness.ts)
+  { id: 'livecheck', sel: '' },
+  // [restc] TV MODE: big targets, the focus ring, the d-pad (apps/web/src/tv)
+  { id: 'tvmode', sel: '' },
 ] as const;
 
 /** A deck line's id: its screen and its first words ("deck:lens:translate-a-sign-or-a-menu"). */

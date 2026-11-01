@@ -10,6 +10,7 @@ import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
 import { niceCase } from '../ui/components';
 import { listMode, type ListGroup } from '../ui/listmode';
+import { startTv } from '../tv'; // [restc] TV MODE: big targets, the focus ring, the d-pad; the no-3-D fallbacks
 
 /** The pages shown as an iOS Settings list, and their names for the back button. */
 const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
@@ -172,5 +173,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   };
   tick();
   setInterval(tick, 1000);
+  // [restc] TV MODE (tv/index.ts): on by itself on a television or from SETTINGS → THEME; and, anywhere WebGL is missing,
+  // God's Eye flat, the Studio and the 3-D games said to be hidden
+  startTv();
   return { stage, buildDock };
 }

@@ -15,6 +15,7 @@ import { offlinePanel } from './offline';
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
+import { tvNow, tvSetting } from '../../tv/setting'; // [restc] TV MODE
 
 export const settingsTab: TabDef = {
   id: 'settings',
@@ -114,6 +115,11 @@ export const settingsTab: TabDef = {
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
     lp.body.append(themes, h('p.note.swnote', 'A theme changes Ghosty’s colour and nothing else: every screen keeps its layout.'));
+    // [restc] TV MODE (tv/): big buttons, a focus ring, the arrow keys or a controller's d-pad; on by itself on a television
+    const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring you move with the arrow keys or a controller’s d-pad. On by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
+    tvSw.el.classList.add('tvsw');
+    tvSetting.subscribe(() => tvSw.paint());
+    lp.body.append(tvSw.el);
     np.body.append(h('div.lab', 'YOUR NAME'), name, units);
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.

@@ -5504,3 +5504,54 @@ body.demo #pair, body.demo #pairform { display: none !important; }
 #firstrun .row button { min-height: 44px; }
 #firstrun .frthree { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 10px; }
 #firstrun .frmsg:empty { display: none; }
+/* ---- [restc] batch ⑧ part C (BRIEF-REST-C): CHECK IT'S LIVE, SHAPES, TV MODE ---- */
+/* PRIVACY → FACES: the CHECK IT'S LIVE switch under the list */
+.faces .livesw { margin-top: 10px; width: 100%; }
+/* the Lens → SHAPES: what was placed, the four-gesture lesson, the blueprint, the words, the actions */
+.shapes .shpsay { min-height: 24px; font: 600 18px/24px var(--sf); letter-spacing: -.2px; color: var(--ink); }
+.shapes .shpsay:empty { display: none; }
+.shapes .shptut { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); }
+.shapes .shptut[hidden] { display: none; }
+.shapes .shprow { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; align-items: baseline; font: 400 14px/19px var(--sf); color: var(--ink2); }
+.shapes .shprow b { font: 600 12px/19px ui-monospace, Menlo, monospace; letter-spacing: .6px; color: var(--ink); }
+.shapes .shptut button { justify-self: start; min-height: 44px !important; }
+.shapes .shpbp { width: 100%; border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 0 .5px rgba(160,205,255,.25); }
+.shapes .shpcanvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / .72; }
+.shapes .shpscale { font: 500 13px/18px var(--sf); color: var(--ink2); }
+.shapes .shpask { gap: 8px; min-width: 0; }
+.shapes .shpask .shpin { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 22px; font: 400 16px/22px var(--sf); }
+.shapes .shpask button { flex: none !important; min-height: 44px !important; min-width: 56px; border-radius: 22px; }
+.shapes .shpacts { gap: 8px; }
+.shapes .shpacts button { min-height: 44px !important; flex: 1 1 auto; }
+.shapes .shphonest { font: 400 13px/18px var(--sf); color: var(--ink3); }
+/* SETTINGS → THEME → TV MODE */
+.tvsw { margin-top: 12px; width: 100%; }
+/* one line where something can't be done on this screen (no WebGL: the Eye flat, the Studio and 3-D games hidden; the DOS try) */
+.tvline { margin: 10px 14px; padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); font: 500 15px/21px var(--sf); color: var(--ink); }
+#pg-eye.eyeflat > :not(.tvflat) { display: none !important; }
+.tvflat { position: relative; z-index: 3; margin: 76px 16px 16px; }
+.tvflat .tvline { margin: 0 0 10px; }
+@media (min-width: 1000px) { .tvflat { margin-left: 104px; } }
+.tvflat .tvmap { position: relative; display: flex; flex-direction: column; gap: 5px; height: calc(100vh - 200px); min-height: 320px; border-radius: 18px; overflow: hidden; }
+body.no3d #pg-studio > :not(.tvline) { display: none !important; }
+/* TV MODE (body.tv): targets of 56 pt at least, a focus ring you can see from the sofa, the deck as big tiles, the chat bigger */
+html body.tv :is(#app, #deck, #tvkb, .modal, #mesheet) :where(button, [role="button"], [role="switch"], [role="tab"], a[href], select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea) { min-height: 56px !important; }
+html body.tv :is(#app, #deck, #tvkb, .modal, #mesheet) :where(button, [role="button"], [role="switch"], [role="tab"]) { min-width: 56px !important; }
+body.tv :focus-visible { outline: 4px solid rgb(var(--accr)) !important; outline-offset: 3px; box-shadow: 0 0 0 9px rgba(var(--accr), .22) !important; }
+body.tv .tvline { font-size: 21px; line-height: 29px; }
+body.tv #deck .dk { padding-left: 64px !important; padding-right: 64px !important; }
+body.tv #deck .dkgo { left: 64px; right: 64px; }
+body.tv #deck .dkgrid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+body.tv #deck .dkgrid .dkcard { min-height: 150px !important; padding: 18px 18px 16px; font-size: 20px; }
+body.tv #cbar { width: min(1100px, 100%); grid-template-columns: 56px minmax(0, 1fr) 56px 64px; }
+html body.tv #cbar #cin { height: 72px !important; min-height: 72px !important; padding-left: 70px !important; padding-right: 140px !important; font-size: 26px !important; }
+html body.tv #cbar :is(.logbtn, .citedbtn, .sendbtn) { width: 56px !important; height: 56px !important; }
+body.tv .msg { font-size: 22px; line-height: 1.45; }
+.tvkbbtn { display: none; }
+body.tv #cbar .tvkbbtn { display: grid; place-items: center; grid-column: 4; width: 64px; height: 64px; padding: 0; border-radius: 32px; font-size: 28px; }
+/* the on-screen keyboard (a browser with none of its own) */
+#tvkb { position: fixed; left: 50%; bottom: 24px; z-index: 95; display: grid; gap: 10px; max-width: calc(100vw - 32px); padding: 18px; border-radius: 24px; transform: translateX(-50%); background: rgba(8, 14, 22, .96); box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.12); }
+#tvkb .tvkrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+#tvkb .tvkey { min-width: 64px; min-height: 64px; padding: 0 12px; border-radius: 14px; font: 600 24px/1 var(--sf); }
+#tvkb .tvkey.wide { min-width: 120px; }
+#tvkb .tvkey.space { min-width: 300px; }

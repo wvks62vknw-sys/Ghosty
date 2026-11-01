@@ -35,6 +35,7 @@ import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createPeopleMode, peopleState } from './people'; // [guardian] PEOPLE: his face and the people he introduces (OWNER-ISSUES 55, 56)
+import { createShapesMode, shapesState } from '../../hands/mode'; // [restc] SHAPES: hand shapes to blueprints
 import { faces } from '../../vision/faces';
 import type { MarkState } from './mark';
 import { openPhotoTools } from './photo';
@@ -174,6 +175,7 @@ function expose(): void {
     w.__ghosty.lens = lensState;
     // PEOPLE's state and the face engine (whose only way in is the live camera), for the specs
     w.__ghosty.people = peopleState;
+    w.__ghosty.shapes = shapesState;
     w.__ghosty.faces = faces;
     // the chat's own way in (assistant/session.ts send), with the Lens still open: what he types or says in the chat
     w.__ghosty.send = (t: string, voice = false) => import('../../assistant/session').then((m) => m.send(t, { voice }));
@@ -461,7 +463,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L), shapes: createShapesMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();

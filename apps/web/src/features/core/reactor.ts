@@ -19,7 +19,8 @@
  */
 import { gfx } from '../../engine/gfx';
 import type { VoiceState } from '../../state/app';
-import { exposeHero, mindFor, type Mind } from './mind';
+import { exposeHero, heroState, mindFor, type Mind } from './mind';
+import { drawFlatMind } from '../../tv/flatmind'; // [restc] MIND drawn flat where it cannot run, not the old arc reactor
 
 const TAU = Math.PI * 2;
 /** The canvas spans ±PX housing radii. */
@@ -131,6 +132,14 @@ export class Reactor {
     if (this.mind?.active) {
       this.mind.frame(dt, this.state, this.level);
       this.lastGlow = this.mind.light();
+      return;
+    }
+    // [restc] MIND said why it could not run here (no WebGL, three.js refused: the PS5's browser): its flat self, not the
+    // old arc reactor (tv/flatmind.ts). A check passing through Home keeps the stand-in below (its reason says automation).
+    if (heroState.mode === '2d' && heroState.reason && !heroState.reason.startsWith('automation')) {
+      this.t += dt;
+      drawFlatMind(this.el, this.ctx, this.t, this.state, this.level);
+      this.lastGlow = 0.6;
       return;
     }
     this.resize();

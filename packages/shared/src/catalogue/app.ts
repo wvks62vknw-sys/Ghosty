@@ -15,7 +15,8 @@ import { ARCADE_WORDS } from './arcade';
 import { CAR_WORDS } from './car';
 import { GAMES2_WORDS } from './games2';
 import { GAMES3_WORDS } from './games3';
+import { RESTC_WORDS } from './restc';
 import { RESTB_WORDS } from './restb';
 import { RESTA_WORDS } from './resta';
 
-export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS };
+export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS };

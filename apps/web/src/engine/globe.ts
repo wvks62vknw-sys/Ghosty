@@ -146,7 +146,8 @@ export class GlobeScene {
   private airPts = new PointSet(1000);
 
   init(): void {
-    if (this.ready) return;
+    // [restc] no WebGL2 here (the PS5's browser): no globe to make; God's Eye is drawn flat instead (tv/index.ts)
+    if (this.ready || !gfx.ready) return;
     const g = gfx;
     const gl = g.gl;
     g.mk('globe', `in vec3 aD;uniform mat4 uV,uP;uniform vec3 uCam;uniform float uR;out vec3 vN;out vec3 vW;void main(){vec3 w=aD*uR;vN=aD;vW=w;gl_Position=uP*(uV*vec4(w-uCam,1.));}`, GLOBE_FS, { aD: 0 });

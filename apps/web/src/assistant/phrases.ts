@@ -30,6 +30,8 @@ import { INTERVIEW_ASK, POMO_ASK } from '../../../../packages/shared/src/work';
 import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
 import { ratingAsked } from '../gym/chessrate';
 import { coachAsked } from '../coach/ask';
+import { shapesAsked } from '../hands/words';
+import { tvAsked } from '../tv/detect';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -63,6 +65,10 @@ export const LOCAL_ASKS = [
   // draw" and "drawing prompt" ahead of the creative pack's one-line prompt below, which keeps the forms the coach does not take
   { id: 'skill', test: (t: string) => ['typing', 'draw', 'words', 'juggle'].includes(coachAsked(t)?.what ?? '') },
   { id: 'drawing', test: (t: string) => DRAW_ASK.test(t.trim()) },
+  // [restc] "draw a room with my hands": the Lens on SHAPES (apps/web/src/hands)
+  { id: 'shapes', test: (t: string) => shapesAsked(t) },
+  // [restc] "TV mode on" / "TV mode off": the big layout for a television (apps/web/src/tv)
+  { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

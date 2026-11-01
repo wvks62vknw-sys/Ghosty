@@ -43,7 +43,7 @@ import { card } from '../../../../packages/shared/src/cards';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -218,6 +218,19 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   pomodoro: async (text, opts) => packAnswer(await workTurn(text), opts),
   beat: async (text, opts) => packAnswer(await creativeTurn(text), opts),
   drawing: async (text, opts) => packAnswer(await creativeTurn(text), opts),
+  // [restc] "draw a room with my hands": the Lens opens on SHAPES (hands/mode.ts); the camera starts on his tap there
+  shapes(text, opts) {
+    void import('../hands/mode').then((m) => m.openShapes()).catch(() => undefined);
+    return answer(text, 'SHAPES is open in the Lens: point one finger to draw a room in the air, pinch to finish, then tell me one real length.', { kind: 'shapes' }, opts);
+  },
+  // [restc] "TV mode on" / "off": the setting (tv/setting.ts), at once
+  async tvmode(text, opts) {
+    const { tvAsked } = await import('../tv/detect');
+    const { tvSetting } = await import('../tv/setting');
+    const on = tvAsked(text) === 'on';
+    tvSetting.set({ mode: on ? 'on' : 'off' });
+    return answer(text, on ? 'TV mode is on: big buttons, and the arrow keys or a controller’s d-pad move between them. Say “TV mode off” to go back.' : 'TV mode is off.', { kind: 'tv' }, opts);
+  },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

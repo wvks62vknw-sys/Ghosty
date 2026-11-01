@@ -33,6 +33,7 @@
 import { h, svgEl } from '../core/dom';
 import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind } from '../features/core/mind';
 import { settings, ui } from '../state/app';
+import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
 import { ensureDefs } from '../ui/instruments';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
@@ -169,7 +170,8 @@ export function startBoot(): void {
   // never over a notification he tapped, a deep link or the way back from Spotify's sign-in: those open their screen
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : reduced() ? 'still' : 'full';
+  // [restc] on a television (TV MODE) the short cut: the sphere and the greeting, nothing that needs WebGPU; with no 3-D at all it is the flat one
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : reduced() ? 'still' : tvNow() ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;

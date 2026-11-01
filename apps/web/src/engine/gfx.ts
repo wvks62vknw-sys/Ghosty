@@ -67,9 +67,10 @@ export class Gfx {
   ptQuad!: WebGLBuffer;
 
   init(cv: HTMLCanvasElement): boolean {
+    // [restc] the canvas is kept even when WebGL2 is refused (the PS5's browser): the screens bind their pointers to it
+    this.cv = cv;
     const gl = cv.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
     if (!gl) return false;
-    this.cv = cv;
     this.gl = gl;
     gl.getExtension('EXT_color_buffer_half_float');
     gl.getExtension('OES_texture_float_linear');
