@@ -24,7 +24,7 @@ import { faceSequence } from './fixtures/livefaces.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
-const base = process.env.BASE ?? 'http://localhost:8722';
+const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? undefined,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],

@@ -30,7 +30,10 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'Data', match: /^(STORAGE|BACKUP)/ },
   ],
   links: [
-    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM)/ },
+    // (TELEGRAM CHANNEL is one of his social accounts, not the paired bot: without the lookahead the Accounts heading was drawn
+    // twice on LINKS, once before EMAIL and again before the channel, after the social panels)
+    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM(?! CHANNEL))/ },
+    { title: 'Social', match: /^(BLUESKY|MASTODON|DISCORD|TELEGRAM CHANNEL)/, foot: 'The accounts you made for me: every post waits for your APPROVE.' },
     { title: 'This phone', match: /^(PHONE|NOTIF)/ },
     { title: 'Services', match: /^(LIVE|AI|GITHUB)/ },
   ],

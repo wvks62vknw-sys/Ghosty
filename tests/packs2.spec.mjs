@@ -18,7 +18,7 @@ import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
-const base = process.env.BASE ?? 'http://localhost:8766';
+const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const problems = [];
 const t0 = Date.now();

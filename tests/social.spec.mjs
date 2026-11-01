@@ -136,11 +136,14 @@ const mused = await musingAt(afternoon, true);
 check(mused.job && mused.cadence?.log?.some((s) => s.id.startsWith('musing:') && !s.held), `the line of his own was not said on the clock stub: ${JSON.stringify(mused).slice(0, 300)}`);
 await openChat();
 await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-await until(() => [...document.querySelectorAll('#pg-core .ccard:not(.wall)[data-kind="brief"]')].some((c) => /A thought of mine/.test(c.textContent ?? '') && /Artemis crew/.test(c.textContent ?? '')), null, 15000, 'the line of his own did not post its card (from his Bluesky timeline)');
+// (the mock writes the line from the FIRST fact it is given; on the smoke loop's shared brain that is a digest headline from an
+// earlier spec, on a fresh one his Bluesky timeline: the card is the check, and the draft must carry the card's own words)
+await until(() => [...document.querySelectorAll('#pg-core .ccard:not(.wall)[data-kind="brief"]')].some((c) => /A thought of mine/.test(c.textContent ?? '') && /Been thinking about this one/.test(c.textContent ?? '')), null, 15000, 'the line of his own did not post its card');
 const thought = page.locator('#pg-core .ccard:not(.wall)[data-kind="brief"]', { hasText: 'A thought of mine' }).last();
 check(/^Why: one line of my own a day, from /.test((await thought.locator('.ccwhy').textContent().catch(() => '')) ?? ''), 'the thought says no why');
 await thought.locator('button', { hasText: /post that/i }).click().catch(() => problems.push('no POST THAT? on the thought'));
-await until((c) => [...document.querySelectorAll(c)].some((x) => x.dataset.state === 'waiting' && /Artemis crew/.test(x.textContent ?? '')), card, 10000, 'POST THAT? made no draft');
+const thoughtLine = ((await thought.textContent()) ?? '').match(/Been thinking about this one: ([^.]{8,60})/)?.[1] ?? 'Been thinking about this one';
+await until(([c, words]) => [...document.querySelectorAll(c)].some((x) => x.dataset.state === 'waiting' && (x.textContent ?? '').includes(words)), [card, thoughtLine], 10000, 'POST THAT? made no draft');
 check((await stub()).sent.length === 1, 'POST THAT? posted without APPROVE');
 await page.screenshot({ path: `${out}/social-musing.png` });
 log('the line of his own and POST THAT?');

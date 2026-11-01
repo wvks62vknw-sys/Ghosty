@@ -1162,6 +1162,16 @@ folder that no longer exists; ignore those paths).
   this week's merges. Left as it is (the guard is not to be touched); said to the owner in the next message: the revert of a
   bad merge is by hand (a revert PR). The fix for the race is in routec.spec (it lets the page settle before the probe);
   the lens spec failed once on the REST-C tree (41 s, START not found) and is re-run alone before judging.
+- 1 Nov 15:00 UK: THE 13:01 RUN (head 46d6e81) showed what the smoke loop does to a batch's spec that passed alone: FIVE specs
+  red, each twice — hubcards (the car's sixth sample), packs2 (its BASE default was the builder's own port 8766: CI sets no
+  BASE, every spec must default to 8788), social (the mock writes the thought from the FIRST fact; on the loop's shared
+  brain that is a digest headline from an earlier spec, not his Bluesky line), resta ("…and is not sent" scanned every
+  message of his in a chat that already held an earlier spec's "remind me to call mum"), ui (the LINKS list drew the
+  Accounts heading twice: layout.ts's groups matched TELEGRAM CHANNEL as an account while the sections list had it under
+  Social). RULE FOR EVERY BRIEF FROM NOW: the smoke loop runs every spec against ONE preview brain in order, so a spec must
+  not assume a fresh brain (check the last message, not any; name what it posted, not what the mock would say on an empty
+  brain), must default BASE to 8788, and a new Links/Settings/System panel must be matched in BOTH `shell/layout.ts` GROUPS and
+  the screen's `sections(...)` list. All five fixed here; routec's probe scrolls until the wall stops growing; lens is load.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

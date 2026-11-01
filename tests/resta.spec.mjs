@@ -245,7 +245,8 @@ await ctx.close();
   // ?say= that would start something: left in the box
   const p2 = await opened(ctx, `${base}/?say=remind%20me%20to%20call%20mum`);
   check(await until(p2, () => document.querySelector('#cin')?.value === 'remind me to call mum', null, 15000), '?say= that would start something waits in the chat box');
-  check(!(await p2.evaluate(() => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => m.textContent?.includes('remind me to call mum')))), '…and is not sent');
+  // (the last message of his, not any: the preview's brain carries the chat of every spec before this one in the smoke loop)
+  check(!(await p2.evaluate(() => { const mine = document.querySelectorAll('#pg-core .msg.me'); return mine[mine.length - 1]?.textContent?.includes('remind me to call mum') ?? false; })), '…and is not sent');
   await p2.close();
   // ?do=open:lens
   const p3 = await opened(ctx, `${base}/?do=open:lens`);

@@ -158,8 +158,13 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await sideways(page, '#pg-core *')) problems.push(`[${W} home] sticks out sideways: ${s}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} home] the page scrolls sideways`);
   // (on a shorter phone the column scrolls and the chips sit under the sticky ask bar until scrolled to: measure them where they are tapped)
-  await page.evaluate(() => document.querySelector('.hud.core > .ccenter')?.scrollTo(0, 1e6));
-  await page.waitForTimeout(300);
+  // Scrolled to the end, the wall renders the cards that reach the screen, so the end moves: scroll again until it stops
+  // growing (as a thumb would), then probe. A fixed 300 ms here raced the cards and read the dock instead of the chips.
+  for (let i = 0; i < 12; i++) {
+    const before = await page.evaluate(() => { const c = document.querySelector('.hud.core > .ccenter'); c?.scrollTo(0, 1e6); return c?.scrollHeight ?? 0; });
+    await page.waitForTimeout(500);
+    if ((await page.evaluate(() => document.querySelector('.hud.core > .ccenter')?.scrollHeight ?? 0)) === before) break;
+  }
   for (const t of await target44(page, '#suggest > button, #dock .tabcap button, #top .cmd, #top .you, #cbar #mic, #cbar .logbtn')) problems.push(`[${W} home] under a 44 pt target: ${t}`);
   await page.evaluate(() => document.querySelector('.hud.core > .ccenter')?.scrollTo(0, 0));
   // the breathing glow
