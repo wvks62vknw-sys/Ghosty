@@ -1150,6 +1150,10 @@ folder that no longer exists; ignore those paths).
   mode or anything a hub card counts must run `hubcards`; a push does NOT cancel the run before it (no concurrency rule in
   check.yml), so the 13:01 run will also go red on the same line and can be ignored; the run from this push is the one.
   Pushed with REST-B and the two merge fixes: PR #50 now carries six batches.
+- 1 Nov 14:15 UK: REST-C APPLIED (OWNER-ISSUES 113) as one squashed change (`git diff --binary <old base> <head> | git apply -3`,
+  then the usual marker resolution: the apply's markers read `ours`/`theirs`), because its base was in the rewritten history.
+  The same route for rest-D (old base e425869) and packs-3 (old base a59329d). Held for PR #51 behind #50's run (14:00).
+  REST-E started (8677, Opus). Running: rest-D (8711), packs-3 (8700), offline-default (8688), rest-E (8677).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
