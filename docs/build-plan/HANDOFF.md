@@ -1058,6 +1058,10 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 03:20 UK (OWNER-ISSUES 95): his usage at 32% all models / 29% Fable for the week after seven batches; the
   seven rules (Opus builders, review by risk, fewer wakes, short outputs, no rework, free validation, an 85% reserve) are
   the way of working from here. About 4.5% of a week per batch all-in; 25–35 batches planned; two resets before 14 Nov.
+- 1 Nov 03:40 UK (OWNER-ISSUES 96): the bucket resets FRIDAY; he wants ①–⑧ done by Thursday night at the same bar.
+  Parallel builders in separate areas (Opus for design-heavy, Sonnet for brief-plus-tests work), lean rules in every brief,
+  review by risk with an Opus reviewer for big diffs, PRs paired, docs one commit per merge. Running: ① (8877), ② (8866),
+  ③ part 1 ARCADE (8855).
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
