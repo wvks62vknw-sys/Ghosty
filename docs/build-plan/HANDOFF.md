@@ -1241,6 +1241,11 @@ folder that no longer exists; ignore those paths).
   HEAD support; a failure on his phone now reads "(archive.org: Load failed; this site: answered N)": 401 sign-in, 404 not on
   the list or gone, 502 the Archive unreachable from the Worker. Validated: both typechecks, 28 bundles, arcade-mirror 14,
   arcade 14, resta 13, catalogue 11, the web build, specs arcade and hubcards; the builder's full brain suite 1,743/1,743.
+- 1 Nov 21:24 UK: PR #51 MERGED (main e40c122): green on brain, interface, deploy-build and all four browser shards (44 minutes for
+  the longest; the first sharded run that finished). Live now: packs-3, the arcade card and its own-site mirror, MAKE's row, the
+  four spec fixes, the four-shard checks. Main's own push run is sharded from here too (about 45 minutes); read it at the next
+  check-in. Open: the depth pass (stopped; the owner's word), themes and Cinematic (HELD), the owner's answer on
+  https://archive.org in Safari (the mirror makes it moot unless the Worker cannot reach the Archive either: a 502 in the message).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
