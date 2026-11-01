@@ -115,6 +115,8 @@ export const briefTab: TabDef = {
         const next = mind.today.next;
         if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       }
+      // [packs] the packs' lines (BRIEF-PACKS-1): payday, a renewal tomorrow, a warranty ending, water so far…
+      for (const l of mind.packs ?? []) rows.push(row(null, l, null, { wrap: true }));
       const unread = inbox?.unread ?? 0;
       if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { onClick: open }));
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');

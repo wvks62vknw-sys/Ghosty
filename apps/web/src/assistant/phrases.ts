@@ -16,11 +16,14 @@ import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/
 import { stopIntent } from '../../../../packages/shared/src/intent';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
+import { looksLikeStatement } from '../../../../packages/shared/src/money';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
 export const LOCAL_ASKS = [
+  // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
+  { id: 'statement', test: (t: string) => looksLikeStatement(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

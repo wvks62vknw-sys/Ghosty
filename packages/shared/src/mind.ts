@@ -78,4 +78,6 @@ export interface MindSnapshot {
   can: string[];
   /** Today's open predictions in his voice, at most two (foresight.ts), for the phone; never rendered into the prompt. */
   expect?: string[];
+  /** [packs] The packs' lines for the Brief (payday, a renewal tomorrow, water so far…), for the phone; never rendered into the prompt. */
+  packs?: string[];
 }

@@ -46,8 +46,9 @@ import { uiTools } from './ui';
 import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
+import { moneyTools, MONEY_ABOUT, MONEY_WHEN } from './money'; // [packs] the money pack (BRIEF-PACKS-1)
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools]; // [photo] [places] [guardian] [foresight] [workbench]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -310,6 +311,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(teach(?:es|ing)? me|learn\w*|lessons?|tutor\w*|quiz(?:zes)? me|test me|flash ?cards?|revis(?:e|ion|ing)|explain (?:it )?like|courses?|spaced repetition)\b/i,
     about: "You can be the owner's patient tutor at their level (tutor: start a course from the library and Wikipedia, give the next lesson with its sources and check question, quiz them, revise flashcards; LEARN tab).",
   },
+  // [packs] THE PACKS (BRIEF-PACKS-1): one tool each with an action enum, named off in two words ("money pack"), described on.
+  { name: 'money', tools: moneyTools, when: MONEY_WHEN, about: MONEY_ABOUT, short: 'money pack' },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

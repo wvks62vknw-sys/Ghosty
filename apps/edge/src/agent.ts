@@ -67,6 +67,7 @@ import { todayRoute } from './today'; // [abilities]
 import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
+import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -444,6 +445,7 @@ export class GhostyAgent {
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
       if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
       if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
+      if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1465,6 +1467,7 @@ export class GhostyAgent {
       if (job.kind === 'walk') return json({ next: await walkTick(this.guardDeps()) }); // [guardian]
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
       if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
+      if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1636,6 +1639,11 @@ export class GhostyAgent {
           const next = await speakTick(this.speakDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'follow') {
+          // [packs] The money pack's price watches (tools/money.ts): each page read again, a drop told once; twice a day.
+          const next = await packsTick(this.packsDeps());
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
         } else if (job.kind === 'revise') {
           // The tutor's flashcards (tutor.ts): a note only when cards are due.
           await finishJob(this.storage, job.id, await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router, notify: (item) => this.notify(item) })));
@@ -1739,6 +1747,11 @@ export class GhostyAgent {
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
     return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+  }
+
+  /** [packs] What the packs (packs/index.ts) may use: the database and his notifications (with the card). */
+  private packsDeps(): PacksDeps {
+    return { storage: this.storage, notify: (item) => this.notify(item) };
   }
 
   /** [foresight] What foresight (foresight.ts) may use: the database, the vault (the TomTom key) and his notifications. */

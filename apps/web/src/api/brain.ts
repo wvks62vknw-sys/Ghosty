@@ -13,6 +13,7 @@ import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
+import type { PackOut } from '../../../../packages/shared/src/packs';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
@@ -360,7 +361,9 @@ export const brain = {
     req<{ minutes: number; km: number; delayMin: number; live: boolean; line: string }>('GET', `/traffic/commute/${from.lat.toFixed(5)},${from.lon.toFixed(5)}/${to.lat.toFixed(5)},${to.lon.toFixed(5)}`),
   /** Agenda → SPENDING (spending.ts): the statements he added, by month; no bank access of any kind. */
   spending: (month?: string) => req<SpendingSummary>('GET', `/profile/spending${month ? `?month=${encodeURIComponent(month)}` : ''}`),
-  spendingImport: (csv: string) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv }),
+  spendingImport: (csv: string, rulesOnly = false) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv, ...(rulesOnly ? { rulesOnly } : {}) }),
+  /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
+  packDo: (pack: 'money' | 'body' | 'kitchen', action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
   spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),
   spendingBudget: (words: string, month: string) => req<SpendingSummary & { set: { category: Category; monthly: number } }>('POST', '/profile/spending/budget', { words, month }),
   spendingForget: () => req<SpendingSummary>('DELETE', '/profile/spending'),

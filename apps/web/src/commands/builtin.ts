@@ -402,6 +402,26 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs] A pack action with no model (BRIEF-PACKS-1, brain packs/index.ts): a card's UNDO, a glass of water, a tick, a
+      // run saved — its words as a note, its cards in the chat.
+      id: 'packs_do',
+      title: 'Pack action',
+      hidden: true,
+      run: async (a) => {
+        const { brain } = await import('../api/brain');
+        try {
+          const r = await brain.packDo(String(a?.pack ?? '') as 'money', String(a?.action ?? ''), a?.args && typeof a.args === 'object' ? (a.args as Record<string, unknown>) : {});
+          toast(r.text, 'ok');
+          if (r.cards?.length) {
+            const c = await import('../features/core/cards');
+            for (const x of r.cards) c.postCard(x);
+          }
+        } catch (e) {
+          toast(`That didn’t go through: ${(e as Error).message}`, 'warn');
+        }
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

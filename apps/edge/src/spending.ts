@@ -17,7 +17,6 @@ import {
   parseBudget,
   PRIVACY,
   readModelAnswer,
-  readStatement,
   toCsv,
   yearView,
   type Category,
@@ -25,6 +24,7 @@ import {
   type SpendingSummary,
   type SpendRow,
 } from '../../../packages/shared/src/spending';
+import { readAnyStatement } from '../../../packages/shared/src/money'; // [packs] a statement's text (a PDF, copied) as well as its CSV
 
 export type { ImportResult };
 
@@ -71,7 +71,8 @@ const finger = (r: { d: string; t: string; a: number }) => `${r.d}|${r.t.toUpper
  */
 export async function importStatement(deps: SpendingDeps, csv: string, now = Date.now()): Promise<ImportResult> {
   const { storage } = deps;
-  const st = readStatement(csv);
+  // [packs] the CSV as before, else the statement's text copied out of its PDF (packages/shared/src/money.ts)
+  const st = readAnyStatement(csv, String(new Date(now).getUTCFullYear()));
   const idx = await loadIndex(storage);
   const { rows } = categorise(st.rows, idx.rules);
   // First what is new: a row already kept from an earlier statement is not kept (or asked about) twice.
@@ -218,11 +219,19 @@ export async function spendingSummary(storage: DurableObjectStorage, month?: str
     last: idx.last ?? null,
     view: m ? monthView(rows, m) : null,
     year: m ? yearView(rows, m.slice(0, 4)) : null,
-    changes: m ? changes(rows, m).lines : [],
+    ...(m ? (({ lines, moves }) => ({ changes: lines, moves: moves.map((x) => ({ c: x.c, diff: x.diff })) }))(changes(rows, m)) : { changes: [], moves: [] }),
     subscriptions: findSubscriptions(rows),
     budgets: Object.entries(idx.budgets).map(([c, v]) => budgetStatus(c as Category, v!, rows, m)),
     rows: rows.filter((r) => r.d.startsWith(m)).reverse(),
   };
+}
+
+/** [packs] What moved in a month against the one before (the money pack's month card), and whether there was one before. */
+export async function monthMoves(storage: DurableObjectStorage, month: string): Promise<{ moves: { c: Category; diff: number }[]; hadBefore: boolean }> {
+  const idx = await loadIndex(storage);
+  const rows = await allRows(storage, idx);
+  const prev = `${month.slice(5, 7) === '01' ? +month.slice(0, 4) - 1 : month.slice(0, 4)}-${month.slice(5, 7) === '01' ? '12' : String(+month.slice(5, 7) - 1).padStart(2, '0')}`;
+  return { moves: changes(rows, month).moves, hadBefore: idx.months.includes(prev) };
 }
 
 /** The one shared mind's spending flag (mind.ts): the budget furthest gone this month once it is 90 % spent, in a few words ('' for none). */
@@ -257,11 +266,12 @@ export async function spendingRoute(req: Request, path: string, method: string, 
   try {
     if (path === '/profile/spending' && method === 'GET') return json(await spendingSummary(storage, url.searchParams.get('month')));
     if (path === '/profile/spending/import' && method === 'POST') {
-      const b = (await req.json().catch(() => ({}))) as { csv?: unknown };
+      const b = (await req.json().catch(() => ({}))) as { csv?: unknown; rulesOnly?: unknown };
       const csv = typeof b.csv === 'string' ? b.csv : '';
       if (!csv.trim()) return json({ error: 'that file is empty' }, 400);
       if (csv.length > 3_000_000) return json({ error: 'that statement is too big: download a year or less at a time' }, 400);
-      const result = await importStatement(deps, csv);
+      // [packs] a statement pasted in the chat (the money pack): the rule table only — not even the shops' names go to a model
+      const result = await importStatement(b.rulesOnly === true ? { storage, ai: async () => Promise.reject(new Error('rules only')) } : deps, csv);
       return json({ result, ...(await spendingSummary(storage, result.months[result.months.length - 1])) });
     }
     if (path === '/profile/spending/file' && method === 'POST') {
