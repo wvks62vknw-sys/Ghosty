@@ -41,6 +41,8 @@ import { PANELS as BENCH } from '../features/workbench/panels';
 import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
+import { convertTally } from '../convert/tally';
+import { convertInst } from '../convert/inst';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -277,6 +279,20 @@ export const CARDS: Record<string, HubCard> = {
       { label: 'Solvers', value: String(BENCH.reduce((n, p) => n + p.modes.length, 0) + 1) },
       { label: 'Last', value: lastPanel(), none: 'None yet' },
     ],
+  },
+  // [reste] MAKE → CONVERT (convert/sheet.ts): a sheet, not a screen; the card opens it
+  convert: {
+    title: 'Convert any file',
+    status: () => 'READY',
+    instrument: convertInst,
+    readouts: () => {
+      const t = convertTally();
+      return [
+        { label: 'Done here', value: t ? String(t.n) : null, none: 'None yet' },
+        { label: 'Last', value: t ? t.last : null, none: '—' },
+      ];
+    },
+    why: () => 'Pictures, PDFs, Word, tables, sound and QR codes, all on this phone.',
   },
   learn: {
     title: 'Learn anything',

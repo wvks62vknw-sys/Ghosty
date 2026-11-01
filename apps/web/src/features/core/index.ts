@@ -554,6 +554,16 @@ export const coreTab: TabDef = {
     reactor.el.addEventListener('pointerdown', (e) => reactor.poke(e));
     hud.append(rc.glowBox, left, center, right);
     root.append(hud);
+    // [reste] A file dropped on the chat goes to the converter (convert/sheet.ts), on this phone; nothing is sent.
+    root.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+    });
+    root.addEventListener('drop', (e) => {
+      const files = [...(e.dataTransfer?.files ?? [])];
+      if (!files.length) return;
+      e.preventDefault();
+      void import('../../convert/sheet').then((s) => s.openConvert(files));
+    });
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
     // in the LOG). Tap it to dismiss sooner.
