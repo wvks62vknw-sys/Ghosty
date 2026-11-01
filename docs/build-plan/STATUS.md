@@ -157,10 +157,10 @@ The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your w
 wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
 packs (money, body, kitchen, people, work, creative, out and about, home admin) · ⑤ the car in 3-D and show-me-don't-
 tell-me · ⑥ the offline brain runs, then smarter every week, used by default · ⑦ the social self and the rituals (your
-four picks, settled) · ⑧ School upwards · ⑨ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes), and the PS5 test (a
+four picks, settled) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes), and the PS5 test (a
 message to yourself with Ghosty's address, opened from Game Base: does Ghosty open?). All four picks are settled (OWNER-
 ISSUES 93, 94): no fixed name, he may speak first, Bluesky with approval and reading, no weekly letter. Games: ten made by
-us at a high bar plus a library of a few hundred real free games (94). School upwards is batch ⑧; the rest is ⑨.
+us at a high bar plus a library of a few hundred real free games (94). "The rest is cool": the order stands.
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
