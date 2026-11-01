@@ -3,7 +3,12 @@
  * and the gamepad layer (the Gamepad API's standard mapping) both fill the same Intent, which each engine turns into its
  * own keys and motions. Pure arithmetic here, so the node test can hold it to the numbers.
  */
+// pad.ts first: games/shelf.ts reads BTN (through this module) while it loads, so BTN must be loaded before it
+import { BTN } from './pad';
+import { GAMES2_PAD } from './games/shelf';
 import type { Control, EngineId, ShelfEntry } from './shelf';
+
+export { BTN };
 
 /**
  * What a button does in a game. A DOS game's CONTROLS block (dos.ts) puts its own keys in these slots, plus 'menu'
@@ -69,13 +74,21 @@ export function padLook(ax: number, ay: number, dtSeconds: number, sensitivity =
   return { lookX: curve(s.x) * k, lookY: s.y === 0 ? 0 : -curve(s.y) * k };
 }
 
-/** The standard mapping's button indices (W3C Gamepad, "Remapping"). */
-export const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, SELECT: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 } as const;
 /** The standard mapping's axes: left stick x/y, right stick x/y. */
 export const AXIS = { MOVE_X: 0, MOVE_Y: 1, LOOK_X: 2, LOOK_Y: 3 } as const;
 
-/** Each engine's buttons on a standard pad (the d-pad always walks and strafes; the sticks always move and look). */
+/**
+ * Each engine's buttons on a standard pad (the d-pad always walks and strafes; the sticks always move and look). The
+ * games made by us bring their own (games/shelf.ts GAMES2_PAD), read when asked for: that module reads BTN while it
+ * loads, so this one must not read it back while it loads (pad.ts holds BTN apart for the same reason).
+ */
 export const PAD_BUTTONS: Record<EngineId, Partial<Record<number, Action>>> = {
+  get voxel() {
+    return GAMES2_PAD.voxel;
+  },
+  get runner() {
+    return GAMES2_PAD.runner;
+  },
   doom: { [BTN.RT]: 'fire', [BTN.A]: 'use', [BTN.X]: 'use', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.Y]: 'map', [BTN.SELECT]: 'map', [BTN.LT]: 'run', [BTN.START]: 'pause' },
   quake: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.LT]: 'jump', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.X]: 'run', [BTN.START]: 'pause' },
   // a DOS game fills these slots with its own keys (its CONTROLS block); VIEW is its menu (ESC), a stick click ENTER
@@ -141,9 +154,10 @@ export const NATIVE_LABELS: Partial<Record<Action, string>> = { fire: 'FIRE', ju
 /**
  * The buttons the touch layer shows for a game: a DOS game's own CONTROLS block; for DOOM and Quake, the big buttons its
  * controls list (touchButtons, in thumb order), then the small keys along the top: the map where it has one, and MENU,
- * the game's own menu (new game and its skill, save, load, options).
+ * the game's own menu (new game and its skill, save, load, options). A game made by us draws its own: none.
  */
-export function gameButtons(e: Pick<ShelfEntry, 'engine' | 'controls' | 'dos'>): TouchButton[] {
+export function gameButtons(e: Pick<ShelfEntry, 'engine' | 'controls' | 'dos' | 'madeByUs'>): TouchButton[] {
+  if (e.madeByUs) return [];
   if (e.dos) return e.dos.controls.buttons;
   const out: TouchButton[] = touchButtons(e.controls).map((a) => (a === 'map' ? { act: a, label: NATIVE_LABELS[a]!, small: true } : { act: a, label: NATIVE_LABELS[a]! }));
   return [...out.filter((b) => !b.small), ...out.filter((b) => b.small), { act: 'menu', label: NATIVE_LABELS.menu!, small: true }];

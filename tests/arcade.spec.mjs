@@ -14,7 +14,9 @@
 // the longest sitting is written; Freedoom Phase 1 the same (its one GET fills Phase 2's card too); Quake starts and
 // renders. THE FREE LEVELS lists a dozen packs, each with its author and its size on GET (and the DeHackEd line where
 // it ships one); a pack of the spec's own (one harmless lump in a PWAD, public domain) is GOT and PLAYED over Freedoom
-// Phase 2 with DOOM's -file, to MAP01.
+// Phase 2 with DOOM's -file, to MAP01. THE GAMES MADE BY US play at once (PLAY on the card, no GET, no size): the
+// runner opens full screen with its own overlay and none of the player's controls, and its own QUIT returns to the
+// shelf with no score written by the player.
 //   BASE=http://localhost:8855 node tests/arcade.spec.mjs tests/.shots
 import { launch, webkitNoise, engine } from './browser.mjs';
 import { PHONE, UK, openScreen } from './nav.mjs';
@@ -201,11 +203,12 @@ await page.waitForTimeout(400);
 await page.evaluate(() => (location.hash = 'arcade'));
 await until(() => !!document.querySelector('#pg-arcade .arccard') && getComputedStyle(document.getElementById('pg-arcade')).display !== 'none', 10000, '#arcade did not open the arcade');
 
-// ---------- the shelf: every game with its size on GET (nothing is on this phone yet)
+// ---------- the shelf: every game with its size on GET (nothing is on this phone yet); the games made by us: PLAY
+const MADE = ['block-world', 'runner'];
 const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard:not(.arcpack)')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
 if (shelf.length < 2) problems.push(`the shelf has ${shelf.length} games`);
 for (const g of shelf) {
-  if (!/^GET · \d+(\.\d)? (MB|KB)$/.test(g.act)) problems.push(`${g.id}: its button reads "${g.act}"`);
+  if (MADE.includes(g.id) ? g.act !== 'PLAY' : !/^GET · \d+(\.\d)? (MB|KB)$/.test(g.act)) problems.push(`${g.id}: its button reads "${g.act}"`);
   if (!g.line || !/^Ghosty /.test(g.ghosty)) problems.push(`${g.id}: no line or no line of Ghosty's`);
 }
 if (!shelf.some((g) => g.id === 'test-flash')) problems.push('the fixture is not on the shelf');
@@ -317,6 +320,26 @@ await until(() => !document.querySelector('.arcplayer'), 15000, 'the second QUIT
 const second = visits(await saved());
 if (second !== 2) problems.push(`after a reload the program did not find its save (SAVE.DAT reads ${second}, not 2)`);
 
+// ---------- THE GAMES MADE BY US: the runner plays at once, full screen, its own overlay, its own QUIT
+if (!MADE.every((id) => shelf.some((g) => g.id === id))) problems.push(`the games made by us are not on the shelf: ${shelf.map((g) => g.id).join(', ')}`);
+else {
+  await page.click(`${card('runner')} .arcact`);
+  if (await until(() => !!document.querySelector('.arcplayer .g2ui .g2menu') && !!document.querySelector('.arcplayer canvas')?.width, 30000, 'THE RUNNER: PLAY did not open the game with its own menu')) {
+    const view = await page.evaluate(() => {
+      const c = document.querySelector('.arcplayer canvas').getBoundingClientRect();
+      return { w: Math.round(c.width), h: Math.round(c.height), W: innerWidth, H: innerHeight, ours: ['.arcstick', '.arclook', '.arcbtn', '.arckey', '.arcpause', '.arcmenu'].filter((s) => document.querySelector(`.arcplayer ${s}`)), menu: [...document.querySelectorAll('.arcplayer .g2menu .g2btns button')].map((b) => b.textContent) };
+    });
+    if (view.w !== view.W || view.h < view.H - 60) problems.push(`THE RUNNER: its canvas is ${view.w} × ${view.h} on a ${view.W} × ${view.H} screen (not full screen)`);
+    if (view.ours.length) problems.push(`THE RUNNER: the player's own controls over a game that draws its own: ${view.ours.join(', ')}`);
+    await page.screenshot({ path: `${out}/arcade-runner-440.png` });
+    // its own QUIT (the game's title menu) ends it: back to the shelf, the picture let go
+    await page.locator('.arcplayer .g2menu .g2btns button', { hasText: 'QUIT' }).click();
+    await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing, 15000, "THE RUNNER: its own QUIT did not return to the shelf");
+    const after = await page.evaluate(() => ({ scores: Object.keys(JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')).filter((k) => k.startsWith('runner')), canvases: document.querySelectorAll('canvas.arccanvas').length }));
+    if (after.scores.length || after.canvases) problems.push(`THE RUNNER: after its QUIT, scores ${after.scores.join(', ') || 'none'}; ${after.canvases} game canvas(es) left`);
+  }
+}
+
 // ---------- THE NATIVE ENGINES with the real free data: DOOM, Freedoom Phase 1, Quake
 const DATA = new URL('./fixtures/engines/data/', import.meta.url);
 const REAL = {
@@ -345,11 +368,14 @@ if (realMissing.length) {
     for (let i = 0; i < px.length; i++) a = Math.imul(a ^ px[i], 16777619);
     resolve((a >>> 0).toString(16));
   })));
-  /** A touch button (or small key) held for a moment, then let go. */
+  /** A touch button (or small key) held for a moment and for at least three of the engine's frames (a busy machine can
+   *  stall a frame longer than the moment), then let go. */
   const press = async (act, ms = 250) => {
     const sel = `.arcplayer [data-act="${act}"]`;
+    const f0 = (await probe())?.frames ?? 0;
     await page.dispatchEvent(sel, 'pointerdown', { pointerId: 21, isPrimary: false, pointerType: 'touch' });
     await page.waitForTimeout(ms);
+    await page.waitForFunction((f) => (window.__ghosty.arcade.probe?.()?.frames ?? 0) >= f + 3, f0, { timeout: 3000 }).catch(() => undefined);
     await page.dispatchEvent(sel, 'pointerup', { pointerId: 21, pointerType: 'touch' });
   };
   // a card by its id: a shelf game's, or a level pack's ('level:<id>'); the pack's scores are kept under its own id
@@ -446,7 +472,7 @@ if (realMissing.length) {
         await until(() => window.__ghosty.arcade.probe()?.menu === true, 3000, "DOOM: GAME MENU did not open DOOM's own menu");
         await page.waitForTimeout(400);
         await press('menu');
-        await until(() => window.__ghosty.arcade.probe()?.menu === false, 3000, "DOOM: the MENU key did not close DOOM's menu");
+        if (!(await until(() => window.__ghosty.arcade.probe()?.menu === false, 3000, "DOOM: the MENU key did not close DOOM's menu"))) problems.push(`DOOM: then ${JSON.stringify(await page.evaluate(() => ({ probe: window.__ghosty.arcade.probe(), held: [...window.__ghosty.arcade.intent.held], keys: [...document.querySelectorAll('.arcplayer .arckey')].map((k) => `${k.dataset.act}${k.classList.contains('on') ? '+' : ''}`) })))}`);
         await page.click('.arcplayer .arcpause');
         numbers.push(`DOOM E1M1: ${p.fps} fps (the engine's own work ${p.workMs} ms a frame), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
         await quitNative('doom-shareware', 'DOOM');

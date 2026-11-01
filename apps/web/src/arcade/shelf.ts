@@ -11,8 +11,11 @@
  */
 
 import type { DosButton, DosSetup } from './dos';
+import { GAMES2 } from './games/shelf';
 
-export type EngineId = 'doom' | 'quake' | 'dos';
+/** The engines: DOOM and Quake natively, DOSBox for the DOS classics, and the two games made by us (games/), each its
+ *  own engine: the block world ('voxel') and the runner. */
+export type EngineId = 'doom' | 'quake' | 'dos' | 'voxel' | 'runner';
 
 /** What a game is played with (the touch layer draws only these; the gamepad layer maps the standard pad to them). */
 export type Control = 'move' | 'look' | 'fire' | 'use' | 'weapon' | 'jump' | 'map';
@@ -55,7 +58,10 @@ export interface ShelfEntry {
   /** One plain line under the title. */
   line: string;
   engine: EngineId;
-  data: GameData;
+  /** The free package GET fetches; none for a game made by us (`madeByUs`: it plays at once, nothing to fetch). */
+  data: GameData | null;
+  /** Made here, by us (games/): no data to fetch, no size, nothing to delete; it draws its own controls. */
+  madeByUs?: true;
   controls: Control[];
   /** The engine keeps saved games for it (in the browser's storage, on this phone). */
   saves: boolean;
@@ -75,6 +81,10 @@ export interface ShelfEntry {
   /** Which of the kept files the engine is handed (all of them when absent): each Freedoom phase plays its own IWAD. */
   plays?: string[];
 }
+
+/** A shelf entry with a package to GET (every one but a game made by us). */
+export type FetchedEntry = ShelfEntry & { data: GameData };
+export const fetched = (e: ShelfEntry): e is FetchedEntry => e.data !== null;
 
 /** The id its files are kept under: its own, or the entry's whose package it shares. */
 export const keptAs = (e: Pick<ShelfEntry, 'id' | 'shares'>): string => e.shares ?? e.id;
@@ -526,4 +536,6 @@ export const SHELF: ShelfEntry[] = [
       controls: { stick: 'arrows', drag: 'none', buttons: [{ act: 'fire', key: 'rshift', label: 'RIGHT' }, { act: 'use', key: 'shift', label: 'LEFT' }, { act: 'jump', key: 'space', label: 'PLUNGER' }, ESC, ENTER] },
     },
   },
+  // ---------- THE GAMES MADE BY US (games/shelf.ts): the block world and the runner, each its own engine, nothing to fetch
+  ...GAMES2,
 ];

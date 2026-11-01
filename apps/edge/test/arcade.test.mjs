@@ -66,10 +66,17 @@ test('the shelf: every entry whole, Freedoom the default DOOM, mirrors https, si
   assert.equal(SHELF[0].line, 'DOOM, the free version with its own levels.');
   for (const g of SHELF) {
     for (const k of ['id', 'title', 'line', 'ghosty', 'done']) assert.ok(typeof g[k] === 'string' && g[k].trim(), `${g.id}: ${k}`);
-    assert.ok(['doom', 'quake', 'dos'].includes(g.engine), `${g.id}: engine`);
+    assert.ok(['doom', 'quake', 'dos', 'voxel', 'runner'].includes(g.engine), `${g.id}: engine`);
     assert.equal(typeof g.saves, 'boolean');
     assert.match(g.since, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(g.controls.every((c) => CONTROLS.includes(c)), `${g.id}: controls`);
+    // no data only for a game made by us (it plays at once, draws its own controls; games2.test.mjs holds the rest)
+    if (g.data === null) {
+      assert.equal(g.madeByUs, true, `${g.id}: no data, and not made by us`);
+      assert.ok(['voxel', 'runner'].includes(g.engine) && g.controls.includes('move'), `${g.id}: its own engine, and it moves`);
+      continue;
+    }
+    assert.ok(!g.madeByUs, `${g.id}: made by us, with data to fetch`);
     // every game moves and fires; it looks wherever a drag turns (a DOS game without a drag has no look)
     const looks = g.engine !== 'dos' || g.dos?.controls.drag !== 'none';
     for (const c of ['move', 'fire', ...(looks ? ['look'] : [])]) assert.ok(g.controls.includes(c), `${g.id}: needs ${c}`);
@@ -373,7 +380,14 @@ test('the DOS shelf: a dozen or more classics, each whole, its own licence quote
   assert.ok(games.length >= 12, `only ${games.length} DOS games`);
   assert.ok(games.every((g) => engines.playsToday(g)), 'every DOS game plays today');
   assert.ok(SHELF.every((g) => engines.playsToday(g)), 'every game on the shelf plays today: DOOM, Freedoom and Quake on their native engines');
-  assert.deepEqual(Object.keys(engines.ENGINES).sort(), ['doom', 'dos', 'quake']);
+  assert.deepEqual(Object.keys(engines.ENGINES).sort(), ['doom', 'dos', 'quake', 'runner', 'voxel']);
+  // the games made by us: no data, their own engines, nothing PLAY reads
+  for (const g of SHELF.filter((x) => x.madeByUs)) {
+    assert.equal(engines.engineFor(g).id, g.engine);
+    assert.deepEqual(engines.readsFor(g), []);
+    assert.deepEqual(input.gameButtons(g), [], `${g.id}: the player draws none of its own controls over it`);
+  }
+  assert.deepEqual(SHELF.filter((x) => x.madeByUs).map((g) => g.id), ['block-world', 'runner']);
   for (const g of games) {
     const d = g.dos;
     assert.ok(d, `${g.id}: no DOS set-up`);

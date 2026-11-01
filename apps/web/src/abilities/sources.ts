@@ -24,6 +24,7 @@ import { FIRST_ASKS, LOCAL_ASKS } from '../assistant/phrases';
 import { TILES } from '../features/lens/tiles';
 import { PANES, SAMPLES } from '../features/studio/samples';
 import { PANELS as BENCH } from '../features/workbench/panels';
+import { SHELF } from '../arcade/shelf';
 import { META as GAMES } from '../gym/meta';
 import { ME_CARDS, ME_ROWS } from '../shell/areadefs';
 import { DECK, type DeckAct } from '../shell/deckcopy';
@@ -97,6 +98,8 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   }
   if (have.has('lens')) for (const t of TILES) add({ id: `lens:${t.id}`, kind: 'lens', screen: 'lens', cat: 'see', go: { run: 'open_lens', args: { mode: t.id } }, ...(t.id === 'people' ? { since: '2026-10-31' } : {}) });
   if (have.has('gym')) for (const g of GAMES) add({ id: `game:${g.id}`, kind: 'game', screen: 'gym', cat: 'play', go: { run: 'open_gym', args: { game: g.id } } });
+  // the ARCADE's shelf, one item a game (its words: catalogue/arcade.ts and games2.ts)
+  if (have.has('arcade')) for (const g of SHELF) add({ id: `arcade:${g.id}`, kind: 'game', screen: 'arcade', cat: 'play', go: { open: 'arcade' } });
   if (have.has('school')) for (const s of STAGES) add({ id: `stage:${s.id}`, kind: 'stage', screen: 'school', cat: 'learn', go: { open: 'school', panel: 'THE LADDER' } });
   if (have.has('studio')) {
     for (const s of SAMPLES) add({ id: `studio:sample:${s.id}`, kind: 'studio', screen: 'studio', cat: 'build', go: { run: 'open_studio', args: { sample: s.id } } });

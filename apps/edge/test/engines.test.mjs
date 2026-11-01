@@ -249,6 +249,13 @@ test('every button each game shows on the touch layer and every pad button does 
   for (const g of SHELF) {
     // what the touch layer shows for the game (input.ts: the player draws exactly these)
     const shown = input.gameButtons(g);
+    if (g.madeByUs) {
+      // a game made by us draws its own controls over the canvas: the player shows none; its pad slots are its own
+      // (games/shelf.ts GAMES2_PAD, held to its rules by games2.test.mjs), with START its own pause
+      assert.deepEqual(shown, [], `${g.id}: the player's own buttons over a game that draws its own`);
+      assert.equal(input.PAD_BUTTONS[g.engine][input.BTN.START], 'pause', `${g.id}: START`);
+      continue;
+    }
     assert.ok(shown.length > 0, `${g.id}: buttons`);
     if (g.engine === 'dos') {
       // a DOS game shows its own CONTROLS block: each button presses DOS keys that exist, and a controller reaches each

@@ -1,6 +1,7 @@
 /**
  * THE ARCADE: real, free games playing entirely on this phone. The SHELF lists every game an engine here plays today
- * (arcade/shelf.ts, through arcade/engines: DOOM and Quake natively, the DOS classics in DOSBox), one card a game: its
+ * (arcade/shelf.ts, through arcade/engines: DOOM and Quake natively, the DOS classics in DOSBox, and the two games made
+ * by us, which play at once with nothing to fetch and draw their own controls), one card a game: its
  * title, one plain line, its size, GET (his tap, on Wi-Fi, the size said on the button; on mobile data it says so and
  * waits) or PLAY, the scores, Ghosty's line, and a ⋯ with its licence, its credit, its controls and DELETE. THE FREE
  * LEVELS lists a dozen of the most-loved fan level packs for DOOM (arcade/levels.ts), each with its author, GET and
@@ -75,8 +76,12 @@ const PACK_DONE = 'A fan made that map for nothing but the love of it. On to the
 const timeWords = (s: number): string => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.round(s / 60)} min` : `${Math.max(0, Math.round(s))} s`);
 /** The most a finished level scores: DOOM's kills, items and secrets, each out of 100; Quake's kills and secrets. */
 const TOP: Partial<Record<EngineId, number>> = { doom: 300, quake: 200 };
-/** A card's scores: a DOS game's is its longest sitting; DOOM and Quake score a finished level and keep the sitting too. */
+/** A card's scores: a DOS game's is its longest sitting; DOOM and Quake score a finished level and keep the sitting too;
+ *  the games made by us keep their own (the block world: blocks changed in a visit; the runner: a run's points). */
 const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefined): string => {
+  const n = (v: number) => v.toLocaleString('en-GB');
+  if (engine === 'voxel') return sc ? `Most blocks changed in a visit ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
+  if (engine === 'runner') return sc ? `Best run ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'dos') return sc ? `Longest sitting ${timeWords(sc.best)} · last ${timeWords(sc.last)}` : 'Not played yet';
   const parts = [...(sc ? [`Best ${sc.best} of ${TOP[engine]} · last ${sc.last}`] : []), ...(sit ? [`${sc ? 'longest' : 'Longest'} sitting ${timeWords(sit.best)}`] : [])];
   return parts.length ? parts.join(' · ') : 'Not played yet';
@@ -101,6 +106,7 @@ const PAD_WORDS: Partial<Record<number, string>> = { [BTN.A]: 'A', [BTN.B]: 'B',
 
 /** The CONTROLS sheet's lines: the stick, the drag, each button (and its key, or what it does), and the controller. */
 function controlLines(e: ShelfEntry): string[] {
+  if (e.madeByUs) return ['Its own controls are on the screen, and HOW TO PLAY in its menu shows them.', 'A game controller works too: the left stick and the d-pad move, A jumps, MENU pauses.'];
   const c = e.dos?.controls;
   const out: string[] = [];
   if (c) out.push(`Left thumb: the stick presses the ${c.stick === 'wasd' ? 'W A S D keys' : 'arrow keys'}${c.run ? ', and runs when pushed all the way' : ''}.`);
@@ -151,12 +157,12 @@ interface Run {
 const runOf = (e: ShelfEntry): Run => ({ id: e.id, card: e.id, title: e.title, entry: e, reads: readsFor(e) });
 let playingTitle = '';
 
-/** A card on the screen: what one GET keeps (where, and the package), and its title for the words. */
+/** A card on the screen: what one GET keeps (where, and the package: none for a game made by us), and its title. */
 interface CardOf {
   id: string;
   title: string;
   at: string;
-  data: GameData;
+  data: GameData | null;
   saves: boolean;
 }
 
@@ -202,10 +208,12 @@ export const arcadeTab: TabDef = {
     const paintAll = () => {
       for (const c of cards.values()) c.paint();
     };
+    /** Ready to play: on this phone, or made by us (nothing to fetch). */
+    const ready = (g: ShelfEntry) => !!g.madeByUs || here.has(keptAs(g));
     const hero = () => {
-      const ready = games.filter((g) => here.has(keptAs(g))).length;
-      P.big.textContent = ready ? `${ready} of ${games.length} ready` : `${games.length} game${games.length === 1 ? '' : 's'}`;
-      arcadeState.here = games.filter((g) => here.has(keptAs(g))).map((g) => g.id);
+      const n = games.filter(ready).length;
+      P.big.textContent = n ? `${n} of ${games.length} ready` : `${games.length} game${games.length === 1 ? '' : 's'}`;
+      arcadeState.here = games.filter(ready).map((g) => g.id);
     };
 
     /** The act button's look: STOP while it is being got, PLAY once here, else GET with the size said. */
@@ -225,11 +233,11 @@ export const arcadeTab: TabDef = {
       const stat = h('p.arcstatus', { 'aria-live': 'polite' });
       const bar = h('div.arcbar', { role: 'progressbar', 'aria-label': `${e.title}: download`, 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('i'));
       const act = h('button.arcact', { type: 'button' });
-      const more = h('button.arcmore', { type: 'button', 'aria-label': `More about ${e.title}: licence, controls, delete`, 'aria-expanded': 'false' }, '⋯');
+      const more = h('button.arcmore', { type: 'button', 'aria-label': e.madeByUs ? `More about ${e.title}: how it plays` : `More about ${e.title}: licence, controls, delete`, 'aria-expanded': 'false' }, '⋯');
       const details = h('div.arcdetails', { hidden: true });
       const el = h('article.arccard', { role: 'listitem', dataset: { id: e.id }, 'aria-label': e.title }, title, line, said, score, h('div.arcrow', act, more), stat, bar, details);
       const paint = () => {
-        const kept = here.has(of.at);
+        const kept = ready(e);
         const getting = busy.has(of.at);
         el.classList.toggle('kept', kept);
         el.classList.toggle('getting', getting);
@@ -239,23 +247,24 @@ export const arcadeTab: TabDef = {
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${e.title}`, 'stop');
         else if (kept) setAct(act, 'PLAY', 'Play', `Play ${e.title}`, 'play');
-        else setAct(act, `GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
+        else if (e.data) setAct(act, `GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         clear(details,
-          h('p.arcnote', h('b', 'Licence '), e.data.licence),
-          h('p.arcnote', h('b', 'Credit '), e.data.credit),
+          ...(e.data
+            ? [h('p.arcnote', h('b', 'Licence '), e.data.licence), h('p.arcnote', h('b', 'Credit '), e.data.credit)]
+            : [h('p.arcnote', 'Made here, by Ghosty: it plays at once, with nothing to fetch and nothing to delete.')]),
           h('ul.arcctl', ...controlLines(e).map((t) => h('li', t))),
-          kept ? button('DELETE FROM THIS PHONE', () => void del(of), 'arcdel') : null,
+          kept && e.data ? button('DELETE FROM THIS PHONE', () => void del(of), 'arcdel') : null,
         );
         const del2 = details.querySelector<HTMLButtonElement>('.arcdel');
         del2?.setAttribute('aria-label', `Delete ${e.title} from this phone (your saved games stay)`);
       };
       // the files are read from the moment his finger lands on PLAY, so the engine can start inside the tap itself
       act.addEventListener('pointerdown', () => {
-        if (here.has(of.at) && !busy.has(of.at)) readAhead(runOf(e));
+        if (ready(e) && !busy.has(of.at)) readAhead(runOf(e));
       });
       act.addEventListener('click', () => {
         if (busy.has(of.at)) busy.get(of.at)!.abort();
-        else if (here.has(of.at)) play(runOf(e));
+        else if (ready(e)) play(runOf(e));
         else void get(of);
       });
       more.addEventListener('click', () => {
@@ -302,7 +311,7 @@ export const arcadeTab: TabDef = {
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${busy.has(p.id) ? p.title : 'Freedoom'}`, 'stop');
         else if (!kept) setAct(act, `GET · ${sizeWords(p.data.bytes)}`, `Get · ${sizeWords(p.data.bytes)}`, `Get ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
-        else if (!baseHere && baseOf) setAct(act, `GET FREEDOOM · ${sizeWords(baseOf.data.bytes)}`, `Get Freedoom · ${sizeWords(baseOf.data.bytes)}`, `${p.title} plays over Freedoom: get Freedoom, ${sizeWords(baseOf.data.bytes)}, on Wi-Fi`, 'get');
+        else if (!baseHere && baseOf?.data) setAct(act, `GET FREEDOOM · ${sizeWords(baseOf.data.bytes)}`, `Get Freedoom · ${sizeWords(baseOf.data.bytes)}`, `${p.title} plays over Freedoom: get Freedoom, ${sizeWords(baseOf.data.bytes)}, on Wi-Fi`, 'get');
         else setAct(act, 'PLAY', 'Play', `Play ${p.title}`, 'play');
         clear(details,
           h('p.arcnote', h('b', 'Licence '), p.data.licence),
@@ -338,6 +347,8 @@ export const arcadeTab: TabDef = {
 
     // ---- GET: his tap, the size already said; on mobile data it waits for Wi-Fi
     const get = async (of: CardOf, also: string[] = []) => {
+      const data = of.data;
+      if (!data) return; // a game made by us: nothing to fetch
       const ctl = new AbortController();
       busy.set(of.at, ctl);
       // the cards this GET fills, and any that asked for it (a level pack fetching the Freedoom it plays over)
@@ -350,10 +361,10 @@ export const arcadeTab: TabDef = {
       };
       try {
         if (onMobileData()) {
-          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(of.data.bytes)}.`);
+          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(data.bytes)}.`);
           await Promise.race([offMobileData(ctl.signal), new Promise((_, reject) => ctl.signal.addEventListener('abort', () => reject(new DOMException('Stopped', 'AbortError')), { once: true }))]);
         }
-        say(`Fetching ${sizeWords(of.data.bytes)} from the Internet Archive…`);
+        say(`Fetching ${sizeWords(data.bytes)} from the Internet Archive…`);
         const onProgress = (p: Progress) => {
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
           for (const c of filling()) {
@@ -364,7 +375,7 @@ export const arcadeTab: TabDef = {
           const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
           if (status.get(of.id) !== t) say(t);
         };
-        await getFiles({ id: of.at, data: of.data }, onProgress, { signal: ctl.signal });
+        await getFiles({ id: of.at, data }, onProgress, { signal: ctl.signal });
         here.add(of.at);
         say(`On this phone. ${of.saves ? 'Saved games stay here too.' : ''}`.trim());
         vibrate(15);
@@ -379,9 +390,11 @@ export const arcadeTab: TabDef = {
     };
 
     const del = async (of: CardOf) => {
-      await removeFiles({ id: of.at, data: of.data });
+      const data = of.data;
+      if (!data) return; // a game made by us: nothing to delete
+      await removeFiles({ id: of.at, data });
       here.delete(of.at);
-      for (const c of sharing(of.at)) status.set(c.of.id, `Deleted from this phone (${sizeWords(of.data.bytes)} back). GET brings it back; your saved games stay.`);
+      for (const c of sharing(of.at)) status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`);
       paintAll();
       hero();
     };
@@ -456,7 +469,10 @@ export const arcadeTab: TabDef = {
           p.ready(handle);
           const seconds = await p.done;
           await handle.quit();
-          if (e.engine === 'dos') {
+          if (e.madeByUs) {
+            // a game made by us keeps its own score (scores.ts), and says its own lines
+            status.set(r.card, `Played ${timeWords(seconds)}.`);
+          } else if (e.engine === 'dos') {
             const best = recordScore(r.id, seconds).isBest;
             status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
           } else {
@@ -473,7 +489,7 @@ export const arcadeTab: TabDef = {
     };
 
     // what is already on this phone
-    void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => ((await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {
+    void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => (of.data && (await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {
       paintAll();
       hero();
     });
@@ -500,10 +516,13 @@ function expose(): void {
   }, 500);
 }
 
-/** The player: a fresh canvas, the touch layer, the gamepad layer and PAUSE. `done` settles with the seconds played. */
+/** The player: a fresh canvas, the touch layer, the gamepad layer and PAUSE. `done` settles with the seconds played. A
+ *  game made by us gets the canvas full screen and the gamepad layer only: it draws its own controls, menus and PAUSE
+ *  over the canvas (in the canvas's parent), and its own pause action opens them. */
 function player(e: ShelfEntry, title = e.title) {
   /** DOOM and Quake: the pause action is their own menu (engines/types.ts), so the player's PAUSE is its own button. */
-  const native = e.engine !== 'dos';
+  const native = e.engine === 'doom' || e.engine === 'quake';
+  const made = !!e.madeByUs;
   const intent: Intent = idle();
   const touch: Intent = idle();
   let padIntent: Intent | null = null;
@@ -573,7 +592,7 @@ function player(e: ShelfEntry, title = e.title) {
   const menu = h('div.arcmenu', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${title} paused`, hidden: true },
     h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ctlBtn, ctlList));
   const errBox = h('p.arcerr', { role: 'alert', hidden: true });
-  const el = h('div.arcplayer', { role: 'region', 'aria-label': `${title}: the game` }, screen, layer, loading, menu, errBox, kbd);
+  const el = h('div.arcplayer', { role: 'region', 'aria-label': `${title}: the game` }, screen, ...(made ? [loading, errBox] : [layer, loading, menu, errBox, kbd]));
 
   let handle: EngineHandle | null = null;
   let finish: (seconds: number) => void = () => undefined;
@@ -636,7 +655,7 @@ function player(e: ShelfEntry, title = e.title) {
   const hidden = () => {
     if (document.visibilityState === 'hidden') pause();
   };
-  document.addEventListener('visibilitychange', hidden);
+  if (!made) document.addEventListener('visibilitychange', hidden); // a game made by us pauses itself
 
   // ---- the stick: it lands under the thumb, the knob follows within its reach
   const R = 52;
@@ -734,7 +753,7 @@ function player(e: ShelfEntry, title = e.title) {
       if (paused) {
         resume();
         swallowStart = true;
-      } else if (!native) pause();
+      } else if (!native && !made) pause();
     }
     if (!start) swallowStart = false;
     padStart = start;
@@ -747,7 +766,7 @@ function player(e: ShelfEntry, title = e.title) {
     intent.moveX = m.moveX;
     intent.moveY = m.moveY;
     intent.held.clear();
-    for (const a of m.held) if (a !== 'pause' || (native && !swallowStart)) intent.held.add(a);
+    for (const a of m.held) if (a !== 'pause' || ((native || made) && !swallowStart)) intent.held.add(a);
     if (pulse) {
       intent.held.add(pulse.act);
       if (--pulse.frames <= 0 && now >= pulse.until) pulse = null;
@@ -783,6 +802,13 @@ function player(e: ShelfEntry, title = e.title) {
     },
     fail(message: string) {
       errBox.hidden = false;
+      if (made) {
+        // no PAUSE of the player's here: the way back is on the message
+        const back = h('button.arcm.quit', { type: 'button', 'aria-label': 'Back to the shelf' }, 'BACK TO THE SHELF');
+        back.addEventListener('click', () => finish(clock()));
+        clear(errBox, `${title} stopped: ${message}.`, back);
+        return;
+      }
       errBox.textContent = `${title} stopped: ${message}. Quit to go back.`;
       pause();
     },
