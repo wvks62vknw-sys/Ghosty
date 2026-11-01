@@ -445,7 +445,7 @@ async function startKart(canvas: HTMLCanvasElement, _files: EngineFiles, intent:
     reopen = openPause;
     setMode('paused');
     music.stop();
-    hum.set(0, 0, false);
+    hum.stop();
     ui.menu({
       title: 'Paused',
       line: race.t > 0 ? `${ordinal(you().place)}, lap ${lapOf(race, you())} of ${race.laps}.` : 'On the grid.',
@@ -465,6 +465,7 @@ async function startKart(canvas: HTMLCanvasElement, _files: EngineFiles, intent:
     ui.closeMenu();
     setMode('race');
     music.start();
+    if (!you().done) hum.start();
     if (!hostPaused) loop.start();
   };
   const openResults = () => {
@@ -635,12 +636,15 @@ async function startKart(canvas: HTMLCanvasElement, _files: EngineFiles, intent:
       hostPaused = true;
       loop.stop();
       music.stop();
-      hum.set(0, 0, false);
+      hum.stop();
     },
     resume() {
       hostPaused = false;
       if (mode === 'gone') return;
-      if (mode === 'race') music.start();
+      if (mode === 'race') {
+        music.start();
+        if (!you().done) hum.start();
+      }
       if (mode !== 'paused') loop.start();
     },
     quit: finish,
