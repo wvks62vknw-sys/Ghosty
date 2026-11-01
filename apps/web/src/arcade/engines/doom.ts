@@ -288,6 +288,8 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   let fps = 0;
   let fpsFrames = 0;
   let fpsAt = performance.now();
+  let work = 0; // ms of the engine's own work since fpsAt
+  let workMs = 0;
   let loadMs: number | null = null;
   let quitAsked = false;
   const said: string[] = [];
@@ -420,7 +422,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   let arrowNext = 0;
   let damage = 0;
   let gamestate = -1;
-  let probe: EngineProbe = { fps: 0, frames: 0, loadMs: null, level: null, pos: null, angle: null, menu: false, paused: false, sounds: 0 };
+  let probe: EngineProbe = { fps: 0, frames: 0, workMs: 0, loadMs: null, level: null, pos: null, angle: null, pitch: null, menu: false, paused: false, sounds: 0 };
 
   const key = (pressed: boolean, k: number): void => {
     M._dg_key(pressed ? 1 : 0, k);
@@ -487,10 +489,12 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     probe = {
       fps,
       frames,
+      workMs,
       loadMs,
       level: playing && !s[1] ? levelName(!!s[10], s[8]!, s[9]!) : null,
       pos: playing ? [s[5]! / 65536, s[6]! / 65536, 0] : null,
       angle: playing ? (((s[7]! & 0xffff) * 360) / 65536) : null,
+      pitch: null,
       menu: !!s[1],
       paused,
       sounds: sfx.started(),
@@ -519,6 +523,8 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     last = t;
     if (t - fpsAt >= 1000) {
       fps = Math.round((fpsFrames * 1000) / (t - fpsAt));
+      workMs = fpsFrames ? Math.round((work / fpsFrames) * 10) / 10 : 0;
+      work = 0;
       fpsFrames = 0;
       fpsAt = t;
     }
@@ -527,10 +533,12 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     const tic = ticOf(gameClock);
     if (tic === lastTic) return;
     lastTic = tic;
+    const w0 = performance.now();
     try {
       feed(state());
       M._dg_tick();
       after(state());
+      work += performance.now() - w0;
     } catch (e) {
       fail(e);
       return;

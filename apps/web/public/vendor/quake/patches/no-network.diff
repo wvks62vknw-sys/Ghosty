@@ -1,0 +1,11 @@
+--- a/Client/WebQuake/NET.js
++++ b/Client/WebQuake/NET.js
+@@ -241,7 +241,7 @@
+ 	NET.messagetimeout = Cvar.RegisterVariable('net_messagetimeout', '300');
+ 	NET.hostname = Cvar.RegisterVariable('hostname', 'UNNAMED');
+ 
+-	NET.drivers = [Loop, WEBS];
++	NET.drivers = [Loop]; // Ghosty: no network play (the WebSocket driver is left out)
+ 	for (NET.driverlevel = 0; NET.driverlevel < NET.drivers.length; ++NET.driverlevel)
+ 		NET.drivers[NET.driverlevel].initialized = NET.drivers[NET.driverlevel].Init();
+ };

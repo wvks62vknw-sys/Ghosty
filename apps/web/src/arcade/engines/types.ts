@@ -60,14 +60,18 @@ export interface EngineProbe {
   fps: number;
   /** Frames drawn since the start. */
   frames: number;
+  /** The engine's own work for a frame (its code, not the GPU's drawing), in ms, averaged over the last whole second. */
+  workMs: number;
   /** Milliseconds from start() to the first frame of a level being played (null until then). */
   loadMs: number | null;
   /** The level being played ('E1M1', 'MAP01', 'e1m1'); null on a title, a demo, an intermission or a menu screen. */
   level: string | null;
   /** The player's position in map units (null outside a level). */
   pos: [number, number, number] | null;
-  /** Which way the player faces, in degrees (null outside a level). */
+  /** Which way the player faces, in degrees, growing to the left (null outside a level). */
   angle: number | null;
+  /** How far he looks down, in degrees (up is negative; null where the game has no looking up and down). */
+  pitch: number | null;
   /** The game's own menu is open. */
   menu: boolean;
   paused: boolean;
