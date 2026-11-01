@@ -190,6 +190,23 @@ export function judge(brain: BrainTrust | undefined, o: { bar: number; misses: M
   });
 }
 
+const andList = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/**
+ * WHICH BRAIN's line for each brain here, smallest first: "SmolLM2 360M: greetings and spelling", then a bigger one that
+ * does all of that and more as "Qwen2.5 0.5B: + rewording, summaries".
+ */
+export function whichLines(brains: { label: string; judged: Judged[] }[]): string[] {
+  let before: string[] = [];
+  return brains.map((b) => {
+    const has = b.judged.filter((j) => j.trusted).map((j) => CAT_WORDS[j.cat].short);
+    const more = has.filter((x) => !before.includes(x));
+    const line = !has.length ? `${b.label}: nothing yet (the cloud answers first)` : before.length && more.length && before.every((x) => has.includes(x)) ? `${b.label}: + ${more.join(', ')}` : `${b.label}: ${andList(has)}`;
+    before = has;
+    return line;
+  });
+}
+
 // ---------------------------------------------------------------- what the phone keeps
 
 /** The table as last fetched (every brain that sat a paper), his bar, and the misses (sixty days, two hundred at most). */

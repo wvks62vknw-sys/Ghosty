@@ -5440,3 +5440,5 @@ html .morse .morsecell { min-height: 52px !important; }
 .indsheet .indtruth { margin-top: 10px; }
 .indsheet .indceiling { margin-top: 6px; opacity: .8; }
 .brindep { margin: 6px 0 0; font: 500 14px/1.35 var(--sf); opacity: .9; overflow-wrap: anywhere; }
+/* [offline2] WHICH BRAIN's line per brain: what each answers on the phone first */
+.trustwhich div { overflow-wrap: anywhere; }

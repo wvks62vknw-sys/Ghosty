@@ -7,9 +7,11 @@
 import type { BaseId } from '../../../../packages/shared/src/selftrain';
 import { brain } from '../api/brain';
 import { toast } from '../ui/components';
-import { offlineBrain, setTrainedModels } from './brain';
+import { offlineBrain, setTrainedModels, syncTrust } from './brain';
 
 export async function syncTrained(): Promise<void> {
+  // [offline2] the trust table too (offline/trust.ts): a trained week's grades decide what it answers first, like any brain's
+  void syncTrust();
   try {
     // A base chosen here while the brain could not be reached goes first (the training follows the phone's choice).
     const pending = offlineBrain.get().pendingBase;

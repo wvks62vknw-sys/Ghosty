@@ -2,7 +2,8 @@
 //  - the categoriser on fifty asks: each kind the phone's brain may answer first, and the asks whose words touch a tool
 //    (a time, a place, "remind", "send", "search") or need the cloud, which are never the phone's first;
 //  - the trust table from a grade fixture: SCHOOL's papers per brain into grades per kind (apps/edge/src/school/trust.ts),
-//    then the bar, the twenty-question floor and the misses rule on the phone (apps/web/src/offline/trust.ts);
+//    then the bar, the twenty-question floor and the misses rule on the phone (apps/web/src/offline/trust.ts), and WHICH
+//    BRAIN's lines;
 //  - the meter's counts from a chat fixture: every answer counted by where it was answered and by its kind, the model-free
 //    asks as his own, ASK THE CLOUD counting the ask where it ended, the seven and thirty days, the Brief's weekly line;
 //  - the fail-closed marker test (OWNER-ISSUES 72): a fictional statement with a distinctive marker, the on-phone route
@@ -178,6 +179,13 @@ test('the trust table from a grade fixture: grades per kind per brain, then the 
   assert.equal(judged(smol, { misses: [miss(-3 * DAY), miss(-2 * DAY), miss(-DAY)] }).greet.trusted, true, 'misses before its report card no longer count');
   assert.equal(judged({ ...smol, at: smol.at + 4 * DAY }, { misses: three }).greet.trusted, true, 'a new report card: trusted again');
 
+  // WHICH BRAIN: one line per brain here, smallest first
+  const lines = T.whichLines([
+    { label: 'SmolLM2 360M', judged: T.judge(smol, { bar: 80, misses: [] }) },
+    { label: 'Qwen2.5 0.5B', judged: T.judge(half, { bar: 80, misses: [] }) },
+    { label: 'Qwen3 0.6B', judged: T.judge(undefined, { bar: 80, misses: [] }) },
+  ]);
+  assert.deepEqual(lines, ['SmolLM2 360M: greetings and spelling', 'Qwen2.5 0.5B: + rewording, summaries', 'Qwen3 0.6B: nothing yet (the cloud answers first)']);
 });
 
 // ---------------------------------------------------------------- the meter

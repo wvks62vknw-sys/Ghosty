@@ -32,7 +32,7 @@ import { BIGGER, brainOf, fitLine, FLOOR, heldKey, holdLine, isBigger, memText, 
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
 import { brainKey, syncTrust } from '../../offline/brain';
-import { CAT_WORDS, DEFAULT_BAR, judgedFor, trust } from '../../offline/trust';
+import { CAT_WORDS, DEFAULT_BAR, judgedFor, trust, whichLines } from '../../offline/trust';
 import { homeScreenApp } from '../system/storage';
 import { settings } from '../../state/app';
 import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
@@ -329,6 +329,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     clear(
       pick,
       h('div.lab', 'WHICH BRAIN'),
+      // [offline2] what each brain here answers on this phone first, by its report card (offline/trust.ts), smallest first
+      trustWhich(),
       // when a bigger brain could not get the memory (or closed Ghosty): said here, beside the brains, until one is chosen again
       fell,
       getting,
@@ -436,6 +438,14 @@ export function offlinePanel(): Panel & { refresh(): void } {
   }
 
   // ---- [offline2] TRUST: what the brain in use answers on this phone FIRST, by its report card, and his bar ----------
+  /** WHICH BRAIN's one line per brain on this phone: "SmolLM2 360M: greetings and spelling". */
+  function trustWhich(): HTMLElement | null {
+    const now = currentModel();
+    const mine = offlineModels().filter((m) => here.includes(m.id) || (m.id === now.id && ready)).sort((a, b) => a.mb - b.mb);
+    if (!mine.length) return null;
+    const lines = whichLines(mine.map((m) => ({ label: m.label, judged: judgedFor(brainKey(m)) })));
+    return h('div.note.small.trustwhich', { 'aria-label': `Answered on this phone first: ${lines.join('. ')}` }, ...lines.map((l) => h('div', l)));
+  }
   const barWords = (): string => `Above this grade I answer on your phone first: ${trust.get().bar}%`;
   const dialSays = h('span', barWords());
   const dial = h('input.trustdial', { type: 'range', min: '50', max: '100', step: '5', 'aria-label': 'Trust bar: above this grade I answer on your phone first' }) as HTMLInputElement;

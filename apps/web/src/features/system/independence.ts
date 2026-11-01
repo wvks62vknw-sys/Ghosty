@@ -96,7 +96,7 @@ export function independencePanel(): Panel {
       brainLine,
       sits === false
         ? 'No brain sits on this phone yet, so every kind of ask is the cloud’s until one does (Settings → Offline brain).'
-        : `Answering first on this phone: ${m.label}. Your bar: ${trust.get().bar}%.`,
+        : `Answering first on this phone: ${m.label}${/\(week \d+\)/.test(m.label) ? ', a trained week: its own report card decides' : ''}. Your bar: ${trust.get().bar}%.`,
     );
     const kinds: AskCat[] = [...TRUST_CATS, 'cloud'];
     clear(
