@@ -5216,3 +5216,75 @@ html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); co
 .g3arena .g3eject { position: absolute; right: 122px; bottom: calc(env(safe-area-inset-bottom, 0px) + 44px); width: 70px; height: 70px; padding: 0; border-radius: 50%; font-size: 13px; }
 .g3arena:not([data-mode="play"]) :is(.g3hud, .g3board, .g3split, .g3eject, .g3pause, .g3tags) { display: none; }
 .g3arena:not([data-mode="play"]) .g3touch { pointer-events: none; }
+/* ---- THE CAR (BRIEF-CAR, batch ⑤ part 1): the car's stage over the 3D STUDIO's view, the CAR · FIX IT pane ---- */
+.studioseg button[data-pane="car"] { grid-column: 1 / -1; }
+.carstage { position: absolute; inset: 0; z-index: 3; overflow: hidden; border-radius: inherit; background: #dfe6ec; touch-action: none; user-select: none; -webkit-user-select: none; }
+.carstage[hidden] { display: none; }
+.carstage canvas.carcanvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.hud.studio[data-pane="car"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
+.carhud { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 4; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; pointer-events: none; }
+.carname { min-width: 0; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 13px/1.25 var(--sf); white-space: nowrap; text-overflow: ellipsis; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.carchips { display: flex; flex: none; gap: 6px; pointer-events: auto; }
+.carstage .carchips button { min-height: 32px; padding: 0 12px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 12px/1 var(--sf); }
+.carstandin { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; padding: 4px 9px; border-radius: 10px; background: rgba(8,10,14,.55); color: rgba(255,255,255,.9); font: 400 10.5px/1.35 var(--sf); pointer-events: none; }
+.cartag { position: absolute; left: 0; top: 0; z-index: 5; max-width: 70%; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.85); color: #fff; font: 600 13px/1.2 var(--sf); white-space: nowrap; text-overflow: ellipsis; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.cartag[hidden] { display: none; }
+.carpane .carfacts { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carpane .carfacts b { font: 600 16px/1.3 var(--sf); color: var(--ink); }
+.carpane .carfacts span { font: 400 13px/1.35 var(--sf); color: var(--ink2); }
+.carpane .carpicked { margin: 4px 0 0; }
+.carviews { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.carviews button { min-width: 0; min-height: 44px; padding: 0 4px; overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.carpin { position: absolute; left: 0; top: 0; z-index: 5; display: grid; place-items: center; width: 30px; height: 30px; min-height: 30px !important; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #ff8a1a; color: #111; font: 700 14px/1 var(--sf); box-shadow: 0 0 0 4px rgba(255,138,26,.35), 0 4px 12px rgba(0,0,0,.4); }
+.carpin[hidden] { display: none; }
+/* (a pin follows its part every frame: none of the buttons' springy transform transition) */
+.carstage .carpin { transition: none; }
+.carsheet { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.carsheet h3 { margin: 4px 0 0; font: 600 17px/1.3 var(--sf); color: var(--ink); }
+.carsheet dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0; }
+.carsheet dt { margin-top: 6px; font: 600 11px/1.3 var(--sf); letter-spacing: .4px; color: var(--ink3); }
+.carsheet dd { margin: 0; font: 400 14px/1.4 var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+/* the CAR card's new line and button: WHAT'S WRONG? and SHOW ME; once something is wrong, the safety line first */
+html .ccard[data-kind="car"] .ccfix { display: flex; margin: 0; }
+html .ccard[data-kind="car"] .ccfixin { flex: 1; min-width: 0; height: 34px; min-height: 34px; padding: 0 12px; border: 0; border-radius: 10px; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.14); color: var(--ink); font: 400 15px/34px var(--sf); }
+html .ccard[data-kind="car"] .ccfixin::placeholder { color: var(--ink3); }
+html .ccard .ccsafe { display: -webkit-box; overflow: hidden; font: 600 12.5px/16px var(--sf); color: #ff6b61; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html .ccard[data-fault] .ccline { -webkit-line-clamp: 3; font-size: 13.5px; line-height: 18px; }
+html .ccard[data-fault] .ccsafe + .ccline { -webkit-line-clamp: 2; }
+@media (max-width: 460px) { html .ccard[data-fault]:not(.wall) .ccvis { display: none; } }
+/* the 3D STUDIO's FIX IT list */
+.carfixit { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.carfixit .carsafe { margin: 2px 0; padding: 8px 10px; border-radius: 12px; background: rgba(255,69,58,.14); box-shadow: inset 0 0 0 1px rgba(255,69,58,.45); color: #ff8a80; font: 600 14px/1.35 var(--sf); }
+.carfixit .carfixhead { margin: 4px 0 0; font: 600 13px/1.3 var(--sf); letter-spacing: .3px; color: var(--ink2); }
+.carfixit .carnext { margin: 0; font: 400 14px/1.4 var(--sf); color: var(--ink); }
+.carfixit .carnext b { color: #ffb340; font-size: 12px; letter-spacing: .4px; }
+.carfixit .fixlist { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.carfixit .fixrow { display: block; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; }
+.carfixit .fixrowin { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.carfixit .fixnum { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #ff8a1a; color: #111; font: 700 13px/1 var(--sf); }
+.carfixit .fixlabel { flex: 1; min-width: 0; font: 500 14px/1.3 var(--sf); white-space: normal; text-transform: none; }
+.carfixit .fixodds { flex: none; font: 400 12px/1.2 var(--sf); color: var(--ink3); text-transform: none; }
+.carfixit .fixbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 4px 0 6px; padding: 0 10px 0 42px; }
+.carfixit .fixbody dt { margin-top: 6px; font: 600 11px/1.3 var(--sf); letter-spacing: .4px; color: var(--ink3); }
+.carfixit .fixbody dd { margin: 0; font: 400 14px/1.4 var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.carfixit .fixparts { display: flex; flex-wrap: wrap; gap: 6px; }
+.carfixit .fixpart { min-height: 36px; padding: 0 10px; font-size: 13px; text-transform: none; }
+.carfixit .carwrongform { display: flex; }
+.carfixit .carwrong { flex: 1; min-width: 0; min-height: 44px; }
+.carfixit .carwrongnote:empty { display: none; }
+/* the Lens guide: the stand-in's picture of the part beside the live camera */
+.carfind { min-height: 44px; margin-top: 4px; }
+.carguide { position: fixed; inset: 0; z-index: 9000; display: flex; flex-direction: column; gap: 10px; padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); overflow-y: auto; background: #05070a; color: var(--ink); }
+.carguidehead { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.carguidehead b { min-width: 0; overflow: hidden; font: 600 18px/1.3 var(--sf); text-overflow: ellipsis; white-space: nowrap; }
+.carguidehead .carguideclose { flex: none; min-height: 44px; }
+.carguidepair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.carguidefig { position: relative; display: flex; flex-direction: column; gap: 4px; margin: 0; min-width: 0; }
+.carguidefig video, .carguidefig .carstage.inguide { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px; background: #11161c; }
+.carstage.inguide { position: relative; inset: auto; z-index: 0; display: block; }
+.carstage.inguide :is(.carhud, .carstandin, .cartag) { display: none !important; }
+.carguidefig figcaption { font: 600 11px/1.3 var(--sf); letter-spacing: .4px; color: var(--ink3); }
+.carguidecamnote { position: absolute; left: 8px; right: 8px; top: 40%; margin: 0; text-align: center; }
+.carguidecamnote:empty { display: none; }
+.carguidelooks { margin: 0; font: 400 16px/1.4 var(--sf); }
+.carguidehonest { font: 400 12px/1.4 var(--sf); color: var(--ink3); }

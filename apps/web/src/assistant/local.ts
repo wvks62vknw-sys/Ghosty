@@ -16,6 +16,8 @@
  *    with its numbers ("3 m steel beam 5 kN in the middle") fills the panel from his words and is answered with the estimate
  *    (packages/shared/src/workbench words.ts `workbenchAsked`); a question goes to the brain, whose `estimate` tool runs the
  *    same solvers.
+ *  - THE CAR (BRIEF-CAR): what is wrong with a car ("my dad's car grinds when I brake") puts the fault table's suspects on
+ *    its CAR card, and "open the bonnet", "show me the brakes", "what's under it" open the 3D STUDIO on it (car/ask.ts).
  * The reply is an ordinary chat entry with `local` (what its buttons do); session.ts calls `localTurn` first.
  */
 import { bestAsk, canYouAsked, dayLines, searchAbilities, whyAsked, whyLines, type Ability, type DayItem } from '../../../../packages/shared/src/abilities';
@@ -32,11 +34,12 @@ import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/regis
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
+import { carFaultTurn, carViewTurn } from '../car/ask';
 import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -162,6 +165,9 @@ type Opts = { voice?: boolean; private?: boolean };
  * after a reply that ran nothing).
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
+  // the car (car/ask.ts): its views open in the Studio; what is wrong with it lands on its CAR card
+  carview: (text, opts) => carViewTurn(text, opts, answer),
+  carfault: (text, opts) => carFaultTurn(text, opts),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
