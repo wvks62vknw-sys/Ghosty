@@ -90,6 +90,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['How do I play DOOM?'], scene: ['playing'], cat: 'play',
     since: '2026-11-01',
   },
+  'panel:arcade:THE FREE LEVELS': {
+    name: 'Free DOOM levels fans made', line: 'You can play a dozen of the best-loved DOOM level packs fans made and gave away, each over Freedoom, with its author named.',
+    more: 'Each pack says its size before GET, comes from the idgames archive on Wi-Fi and is checked against its own fingerprint. It plays over Freedoom on the same engine, so Freedoom comes first. A pack built with a patch for the original game keeps the original names and messages here.',
+    say: ['Play a DOOM level pack', 'What DOOM levels have you got?'], scene: ['playing'], cat: 'play',
+    since: '2026-11-01',
+  },
   'screen:school': {
     name: 'School: my real exams', line: 'I go to school: the brain on your phone sits real exam papers, from nursery up to university.',
     more: 'Stage by stage, marked against real grade boundaries. A placement test skips what I already know.',

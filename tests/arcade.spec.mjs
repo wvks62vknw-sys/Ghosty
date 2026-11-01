@@ -12,7 +12,9 @@
 // fetched file): DOOM's free episode on doomgeneric starts inside PLAY's tap, renders frames, FIRE from its title reaches
 // E1M1, PAUSE shows the fps line and GAME MENU (which opens DOOM's own menu; the MENU key closes it), QUIT returns and
 // the longest sitting is written; Freedoom Phase 1 the same (its one GET fills Phase 2's card too); Quake starts and
-// renders.
+// renders. THE FREE LEVELS lists a dozen packs, each with its author and its size on GET (and the DeHackEd line where
+// it ships one); a pack of the spec's own (one harmless lump in a PWAD, public domain) is GOT and PLAYED over Freedoom
+// Phase 2 with DOOM's -file, to MAP01.
 //   BASE=http://localhost:8855 node tests/arcade.spec.mjs tests/.shots
 import { launch, webkitNoise, engine } from './browser.mjs';
 import { PHONE, UK, openScreen } from './nav.mjs';
@@ -79,6 +81,32 @@ const FIXTURE = {
   },
 };
 
+// ---------- a level pack of the spec's own: one harmless lump in a PWAD (public domain), played over Freedoom Phase 2
+const wad = Buffer.alloc(32);
+wad.write('PWAD', 0, 'latin1');
+wad.writeInt32LE(1, 4);
+wad.writeInt32LE(16, 8);
+wad.write('GHST', 12, 'latin1');
+wad.writeInt32LE(12, 16);
+wad.writeInt32LE(4, 20);
+wad.write('GHOSTYTS', 24, 'latin1');
+const packZip = zip([['TESTMAP.WAD', wad], ['LICENCE.TXT', readFileSync(new URL('LICENCE', fx))]]);
+const PACK = {
+  id: 'test-pack',
+  title: 'Test Pack',
+  author: 'Ghosty\'s tests',
+  line: 'One harmless lump, to prove a pack loads over Freedoom.',
+  base: 'freedoom2',
+  data: {
+    url: ['https://archive.org/cors/ghosty-test-fixture/testpack.zip'],
+    sha256: createHash('sha256').update(packZip).digest('hex'),
+    bytes: packZip.length,
+    licence: 'Public domain (CC0 1.0): written for Ghosty\'s tests; anyone may copy and pass it on.',
+    credit: 'Ghosty\'s tests (tests/arcade.spec.mjs).',
+    take: [{ name: 'testmap.wad', from: ['TESTMAP.WAD'] }],
+  },
+};
+
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const ctx = await browser.newContext({
   viewport: PHONE,
@@ -94,16 +122,17 @@ page.on('console', (m) => {
   const t = m.text();
   if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
 });
-await page.addInitScript((fixture) => {
+await page.addInitScript(([fixture, pack]) => {
   window.__csp = [];
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
   window.__ghostyArcadeShelf = [fixture];
+  window.__ghostyArcadeLevels = [pack];
   // the phone's connection, stubbed: mobile data until the spec says Wi-Fi
   const net = new EventTarget();
   net.type = sessionStorage.getItem('arcnet') ?? 'cellular';
   window.__net = net;
   Object.defineProperty(Navigator.prototype, 'connection', { configurable: true, get: () => window.__net });
-}, FIXTURE);
+}, [FIXTURE, PACK]);
 // the Archive: the fixture, and the real free packages from fetch.sh's files when the native checks run (no game is
 // ever fetched from the network by a spec)
 const asked = [];
@@ -112,6 +141,7 @@ await page.route('https://archive.org/**', (route) => {
   const u = route.request().url();
   asked.push(u);
   if (u === FIXTURE.data.url[0]) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: pkg });
+  if (u === PACK.data.url[0]) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: packZip });
   if (served.has(u)) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: readFileSync(served.get(u)) });
   return route.abort('blockedbyclient');
 });
@@ -172,13 +202,24 @@ await page.evaluate(() => (location.hash = 'arcade'));
 await until(() => !!document.querySelector('#pg-arcade .arccard') && getComputedStyle(document.getElementById('pg-arcade')).display !== 'none', 10000, '#arcade did not open the arcade');
 
 // ---------- the shelf: every game with its size on GET (nothing is on this phone yet)
-const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
+const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard:not(.arcpack)')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
 if (shelf.length < 2) problems.push(`the shelf has ${shelf.length} games`);
 for (const g of shelf) {
   if (!/^GET · \d+(\.\d)? (MB|KB)$/.test(g.act)) problems.push(`${g.id}: its button reads "${g.act}"`);
   if (!g.line || !/^Ghosty /.test(g.ghosty)) problems.push(`${g.id}: no line or no line of Ghosty's`);
 }
 if (!shelf.some((g) => g.id === 'test-flash')) problems.push('the fixture is not on the shelf');
+// ---------- THE FREE LEVELS: a dozen packs for DOOM, each with its author and its size on GET; the DeHackEd line where
+// a pack ships one (this engine does not read it)
+const packs = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcpack')].map((c) => ({ id: c.dataset.level, by: c.querySelector('.arcby')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', over: c.querySelector('.arcover')?.textContent ?? '', deh: !!c.querySelector('.arcdeh') })));
+const realPacks = packs.filter((p) => p.id !== PACK.id);
+if (realPacks.length !== 12) problems.push(`THE FREE LEVELS lists ${realPacks.length} packs, not a dozen`);
+for (const p of packs) {
+  if (!/^GET · \d+(\.\d)? (MB|KB)$/.test(p.act)) problems.push(`level pack ${p.id}: its button reads "${p.act}"`);
+  if (!/^by \S/.test(p.by) || !/^Plays over Freedoom: Phase [12]\.$/.test(p.over)) problems.push(`level pack ${p.id}: its card says "${p.by}" / "${p.over}"`);
+}
+const dehs = realPacks.filter((p) => p.deh).map((p) => p.id).sort().join();
+if (dehs !== '1klinecp,btsx1,d2twid,dtwid,intercep') problems.push(`the packs saying their DeHackEd patch is not read: ${dehs}`);
 await page.screenshot({ path: `${out}/arcade-shelf-440.png` });
 let wide = await sideways('#pg-arcade .arccard, #pg-arcade .arcact');
 if (wide.page || wide.over.length) problems.push(`the shelf sticks out sideways at 440 px: ${wide.over.join(', ')}`);
@@ -311,15 +352,18 @@ if (realMissing.length) {
     await page.waitForTimeout(ms);
     await page.dispatchEvent(sel, 'pointerup', { pointerId: 21, pointerType: 'touch' });
   };
+  // a card by its id: a shelf game's, or a level pack's ('level:<id>'); the pack's scores are kept under its own id
+  const sel = (id) => (id.startsWith('level:') ? `#pg-arcade .arcpack[data-level="${id.slice(6)}"]` : card(id));
+  const scoreId = (id) => id.replace(/^level:/, '');
   const getGame = async (id, tag) => {
-    await page.click(`${card(id)} .arcact`);
-    return until((s) => document.querySelector(s)?.textContent === 'PLAY', 120000, `${tag}: GET did not finish`, `${card(id)} .arcact`);
+    await page.click(`${sel(id)} .arcact`);
+    return until((s) => document.querySelector(s)?.textContent === 'PLAY', 120000, `${tag}: GET did not finish`, `${sel(id)} .arcact`);
   };
   /** PLAY: the finger lands and stays a moment (the files are read meanwhile), then lifts: the engine starts in the tap. */
   const playNative = async (id, tag) => {
-    await page.dispatchEvent(`${card(id)} .arcact`, 'pointerdown', { pointerId: 30, isPrimary: true, pointerType: 'touch' });
+    await page.dispatchEvent(`${sel(id)} .arcact`, 'pointerdown', { pointerId: 30, isPrimary: true, pointerType: 'touch' });
     await page.waitForTimeout(2000);
-    await page.click(`${card(id)} .arcact`);
+    await page.click(`${sel(id)} .arcact`);
     if (!(await until(() => (window.__ghosty?.arcade?.probe?.()?.frames ?? 0) > 30, 60000, `${tag}: PLAY did not start its engine (no frames)`))) return false;
     const started = await page.evaluate(() => window.__ghosty.arcade.started);
     if (started !== 'tap') problems.push(`${tag}: the engine started ${started || 'nowhere'}, not inside PLAY's tap`);
@@ -379,9 +423,9 @@ if (realMissing.length) {
   const quitNative = async (id, tag) => {
     await page.click('.arcplayer .arcmenu button.quit');
     await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing && !document.querySelector('canvas.arccanvas'), 15000, `${tag}: QUIT did not return to the shelf and let the picture go`);
-    const sit = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')[k] ?? null, `${id}/sitting`);
+    const sit = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')[k] ?? null, `${scoreId(id)}/sitting`);
     if (!sit || !(sit.best > 0) || !sit.when) problems.push(`${tag}: QUIT wrote no longest sitting: ${JSON.stringify(sit)}`);
-    const words = await page.evaluate((s) => document.querySelector(`${s} .arcscore`)?.textContent ?? '', card(id));
+    const words = await page.evaluate((s) => document.querySelector(`${s} .arcscore`)?.textContent ?? '', sel(id));
     if (!/sitting \d+ (s|min)/i.test(words)) problems.push(`${tag}: after QUIT the card's score reads "${words}"`);
   };
 
@@ -425,6 +469,22 @@ if (realMissing.length) {
         const fps = await pauseSheet('FREEDOOM');
         numbers.push(`Freedoom Phase 1 E1M1: ${p.fps} fps (work ${p.workMs} ms), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
         await quitNative('freedoom', 'FREEDOOM');
+      }
+    }
+  }
+
+  // a level pack over Freedoom Phase 2: GET (its own few bytes; Freedoom is here), then PLAY hands DOOM its Freedoom
+  // phase and the pack's WAD (-file); FIRE from the title reaches MAP01
+  if (await getGame('level:test-pack', 'LEVEL PACK')) {
+    if (await playNative('level:test-pack', 'LEVEL PACK')) {
+      const args = await page.evaluate(() => window.__ghosty.arcade.args.join(' '));
+      if (args !== '-iwad freedoom2.wad -file testmap.wad') problems.push(`LEVEL PACK: DOOM was given "${args}"`);
+      if (await fireToLevel('LEVEL PACK', 'MAP01')) {
+        await page.waitForTimeout(1500);
+        await plays('LEVEL PACK', true);
+        const fps = await pauseSheet('LEVEL PACK');
+        numbers.push(`A level pack over Freedoom Phase 2, MAP01: PAUSE said "${fps}"`);
+        await quitNative('level:test-pack', 'LEVEL PACK');
       }
     }
   }

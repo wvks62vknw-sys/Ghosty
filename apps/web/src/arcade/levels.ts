@@ -45,3 +45,18 @@ export const LEVELS: LevelPack[] = [
   pack('icarus', 'Icarus: Alien Vanguard', 'TeamTNT', 'A war across a starship in thirty-two maps, from 1996.', 'freedoom2', 'themes/TeamTNT/icarus/icarus.zip', 2_849_657, '446c5aac35fecbe791f1fc58c3c6f7507ec25ae2114e105af0c78da155095fee', ['ICARUS.WAD'], 'idgames; its text file: "Icarus: Alien Vanguard is a copyrighted work and though free is not public property … Icarus should have been free to you."'),
   pack('dtwid', 'Doom the Way id Did', 'The Doomworld community', "Three new episodes made exactly the way id made the first DOOM's.", 'freedoom1', 'levels/doom/megawads/dtwid.zip', 2_005_606, '122b50713026a05423776e5c1330770f74a371d4236c63497f0f7f64bc9a62cb', ['DTWID.wad', 'DTWID.deh']),
 ];
+
+/** The shelf entry whose kept files every pack loads over: Freedoom's one package (both phases, one GET). */
+export const LEVELS_BASE = 'freedoom';
+
+/** The pack's WADs, in its own order (a .deh patch stays out: this engine has no DeHackEd). */
+export const packWads = (p: LevelPack): string[] => p.data.take.map((t) => t.name).filter((n) => n.endsWith('.wad'));
+
+/** It ships a DeHackEd patch, which this engine does not read: its names and messages are the original engine's. */
+export const needsDeh = (p: LevelPack): boolean => p.data.take.some((t) => t.name.endsWith('.deh'));
+
+/** The engine's command line for a pack: the Freedoom phase it loads over, then its WADs. */
+export const packArgs = (p: LevelPack): string[] => ['-iwad', `${p.base}.wad`, '-file', ...packWads(p)];
+
+/** The kept files PLAY hands DOOM's engine for a pack, as [where kept, name]: its Freedoom phase, then its WADs. */
+export const packReads = (p: LevelPack): [string, string][] => [[LEVELS_BASE, `${p.base}.wad`], ...packWads(p).map((n): [string, string] => [p.id, n])];

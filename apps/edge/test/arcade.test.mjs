@@ -27,7 +27,7 @@ await build({
   logLevel: 'warning',
 });
 const { SHELF, FREEDOOM, keptAs } = await import('./.build/arcade/shelf.mjs');
-const { LEVELS } = await import('./.build/arcade/levels.mjs');
+const { LEVELS, LEVELS_BASE, packArgs, packReads, needsDeh } = await import('./.build/arcade/levels.mjs');
 const scores = await import('./.build/arcade/scores.mjs');
 const input = await import('./.build/arcade/input.mjs');
 const { checkLearnable } = await import('./.build/arcade/learnable.mjs');
@@ -112,7 +112,19 @@ test('the free levels: a dozen packs, each whole, credited, over the Freedoom ph
     assert.ok(p.data.take.some((t) => t.name.endsWith('.wad')), `${p.id}: has a WAD`);
     assert.ok(p.data.take.every((t) => /\.(wad|deh)$/.test(t.name)), `${p.id}: takes only WADs and DeHackEd patches`);
     assert.ok(p.data.url.every((u) => u.startsWith('https://archive.org/cors/idgames_202003/')), `${p.id}: from the idgames copy`);
+    // played over the Freedoom phase it names, which the shelf's Freedoom package keeps and a Freedoom card plays
+    assert.ok(SHELF.some((g) => keptAs(g) === LEVELS_BASE && g.data.sha256 === FREEDOOM.sha256 && (g.plays ?? []).includes(`${p.base}.wad`)), `${p.id}: no Freedoom card plays ${p.base}.wad`);
+    assert.ok(!packArgs(p).some((a) => a.endsWith('.deh')), `${p.id}: a DeHackEd patch on the command line (the engine has none)`);
   }
+  // each pack's command line: its Freedoom phase, then its WADs in the pack's own order; what PLAY reads, from where kept
+  const by = (id) => LEVELS.find((p) => p.id === id);
+  assert.deepEqual(packArgs(by('scythe')), ['-iwad', 'freedoom2.wad', '-file', 'scythe.wad']);
+  assert.deepEqual(packArgs(by('btsx1')), ['-iwad', 'freedoom2.wad', '-file', 'btsx_e1a.wad', 'btsx_e1b.wad']);
+  assert.deepEqual(packArgs(by('dtwid')), ['-iwad', 'freedoom1.wad', '-file', 'dtwid.wad']);
+  assert.deepEqual(packReads(by('hr')), [['freedoom', 'freedoom2.wad'], ['hr', 'hr.wad'], ['hr', 'hrmus.wad']]);
+  assert.deepEqual(packReads(by('intercep')), [['freedoom', 'freedoom2.wad'], ['intercep', 'intercep.wad']]);
+  // the packs that ship a DeHackEd patch (their cards say its names and messages are the original engine's)
+  assert.deepEqual(LEVELS.filter(needsDeh).map((p) => p.id).sort(), ['1klinecp', 'btsx1', 'd2twid', 'dtwid', 'intercep']);
 });
 
 test('the scores store: best, last and when per game; a damaged record reads as none', () => {

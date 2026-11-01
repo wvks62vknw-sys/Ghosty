@@ -2,7 +2,9 @@
  * THE ARCADE: real, free games playing entirely on this phone. The SHELF lists every game an engine here plays today
  * (arcade/shelf.ts, through arcade/engines: DOOM and Quake natively, the DOS classics in DOSBox), one card a game: its
  * title, one plain line, its size, GET (his tap, on Wi-Fi, the size said on the button; on mobile data it says so and
- * waits) or PLAY, the scores, Ghosty's line, and a ⋯ with its licence, its credit, its controls and DELETE. The
+ * waits) or PLAY, the scores, Ghosty's line, and a ⋯ with its licence, its credit, its controls and DELETE. THE FREE
+ * LEVELS lists a dozen of the most-loved fan level packs for DOOM (arcade/levels.ts), each with its author, GET and
+ * PLAY over Freedoom on DOOM's engine (the pack's WADs given to it with -file). The
  * PLAYER is a fresh full-screen canvas for each game under the TOUCH LAYER (a stick under the left thumb, drag-to-look
  * on the right half, buttons where the right thumb rests, small keys along the top, PAUSE → RESUME · GAME MENU · QUIT ·
  * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
@@ -16,6 +18,7 @@ import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
 import { saveStore } from '../../arcade/engines/saves';
 import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
+import { LEVELS, LEVELS_BASE, type LevelPack, needsDeh, packArgs, packReads, packWads } from '../../arcade/levels';
 import { allScores, recordScore, recordSitting, type Score, sittingKey } from '../../arcade/scores';
 import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
@@ -34,6 +37,8 @@ export const arcadeState = {
   probe: (): EngineProbe | null => null,
   /** Whether the last PLAY started its engine inside the tap itself ('tap') or once its files were read ('after'). */
   started: '' as '' | 'tap' | 'after',
+  /** The words the last PLAY gave its engine's command line (a level pack's: its Freedoom phase and its WADs). */
+  args: [] as string[],
 };
 
 const SOUND_KEY = 'ghosty.arcade.sound';
@@ -57,6 +62,14 @@ function shelf(): ShelfEntry[] {
   const extra = (window as unknown as { __ghostyArcadeShelf?: ShelfEntry[] }).__ghostyArcadeShelf ?? [];
   return [...SHELF, ...extra].filter(playsToday);
 }
+
+/** The free level packs, plus any a spec adds (window.__ghostyArcadeLevels). */
+function levels(): LevelPack[] {
+  return [...LEVELS, ...((window as unknown as { __ghostyArcadeLevels?: LevelPack[] }).__ghostyArcadeLevels ?? [])];
+}
+
+/** Ghosty's line when a fan-made level is finished. */
+const PACK_DONE = 'A fan made that map for nothing but the love of it. On to the next.';
 
 /** "12 min", "45 s": how long he played. */
 const timeWords = (s: number): string => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.round(s / 60)} min` : `${Math.max(0, Math.round(s))} s`);
@@ -125,16 +138,18 @@ const vibrate = (ms: number) => {
   }
 };
 
-/** What PLAY starts: the card's game (its engine, controls and lines), where its scores and saves are kept, the kept
- *  files it reads ([where kept, name]) and any words for its engine's command line. */
+/** What PLAY starts: the card's game (its engine, controls and lines), where its scores and saves are kept, the card
+ *  that says how it went, the kept files it reads ([where kept, name]) and any words for its engine's command line. */
 interface Run {
   id: string;
+  card: string;
   title: string;
   entry: ShelfEntry;
   reads: [string, string][];
   args?: string[];
 }
-const runOf = (e: ShelfEntry): Run => ({ id: e.id, title: e.title, entry: e, reads: readsFor(e) });
+const runOf = (e: ShelfEntry): Run => ({ id: e.id, card: e.id, title: e.title, entry: e, reads: readsFor(e) });
+let playingTitle = '';
 
 /** A card on the screen: what one GET keeps (where, and the package), and its title for the words. */
 interface CardOf {
@@ -173,7 +188,12 @@ export const arcadeTab: TabDef = {
       h('p.arcnote', 'DOOM, Freedoom and Quake run on their own engines, built for the web from their published source; the other classics run in a DOS machine inside the page.'),
       h('p.arcnote', 'Only games whose own licence lets anyone pass them on are here: the free shareware episodes and the freeware releases, each named with its credit. Your saved games stay on this phone.'),
     );
-    P.left.append(shelfPanel.el);
+    // THE FREE LEVELS: shown where Freedoom, which every pack plays over, is on the shelf
+    const packs = games.some((g) => g.id === LEVELS_BASE) ? levels() : [];
+    const levelsPanel = panel('THE FREE LEVELS', { status: `${packs.length} PACKS`, cls: 'arclevels' });
+    const levelGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Free level packs for DOOM' });
+    levelsPanel.body.append(h('p.arcnote', 'For DOOM: a dozen of the most-loved level packs fans made and gave away, from the idgames archive. Each plays over Freedoom on the same engine, so GET Freedoom on the shelf too.'), levelGrid);
+    P.left.append(shelfPanel.el, ...(packs.length ? [levelsPanel.el] : []));
     P.right.append(about.el);
 
     const ofGame = (e: ShelfEntry): CardOf => ({ id: e.id, title: e.title, at: keptAs(e), data: e.data, saves: e.saves });
@@ -247,14 +267,83 @@ export const arcadeTab: TabDef = {
       return el;
     };
     clear(grid, ...games.map(card));
+
+    // a level pack's card: its title, its author, its line, what it plays over, GET or PLAY, its scores
+    const packCard = (p: LevelPack) => {
+      const key = `level:${p.id}`;
+      const of: CardOf = { id: key, title: p.title, at: p.id, data: p.data, saves: true };
+      const baseEntry = games.find((g) => keptAs(g) === LEVELS_BASE && (g.plays ?? []).includes(`${p.base}.wad`)) ?? null;
+      const baseOf = cards.get(LEVELS_BASE)?.of ?? null;
+      const phase = p.base === 'freedoom1' ? 'Phase 1' : 'Phase 2';
+      const run = (): Run | null =>
+        baseEntry ? { id: p.id, card: key, title: p.title.toUpperCase(), entry: { ...baseEntry, id: p.id, title: p.title.toUpperCase(), done: PACK_DONE }, reads: packReads(p), args: packArgs(p) } : null;
+      const score = h('p.arcscore');
+      const stat = h('p.arcstatus', { 'aria-live': 'polite' });
+      const bar = h('div.arcbar', { role: 'progressbar', 'aria-label': `${p.title}: download`, 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('i'));
+      const act = h('button.arcact', { type: 'button' });
+      const more = h('button.arcmore', { type: 'button', 'aria-label': `More about ${p.title}: licence, credit, delete`, 'aria-expanded': 'false' }, '⋯');
+      const details = h('div.arcdetails', { hidden: true });
+      const el = h('article.arccard.arcpack', { role: 'listitem', dataset: { level: p.id }, 'aria-label': `${p.title}, by ${p.author}` },
+        h('h4.arctitle', p.title),
+        h('p.arcby', `by ${p.author}`),
+        h('p.arcline', p.line),
+        h('p.arcover', `Plays over Freedoom: ${phase}.`),
+        needsDeh(p) ? h('p.arcdeh', 'Its DeHackEd patch is not read by this engine, so its names and messages are the original engine’s.') : null,
+        score, h('div.arcrow', act, more), stat, bar, details);
+      const paint = () => {
+        const kept = here.has(p.id);
+        const baseHere = here.has(LEVELS_BASE);
+        const getting = busy.has(p.id) || (kept && !baseHere && busy.has(LEVELS_BASE));
+        el.classList.toggle('kept', kept);
+        el.classList.toggle('getting', getting);
+        const all = allScores();
+        score.textContent = scoreWords('doom', all[p.id], all[sittingKey(p.id)]);
+        stat.textContent = status.get(key) ?? '';
+        bar.hidden = !getting;
+        if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${busy.has(p.id) ? p.title : 'Freedoom'}`, 'stop');
+        else if (!kept) setAct(act, `GET · ${sizeWords(p.data.bytes)}`, `Get · ${sizeWords(p.data.bytes)}`, `Get ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
+        else if (!baseHere && baseOf) setAct(act, `GET FREEDOOM · ${sizeWords(baseOf.data.bytes)}`, `Get Freedoom · ${sizeWords(baseOf.data.bytes)}`, `${p.title} plays over Freedoom: get Freedoom, ${sizeWords(baseOf.data.bytes)}, on Wi-Fi`, 'get');
+        else setAct(act, 'PLAY', 'Play', `Play ${p.title}`, 'play');
+        clear(details,
+          h('p.arcnote', h('b', 'Licence '), p.data.licence),
+          h('p.arcnote', h('b', 'Credit '), p.data.credit),
+          h('p.arcnote', h('b', 'Loads '), `${packWads(p).join(', ')} over Freedoom: ${phase}, with DOOM's own controls.`),
+          kept ? button('DELETE FROM THIS PHONE', () => void del(of), 'arcdel') : null,
+        );
+        details.querySelector<HTMLButtonElement>('.arcdel')?.setAttribute('aria-label', `Delete ${p.title} from this phone (Freedoom and your saved games stay)`);
+      };
+      act.addEventListener('pointerdown', () => {
+        const r = run();
+        if (r && here.has(p.id) && here.has(LEVELS_BASE) && !busy.has(p.id) && !busy.has(LEVELS_BASE)) readAhead(r);
+      });
+      act.addEventListener('click', () => {
+        const r = run();
+        if (busy.has(p.id)) busy.get(p.id)!.abort();
+        else if (!here.has(p.id)) void get(of);
+        else if (!here.has(LEVELS_BASE)) {
+          if (busy.has(LEVELS_BASE)) busy.get(LEVELS_BASE)!.abort();
+          else if (baseOf) void get(baseOf, [key]);
+        } else if (r) play(r);
+      });
+      more.addEventListener('click', () => {
+        details.hidden = !details.hidden;
+        more.setAttribute('aria-expanded', String(!details.hidden));
+      });
+      cards.set(key, { el, paint, of });
+      paint();
+      return el;
+    };
+    clear(levelGrid, ...packs.map(packCard));
     hero();
 
     // ---- GET: his tap, the size already said; on mobile data it waits for Wi-Fi
-    const get = async (of: CardOf) => {
+    const get = async (of: CardOf, also: string[] = []) => {
       const ctl = new AbortController();
       busy.set(of.at, ctl);
+      // the cards this GET fills, and any that asked for it (a level pack fetching the Freedoom it plays over)
+      const filling = () => [...sharing(of.at), ...also.flatMap((k) => (cards.get(k) ? [cards.get(k)!] : []))];
       const say = (t: string) => {
-        for (const c of sharing(of.at)) {
+        for (const c of filling()) {
           status.set(c.of.id, t);
           c.paint();
         }
@@ -267,7 +356,7 @@ export const arcadeTab: TabDef = {
         say(`Fetching ${sizeWords(of.data.bytes)} from the Internet Archive…`);
         const onProgress = (p: Progress) => {
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
-          for (const c of sharing(of.at)) {
+          for (const c of filling()) {
             const b = c.el.querySelector<HTMLElement>('.arcbar');
             b?.style.setProperty('--p', `${pct}%`);
             b?.setAttribute('aria-valuenow', String(pct));
@@ -327,6 +416,7 @@ export const arcadeTab: TabDef = {
       if (!engine || arcadeState.playing) return;
       primeAudio(); // first thing, inside the tap: the phone allows sound from here on
       arcadeState.playing = r.id;
+      playingTitle = r.title;
       const p = player(e, r.title);
       arcadeState.intent = p.intent;
       arcadeState.probe = p.probe;
@@ -348,6 +438,7 @@ export const arcadeTab: TabDef = {
           },
         }, { saves: saveStore(r.id), sound: soundOn(), args: r.args });
       arcadeState.started = pending.got ? 'tap' : 'after';
+      arcadeState.args = r.args ?? [];
       const started = pending.got ? begin(pending.got) : pending.files.then(begin);
       const close = () => {
         p.stop();
@@ -367,13 +458,13 @@ export const arcadeTab: TabDef = {
           await handle.quit();
           if (e.engine === 'dos') {
             const best = recordScore(r.id, seconds).isBest;
-            status.set(r.id, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
+            status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
           } else {
             const best = recordSitting(r.id, seconds).isBest;
-            status.set(r.id, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
+            status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
           }
         } catch (err) {
-          status.set(r.id, `It would not start: ${(err as Error)?.message ?? err}`);
+          status.set(r.card, `It would not start: ${(err as Error)?.message ?? err}`);
           await handle?.quit().catch(() => undefined);
         } finally {
           close();
@@ -393,7 +484,7 @@ export const arcadeTab: TabDef = {
       },
       describe() {
         const g = games.find((x) => x.id === arcadeState.playing);
-        return g ? `ARCADE: playing ${g.title}` : arcadeState.playing ? `ARCADE: playing ${arcadeState.playing}` : `ARCADE: ${games.length} free games on the shelf, ${arcadeState.here.length} on this phone`;
+        return g ? `ARCADE: playing ${g.title}` : arcadeState.playing ? `ARCADE: playing ${playingTitle}` : `ARCADE: ${games.length} free games on the shelf, ${arcadeState.here.length} on this phone, ${packs.length} free DOOM level packs`;
       },
     };
   },
