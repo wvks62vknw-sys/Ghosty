@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 19:35 UK
+# Where everything stands — 1 November 2026, 02:40 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #47, the last at 19:10 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #48, the last at 01:23 UK on 1 Nov)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -123,6 +123,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
+- BUILDING NOW (from 02:35 UK, 1 Nov): batch ①, THE EVERYTHING TAB — the Abilities screen rebuilt as a complete catalogue
+  of every single thing he can do, generated from his own code (every tool, screen, panel, mode, game, phrase and command;
+  300 to 400 entries), each with a plain line, an example and TRY IT; searchable, counted, new ones badged; a test proves
+  nothing is missing. Plus the two Workbench layout bugs from your screenshots. Then review, local validation, one PR,
+  merged when green (about 2 hours of checks).
+
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
   free TomTom key in SYSTEM → KEYS if you want commute predictions; and these for batch 5, now that PEOPLE is fixed (PR #46; close Ghosty fully and open it again first) — ENROL ME in good light
@@ -145,6 +151,16 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   still counts as the camera).
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
+
+The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your words in OWNER-ISSUES 91 and 92):
+① the everything-tab · ② sideways (everything lands in the chat as live cards; he brings things up himself; Home as your
+wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
+packs (money, body, kitchen, people, work, creative, out and about, home admin) · ⑤ the car in 3-D and show-me-don't-
+tell-me · ⑥ the offline brain runs, then smarter every week, used by default · ⑦ the social self and the rituals (your
+four picks) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes); your
+first ten games; how often he may speak first in a day when nothing is wrong; your dad's and Haris's plates, with their
+OK; the four picks (what you call him; the letter's day and channel; how often he speaks first; Bluesky posting with your
+approval or reading only).
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and

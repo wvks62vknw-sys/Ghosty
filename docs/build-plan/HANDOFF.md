@@ -1023,6 +1023,24 @@ folder that no longer exists; ignore those paths).
 
 
 
+- 1 Nov 01:30–02:40 UK: THE REDIRECTION (OWNER-ISSUES 91, 92; ROADMAP.md). He saw the Workbench tab and said it is not
+  what he meant ("99% sure it isn't what we discussed … baffling … even the dumbest user could use it"). The rule for
+  anything hands-on is SHOW ME, DON'T TELL ME: the real thing in 3-D, in the chat, interactive, the fix on it; the 31 Oct
+  maths stays underneath, the tab of forms goes (batch ⑤). He wants Ghosty "there" without asking: everything lands in
+  the conversation, he brings things up himself, Home as his wall (batch ②). "Moving SIDEWAYS … and significantly
+  UPWARDS." Findability: nudges rejected ("by him telling you once you'll still forget"); the fix is the everything-tab
+  (every single thing, generated from code, tap → plain line + example + TRY IT; batch ①). Games: WOAH-level, the legal
+  line accepted (free classics as they are; faithful mechanics remakes with our own look; never a commercial game's art
+  or names; batch ③). The packs confirmed (④). His two lists of wants are verbatim in OWNER-ISSUES 91 with the triage
+  (free and planned / needs one thing from him / not from a phone app). Order agreed (92): ① → ② → ③ → ④ → ⑤ the car in
+  3-D → ⑥ the offline brain → ⑦ the social self (his four picks, re-asked plainly in ROADMAP) → ⑧ the rest. Written and
+  pushed with no PR open: ROADMAP.md, BRIEF-EVERYTHING.md (its first commit is the two Workbench layout bugs from his
+  screenshots: mode buttons and titles under the sticky pills; the stale hero line). Builder ① started 02:35 UK on one
+  Opus worktree (preview port 8877) from 3b71a08 (= main 9340874 + docs). Main's guard check-in is armed for 03:35 UTC
+  (trig_01UoPMaUEC2ibEYJ2KW4VT6F). Still wanted from him: the 0.5B SIT test; his first ten games; how often Ghosty may
+  speak first in a day; his dad's and Haris's plates with their OK; the four picks. He sleeps; the morning message shows
+  him ROADMAP and the brief (sent as files at 02:40).
+
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
