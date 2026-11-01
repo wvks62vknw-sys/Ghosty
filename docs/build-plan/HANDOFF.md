@@ -1181,6 +1181,11 @@ folder that no longer exists; ignore those paths).
   closing braces sat in the tail — check `builtin.ts` compiles after a both-sides join). BRIEF-DEPTH written (the last batch;
   launch after packs-3 and rest-E merge). The next push carries ⑥b, REST-D, the coach fix and the docs. Running: packs-3
   (8700), rest-E (8677).
+- 1 Nov 17:20 UK: the 15:17 run (85d3c6b) showed two more: safari (REST-C's TV map was sized with 100vh: dvh, as the arcade
+  does) and social again — the musing's card never reached the chat because the clock stub stood at 14:00 and the page shows
+  only what is newer than what it has: after 14:00 real time the card is stamped in the past. The stub's clock is now 14:00 or
+  a minute from now, whichever is later (tomorrow's 14:00 after 23:00). REST-E MERGED (OWNER-ISSUES 116; a plain merge).
+  Running: packs-3 (8700), the last builder; then the depth pass.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring

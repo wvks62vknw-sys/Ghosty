@@ -154,9 +154,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
   what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card); ⑧ DESIGN
   A BUILD with a bill of materials (a shed, a garden room, a garage, a room, furniture, a PC; the Studio's eighth pane) and THE
-  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm).
-- BUILDING NOW: ④ the outside, home and learning packs; ⑧ the converter and documents, and the rights-and-law topics from
-  primary sources. Last of all: the UI depth pass. HELD for your opinion: the twelve themes and the Cinematic touch-up.
+  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm);
+  ⑧ CONVERT (41 conversions on the phone: pictures, PDFs, Word, tables, sound, QR codes, units), DOCUMENTS (read, written
+  from the chat, edited as suggestions, translated side by side) and the RIGHTS-AND-LAW base (your rights in the UK with the
+  helplines, and the courts' own documents on the big matters).
+- BUILDING NOW: ④ the outside, home and learning packs. Last of all: the UI depth pass. HELD for your opinion: the twelve
+  themes and the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
