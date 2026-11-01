@@ -1105,6 +1105,10 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 08:55 UK: PACKS-1 MERGED (0ea2e8d; OWNER-ISSUES 105): money, body, kitchen; the prompt at exactly 5,500 on the worst
   dial. Held for PR #50 with the wiring. Running: arcade-wire (8811, final tests), games-3 (8799), car (8777); PACKS-2
   next on Sonnet (the pattern is set).
+- 1 Nov 09:05 UK: PACKS-1 joined PR #49 (bf773b0; five batches). PACKS-2 started on Sonnet (8766).
+- 1 Nov 09:25 UK: ARCADE-WIRE MERGED (1b52633; OWNER-ISSUES 106): DOOM, Freedoom, the free levels, Quake and the two 3-D
+  games on the shelf. Deck/arcade/games2/engines specs run on the merged tree (val5); if green it joins #49 (checks ~35 min
+  old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (Opus).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
