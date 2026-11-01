@@ -60,6 +60,7 @@ export const GROUP_WHY: Record<string, string> = {
   money: 'When you talk about what you spent, a statement, fuel prices, a price to watch, subscriptions, payday or saving.',
   body: 'When you talk about exercise, reps, a run, steps, sleep, water, breathing, stretching or your weight.',
   kitchen: 'When you talk about dinner, your fridge, a recipe, a timer, the shopping list, the oven, or food going off.',
+  creative: 'When you ask for a song, a poem, a story, a poster, a comic, a birthday card, a logo, a palette, names, rhymes or a beat.',
   work: 'When you talk about your CV, a job ad, a cover letter, an interview, meeting notes, a to-do, your pay after tax, your hours, a rota, or a word count.',
   people: 'When you talk about a birthday, a gift, someone you want to call, a thank-you, a card, a group plan, or a friend’s number.',
 };

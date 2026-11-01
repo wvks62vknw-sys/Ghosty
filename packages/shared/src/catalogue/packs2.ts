@@ -184,4 +184,82 @@ export const PACK2_WORDS: Record<string, CatValue> = {
     say: ['My rota: Mon 9-5, Tue off, Wed 12-8', 'When am I working this week?'], scene: ['money', 'morning'], cat: 'do', since: SINCE,
     go: { ask: 'When am I working this week?' },
   },
+  // ---------------------------------------------------------------- CREATIVE
+  'tool:creative': { same: 'act:creative:song' },
+  'act:creative:song': {
+    name: 'A song with a melody', line: 'You can ask for a song about anything: I write the words, make the tune and chords, and play it on your phone.',
+    more: 'The words are original and the tune is made by code from them, so the same words give the same song. Change the key and the tempo, and save it as a WAV or a MIDI file.',
+    say: ['Write me a song about a rainy Monday', 'Play my last song'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
+    go: { ask: 'Write me a song about ', send: false },
+  },
+  'act:creative:chords': {
+    name: 'A chord progression to play', line: 'You can ask for chords in a key or a mood and I give you a progression, a strum to try, and play it.',
+    more: 'Four chords with their numerals, picked from the common patterns, and a simple tune over them on your phone. Say "in D minor" or "sadder" for another.',
+    say: ['Chords in D minor', 'A happy chord progression'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
+  },
+  'act:creative:story': {
+    name: 'A story in your voice', line: 'You can ask for a story and I write it from an idea of mine or yours, in the way you write.',
+    more: 'Flash, short or long. The idea comes from a seed that I pick (a hero, a place, a want, an obstacle, a turn), so "another" gives a new one. Original characters only, and shown to you first.',
+    say: ['Tell me a short story about a night-bus driver', 'A bedtime story, another one'], scene: ['making'], cat: 'build', since: SINCE,
+    go: { ask: 'Write me a short story about ', send: false },
+  },
+  'act:creative:poem': {
+    name: 'A poem, haiku or limerick', line: 'You can ask for a poem in a form (haiku, limerick, sonnet, acrostic…), or give me yours and I check it keeps its form.',
+    more: 'I know each form’s rules: syllables for a haiku, rhymes for a limerick, the word an acrostic spells. Syllables are counted by rule, so allow one either way. Original words only.',
+    say: ['Write a haiku about autumn', 'Check my limerick'], scene: ['making'], cat: 'build', since: SINCE,
+    go: { ask: 'Write a haiku about ', send: false },
+  },
+  'act:creative:poster': {
+    name: 'A poster from your words', line: 'You can tell me what a poster is for and I lay it out with big type and your details, then save it as a PNG.',
+    more: 'The title is as big as fits, with the day, the place and your extra lines under it, in one of six looks. Edit any line on your phone and it redraws.',
+    say: ['A poster for Sam’s birthday party, Saturday 14 November at 7pm at the village hall'], scene: ['making'], cat: 'build', since: SINCE,
+    go: { ask: 'A poster for ', send: false },
+  },
+  'act:creative:comic': {
+    name: 'A four-panel comic strip', line: 'You can give me a story or a joke and I draw it as four panels of stick figures, with your words as the captions.',
+    more: 'Drawn in code from shapes: stick figures with the face each caption calls for, a scene and a prop or two. It is our own simple art, not anyone’s. Save it as a PNG.',
+    say: ['A comic about a cat who learns to drive'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
+    go: { ask: 'A comic about ', send: false },
+  },
+  'act:creative:birthday': {
+    name: 'A birthday card to save', line: 'You can ask for a birthday card with a name, an age and a message, drawn with balloons, and save both sides.',
+    more: 'The front has balloons, confetti and the name; the inside has your message, warm, funny, short or formal. Save each side as a PNG to print or send. Nothing is sent for you.',
+    say: ['A funny birthday card for Dad, he is 70'], scene: ['making'], cat: 'build', since: SINCE,
+    go: { ask: 'A birthday card for ', send: false },
+  },
+  'act:creative:names': {
+    name: 'Names for a band or pet', line: 'You can ask for names for a band, a pet or a team, with a theme or a letter if you like, ten at a time.',
+    more: 'Made from my own word lists, the same words giving the same ten and "more" giving ten new ones. I leave out anything rude.',
+    say: ['Band names with a space theme', 'Names for a puppy starting with B'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
+  },
+  'act:creative:rhyme': {
+    name: 'Words that rhyme', line: 'You can give me a word and I find words that rhyme with it, grouped by how many syllables they have.',
+    more: 'From Datamuse’s public word list, which needs no key; only the word is sent. If it does not answer, a short list of my own steps in.',
+    say: ['What rhymes with light?'], scene: ['making'], cat: 'build', since: SINCE,
+  },
+  'act:creative:palette': {
+    name: 'A palette from a photo', line: 'You can pick a photo and I pull its main colours out on your phone, or name a colour and I find ones that go with it.',
+    more: 'The photo stays on your phone: its colours are found there, by code. Each colour comes with its hex code and a plain name to copy. A named colour gives its opposite, neighbours and shades.',
+    say: ['A palette from a photo', 'Colours that go with teal'], scene: ['making', 'camera'], cat: 'build', since: SINCE,
+    go: { run: 'open_creative', args: { what: 'palette' } }, tryText: 'Opens the palette maker',
+  },
+  'act:creative:logo': {
+    name: 'A logo sketch in shapes', line: 'You can give me a name and a feel and I sketch a logo in simple shapes, then save it as an SVG or a PNG.',
+    more: 'A shape, an icon and the name in a set of colours that fit the feel (calm, bold, nature, playful, premium, tech). It is a sketch of our own, not a finished brand. "Another" gives a new look.',
+    say: ['A calm logo for Harbour Bakery'], scene: ['making'], cat: 'build', since: SINCE,
+    go: { ask: 'A logo for ', send: false },
+  },
+  'act:creative:prompt': {
+    name: 'A drawing prompt each day', line: 'I can give you something to draw today, the same all day, and put one in your Brief every morning if you ask.',
+    more: 'A subject, a twist and a limit, made from my own lists, like "a robot learning to cook, as a map. Five minutes, no more." Say "another" for a different one.',
+    say: ['Give me a drawing prompt', 'A drawing prompt every day'], scene: ['morning', 'making'], cat: 'build', since: SINCE,
+  },
+  'phrase:drawing': { same: 'act:creative:prompt' },
+  'act:creative:beat': {
+    name: 'A beat you tap in', line: 'I can open drum pads on your phone: tap a beat in or pick a style, hear it loop, and save it as a WAV or a MIDI file.',
+    more: 'Kick, snare, hat and clap on sixteen steps. Tap the pads along with the loop and each hit lands on the nearest sixteenth. Styles: house, hip hop, rock, reggae, trap, funk and disco.',
+    say: ['Make a beat', 'A house beat at 124'], scene: ['making', 'playing', 'phone'], cat: 'build', since: SINCE,
+    go: { run: 'open_creative', args: { what: 'beat' } }, tryText: 'Opens the drum pads',
+  },
+  'phrase:beat': { same: 'act:creative:beat' },
 };

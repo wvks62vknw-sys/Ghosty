@@ -223,6 +223,9 @@ test('plan: a group’s plan kept, who is in, out or maybe from his words, who i
   assert.match((await run(storage, 'plan', {})).text, /^Pub, Sat 7 Nov 19:00, at the Crown\./);
   assert.match((await run(storage, 'plan', { words: 'cancel the plan' })).text, /^Plan closed: Pub\./);
   assert.match((await run(storage, 'plan', {})).text, /^No plan yet\./);
+  // the asked names after a comma are not part of the plan's name
+  const c = S.parsePlan('plan: pub on Friday at 8pm at the Crown, asked Ali, Sam and Jo', '2026-11-01');
+  assert.deepEqual([c.what, c.where, c.when, c.time, c.asked], ['Pub', 'the Crown', '2026-11-06', '20:00', ['Ali', 'Sam', 'Jo']]);
   assert.deepEqual(S.repliesIn('Ali yes, Sam no, Jo maybe, Dee'), [{ name: 'Ali', say: 'yes' }, { name: 'Sam', say: 'no' }, { name: 'Jo', say: 'maybe' }]);
 });
 

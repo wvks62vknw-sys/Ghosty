@@ -37,6 +37,13 @@ export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRo
 
 let open: { close(): void } | null = null;
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** "2027-03-14" → "14 March"; "--03-14" too; anything else as it came. */
+const dayOf = (iso: string): string => {
+  const m = /(?:\d{4})?-{1,2}(\d{2})-(\d{2})$/.exec(iso);
+  return m && Number(m[1]) >= 1 && Number(m[1]) <= 12 ? `${Number(m[2])} ${MONTHS[Number(m[1]) - 1]}` : iso;
+};
+
 export async function openPeople(what: string): Promise<void> {
   const w: PeopleWhat = what === 'plan' ? 'plan' : 'who';
   open?.close();
@@ -80,7 +87,7 @@ function whoSheet(): HTMLElement {
         ? peopleState.people.map((p) => {
             const more = h('div.pkcol', { hidden: true });
             const gift = h('p.pknote', { 'aria-live': 'polite' });
-            const bits = [p.rel, p.born ? `birthday ${p.next || p.born}` : '', p.notes[p.notes.length - 1] ?? ''].filter(Boolean).join(' · ');
+            const bits = [p.rel.toLowerCase() === p.name.toLowerCase() ? '' : p.rel, p.born ? `birthday ${dayOf(p.next || p.born)}` : '', p.notes[p.notes.length - 1] ?? ''].filter(Boolean).join(' · ');
             const details = button('Details', () => {
               more.hidden = !more.hidden;
               more.replaceChildren(

@@ -14,6 +14,7 @@ import { monthCard, monthWords, unflatten } from '../../../../packages/shared/sr
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { INTERVIEW_ASK, POMO_ASK, pomodoroPlan, questionsFor } from '../../../../packages/shared/src/work';
+import { beatFromWords, DRAW_ASK, drawingPrompt } from '../../../../packages/shared/src/creative';
 import { brain } from '../api/brain';
 
 /** What local.ts writes: his message as the chat shows it, the reply, the cards, and the GO chips under it. */
@@ -87,6 +88,19 @@ export async function workTurn(text: string): Promise<PackReply> {
   const { openWork } = await import('../features/work/sheet');
   void openWork('interview', { role, questions: q.questions });
   return { said: text, reply: `Interview practice is open${role ? ` for ${role}` : ''}: I ask each question aloud, you answer by voice or typing, and I time it and tell you plainly how it went.`, go: [{ id: 'interview', ask: -1, label: 'Open it again', run: 'open_work', args: { what: 'interview', role, questions: q.questions } }] };
+}
+
+/** [packs2] The creative pack's words on this phone: the drum pads opened, or the day's drawing prompt, with no model. */
+export async function creativeTurn(text: string): Promise<PackReply> {
+  if (DRAW_ASK.test(text.trim())) {
+    const d = new Date();
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { said: text, reply: `Today's drawing prompt: ${drawingPrompt(day)} It stays the same all day; ask the chat for "another".` };
+  }
+  const beat = beatFromWords(text);
+  const { openCreative } = await import('../features/creative/sheet');
+  void openCreative('beat', { beat });
+  return { said: text, reply: `The drum pads are open with a ${beat.name} beat at ${beat.bpm} bpm: tap the squares, or tap the pads along with the loop. You can save it as a WAV or a MIDI file.`, go: [{ id: 'beat', ask: -1, label: 'Open it again', run: 'open_creative', args: { what: 'beat', beat } }] };
 }
 
 /** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */

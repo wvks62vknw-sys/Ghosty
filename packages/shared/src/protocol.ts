@@ -108,6 +108,7 @@ export const CLIENT_COMMANDS = [
   'kitchen_timer', // [packs] timers on the phone
   'open_people', // [packs] the people pack's who's who and plan (BRIEF-PACKS-2)
   'open_work', // [packs] the work pack's documents, interview practice, rota and to-do
+  'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

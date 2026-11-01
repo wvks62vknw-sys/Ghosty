@@ -150,6 +150,8 @@ export interface Ad {
 }
 const HEAD_REQ = /^(?:requirements?|essential(?: criteria| skills)?|desirable|you(?:'ll| will) (?:have|need|bring)|must have|what we(?:'re| are) looking for|about you|the ideal candidate|skills(?: and experience)?|person specification|qualifications)\b/i;
 const HEAD_DUTY = /^(?:responsibilities|duties|key (?:tasks|responsibilities)|what you(?:'ll| will) do|your role|main duties)\b/i;
+/** Lines that end a list of requirements or duties even when no blank line does (a pasted ad is often one paragraph). */
+const END_LIST = /^(?:closing date|closes?\b|deadline|apply (?:by|now|here|online|today)|how to apply|to apply|salary\b|pay\s*(?::|rate\b|is\b|£)|hours?\s*:|benefits?\s*:|contact (?:us|details|email)|contact:|job type|contract\s*(?::|type\b))/i;
 const CUE_REQ = /\b(must|essential|required|requires?|experience (?:of|in|with)|ability to|knowledge of|proven|years?['’]? experience|licen[cs]e|qualification|good communication|team player|desirable)\b/i;
 
 /** A pasted job ad (or its one flattened line) read in code: the title, the company, the pay, what it asks for and what looks wrong. */
@@ -160,10 +162,13 @@ export function readAd(raw: string): Ad {
   const grab = (re: RegExp) => clean(re.exec(text)?.[1] ?? '').replace(/[.,;]+$/, '');
   const labelled = grab(/(?:job title|position|vacancy|role)\s*[:\-–]\s*([^\n]{3,80})/i);
   const seeking = grab(/\b(?:seeking|looking for|hiring|recruiting|wanted)[:\s]+(?:an?|the)?\s*([A-Z][\w &/-]{3,50}?)(?=\s+(?:to|for|who|with|in|at|based)\b|[.,\n]|$)/);
-  const first = lines.find(Boolean) && lines.find(Boolean)!.length <= 80 && !/[.!?]$/.test(lines.find(Boolean)!) ? lines.find(Boolean)! : '';
-  const title = labelled || first || seeking || 'the role';
-  const company = grab(/(?:company|employer|organisation|organization)\s*[:\-–]\s*([^\n]{2,60})/i) || grab(/\bat\s+([A-Z][\w&'’ -]{2,40}?)(?=[,.\n]|\s+(?:is|are|we|in|based)\b)/) || grab(/\b([A-Z][\w&'’ -]{2,40}?)\s+(?:is|are)\s+(?:looking|seeking|hiring|recruiting)/) || grab(/\bAbout\s+([A-Z][\w&'’ -]{2,40}?)(?=[:\n.])/);
-  const place = grab(/(?:location|based in|located in|where)\s*[:\-–]?\s*([A-Z][\p{L}', -]{2,40})/iu);
+  const lead = lines.find(Boolean) ?? '';
+  const first = lead && lead.length <= 80 && !/[.!?]$/.test(lead) ? lead : '';
+  // "Customer Assistant at Fairfield Foods, Leeds." : the title, the company and the place in one line
+  const atLead = /^(?!(?:we|looking|seeking|hiring|wanted|join|apply|about|are|is|the|an?)\b)([A-Z][\w&/'’-]*(?:\s+[\w&/'’-]+){0,4})\s+(?:at|for|with)\s+([A-Z][\w&'’ -]{1,40}?)(?:,\s*([A-Z][\p{L}' -]{2,30}))?[.!]?$/u.exec(lead);
+  const title = labelled || atLead?.[1] || first || seeking || 'the role';
+  const company = grab(/(?:company|employer|organisation|organization)\s*[:\-–]\s*([^\n]{2,60})/i) || atLead?.[2] || grab(/\bat\s+([A-Z][\w&'’ -]{2,40}?)(?=[,.\n]|\s+(?:is|are|we|in|based)\b)/) || grab(/\b([A-Z][\w&'’ -]{2,40}?)\s+(?:is|are)\s+(?:looking|seeking|hiring|recruiting)/) || grab(/\bAbout\s+([A-Z][\w&'’ -]{2,40}?)(?=[:\n.])/);
+  const place = grab(/(?:location|based in|located in|where)\s*[:\-–]?\s*([A-Z][\p{L}', -]{2,40})/iu) || atLead?.[3] || '';
   const pay = grab(/(£\s?\d[\d,]*(?:\.\d+)?(?:\s?[kK])?(?:\s?(?:-|–|to)\s?£?\s?\d[\d,]*(?:\.\d+)?(?:\s?[kK])?)?(?:\s?(?:per|an?|\/)\s?(?:hour|hr|annum|year|week|day|month)|\s?p\.?a\.?)?)/);
   const closing = grab(/(?:closing date|deadline|apply by|applications close|closes?)\s*[:\-–]?\s*(?:on\s+)?([^\n.;]{3,40})/i);
   const requirements: string[] = [];
@@ -175,10 +180,11 @@ export function readAd(raw: string): Ad {
       continue;
     }
     const head = l.replace(/:$/, '');
-    if (HEAD_REQ.test(head) && l.length <= 60) into = requirements;
+    if (END_LIST.test(l)) into = null;
+    else if (HEAD_REQ.test(head) && l.length <= 60) into = requirements;
     else if (HEAD_DUTY.test(head) && l.length <= 60) into = duties;
     else if ((/:$/.test(l) && l.length < 50) || (l === l.toUpperCase() && l.length < 40 && /[A-Z]{4}/.test(l))) into = null;
-    else if (into && l.length > 6 && l.length <= 200) into.push(l.replace(/[.;]+$/, ''));
+    else if (into) for (const part of l.split(/;\s+/)) if (part.length > 6 && part.length <= 200) into.push(part.replace(/[.;]+$/, ''));
   }
   if (!requirements.length) for (const l of lines.filter(Boolean)) if (CUE_REQ.test(l) && l.length <= 200 && !requirements.includes(l)) requirements.push(l.replace(/[.;]+$/, ''));
   const flags: string[] = [];
@@ -403,6 +409,7 @@ export interface Todo {
   at: number;
 }
 const LEAD = /^(?:(?:i|we)\s+(?:also\s+)?(?:need|have|want|must|should|ought)\s+to|need to|have to|got to|gotta|must|should|remember to|don'?t forget to|do not forget to|please|also|and|then|first(?:ly)?|next|finally|todo\s*:?|to-?do\s*:?)\s+/i;
+const AND_JOB = /\s+and\s+(?=(?:ring|call|phone|text|email|message|send|buy|get|pick|book|pay|order|check|fix|write|clean|tidy|collect|return|cancel|renew|post|print|sort|find|make|take|ask|tell|remind|look|arrange|organise|organize|prepare|finish|start|update|submit|fill|sign|apply|wash|cook|water|feed|walk|charge|change|empty|put|drop|visit|meet|plan|reply|respond|chase|clear|cut|paint|measure|pack|hoover|vacuum|iron|drive|wrap|bring|confirm|speak|talk)\b)/i;
 /** The jobs in a long message: one to a line, bullet or sentence; the cue words off the front; a deadline and an urgency picked out. */
 export function todosFrom(raw: string, today: string, now: number): Todo[] {
   const chunks = raw.replace(/\r/g, '').slice(0, MAX_TEXT).split(/\n+|(?<=[.!?;])\s+|\s+(?:and then|then|after that)\s+|,\s+(?=(?:and\s+)?(?:remember to|don'?t forget|also|then)\b)/i).map((c) => clean(c.replace(/^[\s•·*▪●–—-]+|^\d+[.)]\s+/g, '')));
@@ -417,7 +424,11 @@ export function todosFrom(raw: string, today: string, now: number): Todo[] {
     const dm = /\b(?:by|before|on|for|until)\s+((?:next\s+)?(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat|sun)[a-z]*|tomorrow|today|tonight|\d{4}-\d{2}-\d{2}|\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+[A-Za-z]{3,9}|[A-Za-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?)\b/i.exec(t);
     const due = dm ? dayWords(dm[1]!, today) || whenWords(dm[1]!, today, '00:00')?.date || '' : /\btomorrow\b/i.test(t) ? addDays(today, 1) : /\btoday\b|\btonight\b/i.test(t) ? today : '';
     const text = cap(clean(t.replace(/\b(urgent(?:ly)?|asap)\b[:,!]?/gi, '').replace(dm && due ? new RegExp(`\\s*\\b${dm[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') : /$^/, '')).replace(/\s*[-–,]\s*$/, '').replace(/!+$/, ''));
-    if (text.length >= 3 && !out.some((x) => x.text.toLowerCase() === text.toLowerCase())) out.push({ id: shortId(), text, ...(due ? { due } : {}), ...(high ? { high: true } : {}), at: now });
+    // "ring the plumber and send the invoice by Friday": two jobs when both halves begin with a doing word; the day and the urgency go with both
+    for (const part of text.split(AND_JOB)) {
+      const one = cap(part.trim());
+      if (one.length >= 3 && !out.some((x) => x.text.toLowerCase() === one.toLowerCase())) out.push({ id: shortId(), text: one, ...(due ? { due } : {}), ...(high ? { high: true } : {}), at: now });
+    }
   }
   return out.slice(0, 30);
 }
@@ -691,7 +702,7 @@ export function pomodoroPlan(words: string): Pomo {
 
 // ---------------------------------------------------------------- a word count and a reading level
 
-const syllables = (word: string): number => {
+export const syllables = (word: string): number => {
   const w = word.toLowerCase().replace(/[^a-z]/g, '');
   if (!w) return 0;
   if (w.length <= 3) return 1;

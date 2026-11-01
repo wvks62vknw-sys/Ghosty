@@ -92,6 +92,12 @@ test('the ad: its title, company, place, pay, closing date, what it asks for and
   const flat = W.readAd(AD.replace(/\n+/g, ' '));
   assert.equal(flat.pay, '£12.60 per hour');
   assert.ok(flat.requirements.length >= 3);
+  // a one-line ad that opens "Title at Company, Place." gives all three; a semicolon list is split; the closing date ends the list
+  const one = W.readAd('Customer Assistant at Fairfield Foods, Leeds. £12.60 an hour. Requirements: previous retail or customer service experience; good communication and teamwork; a full UK driving licence; forklift licence (desirable). Closing date 20 November 2026.');
+  assert.deepEqual([one.title, one.company, one.place, one.pay, one.closing], ['Customer Assistant', 'Fairfield Foods', 'Leeds', '£12.60 an hour', '20 November 2026']);
+  assert.deepEqual(one.requirements, ['previous retail or customer service experience', 'good communication and teamwork', 'a full UK driving licence', 'forklift licence (desirable)']);
+  // "Pay attention to detail" is something the ad asks for, not the pay line that ends the list
+  assert.deepEqual(W.readAd('Requirements:\nPay attention to detail\nA calm manner on the phone').requirements, ['Pay attention to detail', 'A calm manner on the phone']);
 });
 
 test('cover: a letter from his facts only — each requirement matched to a line he gave, the rest listed as gaps, nothing invented', async () => {
@@ -199,6 +205,9 @@ test('meeting: pasted notes into who was there, decisions, actions with who and 
 
 test('todo: the jobs in a long message with their deadlines and urgency; ticked, unticked, removed, cleared; the Brief says what is due', async () => {
   const storage = new Mem();
+  // one sentence, two jobs (both halves start with a doing word): two items, the day with both; "salt and pepper" stays one
+  const two = W.todosFrom('Right, I need to ring the plumber about the boiler and send the invoice to Mrs Patel by Friday. Also buy salt and pepper.', '2026-11-01', 0);
+  assert.deepEqual(two.map((t) => [t.text, t.due ?? '']), [['Ring the plumber about the boiler', '2026-11-06'], ['Send the invoice to Mrs Patel', '2026-11-06'], ['Buy salt and pepper', '']]);
   const long = 'Right, I need to send the invoice to Mr Patel by Friday and then book the van for tomorrow, also ring the landlord about the boiler - urgent! Remember to pay the council tax. Thanks.';
   const out = await run(storage, 'todo', { text: long });
   assert.equal(out.text, 'Added 4 to your list:\n- Send the invoice to Mr Patel (Fri 6 Nov)\n- Book the van (Mon 2 Nov)\n- Ring the landlord about the boiler [urgent]\n- Pay the council tax\nSay "tick the invoice" when it’s done.');

@@ -459,6 +459,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs2] THE CREATIVE PACK's sheets (features/creative): a song, a poster, a comic strip, a card, a logo, a palette, a beat.
+      id: 'open_creative',
+      title: 'Creative: song, poster, comic, card, logo, palette, beat',
+      group: 'GO',
+      run: async (a) => {
+        const { openCreative } = await import('../features/creative/sheet');
+        await openCreative(typeof a?.what === 'string' ? a.what : 'song', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

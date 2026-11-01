@@ -599,7 +599,7 @@ export function repliesIn(words: string): Reply[] {
 /** The plan out of "pub on Friday at 8pm at the Crown; asked Ali, Sam, Jo": what, when, where and who was asked. */
 export function parsePlan(words: string, today: string, nowHm = '09:00'): { what: string; where?: string; when?: string; time?: string; asked: string[]; replies: Reply[] } {
   const body = words.replace(/^(?:plan|plans|we(?:'re| are) (?:going|doing)|new plan|group plan)\s*[:\-–]?\s*/i, '');
-  const first = body.split(/[.;\n]/)[0]!;
+  const first = body.split(/[.;\n]/)[0]!.replace(/[,\s]*\b(?:asked|invited|inviting|asking)\b.*$/i, '');
   const asked = /\b(?:asked|invited|inviting|asking)\s+([^.;\n]+)/i.exec(body)?.[1]?.split(/,|\band\b/).map((x) => x.trim().replace(/[^\p{L}'’ -]/gu, '')).filter((x) => /^[A-Z]/.test(x) && !NOT_NAMES.has(x.toLowerCase())) ?? [];
   const w = whenWords(first, today, nowHm);
   const where = /\b(?:at|in)\s+((?:the\s+)?[A-Z][\p{L}'’& -]+?)(?=\s*(?:on|at|,|;|\.|$|with|asked|for))/u.exec(first.replace(/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?/gi, ' '))?.[1]?.trim();
