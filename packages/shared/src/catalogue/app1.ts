@@ -73,21 +73,27 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Play me at chess', 'Train all'], scene: ['playing'], cat: 'play',
   },
   'screen:arcade': {
-    name: 'The Arcade: real classics, free', line: 'You can play real classic games inside me: DOOM, Heretic, Duke Nukem 3D, Rise of the Triad and more, free to pass on.',
-    more: 'Each game is fetched once on Wi-Fi with its size said first, kept on your phone and checked against its own fingerprint. They run in a DOS machine built into the page, with a stick and buttons under your thumbs, a game controller when one is attached, sound, and your saves kept across reloads. Nothing commercial is ever bundled or fetched: only releases their makers allow anyone to pass on.',
-    say: ['Open the arcade', 'Play DOOM'], scene: ['playing'], cat: 'play',
+    name: 'The Arcade: real classics, free', line: 'You can play real classics inside me: DOOM, Freedoom, Quake, Heretic, Duke Nukem 3D and more, all free to pass on.',
+    more: 'Each game is fetched once on Wi-Fi with its size said first, kept on your phone and checked against its own fingerprint. DOOM, Freedoom and Quake run on their own engines built for the web; the other classics run in a DOS machine inside the page. A stick and buttons sit under your thumbs, a game controller works when one is attached, and your saves stay on the phone across reloads. Nothing commercial is ever bundled or fetched: only releases their makers allow anyone to pass on.',
+    say: ['Open the arcade', 'Play DOOM', 'Play Quake'], scene: ['playing'], cat: 'play',
     since: '2026-11-01',
   },
   'panel:arcade:THE SHELF': {
-    name: 'The games on the shelf', line: 'You can see every game that plays today, with its size, GET or PLAY, your longest sitting and my line on it.',
+    name: 'The games on the shelf', line: 'You can see every game that plays today, with its size, GET or PLAY, your best level, your longest sitting and my line on it.',
     more: 'GET waits for Wi-Fi and says the size first. DELETE removes a game but keeps its saves. The shelf lists only what plays today: nothing greyed out, nothing promised.',
     say: ['What games have you got?', 'Open the arcade'], scene: ['playing'], cat: 'play',
     since: '2026-11-01',
   },
   'panel:arcade:HOW IT PLAYS': {
-    name: 'How the arcade plays', line: 'You can read how the controls work: the stick, the buttons under your thumbs, drag to turn, PAUSE for sound and quit.',
-    more: 'A game controller works too when one is attached. The keyboard key brings up your phone’s keyboard for names and saves. Your saves are kept on the phone and come back after a reload.',
+    name: 'How the arcade plays', line: 'You can read how the controls work: the stick, the buttons under your thumbs, drag to turn, PAUSE for the game menu, sound and quit.',
+    more: 'A game controller works too when one is attached. In DOOM and Quake, MENU opens the game’s own menu, where you start a new game, save and load. The keyboard key brings up your phone’s keyboard for names and saves in the older games. Your saves are kept on the phone and come back after a reload.',
     say: ['How do I play DOOM?'], scene: ['playing'], cat: 'play',
+    since: '2026-11-01',
+  },
+  'panel:arcade:THE FREE LEVELS': {
+    name: 'Free DOOM levels fans made', line: 'You can play a dozen of the best-loved DOOM level packs fans made and gave away, each over Freedoom, with its author named.',
+    more: 'Each pack says its size before GET, comes from the idgames archive on Wi-Fi and is checked against its own fingerprint. It plays over Freedoom on the same engine, so Freedoom comes first. A pack built with a patch for the original game keeps the original names and messages here.',
+    say: ['Play a DOOM level pack', 'What DOOM levels have you got?'], scene: ['playing'], cat: 'play',
     since: '2026-11-01',
   },
   'screen:school': {

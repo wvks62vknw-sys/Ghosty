@@ -12,7 +12,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['types', 'saves', 'audio', 'doom', 'quake'].map((m) => at(`../../web/src/arcade/engines/${m}.ts`)).concat(at('../../web/src/arcade/input.ts'), at('../../web/src/arcade/shelf.ts')),
+  entryPoints: ['types', 'saves', 'audio', 'doom', 'quake', 'index'].map((m) => at(`../../web/src/arcade/engines/${m}.ts`)).concat(at('../../web/src/arcade/input.ts'), at('../../web/src/arcade/shelf.ts'), at('../../web/src/arcade/dos.ts')),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -27,6 +27,8 @@ const doom = await import('./.build/engines/engines/doom.mjs');
 const quake = await import('./.build/engines/engines/quake.mjs');
 const input = await import('./.build/engines/input.mjs');
 const { SHELF } = await import('./.build/engines/shelf.mjs');
+const engines = await import('./.build/engines/engines/index.mjs');
+const dos = await import('./.build/engines/dos.mjs');
 
 /** A small stand-in for IndexedDB: databases of object stores (key → structured clone), requests answered later. */
 function fakeIDB() {
@@ -151,6 +153,10 @@ test("DOOM: the buttons are DOOM's own keys in a level, in its menu and when it 
   assert.deepEqual(keys(['weapon'], 'game'), [KEY.NEXT_WEAPON]);
   assert.deepEqual(keys(['weaponPrev', 'map', 'run'], 'game'), [KEY.TAB, KEY.PREV_WEAPON, KEY.RSHIFT].sort((a, b) => a - b));
   assert.deepEqual(keys(['pause'], 'game'), [KEY.ESCAPE], "the pause action opens DOOM's own menu");
+  assert.deepEqual(keys(['menu'], 'game'), [KEY.ESCAPE], "MENU (the touch layer's small key) opens DOOM's own menu too");
+  assert.deepEqual(keys(['menu'], 'menu'), [KEY.ESCAPE], 'and closes it');
+  assert.deepEqual(keys(['ok'], 'menu'), [KEY.ENTER]);
+  assert.deepEqual(keys(['crouch', 'special'], 'game'), [], 'DOOM has no crouch and no special');
   assert.deepEqual(keys(['jump'], 'game'), [], 'DOOM has no jump');
   assert.deepEqual(keys(['fire', 'use'], 'menu'), [KEY.ENTER], 'FIRE or USE picks in the menu');
   assert.deepEqual(keys(['weapon'], 'menu'), [KEY.BACKSPACE], 'WEAPON goes back a menu');
@@ -215,7 +221,10 @@ test("QUAKE: the stick (full tilt runs), the look (yaw, and pitch held to Quake'
 
 test("QUAKE: the buttons are Quake's own commands and menu keys; its files where it looks; a tally in words", () => {
   assert.deepEqual(quake.QUAKE_HOLD, { fire: 'attack', jump: 'jump', run: 'speed' });
-  assert.deepEqual(quake.QUAKE_PRESS, { weapon: 'impulse 10', weaponPrev: 'impulse 12' });
+  assert.deepEqual(quake.QUAKE_PRESS, { weapon: 'impulse 10', weaponPrev: 'impulse 12', menu: 'togglemenu' });
+  assert.equal(quake.QUAKE_MENU.menu, quake.QKEY.ESCAPE, 'MENU leaves the menu as ESC does');
+  assert.equal(quake.QUAKE_ASK.menu, quake.QKEY.ESCAPE, 'and says no to quit? y/n, as ESC does');
+  assert.ok(!('crouch' in quake.QUAKE_HOLD) && !('special' in quake.QUAKE_PRESS), 'Quake has no crouch and no special');
   for (const c of Object.values(quake.QUAKE_HOLD)) assert.ok(quake.QUAKE_KEYNUM[c] > 255, `${c} carries a key number no real key has`);
   assert.equal(quake.QUAKE_MENU.fire, quake.QKEY.ENTER);
   assert.equal(quake.QUAKE_MENU.weapon, quake.QKEY.ESCAPE);
@@ -235,19 +244,45 @@ test("QUAKE: the buttons are Quake's own commands and menu keys; its files where
 test('every button each game shows on the touch layer and every pad button does something in its engine', () => {
   const doomGame = doom.DOOM_KEYS.game;
   const quakeDoes = (a) => a in quake.QUAKE_HOLD || a in quake.QUAKE_PRESS || a === 'pause';
-  for (const g of SHELF.filter((g) => g.engine === 'doom' || g.engine === 'quake')) { // the DOS engine's games are its own test's
-    const buttons = input.touchButtons(g.controls);
-    assert.ok(buttons.length > 0, `${g.id}: buttons`);
-    for (const a of buttons) assert.ok(g.engine === 'doom' ? doomGame[a] !== undefined : quakeDoes(a), `${g.id}: the ${a} button does nothing`);
-    for (const a of Object.values(input.PAD_BUTTONS[g.engine])) assert.ok(g.engine === 'doom' ? doomGame[a] !== undefined : quakeDoes(a), `${g.id}: the pad's ${a} does nothing`);
+  const does = { doom: (a) => doomGame[a] !== undefined, quake: quakeDoes };
+  const known = (k) => k.split('+').every((part) => dos.KEYS[part] !== undefined);
+  for (const g of SHELF) {
+    // what the touch layer shows for the game (input.ts: the player draws exactly these)
+    const shown = input.gameButtons(g);
+    if (g.madeByUs) {
+      // a game made by us draws its own controls over the canvas: the player shows none; its pad slots are its own
+      // (games/shelf.ts GAMES2_PAD, held to its rules by games2.test.mjs), with START its own pause
+      assert.deepEqual(shown, [], `${g.id}: the player's own buttons over a game that draws its own`);
+      assert.equal(input.PAD_BUTTONS[g.engine][input.BTN.START], 'pause', `${g.id}: START`);
+      continue;
+    }
+    assert.ok(shown.length > 0, `${g.id}: buttons`);
+    if (g.engine === 'dos') {
+      // a DOS game shows its own CONTROLS block: each button presses DOS keys that exist, and a controller reaches each
+      // (its pad slots are the DOS engine's: the ones the game fills press its keys, START is the player's PAUSE)
+      assert.equal(shown, g.dos.controls.buttons, `${g.id}: its own CONTROLS block`);
+      for (const b of shown) {
+        assert.ok(known(b.key) && (b.cycle ?? []).every(known), `${g.id}: the ${b.label} button presses no DOS key`);
+        assert.ok(Object.values(input.PAD_BUTTONS.dos).includes(b.act), `${g.id}: no pad button reaches ${b.label}`);
+      }
+      continue;
+    }
+    for (const b of shown) assert.ok(does[g.engine](b.act), `${g.id}: the ${b.label} button does nothing`);
+    for (const a of Object.values(input.PAD_BUTTONS[g.engine])) assert.ok(does[g.engine](a), `${g.id}: the pad's ${a} does nothing`);
+    // the slots the DOS step added: MENU is the game's own menu here too; no ENTER, crouch or special is shown or pressed
+    assert.equal(shown.at(-1).act, 'menu', `${g.id}: MENU along the top`);
+    for (const a of ['ok', 'crouch', 'special']) assert.ok(!shown.some((b) => b.act === a) && !Object.values(input.PAD_BUTTONS[g.engine]).includes(a), `${g.id}: shows or presses ${a}`);
   }
+  assert.equal(input.PAD_BUTTONS.dos[input.BTN.START], 'pause');
 });
 
 test('the adapter interface: both engines, and a start without the game in the files is refused before it draws', async () => {
   assert.equal(doom.doom.id, 'doom');
   assert.equal(quake.quake.id, 'quake');
   for (const e of [doom.doom, quake.quake]) assert.equal(typeof e.start, 'function');
-  for (const g of SHELF.filter((g) => g.engine === 'doom' || g.engine === 'quake')) assert.ok({ doom: doom.doom, quake: quake.quake }[g.engine], `${g.id}: its engine is here`);
+  // the player's own registry: every game on the shelf has its engine there
+  for (const g of SHELF) assert.equal(engines.engineFor(g)?.id, g.engine, `${g.id}: its engine is here`);
+  assert.deepEqual([engines.ENGINES.doom.id, engines.ENGINES.quake.id, engines.ENGINES.dos.id], ['doom', 'quake', 'dos']);
   const canvas = {}; // never touched: the refusal comes first
   const ev = { onError: () => assert.fail('no error event for a refusal: start() itself rejects') };
   await assert.rejects(doom.doom.start(canvas, { 'readme.txt': bytes(1) }, input.idle(), ev, { saves: saves.memorySaves(), sound: false }), /no DOOM game/);

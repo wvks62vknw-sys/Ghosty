@@ -7,10 +7,20 @@
 // own save file comes back after a reload (it counts its visits); DELETE takes the game off the phone in one tap;
 // every control has a VoiceOver label; nothing sticks out sideways at 440 × 956 or 390 × 844; the page's security
 // policy blocks nothing.
+// THE NATIVE ENGINES, with the real free data (fetched once by tests/fixtures/engines/fetch.sh, never committed; without
+// it these checks skip with one line), each GOT through the store from the Archive's address (served here from the
+// fetched file): DOOM's free episode on doomgeneric starts inside PLAY's tap, renders frames, FIRE from its title reaches
+// E1M1, PAUSE shows the fps line and GAME MENU (which opens DOOM's own menu; the MENU key closes it), QUIT returns and
+// the longest sitting is written; Freedoom Phase 1 the same (its one GET fills Phase 2's card too); Quake starts and
+// renders. THE FREE LEVELS lists a dozen packs, each with its author and its size on GET (and the DeHackEd line where
+// it ships one); a pack of the spec's own (one harmless lump in a PWAD, public domain) is GOT and PLAYED over Freedoom
+// Phase 2 with DOOM's -file, to MAP01. THE GAMES MADE BY US play at once (PLAY on the card, no GET, no size): the
+// runner opens full screen with its own overlay and none of the player's controls, and its own QUIT returns to the
+// shelf with no score written by the player.
 //   BASE=http://localhost:8855 node tests/arcade.spec.mjs tests/.shots
 import { launch, webkitNoise, engine } from './browser.mjs';
 import { PHONE, UK, openScreen } from './nav.mjs';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { crc32 } from 'node:zlib';
 
@@ -73,6 +83,32 @@ const FIXTURE = {
   },
 };
 
+// ---------- a level pack of the spec's own: one harmless lump in a PWAD (public domain), played over Freedoom Phase 2
+const wad = Buffer.alloc(32);
+wad.write('PWAD', 0, 'latin1');
+wad.writeInt32LE(1, 4);
+wad.writeInt32LE(16, 8);
+wad.write('GHST', 12, 'latin1');
+wad.writeInt32LE(12, 16);
+wad.writeInt32LE(4, 20);
+wad.write('GHOSTYTS', 24, 'latin1');
+const packZip = zip([['TESTMAP.WAD', wad], ['LICENCE.TXT', readFileSync(new URL('LICENCE', fx))]]);
+const PACK = {
+  id: 'test-pack',
+  title: 'Test Pack',
+  author: 'Ghosty\'s tests',
+  line: 'One harmless lump, to prove a pack loads over Freedoom.',
+  base: 'freedoom2',
+  data: {
+    url: ['https://archive.org/cors/ghosty-test-fixture/testpack.zip'],
+    sha256: createHash('sha256').update(packZip).digest('hex'),
+    bytes: packZip.length,
+    licence: 'Public domain (CC0 1.0): written for Ghosty\'s tests; anyone may copy and pass it on.',
+    credit: 'Ghosty\'s tests (tests/arcade.spec.mjs).',
+    take: [{ name: 'testmap.wad', from: ['TESTMAP.WAD'] }],
+  },
+};
+
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const ctx = await browser.newContext({
   viewport: PHONE,
@@ -88,22 +124,27 @@ page.on('console', (m) => {
   const t = m.text();
   if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
 });
-await page.addInitScript((fixture) => {
+await page.addInitScript(([fixture, pack]) => {
   window.__csp = [];
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
   window.__ghostyArcadeShelf = [fixture];
+  window.__ghostyArcadeLevels = [pack];
   // the phone's connection, stubbed: mobile data until the spec says Wi-Fi
   const net = new EventTarget();
   net.type = sessionStorage.getItem('arcnet') ?? 'cellular';
   window.__net = net;
   Object.defineProperty(Navigator.prototype, 'connection', { configurable: true, get: () => window.__net });
-}, FIXTURE);
-// the Archive: the fixture only (no real game is ever fetched by a spec)
+}, [FIXTURE, PACK]);
+// the Archive: the fixture, and the real free packages from fetch.sh's files when the native checks run (no game is
+// ever fetched from the network by a spec)
 const asked = [];
+const served = new Map(); // a package's first mirror → the fetched file
 await page.route('https://archive.org/**', (route) => {
   const u = route.request().url();
   asked.push(u);
   if (u === FIXTURE.data.url[0]) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: pkg });
+  if (u === PACK.data.url[0]) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: packZip });
+  if (served.has(u)) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: readFileSync(served.get(u)) });
   return route.abort('blockedbyclient');
 });
 
@@ -128,7 +169,8 @@ const saved = () => page.evaluate(() => new Promise((resolve) => {
   const r = indexedDB.open('ghosty-arcade-saves');
   r.onsuccess = () => {
     try {
-      const g = r.result.transaction('saves').objectStore('saves').get(['test-flash', 'changes.zip']);
+      // the saves store (engines/saves.ts): one object store, each file under '<game>/<name>'
+      const g = r.result.transaction('files').objectStore('files').get('test-flash/changes.zip');
       g.onsuccess = () => resolve(g.result ? [...g.result] : null);
       g.onerror = () => resolve(null);
     } catch {
@@ -161,14 +203,26 @@ await page.waitForTimeout(400);
 await page.evaluate(() => (location.hash = 'arcade'));
 await until(() => !!document.querySelector('#pg-arcade .arccard') && getComputedStyle(document.getElementById('pg-arcade')).display !== 'none', 10000, '#arcade did not open the arcade');
 
-// ---------- the shelf: every game with its size on GET (nothing is on this phone yet)
-const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
+// ---------- the shelf: every game with its size on GET (nothing is on this phone yet); the games made by us: PLAY
+const MADE = ['block-world', 'runner'];
+const shelf = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arccard:not(.arcpack)')].map((c) => ({ id: c.dataset.id, title: c.querySelector('.arctitle')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', line: c.querySelector('.arcline')?.textContent ?? '', ghosty: c.querySelector('.arcghost')?.textContent ?? '' })));
 if (shelf.length < 2) problems.push(`the shelf has ${shelf.length} games`);
 for (const g of shelf) {
-  if (!/^GET · \d+(\.\d)? (MB|KB)$/.test(g.act)) problems.push(`${g.id}: its button reads "${g.act}"`);
+  if (MADE.includes(g.id) ? g.act !== 'PLAY' : !/^GET · \d+(\.\d)? (MB|KB)$/.test(g.act)) problems.push(`${g.id}: its button reads "${g.act}"`);
   if (!g.line || !/^Ghosty /.test(g.ghosty)) problems.push(`${g.id}: no line or no line of Ghosty's`);
 }
 if (!shelf.some((g) => g.id === 'test-flash')) problems.push('the fixture is not on the shelf');
+// ---------- THE FREE LEVELS: a dozen packs for DOOM, each with its author and its size on GET; the DeHackEd line where
+// a pack ships one (this engine does not read it)
+const packs = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcpack')].map((c) => ({ id: c.dataset.level, by: c.querySelector('.arcby')?.textContent ?? '', act: c.querySelector('.arcact')?.textContent ?? '', over: c.querySelector('.arcover')?.textContent ?? '', deh: !!c.querySelector('.arcdeh') })));
+const realPacks = packs.filter((p) => p.id !== PACK.id);
+if (realPacks.length !== 12) problems.push(`THE FREE LEVELS lists ${realPacks.length} packs, not a dozen`);
+for (const p of packs) {
+  if (!/^GET · \d+(\.\d)? (MB|KB)$/.test(p.act)) problems.push(`level pack ${p.id}: its button reads "${p.act}"`);
+  if (!/^by \S/.test(p.by) || !/^Plays over Freedoom: Phase [12]\.$/.test(p.over)) problems.push(`level pack ${p.id}: its card says "${p.by}" / "${p.over}"`);
+}
+const dehs = realPacks.filter((p) => p.deh).map((p) => p.id).sort().join();
+if (dehs !== '1klinecp,btsx1,d2twid,dtwid,intercep') problems.push(`the packs saying their DeHackEd patch is not read: ${dehs}`);
 await page.screenshot({ path: `${out}/arcade-shelf-440.png` });
 let wide = await sideways('#pg-arcade .arccard, #pg-arcade .arcact');
 if (wide.page || wide.over.length) problems.push(`the shelf sticks out sideways at 440 px: ${wide.over.join(', ')}`);
@@ -266,6 +320,217 @@ await until(() => !document.querySelector('.arcplayer'), 15000, 'the second QUIT
 const second = visits(await saved());
 if (second !== 2) problems.push(`after a reload the program did not find its save (SAVE.DAT reads ${second}, not 2)`);
 
+// ---------- THE GAMES MADE BY US: the runner plays at once, full screen, its own overlay, its own QUIT
+if (!MADE.every((id) => shelf.some((g) => g.id === id))) problems.push(`the games made by us are not on the shelf: ${shelf.map((g) => g.id).join(', ')}`);
+else {
+  await page.click(`${card('runner')} .arcact`);
+  if (await until(() => !!document.querySelector('.arcplayer .g2ui .g2menu') && !!document.querySelector('.arcplayer canvas')?.width, 30000, 'THE RUNNER: PLAY did not open the game with its own menu')) {
+    const view = await page.evaluate(() => {
+      const c = document.querySelector('.arcplayer canvas').getBoundingClientRect();
+      return { w: Math.round(c.width), h: Math.round(c.height), W: innerWidth, H: innerHeight, ours: ['.arcstick', '.arclook', '.arcbtn', '.arckey', '.arcpause', '.arcmenu'].filter((s) => document.querySelector(`.arcplayer ${s}`)), menu: [...document.querySelectorAll('.arcplayer .g2menu .g2btns button')].map((b) => b.textContent) };
+    });
+    if (view.w !== view.W || view.h < view.H - 60) problems.push(`THE RUNNER: its canvas is ${view.w} × ${view.h} on a ${view.W} × ${view.H} screen (not full screen)`);
+    if (view.ours.length) problems.push(`THE RUNNER: the player's own controls over a game that draws its own: ${view.ours.join(', ')}`);
+    await page.screenshot({ path: `${out}/arcade-runner-440.png` });
+    // its own QUIT (the game's title menu) ends it: back to the shelf, the picture let go
+    await page.locator('.arcplayer .g2menu .g2btns button', { hasText: 'QUIT' }).click();
+    await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing, 15000, "THE RUNNER: its own QUIT did not return to the shelf");
+    const after = await page.evaluate(() => ({ scores: Object.keys(JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')).filter((k) => k.startsWith('runner')), canvases: document.querySelectorAll('canvas.arccanvas').length }));
+    if (after.scores.length || after.canvases) problems.push(`THE RUNNER: after its QUIT, scores ${after.scores.join(', ') || 'none'}; ${after.canvases} game canvas(es) left`);
+  }
+}
+
+// ---------- THE NATIVE ENGINES with the real free data: DOOM, Freedoom Phase 1, Quake
+const DATA = new URL('./fixtures/engines/data/', import.meta.url);
+const REAL = {
+  'https://archive.org/cors/doom19s_202607/doom19s.zip': 'doom19s.zip',
+  'https://archive.org/cors/freedoom-0.13.0/freedoom-0.13.0.zip': 'freedoom-0.13.0.zip',
+  'https://archive.org/cors/msdos_Quake106_shareware/msdos_Quake106_shareware.zip': 'msdos_Quake106_shareware.zip',
+};
+const realMissing = Object.values(REAL).filter((f) => !existsSync(new URL(f, DATA)));
+const numbers = [];
+if (realMissing.length) {
+  console.log(`arcade: the native engines' checks skipped: the free game data is not here (${realMissing.join(', ')}). Fetch it once with: sh tests/fixtures/engines/fetch.sh`);
+} else {
+  for (const [url, file] of Object.entries(REAL)) served.set(url, new URL(file, DATA));
+  const probe = () => page.evaluate(() => window.__ghosty.arcade.probe?.() ?? null);
+  // a fingerprint of the whole picture, read in the frame the engine drew it (a WebGL canvas keeps no copy after)
+  const fingerprint = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
+    const c = document.querySelector('.arcplayer canvas');
+    if (!c || !c.width) return resolve('');
+    const small = document.createElement('canvas');
+    small.width = 96;
+    small.height = 72;
+    const g = small.getContext('2d', { willReadFrequently: true });
+    g.drawImage(c, 0, 0, 96, 72);
+    const px = g.getImageData(0, 0, 96, 72).data;
+    let a = 2166136261;
+    for (let i = 0; i < px.length; i++) a = Math.imul(a ^ px[i], 16777619);
+    resolve((a >>> 0).toString(16));
+  })));
+  /** A touch button (or small key) held for a moment and for at least three of the engine's frames (a busy machine can
+   *  stall a frame longer than the moment), then let go. */
+  const press = async (act, ms = 250) => {
+    const sel = `.arcplayer [data-act="${act}"]`;
+    const f0 = (await probe())?.frames ?? 0;
+    await page.dispatchEvent(sel, 'pointerdown', { pointerId: 21, isPrimary: false, pointerType: 'touch' });
+    await page.waitForTimeout(ms);
+    await page.waitForFunction((f) => (window.__ghosty.arcade.probe?.()?.frames ?? 0) >= f + 3, f0, { timeout: 3000 }).catch(() => undefined);
+    await page.dispatchEvent(sel, 'pointerup', { pointerId: 21, pointerType: 'touch' });
+  };
+  // a card by its id: a shelf game's, or a level pack's ('level:<id>'); the pack's scores are kept under its own id
+  const sel = (id) => (id.startsWith('level:') ? `#pg-arcade .arcpack[data-level="${id.slice(6)}"]` : card(id));
+  const scoreId = (id) => id.replace(/^level:/, '');
+  const getGame = async (id, tag) => {
+    await page.click(`${sel(id)} .arcact`);
+    return until((s) => document.querySelector(s)?.textContent === 'PLAY', 120000, `${tag}: GET did not finish`, `${sel(id)} .arcact`);
+  };
+  /** PLAY: the finger lands and stays a moment (the files are read meanwhile), then lifts: the engine starts in the tap. */
+  const playNative = async (id, tag) => {
+    await page.dispatchEvent(`${sel(id)} .arcact`, 'pointerdown', { pointerId: 30, isPrimary: true, pointerType: 'touch' });
+    await page.waitForTimeout(2000);
+    await page.click(`${sel(id)} .arcact`);
+    if (!(await until(() => (window.__ghosty?.arcade?.probe?.()?.frames ?? 0) > 30, 60000, `${tag}: PLAY did not start its engine (no frames)`))) return false;
+    const started = await page.evaluate(() => window.__ghosty.arcade.started);
+    if (started !== 'tap') problems.push(`${tag}: the engine started ${started || 'nowhere'}, not inside PLAY's tap`);
+    const cls = await page.evaluate(() => document.querySelector('.arcplayer .arcscreen')?.className ?? '');
+    if (!cls.includes(id.startsWith('quake') ? 'quake' : 'doom')) problems.push(`${tag}: the picture's box is "${cls}"`);
+    return true;
+  };
+  /** Frames render (two pictures 0.7 s apart differ); in a level, the stick walks the player and a drag turns him. */
+  const dist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : 0);
+  const plays = async (tag, inLevel) => {
+    const st = await page.locator('.arcplayer .arcstick').boundingBox();
+    if (inLevel) {
+      await page.dispatchEvent('.arcplayer .arcstick', 'pointerdown', { pointerId: 17, clientX: st.x + 80, clientY: st.y + 200, isPrimary: true, pointerType: 'touch' });
+      await page.dispatchEvent('.arcplayer .arcstick', 'pointermove', { pointerId: 17, clientX: st.x + 80, clientY: st.y + 140, isPrimary: true, pointerType: 'touch' });
+    }
+    const p0 = await probe();
+    const a = await fingerprint();
+    await page.waitForTimeout(700);
+    const b = await fingerprint();
+    const p1 = await probe();
+    if (inLevel) await page.dispatchEvent('.arcplayer .arcstick', 'pointerup', { pointerId: 17, pointerType: 'touch' });
+    if (!a || a === b) problems.push(`${tag}: two pictures 0.7 s apart are the same (no frames render)`);
+    if (!inLevel) return;
+    if (!(dist(p0.pos, p1.pos) > 8)) problems.push(`${tag}: the stick held forward walked the player ${dist(p0.pos, p1.pos).toFixed(1)} units`);
+    // a drag of 100 points on the right half turns him about 23° to the right (the look adds up in the one Intent)
+    await page.waitForTimeout(300);
+    const a0 = (await probe()).angle;
+    const lz = await page.locator('.arcplayer .arclook').boundingBox();
+    const y = st.y + 120;
+    await page.dispatchEvent('.arcplayer .arclook', 'pointerdown', { pointerId: 18, clientX: lz.x + 20, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointermove', { pointerId: 18, clientX: lz.x + 70, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointermove', { pointerId: 18, clientX: lz.x + 120, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointerup', { pointerId: 18, pointerType: 'touch' });
+    await page.waitForTimeout(500);
+    const a1 = (await probe()).angle;
+    const turned = ((((a0 - a1) % 360) + 540) % 360) - 180;
+    if (Math.abs(turned - 23) > 3) problems.push(`${tag}: a 100-point drag turned the player ${turned.toFixed(1)}° (want 23°)`);
+  };
+  /** FIRE alone, from the title: the menu, NEW GAME, the episode, the skill, then the first level. */
+  const fireToLevel = async (tag, levelName) => {
+    for (let i = 0; i < 6 && (await probe())?.level !== levelName; i++) {
+      await press('fire');
+      await page.waitForTimeout(450);
+    }
+    return until((n) => window.__ghosty.arcade.probe()?.level === n, 10000, `${tag}: FIRE from the title did not reach ${levelName} (${JSON.stringify(await probe())})`, levelName);
+  };
+  /** PAUSE: the sheet, its one fps line and GAME MENU (said back for the report). */
+  const pauseSheet = async (tag) => {
+    await page.click('.arcplayer .arcpause');
+    await until(() => !document.querySelector('.arcplayer .arcmenu')?.hidden, 3000, `${tag}: PAUSE did not open its sheet`);
+    const sheet = await page.evaluate(() => ({ fps: document.querySelector('.arcplayer .arcfps')?.textContent ?? '', buttons: [...document.querySelectorAll('.arcplayer .arcmenu button')].map((b) => b.textContent) }));
+    if (!/^\d+ fps\b/.test(sheet.fps)) problems.push(`${tag}: PAUSE's fps line reads "${sheet.fps}"`);
+    for (const w of ['RESUME', 'GAME MENU', 'QUIT', 'SOUND', 'CONTROLS']) if (!sheet.buttons.some((t) => t.startsWith(w))) problems.push(`${tag}: PAUSE has no ${w}: ${sheet.buttons.join(', ')}`);
+    return sheet.fps;
+  };
+  /** QUIT from PAUSE: back to the shelf, the picture let go, the longest sitting written and said on the card. */
+  const quitNative = async (id, tag) => {
+    await page.click('.arcplayer .arcmenu button.quit');
+    await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing && !document.querySelector('canvas.arccanvas'), 15000, `${tag}: QUIT did not return to the shelf and let the picture go`);
+    const sit = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')[k] ?? null, `${scoreId(id)}/sitting`);
+    if (!sit || !(sit.best > 0) || !sit.when) problems.push(`${tag}: QUIT wrote no longest sitting: ${JSON.stringify(sit)}`);
+    const words = await page.evaluate((s) => document.querySelector(`${s} .arcscore`)?.textContent ?? '', sel(id));
+    if (!/sitting \d+ (s|min)/i.test(words)) problems.push(`${tag}: after QUIT the card's score reads "${words}"`);
+  };
+
+  // DOOM, the free episode, on doomgeneric
+  if (await getGame('doom-shareware', 'DOOM')) {
+    if (await playNative('doom-shareware', 'DOOM')) {
+      const title = (await probe())?.level ?? null;
+      if (title !== null) problems.push(`DOOM: no title screen first (${title})`);
+      if (await fireToLevel('DOOM', 'E1M1')) {
+        await page.waitForTimeout(1500); // past the screen melt
+        await plays('DOOM', true);
+        await page.waitForTimeout(2000); // whole seconds of play counted for the fps
+        await page.screenshot({ path: `${out}/arcade-doom-440.png` });
+        const p = await probe();
+        const fps = await pauseSheet('DOOM');
+        // GAME MENU opens DOOM's own menu over the game; the MENU key closes it again
+        await page.click('.arcplayer .arcmenu .gamemenu');
+        await until(() => window.__ghosty.arcade.probe()?.menu === true, 3000, "DOOM: GAME MENU did not open DOOM's own menu");
+        await page.waitForTimeout(400);
+        await press('menu');
+        if (!(await until(() => window.__ghosty.arcade.probe()?.menu === false, 3000, "DOOM: the MENU key did not close DOOM's menu"))) problems.push(`DOOM: then ${JSON.stringify(await page.evaluate(() => ({ probe: window.__ghosty.arcade.probe(), held: [...window.__ghosty.arcade.intent.held], keys: [...document.querySelectorAll('.arcplayer .arckey')].map((k) => `${k.dataset.act}${k.classList.contains('on') ? '+' : ''}`) })))}`);
+        await page.click('.arcplayer .arcpause');
+        numbers.push(`DOOM E1M1: ${p.fps} fps (the engine's own work ${p.workMs} ms a frame), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
+        await quitNative('doom-shareware', 'DOOM');
+      }
+    }
+  }
+
+  // Freedoom Phase 1: one GET for both phases
+  const fdAsked = () => asked.filter((u) => u.includes('freedoom-0.13.0')).length;
+  if (await getGame('freedoom', 'FREEDOOM')) {
+    const phase2 = await page.evaluate((s) => document.querySelector(s)?.textContent ?? '', `${card('freedoom2')} .arcact`);
+    if (phase2 !== 'PLAY' || fdAsked() !== 1) problems.push(`FREEDOOM: one GET did not fill Phase 2's card too (it reads "${phase2}"; the Archive asked ${fdAsked()} times)`);
+    if (await playNative('freedoom', 'FREEDOOM')) {
+      if (await fireToLevel('FREEDOOM', 'E1M1')) {
+        await page.waitForTimeout(1500);
+        await plays('FREEDOOM', true);
+        await page.waitForTimeout(2000);
+        await page.screenshot({ path: `${out}/arcade-freedoom-440.png` });
+        const p = await probe();
+        const fps = await pauseSheet('FREEDOOM');
+        numbers.push(`Freedoom Phase 1 E1M1: ${p.fps} fps (work ${p.workMs} ms), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
+        await quitNative('freedoom', 'FREEDOOM');
+      }
+    }
+  }
+
+  // a level pack over Freedoom Phase 2: GET (its own few bytes; Freedoom is here), then PLAY hands DOOM its Freedoom
+  // phase and the pack's WAD (-file); FIRE from the title reaches MAP01
+  if (await getGame('level:test-pack', 'LEVEL PACK')) {
+    if (await playNative('level:test-pack', 'LEVEL PACK')) {
+      const args = await page.evaluate(() => window.__ghosty.arcade.args.join(' '));
+      if (args !== '-iwad freedoom2.wad -file testmap.wad') problems.push(`LEVEL PACK: DOOM was given "${args}"`);
+      if (await fireToLevel('LEVEL PACK', 'MAP01')) {
+        await page.waitForTimeout(1500);
+        await plays('LEVEL PACK', true);
+        const fps = await pauseSheet('LEVEL PACK');
+        numbers.push(`A level pack over Freedoom Phase 2, MAP01: PAUSE said "${fps}"`);
+        await quitNative('level:test-pack', 'LEVEL PACK');
+      }
+    }
+  }
+
+  // Quake: it starts and renders (its demos), PAUSE as the others, QUIT
+  if (await getGame('quake-shareware', 'QUAKE')) {
+    if (await playNative('quake-shareware', 'QUAKE')) {
+      await page.waitForTimeout(2000);
+      await plays('QUAKE', false);
+      await page.waitForTimeout(1000);
+      await page.screenshot({ path: `${out}/arcade-quake-440.png` });
+      const p = await probe();
+      const size = await page.evaluate(() => { const c = document.querySelector('.arcplayer canvas'); return `${c.width} × ${c.height}`; });
+      const fps = await pauseSheet('QUAKE');
+      numbers.push(`Quake (its demo): ${p.fps} fps on this machine's software GPU at ${size} (the engine's own work ${p.workMs} ms a frame); PAUSE said "${fps}"`);
+      await quitNative('quake-shareware', 'QUAKE');
+    }
+  }
+}
+
 // ---------- ⋯ → DELETE in one tap; labels; 390 × 844
 await page.click(`${card('test-flash')} .arcmore`);
 const shelfLabels = await unlabelled('#pg-arcade button');
@@ -285,4 +550,5 @@ if (problems.length) {
   console.error(`arcade: ${problems.length} problem(s)\n - ${problems.join('\n - ')}`);
   process.exit(1);
 }
-console.log(`arcade: ok (${shelf.length} games on the shelf; the fixture played, paused, quit, saved and came back after a reload)`);
+if (numbers.length) console.log(numbers.join('\n'));
+console.log(`arcade: ok (${shelf.length} games on the shelf; the fixture played, paused, quit, saved and came back after a reload${numbers.length ? `; ${numbers.length} native games played` : ''})`);

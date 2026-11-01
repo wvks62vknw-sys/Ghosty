@@ -42,11 +42,11 @@ export const KEY = {
 export type DoomMode = 'game' | 'menu' | 'ask';
 
 /** What each held button presses: in a level (and on the title, intermission and finale screens), in the menu, and
- *  when the menu asks yes or no. */
+ *  when the menu asks yes or no. MENU (the touch layer's small key) is DOOM's own menu key, as the pause action is. */
 export const DOOM_KEYS: Record<DoomMode, Partial<Record<Action, number>>> = {
-  game: { fire: KEY.FIRE, use: KEY.USE, weapon: KEY.NEXT_WEAPON, weaponPrev: KEY.PREV_WEAPON, map: KEY.TAB, run: KEY.RSHIFT, pause: KEY.ESCAPE },
-  menu: { fire: KEY.ENTER, use: KEY.ENTER, jump: KEY.ENTER, weapon: KEY.BACKSPACE, weaponPrev: KEY.BACKSPACE, map: KEY.BACKSPACE, pause: KEY.ESCAPE },
-  ask: { fire: KEY.YES, use: KEY.YES, jump: KEY.YES, weapon: KEY.NO, weaponPrev: KEY.NO, map: KEY.NO, pause: KEY.ESCAPE },
+  game: { fire: KEY.FIRE, use: KEY.USE, weapon: KEY.NEXT_WEAPON, weaponPrev: KEY.PREV_WEAPON, map: KEY.TAB, run: KEY.RSHIFT, pause: KEY.ESCAPE, menu: KEY.ESCAPE },
+  menu: { fire: KEY.ENTER, use: KEY.ENTER, jump: KEY.ENTER, ok: KEY.ENTER, weapon: KEY.BACKSPACE, weaponPrev: KEY.BACKSPACE, map: KEY.BACKSPACE, pause: KEY.ESCAPE, menu: KEY.ESCAPE },
+  ask: { fire: KEY.YES, use: KEY.YES, jump: KEY.YES, ok: KEY.YES, weapon: KEY.NO, weaponPrev: KEY.NO, map: KEY.NO, pause: KEY.ESCAPE, menu: KEY.ESCAPE },
 };
 
 const clamp1 = (v: number): number => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0);
