@@ -5799,8 +5799,20 @@ canvas.buildplan { display: block; max-width: 100%; }
    scroller step aside (the page scrolls as one, under the pills). */
 .sheetpg .pn > .bd > :is(.pk, .cvsheet, .dcsheet) { flex: none; padding: 0; overflow: visible; }
 .sheetpg .pn > .bd > .house { padding: 0; }
+/* every control on these screens takes a finger, 44 pt: the app-wide touch rule draws a button 40 pt (and a box 43), so these
+   are given the few points more here (the sheets over the chat are drawn as they were) */
+html .sheetpg .pn > .bd :is(button, [role="button"]) { min-height: 44px !important; }
+html .sheetpg .pn > .bd :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select) { min-height: 44px; }
 /* [tabs] The hubs scroll now (every tool of an area is a card: BRIEF-TABS 3). The hub is a column flexbox, and a child that
    clips its overflow (the line under the title, clamped to two lines) has an automatic minimum height of nothing: with more
    cards than the screen holds it was the one squeezed, to no height at all (the More row's fault of 1 Nov, OWNER-ISSUES
    118 (c), again). Nothing in the hub shrinks: the hub scrolls instead. */
 html .hub > * { flex-shrink: 0; }
+/* [tabs] A wide screen and the television, the tab bar standing up on the left (six areas on it since 1 Nov, measured at
+   1,920 × 1,080 in TV mode): its capsule holds its buttons (it was held to one row's height, 64 pt, the rest spilling out
+   below it), and a hub starts clear of the bar as the screens do (its own padding, written after the wide screen's, undid it,
+   so the first column of cards ran under the bar). */
+@media (min-width: 900px) {
+  html #dock .tabcap { height: auto; }
+  html .hub { padding-left: 92px; }
+}
