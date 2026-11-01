@@ -2,8 +2,9 @@
 // chat request carries it, and the preview brain (scripted model; the web from
 // tests/fixtures/cited.json) answers "what is the speed of light" with [n] chips — a chip opens
 // its page, a chip for a source never looked up warns instead — a SOURCES list, the check line
-// "✓ 2 of 4 claims found in the sources" and the two unconfirmed claims marked. A reload shows
-// it all again from the brain's history; with CITED off a reply is plain.
+// "✓ 2 of 4 claims found in the sources" and the two unconfirmed claims marked; each source row
+// shows its tier as a word (a university page is PRIMARY) and each claim its label in words after it
+// (OWNER-ISSUES 77). A reload shows it all again from the brain's history; with CITED off a reply is plain.
 //   node tests/cited.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -25,7 +26,7 @@ ctx.on('request', (r) => {
   if (r.url().endsWith('/api/chat') && r.method() === 'POST') asked.push(JSON.parse(r.postData() ?? '{}'));
 });
 // A source page opens in a new tab: answered here so the test never reaches the real web.
-await ctx.route('https://physics.example.test/**', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/html' }, body: '<title>Physics Reference</title><h1>Speed of light</h1>' }));
+await ctx.route('https://physics.example.ac.uk/**', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/html' }, body: '<title>Physics Reference</title><h1>Speed of light</h1>' }));
 
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });
@@ -83,7 +84,7 @@ const reply = page.locator('.log .msg.cited').last();
 if (gotCited) {
 const chips = await reply.locator('.citedtext .cite').evaluateAll((c) => c.map((x) => ({ n: x.textContent, tag: x.tagName, href: x.getAttribute('href'), miss: x.classList.contains('miss'), un: x.classList.contains('un') })));
 if (chips.map((c) => c.n).join(',') !== '1,1,2,3') problems.push(`chips: ${JSON.stringify(chips)}`);
-if (chips[0]?.tag !== 'A' || chips[0]?.href !== 'https://physics.example.test/speed-of-light') problems.push(`chip 1 does not link its page: ${JSON.stringify(chips[0])}`);
+if (chips[0]?.tag !== 'A' || chips[0]?.href !== 'https://physics.example.ac.uk/speed-of-light') problems.push(`chip 1 does not link its page: ${JSON.stringify(chips[0])}`);
 if (!chips[2]?.miss || !chips[3]?.miss) problems.push('the chips for sources never looked up ([2], [3]) are not flagged');
 if (!chips[2]?.un || chips[0]?.un) problems.push('chip highlighting does not follow the unconfirmed claims');
 const words = (await reply.locator('.citedtext').textContent({ timeout: 10000 }).catch(() => '')) ?? '';
@@ -91,9 +92,18 @@ if (/SOURCES|https?:\/\//.test(words)) problems.push(`the source list is still i
 const marked = await reply.locator('mark.unconf').allTextContents();
 if (!marked.some((m) => /Light from the Sun takes about eight minutes/.test(m)) || !marked.some((m) => /Nothing can travel faster/.test(m)) || marked.some((m) => /299,792,458/.test(m))) problems.push(`unconfirmed claims marked: ${JSON.stringify(marked)}`);
 const rows = await reply.locator('.citesrc .csrc').evaluateAll((r) => r.map((x) => ({ text: x.textContent, miss: x.classList.contains('miss'), href: x.getAttribute('href') })));
-if (rows.length !== 3 || !/\[1\]Speed of light — Physics Reference/.test(rows[0]?.text ?? '') || rows[0]?.href !== 'https://physics.example.test/speed-of-light' || !rows[1]?.miss || !/never looked up/.test(rows[1]?.text ?? '')) problems.push(`SOURCES rows: ${JSON.stringify(rows)}`);
+if (rows.length !== 3 || !/\[1\]Speed of light — Physics Reference/.test(rows[0]?.text ?? '') || rows[0]?.href !== 'https://physics.example.ac.uk/speed-of-light' || !rows[1]?.miss || !/never looked up/.test(rows[1]?.text ?? '')) problems.push(`SOURCES rows: ${JSON.stringify(rows)}`);
+// each source's tier as a word in a chip (a university page is PRIMARY; a host the table does not know, UNKNOWN; no tier for a number with no source)
+const tiers = await reply.locator('.citesrc .csrc').evaluateAll((r) => r.map((x) => {
+  const t = x.querySelector('.ctier');
+  return t ? { word: t.innerText.trim(), shown: t.getBoundingClientRect().width > 0 } : null;
+}));
+if (tiers[0]?.word !== 'PRIMARY' || !tiers[0]?.shown || tiers[1]?.word !== 'UNKNOWN' || tiers[2] !== null) problems.push(`tier chips: ${JSON.stringify(tiers)}`);
+// each claim's label in words after it: the two found in the university page are established, the two nothing backed are contested
+const labels = await reply.locator('.citedtext .clabel').allInnerTexts();
+if (labels.join('|') !== 'established fact|established fact|contested|contested') problems.push(`claim labels: ${JSON.stringify(labels)}`);
 const check = ((await reply.locator('.citecheck').textContent().catch(() => '')) ?? '').trim();
-if (!/^✓ 2 of 4 claims found in the sources/.test(check) || !(await reply.locator('.citecheck.warn').count())) problems.push(`check line: "${check}"`);
+if (!/^✓ 2 of 4 claims found in the sources · 2 established, 2 contested/.test(check) || !(await reply.locator('.citecheck.warn').count())) problems.push(`check line: "${check}"`);
 if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push('the cited reply scrolls sideways');
 await page.screenshot({ path: `${out}/cited-phone.png` });
 
@@ -102,7 +112,7 @@ const [tab] = await Promise.all([ctx.waitForEvent('page', { timeout: 10000 }).ca
 if (!tab) problems.push('chip 1 opened nothing');
 else {
   await tab.waitForLoadState('domcontentloaded').catch(() => undefined);
-  if (tab.url() !== 'https://physics.example.test/speed-of-light') problems.push(`chip 1 opened ${tab.url()}`);
+  if (tab.url() !== 'https://physics.example.ac.uk/speed-of-light') problems.push(`chip 1 opened ${tab.url()}`);
   await tab.close();
 }
 await reply.locator('.citedtext .cite.miss').last().click();
@@ -136,4 +146,4 @@ if (problems.length) {
   console.error(`cited.spec: ${problems.length} problem(s)\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log('cited.spec: CITED toggle, chips, sources, check line, unconfirmed marks, reload: all good');
+console.log('cited.spec: CITED toggle, chips, sources with tiers, claim labels, check line, unconfirmed marks, reload: all good');

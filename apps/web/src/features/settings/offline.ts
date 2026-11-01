@@ -211,9 +211,11 @@ export function offlinePanel(): Panel & { refresh(): void } {
       return false;
     }
     const held = heldOf(m);
-    if (!isBigger(m) || held?.s === 'loaded') return true;
-    const before = held?.s === 'closed' ? `It closed Ghosty on this phone on ${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. ` : '';
-    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back on the ${shortName(MODELS[0]!)}.`, 'LOAD IT');
+    // (a small brain asks only after it closed Ghosty here: the 0.6B did, on 31 Oct, while answering)
+    if (held?.s !== 'closed' && (!isBigger(m) || held?.s === 'loaded')) return true;
+    const before = held?.s === 'closed' ? `It closed Ghosty on this phone on ${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${held.phase === 'answering' ? ' while answering' : ''}. ` : '';
+    const comeBack = isBigger(m) ? ` on the ${shortName(MODELS[0]!)}` : m.id === MODELS[0]!.id && here.includes(MODELS[1]!.id) ? ` on the ${shortName(MODELS[1]!)}` : '';
+    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back${comeBack}.`, 'LOAD IT');
     keepTitle();
     const yes = await asking;
     if (yes) approveLoad(m);
@@ -300,6 +302,14 @@ export function offlinePanel(): Panel & { refresh(): void } {
     return wasClosedWhileGetting() ? `Ghosty was closed while getting ${m.label}${at}. ${how} to carry on from there.` : `Getting ${m.label} stopped${at}. ${how} to carry on from there.`;
   }
 
+  /** The Qwen2.5 0.5B stand-in, the smallest brain: a row of its own once the 0.6B could not run here, or when it is on this phone. */
+  const least = MODELS[1]!;
+  const leastShown = (): boolean => {
+    const s = heldOf(MODELS[0]!)?.s;
+    return here.includes(least.id) || currentModel().id === least.id || s === 'closed' || s === 'failed' || !!heldOf(least);
+  };
+  const pickerRows = (): ModelDef[] => (leastShown() ? [least, ...PICKER] : PICKER);
+
   function paintPick(): void {
     const s = offlineBrain.get();
     const now = currentModel();
@@ -311,8 +321,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
       // when a bigger brain could not get the memory (or closed Ghosty): said here, beside the brains, until one is chosen again
       fell,
       getting,
-      ...PICKER.map((m) => {
-        const using = slotOf(m) === inUse;
+      ...pickerRows().map((m) => {
+        // (the stand-in shares the 0.6B's row in the training, so it is in use only when it is the model itself)
+        const using = m === least ? now.id === least.id : slotOf(m) === inUse && !(m === MODELS[0] && now.id === least.id);
         const onPhone = here.includes(m.id) || (using && ready && now.id === m.id);
         const partial = !onPhone && log?.model === m.id;
         const tag = using ? (now.id === m.id ? 'IN USE' : `IN USE: ${now.label}`) : onPhone ? 'ON THIS PHONE' : '';
@@ -330,8 +341,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
           `div.obbrain${using ? '.on' : ''}` as 'div',
           { dataset: { model: m.id } },
           h('div.obname', h('b', m.label), tag ? h('span.obtag', tag) : null),
-          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : ''}`),
-          held?.s === 'closed' ? h('div.note.obclosed', `closed Ghosty on this phone (${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}): USE asks before trying again`) : null,
+          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : m === least ? ' · the smallest' : ''}`),
+          held?.s === 'closed' ? h('div.note.obclosed', `closed Ghosty on this phone (${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})${held.phase === 'answering' ? ', while answering' : ''}: USE asks before trying again`) : null,
           btns.length ? h('div.keyrow', ...btns) : null,
         );
       }),
@@ -343,7 +354,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     fell.hidden = !fell.textContent;
     getting.textContent = carryOnLine();
     getting.hidden = !getting.textContent;
-    hold.textContent = ok ? holdLine(limits, s.held ?? {}) : '';
+    hold.textContent = ok ? holdLine(limits, s.held ?? {}, pickerRows()) : '';
     hold.hidden = !hold.textContent;
   }
 

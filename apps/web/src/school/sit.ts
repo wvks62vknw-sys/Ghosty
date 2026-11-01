@@ -16,9 +16,9 @@ import type { PaperResult, StageId } from '../../../../packages/shared/src/schoo
 import { headers } from '../api/brain';
 import { heavy } from '../core/heavy';
 import { createStore } from '../core/store';
-import { brainsHere, currentModel, loadOffline, offlineBrain, offlineModels, offlineReady, offlineReply, sitOn, unloadOffline, withModel, type OfflineMsg } from '../offline/brain';
+import { brainsHere, currentModel, loadOffline, mayUse, offlineBrain, offlineModels, offlineReady, offlineReply, sitOn, unloadOffline, withModel, type OfflineMsg } from '../offline/brain';
 import { modelKey } from '../offline/harder';
-import { isBigger, type ModelDef } from '../offline/models';
+import { isBigger, MODELS, type ModelDef } from '../offline/models';
 
 export type { PaperResult, StageId };
 
@@ -128,6 +128,16 @@ export function sitBrain(cur: ModelDef, here: ModelDef[], chosen: string | null)
   return least && least.vram < cur.vram ? least : cur;
 }
 
+/**
+ * The brain a paper or CARRY ON goes to: `sitBrain`, but never one that closed Ghosty on this phone (31 Oct: the 0.6B on
+ * the first answer) while another brain here may be used — then the smallest of those.
+ */
+function pickBrain(cur: ModelDef, here: ModelDef[]): ModelDef {
+  const usable = here.filter(mayUse);
+  if (!mayUse(cur) && usable.length) return [...usable].sort((a, b) => a.vram - b.vram)[0]!;
+  return sitBrain(cur, usable.length ? usable : here, null);
+}
+
 /** The messages for one question: the passage first when it has one, the choices A–D for multiple choice. */
 export function examPrompt(item: SitItem, passages: SitPaper['passages']): OfflineMsg[] {
   const p = item.passage ? passages.find((x) => x.id === item.passage) : undefined;
@@ -221,6 +231,8 @@ interface SitMark {
 export interface Resume extends SitMark {
   why: 'closed' | 'gone';
   line: string;
+  /** CARRY ON waits: the only brain here closed Ghosty while answering, and the line says what to do. */
+  blocked?: boolean;
 }
 
 /**
@@ -249,19 +261,21 @@ function readMark(): SitMark | null {
 export const sitPrefs = createStore({ brain: '' }, { persist: 'ghosty.school.brain', keys: ['brain'] });
 
 /** The brain the next paper is sat on (`small`: the smallest, whatever he chose), the brain in use, and the smaller one he could have instead. */
-export async function sitPlan(small = false): Promise<{ brain: ModelDef; cur: ModelDef; chosen: boolean; least: ModelDef | null }> {
+export async function sitPlan(small = false): Promise<{ brain: ModelDef; cur: ModelDef; chosen: boolean; least: ModelDef | null; closed: boolean }> {
   const cur = currentModel();
   const here = new Set(await brainsHere().catch(() => [] as string[]));
   const list = offlineModels().filter((m) => here.has(m.id));
-  const chosen = !small && isBigger(cur) && sitPrefs.get().brain === cur.id;
-  const least = sitBrain(cur, list, null);
-  return { brain: chosen ? cur : least, cur, chosen, least: least.id !== cur.id ? least : null };
+  // the brain in use closed Ghosty on this phone: it is not sat on by itself (USE in SETTINGS is his yes)
+  const closed = !mayUse(cur);
+  const chosen = !small && !closed && isBigger(cur) && sitPrefs.get().brain === cur.id;
+  const least = pickBrain(cur, list);
+  return { brain: chosen ? cur : least, cur, chosen, least: least.id !== cur.id ? least : null, closed };
 }
 
 /** Which brain sits it, in one plain line (`now`: while it is being sat). */
-export function brainLine(p: { brain: ModelDef; cur: ModelDef; chosen: boolean }, now: boolean): string {
+export function brainLine(p: { brain: ModelDef; cur: ModelDef; chosen: boolean; closed?: boolean }, now: boolean): string {
   const lead = `${now ? "I'm sitting it" : 'I sit papers'} on ${p.brain.label}`;
-  if (p.brain.id !== p.cur.id) return `${lead}, the smallest brain on this phone: a paper is long work.`;
+  if (p.brain.id !== p.cur.id) return p.closed ? `${lead}: ${p.cur.label} closed Ghosty on this phone.` : `${lead}, the smallest brain on this phone: a paper is long work.`;
   if (!isBigger(p.brain)) return `${lead}.`;
   return `${lead}${p.chosen ? ', as you chose' : ''}: my written answers are kept shorter on it.`;
 }
@@ -269,12 +283,17 @@ export function brainLine(p: { brain: ModelDef; cur: ModelDef; chosen: boolean }
 /** The offer to carry on, in one line: what stopped it, the question it reached, and the brain CARRY ON uses (the smallest here). */
 function offer(why: Resume['why'], m: SitMark): Resume {
   const have = new Set(offlineBrain.get().have ?? []);
-  const next = sitBrain(currentModel(), offlineModels().filter((x) => have.has(x.id)), null);
+  const next = pickBrain(currentModel(), offlineModels().filter((x) => have.has(x.id)));
   const what = m.title.split(' · ')[0] || 'a paper';
   const head = why === 'closed' ? `Ghosty closed while I sat ${what}` : `My brain on this phone gave out while I sat ${what}`;
   const at = m.n && m.of ? `, at question ${m.n} of ${m.of}` : '';
   const kept = m.n > 1 ? '. My answers before it are kept' : '';
   const on = next.id !== m.brain ? `${next.label}, the smallest brain on this phone` : next.label;
+  // The brain that was answering closed Ghosty and nothing smaller is here (31 Oct, the 0.6B): no blind retry of the same
+  // brain; the way on is said (GET the stand-in, or USE as his yes).
+  if (!mayUse(next)) {
+    return { ...m, why, blocked: true, line: `${head}${at}${kept}. ${next.label} closed Ghosty while answering, so CARRY ON waits for a brain this phone can hold: in Settings → Offline brain, GET the smaller ${MODELS[1]!.label} or press USE to try ${next.label} again.` };
+  }
   return { ...m, why, line: `${head}${at}${why === 'gone' ? ' (most likely the phone ran short of memory)' : ''}${kept}. CARRY ON ${m.n ? 'picks up there' : 'starts it again'}, on ${on}.` };
 }
 
@@ -333,7 +352,9 @@ export async function sitSubjects(stage: string, subjects: string[], o: { small?
       try {
         await loadOffline().catch((e) => {
           const notHere = /isn't on this phone/.test(String((e as Error)?.message));
-          throw notHere ? e : new Error(`I couldn't load ${plan.brain.label} to sit the paper (the phone may be short of memory): close other apps, then press SIT again.`);
+          // (a brain that closed Ghosty before is refused in its own words: they say what to do)
+          const refused = !!(e as { refuse?: boolean })?.refuse;
+          throw notHere || refused ? e : new Error(`I couldn't load ${plan.brain.label} to sit the paper (the phone may be short of memory): close other apps, then press SIT again.`);
         });
         for (const [k, subject] of subjects.entries()) {
           if (mine.signal.aborted) break;

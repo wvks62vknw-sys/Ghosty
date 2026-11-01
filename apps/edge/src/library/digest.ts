@@ -1,16 +1,20 @@
 /**
  * Fresh knowledge every day. At 05:40 UK time (job kind `digest`) the brain gathers the day's
  * headlines and new work with no model at all — BBC News (world, UK, Birmingham, technology,
- * science), Hacker News' front page, the newest arXiv papers in AI and machine learning, and
- * Wikipedia's current events — and files them in the library notebook "Fresh knowledge"
- * (doc `notes_daily`), one passage per source under the day's heading, so library_search and
- * the automatic lookup before every reply find them. When a cheap model is free it adds one
- * more passage, the day in three levels (one line / more detail / for an expert); when none is
- * free that passage is skipped quietly. At most 21 outbound requests; never twice a day on its
- * own (DIGEST NOW gathers again and replaces the day's sections); never a notification;
- * entries older than a month are let go so the notebook stays small.
+ * science), Hacker News' front page, the newest arXiv papers in AI and machine learning,
+ * Wikipedia's current events, and (OWNER-ISSUES 77d) the primary and credible sources' own feeds:
+ * UN News, the ICC, GOV.UK, new UK legislation, Amnesty, Human Rights Watch, ICIJ, Bellingcat,
+ * OCCRP, ProPublica and Full Fact — and files them in the library notebook "Fresh knowledge"
+ * (doc `notes_daily`), one passage per source under the day's heading with the source's tier
+ * ("YYYY-MM-DD · source · TIER"), so library_search, the automatic lookup before every reply and a
+ * cited answer find them and know how far each can be trusted. When a cheap model is free it adds
+ * one more passage, the day in three levels (one line / more detail / for an expert); when none is
+ * free that passage is skipped quietly. One request per source (20 a run, never more than 24);
+ * never twice a day on its own (DIGEST NOW gathers again and replaces the day's sections); never a
+ * notification; entries older than a month are let go so the notebook stays small.
  */
 import type { DigestInfo } from '../../../../packages/shared/src/protocol';
+import { tierWord, type Tier } from '../../../../packages/shared/src/sources';
 import { asData } from '../kernel/permissions';
 import type { Library } from './store';
 
@@ -26,20 +30,58 @@ const KEEP_DAYS = 31;
 const PER_FEED = 8;
 const HN_ITEMS = 12;
 const ABSTRACT_CHARS = 300;
+/** A feed item's description, cut (an investigation's feed can carry its whole first page). */
+const DESCRIPTION_CHARS = 240;
+/** Fetches at once (a Worker keeps six connections open; the rest would wait inside their timeout). */
+const AT_ONCE = 6;
 
-const BBC: [string, string][] = [
-  ['BBC News', 'https://feeds.bbci.co.uk/news/rss.xml'],
-  ['BBC UK', 'https://feeds.bbci.co.uk/news/uk/rss.xml'],
-  ['BBC Birmingham', 'https://feeds.bbci.co.uk/news/england/birmingham_and_black_country/rss.xml'],
-  ['BBC Technology', 'https://feeds.bbci.co.uk/news/technology/rss.xml'],
-  ['BBC Science', 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml'],
+/** How a feed is read: RSS or Atom items, arXiv's RSS (title and abstract), Hacker News' front page, Wikipedia's day. */
+export type FeedKind = 'rss' | 'arxiv' | 'hn' | 'wiki';
+export interface Feed {
+  name: string;
+  url: string;
+  /** How far it can be trusted (packages/shared/src/sources.ts): the word ends its passages' heading. */
+  tier: Tier;
+  kind: FeedKind;
+}
+
+/** Hacker News' front page in one request (its free search service, no key): the 12 with the most points. */
+const HN_FRONT = 'https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30';
+
+/**
+ * Every source the digest reads, in the order its passages are filed, each with its tier. OWNER-ISSUES 77d: after the
+ * original nine, the primary and credible sources' own feeds, each checked by hand on 31 Oct 2026 to answer with RSS or
+ * Atom. Left out because they did not: the OHCHR's press releases (403 to two addresses), the ICJ's press releases (404
+ * to two) and B'Tselem's (429, then 404). Hacker News takes one request (its front page), not thirteen, so all twenty
+ * fit in a run with room under MAX_REQUESTS.
+ */
+export const FEEDS: Feed[] = [
+  { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml', tier: 'press', kind: 'rss' },
+  { name: 'BBC UK', url: 'https://feeds.bbci.co.uk/news/uk/rss.xml', tier: 'press', kind: 'rss' },
+  { name: 'BBC Birmingham', url: 'https://feeds.bbci.co.uk/news/england/birmingham_and_black_country/rss.xml', tier: 'press', kind: 'rss' },
+  { name: 'BBC Technology', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', tier: 'press', kind: 'rss' },
+  { name: 'BBC Science', url: 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml', tier: 'press', kind: 'rss' },
+  { name: 'arXiv cs.AI', url: 'https://rss.arxiv.org/rss/cs.AI', tier: 'primary', kind: 'arxiv' },
+  { name: 'arXiv cs.LG', url: 'https://rss.arxiv.org/rss/cs.LG', tier: 'primary', kind: 'arxiv' },
+  { name: 'Hacker News', url: HN_FRONT, tier: 'lead', kind: 'hn' },
+  { name: 'Wikipedia current events', url: 'https://en.wikipedia.org/wiki/Portal:Current_events', tier: 'reference', kind: 'wiki' },
+  // the record itself
+  { name: 'UN News', url: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml', tier: 'primary', kind: 'rss' },
+  { name: 'ICC news', url: 'https://www.icc-cpi.int/rss.xml', tier: 'primary', kind: 'rss' },
+  { name: 'GOV.UK announcements', url: 'https://www.gov.uk/search/news-and-communications.atom', tier: 'primary', kind: 'rss' },
+  { name: 'New UK legislation', url: 'https://www.legislation.gov.uk/new/data.feed', tier: 'primary', kind: 'rss' },
+  // careful secondary work with a method
+  { name: 'Amnesty International', url: 'https://www.amnesty.org/en/feed/', tier: 'credible', kind: 'rss' },
+  { name: 'Human Rights Watch', url: 'https://www.hrw.org/rss/news', tier: 'credible', kind: 'rss' },
+  { name: 'ICIJ', url: 'https://www.icij.org/feed/', tier: 'credible', kind: 'rss' },
+  { name: 'Bellingcat', url: 'https://www.bellingcat.com/feed/', tier: 'credible', kind: 'rss' },
+  { name: 'OCCRP', url: 'https://www.occrp.org/en/feed', tier: 'credible', kind: 'rss' },
+  { name: 'ProPublica', url: 'https://www.propublica.org/feeds/propublica/main', tier: 'credible', kind: 'rss' },
+  { name: 'Full Fact', url: 'https://fullfact.org/feed/', tier: 'credible', kind: 'rss' },
 ];
-const ARXIV: [string, string][] = [
-  ['arXiv cs.AI', 'https://rss.arxiv.org/rss/cs.AI'],
-  ['arXiv cs.LG', 'https://rss.arxiv.org/rss/cs.LG'],
-];
-const HN_TOP = 'https://hacker-news.firebaseio.com/v0/topstories.json';
-const hnItem = (id: number) => `https://hacker-news.firebaseio.com/v0/item/${id}.json`;
+
+/** A passage's heading: "YYYY-MM-DD · source · TIER" (the Brief and the library read the source; a cited answer, the tier). */
+export const digestHeading = (day: string, source: string, tier: Tier) => `${day} · ${source} · ${tierWord(tier)}`;
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 /** Wikipedia's page for the day: Portal:Current_events/2026_October_17 (no leading zero on the day). */
 export const wikiDayUrl = (now: number) => {
@@ -58,29 +100,59 @@ export const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
 
 // ── parsing (no network; exported for the tests) ───────────────────────────────────
 
+const NAMED: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…', ndash: '–', mdash: '—' };
+const char = (n: number) => (n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '');
+const entities = (s: string) => s.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (all, e: string) => (e[0] !== '#' ? NAMED[e.toLowerCase()] ?? all : char(/^#x/i.test(e) ? parseInt(e.slice(2), 16) : Number(e.slice(1)))));
+const unwrap = (s: string) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+
+/**
+ * Plain words: markup and entities off. Twice over, for a feed that carries its page's markup escaped inside the item
+ * ("&lt;p&gt;… &amp;nbsp;"): its tags go once they are tags again, and its entities once they are entities again.
+ */
 const decode = (s: string) =>
-  s
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+  entities(entities(unwrap(s).replace(/<[^>]+>/g, ' ')).replace(/<\/?[a-z][^<>]*>/gi, ' '))
     .replace(/\s+/g, ' ')
     .trim();
 
-const tag = (block: string, name: string) => decode(block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'))?.[1] ?? '');
+const raw = (block: string, name: string) => block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'))?.[1] ?? '';
+const tag = (block: string, name: string) => decode(raw(block, name));
 
-/** The first `n` items of an RSS feed: title and description (and link). */
-export function parseRss(xml: string, n = PER_FEED): { title: string; description: string; link: string }[] {
+/** A feed's own boilerplate, dropped sentence by sentence (a newsletter plug, "The post … appeared first on …"). */
+const BOILER = /\b(?:sign up (?:here )?to receive|become a member and support|support our work here|appeared first on|click to expand image)\b/i;
+
+/**
+ * An item's description as words. When it carries its page's markup, its paragraphs (the byline, the date, the image
+ * caption and the page furniture before them are left); else all of it. Boilerplate sentences go.
+ */
+function described(inner: string): string {
+  const html = entities(unwrap(inner));
+  const paras = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map((m) => decode(m[1]!)).filter((x) => x.length > 1);
+  // (WordPress's "The post <its title> appeared first on <the site>." goes whole: its title has full stops of its own)
+  const words = (paras.length ? paras.join(' ') : decode(inner)).replace(/\bThe post .*? appeared first on [^.]*\.?/gi, ' ').trim();
+  return words.split(/(?<=[.!?])\s+/).filter((x) => !BOILER.test(x)).join(' ').trim();
+}
+
+/** An Atom entry's page: its alternate link, else a plain one (never itself, never its PDF). */
+function atomLink(block: string): string {
+  const links = [...block.matchAll(/<link\b([^>]*)>/gi)].map((m) => m[1]!);
+  const attr = (a: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(a)?.[1] ?? '';
+  const page = links.find((a) => attr(a, 'rel') === 'alternate' && !/pdf/i.test(attr(a, 'type'))) ?? links.find((a) => !attr(a, 'rel'));
+  return page ? attr(page, 'href') : '';
+}
+
+/** Cut at a word end, with "…". */
+const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max).replace(/\s+\S*$/, '')}…` : s);
+
+/** The first `n` items of an RSS feed (or entries of an Atom one): title, description (cut to `max` characters) and link. */
+export function parseRss(xml: string, n = PER_FEED, max = DESCRIPTION_CHARS): { title: string; description: string; link: string }[] {
   const out: { title: string; description: string; link: string }[] = [];
-  for (const m of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
-    const title = tag(m[1]!, 'title');
+  const items = [...xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)];
+  const blocks = items.length ? items : [...xml.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)];
+  for (const m of blocks) {
+    const b = m[1]!;
+    const title = tag(b, 'title');
     if (!title) continue;
-    out.push({ title, description: tag(m[1]!, 'description'), link: tag(m[1]!, 'link') });
+    out.push({ title, description: clip(described(raw(b, 'description') || raw(b, 'summary') || raw(b, 'content')), max), link: tag(b, 'link') || atomLink(b) });
     if (out.length >= n) break;
   }
   return out;
@@ -88,7 +160,8 @@ export function parseRss(xml: string, n = PER_FEED): { title: string; descriptio
 
 /** The first `n` papers of an arXiv RSS feed: the title and the first 300 characters of the abstract. */
 export function parseArxiv(xml: string, n = PER_FEED): { title: string; abstract: string; link: string }[] {
-  return parseRss(xml, n).map((it) => {
+  // (the abstract is read whole, then cut to its own 300: a news item's 240 is not for papers)
+  return parseRss(xml, n, Infinity).map((it) => {
     // the description is "arXiv:2501.01234v1 Announce Type: new  Abstract: …"
     const abstract = it.description.replace(/^.*?Abstract:\s*/i, '').replace(/^arXiv:\S+\s*/i, '').trim();
     return { title: it.title.replace(/\s*\(arXiv:[^)]*\)\s*$/, ''), abstract: abstract.length > ABSTRACT_CHARS ? `${abstract.slice(0, ABSTRACT_CHARS).replace(/\s+\S*$/, '')}…` : abstract, link: it.link };
@@ -129,6 +202,16 @@ export function hnLines(items: { title?: string; url?: string; score?: number }[
   return items.filter((it) => it && typeof it.title === 'string').map((it) => `- ${decode(it.title!)}${typeof it.score === 'number' ? ` (${it.score} points)` : ''}${it.url ? ` — ${it.url}` : ''}`);
 }
 
+/** Hacker News' front page (its search service's answer) as items: the `n` with the most points, a discussion's own page when it links nowhere. */
+export function hnFront(json: string, n = HN_ITEMS): { title?: string; url?: string; score?: number }[] {
+  const hits = ((JSON.parse(json) as { hits?: unknown }).hits ?? []) as { title?: unknown; url?: unknown; points?: unknown; objectID?: unknown }[];
+  return (Array.isArray(hits) ? hits : [])
+    .filter((x) => x && typeof x.title === 'string')
+    .map((x) => ({ title: x.title as string, url: typeof x.url === 'string' && x.url ? x.url : typeof x.objectID === 'string' ? `https://news.ycombinator.com/item?id=${x.objectID}` : undefined, score: typeof x.points === 'number' ? x.points : undefined }))
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, n);
+}
+
 /** A passage of at most `max` characters, cut at a line end. */
 export function fitPassage(text: string, max = MAX_PASSAGE): string {
   if (text.length <= max) return text;
@@ -156,44 +239,49 @@ function fetcher(): { get(url: string): Promise<string>; count(): number } {
 
 interface Gathered {
   source: string;
+  tier: Tier;
   text: string;
 }
 
-/** Everything that could be fetched today, one text per source; a source that fails is left out. */
-export async function gather(now = Date.now()): Promise<{ got: Gathered[]; requests: number; failed: string[] }> {
-  const f = fetcher();
-  const got: Gathered[] = [];
-  const failed: string[] = [];
-  const day = dayOf(now);
-  const feed = async (name: string, url: string, lines: (xml: string) => string[]) => {
-    try {
-      const out = lines(await f.get(url));
-      if (out.length) got.push({ source: name, text: `Fresh knowledge ${day} — ${name} (${new URL(url).hostname}):\n${out.join('\n')}` });
-      else failed.push(`${name}: nothing in the feed`);
-    } catch (e) {
-      failed.push(`${name}: ${String((e as Error)?.message ?? e).slice(0, 100)}`);
+/** One feed's lines for today (none when it had nothing), or a throw saying why not. */
+async function linesOf(feed: Feed, f: { get(url: string): Promise<string> }, now: number): Promise<string[]> {
+  if (feed.kind === 'hn') return hnLines(hnFront(await f.get(feed.url)));
+  if (feed.kind === 'wiki') return wikiBullets((JSON.parse(await f.get(wikiDayUrl(now))) as { parse?: { wikitext?: string } }).parse?.wikitext ?? '');
+  const xml = await f.get(feed.url);
+  if (feed.kind === 'arxiv') return parseArxiv(xml).map((it) => `- ${it.title}${it.abstract ? `: ${it.abstract}` : ''}${it.link ? ` (${it.link})` : ''}`);
+  return parseRss(xml).map((it) => `- ${it.title}${it.description ? ` — ${it.description}` : ''}`);
+}
+
+/** `fn` over `items`, at most `n` at a time, the answers in the items' order. */
+async function inTurn<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
     }
-  };
-  await Promise.all(BBC.map(([name, url]) => feed(name, url, (xml) => parseRss(xml).map((it) => `- ${it.title}${it.description ? ` — ${it.description}` : ''}`))));
-  await Promise.all(ARXIV.map(([name, url]) => feed(name, url, (xml) => parseArxiv(xml).map((it) => `- ${it.title}${it.abstract ? `: ${it.abstract}` : ''}${it.link ? ` (${it.link})` : ''}`))));
-  try {
-    const ids = (JSON.parse(await f.get(HN_TOP)) as unknown[]).filter((x): x is number => typeof x === 'number').slice(0, HN_ITEMS);
-    const items = await Promise.all(ids.map((id) => f.get(hnItem(id)).then((t) => JSON.parse(t) as { title?: string; url?: string; score?: number }).catch(() => null)));
-    const lines = hnLines(items.filter((x): x is { title?: string; url?: string; score?: number } => !!x));
-    if (lines.length) got.push({ source: 'Hacker News', text: `Fresh knowledge ${day} — Hacker News front page (news.ycombinator.com):\n${lines.join('\n')}` });
-    else failed.push('Hacker News: nothing came back');
-  } catch (e) {
-    failed.push(`Hacker News: ${String((e as Error)?.message ?? e).slice(0, 100)}`);
-  }
-  try {
-    const j = JSON.parse(await f.get(wikiDayUrl(now))) as { parse?: { wikitext?: string } };
-    const lines = wikiBullets(j.parse?.wikitext ?? '');
-    if (lines.length) got.push({ source: 'Wikipedia current events', text: `Fresh knowledge ${day} — Wikipedia current events (en.wikipedia.org):\n${lines.join('\n')}` });
-    else failed.push('Wikipedia: no events on the page yet');
-  } catch (e) {
-    failed.push(`Wikipedia: ${String((e as Error)?.message ?? e).slice(0, 100)}`);
-  }
-  return { got, requests: f.count(), failed };
+  }));
+  return out;
+}
+
+/** Everything that could be fetched today, one text per source in the registry's order; a source that fails is left out. */
+export async function gather(now = Date.now(), feeds: Feed[] = FEEDS): Promise<{ got: Gathered[]; requests: number; failed: string[] }> {
+  const f = fetcher();
+  const day = dayOf(now);
+  const said = (feed: Feed) => (feed.kind === 'wiki' ? 'Wikipedia' : feed.name);
+  const each = await inTurn(feeds, AT_ONCE, async (feed): Promise<Gathered | string> => {
+    try {
+      const lines = await linesOf(feed, f, now);
+      if (!lines.length) return `${said(feed)}: ${feed.kind === 'wiki' ? 'no events on the page yet' : feed.kind === 'hn' ? 'nothing came back' : 'nothing in the feed'}`;
+      const title = feed.kind === 'hn' ? 'Hacker News front page' : feed.name;
+      const where = feed.kind === 'hn' ? 'news.ycombinator.com' : new URL(feed.url).hostname;
+      return { source: feed.name, tier: feed.tier, text: `Fresh knowledge ${day} — ${title} (${where}):\n${lines.join('\n')}` };
+    } catch (e) {
+      return `${said(feed)}: ${String((e as Error)?.message ?? e).slice(0, 100)}`;
+    }
+  });
+  return { got: each.filter((x): x is Gathered => typeof x !== 'string'), requests: f.count(), failed: each.filter((x): x is string => typeof x === 'string') };
 }
 
 const LEVELS_SYSTEM =
@@ -218,8 +306,9 @@ export async function runDigest(deps: DigestDeps, opts: { force?: boolean; now?:
   if (!library.doc(DIGEST_DOC)) library.createDoc({ id: DIGEST_DOC, title: 'Fresh knowledge', source: 'gathered daily by Ghosty', kind: 'notes' });
   let passages = 0;
   for (const g of got) {
-    const heading = `${day} · ${g.source}`;
+    const heading = digestHeading(day, g.source, g.tier);
     library.removeSection(DIGEST_DOC, heading);
+    library.removeSection(DIGEST_DOC, `${day} · ${g.source}`); // the day's section as filed before the tiers, gathered again
     passages += await library.addPassages(DIGEST_DOC, [{ heading, text: fitPassage(g.text) }]);
   }
   let levels = false;

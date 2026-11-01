@@ -380,6 +380,8 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     }
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
     if ((e as Error)?.name === 'AbortError') return true;
+    // A brain that closed Ghosty before is refused in plain words (offline/brain.ts): said, so the silence is explained.
+    if ((e as { refuse?: boolean })?.refuse) toast(String((e as Error).message).slice(0, 220), 'warn');
     console.warn('offline brain', e);
     return false;
   }

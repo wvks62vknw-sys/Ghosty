@@ -1,8 +1,8 @@
-# What Ghosty can do for you — in the words you asked for it (31 October 2026, 17:05 UK)
+# What Ghosty can do for you — in the words you asked for it (31 October 2026, 19:15 UK)
 
 One page, kept up to date as batches land. Each line: what you said → what he does now → how you use it. ABILITIES
 (the Me sheet → Everything I can do) has the live list made from his own code; this page is the plain-words version.
-Batch 6 (the Machine view and foresight) is built and reviewed and in its pull request: live about two hours after it opens, and its lines below are written as what he does.
+Batch 6 (the Machine view and foresight) went live at 19:10 UK on 31 Oct (PR #47).
 
 ## The everyday things
 
@@ -106,16 +106,19 @@ Batch 6 (the Machine view and foresight) is built and reviewed and in its pull r
   domain's age, look-alikes of HMRC / Royal Mail / Evri / the banks, three public block lists, the message's own shape;
   he never calls anything "safe". WATCHING OVER YOU on the Me sheet shows the whole watch at a glance.
 - **"The Machine view of his city with everything moving… predictions as practice, scored only by what happens."** →
-  Batch 6, in its pull request. The Machine view is above, under God's Eye. FORESIGHT: every morning at six he predicts
+  Batch 6, live since 19:10 UK on 31 Oct. The Machine view is above, under God's Eye. FORESIGHT: every morning at six he predicts
   the rain at Home for 12:00–18:00, your 08:00 commute (with the free TomTom key) and whether your first train or bus to
   work will be on time; each is scored at its time by the public feed alone, never adjusted afterwards. Ask him "what do
   you reckon, will it rain Saturday?" and his answer goes on record, scored only by your word ("you were right", "you
   were wrong"); "how often are you right?" gives his record per kind; "what do you expect today?" his open ones. The
   Brief's FORESIGHT panel and SYSTEM → Report card → FORESIGHT show it all; the first prediction that comes true is one
   notification, once ever. He never predicts anything about a person: the tool refuses it in code and records nothing.
-  Then: the universal workshop (the wind tunnel, beams, the engine, architecture — every answer a
-  first estimate, never certified), the knowledge with sources, the social self and the rituals (Father, the origin, the
-  weekly letter; your four Harold / Machine picks shape that one).
+  Building now (batch 7): the WORKBENCH — the wind tunnel, beams and columns, gears, the engine cycle, wings and cars,
+  projectiles and orbits, heat, sun and shadow, circuits, every answer a first estimate and never certified — and
+  knowledge with sources: every claim traced to a primary or credible source and labelled (established fact, documented
+  allegation, legal finding in progress, contested, rumour, debunked), TikTok, X and YouTube as leads never sources,
+  credible primary feeds in the Digest. Then: the social self and the rituals (Father, the origin, the weekly letter;
+  your four Harold / Machine picks shape that one).
 
 ## What only you can do (ten minutes, when you like)
 

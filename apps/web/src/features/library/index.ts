@@ -71,7 +71,7 @@ type StudyNow = StudyInfo & {
 /** The STUDY ALL switch travels as FOCUS words (the brain's library/study.ts ALL_ON / ALL_OFF). */
 const ALL_ON = 'study-all-on';
 const ALL_OFF = 'study-all-off';
-/** One passage of the day's digest (library/digest.ts in the brain): "YYYY-MM-DD · source". */
+/** One passage of the day's digest (library/digest.ts in the brain): "YYYY-MM-DD · source · TIER" ("YYYY-MM-DD · source" before the tiers). */
 interface FreshItem {
   heading: string;
   text: string;
@@ -635,12 +635,25 @@ export const libraryTab: TabDef = {
         ),
       );
     };
-    // ---- fresh today: the morning digest (BBC, Hacker News, arXiv, Wikipedia's current events, the day in three levels)
+    // ---- fresh today: the morning digest (BBC, Hacker News, arXiv, Wikipedia's current events, the primary and credible
+    // sources' own feeds, the day in three levels)
     const fresh = panel('FRESH TODAY', { footer: true, status: '', cls: 'fresh' });
     const freshRow = (p: FreshItem) => {
-      const source = p.heading.replace(/^\d{4}-\d{2}-\d{2} · /, '');
+      // the source in the row's name, its tier (OWNER-ISSUES 77d) as a word in a chip before what it said
+      const m = /^\d{4}-\d{2}-\d{2} · (.+?)(?: · (PRIMARY|CREDIBLE|PRESS|REFERENCE|LEAD|UNKNOWN))?$/.exec(p.heading);
+      const source = m?.[1] ?? p.heading;
+      const tier = m?.[2];
       const body = p.text.split('\n').slice(1).join(' ').replace(/\s+/g, ' ');
-      return row(source, body, '›', { wrap: true, onClick: () => modal(p.heading, h('div.readwrap', h('div.reader', ...p.text.split('\n').map((line) => h('p', line))))) });
+      const said = tier ? h('span', h('small.ctier', { dataset: { tier: tier.toLowerCase(), case: 'keep' }, title: `Tier: ${tier}` }, tier), ' ', body) : body;
+      const r = row(source, said, '›', { wrap: true, onClick: () => modal(p.heading, h('div.readwrap', h('div.reader', ...p.text.split('\n').map((line) => h('p', line))))) });
+      // a source's name with its capitals (ICIJ, OCCRP, GOV.UK): this panel's own capitals (styles.css, route C), not the rows'
+      // sentence case, which would make them "Icij" and "Gov.uk"
+      const k = r.querySelector<HTMLElement>('.k');
+      if (k) {
+        k.removeAttribute('data-label');
+        k.dataset.case = 'keep';
+      }
+      return r;
     };
     const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.');
     const paintFresh = async () => {

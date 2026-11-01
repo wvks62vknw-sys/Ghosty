@@ -256,6 +256,20 @@ test('the prompt budget holds for every dial setting on every channel: app, spok
   }
 });
 
+test('the workbench group (OWNER-ISSUES 61b): named on a plain turn as "workbench: estimate", described only by his words, paid for by HEARING and TODAY', () => {
+  const plain = P.systemPrompt(client, [], true, [], { groups: hello() });
+  assert.match(plain, /^workbench: estimate$/m, 'the plain turn names the tool');
+  assert.ok(!plain.includes('first engineering estimates'), 'its about line only when his words turn it on');
+  // the 20 characters of "\nworkbench: estimate" paid for by 24 from these two lines (worst case 5,490 of 5,500; it was 5,494)
+  assert.match(plain, /^- You hear and speak\.$/m);
+  assert.match(plain, /^- Today's news and papers: library_search\.$/m);
+  const beam = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('how strong is a 3 m steel beam with 5 kn in the middle', new Set(), false) });
+  assert.match(beam, /^- You can give first engineering estimates .*\(estimate\).*never certified/m);
+  assert.ok(!/^workbench: estimate$/m.test(beam), 'on: described, not named');
+  for (const t of ['hello', 'what time is it', 'remind me at 5pm', 'how are you']) assert.ok(!T.selectGroups(t, new Set(), false).on.some((g) => g.name === 'workbench'), `"${t}" leaves it off`);
+  for (const t of ["what's the gear ratio of 50 and 11 teeth", 'u-value of a cavity wall', 'led resistor for 5v', 'escape velocity of mars', 'how long is the shadow at 3pm']) assert.ok(T.selectGroups(t, new Set(), false).on.some((g) => g.name === 'workbench'), `"${t}" turns it on`);
+});
+
 class Mem {
   m = new Map();
   async get(k) { return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }

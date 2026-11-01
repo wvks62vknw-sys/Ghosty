@@ -946,6 +946,71 @@ folder that no longer exists; ignore those paths).
   under software rendering (the spec allows 10 s and prints it): his phone decides the 2 s; (4) the owner's lowercase name
   edge above. Next: PR up, CI ~2 h (81 specs now), merge, then the free docs push; the owner's picks for the social self
   remain unanswered, so the workshop and knowledge batch is the one to brief next.
+- 31 Oct 19:15 UK: PR #47 MERGED (main 466fcd4, merge commit at 19:10 UK) after a green run on c335138 (smoke 95 min with
+  81 specs, brain 9 min; the whole run 1 h 35 min). BATCH 6 LIVE: ⑥ done. Main's own push run follows with the guard live:
+  confirmed at the 21:05 check-in when `git log origin/main --oneline -3` shows no "Undo broken change" on top of 466fcd4.
+  Next: BRIEF-WORKSHOP (⑦ the workshop and knowledge), planned from an inventory first; ⑧ the social self and rituals
+  stays last until the owner answers his four Harold / Machine picks.
+- 31 Oct 19:35 UK: BRIEF-WORKSHOP WRITTEN (e6750f2) and the batch-7 builder started (a worktree from e6750f2, port 8866).
+  Planned from an inventory (an Explore agent on a cheaper model): the cited pipeline proves only "read this turn" (no
+  tier, label or lead-vs-source idea), the Digest list is nine hard-coded feeds with no primary among them, no offline
+  Wikipedia or solver or physics or unit code exists (lengths only), WebGPU is used only by the offline brain and CI has
+  none, the "Workshop" tab is Ghosty editing himself (17 specs name it: not to be repurposed), 6 characters of prompt
+  headroom. SCOPE: (1) pure solvers in `packages/shared/src/workbench/` (units, beams + Euler, gears, the Otto/Diesel
+  cycle, aero forces, projectile + orbit, heat, sun, circuits) tested against textbook values; (2) a new WORKBENCH tab in
+  MAKE with five sections and the standing label FIRST ESTIMATE · NOT CERTIFIED, the `estimate` tool in a keyword-gated
+  group paid for by ≥ 24 characters trimmed from TODAY/HEARING, chat words with no model, `workbench.spec`; (3) the wind
+  tunnel: a D2Q9 lattice-Boltzmann flow in plain typed arrays (CPU, in the shared worker; no WebGPU this batch) with
+  NACA/circle/plate/car/drawn shapes and Cl/Cd by momentum exchange, `tunnel.spec`; (4) knowledge with sources:
+  `sources.ts` tiers (primary/credible/press/reference/lead/unknown) and the six claim labels with code caps, carried
+  through the cited pipeline, CITED_PROMPT (not under the guard), cited-by-default words for contested public matters,
+  tiered search results, a refusal detector, and a Digest FEEDS registry with primary/credible RSS (each URL verified by
+  hand). NOT IN IT: offline Wikipedia, rights-and-law curriculum topics, new always-on persona words. The lines that
+  hold: public matters and public figures only as the documents say, never a private person; nothing billable; every
+  number a first estimate; the sourcing caps are code. Next wake: the hand-back or the 21:03 check-in.
+- 31 Oct 22:15 UK: HIS SECOND LIVE BUG OF THE DAY, FIXED ON THE BRANCH (OWNER-ISSUES 89): "when i try to sit an exam on
+  any brain it just crashes and closes". His three answers placed it: the sitting record said "at question 1 of 10" on the
+  0.6B, so the load fits and the FIRST ANSWER kills the page (the working memory the model takes when it first computes);
+  the 2B still dies on load. Only the bigger brains had a crash record, so the 0.6B was retried blind on every SIT.
+  THE FIX (dae96c8 + the follow-up): every brain's load under the load record (guarded), every reply under a record of its
+  own (ghosty.offlinebrain.answering) written before the model runs and cleared after — and cleared on pagehide while a
+  reply is in flight, because a user's reload or tap away is not a kill (a jetsam kill fires nothing). On opening the
+  brain is marked closed with its phase (Held.phase), mayLoad refuses it until USE, the words say what to do; the Qwen2.5
+  0.5B stand-in (keyed on its own: models.ts heldKey) is offered first in WHICH BRAIN and takes over when on the phone;
+  SCHOOL's pickBrain never sits a closed brain while another may be used; CARRY ON waits with the words otherwise.
+  LESSONS: (a) a crash record that covers only the brains we thought dangerous leaves the safe-looking one to kill the
+  app blind — record every size, and record the PHASE (loading vs answering): the phase is what diagnosed this; (b) in a
+  spec, page.reload() mid-answer is a user reload (pagehide fires), not a kill — the sit spec's "iOS closed Ghosty" step
+  reloads mid-question and must still carry on, so the record clears on pagehide only when a reply is in flight, and a
+  record a spec plants from outside survives the reload. VALIDATION: web typecheck and build; node offline-brain 47/47;
+  specs bigbrain, offlinebrain, school, sit, onphone, independence green (bigbrain's new section 11 covers the record,
+  the words, TEST asking, GET and USE of the stand-in, a reply's record written and cleared, SCHOOL sitting on it).
+  HONEST LIMIT: whether the 0.5B fits his phone is only known by trying; the words say so if it does not. NEXT: lands
+  with batch 7's PR (one CI run); then he GETs and USEs the 0.5B before SIT (the old close's record predates the fix).
+- 31 Oct 23:00 UK: BATCH 7 BUILT, REVIEWED AND MERGED onto the branch (merge 37a244c; the builder's seven commits e093db5,
+  06d3894, 4df9288, 61b81f4, 87dcd4d, f4cde4c, e382415 from e6750f2; 3 h 25 min; 72 files, +6,752/−177) — with his sitting-crash
+  fix (dae96c8, ec05ed4, ba7b7fb) already on the branch; no file overlapped, no conflict. WHAT IS WHERE: the solvers in
+  packages/shared/src/workbench/ (units, estimate, beams, gears, engine, aero, motion, heat, sun, circuits, words, flow, shapes,
+  index); the tab in apps/web/src/features/workbench/ (index, panels, card, tunnel, tunnelwork); the tool apps/edge/src/tools/
+  workbench.ts; the sourcing in packages/shared/src/sources.ts and refusal.ts, carried by cited.ts, tools/web.ts, tools/library.ts,
+  library/digest.ts (the FEEDS registry), llm/router.ts (avoid), agent.ts (the refusal retry); the phone's chips in cited/text.ts
+  and features/core/cited.ts; FRESH TODAY in features/library; specs workbench, tunnel (in the CI loop after studio), cited,
+  library, brief, hubcards, deck updated; tests workbench.test (15), sources.test (3), cited/digest/web tests extended.
+  MY REVIEW: every solver formula read against its textbook form (nothing to fix: the beam cases incl. the fixed-fixed off-centre
+  load, Euler with the end factors, the ISA, thin-aerofoil α₀ for NACA 2412, the Diesel cycle, Hohmann, Newton cooling, NOAA's
+  position, E12 rounding), the lattice (pull streaming, mirror walls, half-way bounce-back, the momentum-exchange sign, the
+  stability guard), the words parser's command/question split, the tool's ALSO payment and both prompt tests, the sources table
+  and capLabel, the refusal retry (ctx.pop() after ctx.push(message): right), the lead note outside asData, the Digest's budget
+  (20 of 24) and tiers (each equal to its host's in the table, asserted). Nothing to fix. REVIEW NOTES, not fixes: WORKBENCH_WHEN
+  has common words (lift, teeth, wings, shadows, engine) — a false-on costs about 1,200 characters on that turn, outside the
+  plain-turn guard; workbenchAsked takes a one-word "orbit"/"shadow"/"circuit" as a command to open a panel. THE BUILDER'S OWN
+  FINDS: nav.spec 807 > 792 px with five MAKE cards (f4cde4c: 52 px instruments on hubs of five or six); tunnel.spec once read a
+  circle's lift 0.22 (vortex shedding at Re ≈ 60: e382415 averages the card over a shedding cycle). BUILDER'S VALIDATION
+  (e382415): both typechecks, web build, brain suite 1,342/1,342, twelve specs clean on 8866, prompt worst case 5,490 of 5,500.
+  MERGED-TREE VALIDATION (37a244c, 23:27 UK): brain typecheck; brain suite 1,342 of 1,342 (three sitting tests first failed to BUILD: school.test.mjs stubs the phone's brain and lacked the fix's new export mayUse — the stub gained it, 66a7366; 40/40 then); web typecheck and build; fourteen specs on one fresh preview (8788), in order, all clean: websites 111 s, apps 62, hubcards 57, workbench 23, tunnel 30, cited 32, library 60, brief 40, nav 451, abilities 122, eye 291, sit 67, bigbrain 141, guardian 21. LESSON: a test that stubs a module by a fixed export list breaks silently
+  when the module gains an import elsewhere — the suite's "Build failed" is the stub, not the code; check the stub first.
+  NEXT: PR #48 (one CI run for the batch and the fix; smoke now 83 specs), merge when green; then the post-merge docs and
+  WHAT-HE-CAN-DO as live facts, and his one-tap test (GET and USE the 0.5B, then SIT).
 
 
 

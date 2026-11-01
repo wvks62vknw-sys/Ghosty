@@ -228,6 +228,10 @@ test('a bigger brain: Qwen3.5 0.8B, 2B and 4B pinned exactly as the vendored Web
   // the page gives WebLLM each model's own context and history (brain.ts appConfig)
   const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
   assert.match(brain, /overrides: \{ context_window_size: m\.ctx \?\? 2048, \.\.\.\(m\.history \? \{ max_history_size: m\.history \} : \{\}\) \}/);
+  // every reply on the phone under its own crash record (31 Oct): written before the model runs, cleared after
+  assert.match(brain, /noteAnswering\(\{ model: currentModel\(\)\.id, at: Date\.now\(\) \}\);\n  try \{/);
+  assert.match(brain, /\} finally \{\n    noteAnswering\(null\);\n    armIdle\(\);/);
+  assert.doesNotMatch(brain, /if \(!isBigger\(m\)\) return fn\(\);/, 'every size loads under the crash record');
 });
 
 test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, the WebGPU limits checked before a load, and what this phone can hold', async () => {
@@ -276,6 +280,15 @@ test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, t
   assert.equal(M.holdLine(safari, {}), 'What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 0.6B, 0.8B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
   assert.equal(M.holdLine(big, { 'qwen3-0.6b': { s: 'loaded', at }, 'qwen3.5-2b': { s: 'closed', at } }), 'What this phone can hold: its graphics chip takes pieces of up to 1,024 MB, enough for every brain here; has run Qwen3 0.6B (24 Oct); closed Ghosty loading Qwen3.5 2B (24 Oct); not tried yet: Qwen3.5 0.8B, Qwen3.5 4B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
   assert.match(M.holdLine(null, { 'Qwen3.5-0.8B-q4f16_1-MLC': { s: 'failed', at }, 'qwen3.5-4b': { s: 'refused', at } }), /^What this phone can hold: ran out of memory loading Qwen3\.5 0\.8B \(24 Oct\); could not start Qwen3\.5 4B \(24 Oct\); not tried yet: Qwen3 0\.6B, Qwen3\.5 2B\./);
+  // 31 Oct: the 0.6B closed Ghosty on a paper's first answer. Every brain's load and every reply go under the crash
+  // record; the record says which phase; the Qwen2.5 0.5B stand-in (the one smaller brain) is keyed on its own, the 0.6B
+  // and its trained weeks on their slot, the bigger brains as before
+  assert.equal(M.heldKey(M.MODELS[0]), 'qwen3-0.6b');
+  assert.equal(M.heldKey(M.MODELS[1]), M.MODELS[1].id);
+  assert.equal(M.heldKey(two), 'qwen3.5-2b');
+  assert.equal(M.heldKey(mid), mid.id);
+  assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' } }), /^What this phone can hold: closed Ghosty answering on Qwen3 0\.6B \(24 Oct\); not tried yet: Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
+  assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'loading' }, [M.MODELS[1].id]: { s: 'loaded', at } }, [M.MODELS[1], ...M.PICKER]), /^What this phone can hold: has run Qwen2\.5 0\.5B \(24 Oct\); closed Ghosty loading Qwen3 0\.6B \(24 Oct\); not tried yet: /);
   assert.equal(M.shortName(two), '2B');
 });
 

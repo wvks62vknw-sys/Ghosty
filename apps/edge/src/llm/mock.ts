@@ -7,15 +7,22 @@ import { imagesIn, ownerWords, textOf } from './content';
 import { EXERCISES } from '../training/exercises';
 
 let n = 0;
+/** [refusal] What a model that will not engage says (refusal.ts knows the shape). */
+const REFUSED = "I'm sorry, but I can't discuss that topic. It's a sensitive political matter.";
 const call = (name: string, args: Record<string, unknown>): Msg => ({
   role: 'assistant',
   content: null,
   tool_calls: [{ id: `mock_${++n}`, type: 'function', function: { name, arguments: JSON.stringify(args) } }],
 });
 
-export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<{ message: Msg; model: string }> {
+export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: string): Promise<{ message: Msg; model: string }> {
   const last = messages[messages.length - 1]!;
   const model = 'Mock · scripted';
+  // [refusal] A model that declines (OWNER-ISSUES 77e), on a cited turn: "the model refuses: …" declines at once, and engages when
+  // asked again with it tried last (a free model that will, as the router's `avoid` finds one); "the model always refuses: …"
+  // declines every time (no other model to turn to); "the model reads then refuses: …" looks it up first, then declines.
+  const refusalMode = /CITED ANSWER/.test(String(messages[0]?.content ?? '')) ? /^the model (refuses|always refuses|reads then refuses): /i.exec(ownerWords(textOf([...messages].reverse().find((x) => x.role === 'user')?.content)))?.[1]?.toLowerCase() : undefined;
+  if (last.role !== 'tool' && (refusalMode === 'always refuses' || (refusalMode === 'refuses' && !avoid))) return { message: { role: 'assistant', content: REFUSED }, model };
   // training ground: a wrong first try, then the right answer once shown the failures
   if (/training ground/.test(String(messages[0]?.content ?? ''))) {
     const ex = EXERCISES.find((e) => e.prompt === messages[1]?.content);
@@ -130,7 +137,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // looked up ([2]) and one number with no source at all ([3]).
   if (/^CLAIM CHECK/.test(system)) {
     const claims = [...textOf(last.content).split('\n\nSOURCES:')[0]!.matchAll(/^(\d+)\. (.*)$/gm)];
-    return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1 } : { i: Number(c[1]), found: false })) }) }, model };
+    return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1, label: 'established fact' } : { i: Number(c[1]), found: false })) }) }, model };
   }
   if (/CITED ANSWER/.test(system) && offered('web_search') && chainUser) {
     const asked = ownerWords(textOf(chainUser.content)).replace(/^(cite|fact check|with sources)[:,]?\s*/i, '').trim();
@@ -138,6 +145,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     const found = textOf(chainSince.find((x) => x.role === 'tool')?.content).match(/^\d+\. (.*)\n(https?:\/\/\S+)/m);
     if (found && !chainDid('web_fetch')) return { message: call('web_fetch', { url: found[2] }), model };
     if (!found) return { message: { role: 'assistant', content: 'I could not find a source for that.' }, model };
+    if (refusalMode === 'reads then refuses') return { message: { role: 'assistant', content: REFUSED }, model };
     if (/speed of light/i.test(asked)) {
       return {
         message: {
@@ -159,6 +167,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
       const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
+    // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
+    if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
     const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
     const tc = prev?.tool_calls?.[0]?.function;
@@ -353,6 +363,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
   if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
   if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
+  // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
+  if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
+  if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };
   if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
   if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };

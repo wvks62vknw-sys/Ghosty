@@ -5,19 +5,34 @@
  * against what it actually read in this turn — one cheap model call, or matching words when no
  * model is free — and a number that points at nothing it read is flagged, never passed off as a
  * source. Nothing here runs on an ordinary turn.
+ *
+ * KNOWLEDGE WITH SOURCES (OWNER-ISSUES 77): every source read carries its tier (packages/shared/src/sources.ts: primary,
+ * credible, press, reference, lead, unknown) and every claim a label (established fact, documented allegation, legal finding
+ * in progress, contested, rumour, debunked) — proposed by the check call, capped by code with what the tiers allow. A turn
+ * about a contested public matter (genocide, war crimes, the ICJ, Epstein, a cover-up…) is cited without the toggle. A model
+ * that declines to engage is said to have done so (packages/shared/src/refusal.ts).
  */
 import type { ChatEvent, Citation, CitedInfo, ClaimCheck } from '../../../packages/shared/src/protocol';
+import { REFUSAL_LINE, refusedWords } from '../../../packages/shared/src/refusal';
+import { capLabel, labelCounts, labelOf, tierOf, tierWord, type Label, type Tier } from '../../../packages/shared/src/sources';
 import { asData } from './kernel/permissions';
 import type { Msg } from './llm/router';
 import type { LookedUp } from './tools/types';
 
-/** The owner's words that make a turn a cited one (the composer's CITED toggle does it too). */
-export const CITED_ASK = /\b(?:with (?:sources|citations|references)|cite|citations?|fact[- ]?check(?:ing)?|is it (?:really )?true that)\b/i;
+/**
+ * The owner's words that make a turn a cited one (the composer's CITED toggle does it too): asking for sources, a fact check,
+ * "is it true …" (about something: a bare "is it true?" follows up the last answer), "did … really", "what's the evidence" —
+ * and the contested public matters he named (OWNER-ISSUES 77), cited by default so they are never answered from a model's
+ * opinion alone.
+ */
+export const CITED_ASK = /\b(?:with (?:sources|citations|references)|cite|citations?|fact[- ]?check(?:ing)?|is it (?:really )?true\s+\w+|did\b[^.?!]{1,80}\breally|what(?:'s|’s| is) the evidence|genocides?|war crimes?|crimes against humanity|icj|icc|human rights|epstein|cover[- ]?ups?|corruption|scandals?|conspirac(?:y|ies))\b|\bsources?\s*\?/i;
 export const citedAsked = (text: string): boolean => CITED_ASK.test(text);
 
 /** Added to the system prompt on cited turns only (the plain prompt stays as it is). */
 export const CITED_PROMPT =
-  '\n\nCITED ANSWER (the owner wants facts they can rely on): look it up before answering — library_search and/or web_search, then web_fetch the 1–3 best pages. Put [1], [2]… after each fact, numbered by source. End with a list headed SOURCES, one line per source: [n] title — full URL (or the library document\'s title). Cite only what you searched or read in this turn; never invent a source, a number or a quote. If the sources disagree or say nothing, say so.';
+  '\n\nCITED ANSWER (the owner wants facts they can rely on): look it up before answering — library_search and/or web_search, then web_fetch the 1–3 best pages. Put [1], [2]… after each fact, numbered by source. End with a list headed SOURCES, one line per source: [n] title — full URL (or the library document\'s title). Cite only what you searched or read in this turn; never invent a source, a number or a quote. If the sources disagree or say nothing, say so.' +
+  // The sourcing discipline (OWNER-ISSUES 77b): on cited turns only, never in the plain prompt (its 5,500 characters).
+  ' SOURCING: trace each claim to its root — a court filing, a UN or official release, published data, a paper — or careful reporting; TikTok, X, YouTube and Reddit are leads: take the claim and search for its root. Put each claim at its true strength: established fact, documented allegation, legal finding in progress, contested, rumour or debunked — never flatten them. No false balance on what is documented; no manufactured certainty on what is not; incompetence before a hidden hand; absence of evidence is not evidence. If you cannot engage with the topic, say so in one plain line — never a non-answer.';
 
 /** Something read in this turn: a web page or search result (`url`), or a library passage (`doc`: its document's title). */
 export type Source = LookedUp;
@@ -63,6 +78,7 @@ export function sameUrl(url: string): string {
  * read) is one source with both texts.
  */
 export function turnSources(ctx: Msg[], read: Read[]): Source[] {
+  // (each with its tier: a library passage's was decided by the library tool; a web page's comes from its address)
   let from = ctx.length - 1;
   while (from > 0 && ctx[from]!.role !== 'user') from--;
   const order: string[] = [];
@@ -75,7 +91,7 @@ export function turnSources(ctx: Msg[], read: Read[]): Source[] {
   const out: Source[] = [];
   for (const s of found) {
     const twin = s.url ? out.find((o) => o.url && sameUrl(o.url) === sameUrl(s.url!)) : out.find((o) => o.kind === 'library' && o.title === s.title);
-    if (!twin) out.push({ ...s });
+    if (!twin) out.push({ ...s, tier: s.tier ?? (s.url ? tierOf(s.url) : 'unknown') });
     else {
       if (!twin.text.includes(s.text)) twin.text = `${twin.text}\n${s.text}`.trim();
       if (s.kind === 'web' && twin.title === host(twin.url ?? '')) twin.title = s.title;
@@ -108,6 +124,8 @@ export function splitAnswer(text: string): { body: string; listed: Listed[] } {
     const url = raw?.replace(/[.,;:!?]+$/, '');
     const title = (md ? m[2]!.replace(md[0], md[1]!) : m[2]!)
       .replace(raw ?? '\u0000', '')
+      // (a tier the search tagged a result with, copied into the list: it is shown from the address, not kept in the title)
+      .replace(/\s*\[(?:PRIMARY|CREDIBLE|PRESS|REFERENCE|LEAD|UNKNOWN)\]/g, '')
       .replace(/[*_`<>()]/g, '')
       .replace(/[\s.,;]*[—–:|-]?[\s.,;]*$/, '')
       .replace(/^\s*[—–:|-]\s*/, '')
@@ -164,9 +182,9 @@ export function matchCitations(body: string, listed: Listed[], sources: Source[]
     const l = listed.find((x) => x.n === n);
     if (!l) return { n, title: 'no source was listed for this number', missing: true };
     const s = findSource(l, sources);
-    if (!s) return { n, title: l.title || 'unnamed source', ...(l.url ? { url: l.url } : {}), missing: true };
+    if (!s) return { n, title: l.title || 'unnamed source', ...(l.url ? { url: l.url, tier: tierOf(l.url) } : {}), missing: true };
     picked.set(n, s);
-    return { n, title: l.title || s.title, ...(s.url ? { url: s.url } : { doc: s.doc ?? s.title }) };
+    return { n, title: l.title || s.title, ...(s.url ? { url: s.url } : { doc: s.doc ?? s.title }), tier: s.tier ?? (s.url ? tierOf(s.url) : 'unknown') };
   });
   return { citations, picked };
 }
@@ -282,15 +300,15 @@ export function checkMessages(claims: string[], pool: { title: string; text: str
     {
       role: 'system',
       content:
-        'CLAIM CHECK. For each numbered claim, say whether the source texts state it (the same fact; numbers must match). Judge only from the sources, never from what you know. Reply with ONLY JSON: {"checks":[{"i":1,"found":true,"source":2}]} — "found" is false when no source says it; "source" is the number of the source that does.',
+        'CLAIM CHECK. For each numbered claim, say whether the source texts state it (the same fact; numbers must match). Judge only from the sources, never from what you know. Reply with ONLY JSON: {"checks":[{"i":1,"found":true,"source":2,"label":"documented allegation"}]} — "found" is false when no source says it; "source" is the number of the source that does; "label" is how strongly the sources let the claim be put: established fact, documented allegation, legal finding in progress, contested, rumour or debunked.',
     },
     { role: 'user', content: `CLAIMS:\n${claims.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nSOURCES:\n${asData('the pages and passages looked up for this answer', sources)}` },
   ];
 }
 
-/** The checker's verdicts, claim by claim (null where it said nothing usable). */
-export function parseChecks(raw: string, count: number): ({ found: boolean; source?: number } | null)[] {
-  const out: ({ found: boolean; source?: number } | null)[] = Array.from({ length: count }, () => null);
+/** The checker's verdicts, claim by claim (null where it said nothing usable), with the label it proposed (capped later). */
+export function parseChecks(raw: string, count: number): ({ found: boolean; source?: number; label?: Label } | null)[] {
+  const out: ({ found: boolean; source?: number; label?: Label } | null)[] = Array.from({ length: count }, () => null);
   const t = raw.replace(/```(?:json)?/gi, '');
   let list: unknown = null;
   const a = t.indexOf('{');
@@ -319,35 +337,75 @@ export function parseChecks(raw: string, count: number): ({ found: boolean; sour
     const found = f === true || (typeof f === 'string' && /^(true|yes|found|supported|confirmed)$/i.test(f));
     const no = f === false || (typeof f === 'string' && /^(false|no|not[_ ]found|unsupported|unconfirmed)$/i.test(f));
     if (!found && !no) return;
-    out[i] = { found, ...(typeof o.source === 'number' ? { source: o.source } : {}) };
+    const label = labelOf(o.label);
+    out[i] = { found, ...(typeof o.source === 'number' ? { source: o.source } : {}), ...(label ? { label } : {}) };
   });
   return out;
 }
 
-/** "✓ 5 of 6 claims found in the sources" — the line under a cited answer. */
+/** "✓ 5 of 6 claims found in the sources · 3 established, 2 documented, 1 contested" — the line under a cited answer. */
 export function checkLine(checks: ClaimCheck[]): string {
   const ok = checks.filter((c) => c.status === 'supported').length;
-  return `${ok ? '✓' : '✕'} ${ok} of ${checks.length} claim${checks.length === 1 ? '' : 's'} found in the sources`;
+  const counts = labelCounts(checks.map((c) => labelOf(c.label) ?? undefined));
+  return `${ok ? '✓' : '✕'} ${ok} of ${checks.length} claim${checks.length === 1 ? '' : 's'} found in the sources${counts ? ` · ${counts}` : ''}`;
+}
+
+/** Each claim's label after it, in words (Telegram and the history have no chips): "… [1]. (established fact)". */
+export function labelled(body: string, checks: ClaimCheck[]): string {
+  let out = body;
+  let from = 0;
+  for (const c of checks) {
+    if (!c.label) continue;
+    const at = out.indexOf(c.claim, from);
+    if (at < 0) continue;
+    const end = at + c.claim.length;
+    const tag = ` (${c.label})`;
+    out = `${out.slice(0, end)}${tag}${out.slice(end)}`;
+    from = end + tag.length;
+  }
+  return out;
 }
 
 /** The answer as sent (chat, Telegram, history): its words, the SOURCES list as plain lines with links, the check line. */
-export function renderCited(body: string, citations: Citation[], line: string): string {
-  const list = citations.map((c) => `[${c.n}] ${c.title}${c.url ? ` — ${c.url}` : c.doc ? ' — your library' : ''}${c.missing ? ' (never looked up: not a checked source)' : ''}`);
-  return [body, list.length ? `SOURCES\n${list.join('\n')}` : '', line].filter(Boolean).join('\n\n');
+export function renderCited(body: string, citations: Citation[], line: string, checks: ClaimCheck[] = []): string {
+  const list = citations.map((c) => `[${c.n}] ${c.title}${c.url ? ` — ${c.url}` : c.doc ? ' — your library' : ''}${c.tier ? ` [${tierWord(c.tier as Tier)}]` : ''}${c.missing ? ' (never looked up: not a checked source)' : ''}`);
+  return [labelled(body, checks), list.length ? `SOURCES\n${list.join('\n')}` : '', line].filter(Boolean).join('\n\n');
+}
+
+/**
+ * A model that declined to engage (refusal.ts): said plainly first, then what the sources read this turn say — each one's
+ * best sentence for his question, with its number — instead of passing the non-answer on. Nothing read: said too.
+ */
+export function refusedAnswer(asked: string, sources: Source[]): string {
+  if (!sources.length) return `${REFUSAL_LINE.replace(/; here is what the sources say:$/, '')}, and nothing was looked up before it stopped. Ask again and I'll try another model.`;
+  // each source's own best sentence for his question (a sentence, not a title line), its number before the full stop
+  const want = new Set(keyTerms(asked));
+  const lines = sources.slice(0, 4).map((s, i) => {
+    const sentences = s.text.split(/(?<=[.!?])\s+|\n+/).map((p) => p.trim()).filter((p) => /[.!?]$/.test(p) && p.split(/\s+/).length >= 6);
+    const best = sentences.map((p, k) => ({ p, k, n: keyTerms(p).filter((w) => want.has(w)).length })).sort((a, b) => b.n - a.n || a.k - b.k)[0]?.p;
+    return best ? `${best.slice(0, 260).replace(/[.!?]+$/, '')} [${i + 1}].` : '';
+  }).filter(Boolean);
+  const list = sources.slice(0, 4).map((s, i) => `[${i + 1}] ${s.title}${s.url ? ` — ${s.url}` : ' — your library'}`);
+  return `${REFUSAL_LINE}\n\n${lines.join('\n') || 'The pages read say nothing on it directly.'}\n\nSOURCES\n${list.join('\n')}`;
 }
 
 /**
  * A cited turn's final answer, finished: sources matched, claims checked (`complete`: one cheap
  * model call, skipped when nothing was looked up; any failure falls back to matching words).
  */
-export async function citeAnswer(text: string, ctx: Msg[], read: Read[], complete: (m: Msg[]) => Promise<string>, emit: (ev: ChatEvent) => void): Promise<{ text: string; info: CitedInfo }> {
+export async function citeAnswer(text: string, ctx: Msg[], read: Read[], complete: (m: Msg[]) => Promise<string>, emit: (ev: ChatEvent) => void, asked = ''): Promise<{ text: string; info: CitedInfo }> {
   const sources = turnSources(ctx, read);
+  // a model that would not engage: said so, then the sources speak for themselves (their own sentences, checked as such)
+  const refused = refusedWords(text);
+  // (nothing read: what Ghosty says is his own words about the refusal, not claims to check)
+  if (refused && !sources.length) return { text: refusedAnswer(asked, sources), info: { citations: [], checks: [], refused: true } };
+  if (refused) text = refusedAnswer(asked, sources);
   const { body, listed } = splitAnswer(text);
   const { citations, picked } = matchCitations(body, listed, sources);
   const claims = splitClaims(body);
   // What the claims are checked against: the sources the answer cites, else everything read this turn.
-  const pool: { n?: number; title: string; text: string }[] = picked.size ? [...picked].map(([n, s]) => ({ n, title: s.title, text: s.text })) : sources.slice(0, 4).map((s) => ({ title: s.title, text: s.text }));
-  let verdicts: ({ found: boolean; source?: number } | null)[] = claims.map(() => null);
+  const pool: { n?: number; title: string; text: string; tier: Tier }[] = picked.size ? [...picked].map(([n, s]) => ({ n, title: s.title, text: s.text, tier: (s.tier ?? 'unknown') as Tier })) : sources.slice(0, 4).map((s) => ({ title: s.title, text: s.text, tier: (s.tier ?? 'unknown') as Tier }));
+  let verdicts: ({ found: boolean; source?: number; label?: Label } | null)[] = claims.map(() => null);
   if (claims.length && pool.length) {
     emit({ t: 'status', text: 'checking each claim against the sources…' });
     try {
@@ -356,11 +414,30 @@ export async function citeAnswer(text: string, ctx: Msg[], read: Read[], complet
       /* no model free: matching words below */
     }
   }
+  // The tiers that back a supported claim: the source the check named, and every source the claim cites that was read.
+  const backing = (claim: string, by: { n?: number; tier: Tier } | undefined): Tier[] => {
+    const tiers = markersIn(claim).flatMap((n) => {
+      const s = picked.get(n);
+      return s ? [(s.tier ?? 'unknown') as Tier] : [];
+    });
+    if (by && !(by.n && markersIn(claim).includes(by.n) && picked.has(by.n))) tiers.push(by.tier);
+    return tiers;
+  };
   const checks = claims.map((claim, i): ClaimCheck => {
     const v = verdicts[i];
-    if (!v) return pool.length ? wordCheck(claim, pool) : { claim, status: 'not_found' };
-    const by = v.found && v.source ? pool[v.source - 1]?.n : undefined;
-    return v.found ? { claim, status: 'supported', ...(by ? { source: by } : {}) } : { claim, status: 'not_found' };
+    let c: ClaimCheck;
+    let tiers: Tier[] = [];
+    if (!v) {
+      c = pool.length ? wordCheck(claim, pool) : { claim, status: 'not_found' };
+      if (c.status === 'supported') tiers = backing(claim, pool.find((p) => p.n === c.source) ?? pool.find((p) => !p.n));
+    } else {
+      const src = v.found && v.source ? pool[v.source - 1] : undefined;
+      const by = src?.n;
+      c = v.found ? { claim, status: 'supported', ...(by ? { source: by } : {}) } : { claim, status: 'not_found' };
+      if (v.found) tiers = backing(claim, src);
+    }
+    // the label the check proposed (none on the words-only fallback), capped by what the tiers allow
+    return { ...c, label: capLabel(c.status === 'supported' ? v?.label ?? null : v?.label === 'rumour' ? 'rumour' : null, c.status === 'supported' ? tiers : []).label };
   });
   for (const c of citations) {
     const s = picked.get(c.n);
@@ -370,5 +447,5 @@ export async function citeAnswer(text: string, ctx: Msg[], read: Read[], complet
     if (quote) c.quote = quote;
   }
   const line = !sources.length ? 'I could not look anything up for this, so none of it is checked against a source.' : checks.length ? checkLine(checks) : '';
-  return { text: renderCited(body, citations, line), info: { citations, checks } };
+  return { text: renderCited(body, citations, line, checks), info: { citations, checks, ...(refused ? { refused: true } : {}) } };
 }

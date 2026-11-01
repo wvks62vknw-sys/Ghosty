@@ -2,9 +2,11 @@
  * A cited answer in the chat log: its [n] markers as chips that open the source (the page, or
  * the library passage it came from), the SOURCES list under the reply, and the check line
  * ("✓ 5 of 6 claims found in the sources", beside its readout: a segment per claim, the found ones lit) with the
- * claims no source backed marked in the reply.
+ * claims no source backed marked in the reply. OWNER-ISSUES 77: each source row shows its tier as a word (PRIMARY,
+ * CREDIBLE, PRESS, REFERENCE, LEAD, UNKNOWN) and each claim its label in words after it; the check line counts the labels.
  */
 import type { Citation, CitedInfo } from '../../../../../packages/shared/src/protocol';
+import { labelCounts, labelOf, tierWord, type Tier } from '../../../../../packages/shared/src/sources';
 import { citedBody, citedPieces } from '../../cited/text';
 import { h } from '../../core/dom';
 import { go } from '../../shell/tabs';
@@ -37,7 +39,11 @@ function sourceRow(c: Citation): HTMLElement {
   // "[1]": route C shows the number alone in a small square (the brackets are hidden there, styles.css)
   const label = h('b', h('i.br', '['), String(c.n), h('i.br', ']'));
   const where = c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : c.doc ? 'your library' : '';
-  const inner = [label, h('span', c.title), where ? h('em', where) : null, c.missing ? h('i', 'never looked up — not a checked source') : null];
+  // its tier as a word in a small chip before where it is (OWNER-ISSUES 77): how far it can be trusted, never colour alone
+  // (data-case keeps the capitals the chat's small labels would otherwise lose)
+  const word = c.tier ? tierWord(c.tier as Tier) : '';
+  const tier = word ? h('small.ctier', { dataset: { tier: c.tier!, case: 'keep' }, title: `Tier: ${word}` }, word) : null;
+  const inner = [label, h('span', c.title), where || tier ? h('em', tier, tier && where ? ' ' : '', where) : null, c.missing ? h('i', 'never looked up — not a checked source') : null];
   if (c.url && !c.missing) return h('a.csrc', { href: c.url, target: '_blank', rel: 'noopener noreferrer' }, ...inner);
   const row = h(`button.csrc${c.missing ? '.miss' : ''}` as 'button', { type: 'button' }, ...inner);
   row.addEventListener('click', () => (c.missing ? missing(c) : openDoc(c)));
@@ -48,7 +54,8 @@ function sourceRow(c: Citation): HTMLElement {
 export function citedReply(text: string, info: CitedInfo, linked: (t: string) => HTMLElement): HTMLElement[] {
   const words = h('span.citedtext');
   for (const p of citedPieces(citedBody(text), info)) {
-    if (p.kind === 'cite') words.append(chip(p.n, info, !!p.unconfirmed));
+    if (p.kind === 'label') words.append(' ', h('span.clabel', { dataset: { claim: p.label } }, p.label));
+    else if (p.kind === 'cite') words.append(chip(p.n, info, !!p.unconfirmed));
     else if (p.unconfirmed) words.append(h('mark.unconf', { title: 'Not found in the sources' }, linked(p.text)));
     else words.append(linked(p.text));
   }
@@ -57,9 +64,10 @@ export function citedReply(text: string, info: CitedInfo, linked: (t: string) =>
   if (info.checks.length) {
     const ok = info.checks.filter((c) => c.status === 'supported').length;
     const all = ok === info.checks.length;
+    const counts = labelCounts(info.checks.map((c) => labelOf(c.label) ?? undefined));
     // the claims readout: one segment per claim, the ones found in the sources lit, beside the check line
     out.push(h(`div.rcclaims.${all ? 'ok' : 'warn'}` as 'div', claimsInst(ok, info.checks.length),
-      h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${ok ? '✓' : '✕'} ${ok} of ${info.checks.length} claim${info.checks.length === 1 ? '' : 's'} found in the sources`, all ? null : h('span', ' · the unconfirmed ones are marked'))));
+      h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${ok ? '✓' : '✕'} ${ok} of ${info.checks.length} claim${info.checks.length === 1 ? '' : 's'} found in the sources${counts ? ` · ${counts}` : ''}`, all ? null : h('span', ' · the unconfirmed ones are marked'))));
   }
   return out;
 }

@@ -1,8 +1,8 @@
-# Where everything stands — 31 October 2026, 17:40 UK
+# Where everything stands — 31 October 2026, 19:35 UK
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #46, the last at 16:25 UK on 31 Oct)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #47, the last at 19:10 UK on 31 Oct)
 
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
@@ -51,6 +51,15 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   shared memory up front and iOS refused it once the camera runtime was loaded ("no available backend found … RangeError");
   it now asks for 1 GB, tries once more at 256 MB, and says plainly on the Lens if even that fails. Close Ghosty fully
   and open it again before you try ENROL ME, so the phone fetches the fixed runtime.
+- LIVE since 19:10 UK on 31 Oct (PR #47): BATCH 6, the Machine view and foresight — MACHINE VIEW on God's Eye (first in
+  its bar, or say "machine view", "show me my city", "what are you watching?"): your city from 14 km with everything moving,
+  your places in thin white boxes (amber while a warning is active there), the nearest aircraft and bus tagged, one true
+  count line; LEAVE puts everything back. FORESIGHT on the Brief (after COMMUTE) and in SYSTEM → Report card: each morning
+  at six he predicts the rain at Home, your 08:00 commute (with the TomTom key) and whether your first train or bus will be
+  on time, each scored at its time by the feed alone; ask "what do you reckon, will it rain Saturday?" and it goes on
+  record, scored only by your word ("you were right" / "you were wrong"); "how often are you right?" gives his record.
+  Never about any person. Also fixed: this morning's walk tests carried a fixed fake clock that crossed the real one at
+  16:51 UK and would have failed main's next run.
 
 **The look**
 - Route C is the only look, themes Reactor and Graphite; the five floating tabs, large titles, one back style, one chat entry.
@@ -110,11 +119,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Nothing waiting: everything built so far is live (PR #46 merged at 16:25 UK on 31 Oct).
+- Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 once it is live: save Home and Work in
+- Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
   free TomTom key in SYSTEM → KEYS if you want commute predictions; and these for batch 5, now that PEOPLE is fixed (PR #46; close Ghosty fully and open it again first) — ENROL ME in good light
   (Lens → PEOPLE), then introduce someone; save home in Memory → ME → PLACES; in SETTINGS → GUARDIAN name your person
@@ -123,12 +132,15 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   "is this a scam?" once each for real. Also your principles in your own words (SETTINGS → CHARACTER → PRINCIPLES) and
   the four picks for Ghosty and you as Harold and the Machine. Confirmed on your phone on 31 Oct: the brain kept between
   opens (47) and your Connect 4 trick no longer wins (52).
-- Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK. Batch 6, the Machine view and foresight
-  (BRIEF-MACHINE-VIEW), is built, reviewed, validated and in its pull request (opened about 17:40 UK; its checks take about two hours,
-  then I merge it): MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
+- Batch 5 landed at 13:33 UK, the iPhone face fix (PR #46) at 16:25 UK, and batch 6 (PR #47, the Machine view and foresight, BRIEF-MACHINE-VIEW) at 19:10 UK:
+  MACHINE VIEW on God's Eye frames your city with everything moving and your places lit, with a true
   count of what he is watching; foresight is a prediction ledger (rain at home, your commute, your first train or bus, and
-  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Then the workshop and
-  knowledge, then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
+  what you ask him to predict) scored only against the public feeds or your own word, never about any person. Built on the branch at 22:10 UK, to land with batch 7's PR: the fix for his second live bug of the day (OWNER-ISSUES 89: sitting an exam closed Ghosty on any brain — a crash record for every brain's load and reply, the brain that closed Ghosty refused until USE with the words, the smaller Qwen2.5 0.5B offered and sat on). Batch 7 built, merged onto the branch at 23:00 UK (37a244c) and validated on the merged tree (brain 1,342/1,342, fourteen specs green); PR #48 open at 23:30 UK: the workbench and knowledge with sources
+  (BRIEF-WORKSHOP) — first-estimate engineering solvers (beams and columns, gears, the engine cycle, wings and cars,
+  projectiles and orbits, heat, sun and shadow, circuits) and a 2-D wind tunnel on your phone, every answer labelled NOT
+  CERTIFIED; in cited answers every source gets a tier (primary / credible / press / reference / lead) and every claim a
+  label (established fact … debunked), TikTok, X and YouTube count as leads never sources, and credible primary feeds join
+  the Digest. Then the social self and rituals (your four Harold / Machine picks shape that one). Left for a later batch: twelve more themes, his self-model and the timing of his
   messages, search by meaning in the "Can you…?" box, anti-spoofing for faces (a printed photo held to the live camera
   still counts as the camera).
 
@@ -136,7 +148,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
-foresight (in its pull request) → the workshop and knowledge → the social self and rituals. The older list below still stands after those.
+foresight (live) → the workbench and knowledge (building now) → the social self and rituals. The older list below still stands after those.
 
 1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.

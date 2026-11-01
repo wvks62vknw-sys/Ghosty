@@ -365,6 +365,14 @@ canvas.reactor { display: block; }
 .msg .citecheck { margin-top: 6px; color: var(--ok); white-space: normal; }
 .msg .citecheck.warn { color: var(--a); }
 .msg .citecheck span { text-transform: none; letter-spacing: 0; font: 11px var(--m); color: var(--mute); }
+/* OWNER-ISSUES 77: a source's tier as a word in a small chip, and each claim's label in words after it; the word carries
+   it (never colour alone), a dashed edge marks the weak ones (a lead, a host not known; contested, rumour, debunked) */
+.msg .csrc .ctier { display: inline-block; margin-right: 2px; padding: 0 5px; border: 1px solid rgba(var(--cr), .5); border-radius: 4px; font: 600 9.5px/15px var(--m); letter-spacing: .06em; color: var(--fg); vertical-align: 1px; white-space: nowrap; }
+.msg .csrc .ctier:is([data-tier="lead"], [data-tier="unknown"]) { border-style: dashed; border-color: rgba(var(--ar), .6); }
+.msg .clabel { display: inline-block; padding: 0 6px; border: 1px solid rgba(var(--cr), .4); border-radius: 8px; font: 11px/16px var(--m); color: var(--mute); text-transform: none; white-space: nowrap; }
+.msg .clabel:is([data-claim="contested"], [data-claim="rumour"], [data-claim="debunked"]) { border-style: dashed; border-color: rgba(var(--ar), .6); }
+.pn.fresh .rw .ctier { display: inline-block; margin-right: 2px; padding: 0 5px; border: 1px solid rgba(var(--cr), .5); border-radius: 4px; font: 600 9.5px/15px var(--m); letter-spacing: .06em; color: var(--fg); vertical-align: 1px; white-space: nowrap; }
+.pn.fresh .rw .ctier:is([data-tier="lead"], [data-tier="unknown"]) { border-style: dashed; border-color: rgba(var(--ar), .6); }
 .citedoc blockquote { margin: 10px 0; padding: 8px 12px; border-left: 2px solid var(--c); background: rgba(var(--cr), .06); font-size: 14px; line-height: 1.5; }
 .sitelink { display: flex; flex-direction: column; gap: 3px; min-height: 44px; padding: 12px 14px; text-decoration: none; color: inherit; -webkit-tap-highlight-color: transparent; }
 .sitelink small { color: var(--c); text-transform: uppercase; }
@@ -2647,6 +2655,9 @@ html .hud.core .convo .msg .csrc > b .br { display: none; }
 html .hud.core .convo .msg .csrc > span { grid-column: 2; font: 500 15px/20px var(--sf); letter-spacing: -.12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .hud.core .convo .msg .csrc > em { grid-column: 2; font: 400 12px/16px var(--sf); font-style: normal; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .hud.core .convo .msg .csrc > i { grid-column: 2; font: 400 12px/16px var(--sf); font-style: normal; color: var(--amber); }
+html .hud.core .convo .msg .csrc > em .ctier { margin-right: 4px; padding: 0 5px; border-radius: 5px; font: 600 10px/16px var(--sf); letter-spacing: .06em; color: var(--ink); }
+html .hud.core .convo .msg .clabel { padding: 0 7px; border-radius: 7px; font: 500 12px/18px var(--sf); letter-spacing: 0; color: var(--ink2); background: var(--thin); }
+html .pn.fresh .rw .ctier { margin-right: 4px; border-radius: 5px; font: 600 10px/16px var(--sf); letter-spacing: .06em; color: var(--ink); }
 html .hud.core .convo .msg .csrc::after { content: ''; grid-column: 3; grid-row: 1 / 3; width: 16px; height: 16px; background: var(--ink3); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; }
 html .hud.core .convo .msg.cited { display: flex; flex-direction: column; }
 html .hud.core .convo .msg > .rcacts { order: 10; }
@@ -2937,6 +2948,11 @@ html .hubgrid:not(:has(> :nth-child(5))) .hubtile .ins { height: 100px; }
 html .hubgrid:not(:has(> :nth-child(5))) .hubtile .ins > :is(svg, .insc > svg) { height: 100px; }
 html .hubtile .ins > svg, html .hubtile .ins > .insc > svg { width: 100%; height: 72px; }
 html .hubtile .ins svg.i-trace, html .hubtile .ins svg.i-count, html .hubtile .ins svg.i-day { width: 70%; height: 54px; }
+/* a hub of five or six (three rows: MAKE since the Workbench joined it) still fits one screen at 390 × 844: shorter instruments */
+html .hubgrid:has(> :nth-child(5)) .hubtile .ins { height: 52px; }
+html .hubgrid:has(> :nth-child(5)) .hubtile .ins > :is(svg, .insc > svg) { height: 52px; }
+html .hubgrid:has(> :nth-child(5)) .hubtile .ins svg:is(.i-trace, .i-count, .i-day) { height: 40px; }
+html .hub:has(.hubgrid > :nth-child(5)) .hubsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .hubtile .ins::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; pointer-events: none; opacity: 0; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent); box-shadow: 0 0 10px rgba(var(--cr), .6); }
 html .pg.on .hubtile .ins::after { animation: ironscan 1.6s var(--spring) .15s 1 both; }
 @keyframes ironscan { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: 1; } 88% { opacity: .8; } 100% { opacity: 0; transform: translateY(72px); } }
@@ -4728,3 +4744,57 @@ html .eyebot .btns .machinebtn { display: flex; align-items: center; justify-con
 html .eyebot .btns .machinebtn.on { background: #fff; color: #000; }
 html .hubtile .hline { order: 7; display: flex; align-items: center; min-height: 46px; flex: none; margin-top: 8px; padding: 0 10px; border: 1.5px solid rgba(255, 255, 255, .85); border-radius: 0; background: rgba(2, 7, 13, .6); font: 600 11px/14px var(--mono); letter-spacing: .08em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .hubtile .hline[hidden] { display: none; }
+
+/* ---- THE WORKBENCH (BRIEF-WORKSHOP; features/workbench): a compact form in his units, the answer at once below it, and
+   FIRST ESTIMATE · NOT CERTIFIED on every card as a shape and its words (never colour alone). Every row 44 pt or more. */
+html .pn.wb .bd { display: flex; flex-direction: column; }
+html .wbmodes { display: flex; gap: 6px; margin: 4px 0 6px; }
+#pg-workbench .wbmodes button { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 0 8px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .wbform { display: flex; flex-direction: column; }
+html .wbf { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid var(--hair); }
+html .wbf > label { flex: 1 1 auto; min-width: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html .wbf > input, html .wbf > select { flex: none; box-sizing: border-box; width: 132px; min-height: 40px; margin: 0; padding: 0 10px; border-radius: 10px; font: 500 16px/20px var(--sf); text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+html .wbf > select { text-align: left; text-overflow: ellipsis; }
+html .wbf > input[type="date"], html .wbf > input[type="time"] { width: 150px; color-scheme: dark; }
+html .wbf.chk > input[type="checkbox"] { width: 26px; min-height: 26px; height: 26px; margin-right: 50px; }
+html .wbf > .wbu { flex: none; width: 40px; font: 400 13px/16px var(--sf); color: var(--ink3); }
+html .wbf.bad > input { box-shadow: inset 0 0 0 1.5px var(--r); }
+html .wbf.bad > label::after { content: ' — can’t read that'; color: var(--r); }
+html .wbout { margin-top: 12px; }
+html .wbcard { padding: 2px 14px 12px; border-radius: 16px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair2); }
+html .wblabel { display: flex; align-items: center; gap: 8px; min-height: 44px; font: 700 12px/16px var(--sf); letter-spacing: .08em; color: var(--amber); }
+html .wblabel small { font: 400 12px/16px var(--sf); letter-spacing: 0; color: var(--ink2); }
+html svg.wbcaut { width: 18px; height: 18px; flex: none; color: var(--amber); }
+html .wbtitle { margin: 0 0 4px; font: 600 17px/22px var(--sf); color: var(--ink); }
+html .wbline { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 0; border-bottom: 1px solid var(--hair); }
+html .wbline .k { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html .wbline .k .n { font: 400 12px/16px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
+html .wbline .v { flex: 0 1 auto; max-width: 58%; text-align: right; font: 600 16px/20px var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+html .wbconf { display: flex; align-items: center; gap: 10px; min-height: 44px; font: 500 14px/18px var(--sf); color: var(--ink2); }
+html .wbbars { display: inline-flex; align-items: flex-end; gap: 3px; }
+html .wbbars i { display: block; width: 6px; border-radius: 2px; box-shadow: inset 0 0 0 1.25px var(--ink2); }
+html .wbbars i:nth-child(1) { height: 8px; } html .wbbars i:nth-child(2) { height: 12px; } html .wbbars i:nth-child(3) { height: 16px; }
+html .wbbars i.on { background: var(--ink2); }
+html .wbfold > summary { display: flex; align-items: center; min-height: 44px; font: 700 12px/16px var(--sf); letter-spacing: .08em; color: var(--ink2); cursor: pointer; list-style: none; border-top: 1px solid var(--hair); }
+html .wbfold > summary::-webkit-details-marker { display: none; }
+html .wbfold > summary::after { content: '›'; margin-left: auto; font-size: 18px; transition: transform .2s; }
+html .wbfold[open] > summary::after { transform: rotate(90deg); }
+html .wbfold ul, html .wbfold p { margin: 0 0 10px; padding-left: 18px; font: 400 14px/19px var(--sf); color: var(--ink2); }
+html .wbfold p { padding-left: 0; }
+html .wbproblem { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; font: 500 15px/20px var(--sf); color: var(--ink); }
+html .wbcaveat { margin: 10px 0 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
+@media (prefers-reduced-motion: reduce) { html .wbfold > summary::after { transition: none; } }
+/* the WIND TUNNEL (features/workbench/tunnel.ts): the flow drawn at the lattice's own 192 × 96, scaled smoothly to the card;
+   while DRAW is on, a touch draws instead of scrolling. */
+html .tunwrap { position: relative; margin: 4px 0 8px; border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--hair2); background: #06101a; }
+html .tuncanvas { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; image-rendering: auto; touch-action: pan-y; }
+html .tuncanvas.drawing { touch-action: none; cursor: crosshair; box-shadow: inset 0 0 0 2px var(--amber); }
+html .tundraw { margin: 0 0 6px; }
+html .tundraw[hidden] { display: none; }
+html .wbf.rng > input[type="range"] { flex: 1 1 auto; width: auto; min-width: 0; min-height: 40px; padding: 0; background: none; box-shadow: none; accent-color: var(--c); }
+html .wbf.rng > label { flex: 0 0 auto; width: 118px; }
+html .wbf.rng > .tunval { flex: none; width: 92px; text-align: right; font: 500 14px/18px var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; }
+html .tunbtns { display: flex; gap: 8px; margin: 6px 0 2px; }
+#pg-workbench .tunbtns button { flex: 1 1 0; min-width: 0; min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px: the id wins it) */
+html .tunbtns button[hidden] { display: none; }
+#pg-workbench .bigv .wbbig { text-transform: none; } /* units and coefficients as written: kN, MPa, Cl, Cd */

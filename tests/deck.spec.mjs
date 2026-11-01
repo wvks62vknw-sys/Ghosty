@@ -1,6 +1,6 @@
 // The Every screen deck (BRIEF-DECK-BUILD.md; shell/launcher.ts, shell/deckcopy.ts) and the icon language without app
 // icons (OWNER-ISSUES 32–34), on the iPhone 18 Pro Max (440 × 956, en-GB, Europe/London):
-//  - the deck opens (tests/nav.mjs openDeck) with its four groups and all twenty-one cards, each promise whole (two
+//  - the deck opens (tests/nav.mjs openDeck) with its four groups and all twenty-two cards, each promise whole (two
 //    lines at most, never cut), Core's live line lit ("you are here"), nothing sticking out sideways;
 //  - tapping Lens opens it in place: the miniature of the real screen, at least three YOU CAN rows, DID YOU KNOW and
 //    OPEN; only one card is open at a time; a YOU CAN row deep-links (Lens → SCAN on TRANSLATE, read from
@@ -43,7 +43,7 @@ const filled = (sel) => page.$$eval(sel, (els) => els.filter((e) => e.getClientR
   return alpha > 0 || cs.backgroundImage !== 'none' ? `${e.className} (${cs.backgroundColor} ${cs.backgroundImage.slice(0, 40)})` : '';
 }).filter(Boolean));
 
-// ---- the deck: four groups, twenty-one cards, each promise whole
+// ---- the deck: four groups, twenty-two cards, each promise whole
 await openDeck(page);
 await until(() => document.querySelector('#deck.on') && window.__ghosty?.deck?.open, null, 5000, 'the deck did not open');
 await page.waitForTimeout(700);
@@ -59,8 +59,8 @@ const look = await page.evaluate(() => ({
 }));
 if (look.kick !== 'Every screen' || look.title !== 'At your service, Boss' || look.sub !== 'Tap any screen to find out what it can do.') problems.push(`the deck's header reads ${JSON.stringify([look.kick, look.title, look.sub])}`);
 if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
-// (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68)
-const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities'];
+// (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
+const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities'];
 if (look.cards.length !== ALL.length || ALL.some((id) => !look.cards.includes(id))) problems.push(`the deck has ${look.cards.length} cards: ${look.cards.join(', ')}`);
 for (const c of look.cut) problems.push(`a promise runs past two lines: ${c}`);
 if (!/^Online/.test(look.core.live) || !look.core.hot) problems.push(`Core's live line is "${look.core.live}" (lit: ${look.core.hot})`);
@@ -202,4 +202,4 @@ if (problems.length) {
   console.error(`FAIL deck\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('deck: OK (21 cards in four groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');
+console.log('deck: OK (22 cards in four groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');

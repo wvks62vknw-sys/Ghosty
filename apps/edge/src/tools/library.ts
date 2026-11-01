@@ -10,6 +10,7 @@ import { exportLibrary } from '../library/export';
 import { loadStudy, matchDomains, STUDY_KEY, studySummary } from '../library/study';
 import { formatHits, Library } from '../library/store';
 import { arg, clip, type Tool } from './types';
+import { libraryTier } from '../../../../packages/shared/src/sources';
 
 const lib = (ctx: { storage: DurableObjectStorage; env: import('../env').Env }) => {
   const l = new Library(ctx.storage, ctx.env);
@@ -32,7 +33,7 @@ export const libraryTools: Tool[] = [
       if (!hits.length) return 'Nothing in the library matches that. (The owner can add books and documents in the Library tab, or ask you to library_import a web page, arXiv paper, CVE, GitHub repository or Project Gutenberg book.)';
       const text = formatHits(hits, 7000);
       // What was read, as records (a cited answer's library sources): only the passages that fit.
-      for (const h of hits) if (text.includes(h.text)) ctx.found?.({ kind: 'library', title: [h.title, h.heading && h.heading !== h.title ? h.heading : '', h.page ? `p. ${h.page}` : ''].filter(Boolean).join(' · '), doc: h.title, text: h.text });
+      for (const h of hits) if (text.includes(h.text)) ctx.found?.({ kind: 'library', title: [h.title, h.heading && h.heading !== h.title ? h.heading : '', h.page ? `p. ${h.page}` : ''].filter(Boolean).join(' · '), doc: h.title, text: h.text, tier: libraryTier(h.doc, l.doc(h.doc)?.source ?? '', h.heading) });
       return clip(asData('your library', text), 8000);
     },
   },

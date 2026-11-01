@@ -22,7 +22,7 @@ import { tabs } from '../shell/tabs';
 
 /** Where each screen sits among the eight (the owner's way of thinking, a design pick); a screen added since is DO FOR YOU. */
 export const SCREEN_CAT: Record<string, AbilityCat> = {
-  core: 'talk', brief: 'know', eye: 'see', lens: 'see', studio: 'build', workshop: 'build', reverse: 'build', space: 'build', learn: 'learn',
+  core: 'talk', brief: 'know', eye: 'see', lens: 'see', studio: 'build', workshop: 'build', reverse: 'build', space: 'build', workbench: 'build', learn: 'learn',
   gym: 'play', school: 'learn', library: 'learn', agenda: 'watch', markets: 'know', threats: 'watch', radio: 'play', memory: 'know',
   settings: 'talk', system: 'do', links: 'talk',
 };

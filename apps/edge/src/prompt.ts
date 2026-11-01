@@ -37,9 +37,11 @@ export interface PromptGroups {
 }
 
 /** Not tools the model calls, but things it should know: replies may be heard, and the library holds today's world. */
-// (Both trimmed, with the web and library lines, to pay for LOOK-UPS below: the plain prompt stays within 5,500.)
-const HEARING = 'You can hear and speak.';
-const TODAY = 'Today\'s news and papers: "Fresh knowledge" (library_search).';
+// (Both trimmed, with the web and library lines, to pay for LOOK-UPS below: the plain prompt stays within 5,500. Trimmed
+//  again by 24 characters — "You can hear…", the notebook's name — to pay for the workbench group's "workbench: estimate"
+//  in the ALSO list: library_search finds the morning's digest by its words without its name.)
+const HEARING = 'You hear and speak.';
+const TODAY = "Today's news and papers: library_search.";
 /**
  * When to look things up (OWNER-ISSUES 64d: "should know when to research"): chat, opinions and what he already knows are
  * answered at once; live or outside facts go to a tool, never made up; unsure, he answers and offers to check.
