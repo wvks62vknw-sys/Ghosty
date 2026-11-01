@@ -1109,6 +1109,11 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 09:25 UK: ARCADE-WIRE MERGED (1b52633; OWNER-ISSUES 106): DOOM, Freedoom, the free levels, Quake and the two 3-D
   games on the shelf. Deck/arcade/games2/engines specs run on the merged tree (val5); if green it joins #49 (checks ~35 min
   old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (Opus).
+- 1 Nov 09:50 UK: ARCADE-WIRE joined PR #49 (cf13efb; five batches, the full arcade); the engines spec had failed once
+  under load 10 (Freedoom's first level: inputs before the level was ready) and passed alone. SOCIAL started (Opus, 8755).
+- 1 Nov 10:15 UK: GAMES-3 MERGED AND WIRED by hand (7e6ebc6, 0644646; OWNER-ISSUES 107): five games of our own on the
+  shelf, eight engines. Specs deck/arcade/games3 run on the merged tree (val6). From here nothing more joins #49: it
+  must finish; everything after cf13efb goes to PR #50. Running: car (8777), packs-2 (8766), social (8755).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
