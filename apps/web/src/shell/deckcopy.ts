@@ -43,9 +43,11 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench']],
-  ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
-  ['Me', ['memory', 'settings', 'system', 'links', 'abilities']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house']],
+  ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'agenda', 'markets', 'threats', 'radio']],
+  // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
+  ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
+  ['Me', ['memory', 'settings', 'system', 'links', 'abilities', 'social']],
 ];
 
 const lens = (mode: string): DeckAct => ({ run: 'open_lens', args: { mode } });
@@ -278,6 +280,148 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Anything he still needs a key for', act: { open: 'system', panel: 'KEYS' } },
     ],
     dyk: 'The list is made from what he really has, so a new ability shows up there by itself.',
+  },
+  // ---------------------------------------------------------------- [tabs] the fourteen sheets as screens (BRIEF-TABS 4):
+  // what each does for him, a tap into its main page and two things to ask, and a true DID YOU KNOW
+  money: {
+    name: 'Money',
+    promise: 'Your spending, read from your statements',
+    can: [
+      { text: 'Paste a statement: the month in one card', act: { open: 'money', panel: 'PASTE A STATEMENT' } },
+      { text: 'How much did I spend this week?', act: { ask: 'How much did I spend this week?' } },
+      { text: 'Where is the cheapest petrol near me?', act: { ask: 'Where is the cheapest petrol near me?' } },
+    ],
+    dyk: 'No AI sees your statement, not even the shop names: a table of rules sorts it, in code, and he never has bank access.',
+  },
+  body: {
+    name: 'Body',
+    promise: 'Reps, runs, breathing and water',
+    can: [
+      { text: 'Count your squats with the camera', act: { open: 'body', panel: 'COUNT MY REPS' } },
+      { text: 'Start a run', act: { ask: 'Start a run' } },
+      { text: 'Breathe with me', act: { ask: 'Breathe with me' } },
+    ],
+    dyk: 'The pose model counting your reps runs on the phone: the camera never sends a picture anywhere.',
+  },
+  kitchen: {
+    name: 'Kitchen',
+    promise: 'Timers, the shopping list and meals',
+    can: [
+      { text: 'The shopping list, ticked off as you go', act: { open: 'kitchen', panel: 'SHOPPING LIST' } },
+      { text: 'Fan 180 in a conventional oven?', act: { ask: 'Fan 180 in conventional?' } },
+      { text: 'What can I cook with eggs and spinach?', act: { ask: 'What can I cook with eggs and spinach?' } },
+    ],
+    dyk: 'Several timers can run at once, each with its own name, and they carry on after a reload.',
+  },
+  people: {
+    name: 'People',
+    promise: 'The people you told him about',
+    can: [
+      { text: 'Who’s who: birthdays and what you said', act: { open: 'people', panel: 'YOUR PEOPLE' } },
+      { text: 'Gift ideas for Mum', act: { ask: 'Gift ideas for Mum' } },
+      { text: 'Plan a meal out for six', act: { open: 'people', panel: 'GROUP PLAN' } },
+    ],
+    dyk: 'He only knows what you tell him, and he never looks anyone up.',
+  },
+  work: {
+    name: 'Work',
+    promise: 'Your to-do list and interview practice',
+    can: [
+      { text: 'Your to-do list, kept in his brain', act: { open: 'work', panel: 'TO-DO' } },
+      { text: 'Interview practice for a barista job', act: { ask: 'Interview practice for a barista job' } },
+      { text: 'Write a cover letter for a barista job', act: { ask: 'Write a cover letter for a barista job' } },
+    ],
+    dyk: 'Nothing is sent for you: a CV, a cover letter or an email comes as text to copy or share.',
+  },
+  creative: {
+    name: 'Creative',
+    promise: 'Songs, posters, cards, comics and beats',
+    can: [
+      { text: 'Drum pads: tap along with a loop', act: { open: 'creative', panel: 'DRUM PADS' } },
+      { text: 'What should I draw today?', act: { ask: 'What should I draw?' } },
+      { text: 'A poster for the car boot sale', act: { ask: 'Make a poster for the car boot sale on Saturday' } },
+    ],
+    dyk: 'Every picture is laid out in code and drawn on the phone, and saved to your downloads only when you tap.',
+  },
+  outside: {
+    name: 'Outside',
+    promise: 'A safer walk, toilets, parking, the way',
+    can: [
+      { text: 'A safer walk, scored on street reports', act: { open: 'outside', panel: 'WALK' } },
+      { text: 'Toilets near me', act: { ask: 'Toilets near me' } },
+      { text: 'Where did I park?', act: { ask: 'Where did I park?' } },
+    ],
+    dyk: 'Where you are is asked only when you tap, used for that one question and kept nowhere.',
+  },
+  homeadmin: {
+    name: 'Home',
+    promise: 'Bins, bills, meters and what is due',
+    can: [
+      { text: 'What is due at home, in date order', act: { open: 'homeadmin', panel: 'DUE' } },
+      { text: 'When are the bins?', act: { ask: 'When are the bins?' } },
+      { text: 'Photograph a bill: he keeps the date', act: { open: 'homeadmin', panel: 'BILLS' } },
+    ],
+    dyk: 'A photo of a bill is read on the phone; only the supplier, the amount and the date go to his brain.',
+  },
+  learning: {
+    name: 'Learning',
+    promise: 'Words, typing, maths and first aid',
+    can: [
+      { text: 'Ten words a day in eight languages', act: { open: 'learning', panel: 'WORDS' } },
+      { text: 'Ten words in Spanish', act: { ask: 'Ten words in Spanish' } },
+      { text: 'A quick maths drill', act: { ask: 'Maths drill' } },
+    ],
+    dyk: 'The first aid steps are the NHS’s published ones, as practice: for a real emergency, call 999.',
+  },
+  coach: {
+    name: 'Coach',
+    promise: 'A tuner, and lessons that listen',
+    can: [
+      { text: 'Tune your guitar by the microphone', act: { open: 'coach', panel: 'TUNER' } },
+      { text: 'Teach me guitar', act: { ask: 'Teach me guitar' } },
+      { text: 'Typing test', act: { ask: 'Typing test' } },
+    ],
+    dyk: 'He hears the notes in code on the phone: nothing is recorded to keep, and what a microphone cannot judge he says.',
+  },
+  social: {
+    name: 'Social',
+    promise: 'Your accounts; every post waits for you',
+    can: [
+      { text: 'Posts waiting for your APPROVE', act: { open: 'social', panel: 'WAITING FOR YOUR APPROVE' } },
+      { text: 'What’s on Bluesky?', act: { ask: 'What’s on Bluesky?' } },
+      { text: 'Who made you?', act: { ask: 'Who made you?' } },
+    ],
+    dyk: 'Nothing goes out without your APPROVE, and a draft is gone after 24 hours.',
+  },
+  convert: {
+    name: 'Convert',
+    promise: 'Files into other formats, on this phone',
+    can: [
+      { text: 'Pictures, PDFs, Word, tables and sound', act: { open: 'convert' } },
+      { text: 'Convert this to PDF', act: { ask: 'Convert this to PDF' } },
+      { text: '3.5 miles in km', act: { ask: '3.5 miles in km' } },
+    ],
+    dyk: 'Nothing is uploaded: every conversion happens on the phone, even a PDF split or a recording.',
+  },
+  docs: {
+    name: 'Documents',
+    promise: 'Read, write, edit and translate',
+    can: [
+      { text: 'Your documents, kept on this phone', act: { open: 'docs' } },
+      { text: 'Write a letter to my landlord about the damp', act: { ask: 'Write a letter to my landlord about the damp' } },
+      { text: 'Translate my letter into Urdu', act: { ask: 'Translate my letter into Urdu' } },
+    ],
+    dyk: 'A translation keeps every heading and list in its place, beside the original.',
+  },
+  house: {
+    name: 'House',
+    promise: 'Your smart home, room by room',
+    can: [
+      { text: 'Lights, heating and blinds, room by room', act: { open: 'house' } },
+      { text: 'Is the back door open?', act: { ask: 'Is the back door open?' } },
+      { text: 'What’s the temperature in the kitchen?', act: { ask: 'What’s the temperature in the kitchen?' } },
+    ],
+    dyk: 'A lock, an alarm or a garage door asks your confirm on every tap, and nothing acts on a schedule.',
   },
 };
 
