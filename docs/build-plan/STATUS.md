@@ -131,13 +131,18 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   sees, the people and cars you've named and the day, speaks first a few times a day at most (SETTINGS → CHARACTER →
   SPEAK FIRST: QUIET · SOME · CHATTY; any stop word silences the day), Home is your wall ("Now": what matters first,
   the deck below), and Telegram and the lock screen carry the same cards.
+- Batch ③ part 5, THE ARCADE (PR #49 too): a new ARCADE screen with 13 real classic games free to pass on — DOOM, Heretic,
+  Duke Nukem 3D, Rise of the Triad, Blake Stone, Raptor, Tyrian, One Must Fall 2097, Commander Keen 1 and 4, Jill of the
+  Jungle, Wacky Wheels, Epic Pinball — fetched once on Wi-Fi, running in a DOS machine built into the page with a stick
+  and buttons under your thumbs, a controller when attached, sound, and saves that survive a reload.
 
 - Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- BUILDING NOW (1 Nov): ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
-  Archive on your tap) and, separately, DOOM and Quake natively in the browser. Each: review, one PR, merged when green.
+- BUILDING NOW (1 Nov): ③ DOOM and Quake natively in the browser (Freedoom and the free levels with them); ③ two games
+  of our own in 3-D (the block world where Ghosty builds what you say; the runner); ④ the money, body and kitchen packs.
+  Each: review, one PR, merged when green.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

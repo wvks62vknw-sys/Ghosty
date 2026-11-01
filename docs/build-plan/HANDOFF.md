@@ -1086,6 +1086,10 @@ folder that no longer exists; ignore those paths).
   Rule from here: a batch joins the open PR only while its checks are under ~45 min old; otherwise it waits for the next
   PR. The merged tree's full suite and eight specs run in the background (scratchpad val2.log). Building: ③ library +
   arcade screen (8855, finishing), ③ engines (8811), ③ games-2 (8800). Next slot: PACKS-1.
+- 1 Nov 06:40 UK: BATCH ③ PART 5 MERGED (26d12e6; words 8d69309; OWNER-ISSUES 102): the ARCADE tab with 13 free DOS classics
+  on the DOSBox-wasm engine behind the shared Engine adapter. Joins PR #49 once deck + arcade specs pass on the merged tree
+  (running on 8844 while the chain on 8788 finishes nav/brief + the suite). PACKS-1 started (Opus, 8822). Running: engines
+  (8811), games-2 (8800), packs-1 (8822).
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
