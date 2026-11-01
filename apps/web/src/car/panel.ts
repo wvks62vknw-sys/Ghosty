@@ -1,6 +1,8 @@
 /**
  * The 3D STUDIO's CAR pane (BRIEF-CAR): the car drawn over the Studio's view (car/scene.ts), its name and the one honest
- * line (the stand-in, said once), DAY / NIGHT; under it the views — CAR, BONNET UP, WHEEL OFF, UNDERNEATH — and the sheet
+ * line (the stand-in, said once), DAY / NIGHT; under it the views — CAR, BONNET UP, WHEEL OFF, UNDERNEATH — then FIX IT
+ * (item 4): the safety line first when there is one, WHAT'S WRONG? in his words, NEXT STEP (the check to do first) and the
+ * suspects in order, each opening to its check, DIY or garage and cost, its parts lit on the car; and the sheet
  * of whatever part was tapped: WHAT IT IS, A 30-SECOND CHECK, DIY OR GARAGE, A ROUGH COST (a first estimate, never a
  * quote) and what the MOT said about it when it said something. The Studio (features/studio/index.ts) shows it for the
  * `car` sample and the CAR · FIX IT pane, and stops it when it is left. A test reads and drives it through
@@ -8,9 +10,10 @@
  */
 import { h, clear } from '../core/dom';
 import { button } from '../ui/components';
-import { ESTIMATE, PARTS, VIEWS, isPart, money, motFor, type MotLine, type View } from './parts';
+import { costWords, faultFor, symptomOf, type FaultPick } from './faults';
+import { ESTIMATE, PARTS, VIEWS, isPart, money, motFor, viewOf, type MotLine, type View } from './parts';
 import { CarScene, labelOf } from './scene';
-import { carNow, recordOf } from './state';
+import { carNow, motOf, setFault } from './state';
 import { shapeWords, specFrom, standInLine, type CarFacts, type CarSpec } from './spec';
 
 export interface CarPane {
@@ -22,11 +25,7 @@ export interface CarPane {
 }
 
 /** The MOT history's defects for this car, newest test first (from the record held this session). */
-export function motLines(spec: CarSpec | null): MotLine[] {
-  const a = spec?.plate ? recordOf(spec.plate) : null;
-  if (!a?.ok) return [];
-  return a.report.tests.slice(0, 2).flatMap((t) => t.defects.map((d) => ({ type: d.type, text: d.text, dangerous: d.dangerous, date: t.date })));
-}
+export const motLines = (spec: CarSpec | null): MotLine[] => (spec?.plate ? motOf(spec.plate) : []);
 
 const day = (iso = '') => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -56,6 +55,9 @@ export function sheetEl(id: string, spec: CarSpec | null): HTMLElement {
   );
 }
 
+/** The view a part is seen in (anything else is on the outside). */
+const viewOfPart = (id: string): View => (isPart(id) ? viewOf(id) : 'car');
+
 export function carPane(view: HTMLElement): CarPane {
   const stage = h('div.carstage');
   stage.hidden = true;
@@ -80,7 +82,27 @@ export function carPane(view: HTMLElement): CarPane {
   const views = h('div.carviews', { role: 'group', 'aria-label': 'Look at the car' }, ...viewBtns);
   const facts = h('div.carfacts');
   const sheet = h('div.carsheetbox', h('p.note.carpicked', 'Tap any part of the car for what it is, a quick check and a rough cost.'));
-  const el = h('div.studiopane.carpane', views, facts, sheet);
+  // FIX IT: what is wrong, in his words; the suspects in order
+  const fixit = h('section.carfixit', { 'aria-label': 'Fix it' });
+  const wrongIn = h('input.carwrong', { type: 'text', placeholder: 'What’s wrong? “grinding when I brake”', 'aria-label': 'What’s wrong with the car? In your own words', enterKeyHint: 'go', autocomplete: 'off', maxLength: 200 });
+  const wrongNote = h('p.note.carwrongnote');
+  const wrongForm = h('form.carwrongform', { onsubmit: (e: Event) => {
+    e.preventDefault();
+    const t = wrongIn.value.trim();
+    if (!t) return;
+    const sp = shown ?? specFrom(null);
+    const sym = symptomOf(t, true);
+    if (!sym) {
+      wrongNote.textContent = 'I don’t know that one yet: try “grinding when I brake”, “won’t start, just clicks” or “the battery light is on”.';
+      return;
+    }
+    wrongNote.textContent = '';
+    const pick = faultFor(sym, { lines: motLines(sp), electric: sp.electric });
+    const card = carNow.get().card || 'car:standin';
+    setFault(card, { text: t, pick });
+    carNow.set({ fault: pick, view: pick.view, card });
+  } }, wrongIn);
+  const el = h('div.studiopane.carpane', views, fixit, facts, sheet);
 
   let shown: CarSpec | null = null;
   let on = false;
@@ -114,6 +136,65 @@ export function carPane(view: HTMLElement): CarPane {
     paintViews();
   };
 
+  /** How likely, in words (no numbers unless asked). */
+  const odds = (p: number, i: number) => (i === 0 ? 'Most likely' : p >= 0.2 ? 'Possible' : 'Less likely');
+  let open = 0;
+  let litFor: FaultPick | null = null;
+  const paintFixit = () => {
+    const f = carNow.get().fault;
+    if (!f) {
+      clear(fixit, h('h3.carfixhead', 'FIX IT'), wrongForm, wrongNote);
+      return;
+    }
+    const rows = f.suspects.map((x, i) => {
+      const head = button(h('span.fixrowin', h('b.fixnum', String(i + 1)), h('span.fixlabel', x.label), h('small.fixodds', odds(x.likely, i))), () => {
+        open = open === i ? -1 : i;
+        paintFixit();
+        scene.pick(x.parts[0]!);
+      }, 'fixrow');
+      head.setAttribute('aria-expanded', String(open === i));
+      head.dataset.case = 'keep';
+      const body = open === i
+        ? h(
+            'dl.fixbody',
+            h('dt', 'A 30-SECOND CHECK'), h('dd', x.check),
+            h('dt', 'DIY OR GARAGE'), h('dd', x.diy),
+            h('dt', 'A ROUGH COST'), h('dd', costWords(x)),
+            ...(x.mot ? [h('dt', 'THE MOT SAID'), h('dd', `“${x.mot.text}” (${x.mot.type.toLowerCase()})`)] : []),
+            h('dt', 'ON THE CAR'),
+            h('dd.fixparts', ...x.parts.map((id) => {
+              const b = button(PARTS[id].name, () => {
+                const v = viewOfPart(id);
+                if (v !== scene.view) go(v);
+                scene.pick(id);
+              }, 'fixpart');
+              b.dataset.case = 'keep';
+              return b;
+            })),
+          )
+        : null;
+      return h('li', head, body);
+    });
+    clear(
+      fixit,
+      // the safety line is said first, and once here
+      f.safety ? h('p.carsafe', f.safety) : null,
+      h('h3.carfixhead', `FIX IT · ${f.symptom.title}`),
+      h('p.carnext', h('b', 'NEXT STEP '), f.next),
+      h('ol.fixlist', ...rows),
+      wrongForm,
+      wrongNote,
+      h('p.note.carcostnote', `Every cost here is ${ESTIMATE}.`),
+    );
+  };
+  /** Light the fault's suspects on the car (once the car is built and the view chosen). */
+  const lightFault = () => {
+    const f = carNow.get().fault;
+    if (f === litFor) return;
+    litFor = f;
+    scene.light(f ? f.lit : []);
+  };
+
   scene.onPick = (id) => showSheet(id);
 
   const enter = async () => {
@@ -128,11 +209,15 @@ export function carPane(view: HTMLElement): CarPane {
       shown = spec;
       scene.night = new Date().getHours() >= 19 || new Date().getHours() < 7;
       await scene.show(spec);
+      litFor = null;
       sheetId = '';
       clear(sheet, h('p.note.carpicked', 'Tap any part of the car for what it is, a quick check and a rough cost.'));
     }
     if (carNow.get().view !== scene.view) scene.setView(carNow.get().view);
+    open = 0;
+    lightFault();
     paintHud();
+    paintFixit();
     if (on) scene.start();
   };
   const leave = () => {
@@ -143,13 +228,21 @@ export function carPane(view: HTMLElement): CarPane {
   // a car shown while the pane is open replaces the one on the stage; a view asked for is gone to
   carNow.subscribe((s, prev) => {
     if (!on) return;
-    if (s.spec && s.spec !== prev.spec) void enter();
-    else if (s.view !== scene.view) go(s.view);
+    if (s.spec && s.spec !== prev.spec) return void enter();
+    if (s.view !== scene.view) go(s.view);
+    if (s.fault !== prev.fault) {
+      open = 0;
+      lightFault();
+      paintFixit();
+    }
   });
 
   const g = window as unknown as { __ghosty?: Record<string, unknown> };
   (g.__ghosty ??= {}).car = {
-    state: () => ({ ...scene.state(), spec: shown, standIn: line.textContent, on, sheet: sheetId }),
+    state: () => {
+      const f = carNow.get().fault;
+      return { ...scene.state(), spec: shown, standIn: line.textContent, on, sheet: sheetId, fault: f ? { symptom: f.symptom.id, safety: f.safety ?? '', next: f.next, suspects: f.suspects.map((x) => x.label), lit: f.lit } : null };
+    },
     screenOf: (id: string) => scene.screenOf(id),
     show: (f: CarFacts | null) => carNow.set({ spec: specFrom(f), whose: '' }),
     night: (v: boolean) => (scene.setNight(v), paintHud()),

@@ -468,11 +468,14 @@ export const CAR_WORDS = /\b(?:car|cars|van|motor|vehicle|engine|bonnet|exhaust|
 
 const norm = (t: string) => String(t ?? '').toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
 
-/** Which symptom his words describe (the longest match wins; the table's order breaks a tie), or null. */
-export function symptomOf(text: string): Symptom | null {
+/**
+ * Which symptom his words describe (the longest match wins; the table's order breaks a tie), or null. `aboutCar`: the
+ * words were typed about a car already (its card's box), so they need no car word of their own.
+ */
+export function symptomOf(text: string, aboutCar = false): Symptom | null {
   const t = norm(text);
   if (!t || t.length > 300) return null;
-  const car = CAR_WORDS.test(t);
+  const car = aboutCar || CAR_WORDS.test(t);
   let best: { s: Symptom; n: number } | null = null;
   for (const s of SYMPTOMS) {
     if (s.needsCar && !car) continue;

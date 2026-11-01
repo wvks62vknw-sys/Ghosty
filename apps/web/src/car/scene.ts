@@ -627,13 +627,19 @@ export class CarScene {
   }
 
   private placeTag(): void {
+    const placed: { x: number; y: number }[] = [];
     for (const l of this.lit) {
       // follow the part while it moves with the view
       if (this.move || this.pose.lift) l.at = this.centreOf(l.id) ?? l.at;
       if (l.halo && l.at) l.halo.position.copy(l.at);
       const p = l.at ? this.project(l.at) : null;
       l.pin.hidden = !p;
-      if (p) l.pin.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
+      if (!p) continue;
+      // parts close together (the pads inside the caliper): their pins step aside, so each can be tapped
+      let tries = 0;
+      while (tries++ < 6 && placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 34)) p.x += 34;
+      placed.push(p);
+      l.pin.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
     }
     if (this.tagEl.hidden || !this.tagAt) return;
     const p = this.project(this.tagAt);

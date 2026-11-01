@@ -18,6 +18,8 @@ import { createStore } from '../../core/store';
 import { guardian } from '../../state/guardian';
 import { openChat, perform } from '../../shell/launcher';
 import { button } from '../../ui/components';
+import { carExtra } from '../../car/card';
+import { keepRecord } from '../../car/state';
 
 export type { Card } from '../../../../../packages/shared/src/cards';
 
@@ -193,24 +195,31 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
   }
   // on Home's wall the whole card is the button: its first act (the screen, the question, the car)
   const tap = opts.wall ? c.acts?.[0] : undefined;
-  const acts = (opts.wall ? [] : (c.acts ?? []).slice(0, 2)).map((a, i) => {
-    const b = button(a.label, () => act(a), i === 0 ? 'on' : '');
+  // THE CAR (BRIEF-CAR): a car's record gains WHAT'S WRONG? and SHOW ME; once something is wrong, the safety line
+  // (first) and the top suspect take the line (car/card.ts)
+  const car = opts.wall ? null : carExtra(c);
+  const acts = [...(car ? [car.showMe] : []), ...(opts.wall ? [] : (c.acts ?? []).slice(0, 2)).map((a, i) => {
+    const b = button(a.label, () => act(a), i === 0 && !car ? 'on' : '');
+    return b;
+  })].slice(0, 2);
+  for (const b of acts) {
     b.dataset.case = 'keep';
     b.classList.add('ccbtn');
-    return b;
-  });
+  }
   const el = h(
     `article.ccard${opts.wall ? '.wall' : ''}` as 'article',
     // (no label of its own: VoiceOver reads the title, then the line, then the buttons; the picture is hidden from it)
-    { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger ? { danger: '1' } : {}) } },
+    { dataset: { kind: c.kind, id: c.id, case: 'keep', ...(c.danger || car?.safe ? { danger: '1' } : {}), ...(car?.fault ? { fault: '1' } : {}) } },
     vis,
     h(
       'div.ccbody',
       h('b.cctitle', c.title),
-      h('span.ccline', c.line),
+      car?.safe ?? null,
+      h('span.ccline', car?.line ?? c.line),
       c.kind === 'estimate' ? h('small.cctag', 'First estimate, not certified') : null,
       // a line he did not ask for says why it came (the speak-first cadence recorded it)
       c.why ? h('small.ccwhy', `Why: ${c.why}`) : null,
+      car?.box ?? null,
       acts.length ? h('div.ccacts', ...acts) : null,
     ),
   );
@@ -312,6 +321,7 @@ async function showCar(plate: string): Promise<void> {
   } catch {
     answer = { ok: false, reason: 'failed', message: 'I couldn’t reach my brain for the record. Try again in a moment.', links: [] };
   }
+  keepRecord(p, answer);
   const c = carCard(answer, p, named);
   // the offer becomes the car, where it was
   const es = chat.get().entries;

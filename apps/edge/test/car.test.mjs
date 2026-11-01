@@ -14,18 +14,19 @@ import { readFileSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/car/spec.ts'), at('../../web/src/car/parts.ts'), at('../../web/src/car/faults.ts')],
+  entryPoints: [at('../../web/src/car/spec.ts'), at('../../web/src/car/parts.ts'), at('../../web/src/car/faults.ts'), at('../../web/src/assistant/phrases.ts')],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
   outdir: at('./.build/car'),
-  outbase: at('../../web/src/car'),
+  outbase: at('../../web/src'),
   outExtension: { '.js': '.mjs' },
   logLevel: 'warning',
 });
-const S = await import('./.build/car/spec.mjs');
-const P = await import('./.build/car/parts.mjs');
-const F = await import('./.build/car/faults.mjs');
+const S = await import('./.build/car/car/spec.mjs');
+const P = await import('./.build/car/car/parts.mjs');
+const F = await import('./.build/car/car/faults.mjs');
+const { LOCAL_ASKS } = await import('./.build/car/assistant/phrases.mjs');
 const src = (f) => readFileSync(at(`../../web/src/car/${f}`), 'utf8');
 
 // ---------------------------------------------------------------- the car from the facts
@@ -219,4 +220,14 @@ test('the view words open the views, and nothing else does', () => {
   assert.equal(F.whoseIn("Haris's van won't start"), 'haris');
   assert.equal(F.whoseIn('my car is overheating'), 'me');
   assert.equal(F.whoseIn('grinding when I brake'), '');
+});
+
+test('the phrases registry: the car’s two come first, and match his words and nothing else', () => {
+  assert.deepEqual(LOCAL_ASKS.slice(0, 2).map((p) => p.id), ['carview', 'carfault']);
+  const first = (t) => LOCAL_ASKS.find((p) => p.test(t))?.id ?? null;
+  for (const t of ['open the bonnet', 'show me the engine', 'show me the brakes', "what's under it"]) assert.equal(first(t), 'carview', `"${t}"`);
+  for (const t of ["my dad's car makes a grinding noise when I brake", 'grinding when I brake', 'the battery light is on', 'my car won’t start, it just clicks']) assert.equal(first(t), 'carfault', `"${t}"`);
+  for (const t of ['what can you see?', 'wind tunnel', 'why did you do that?', "my dad's car is RX15 KNG", 'what’s the weather like', 'open the door']) assert.notEqual(first(t), 'carfault', `"${t}"`), assert.notEqual(first(t), 'carview', `"${t}"`);
+  // what the Workbench had stays its own when no car is meant
+  assert.equal(first('engine power calculator'), 'workbench');
 });
