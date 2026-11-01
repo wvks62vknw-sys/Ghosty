@@ -1,7 +1,7 @@
 # Cloudflare response headers for the interface. The main app gets a strict Content Security Policy:
 # scripts only from this site, network only to this site (/api), no framing by others.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr https://*.tiles.openrailwaymap.org https://tiles.openseamap.org https://tilecache.rainviewer.com https://api.mapbox.com https://images.openfoodfacts.org https://images.openbeautyfacts.org https://images.openproductsfacts.org https://covers.openlibrary.org https://archive.org https://*.archive.org; connect-src 'self' https://huggingface.co https://*.hf.co https://overpass-api.de https://overpass.kumi.systems https://tiles.openfreemap.org https://api.mapbox.com https://*.tiles.openrailwaymap.org https://tilecache.rainviewer.com; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com https://my.spline.design; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr https://*.tiles.openrailwaymap.org https://tiles.openseamap.org https://tilecache.rainviewer.com https://api.mapbox.com https://images.openfoodfacts.org https://images.openbeautyfacts.org https://images.openproductsfacts.org https://covers.openlibrary.org https://archive.org https://*.archive.org; connect-src 'self' https://huggingface.co https://*.hf.co https://overpass-api.de https://overpass.kumi.systems https://tiles.openfreemap.org https://api.mapbox.com https://*.tiles.openrailwaymap.org https://tilecache.rainviewer.com https://archive.org https://*.archive.org; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com https://my.spline.design; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: microphone=(self), geolocation=(self), camera=(self)
@@ -41,6 +41,10 @@
 # fetched once and kept by the browser — hence those two in connect-src above.
 /vendor/*
   Cache-Control: public, max-age=604800
+
+# The ARCADE's free game data (apps/web/src/arcade/shelf.ts): fetched on his tap from the Internet Archive's CORS door
+# (archive.org/cors/…, which may hand a ZIP member over to one of its *.archive.org data servers), checked by size and
+# SHA-256 on the phone, kept in the Cache API — hence those two in connect-src above. Nothing is fetched from anywhere else.
 
 # The 3D STUDIO's sample models (Khronos glTF samples, CC0 / CC BY 4.0): fixed files, cached for a week.
 # three.js itself is under /vendor/three. The studio frames only Spline's public scenes
