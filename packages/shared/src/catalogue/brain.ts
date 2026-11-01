@@ -185,7 +185,7 @@ const MORE: Record<string, CatValue> = {
   'job:speak': {
     name: 'Speaking first, when it matters', line: 'I bring things up myself a few times a day at most: the morning, a car’s MOT month, a warning for a saved place.',
     more: 'At most four unprompted cards a day across the chat, push and Telegram, never two within two hours, nothing at night unless it is danger. Any stop word silences me for the rest of the day. SETTINGS → CHARACTER → SPEAK FIRST sets QUIET, SOME or CHATTY. WHY and "what did you do today" list every line I said first and why.',
-    say: ['Why did you say that?', 'What did you do today?', 'Quiet.'], scene: ['morning', 'talk'], cat: 'talk',
+    say: ['Why did you say that?', 'What did you do today?', 'Quiet.'], scene: ['morning', 'talking'], cat: 'talk',
     since: '2026-11-01',
   },
 };
