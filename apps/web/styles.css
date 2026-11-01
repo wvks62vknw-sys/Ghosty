@@ -5050,3 +5050,21 @@ html .arcloading[hidden], html .arcmenu[hidden], html .arcerr[hidden], html .arc
 .g2run:not([data-mode="play"]) .g2swipe { pointer-events: none; }
 .g2ui[data-mode="over"] .g2card { box-shadow: 0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,120,120,.25); }
 @media (prefers-reduced-motion: reduce) { .g2run .g2chase.on { animation: none; } }
+
+/* ---- THE CAR (BRIEF-CAR, batch ⑤ part 1): the car's stage over the 3D STUDIO's view, the CAR · FIX IT pane ---- */
+.studioseg button[data-pane="car"] { grid-column: 1 / -1; }
+.carstage { position: absolute; inset: 0; z-index: 3; overflow: hidden; border-radius: inherit; background: #dfe6ec; touch-action: none; user-select: none; -webkit-user-select: none; }
+.carstage[hidden] { display: none; }
+.carstage canvas.carcanvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.hud.studio[data-pane="car"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
+.carhud { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 4; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; pointer-events: none; }
+.carname { min-width: 0; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 13px/1.25 var(--sf); white-space: nowrap; text-overflow: ellipsis; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.carchips { display: flex; flex: none; gap: 6px; pointer-events: auto; }
+.carstage .carchips button { min-height: 32px; padding: 0 12px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 12px/1 var(--sf); }
+.carstandin { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; padding: 4px 9px; border-radius: 10px; background: rgba(8,10,14,.55); color: rgba(255,255,255,.9); font: 400 10.5px/1.35 var(--sf); pointer-events: none; }
+.cartag { position: absolute; left: 0; top: 0; z-index: 5; max-width: 70%; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.85); color: #fff; font: 600 13px/1.2 var(--sf); white-space: nowrap; text-overflow: ellipsis; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.cartag[hidden] { display: none; }
+.carpane .carfacts { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carpane .carfacts b { font: 600 16px/1.3 var(--sf); color: var(--ink); }
+.carpane .carfacts span { font: 400 13px/1.35 var(--sf); color: var(--ink2); }
+.carpane .carpicked { margin: 4px 0 0; }

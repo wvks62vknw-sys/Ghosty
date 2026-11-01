@@ -11,10 +11,12 @@ export const SAMPLES = [
   { id: 'chair', title: 'Sheen chair', note: 'Khronos sample · CC0', file: 'SheenChair.glb', credit: 'Sheen chair © 2020 Wayfair LLC, by Eric Chadwick, CC0 (Khronos glTF Sample Assets)' },
   { id: 'sofa', title: 'Glam velvet sofa', note: 'Khronos sample · CC BY 4.0', file: 'GlamVelvetSofa.glb', credit: 'Glam velvet sofa © 2021 Wayfair LLC, by Eric Chadwick, CC BY 4.0 (Khronos glTF Sample Assets)' },
   { id: 'truck', title: 'Milk truck', note: 'Khronos sample · CC BY 4.0', file: 'CesiumMilkTruck.glb', credit: 'Cesium Milk Truck © 2017 Cesium, CC BY 4.0; Cesium logo is a trademark of Cesium (Khronos glTF Sample Assets)' },
+  // the car from a plate, built here from its public facts (apps/web/src/car): it opens the CAR · FIX IT pane
+  { id: 'car', title: 'Car, bonnet up', note: 'built in · from its plate', file: '', credit: 'A stand-in car made for Ghosty from its public facts' },
 ] as const;
 export type SampleId = (typeof SAMPLES)[number]['id'];
 
-export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline';
+export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline' | 'car';
 export const PANES: { id: Pane; label: string }[] = [
   { id: 'models', label: 'MODELS' },
   { id: 'parts', label: 'PARTS' },
@@ -22,4 +24,5 @@ export const PANES: { id: Pane; label: string }[] = [
   { id: 'make', label: 'MAKE · PHOTO' },
   { id: 'room', label: 'ROOM' },
   { id: 'spline', label: 'SPLINE' },
+  { id: 'car', label: 'CAR · FIX IT' },
 ];
