@@ -43,6 +43,8 @@ interface Purse {
   use: HopperKind;
 }
 const PURSE_FILE = 'hopper.json';
+/** 1 row, 2 rows. */
+const rows = (n: number) => `${num(n)} row${n === 1 ? '' : 's'}`;
 const TITLES: Record<Death, string> = { car: 'Squashed', lorry: 'Flattened', train: 'Hit by the train', water: 'Splash', edge: 'Swept away', fog: 'Lost in the fog' };
 const TIPS: Record<Death, string> = {
   car: 'Look both ways, then look again.',
@@ -277,7 +279,7 @@ async function startHopper(canvas: HTMLCanvasElement, _files: EngineFiles, inten
     ui.menu({
       title: 'The hopper',
       line: entry.ghosty,
-      notes: [`${best() ? `Your best: ${num(best())} rows · ` : ''}${num(purse.coins)} coins`, ...(gb ? [`My best: ${num(gb)} rows. It is the line across the road.`] : [])],
+      notes: [`${best() ? `Your best: ${rows(best())} · ` : ''}${num(purse.coins)} coin${purse.coins === 1 ? '' : 's'}`, ...(gb ? [`My best: ${rows(gb)}. It is the line across the road.`] : [])],
       extra: picker(openTitle),
       buttons: [
         { label: 'Play', aria: 'Play: start hopping', primary: true, act: () => startRun() },
@@ -324,7 +326,7 @@ async function startHopper(canvas: HTMLCanvasElement, _files: EngineFiles, inten
     music.stop();
     ui.menu({
       title: 'Paused',
-      line: `${num(run.best)} rows, ${num(run.coins)} coins so far.`,
+      line: `${rows(run.best)}, ${num(run.coins)} coin${run.coins === 1 ? '' : 's'} so far.`,
       buttons: [
         { label: 'Resume', primary: true, act: () => resumeRun() },
         { label: 'How to play', act: () => openHow(openPause) },
@@ -358,13 +360,13 @@ async function startHopper(canvas: HTMLCanvasElement, _files: EngineFiles, inten
     music.stop();
     const how = run.p.death ?? 'fog';
     const gb = ghostyBest();
-    const line = isBest && run.best > 0 ? `New best: ${num(run.best)} rows. I am writing that one down.` : gb && run.best > gb ? `Past my line by ${num(run.best - gb)}. ${TIPS[how]}` : TIPS[how];
+    const line = isBest && run.best > 0 ? `New best: ${rows(run.best)}. I am writing that one down.` : gb && run.best > gb ? `Past my line by ${rows(run.best - gb)}. ${TIPS[how]}` : TIPS[how];
     reopen = overMenu;
     function overMenu() {
       ui.menu({
         title: TITLES[how],
         line,
-        notes: [`${num(run.best)} rows · ${num(run.coins)} coins · ${num(purse.coins)} saved`, `Your best: ${num(best())}${gb ? ` · mine: ${num(gb)}` : ''}`],
+        notes: [`${rows(run.best)} · ${num(run.coins)} coin${run.coins === 1 ? '' : 's'} · ${num(purse.coins)} saved`, `Your best: ${num(best())}${gb ? ` · mine: ${num(gb)}` : ''}`],
         buttons: [
           { label: 'Hop again', primary: true, act: () => startRun() },
           { label: 'Menu', act: () => openTitle() },
@@ -375,7 +377,7 @@ async function startHopper(canvas: HTMLCanvasElement, _files: EngineFiles, inten
       });
     }
     overMenu();
-    ui.announce(`${TITLES[how]}. ${num(run.best)} rows. ${line}`);
+    ui.announce(`${TITLES[how]}. ${rows(run.best)}. ${line}`);
   };
 
   // ---------------------------------------------------------------- the frame

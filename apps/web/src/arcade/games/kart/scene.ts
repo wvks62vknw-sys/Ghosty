@@ -209,12 +209,21 @@ export function trackGeo(t: Track, id: TrackId, seed = 7): { solid: Geo; glow: G
       // what lies beyond the wall: the beach, the mountainside, the pavement
       if (!tun) {
         if (id === 'pass') {
-          const hgt = t.y[i]! + 0.5, out = 4 + hgt * 1.25;
-          const col2 = hgt > 9 ? 0x8b8f98 : th.ground;
-          const [rx, rz] = right(t, i), [qx, qz] = right(t, j);
-          const p = (k: number, lat: number, y: number) => [t.x[k]! + (k === i ? rx : qx) * lat, y, t.z[k]! + (k === i ? rz : qz) * lat];
-          const L0 = s * (W + 0.45), L1 = s * (W + 0.45 + out);
-          g.quad4([p(i, L0, t.y[i]! - 0.2), p(j, L0, t.y[j]! - 0.2), p(j, L1, -1.2), p(i, L1, -1.2)], [rx * s * 0.6, 0.8, rz * s * 0.6], col2);
+          // the mountainside: a slope from the wall down to the valley floor, its foot worked out per sample (so the
+          // slopes of neighbouring samples share their edges and never overlap)
+          const col2 = t.y[i]! + 0.5 > 9 ? 0x8b8f98 : th.ground;
+          const foot = (k: number) => {
+            const hgt = t.y[k]! + 0.5, slope = 3 + hgt * 0.8;
+            let kk = 0;
+            for (let q = -4; q <= 4; q++) kk = Math.max(kk, Math.abs(t.k[(k + q + t.n) % t.n]!) * Math.sign(t.k[(k + q + t.n) % t.n]!) * -s);
+            return s * (t.wall[k]! + 0.45 + (kk > 1e-4 ? Math.min(slope, Math.max(2, 0.85 / kk - t.wall[k]! - 0.45)) : slope));
+          };
+          const low = (k: number) => {
+            const q = at(t, k, foot(k), 0);
+            return [q[0]!, -1.2, q[2]!];
+          };
+          const [rx, rz] = right(t, i);
+          g.quad4([at(t, i, s * (W + 0.45), -0.2), at(t, j, s * (t.wall[j]! + 0.45), -0.2), low(j), low(i)], [rx * s * 0.6, 0.8, rz * s * 0.6], col2);
         } else {
           const out = id === 'city' ? 7 : 24;
           strip(g, t, i, j, s < 0 ? -W - 0.45 - out : W + 0.45, s < 0 ? -W - 0.45 : W + 0.45 + out, -0.05, id === 'city' ? 0x2b3040 : th.ground);
@@ -332,7 +341,7 @@ export function trackGeo(t: Track, id: TrackId, seed = 7): { solid: Geo; glow: G
       const i = Math.floor(r() * t.n);
       if (t.tunnel[i]) continue;
       const s = r() < 0.5 ? -1 : 1, [rx, rz] = right(t, i);
-      const d = t.wall[i]! + 6 + (t.y[i]! + 0.5) * 1.25 + r() * 40;
+      const d = t.wall[i]! + 6 + (t.y[i]! + 0.5) * 0.8 + r() * 40;
       const x = t.x[i]! + rx * s * d, z = t.z[i]! + rz * s * d;
       if (clear(t, x, z, 4 + 1.3 * 30)) pine(g, x, -0.6, z, r, false);
       else if (clear(t, x, z, 6)) pine(g, x, -0.6, z, r, false);
@@ -397,7 +406,7 @@ export function makeKartScene(T: ThreeNS, track: Track, id: TrackId, accent: num
   const mats: Mat[] = [];
   const keep = (g: Geom) => (geos.push(g), g);
   const scene = new T.Scene();
-  const camera = new T.PerspectiveCamera(70, 0.5, 0.5, 1400);
+  const camera = new T.PerspectiveCamera(70, 0.5, 0.8, 1400);
   const sky = makeSky(T);
   sky.scale.set(600, 600, 600);
   scene.add(sky);
@@ -514,9 +523,9 @@ export function makeKartScene(T: ThreeNS, track: Track, id: TrackId, accent: num
           sparks.emit(p[0], p[1], p[2], (Math.random() - 0.5) * 4 - Math.sin(k.h) * 3, 1 + Math.random() * 3, (Math.random() - 0.5) * 4 - Math.cos(k.h) * 3, 0.32, k.level ? 1.3 : 0.8, c);
         }
       }
-      if (k.offroad && v > 6 && Math.random() < 0.6) {
+      if (k.offroad && v > 6 && Math.random() < 0.4) {
         const p = local(k, (Math.random() - 0.5) * 1.4, 0.2, -0.8);
-        smoke.emit(p[0], p[1], p[2], (Math.random() - 0.5) * 2, 1 + Math.random(), (Math.random() - 0.5) * 2, 0.6, 0.75, id === 'seaside' ? 0xf0e2b8 : id === 'pass' ? 0xb8a888 : 0x8a90a8);
+        smoke.emit(p[0], p[1], p[2], (Math.random() - 0.5) * 2, 0.8 + Math.random(), (Math.random() - 0.5) * 2, 0.45, 0.5, id === 'seaside' ? 0xf0e2b8 : id === 'pass' ? 0xb8a888 : 0x8a90a8);
       }
       if (k.spinT > 0 && Math.random() < 0.5) sparks.emit(k.x, k.y + 1.6, k.z, Math.cos(t * 9 + i) * 2, 1.5, Math.sin(t * 9 + i) * 2, 0.4, 1.1, 0xffe066);
     });
