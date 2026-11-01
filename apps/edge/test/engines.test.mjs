@@ -235,7 +235,7 @@ test("QUAKE: the buttons are Quake's own commands and menu keys; its files where
 test('every button each game shows on the touch layer and every pad button does something in its engine', () => {
   const doomGame = doom.DOOM_KEYS.game;
   const quakeDoes = (a) => a in quake.QUAKE_HOLD || a in quake.QUAKE_PRESS || a === 'pause';
-  for (const g of SHELF) {
+  for (const g of SHELF.filter((g) => g.engine === 'doom' || g.engine === 'quake')) { // the DOS engine's games are its own test's
     const buttons = input.touchButtons(g.controls);
     assert.ok(buttons.length > 0, `${g.id}: buttons`);
     for (const a of buttons) assert.ok(g.engine === 'doom' ? doomGame[a] !== undefined : quakeDoes(a), `${g.id}: the ${a} button does nothing`);
@@ -247,7 +247,7 @@ test('the adapter interface: both engines, and a start without the game in the f
   assert.equal(doom.doom.id, 'doom');
   assert.equal(quake.quake.id, 'quake');
   for (const e of [doom.doom, quake.quake]) assert.equal(typeof e.start, 'function');
-  for (const g of SHELF) assert.ok({ doom: doom.doom, quake: quake.quake }[g.engine], `${g.id}: its engine is here`);
+  for (const g of SHELF.filter((g) => g.engine === 'doom' || g.engine === 'quake')) assert.ok({ doom: doom.doom, quake: quake.quake }[g.engine], `${g.id}: its engine is here`);
   const canvas = {}; // never touched: the refusal comes first
   const ev = { onError: () => assert.fail('no error event for a refusal: start() itself rejects') };
   await assert.rejects(doom.doom.start(canvas, { 'readme.txt': bytes(1) }, input.idle(), ev, { saves: saves.memorySaves(), sound: false }), /no DOOM game/);
