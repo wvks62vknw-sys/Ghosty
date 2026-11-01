@@ -30,6 +30,7 @@ extern int dg_analog_forward, dg_analog_side; // g_game.c, patched
 extern wbstartstruct_t wminfo;                 // g_game.c
 extern int messageToPrint;                     // m_menu.c
 extern boolean messageNeedsInput;
+extern int show_endoom;                        // d_main.c
 
 #define W DOOMGENERIC_RESX
 #define H DOOMGENERIC_RESY
@@ -177,6 +178,9 @@ static void bind_keys(void)
     // The previous and next weapon keys have no default in the original; the arcade's WEAPON buttons use these.
     key_nextweapon = ']';
     key_prevweapon = '[';
+    // No ENDOOM text screen on QUIT GAME (there is no text mode here, and it would end the program before the page
+    // hears about the quit).
+    show_endoom = 0;
 }
 
 static void quit_now(void)

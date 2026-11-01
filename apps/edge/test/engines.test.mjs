@@ -220,6 +220,10 @@ test("QUAKE: the buttons are Quake's own commands and menu keys; its files where
   assert.equal(quake.QUAKE_MENU.fire, quake.QKEY.ENTER);
   assert.equal(quake.QUAKE_MENU.weapon, quake.QKEY.ESCAPE);
   assert.equal(quake.QUAKE_MENU.pause, quake.QKEY.ESCAPE);
+  // "quit? y/n": FIRE says yes, WEAPON no (ENTER means nothing there)
+  assert.equal(quake.QUAKE_ASK.fire, quake.QKEY.YES);
+  assert.equal(quake.QUAKE_ASK.weapon, quake.QKEY.NO);
+  assert.equal(String.fromCharCode(quake.QKEY.YES, quake.QKEY.NO), 'yn');
   assert.deepEqual(Object.keys(quake.quakePaths({ 'pak0.pak': bytes(1), 'ID1/CONFIG.CFG': bytes(2), '/hipnotic/pak0.pak': bytes(3) })), ['id1/pak0.pak', 'id1/config.cfg', 'hipnotic/pak0.pak']);
   const r = quake.quakeScore({ map: 'e1m1', levelname: 'the Slipgate Complex', kills: 15, totalKills: 30, secrets: 1, totalSecrets: 6, seconds: 125.4 });
   assert.equal(r.score, 50 + 16);

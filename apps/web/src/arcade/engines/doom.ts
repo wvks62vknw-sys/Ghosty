@@ -504,6 +504,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     if (stopped) return;
     stopped = true;
     cancelAnimationFrame(raf);
+    document.removeEventListener('visibilitychange', onVisibility);
     ro?.disconnect();
     sfx.stopAll();
     // the canvas's pixels go back to the phone at once (a game's canvas is not drawn on again)
@@ -540,8 +541,13 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
       after(state());
       work += performance.now() - w0;
     } catch (e) {
-      fail(e);
-      return;
+      // the program ending on purpose (exit(0)) is a quit, not an error
+      const exit = e as { name?: string; status?: number };
+      if (exit?.name === 'ExitStatus' && exit.status === 0) quitAsked = true;
+      else {
+        fail(e);
+        return;
+      }
     }
     if (quitAsked) {
       stop();
@@ -550,6 +556,12 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     }
   };
   raf = requestAnimationFrame(loop);
+  // the screen off or another app in front: the game stands still (no frames come) and its sound goes quiet too
+  const onVisibility = (): void => {
+    if (document.hidden) audio?.suspend();
+    else if (!paused && !stopped) audio?.resume();
+  };
+  document.addEventListener('visibilitychange', onVisibility);
 
   return {
     pause() {

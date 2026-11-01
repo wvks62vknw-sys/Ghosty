@@ -225,6 +225,14 @@ async function quitClean(tag) {
   }
   if (!(await level('E1M1', 8000))) fail(`${tag}: FIRE from the title did not reach E1M1 through NEW GAME (${JSON.stringify(await probe())})`);
   else report.push('DOOM title → FIRE (menu) → FIRE (NEW GAME) → FIRE (episode) → FIRE (skill) → E1M1');
+  // QUIT GAME from DOOM's own menu: pause → stick down ×5 → FIRE → FIRE (yes) → back to the shelf (onQuit)
+  await wait(1500);
+  await press('pause');
+  for (let i = 0; i < 5; i++) await nudge(-1);
+  await press('fire');
+  await press('fire');
+  if (!(await until(() => window.harness.seen.quits === 1, null, 5000))) fail(`${tag}: QUIT GAME and yes did not end the game (${JSON.stringify(await seen())})`);
+  else report.push("DOOM's QUIT GAME → FIRE (yes) → onQuit");
   await quitClean(tag);
 }
 
@@ -331,6 +339,14 @@ for (const m of [1, 2, 3]) {
   await press('fire');
   if (!(await level('start', 30000))) fail(`${tag}: FIRE, FIRE did not start a NEW GAME (${JSON.stringify(await probe())})`);
   else report.push('QUAKE demo → pause (menu) → FIRE (SINGLE PLAYER) → FIRE (NEW GAME) → the start map');
+  // QUIT from Quake's own menu: pause → stick down ×4 → FIRE → FIRE (yes) → back to the shelf (onQuit)
+  await wait(1000);
+  await press('pause');
+  for (let i = 0; i < 4; i++) await nudge(-1);
+  await press('fire');
+  await press('fire');
+  if (!(await until(() => window.harness.seen.quits === 1, null, 5000))) fail(`${tag}: QUIT and yes did not end the game (${JSON.stringify(await seen())})`);
+  else report.push("QUAKE's QUIT → FIRE (yes) → onQuit");
   await quitClean(tag);
 }
 

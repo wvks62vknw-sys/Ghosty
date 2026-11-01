@@ -17,6 +17,7 @@ fetches the free packages (Freedoom; the DOOM 1.9 shareware) on his tap and unpa
 | `doomgeneric_ghosty.c` | Ghosty's platform layer (the only new C): frames to the page, keys and analog input from the page, sound effects to WebAudio, the page's clock, the save and settings files |
 | `patches/analog-movement.diff` | `g_game.c`: the stick's own amount goes into the move (`dg_analog_forward`, `dg_analog_side`), as an analog joystick would give it |
 | `patches/screen-melt.diff` | `d_main.c`: the screen melt runs one step a frame instead of in a loop (a page shows nothing until a frame returns) |
+| `patches/exit-calls.diff` | `d_main.c`: `G_CheckDemoStatus` (which returns a value) is called from a small function for the exit list instead of through a cast pointer: in WebAssembly a call through a pointer of the wrong type traps, and QUIT GAME stopped on it |
 | `patches/save-names.diff` | `m_menu.c`: an empty save slot is named for the level ("E1M1"), so a phone with no keyboard saves with one tap |
 | `build.sh` | rebuilds `doom.js` and `doom.wasm` from a clone of the commit above with these files |
 | `LICENCE` | GPL-2, upstream's |
@@ -38,7 +39,7 @@ sh apps/web/public/vendor/doom/build.sh /path/to/doomgeneric
 `doomgeneric_ghosty.c` and compiles: `-O2`, `-DFEATURE_SOUND -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200`, linked
 `MODULARIZE=1 EXPORT_ES6=1 ENVIRONMENT=web DYNAMIC_EXECUTION=0` (no `eval`: it runs under the app's security policy),
 64 MB initial memory, growable. No Emscripten "ports" (nothing is downloaded at build time); no SDL.
-This build: `doom.js` 72,297 bytes, `doom.wasm` 383,730 bytes.
+This build: `doom.js` 72,297 bytes, `doom.wasm` 383,734 bytes.
 
 ## Sound and music
 
@@ -56,7 +57,8 @@ build can add one (Chocolate Doom's OPL library, GPL-2, is the natural pick) wit
 - the DOOM 1.9 shareware's E1M1 (from `doom19s.zip`, DOOM1.WAD taken out on the page): unpacked in about 0.1 s, on
   screen 0.1–0.3 s after `start()`; 34–35 frames a second (DOOM's 35); walking, turning, pause and resume, FIRE's sound;
   a game saved through DOOM's own menu with the arcade's buttons alone came back exactly after a quit and a fresh start;
-  from the title, FIRE alone reached E1M1 through NEW GAME, the episode and the skill;
+  from the title, FIRE alone reached E1M1 through NEW GAME, the episode and the skill; QUIT GAME and FIRE for yes
+  ended the game and told the page;
 - Freedoom Phase 1 (0.13.0, `freedoom1.wad`) E1M1, E1M2 and E1M3 at 34–35 frames a second, each loaded, drawn and
   walked.
 
@@ -67,5 +69,8 @@ Safari on an iPhone has not run it yet (the owner's phone is the real test).
 - Vanilla limits: doomgeneric is the original engine (by way of Chocolate Doom), so a level made for a
   "limit-removing" port can overflow it (too many visplanes, segs or sprites) and stop with an error.
 - No DeHackEd: doomgeneric has no `.deh` support. A level pack that ships a `.deh` plays its maps but not its patch
-  (renamed levels, changed monsters or text).
+  (renamed levels, changed monsters or text). Freedoom's own WADs carry such a patch too (a 21 KB `DEHACKED` lump:
+  its level names and messages, a few bright gun-flash frames), so in Freedoom those texts are the engine's built-in
+  ones; its maps, pictures, sounds and monsters' looks are Freedoom's.
+- No ENDOOM text screen on quitting (the platform file turns it off: there is no text mode here).
 - No music (above). No network play (the page never starts it).

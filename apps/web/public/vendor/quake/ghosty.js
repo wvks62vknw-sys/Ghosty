@@ -169,6 +169,8 @@ return {
 		var s = CL.state, st = s.stats || [], me = CL.entities[s.viewentity];
 		return {
 			dest: Key.dest.value === Key.dest.game ? 'game' : Key.dest.value === Key.dest.menu ? 'menu' : Key.dest.value === Key.dest.console ? 'console' : 'message',
+			ask: (Key.dest.value === Key.dest.menu) && (M.state.value === M.state.quit), // "quit? y/n"
+			demo: CL.cls.demoplayback === true,
 			playing: (CL.cls.state === CL.active.connected) && (CL.cls.signon === 4) && (CL.cls.demoplayback !== true),
 			intermission: s.intermission | 0,
 			map: (s.worldmodel != null) ? s.worldmodel.name.replace(/^maps\//, '').replace(/\.bsp$/, '') : null,

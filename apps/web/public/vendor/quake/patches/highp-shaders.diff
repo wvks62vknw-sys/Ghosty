@@ -1,0 +1,170 @@
+--- a/Client/index.htm
++++ b/Client/index.htm
+@@ -154,7 +154,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshAlias">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform float uAmbientLight;
+ uniform float uShadeLight;
+@@ -190,7 +194,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshBrush">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform sampler2D tTexture;
+ uniform sampler2D tLightmap;
+@@ -226,7 +234,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshCharacter">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform sampler2D tTexture;
+ varying vec2 vTexCoord;
+ void main(void)
+@@ -250,7 +262,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshDlight">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ varying float vAlpha;
+ void main(void)
+@@ -270,7 +286,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshFill">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ varying vec4 vColor;
+ void main(void)
+ {
+@@ -298,7 +318,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshParticle">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ varying vec2 vCoord;
+ varying vec3 vColor;
+@@ -322,7 +346,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshPic">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform sampler2D tTexture;
+ varying vec2 vTexCoord;
+ void main(void)
+@@ -342,7 +370,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshPicTranslate">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform vec3 uTop;
+ uniform vec3 uBottom;
+ uniform sampler2D tTexture;
+@@ -376,7 +408,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshPlayer">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform float uAmbientLight;
+ uniform float uShadeLight;
+@@ -412,7 +448,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshSky">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform vec2 uTime;
+ uniform sampler2D tSolid;
+@@ -439,7 +479,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshSkyChain">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ void main(void)
+ {
+ }
+@@ -460,7 +504,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshSprite">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform sampler2D tTexture;
+ varying vec2 vTexCoord;
+@@ -489,7 +537,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshTurbulent">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uGamma;
+ uniform float uTime;
+ uniform sampler2D tTexture;
+@@ -514,7 +566,11 @@
+ }
+ </script>
+ <script type="x-shader/x-fragment" id="fshWarp">
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++precision highp float;
++#else
+ precision mediump float;
++#endif
+ uniform float uTime;
+ uniform sampler2D tTexture;
+ varying vec2 vTexCoord;

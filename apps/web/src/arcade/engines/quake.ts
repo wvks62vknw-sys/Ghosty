@@ -26,6 +26,10 @@ export const MAX_ACROSS = 1920;
 /** What Quake's state looks like to the page (ghosty.js's state()). */
 interface QuakeState {
   dest: 'game' | 'menu' | 'console' | 'message';
+  /** The menu asks "quit? y/n". */
+  ask: boolean;
+  /** A demo is playing (the attract loop before a game). */
+  demo: boolean;
   playing: boolean;
   intermission: number;
   map: string | null;
@@ -71,16 +75,18 @@ interface QuakeHost {
 }
 type QuakeFactory = (host: QuakeHost) => QuakeApi;
 
-/** Quake's key numbers for the menu (WebQuake's Key.k). */
-export const QKEY = { ENTER: 13, ESCAPE: 27, UP: 128, DOWN: 129, LEFT: 130, RIGHT: 131 } as const;
+/** Quake's key numbers for the menu (WebQuake's Key.k, and the letters its quit question takes). */
+export const QKEY = { ENTER: 13, ESCAPE: 27, UP: 128, DOWN: 129, LEFT: 130, RIGHT: 131, YES: 121, NO: 110 } as const;
 
-export type QuakeMode = 'game' | 'menu';
+export type QuakeMode = 'game' | 'menu' | 'ask';
 /** Held in a level: Quake's own button commands (with a key number of ours, so a real keyboard's never mixes in). */
 export const QUAKE_HOLD: Partial<Record<Action, string>> = { fire: 'attack', jump: 'jump', run: 'speed' };
 /** Pressed in a level: a command once (or, for the pause action, Quake's menu). */
 export const QUAKE_PRESS: Partial<Record<Action, string>> = { weapon: 'impulse 10', weaponPrev: 'impulse 12' };
 /** Pressed in the menu (and the console): Quake's own keys. */
 export const QUAKE_MENU: Partial<Record<Action, number>> = { fire: QKEY.ENTER, jump: QKEY.ENTER, use: QKEY.ENTER, weapon: QKEY.ESCAPE, weaponPrev: QKEY.ESCAPE, map: QKEY.ESCAPE, pause: QKEY.ESCAPE };
+/** Pressed when the menu asks "quit? y/n": FIRE says yes, WEAPON no. */
+export const QUAKE_ASK: Partial<Record<Action, number>> = { fire: QKEY.YES, jump: QKEY.YES, use: QKEY.YES, weapon: QKEY.NO, weaponPrev: QKEY.NO, map: QKEY.NO, pause: QKEY.ESCAPE };
 /** The key numbers our held commands carry (above every real key's). */
 export const QUAKE_KEYNUM: Record<string, number> = { attack: 301, jump: 302, speed: 303 };
 
@@ -277,7 +283,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     }
   };
   const feed = (st: QuakeState): void => {
-    const now: QuakeMode = st.dest === 'game' ? 'game' : 'menu';
+    const now: QuakeMode = st.ask ? 'ask' : st.dest === 'game' ? 'game' : 'menu';
     if (now !== mode) {
       release();
       spent = new Set(intent.held);
@@ -288,8 +294,14 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     const live = new Set([...intent.held].filter((a) => !spent.has(a)));
     const down = [...live].filter((a) => !pressedBefore.has(a));
     pressedBefore = live;
+    if (mode === 'game' && st.demo) {
+      // over a demo any button brings up the menu, as any key does in Quake
+      takeLook(intent);
+      if (down.length) (q.key(QKEY.ESCAPE, true), q.key(QKEY.ESCAPE, false));
+      return;
+    }
     if (mode === 'game') {
-      if (!st.playing) takeLook(intent); // loading or a demo: a look now would turn him all at once later
+      if (!st.playing) takeLook(intent); // loading: a look now would turn him all at once later
       const want = new Set<string>();
       for (const a of live) {
         const c = QUAKE_HOLD[a];
@@ -306,9 +318,10 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     }
     takeLook(intent);
     for (const a of down) {
-      const k = QUAKE_MENU[a];
+      const k = (mode === 'ask' ? QUAKE_ASK : QUAKE_MENU)[a];
       if (k !== undefined) (q.key(k, true), q.key(k, false));
     }
+    if (mode === 'ask') return;
     const k = quakeArrow(intent.moveX, intent.moveY);
     const t = performance.now();
     if (k === null) arrow = null;
@@ -345,6 +358,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     if (stopped) return;
     stopped = true;
     cancelAnimationFrame(raf);
+    document.removeEventListener('visibilitychange', onVisibility);
   };
   const letGo = (): void => {
     // the canvas's WebGL memory goes back to the phone at once (a game's canvas is not drawn on again)
@@ -399,6 +413,12 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
     }
   };
   raf = requestAnimationFrame(loop);
+  // the screen off or another app in front: the game stands still (no frames come) and its sound goes quiet too
+  const onVisibility = (): void => {
+    if (document.hidden) audio?.suspend();
+    else if (!paused && !stopped) audio?.resume();
+  };
+  document.addEventListener('visibilitychange', onVisibility);
 
   return {
     pause() {
