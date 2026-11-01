@@ -1226,6 +1226,21 @@ folder that no longer exists; ignore those paths).
   is). THE DEPTH PASS BUILDER WAS STOPPED when the owner interrupted a turn (the harness cancels the turn's background agents):
   its 31 uncommitted files sit abandoned in its worktree; a restart waits on his word. Validated here before this push:
   hubcards, deck, arcade, ui, nav (451 s), websites → apps → upgrades, vehicle, offline2 (twice, once after school → sit), restb.
+- 1 Nov 20:38 UK: MAKE'S CUT-OFF ROW, the owner's find, at its cause: the hub is a column flexbox that scrolls, and its More row has
+  overflow-x, so its automatic minimum height is nothing: when the cards ran past a shorter screen (an iPhone's safe areas,
+  Safari's bars) that row was the one child squeezed — 16 px tall at 390 × 700 in my own earlier measurement, the DOCUMENTS card
+  clipped — and the hub had nothing left to scroll. `html .hubmore { flex: none }`: 64 px at every size now, the hub scrolls when
+  it must (390 × 700: 775 > 648, the row ends above the dock). THE ARCADE'S OWN-SITE MIRROR MERGED (a plain merge of the builder's
+  worktree branch, base 9ebb730; its worktree started on origin/main by mistake and was reset to the local tip before any work):
+  apps/edge/src/arcade.ts `arcadePassthrough` (GET/HEAD, the 18 Archive items of the shelf and levels as an allowlist, names
+  as %XX escapes with no `..`, upstream https://archive.org/cors/<rest> with redirect: follow, streamed unread, a week's cache
+  headers; 404/502 in plain JSON), routed in index.ts after the sign-in beside /api/zim/; store.ts tries the own-site copy of each
+  Archive address after every public mirror failed, with the owner's headers and cookie (GetOptions.ownHeaders from the arcade
+  tab); the reason reads "this site"; arcade-mirror.test.mjs 14 tests (the allowlist held to shelf.ts and levels.ts both ways:
+  a new item must be added to ARCADE_ITEMS). Not verifiable here (no network): the live Archive's 302 to *.us.archive.org and
+  HEAD support; a failure on his phone now reads "(archive.org: Load failed; this site: answered N)": 401 sign-in, 404 not on
+  the list or gone, 502 the Archive unreachable from the Worker. Validated: both typechecks, 28 bundles, arcade-mirror 14,
+  arcade 14, resta 13, catalogue 11, the web build, specs arcade and hubcards; the builder's full brain suite 1,743/1,743.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
