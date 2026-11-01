@@ -16,6 +16,7 @@ import { listCars } from './cars';
 import { readHourly } from './foresight';
 import { zoneOf } from './guardstate';
 import { mindSnapshot } from './mind';
+import { packPieces } from './packs'; // [packs]
 import { loadPlaces } from './places';
 import { addJob, loadJobs, removeJob } from './schedule';
 import { fromZoned, zoned } from './time';
@@ -132,6 +133,8 @@ export async function piecesNow(d: SpeakDeps, now: number, tz: string, cad: Cade
       });
     }
   }
+  // [packs] the body pack's water and stand-up nudges, when he turned them on (BRIEF-PACKS-1): under the same cadence
+  out.push(...(await packPieces({ storage: d.storage, now: () => now }, cad).catch(() => [])));
   return out;
 }
 

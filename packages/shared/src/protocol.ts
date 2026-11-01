@@ -102,6 +102,7 @@ export const CLIENT_COMMANDS = [
   'design_changes',
   'home_plan',
   'open_photo_tools',
+  'open_body', // [packs] the body pack's screens (BRIEF-PACKS-1)
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

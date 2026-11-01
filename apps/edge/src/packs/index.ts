@@ -8,11 +8,13 @@
 import type { Card } from '../../../../packages/shared/src/cards';
 import { PACKS } from '../../../../packages/shared/src/packs';
 import { zoneOf } from '../guardstate';
+import { alreadySaid, type Cadence } from '../../../../packages/shared/src/cadence';
+import { BODY, bodyLines, bodyPieces } from '../tools/body';
 import { followTick, MONEY, moneyLines } from '../tools/money';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;
@@ -51,6 +53,11 @@ export async function packsTick(d: PacksDeps): Promise<number> {
 /** The Brief's lines from the packs (mind.ts): payday, a renewal tomorrow, a warranty ending soon… Never in the prompt. */
 export async function packLines(d: Pick<PacksDeps, 'storage' | 'now'>): Promise<string[]> {
   const deps = await depsOf(d);
-  const all = await Promise.all([moneyLines(deps)].map((p) => p.catch(() => [] as string[])));
+  const all = await Promise.all([moneyLines(deps), bodyLines(deps)].map((p) => p.catch(() => [] as string[])));
   return all.flat().slice(0, 6);
+}
+
+/** The packs' pieces for speaking first (speak.ts piecesNow), each with why: water and the stand-up when he turned them on. */
+export async function packPieces(d: Pick<PacksDeps, 'storage' | 'now'>, cad: Cadence): Promise<{ card: Card; why: string }[]> {
+  return bodyPieces(await depsOf(d), (id) => alreadySaid(cad, id)).catch(() => []);
 }

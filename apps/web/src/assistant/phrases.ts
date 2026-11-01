@@ -17,6 +17,7 @@ import { stopIntent } from '../../../../packages/shared/src/intent';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
+import { bodyAsked } from '../../../../packages/shared/src/body';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -24,6 +25,12 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 export const LOCAL_ASKS = [
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) },
+  // [packs] the body pack's screens and a glass of water, on the phone (features/body)
+  { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
+  { id: 'run', test: (t: string) => bodyAsked(t)?.what === 'run' },
+  { id: 'breathe', test: (t: string) => bodyAsked(t)?.what === 'breathe' },
+  { id: 'stretch', test: (t: string) => bodyAsked(t)?.what === 'stretch' },
+  { id: 'water', test: (t: string) => bodyAsked(t)?.what === 'water' },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

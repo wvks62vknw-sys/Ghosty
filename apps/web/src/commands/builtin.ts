@@ -402,6 +402,17 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs] THE BODY PACK's screens (features/body): reps by camera, the running coach, breathing, the stretch set, the
+      // Health export, water — from the brain's body tool, a card's button or the chat's own words.
+      id: 'open_body',
+      title: 'Body: reps, run, breathe, stretch',
+      group: 'GO',
+      run: async (a) => {
+        const { openBody } = await import('../features/body');
+        await openBody(typeof a?.what === 'string' ? a.what : 'reps', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
       // [packs] A pack action with no model (BRIEF-PACKS-1, brain packs/index.ts): a card's UNDO, a glass of water, a tick, a
       // run saved — its words as a note, its cards in the chat.
       id: 'packs_do',

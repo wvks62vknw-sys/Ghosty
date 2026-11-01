@@ -47,8 +47,9 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 import { moneyTools, MONEY_ABOUT, MONEY_WHEN } from './money'; // [packs] the money pack (BRIEF-PACKS-1)
+import { bodyTools, BODY_ABOUT, BODY_WHEN } from './body'; // [packs] the body pack
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -179,7 +180,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your library (library_search; relevant passages also come in on their own); cite the source.',
+    // (was "relevant passages also come in on their own": 10 characters for the body pack's "body pack" on the plain turn, BRIEF-PACKS-1)
+    about: 'You can search your library (library_search; relevant passages come in unasked); cite the source.',
   },
   {
     name: 'library-admin',
@@ -313,6 +315,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   },
   // [packs] THE PACKS (BRIEF-PACKS-1): one tool each with an action enum, named off in two words ("money pack"), described on.
   { name: 'money', tools: moneyTools, when: MONEY_WHEN, about: MONEY_ABOUT, short: 'money pack' },
+  { name: 'body', tools: bodyTools, when: BODY_WHEN, about: BODY_ABOUT, short: 'body pack' },
 ];
 
 /** Groups that are always on while the conversation is about building things. */
