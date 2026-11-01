@@ -439,6 +439,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
+      id: 'open_people',
+      title: 'People: who is who, group plan',
+      group: 'GO',
+      run: async (a) => {
+        const { openPeople } = await import('../features/people/sheet');
+        await openPeople(typeof a?.what === 'string' ? a.what : 'who');
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

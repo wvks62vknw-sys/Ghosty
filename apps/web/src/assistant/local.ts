@@ -31,7 +31,7 @@ import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
+import { bodyTurn, kitchenTurn, peopleTurn, statementOrBox, type PackReply } from './packs';
 import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
@@ -172,6 +172,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  people: async (text, opts) => packAnswer(await peopleTurn(text), opts),
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

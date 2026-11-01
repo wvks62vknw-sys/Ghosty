@@ -19,6 +19,7 @@ import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
+import { PEOPLE_ASK } from '../../../../packages/shared/src/people';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -36,6 +37,8 @@ export const LOCAL_ASKS = [
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   { id: 'shopping', test: (t: string) => shoppingAsked(t) },
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
+  // [packs2] the people pack's who's who, on the phone (features/people); the work and creative packs' phrases follow
+  { id: 'people', test: (t: string) => PEOPLE_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

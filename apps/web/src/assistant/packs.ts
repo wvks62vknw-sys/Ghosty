@@ -56,6 +56,13 @@ export async function statementTurn(text: string): Promise<PackReply> {
   }
 }
 
+/** [packs2] "who's who", "my people": the people sheet (features/people), over the chat; nothing is looked up. */
+export async function peopleTurn(text: string): Promise<PackReply> {
+  const { openPeople } = await import('../features/people/sheet');
+  void openPeople('who');
+  return { said: text, reply: 'Here are the people you’ve told me about: tap one for gift ideas or the details you gave me. I only know what you tell me, and I never look anyone up.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'who' } }] };
+}
+
 /** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */
 export async function bodyTurn(text: string): Promise<PackReply> {
   const ask = bodyAsked(text);

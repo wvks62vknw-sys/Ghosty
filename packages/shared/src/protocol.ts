@@ -106,6 +106,7 @@ export const CLIENT_COMMANDS = [
   'open_body', // [packs] the body pack's screens (BRIEF-PACKS-1)
   'open_kitchen', // [packs] the kitchen pack's sheets
   'kitchen_timer', // [packs] timers on the phone
+  'open_people', // [packs] the people pack's who's who and plan (BRIEF-PACKS-2)
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

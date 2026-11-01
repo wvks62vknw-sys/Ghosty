@@ -5090,3 +5090,8 @@ html .arcloading[hidden], html .arcmenu[hidden], html .arcerr[hidden], html .arc
 @keyframes pkring { 50% { background: rgba(var(--accr), .55); } }
 @media (prefers-reduced-motion: reduce) { .pkbreath { transition: none; } .pktimer.ringing { animation: none; } }
 
+
+/* [packs2] BRIEF-PACKS-2: the people, work and creative packs (features/people, features/work, features/creative) */
+.pkperson { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.06); }
+.pkperson b { font: 600 17px/1.25 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.pkadd input + input { margin-left: 0; }

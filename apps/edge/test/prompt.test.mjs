@@ -83,16 +83,17 @@ test('a pack group: off, its short name and nothing else; on, its about line des
   }
 });
 
-test('the three packs (money, body, kitchen): off on small talk as two words each, on by his words with every action described', () => {
+test('the packs (money, body, kitchen, people): off on small talk as two words each, on by his words with every action described', () => {
   const packs = Object.fromEntries(T.TOOL_GROUPS.filter((g) => g.short).map((g) => [g.name, g]));
-  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money']);
+  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money', 'people']);
   const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
-  for (const line of ['money pack', 'body pack', 'kitchen pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
-  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
+  for (const line of ['money pack', 'body pack', 'kitchen pack', 'people pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
+  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers|birthday)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
   const on = {
     money: ['how much have I spent this week?', 'cheapest petrol near dad', 'watch the price of this kettle', 'payday is the 28th', 'split the bill between 3'],
     body: ['count my push-ups', 'how did I sleep this week?', 'I weigh 82 kg', 'remind me to drink water', 'start a run'],
     kitchen: ['what can I make with chicken and rice', 'timer 8 minutes for the pasta', 'add milk to the shopping list', 'fan 180 in gas mark', 'the spinach is going off'],
+    people: ['dad’s birthday is 14 march', 'gift ideas for mum under £30', 'remind me to call dad on sunday', 'a thank-you note to jo', 'who’s who'],
   };
   for (const [name, asks] of Object.entries(on)) {
     for (const t of asks) {

@@ -167,6 +167,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
       const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
+    // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
+    if (lastCall && ['people', 'work', 'creative'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -363,6 +365,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
   if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
   if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
+  // [packs2] THE PEOPLE PACK (tools/people.ts): a birthday kept, gift ideas, a thank-you note — from his own words.
+  if (/^(?:my )?.+['’]s birthday is .+$/.test(text) && has('people')) return { message: call('people', { action: 'birthday', words: ownerWords(textOf(last.content)) }), model };
+  if ((m = text.match(/^gift ideas for (.+?)(?: (?:under|around|about) .+)?$/)) && has('people')) return { message: call('people', { action: 'gift', who: m[1], words: ownerWords(textOf(last.content)) }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };
