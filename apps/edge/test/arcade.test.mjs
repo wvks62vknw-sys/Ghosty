@@ -4,6 +4,11 @@
 // stub in front, stored and deflated members, CRC-32) and GET's store (mirrors in order, size and SHA-256 checked, the
 // files taken out on the phone and kept in the Cache API, deleted in one tap). No network: a stand-in fetch serves
 // packages built here.
+// The DOS shelf and engine (batch ③ part 5): every DOS entry's set-up and CONTROLS block (keys that exist, labels,
+// four big buttons at most, its licence quoted from its own text file); dosbox.conf (Sound Blaster 16, the autoexec);
+// the keys the thumbs hold (stick thresholds that do not chatter, run at full push, keys pressed together, WEAPON
+// walking the number keys); a keyboard's keys; the stored ZIP writer; bundle takes; saved files merged visit to visit
+// with our set-up never kept; the save store; the engine registry; the standard pad's DOS slots.
 // Bundles are built here, with esbuild's API, like school.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +18,7 @@ import { crc32 as zcrc, deflateRawSync } from 'node:zlib';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['shelf', 'levels', 'scores', 'input', 'learnable', 'zip', 'store'].map((m) => at(`../../web/src/arcade/${m}.ts`)),
+  entryPoints: ['shelf', 'levels', 'scores', 'input', 'learnable', 'zip', 'store', 'dos', 'engines/dos', 'engines/saves', 'engines/index'].map((m) => at(`../../web/src/arcade/${m}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -28,6 +33,10 @@ const input = await import('./.build/arcade/input.mjs');
 const { checkLearnable } = await import('./.build/arcade/learnable.mjs');
 const zip = await import('./.build/arcade/zip.mjs');
 const store = await import('./.build/arcade/store.mjs');
+const dos = await import('./.build/arcade/dos.mjs');
+const dosEngine = await import('./.build/arcade/engines/dos.mjs');
+const saves = await import('./.build/arcade/engines/saves.mjs');
+const engines = await import('./.build/arcade/engines/index.mjs');
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const CONTROLS = ['move', 'look', 'fire', 'use', 'weapon', 'jump', 'map'];
@@ -44,7 +53,8 @@ function checkData(where, d) {
   assert.ok(Array.isArray(d.take) && d.take.length > 0, `${where}: nothing to take out`);
   for (const t of d.take) {
     assert.ok(t.name && !t.name.includes('/'), `${where}: a taken file's name`);
-    assert.ok(Array.isArray(t.from) && t.from.length > 0 && t.from.every(Boolean), `${where}: ${t.name} comes from nothing`);
+    // (a bundle take may keep the package itself, as it came: `from` empty)
+    assert.ok(Array.isArray(t.from) && (t.from.length > 0 || t.bundle === true) && t.from.every(Boolean), `${where}: ${t.name} comes from nothing`);
     if (t.sha256 !== undefined) assert.match(t.sha256, HEX64, `${where}: ${t.name} sha256`);
   }
 }
@@ -56,11 +66,14 @@ test('the shelf: every entry whole, Freedoom the default DOOM, mirrors https, si
   assert.equal(SHELF[0].line, 'DOOM, the free version with its own levels.');
   for (const g of SHELF) {
     for (const k of ['id', 'title', 'line', 'ghosty', 'done']) assert.ok(typeof g[k] === 'string' && g[k].trim(), `${g.id}: ${k}`);
-    assert.ok(['doom', 'quake'].includes(g.engine), `${g.id}: engine`);
+    assert.ok(['doom', 'quake', 'dos'].includes(g.engine), `${g.id}: engine`);
     assert.equal(typeof g.saves, 'boolean');
     assert.match(g.since, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(g.controls.every((c) => CONTROLS.includes(c)), `${g.id}: controls`);
-    for (const c of ['move', 'look', 'fire']) assert.ok(g.controls.includes(c), `${g.id}: needs ${c}`);
+    // every game moves and fires; it looks wherever a drag turns (a DOS game without a drag has no look)
+    const looks = g.engine !== 'dos' || g.dos?.controls.drag !== 'none';
+    for (const c of ['move', 'fire', ...(looks ? ['look'] : [])]) assert.ok(g.controls.includes(c), `${g.id}: needs ${c}`);
+    if (!looks) assert.ok(!g.controls.includes('look'), `${g.id}: says it looks but has no drag`);
     checkData(g.id, g.data);
   }
   // Quake has JUMP; DOOM has FIRE / USE / WEAPON
@@ -312,4 +325,155 @@ test('GET waits on mobile data where the phone says so; sizes read as he reads t
   assert.equal(store.sizeWords(24_143_781), '24 MB');
   assert.equal(store.sizeWords(2_450_688), '2.5 MB');
   assert.equal(store.sizeWords(926_169), '926 KB');
+});
+
+// ---------- the DOS shelf and engine (batch ③ part 5)
+test('the DOS shelf: a dozen or more classics, each whole, its own licence quoted, a CONTROLS block a thumb can play', () => {
+  const games = SHELF.filter((g) => g.engine === 'dos');
+  assert.ok(games.length >= 12, `only ${games.length} DOS games`);
+  assert.ok(games.every((g) => engines.playsToday(g)), 'every DOS game plays today');
+  assert.ok(!SHELF.filter((g) => g.engine !== 'dos').some((g) => engines.playsToday(g)), 'Freedoom and Quake wait for their engines');
+  assert.ok(games.some((g) => g.id === 'doom-dos' && /DOOM/.test(g.title)), 'DOOM, the free episode, plays through DOS');
+  for (const g of games) {
+    const d = g.dos;
+    assert.ok(d, `${g.id}: no DOS set-up`);
+    assert.ok(Array.isArray(d.run) && d.run.length > 0 && d.run.every((l) => typeof l === 'string' && l.trim()), `${g.id}: run`);
+    assert.ok(d.cycles === 'max' || (Number.isInteger(d.cycles) && d.cycles > 0), `${g.id}: cycles`);
+    for (const u of g.data.url) assert.ok(u.startsWith('https://archive.org/cors/'), `${g.id}: ${u} is not the Archive's CORS door`);
+    assert.match(g.data.licence, /^Its own [A-Z0-9_]+\.[A-Z]{3}, in the package/, `${g.id}: the licence must quote its own text file`);
+    assert.ok(g.data.take.length === 1 && g.data.take[0].bundle === true && /\.jsdos$/.test(g.data.take[0].name), `${g.id}: one bundle`);
+    const c = d.controls;
+    assert.ok(['arrows', 'wasd'].includes(c.stick), `${g.id}: stick`);
+    assert.ok(['mouse-x', 'mouse', 'none'].includes(c.drag), `${g.id}: drag`);
+    const known = (k) => k.split('+').every((part) => dos.KEYS[part] !== undefined);
+    if (c.run) assert.ok(known(c.run), `${g.id}: run key ${c.run}`);
+    const big = c.buttons.filter((b) => !b.small);
+    assert.ok(big.length >= 1 && big.length <= 4, `${g.id}: ${big.length} big buttons`);
+    assert.equal(new Set(big.map((b) => b.act)).size, big.length, `${g.id}: two big buttons fill one slot`);
+    assert.ok(c.buttons.some((b) => b.act === 'menu' && b.key === 'esc'), `${g.id}: no ESC for its own menu`);
+    for (const b of c.buttons) {
+      assert.ok(b.label && b.label === b.label.toUpperCase() && b.label.length <= 8, `${g.id}: label "${b.label}"`);
+      assert.ok(known(b.key), `${g.id}: ${b.label} presses ${b.key}`);
+      for (const k of b.cycle ?? []) assert.ok(known(k), `${g.id}: ${b.label} cycles to ${k}`);
+      assert.notEqual(b.act, 'pause', `${g.id}: PAUSE is the player's, not a game key`);
+    }
+    // a big button is in the controls list the touch layer and the deck read
+    for (const b of big) assert.ok(['fire', 'use', 'weapon', 'jump', 'map', 'special', 'crouch', 'run'].includes(b.act), `${g.id}: ${b.act}`);
+  }
+});
+
+test('dosbox.conf: Sound Blaster 16 at 220/7/1/5 with its BLASTER variable, the game on C:, then what it runs', () => {
+  const doom = SHELF.find((g) => g.id === 'doom-dos');
+  const conf = dos.dosConf(doom.dos);
+  for (const line of ['sbtype=sb16', 'sbbase=220', 'irq=7', 'dma=1', 'hdma=5', 'cycles=max', 'machine=svga_s3', 'memsize=16']) assert.ok(conf.split('\n').includes(line), line);
+  const auto = conf.slice(conf.indexOf('[autoexec]')).split('\n').filter(Boolean);
+  assert.deepEqual(auto, ['[autoexec]', 'echo off', 'mount c .', 'c:', 'SET BLASTER=A220 I7 D1 H5 T6', 'DOOM.EXE']);
+  assert.match(dos.dosConf({ ...doom.dos, cycles: 20000 }), /^cycles=fixed 20000$/m);
+  const files = dos.dosFiles(doom.dos);
+  assert.deepEqual(Object.keys(files).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'DEFAULT.CFG'].sort());
+  const cfg = new TextDecoder().decode(files['DEFAULT.CFG']);
+  assert.ok(cfg.includes('snd_sfxdevice 3\r\n') && cfg.includes('snd_sbport 544\r\n') && !/[^\r]\n/.test(cfg), 'DOS lines end CR LF');
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(files['.jsdos/ghosty-controls.json'])), doom.dos.controls);
+  // what the player hands the engine: the kept bundle and the set-up
+  const handed = engines.filesFor(doom, { 'doom.jsdos': Uint8Array.of(1) });
+  assert.deepEqual(Object.keys(handed).sort(), ['.jsdos/dosbox.conf', '.jsdos/ghosty-controls.json', 'DEFAULT.CFG', 'doom.jsdos'].sort());
+  assert.equal(engines.engineFor(doom).id, 'dos');
+  assert.equal(engines.engineFor(SHELF.find((g) => g.engine === 'quake')), null);
+});
+
+test('the thumbs → DOS keys: thresholds that do not chatter, run at full push, keys together, WEAPON walks the numbers', () => {
+  const K = dos.KEYS;
+  const intent = input.idle();
+  const st = dos.freshInput();
+  const c = { stick: 'arrows', run: 'rshift', drag: 'mouse-x', mouseScale: 20, buttons: [{ act: 'fire', key: 'ctrl', label: 'FIRE' }, { act: 'use', key: 'ctrl+alt', label: 'BOTH' }, { act: 'weapon', key: '2', cycle: ['2', '3', '1'], label: 'WEAPON' }] };
+  const held = () => [...dos.keysHeld(intent, c, st)].sort((a, b) => a - b);
+  assert.deepEqual(held(), []);
+  intent.moveY = 0.45;
+  assert.deepEqual(held(), [], 'under the press threshold nothing is held');
+  intent.moveY = 0.6;
+  assert.deepEqual(held(), [K.up]);
+  intent.moveY = 0.35;
+  assert.deepEqual(held(), [K.up], 'between release and press it stays held');
+  intent.moveY = 0.2;
+  assert.deepEqual(held(), []);
+  intent.moveX = -0.6;
+  intent.moveY = -0.6;
+  assert.deepEqual(held(), [K.down, K.left].sort((a, b) => a - b), 'a diagonal holds two arrows');
+  intent.moveX = 0;
+  intent.moveY = 1;
+  assert.deepEqual(held(), [K.up, K.rshift].sort((a, b) => a - b), 'pushed all the way it runs');
+  intent.moveY = 0;
+  intent.held.add('use');
+  assert.deepEqual(held(), [K.ctrl, K.alt].sort((a, b) => a - b), 'one button, two keys together');
+  intent.held.clear();
+  const weapon = () => {
+    intent.held.add('weapon');
+    const k = held();
+    intent.held.delete('weapon');
+    held();
+    return k;
+  };
+  assert.deepEqual([weapon(), weapon(), weapon(), weapon()], [[K['2']], [K['3']], [K['1']], [K['2']]]);
+  // WASD
+  const w = dos.keysHeld({ ...input.idle(), moveY: 1 }, { ...c, stick: 'wasd', run: undefined }, dos.freshInput());
+  assert.deepEqual([...w], [K.w]);
+  // the drag: degrees → mouse steps; sideways only for 'mouse-x'
+  assert.deepEqual(dos.mouseSteps(c, 2, 3), { dx: 40, dy: 0 });
+  assert.deepEqual(dos.mouseSteps({ ...c, drag: 'mouse' }, 2, 3), { dx: 40, dy: -60 });
+  assert.deepEqual(dos.mouseSteps({ ...c, drag: 'none' }, 2, 3), { dx: 0, dy: 0 });
+  // a keyboard: by code, or by character when a phone's keyboard names no code
+  assert.equal(dos.keyOfEvent('KeyQ', 'q'), K.q);
+  assert.equal(dos.keyOfEvent('Digit7', '7'), K['7']);
+  assert.equal(dos.keyOfEvent('ArrowLeft', 'ArrowLeft'), K.left);
+  assert.equal(dos.keyOfEvent('F10', 'F10'), K.f10);
+  assert.equal(dos.keyOfEvent('', 'Y'), K.y);
+  assert.equal(dos.keyOfEvent('', ' '), K.space);
+  assert.equal(dos.keyOfEvent('', 'Enter'), K.enter);
+  assert.equal(dos.keyOfEvent('', 'Unidentified'), undefined);
+  assert.equal(dosEngine.keyWord('ctrl+alt'), 'CTRL+ALT');
+  // the standard pad fills the DOS slots: RT fire, A jump, B use, X weapon, VIEW the game's menu, a stick click ENTER
+  const pad = (pressed) => ({ mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i), value: pressed.includes(i) ? 1 : 0 })) });
+  const B = input.BTN;
+  assert.deepEqual([...input.readPad(pad([B.RT, B.A, B.B, B.X, B.SELECT, B.LS]), 'dos', 0).held].sort(), ['fire', 'jump', 'menu', 'ok', 'use', 'weapon']);
+  assert.ok(input.readPad(pad([B.START]), 'dos', 0).held.has('pause'));
+});
+
+test('the stored ZIP writer and bundle takes: the package kept as it came, or the joined parts rewritten as a plain ZIP', async () => {
+  const a = bytes(3000, 7);
+  const b = new TextEncoder().encode('SB16');
+  const z = zip.zipStore([['GAME/A.EXE', a], ['B.CFG', b]]);
+  const es = zip.zipEntries(z);
+  assert.deepEqual(es.map((e) => [e.name, e.method, e.usize]), [['GAME/A.EXE', 0, 3000], ['B.CFG', 0, 4]]);
+  assert.deepEqual(await zip.zipRead(z, es[0]), a);
+  assert.deepEqual(await zip.zipRead(z, es[1]), b);
+  // a package shaped like DOOM's: two floppy parts joining into a self-extracting archive of the game's files
+  const inner = makeZip([['DOOM.EXE', bytes(4000, 8)], ['DOOM1.WAD', bytes(9000, 9)]], { stub: new TextEncoder().encode('MZ stub') });
+  const pkg = makeZip([['P.1', inner.subarray(0, 5000)], ['P.2', inner.subarray(5000)]]);
+  const out = await store.unpack(pkg, [{ name: 'whole.jsdos', from: [], bundle: true }, { name: 'game.jsdos', from: ['P.1', 'P.2'], bundle: true }]);
+  assert.equal(out.get('whole.jsdos'), pkg, 'the package as it came');
+  const game = out.get('game.jsdos');
+  assert.equal(game[0], 0x50, 'a plain ZIP (no stub)');
+  assert.deepEqual(zip.zipEntries(game).map((e) => e.name), ['DOOM.EXE', 'DOOM1.WAD']);
+  assert.deepEqual(await zip.zipRead(game, zip.zipEntries(game)[1]), bytes(9000, 9));
+});
+
+test('saves: what the game wrote is merged visit to visit, this visit wins, our set-up is never kept', async () => {
+  const z1 = zip.zipStore([['DOOMSAV0.DSG', Uint8Array.of(1)], ['DEFAULT.CFG', Uint8Array.of(9)], ['.jsdos/dosbox.conf', Uint8Array.of(7)]]);
+  const z2 = zip.zipStore([['DOOMSAV0.DSG', Uint8Array.of(2)], ['DOOMSAV1.DSG', Uint8Array.of(3)]]);
+  const m = await dosEngine.mergeSaves(z1, z2, ['default.cfg']);
+  const es = zip.zipEntries(m);
+  assert.deepEqual(es.map((e) => e.name).sort(), ['DOOMSAV0.DSG', 'DOOMSAV1.DSG']);
+  assert.deepEqual(await zip.zipRead(m, es.find((e) => e.name === 'DOOMSAV0.DSG')), Uint8Array.of(2));
+  assert.equal(await dosEngine.mergeSaves(null, null), null);
+  assert.equal(await dosEngine.mergeSaves(null, Uint8Array.of(1, 2, 3)), null, 'not a ZIP: nothing kept');
+  // the save store: get / put / list / remove (memory when IndexedDB is not there, as in node)
+  for (const s of [saves.memorySaves(), saves.saveStore('test-game')]) {
+    assert.equal(await s.get('changes.zip'), null);
+    await s.put('changes.zip', m);
+    await s.put('b', Uint8Array.of(5));
+    assert.deepEqual(await s.get('changes.zip'), m);
+    assert.deepEqual(await s.list(), ['b', 'changes.zip']);
+    await s.remove('b');
+    assert.deepEqual(await s.list(), ['changes.zip']);
+  }
 });

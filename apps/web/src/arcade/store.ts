@@ -5,7 +5,7 @@
  * The games run entirely on the phone: none of this goes through the brain, and nothing that bills is ever asked.
  */
 import type { GameData, Take } from './shelf';
-import { concat, findEntry, zipEntries, zipRead } from './zip';
+import { concat, findEntry, zipEntries, zipRead, zipStore } from './zip';
 
 export const ARCADE_CACHE = 'ghosty-arcade-v1';
 
@@ -114,6 +114,10 @@ export async function unpack(pkg: Uint8Array, take: Take[]): Promise<Map<string,
   const entries = zipEntries(pkg);
   const out = new Map<string, Uint8Array>();
   for (const t of take) {
+    if (t.bundle) {
+      out.set(t.name, await bundleOf(pkg, entries, t));
+      continue;
+    }
     const parts: Uint8Array[] = [];
     for (const name of t.from) {
       const e = findEntry(entries, name);
@@ -131,6 +135,21 @@ export async function unpack(pkg: Uint8Array, take: Take[]): Promise<Map<string,
     out.set(t.name, file);
   }
   return out;
+}
+
+/** A bundle take: the package as it came, or the archive its `from` members join, rewritten as a plain ZIP. */
+async function bundleOf(pkg: Uint8Array, entries: ReturnType<typeof zipEntries>, t: Take): Promise<Uint8Array> {
+  if (!t.from.length) return pkg;
+  const parts: Uint8Array[] = [];
+  for (const name of t.from) {
+    const e = findEntry(entries, name);
+    if (!e) throw new Error(`the package has no ${name}`);
+    parts.push(await zipRead(pkg, e));
+  }
+  const arc = parts.length === 1 ? parts[0]! : concat(parts);
+  const files: [string, Uint8Array][] = [];
+  for (const e of zipEntries(arc)) if (!e.name.endsWith('/')) files.push([e.name.replace(/\\/g, '/'), await zipRead(arc, e)]);
+  return zipStore(files);
 }
 
 const cacheOrThrow = async (): Promise<Cache> => {

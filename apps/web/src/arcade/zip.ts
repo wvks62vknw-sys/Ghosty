@@ -114,3 +114,27 @@ export function concat(parts: Uint8Array[]): Uint8Array {
   }
   return out;
 }
+
+/**
+ * A ZIP of the given files, stored (no compression: the files are game data, and the engine reads them at once), with
+ * each member's CRC-32: what the phone builds a game's bundle or its saved files into.
+ */
+export function zipStore(files: [string, Uint8Array][]): Uint8Array {
+  const enc = new TextEncoder();
+  const parts: Uint8Array[] = [];
+  const dir: Uint8Array[] = [];
+  let off = 0;
+  const le = (n: number, bytes: number): number[] => Array.from({ length: bytes }, (_, i) => (n >>> (8 * i)) & 0xff);
+  for (const [path, data] of files) {
+    const name = enc.encode(path);
+    const crc = crc32(data);
+    const common = [...le(20, 2), ...le(0x0800, 2), ...le(0, 2), ...le(0, 2), ...le(0x21, 2), ...le(crc, 4), ...le(data.length, 4), ...le(data.length, 4), ...le(name.length, 2), ...le(0, 2)];
+    const local = Uint8Array.from([...le(0x04034b50, 4), ...common]);
+    parts.push(local, name, data);
+    dir.push(Uint8Array.from([...le(0x02014b50, 4), ...le(20, 2), ...common, ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(off, 4)]), name);
+    off += local.length + name.length + data.length;
+  }
+  const cd = concat(dir);
+  const end = Uint8Array.from([...le(0x06054b50, 4), ...le(0, 2), ...le(0, 2), ...le(files.length, 2), ...le(files.length, 2), ...le(cd.length, 4), ...le(off, 4), ...le(0, 2)]);
+  return concat([...parts, cd, end]);
+}
