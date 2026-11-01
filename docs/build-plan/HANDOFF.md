@@ -1209,6 +1209,23 @@ folder that no longer exists; ignore those paths).
   excited to use it, and was told plainly what the risk is). That run's result and main's own push run (both the unsharded
   2 h 15 loop) are read at the 20:08 check-in; anything red is fixed forward in PR #51 (the guard cannot revert main). Pushed:
   the four-shard checks (a5d6f28), packs-3 (c5a1024, a0b4395) and this; PR #51 opened. Running: the depth pass (8666).
+- 1 Nov 20:06 UK: THE LIVE CODE'S LOOP (PR #50's run on 1375080, read after the merge) and PR #51's first sharded run (9ebb730)
+  showed four spec-side failures, none of the phone's: vehicle (System → KEYS has two five-line key boxes now; the spec's bare
+  textarea.keylines found both: by its DVSA label now), upgrades (the Workshop's panels move while a used brain's drafts and
+  projects load, so a tap at THINK NOW or an idea's BUILD landed on a neighbour: a tap waits for its target's box to hold still
+  for half a second; the product-side fix, cards that reserve their height, is the depth pass's), offline2 (the phone's stores
+  save 200 ms after a change; the cloud answered inside that window on the used brain and the spec read the misses first: it
+  waits for the saved miss), restb (the coach's passage typed at 25 ms a key reached 408 wpm on the runner, past the spec's own
+  400 ceiling: 60 ms a key now). games2's block world placed nothing on its first tap once and passed on the retry (the loop's
+  flake warning; cause open). THE OWNER'S FIRST FINDS on the live code: the ARCADE had no card on any hub (a card on LEARN now,
+  second, and in the deck's Learn and plan group; the Learn sub reads 'Courses and free games for you; the gym, school and a
+  library for me.'; hubcards, nav (a five-tool arc) and deck specs follow); every fetched game fails on his phone with
+  'archive.org: Load failed' (Safari's error for no answer at all: his network, most likely a UK filter, blocks the Archive; a
+  builder is adding an own-site pass-through /api/arcade/<item>/<file> on zim.ts's pattern, tried after the Archive itself);
+  'a scroll issue in MAKE' (unconfirmed: the hub fits one screen in Chromium at 440 × 956 and 390 × 844; asked which of three it
+  is). THE DEPTH PASS BUILDER WAS STOPPED when the owner interrupted a turn (the harness cancels the turn's background agents):
+  its 31 uncommitted files sit abandoned in its worktree; a restart waits on his word. Validated here before this push:
+  hubcards, deck, arcade, ui, nav (451 s), websites → apps → upgrades, vehicle, offline2 (twice, once after school → sit), restb.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
