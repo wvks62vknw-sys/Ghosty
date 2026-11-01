@@ -1040,6 +1040,11 @@ folder that no longer exists; ignore those paths).
   (trig_01UoPMaUEC2ibEYJ2KW4VT6F). Still wanted from him: the 0.5B SIT test; his first ten games; how often Ghosty may
   speak first in a day; his dad's and Haris's plates with their OK; the four picks. He sleeps; the morning message shows
   him ROADMAP and the brief (sent as files at 02:40).
+- 1 Nov 02:50 UK: HIS ANSWERS (OWNER-ISSUES 93): the first ten games are left to me (my ten are in 93; DOOM and Quake's free
+  episodes need nothing owned); he may speak first ("idm"); his dad's and Haris's plates given in the chat and kept OUT of
+  the docs (his Ghosty's memory holds them; ⑤ reads the cars he has named; the DVSA key comes when ⑤ is near); no fixed
+  name for Ghosty; the weekly letter explained and pending his yes/no, day and channel; Bluesky posting with approval and
+  reading. Three of the four picks settled; the order unchanged.
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:

@@ -157,10 +157,10 @@ The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your w
 wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
 packs (money, body, kitchen, people, work, creative, out and about, home admin) · ⑤ the car in 3-D and show-me-don't-
 tell-me · ⑥ the offline brain runs, then smarter every week, used by default · ⑦ the social self and the rituals (your
-four picks) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes); your
-first ten games; how often he may speak first in a day when nothing is wrong; your dad's and Haris's plates, with their
-OK; the four picks (what you call him; the letter's day and channel; how often he speaks first; Bluesky posting with your
-approval or reading only).
+four picks) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes), and
+a yes or no to the weekly letter with its day and channel. Answered at 02:50 UK on 1 Nov (OWNER-ISSUES 93): the games are
+left to me, he may speak first, the two plates are with Ghosty's memory not these docs, no fixed name, Bluesky posts with
+approval and reads.
 
 The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
 ③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
