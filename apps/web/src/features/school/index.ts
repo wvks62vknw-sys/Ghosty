@@ -325,7 +325,7 @@ export const schoolTab: TabDef = {
       const p = !busy ? plan : null;
       const sitReady = can !== false && (p ? !!p.brain && p.here : !!ready);
       const re = busy ? null : st.resume;
-      const tapM = p ? p.get : re?.get ? (CHAIN.find((x) => x.id === re.get) ?? null) : null;
+      const tapM = can === false ? null : p ? p.get : re?.get ? (CHAIN.find((x) => x.id === re.get) ?? null) : null;
       const rows = cur.subjects.map((s) => {
         const r = s.latest;
         const grade = r ? (r.marked.pending ? 'marks pending' : `${r.grade} · ${r.raw}/${r.max}`) : 'not sat yet';

@@ -461,6 +461,9 @@ async function fallBack(e: unknown): Promise<boolean> {
   const m = currentModel();
   const refused = !!(e as { refuse?: boolean })?.refuse;
   if (!(refused || tooBig(e))) return false;
+  // A SCHOOL paper sat on a brain that is not the one in use (sitOn): its failure is the sitting's to say (school/sit.ts),
+  // and his brain in use stays as it is (a retry here would load the same brain again).
+  if (sitWith) return false;
   if (!isBigger(m)) {
     // The 0.6B (or a week trained from it), or a stand-in, could not run here: the next brain down the chain takes over
     // (the Qwen2.5 0.5B, then the floor) when it is on this phone and has not closed Ghosty itself; else the failure
