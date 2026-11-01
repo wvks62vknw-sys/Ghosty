@@ -71,6 +71,12 @@ export interface ToolGroup {
   /** When the group's tools are described in full: always, on a coding turn, or when the owner's words match. */
   when: RegExp | 'always' | 'code';
   about?: string;
+  /**
+   * A PACK (BRIEF-PACKS-1: money, body, kitchen): one tool with an `action` enum, named when it is off by these two words
+   * ("money pack") instead of its tools, so a pack of twenty abilities costs the plain prompt one short line; its `about`
+   * describes the actions when his words turn it on. The first word is the tool's own name.
+   */
+  short?: string;
 }
 
 /**

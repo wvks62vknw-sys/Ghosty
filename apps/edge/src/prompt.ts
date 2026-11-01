@@ -129,7 +129,8 @@ export function capabilityLines(groups: PromptGroups): string {
   // ("extra" holds tools in no group yet: their own descriptions say what they do, and "You can use the extras." said nothing)
   const out = [`WHAT YOU CAN DO NOW:\n${groups.on.filter((g) => g.name !== 'extra').map(line).join('\n')}\n- ${HEARING}\n- ${TODAY}`];
   // (the header was "ALSO (call by name; described next turn):" — 21 characters shorter now, paying for the foresight group's line)
-  if (groups.off.length) out.push(`ALSO (call by name):\n${groups.off.map((g) => `${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
+  // (a pack — tools/index.ts ToolGroup `short` — is named in its two words, "money pack", never its actions: BRIEF-PACKS-1)
+  if (groups.off.length) out.push(`ALSO (call by name):\n${groups.off.map((g) => g.short?.trim() || `${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
   return out.join('\n');
 }
 

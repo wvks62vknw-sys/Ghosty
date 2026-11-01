@@ -60,6 +60,29 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.ok(!/WHAT YOU CAN DO NOW/.test(P.systemPrompt(client, [], false)));
 });
 
+// THE PACKS (BRIEF-PACKS-1): a pack is ONE tool with an `action` enum; off, the prompt names it in its two words ("money pack"),
+// never its actions; on, its about line describes every action. The plain prompt pays one short line a pack.
+const actionsOf = (g) => g.tools[0]?.parameters?.properties?.action?.enum ?? [];
+test('a pack group: off, its short name and nothing else; on, its about line describes every action', () => {
+  const demo = { name: 'demo', short: 'demo pack', tools: [{ name: 'demo', parameters: { type: 'object', properties: { action: { type: 'string', enum: ['alpha', 'beta'] } } } }], when: /\bdemo\b/i, about: 'You can run the demo pack (demo: alpha, beta).' };
+  const off = P.capabilityLines({ on: [], off: [demo] });
+  assert.match(off, /^demo pack$/m, 'off: the pack in its two words');
+  assert.ok(!/alpha|beta|demo: /.test(off), 'off: never its actions, nor its tool list');
+  const on = P.capabilityLines({ on: [demo], off: [] });
+  assert.match(on, /^- You can run the demo pack \(demo: alpha, beta\)\.$/m, 'on: its actions described');
+  assert.ok(!/^demo pack$/m.test(on), 'on: described, not named');
+  // every real pack keeps the shape: one tool named as the first of its two words, an action enum, each action in its about line
+  for (const g of T.TOOL_GROUPS.filter((x) => x.short)) {
+    assert.equal(g.tools.length, 1, `${g.name}: one tool`);
+    assert.match(g.short, new RegExp(`^${g.tools[0].name} [a-z]+$`), `${g.name}: two words, the first its tool's name`);
+    assert.ok(actionsOf(g).length >= 12, `${g.name}: ${actionsOf(g).length} actions`);
+    for (const a of actionsOf(g)) assert.match(g.about, new RegExp(`\\b${a}\\b`), `${g.name}: its about line names ${a}`);
+    const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
+    assert.match(plain, new RegExp(`^${g.short}$`, 'm'), `${g.name}: a plain turn names it "${g.short}"`);
+    assert.ok(!plain.includes(g.about), `${g.name}: a plain turn does not describe it`);
+  }
+});
+
 test('LOYALTY is verbatim, and the persona, STYLE, TIMES, PICTURES, WORK IN CHAINS, context and memory are there', () => {
   const sys = P.systemPrompt({ name: 'Sam', now: 'Fri 17 Oct 14:05', tz: 'Europe/London' }, [{ id: 'a', text: 'likes tea', at: 1 }], false, [], { groups: T.selectGroups('hi', new Set(), false) });
   for (const line of [
