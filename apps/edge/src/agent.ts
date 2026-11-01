@@ -85,7 +85,7 @@ import { addSub, loadSubs, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
-import { demoGate, envFor, isDemoState, SEEDED_KEY, sandboxEnv } from './demo';
+import { demoGate, envFor, isDemoState, sandboxEnv } from './demo';
 
 const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several times in one go
 /** Steps for a turn while the database is paused, or a task running on its own: room for a chain of tools and a retry or two. */
@@ -198,14 +198,11 @@ export class GhostyAgent {
     realEnv: Env,
   ) {
     // [demo] The demo's brain (the Durable Object named `demo`) is built with an environment that has nothing in it; the owner's
-    // is the real one. Where the runtime does not give an object its name, a brain whose own storage says it is the demo's is
-    // rebuilt that way before it answers anything, and so is one the demo's door calls while it is still empty (demoGate).
+    // is the real one. Where the runtime does not give an object its name, the demo door's first call (demoGate) tells it by its
+    // storage, and it is rebuilt that way before it answers anything. Nothing is read from storage here.
     this.realEnv = realEnv;
     this.sandboxed = isDemoState(state);
     this.build(envFor(state, realEnv));
-    state.blockConcurrencyWhile?.(async () => {
-      if (!this.sandboxed && (await state.storage.get(SEEDED_KEY)) != null) this.demoMode();
-    });
   }
 
   private build(env: Env) {
@@ -315,7 +312,7 @@ export class GhostyAgent {
     const method = req.method;
     // [demo] The demo's rules (demo/index.ts): the owner's brain refuses a request marked as the demo's, and the demo's answers
     // only its own door, from an allow-list, with no credentials, and with its own chat.
-    const gate = await demoGate(this.state, req, this.state.storage);
+    const gate = await demoGate(this.state, req, this.state.storage, Date.now(), this.sandboxed);
     if (gate.demo && !this.sandboxed) this.demoMode();
     if (gate.res) return gate.res;
     this.meter.label = `route:${path.split('/')[1] || '/'}`;

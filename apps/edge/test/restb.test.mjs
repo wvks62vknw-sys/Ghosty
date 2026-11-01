@@ -687,6 +687,7 @@ test('the bootstrap script keeps the real app’s storage out of it, marks every
   assert.notEqual(win.localStorage.getItem('ghosty.ownerKey'), OWNER_KEY);
   assert.match(win.localStorage.getItem('ghosty.ownerKey'), /^demo-visitor-key/);
   assert.equal(win.localStorage.getItem('ghosty.settings'), null, 'his settings are not seen');
+  assert.deepEqual(JSON.parse(win.localStorage.getItem('ghosty.offlinebrain')), { downloaded: false, active: false }, 'the offline brain is off');
   win.localStorage.setItem('ghosty.settings', '{"theme":"demo"}');
   assert.equal(real.get('ghosty.settings'), '{"theme":"real"}', 'and nothing is written to the real one');
   assert.equal(real.get('ghosty.ownerKey'), OWNER_KEY);
@@ -764,7 +765,7 @@ test('the demo brain is built with nothing in its environment: no secret, no key
   assert.equal(dem.repo, null);
   assert.equal(used.ai, 0, 'the AI binding was never used by the demo');
   assert.equal(used.kv, kvBefore, 'no KV (his published pages, backups or vault mirror) was read or written by the demo');
-  // ...while the owner's status, on the real environment, finds the GitHub token
+  // the owner's status, on the real environment, finds the GitHub token
   const own = await (await ghosty('/api/status')).json();
   assert.equal(own.keys.find((k) => k.name === 'github').set, true);
 });
@@ -1155,4 +1156,29 @@ test('docs/DEPLOY-YOUR-OWN.md stays true to the repository: every setting the fi
   assert.match(doc, /Nothing is shared/);
   assert.match(doc, /Delete the line/);
   assert.doesNotMatch(doc, /aqishussain|wvks62vknw|a944f094/i, 'the first owner’s own settings are not repeated in it');
+});
+
+test('the owner’s brain reads nothing from storage for a request the demo did not make (a paused database must still answer); where the name is not given, a failing read fails closed', async () => {
+  let reads = 0;
+  const paused = { get: async () => (reads++, Promise.reject(new Error('Exceeded allowed rows read in Durable Objects free tier.'))), list: async () => (reads++, Promise.reject(new Error('paused'))), put: async () => Promise.reject(new Error('paused')), delete: async () => Promise.reject(new Error('paused')) };
+  const plain = new Request('https://ghosty.test/api/status', { headers: { 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } });
+  // a brain with no name given, an ordinary request: no gate, and not one read
+  const g1 = await Demo.demoGate({}, plain, paused);
+  assert.deepEqual(g1, { demo: false, res: null });
+  assert.equal(reads, 0, 'not one read of storage');
+  // and the same for the owner's brain by name
+  assert.deepEqual(await Demo.demoGate({ id: { name: 'owner' } }, plain, paused), { demo: false, res: null });
+  assert.equal(reads, 0);
+  // a request marked as the demo's, at a brain with no name and a storage that cannot be read: refused, never an error, never the demo
+  const marked = new Request('https://ghosty.test/api/status', { headers: { 'x-ghosty-demo': '1', 'x-ghosty': '1' } });
+  const g2 = await Demo.demoGate({}, marked, paused);
+  assert.equal(g2.demo, false);
+  assert.equal(g2.res.status, 403);
+  // the demo's brain, by name or by having been built so, refuses an unmarked request without reading anything
+  reads = 0;
+  const g3 = await Demo.demoGate({ id: { name: 'demo' } }, plain, paused);
+  assert.equal(g3.res.status, 403);
+  const g4 = await Demo.demoGate({}, plain, paused, Date.now(), true);
+  assert.equal(g4.res.status, 403);
+  assert.equal(reads, 0);
 });

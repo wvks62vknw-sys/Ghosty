@@ -32,6 +32,8 @@ export function bootScript(): string {
   var local = memory(), session = memory();
   // the app asks for a key before it will talk to a brain; this one means nothing and is never sent (see 3)
   local.setItem('ghosty.ownerKey', 'demo-visitor-key-not-a-real-key');
+  // the offline brain is off here: nothing is downloaded, and nothing is offered
+  local.setItem('ghosty.offlinebrain', JSON.stringify({ downloaded: false, active: false }));
   var replaced = false;
   try {
     Object.defineProperty(window, 'localStorage', { value: local, configurable: true });

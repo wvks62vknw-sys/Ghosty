@@ -170,17 +170,17 @@ export interface Gate {
  * emptied or answered as the demo. The owner's brain refuses a request marked as the demo's; the demo's answers only a marked
  * request with no credentials, within its cap and its allow-list, and has its own chat.
  */
-export async function demoGate(state: unknown, req: Request, storage: DurableObjectStorage, now = Date.now()): Promise<Gate> {
+export async function demoGate(state: unknown, req: Request, storage: DurableObjectStorage, now = Date.now(), sandboxed = false): Promise<Gate> {
   const marked = req.headers.get(DEMO_HEADER) !== null;
   const name = nameOf(state);
-  let demo: boolean;
-  if (name === DEMO_NAME) demo = true;
-  else if (name !== undefined) demo = false;
-  else if ((await storage.get(SEEDED_KEY)) != null) demo = true;
-  else demo = marked && (await storage.list({ limit: 1 })).size === 0;
-  if (!demo) return { demo: false, res: marked ? json({ error: 'a demo request never reaches this brain', demo: true }, 403) : null };
-  // the demo's brain: only the demo's door may call it, and never with anyone's credentials
-  if (!marked) return { demo: true, res: json({ error: 'the demo brain answers only the demo page', demo: true }, 403) };
+  const isDemoBrain = name === DEMO_NAME || sandboxed;
+  // A request the demo's door did not make is the owner's brain's to answer as it always did, with not a word read from storage
+  // (a paused database must still answer), and is refused by the demo's brain, which answers only its door.
+  if (!marked) return isDemoBrain ? { demo: true, res: json({ error: 'the demo brain answers only the demo page', demo: true }, 403) } : { demo: false, res: null };
+  let demo = isDemoBrain;
+  if (!demo && name === undefined) demo = await readsAsDemo(storage);
+  if (!demo) return { demo: false, res: json({ error: 'a demo request never reaches this brain', demo: true }, 403) };
+  // the demo's brain: and never with anyone's credentials
   if (CREDENTIALS.some((k) => req.headers.has(k))) return { demo: true, res: json({ error: 'the demo takes no keys or sign-in', demo: true }, 400) };
   if (now - minute.at >= 60_000) minute = { at: now, n: 0 };
   if (++minute.n > DEMO_PER_MINUTE) return { demo: true, res: json({ error: 'The demo is busy: try again in a minute.', demo: true }, 429) };
@@ -192,6 +192,16 @@ export async function demoGate(state: unknown, req: Request, storage: DurableObj
   if (req.method === 'POST' && route === '/chat') return { demo: true, res: await demoChat(req, storage, now) };
   if (req.method === 'POST' && route === '/stop') return { demo: true, res: json({ ok: true }) };
   return { demo: true, res: null };
+}
+
+/** Where the runtime gives no name: this storage is the demo's if it holds the demo's mark, or nothing at all. A read that fails says no. */
+async function readsAsDemo(storage: DurableObjectStorage): Promise<boolean> {
+  try {
+    if ((await storage.get(SEEDED_KEY)) != null) return true;
+    return (await storage.list({ limit: 1 })).size === 0;
+  } catch {
+    return false;
+  }
 }
 
 const seeded = new WeakMap<object, number>();

@@ -33,8 +33,16 @@ export function micMessage(e: unknown): string {
 
 export async function openMic(): Promise<Mic> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('this browser cannot reach the microphone');
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  // the audio context is made now, inside the tap that called this: an iPhone will not start audio made after the permission prompt
   const ctx = audioContext();
+  void ctx.resume().catch(() => undefined);
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    void ctx.close().catch(() => undefined);
+    throw e;
+  }
   await ctx.resume().catch(() => undefined);
   const src = ctx.createMediaStreamSource(stream);
   // a script processor: deprecated, but it is what every iPhone still runs, and it needs no extra file under the app's policy

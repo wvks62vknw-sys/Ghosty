@@ -88,7 +88,7 @@ async function connect(): Promise<void> {
     // Cloudflare, pairs this phone and names the owner (features/system/firstrunui.ts; docs/DEPLOY-YOUR-OWN.md).
     const { firstRun } = await import('./features/system/firstrunui');
     if (await firstRun(pair)) ui.set({ connected: true });
-    else if (ownerKey.get()) ui.set({ connected: true });
+    else await brain.status().then(() => ui.set({ connected: true }), () => undefined);
     return;
   }
   try {
