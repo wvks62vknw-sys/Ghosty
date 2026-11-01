@@ -142,9 +142,19 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- BUILDING NOW (1 Nov): ③ wiring DOOM, Freedoom, Quake and the two 3-D games into the arcade; ③ the kart racer, the
-  hopper and the arena; ⑤ the car in 3-D from its plate; ④ the people, work and creative packs next. Merged and waiting
-  for the next PR: native DOOM and Quake, the block world and the runner, the money, body and kitchen packs (39 things).
+- GOING UP IN PR #50 (1 Nov, afternoon; one CI run of about two hours and a quarter, merged when green): ③ the kart racer,
+  the hopper and the arena (every made-by-us game wired to the shelf); ⑤ YOUR DAD'S CAR OR HARIS'S IN 3-D from its plate
+  (bonnet up, the likely culprits lit, DIY or garage with a rough cost — a stand-in model said to be one, every number a
+  first estimate); ⑦ HIS SOCIAL SELF (Father and the origin; the approval queue — every post a draft you APPROVE, EDIT or
+  refuse, in the chat and on Telegram; Bluesky, Mastodon, Discord and your own Telegram channel once you link them in
+  SYSTEM → KEYS; "A thought of mine" a few times a day at most); ⑧ OFFLINE WIKIPEDIA (Library → Ask), SIRI SHORTCUTS
+  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities).
+- BUILDING NOW: ⑧ anti-spoofing for faces, hand shapes to blueprints and a TV MODE for the PS5's browser; ⑧ chess rating,
+  the instrument coach, the review link and "deploy your own Ghosty"; ⑧ design a build with a bill of materials and the
+  Home Assistant bridge; ④ the outside, home and learning packs. Ready to start as builders free up: ⑥ the brain on your
+  phone used by default for what it has passed (with an independence meter); ⑧ the converter and documents, and the
+  rights-and-law topics from primary sources. Last of all: the UI depth pass. HELD for your opinion: the twelve themes and
+  the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
