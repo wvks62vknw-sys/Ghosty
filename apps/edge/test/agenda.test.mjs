@@ -48,7 +48,7 @@ async function chat(message, path = '/api/chat', body = { message, context: { tz
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 // The owner's jobs (Ghosty's own jobs — the hourly self-study, the nightly reflection, the morning digest, the daily upgrade ideas — are left out).
-const OWN = new Set(['study', 'reflect', 'digest', 'upgrade', 'train', 'guard', 'walk', 'foresee', 'speak']); // Ghosty's own routines (train: the offline brain's weekly self-training; guard, walk: the guardian's watch and a walk home's clock; foresee: the hourly foresight)
+const OWN = new Set(['study', 'reflect', 'digest', 'upgrade', 'train', 'guard', 'walk', 'foresee', 'speak', 'musing']); // Ghosty's own routines (train: the offline brain's weekly self-training; guard, walk: the guardian's watch and a walk home's clock; foresee: the hourly foresight; musing: one line of his own a day, BRIEF-SOCIAL)
 const jobs = () => (state.storage.m.get('jobs') ?? []).filter((j) => !OWN.has(j.kind));
 const inbox = async () => (await (await call('/api/inbox')).json()).items;
 

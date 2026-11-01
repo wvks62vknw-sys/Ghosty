@@ -14,6 +14,7 @@ import { button, confirmSheet, panel, row, toast, undo } from '../../ui/componen
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
 import { goToPanel, sections } from '../../ui/sections';
+import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -87,12 +88,15 @@ export const linksTab: TabDef = {
     const bp = panel('AI BRAIN', { grow: false });
     const gp = panel('GITHUB · SELF-EDIT', { grow: false });
     const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
-    P.left.append(ep.el, spot.el, tg.el);
+    const social = socialPanels();
+    P.left.append(ep.el, spot.el, tg.el, ...social.panels.map((x) => x.el));
     P.right.append(ap.el, np.el, tp.el, bp.el, gp.el);
     // Sections (ui/sections.ts): a pill for each of the list's groups: his accounts (email, music, Telegram), this phone
     // (the app and its notifications) and the services behind Ghosty (traffic, the AI brain, GitHub).
     sections(root, 'links', [
-      { id: 'accounts', label: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM)/ },
+      { id: 'accounts', label: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM(?! CHANNEL))/ },
+      // [social] the accounts he made for me, each posting only with his APPROVE (features/links/social.ts)
+      { id: 'social', label: 'Social', match: /^(BLUESKY|MASTODON|DISCORD|TELEGRAM CHANNEL)/ },
       { id: 'phone', label: 'This phone', match: /^(PHONE|NOTIFICATIONS)/ },
       { id: 'services', label: 'Services', match: /^(LIVE|AI|GITHUB)/ },
     ]);
@@ -494,6 +498,7 @@ export const linksTab: TabDef = {
         void paintApp();
         void paintNotifications(np);
         void paintBrain();
+        void social.paint(); // [social]
       },
       leave() {
         clearInterval(codeTimer);

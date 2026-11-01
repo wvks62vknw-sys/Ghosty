@@ -68,6 +68,10 @@ import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
+import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { discordInteraction } from './social/discord'; // [social] his own bot in his own server: /ask, signature checked first
+import { ensureMusingJob, musingTick, type MusingDeps } from './social/musing'; // [social] one line of his own a day, under the cadence
+import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -97,7 +101,7 @@ const TURNS_KEY = 'turns';
 const DIRECT = 'Direct · no AI';
 const PENDING_KEY = 'pending';
 /** Everything in the vault: the owner's keys and the Spotify link. */
-const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify'];
+const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify', 'bluesky', 'mastodon', 'discord']; // [social] his own accounts' keys (social/*)
 
 interface Pending {
   id: string;
@@ -293,6 +297,8 @@ export class GhostyAgent {
     try {
       // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
+      // [social] Discord's interactions (social/discord.ts): public — Discord calls it; its Ed25519 signature is checked before anything is read.
+      if (path === '/discord/interactions' && method === 'POST') return await discordInteraction(req, await this.socialDeps(), (words) => this.discordTurn(words), (p) => this.state.waitUntil(p));
       // [selftrain] The Kaggle notebook's hook: public like Telegram's — it is turned away without this week's ticket.
       if (path === '/training/hook') return await hookRoute(req, this.trainDeps());
       // [selftrain] A trained brain's weights for the phone (selftrain/weights.ts): public like the hook, closed without the capability.
@@ -446,6 +452,7 @@ export class GhostyAgent {
       if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
       if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
       if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
+      if (path === '/social' || path.startsWith('/social/')) return await socialRoute(req, path, method, url, await this.socialDeps()); // [social] his accounts: link, drafts, APPROVE · EDIT · NO (social/index.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1468,6 +1475,7 @@ export class GhostyAgent {
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
       if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
       if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
+      if (job.kind === 'musing') return json({ next: await musingTick(await this.musingDeps()) }); // [social]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1555,6 +1563,7 @@ export class GhostyAgent {
       },
       guardian: () => this.guardDeps(), // [guardian] the walk home, the panic phrase and the named person on Telegram
       foresight: () => this.foreDeps(), // [foresight] the record and his word on his own questions, on Telegram
+      social: async () => socialTelegram(await this.socialDeps()), // [social] a draft's APPROVE · EDIT · NO on Telegram
     };
   }
 
@@ -1637,6 +1646,11 @@ export class GhostyAgent {
         } else if (job.kind === 'speak') {
           // [cards] Speaking first (speak.ts): the day's pieces at their minute, under the cadence; it says when to look again.
           const next = await speakTick(this.speakDeps());
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'musing') {
+          // [social] One line of his own a day (social/musing.ts): under the cadence, the model asked only when it may go.
+          const next = await musingTick(await this.musingDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'follow') {
@@ -1742,11 +1756,44 @@ export class GhostyAgent {
     await ensureGuardJob(this.storage); // [guardian]
     await ensureForeseeJob(this.storage); // [foresight]
     await ensureSpeakJob(this.storage); // [cards] speaking first
+    await ensureMusingJob(this.storage); // [social] one line of his own a day
   }
 
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
     return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+  }
+
+  /**
+   * [social] /ask from him in his own Discord server (social/discord.ts): one brain turn, as on Telegram (plain text, no screen),
+   * its reply as text. A draft or an approval it makes waits for him in the app or on Telegram, never answered from Discord.
+   */
+  private async discordTurn(words: string): Promise<string> {
+    const host = this.telegramHost();
+    const slot = await host.claimTurn(20_000);
+    if (!slot) return "I'm busy with something from your phone. Ask me again in a minute.";
+    const out: string[] = [];
+    try {
+      await host.runTurn(words, [], await host.client(), (ev) => {
+        if (ev.t === 'text') out.push(ev.text);
+        else if (ev.t === 'error') out.push(ev.message);
+        else if (ev.t === 'approval') out.push('That needs your approval: answer it in the app or on Telegram.');
+        else if (ev.t === 'cards') for (const c of ev.cards) if (c.kind === 'draft') out.push('The draft waits for your APPROVE in the app (LINKS → its account) or on Telegram.');
+      }, slot.signal);
+    } finally {
+      slot.done();
+    }
+    return out.join('\n\n').trim();
+  }
+
+  /** [social] What the line of his own (social/musing.ts) may use: speaking first's, a cheap model, the library, his accounts. */
+  private async musingDeps(): Promise<MusingDeps> {
+    return { ...this.speakDeps(), ai: this.studyAi(), library: this.library, social: await this.socialDeps() };
+  }
+
+  /** [social] What his accounts (social/*) may use: the database, the vault (their keys), his time zone and his pictures. */
+  private async socialDeps(): Promise<SocialDeps> {
+    return { storage: this.storage, vault: this.vault, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(this.storage), images: this.env.SITES ?? null };
   }
 
   /** [packs] What the packs (packs/index.ts) may use: the database and his notifications (with the card). */
@@ -1780,7 +1827,7 @@ export class GhostyAgent {
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */
   private dailyDeps() {
-    return { storage: this.storage, library: this.library, ai: this.studyAi() };
+    return { storage: this.storage, library: this.library, ai: this.studyAi(), more: async () => socialDigest(await this.socialDeps()) }; // [social] his Bluesky, as a LEAD
   }
 
   /** One daily job (never throws: a miss is tried again tomorrow, and the owner is not told). */

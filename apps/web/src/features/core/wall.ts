@@ -71,7 +71,8 @@ async function placeOffer(now: number): Promise<Card | null> {
 export async function wallCards(now = Date.now()): Promise<Card[]> {
   const out: Card[] = [];
   // what came up in the conversation in the last day (a vehicle's record is shown once: never here)
-  for (const e of chat.get().entries) if (e.kind === 'card' && !e.once && !e.card.once && now - e.at < DAY) out.push({ ...e.card, at: e.at });
+  // ([social] a draft for his accounts stays in the chat with its APPROVE · EDIT · NO: it is not a piece of his day)
+  for (const e of chat.get().entries) if (e.kind === 'card' && !e.once && !e.card.once && e.card.kind !== 'draft' && now - e.at < DAY) out.push({ ...e.card, at: e.at });
   // the pieces of his day the brain sent (a reminder, the morning, a warning), whether or not the phone was open
   for (const it of inbox.get().items) if (it.card && !it.quiet && now - it.at < DAY) out.push({ ...it.card, at: it.at });
   // a warning about one of his places, live: first, always

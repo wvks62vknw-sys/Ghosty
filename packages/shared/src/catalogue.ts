@@ -72,7 +72,7 @@ export interface CatItem {
 /** What he might need for it, said once here and shown under WHAT IT NEEDS. */
 export type Need =
   | 'key:github' | 'key:tomtom' | 'key:dvsa' | 'key:dvla' | 'key:tfwm' | 'key:bods' | 'key:mapbox' | 'key:kaggle' | 'key:hfwrite' | 'key:huggingface' | 'key:plantnet' | 'key:aisstream' | 'key:ai'
-  | 'link:email' | 'link:spotify' | 'link:telegram' | 'link:push'
+  | 'link:email' | 'link:spotify' | 'link:telegram' | 'link:push' | 'link:bluesky' | 'link:mastodon' | 'link:discord' | 'link:channel'
   | 'wifi' | 'home' | 'work' | 'places' | 'offline' | 'person' | 'camera' | 'mic' | 'location' | 'statement' | 'premium' | 'brain';
 
 export const NEEDS: Record<Need, { words: string; go?: CatGo }> = {
@@ -93,6 +93,11 @@ export const NEEDS: Record<Need, { words: string; go?: CatGo }> = {
   'link:spotify': { words: 'Your Spotify linked once: LINKS → SPOTIFY (play, pause and skip need Premium).', go: { open: 'links', panel: 'SPOTIFY' } },
   'link:telegram': { words: 'Your own Telegram bot paired once: LINKS → TELEGRAM.', go: { open: 'links', panel: 'TELEGRAM' } },
   'link:push': { words: 'Notifications allowed on this phone: LINKS → PHONE.', go: { open: 'links', panel: 'PHONE' } },
+  // [social] his own accounts (BRIEF-SOCIAL): he makes them, links them once, and every post waits for his APPROVE
+  'link:bluesky': { words: 'Your own Bluesky account linked once, with an app password (never your main one): LINKS → BLUESKY.', go: { open: 'links', panel: 'BLUESKY' } },
+  'link:mastodon': { words: 'Your own Mastodon account linked once, with a token from your own app there: LINKS → MASTODON.', go: { open: 'links', panel: 'MASTODON' } },
+  'link:discord': { words: 'Your own bot in your own Discord server, linked once: LINKS → DISCORD.', go: { open: 'links', panel: 'DISCORD' } },
+  'link:channel': { words: 'Your own Telegram channel, with my bot added as an admin: LINKS → TELEGRAM CHANNEL.', go: { open: 'links', panel: 'TELEGRAM CHANNEL' } },
   wifi: { words: 'Wi-Fi for the first download (it is big); after that it works offline.' },
   home: { words: 'Your home saved: Memory → ME → PLACES, or just tell me your address.', go: { open: 'memory', panel: 'ME' } },
   work: { words: 'Your work saved too: Memory → ME → PLACES.', go: { open: 'memory', panel: 'ME' } },

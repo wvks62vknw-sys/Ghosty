@@ -11,6 +11,7 @@ import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
+import { resetSocial, socialApis, socialSent } from './fixtures/social-apis.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -98,6 +99,10 @@ globalThis.fetch = async (input, init) => {
   // (tests/fixtures/foresight-feeds.mjs): never the live ones, whichever spec runs when the hourly foresee job looks.
   const fore = foresightFeeds(u);
   if (fore) return fore;
+  // Test only: his own accounts' APIs — Bluesky, Mastodon, Discord, Telegram's channel post (tests/fixtures/social-apis.mjs):
+  // never the live ones; every post that reaches them is recorded for GET /__test/social.
+  const social = socialApis(u, init);
+  if (social) return social;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -167,6 +172,17 @@ createServer(async (req, res) => {
       setTimeout(() => res.end(), hold);
       return;
     }
+    // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.
+    // ?reset=1 forgets them and the brain's social keys and drafts (CI's one brain runs the spec again on a retry).
+    if (url.pathname === '/__test/social') {
+      if (url.searchParams.get('reset') === '1') {
+        resetSocial();
+        await state.storage.delete(['social:drafts', 'social:sent', 'social:editing', 'social:last:bluesky:home', 'speak:cadence']);
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ sent: socialSent() }));
+      return;
+    }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
     if (url.pathname === '/__test/blip') {
       state.storage.blips.add(url.searchParams.get('key') ?? '');
@@ -227,6 +243,28 @@ createServer(async (req, res) => {
       if (url.searchParams.get('reset') === '1') await state.storage.delete('speak:cadence');
       const at = Number(url.searchParams.get('at'));
       const job = ((await state.storage.get('jobs')) ?? []).find((j) => j.kind === 'speak');
+      let result = null;
+      if (job && Number.isFinite(at) && at > 0) {
+        const real = Date.now;
+        const t0 = real();
+        Date.now = () => at + (real() - t0);
+        try {
+          const r = await mod.default.fetch(new Request(`http://localhost:${port}/api/jobs/${job.id}/run`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: '{}' }), env, { waitUntil: () => undefined });
+          result = await r.json().catch(() => null);
+        } finally {
+          Date.now = real;
+        }
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ job: !!job, result, cadence: (await state.storage.get('speak:cadence')) ?? null }));
+      return;
+    }
+    // Test only (tests/social.spec.mjs): the brain's line-of-his-own job run now, on a clock stood at `at` (ms) for that one
+    // request, as /__test/speak-at does for speaking first. ?reset=1 first forgets the day's unprompted lines.
+    if (url.pathname === '/__test/musing-at') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['speak:cadence', 'musing:none']);
+      const at = Number(url.searchParams.get('at'));
+      const job = ((await state.storage.get('jobs')) ?? []).find((j) => j.kind === 'musing');
       let result = null;
       if (job && Number.isFinite(at) && at > 0) {
         const real = Date.now;

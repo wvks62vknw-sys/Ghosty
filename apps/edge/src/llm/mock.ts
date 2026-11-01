@@ -28,6 +28,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const ex = EXERCISES.find((e) => e.prompt === messages[1]?.content);
     if (ex) return { message: { role: 'assistant', content: messages.length > 2 ? `\`\`\`js\n${ex.reference}\n\`\`\`` : `\`\`\`js\nfunction ${ex.entry}() { return null; }\n\`\`\`` }, model };
   }
+  // [social] the line of his own a day (social/musing.ts): from the first of its facts, as a model would put it
+  if (/^ONE LINE OF YOUR OWN/.test(String(messages[0]?.content ?? ''))) {
+    const fact = textOf(last.content).match(/^- (?:Read this morning \([^)]*\): |On your Bluesky timeline: |What I learned this week: )?(.+)$/m)?.[1] ?? '';
+    return { message: { role: 'assistant', content: fact ? `Been thinking about this one: ${fact.replace(/\.$/, '').slice(0, 140)}.` : 'NOTHING' }, model };
+  }
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
@@ -167,6 +172,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
       const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
+    // [social] After social: what it read or drafted, as it came (authors and times; never "posted" for a draft).
+    if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -363,6 +370,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // [foresight] FORESIGHT's tool (tools/foresight.ts): his question put on record, and the record itself.
   if (/^what do you reckon,? will it rain tomorrow\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'expect', subject: 'rain at Home tomorrow', expect: 'rain', by: 'tomorrow 18:00', confidence: 0.6 }), model };
   if (/^how often are you right\??$/.test(text) && has('foresee')) return { message: call('foresee', { what: 'record' }), model };
+  // [social] HIS OWN ACCOUNTS (tools/social.ts): "what's on bluesky?", "search bluesky for …", "post on bluesky: …", "follow … on bluesky".
+  if ((m = text.match(/^what'?s on (bluesky|mastodon|discord|my discord)\??$/)) && has('social')) return { message: call('social', { action: 'read', account: m[1]!.replace('my ', '') }), model };
+  if ((m = text.match(/^search (bluesky|mastodon) for (.+?)\??$/)) && has('social')) return { message: call('social', { action: 'search', account: m[1], query: m[2] }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^post (?:this |that )?(?:on|to) (bluesky|mastodon|discord|my channel|my telegram channel): ([\s\S]+)$/i)) && has('social')) return { message: call('social', { action: 'draft', account: /channel/i.test(m[1]!) ? 'channel' : m[1]!.toLowerCase(), text: m[2]!.trim() }), model };
+  if ((m = text.match(/^(un)?follow (\S+) on (bluesky|mastodon)$/)) && has('social')) return { message: call('social', { action: 'follow_ask', account: m[3], who: m[2], ...(m[1] ? { undo: true } : {}) }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };

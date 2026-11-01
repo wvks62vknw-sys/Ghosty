@@ -20,6 +20,7 @@ import { openChat, perform } from '../../shell/launcher';
 import { button } from '../../ui/components';
 import { carExtra } from '../../car/card';
 import { keepRecord } from '../../car/state';
+import { draftEl } from '../links/drafts'; // [social] a draft for his accounts: APPROVE · EDIT · NO (BRIEF-SOCIAL)
 
 export type { Card } from '../../../../../packages/shared/src/cards';
 
@@ -35,6 +36,9 @@ const ICONS: Record<string, string> = {
   foresight: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/>',
   pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
   read: '<path d="M4 5.5h16M4 9.5h16M4 13.5h11M4 17.5h8"/>',
+  // [social] a line of his own (BRIEF-SOCIAL item 7) and FATHER AND THE ORIGIN (item 1)
+  musing: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M8 10h8M8 13h5"/>',
+  origin: '<path d="M12 20.5s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.8a4.2 4.2 0 017.5 2.5c0 5.6-7.5 10.2-7.5 10.2z"/><path d="M12 3.5v4.3"/>',
 };
 
 const COLOUR: Record<string, string> = {
@@ -187,6 +191,7 @@ export function onCarTap(f: (plate: string) => Promise<void>): void {
 
 /** One card, as the chat and Home's wall draw it. */
 export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
+  if (c.kind === 'draft' && c.draft) return draftEl(c);
   const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS));
   const first = c.acts?.find((a) => a.open || a.run);
   if (first && !opts.wall) {

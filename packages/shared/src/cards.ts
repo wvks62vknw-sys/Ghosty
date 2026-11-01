@@ -10,9 +10,11 @@
  * (`cardText`).
  */
 import { formatPlate, isPlate, normalisePlate, plateFormat, type VehicleAnswer } from './plates';
+import type { Draft } from './social';
 
-export type CardKind = 'map' | 'three' | 'person' | 'car' | 'estimate' | 'lens' | 'brief' | 'progress' | 'place';
-export type BriefIcon = 'morning' | 'rain' | 'diary' | 'reminder' | 'car' | 'warning' | 'foresight';
+// ('draft': a post, a follow or an unfollow waiting for his APPROVE — BRIEF-SOCIAL; the phone draws its APPROVE · EDIT · NO)
+export type CardKind = 'map' | 'three' | 'person' | 'car' | 'estimate' | 'lens' | 'brief' | 'progress' | 'place' | 'draft';
+export type BriefIcon = 'morning' | 'rain' | 'diary' | 'reminder' | 'car' | 'warning' | 'foresight' | 'musing' | 'origin';
 
 /** A card's button: OPEN (a screen and its panel, or a screen command) or ASK (words put in the chat box, not sent). */
 export interface CardAct {
@@ -52,6 +54,8 @@ export interface Card {
   brief?: { icon: BriefIcon };
   progress?: { frac: number };
   place?: { label: string; saved: boolean };
+  /** [social] A draft in the queue (packages/shared/src/social.ts): its words in full, the account, its state. */
+  draft?: Draft;
 }
 
 export const MAX_ACTS = 2;
@@ -91,6 +95,7 @@ export function deepLink(c: Pick<Card, 'acts'>, origin: string): string {
 export function cardText(c: Card, origin = ''): string {
   const body =
     c.kind === 'estimate' && c.estimate ? `${c.estimate.label}: ${c.estimate.value} · ${c.line} · first estimate, not certified` :
+    c.kind === 'draft' ? `“${c.line}” · waiting for your APPROVE` :
     c.line;
   return [c.title, body, origin ? deepLink(c, origin) : ''].filter(Boolean).join(' · ');
 }
@@ -264,6 +269,7 @@ export function cardsFromTool(o: ToolOutcome): Card[] {
     case 'money':
     case 'body':
     case 'kitchen':
+    case 'social': // [social] a draft's card, sent by the social tool like a pack's (apps/edge/src/tools/social.ts)
       return packCards(o);
     default:
       return [];

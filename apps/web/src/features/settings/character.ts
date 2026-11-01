@@ -12,6 +12,7 @@ import { clear, h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { button, panel, toast, type Panel } from '../../ui/components';
 import { principlesEditor } from './principles';
+import { openOrigin } from '../me/origin';
 import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSettings } from '../../../../../packages/shared/src/persona';
 import { DIALS, DEFAULT_DIAL, type Dial } from '../../../../../packages/shared/src/cadence';
 import type { SpeakInfo } from '../../api/brain';
@@ -111,6 +112,8 @@ export function characterPanel(): Panel & { refresh(): void } {
     speakDial,
     speakNow,
     h('div.charprinc', h('span.lab', 'PRINCIPLES'), princ.el),
+    // FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page in his voice — who made him, when, of what, his promises
+    h('div.row.charorigin', button('FATHER AND THE ORIGIN', () => openOrigin())),
     h('details.charwords', h('summary', { dataset: { case: 'keep' } }, 'The exact words Ghosty is given'), said),
   );
 
