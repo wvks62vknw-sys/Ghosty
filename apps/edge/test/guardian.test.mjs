@@ -68,7 +68,7 @@ test('the watch: a new warning near home is told once, kept in the day log and t
   // (worst first, then the newest)
   assert.deepEqual(first.news, ['Yellow warning of wind near Home (Met Office, since 15:00, until 23:59)', 'Flood alert near Home: River Cole at Kings Heath and Moseley (Environment Agency, since 14:05)']);
   assert.equal(g.out.notes.length, 1, 'one notification for the look');
-  assert.deepEqual(g.out.notes[0], { kind: 'error', title: '2 warnings near your places', text: first.news.join('\n') });
+  assert.deepEqual(g.out.notes[0], { kind: 'error', title: '2 warnings near your places', text: first.news.join('\n'), danger: true });
   const log = await M.loadLog(g.storage);
   assert.ok(log.some((e) => e.kind === 'place' && /Flood alert near Home/.test(e.text) && e.via === 'guardian'), 'in the day log');
   const mind = await G.guardianMind(g.storage, g.now, 'Europe/London');

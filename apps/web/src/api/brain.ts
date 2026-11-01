@@ -19,6 +19,7 @@ import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
+import type { NamedCar } from '../../../../packages/shared/src/cards';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
@@ -414,6 +415,11 @@ export const brain = {
   today: (tz: string) => req<{ items: DayItem[] }>('GET', `/today?tz=${encodeURIComponent(tz)}`),
   /** An ability offered in context once (and the day's one): remembered by the brain, never offered again. */
   abilityOffered: (id: string) => req<{ offered: Offered[] }>('POST', '/abilities/offered', { id }),
+  /** The cars he named (apps/edge/src/cars.ts): kept in his memory; `said` is his own sentence, read by the brain's own code. */
+  cars: () => req<{ cars: NamedCar[] }>('GET', '/cars'),
+  carSave: (said: string) => req<{ car: NamedCar; cars: NamedCar[] }>('POST', '/cars', { said }),
+  carMonths: (plate: string, m: { mot?: string; tax?: string }) => req<{ car: NamedCar }>('POST', '/cars/months', { plate, ...m }),
+  carForget: (plate: string) => req<{ forgotten: boolean; cars: NamedCar[] }>('DELETE', `/cars/${encodeURIComponent(plate)}`),
   /** The brain's kept trails (apps/edge/src/why.ts): WHY on a reply whose steps this phone no longer holds. */
   why: () => req<{ trails: Trail[] }>('GET', '/why'),
   /** FORESIGHT (apps/edge/src/foresight.ts): the prediction ledger — today's expectations, yesterday, the record; his word on his own questions. */

@@ -9,7 +9,7 @@
  * prompt gains nothing. The phone draws them (apps/web/src/features/core/cards.ts); Telegram and push carry them as text
  * (`cardText`).
  */
-import { formatPlate, isPlate, normalisePlate } from './plates';
+import { formatPlate, isPlate, normalisePlate, plateFormat, type VehicleAnswer } from './plates';
 
 export type CardKind = 'map' | 'three' | 'person' | 'car' | 'estimate' | 'lens' | 'brief' | 'progress' | 'place';
 export type BriefIcon = 'morning' | 'rain' | 'diary' | 'reminder' | 'car' | 'warning' | 'foresight';
@@ -256,4 +256,164 @@ export function cardsFromTool(o: ToolOutcome): Card[] {
     default:
       return [];
   }
+}
+
+// ---------------------------------------------------------------- a piece of his day from the brain's inbox (item 2c)
+
+/** The card a notification carries, by code: a reminder he set → BRIEF; a warning about one of his places → BRIEF, danger. */
+export function inboxCard(item: { id?: string; kind: 'reminder' | 'task' | 'error'; title: string; text: string; danger?: boolean }, at = Date.now()): Card | null {
+  if (item.kind === 'reminder') return card({ id: `brief:reminder:${item.id ?? at}`, kind: 'brief', at, due: at, title: 'Reminder', line: item.text, brief: { icon: 'reminder' }, acts: [{ label: 'OPEN AGENDA', open: { tab: 'agenda' } }] });
+  if (item.danger) return card({ id: `brief:warn:${at}`, kind: 'brief', at, danger: true, title: item.title, line: item.text.split('\n')[0] ?? item.text, brief: { icon: 'warning' }, acts: [{ label: 'NEAR HOME', open: { tab: 'threats', panel: 'NEAR HOME' } }] });
+  return null;
+}
+
+// ---------------------------------------------------------------- plates in any spacing, and the cars he names (item 2a, 2d)
+
+/**
+ * UK plates as he types them, in any spacing ("AB12CDE", "ab12 cde", "AB 12 CDE", "A123 BCD", "ABC 123D"): the dated and
+ * Northern Ireland formats only, five to eight letters and digits — a dateless "A1" or "M6", a postcode, a time or a
+ * model number is everyday text and never one.
+ */
+export function platesIn(text: string): string[] {
+  const toks = String(text ?? '').toUpperCase().match(/[A-Z0-9]+/g) ?? [];
+  const out: string[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    for (let k = Math.min(3, toks.length - i); k >= 1; k--) {
+      const parts = toks.slice(i, i + k);
+      if (k > 1 && parts.some((t) => t.length > 4)) continue;
+      const p = parts.join('');
+      if (p.length < 5 || p.length > 8 || !/\d/.test(p) || !/[A-Z]/.test(p)) continue;
+      const f = plateFormat(p);
+      if (!f || f === 'dateless') continue;
+      if (!out.includes(p)) out.push(p);
+      i += k - 1;
+      break;
+    }
+  }
+  return out;
+}
+
+/** The people in his life by what he calls them: "my dad's car" introduces Dad. */
+export const RELATIONS = ['dad', 'mum', 'mom', 'mother', 'father', 'brother', 'sister', 'nan', 'nana', 'gran', 'granny', 'grandma', 'grandad', 'grandpa', 'uncle', 'aunt', 'auntie', 'cousin', 'wife', 'husband', 'partner', 'girlfriend', 'boyfriend', 'son', 'daughter', 'mate', 'friend', 'stepdad', 'stepmum', 'boss'];
+
+/** A car he named: his own (`whose` "me") or one of the people he introduced; the plate, a nickname, and — once he has seen its card — the months its MOT and tax fall due. */
+export interface NamedCar {
+  whose: string;
+  plate: string;
+  nickname?: string;
+  /** "2027-03" */
+  mot?: string;
+  tax?: string;
+}
+
+const capital = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+const WHOSE = /\b(?:my\s+(?:([a-z]+)\s+)?([a-z][a-z-]*)'s|(my)|([a-z][a-z-]*)'s)\s+(?:car|van|motor|motorbike|bike|truck|jeep)(?:'s\s+(?:reg(?:istration)?|plate|number(?:\s*plate)?))?\s*(?:is|=|:)\s*/i;
+const NICK = /^\s*(?:[,(-]|\s(?=(?:called|nicknamed|we call it|aka)\b))\s*(?:(?:it'?s\s+)?(?:called|nicknamed|we call it|aka)\s+)?((?:the|a|an|my|our)?\s*[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})\s*\)?\s*[.!]?\s*$/i;
+
+/**
+ * "my car is AB12 CDE", "my dad's car is RX15 KNG", "my mate Haris's van is …, the Transit", "Mum's car: …" → the car he
+ * named; a name with no "my" counts only when he introduced that person (`known`, lower case). Anyone else's car is never
+ * kept: null.
+ */
+export function carSaid(text: string, known: string[] = []): NamedCar | null {
+  const t = String(text ?? '').replace(/[‘’]/g, "'").trim();
+  if (/\?\s*$/.test(t)) return null;
+  const m = WHOSE.exec(t);
+  if (!m) return null;
+  const rest = t.slice(m.index + m[0].length);
+  const plate = platesIn(rest.slice(0, 12))[0];
+  if (!plate) return null;
+  let whose = '';
+  if (m[3]) whose = 'me';
+  else if (m[2]) whose = capital(m[2]);
+  else if (m[4]) {
+    const w = m[4].toLowerCase();
+    if (RELATIONS.includes(w) || known.includes(w)) whose = capital(m[4]);
+  }
+  if (!whose || /^(his|her|their|someone|somebody|this|that|the)$/i.test(whose)) return null;
+  // what follows the plate: a nickname after a comma or "called …", nothing else
+  const shape = [...formatPlate(plate)].map((c) => (c === ' ' ? '\\s*' : c)).join('');
+  const after = rest.replace(new RegExp(`^\\s*${shape}`, 'i'), '');
+  const nick = NICK.exec(after)?.[1]?.trim();
+  return { whose, plate: formatPlate(plate), ...(nick ? { nickname: nick } : {}) };
+}
+
+/** How a named car is kept in his memory, one line he can read in the Memory tab: "Dad's car: RX15 KNG (the Golf) · MOT due 2027-03". */
+export function carFactText(c: NamedCar): string {
+  return `${c.whose === 'me' ? 'My' : `${c.whose}'s`} car: ${formatPlate(c.plate)}${c.nickname ? ` (${c.nickname})` : ''}${c.mot ? ` · MOT due ${c.mot}` : ''}${c.tax ? ` · tax due ${c.tax}` : ''}`;
+}
+
+const FACT = /^(?:(My)|(.{1,40}?)'s) car: ([A-Z0-9]{1,4} ?[A-Z0-9]{1,4})(?: \(([^)]{1,40})\))?(?: · MOT due (\d{4}-\d{2}))?(?: · tax due (\d{4}-\d{2}))?$/;
+
+/** A memory line back into the car (null for any other memory). */
+export function parseCarFact(text: string): NamedCar | null {
+  const m = FACT.exec(String(text ?? '').trim());
+  if (!m || !isPlate(m[3]!)) return null;
+  return { whose: m[1] ? 'me' : m[2]!, plate: formatPlate(m[3]!), ...(m[4] ? { nickname: m[4] } : {}), ...(m[5] ? { mot: m[5] } : {}), ...(m[6] ? { tax: m[6] } : {}) };
+}
+
+/** "Dad's car", "Your car", or its nickname with whose it is ("Dad's Golf"). */
+export function carName(c: NamedCar): string {
+  const whose = c.whose === 'me' ? 'Your' : `${c.whose}'s`;
+  return c.nickname ? `${whose} ${c.nickname.replace(/^(the|a|an|my|our)\s+/i, '')}` : `${whose} car`;
+}
+
+// ---------------------------------------------------------------- PERSON and CAR, from what is already known (item 2)
+
+/**
+ * A person he introduced — the guardian's named person, or someone whose car he named — showing only what GUARDIAN
+ * already shows: how a message would reach them, their cars, a walk home of his under way. Nothing predicted, nothing
+ * looked up about them.
+ */
+export function personCard(p: { name: string; named?: { via: 'telegram' | 'email' | '' }; cars: NamedCar[]; walk?: boolean }, at = Date.now()): Card {
+  const reach = p.named ? `Your named person · ${p.named.via === 'telegram' ? 'on Telegram' : p.named.via === 'email' ? 'by email' : 'not reachable yet'}` : 'Someone you told me about';
+  const cars = p.cars.map((c) => `${c.nickname ? `${c.nickname.replace(/^(the|a|an|my|our)\s+/i, '')} ` : 'car '}${formatPlate(c.plate)}`);
+  const own = /s$/i.test(p.name) ? `${p.name}'` : `${p.name}'s`;
+  return card({
+    id: `person:${p.name.toLowerCase()}`, kind: 'person', at, title: p.name,
+    line: [reach, ...cars, p.named && p.walk ? 'watching your walk home' : ''].filter(Boolean).join(' · '),
+    person: { name: p.name },
+    acts: [{ label: 'OPEN', open: { tab: 'settings', panel: 'GUARDIAN' } }, ...(p.cars.length ? [{ label: 'ASK', ask: `Is ${own} car due its MOT?` }] : [])],
+  });
+}
+
+/** A plate he typed: the offer of its car ("That's a plate. Want the car?"), or a car he named, ready to show. */
+export function plateOffer(plate: string, named?: NamedCar, at = Date.now()): Card {
+  const p = formatPlate(plate);
+  return card({
+    id: `car:${normalisePlate(plate)}`, kind: 'car', at, once: true,
+    title: named ? carName(named) : "That's a plate",
+    line: named ? `${p} · its MOT and tax, from the public record` : 'Want the car? Make, colour, MOT and tax from the public record.',
+    car: { plate: p, ...(named ? { whose: named.whose } : {}) },
+    acts: [{ label: 'SHOW THE CAR', car: p }],
+  });
+}
+
+/** The public record's answer (POST /api/vehicle) as the CAR card: make, colour, MOT and tax — or which key is missing and where. */
+export function carCard(answer: VehicleAnswer, plate: string, named?: NamedCar, at = Date.now()): Card {
+  const p = formatPlate(plate);
+  const base = { id: `car:${normalisePlate(plate)}`, kind: 'car' as const, at, once: true };
+  if (answer.ok) {
+    const r = answer.report;
+    const colour = r.colour.toLowerCase();
+    const tax = r.dvla?.taxDue ? `tax due ${ukDay(r.dvla.taxDue)}` : r.dvla?.taxStatus ? `tax: ${r.dvla.taxStatus}` : '';
+    return card({ ...base, title: named ? carName(named) : [r.colour, r.make, r.model].filter(Boolean).join(' ') || p, line: [r.mot.text, tax].filter(Boolean).join(' · '), car: { plate: p, ...(COLOURS.test(colour) ? { colour } : {}), ...(named ? { whose: named.whose } : {}) }, acts: [{ label: 'FULL RECORD', run: { name: 'vehicle_check', args: { plate: p } } }] });
+  }
+  if (answer.reason === 'no_key') return card({ ...base, title: named ? carName(named) : p, line: /not complete|refused/i.test(answer.message) ? 'The DVSA key needs fixing: System → Keys.' : 'Needs the free DVSA MOT history key: System → Keys.', car: { plate: p, key: true }, acts: [{ label: 'OPEN KEYS', open: { tab: 'system', panel: 'KEYS' } }] });
+  return card({ ...base, title: named ? carName(named) : p, line: answer.message, car: { plate: p } });
+}
+
+/** "2027-03-19" → "19 Mar 2027". */
+function ukDay(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${Number(m[3])} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1]} ${m[1]}` : iso;
+}
+
+/** The months a named car's MOT and tax fall due, from its record (kept on its car fact for the day's pieces). */
+export function dueMonths(answer: VehicleAnswer): { mot?: string; tax?: string } {
+  if (!answer.ok) return {};
+  const r = answer.report;
+  const mot = (r.mot.state === 'valid' || r.mot.state === 'first_due') && r.mot.date ? r.mot.date.slice(0, 7) : undefined;
+  const tax = r.dvla?.taxDue ? r.dvla.taxDue.slice(0, 7) : undefined;
+  return { ...(mot ? { mot } : {}), ...(tax ? { tax } : {}) };
 }

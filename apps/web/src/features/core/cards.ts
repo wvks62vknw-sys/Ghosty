@@ -6,9 +6,16 @@
  * (packages/shared/src/cards.ts): from a tool's result on the brain, or from what the phone already holds. Nothing here
  * asks a model to draw anything.
  */
-import type { Card, CardAct } from '../../../../../packages/shared/src/cards';
+import { card, carCard, dueMonths, personCard, plateOffer, type Card, type CardAct, type NamedCar } from '../../../../../packages/shared/src/cards';
+import { findPlates, normalisePlate, redactPlates, type VehicleAnswer } from '../../../../../packages/shared/src/plates';
+import type { SavedPlace } from '../../../../../packages/shared/src/places';
+import { brain, headers } from '../../api/brain';
+import { chat, notePlate } from '../../assistant/session';
+import { triggersIn, type Known } from '../../assistant/triggers';
 import { run } from '../../commands/registry';
 import { h, icon, svgEl } from '../../core/dom';
+import { createStore } from '../../core/store';
+import { guardian } from '../../state/guardian';
 import { openChat, perform } from '../../shell/launcher';
 import { button } from '../../ui/components';
 
@@ -194,4 +201,170 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
     vis,
     h('div.ccbody', h('b.cctitle', c.title), h('span.ccline', c.line), c.kind === 'estimate' ? h('small.cctag', 'First estimate, not certified') : null, acts.length ? h('div.ccacts', ...acts) : null),
   );
+}
+
+// ---------------------------------------------------------------- he brings things up himself (item 2): the table's acting half
+
+/** The cars he named, as the brain keeps them in his memory (GET /api/cars). */
+export const cars = createStore({ list: [] as NamedCar[], at: 0 });
+export async function loadCars(): Promise<NamedCar[]> {
+  try {
+    const r = await brain.cars();
+    cars.set({ list: r.cars, at: Date.now() });
+  } catch {
+    /* offline: what this phone last heard */
+  }
+  return cars.get().list;
+}
+let places: SavedPlace[] = [];
+let placesAt = 0;
+async function savedPlaces(): Promise<SavedPlace[]> {
+  if (Date.now() - placesAt < 5 * 60_000) return places;
+  placesAt = Date.now();
+  places = (await brain.places().catch(() => null))?.places ?? places;
+  return places;
+}
+
+/** What the table matches against: his places, the people he introduced (the guardian's named person and whose cars he named), the cars. */
+export async function known(): Promise<Known> {
+  const list = cars.get().at ? cars.get().list : await loadCars();
+  const person = guardian.get().info?.person?.name;
+  return { places: await savedPlaces(), people: [...(person ? [person] : []), ...list.filter((c) => c.whose !== 'me').map((c) => c.whose)], cars: list };
+}
+
+/** Under a test runner the cards he did not ask for wait for the spec to ask (as the offers do): every spec starts on a fresh phone. */
+export const mayBringUp = () => !navigator.webdriver || (globalThis as { __ghostyCards?: boolean }).__ghostyCards === true;
+
+/** Put a card in the conversation — once: the same card again within half an hour stays where it is. */
+export function postCard(card: Card, opts: { once?: boolean } = {}): boolean {
+  const recent = chat.get().entries.slice(-30);
+  if (recent.some((e) => e.kind === 'card' && e.card.id === card.id && card.at - e.at < 30 * 60_000)) return false;
+  chat.set((s) => ({ entries: [...s.entries, { kind: 'card' as const, card, at: Math.max(Date.now(), (s.entries.at(-1) as { at?: number } | undefined)?.at ?? 0) + 1, ...(opts.once || card.once ? { once: true } : {}) }].slice(-120) }));
+  return true;
+}
+
+/** The PERSON card for someone he introduced, from what the phone holds of the guardian and the cars; null for anyone else. */
+export function personNow(name: string): Card | null {
+  const info = guardian.get().info;
+  const low = name.toLowerCase();
+  const theirs = cars.get().list.filter((c) => c.whose.toLowerCase() === low);
+  const named = info?.person && info.person.name.toLowerCase() === low ? info.person : null;
+  if (!named && !theirs.length) return null;
+  return personCard({ name: named?.name ?? theirs[0]!.whose, ...(named ? { named: { via: named.via } } : {}), cars: theirs, walk: !!info?.walk && info.walk.stage !== 'done' });
+}
+
+/** A saved place on the map. */
+export function placeMap(p: Known['places'][number]): Card {
+  return card({ id: `map:${p.label}`, kind: 'map', title: p.label, line: p.address, map: { lat: p.lat, lon: p.lon, label: p.label }, acts: [{ label: 'OPEN MAP', run: { name: 'show_map', args: { place: p.label, lat: p.lat, lon: p.lon, zoom: 16 } } }, { label: 'ASK', ask: `How long to get to ${p.label}?` }] });
+}
+
+const hm = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+/** The diary piece for a day: what is in it, from the agenda the phone can read. */
+export async function dayPiece(label: string, offset: number, now = Date.now()): Promise<Card | null> {
+  const r = await brain.agenda(8).catch(() => null);
+  if (!r) return null;
+  const d = new Date(now);
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset).getTime();
+  const to = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset + 1).getTime();
+  const items = [
+    ...r.events.filter((e) => (e.end ?? e.start + 1) > Math.max(from, offset ? from : now) && e.start < to).map((e) => ({ at: Math.max(e.start, from), what: `${e.title}${e.allDay ? ' (all day)' : ` ${hm(e.start)}`}` })),
+    ...r.jobs.filter((j) => j.kind === 'reminder' && j.next >= Math.max(from, now) && j.next < to).map((j) => ({ at: j.next, what: `${j.title || j.text} ${hm(j.next)}` })),
+  ].sort((a, b) => a.at - b.at);
+  const iso = new Date(from).toISOString().slice(0, 10);
+  return card({
+    id: `day:${iso}`, kind: 'brief', title: label, brief: { icon: 'diary' },
+    line: items.length ? `${items.length === 1 ? 'One thing' : `${items.length} things`}: ${items.slice(0, 3).map((x) => x.what).join(' · ')}` : `Nothing in your diary ${label === 'Today' ? 'for the rest of today' : label === 'Tomorrow' ? 'tomorrow' : `on ${label}`}`,
+    ...(items[0] ? { due: items[0].at } : {}),
+    acts: [{ label: 'OPEN AGENDA', open: { tab: 'agenda' } }],
+  });
+}
+
+/** The CAR offer's tap (and a car he named, at once): the public record from the brain, shown once and never kept. */
+async function showCar(plate: string): Promise<void> {
+  const p = normalisePlate(plate);
+  const named = cars.get().list.find((c) => normalisePlate(c.plate) === p);
+  notePlate(p);
+  let answer: VehicleAnswer;
+  try {
+    const r = await fetch('/api/vehicle', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ plate: p }), credentials: 'same-origin', cache: 'no-store' });
+    answer = (await r.json()) as VehicleAnswer;
+  } catch {
+    answer = { ok: false, reason: 'failed', message: 'I couldn’t reach my brain for the record. Try again in a moment.', links: [] };
+  }
+  const c = carCard(answer, p, named);
+  // the offer becomes the car, where it was
+  const es = chat.get().entries;
+  const i = es.findLastIndex((e) => e.kind === 'card' && e.card.id === c.id);
+  if (i >= 0) chat.set({ entries: es.map((e, k) => (k === i ? { kind: 'card' as const, card: c, at: (e as { at: number }).at, once: true } : e)) });
+  else postCard(c, { once: true });
+  // a car he named keeps the months its MOT and tax fall due, for the day's pieces
+  const months = dueMonths(answer);
+  if (named && (months.mot || months.tax)) void brain.carMonths(p, months).then(() => loadCars()).catch(() => undefined);
+}
+onCarTap(showCar);
+
+/** Cards that came with a reply: a plate he named is shown at once; a car he just named is now known. */
+export function arrived(list: Card[]): void {
+  for (const c of list) {
+    if (c.kind === 'car' && c.car?.whose && c.acts?.some((a) => a.car)) void showCar(c.car.plate);
+    if (c.kind === 'person') void loadCars();
+  }
+}
+
+/** Tools a turn ran (they already drew their own cards: nothing is offered twice). */
+function ranThisTurn(): string[] {
+  const es = chat.get().entries;
+  let i = es.length - 1;
+  while (i >= 0 && es[i]!.kind !== 'user') i--;
+  return es.slice(i + 1).flatMap((e) => (e.kind === 'activity' && e.tool ? [e.tool] : []));
+}
+
+/**
+ * After a turn (assistant/session.ts, once its reply is in): what his words brought up, as cards — the trigger table
+ * (assistant/triggers.ts) row by row; when none of its rows has anything to show, the batch 4 offers have their say.
+ */
+export async function bringUp(text: string, now = Date.now()): Promise<number> {
+  const offers = () => void import('../../abilities/offer').then((o) => o.offerAfterTurn(text)).catch(() => undefined);
+  if (!mayBringUp()) return offers(), 0;
+  const ran = ranThisTurn();
+  let n = 0;
+  for (const hit of triggersIn(text, await known(), now)) {
+    let c: Card | null = null;
+    if (hit.row === 'car') void loadCars();
+    else if (hit.row === 'plate' && !hit.bare && !ran.includes('vehicle_check')) c = plateOffer(hit.plate, hit.named, now);
+    else if (hit.row === 'postcode' && !ran.includes('uk_postcode')) c = card({ id: `pc:${hit.postcode}`, kind: 'map', title: hit.postcode, line: 'A postcode: want it on the map?', at: now, acts: [{ label: 'ASK', ask: `Where is ${hit.postcode}?` }] });
+    else if (hit.row === 'place' && !ran.some((t) => /^(show_map|get_directions|remember_place)$/.test(t))) c = placeMap(hit.place);
+    else if (hit.row === 'person') c = personNow(hit.name);
+    else if (hit.row === 'day' && !ran.includes('list_agenda')) c = await dayPiece(hit.label, hit.offset, now);
+    else if (hit.row === 'offers' && !n) offers();
+    if (c && postCard(c)) {
+      n++;
+      if (hit.row === 'plate' && hit.named) void showCar(hit.plate);
+    }
+  }
+  return n;
+}
+
+// ---------------------------------------------------------------- from the camera (item 2b) and the day (item 2c)
+
+const BILL = /\b(?:amount due|total due|balance due|pay(?:ment)? by|due date|direct debit|invoice|statement date|please pay|renewal|expires?|expiry|use by|best before)\b/i;
+
+/** What the Lens's READ just read, into the chat: its LENS card; a plate seen → its CAR offer; a bill or a label → the reminder offer. */
+export function lensRead(text: string, now = Date.now()): void {
+  // (a plate it read is never kept in the card's words: its CAR offer below carries it, shown once)
+  const plates = findPlates(text).slice(0, 2);
+  const t = redactPlates(text, plates).replace(/\s+/g, ' ').trim();
+  if (!t || !mayBringUp()) return;
+  const bill = BILL.test(t);
+  postCard(card({
+    id: `lens:${t.slice(0, 40)}`, kind: 'lens', at: now, title: bill ? 'A bill or a label' : 'The camera read',
+    line: t, lens: { text: t.slice(0, 200) },
+    acts: [{ label: 'OPEN LENS', open: { tab: 'lens' } }, bill ? { label: 'REMIND ME', ask: 'Remind me to deal with this bill on ' } : { label: 'ASK', ask: `What does this say? “${t.slice(0, 120)}”` }],
+  }));
+  for (const p of plates) postCard(plateOffer(p, cars.get().list.find((c) => normalisePlate(c.plate) === p), now));
+}
+
+/** A piece of the day the brain posted (inbox.ts announce): its card in the chat at its minute, when it has one. */
+export function dayCard(c: Card): void {
+  if (mayBringUp()) postCard(c);
 }

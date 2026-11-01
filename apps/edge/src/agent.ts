@@ -64,7 +64,8 @@ import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './u
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
-import { cardsFromTool } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
+import { cardsFromTool, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
+import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -438,6 +439,7 @@ export class GhostyAgent {
         return await foresightRoute(req, path, method, this.foreDeps());
       }
       if (path === '/why') return await whyRoute(method, this.storage); // [abilities] the kept trails, for WHY after a reload (why.ts)
+      if (path === '/cars' || path.startsWith('/cars/')) return await carsRoute(req, path, method, { storage: this.storage, vault: this.vault }); // [cards] the cars he named (cars.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -712,6 +714,17 @@ export class GhostyAgent {
         const before = await loadMood(this.storage);
         const mood = await feel(this.storage, ev);
         if (mood.kind !== before.kind || mood.since !== before.since) out({ t: 'mood', mood });
+      }
+      // [cards] a car he names ("my dad's car is RX15 KNG") is kept in his memory, and a plate on its own is offered as
+      // its car: by code, no model, on every channel (cars.ts)
+      const car = plain && !raised ? await carTurn({ storage: this.storage, vault: this.vault }, text).catch(() => null) : null;
+      if (car) {
+        out({ t: 'text', text: car.text });
+        if (car.cards.length) out({ t: 'cards', cards: car.cards });
+        out({ t: 'done', model: DIRECT });
+        await this.addTurn({ role: 'assistant', text: car.text, at: Date.now(), model: DIRECT });
+        await this.storage.put(CTX_KEY, trimContext([...ctx, { role: 'assistant', content: car.text }]));
+        return;
       }
       // "hey", "thanks", "ok", "night" (direct.ts smallTalk), and praise or a rule on its own (raisedReply): answered with
       // no model at all, so they never meet "no free model".
@@ -1472,11 +1485,14 @@ export class GhostyAgent {
   }
 
   /** Something for the owner's attention: kept in the inbox and pushed to their devices. */
-  private async notify(item: Omit<InboxItem, 'id' | 'at' | 'quiet'>): Promise<InboxItem> {
+  private async notify(note: Omit<InboxItem, 'id' | 'at' | 'quiet' | 'card'> & { danger?: boolean; card?: Card }): Promise<InboxItem> {
     // The sender says which switch it falls under (`pushKind`; none: always sent). Switched off in
     // LINKS → NOTIFICATIONS: it goes in the inbox marked quiet, with no push, Telegram or alert in the app.
+    const { danger, card: given, ...item } = note;
+    // [cards] its live card, by code: a reminder he set, a warning about one of his places (cards.ts inboxCard)
+    const card = given ?? inboxCard({ ...item, danger });
     const wanted = await pushWanted(this.storage, item.pushKind ?? null);
-    const it = await addInbox(this.storage, wanted ? item : { ...item, quiet: true });
+    const it = await addInbox(this.storage, { ...item, ...(card ? { card } : {}), ...(wanted ? {} : { quiet: true }) });
     if (!wanted) return it;
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
     this.state.waitUntil(pushIfWanted(this.storage, null, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));

@@ -11,6 +11,7 @@
  * One Durable Object alarm is always set for the soonest job; agent.ts handles it.
  */
 import type { NotifyKind } from './notifyprefs';
+import type { Card } from '../../../packages/shared/src/cards';
 import type { Vault } from './kernel/vault';
 import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
@@ -51,6 +52,8 @@ export interface InboxItem {
   pushKind?: NotifyKind;
   /** That switch was off when it came: kept here only (no push, no Telegram, no alert in the app). */
   quiet?: boolean;
+  /** Its live card (packages/shared/src/cards.ts): the phone posts it in the chat and on Home's wall. */
+  card?: Card;
 }
 
 export interface AgendaEvent {

@@ -157,7 +157,7 @@ export async function watchTick(d: GuardDeps, opts: { quiet?: boolean } = {}): P
   }
   await d.storage.put(WATCH_KEY, st);
   if (news.length) {
-    await d.notify({ kind: 'error', title: news.length === 1 ? 'Warning near your places' : `${news.length} warnings near your places`, text: news.join('\n') });
+    await d.notify({ kind: 'error', title: news.length === 1 ? 'Warning near your places' : `${news.length} warnings near your places`, text: news.join('\n'), danger: true });
     for (const n of news) await observe(d.storage, { kind: 'place', text: n, via: 'guardian' }, now).catch(() => null);
   }
   if (clear.length) {

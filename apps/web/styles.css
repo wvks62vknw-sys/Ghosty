@@ -4837,3 +4837,9 @@ html .ccnum b { max-width: 96px; overflow: hidden; font: 700 19px/23px var(--sf)
 html .ccring { width: 52px; height: 52px; }
 html .ccring .cctrack { fill: none; stroke: rgba(255,255,255,.12); stroke-width: 4; }
 html .ccring .ccfill { fill: none; stroke: #30d158; stroke-width: 4; stroke-linecap: round; }
+html .guardpeople { display: flex; flex-direction: column; gap: 10px; }
+html .guardperson { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--thin); }
+html .guardperson > b { font: 600 17px/22px var(--sf); color: var(--ink); text-transform: none; }
+html .guardcar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 400 14px/19px var(--sf); color: var(--ink2); }
+html .guardcar > span:nth-child(2) { flex: 1; min-width: 0; }
+html .guardcar button { min-height: 44px; }

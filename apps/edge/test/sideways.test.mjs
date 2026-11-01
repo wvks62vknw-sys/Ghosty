@@ -100,3 +100,153 @@ test('every card: four words at most, one line, two buttons at most; the text fo
   assert.equal(c.acts.length, 2);
   assert.equal(C.cardText({ ...c, line: 'Rain from 15:00', acts: [{ label: 'OPEN', open: { tab: 'brief' } }] }, 'https://g.example/'), 'One two three four · Rain from 15:00 · https://g.example/#brief');
 });
+
+const T = await import(`${B}/triggers.mjs`);
+const WED = Date.UTC(2026, 10, 4, 12, 0); // Wednesday 4 November 2026, noon
+const none = { places: [], people: [], cars: [] };
+const rows = (text, known = none, now = WED) => T.triggersIn(text, known, now);
+
+test('the trigger table: plates in every spacing, and what is never a plate', () => {
+  for (const [typed, want] of [['AB12CDE', 'AB12CDE'], ['AB12 CDE', 'AB12CDE'], ['ab12 cde', 'AB12CDE'], ['AB 12 CDE', 'AB12CDE'], ['what about XY24 ZZZ?', 'XY24ZZZ'], ['A123 BCD', 'A123BCD'], ['ABC 123D', 'ABC123D'], ['my plate is ab12-cde', 'AB12CDE']]) {
+    assert.deepEqual(C.platesIn(typed), [want], typed);
+  }
+  for (const text of ['hello there', 'the M6 at J7', 'A1 road', 'B13 9AB', 'at 10 am tomorrow', 'iPhone 15 Pro', 'room 101 abc', 'covid19 test', 'PS5 games', 'A380 flight']) assert.deepEqual(C.platesIn(text), [], text);
+  const [bare] = rows('AB12 CDE');
+  assert.deepEqual(bare, { row: 'plate', plate: 'AB12CDE', bare: true });
+  const [inSentence] = rows('is AB12 CDE taxed?');
+  assert.deepEqual(inSentence, { row: 'plate', plate: 'AB12CDE', bare: false });
+  const dad = { whose: 'Dad', plate: 'RX15 KNG', nickname: 'the Golf' };
+  assert.deepEqual(rows('rx15kng', { ...none, cars: [dad] })[0], { row: 'plate', plate: 'RX15KNG', named: dad, bare: true }, 'a plate he named: the card at once');
+});
+
+test('the trigger table: the cars he names are his or an introduced person’s, never a stranger’s', () => {
+  assert.deepEqual(rows("my dad's car is RX15 KNG"), [{ row: 'car', car: { whose: 'Dad', plate: 'RX15 KNG' } }], 'the sentence is about the car and nothing else');
+  assert.deepEqual(C.carSaid('my car is ab12cde'), { whose: 'me', plate: 'AB12 CDE' });
+  assert.deepEqual(C.carSaid('My mate Haris’s van is AB12 CDE, the Transit'), { whose: 'Haris', plate: 'AB12 CDE', nickname: 'the Transit' });
+  assert.deepEqual(C.carSaid('mum’s car is A123 BCD called Betty'), { whose: 'Mum', plate: 'A123 BCD', nickname: 'Betty' });
+  assert.deepEqual(C.carSaid("my car's reg is AB12CDE"), { whose: 'me', plate: 'AB12 CDE' });
+  assert.equal(C.carSaid("Haris's car is AB12 CDE"), null, 'Haris, not introduced: a stranger’s car is never kept');
+  assert.deepEqual(C.carSaid("Haris's car is AB12 CDE", ['haris']), { whose: 'Haris', plate: 'AB12 CDE' }, 'introduced: kept');
+  assert.equal(C.carSaid("someone's car is AB12 CDE"), null);
+  assert.equal(C.carSaid("his car is AB12 CDE"), null);
+  assert.equal(C.carSaid("is my dad's car RX15 KNG?"), null, 'a question keeps nothing');
+  assert.equal(C.carSaid('my dad loves cars'), null);
+  const kept = { whose: 'Dad', plate: 'RX15 KNG', nickname: 'the Golf', mot: '2027-03', tax: '2027-05' };
+  assert.equal(C.carFactText(kept), "Dad's car: RX15 KNG (the Golf) · MOT due 2027-03 · tax due 2027-05");
+  assert.deepEqual(C.parseCarFact(C.carFactText(kept)), kept);
+  assert.deepEqual(C.parseCarFact('My car: AB12 CDE'), { whose: 'me', plate: 'AB12 CDE' });
+  assert.equal(C.parseCarFact('I like fast cars'), null);
+  assert.equal(C.carName(kept), "Dad's Golf");
+  assert.equal(C.carName({ whose: 'me', plate: 'AB12 CDE' }), 'Your car');
+});
+
+test('the trigger table: postcodes, saved places, the people he introduced, the day — and what must not trigger', () => {
+  assert.deepEqual(rows('meet me at b13 9ab later').find((h) => h.row === 'postcode'), { row: 'postcode', postcode: 'B13 9AB' });
+  const home = { id: 'home', label: 'Home', address: '12 Acacia Avenue', lat: 52.44, lon: -1.88 };
+  const gym = { id: 'gym', label: 'Gym', address: 'PureGym Moseley', lat: 52.45, lon: -1.89 };
+  const k = { places: [home, gym], people: ['Sam', 'Will'], cars: [{ whose: 'Dad', plate: 'RX15 KNG' }, { whose: 'Mate', plate: 'AB12 CDE' }] };
+  assert.ok(rows('how far is the gym', k).some((h) => h.row === 'place' && h.place.id === 'gym'));
+  assert.ok(rows('take me home', k).some((h) => h.row === 'place' && h.place.id === 'home'), 'home, as a place');
+  assert.ok(!rows('I love home cooking', k).some((h) => h.row === 'place'), 'home, as a word');
+  assert.deepEqual(rows('is Sam around?', k).filter((h) => h.row === 'person'), [{ row: 'person', name: 'Sam' }]);
+  assert.deepEqual(rows('how is dad doing', k).filter((h) => h.row === 'person'), [{ row: 'person', name: 'Dad' }], 'a relation whose car he named');
+  assert.ok(!rows('will it rain', k).some((h) => h.row === 'person'), 'an everyday word that is also a name');
+  assert.ok(rows('Will is coming round', k).some((h) => h.row === 'person' && h.name === 'Will'));
+  assert.ok(!rows('hey mate', k).some((h) => h.row === 'person'), '"mate" alone is not the person');
+  assert.ok(rows('my mate is here', k).some((h) => h.row === 'person' && h.name === 'Mate'));
+  assert.ok(!rows('is Bob around?', k).some((h) => h.row === 'person'), 'a stranger’s name: nothing');
+  assert.deepEqual(rows("what's on tomorrow").find((h) => h.row === 'day'), { row: 'day', label: 'Tomorrow', offset: 1 });
+  assert.deepEqual(rows('anything on Saturday?').find((h) => h.row === 'day'), { row: 'day', label: 'Saturday', offset: 3 });
+  assert.deepEqual(rows('call me at 6pm').find((h) => h.row === 'day'), { row: 'day', label: 'Today', offset: 0 });
+  assert.deepEqual(rows('the cat sat on a mat'), [{ row: 'offers' }], 'random words: only the offers row, which decides for itself');
+  assert.equal(rows('anything').at(-1).row, 'offers', 'the offers row is always last');
+  assert.deepEqual(T.TRIGGERS.map((t) => t.row), ['car', 'plate', 'postcode', 'place', 'person', 'day', 'offers'], 'one place for all of them');
+});
+
+test('cards from what is known: a reminder, a warning, a person, a plate’s offer and its record', () => {
+  const r = C.inboxCard({ id: 'i1', kind: 'reminder', title: 'Reminder', text: 'Call Mum' }, AT);
+  assert.equal(r.kind, 'brief');
+  assert.equal(r.line, 'Call Mum');
+  assert.equal(r.due, AT);
+  const w = C.inboxCard({ kind: 'error', title: 'Warning near your places', text: 'Flood alert: River Cole at Kings Heath — Home\nmore', danger: true }, AT);
+  assert.equal(w.danger, true);
+  assert.equal(w.line, 'Flood alert: River Cole at Kings Heath — Home');
+  assert.equal(C.inboxCard({ kind: 'task', title: 'Done', text: 'x' }), null);
+  assert.equal(C.inboxCard({ kind: 'error', title: 'This did not run', text: 'x' }), null, 'a failed job is not danger');
+  const p = C.personCard({ name: 'Dad', named: { via: 'telegram' }, cars: [{ whose: 'Dad', plate: 'RX15KNG', nickname: 'the Golf' }] }, AT);
+  assert.equal(p.title, 'Dad');
+  assert.equal(p.line, 'Your named person · on Telegram · Golf RX15 KNG');
+  assert.deepEqual(p.acts.map((a) => a.ask ?? a.open?.panel), ['GUARDIAN', "Is Dad's car due its MOT?"]);
+  assert.equal(C.personCard({ name: 'Haris', cars: [{ whose: 'Haris', plate: 'AB12CDE' }] }).acts[1].ask, "Is Haris' car due its MOT?");
+  assert.equal(C.personCard({ name: 'Sam', named: { via: '' }, cars: [], walk: true }).line, 'Your named person · not reachable yet · watching your walk home');
+  const o = C.plateOffer('ab12cde');
+  assert.deepEqual([o.title, o.line, o.once, o.acts[0]], ["That's a plate", 'Want the car? Make, colour, MOT and tax from the public record.', true, { label: 'SHOW THE CAR', car: 'AB12 CDE' }]);
+  const key = C.carCard({ ok: false, reason: 'no_key', message: 'Vehicle checks need the free DVSA MOT history key: System → Keys → DVSA MOT history.', links: [] }, 'AB12CDE');
+  assert.equal(key.line, 'Needs the free DVSA MOT history key: System → Keys.');
+  const report = { plate: 'RX15 KNG', make: 'VOLKSWAGEN', model: 'GOLF', colour: 'Blue', fuel: 'PETROL', firstUsed: '2015-03-01', engineCc: 1395, recall: 'No', mot: { state: 'valid', date: '2027-03-19', text: 'MOT valid until 19 Mar 2027' }, tests: [], mileage: { last: null, unit: null, at: null, points: [], drops: [] }, advisories: 0, dvla: { taxStatus: 'Taxed', taxDue: '2027-05-01', motStatus: 'Valid', co2: 120, engineCc: 1395, year: 2015, colour: 'Blue' }, verdict: '', sources: [] };
+  const ok = { ok: true, report, text: '', links: [] };
+  const named = C.carCard(ok, 'RX15KNG', { whose: 'Dad', plate: 'RX15 KNG', nickname: 'the Golf' });
+  assert.deepEqual([named.title, named.line, named.car.colour, named.once], ["Dad's Golf", 'MOT valid until 19 Mar 2027 · tax due 1 May 2027', 'blue', true]);
+  assert.equal(C.carCard(ok, 'RX15KNG').title, 'Blue VOLKSWAGEN GOLF');
+  assert.deepEqual(C.dueMonths(ok), { mot: '2027-03', tax: '2027-05' });
+});
+
+// ---------------------------------------------------------------- through the brain (the real bundle, the scripted model)
+
+const { sqlStorage } = await import('../../../tests/sqlite-storage.mjs');
+class Store {
+  m = new Map();
+  sql = sqlStorage();
+  async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
+  async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
+  async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
+  async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])); }
+  async setAlarm() {}
+  async getAlarm() { return null; }
+}
+async function brainOf() {
+  const brain = await import('./.build/brain.mjs');
+  const pending = [];
+  const storage = new Store();
+  const agent = new brain.GhostyAgent({ storage, waitUntil: (x) => pending.push(x), blockConcurrencyWhile: (f) => f() }, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), MOCK_LLM: '1' });
+  const call = async (path, body, method = body ? 'POST' : 'GET') => {
+    const r = await agent.fetch(new Request(`https://g.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}), headers: { 'x-ghosty-key': 'owner-key-for-tests-0123456789' } }));
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return text;
+  };
+  const chat = async (message) => (await call('/chat', { message })).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  return { storage, call, chat };
+}
+
+test('through the brain: a car he names is kept in his memory by code (locked), with its person’s card; a bare plate is offered as its car', async () => {
+  const b = await brainOf();
+  const ev = await b.chat("my dad's car is RX15 KNG, the Golf");
+  assert.deepEqual(ev.map((e) => e.t).filter((t) => t !== 'status'), ['text', 'cards', 'done']);
+  assert.equal(ev.find((e) => e.t === 'text').text, "Kept: Dad's car is RX15 KNG (the Golf). It's under Dad in Settings → Guardian → People.");
+  assert.equal(ev.find((e) => e.t === 'done').model, 'Direct · no AI', 'no model asked');
+  const [person] = ev.find((e) => e.t === 'cards').cards;
+  assert.deepEqual([person.kind, person.title, person.line], ['person', 'Dad', 'Someone you told me about · Golf RX15 KNG']);
+  const memory = b.storage.m.get('memory');
+  assert.equal(memory.length, 1);
+  assert.equal(memory[0].text, "Dad's car: RX15 KNG (the Golf)");
+  assert.equal(memory[0].locked, true, 'the nightly reflection never rewrites it');
+  assert.deepEqual(JSON.parse(await b.call('/cars')).cars.map((c) => [c.whose, c.plate, c.nickname]), [['Dad', 'RX15 KNG', 'the Golf']]);
+  // named again by its plate alone: the car he named, offered at once
+  const again = await b.chat('rx15kng');
+  assert.equal(again.find((e) => e.t === 'text').text, "That's Dad's Golf.");
+  const [offer] = again.find((e) => e.t === 'cards').cards;
+  assert.deepEqual([offer.kind, offer.car.whose, offer.acts[0].car], ['car', 'Dad', 'RX15 KNG']);
+  const bare = await b.chat('AB12 CDE');
+  assert.equal(bare.find((e) => e.t === 'text').text, "That's a plate. Want the car?");
+  // the months its MOT and tax fall due, for a car he named only
+  assert.equal(JSON.parse(await b.call('/cars/months', { plate: 'RX15KNG', mot: '2027-03', tax: 'not a month' })).car.mot, '2027-03');
+  assert.equal(b.storage.m.get('memory')[0].text, "Dad's car: RX15 KNG (the Golf) · MOT due 2027-03");
+  assert.match(await b.call('/cars/months', { plate: 'AB12CDE', mot: '2027-01' }), /not a car you named/);
+  // a stranger's car is never kept: it goes to the model as any message would
+  await b.chat("Bob's car is AB12 CDE");
+  assert.equal(JSON.parse(await b.call('/cars')).cars.length, 1);
+  assert.match(await b.call('/cars', { said: "Bob's car is AB12 CDE" }), /not a car of yours/);
+  assert.equal(JSON.parse(await b.call('/cars/RX15%20KNG', null, 'DELETE')).forgotten, true);
+  assert.equal(JSON.parse(await b.call('/cars')).cars.length, 0);
+});
