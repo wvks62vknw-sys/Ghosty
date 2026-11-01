@@ -1,0 +1,18 @@
+--- a/doomgeneric/m_menu.c
++++ b/doomgeneric/m_menu.c
+@@ -640,7 +640,14 @@
+     saveSlot = choice;
+     M_StringCopy(saveOldString,savegamestrings[choice], SAVESTRINGSIZE);
+     if (!strcmp(savegamestrings[choice], EMPTYSTRING))
+-	savegamestrings[choice][0] = 0;
++    {
++        // Ghosty: a phone has no keyboard to name a save with, so an empty
++        // slot takes the level's name (typing still changes it; ENTER saves).
++        if (gamemode == commercial)
++            M_snprintf(savegamestrings[choice], SAVESTRINGSIZE, "MAP%02d", gamemap);
++        else
++            M_snprintf(savegamestrings[choice], SAVESTRINGSIZE, "E%dM%d", gameepisode, gamemap);
++    }
+     saveCharIndex = strlen(savegamestrings[choice]);
+ }
+ 

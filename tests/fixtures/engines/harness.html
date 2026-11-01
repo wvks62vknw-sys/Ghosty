@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ghosty engines harness</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #screen { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; touch-action: none; }
+</style>
+</head>
+<body>
+<!-- tests/engines.spec.mjs serves this page and its bundle (tests/fixtures/engines/harness.ts) on the preview's
+     origin, under the app's own security policy, and drives the engines through window.harness. -->
+<canvas id="screen"></canvas>
+<script type="module" src="harness.js"></script>
+</body>
+</html>

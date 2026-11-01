@@ -1,0 +1,26 @@
+--- a/doomgeneric/d_main.c
++++ b/doomgeneric/d_main.c
+@@ -1157,6 +1157,14 @@
+ }
+ #endif
+ 
++// Ghosty: G_CheckDemoStatus returns a value, so in WebAssembly it cannot be
++// called through the exit list's pointer to a function returning nothing (the
++// call traps on QUIT GAME): it is called from here instead.
++static void D_CheckDemoStatusAtExit (void)
++{
++    G_CheckDemoStatus ();
++}
++
+ //
+ // D_DoomMain
+ //
+@@ -1510,7 +1518,7 @@
+         printf("Playing demo %s.\n", file);
+     }
+ 
+-    I_AtExit((atexit_func_t) G_CheckDemoStatus, true);
++    I_AtExit(D_CheckDemoStatusAtExit, true);
+ 
+     // Generate the WAD hash table.  Speed things up a bit.
+     W_GenerateHashTable();
