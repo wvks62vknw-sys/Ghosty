@@ -36,6 +36,8 @@ const matchText = (c: Command) => `${c.title.replace(/^[A-Z][a-z]+: /, '')} ${gr
 export interface Command {
   id: string;
   title: string;
+  /** More plain words it is found by (a screen's: its deck line and its YOU CAN lines, so "bins" finds HOME). */
+  words?: string;
   group?: string;
   /** Single-key hotkey (ignored while typing) or 'mod+k' style. */
   keys?: string;
@@ -92,6 +94,13 @@ addEventListener('keydown', (e) => {
 let pal: HTMLElement | null = null;
 const paletteOpen = () => !!pal?.classList.contains('on');
 
+/** How well a command matches: its title and group first; failing those, its plain words (found, but after the titles). */
+function score(q: string, c: Command): number {
+  const s = fuzzy(q, matchText(c));
+  if (s >= 2 || !q || !c.words) return s;
+  return c.words.toLowerCase().includes(q.toLowerCase()) ? 1.5 : s;
+}
+
 function fuzzy(q: string, s: string): number {
   q = q.toLowerCase();
   s = s.toLowerCase();
@@ -128,7 +137,7 @@ export function togglePalette(): void {
       const q = input.value.trim();
       items = allCommands()
         .filter((c) => !c.hidden)
-        .map((c) => ({ c, s: fuzzy(q, matchText(c)) }))
+        .map((c) => ({ c, s: score(q, c) }))
         .filter((o) => o.s > 0)
         .sort((a, b) => b.s - a.s)
         .map((o) => o.c)
