@@ -1144,6 +1144,12 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 13:10 UK: PUSHED to PR #50 (46d6e81; its checks restarted at 13:01, done ~15:20). REST-B MERGED locally (OWNER-ISSUES
   112; a normal merge, its base is in the pushed history); held for PR #51, which opens the moment #50 merges. ⑥b started
   (8688, Opus). Running: rest-C (8722), rest-D (8711), packs-3 (8700), offline-default (8688). REST-E starts when a slot frees.
+- 1 Nov 14:00 UK: PR #50's FIRST run (head 6970462) finished RED at 13:56 on hubcards: the MAKE hub's Studio card says
+  "Built in 6" since the car's stand-in joined the samples, and the spec pinned 5 (twice: a real failure, not a flake).
+  Fixed in the spec with the reason, as the Lens's "10 modes" line is. LESSON: a batch that adds a Studio sample, a Lens
+  mode or anything a hub card counts must run `hubcards`; a push does NOT cancel the run before it (no concurrency rule in
+  check.yml), so the 13:01 run will also go red on the same line and can be ignored; the run from this push is the one.
+  Pushed with REST-B and the two merge fixes: PR #50 now carries six batches.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
