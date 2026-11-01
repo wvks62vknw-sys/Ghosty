@@ -2,7 +2,11 @@
  * The arcade's game data on this phone: GET fetches a free package from its mirrors (only on his tap, on Wi-Fi, its
  * size said first), checks its exact size and SHA-256, takes the game's files out of it here on the phone and keeps
  * them in the browser's Cache API (the way offline/brain.ts keeps the brain's files), where one tap deletes them again.
- * The games run entirely on the phone: none of this goes through the brain, and nothing that bills is ever asked.
+ * A package comes from the Archive directly, or through Ghosty's own site when the phone cannot reach the Archive (a
+ * network that blocks it, which Safari reports as "Load failed"): only after every public mirror has failed, the same
+ * address under /api/arcade/ on this site, where the Worker streams the Archive's file through and keeps nothing
+ * (apps/edge/src/arcade.ts), asked with the owner's sign-in. The games run entirely on the phone: the brain never sees a
+ * byte of a package, and nothing that bills is ever asked.
  */
 import type { GameData, Take } from './shelf';
 import { concat, findEntry, zipEntries, zipRead, zipStore } from './zip';
@@ -27,6 +31,11 @@ export interface GetOptions {
   /** The fetch to use (the tests give a stand-in; the phone uses its own). */
   fetch?: Fetch;
   signal?: AbortSignal;
+  /**
+   * What Ghosty's own copy is asked with besides the cookie: the owner's key (api/brain.ts `headers()`), because the Worker
+   * lets only the owner through. Sent to this site's address alone, never to a public mirror.
+   */
+  ownHeaders?: () => Record<string, string>;
 }
 
 /** The address a kept file is stored under (made up: nothing is ever fetched from it). */
@@ -64,9 +73,18 @@ export async function sha256Hex(data: Uint8Array): Promise<string> {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** One mirror's bytes, read as they arrive (for the progress bar), never more than the package's size. */
-async function download(url: string, data: GameData, onProgress: ((p: Progress) => void) | undefined, o: GetOptions): Promise<Uint8Array> {
-  const res = await (o.fetch ?? fetch)(url, { mode: 'cors', credentials: 'omit', cache: 'no-store', signal: o.signal });
+/**
+ * One mirror's bytes, read as they arrive (for the progress bar), never more than the package's size. `sameSite`: Ghosty's
+ * own copy (this site's address), asked with the owner's sign-in; a public mirror is given nothing of his.
+ */
+async function download(url: string, data: GameData, onProgress: ((p: Progress) => void) | undefined, o: GetOptions, sameSite = false): Promise<Uint8Array> {
+  const res = await (o.fetch ?? fetch)(url, {
+    mode: 'cors',
+    credentials: sameSite ? 'same-origin' : 'omit',
+    ...(sameSite && o.ownHeaders ? { headers: o.ownHeaders() } : {}),
+    cache: 'no-store',
+    signal: o.signal,
+  });
   if (!res.ok) throw new Error(`answered ${res.status}`);
   const out = new Uint8Array(data.bytes);
   let got = 0;
@@ -91,19 +109,41 @@ async function download(url: string, data: GameData, onProgress: ((p: Progress) 
   return out;
 }
 
-/** The package from the first mirror whose bytes have the right size and SHA-256; mirrors are tried in order. */
+/**
+ * Ghosty's own copy of each Archive address: the same path under /api/arcade/ on this site (apps/edge/src/arcade.ts), for a
+ * phone whose network will not let it reach the Archive. None where the page has no origin (the tests, a sandboxed frame).
+ */
+function ownCopies(urls: string[]): string[] {
+  const origin = globalThis.location?.origin;
+  const out: string[] = [];
+  for (const u of urls) {
+    try {
+      const url = new URL(u);
+      if (origin && url.host === 'archive.org' && url.pathname.startsWith('/cors/')) out.push(new URL(url.pathname.replace(/^\/cors\//, '/api/arcade/'), origin).href);
+    } catch {
+      /* not an address we can make a copy of */
+    }
+  }
+  return out;
+}
+
+/**
+ * The package from the first mirror whose bytes have the right size and SHA-256; mirrors are tried in order, the public ones
+ * first, and Ghosty's own copy of each Archive address only when every one of them failed.
+ */
 export async function fetchPackage(data: GameData, onProgress?: (p: Progress) => void, o: GetOptions = {}): Promise<Uint8Array> {
   const why: string[] = [];
-  for (const url of data.url) {
+  const tries = [...data.url.map((url) => ({ url, sameSite: false })), ...ownCopies(data.url).map((url) => ({ url, sameSite: true }))];
+  for (const { url, sameSite } of tries) {
     if (o.signal?.aborted) throw new DOMException('Stopped', 'AbortError');
     try {
-      const bytes = await download(url, data, onProgress, o);
+      const bytes = await download(url, data, onProgress, o, sameSite);
       onProgress?.({ phase: 'check', got: bytes.length, total: data.bytes });
       if ((await sha256Hex(bytes)) !== data.sha256) throw new Error('its checksum is not the one this game is known by');
       return bytes;
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') throw e;
-      why.push(`${new URL(url).host}: ${(e as Error)?.message ?? e}`);
+      why.push(`${sameSite ? 'this site' : new URL(url).host}: ${(e as Error)?.message ?? e}`);
     }
   }
   throw new Error(`No mirror gave the right file (${why.join('; ')}).`);
