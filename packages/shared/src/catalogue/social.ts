@@ -50,6 +50,11 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     more: 'You make the account and an app password, never your main one: I check it by signing in and keep it in my vault. I read your home timeline when you ask and each morning, and every post waits for your APPROVE on a card.',
     say: ['Link Bluesky'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
   },
+  'panel:links:MASTODON': {
+    name: 'My own Mastodon account', line: 'You can make me a Mastodon account on a server that allows bots, and link it with a token from your own app.',
+    more: 'You make the account and an application in its Preferences → Development; I check the token and keep it in my vault. Every post is public and waits for your APPROVE; I read your home timeline when you ask.',
+    say: ['Link Mastodon'], scene: ['talking'], cat: 'talk', needs: ['link:mastodon'], since: SINCE,
+  },
   'act:social:status': {
     name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
     more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',

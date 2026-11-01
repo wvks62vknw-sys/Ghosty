@@ -49,11 +49,27 @@ export const FORMS: Partial<Record<Account, Form>> = {
     linkLabel: 'LINK BLUESKY',
     ask: 'Ask me “what’s on Bluesky?”, “search Bluesky for …” or “post that on Bluesky” — every post waits for your APPROVE on a card.',
   },
+  mastodon: {
+    intro: 'My own Mastodon account, on a server you pick: I read your home timeline, and I post only what you APPROVE, always in public.',
+    steps: [
+      'Make the account on a Mastodon server whose rules allow bots (its About page says), and tick “This is a bot account” in Preferences → Profile.',
+      'On that server: Preferences → Development → New application. Name it, keep read and write ticked, and press SUBMIT.',
+      'Open the application you made and copy “Your access token”.',
+      'Type the server (like mastodon.social) and paste the token here, then press LINK MASTODON.',
+    ],
+    fields: [
+      { key: 'server', label: 'Mastodon server', placeholder: 'mastodon.social' },
+      { key: 'token', label: 'Mastodon access token', placeholder: 'your access token', secret: true, check: (v) => (/^[A-Za-z0-9_-]{20,200}$/.test(v.trim()) ? null : 'That does not look like an access token: copy “Your access token” from your application.') },
+    ],
+    linkLabel: 'LINK MASTODON',
+    ask: 'Ask me “what’s on Mastodon?” or “post that on Mastodon” — every post is public and waits for your APPROVE on a card.',
+  },
 };
 
 /** The panels, by their titles as written (the EVERYTHING tab's catalogue reads each one from this source). */
 const makePanels = (): Partial<Record<Account, Panel>> => ({
   bluesky: panel('BLUESKY', { grow: false, cls: 'socialpanel' }),
+  mastodon: panel('MASTODON', { grow: false, cls: 'socialpanel' }),
 });
 
 /** The panels, one per account with a form, and a paint that fills them from GET /api/social. */

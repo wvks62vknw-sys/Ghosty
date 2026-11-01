@@ -335,3 +335,67 @@ test('the morning digest: his Bluesky timeline and his one search are filed as L
   // nothing linked: nothing asked, nothing filed
   assert.deepEqual(await SO.socialDigest(depsWith(fakeBsky())), []);
 });
+
+// ---------------------------------------------------------------- 4. MASTODON (statuses and timelines, faked here)
+
+const TOKEN = 'tok_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123';
+function fakeMastodon(o = {}) {
+  const calls = [];
+  const statuses = new Map();
+  const ok = (v) => new Response(JSON.stringify(v), { status: 200, headers: { 'content-type': 'application/json' } });
+  const fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    calls.push({ method: init.method ?? 'GET', path: u.pathname + u.search, body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body, key: init.headers?.['idempotency-key'], auth: init.headers?.authorization });
+    if (u.host !== 'toot.example.test') return new Response('{}', { status: 404 });
+    if (init.headers?.authorization !== `Bearer ${TOKEN}`) return new Response(JSON.stringify({ error: 'The access token is invalid' }), { status: 401 });
+    if (o.rateLimited) return new Response('{}', { status: 429, headers: { 'x-ratelimit-reset': '2026-11-01T15:30:00.000Z' } });
+    if (u.pathname === '/api/v1/accounts/verify_credentials') return ok({ id: '42', acct: 'ghost', username: 'ghost' });
+    if (u.pathname === '/api/v2/instance') return ok({ configuration: { statuses: { max_characters: 1000 } } });
+    if (u.pathname === '/api/v1/statuses' && init.method === 'POST') {
+      // Mastodon keeps an Idempotency-Key: the same key twice is the same status, never a second one
+      const key = init.headers['idempotency-key'];
+      if (!statuses.has(key)) statuses.set(key, { id: String(100 + statuses.size), url: `https://toot.example.test/@ghost/${100 + statuses.size}`, body: JSON.parse(init.body) });
+      return ok(statuses.get(key));
+    }
+    if (u.pathname === '/api/v1/timelines/home') return ok([{ created_at: '2026-11-01T08:30:00.000Z', url: 'https://toot.example.test/@sam/1', content: '<p>Fog on the M6 &amp; the M5</p><p>Drive safe</p>', account: { acct: 'sam@elsewhere.example', display_name: 'Sam' } }]);
+    if (u.pathname === '/api/v2/search') return ok({ statuses: [{ created_at: '2026-11-01T09:00:00.000Z', url: 'https://toot.example.test/@x/2', content: `<p>${u.searchParams.get('q')} news</p>`, account: { acct: 'x' } }] });
+    if (u.pathname === '/api/v1/accounts/lookup') return u.searchParams.get('acct') === 'nobody@nowhere.example' ? new Response('{}', { status: 404 }) : ok({ id: '7', url: 'https://toot.example.test/@ann' });
+    if (/^\/api\/v1\/accounts\/7\/(follow|unfollow)$/.test(u.pathname)) return ok({ id: '7', following: u.pathname.endsWith('/follow') });
+    return new Response('{}', { status: 404 });
+  };
+  return { fetch, calls, statuses };
+}
+
+test('Mastodon: linked with his server and his own app’s token; posts are public, through the queue, never twice; reads with authors and times', async () => {
+  const net = fakeMastodon();
+  const d = depsWith(net);
+  await assert.rejects(() => SO.APIS.mastodon.link(d, { server: 'toot.example.test', token: 'short' }), /does not look like an access token/);
+  await assert.rejects(() => SO.APIS.mastodon.link(d, { server: 'https://toot.example.test/', token: 'x'.repeat(30) }), /turned the token down/);
+  const r = await SO.APIS.mastodon.link(d, { server: 'https://Toot.example.test/', token: TOKEN });
+  assert.equal(r.who, '@ghost@toot.example.test');
+  assert.match(r.info, /up to 1000 characters/);
+  // the server's own limit is the draft's limit
+  assert.equal((await SO.makeDraft(d, { account: 'mastodon', text: 'x'.repeat(900), from: 'chat' })).draft.text.length, 900);
+  const made = await SO.makeDraft(d, { account: 'mastodon', text: 'Hello from my own account', from: 'chat' });
+  const sent = await Q.approveDraft(d.storage, made.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' });
+  assert.equal(sent.said, 'Posted on Mastodon: https://toot.example.test/@ghost/100');
+  const post = net.calls.find((c) => c.path === '/api/v1/statuses');
+  assert.deepEqual(post.body, { status: 'Hello from my own account', visibility: 'public' }, 'public, always: never a direct message');
+  assert.equal(post.key, `ghosty-draft-${made.draft.id}`);
+  await SO.sendDraft(d, made.draft);
+  assert.equal(net.statuses.size, 1, 'the same draft again is the same status');
+  // his home timeline: the words from their HTML, who and when
+  const read = await SO.readAccount(d, 'mastodon');
+  assert.deepEqual(read.posts[0], { author: 'sam@elsewhere.example', name: 'Sam', at: Date.parse('2026-11-01T08:30:00Z'), text: 'Fog on the M6 & the M5\n\nDrive safe', link: 'https://toot.example.test/@sam/1' });
+  assert.match(SO.readWords('mastodon', read, 'Europe/London'), /^- @sam@elsewhere\.example \(Sam\) 1 Nov, 08:30 — Fog on the M6 & the M5 Drive safe$/m);
+  assert.equal((await SO.readAccount(d, 'mastodon', 'budget')).posts[0].text, 'budget news');
+  // follows: drafts, then the server's follow; someone it cannot find said plainly
+  const f = await SO.makeDraft(d, { account: 'mastodon', kind: 'follow', text: '', who: 'https://toot.example.test/@ann', from: 'chat' });
+  assert.equal((await Q.approveDraft(d.storage, f.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' })).said, 'Followed https://toot.example.test/@ann on Mastodon.');
+  assert.ok(net.calls.some((c) => c.path === '/api/v1/accounts/lookup?acct=ann%40toot.example.test'));
+  const nobody = await SO.makeDraft(d, { account: 'mastodon', kind: 'follow', text: '', who: '@nobody@nowhere.example', from: 'chat' });
+  assert.match((await Q.approveDraft(d.storage, nobody.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' })).error, /I can't find @nobody@nowhere\.example from toot\.example\.test/);
+  // a 429 in his words
+  const slow = depsWith(fakeMastodon({ rateLimited: true }), d.vault);
+  await assert.rejects(() => SO.readAccount(slow, 'mastodon', 'x'), /Mastodon says slow down: try again after 15:30\./);
+});

@@ -19,6 +19,7 @@ import type { Vault } from '../kernel/vault';
 import type { ImageKv } from '../lens';
 import { addDraft, approveDraft, editDraft, findDraft, loadDrafts, refuseDraft, sentSince, type Sent } from './queue';
 import { BLUESKY, blueskyDigest } from './bluesky';
+import { MASTODON } from './mastodon';
 
 export interface SocialDeps {
   storage: DurableObjectStorage;
@@ -47,7 +48,7 @@ export interface AccountApi {
 }
 
 /** The accounts this brain can use. */
-export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY };
+export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY, mastodon: MASTODON };
 
 /** The morning digest's passages from his accounts (library/digest.ts `more`): Bluesky's timeline and search, as LEADs. */
 export async function socialDigest(d: SocialDeps): Promise<{ source: string; tier: 'lead'; text: string }[]> {
