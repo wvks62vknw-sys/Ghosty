@@ -60,6 +60,11 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     more: 'You make the bot in Discord’s Developer Portal and add it to your server; I check every request’s signature first, answer only you, and give anyone else one polite line. I post to your channel only what you APPROVE.',
     say: ['Link Discord'], scene: ['talking'], cat: 'talk', needs: ['link:discord'], since: SINCE,
   },
+  'panel:links:TELEGRAM CHANNEL': {
+    name: 'My own Telegram channel', line: 'You can give me a Telegram channel of my own: the bot you paired posts there, only what you approve.',
+    more: 'You make the channel and add my bot as an admin who may post; I check both with Telegram. Every post waits for your APPROVE on a card, and nothing is ever sent to a person.',
+    say: ['Link my Telegram channel'], scene: ['talking'], cat: 'talk', needs: ['link:channel'], since: SINCE,
+  },
   'act:social:status': {
     name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
     more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',

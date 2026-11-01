@@ -90,6 +90,18 @@ export const FORMS: Partial<Record<Account, Form>> = {
       return [h('div.lab', 'INTERACTIONS ENDPOINT URL'), h('code.socialurl', url), h('div.keyrow', button('COPY THE ADDRESS', () => void navigator.clipboard?.writeText(url).then(() => toast('Copied', 'ok'), () => undefined)))];
     },
   },
+  channel: {
+    intro: 'My own Telegram channel: the bot you already paired posts there, only what you APPROVE.',
+    steps: [
+      'Pair my Telegram bot first, if you have not (LINKS → TELEGRAM).',
+      'In Telegram: New Channel, give it a name, and make it public (it gets an @name) or private.',
+      'In the channel: Administrators → Add Admin → my bot, with “Post messages” on.',
+      'Type the channel’s @name (or its t.me link; a private channel’s id starts -100) and press LINK CHANNEL.',
+    ],
+    fields: [{ key: 'channel', label: 'Channel', placeholder: '@yourchannel', check: (v) => (/^(?:-100\d{5,}|@?[A-Za-z][A-Za-z0-9_]{4,31}|https?:\/\/t\.me\/[A-Za-z][A-Za-z0-9_]{4,31}\/?)$/.test(v.trim()) ? null : 'Type the channel’s @name, its t.me link, or a private channel’s id (it starts -100).') }],
+    linkLabel: 'LINK CHANNEL',
+    ask: 'Ask me “post that to my channel” — it waits for your APPROVE on a card, then my bot posts it.',
+  },
 };
 
 /** The panels, by their titles as written (the EVERYTHING tab's catalogue reads each one from this source). */
@@ -97,6 +109,7 @@ const makePanels = (): Partial<Record<Account, Panel>> => ({
   bluesky: panel('BLUESKY', { grow: false, cls: 'socialpanel' }),
   mastodon: panel('MASTODON', { grow: false, cls: 'socialpanel' }),
   discord: panel('DISCORD', { grow: false, cls: 'socialpanel' }),
+  channel: panel('TELEGRAM CHANNEL', { grow: false, cls: 'socialpanel' }),
 });
 
 /** The panels, one per account with a form, and a paint that fills them from GET /api/social. */

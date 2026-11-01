@@ -21,6 +21,7 @@ import { addDraft, approveDraft, editDraft, findDraft, loadDrafts, refuseDraft, 
 import { BLUESKY, blueskyDigest } from './bluesky';
 import { MASTODON } from './mastodon';
 import { DISCORD } from './discord';
+import { CHANNEL } from './channel';
 
 export interface SocialDeps {
   storage: DurableObjectStorage;
@@ -49,7 +50,7 @@ export interface AccountApi {
 }
 
 /** The accounts this brain can use. */
-export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY, mastodon: MASTODON, discord: DISCORD };
+export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY, mastodon: MASTODON, discord: DISCORD, channel: CHANNEL };
 
 /** The morning digest's passages from his accounts (library/digest.ts `more`): Bluesky's timeline and search, as LEADs. */
 export async function socialDigest(d: SocialDeps): Promise<{ source: string; tier: 'lead'; text: string }[]> {

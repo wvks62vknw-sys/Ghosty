@@ -521,3 +521,41 @@ test('POST /discord/interactions: the signature first; PING → PONG; /ask from 
   assert.equal(patch.path, `/webhooks/${APP}/tok123/messages/@original`);
   assert.deepEqual(patch.body, { content: 'You asked: what is on today?', allowed_mentions: { parse: [] } });
 });
+
+// ---------------------------------------------------------------- 6. HIS OWN TELEGRAM CHANNEL (the Bot API, faked here)
+
+function fakeTelegram(o = {}) {
+  const calls = [];
+  const fetch = async (url, init = {}) => {
+    const m = /^https:\/\/api\.telegram\.org\/bot([^/]+)\/(\w+)$/.exec(url);
+    const body = JSON.parse(init.body ?? '{}');
+    calls.push({ token: m?.[1], method: m?.[2], body });
+    const ok = (result) => new Response(JSON.stringify({ ok: true, result }));
+    if (m?.[1] !== '123:ABC') return new Response(JSON.stringify({ ok: false, error_code: 401, description: 'Unauthorized' }), { status: 401 });
+    if (m[2] === 'getMe') return ok({ id: 77, is_bot: true, username: 'my_ghost_bot' });
+    if (m[2] === 'getChat') return body.chat_id === '@mychannel' ? ok({ id: -1001234567890, type: 'channel', title: 'My channel', username: 'mychannel' }) : body.chat_id === '@agroup' ? ok({ id: -100555, type: 'supergroup', title: 'A group' }) : new Response(JSON.stringify({ ok: false, error_code: 400, description: 'Bad Request: chat not found' }), { status: 400 });
+    if (m[2] === 'getChatMember') return ok({ status: o.notAdmin ? 'member' : 'administrator', can_post_messages: true });
+    if (m[2] === 'sendMessage') return ok({ message_id: 31, chat: { id: body.chat_id } });
+    return new Response('{}', { status: 404 });
+  };
+  return { fetch, calls };
+}
+
+test('his own Telegram channel: the paired bot posts there through the queue, after Telegram says it is a channel and the bot may post', async () => {
+  const net = fakeTelegram();
+  const d = depsWith(net, vaultOf({ telegram: '123:ABC' }));
+  await assert.rejects(() => SO.APIS.channel.link(depsWith(net), { channel: '@mychannel' }), /Pair my Telegram bot first/);
+  await assert.rejects(() => SO.APIS.channel.link(d, { channel: '@agroup' }), /not a channel/);
+  await assert.rejects(() => SO.APIS.channel.link(d, { channel: 'https://t.me/nochannelhere' }), /cannot find that channel/);
+  await assert.rejects(() => SO.APIS.channel.link(depsWith(fakeTelegram({ notAdmin: true }), d.vault), { channel: '@mychannel' }), /as an admin with “Post messages” on/);
+  const r = await SO.APIS.channel.link(d, { channel: 'https://t.me/mychannel' });
+  assert.equal(r.who, '@mychannel');
+  assert.deepEqual(await d.storage.get('social:channel'), { chat: -1001234567890, title: 'My channel', username: 'mychannel' });
+  assert.equal(d.vault.m.get('telegram'), '123:ABC', 'its token stays the paired bot’s, in the vault');
+  const made = await SO.makeDraft(d, { account: 'channel', text: 'Today’s thought, posted with his say-so.', from: 'chat' });
+  assert.equal(made.card.title, 'Post to your channel?');
+  const sent = await Q.approveDraft(d.storage, made.draft.id, (x) => SO.sendDraft(d, x), { on: 'telegram' });
+  assert.equal(sent.said, 'Posted on your Telegram channel: https://t.me/mychannel/31');
+  assert.deepEqual(net.calls.filter((c) => c.method === 'sendMessage').map((c) => c.body), [{ chat_id: -1001234567890, text: 'Today’s thought, posted with his say-so.' }]);
+  await assert.rejects(() => SO.readAccount(d, 'channel'), /I can't read your Telegram channel/);
+});
