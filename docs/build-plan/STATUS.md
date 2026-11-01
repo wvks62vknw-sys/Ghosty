@@ -152,10 +152,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   RATING, THE INSTRUMENT AND SKILLS COACH, the review link (/demo) and "deploy your own Ghosty"; ⑧ CHECK IT'S LIVE for
   faces (a blink or a turn before a face is saved), SHAPES (a room drawn in the air becomes a blueprint and a 3-D room) and
   TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
-  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card).
-- BUILDING NOW: ⑧ design a build with a bill of materials and the Home Assistant bridge; ④ the outside, home and learning
-  packs; ⑧ the converter and documents, and the rights-and-law topics from primary sources. Last of all: the UI depth
-  pass. HELD for your opinion: the twelve themes and the Cinematic touch-up.
+  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card); ⑧ DESIGN
+  A BUILD with a bill of materials (a shed, a garden room, a garage, a room, furniture, a PC; the Studio's eighth pane) and THE
+  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm).
+- BUILDING NOW: ④ the outside, home and learning packs; ⑧ the converter and documents, and the rights-and-law topics from
+  primary sources. Last of all: the UI depth pass. HELD for your opinion: the twelve themes and the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

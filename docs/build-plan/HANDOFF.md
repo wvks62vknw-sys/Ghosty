@@ -1177,6 +1177,10 @@ folder that no longer exists; ignore those paths).
   did not show the new idea first, twice on CI, never here in three runs on fresh and used brains; left to the 15:17 run to
   show again or not). ⑥b MERGED (OWNER-ISSUES 114). PR #50's 15:17 run is doomed by the abilities line: the next push
   (⑥b + the coach fix) restarts it. Running: rest-D (8711), packs-3 (8700), rest-E (8677). Next: the UI depth pass brief.
+- 1 Nov 16:35 UK: REST-D APPLIED (OWNER-ISSUES 115; the squash route; nine conflicts incl. the command list, whose shared
+  closing braces sat in the tail — check `builtin.ts` compiles after a both-sides join). BRIEF-DEPTH written (the last batch;
+  launch after packs-3 and rest-E merge). The next push carries ⑥b, REST-D, the coach fix and the docs. Running: packs-3
+  (8700), rest-E (8677).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
