@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { build } from 'esbuild';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 const web = at('../../web/src');
@@ -22,6 +23,7 @@ const entries = [
   `${web}/coach/progress.ts`,
   `${web}/coach/skills.ts`,
   `${web}/coach/ask.ts`,
+  `${web}/features/system/firstrun.ts`,
   `${shared}/catalogue.ts`,
 ];
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/restb'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
@@ -568,7 +570,7 @@ test('the chat’s words for the coach: the tuner, the lessons, typing, drawing,
 
 // The real Worker and the real brain, bundled fresh, with two Durable Objects (`owner` and `demo`, each with storage of its
 // own) and an environment that has secrets, KV and an AI binding in it that the demo must never touch.
-await build({ entryPoints: [`${at('../src/index.ts')}`, `${at('../src/demo/index.ts')}`, `${at('../src/demo/tour.ts')}`, `${at('../src/demo/seed.ts')}`], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/restb/edge'), outbase: at('../src'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+await build({ entryPoints: [`${at('../src/index.ts')}`, `${at('../src/demo/index.ts')}`, `${at('../src/demo/tour.ts')}`, `${at('../src/demo/seed.ts')}`, `${at('../src/keys.ts')}`], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/restb/edge'), outbase: at('../src'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const brain = await import('./.build/restb/edge/index.mjs');
 const Demo = await import('./.build/restb/edge/demo/index.mjs');
 const Tour = await import('./.build/restb/edge/demo/tour.mjs');
@@ -987,4 +989,170 @@ test('the owner can close the demo’s door with one variable; closed, a marked 
     delete denv.DEMO_OFF;
   }
   assert.equal((await asDemo('/api/memory')).status, 200, 'and open again when the variable is gone');
+});
+
+// ---------------------------------------------------------------- 4. DEPLOY YOUR OWN GHOSTY
+
+const F = await load('apps/web/src/features/system/firstrun');
+const Keys = await import('./.build/restb/edge/keys.mjs');
+const repoRoot = at('../../../');
+
+test('the first run’s key: 32 characters from an alphabet with nothing that looks like another, every one equally likely, never twice', () => {
+  const key = F.makeKey((n) => Uint8Array.from({ length: n }, (_, i) => i));
+  assert.equal(key.length, 32);
+  assert.match(key, /^[abcdefghjkmnpqrstuvwxyz23456789]{32}$/);
+  assert.doesNotMatch(key, /[0oOlI1]/);
+  // bytes that would make some characters likelier than others are thrown away (256 is not a multiple of 31)
+  const bytes = [...Array(32)].map(() => 255);
+  let calls = 0;
+  const k2 = F.makeKey((n) => (calls++ === 0 ? Uint8Array.from(bytes) : Uint8Array.from({ length: n }, (_, i) => i)));
+  assert.equal(k2.length, 32);
+  assert.ok(calls >= 2, 'the first batch, all above 247, was refused');
+  const seen = new Set(Array.from({ length: 200 }, () => F.makeKey((n) => globalThis.crypto.getRandomValues(new Uint8Array(n)))));
+  assert.equal(seen.size, 200);
+  for (const k of seen) assert.ok(F.validKey(k));
+  assert.ok(!F.validKey('short'));
+  assert.ok(!F.validKey('x'.repeat(257)));
+  assert.ok(!F.validKey('has a space in it but is long enough 1234'));
+  assert.ok(F.validKey('x'.repeat(24)));
+});
+
+test('its fingerprint is the SHA-256 the Worker compares: the owner key made by the wizard is the one the real Worker accepts', async () => {
+  assert.equal(await F.sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  const key = F.makeKey((n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+  const hash = await F.sha256Hex(key);
+  assert.match(hash, /^[0-9a-f]{64}$/);
+  // a fresh deployment: only the fingerprint is in its environment
+  const fresh = { OWNER_KEY_HASH: hash, AGENT: null };
+  const state = { storage: new MemStorage(), waitUntil: (p) => pend.push(p), blockConcurrencyWhile: (f) => f(), id: { name: 'owner' } };
+  let agent;
+  fresh.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brain.GhostyAgent(state, fresh)).fetch(r) }) };
+  const api = (path, k) => brain.default.fetch(new Request(`https://fresh.test${path}`, { headers: { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}) } }), fresh, dctx);
+  assert.equal((await api('/api/status', key)).status, 200, 'the key the wizard made is accepted');
+  assert.equal((await api('/api/status', F.makeKey((n) => globalThis.crypto.getRandomValues(new Uint8Array(n))))).status, 401, 'another is not');
+  assert.equal((await api('/api/status')).status, 401);
+  assert.deepEqual(await (await api('/api/health')).json(), { ok: true, secured: true, access: false, preview: false });
+  // before the fingerprint is set there is no owner: the brain refuses everything but its health, and says it is not secured
+  const bare = { AGENT: fresh.AGENT };
+  const apiBare = (path, k) => brain.default.fetch(new Request(`https://fresh.test${path}`, { headers: { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}) } }), bare, dctx);
+  const h = await (await apiBare('/api/health')).json();
+  assert.equal(h.secured, false);
+  assert.equal(F.needsFirstRun(h), true, 'and that is what starts the wizard');
+  const refused = await apiBare('/api/status', key);
+  assert.equal(refused.status, 503);
+  assert.match((await refused.json()).error, /not secured yet/);
+  assert.equal(F.needsFirstRun({ secured: true }), false);
+  assert.equal(F.needsFirstRun({ secured: false, preview: true }), false, 'a preview of a proposed change never asks for a key');
+  assert.equal(F.needsFirstRun({ secured: false, access: true }), false);
+  assert.equal(F.needsFirstRun(null), false);
+});
+
+test('a fresh deployment is empty: no data, no keys, nothing of the first owner (his fingerprint, address, repository or KV ids are in neither its answers nor its storage)', async () => {
+  const wrangler = readFileSync(`${repoRoot}wrangler.jsonc`, 'utf8');
+  const firstOwner = [/"OWNER_KEY_HASH":\s*"([0-9a-f]{64})"/, /"OWNER_EMAIL":\s*"([^"]+)"/, /"GITHUB_REPO":\s*"([^"]+)"/, /"PUBLIC_ORIGIN":\s*"([^"]+)"/].map((r) => r.exec(wrangler)?.[1]).filter(Boolean);
+  const kvIds = [...wrangler.matchAll(/"binding":\s*"(?:SITES|VAULT)",\s*"id":\s*"([0-9a-f]{32})"/g)].map((m) => m[1]);
+  assert.ok(firstOwner.length >= 3 && kvIds.length >= 1, 'the first owner’s settings were read from wrangler.jsonc');
+  const key = F.makeKey((n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+  const env = { OWNER_KEY_HASH: await F.sha256Hex(key), AGENT: null };
+  const state = { storage: new MemStorage(), waitUntil: (p) => pend.push(p), blockConcurrencyWhile: (f) => f(), id: { name: 'owner' } };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brain.GhostyAgent(state, env)).fetch(r) }) };
+  const get = async (path) => {
+    const r = await brain.default.fetch(new Request(`https://fresh.test${path}`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': key } }), env, dctx);
+    assert.equal(r.status, 200, `${path}: ${r.status}`);
+    return r.json();
+  };
+  const seen = [];
+  const st = await get('/api/status');
+  seen.push(st);
+  assert.ok(st.keys.every((k) => !k.set), 'not one key is set');
+  assert.equal(st.repo, null);
+  assert.equal(st.owner, 'owner');
+  const m = await get('/api/memory');
+  seen.push(m);
+  assert.deepEqual(m.facts, []);
+  const hist = await get('/api/history');
+  seen.push(hist);
+  assert.deepEqual(hist.turns, []);
+  const pl = await get('/api/profile/places');
+  seen.push(pl);
+  assert.deepEqual(pl.places, []);
+  const ag = await get('/api/agenda');
+  seen.push(ag);
+  assert.deepEqual(ag.events, []);
+  seen.push(await get('/api/lessons'), await get('/api/roadmap'), await get('/api/widgets'));
+  await settle();
+  const all = JSON.stringify(seen) + JSON.stringify([...state.storage.m]);
+  for (const v of [...firstOwner, ...kvIds]) assert.ok(!all.includes(v), `the first owner's ${v.slice(0, 12)}… is in a fresh deployment`);
+  assert.ok(!/aqishussain|wvks62vknw/i.test(all));
+  // the keys on offer are the same list the doc names, none of them filled
+  assert.ok(Keys.KEYS.length >= 20);
+});
+
+test('the wizard’s steps are a state machine: key, pair, name, home, three things; nothing can be skipped into, and a made key is never thrown away by a back button', async () => {
+  const key = F.makeKey((n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+  const hash = await F.sha256Hex(key);
+  let s = F.newFirstRun();
+  assert.equal(s.step, 'welcome');
+  // nothing works out of order
+  for (const e of [{ t: 'made', key, hash }, { t: 'paired' }, { t: 'named', name: 'Sam' }, { t: 'homed' }, { t: 'finish' }]) assert.ok(F.advance(s, e).error, `${e.t} at the welcome`);
+  s = F.advance(s, { t: 'start' }).state;
+  assert.equal(s.step, 'key');
+  assert.ok(F.advance(s, { t: 'start' }).error);
+  assert.ok(F.advance(s, { t: 'paired' }).error, 'cannot pair without a key');
+  assert.match(F.advance(s, { t: 'made', key: 'short', hash }).error, /not a key the brain would accept/);
+  assert.match(F.advance(s, { t: 'made', key, hash: 'nope' }).error, /not a SHA-256/);
+  // back is allowed until a key is made
+  assert.equal(F.advance(s, { t: 'back' }).state.step, 'welcome');
+  s = F.advance(s, { t: 'made', key, hash }).state;
+  assert.deepEqual([s.step, s.key, s.hash, s.paired], ['key', key, hash, false]);
+  assert.ok(F.advance(s, { t: 'back' }).error, 'a made key is not thrown away by a back button');
+  assert.ok(F.advance(s, { t: 'named', name: 'Sam' }).error, 'not paired yet');
+  assert.ok(F.advance(s, { t: 'skipHome' }).error);
+  // paired: the key is cleared from the wizard (it is the app's owner key now)
+  s = F.advance(s, { t: 'paired' }).state;
+  assert.deepEqual([s.step, s.key, s.paired], ['name', '', true]);
+  assert.ok(F.advance(s, { t: 'made', key, hash }).error, 'a paired phone does not make another key');
+  assert.ok(F.advance(s, { t: 'named', name: '   ' }).error);
+  assert.ok(F.advance(s, { t: 'named', name: 'x'.repeat(61) }).error);
+  s = F.advance(s, { t: 'named', name: '  Sam   Jones ' }).state;
+  assert.deepEqual([s.step, s.name], ['home', 'Sam Jones']);
+  s = F.advance(s, { t: 'homed' }).state;
+  assert.deepEqual([s.step, s.home], ['try', true]);
+  s = F.advance(s, { t: 'finish' }).state;
+  assert.equal(s.step, 'done');
+  // each step can be skipped where it may be
+  let k = F.advance(F.advance(F.advance(F.newFirstRun(), { t: 'start' }).state, { t: 'made', key, hash }).state, { t: 'paired' }).state;
+  k = F.advance(F.advance(k, { t: 'skipName' }).state, { t: 'skipHome' }).state;
+  assert.deepEqual([k.step, k.name, k.home], ['try', '', false]);
+  // three things to try, in plain words
+  assert.equal(F.THREE_THINGS.length, 3);
+  assert.ok(F.THREE_THINGS.every((t) => t.length > 40 && !/\b[a-z]+_[a-z0-9_]+\b/.test(t)));
+  // what is kept on the phone reads back safely
+  assert.equal(F.parseFirstRun({ v: 1, step: 'nowhere' }).step, 'welcome');
+  assert.equal(F.parseFirstRun(null).step, 'welcome');
+  assert.deepEqual(F.parseFirstRun(JSON.parse(JSON.stringify(s))), s);
+  assert.equal(F.HASH_VARIABLE, 'OWNER_KEY_HASH');
+});
+
+test('docs/DEPLOY-YOUR-OWN.md stays true to the repository: every setting the first owner left in wrangler.jsonc, every key the brain can take and every vendored engine is named in it', () => {
+  const doc = readFileSync(`${repoRoot}docs/DEPLOY-YOUR-OWN.md`, 'utf8');
+  const wrangler = readFileSync(`${repoRoot}wrangler.jsonc`, 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  const vars = JSON.parse(wrangler.replace(/,(\s*[}\]])/g, '$1')).vars ?? {};
+  for (const v of Object.keys(vars)) assert.ok(doc.includes(v), `wrangler.jsonc var ${v} is in the doc`);
+  for (const b of ['SITES', 'VAULT', 'kv_namespaces', 'previews', 'OWNER_KEY_HASH', 'DEMO_OFF', 'GhostyAgent']) assert.ok(doc.includes(b), `the doc names ${b}`);
+  // every key, by the first word of its label
+  for (const k of Keys.KEYS) {
+    // the first word of its label, or (where the doc names the provider rather than a product) the provider in its link
+    const first = k.label.split(/[ (]/)[0].replace(/[^A-Za-z@]/g, '');
+    const host = k.link ? new URL(k.link).hostname.split('.').slice(-2, -1)[0] : '';
+    assert.ok(new RegExp(first, 'i').test(doc) || (host && new RegExp(host, 'i').test(doc)), `the doc says what the ${k.label} key unlocks (looked for "${first}" or "${host}")`);
+  }
+  // every vendored folder, by name
+  for (const d of readdirSync(`${repoRoot}apps/web/public/vendor`).filter((n) => statSync(`${repoRoot}apps/web/public/vendor/${n}`).isDirectory())) assert.ok(doc.includes(`vendor/${d}`), `the doc gives the licence of vendor/${d}`);
+  // the steps and the promises
+  for (const s of ['Fork', 'Deploy', 'first run', 'Keys you may add', 'What is free', 'What never leaves your phone', 'Licences']) assert.match(doc, new RegExp(s, 'i'), s);
+  assert.match(doc, /Nothing is shared/);
+  assert.match(doc, /Delete the line/);
+  assert.doesNotMatch(doc, /aqishussain|wvks62vknw|a944f094/i, 'the first owner’s own settings are not repeated in it');
 });

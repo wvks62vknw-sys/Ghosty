@@ -5371,3 +5371,14 @@ html .ccard[data-fault] .ccsafe + .ccline { -webkit-line-clamp: 2; }
 #demobar[data-reset="1"] { background: #ff9f0a; }
 body.demo #app { top: calc(env(safe-area-inset-top, 0px) + 26px); padding-top: 0; }
 body.demo #pair, body.demo #pairform { display: none !important; }
+/* the first run (features/system/firstrunui.ts): the wizard a fresh deployment shows instead of the sign-in */
+#firstrun { position: fixed; inset: 0; z-index: 9700; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(24px, env(safe-area-inset-bottom, 0px)); background: rgba(5, 6, 7, .96); }
+#firstrun .frbox { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 480px; min-width: 0; }
+#firstrun h2 { margin: 6px 0 0; font: 600 20px/1.25 var(--sf); letter-spacing: .4px; }
+#firstrun p, #firstrun li { margin: 0; font: 400 16px/1.5 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+#firstrun .frstep { font: 600 11px/1.3 var(--sf); letter-spacing: .6px; color: var(--l2); }
+#firstrun .frcode { display: block; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.07); font: 500 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; user-select: all; -webkit-user-select: all; }
+#firstrun input { width: 100%; box-sizing: border-box; min-height: 44px; padding: 10px 12px; border-radius: 12px; font: 400 16px/1.3 var(--sf); color: var(--fg); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
+#firstrun .row button { min-height: 44px; }
+#firstrun .frthree { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 10px; }
+#firstrun .frmsg:empty { display: none; }

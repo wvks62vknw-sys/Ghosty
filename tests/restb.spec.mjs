@@ -6,10 +6,12 @@
 //     RATE ME has Ghosty play the engine; the chat answers "what's my chess rating?" from this phone.
 //  2. THE COACH (the tuner through a fake microphone, a lesson, typing, drawing, words) and 3. THE REVIEW LINK (/demo, its separation
 //     from the real app, /demo/tour) are the sections below it
+//  4. THE FIRST RUN on a fresh deployment: the wizard makes the key, shows its fingerprint, pairs, names him, saves Home, says three things
 //   BASE=http://localhost:8733 node tests/restb.spec.mjs tests/.shots
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -360,6 +362,122 @@ if (want('demo')) {
   const un = await unnamed(tour.page, 'main');
   check(un.length === 0, `every control on the tour has a name (${un.join(', ')})`);
   await tour.ctx.close();
+}
+
+// ================================================================ 4. THE FIRST RUN ON A FRESH DEPLOYMENT
+if (want('firstrun')) {
+  log('first run');
+  const sha = (s) => createHash('sha256').update(s).digest('hex');
+  // The preview's brain stands in for the new deployment: the page is told (through its health call) that there is no owner
+  // yet, until the spec says the variable is set; the wizard makes the key the preview already accepts (a test runner may give
+  // it the key to make), and the geocoder, which needs the Internet, is stood in for with an invented place.
+  let secured = false;
+  const wizard = async (viewport) => {
+    const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+    await ctx.addInitScript((k) => { window.__ghostyFirstRunKey = k; }, KEY);
+    await ctx.route('**/api/health', (route) => (secured ? route.continue() : route.fulfill({ json: { ok: true, secured: false, access: false, preview: false } })));
+    await ctx.route('**/api/profile/places/find', (route) => route.fulfill({ json: { found: { id: 'home', label: 'Home', query: '1 Demo Lane', address: '1 Demo Lane, Sampleton (made up)', lat: 53.7965, lon: -1.5478 } } }));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+    page.on('console', (m) => {
+      const t = m.text();
+      if ((m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) || /Refused to|Content Security Policy/.test(t)) problems.push(`[${viewport.width}] console: ${t.slice(0, 200)}`);
+    });
+    return { ctx, page };
+  };
+  const fr = () => state_(page_, '__ghostyFirstRun');
+  let page_;
+  const state_ = (p, k) => p.evaluate((n) => JSON.parse(JSON.stringify(window[n] ?? null)), k);
+  const text = () => page_.locator('#firstrun').innerText();
+
+  // --- the whole way through, on the owner's phone
+  const w = await wizard(PHONE);
+  page_ = w.page;
+  secured = false;
+  await page_.goto(base, { waitUntil: 'domcontentloaded' });
+  await page_.waitForSelector('#firstrun', { timeout: 20000 });
+  check((await page_.locator('#pair input').count()) === 0, 'a brain with no owner shows the wizard, not the sign-in');
+  check(/WELCOME/i.test(await text()) && /no owner yet/.test(await text()), 'it says this Ghosty has no owner yet');
+  check(/nothing carried over from anyone/.test(await text()), 'and that nothing is carried over from anyone');
+  await page_.locator('#firstrun button', { hasText: 'START' }).click();
+  await page_.locator('#firstrun button', { hasText: 'MAKE MY KEY' }).click();
+  await page_.waitForSelector('#firstrun .frkey', { timeout: 10000 });
+  let s = await fr();
+  check(s.step === 'key' && s.key === KEY, 'the key is made on the phone (here the one the preview accepts, handed in by the spec)');
+  check((await page_.locator('#firstrun .frkey').innerText()) === KEY, 'the key is shown');
+  check((await page_.locator('#firstrun .frhash').innerText()) === sha(KEY) && s.hash === sha(KEY), 'its fingerprint (SHA-256, the value for OWNER_KEY_HASH) is shown');
+  check(/OWNER_KEY_HASH/.test(await text()) && /Secret/.test(await text()), 'it says where in Cloudflare the fingerprint goes');
+  await page_.screenshot({ path: `${out}/restb-firstrun-key.png` });
+  // a reload on the way to the dashboard does not lose the key
+  await page_.reload({ waitUntil: 'domcontentloaded' });
+  await page_.waitForSelector('#firstrun .frkey', { timeout: 20000 });
+  check((await page_.locator('#firstrun .frkey').innerText()) === KEY, 'a reload resumes at the key step with the same key');
+  // I ADDED IT before the Worker knows the fingerprint: not yet
+  await page_.locator('#firstrun button', { hasText: 'I ADDED IT' }).click();
+  await until(page_, () => /doesn’t know the fingerprint/.test(document.querySelector('#firstrun')?.innerText ?? ''), null, 10000, 'the wizard did not say the Worker does not know the fingerprint yet');
+  check((await page_.evaluate(() => localStorage.getItem('ghosty.ownerKey'))) === null || (await page_.evaluate(() => localStorage.getItem('ghosty.ownerKey'))) === '', 'nothing is paired yet');
+  // the variable is set: now it pairs, with the app's own pairing code
+  secured = true;
+  await page_.locator('#firstrun button', { hasText: 'I ADDED IT' }).click();
+  await page_.waitForSelector('#firstrun input[aria-label="Your name"]', { timeout: 20000 });
+  check((await page_.evaluate(() => localStorage.getItem('ghosty.ownerKey'))) === KEY, 'this phone is paired: the key is the app’s owner key now');
+  s = await fr();
+  check(s.paired && s.key === '' && s.step === 'name', 'the wizard no longer holds the key once it is paired');
+  // the name, home, three things
+  await page_.locator('#firstrun input[aria-label="Your name"]').fill('Zed');
+  await page_.locator('#firstrun button', { hasText: 'CONTINUE' }).click();
+  await page_.waitForSelector('#firstrun input[aria-label="Your home address or postcode"]', { timeout: 10000 });
+  await page_.locator('#firstrun input[aria-label="Your home address or postcode"]').fill('1 Demo Lane');
+  await page_.locator('#firstrun button', { hasText: 'FIND IT' }).click();
+  await page_.locator('#firstrun button', { hasText: 'KEEP IT' }).waitFor({ state: 'visible', timeout: 10000 });
+  check(/Sampleton \(made up\)/.test(await text()), 'the place found is shown before it is kept');
+  await page_.locator('#firstrun button', { hasText: 'KEEP IT' }).click();
+  await page_.waitForSelector('#firstrun .frthree', { timeout: 10000 });
+  check((await page_.locator('#firstrun .frthree li').count()) === 3, 'three things to try are said');
+  await page_.screenshot({ path: `${out}/restb-firstrun-try.png` });
+  await page_.locator('#firstrun button', { hasText: 'DONE' }).click();
+  await page_.waitForSelector('#cin', { timeout: 30000 });
+  check((await page_.locator('#firstrun').count()) === 0, 'the wizard is gone and the app is up, signed in');
+  const kept = await page_.evaluate(() => localStorage.getItem('ghosty.setup.progress'));
+  check(kept === null, `its progress is no longer kept (${kept})`);
+  check(/Zed/.test((await page_.evaluate(() => localStorage.getItem('ghosty.settings'))) ?? ''), 'the app knows his name');
+  // what it wrote in the brain: his name, his home — and nothing else; then put back
+  const api = (path, init = {}) => fetch(`${base}/api${path}`, { ...init, headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' } }).then((r) => r.json());
+  const mem = await api('/memory');
+  const mine = mem.facts.find((f) => f.text === 'My name is Zed.');
+  check(!!mine, 'his name is in his brain’s memory');
+  const places = await api('/profile/places');
+  check(places.places.some((p) => p.id === 'home' && /Sampleton/.test(p.address)), 'his home is in his brain’s places');
+  if (mine) await api(`/memory/${encodeURIComponent(mine.id)}`, { method: 'DELETE' });
+  await api('/profile/places?id=home', { method: 'DELETE' });
+  await w.ctx.close();
+
+  // --- "I already have a key" goes to the app's own sign-in, and nothing of the first run is written
+  secured = false;
+  const w2 = await wizard(PHONE);
+  page_ = w2.page;
+  await page_.goto(base, { waitUntil: 'domcontentloaded' });
+  await page_.waitForSelector('#firstrun', { timeout: 20000 });
+  await page_.locator('#firstrun button', { hasText: 'I ALREADY HAVE A KEY' }).click();
+  await page_.waitForSelector('#pair input', { timeout: 10000 });
+  check((await page_.locator('#firstrun').count()) === 0, '"I already have a key" goes to the app’s own sign-in');
+  await w2.ctx.close();
+
+  // --- at 390 × 844: nothing sideways, every control named, at each step
+  secured = false;
+  const w3 = await wizard({ width: 390, height: 844 });
+  page_ = w3.page;
+  await page_.goto(base, { waitUntil: 'domcontentloaded' });
+  await page_.waitForSelector('#firstrun', { timeout: 20000 });
+  for (const [label, click] of [['welcome', null], ['key', 'START'], ['made key', 'MAKE MY KEY']]) {
+    if (click) await page_.locator('#firstrun button', { hasText: click }).click();
+    await page_.waitForTimeout(300);
+    const bad = await sideways(page_, '#firstrun, #firstrun *');
+    check(bad.length === 0, `nothing sticks out sideways at 390 px: ${label} (${bad.join('; ')})`);
+    const un = await unnamed(page_, '#firstrun');
+    check(un.length === 0, `every control has a name for VoiceOver: ${label} (${un.join(', ')})`);
+  }
+  await w3.ctx.close();
 }
 
 // ================================================================ the end

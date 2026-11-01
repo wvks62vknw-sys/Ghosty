@@ -84,7 +84,11 @@ async function connect(): Promise<void> {
     return;
   }
   if (!health.secured) {
-    await pair('The brain is running but not secured yet: set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md). Until then it refuses every request.');
+    // [restb] A fresh deployment has no owner yet: the first-run wizard makes the owner key on this phone, says what to put in
+    // Cloudflare, pairs this phone and names the owner (features/system/firstrunui.ts; docs/DEPLOY-YOUR-OWN.md).
+    const { firstRun } = await import('./features/system/firstrunui');
+    if (await firstRun(pair)) ui.set({ connected: true });
+    else if (ownerKey.get()) ui.set({ connected: true });
     return;
   }
   try {
