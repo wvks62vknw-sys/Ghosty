@@ -342,7 +342,8 @@ export function buildBody(L: CarLib, spec: CarSpec, M: Mats): Body {
   const paint = M.paint as TMaterial & { map: unknown };
   paint.map = gaps;
   paint.needsUpdate = true;
-  const shellMeshes: [Region, TMaterial][] = [['paint', M.paint], ['glass', M.glass], ['trim', M.trim], ['plastic', M.plastic], ['floor', M.floor]];
+  // (the loft's own underside is left open: the plates below close it, high enough that what hangs under the car shows)
+  const shellMeshes: [Region, TMaterial][] = [['paint', M.paint], ['glass', M.glass], ['trim', M.trim], ['plastic', M.plastic]];
   for (const [r, m] of shellMeshes) {
     if (!buckets[r].length) continue;
     const x = mesh(L, geo(buckets[r]), m, r === 'glass' ? 'glass' : 'bodywork');
@@ -542,9 +543,19 @@ export function buildBody(L: CarLib, spec: CarSpec, M: Mats): Body {
   const linerMat = M.plastic.clone();
   linerMat.side = T.DoubleSide;
   group.add(mesh(L, merge(L, liners), linerMat, 'bodywork'));
-  const floor = mesh(L, new T.BoxGeometry(s.L - 0.55, 0.02, s.W - 0.2), M.floor, 'bodywork');
-  floor.position.set(0, d.clearance + 0.012, 0);
-  group.add(floor);
+  // the underbody: a floor between the wheels, high enough for the exhaust and the rest to hang below it; strips under the
+  // sills; a splitter under the front bumper and a diffuser under the back
+  const C = d.clearance;
+  const inW = s.W - 2 * (d.tyreW + 0.1);
+  const front0 = s.xf + s.arch;
+  const rear0 = s.xr - s.arch;
+  const plates: { g: TBufferGeometry; at: [number, number, number] }[] = [
+    { g: new T.BoxGeometry(s.L - 0.36, 0.012, inW), at: [0, C + 0.15, 0] },
+    { g: new T.BoxGeometry(s.L / 2 - front0 - 0.06, 0.012, s.W * 0.86), at: [(s.L / 2 + front0) / 2 - 0.03, C + 0.04, 0] },
+    { g: new T.BoxGeometry(rear0 + s.L / 2 - 0.06, 0.012, s.W * 0.88), at: [(rear0 - s.L / 2) / 2 + 0.03, C + 0.05, 0] },
+  ];
+  for (const side of [1, -1]) plates.push({ g: new T.BoxGeometry(s.xf - s.arch - (s.xr + s.arch), 0.012, (s.W - inW) / 2 - 0.02), at: [(s.xf + s.xr) / 2, C + 0.03, side * (inW / 2 + (s.W - inW) / 4)] });
+  group.add(mesh(L, merge(L, plates), M.floor, 'bodywork'));
   if (spec.roofRails) {
     for (const side of [1, -1] as const) {
       const pts: [number, number, number][] = [];
@@ -567,7 +578,7 @@ export function buildBody(L: CarLib, spec: CarSpec, M: Mats): Body {
     front: s.L / 2 - 0.17,
     rear: s.xAt(p.ws0) + 0.03,
     halfW: s.halfW(0.2) - 0.11,
-    floor: d.clearance + 0.08,
+    floor: d.clearance + 0.16,
     top: Math.min(s.top(0.06), s.top(bu1)) - 0.03,
     axle: s.xf,
   };

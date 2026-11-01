@@ -32,8 +32,9 @@ export interface TQuat {
 /** What the car's objects carry beyond the Studio's types. */
 export type O3 = TObject3D & { quaternion?: TQuat; frustumCulled?: boolean };
 
-export interface CarNS extends Omit<ThreeNS, 'CylinderGeometry'> {
+export interface CarNS extends Omit<ThreeNS, 'CylinderGeometry' | 'SphereGeometry'> {
   CylinderGeometry: Ctor<[number, number, number, number?, number?, boolean?, number?, number?], TBufferGeometry>;
+  SphereGeometry: Ctor<[number, number?, number?, number?, number?, number?, number?], TBufferGeometry>;
   MeshPhysicalMaterial: Ctor<[Record<string, unknown>?], TMaterial>;
   CanvasTexture: Ctor<[HTMLCanvasElement], TTex>;
   LatheGeometry: Ctor<[TVector2[], number?], TBufferGeometry>;

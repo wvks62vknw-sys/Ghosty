@@ -4,13 +4,19 @@
  * and the headlamps, tail lamps and plate lamp light, with pools of light on the ground. Orbit by drag, pinch to zoom, tap
  * a part to name it. Its own three.js renderer (the Studio's lab bench is holographic; a car has to look real), drawn
  * only while it is on screen. A test reads it through `state()` and finds a part on screen with `screenOf()`.
+ *
+ * THE VIEWS (item 2): BONNET UP opens the bonnet on its hinge over the engine bay (car/bay.ts); WHEEL OFF pulls the
+ * nearside front wheel away to show the brake and the suspension behind it (car/wheel.ts); UNDERNEATH lifts the car and
+ * looks up at it (car/under.ts). A part can be LIT: it glows and pulses, numbered in the order the fault table ranks it.
  */
-import { PARTS, isPart, type PartId } from './parts';
+import { PARTS, isPart, viewOf, type PartId, type View } from './parts';
+import { buildBay } from './bay';
 import { buildBody, type Body } from './body';
+import { buildUnder } from './under';
 import { floorTex, glowTex, makeMats, shadowTex, type Mats } from './kit';
 import { shapeWords, type CarSpec } from './spec';
-import { loadCarThree, type CarLib, type TMaterial, type TMesh, type TObject3D, type TVector3 } from './three';
-import { buildWheel } from './wheel';
+import { loadCarThree, type CarLib, type TMaterial, type TMesh, type TObject3D, type TSprite, type TVector3 } from './three';
+import { buildCorner, buildWheel } from './wheel';
 import type { TCamera, TControls, TRenderer, TScene } from '../studio/three';
 
 type Controls = TControls & { enablePan: boolean; minPolarAngle: number; maxPolarAngle: number; rotateSpeed: number };
@@ -18,11 +24,23 @@ type Controls = TControls & { enablePan: boolean; minPolarAngle: number; maxPola
 /** Names for what a tap can hit that is not a part with a sheet. */
 const LABELS: Record<string, string> = {
   bodywork: 'Bodywork', glass: 'Glass', grille: 'Grille', badge: 'Badge', plate: 'Number plate', handle: 'Door handle', 'roof rail': 'Roof rails', bonnet: 'Bonnet',
+  suspension: 'Suspension', brakes: 'Brakes', 'battery pack': 'High-voltage battery',
 };
+
+/** Where things stand in a view: the bonnet's angle, how far the wheel is off (0–1), how high the car is lifted (m). */
+interface Pose {
+  bonnet: number;
+  off: number;
+  lift: number;
+}
+const ease = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+/** How high UNDERNEATH lifts the car. */
+const LIFT = 1.45;
 
 export function labelOf(id: string, spec?: CarSpec): string {
   if (isPart(id)) return PARTS[id].name;
   if (id === 'bodywork' && spec) return `Bodywork: ${spec.paint.name}`;
+  if (id === 'engine_cover' && spec?.electric) return 'Motor (under its cover)';
   return LABELS[id] ?? id;
 }
 
@@ -37,6 +55,11 @@ export interface SceneState {
   picked: string;
   parts: string[];
   error: string;
+  view: View;
+  /** The lit parts, in their order. */
+  lit: string[];
+  pose: Pose;
+  moving: boolean;
 }
 
 export class CarScene {
@@ -72,6 +95,15 @@ export class CarScene {
   private picked = '';
   private tagEl: HTMLElement;
   private initP: Promise<boolean> | null = null;
+  view: View = 'car';
+  private pose: Pose = { bonnet: 0, off: 0, lift: 0 };
+  private move: { from: Pose; to: Pose; cam0: number[]; cam1: number[]; tg0: number[]; tg1: number[]; t0: number; ms: number } | null = null;
+  private bay: TObject3D | null = null;
+  private under: TObject3D | null = null;
+  /** The nearside front wheel, which WHEEL OFF pulls away. */
+  private offWheel: TObject3D | null = null;
+  private lit: { id: string; swaps: { m: TMesh; orig: TMaterial | TMaterial[]; mat: TMaterial }[]; halo: TSprite | null; pin: HTMLElement; at: TVector3 | null }[] = [];
+  private haloTex: unknown = null;
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -200,14 +232,20 @@ export class CarScene {
     this.body = body;
     car.add(body.group);
     for (const w of body.wheels) {
+      // each corner's frame: +z outward (mirrored on the nearside), x along the car
       const corner = new T.Group();
       corner.position.set(w.x, spec.dims.tyreR, w.z);
-      if (w.side < 0) corner.rotation.y = Math.PI;
+      corner.scale.z = w.side;
+      const named = w.front && w.side < 0;
+      corner.add(buildCorner(L, spec, M, w.front, named));
       const wheel = buildWheel(L, spec, M);
       corner.add(wheel);
-      corner.userData.corner = `${w.front ? 'front' : 'rear'}${w.side > 0 ? 'R' : 'L'}`;
+      if (named) this.offWheel = wheel;
       car.add(corner);
     }
+    this.bay = buildBay(L, spec, M, body);
+    this.under = buildUnder(L, spec, M, body);
+    car.add(this.bay, this.under);
     this.world!.add(car);
     this.car = car;
     // its soft shadow, and the pools of light the lamps throw at night
@@ -234,7 +272,12 @@ export class CarScene {
     this.pools = pools;
     this.renderer!.domElement.setAttribute('aria-label', `The car in 3-D: ${spec.title}, a ${shapeWords(spec)}${spec.plate ? `, plate ${spec.plate}` : ''}. Drag to turn it, pinch to zoom, tap a part to name it.`);
     this.setNight(this.night);
+    this.view = 'car';
+    this.pose = { bonnet: 0, off: 0, lift: 0 };
+    this.move = null;
+    this.applyPose();
     this.frameCar(true);
+    this.limits();
   }
 
   private clearCar(): void {
@@ -251,10 +294,77 @@ export class CarScene {
         }
       });
     }
+    this.unlight();
     this.car = this.shadow = this.pools = null;
     this.body = null;
+    this.bay = this.under = this.offWheel = null;
     this.picked = '';
     this.tagEl.hidden = true;
+  }
+
+  // ------------------------------------------------------------------ the views
+
+  /** The pose and the camera for a view: [pose, camera position, the point it looks at]. */
+  private shot(v: View): [Pose, number[], number[]] {
+    const s = this.spec!;
+    const d = s.dims;
+    const b = this.body!.bay;
+    if (v === 'bay') {
+      const tx = (b.front + b.rear) / 2;
+      const k = Math.max(1, (b.halfW * 2) / 1.4);
+      return [{ bonnet: 1.12, off: 0, lift: 0 }, [tx + 1.45 * k, b.top + 1.25 * k, 0.95 * k], [tx - 0.05, b.floor + (b.top - b.floor) * 0.5, -0.02]];
+    }
+    if (v === 'wheel') {
+      const w = this.body!.wheels.find((x) => x.front && x.side < 0)!;
+      // the hub and the wheel off beside it, both in the picture
+      return [{ bonnet: 0, off: 1, lift: 0 }, [w.x - 0.5, d.tyreR + 0.72, w.z - 2.15], [w.x + 0.42, d.tyreR - 0.02, w.z - 0.22]];
+    }
+    if (v === 'under') {
+      const dist = this.fitDistance(Math.hypot(d.length / 2, d.width / 2)) * 0.62;
+      return [{ bonnet: 0, off: 0, lift: LIFT }, [dist * 0.42, 0.3, dist * 0.42], [0.2, LIFT + d.clearance, 0]];
+    }
+    const dist = this.fitDistance(Math.hypot(d.length / 2, d.height / 2, d.width / 2)) * 0.9;
+    const dir = [0.62, 0.24, 0.75];
+    const n = Math.hypot(dir[0]!, dir[1]!, dir[2]!);
+    return [{ bonnet: 0, off: 0, lift: 0 }, [(dir[0]! / n) * dist, d.height * 0.4 + (dir[1]! / n) * dist, (dir[2]! / n) * dist], [0, d.height * 0.4, 0]];
+  }
+
+  /** Go to a view: the bonnet opens, the wheel comes off or the car rises while the camera moves round. */
+  setView(v: View, now = false): void {
+    if (!this.spec || !this.camera || !this.controls) return;
+    this.view = v;
+    const [to, cam, tg] = this.shot(v);
+    const c = this.camera.position;
+    const t = this.controls.target;
+    this.move = { from: { ...this.pose }, to, cam0: [c.x, c.y, c.z], cam1: cam, tg0: [t.x, t.y, t.z], tg1: tg, t0: performance.now(), ms: now ? 0 : 1300 };
+    this.controls.enabled = false;
+    this.controls.minPolarAngle = 0;
+    this.controls.maxPolarAngle = Math.PI;
+    if (now) this.tick(performance.now());
+  }
+
+  /** How far round and down the camera may go in this view. */
+  private limits(): void {
+    const c = this.controls;
+    if (!c) return;
+    c.minPolarAngle = this.view === 'under' ? 1.62 : 0.05;
+    c.maxPolarAngle = this.view === 'under' ? 2.95 : 1.5;
+    c.minDistance = this.view === 'car' || this.view === 'under' ? 1.3 : 0.7;
+  }
+
+  /** Put the bonnet, the wheel and the lift where the pose says; show only what can be seen. */
+  private applyPose(): void {
+    const p = this.pose;
+    if (this.body) this.body.bonnet.rotation.z = p.bonnet;
+    if (this.offWheel) {
+      // out from the hub, forward along the car and turned so its tread faces the camera
+      this.offWheel.position.set(0.95 * p.off, -0.01 * p.off, 0.42 * p.off);
+      this.offWheel.rotation.y = -1.15 * p.off;
+    }
+    if (this.car) this.car.position.y = p.lift;
+    if (this.bay) this.bay.visible = p.bonnet > 0.01 || this.view === 'bay';
+    if (this.under) this.under.visible = p.lift > 0.01 || this.view === 'under';
+    if (this.shadow) (this.shadow.material as TMaterial).opacity = Math.max(0.15, 1 - p.lift / LIFT);
   }
 
   /** How far away the camera must be for a sphere of radius r to fill the view. */
@@ -363,9 +473,109 @@ export class CarScene {
     this.placeTag();
   }
 
-  /** What moves on its own each frame (the views and the glow add to this). */
-  protected tick(_now: number): void {
-    /* nothing yet */
+  /** What moves on its own each frame: the view's move, the glow's pulse. */
+  protected tick(now: number): void {
+    const m = this.move;
+    if (m && this.camera && this.controls) {
+      const k = m.ms ? Math.min(1, (now - m.t0) / m.ms) : 1;
+      const e = ease(k);
+      const mix = (a: number, b: number) => a + (b - a) * e;
+      this.pose = { bonnet: mix(m.from.bonnet, m.to.bonnet), off: mix(m.from.off, m.to.off), lift: mix(m.from.lift, m.to.lift) };
+      this.camera.position.set(mix(m.cam0[0]!, m.cam1[0]!), mix(m.cam0[1]!, m.cam1[1]!), mix(m.cam0[2]!, m.cam1[2]!));
+      this.controls.target.set(mix(m.tg0[0]!, m.tg1[0]!), mix(m.tg0[1]!, m.tg1[1]!), mix(m.tg0[2]!, m.tg1[2]!));
+      this.applyPose();
+      if (k >= 1) {
+        this.move = null;
+        this.controls.enabled = true;
+        this.limits();
+        // the parts lit before the view changed sit somewhere new
+        for (const l of this.lit) l.at = this.centreOf(l.id);
+      }
+    }
+    if (this.lit.length) {
+      const k = 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2 * 0.9);
+      for (const l of this.lit) {
+        for (const s of l.swaps) s.mat.emissiveIntensity = 0.35 + 1.1 * k;
+        if (l.halo) l.halo.material.opacity = 0.18 + 0.4 * k;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ the lit parts
+
+  /** Light these parts, in order (the most likely first): each glows and pulses, a numbered pin on it. */
+  light(ids: string[]): void {
+    this.unlight();
+    if (!this.car || !this.lib) return;
+    const T = this.lib.T;
+    const glow = 0xff8a1a;
+    this.haloTex ??= (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const g = c.getContext('2d')!;
+      const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      r.addColorStop(0, 'rgba(255,170,60,1)');
+      r.addColorStop(1, 'rgba(255,140,30,0)');
+      g.fillStyle = r;
+      g.fillRect(0, 0, 64, 64);
+      return new T.CanvasTexture(c);
+    })();
+    ids.forEach((id, i) => {
+      const swaps: { m: TMesh; orig: TMaterial | TMaterial[]; mat: TMaterial }[] = [];
+      this.car!.traverse((o) => {
+        const m = o as TMesh;
+        if (!m.isMesh || o.userData.part !== id) return;
+        const base = Array.isArray(m.material) ? m.material[0]! : m.material;
+        const mat = base.clone();
+        mat.emissive?.setHex(glow);
+        mat.emissiveIntensity = 1;
+        if ('emissiveMap' in mat) (mat as TMaterial & { emissiveMap: unknown }).emissiveMap = null;
+        swaps.push({ m, orig: m.material, mat });
+        m.material = mat;
+      });
+      // the plugs are under the engine's cover: it turns see-through
+      if (id === 'coils') {
+        this.car!.traverse((o) => {
+          if (!o.userData.cover || !(o as TMesh).isMesh) return;
+          const m = o as TMesh;
+          const mat = (Array.isArray(m.material) ? m.material[0]! : m.material).clone();
+          mat.transparent = true;
+          mat.opacity = 0.22;
+          swaps.push({ m, orig: m.material, mat });
+          m.material = mat;
+        });
+      }
+      const at = this.centreOf(id);
+      let halo: TSprite | null = null;
+      if (at) {
+        halo = new T.Sprite(new T.SpriteMaterial({ map: this.haloTex, transparent: true, depthWrite: false, depthTest: false, blending: T.AdditiveBlending, opacity: 0.4 }));
+        halo.scale.set(0.34, 0.34, 0.34);
+        this.world!.attach(halo);
+        halo.position.copy(at);
+        halo.renderOrder = 10;
+      }
+      const pin = document.createElement('button');
+      pin.type = 'button';
+      pin.className = 'carpin';
+      pin.textContent = String(i + 1);
+      pin.setAttribute('aria-label', `${i + 1}: ${labelOf(id, this.spec ?? undefined)}`);
+      pin.addEventListener('click', () => this.pick(id));
+      this.host.append(pin);
+      this.lit.push({ id, swaps, halo, pin, at });
+    });
+  }
+
+  unlight(): void {
+    for (const l of this.lit) {
+      for (const s of l.swaps) {
+        s.m.material = s.orig;
+        s.mat.dispose();
+      }
+      l.halo?.parent?.remove(l.halo);
+      l.halo?.material.dispose();
+      l.pin.remove();
+    }
+    this.lit = [];
   }
 
   /** Draw one frame now (a test's snapshot, the Lens guide's picture). */
@@ -417,6 +627,14 @@ export class CarScene {
   }
 
   private placeTag(): void {
+    for (const l of this.lit) {
+      // follow the part while it moves with the view
+      if (this.move || this.pose.lift) l.at = this.centreOf(l.id) ?? l.at;
+      if (l.halo && l.at) l.halo.position.copy(l.at);
+      const p = l.at ? this.project(l.at) : null;
+      l.pin.hidden = !p;
+      if (p) l.pin.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
+    }
     if (this.tagEl.hidden || !this.tagAt) return;
     const p = this.project(this.tagAt);
     if (!p) return;
@@ -481,6 +699,10 @@ export class CarScene {
       picked: this.picked,
       parts: this.partIds(),
       error: this.error,
+      view: this.view,
+      lit: this.lit.map((l) => l.id),
+      pose: { ...this.pose },
+      moving: !!this.move,
     };
   }
 
