@@ -184,7 +184,7 @@ await page.evaluate(() => (location.hash = 'settings'));
 await openPanel(page, 'settings', 'OFFLINE BRAIN');
 await page.waitForSelector('#pg-settings .offbrain', { timeout: 10000 });
 const chooser = await page.evaluate(() => ({ options: [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].map((o) => o.textContent), hidden: document.querySelector('#pg-settings .offbrain select.obmodel')?.hidden, news: document.querySelector('#pg-settings .offbrain .obnew')?.textContent ?? '' }));
-check(JSON.stringify(chooser.options) === JSON.stringify(['Ghosty (week 2)', 'Ghosty (week 1) · recommended', 'Qwen3 0.6B', 'Qwen2.5 0.5B']) && chooser.hidden === false, `the chooser: ${JSON.stringify(chooser)}`);
+check(JSON.stringify(chooser.options) === JSON.stringify(['Ghosty (week 2)', 'Ghosty (week 1) · recommended', 'Qwen3 0.6B', 'Qwen2.5 0.5B', 'SmolLM2 360M']) && chooser.hidden === false, `the chooser: ${JSON.stringify(chooser)}`);
 check(/^NEW: Ghosty \(week 1\) is the recommended brain/.test(chooser.news) && !/better/.test(chooser.news.split('(')[0]), `the new-brain line: "${chooser.news}"`);
 await page.selectOption('#pg-settings .offbrain select.obmodel', { label: 'Ghosty (week 1) · recommended' });
 await page.waitForTimeout(600);
