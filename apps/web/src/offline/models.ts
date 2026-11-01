@@ -6,7 +6,9 @@
  * A new revision means a new download for the owner: change `rev` together with the libs.
  */
 
+import { EXAM_SYSTEM } from '../../../../packages/shared/src/school';
 import { baseById, DEFAULT_BASE, weightsBase, type BaseId } from '../../../../packages/shared/src/selftrain';
+import { estimateTokens, type OfflineMsg } from './prompt';
 
 export interface ModelDef {
   id: string;
@@ -136,6 +138,52 @@ export function sitOffer(m: Pick<ModelDef, 'label' | 'mb'> | null, mobile: boole
 /** Why the one button is there, in one line: the brain that closed Ghosty and the smaller one to try. */
 export const sitOfferWhy = (after: Pick<ModelDef, 'label'> | null, m: Pick<ModelDef, 'label' | 'mb'>): string =>
   `${after ? `${after.label} closed Ghosty on this phone. ` : ''}The smaller ${m.label} may fit: one tap gets it (${sizeText(m.mb)}, on Wi-Fi) and I sit on it.`;
+
+/**
+ * The most a SCHOOL question's prompt may take on a small brain (1 Nov: the 0.6B closed Ghosty at its first answer):
+ * tokens by offline/prompt.ts estimateTokens, counted as the chat's budget counts them (4 more a message).
+ */
+export const SIT_BUDGET = 600;
+/** A brain's sitting budget: 600 on a small one (the 0.6B, its weeks, the stand-ins); 0 on a bigger one, which keeps the shared exam prompt. */
+export const sitBudget = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): number => (isBigger(m) ? 0 : SIT_BUDGET);
+/** The instruction every brain sits with, the shared exam's own system line (the marking reads what follows "Answer:"). */
+export const SIT_ASK = EXAM_SYSTEM;
+/** …and for a piece of writing. */
+export const SIT_WRITE = `${EXAM_SYSTEM}. For a piece of writing, write the whole piece, then finish with 'Answer: done'.`;
+const tokensOf = (msgs: OfflineMsg[]): number => msgs.reduce((n, x) => n + estimateTokens(x.content) + 4, 0);
+/** The first `n` characters, ended at a word and marked as cut. */
+const cutTo = (s: string, n: number): string => (s.length <= n ? s : n < 2 ? '' : `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…`);
+
+/**
+ * SCHOOL's prompt on a small brain: the question and the instruction only, in at most `budget` tokens. The framing goes
+ * ("Read this:" before a passage, the marks in brackets); what the answer needs stays: the passage (its title and its
+ * start, cut to fit), the question, the choices A–D and every instruction the marking reads (the exam's system line,
+ * "Answer with the letter.", "Explain briefly.", "Answer: done"). Over budget, the passage is cut first, then the
+ * question; never the choices or the instructions. A bigger brain keeps school/sit.ts examPrompt, the shared one.
+ */
+export function sitMessages(item: { q: string; type: string; marks: number; options?: string[] }, passage?: { title: string; text: string }, budget: number = SIT_BUDGET): OfflineMsg[] {
+  const system = item.type === 'extended' ? SIT_WRITE : SIT_ASK;
+  const tail: string[] = [];
+  if (item.type === 'mcq' && item.options) tail.push(`${item.options.map((o, i) => `${'ABCD'[i] ?? i + 1}) ${o}`).join('\n')}\nAnswer with the letter.`);
+  if (item.type === 'short') tail.push('Explain briefly.');
+  if (item.type === 'extended') tail.push('Write it out in full.');
+  const build = (p: string, q: string): OfflineMsg[] => [
+    { role: 'system', content: system },
+    { role: 'user', content: [p, q, ...tail].filter(Boolean).join('\n\n') },
+  ];
+  let p = passage ? `"${passage.title}"\n${passage.text.trim()}` : '';
+  let q = item.q.trim();
+  let msgs = build(p, q);
+  // (each step takes off what is over, in characters as the estimate counts them, and a little for the cut mark)
+  for (let i = 0; i < 40 && tokensOf(msgs) > budget; i++) {
+    const over = Math.ceil((tokensOf(msgs) - budget) * 3.5) + 4;
+    if (p) p = p.length - over >= 80 ? cutTo(p, p.length - over) : '';
+    else if (q.length > 40) q = cutTo(q, Math.max(40, q.length - over));
+    else break;
+    msgs = build(p, q);
+  }
+  return msgs;
+}
 
 /**
  * WebLLM's own memory figure at another context window: the weights and the library's largest working space are fixed,

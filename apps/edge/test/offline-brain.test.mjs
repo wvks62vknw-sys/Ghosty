@@ -405,6 +405,46 @@ test('the one tap (1 Nov): "GET <brain> (<size>) and sit" goes at once on Wi-Fi;
   assert.doesNotMatch(sit, /askBigBrain|\/api\/chat|brain\.chat\(/);
 });
 
+test('the sitting prompt on a small brain (1 Nov): the question and the instruction only, at most 600 tokens by the chat budget\'s own estimate; a bigger brain keeps the shared exam prompt; the chat stays at 1,500', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const tokens = (msgs) => msgs.reduce((n, x) => n + P.estimateTokens(x.content) + 4, 0);
+  assert.equal(M.SIT_BUDGET, 600);
+  assert.equal(P.PROMPT_BUDGET, 1500, "the chat's own budget is untouched");
+  assert.deepEqual(M.MODELS.map(M.sitBudget), [600, 600, 600]);
+  assert.deepEqual(M.BIGGER.map(M.sitBudget), [0, 0, 0]);
+  const [week] = M.trainedModels([{ week: 7, label: 'w7', repo: 'ghosty/w7', commit: 'b'.repeat(40) }], '', `/api/w/${'c'.repeat(48)}/`);
+  assert.equal(M.sitBudget(week), 600, 'a week trained from the 0.6B is a small brain');
+  // a short question whole: the framing gone, the instruction the marking reads kept
+  assert.deepEqual(M.sitMessages({ q: 'Which animal says moo?', type: 'mcq', marks: 1, options: ['cow', 'cat', 'dog', 'hen'] }), [
+    { role: 'system', content: "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'" },
+    { role: 'user', content: 'Which animal says moo?\n\nA) cow\nB) cat\nC) dog\nD) hen\nAnswer with the letter.' },
+  ]);
+  assert.deepEqual(M.sitMessages({ q: 'Why did the crow drop stones in the jug?', type: 'short', marks: 2 }, { title: 'The Crow and the Jug', text: 'A thirsty crow found a jug.' })[1].content, '"The Crow and the Jug"\nA thirsty crow found a jug.\n\nWhy did the crow drop stones in the jug?\n\nExplain briefly.');
+  const essay = M.sitMessages({ q: 'Write a story about a dragon.', type: 'extended', marks: 10 });
+  assert.equal(essay[0].content, "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'. For a piece of writing, write the whole piece, then finish with 'Answer: done'.");
+  assert.equal(essay[1].content, 'Write a story about a dragon.\n\nWrite it out in full.');
+  // a long passage: cut at its end to fit, its title and start kept, the question and the instruction whole
+  const long = { title: 'The Crow and the Jug', text: Array.from({ length: 400 }, (_, i) => `Sentence ${i} about the crow and the jug.`).join(' ') };
+  const read = M.sitMessages({ q: 'What did the crow drop into the jug?', type: 'short', marks: 2 }, long);
+  assert.ok(tokens(read) <= 600 && tokens(read) > 540, `the passage takes what is left: ${tokens(read)} tokens`);
+  assert.match(read[1].content, /^"The Crow and the Jug"\nSentence 0 about the crow and the jug\. Sentence 1 /);
+  assert.match(read[1].content, /…\n\nWhat did the crow drop into the jug\?\n\nExplain briefly\.$/);
+  // an enormous question, no passage: cut to fit, the choices and the instruction whole
+  const huge = M.sitMessages({ q: 'why '.repeat(3000), type: 'mcq', marks: 1, options: ['a', 'b', 'c', 'd'] });
+  assert.ok(tokens(huge) <= 600, `${tokens(huge)} tokens`);
+  assert.match(huge[1].content, /^why why [\s\S]*…\n\nA\) a\nB\) b\nC\) c\nD\) d\nAnswer with the letter\.$/);
+  // never over, whatever the passage's length; under it, the prompt is the question as written
+  for (const n of [0, 10, 300, 900, 1000, 1100, 5000, 40000]) {
+    const m = M.sitMessages({ q: 'Who sat on the wall?', type: 'exact', marks: 1 }, { title: 'Humpty Dumpty', text: 'Humpty Dumpty sat on a wall. '.repeat(n) });
+    assert.ok(tokens(m) <= 600 && m[1].content.endsWith('\n\nWho sat on the wall?'), `${n} lines: ${tokens(m)} tokens`);
+  }
+  // SCHOOL gives the brain a paper is sat on its budget; runPaper builds the short prompt from it
+  const sit = readFileSync(new URL('../../web/src/school/sit.ts', import.meta.url), 'utf8');
+  assert.match(sit, /const asked = d\.budget \? sitMessages\(it, [^;]+, d\.budget\) : examPrompt\(it, paper\.passages\);\n      given = await d\.gen\(asked,/);
+  assert.match(sit, /writing: writingCap\(brain\),\n            budget: sitBudget\(brain\),/);
+});
+
 test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {
   const { readFileSync } = await import('node:fs');
   // the service worker's activate step, run as a browser runs it on a new version: only its own older caches go

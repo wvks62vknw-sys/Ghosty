@@ -22,7 +22,7 @@ import { heavy } from '../core/heavy';
 import { createStore } from '../core/store';
 import { brainsHere, currentModel, getBrain, loadOffline, mayUse, offlineBrain, offlineModels, offlineReady, offlineReply, onMobileData, sitOn, unloadOffline, withModel, type OfflineMsg } from '../offline/brain';
 import { modelKey } from '../offline/harder';
-import { CHAIN, chainPick, isBigger, MODELS, NO_BRAIN, rungOf, sitOffer, sitOfferWhy, type ModelDef } from '../offline/models';
+import { CHAIN, chainPick, isBigger, MODELS, NO_BRAIN, rungOf, sitBudget, sitMessages, sitOffer, sitOfferWhy, type ModelDef } from '../offline/models';
 
 export type { PaperResult, StageId };
 
@@ -179,10 +179,11 @@ export type Gen = (messages: OfflineMsg[], o: { max: number; temperature: number
  * Sit the questions of a paper that are not done yet, one at a time, saving after every answer (`save`). Returns the
  * answers not saved yet (no connection), and whether it stopped early. When the model itself fails (sitGen marks it
  * `gone`), what is answered is saved and the failure is thrown with the question reached (`n`): never a blank answer
- * for every question left. `writing`: the tokens a piece of writing may take (writingCap). Pure apart from what it is
+ * for every question left. `writing`: the tokens a piece of writing may take (writingCap); `budget`: a small brain's
+ * prompt budget (models.ts sitBudget: the short prompt, sitMessages), else the shared exam prompt. Pure apart from what it is
  * given (the model and the brain).
  */
-export async function runPaper(paper: SitPaper, d: { gen: Gen; save: (answers: { id: string; given: string }[]) => Promise<unknown>; done: Set<string>; signal: AbortSignal; onProgress: (n: number, of: number) => void; writing?: number }): Promise<{ rest: { id: string; given: string }[]; stopped: boolean }> {
+export async function runPaper(paper: SitPaper, d: { gen: Gen; save: (answers: { id: string; given: string }[]) => Promise<unknown>; done: Set<string>; signal: AbortSignal; onProgress: (n: number, of: number) => void; writing?: number; budget?: number }): Promise<{ rest: { id: string; given: string }[]; stopped: boolean }> {
   let rest: { id: string; given: string }[] = [];
   for (const [i, it] of paper.items.entries()) {
     if (d.done.has(it.id)) continue;
@@ -190,7 +191,9 @@ export async function runPaper(paper: SitPaper, d: { gen: Gen; save: (answers: {
     d.onProgress(i + 1, paper.items.length);
     let given = '';
     try {
-      given = await d.gen(examPrompt(it, paper.passages), { max: it.type === 'extended' ? (d.writing ?? TOKENS.writing) : TOKENS.item, temperature: 0.3, signal: d.signal });
+      // (a small brain gets the question and the instruction only, within its budget: models.ts sitMessages; the marking is the same)
+      const asked = d.budget ? sitMessages(it, it.passage ? paper.passages.find((x) => x.id === it.passage) : undefined, d.budget) : examPrompt(it, paper.passages);
+      given = await d.gen(asked, { max: it.type === 'extended' ? (d.writing ?? TOKENS.writing) : TOKENS.item, temperature: 0.3, signal: d.signal });
     } catch (e) {
       if ((e as Error)?.name === 'AbortError' || d.signal.aborted) break;
       if ((e as { gone?: boolean })?.gone) {
@@ -460,6 +463,7 @@ export async function sitSubjects(stage: string, subjects: string[], o: { small?
             done: new Set(done),
             signal: mine.signal,
             writing: writingCap(brain),
+            budget: sitBudget(brain),
             onProgress: (n, of) => {
               writeMark({ ...at, n });
               sitting.set({ n, of, line: `Question ${n} of ${of}` });
