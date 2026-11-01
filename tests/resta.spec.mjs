@@ -231,6 +231,61 @@ check(await until(page, async () => !(await caches.has('ghosty-wiki-v1')) || (aw
 check(!policy.length, `no security-policy refusal on the way: ${policy.join(' | ')}`);
 await ctx.close();
 
+// ================================================================ 2. SIRI SHORTCUTS
+{
+  const { ctx, page } = await phone();
+  // ?say= that asks something: sent
+  const p1 = await opened(ctx, `${base}/?say=what%20is%20a%20cat`);
+  check(await until(p1, () => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => m.textContent?.includes('what is a cat')), null, 20000), '?say=what is a cat is sent');
+  check(!/say=/.test(p1.url()), `the address is cleaned after (${p1.url()})`);
+  await p1.close();
+  // ?say= that would start something: left in the box
+  const p2 = await opened(ctx, `${base}/?say=remind%20me%20to%20call%20mum`);
+  check(await until(p2, () => document.querySelector('#cin')?.value === 'remind me to call mum', null, 15000), '?say= that would start something waits in the chat box');
+  check(!(await p2.evaluate(() => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => m.textContent?.includes('remind me to call mum')))), '…and is not sent');
+  await p2.close();
+  // ?do=open:lens
+  const p3 = await opened(ctx, `${base}/?do=open:lens`);
+  check(await until(p3, () => document.body.dataset.tab === 'lens' || !!document.querySelector('#pg-lens.on'), null, 15000), '?do=open:lens opens the Lens');
+  await p3.close();
+  // SETTINGS → SHORTCUTS
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 15000 });
+  await openSection(page, 'settings', 'Ghosty');
+  await openPanel(page, 'settings', 'SHORTCUTS');
+  const sc = page.locator('#pg-settings .pn', { has: page.locator('.ptitle', { hasText: /^SHORTCUTS$/ }) });
+  await sc.locator('.scrow').first().waitFor({ timeout: 10000 }).catch(() => undefined);
+  const rows = await sc.locator('.scrow').count();
+  check(rows === 12, `twelve ready shortcuts (${rows})`);
+  const text = (await sc.textContent()) ?? '';
+  check(/Open URLs/.test(text) && /Hey Siri, Ghosty timer/.test(text) && /iPhone lets no web page add a shortcut/.test(text), 'the plain steps once, and that nothing is installed by us');
+  await sc.locator('.scrow').first().locator('button', { hasText: 'COPY' }).click();
+  const copied = await page.evaluate(() => window.__copied.at(-1) ?? '');
+  check(copied === `${base}/?do=timer:10m`, `COPY gives the link: ${copied}`);
+  check((await sc.locator('.scrow').first().locator('button').textContent()) === 'COPIED', 'COPY says COPIED');
+  await sc.locator('.scpick').selectOption('agenda');
+  check((await sc.locator('.scown .scurl').textContent()) === `${base}/?open=agenda`, 'MAKE YOUR OWN: a screen picked makes its link');
+  await sc.locator('.scpick').selectOption('');
+  await sc.locator('.scwords').fill('weather tomorrow');
+  check((await sc.locator('.scown .scurl').textContent()) === `${base}/?say=weather%20tomorrow`, 'MAKE YOUR OWN: words typed make their link');
+  await page.screenshot({ path: `${out}/resta-shortcuts.png` });
+  check(!(await wide(page)), 'SHORTCUTS does not scroll sideways');
+  const sw2 = await sideways(page, '#pg-settings .pn :is(.scrow, .scurl, button, select, input)');
+  check(!sw2.length, `nothing in SHORTCUTS sticks out sideways ${sw2.join(', ')}`);
+  const un2 = await unnamed(page, '#pg-settings .pn.pushed');
+  check(!un2.length, `every control in SHORTCUTS has a name: ${un2.join(' ; ')}`);
+  await ctx.close();
+}
+{
+  // a stranger's link: the sign-in, and nothing run
+  const { ctx, page } = await phone({ pair: false, stranger: true, url: `${base}/?say=what%20is%20a%20cat` });
+  check(await until(page, () => !!document.querySelector('#pair input'), null, 20000), 'a stranger’s link shows the sign-in');
+  await page.locator('#pair button', { hasText: /continue offline/i }).click().catch(() => undefined);
+  await page.waitForTimeout(3000);
+  check(!(await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => m.textContent?.includes('what is a cat')))), '…and nothing is sent for them');
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.log(`\n${problems.length} problem(s):\n${problems.map((p) => ` - ${p}`).join('\n')}`);

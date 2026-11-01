@@ -28,4 +28,13 @@ export const RESTA_WORDS: Record<string, CatValue> = {
     go: { ask: 'Offline wikipedia black holes' },
     since: SINCE,
   },
+  'panel:settings:SHORTCUTS': {
+    name: 'Siri shortcuts for me',
+    line: 'You can say “Hey Siri, Ghosty timer” and I do it: twelve ready shortcuts, or your own, from my links.',
+    more: 'Each shortcut is a link the Shortcuts app opens: a timer, the Lens on SCAN, walk me home, the arcade, your brief and more. Copy one, paste it into Open URLs, name it. Nothing is installed for you: iPhone allows no web page to add one. A link only works on your own signed-in phone.',
+    say: ['Make a Siri shortcut', 'Hey Siri, Ghosty timer'],
+    scene: ['phone', 'out'],
+    cat: 'do',
+    since: SINCE,
+  },
 };

@@ -16,6 +16,7 @@ await build({
     html: at('../../web/src/wiki/html.ts'),
     words: at('../../web/src/wiki/words.ts'),
     files: at('../../web/src/wiki/files.ts'),
+    links: at('../../web/src/features/settings/deeplinks.ts'),
     pass: at('../src/zim.ts'),
     catalogue: at('../../../packages/shared/src/catalogue.ts'),
     resta: at('../../../packages/shared/src/catalogue/resta.ts'),
@@ -31,6 +32,7 @@ const Z = await import('./.build/resta/zim.mjs');
 const H = await import('./.build/resta/html.mjs');
 const W = await import('./.build/resta/words.mjs');
 const F = await import('./.build/resta/files.mjs');
+const L = await import('./.build/resta/links.mjs');
 const P = await import('./.build/resta/pass.mjs');
 const C = await import('./.build/resta/catalogue.mjs');
 const R = await import('./.build/resta/resta.mjs');
@@ -199,10 +201,57 @@ test('the Worker passes a piece of a Kiwix file through, streamed and kept nowhe
   assert.ok(index.indexOf("startsWith('/api/zim/')") < index.indexOf("env.AGENT.get(env.AGENT.idFromName('owner'));\n    const fwd"), 'before the brain');
 });
 
+// ---------------------------------------------------------------- Siri Shortcuts' links
+
+const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'library', 'school', 'arcade', 'settings'];
+test('a link’s say, do and open, for the owner only; a stranger gets the sign-in', () => {
+  const owner = { owner: true, tabs: TABS };
+  assert.deepEqual(L.parseLink('?say=what%20is%20a%20cat', owner), { kind: 'say', text: 'what is a cat', send: true });
+  assert.deepEqual(L.parseLink('?say=What%E2%80%99s+on+today%3F', owner), { kind: 'say', text: 'What’s on today?', send: true });
+  assert.deepEqual(L.parseLink('?say=remind%20me%20to%20call%20mum%20at%205', owner), { kind: 'say', text: 'remind me to call mum at 5', send: false }, 'starts something: left in the box');
+  for (const t of ['Send Sam a message', 'delete my memories', 'buy milk', 'from now on call me boss', 'Good job', 'play some jazz', 'turn the heating on']) assert.equal(L.sayAction(t), 'box', t);
+  for (const t of ['what is a cat', 'weather tomorrow', 'how far is the moon?', 'show me my agenda', 'translate hello into French', 'the news']) assert.equal(L.sayAction(t), 'send', t);
+  assert.deepEqual(L.parseLink('?do=timer:10m', owner), { kind: 'do', what: { cmd: 'timer', secs: 600 } });
+  assert.deepEqual(L.parseLink('?do=timer:1h30', owner), { kind: 'do', what: { cmd: 'timer', secs: 5400 } });
+  assert.deepEqual(L.parseLink('?do=open:lens', owner), { kind: 'do', what: { cmd: 'open', tab: 'lens' } });
+  assert.deepEqual(L.parseLink('?do=lens:SCAN', owner), { kind: 'do', what: { cmd: 'lens', mode: 'scan' } });
+  assert.deepEqual(L.parseLink('?do=arcade', owner), { kind: 'do', what: { cmd: 'arcade' } });
+  assert.deepEqual(L.parseLink('?do=sit', owner), { kind: 'do', what: { cmd: 'sit' } });
+  assert.deepEqual(L.parseLink('?do=walkhome', owner), { kind: 'do', what: { cmd: 'walkhome' } });
+  assert.deepEqual(L.parseLink('?do=remind:bins%20at%207pm', owner), { kind: 'do', what: { cmd: 'remind', text: 'bins at 7pm' } });
+  assert.deepEqual(L.parseLink('?do=morse:SOS', owner), { kind: 'do', what: { cmd: 'morse', text: 'SOS' } });
+  for (const bad of ['?do=open:nowhere', '?do=lens:xray', '?do=timer:forever', '?do=rm%20-rf', '?do=remind', '?open=nowhere', '?say=%20']) assert.equal(L.parseLink(bad, owner).kind, 'unknown', bad);
+  assert.deepEqual(L.parseLink('?open=library&panel=Wikipedia', owner), { kind: 'open', tab: 'library', panel: 'WIKIPEDIA' });
+  assert.equal(L.parseLink('', owner), null);
+  assert.equal(L.parseLink('?code=abc&state=x', owner), null, 'not ours (Spotify’s sign-in comes back this way)');
+  // a stranger (not signed in): the sign-in, and nothing run, whatever the link asks
+  for (const q of ['?say=what%20is%20a%20cat', '?do=walkhome', '?open=library']) assert.deepEqual(L.parseLink(q, { owner: false, tabs: TABS }), { kind: 'signin' }, q);
+});
+
+test('the shortcut links made for him, the twelve ready ones, and the steps', () => {
+  assert.equal(L.shortcutUrl('https://g.example/', { do: 'timer:10m' }), 'https://g.example/?do=timer:10m');
+  assert.equal(L.shortcutUrl('https://g.example', { say: 'What’s on today?' }), 'https://g.example/?say=What%E2%80%99s%20on%20today%3F');
+  assert.equal(L.shortcutUrl('https://g.example', { open: 'library', panel: 'WIKIPEDIA' }), 'https://g.example/?open=library&panel=WIKIPEDIA');
+  assert.equal(L.READY.length, 12);
+  assert.equal(new Set(L.READY.map((r) => r.name)).size, 12);
+  for (const r of L.READY) {
+    assert.match(r.name, /^Ghosty /);
+    const link = L.parseLink(new URL(L.shortcutUrl('https://g.example', r.ask)).search, { owner: true, tabs: TABS });
+    assert.ok(link && link.kind !== 'unknown' && link.kind !== 'signin', `${r.name}: ${JSON.stringify(link)}`);
+  }
+  assert.equal(L.parseLink(new URL(L.shortcutUrl('https://g.example', L.READY.find((r) => r.name === 'Ghosty remind me').ask)).search, { owner: true, tabs: TABS }).send, false);
+  assert.match(L.STEPS, /Open URLs/);
+  assert.match(L.NOT_INSTALLED, /iPhone lets no web page/);
+  assert.equal(L.durationSecs('90s'), 90);
+  assert.equal(L.durationSecs('1:30'), 90);
+  assert.equal(L.durationSecs('25'), 1500);
+  assert.equal(L.durationSecs('soon'), 0);
+});
+
 // ---------------------------------------------------------------- the catalogue
 
 test('every new thing has its words: the Wikipedia panel, the chat’s two phrases, SHORTCUTS, and the Morse sheet (its phrase)', () => {
-  assert.deepEqual(Object.keys(R.RESTA_WORDS).sort(), ['panel:library:WIKIPEDIA, OFFLINE', 'phrase:wiki']);
+  assert.deepEqual(Object.keys(R.RESTA_WORDS).sort(), ['panel:library:WIKIPEDIA, OFFLINE', 'panel:settings:SHORTCUTS', 'phrase:wiki']);
   for (const [k, v] of Object.entries(R.RESTA_WORDS)) {
     assert.deepEqual(C.wordProblems(k, v), [], k);
     assert.ok(C.CATALOGUE[k], `${k} joined into the catalogue`);

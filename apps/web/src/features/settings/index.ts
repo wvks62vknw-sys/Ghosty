@@ -12,6 +12,7 @@ import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
+import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
 
@@ -63,14 +64,15 @@ export const settingsTab: TabDef = {
       row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
-    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), about.el, privacy.el, help.el);
+    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), shortcutsPanel().el, about.el, privacy.el, help.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
       { id: 'appearance', label: 'Appearance', match: /^THEME/ },
       { id: 'you', label: 'You', match: /^NAME/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE)/ },
-      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
+      // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
+      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 
