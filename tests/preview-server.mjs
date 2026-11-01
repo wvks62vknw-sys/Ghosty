@@ -133,7 +133,12 @@ if (process.env.PREVIEW === '1') {
   env.IS_PREVIEW = '1';
 }
 let agent;
-env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new mod.GhostyAgent(state, env)).fetch(r) }) };
+// [demo] The demo brain is its own Durable Object (named `demo`), with its own storage, as on Cloudflare: the review link
+// (apps/edge/src/demo) never reaches the owner's.
+let demoAgent;
+const demoState = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined, id: { name: 'demo' } };
+state.id = { name: 'owner' };
+env.AGENT = { idFromName: (n) => n, get: (id) => ({ fetch: (r) => (id === 'demo' ? (demoAgent ??= new mod.GhostyAgent(demoState, env)) : (agent ??= new mod.GhostyAgent(state, env))).fetch(r) }) };
 
 // production headers from apps/web/public/_headers
 const headersFile = await readFile(join(root, 'apps/web/public/_headers'), 'utf8');
@@ -156,6 +161,15 @@ function headersFor(path) {
   return h;
 }
 
+// [demo] The built interface as the Worker's ASSETS binding serves it (the demo page is the app's own page with a script added).
+env.ASSETS = {
+  async fetch(r) {
+    const u = new URL(r.url);
+    const p = u.pathname === '/' ? 'index.html' : normalize(u.pathname).replace(/^\/+/, '');
+    const file = await readFile(join(dist, p)).catch(() => null);
+    return file ? new Response(file, { headers: { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream', ...headersFor(u.pathname === '/' ? '/' : u.pathname) } }) : new Response('not found', { status: 404 });
+  },
+};
 const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
 createServer(async (req, res) => {
@@ -282,7 +296,8 @@ createServer(async (req, res) => {
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) {
+    // (and the demo's pages, which have no file behind them: Cloudflare hands those to the Worker too)
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/') || url.pathname === '/demo' || url.pathname.startsWith('/demo/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const body = chunks.length ? Buffer.concat(chunks) : undefined;

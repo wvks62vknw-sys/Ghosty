@@ -34,6 +34,7 @@ import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/regis
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
+import { chessRatingTurn, coachTurn } from './restb';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
@@ -252,6 +253,10 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   },
   today: (text, opts) => todayTurn(text, opts),
   why: (text, opts) => whyTurn(text, opts),
+  chessrating: (text, opts) => packAnswer(chessRatingTurn(text), opts),
+  tuner: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  coach: async (text, opts) => packAnswer(await coachTurn(text), opts),
+  skill: async (text, opts) => packAnswer(await coachTurn(text), opts),
   canyou: (text, opts) => canYouTurn(text, opts),
 };
 
