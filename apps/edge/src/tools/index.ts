@@ -50,8 +50,9 @@ import { moneyTools, MONEY_ABOUT, MONEY_WHEN } from './money'; // [packs] the mo
 import { bodyTools, BODY_ABOUT, BODY_WHEN } from './body'; // [packs] the body pack
 import { kitchenTools, KITCHEN_ABOUT, KITCHEN_WHEN } from './kitchen'; // [packs] the kitchen pack
 import { peopleTools, PEOPLE_ABOUT, PEOPLE_WHEN } from './people'; // [packs2] the people pack (BRIEF-PACKS-2)
+import { workTools, WORK_ABOUT, WORK_WHEN } from './work'; // [packs2] the work pack
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...peopleTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [packs2]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...peopleTools, ...workTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [packs2]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -322,6 +323,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'kitchen', tools: kitchenTools, when: KITCHEN_WHEN, about: KITCHEN_ABOUT, short: 'kitchen pack' },
   // [packs2] THE PEOPLE, WORK AND CREATIVE PACKS (BRIEF-PACKS-2), the same shape
   { name: 'people', tools: peopleTools, when: PEOPLE_WHEN, about: PEOPLE_ABOUT, short: 'people pack' },
+  { name: 'work', tools: workTools, when: WORK_WHEN, about: WORK_ABOUT, short: 'work pack' },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

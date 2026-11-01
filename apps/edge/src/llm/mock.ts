@@ -368,6 +368,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // [packs2] THE PEOPLE PACK (tools/people.ts): a birthday kept, gift ideas, a thank-you note — from his own words.
   if (/^(?:my )?.+['’]s birthday is .+$/.test(text) && has('people')) return { message: call('people', { action: 'birthday', words: ownerWords(textOf(last.content)) }), model };
   if ((m = text.match(/^gift ideas for (.+?)(?: (?:under|around|about) .+)?$/)) && has('people')) return { message: call('people', { action: 'gift', who: m[1], words: ownerWords(textOf(last.content)) }), model };
+  // [packs2] THE WORK PACK (tools/work.ts): a cover letter for a pasted ad, pay after tax.
+  if ((m = ownerWords(textOf(last.content)).match(/^write (?:me )?a cover letter for this job:\s*([\s\S]+)$/i)) && has('work')) return { message: call('work', { action: 'cover', text: m[1]!.trim() }), model };
+  if (/^what is £?[\d,]+ ?k? (?:a year|a month|an hour) after tax\??$/.test(text) && has('work')) return { message: call('work', { action: 'pay', words: ownerWords(textOf(last.content)) }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };

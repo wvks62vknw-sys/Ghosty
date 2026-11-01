@@ -5095,3 +5095,4 @@ html .arcloading[hidden], html .arcmenu[hidden], html .arcerr[hidden], html .arc
 .pkperson { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.06); }
 .pkperson b { font: 600 17px/1.25 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
 .pkadd input + input { margin-left: 0; }
+.pkdoc { margin: 0; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); font: 400 14px/1.5 var(--sf); color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 52vh; overflow-y: auto; min-width: 0; }

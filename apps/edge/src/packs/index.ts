@@ -13,10 +13,11 @@ import { BODY, bodyLines, bodyPieces } from '../tools/body';
 import { KITCHEN, kitchenLines } from '../tools/kitchen';
 import { followTick, MONEY, moneyLines } from '../tools/money';
 import { PEOPLE, peopleLines } from '../tools/people';
+import { WORK, workLines } from '../tools/work';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;
@@ -55,7 +56,7 @@ export async function packsTick(d: PacksDeps): Promise<number> {
 /** The Brief's lines from the packs (mind.ts): payday, a renewal tomorrow, a warranty ending soon… Never in the prompt. */
 export async function packLines(d: Pick<PacksDeps, 'storage' | 'now'>): Promise<string[]> {
   const deps = await depsOf(d);
-  const all = await Promise.all([moneyLines(deps), bodyLines(deps), kitchenLines(deps), peopleLines(deps)].map((p) => p.catch(() => [] as string[])));
+  const all = await Promise.all([moneyLines(deps), bodyLines(deps), kitchenLines(deps), peopleLines(deps), workLines(deps)].map((p) => p.catch(() => [] as string[])));
   return all.flat().slice(0, 9);
 }
 

@@ -449,6 +449,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs2] THE WORK PACK's sheets (features/work): a document to copy or share, interview practice, the to-do list.
+      id: 'open_work',
+      title: 'Work: documents, interview practice, to-do',
+      group: 'GO',
+      run: async (a) => {
+        const { openWork } = await import('../features/work/sheet');
+        await openWork(typeof a?.what === 'string' ? a.what : 'doc', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

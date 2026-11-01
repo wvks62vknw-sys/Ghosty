@@ -13,6 +13,7 @@ import type { Card } from '../../../../packages/shared/src/cards';
 import { monthCard, monthWords, unflatten } from '../../../../packages/shared/src/money';
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
+import { INTERVIEW_ASK, POMO_ASK, pomodoroPlan, questionsFor } from '../../../../packages/shared/src/work';
 import { brain } from '../api/brain';
 
 /** What local.ts writes: his message as the chat shows it, the reply, the cards, and the GO chips under it. */
@@ -61,6 +62,31 @@ export async function peopleTurn(text: string): Promise<PackReply> {
   const { openPeople } = await import('../features/people/sheet');
   void openPeople('who');
   return { said: text, reply: 'Here are the people you’ve told me about: tap one for gift ideas or the details you gave me. I only know what you tell me, and I never look anyone up.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'who' } }] };
+}
+
+/** [packs2] The work pack's words on this phone: interview practice opened, a pomodoro set on its own timers (and counted in my brain). */
+export async function workTurn(text: string): Promise<PackReply> {
+  const pomo = POMO_ASK.exec(text.trim());
+  if (pomo) {
+    const t = await import('../features/kitchen/timers');
+    const k = await import('../features/kitchen/sheet');
+    k.exposeKitchen();
+    if (/^(?:stop|cancel|end)\b/i.test(text.trim())) {
+      const n = t.stopTimers('pomodoro');
+      return { said: text, reply: n ? 'Pomodoro stopped: its timers are cleared.' : 'No pomodoro is running.' };
+    }
+    const plan = pomodoroPlan(text);
+    const made = t.startTimers(plan.timers);
+    void brain.packDo('work', 'pomodoro', { words: text }).catch(() => undefined);
+    const at = new Date(made[0]!.end - (t.clockNow() - Date.now())).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return { said: text, reply: `Pomodoro: ${plan.rounds} × ${plan.focus} minutes of focus with ${plan.rest}-minute breaks${plan.rounds >= 4 ? ` and a ${plan.long}-minute long break at the end` : ''}. The first focus ends at ${at}; they ring one after another while Ghosty is open.`, go: [{ id: 'timers', ask: -1, label: 'Open timers', run: 'open_kitchen', args: { what: 'timers' } }] };
+  }
+  const iv = INTERVIEW_ASK.exec(text.trim());
+  const role = iv?.[1]?.trim() ?? '';
+  const q = questionsFor(role);
+  const { openWork } = await import('../features/work/sheet');
+  void openWork('interview', { role, questions: q.questions });
+  return { said: text, reply: `Interview practice is open${role ? ` for ${role}` : ''}: I ask each question aloud, you answer by voice or typing, and I time it and tell you plainly how it went.`, go: [{ id: 'interview', ask: -1, label: 'Open it again', run: 'open_work', args: { what: 'interview', role, questions: q.questions } }] };
 }
 
 /** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */
