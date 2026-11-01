@@ -2979,7 +2979,10 @@ html .hubtile .lensvf { position: relative; display: grid; place-items: center; 
 html .hubtile .lensvf svg { width: 100%; height: 100%; }
 html .hubtile .lensvf .vfcap { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font: 600 11px/13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
 /* the More row (a hub with more than six tools): small instruments, a name and the first reading, one tap each */
-html .hubmore { display: flex; align-items: stretch; gap: 8px; padding: 8px; border-radius: var(--card); background: rgba(8,12,15,.7); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .3); overflow-x: auto; scrollbar-width: none; }
+/* flex: none — the hub is a column flexbox that scrolls; a row with overflow-x has an automatic minimum height of nothing,
+   so when the cards ran past a shorter screen (an iPhone's safe areas, Safari's bars) this row was the one child squeezed,
+   to a sliver with its DOCUMENTS card cut off, and the hub had nothing left to scroll (the owner's find, 1 Nov) */
+html .hubmore { flex: none; display: flex; align-items: stretch; gap: 8px; padding: 8px; border-radius: var(--card); background: rgba(8,12,15,.7); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .3); overflow-x: auto; scrollbar-width: none; }
 html .hubmore[hidden] { display: none; }
 html .hubmore .mk { flex: none; display: flex; flex-direction: column; justify-content: center; padding: 0 6px; font: 600 11px/14px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .7); }
 html .hubmore .mk small { font: 500 13px/16px var(--mono); color: var(--ink2); }
