@@ -113,6 +113,9 @@ export async function piecesHere(f: WikiFile): Promise<number> {
   }
 }
 
+/** Files that were whole here and lost pieces since (iPhone clears space when it runs low): said by name in the panel. */
+export const goneFiles = new Set<string>();
+
 /** The files whose download finished and whose pieces are all still here (a phone that cleared them loses the mark). */
 export async function filesHere(): Promise<WikiFile[]> {
   const kept = keptAll();
@@ -121,7 +124,11 @@ export async function filesHere(): Promise<WikiFile[]> {
     const k = kept[f.id];
     if (!k) continue;
     if ((await piecesHere(f)) >= k.pieces) out.push(f);
-    else setKept(f.id, null);
+    else {
+      setKept(f.id, null);
+      goneFiles.add(f.id);
+      open.delete(f.id);
+    }
   }
   return out;
 }
@@ -174,6 +181,7 @@ let askedKeep = false;
  */
 export async function getWiki(f: WikiFile, onProgress?: (p: GetProgress) => void, signal?: AbortSignal): Promise<void> {
   if (typeof caches === 'undefined') throw new Error('This browser cannot keep a download, so Wikipedia cannot be kept on it.');
+  goneFiles.delete(f.id);
   if (!askedKeep) {
     askedKeep = true;
     await checkStorage(true);
@@ -297,7 +305,13 @@ const open = new Map<string, Promise<Archive>>();
 export function archiveOf(f: WikiFile): Promise<Archive> {
   let a = open.get(f.id);
   if (!a) {
-    a = pieceFiles(f).then((files) => openArchive(files));
+    a = pieceFiles(f).then((files) =>
+      openArchive(files).catch((e: unknown) => {
+        // the reader itself (it loads from this site once, then stays on the phone) rather than the file
+        if (/import|module|fetch|WebAssembly|wasm/i.test(String((e as Error)?.message ?? e))) throw new Error('The Wikipedia reader could not start: it loads once with a signal, then works without one. Try again with a signal.');
+        throw e;
+      }),
+    );
     a.then((x) => noteDate(f.id, x.meta.date)).catch(() => open.delete(f.id));
     open.set(f.id, a);
   }

@@ -15,7 +15,7 @@ import { button, toast, undo, type Panel } from '../ui/components';
 import { speak, stopSpeaking } from '../assistant/voice';
 import { keptLine, LICENCE, sizeWords, WHY_NOT_ALL, WIKI_FILES, type WikiFile } from './files';
 import { articleText, rewriteArticle, type FrameLook } from './html';
-import { archiveOf, bytesOf, chooseReading, deleteWiki, filesHere, getWiki, keptAll, offMobileData, onMobileData, progressLine, readingFile, readLog, type GetProgress } from './store';
+import { archiveOf, bytesOf, chooseReading, deleteWiki, filesHere, getWiki, goneFiles, keptAll, offMobileData, onMobileData, progressLine, readingFile, readLog, type GetProgress } from './store';
 import type { Archive, Hit } from './zim';
 
 /** What the spec and the console can read (window.__ghostyWiki): the last search's and the last article's times, in ms. */
@@ -100,16 +100,23 @@ export function mountWiki(p: Panel): void {
     // two files here: which one the search reads
     pick.hidden = here.length < 2;
     clear(pick, ...here.map((f) => {
-      const b = button(f.name.toUpperCase(), () => {
+      const b = button(f.name, () => {
         chooseReading(f);
         archive = null;
         void paint().then(() => search());
       }, f.id === reading?.id ? 'on' : '');
+      b.dataset.case = 'keep';
       b.setAttribute('aria-pressed', String(f.id === reading?.id));
       return b;
     }));
     const was = readLog();
-    clear(offers, ...WIKI_FILES.filter((f) => !here.some((x) => x.id === f.id)).map((f) => offerEl(f, was?.id === f.id ? `GET stopped at piece ${was.piece} of ${was.of} when Ghosty closed: GET carries on from there.` : '')));
+    const note = (f: WikiFile) =>
+      was?.id === f.id
+        ? `GET stopped at piece ${was.piece} of ${was.of} when Ghosty closed: GET carries on from there.`
+        : goneFiles.has(f.id)
+          ? `${f.name} was on this phone, and iPhone has cleared some of it to make room (Ghosty did not). GET fetches only what is missing.`
+          : '';
+    clear(offers, ...WIKI_FILES.filter((f) => !here.some((x) => x.id === f.id)).map((f) => offerEl(f, note(f))));
   };
 
   const offerEl = (f: WikiFile, note: string): HTMLElement => {
@@ -242,6 +249,7 @@ export function mountWiki(p: Panel): void {
     const got = await a.article(path).catch(() => null);
     if (!got) return toast('That page is not in this Wikipedia file.', 'warn');
     if (push && current && current.path !== got.path) history.push(current.path);
+    if (current?.path !== got.path) stopReading();
     current = { path: got.path, title: got.title, html: got.html };
     const r = rewriteArticle(got.html, got.path, look());
     pictures = r.images;

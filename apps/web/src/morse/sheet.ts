@@ -53,12 +53,17 @@ function audio(): AudioContext | null {
   }
 }
 const TONE = 640;
+/**
+ * The screen flashes at 5 words a minute at most: a dot is then 240 ms on and 240 ms off, about two flashes a second, under
+ * the three a second that can bring on a seizure (WCAG 2.3.1). The sound keeps his speed.
+ */
+export const FLASH_WPM = 5;
 let playing: { stop(): void } | null = null;
 
 /** Plays (and, with `flash`, flashes) some Morse at this speed; resolves when it is done or stopped. */
 function send(code: string, wpm: number, flash: boolean): Promise<void> {
   playing?.stop();
-  const tl = timeline(code, wpm);
+  const tl = timeline(code, flash ? Math.min(wpm, FLASH_WPM) : wpm);
   if (!tl.length) return Promise.resolve();
   const a = audio();
   const timers: number[] = [];
@@ -167,7 +172,8 @@ export function openMorse(ask: MorseAsk = { mode: 'text' }): void {
   const go = async (flash: boolean) => {
     const c = code.value.trim() || toMorse(words.value);
     if (!c) return void (status.textContent = 'Type some words or some Morse first.');
-    status.textContent = `${flash ? 'Flashing' : 'Playing'} at ${wpm} WPM · ${(duration(c, wpm) / 1000).toFixed(1)} s`;
+    const at = flash ? Math.min(wpm, FLASH_WPM) : wpm;
+    status.textContent = `${flash ? 'Flashing' : 'Playing'} at ${at} WPM · ${(duration(c, at) / 1000).toFixed(1)} s`;
     root.dataset.playing = '1';
     await send(c, wpm, flash);
     delete root.dataset.playing;
@@ -181,7 +187,7 @@ export function openMorse(ask: MorseAsk = { mode: 'text' }): void {
     h('div.row.morseplay', button('PLAY', () => void go(false), 'on'), button('FLASH', () => void go(true)), button('STOP', () => stopMorse())),
     h('div.row.morsespeed', speed, speedText),
     status,
-    h('small.note', 'FLASH lights the screen in time (a web page cannot use the torch). Letters a space apart, words a slash.'),
+    h('small.note', `FLASH lights the screen in time, at ${FLASH_WPM} WPM at most so it stays gentle on the eyes (a web page cannot use the torch). Letters a space apart, words a slash.`),
   );
 
   // ---- TAP

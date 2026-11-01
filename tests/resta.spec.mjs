@@ -188,10 +188,12 @@ await frame.locator('a[data-zim="C/Star"]').click();
 check(await until(page, () => document.querySelector('#pg-library .wikiarttitle')?.textContent === 'Star' && document.querySelector('#pg-library .wikiframe')?.contentDocument?.querySelector('h1')?.textContent === 'Star'), 'a link opens the other article in place');
 await wiki.locator('.wikibar button', { hasText: 'BACK' }).click();
 check(await until(page, () => document.querySelector('#pg-library .wikiframe')?.contentDocument?.querySelector('h1')?.textContent === 'Black hole'), 'BACK comes back to the article before');
-// READ IT TO ME, through the phone's own voice
+// READ IT TO ME, through the phone's own voice (what it says from the tap on: a preview brain other specs used may have
+// spoken its own notices before)
+const from = await page.evaluate(() => window.__said.length);
 await wiki.locator('.wikibar button', { hasText: 'READ IT TO ME' }).click();
-check(await until(page, () => window.__said.join(' ').includes('A black hole is a place in space')), 'READ IT TO ME speaks the article');
-const said = await page.evaluate(() => window.__said.join(' '));
+check(await until(page, (n) => window.__said.slice(n).join(' ').includes('A black hole is a place in space'), from), 'READ IT TO ME speaks the article');
+const said = await page.evaluate((n) => window.__said.slice(n).join(' '), from);
 check(said.startsWith('Black hole.') && !/A book about space/.test(said), `it reads the title and the article, not its sources: "${said.slice(0, 80)}…"`);
 await page.screenshot({ path: `${out}/resta-wiki-article.png` });
 check(!(await wide(page)), 'the Library with an article open does not scroll sideways');

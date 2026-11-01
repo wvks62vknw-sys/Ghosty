@@ -365,10 +365,11 @@ export const libraryTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.askrow', q, button('ASK', () => void search(), 'on')), sp.body);
     idle();
     P.left.append(sp.el);
-    // [resta] WIKIPEDIA, OFFLINE (wiki/view.ts): a Kiwix file kept on this phone, searched and read here with no signal
+    // [resta] WIKIPEDIA, OFFLINE (wiki/view.ts): a Kiwix file kept on this phone, searched and read here with no signal. It
+    // goes at the foot of the other column (the asking column is ASK THE LIBRARY's whole height on a wide screen); on a
+    // phone the Ask pill shows the two together.
     const wp = panel('WIKIPEDIA, OFFLINE', { grow: false, cls: 'wiki' });
     mountWiki(wp);
-    P.left.append(wp.el);
 
     // ---- shelf
     const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
@@ -696,7 +697,7 @@ export const libraryTab: TabDef = {
     }, 'on');
     fresh.foot!.prepend(digestBtn);
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
-    P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
+    P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el, wp.el);
     // Sections (ui/sections.ts; the navigation sheet): asking first, then his shelf (his own documents at its top, then
     // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
     // himself, and the two things he does least, adding a book and the gadgets' manuals.
