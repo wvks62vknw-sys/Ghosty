@@ -77,8 +77,12 @@ const unnamed = (page, sel) =>
   page.$$eval(`${sel} :is(button, input, select, textarea, iframe)`, (els) =>
     els.filter((e) => e.getClientRects().length && !((e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || '').trim() || e.closest('label'))).map((e) => e.outerHTML.slice(0, 80)),
   );
-/** Nothing sideways and every control named, where it is shown: the sheet (`.modal`), or a screen (`#pg-convert`). */
+/**
+ * Nothing sideways and every control named, where it is shown: the sheet (`.modal`), or a screen (`#pg-convert`), measured at
+ * rest (a screen pushed in from its hub card slides in on a spring that runs a little past its place for a moment).
+ */
 const looked = async (page, name, where = '.modal') => {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
   const s = await sideways(page, `${where} *`);
   check(!s.length && !(await wide(page)), `${name}: nothing sideways at 390 × 844${s.length ? `: ${s.slice(0, 4).join(', ')}` : ''}`);
   const u = await unnamed(page, where);

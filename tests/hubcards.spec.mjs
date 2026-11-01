@@ -17,7 +17,7 @@
 // Fails on the old hubs (glyph tiles with a name and a blurb: no instrument cards, no readouts).
 //   BASE=http://localhost:8788 node tests/hubcards.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -26,6 +26,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const HOME = { name: 'Birmingham', lat: 52.4862, lon: -1.8904 };
 const problems = [];
+// Graphite's own steel is compared below: he starts calm (a mood an earlier spec on this brain left, such as "pleased" for
+// half an hour after praise, is a live overlay on the accent: tests/nav.mjs standDown, as the nav spec does)
+await standDown(base, KEY);
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 
 async function brainGet(path) {
