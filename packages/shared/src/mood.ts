@@ -13,7 +13,9 @@
  * never help withheld, never sulking to win an argument, never guilt. A generic "cheer up" does nothing; only what fits him.
  */
 
-export type MoodKind = 'calm' | 'focused' | 'protective' | 'pleased' | 'cross' | 'subdued';
+/** Every mood he can be in (the ABILITIES catalogue lists each, as he sees it: packages/shared/src/catalogue). */
+export const MOOD_KINDS = ['calm', 'focused', 'protective', 'pleased', 'cross', 'subdued'] as const;
+export type MoodKind = (typeof MOOD_KINDS)[number];
 
 export interface Mood {
   kind: MoodKind;

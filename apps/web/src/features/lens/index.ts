@@ -43,8 +43,9 @@ import { createSeeMode } from './see';
 import { createScanMode } from './scan';
 import { createSoundMode } from './sound';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'people' | 'scan' | 'aim' | 'measure' | 'sound';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'people', 'scan', 'aim', 'measure', 'sound'];
+// (the modes and their tiles: a pure list the ABILITIES catalogue reads too)
+import { LENS_MODES, TILES, type LensMode } from './tiles';
+export { LENS_MODES, TILES, type LensMode };
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -142,19 +143,6 @@ export interface LensContext {
   flip(): Promise<void>;
   active(): boolean;
 }
-
-export const TILES: { id: LensMode; label: string; hint: string }[] = [
-  { id: 'see', label: 'SEE', hint: 'what is in view' },
-  { id: 'read', label: 'READ', hint: 'text in a picture' },
-  { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
-  { id: 'ask', label: 'ASK', hint: 'a question + photo' },
-  { id: 'name', label: 'NAME', hint: 'name anything' },
-  { id: 'people', label: 'PEOPLE', hint: 'you · people you introduce' },
-  { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
-  { id: 'aim', label: 'AIM', hint: 'point at anything' },
-  { id: 'measure', label: 'MEASURE', hint: 'sizes from a photo' },
-  { id: 'sound', label: 'SOUND', hint: 'is it distorting?' },
-];
 
 export const lensState: LensState = {
   mode: 'see',

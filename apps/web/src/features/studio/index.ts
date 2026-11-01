@@ -26,25 +26,9 @@ import { fetchModel, forget, keep, keptFile, keptInMemory, listKept, loadCatalog
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
 import type { WalkState } from '../../studio/walk';
 
-/** The samples that ship with Ghosty (public/models), each credited as its licence asks. */
-export const SAMPLES = [
-  { id: 'reactor', title: 'Arc reactor', note: 'built in · 16 parts', file: '', credit: 'Made for Ghosty from simple shapes' },
-  { id: 'toycar', title: 'Toy car', note: 'Khronos sample · CC0', file: 'ToyCar.glb', credit: 'Toy car by Guido Odendahl and Eric Chadwick, CC0 (Khronos glTF Sample Assets)' },
-  { id: 'chair', title: 'Sheen chair', note: 'Khronos sample · CC0', file: 'SheenChair.glb', credit: 'Sheen chair © 2020 Wayfair LLC, by Eric Chadwick, CC0 (Khronos glTF Sample Assets)' },
-  { id: 'sofa', title: 'Glam velvet sofa', note: 'Khronos sample · CC BY 4.0', file: 'GlamVelvetSofa.glb', credit: 'Glam velvet sofa © 2021 Wayfair LLC, by Eric Chadwick, CC BY 4.0 (Khronos glTF Sample Assets)' },
-  { id: 'truck', title: 'Milk truck', note: 'Khronos sample · CC BY 4.0', file: 'CesiumMilkTruck.glb', credit: 'Cesium Milk Truck © 2017 Cesium, CC BY 4.0; Cesium logo is a trademark of Cesium (Khronos glTF Sample Assets)' },
-] as const;
-export type SampleId = (typeof SAMPLES)[number]['id'];
-
-type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline';
-const PANES: { id: Pane; label: string }[] = [
-  { id: 'models', label: 'MODELS' },
-  { id: 'parts', label: 'PARTS' },
-  { id: 'tools', label: 'CUT · MEASURE' },
-  { id: 'make', label: 'MAKE · PHOTO' },
-  { id: 'room', label: 'ROOM' },
-  { id: 'spline', label: 'SPLINE' },
-];
+// (the samples and the panes: a pure list the ABILITIES catalogue reads too)
+import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
+export { SAMPLES, type SampleId };
 
 /** A model made from a picture, as the brain lists it (/api/m3d). */
 interface MadeModel {

@@ -4627,20 +4627,39 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation:
 .memood .moodshape { width: 14px; height: 14px; flex: none; fill: currentColor; stroke: none; }
 .memood small { flex-basis: 100%; color: var(--l3); font-weight: 400; font-size: 13px; }
 
-/* ABILITIES (features/abilities/index.ts; OWNER-ISSUES 68): everything he can do, grouped the owner's way. Each ability is a
-   quiet card: its line, GO on the right, its example asks as small tappable pills (44 pt), and what it still needs. */
-#pg-abilities .abil { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; padding: 12px 12px 12px 14px; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); min-width: 0; }
-#pg-abilities .abil[data-off] { background: rgba(255,255,255,.025); }
-#pg-abilities .abtop { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
-#pg-abilities .abline { flex: 1 1 0; min-width: 0; margin: 0; padding-top: 10px; font: 400 16px/22px var(--sf); letter-spacing: -.2px; color: var(--ink); overflow-wrap: anywhere; }
-#pg-abilities .abil[data-off] .abline { color: var(--ink2); }
-#pg-abilities button.abgo { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 64px; min-height: 44px !important; padding: 0 10px 0 14px; border: 0; border-radius: 22px; font: 600 15px/20px var(--sf); color: var(--c); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .28); text-transform: none; }
-#pg-abilities .abil[data-off] button.abgo { color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair); }
-#pg-abilities button.abgo .ic { width: 16px; height: 16px; }
-#pg-abilities .aboff { display: block; font: 400 13px/18px var(--sf); color: var(--a, #ffd24d); overflow-wrap: anywhere; }
-#pg-abilities .abasks { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-#pg-abilities button.abask, #pg-abilities button.abmore { min-height: 44px !important; max-width: 100%; padding: 0 12px; border: 0; border-radius: 22px; font: 400 14px/18px var(--sf); color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair); white-space: normal; text-align: left; text-transform: none; overflow-wrap: anywhere; }
-#pg-abilities button.abmore { color: var(--c); }
+/* ABILITIES — THE EVERYTHING TAB (features/abilities/index.ts; BRIEF-EVERYTHING): every single thing he can do, in scenes.
+   A card is a 44 pt+ row: the plain name, its one line under it, NEW when it is, a chevron; a tap opens its sheet. The
+   eight chips narrow the list; nothing scrolls sideways (chips wrap) at 390 or 440. */
+#pg-abilities .catchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; min-width: 0; }
+#pg-abilities button.catchip { min-height: 44px !important; padding: 0 14px; border: 0; border-radius: 22px; font: 500 14px/18px var(--sf); letter-spacing: -.1px; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair); text-transform: none; }
+#pg-abilities button.catchip.on { color: var(--c2, var(--c)); background: rgba(var(--cr), .14) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .5); }
+#pg-abilities .catlist { display: flex; flex-direction: column; min-width: 0; }
+#pg-abilities button.catcard { display: flex; align-items: center; gap: 10px; width: 100%; white-space: normal; height: auto; min-width: 0; min-height: 56px !important; margin: 0; padding: 10px 6px 10px 2px; border: 0; border-radius: 0; background: none !important; box-shadow: inset 0 -1px 0 var(--hair) !important; text-align: left; text-transform: none; color: var(--ink); }
+#pg-abilities .catlist > button.catcard:last-child { box-shadow: none !important; }
+#pg-abilities button.catcard:active { background: rgba(255,255,255,.05) !important; }
+#pg-abilities .cattxt { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#pg-abilities .catname { font: 600 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); overflow-wrap: anywhere; }
+#pg-abilities .catline { font: 400 14px/19px var(--sf); letter-spacing: -.1px; color: var(--ink2); overflow-wrap: anywhere; }
+#pg-abilities button.catcard[data-off] .catname { color: var(--ink2); }
+#pg-abilities .catnew { flex: none; padding: 3px 7px; border-radius: 9px; font: 700 10px/12px var(--sf); font-style: normal; letter-spacing: .08em; color: var(--c); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); }
+#pg-abilities button.catcard .ic { flex: none; width: 16px; height: 16px; color: var(--ink3); }
+#pg-abilities button.catmore { width: 100%; min-height: 44px !important; margin-top: 4px; border: 0; border-radius: 14px; font: 600 15px/20px var(--sf); color: var(--c); background: rgba(var(--cr), .08) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .22); text-transform: none; }
+/* the sheet: what it does, how to say it, TRY IT, what it needs, where it lives, since when, and why */
+.catbody { padding: 4px 18px 18px; min-width: 0; }
+.catbody p { margin: 0; font: 400 16px/22px var(--sf); color: var(--ink); white-space: normal; overflow-wrap: anywhere; text-transform: none; }
+.catbody .catlead { margin-bottom: 8px; font-weight: 600; }
+.catbody .catmore { margin-bottom: 4px; color: var(--ink2); }
+.catbody .catoff { margin-top: 10px; color: var(--a, #ffd24d); font-size: 15px; line-height: 20px; }
+.catbody .catsec { margin-top: 16px; }
+.catbody .catk { display: block; margin: 0 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
+.catbody .catsay { margin: 0; padding-left: 18px; font: 400 16px/22px var(--sf); color: var(--ink); }
+.catbody .catsay li { padding: 2px 0; overflow-wrap: anywhere; }
+.catbody button.cattry { width: 100%; min-height: 48px !important; padding: 10px 16px; border-radius: 16px; font: 600 16px/21px var(--sf); text-align: left; text-transform: none; white-space: normal; overflow-wrap: anywhere; }
+.catbody .catneed { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; box-shadow: inset 0 -1px 0 var(--hair); font: 400 15px/20px var(--sf); color: var(--ink2); }
+.catbody .catneed:last-child { box-shadow: none; }
+.catbody .catneed span { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.catbody button.catset { flex: none; min-height: 44px !important; padding: 0 14px; border-radius: 22px; text-transform: none; }
+.modal:has(.catbody) .mhead button { min-height: 44px !important; }
 #pg-abilities .ablead { margin: 0 0 10px; font: 400 15px/20px var(--sf); color: var(--ink2); }
 #pg-abilities .abk { display: block; margin: 12px 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
 #pg-abilities .abgoal { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 44px; padding: 10px 0; box-shadow: inset 0 -1px 0 var(--hair); }
@@ -4650,15 +4669,14 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation:
 #pg-abilities ol.absteps li { padding: 4px 0; }
 #pg-abilities .ablearn .row { margin-top: 12px; }
 #pg-abilities .ablearn .row button { min-height: 44px !important; }
-/* "Can you…?" (OWNER-ISSUES 68): the box over the list, the answer under it; the same answer in the chat (localcard.ts). */
+/* "Can you…?" (OWNER-ISSUES 68): the search over everything, the answer under it; the same answer in the chat (localcard.ts). */
 #pg-abilities .canform { display: flex; gap: 8px; align-items: center; min-width: 0; }
 #pg-abilities .canform .canin { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 22px; font: 400 17px/22px var(--sf); }
 #pg-abilities .canform button.canask { flex: none; min-height: 44px !important; min-width: 64px; border-radius: 22px; }
 #pg-abilities .canans:not(:empty) { margin-top: 12px; }
 #pg-abilities .canline { margin: 0 0 10px; font: 600 17px/22px var(--sf); color: var(--ink); }
-#pg-abilities .canoffer { gap: 8px; margin: 0 0 4px; }
+#pg-abilities .canoffer { gap: 8px; margin: 10px 0 4px; }
 #pg-abilities .canoffer button, .localacts button { min-height: 44px !important; padding: 0 18px; border-radius: 22px; text-transform: none; }
-#pg-abilities button.abask.best { color: var(--c); box-shadow: inset 0 0 0 1px rgba(var(--cr), .4); }
 .localacts { gap: 8px; margin-top: 10px; min-width: 0; }
 .localacts button { max-width: 100%; white-space: normal; text-align: left; text-transform: none; overflow-wrap: anywhere; line-height: 20px; }
 .localacts .note.learned { font-size: 15px; color: var(--ink2); }
@@ -4798,3 +4816,8 @@ html .tunbtns { display: flex; gap: 8px; margin: 6px 0 2px; }
 #pg-workbench .tunbtns button { flex: 1 1 0; min-width: 0; min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px: the id wins it) */
 html .tunbtns button[hidden] { display: none; }
 #pg-workbench .bigv .wbbig { text-transform: none; } /* units and coefficients as written: kN, MPa, Cl, Cd */
+/* The Workbench's head keeps one height whatever it says (his screenshots, 31 Oct): a shorter line after a section was picked
+   pulled the section's first panel — its title, its mode buttons — up under the held pills, and Safari has no scroll anchoring
+   to hold it. One line for the value, two for what it is about (cut with an ellipsis), never fewer. */
+html #pg-workbench .two > .hero .bigv { height: 28px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-workbench .two > .hero .sub, html #pg-workbench .two > .hero .sub:empty { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; height: 40px; }
