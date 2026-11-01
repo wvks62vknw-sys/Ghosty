@@ -1154,6 +1154,14 @@ folder that no longer exists; ignore those paths).
   then the usual marker resolution: the apply's markers read `ours`/`theirs`), because its base was in the rewritten history.
   The same route for rest-D (old base e425869) and packs-3 (old base a59329d). Held for PR #51 behind #50's run (14:00).
   REST-E started (8677, Opus). Running: rest-D (8711), packs-3 (8700), offline-default (8688), rest-E (8677).
+- 1 Nov 14:30 UK: MAIN'S RUN AFTER PR #49 WENT RED (routec, twice: the Home quick chips read as under 44 pt at 440 because a
+  scroll to the end was taken before the wall's last card landed, so the chips sat below the fold and the finger probe read the
+  dock — a race, reproduced once here and not the next time; nothing is broken for him). THE GUARD COULD NOT REVERT: its push
+  was refused ("refusing to allow a GitHub App to create or update workflow .github/workflows/check.yml without workflows
+  permission") because PR #49 changed the smoke loop's list; every batch PR changes it, so the guard cannot revert any of
+  this week's merges. Left as it is (the guard is not to be touched); said to the owner in the next message: the revert of a
+  bad merge is by hand (a revert PR). The fix for the race is in routec.spec (it lets the page settle before the probe);
+  the lens spec failed once on the REST-C tree (41 s, START not found) and is re-run alone before judging.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
