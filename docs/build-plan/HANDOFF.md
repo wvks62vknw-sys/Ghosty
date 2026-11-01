@@ -1132,6 +1132,15 @@ folder that no longer exists; ignore those paths).
   Running: rest-B (8733), rest-C (8722), rest-D (8711: design a build + Home Assistant), packs-3 (8700). Briefs ready for
   the next slots: BRIEF-OFFLINE-DEFAULT (⑥b, Opus), BRIEF-REST-E (converter + documents + rights-and-law, Opus). After
   everything: the UI depth pass (Opus, last). Themes and Cinematic HELD for his opinion.
+- 1 Nov 13:00 UK: THE PUSH WAS BLOCKED by GitHub's push protection: the social test's fake Discord bot token matched the
+  real pattern (`[MN]…24.6.27+`). Fixed by rewriting the 29 unpushed commits (git filter-branch, tree filter on that one
+  line) so no pushed diff ever held it; the token is now `fake-bot-token-for-tests-only.middle.not-a-real-…`, which still
+  passes the code's own shape check. RULE: a fake token in a test must never match a real provider's pattern (start it
+  with words). CONSEQUENCE for the builders that branched from the old history: their bases were rewritten — old 24c7aa9 →
+  98f04cd (rest-C), e425869 → cf5cee2 (rest-D), a59329d → 0e5c28a (packs-3); integrate each with `git rebase --onto <new>
+  <old> <worktree-branch>` (their own commits replay; never a plain merge, which would drag the old blob back in).
+  rest-B's base 3879ae2 is in the pushed history: a normal merge. The old→new map is in the session's scratchpad
+  (sha-map.txt). The packs spec's three-squats step failed once at load 11 and passed alone (167 s): load, as PACKS-2 said.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
