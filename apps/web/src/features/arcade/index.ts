@@ -175,6 +175,8 @@ export const arcadeTab: TabDef = {
   now() {
     return arcadeState.here.length ? `${arcadeState.here.length} on this phone` : '';
   },
+  /** Its card on the Learn hub (shell/hubcards.ts): LIVE while a game is playing. */
+  status: () => (arcadeState.playing ? 'LIVE' : 'READY'),
   mount(root) {
     const P = page(root, { tag: 'ARCADE', sub: 'Free classics, playing on this phone. No accounts, no adverts.', leftLabel: 'SHELF', rightLabel: 'ABOUT', stack: true });
     expose();

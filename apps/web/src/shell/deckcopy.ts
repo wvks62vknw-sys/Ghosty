@@ -44,7 +44,7 @@ export interface DeckScreen {
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
   ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench']],
-  ['Learn and plan', ['learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
+  ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
   ['Me', ['memory', 'settings', 'system', 'links', 'abilities']],
 ];
 
