@@ -4,8 +4,9 @@
 //     from our own words, tests/fixtures/zim) into the Cache API; OFFLINE and the file's own date; the search finds a
 //     title as he types, the article renders in its script-free frame with its picture from the file, a link opens
 //     another article in place, BACK, READ IT TO ME speaks (the voice stub); with the network off the search and the
-//     articles (zstd and xz) still work, and so does "offline wikipedia …" in the chat (its card's OPEN), and a "what is
-//     …?" the brain cannot be reached for offers the article; DELETE (after its UNDO bar) empties the store.
+//     articles (zstd and xz) still work, and so does "offline wikipedia black holes" in the chat (its card's OPEN), and
+//     "what is a volcano?", which the brain cannot be reached for, offers the article; DELETE (after its UNDO bar)
+//     empties the store.
 //  2. SIRI SHORTCUTS: ?say=what is a cat sends; ?do=open:lens opens the Lens; a stranger's link shows the sign-in and runs
 //     nothing; SETTINGS → SHORTCUTS: twelve ready ones, COPY, a link of his own made.
 //  3. MORSE: "SOS in morse" opens the sheet, PLAY plays it, a tapped letter is read.
