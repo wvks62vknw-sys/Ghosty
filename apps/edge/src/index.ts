@@ -7,6 +7,7 @@ import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { imageResponse } from './lens';
+import { zimPassthrough } from './zim';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -166,6 +167,9 @@ export default {
     const auth = await authenticate(req, env);
     if (!auth.ok) return json({ error: auth.reason, auth: true }, auth.status);
     if (url.pathname === '/api/proxy') return proxy(req, ctx);
+    // [resta] WIKIPEDIA, OFFLINE: the owner's phone fetches a Kiwix file a piece at a time through here (zim.ts), streamed
+    // and kept nowhere; the brain never reads it.
+    if (url.pathname.startsWith('/api/zim/')) return zimPassthrough(req, url.pathname.slice('/api/zim/'.length));
     const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
     const fwd = new Request(req);
     fwd.headers.set('x-ghosty-owner', auth.who);

@@ -19,6 +19,7 @@ import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
+import { wikiAsked } from '../wiki/words';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -36,6 +37,8 @@ export const LOCAL_ASKS = [
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   { id: 'shopping', test: (t: string) => shoppingAsked(t) },
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
+  // [resta] Wikipedia from the file on this phone (wiki/ask.ts), with no model
+  { id: 'wiki', test: (t: string) => !!wikiAsked(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

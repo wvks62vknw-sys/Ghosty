@@ -583,7 +583,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       }, undefined, shared, settings.get().cited);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
-    () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t)),
+    // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)
+    () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t).then((a) => import('../wiki/ask').then((w) => w.offlineWiki(t, a)).catch(() => a))),
     rescue,
   );
   lap.end();

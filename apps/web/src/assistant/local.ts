@@ -172,6 +172,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [resta] WIKIPEDIA, OFFLINE from the file on this phone (wiki/ask.ts): the first paragraph and a card that opens it; with no
+  // file here, "what does wikipedia say about …" (no "offline") is the brain's as before
+  async wiki(text, opts) {
+    const last = [...chat.get().entries].reverse().find((e) => e.kind === 'user')?.text ?? '';
+    const r = await import('../wiki/ask').then((w) => w.wikiTurn(text, last)).catch(() => null);
+    return r ? packAnswer(r, opts) : false;
+  },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

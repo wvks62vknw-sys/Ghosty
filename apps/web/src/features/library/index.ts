@@ -24,6 +24,7 @@ import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
+import { mountWiki } from '../../wiki/view';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
 const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
@@ -364,6 +365,10 @@ export const libraryTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.askrow', q, button('ASK', () => void search(), 'on')), sp.body);
     idle();
     P.left.append(sp.el);
+    // [resta] WIKIPEDIA, OFFLINE (wiki/view.ts): a Kiwix file kept on this phone, searched and read here with no signal
+    const wp = panel('WIKIPEDIA, OFFLINE', { grow: false, cls: 'wiki' });
+    mountWiki(wp);
+    P.left.append(wp.el);
 
     // ---- shelf
     const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
@@ -696,7 +701,8 @@ export const libraryTab: TabDef = {
     // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
     // himself, and the two things he does least, adding a book and the gadgets' manuals.
     sections(root, 'library', [
-      { id: 'ask', label: 'Ask', match: /^ASK/ },
+      // [resta] asking holds WIKIPEDIA, OFFLINE too (the row already has the six pills it can hold)
+      { id: 'ask', label: 'Ask', match: /^(ASK|WIKIPEDIA)/ },
       { id: 'shelf', label: 'Shelf', match: /^SHELF/ },
       { id: 'study', label: 'Self-study', match: /^SELF-STUDY/ },
       { id: 'fresh', label: 'Fresh today', match: /^FRESH/ },
