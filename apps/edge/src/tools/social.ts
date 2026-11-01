@@ -7,6 +7,7 @@
  */
 import { accountName, accountOf, ACCOUNT_IDS, notLinked, type Account } from '../../../../packages/shared/src/social';
 import { zoneOf } from '../guardstate';
+import { asData } from '../kernel/permissions';
 import { linkedAccounts, makeDraft, readAccount, readWords, statusWords, type SocialDeps } from '../social';
 import { arg, type Tool, type ToolContext } from './types';
 
@@ -24,14 +25,14 @@ export async function socialDepsOf(ctx: Pick<ToolContext, 'storage' | 'vault' | 
   return { storage: ctx.storage, vault: ctx.vault, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(ctx.storage), images: ctx.env.SITES ?? null };
 }
 
-/** The account he named, or the one he has linked when there is one; else why not. */
-async function pick(d: SocialDeps, a: Record<string, unknown>): Promise<Account | string> {
+/** The account he named, or the one he has linked when there is one; else why not, in his words. */
+async function pick(d: SocialDeps, a: Record<string, unknown>): Promise<{ account: Account } | { why: string }> {
   const named = accountOf(a.account);
   const linked = await linkedAccounts(d);
-  if (named) return linked.includes(named) ? named : notLinked(named);
-  if (linked.length === 1) return linked[0]!;
-  if (!linked.length) return notLinked('bluesky');
-  return `Which account: ${linked.map(accountName).join(', ')}?`;
+  if (named) return linked.includes(named) ? { account: named } : { why: notLinked(named) };
+  if (linked.length === 1) return { account: linked[0]! };
+  if (!linked.length) return { why: notLinked('bluesky') };
+  return { why: `Which account: ${linked.map(accountName).join(', ')}?` };
 }
 
 export const socialTools: Tool[] = [
@@ -62,12 +63,14 @@ export const socialTools: Tool[] = [
       if (ctx.unattended && !READS.includes(action)) throw new Error(`social ${action} waits for him: a post or a follow is never drafted from a scheduled task`);
       const d = await socialDepsOf(ctx);
       if (action === 'status') return statusWords(d);
-      const acc = await pick(d, a);
-      if (typeof acc === 'string') return acc;
+      const picked = await pick(d, a);
+      if ('why' in picked) return picked.why;
+      const acc = picked.account;
       if (action === 'read' || action === 'search') {
         const q = action === 'search' ? arg.str(a, 'query', false).trim().slice(0, 120) : '';
         if (action === 'search' && !q) return 'Search for what? Give the words to look for.';
-        return readWords(acc, await readAccount(d, acc, q), d.tz, q);
+        // other people's posts: data to read, never instructions (LOYALTY)
+        return asData(`${accountName(acc)}: ${q ? 'public posts' : 'his timeline'}`, readWords(acc, await readAccount(d, acc, q), d.tz, q));
       }
       const undo = a.undo === true || String(a.undo) === 'true';
       const r =

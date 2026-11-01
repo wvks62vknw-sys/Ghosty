@@ -120,6 +120,7 @@ const TOOL_LABELS: Record<string, string> = {
   ship_change: 'Shipping the change',
   restore_version: 'Rolling back',
   vehicle_check: 'Checking a vehicle',
+  social: 'Your accounts', // [social] a draft, a read or a search of his own accounts (BRIEF-SOCIAL)
 };
 
 const label = (name: string, args: Record<string, unknown>) => {

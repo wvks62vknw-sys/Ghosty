@@ -173,7 +173,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
       return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
     }
     // [social] After social: what it read or drafted, as it came (authors and times; never "posted" for a draft).
-    if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
+    if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").

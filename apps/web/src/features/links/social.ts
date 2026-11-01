@@ -4,7 +4,8 @@
  * password), checked by the brain signing in, and kept in its vault (apps/edge/src/social). Linked, a panel says who it is
  * and what to ask, with UNLINK. Every post, follow and unfollow still waits for his APPROVE on a draft card.
  */
-import { ACCOUNTS, type Account } from '../../../../../packages/shared/src/social';
+import { ACCOUNTS, draftCard, type Account } from '../../../../../packages/shared/src/social';
+import { draftEl } from './drafts';
 import { brain, type SocialInfo } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
@@ -125,7 +126,10 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
     clear(p.body);
     p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'OFFLINE', who ? 'ok' : 'mid');
     if (who && !editing.has(a.id)) {
+      // drafts for this account still waiting (made on Telegram or Discord, or an earlier chat): answered here too
+      const waiting = (info?.drafts ?? []).filter((x) => x.account === a.id && (x.state === 'waiting' || x.state === 'failed') && Date.now() <= x.expires);
       p.body.append(
+        ...(waiting.length ? [h('div.lab', 'WAITING FOR YOUR APPROVE'), ...waiting.map((x) => draftEl(draftCard(x), () => void paint()))] : []),
         row('ACCOUNT', who),
         h('div.note', f.ask),
         ...(f.more?.() ?? []),

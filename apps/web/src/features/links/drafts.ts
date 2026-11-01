@@ -31,7 +31,7 @@ function noteSent(d: Draft, said: string): void {
   chat.set((s) => ({ entries: [...s.entries, user, step, reply].slice(-120) }));
 }
 
-async function approve(d: Draft, b: HTMLButtonElement): Promise<void> {
+async function approve(d: Draft, b: HTMLButtonElement, after?: () => void): Promise<void> {
   b.disabled = true;
   try {
     const r = await brain.socialApprove(d.id);
@@ -45,10 +45,11 @@ async function approve(d: Draft, b: HTMLButtonElement): Promise<void> {
     toast(`Not sent: ${String((e as Error).message ?? e)}`, 'bad');
   } finally {
     b.disabled = false;
+    after?.();
   }
 }
 
-async function refuse(d: Draft): Promise<void> {
+async function refuse(d: Draft, after?: () => void): Promise<void> {
   try {
     const r = await brain.socialNo(d.id);
     if (r.card) patchCard(r.card);
@@ -56,10 +57,11 @@ async function refuse(d: Draft): Promise<void> {
   } catch (e) {
     toast(String((e as Error).message ?? e), 'bad');
   }
+  after?.();
 }
 
 /** EDIT: the words (and a picture's words) in a sheet; SAVE keeps it a draft, waiting for APPROVE. */
-function edit(d: Draft): void {
+function edit(d: Draft, after?: () => void): void {
   const max = accountInfo(d.account).max;
   const box = h('textarea.drbox', { rows: '6', 'aria-label': 'The words of the post' }) as HTMLTextAreaElement;
   box.value = d.text;
@@ -85,6 +87,7 @@ function edit(d: Draft): void {
       patchCard(r.card);
       m.close();
       toast('Changed: it still waits for your APPROVE.', 'ok');
+      after?.();
     } catch (e) {
       msg.textContent = String((e as Error).message ?? e);
     } finally {
@@ -99,8 +102,11 @@ function edit(d: Draft): void {
 /** A button VoiceOver reads by what it does. */
 const named = (b: HTMLButtonElement, label: string): HTMLButtonElement => (b.setAttribute('aria-label', label), b);
 
-/** The draft's card in the chat: the words in full, the account, its state, and APPROVE · EDIT · NO while it waits. */
-export function draftEl(c: Card): HTMLElement {
+/**
+ * The draft's card in the chat: the words in full, the account, its state, and APPROVE · EDIT · NO while it waits. `after`:
+ * what to do once he has answered (LINKS repaints its list of drafts made on Telegram or Discord).
+ */
+export function draftEl(c: Card, after?: () => void): HTMLElement {
   const d = c.draft!;
   const live = (d.state === 'waiting' || d.state === 'failed') && Date.now() <= d.expires;
   const where = accountInfo(d.account).name;
@@ -108,9 +114,9 @@ export function draftEl(c: Card): HTMLElement {
   const acts = live
     ? h(
         'div.ccacts.dracts',
-        named(button('APPROVE', (b) => void approve(d, b), 'on'), `Approve: ${d.kind === 'post' ? `post this on ${where}` : `${d.kind} on ${where}`}`),
-        ...(d.kind === 'post' ? [named(button('EDIT', () => edit(d)), 'Edit the words')] : []),
-        named(button('NO', () => void refuse(d), 'warn'), 'No: drop it, nothing goes out'),
+        named(button('APPROVE', (b) => void approve(d, b, after), 'on'), `Approve: ${d.kind === 'post' ? `post this on ${where}` : `${d.kind} on ${where}`}`),
+        ...(d.kind === 'post' ? [named(button('EDIT', () => edit(d, after)), 'Edit the words')] : []),
+        named(button('NO', () => void refuse(d, after), 'warn'), 'No: drop it, nothing goes out'),
       )
     : null;
   for (const b of acts?.querySelectorAll('button') ?? []) {
