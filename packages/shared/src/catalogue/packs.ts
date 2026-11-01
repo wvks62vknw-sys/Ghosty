@@ -16,10 +16,10 @@ export const PACK_WORDS: Record<string, CatValue> = {
     say: ['How did my month go?', 'What did I spend most on this month?'], scene: ['money'], cat: 'watch', needs: ['statement'], since: SINCE,
   },
   'phrase:statement': {
-    name: 'Paste a bank statement', line: 'You can paste a bank statement in the chat, its CSV or the text from its PDF, and I sort your month.',
+    name: 'Paste a bank statement', line: 'You can paste a bank statement, its CSV or the text from its PDF, or pick the file, and I sort your month.',
     more: 'It goes straight to your brain and is read by code, with a table of rules: no AI sees it, not even the shop names. The chat shows only that a statement came.',
-    say: ['(paste the statement in the chat)'], scene: ['money'], cat: 'watch', since: SINCE,
-    go: { ask: 'My statement:\n', send: false }, tryText: 'Starts a message in the chat box: paste the statement under it',
+    say: ['Paste a statement', '(paste the statement in the chat)'], scene: ['money'], cat: 'watch', since: SINCE,
+    go: { run: 'open_money' }, tryText: 'Opens the box to paste it in',
   },
   'act:money:spent': {
     name: 'Keep what you spent', line: 'You can tell me what you spent, like "spent 12 on lunch", and I keep it for the week.',

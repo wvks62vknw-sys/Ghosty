@@ -72,8 +72,25 @@ const money = (s: string): number => {
   return neg ? -n : n;
 };
 
+/**
+ * A statement squashed onto one line (the chat box is one line: a paste loses its line breaks, to spaces or to nothing):
+ * a line break put back before each row's date (or a Monzo row's id) that follows an amount, and after a header glued to
+ * its first row. Text that already has its lines is left as it is.
+ */
+export function unflatten(text: string): string {
+  if (/\n/.test(text.trim()) || text.length < 60) return text;
+  const DATE = '(?:\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{2,4}|\\d{1,2}\\s+[A-Z][a-z]{2}(?:\\s+\\d{2,4})?|\\d{4}-\\d\\d-\\d\\d)';
+  return text
+    .replace(new RegExp(`(\\d\\.\\d{2}(?:\\s?(?:CR|DR))?)\\s*(?=${DATE}\\s*[,;\\t ]\\s*\\S)`, 'g'), '$1\n')
+    .replace(/([A-Za-z)"])\s*(?=\d{1,2}\/\d{1,2}\/\d{2,4}\s*,)/g, '$1\n')
+    .replace(/(\S)\s*(?=tx_[0-9A-Za-z]{6,},)/g, '$1\n')
+    // a PDF's row with no date of its own (the bank printed the day once): it starts after the amount and balance before it
+    .replace(/(\d\.\d{2}\s+-?[\d,]+\.\d{2}(?:\s?(?:CR|DR))?)\s+(?=[A-Z][A-Z'&.]{2,}\b)/g, '$1\n');
+}
+
 /** A CSV statement (spending.ts readStatement) or a statement's text: whichever reads; throws in plain words when neither does. */
-export function readAnyStatement(text: string, year?: string): Statement {
+export function readAnyStatement(raw: string, year?: string): Statement {
+  const text = unflatten(raw);
   try {
     const st = readStatement(text);
     if (st.rows.length) return st;
@@ -95,7 +112,7 @@ const csvRow = (l: string): boolean => (l.match(/[,;\t]/g) ?? []).length >= 2 &&
 
 /** Pasted words that are a statement (three or more dated lines with an amount, or CSV rows): the phone reads them, never a model. */
 export function looksLikeStatement(text: string): boolean {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const lines = unflatten(text).split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 3) return false;
   return lines.filter((l) => (datedLine(l) && /\d\.\d{2}\b/.test(l)) || csvRow(l)).length >= 3;
 }

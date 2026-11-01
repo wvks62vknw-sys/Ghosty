@@ -1,6 +1,6 @@
 /**
  * VOICE TIMERS (BRIEF-PACKS-1 item 3): "timer 8 minutes for the pasta", several at once, each named, on the phone's own
- * clock — kept in this phone's storage by their end times, so a reload carries on. When one ends it rings: a sound
+ * clock (clockNow) — kept in this phone's storage by their end times, so a reload carries on. When one ends it rings: a sound
  * (made by the phone, no file), a buzz, the words said, and a card in the chat; it rings for a minute or until STOP.
  * They ring while Ghosty is open (a phone web app cannot ring from the lock screen: a reminder can). The words are read
  * by packages/shared/src/kitchen.ts timerAsked; the brain's kitchen tool sends the same timers here (kitchen_timer).
@@ -22,6 +22,8 @@ export interface Timer {
 }
 
 const KEY = 'ghosty:timers';
+/** The phone's clock. The specs move it on (window.__ghostyClockOffset in ms, honoured only under a test runner) to make a timer ring. */
+export const clockNow = (): number => Date.now() + (navigator.webdriver ? Number((window as unknown as { __ghostyClockOffset?: number }).__ghostyClockOffset) || 0 : 0);
 const RING_MS = 60_000;
 let list: Timer[] = load();
 let tick = 0;
@@ -45,14 +47,14 @@ const keep = () => {
 };
 
 /** The timers now, with the seconds left on each (for the sheet and the specs: window.__ghosty.kitchen.timers). */
-export const timersNow = (now = Date.now()) => list.filter((t) => !t.done).map((t) => ({ id: t.id, name: t.name, left: Math.max(0, Math.ceil((t.end - now) / 1000)), ringing: !!t.ringing }));
+export const timersNow = (now = clockNow()) => list.filter((t) => !t.done).map((t) => ({ id: t.id, name: t.name, left: Math.max(0, Math.ceil((t.end - now) / 1000)), ringing: !!t.ringing }));
 export const onTimers = (f: () => void): (() => void) => (listeners.add(f), () => listeners.delete(f));
 const changed = () => {
   keep();
   for (const f of listeners) f();
 };
 
-export function startTimers(add: { secs: number; name: string }[], now = Date.now()): Timer[] {
+export function startTimers(add: { secs: number; name: string }[], now = clockNow()): Timer[] {
   unlockAudio();
   const made = add.map((t) => ({ id: Math.random().toString(36).slice(2, 8), name: t.name || 'timer', secs: t.secs, end: now + t.secs * 1000 }));
   list = [...list.filter((t) => !t.done), ...made];
@@ -80,7 +82,7 @@ function run(): void {
   tick = window.setInterval(step, 250);
 }
 function step(): void {
-  const now = Date.now();
+  const now = clockNow();
   for (const t of list) {
     if (t.done) continue;
     if (!t.ringing && now >= t.end) ring(t, now);

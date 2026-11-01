@@ -31,7 +31,7 @@ import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { bodyTurn, kitchenTurn, statementTurn, type PackReply } from './packs';
+import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
 import { speak } from './voice';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
@@ -163,7 +163,7 @@ type Opts = { voice?: boolean; private?: boolean };
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
-  statement: async (text, opts) => packAnswer(await statementTurn(text), opts),
+  statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),

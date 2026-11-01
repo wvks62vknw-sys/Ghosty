@@ -51,6 +51,21 @@ test('a statement copied out of a PDF is read in code: dates, words, money in an
   assert.throws(() => S.readAnyStatement('hello\nthere'), /doesn’t look like a statement/);
 });
 
+test('a statement squashed onto one line (the chat box is one line: a paste loses its breaks) is put back together', () => {
+  const LLOYDS_CSV = readFileSync(new URL('./spending/lloyds.csv', import.meta.url), 'utf8');
+  for (const [name, text] of [['Monzo', MONZO], ['Lloyds CSV', LLOYDS_CSV], ['Lloyds PDF text', LLOYDS_PDF]]) {
+    const whole = S.readAnyStatement(text).rows.map((r) => `${r.d} ${r.a}`);
+    for (const [how, flat] of [['spaces', text.replace(/\r?\n/g, ' ')], ['nothing', text.replace(/\r?\n/g, '')]]) {
+      if (name === 'Lloyds PDF text' && how === 'nothing') continue; // a PDF's text always comes with spaces
+      assert.ok(S.looksLikeStatement(flat), `${name}, breaks to ${how}: still a statement`);
+      const rows = S.readAnyStatement(flat).rows.map((r) => `${r.d} ${r.a}`);
+      // every dated row back (a PDF's undated line under a dated one can only join its neighbour)
+      assert.ok(whole.filter((x) => rows.includes(x)).length >= whole.length - 1, `${name}, breaks to ${how}: ${rows.length} of ${whole.length}`);
+    }
+  }
+  assert.equal(S.unflatten('a short line'), 'a short line');
+});
+
 test('the categoriser’s rule table sorts a statement’s lines by their words (his own rule first)', () => {
   const { rows, unplaced } = S.categorise(S.readStatementText(LLOYDS_PDF).rows);
   const by = Object.fromEntries(rows.map((r) => [r.t.split(' ')[0], r.c]));

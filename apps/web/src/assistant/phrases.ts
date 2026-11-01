@@ -25,7 +25,7 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 
 export const LOCAL_ASKS = [
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
-  { id: 'statement', test: (t: string) => looksLikeStatement(t) },
+  { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
   { id: 'run', test: (t: string) => bodyAsked(t)?.what === 'run' },

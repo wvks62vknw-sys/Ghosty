@@ -83,6 +83,31 @@ test('a pack group: off, its short name and nothing else; on, its about line des
   }
 });
 
+test('the three packs (money, body, kitchen): off on small talk as two words each, on by his words with every action described', () => {
+  const packs = Object.fromEntries(T.TOOL_GROUPS.filter((g) => g.short).map((g) => [g.name, g]));
+  assert.deepEqual(Object.keys(packs).sort(), ['body', 'kitchen', 'money']);
+  const plain = P.systemPrompt(client, [], true, [], { groups: T.selectGroups('hello', new Set(), false) });
+  for (const line of ['money pack', 'body pack', 'kitchen pack']) assert.match(plain, new RegExp(`^${line}$`, 'm'));
+  assert.ok(!/\b(?:fuel|warranty|breathe|leftovers)\b/.test(plain.slice(plain.indexOf('ALSO (call by name)'))), 'off: no action named');
+  const on = {
+    money: ['how much have I spent this week?', 'cheapest petrol near dad', 'watch the price of this kettle', 'payday is the 28th', 'split the bill between 3'],
+    body: ['count my push-ups', 'how did I sleep this week?', 'I weigh 82 kg', 'remind me to drink water', 'start a run'],
+    kitchen: ['what can I make with chicken and rice', 'timer 8 minutes for the pasta', 'add milk to the shopping list', 'fan 180 in gas mark', 'the spinach is going off'],
+  };
+  for (const [name, asks] of Object.entries(on)) {
+    for (const t of asks) {
+      const g = T.selectGroups(t, new Set(), false);
+      assert.ok(g.on.some((x) => x.name === name), `"${t}" turns the ${name} pack on`);
+      const sys = P.systemPrompt(client, [], true, [], { groups: g });
+      assert.ok(sys.includes(`- ${packs[name].about}`), `"${t}": the ${name} pack described`);
+      assert.ok(!new RegExp(`^${name} pack$`, 'm').test(sys), `"${t}": described, not named`);
+    }
+  }
+  for (const t of ['hello', 'what time is it', 'how are you', 'thanks']) assert.ok(!T.selectGroups(t, new Set(), false).on.some((x) => x.short), `"${t}" leaves every pack off`);
+  // a pack the conversation already used stays on
+  assert.ok(T.selectGroups('and the other one?', new Set(['kitchen']), false).on.some((x) => x.name === 'kitchen'));
+});
+
 test('LOYALTY is verbatim, and the persona, STYLE, TIMES, PICTURES, WORK IN CHAINS, context and memory are there', () => {
   const sys = P.systemPrompt({ name: 'Sam', now: 'Fri 17 Oct 14:05', tz: 'Europe/London' }, [{ id: 'a', text: 'likes tea', at: 1 }], false, [], { groups: T.selectGroups('hi', new Set(), false) });
   for (const line of [

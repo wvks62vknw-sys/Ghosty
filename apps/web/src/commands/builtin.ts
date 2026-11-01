@@ -419,6 +419,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs] THE MONEY PACK's statement box (features/money): a statement pasted or picked, to my brain by the rules only.
+      id: 'open_money',
+      title: 'Money: paste a statement',
+      group: 'GO',
+      run: async () => {
+        const { openMoney } = await import('../features/money');
+        openMoney();
+      },
+    },
+    {
       // [packs] THE KITCHEN PACK's sheets (features/kitchen): the timers, the shopping list, the week's meal plan.
       id: 'open_kitchen',
       title: 'Kitchen: timers, shopping list, meal plan',

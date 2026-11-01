@@ -10,7 +10,7 @@
  *    "fan 180 in conventional?" answered here.
  */
 import type { Card } from '../../../../packages/shared/src/cards';
-import { monthCard, monthWords } from '../../../../packages/shared/src/money';
+import { monthCard, monthWords, unflatten } from '../../../../packages/shared/src/money';
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { brain } from '../api/brain';
@@ -25,8 +25,17 @@ export interface PackReply {
 
 const prevMonth = (m: string) => (m.slice(5, 7) === '01' ? `${+m.slice(0, 4) - 1}-12` : `${m.slice(0, 4)}-${String(+m.slice(5, 7) - 1).padStart(2, '0')}`);
 
+/** "paste a statement": the box that keeps a statement's lines (features/money); a statement itself: read at once. */
+export const PASTE_ASK = /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i;
+export async function statementOrBox(text: string): Promise<PackReply> {
+  if (!PASTE_ASK.test(text.trim())) return statementTurn(text);
+  const { openMoney } = await import('../features/money');
+  openMoney();
+  return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only, read by code.' };
+}
+
 export async function statementTurn(text: string): Promise<PackReply> {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim()).length;
+  const lines = unflatten(text).split(/\r?\n/).filter((l) => l.trim()).length;
   const said = `A statement pasted (${lines} lines): read in code on its way to my brain, never shown to a model.`;
   try {
     const r = await brain.spendingImport(text, true);
@@ -90,7 +99,7 @@ export async function kitchenTurn(text: string): Promise<PackReply> {
     return { said: text, reply: n ? `Stopped ${n === 1 ? (ask.stop ? `the ${ask.stop} timer` : 'the timer') : `${n} timers`}.` : 'No timer by that name.' };
   }
   const made = t.startTimers(ask.start);
-  const at = (x: { end: number }) => new Date(x.end).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const at = (x: { end: number }) => new Date(x.end - (t.clockNow() - Date.now())).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return {
     said: text,
     reply: `Set: ${made.map((x) => `${x.name} ${mmss(x.secs)} (rings at ${at(x)})`).join(', ')}. A sound and a buzz when ${made.length === 1 ? 'it’s' : 'each is'} done, while Ghosty is open.`,
