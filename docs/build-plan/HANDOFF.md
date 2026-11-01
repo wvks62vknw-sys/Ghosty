@@ -1126,6 +1126,12 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 12:10 UK: SOCIAL MERGED (24c7aa9; OWNER-ISSUES 109). Specs social/deck/character/cards/routec run on the merged
   tree (val8); if green it joins PR #50 while its checks are young. Running: packs-2 (8766), rest-A (8744, final tests),
   rest-B (8733), rest-C (8722: liveness, hand blueprints, TV mode). Themes and Cinematic stay HELD for his opinion.
+- 1 Nov 12:50 UK: REST-A MERGED (7851a18; OWNER-ISSUES 110) and PACKS-2 MERGED (bd8ff25 + the prompt's 5 at d73bb0e; 111). Both
+  the social and packs-2 batches trimmed the same "full" — when two batches trim the prompt, re-run the prompt test after
+  the merge and pay the difference once. Pushing to PR #50 now (its run was 11:54: one restart, three batches more in it).
+  Running: rest-B (8733), rest-C (8722), rest-D (8711: design a build + Home Assistant), packs-3 (8700). Briefs ready for
+  the next slots: BRIEF-OFFLINE-DEFAULT (⑥b, Opus), BRIEF-REST-E (converter + documents + rights-and-law, Opus). After
+  everything: the UI depth pass (Opus, last). Themes and Cinematic HELD for his opinion.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
