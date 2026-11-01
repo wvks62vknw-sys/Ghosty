@@ -26,6 +26,11 @@ export interface MeterDay {
   /** The cloud's answers by provider ("groq", "gemini" …) and by what they were for. */
   c: Record<string, number>;
   a: Partial<Record<Ask, number>>;
+  /**
+   * By kind of ask (apps/web/src/offline/trust.ts `categorise`: greetings, sums, … or `cloud`): `n` answered, `o` of
+   * them on his own brains. Phone only: never in the brain's copy.
+   */
+  g?: Record<string, { n: number; o: number }>;
 }
 
 export interface MeterWeek {
@@ -53,19 +58,40 @@ export function whereFrom(model = ''): { where: Where; provider?: string } {
 export const askOf = (o: { tool?: boolean; length?: number }): Ask => (o.tool ? 'live' : (o.length ?? 0) >= 600 ? 'long' : 'chat');
 
 /** One answer into the days (a new list; the day made when it is its first), the oldest dropped past KEEP_DAYS. */
-export function addAnswer(days: MeterDay[], day: string, model: string | undefined, o: { kept?: boolean; tool?: boolean; length?: number } = {}): MeterDay[] {
+export function addAnswer(days: MeterDay[], day: string, model: string | undefined, o: { kept?: boolean; tool?: boolean; length?: number; cat?: string } = {}): MeterDay[] {
   const { where, provider } = whereFrom(model);
-  const out = days.map((x) => (x.d === day ? { ...x, n: { ...x.n }, k: { ...(x.k ?? {}) }, c: { ...x.c }, a: { ...x.a } } : x));
+  const out = days.map((x) => (x.d === day ? { ...x, n: { ...x.n }, k: { ...(x.k ?? {}) }, c: { ...x.c }, a: { ...x.a }, ...(x.g ? { g: { ...x.g } } : {}) } : x));
   let t = out.find((x) => x.d === day);
   if (!t) out.push((t = { d: day, n: {}, k: {}, c: {}, a: {} }));
   t.n[where] = (t.n[where] ?? 0) + 1;
   if (o.kept) t.k![where] = (t.k![where] ?? 0) + 1;
+  if (o.cat) {
+    const g = (t.g ??= {});
+    const was = g[o.cat] ?? { n: 0, o: 0 };
+    g[o.cat] = { n: was.n + 1, o: was.o + (where === 'cloud' ? 0 : 1) };
+  }
   if (where === 'cloud') {
     t.c[provider!] = (t.c[provider!] ?? 0) + 1;
     const ask = askOf(o);
     t.a[ask] = (t.a[ask] ?? 0) + 1;
   }
   return out.sort((a, b) => a.d.localeCompare(b.d)).slice(-KEEP_DAYS);
+}
+
+/**
+ * An answer taken back (ASK THE CLOUD under one the phone gave first, apps/web/src/offline/trust.ts): the ask is counted
+ * where it was answered in the end, so it comes off that day's own count and its kind's. Nothing to take: unchanged.
+ */
+export function dropAnswer(days: MeterDay[], day: string, model: string | undefined, o: { kept?: boolean; cat?: string } = {}): MeterDay[] {
+  const { where } = whereFrom(model);
+  return days.map((x) => {
+    if (x.d !== day || !(x.n[where] ?? 0)) return x;
+    const y: MeterDay = { ...x, n: { ...x.n, [where]: x.n[where]! - 1 }, ...(x.g ? { g: { ...x.g } } : {}) };
+    if (o.kept && x.k?.[where]) y.k = { ...x.k, [where]: x.k[where]! - 1 };
+    const g = o.cat ? y.g?.[o.cat] : undefined;
+    if (g && g.n > 0) y.g![o.cat!] = { n: g.n - 1, o: Math.max(0, g.o - (where === 'cloud' ? 0 : 1)) };
+    return y;
+  });
 }
 
 const noon = (d: string) => Date.parse(`${d}T12:00:00Z`);

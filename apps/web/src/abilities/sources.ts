@@ -53,6 +53,7 @@ export const CHAT_CONTROLS = [
   { id: 'rate', sel: '.rateb' },
   { id: 'harder', sel: '.thinkbtn' },
   { id: 'bigbrain', sel: '.bigbrain' },
+  { id: 'askcloud', sel: '.askcloud' }, // [offline2] under an answer the phone gave first (offline/trust.ts)
 ] as const;
 
 /** What works on every screen. */

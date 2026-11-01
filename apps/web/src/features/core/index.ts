@@ -3,7 +3,8 @@
  */
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
-import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, askCloud, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
@@ -186,7 +187,9 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number):
     const read = voiceIn(to) ? button('READ ALOUD', () => void speakIn(text, to), 'readaloud') : h('span.note.novoice', { dataset: { case: 'keep' } }, `No ${name} voice on this phone to read it aloud`);
     return h('div.msg.off.tr', whoLine(undefined, false, 'on your phone'), h('small', `GHOSTY · ${name.toUpperCase()}`), h('b.trhead', `${name} · rough, offline`), h('div.trtext', { lang: to, dir: to === 'ar' || to === 'ur' || to === 'fa' ? 'rtl' : 'auto' }, text || '…'), text ? h('div.row.wrap.tracts', read) : null, h('span.offchip', OFFLINE_TRANSLATION_NOTE));
   }
-  // Answered by the small model on the phone itself: one quiet chip says so.
+  // Answered by the small model on the phone itself: one quiet chip says so. [offline2] Answered FIRST on it (its kind
+  // trusted, offline/trust.ts): "on this phone", and the grade that earned it.
+  if (e.offline && e.first) return h('div.msg.off.first', whoLine(undefined, false, 'on this phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', `On this phone: ${CAT_WORDS[e.first.cat].short} passed at ${e.first.pct}% on ${e.first.items} questions`));
   if (e.offline) return h('div.msg.off', whoLine(undefined, false, 'on your phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...citedReply(e.text, e.cited, linked));
@@ -247,6 +250,13 @@ function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   return box;
 }
 
+/** [offline2] ASK THE CLOUD under an answer the phone gave first (the log's and the reply card's): the same ask to the cloud. */
+function askCloudButton(at: number): HTMLButtonElement {
+  const b = button('ASK THE CLOUD', () => void askCloud(at), 'askcloud');
+  b.setAttribute('aria-label', 'Ask the cloud the same question: it leaves the phone');
+  return b;
+}
+
 /** `q`: the question this reply answers, when it is the latest answer (it gets THINK HARDER); `askedAt`: when it was asked. */
 function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
   switch (e.kind) {
@@ -260,6 +270,11 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       if (e.local) el.append(localRow(e) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
+      // [offline2] answered FIRST on this phone: ASK THE CLOUD, one tap; tapped, it stays above the cloud's answer, struck faintly
+      if (e.first) {
+        if (e.struck) el.classList.add('struck');
+        else if (e.text && ui.get().connected !== false) el.append(h('div.row.askrow', askCloudButton(e.at)));
+      }
       // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.
       const acts = h('div.rcacts');
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
@@ -672,7 +687,10 @@ export const coreTab: TabDef = {
     };
     const paintCapRate = () => {
       const last = chat.get().entries.at(-1);
-      clear(capRate, ...(chat.get().live && !ui.get().busy && last?.kind === 'assistant' && rateable(last) ? [rateRow(last)] : []));
+      const done = !!chat.get().live && !ui.get().busy && last?.kind === 'assistant';
+      clear(capRate, ...(done && rateable(last) ? [rateRow(last)] : []),
+        // [offline2] the reply card carries ASK THE CLOUD too, under an answer the phone gave first
+        ...(done && last.first && !last.struck && last.text && ui.get().connected !== false ? [h('div.row.askrow', askCloudButton(last.at))] : []));
     };
     ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
     chat.subscribe(paintLog);

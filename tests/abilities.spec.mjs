@@ -230,7 +230,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     if (sentAfter !== sentBefore + 1) problems.push(`TRY IT sent ${sentAfter - sentBefore} messages (want only the train's)`);
     await page.evaluate(() => { const b = document.querySelector('#cin'); if (b) b.value = ''; });
     // the chat's own controls are where the registry says (the reply ones once a reply is there)
-    const missingControls = await page.evaluate(() => (window.__ghosty.abilities.controls ?? []).filter((c) => c.sel && !['undo', 'harder', 'bigbrain'].includes(c.id) && !document.querySelector(c.sel)).map((c) => c.id));
+    const missingControls = await page.evaluate(() => (window.__ghosty.abilities.controls ?? []).filter((c) => c.sel && !['undo', 'harder', 'bigbrain', 'askcloud'].includes(c.id) && !document.querySelector(c.sel)).map((c) => c.id));
     if (missingControls.length) problems.push(`the chat's controls not found where the registry says: ${missingControls.join(', ')}`);
 
     // ---- from the deck: the Me group's Abilities card opens it

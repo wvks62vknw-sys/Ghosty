@@ -12,6 +12,8 @@
  *                                 An unfinished paper of the same subject from the last day is handed back to carry on.
  *   POST /school/answers        { paperId, answers: [{ id, given }], final?, model? } → saved; unless `final` is
  *                                 false, marked, the result kept and the stage checked (passed, moved up)
+ *   GET  /school/trust          → each brain's grade per kind of ask the phone may answer first, and on how many
+ *                                 held-out questions (trust.ts; the phone's TRUST and its router decide with his bar)
  *   GET  /school/paper/<id>     → the paper with its answers and mark schemes, his answers, marks and the marker's
  *                                 notes: only once it has been sat (the owner's spot check)
  *   POST /school/settings       { nightly } → the nightly school report on or off
@@ -41,6 +43,7 @@ import { practiceView } from './practice';
 import { fileRemote, gapBySubject, loadRemote, remoteStatus, remoteView, sitRemote } from './remote';
 import { fileResponse, loadAllOfficial, loadOfficial, officialById, officialKey, officialName, officialRow, officialTick, OFFICIAL, OFFICIAL_HOSTS, saveText, type OfficialRecord } from './official';
 import { hasPapers, makePaper, paperId, PAPER_SEED_FLOOR, PAPER_STAGES, stageName, type SchoolPaper } from './papers';
+import { trustView } from './trust';
 import { addNews, applyResult, ladder, latestFor, loadPaper, loadState, newsFor, nextUp, PAPER_PREFIX, reportLine, saveState, savePaper, type PaperRecord, type SchoolState, type Store } from './state';
 
 export interface SchoolDeps extends Store {
@@ -290,6 +293,9 @@ export async function handleSchool(req: Request, path: string, method: string, d
     });
     return json(await view(d, st));
   }
+
+  // [offline2] THE TRUST TABLE (trust.ts): each brain's grades per kind of ask, for the phone's TRUST and its router
+  if (path === '/school/trust' && method === 'GET') return json(await trustView(d, (await loadState(d)).results));
 
   // ---- part 2: banks and official papers ----
   if (path === '/school/official' && method === 'GET') {

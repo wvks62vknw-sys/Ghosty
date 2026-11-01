@@ -32,6 +32,7 @@ import { ratingAsked } from '../gym/chessrate';
 import { coachAsked } from '../coach/ask';
 import { shapesAsked } from '../hands/words';
 import { tvAsked } from '../tv/detect';
+import { INDEPENDENT_ASK } from '../offline/trust';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -69,6 +70,8 @@ export const LOCAL_ASKS = [
   { id: 'shapes', test: (t: string) => shapesAsked(t) },
   // [restc] "TV mode on" / "TV mode off": the big layout for a television (apps/web/src/tv)
   { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
+  // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
+  { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

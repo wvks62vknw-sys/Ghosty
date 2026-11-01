@@ -28,6 +28,8 @@ const GROUPS: Record<string, ListGroup[]> = {
   system: [
     { title: 'Brain', match: /^(KEYS|AI|GITHUB)/, foot: 'Keys are kept in your own Cloudflare account and never shown again once saved.' },
     { title: 'Data', match: /^(STORAGE|BACKUP)/ },
+    // [offline2] SYSTEM → INDEPENDENCE (features/system/independence.ts), matched here as in the screen's sections (Report card)
+    { title: 'Your own brains', match: /^INDEPENDENCE/, foot: 'How much of what you ask stays on this phone, kind by kind, and why the rest still goes to the cloud.' },
   ],
   links: [
     // (TELEGRAM CHANNEL is one of his social accounts, not the paired bot: without the lookahead the Accounts heading was drawn

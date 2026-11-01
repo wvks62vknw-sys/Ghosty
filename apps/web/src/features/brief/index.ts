@@ -9,6 +9,7 @@ import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../..
 import { go, type TabDef } from '../../shell/tabs';
 import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts } from './day';
 import { briefForesight } from './foresight';
+import { briefIndependence } from '../system/independence';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
@@ -30,6 +31,8 @@ export const briefTab: TabDef = {
     const say = h('p.brsay', { dataset: { case: 'keep' } });
     P.big.before(dateEl);
     P.sub.after(say);
+    // [offline2] the week's independence in one line, when a brain sits on the phone (features/system/independence.ts)
+    say.after(briefIndependence());
     let commuteWords = '';
     // The last weather is kept on the phone (today's only): opened offline, or with Open-Meteo down, the Brief
     // still shows the morning's forecast, marked with when it was fetched, instead of a blank top.
