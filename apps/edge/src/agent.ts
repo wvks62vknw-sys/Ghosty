@@ -82,7 +82,8 @@ import { offlineToolSpecs } from './selftrain/factory';
 import { weightsRoute } from './selftrain/weights';
 import { schoolDaily, schoolRoute } from './school'; // [school] the offline brain's school journey (school/index.ts)
 import { model3dRoute } from './model3d';
-import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
+import { CITED_PROMPT, citeAnswer, citedAsked, GIVEN, type Read } from './cited';
+import { findRights, RIGHTS_HEAD, rightsRead, rightsText } from './knowledge/rights';
 import { refusedWords } from '../../../packages/shared/src/refusal'; // [refusal]
 import { designRoute } from './tools/design';
 import { addSub, loadSubs, removeSub, vapidKeys } from './push';
@@ -1275,6 +1276,14 @@ export class GhostyAgent {
       } catch {
         /* the library is a bonus; never block a reply on it */
       }
+    }
+    // [reste] the rights-and-law base (knowledge/rights): its matching topics as the turn's data, the documents counted as
+    // read this turn, and the answer a cited one, so its SOURCES are checked against them and carry their tiers
+    const rights = code ? [] : findRights(text);
+    if (rights.length) {
+      prompt += `\n\n${RIGHTS_HEAD}\n${asData('your rights-and-law base', rightsText(rights))}`;
+      this.citedTurn = true;
+      this.turnRead.push(...rightsRead(rights).map((source) => ({ call: GIVEN, source })));
     }
     if (code) {
       const book = findPlaybooks(text, 1)[0];

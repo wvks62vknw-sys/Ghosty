@@ -86,7 +86,7 @@ export function myName(): string {
 }
 
 /**
- * After the brain's reply to "write a letter to …" (or an email, an essay, a report): a card under it that opens the
+ * After the brain's reply to "write a letter to my landlord" (or an email, an essay, a report): a card under it that opens the
  * reply as a document, laid out, with his name and the date where a letter wants them.
  */
 export function offerDocument(asked: string): void {

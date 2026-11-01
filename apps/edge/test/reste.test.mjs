@@ -37,6 +37,9 @@ const entries = [
   `${web}/docs/docx.ts`,
   `${web}/docs/layout.ts`,
   `${web}/docs/translit.ts`,
+  at('../src/knowledge/rights/index.ts'),
+  at('../src/cited.ts'),
+  at('../../../packages/shared/src/sources.ts'),
 ];
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/reste'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const load = (f) => import(`./.build/reste/${f}.mjs`);
@@ -55,6 +58,9 @@ const M = await load('apps/web/src/docs/model');
 const D = await load('apps/web/src/docs/docx');
 const Y = await load('apps/web/src/docs/layout');
 const R = await load('apps/web/src/docs/translit');
+const K = await load('apps/edge/src/knowledge/rights/index');
+const Cd = await load('apps/edge/src/cited');
+const Src = await load('packages/shared/src/sources');
 
 // the vendored libraries, as the phone loads them
 const pdfjs = await import(pathToFileURL(`${vendor}pdfjs/pdf.min.mjs`).href);
@@ -546,4 +552,82 @@ test('transliteration: each script to Latin, and back where the table is one-to-
   assert.equal(R.toLatin('שָׁלוֹם', 'hebrew'), 'šālōm');
   assert.equal(R.fromLatin('shalom', 'hebrew'), null, 'Hebrew does not come back one to one');
   assert.equal(R.THE_LINE, 'The sounds in Latin letters, not a translation.');
+});
+
+// ================================================================ 3. THE RIGHTS-AND-LAW TOPICS
+
+test('the rights-and-law base: every document read on the day, dated, on a primary or credible host with its tier from the sourcing code, none twice', () => {
+  const docs = K.rightsDocs();
+  assert.ok(docs.length >= 30, `${docs.length} documents`);
+  for (const d of docs) {
+    const at = `${d.topic}: ${d.url}`;
+    assert.ok(d.title && d.by && d.kind, `${at}: its title, publisher and kind`);
+    assert.ok(d.finding.length >= 60 && !/…/.test(d.finding), `${at}: a finding in full`);
+    assert.match(d.date, /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/, `${at}: a date`);
+    assert.ok(d.date <= '2026-11-01', `${at}: dated no later than it was read`);
+    assert.equal(d.checked, '2026-11-01', `${at}: checked`);
+    assert.match(d.url, /^https:\/\/[^\s]+$/);
+    assert.ok(['primary', 'credible'].includes(d.tier), `${at}: a primary or credible host (${d.tier})`);
+    assert.equal(d.tier, Src.tierOf(d.url), `${at}: the tier is the sourcing code's`);
+  }
+  const pairs = docs.map((d) => `${d.url} ${d.finding}`);
+  assert.equal(new Set(pairs).size, pairs.length, 'no two entries share an address and a finding');
+  assert.equal(new Set(K.RIGHTS.map((t) => t.id)).size, K.RIGHTS.length);
+  for (const t of K.RIGHTS.filter((x) => x.scope === 'uk')) assert.ok(K.contactsOf(t).length >= 1, `${t.id}: who to call`);
+  for (const c of K.CONTACTS) {
+    assert.match(c.number, /^0\d{3} \d{3} \d{4}$/, `${c.id}: a number`);
+    assert.ok(['primary', 'credible'].includes(Src.tierOf(c.url)), `${c.id}: read from a primary or credible page`);
+    assert.equal(c.checked, '2026-11-01');
+  }
+  // as strongly as the documents put it, and no more
+  const finding = (url) => docs.find((d) => d.url.startsWith(url))?.finding ?? '';
+  assert.match(finding('https://www.icc-cpi.int/news/situation-state-palestine'), /reasonable grounds to believe/);
+  assert.match(finding('https://news.un.org/en/story/2024/01/'), /temporary injunction ahead of a final decision/);
+  assert.match(finding('https://news.un.org/en/story/2024/07/'), /not legally binding/);
+  assert.match(finding('https://www.hrw.org/'), /may amount to the crime of genocide/);
+  assert.match(finding('https://www.supremecourt.gov/docket/'), /"Petition DENIED\."/);
+  assert.match(finding('https://www.ohchr.org/en/press-releases/2025/'), /the Commission’s finding, not a court’s judgment/);
+  assert.match(K.NOT_ADVICE, /^Not legal advice/);
+});
+
+test('retrieval: his question finds its topic and an everyday one or a writing ask finds none; the documents are the turn’s data, counted as read', () => {
+  const ids = (q) => K.findRights(q).map((t) => t.id);
+  assert.deepEqual(ids('What are my rights if the police stop and search me?'), ['stop-and-search']);
+  assert.equal(ids('can my landlord ignore the damp and mould in my flat?')[0], 'renting-repairs');
+  assert.equal(ids('how long can the police keep me in custody if I get arrested')[0], 'police-station');
+  assert.equal(ids('my son was excluded from school, can I appeal?')[0], 'school-exclusion');
+  assert.equal(ids('what is the minimum wage for a 17 year old')[0], 'work');
+  assert.equal(ids('how do I make a subject access request')[0], 'your-data');
+  assert.equal(ids('did the ICC issue an arrest warrant for Netanyahu?')[0], 'icc-warrants');
+  assert.ok(ids('is Israel committing genocide in Gaza?').includes('gaza-findings'));
+  assert.equal(ids('was there a client list in the Epstein files')[0], 'epstein');
+  assert.equal(ids('was Ghislaine Maxwell’s conviction upheld?')[0], 'epstein');
+  for (const q of ['my phone screen is broken', 'where is the nearest shop', 'what is the capital of France', 'write a letter to my landlord about the damp', 'DOCUMENT EDIT — make it shorter. [1] my landlord', 'it is damp outside today']) assert.deepEqual(ids(q), [], q);
+  assert.deepEqual(ids('is it legal for a shop to refuse a refund on something broken')[0], 'consumer', 'a weak word counts with a rights word');
+  // a topic with a matter finds his question only when it names the matter; the everyday words that share a name find none
+  for (const q of ['the model always refuses: is it genocide', 'war crimes in Sudan', 'genocide in Darfur', 'ICC cricket world cup fixtures', 'Forza Horizon 5 tips', 'what are Maxwell’s equations', 'Epstein-Barr virus symptoms', 'Epstein Barr virus symptoms', 'my bluetooth is disabled', 'how much of my data have I used this month', 'remind me to pay my landlord on Friday', 'where is the nearest police station', 'what did Netanyahu say today', 'the latest news from Gaza', 'what time does the post office close', 'is the exclusion zone still in place', 'is it illegal to fly a Palestinian flag', 'what is your occupation', 'what happened at the post office today', 'a divorce settlement', 'ring the landlord about the boiler', 'Right, I need to send the invoice to Mr Patel by Friday, also ring the landlord about the boiler', 'remind me to call the landlord about the damp', 'can you pay my landlord the rent']) assert.deepEqual(ids(q), [], q);
+  assert.equal(ids('can my landlord call me at night?')[0], 'renting-repairs', 'a question about him, not a job for me');
+  assert.deepEqual(ids('Is Israel committing genocide?').sort(), ['gaza-findings', 'icj-gaza'], 'the court’s orders beside the findings');
+  assert.equal(ids('is Israel’s occupation of the West Bank illegal?')[0], 'icj-gaza');
+  assert.equal(ids('can Putin be arrested if he travels?')[0], 'icc-warrants');
+  assert.equal(ids('were the Post Office Horizon convictions quashed?')[0], 'post-office-horizon');
+  assert.equal(ids('my landlord won’t fix the boiler')[0], 'renting-repairs');
+  assert.equal(ids('I’m disabled, what are my rights at work?')[0], 'disability');
+  assert.deepEqual(ids('My rights as a tenant'), ['renting-repairs', 'eviction'], 'the catalogue’s own example');
+  assert.equal(ids('can my landlord come in without asking?')[0], 'renting-repairs');
+  const topics = K.findRights('stop and search');
+  const text = K.rightsText(topics);
+  assert.match(text, /^TOPIC: Stopped and searched by the police/);
+  assert.match(text, /\[R1\] .*\(official guidance; PRIMARY\) https:\/\/www\.gov\.uk\//);
+  assert.match(text, /Not legal advice.*0300 020 0096/);
+  assert.match(K.RIGHTS_HEAD, /provisional order is not a judgment, an arrest warrant is not a conviction/);
+  // the cited pipeline counts them as read this turn (before any tool ran), each with its tier
+  const reads = K.rightsRead(topics).map((source) => ({ call: Cd.GIVEN, source }));
+  const src = Cd.turnSources([{ role: 'user', content: 'stop and search' }], reads);
+  assert.equal(src.length, reads.length);
+  assert.equal(src[0].tier, 'primary');
+  const { body, listed } = Cd.splitAnswer('You cannot say no if there are reasonable grounds [1].\n\nSOURCES\n[1] Stop and search — https://www.gov.uk/police-powers-to-stop-and-search-your-rights/police-powers-stop-search');
+  const m = Cd.matchCitations(body, listed, src);
+  assert.equal(m.citations[0].missing, undefined, 'the listed source is one read this turn');
+  assert.equal(m.citations[0].tier, 'primary');
 });

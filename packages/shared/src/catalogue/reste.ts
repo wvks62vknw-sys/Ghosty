@@ -26,6 +26,14 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_docs' }, tryText: 'Opens my documents',
   },
   'phrase:docs': { same: 'hub:docs' },
+  'panel:library:RIGHTS AND LAW': {
+    name: 'Your rights, from the documents',
+    line: 'You can open what the law and the courts actually say: your rights in the UK, and the rulings and findings in the news.',
+    more: 'Stopped and searched, at a police station, renting and eviction, things you buy, work, school exclusions, disability and your data, each from GOV.UK, the law itself, Citizens Advice, Shelter or the regulator, with who to call; and the ICJ’s orders, the ICC’s warrants and the UN commission’s findings, put exactly as strongly as each document does. Every document was read and dated, with a link to it. It is not legal advice.',
+    say: ['What are my rights if the police stop and search me?', 'What did the ICJ order about Gaza?', 'My rights as a tenant'],
+    scene: ['school', 'out', 'money'], cat: 'know', since: SINCE,
+    go: { open: 'library', panel: 'RIGHTS AND LAW' }, tryText: 'Opens rights and law',
+  },
   'phrase:units': {
     name: 'Units worked out instantly',
     line: 'You can ask me “3.5 miles in km” or “100 F in C”, and I answer on the phone with no AI.',

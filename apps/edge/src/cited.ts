@@ -77,6 +77,9 @@ export function sameUrl(url: string): string {
  * words up as another result with any address. The same address twice (found by a search, then
  * read) is one source with both texts.
  */
+/** [reste] The call id of what came with the turn itself, read before the model (the rights-and-law base's documents). */
+export const GIVEN = 'given';
+
 export function turnSources(ctx: Msg[], read: Read[]): Source[] {
   // (each with its tier: a library passage's was decided by the library tool; a web page's comes from its address)
   let from = ctx.length - 1;
@@ -85,7 +88,7 @@ export function turnSources(ctx: Msg[], read: Read[]): Source[] {
   for (const m of ctx.slice(Math.max(0, from))) if (m.role === 'assistant') for (const c of m.tool_calls ?? []) order.push(c.id);
   const found = read
     .map((r, i) => ({ ...r, at: order.indexOf(r.call), i }))
-    .filter((r) => r.at >= 0)
+    .filter((r) => r.at >= 0 || r.call === GIVEN)
     .sort((x, y) => x.at - y.at || x.i - y.i)
     .map((r) => r.source);
   const out: Source[] = [];

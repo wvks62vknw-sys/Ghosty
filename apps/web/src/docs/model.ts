@@ -302,7 +302,7 @@ export const contents = (d: Doc): { id: string; level: number; text: string }[] 
 
 // ---------------------------------------------------------------- from the chat
 
-/** "write a letter to my landlord about the damp", "draft an email to school", "write me an essay on …": a document ask. */
+/** "write a letter to my landlord about the damp", "draft an email to school", "write me an essay on the Romans": a document ask. */
 export const WRITE_ASK = /^(?:(?:can|could|would) you |please |ghosty,? )?(?:write|draft|compose|do|make)\s+(?:me\s+|us\s+)?(?:up\s+)?(?:a|an|the|my)\s+(?:short\s+|formal\s+|polite\s+|strong\s+|quick\s+)?(letter|email|e-mail|complaint|cover letter|covering letter|essay|report|cv|speech|statement|document|note|notice|reference|application|story|poem|article|summary|proposal|appeal)\b/i;
 export const writeAsked = (text: string): string | null => WRITE_ASK.exec(text.trim())?.[1]?.toLowerCase() ?? null;
 

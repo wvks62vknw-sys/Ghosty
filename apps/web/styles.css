@@ -5578,3 +5578,19 @@ body.demo #pair, body.demo #pairform { display: none !important; }
 .dccol .dcitem::before { content: '• '; }
 .dcasks, .dcexport { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .dcouts { display: flex; flex-direction: column; gap: 8px; }
+.rtsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.rtsheet > button, .rtgroup button, .rtlink { min-height: 44px; }
+.rtgroup { display: flex; flex-direction: column; gap: 8px; }
+.rttitle { margin: 4px 0 0; font: 700 21px/1.25 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.rtadvice { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(255,214,10,.12); font: 600 14px/1.45 var(--sf); color: var(--fg); }
+.rtdoc { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); min-width: 0; }
+.rthead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.rtwhen { font: 400 12px/1.35 var(--sf); color: var(--mute); overflow-wrap: anywhere; }
+.rtt { font: 600 15px/1.35 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.rtfinding { margin: 0; font: 400 15px/1.55 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.rtlink { display: inline-flex; align-items: center; align-self: flex-start; font: 600 13px/1 var(--sf); letter-spacing: .04em; color: var(--c, #0a84ff); text-decoration: none; }
+.rtcall { display: flex; flex-direction: column; gap: 8px; }
+.rtcontact { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.06); overflow-wrap: anywhere; }
+.rtcontact b { font: 600 14px/1.35 var(--sf); }
+.rtcontact a { font: 600 18px/1.4 var(--sf); color: var(--c, #0a84ff); text-decoration: none; min-height: 32px; }
+.rtcontact small { font: 400 13px/1.4 var(--sf); color: var(--mute); }

@@ -245,6 +245,40 @@ check(side, 'side by side on a wide screen');
 await page.setViewportSize(SIZE);
 await closeSheet();
 
+// ================================================================ 3. THE RIGHTS-AND-LAW TOPICS
+const RIGHTS_Q = 'What are my rights if the police stop and search me?';
+await say(RIGHTS_Q);
+const rightsReply = await replyTo(RIGHTS_Q, 60000);
+check(/reasonable grounds/i.test(String(rightsReply)) && /Not legal advice/.test(String(rightsReply)), `a rights question answered from the documents, not legal advice said: ${String(rightsReply).slice(0, 140).replace(/\n/g, ' ')}`);
+check(await until(page, (w) => {
+  const all = [...document.querySelectorAll('#pg-core .msg')];
+  const mine = all.map((m) => m.classList.contains('me') && (m.textContent ?? '').includes(w)).lastIndexOf(true);
+  const reply = all.slice(mine + 1).find((m) => !m.classList.contains('me') && m.querySelector('.csrc'));
+  return !!reply && [...reply.querySelectorAll('a.csrc')].some((a) => /gov\.uk/.test(a.getAttribute('href') ?? '') && /PRIMARY/.test(a.textContent ?? ''));
+}, RIGHTS_Q, 30000), 'its sources listed under it: GOV.UK’s page, tiered PRIMARY, linked');
+await page.screenshot({ path: `${out}/reste-rights-answer.png` });
+// the Library opens a topic as a page of its documents
+await page.evaluate(() => (location.hash = 'library'));
+await page.waitForSelector('#pg-library .pn.rights', { state: 'attached', timeout: 20000 });
+await openSection(page, 'library', 'Shelf');
+const rp = page.locator('#pg-library .pn.rights');
+await rp.scrollIntoViewIfNeeded();
+check((await rp.isVisible()) && /\d+ DOCS/.test((await rp.textContent()) ?? ''), 'RIGHTS AND LAW sits under the Library’s Shelf pill, its documents counted');
+await rp.locator('.rw', { hasText: 'Stopped and searched' }).click();
+await page.waitForSelector('.modal .rtsheet .rtdoc', { timeout: 10000 });
+const topic = await page.evaluate(() => ({
+  docs: document.querySelectorAll('.rtsheet .rtdoc').length,
+  tiers: [...document.querySelectorAll('.rtsheet .rtdoc .ctier')].map((e) => e.textContent),
+  links: [...document.querySelectorAll('.rtsheet .rtlink')].map((a) => a.getAttribute('href')),
+  advice: document.querySelector('.rtsheet .rtadvice')?.textContent ?? '',
+  call: document.querySelector('.rtsheet .rtcall')?.textContent ?? '',
+}));
+check(topic.docs >= 3 && topic.tiers.every((t) => t === 'PRIMARY' || t === 'CREDIBLE') && topic.links.every((l) => /^https:\/\//.test(l ?? '')), `a topic as a page of its documents, each tiered and linked: ${JSON.stringify(topic.tiers)}`);
+check(/^Not legal advice/.test(topic.advice) && /0300 020 0096/.test(topic.call), 'not legal advice, and who to call with the number');
+await looked(page, 'a rights topic');
+await page.screenshot({ path: `${out}/reste-rights-topic.png` });
+await closeSheet();
+
 check(!policy.length, `no security-policy refusal${policy.length ? `: ${policy[0]}` : ''}`);
 await browser.close();
 if (problems.length) {
