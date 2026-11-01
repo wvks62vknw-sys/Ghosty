@@ -22,7 +22,7 @@ import { doneLine, parseBuild, plan, type Plan, SAY, startLine, STRUCTURES, VOCA
 import { meshChunk, padChunk, type Part } from './mesh';
 import {
   AIR, BRICK, chunkKey, COLOURS, CX, CY, decodeSave, DIRT, encodeSave, GLASS, GOLD, GRASS, KIND_NAMES, LEAVES, LOG, PLANKS, SAND, SNOW,
-  SOLID, STONE, WATER, World, type WorldSave,
+  mulberry32, SOLID, STONE, WATER, World, type WorldSave,
 } from './world';
 
 /** What the harness reads (with the frame numbers). */
@@ -303,6 +303,38 @@ async function startVoxel(canvas: HTMLCanvasElement, _files: EngineFiles, intent
   dust.setColorAt(0, new T.Color(0xffffff)); // the instance colours exist from the first frame (no shader rebuild on the first dig)
   dust.count = 0;
   scene.add(dust);
+  // clouds: a tile of soft blocks high up, the same tile over and over (each cell's chance repeats with it, so no
+  // seam), four copies round him, drifting with the wind
+  const CLOUD_TILE = 384, CELL = 12, CN = CLOUD_TILE / CELL, CLOUD_Y = 58;
+  const cloudGeo = (() => {
+    const r = mulberry32(31337);
+    const v = Float32Array.from({ length: CN * CN }, () => r());
+    const at = (i: number, j: number) => v[(((j % CN) + CN) % CN) * CN + (((i % CN) + CN) % CN)]!;
+    const on = (i: number, j: number) => (at(i, j) * 4 + at(i + 1, j) + at(i - 1, j) + at(i, j + 1) + at(i, j - 1)) / 8 > 0.56;
+    const g = new Geo();
+    for (let j = 0; j < CN; j++) {
+      for (let i = 0; i < CN; i++) {
+        if (!on(i, j)) continue;
+        // the sides between two cloud cells are left out (a cloud is one soft mass)
+        const skip = (on(i + 1, j) ? 1 : 0) | (on(i - 1, j) ? 2 : 0) | (on(i, j + 1) ? 16 : 0) | (on(i, j - 1) ? 32 : 0);
+        g.box(i * CELL + CELL / 2, 0, j * CELL + CELL / 2, CELL, 3, CELL, 0xffffff, 40, skip);
+      }
+    }
+    return g.build(T);
+  })();
+  const clouds = [0, 1, 2, 3].map(() => {
+    const m = new T.Mesh(cloudGeo, dustMat);
+    m.frustumCulled = false;
+    scene.add(m);
+    return m;
+  });
+  let drift = 0;
+  const placeClouds = (cx: number, cz: number, dt: number) => {
+    drift = (drift + dt * 1.2) % CLOUD_TILE;
+    const ox = Math.floor((cx - drift) / CLOUD_TILE) * CLOUD_TILE + drift, oz = Math.floor(cz / CLOUD_TILE) * CLOUD_TILE;
+    const ox2 = ox + (cx - ox > CLOUD_TILE / 2 ? CLOUD_TILE : -CLOUD_TILE), oz2 = oz + (cz - oz > CLOUD_TILE / 2 ? CLOUD_TILE : -CLOUD_TILE);
+    [[ox, oz], [ox2, oz], [ox, oz2], [ox2, oz2]].forEach(([x, z], i) => clouds[i]!.position.set(x!, CLOUD_Y, z!));
+  };
   const dummy = new T.Object3D();
   const tint = new T.Color();
   const parts: Particle[] = [];
@@ -807,6 +839,7 @@ async function startVoxel(canvas: HTMLCanvasElement, _files: EngineFiles, intent
     }
     sunLight();
     applyLight(clock);
+    placeClouds(camera.position.x, camera.position.z, dt);
     // the dust
     let alive = 0;
     for (let i = parts.length - 1; i >= 0; i--) {
