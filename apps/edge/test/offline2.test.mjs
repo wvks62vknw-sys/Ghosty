@@ -199,11 +199,11 @@ test('the meter’s counts from a chat fixture: by where and by kind, the no-mod
     ['what is 17 × 23?', 'On this phone · worked out'],
     ['how do you spell necessary', 'On this phone · first'],
     ['what can you do?', 'On this phone · no model'],
-    ["what's the weather like?", 'groq · llama-3.3-70b-versatile'],
-    ['search for cheap flights to Rome', 'gemini · flash'],
+    ["what's the weather like?", 'groq · big'],
+    ['search for cheap flights to Rome', 'cerebras · quick'],
     ['tell me about black holes', 'Library on this device · offline'],
   ];
-  for (const [, model] of chat) assert.equal(I.whereFrom(model).where === 'cloud', /^(groq|gemini)/.test(model), model);
+  for (const [, model] of chat) assert.equal(I.whereFrom(model).where === 'cloud', /^(groq|cerebras)/.test(model), model);
   let days = [];
   for (const [ask, model] of chat) days = I.addAnswer(days, D, model, { cat: T.categorise(ask) });
   // last week, for the trend and the Brief's line: 48% on his own brains
