@@ -33,6 +33,8 @@ import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selft
 import { BIGGER, brainModels, brainOf, CHAIN, chainPick, closeLine, downloadFailure, FLOOR, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, rungOf, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
+import { ITEM_FLOOR, judgedFor, trust, type AskCat, type BrainTrust, type TrustCat } from './trust';
+import { headers } from '../api/brain';
 
 export type { OfflineMsg } from './prompt';
 export { modelJob, withModel, type ModelJob } from './lock';
@@ -1019,14 +1021,14 @@ export async function loadOffline(): Promise<void> {
 }
 
 /** Answer one message on this phone: the prompt (persona, memory, agenda, library, recent turns) and the streamed reply. */
-export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void): Promise<{ text: string; tokens: number; perSecond: number }> {
+export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void, opts: { first?: boolean } = {}): Promise<{ text: string; tokens: number; perSecond: number }> {
   // Made before the first wait, so a "stop" while the library is searched (or the model is busy) counts too.
   const ctl = new AbortController();
   replying = ctl;
   try {
     return await withModel('chat', async () => {
       if (ctl.signal.aborted) throw stopped();
-      return offlineReply(await offlinePrompt(question, recent), onToken, ctl.signal);
+      return offlineReply(await offlinePrompt(question, recent, undefined, opts.first), onToken, ctl.signal);
     });
   } finally {
     if (replying === ctl) replying = null;
@@ -1059,7 +1061,7 @@ export async function translateOffline(text: string, to: string, onToken: (t: st
  * The prompt an ordinary offline answer gets (persona, memory, agenda, the library's best passages, recent
  * turns); THINK HARDER uses it too, with a smaller `budget` (its prompts are asked several times).
  */
-export async function offlinePrompt(question: string, recent: { role: 'user' | 'assistant'; text: string }[], budget?: number): Promise<OfflineMsg[]> {
+export async function offlinePrompt(question: string, recent: { role: 'user' | 'assistant'; text: string }[], budget?: number, first = false): Promise<OfflineMsg[]> {
   // The library's best three by meaning when SEARCH BY MEANING is here and the index covers the library, else by keywords.
   // The meaning model leaves memory straight away: the brain is about to load, and a phone holds one comfortably.
   const found = await searchLocalHow(question, 3).catch(() => ({ hits: [], how: 'keywords' as const, unindexed: 0 }));
@@ -1076,6 +1078,7 @@ export async function offlinePrompt(question: string, recent: { role: 'user' | '
       recent,
       question,
       persona: settings.get().persona,
+      ...(first ? { first: true } : {}),
     },
     budget,
   );
@@ -1089,6 +1092,59 @@ export const lastPrompt = createStore({ how: '' as '' | 'meaning' | 'keywords', 
 
 /** The size of the model being used, for the settings panel. */
 export const offlineSize = (): number => currentModel().mb;
+
+// ---------------------------------------------------------------------------------------
+// [offline2] TRUST BY GRADE (offline/trust.ts): the brain's table, and whether this phone answers an ask FIRST
+// ---------------------------------------------------------------------------------------
+
+/** The key SCHOOL files this brain's papers under: its id and its weights' commit (as harder.ts `modelKey`, which SIT sends). */
+export const brainKey = (m: ModelDef = currentModel()): string => `${m.id}@${m.rev.slice(0, 7)}`;
+
+let trustAsked: Promise<void> | null = null;
+/**
+ * The trust table from the brain (SCHOOL's grades per brain, apps/edge/src/school/trust.ts): with the weekly training's
+ * check (trained.ts), when TRUST or INDEPENDENCE opens, and before a turn when older than `maxAge`. Quiet when the brain
+ * cannot be reached: the table kept here stands.
+ */
+export function syncTrust(maxAge = 0): Promise<void> {
+  if (Date.now() - trust.get().fetchedAt < maxAge) return Promise.resolve();
+  trustAsked ??= (async () => {
+    try {
+      const r = await fetch('/api/school/trust', { headers: headers(), credentials: 'same-origin' });
+      const j = r.ok ? ((await r.json()) as { brains?: BrainTrust[]; floor?: number }) : null;
+      if (j && Array.isArray(j.brains)) trust.set({ brains: j.brains.slice(0, 40), floor: typeof j.floor === 'number' ? j.floor : ITEM_FLOOR, fetchedAt: Date.now() });
+    } catch {
+      /* not reachable: the kept table stands */
+    } finally {
+      trustAsked = null;
+    }
+  })();
+  return trustAsked;
+}
+
+/** An answer the phone gives FIRST: the kind, its grade and on how many questions, and the brain's key (for a miss). */
+export interface First {
+  cat: TrustCat;
+  pct: number;
+  items: number;
+  model: string;
+}
+
+/**
+ * Whether this kind of ask is answered on the phone FIRST: trusted for the brain sitting here (its grade at his bar, on
+ * enough questions, not dropped by misses), its files on the phone, it has not closed Ghosty, and WebGPU works. Null: the
+ * cloud's, as before. Never a download, and never asked for a task kept on the phone (that is the phone's alone anyway).
+ */
+export async function trustFirst(cat: AskCat): Promise<First | null> {
+  if (cat === 'cloud') return null;
+  void syncTrust(6 * 3600_000);
+  const m = currentModel();
+  const key = brainKey(m);
+  const j = judgedFor(key).find((x) => x.cat === cat);
+  if (!j?.trusted || j.pct === null || !mayUse(m)) return null;
+  if (!(await offlineReady().catch(() => false)) || !(await offlineSupport()).ok) return null;
+  return { cat, pct: j.pct, items: j.items, model: key };
+}
 
 // What happened while Ghosty was closed (a load iOS cut short, a download left half-way), as soon as the app opens.
 recoverFromClose();

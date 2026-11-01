@@ -31,6 +31,8 @@ import { reportCard, runReportCard } from '../../offline/harder';
 import { BIGGER, brainOf, fitLine, FLOOR, heldKey, holdLine, isBigger, memText, MODELS, onPhoneLine, PICKER, shortName, sizeText, slotOf, STAND_INS, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
+import { brainKey, syncTrust } from '../../offline/brain';
+import { CAT_WORDS, DEFAULT_BAR, judgedFor, trust } from '../../offline/trust';
 import { homeScreenApp } from '../system/storage';
 import { settings } from '../../state/app';
 import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
@@ -411,6 +413,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
   }
 
   function paint(): void {
+    paintTrust();
     const s = offlineBrain.get();
     const m = currentModel();
     paintModels();
@@ -432,7 +435,44 @@ export function offlinePanel(): Panel & { refresh(): void } {
     else if (!s.busy) clear(prog);
   }
 
+  // ---- [offline2] TRUST: what the brain in use answers on this phone FIRST, by its report card, and his bar ----------
+  const barWords = (): string => `Above this grade I answer on your phone first: ${trust.get().bar}%`;
+  const dialSays = h('span', barWords());
+  const dial = h('input.trustdial', { type: 'range', min: '50', max: '100', step: '5', 'aria-label': 'Trust bar: above this grade I answer on your phone first' }) as HTMLInputElement;
+  dial.value = String(trust.get().bar);
+  dial.addEventListener('input', () => {
+    trust.set({ bar: Math.min(100, Math.max(50, Number(dial.value) || DEFAULT_BAR)) });
+    dialSays.textContent = barWords();
+  });
+  const trustRows = h('div.trustrows');
+  function paintTrust(): void {
+    const m = currentModel();
+    const key = brainKey(m);
+    const card = trust.get().brains.find((b) => b.model === key);
+    const rows = judgedFor(key);
+    const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    clear(
+      trustRows,
+      h('div.note.small.trustcard', card ? `${m.label}'s report card: ${card.papers ?? 0} paper${card.papers === 1 ? '' : 's'} at SCHOOL, the last on ${day(card.at)}.` : `${m.label} has sat no SCHOOL paper yet: until it does, the cloud answers everything first.`),
+      h('ul.trusttable', { 'aria-label': `What ${m.label} answers on this phone first` }, ...rows.map((r) => {
+        const grade = r.pct === null ? 'not tested' : `${r.pct}%`;
+        return h(`li.trustrow${r.trusted ? '.on' : ''}` as 'li', { 'aria-label': `${CAT_WORDS[r.cat].label}: ${grade} on ${r.items} questions. ${r.trusted ? 'Answered on this phone first' : 'The cloud answers first'}: ${r.why}.` },
+          h('b', CAT_WORDS[r.cat].label), h('span.trustgrade', r.pct === null ? '—' : grade), h('span.trustn', `${r.items} q`), h('span.trustis', r.trusted ? 'ON PHONE' : 'CLOUD'), h('small.trustwhy', r.why));
+      })),
+      h('div.note.small', 'Everything else is the cloud’s: search, tools, long thinking and anything that acts, and anything that names a time or a place or asks me to remind, send or search. Under each answer I give first, ASK THE CLOUD asks it again there; three of those in a week and that kind goes back to the cloud until the next report card.'),
+    );
+  }
+  const trustBox = h('div.trustbox', h('div.lab', 'TRUST'), h('label.trustbar', dialSays, dial), trustRows);
+  trust.subscribe(() => {
+    dial.value = String(trust.get().bar);
+    dialSays.textContent = barWords();
+    paintTrust();
+    paintPick();
+  });
+  paintTrust();
+
   function refresh(): void {
+    void syncTrust();
     void (async () => {
       const sup = await offlineSupport();
       ok = sup.ok;
@@ -457,6 +497,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('div.lab', 'WHEN THE PHONE ANSWERS'),
     mode,
     think,
+    // [offline2] TRUST: the kinds of ask the brain in use answers here first, by its report card, at his bar
+    trustBox,
     // How much of his week his own brains answered, and SOVEREIGN MODE (Always) with what still needed the cloud (OWNER-ISSUES 78)
     independenceBlock(),
     // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger

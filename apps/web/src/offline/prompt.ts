@@ -25,6 +25,8 @@ export interface OfflineContext {
   question: string;
   /** How Ghosty talks (SETTINGS → CHARACTER); missing: the default character. */
   persona?: PersonaSettings;
+  /** Answered on the phone FIRST while the cloud could be asked (offline/trust.ts): not "offline", only without tools. */
+  first?: boolean;
 }
 
 /** The whole prompt stays under this many tokens: a 0.6B model is quick and sharp only on a short one. */
@@ -50,7 +52,7 @@ export function buildOfflinePrompt(c: OfflineContext, budget = PROMPT_BUDGET): O
   // The same character as the brain's (packages/shared/src/persona.ts), in its short form.
   const persona =
     `You are Ghosty, ${c.name}'s personal AI. ${character(c.persona, { short: true })} ` +
-    `Right now you are running on ${c.name}'s phone, offline: you have no tools and no internet, so you cannot look anything up, ` +
+    `Right now you are running on ${c.name}'s phone${c.first ? '' : ', offline'}: you have no tools and no internet, so you cannot look anything up, ` +
     `check live things (news, weather, prices, traffic) or change anything; if asked, say so in one line and help with what you know. ` +
     `Plain text, no lists unless asked, no markdown. It is ${c.now}.`;
   let facts = c.facts.map((f) => clip(f, 160)).slice(-20);
