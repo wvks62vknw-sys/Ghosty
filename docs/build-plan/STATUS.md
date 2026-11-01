@@ -2,8 +2,25 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #49, the last at 11:52 UK on 1 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #50, the last at 18:56 UK on 1 Nov)
 
+- LIVE since 18:56 UK on 1 Nov (PR #50, merged at your word while its last run was still going; that run and main's own are
+  read at 20:08 UK and anything they find is fixed in PR #51): ③ the kart racer,
+  the hopper and the arena (every made-by-us game wired to the shelf); ⑤ YOUR DAD'S CAR OR HARIS'S IN 3-D from its plate
+  (bonnet up, the likely culprits lit, DIY or garage with a rough cost — a stand-in model said to be one, every number a
+  first estimate); ⑦ HIS SOCIAL SELF (Father and the origin; the approval queue — every post a draft you APPROVE, EDIT or
+  refuse, in the chat and on Telegram; Bluesky, Mastodon, Discord and your own Telegram channel once you link them in
+  SYSTEM → KEYS; "A thought of mine" a few times a day at most); ⑧ OFFLINE WIKIPEDIA (Library → Ask), SIRI SHORTCUTS
+  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities); ⑧ CHESS WITH A REAL
+  RATING, THE INSTRUMENT AND SKILLS COACH, the review link (/demo) and "deploy your own Ghosty"; ⑧ CHECK IT'S LIVE for
+  faces (a blink or a turn before a face is saved), SHAPES (a room drawn in the air becomes a blueprint and a 3-D room) and
+  TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
+  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card); ⑧ DESIGN
+  A BUILD with a bill of materials (a shed, a garden room, a garage, a room, furniture, a PC; the Studio's eighth pane) and THE
+  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm);
+  ⑧ CONVERT (41 conversions on the phone: pictures, PDFs, Word, tables, sound, QR codes, units), DOCUMENTS (read, written
+  from the chat, edited as suggestions, translated side by side) and the RIGHTS-AND-LAW base (your rights in the UK with the
+  helplines, and the courts' own documents on the big matters).
 - LIVE since 02:31 UK on 31 Oct (PR #43): the four fixes of PR #41 (a stop goes quiet, a built app's link always delivered,
   the report-card link, the deck pictures) — bounced off your phone twice by the guard on two test flakes (not the code;
   both fixed at the cause, and the checks now give a failing test one more go before it counts) — and batch 1
@@ -138,27 +155,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- Nothing: PR #50 is being opened with the next batches (below).
+- PR #51 (section 3).
 
 ## 3. Happening right now
 
-- GOING UP IN PR #50 (1 Nov, afternoon; one CI run of about two hours and a quarter, merged when green): ③ the kart racer,
-  the hopper and the arena (every made-by-us game wired to the shelf); ⑤ YOUR DAD'S CAR OR HARIS'S IN 3-D from its plate
-  (bonnet up, the likely culprits lit, DIY or garage with a rough cost — a stand-in model said to be one, every number a
-  first estimate); ⑦ HIS SOCIAL SELF (Father and the origin; the approval queue — every post a draft you APPROVE, EDIT or
-  refuse, in the chat and on Telegram; Bluesky, Mastodon, Discord and your own Telegram channel once you link them in
-  SYSTEM → KEYS; "A thought of mine" a few times a day at most); ⑧ OFFLINE WIKIPEDIA (Library → Ask), SIRI SHORTCUTS
-  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities); ⑧ CHESS WITH A REAL
-  RATING, THE INSTRUMENT AND SKILLS COACH, the review link (/demo) and "deploy your own Ghosty"; ⑧ CHECK IT'S LIVE for
-  faces (a blink or a turn before a face is saved), SHAPES (a room drawn in the air becomes a blueprint and a 3-D room) and
-  TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
-  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card); ⑧ DESIGN
-  A BUILD with a bill of materials (a shed, a garden room, a garage, a room, furniture, a PC; the Studio's eighth pane) and THE
-  HOUSE through your own Home Assistant (lights, heating, blinds, the TV; locks and alarms only on your tap with a confirm);
-  ⑧ CONVERT (41 conversions on the phone: pictures, PDFs, Word, tables, sound, QR codes, units), DOCUMENTS (read, written
-  from the chat, edited as suggestions, translated side by side) and the RIGHTS-AND-LAW base (your rights in the UK with the
-  helplines, and the courts' own documents on the big matters).
-- BUILT, GOING UP AS PR #51 the moment PR #50 merges (1 Nov, evening): ④ THE OUTSIDE, HOME AND LEARNING PACKS (50 more real
+- GOING UP IN PR #51 (opened 18:56 UK on 1 Nov; about forty minutes of checks; merged when green): ④ THE OUTSIDE, HOME AND LEARNING PACKS (50 more real
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty

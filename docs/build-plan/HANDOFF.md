@@ -1204,6 +1204,11 @@ folder that no longer exists; ignore those paths).
   packs spec's 3-squat camera step is frame-rate dependent (fails at load 14 on 4 cores, passes at normal load, base and new
   alike); the catalogue is now 911 say-phrases, all probed in the merged order (none moved to the three new entries). Next: the
   depth pass (BRIEF-DEPTH, 8666) from the local tip.
+- 1 Nov 18:56 UK: PR #50 MERGED at the owner's word (main 80fe744) with its run on 1375080 still going (started 17:43; the run
+  before it was red only on safari and social, both fixed at cause and verified in the loop's order; he asked twice, said he was
+  excited to use it, and was told plainly what the risk is). That run's result and main's own push run (both the unsharded
+  2 h 15 loop) are read at the 20:08 check-in; anything red is fixed forward in PR #51 (the guard cannot revert main). Pushed:
+  the four-shard checks (a5d6f28), packs-3 (c5a1024, a0b4395) and this; PR #51 opened. Running: the depth pass (8666).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
