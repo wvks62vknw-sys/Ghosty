@@ -5305,3 +5305,60 @@ html .ccard[data-fault] .ccsafe + .ccline { -webkit-line-clamp: 2; }
 .chessrate .crreview p { margin: 4px 0; font: 400 14px/1.4 var(--sf); color: var(--fg); }
 .chessrate .crreview ul { margin: 4px 0 4px 18px; padding: 0; font: 500 14px/1.4 var(--sf); color: var(--fg); }
 .chessrate .crfine { margin-top: 6px; }
+/* the coach sheet (coach/sheet.ts): the tuner, the lessons, typing, the drawing prompt, the words of the day */
+.coach { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.coach .cotabs button { flex: 1 1 auto; min-height: 44px; padding-inline: 8px; }
+.coach .costreak { margin: 0; }
+.cotuner, .colessons, .cotyping, .codraw, .cowords { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cohero { display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.cohero .conote { font: 700 72px/1 var(--sfd); }
+.cocents { font: 500 18px/1 var(--sf); color: var(--l2); font-variant-numeric: tabular-nums; }
+.cogauge { position: relative; height: 44px; border-radius: 22px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.cogauge .cotick.mid { position: absolute; left: 50%; top: 6px; bottom: 6px; width: 2px; background: rgba(255,255,255,.4); transform: translateX(-1px); }
+.cogauge .coneedle { position: absolute; top: 4px; bottom: 4px; left: 50%; width: 6px; border-radius: 3px; background: #ff9f0a; transform: translateX(-3px); transition: left .12s linear, background .15s; }
+.cogauge.ok .coneedle { background: #30d158; }
+.colevelbox { display: block; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+.colevel { display: block; height: 100%; width: 0; background: #62e4ff; transition: width .1s linear; }
+.costrings { justify-content: center; }
+.costring { padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.06); font: 600 14px/1 var(--sf); color: var(--l2); }
+.costring.near { background: rgba(255,159,10,.28); color: var(--fg); }
+.costring.ok { background: rgba(48,209,88,.32); color: var(--fg); }
+.colist { display: flex; flex-direction: column; gap: 6px; }
+.colist .colbtn { width: 100%; min-height: 48px; text-align: left; text-transform: none; }
+.colrow { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; }
+.colrow b { flex: none; min-width: 20px; }
+.colrow .colname { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.colrow i { flex: none; font-style: normal; color: var(--l2); }
+.cotitle { margin: 0; font: 600 20px/1.25 var(--sf); overflow-wrap: anywhere; }
+.cogoal, .cohow { overflow-wrap: anywhere; }
+.costeps { gap: 6px; }
+.costep { min-width: 40px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,.06); font: 600 14px/1 var(--sf); text-align: center; }
+.costep.now { outline: 2px solid #62e4ff; }
+.costep.right { background: rgba(48,209,88,.32); }
+.costep.early, .costep.late { background: rgba(255,159,10,.32); }
+.costep.wrong, .costep.missed { background: rgba(255,69,58,.32); }
+.cohear { min-height: 56px; text-align: center; font-size: 44px; }
+.coresult:empty { display: none; }
+.coresult { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); }
+.coresult ul { margin: 0 0 0 18px; padding: 0; font: 400 14px/1.4 var(--sf); }
+.cotext { margin: 0; font: 500 18px/1.6 var(--sf); overflow-wrap: anywhere; }
+.cotext .ok { color: #30d158; }
+.cotext .bad { color: #ff453a; text-decoration: underline; }
+.cotext .cur { background: rgba(98,228,255,.28); border-radius: 3px; }
+.cotype { width: 100%; box-sizing: border-box; min-height: 96px; padding: 10px; border-radius: 12px; font: 500 16px/1.4 var(--sf); color: var(--fg); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); resize: none; }
+.codrawpair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.codrawpair figure { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.codrawpair figcaption { font: 600 11px/1.3 var(--sf); letter-spacing: .4px; color: var(--l2); }
+.codrawtext, .codrawempty { display: grid; place-items: center; min-height: 160px; padding: 12px; border-radius: 14px; text-align: center; overflow-wrap: anywhere; }
+.codrawtext { background: rgba(255,255,255,.07); font: 600 17px/1.35 var(--sf); }
+.codrawempty { border: 1px dashed rgba(255,255,255,.25); color: var(--l2); font: 400 14px/1.35 var(--sf); }
+.codrawpic img { width: 100%; max-height: 260px; object-fit: contain; border-radius: 14px; background: #11161c; }
+.cowordlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.coword { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto auto 20px; gap: 6px; align-items: center; }
+.coword button { min-height: 44px; min-width: 44px; padding-inline: 8px; }
+.coword .coen { color: var(--l2); font: 400 14px/1.3 var(--sf); overflow-wrap: anywhere; }
+.coword .cofw { font: 600 16px/1.3 var(--sf); overflow-wrap: anywhere; }
+.coword .comark { font-style: normal; text-align: center; }
+.coword .comark[data-r="right"] { color: #30d158; }
+.coword .comark[data-r="close"] { color: #ff9f0a; }
+.coword .comark[data-r="wrong"] { color: #ff453a; }

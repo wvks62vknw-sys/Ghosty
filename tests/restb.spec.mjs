@@ -8,7 +8,9 @@
 //   BASE=http://localhost:8733 node tests/restb.spec.mjs tests/.shots
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -23,7 +25,33 @@ const check = (ok, msg) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`);
 };
 
-const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+// The fake microphone plays a WAV made here, over and over: an A4 (440 Hz), a low E (82.41 Hz, a guitar's) and a G3 detuned
+// 20 cents sharp, a second and a half each with a gap, so the tuner is read on tones made in code.
+const SR = 48000;
+function wav(samples) {
+  const b = Buffer.alloc(44 + samples.length * 2);
+  b.write('RIFF', 0);
+  b.writeUInt32LE(36 + samples.length * 2, 4);
+  b.write('WAVEfmt ', 8);
+  b.writeUInt32LE(16, 16);
+  b.writeUInt16LE(1, 20);
+  b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(SR, 24);
+  b.writeUInt32LE(SR * 2, 28);
+  b.writeUInt16LE(2, 32);
+  b.writeUInt16LE(16, 34);
+  b.write('data', 36);
+  b.writeUInt32LE(samples.length * 2, 40);
+  for (let i = 0; i < samples.length; i++) b.writeInt16LE(Math.round(Math.max(-1, Math.min(1, samples[i])) * 32767), 44 + i * 2);
+  return b;
+}
+const pluck = (hz, secs) => Array.from({ length: Math.round(SR * secs) }, (_, i) => 0.35 * (Math.sin((2 * Math.PI * hz * i) / SR) + 0.5 * Math.sin((2 * Math.PI * 2 * hz * i) / SR) + 0.25 * Math.sin((2 * Math.PI * 3 * hz * i) / SR)) / 1.75);
+const quiet = (secs) => new Array(Math.round(SR * secs)).fill(0);
+const G3_SHARP = 196 * 2 ** (20 / 1200);
+const micFile = join(tmpdir(), `restb-fake-mic-${process.pid}.wav`);
+writeFileSync(micFile, wav([...pluck(440, 1.5), ...quiet(0.4), ...pluck(82.4069, 1.5), ...quiet(0.4), ...pluck(G3_SHARP, 1.5), ...quiet(0.4)]));
+
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${micFile}`, '--autoplay-policy=no-user-gesture-required'] });
 const until = (page, fn, arg, ms, why) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => (problems.push(why), false));
 const sideways = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => {
   if (!e.getClientRects().length) return false;
@@ -36,6 +64,8 @@ const unnamed = (page, root) => page.$$eval(`${root} button, ${root} input:not([
 async function phone(viewport, opts = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block', permissions: ['microphone', 'camera'], ...opts });
   await ctx.addInitScript(() => {
+    // the speech recogniser's stand-in: it hears the word that was asked (the specs run no real speech)
+    window.__ghostyListen = async (want) => want;
     window.__csp = [];
     document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
   });
@@ -128,6 +158,131 @@ const state = (page, key) => page.evaluate((k) => JSON.parse(JSON.stringify(wind
   const un = await unnamed(page, '#pg-gym .chessrate');
   check(un.length === 0, `every control in the rated section has a name for VoiceOver (${un.join(', ')})`);
   await ctx.close();
+}
+
+// ================================================================ 2. THE INSTRUMENT AND SKILLS COACH
+{
+  const { ctx, page } = await phone(PHONE);
+  log('coach');
+  const coach = () => state(page, 'coach');
+  const sheet = () => page.locator('.modal .coach');
+  const closeSheet = () => page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+
+  // THE TUNER, from the fake microphone's tones made in code
+  await say(page, 'tune my guitar');
+  await page.waitForSelector('.modal .coach', { timeout: 15000 });
+  check((await coach()).open === 'tuner', 'the chat opened the tuner for "tune my guitar"');
+  check(/Nothing is recorded or sent/.test(await lastReply(page)), 'the chat says nothing is recorded or sent');
+  await page.locator('.modal .cotuner button', { hasText: 'START' }).click();
+  await until(page, () => window.__ghosty?.coach?.tuner?.on, null, 15000, 'the tuner did not start (the fake microphone)');
+  await until(page, () => window.__ghosty.coach.tuner.note === 'A4', null, 30000, 'the needle never read A4 from the 440 Hz tone');
+  let c = await coach();
+  check(c.tuner.note === 'A4' && Math.abs(c.tuner.cents) <= 5, `the needle reads A4 (${c.tuner.note}, ${c.tuner.cents} cents, ${c.tuner.hz} Hz)`);
+  await until(page, () => window.__ghosty.coach.tuner.note === 'E2', null, 30000, 'the tuner never read the low E');
+  c = await coach();
+  check(c.tuner.string === 'E2' && Math.abs(c.tuner.cents) <= 6, `a low E reads as the E2 string (${c.tuner.words})`);
+  await until(page, () => window.__ghosty.coach.tuner.note === 'G3', null, 30000, 'the tuner never read the detuned G');
+  c = await coach();
+  check(c.tuner.string === 'G3' && !c.tuner.inTune && c.tuner.cents > 14 && c.tuner.cents < 26 && /cents sharp/.test(c.tuner.words), `a G 20 cents sharp reads sharp (${c.tuner.cents} cents: ${c.tuner.words})`);
+  const needle = await page.locator('.modal .coneedle').evaluate((e) => parseFloat(e.style.left));
+  check(needle > 50, `the needle sits right of centre for a sharp note (${needle}%)`);
+  await page.screenshot({ path: `${out}/restb-tuner.png` });
+  await page.locator('.modal .cotuner button', { hasText: 'STOP' }).click();
+  check(!(await coach()).tuner.on, 'STOP lets the microphone go');
+  await closeSheet();
+  await say(page, 'am I in tune?');
+  await page.waitForSelector('.modal .coach', { timeout: 15000 });
+  c = await coach();
+  check(c.open === 'tuner' && c.tuner.instrument === 'free', `"am I in tune?" opens the tuner for any note (${c.tuner.instrument})`);
+  await closeSheet();
+
+  // LESSONS: the list, a lesson's first step, a run to the end
+  await say(page, 'teach me guitar');
+  await page.waitForSelector('.modal .colessons', { timeout: 15000 });
+  check((await page.locator('.modal .colessons .colbtn').count()) === 10, 'ten guitar lessons are listed');
+  check(/Guitar: 0 of 10 passed\. Next: lesson 1, open strings, low to high/.test(await page.locator('.modal .copractice').innerText()), 'what to practise next is said: lesson 1');
+  await page.locator('.modal .colessons .colbtn').first().click();
+  check((await page.locator('.modal .costep').count()) === 6, 'lesson 1 shows its six steps: E A D G B E');
+  check(/Pluck each open string once/.test(await page.locator('.modal .cohow').innerText()), "the lesson's first step is in plain words");
+  await page.screenshot({ path: `${out}/restb-lesson.png` });
+  await page.locator('.modal .colessons button', { hasText: /^START$/ }).click();
+  await until(page, () => ['ready', 'play'].includes(window.__ghosty?.coach?.lesson?.phase), null, 15000, 'the lesson did not count in');
+  await until(page, () => window.__ghosty.coach.lesson.phase === 'done', null, 60000, 'the lesson did not finish and score');
+  c = await coach();
+  check(c.lesson.score >= 0 && c.lesson.score <= 1 && /\d+%/.test(c.lesson.summary), `the lesson is scored from what the mic heard (${c.lesson.summary})`);
+  check(c.streak >= 1, `the day counts toward the streak (${c.streak})`);
+  check(/-day streak/.test(await sheet().locator('.costreak').innerText()), 'the streak is on the sheet');
+  check((await page.locator('.modal .coresult').innerText()).length > 20, 'the result says what to fix and what is next');
+  await page.screenshot({ path: `${out}/restb-lesson-done.png` });
+  await closeSheet();
+
+  // TYPING
+  await say(page, 'typing test');
+  await page.waitForSelector('.modal .cotyping', { timeout: 15000 });
+  const target = (await coach()).typing.target;
+  check(target.length > 40, `a passage to type (${target.length} characters)`);
+  await page.locator('.modal .cotype').click();
+  await page.keyboard.type(target, { delay: 25 });
+  await until(page, () => window.__ghosty.coach.typing.done, null, 30000, 'the typing test did not finish');
+  c = await coach();
+  check(c.typing.accuracy === 1 && c.typing.wpm > 20 && c.typing.wpm < 400, `a clean run scores 100% (${c.typing.wpm} wpm, ${c.typing.accuracy})`);
+  check(/Every key was right/.test(await page.locator('.modal .cotyping .coresult').innerText()), 'it says every key was right');
+  await page.locator('.modal .cotyping button', { hasText: 'ANOTHER PASSAGE' }).click();
+  const next = (await coach()).typing.target;
+  await page.locator('.modal .cotype').click();
+  // a typo: the first "e" of the passage is typed as "x"
+  const at = next.indexOf('e');
+  await page.keyboard.type(next.slice(0, at) + 'x' + next.slice(at + 1), { delay: 20 });
+  await until(page, () => window.__ghosty.coach.typing.done, null, 30000, 'the second typing test did not finish');
+  c = await coach();
+  check(c.typing.accuracy < 1 && c.typing.weak.includes('e'), `a missed key is named as a weak one (${c.typing.weak.join(', ')}, ${c.typing.accuracy})`);
+  await closeSheet();
+
+  // DRAW: the prompt of the day, his picture beside it
+  await say(page, 'what should I draw?');
+  await page.waitForSelector('.modal .codraw', { timeout: 15000 });
+  const prompt = (await coach()).draw.prompt;
+  check(/^Draw .+, .+\.$/.test(prompt), `a prompt of the day: "${prompt}"`);
+  check(/Draw/.test(await page.locator('.modal .codrawtext').innerText()), 'the prompt is on the sheet');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('.modal .codraw input[type=file]').setInputFiles({ name: 'drawing.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('.modal .codrawpic img', { timeout: 10000 });
+  check((await coach()).draw.done, 'his picture sits beside the prompt');
+  check(/I do not mark/.test(await page.locator('.modal .codraw').innerText()), 'it says it does not mark drawings');
+  await closeSheet();
+
+  // WORDS: ten a day in a language, said back (the recogniser stood in for), scored
+  await say(page, 'Spanish word of the day');
+  await page.waitForSelector('.modal .cowords', { timeout: 15000 });
+  c = await coach();
+  check(c.words.language === 'es' && c.words.list.length === 10, `ten Spanish words today (${c.words.list.join(', ')})`);
+  await page.locator('.modal .coword').first().locator('button', { hasText: 'SAY IT' }).click();
+  await until(page, () => window.__ghosty.coach.words.results[0] === 'right', null, 10000, 'a word said back was not scored');
+  check(/1 of 10 said back today/.test(await page.locator('.modal .coscore').innerText()), 'one of ten said back is counted');
+  await page.locator('.modal .cowords button', { hasText: 'FRENCH' }).click();
+  c = await coach();
+  check(c.words.language === 'fr' && c.words.list.length === 10 && c.words.list[0] !== 'hola', `French has its own ten (${c.words.list.slice(0, 3).join(', ')}…)`);
+  await page.screenshot({ path: `${out}/restb-words.png` });
+  await closeSheet();
+
+  // juggling by camera is not in, and the chat says so
+  await say(page, 'teach me to juggle');
+  await until(page, () => /are not in/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? ''), null, 15000, 'the chat did not say juggling is not in');
+  check(/camera cannot follow/.test(await lastReply(page)), 'juggling and tricks by camera are said not to be in, and why');
+  await ctx.close();
+
+  // at 390 × 844: nothing sideways, every control named
+  const narrow = await phone({ width: 390, height: 844 });
+  for (const [words, root] of [['tune my guitar', '.modal .cotuner'], ['teach me guitar', '.modal .colessons'], ['typing test', '.modal .cotyping'], ['what should I draw?', '.modal .codraw'], ['Spanish word of the day', '.modal .cowords']]) {
+    await say(narrow.page, words);
+    await narrow.page.waitForSelector(root, { timeout: 15000 });
+    const bad = await sideways(narrow.page, '.modal .coach, .modal .coach *');
+    check(bad.length === 0, `nothing sticks out sideways at 390 px: ${words} (${bad.join('; ')})`);
+    const un = await unnamed(narrow.page, '.modal .coach');
+    check(un.length === 0, `every control has a name for VoiceOver: ${words} (${un.join(', ')})`);
+    await narrow.page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+  }
+  await narrow.ctx.close();
 }
 
 // ================================================================ the end

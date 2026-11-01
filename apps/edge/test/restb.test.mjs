@@ -14,12 +14,26 @@ const entries = [
   `${web}/gym/chessrate.ts`,
   `${web}/gym/chessuci.ts`,
   `${web}/gym/chessreview.ts`,
+  `${web}/coach/notes.ts`,
+  `${web}/coach/pitch.ts`,
+  `${web}/coach/onset.ts`,
+  `${web}/coach/lessons.ts`,
+  `${web}/coach/progress.ts`,
+  `${web}/coach/skills.ts`,
+  `${web}/coach/ask.ts`,
 ];
 await build({ entryPoints: entries, bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/restb'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
 const load = (f) => import(`./.build/restb/${f}.mjs`);
 const R = await load('apps/web/src/gym/chessrate');
 const U = await load('apps/web/src/gym/chessuci');
 const V = await load('apps/web/src/gym/chessreview');
+const N = await load('apps/web/src/coach/notes');
+const P = await load('apps/web/src/coach/pitch');
+const O = await load('apps/web/src/coach/onset');
+const Ls = await load('apps/web/src/coach/lessons');
+const Pr = await load('apps/web/src/coach/progress');
+const Sk = await load('apps/web/src/coach/skills');
+const Ask = await load('apps/web/src/coach/ask');
 void shared;
 
 // ---------------------------------------------------------------- 1. CHESS
@@ -230,4 +244,321 @@ test('the hint and the standing in words', () => {
   assert.equal(V.standingWords({ cp: 520 }), 'you are a rook ahead');
   assert.equal(V.standingWords({ cp: -950 }), 'you are a queen behind');
   assert.equal(V.standingWords({ mate: -2 }), 'the engine has a forced mate in 2');
+});
+
+// ---------------------------------------------------------------- 2. THE COACH
+
+const cents = (hz, target) => 1200 * Math.log2(hz / target);
+
+test('notes: names, frequencies and the reading of a pitch', () => {
+  assert.equal(N.hzOfName('A4'), 440);
+  assert.ok(Math.abs(N.hzOfName('E2') - 82.4069) < 0.001);
+  assert.ok(Math.abs(N.hzOfName('C4') - 261.6256) < 0.001);
+  assert.equal(N.midiFromName('C4'), 60);
+  assert.equal(N.midiFromName('A♯3'), N.midiFromName('Bb3'));
+  assert.equal(N.midiFromName('H4'), null);
+  assert.equal(N.nameOfMidi(69), 'A4');
+  assert.equal(N.nameOfMidi(40), 'E2');
+  const r = N.reading(442);
+  assert.equal(r.note, 'A4');
+  assert.ok(r.cents > 7 && r.cents < 9, `${r.cents}`);
+  // the tuner: a string within half a semitone is "the" string; in tune within 5 cents
+  const g = N.TUNINGS.find((t) => t.id === 'guitar');
+  const inTune = N.tunerReading(82.41, g);
+  assert.equal(inTune.string, 'E2');
+  assert.ok(inTune.inTune);
+  assert.match(inTune.words, /^E2: in tune$/);
+  const sharp = N.tunerReading(82.41 * 2 ** (20 / 1200), g);
+  assert.equal(sharp.string, 'E2');
+  assert.ok(!sharp.inTune && sharp.off > 15);
+  assert.match(sharp.words, /20 cents sharp — loosen it a little/);
+  assert.match(N.tunerReading(110 * 2 ** (-30 / 1200), g).words, /30 cents flat — tighten it a little/);
+  assert.equal(N.tunerReading(440, g).string, null, 'A4 is no open string of a guitar');
+  assert.equal(N.tunerReading(440, N.tuningOf('free')).note, 'A4');
+  assert.equal(N.tuningOf('nonsense').id, 'guitar');
+  assert.ok(N.rangeOf(N.tuningOf('bass')).minHz < 41.2);
+});
+
+test('the pitch detector reads tones made in code: A4 440 Hz, E2 82.4 Hz, a G detuned by 20 cents, at 44.1 and 48 kHz, with harmonics and noise', () => {
+  for (const sr of [44100, 48000]) {
+    const a4 = P.detectPitch(P.tone(440, 0.2, sr), sr);
+    assert.ok(a4 && Math.abs(cents(a4.hz, 440)) < 1.5, `A4 at ${sr}: ${a4?.hz}`);
+    assert.ok(a4.clarity > 0.9);
+    const e2 = P.detectPitch(P.tone(82.4069, 0.2, sr, { harmonics: [0.6, 1, 0.7, 0.4] }), sr, { minHz: 60, maxHz: 400 });
+    assert.ok(e2 && Math.abs(cents(e2.hz, 82.4069)) < 3, `E2 at ${sr}: ${e2?.hz}`);
+    const gHz = N.hzOfName('G3') * 2 ** (20 / 1200);
+    const g3 = P.detectPitch(P.tone(gHz, 0.2, sr, { noise: 0.02 }), sr);
+    const rd = N.reading(g3.hz);
+    assert.equal(rd.note, 'G3');
+    assert.ok(Math.abs(rd.cents - 20) < 3, `G3 +20 at ${sr}: ${rd.cents}`);
+  }
+  // the bass's low E (41.2 Hz) with its range
+  const e1 = P.detectPitch(P.tone(41.2, 0.3, 44100, { harmonics: [0.5, 1, 0.6] }), 44100, { minHz: 33, maxHz: 200 });
+  assert.ok(e1 && Math.abs(cents(e1.hz, 41.2)) < 8, `E1: ${e1?.hz}`);
+  // silence and noise are not pitches
+  assert.equal(P.detectPitch(new Float32Array(4096), 44100), null);
+  let seed = 7;
+  const noise = Float32Array.from({ length: 4096 }, () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296 - 0.5) * 0.5);
+  const nz = P.detectPitch(noise, 44100);
+  assert.ok(nz === null || nz.clarity < 0.6, `noise: ${JSON.stringify(nz)}`);
+});
+
+/** A performance made in code: notes (name, start in seconds, seconds long, cents off) plus a steady delay. */
+function perform(notes, secs, sr, { delay = 0, amp = 0.4 } = {}) {
+  const out = new Float32Array(Math.floor(secs * sr));
+  for (const [name, at, dur, off = 0] of notes) {
+    const t = P.tone(N.hzOfName(name) * 2 ** (off / 1200), dur, sr, { amp, decay: 3, harmonics: [1, 0.5, 0.3] });
+    const a = Math.floor((at + delay) * sr);
+    for (let i = 0; i < t.length && a + i < out.length; i++) out[a + i] += t[i];
+  }
+  return out;
+}
+
+test('onsets: a strum made in code is found hit by hit, on the beat, and a held note is one onset', () => {
+  const sr = 44100;
+  const out = new Float32Array(6 * sr);
+  const hits = [0.5, 1.0, 1.75, 2.0, 2.75, 3.5, 4.0];
+  for (const t of hits) {
+    // a strum: five strings a few milliseconds apart, each ringing and dying away
+    for (let k = 0; k < 5; k++) {
+      const tone = P.tone(82.4 * (1 + k * 0.6), 0.5, sr, { amp: 0.15, decay: 7, harmonics: [1, 0.4] });
+      const a = Math.floor((t + k * 0.008) * sr);
+      for (let i = 0; i < tone.length; i++) out[a + i] += tone[i];
+    }
+  }
+  const on = O.detectOnsets(out, sr);
+  assert.equal(on.length, hits.length, `onsets: ${on.map((x) => x.toFixed(2)).join(' ')}`);
+  on.forEach((t, i) => assert.ok(Math.abs(t - hits[i]) < 0.03, `hit ${i}: ${t.toFixed(3)} for ${hits[i]}`));
+  // a single held tone: one onset, however long
+  const held = P.tone(220, 3, sr, { amp: 0.3 });
+  for (let i = 0; i < 2000; i++) held[i] *= i / 2000;
+  assert.equal(O.detectOnsets(held, sr).length, 1);
+  assert.equal(O.detectOnsets(new Float32Array(sr), sr).length, 0, 'silence has none');
+});
+
+test('lessons: thirty of our own, ten for each of guitar, piano and voice, every note a real note, no strum pattern without eight steps', () => {
+  assert.equal(Ls.LESSONS.length, 30);
+  for (const inst of ['guitar', 'piano', 'voice']) {
+    const l = Ls.lessonsFor(inst);
+    assert.deepEqual(l.map((x) => x.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], inst);
+  }
+  assert.equal(new Set(Ls.LESSONS.map((l) => l.id)).size, 30);
+  for (const l of Ls.LESSONS) {
+    assert.ok(l.title && l.goal.length > 15 && l.how.length > 30, l.id);
+    assert.ok(l.pass > 0 && l.pass <= 1);
+    if (l.kind === 'notes') for (const n of l.notes) assert.ok(n === '-' || N.midiFromName(n) != null, `${l.id}: ${n}`);
+    if (l.kind === 'strum') assert.match(l.pattern, /^[x.]{8}$/);
+    if (l.kind === 'hold') assert.ok(l.hold.secs >= 3 && l.hold.tol >= 30);
+    assert.ok(Ls.lessonSecs(l) > 5 && Ls.lessonSecs(l) < 40, `${l.id}: ${Ls.lessonSecs(l)} s`);
+    assert.ok(Ls.stepsOf(l).length >= 1);
+  }
+  // each kind of lesson is there
+  for (const k of ['notes', 'strum', 'hold']) assert.ok(Ls.LESSONS.some((l) => l.kind === k), k);
+  // the guitar's open-string lesson asks for the six open strings, low to high
+  assert.deepEqual(Ls.lessonById('guitar-1').notes, ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']);
+});
+
+test('a lesson is scored on a performance made in code: right and on the click passes (the phone’s steady delay is taken out); a wrong note, a missed one and a late one are named', () => {
+  const sr = 44100;
+  const l = Ls.lessonById('guitar-1');
+  const beat = 60 / l.bpm;
+  const play = (name, k, off = 0) => [name, (4 + k) * beat + off, 0.7];
+  // all six, with a steady 140 ms delay (a phone's own)
+  const good = perform(l.notes.map((n, k) => play(n, k)), 11, sr, { delay: 0.14 });
+  const r = Ls.scoreLesson(l, good, sr);
+  assert.ok(r.passed, `${r.summary} ${r.words.join(' | ')}`);
+  assert.ok(r.score >= 0.95);
+  assert.ok(r.lagMs > 60 && r.lagMs < 240, `lag ${r.lagMs}`);
+  assert.deepEqual(r.steps.map((s) => s.state), ['right', 'right', 'right', 'right', 'right', 'right']);
+  // the fourth note is the wrong one (A instead of G), the fifth is not played at all
+  const bad = perform(l.notes.map((n, k) => (k === 3 ? play('A3', k) : play(n, k))).filter((_, k) => k !== 4), 11, sr);
+  const rb = Ls.scoreLesson(l, bad, sr);
+  assert.equal(rb.steps[3].state, 'wrong');
+  assert.equal(rb.steps[3].heard, 'A3');
+  assert.equal(rb.steps[4].state, 'missed');
+  assert.ok(!rb.passed && rb.score < 0.7, `${rb.summary}`);
+  assert.ok(rb.words.some((w) => /Note 4 \(G3\): I heard A3 instead\./.test(w)));
+  assert.ok(rb.words.some((w) => /Note 5 \(B3\): I did not hear it/.test(w)));
+  // one note half a beat late is named as late, and the rest are not blamed for it
+  const late = perform(l.notes.map((n, k) => play(n, k, k === 2 ? 0.55 : 0)), 11, sr);
+  const rl = Ls.scoreLesson(l, late, sr);
+  assert.equal(rl.steps[2].state, 'late');
+  assert.equal(rl.steps.filter((s) => s.state === 'right').length, 5);
+  assert.match(rl.words[0], /Note 3 \(D3\): late by about \d+ ms\./);
+});
+
+test('a voice may sing in its own octave; a piano lesson is scored the same way; a guitar lesson wants the right octave', () => {
+  const sr = 44100;
+  const v = Ls.lessonById('voice-3');
+  const beat = 60 / v.bpm;
+  // C D E D C an octave above the lesson's: any octave will do
+  const sung = perform(['C5', 'D5', 'E5', 'D5', 'C5'].map((n, k) => [n, (4 + k) * beat, 0.7]), 10, sr);
+  assert.ok(Ls.scoreLesson(v, sung, sr).passed);
+  const pn = Ls.lessonById('piano-1');
+  const played = perform(pn.notes.map((n, k) => [n, (4 + k) * (60 / pn.bpm), 0.7]), 10, sr);
+  assert.ok(Ls.scoreLesson(pn, played, sr).passed);
+  const g = Ls.lessonById('guitar-1');
+  const up = perform(g.notes.map((n, k) => [N.nameOfMidi(N.midiFromName(n) + 12), (4 + k) * 1, 0.7]), 11, sr);
+  assert.ok(!Ls.scoreLesson(g, up, sr).passed);
+});
+
+test('a strum is scored by its onsets: hits on the beat, a missed one, an extra one; a held note by its steadiness', () => {
+  const sr = 44100;
+  const l = Ls.lessonById('guitar-7');
+  const beat = 60 / l.bpm;
+  const times = [];
+  for (let b = 0; b < l.bars; b++) for (let s = 0; s < 8; s++) if (l.pattern[s] === 'x') times.push((4 + b * 4 + s / 2) * beat);
+  const strum = (ts, delay = 0) => {
+    const out = new Float32Array(Math.floor((4 + l.bars * 4 + 1) * beat * sr));
+    for (const t of ts) {
+      for (let k = 0; k < 4; k++) {
+        const tone = P.tone(110 * (1 + k * 0.5), 0.4, sr, { amp: 0.15, decay: 8, harmonics: [1, 0.4] });
+        const a = Math.floor((t + delay + k * 0.006) * sr);
+        for (let i = 0; i < tone.length && a + i < out.length; i++) out[a + i] += tone[i];
+      }
+    }
+    return out;
+  };
+  const r = Ls.scoreLesson(l, strum(times, 0.1), sr);
+  assert.ok(r.passed, `${r.summary} ${r.words}`);
+  assert.equal(r.steps.length, times.length);
+  // one hit left out, and one that was not asked for
+  const odd = times.filter((_, i) => i !== 3).concat([times[1] + 0.25 * beat + 0.02]);
+  const ro = Ls.scoreLesson(l, strum(odd, 0.1), sr);
+  assert.ok(ro.steps.some((s) => s.state === 'missed'));
+  assert.ok(ro.words.some((w) => /extra strum/.test(w)), ro.words.join(' | '));
+  assert.ok(ro.score < r.score);
+  // a held note: steady passes, a siren does not
+  const h = Ls.lessonById('voice-1');
+  const steady = P.tone(220, 5.5, sr, { amp: 0.3 });
+  const padded = new Float32Array(Math.floor(8 * sr));
+  padded.set(steady, Math.floor(1.5 * sr));
+  assert.ok(Ls.scoreLesson(h, padded, sr).passed);
+  const wander = new Float32Array(Math.floor(8 * sr));
+  let ph = 0;
+  for (let i = Math.floor(1.5 * sr); i < wander.length; i++) {
+    const f = 220 * 2 ** (((i / sr - 1.5) * 40) / 1200); // sliding up 40 cents a second
+    ph += (2 * Math.PI * f) / sr;
+    wander[i] = 0.3 * Math.sin(ph);
+  }
+  const rw = Ls.scoreLesson(h, wander, sr);
+  assert.ok(!rw.passed && rw.words.some((w) => /wandered/.test(w)), rw.words.join(' | '));
+  assert.ok(!Ls.scoreLesson(h, new Float32Array(8 * sr), sr).passed);
+});
+
+test('practice: the streak, the best score, what to practise next', () => {
+  assert.equal(Pr.streak([], '2026-11-01'), 0);
+  assert.equal(Pr.streak(['2026-10-30', '2026-10-31', '2026-11-01'], '2026-11-01'), 3);
+  assert.equal(Pr.streak(['2026-10-30', '2026-10-31'], '2026-11-01'), 2, 'yesterday still counts until the day is over');
+  assert.equal(Pr.streak(['2026-10-29', '2026-10-31'], '2026-11-01'), 1);
+  assert.equal(Pr.streak(['2026-10-28'], '2026-11-01'), 0);
+  assert.equal(Pr.streak(['2026-02-27', '2026-02-28', '2026-03-01'], '2026-03-01'), 3, 'across a month end');
+  let p = Pr.newProgress();
+  assert.match(Pr.practiceWords(p, '2026-11-01'), /^Guitar: 0 of 10 passed\. Next: lesson 1, open strings, low to high \(it is the first one\)\.$/);
+  p = Pr.recordLesson(p, 'guitar-1', 0.5, false, '2026-11-01');
+  assert.equal(p.best['guitar-1'], 0.5);
+  assert.equal(Pr.nextLesson(p, 'guitar').lesson.id, 'guitar-1');
+  assert.match(Pr.nextLesson(p, 'guitar').why, /50%/);
+  p = Pr.recordLesson(p, 'guitar-1', 0.9, true, '2026-11-02');
+  p = Pr.recordLesson(p, 'guitar-1', 0.6, true, '2026-11-03');
+  assert.equal(p.best['guitar-1'], 0.9, 'the best is kept');
+  assert.equal(p.passed['guitar-1'], '2026-11-02', 'the first pass is dated');
+  assert.equal(Pr.nextLesson(p, 'guitar').lesson.id, 'guitar-2');
+  assert.equal(Pr.startInstrument(p), 'guitar');
+  assert.match(Pr.practiceWords(p, '2026-11-03'), /^A 3-day streak\. Guitar: 1 of 10 passed\. Next: lesson 2/);
+  // all ten passed: the weakest comes round again
+  let all = Pr.newProgress();
+  for (const l of Ls.lessonsFor('piano')) all = Pr.recordLesson(all, l.id, l.n === 6 ? 0.71 : 1, true, '2026-11-01');
+  assert.equal(Pr.nextLesson(all, 'piano').lesson.n, 6);
+  assert.match(Pr.nextLesson(all, 'piano').why, /all ten are passed/);
+  // typing, drawing and words are practice too
+  let q = Pr.recordTyping(Pr.newProgress(), 41.6, 0.97, '2026-11-01', ['q', 'z']);
+  q = Pr.recordTyping(q, 38, 0.9, '2026-11-02');
+  assert.equal(q.typing.best, 42);
+  assert.equal(q.days.length, 2);
+  q = Pr.recordWords(q, 'es', '2026-11-03', 7);
+  q = Pr.recordWords(q, 'es', '2026-11-03', 5);
+  assert.equal(q.words.es['2026-11-03'], 7);
+  q = Pr.recordDrawing(Pr.recordDrawing(q, '2026-11-03'), '2026-11-03');
+  assert.equal(q.drawn.length, 1);
+  assert.deepEqual(Pr.parseProgress(JSON.parse(JSON.stringify(q))), q);
+  assert.equal(Pr.parseProgress({ v: 3 }).days.length, 0);
+  assert.equal(Pr.dayOf(new Date(2026, 10, 1, 23, 30).getTime()), '2026-11-01');
+});
+
+test('typing: words a minute count the letters typed right, five to a word; the weak keys are the ones he missed', () => {
+  const target = 'the quick brown fox';
+  const perfect = Sk.scoreTyping(target, target, 12_000);
+  assert.equal(perfect.accuracy, 1);
+  assert.equal(perfect.errors, 0);
+  assert.equal(perfect.wpm, 19); // 19 letters in 12 seconds: 19 / 5 words in 0.2 minutes
+  assert.deepEqual(perfect.weak, []);
+  const typo = Sk.scoreTyping(target, 'the quack brewn fox', 12_000);
+  assert.equal(typo.errors, 2);
+  assert.ok(typo.accuracy < 1 && typo.wpm < perfect.wpm);
+  assert.deepEqual(typo.weak.map((w) => w.key).sort(), ['i', 'o']);
+  assert.match(Sk.typingWords(typo), /words a minute at 89% accuracy\. The keys to watch: /);
+  assert.match(Sk.typingWords(perfect), /Every key was right\./);
+  assert.equal(Sk.scoreTyping(target, '', 1000).wpm, 0);
+  // a space missed is named "space"
+  assert.deepEqual(Sk.scoreTyping('a b', 'axb', 1000).weak, [{ key: 'space', misses: 1 }]);
+  // the next passage leans on the keys he misses
+  assert.ok(Sk.pickText(0, ['z']).toLowerCase().includes('z'));
+  assert.equal(Sk.pickText(3), Sk.TEXTS[3]);
+  assert.ok(Sk.TEXTS.length >= 10 && Sk.TEXTS.every((t) => t.length > 40 && t.length < 130));
+});
+
+test('the drawing prompt of the day turns over; ten words a day turn over every four days; what was said back is matched ignoring accents', () => {
+  const d1 = Sk.drawPrompt(20400);
+  assert.deepEqual(Sk.drawPrompt(20400), d1);
+  assert.notEqual(Sk.drawPrompt(20401).text, d1.text);
+  assert.match(d1.text, /^Draw .+, .+\.$/);
+  const seen = new Set(Array.from({ length: 30 }, (_, i) => Sk.drawPrompt(20400 + i).subject));
+  assert.equal(seen.size, 30);
+  for (const lang of Sk.LANGUAGES) {
+    assert.equal(lang.words.length, 40, lang.id);
+    assert.equal(new Set(lang.words.map((w) => w[1])).size, 40, `${lang.id}: no word twice`);
+    const days = [0, 1, 2, 3].flatMap((d) => Sk.dailyWords(lang.id, 20400 + d).map((w) => w.word));
+    assert.equal(new Set(days).size, 40, `${lang.id}: four days cover forty words`);
+    assert.equal(Sk.dailyWords(lang.id, 5).length, 10);
+    assert.deepEqual(Sk.dailyWords(lang.id, 5), Sk.dailyWords(lang.id, 9));
+  }
+  assert.deepEqual(Sk.dailyWords('es', 0)[0], { en: 'hello', word: 'hola' });
+  assert.equal(Sk.languageOf('French').id, 'fr');
+  assert.equal(Sk.languageOf('klingon').id, 'es');
+  assert.equal(Sk.wordMatch('hola', 'hola'), 'right');
+  assert.equal(Sk.wordMatch('Adios!', 'adiós'), 'right');
+  assert.equal(Sk.wordMatch('I said manana', 'mañana'), 'right');
+  assert.equal(Sk.wordMatch('what is bonjour', 'bonjour'), 'right');
+  assert.equal(Sk.wordMatch('grasias', 'gracias'), 'close');
+  assert.equal(Sk.wordMatch('perro', 'gato'), 'wrong');
+  assert.equal(Sk.wordMatch('', 'hola'), 'wrong');
+  assert.equal(Sk.wordMatch('strasse', 'Straße'), 'right');
+  assert.equal(Sk.wordMatch('si', 'sí'), 'right');
+  assert.equal(Sk.wordMatch('no', 'sí'), 'wrong');
+});
+
+test('the chat’s words for the coach: the tuner, the lessons, typing, drawing, words; juggling is not in, and a course on a language is left to its own', () => {
+  const a = (t) => Ask.coachAsked(t);
+  assert.deepEqual(a('tune my guitar'), { what: 'tuner', instrument: 'guitar' });
+  assert.deepEqual(a('Can you tune my ukulele?'), { what: 'tuner', instrument: 'ukulele' });
+  assert.deepEqual(a('am I in tune?'), { what: 'tuner', instrument: 'free' });
+  assert.deepEqual(a('is my violin in tune'), { what: 'tuner', instrument: 'violin' });
+  assert.deepEqual(a('guitar tuner'), { what: 'tuner', instrument: 'guitar' });
+  assert.deepEqual(a('tuner'), { what: 'tuner', instrument: 'free' });
+  assert.deepEqual(a('teach me guitar'), { what: 'lessons', instrument: 'guitar' });
+  assert.deepEqual(a('I want to learn piano'), { what: 'lessons', instrument: 'piano' });
+  assert.deepEqual(a('teach me to sing'), { what: 'lessons', instrument: 'voice' });
+  assert.deepEqual(a('guitar lessons'), { what: 'lessons', instrument: 'guitar' });
+  assert.deepEqual(a('coach me'), { what: 'lessons' });
+  assert.deepEqual(a('typing test'), { what: 'typing' });
+  assert.deepEqual(a('how fast do I type?'), { what: 'typing' });
+  assert.deepEqual(a('what should I draw?'), { what: 'draw' });
+  assert.deepEqual(a('drawing prompt'), { what: 'draw' });
+  assert.deepEqual(a('Spanish word of the day'), { what: 'words', language: 'spanish' });
+  assert.deepEqual(a('ten words'), { what: 'words' });
+  assert.deepEqual(a('French vocab'), { what: 'words', language: 'french' });
+  assert.deepEqual(a('teach me to juggle'), { what: 'juggle' });
+  // not the coach's
+  for (const t of ['teach me spanish', 'play the guitar solo from that song', 'what is the weather', 'I tuned in late', 'draw a bath', 'coach me through my money', 'tune the radio', '']) assert.equal(a(t), null, t);
 });
