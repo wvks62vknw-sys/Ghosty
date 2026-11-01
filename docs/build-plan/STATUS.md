@@ -148,13 +148,14 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   first estimate); ⑦ HIS SOCIAL SELF (Father and the origin; the approval queue — every post a draft you APPROVE, EDIT or
   refuse, in the chat and on Telegram; Bluesky, Mastodon, Discord and your own Telegram channel once you link them in
   SYSTEM → KEYS; "A thought of mine" a few times a day at most); ⑧ OFFLINE WIKIPEDIA (Library → Ask), SIRI SHORTCUTS
-  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities).
-- BUILDING NOW: ⑧ anti-spoofing for faces, hand shapes to blueprints and a TV MODE for the PS5's browser; ⑧ chess rating,
-  the instrument coach, the review link and "deploy your own Ghosty"; ⑧ design a build with a bill of materials and the
-  Home Assistant bridge; ④ the outside, home and learning packs. Ready to start as builders free up: ⑥ the brain on your
-  phone used by default for what it has passed (with an independence meter); ⑧ the converter and documents, and the
-  rights-and-law topics from primary sources. Last of all: the UI depth pass. HELD for your opinion: the twelve themes and
-  the Cinematic touch-up.
+  (Settings → SHORTCUTS) and MORSE; ④ THE PEOPLE, WORK AND CREATIVE PACKS (42 more real abilities); ⑧ CHESS WITH A REAL
+  RATING, THE INSTRUMENT AND SKILLS COACH, the review link (/demo) and "deploy your own Ghosty"; ⑧ CHECK IT'S LIVE for
+  faces (a blink or a turn before a face is saved), SHAPES (a room drawn in the air becomes a blueprint and a 3-D room) and
+  TV MODE for the PS5's browser (the old centre piece there is now the tidy flat one); ⑥ THE BRAIN ON YOUR PHONE FIRST for
+  what it has passed, with ASK THE CLOUD under each such answer, and the INDEPENDENCE meter (System → Report card).
+- BUILDING NOW: ⑧ design a build with a bill of materials and the Home Assistant bridge; ④ the outside, home and learning
+  packs; ⑧ the converter and documents, and the rights-and-law topics from primary sources. Last of all: the UI depth
+  pass. HELD for your opinion: the twelve themes and the Cinematic touch-up.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the
