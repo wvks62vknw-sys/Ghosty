@@ -299,13 +299,14 @@ function sayGreeting(text: string, cold: boolean): void {
     return;
   }
   // iOS keeps a cold open silent until a tap: the first tap says it (within the gesture, so the phone allows it),
-  // unless that tap was on a control (he is doing something) or the sign-in form, or it comes much later
+  // unless he is typing or signing in, or it comes much later. A tap on a card or a button still greets him: Home is
+  // his wall now (batch ②), so the first tap lands on something tappable more often than not.
   bootState.spoken = 'waiting';
   const until = Date.now() + 30_000;
   const onTap = (e: PointerEvent) => {
     removeEventListener('pointerup', onTap, true);
     const tgt = e.target as Element | null;
-    const busy = !!tgt?.closest?.('button, input, textarea, select, a, [role="button"], #pairform') && !tgt?.closest?.('#boot');
+    const busy = !!tgt?.closest?.('input, textarea, select, #pairform') && !tgt?.closest?.('#boot');
     if (Date.now() > until || busy || ui.get().voice !== 'idle') {
       bootState.spoken = 'off';
       return;
