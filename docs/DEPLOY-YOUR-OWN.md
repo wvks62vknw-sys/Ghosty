@@ -146,6 +146,7 @@ folder holding the licence text and a note of where it came from:
 | `vendor/faces` | SFace, from the OpenCV Zoo | see its README and `LICENSE-sface.txt` |
 | `vendor/webllm` | WebLLM, the offline brain's runtime (the model weights come from Hugging Face on a tap) | Apache-2.0 |
 | `vendor/three`, `vendor/leaflet`, `vendor/maplibre`, `vendor/zxing` | three.js; Leaflet; MapLibre GL; the barcode reader | MIT; BSD-2; BSD-3; MIT and Apache-2.0 |
+| `vendor/facemesh` | MediaPipe's face landmarker model, for CHECK IT'S LIVE (a blink or a turn before a face is saved; judged on the phone) | Apache-2.0 (`LICENSE`; `SOURCE.md`, byte-for-byte as Google publishes it) |
 | `vendor/kiwix` | Kiwix's own ZIM reader (kiwix-js: `zimfile.js` and its xz and zstd WebAssembly decoders), for offline Wikipedia in the Library (the Wikipedia files come from Kiwix's mirrors on a tap) | GPL-3.0 (`LICENCE`; the commit and the three small patches in `SOURCE.md`) |
 | `vendor/oswald` | the Oswald font, for posters, cards and logos drawn by the creative pack | SIL Open Font License 1.1 (`LICENCE`; `SOURCE.md`) |
 | `models` | sample 3-D models from the Khronos glTF sample assets | CC0 / CC BY 4.0, each credited where it is shown |
