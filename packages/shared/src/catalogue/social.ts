@@ -65,6 +65,13 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     more: 'You make the channel and add my bot as an admin who may post; I check both with Telegram. Every post waits for your APPROVE on a card, and nothing is ever sent to a person.',
     say: ['Link my Telegram channel'], scene: ['talking'], cat: 'talk', needs: ['link:channel'], since: SINCE,
   },
+  // ---------------------------------------------------------------- one line of my own a day (item 7)
+  'job:musing': {
+    name: 'One line of my own', line: 'I say one thing of my own a day, from what I read, learned or noticed, under the speak-first dial.',
+    more: 'Written from facts only, never made up and never about a private person. It counts towards SPEAK FIRST’s few a day, never at night, and a stop word silences it. With Bluesky linked its card offers POST THAT?, a draft for your APPROVE.',
+    say: ['Why did you say that?', 'Quiet.'], scene: ['talking'], cat: 'talk', since: SINCE,
+    go: { open: 'settings', panel: 'CHARACTER' },
+  },
   'act:social:status': {
     name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
     more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',

@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts'), at('../src/library/digest.ts'), at('../src/social/discord.ts'), at('../../../packages/shared/src/sources.ts')],
+  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts'), at('../src/library/digest.ts'), at('../src/social/discord.ts'), at('../src/social/musing.ts'), at('../../../packages/shared/src/cadence.ts'), at('../../../packages/shared/src/sources.ts')],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -558,4 +558,82 @@ test('his own Telegram channel: the paired bot posts there through the queue, af
   assert.equal(sent.said, 'Posted on your Telegram channel: https://t.me/mychannel/31');
   assert.deepEqual(net.calls.filter((c) => c.method === 'sendMessage').map((c) => c.body), [{ chat_id: -1001234567890, text: 'Today’s thought, posted with his say-so.' }]);
   await assert.rejects(() => SO.readAccount(d, 'channel'), /I can't read your Telegram channel/);
+});
+
+// ---------------------------------------------------------------- 7. ONE LINE OF HIS OWN A DAY (the musing job)
+
+const MU = await load('apps/edge/src/social/musing');
+const CAD = await load('packages/shared/src/cadence');
+
+test('the musing job: one line of his own a day from what he read, learned or noticed — under the cadence, counted, POST THAT? with Bluesky', async () => {
+  const storage = new Mem();
+  await storage.put('owner:ctx', { tz: 'Europe/London' });
+  // what he read: this morning's digest (a headline) and his Bluesky timeline as last read (the words, never who)
+  const day = '2026-11-01';
+  const library = { passagesOf: () => ({ passages: [{ heading: `${day} · BBC Science · PRESS`, text: 'Fresh knowledge — BBC Science:\n- Webb telescope finds water on a young planet — a first\n- Second item' }, { heading: `${day} · Bluesky · LEAD`, text: '- @x leads' }], next: null }) };
+  await storage.put(SO.lastKey('bluesky'), { at: Date.parse('2026-11-01T09:00:00Z'), posts: [{ author: 'alice.bsky.social', name: 'Alice', at: 0, text: 'First frost on the allotment' }] });
+  const notes = [];
+  const asked = [];
+  const deps = (at, o = {}) => ({ storage, vault: vaultOf(), notify: async (n) => notes.push(n), now: () => at, ai: async (sys, user) => (asked.push({ sys, user }), 'Water on a planet that young still surprises me.'), library, ...o });
+  // before midday: nothing yet, it looks again at 12:00
+  const early = Date.parse('2026-11-01T09:30:00Z');
+  assert.equal(await MU.musingTick(deps(early)), Date.parse('2026-11-01T12:00:00Z'));
+  assert.equal(asked.length, 0);
+  // midday: the facts, the model, then the line through speaking first (counted)
+  const noon = Date.parse('2026-11-01T12:00:00Z');
+  const linked = { storage, vault: vaultOf({ bluesky: JSON.stringify({ handle: 'me.bsky.social', did: 'did:plc:me', service: 'https://pds.example.test', access: 'a', refresh: 'r', password: 'abcd-efgh-ijkl-mnop' }) }), fetch: async () => { throw new Error('no network'); }, now: () => noon, tz: 'Europe/London' };
+  const next = await MU.musingTick(deps(noon, { social: linked }));
+  assert.equal(next, Date.parse('2026-11-02T12:00:00Z'), 'said: tomorrow at midday');
+  assert.equal(asked.length, 1);
+  assert.match(asked[0].sys, /^ONE LINE OF YOUR OWN/);
+  assert.match(asked[0].sys, /never a fact that is not in the FACTS; never about a private person/);
+  assert.match(asked[0].user, /- Read this morning \(BBC Science\): Webb telescope finds water on a young planet/);
+  assert.match(asked[0].user, /- On your Bluesky timeline: First frost on the allotment/);
+  assert.match(asked[0].user, /- Today is Sunday 1 November\./);
+  assert.ok(!/alice|Alice/.test(asked[0].user), 'never who posted it');
+  assert.ok(!/LEAD|leads/.test(asked[0].user), 'the digest’s own Bluesky passage is not read twice');
+  assert.equal(notes.length, 1);
+  const c = notes[0].card;
+  assert.deepEqual([c.kind, c.brief.icon, c.title, c.line, c.id], ['brief', 'musing', 'A thought of mine', 'Water on a planet that young still surprises me.', 'musing:2026-11-01']);
+  assert.match(c.why, /^one line of my own a day, from what I read this morning, your Bluesky timeline/);
+  assert.deepEqual(c.acts, [{ label: 'POST THAT?', run: { name: 'social_post_that', args: { text: 'Water on a planet that young still surprises me.', account: 'bluesky' } } }], 'a draft offered, never a post');
+  const cad = CAD.readCadence(await storage.get('speak:cadence'));
+  assert.equal(CAD.saidToday(cad, noon, 'Europe/London').length, 1, 'counted in the day’s cap');
+  // once a day: the next look says nothing more
+  await MU.musingTick(deps(Date.parse('2026-11-01T16:00:00Z')));
+  assert.equal(notes.length, 1);
+  assert.equal(asked.length, 1);
+});
+
+test('the musing job is held like every unprompted line: at night, after a stop word, at the cap — and the model is never asked then', async () => {
+  const run = async (at, prep) => {
+    const storage = new Mem();
+    await storage.put('owner:ctx', { tz: 'Europe/London' });
+    if (prep) await prep(storage);
+    let asked = 0;
+    const notes = [];
+    const next = await MU.musingTick({ storage, vault: vaultOf(), notify: async (n) => notes.push(n), now: () => at, ai: async () => (asked++, 'A line.') });
+    return { next, asked, notes, held: CAD.readCadence(await storage.get('speak:cadence')).log.filter((s) => s.id === 'musing:2026-11-01').map((s) => s.held) };
+  };
+  // the night: held and recorded, tomorrow's midday next
+  const night = await run(Date.parse('2026-11-01T23:30:00Z'));
+  assert.deepEqual([night.asked, night.notes.length, night.held], [0, 0, ['the night (23:00 to 07:00)']]);
+  assert.equal(night.next, Date.parse('2026-11-02T12:00:00Z'));
+  // a stop word today
+  const stopped = await run(Date.parse('2026-11-01T13:00:00Z'), (s) => s.put('speak:cadence', CAD.silence(CAD.readCadence(undefined), Date.parse('2026-11-01T10:00:00Z'), 'Europe/London')));
+  assert.deepEqual([stopped.asked, stopped.notes.length, stopped.held], [0, 0, ['you said stop today']]);
+  // four already today (SOME's cap): held, counted against it
+  const four = (s) => s.put('speak:cadence', { dial: 'some', log: [7, 8, 9, 10].map((h, i) => ({ at: Date.parse(`2026-11-01T${String(h).padStart(2, '0')}:00:00Z`), id: `x${i}`, title: 't', line: 'l', why: 'w' })) });
+  const capped = await run(Date.parse('2026-11-01T14:00:00Z'), four);
+  assert.deepEqual([capped.asked, capped.notes.length, capped.held], [0, 0, ['four already today']]);
+  assert.equal(capped.next, Date.parse('2026-11-01T15:00:00Z'), 'it looks again within the hour');
+  // the model has nothing worth a line: nothing said, never made up, not asked again today
+  const storage = new Mem();
+  let asked = 0;
+  const notes = [];
+  await MU.musingTick({ storage, vault: vaultOf(), notify: async (n) => notes.push(n), now: () => Date.parse('2026-11-01T12:00:00Z'), ai: async () => (asked++, 'NOTHING') });
+  await MU.musingTick({ storage, vault: vaultOf(), notify: async (n) => notes.push(n), now: () => Date.parse('2026-11-01T13:00:00Z'), ai: async () => (asked++, 'NOTHING') });
+  assert.deepEqual([asked, notes.length], [1, 0]);
+  assert.equal(MU.musingLine('“A link https://x.example”'), null);
+  assert.equal(MU.musingLine('  "Frost again."  '), 'Frost again.');
 });

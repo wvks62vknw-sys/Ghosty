@@ -28,6 +28,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const ex = EXERCISES.find((e) => e.prompt === messages[1]?.content);
     if (ex) return { message: { role: 'assistant', content: messages.length > 2 ? `\`\`\`js\n${ex.reference}\n\`\`\`` : `\`\`\`js\nfunction ${ex.entry}() { return null; }\n\`\`\`` }, model };
   }
+  // [social] the line of his own a day (social/musing.ts): from the first of its facts, as a model would put it
+  if (/^ONE LINE OF YOUR OWN/.test(String(messages[0]?.content ?? ''))) {
+    const fact = textOf(last.content).match(/^- (?:Read this morning \([^)]*\): |On your Bluesky timeline: |What I learned this week: )?(.+)$/m)?.[1] ?? '';
+    return { message: { role: 'assistant', content: fact ? `Been thinking about this one: ${fact.replace(/\.$/, '').slice(0, 140)}.` : 'NOTHING' }, model };
+  }
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }

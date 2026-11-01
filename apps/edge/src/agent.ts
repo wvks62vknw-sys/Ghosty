@@ -70,6 +70,7 @@ import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type S
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
 import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
 import { discordInteraction } from './social/discord'; // [social] his own bot in his own server: /ask, signature checked first
+import { ensureMusingJob, musingTick, type MusingDeps } from './social/musing'; // [social] one line of his own a day, under the cadence
 import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
@@ -1474,6 +1475,7 @@ export class GhostyAgent {
       if (job.kind === 'foresee') return json({ next: await foreseeTick(this.foreDeps()) }); // [foresight]
       if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
       if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
+      if (job.kind === 'musing') return json({ next: await musingTick(await this.musingDeps()) }); // [social]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1646,6 +1648,11 @@ export class GhostyAgent {
           const next = await speakTick(this.speakDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
+        } else if (job.kind === 'musing') {
+          // [social] One line of his own a day (social/musing.ts): under the cadence, the model asked only when it may go.
+          const next = await musingTick(await this.musingDeps());
+          await finishJob(this.storage, job.id, 'looked');
+          await setNext(this.storage, job.id, next);
         } else if (job.kind === 'follow') {
           // [packs] The money pack's price watches (tools/money.ts): each page read again, a drop told once; twice a day.
           const next = await packsTick(this.packsDeps());
@@ -1749,6 +1756,7 @@ export class GhostyAgent {
     await ensureGuardJob(this.storage); // [guardian]
     await ensureForeseeJob(this.storage); // [foresight]
     await ensureSpeakJob(this.storage); // [cards] speaking first
+    await ensureMusingJob(this.storage); // [social] one line of his own a day
   }
 
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
@@ -1776,6 +1784,11 @@ export class GhostyAgent {
       slot.done();
     }
     return out.join('\n\n').trim();
+  }
+
+  /** [social] What the line of his own (social/musing.ts) may use: speaking first's, a cheap model, the library, his accounts. */
+  private async musingDeps(): Promise<MusingDeps> {
+    return { ...this.speakDeps(), ai: this.studyAi(), library: this.library, social: await this.socialDeps() };
   }
 
   /** [social] What his accounts (social/*) may use: the database, the vault (their keys), his time zone and his pictures. */
