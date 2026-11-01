@@ -2,8 +2,9 @@
  * The areas: ASK · SEE · MAKE · LEARN · PLAN · LIFE, and ME.
  * Every tab belongs to one area. The tab bar shows the six; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
- * its hub: a large title and its tools as instrument cards (shell/hubcards.ts), on one screen with nothing to scroll
- * (six at most; any more in a More row); the recent screens are in Search.
+ * its hub: a large title and every one of its tools as an instrument card (shell/hubcards.ts); the hub scrolls when they
+ * run past the screen (the owner's word on 1 Nov, OWNER-ISSUES 119: findability outranks the old "one screen, six cards
+ * and a More row" rule, so nothing hides in a row of small ones); the recent screens are in Search.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
  */
 import { addPaletteDecor, register, togglePalette, type Command } from '../commands/registry';
@@ -152,25 +153,6 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
 
-/** A tool past the sixth: a small instrument, its name and its first reading, in the hub's More row. */
-function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
-  const c = CARDS[id];
-  const ins = h('span.mins');
-  const line = h('small');
-  const el = h('button.hubmini', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap }, ins, h('span.mtx', h('b', name), line), icon('<path d="M9 5l7 7-7 7"/>'));
-  const paint = () => {
-    if (!c) return;
-    const drawn = (t?.instrument ?? c.instrument)?.() ?? null;
-    clear(ins, drawn);
-    const r = (t?.readouts ?? c.readouts)()[0];
-    line.textContent = r ? `${r.label}: ${r.value ?? r.none ?? 'Not yet'}${r.value != null && r.unit ? ` ${r.unit}` : ''}` : '';
-  };
-  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
-}
-
-/** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
-export const HUB_MAX = 6;
-
 type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
 /** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
 function areaTools(a: Area): Tool[] {
@@ -192,24 +174,17 @@ function hubTab(a: Area): TabDef {
     mount(root) {
       ensureDefs();
       const grid = h('div.hubgrid');
-      const moreRow = h('div.hubmore');
       const sub = h('p.hubsub', a.sub);
       const wrap = h('div.hub',
         sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
-        moreRow,
       );
       root.append(wrap);
-      // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
-      // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
-      const tools = areaTools(a);
-      const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
-      const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
+      // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen. Every
+      // tool of the area is an instrument card, two to a row; the hub scrolls when they run past the screen (BRIEF-TABS 3).
+      const cards = areaTools(a).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
       clear(grid, ...cards.map((c) => c.el));
-      clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
-      moreRow.hidden = !minis.length;
-      cards.push(...minis);
       // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
       // city, his latest project) where the phone has the reading, else the plain line; never a sample
       const paintSub = () => {
@@ -554,7 +529,8 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
-  if (tab === 'memory' || tab === 'settings' || tab === 'abilities') return { back: '', backTo: '', title: niceCase(t.title) };
+  // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like ABILITIES: Me's screens are the Me sheet's rows)
+  if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
   if (tab === 'system' || tab === 'links') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

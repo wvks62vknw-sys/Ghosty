@@ -9,7 +9,9 @@
  * phone has not got shows "Not yet" and the card says how to get it — never a sample.
  *
  * A tab can give its own card through TabDef.instrument / TabDef.readouts / TabDef.status (shell/tabs.ts); the
- * table below is the default for the twenty tools, so the feature files stay as they are.
+ * table below is the default for every tool, so the feature files stay as they are. [tabs] The fourteen screens the sheets
+ * became (BRIEF-TABS 3) read the same state their pages show: a statement's month, the week's moves, the timers running,
+ * the people, the to-do, where the car is, what is due at home, the streaks, the posts waiting for his APPROVE, the house.
  */
 import { brain, headers, lastSeen, type ReverseJobInfo, type StudyInfo } from '../api/brain';
 import type { Project } from '../../../../packages/shared/src/protocol';
@@ -47,6 +49,17 @@ import { listDocs } from '../docs/store';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
+// [tabs] what the new screens' cards read (BRIEF-TABS 3)
+import { ACCOUNTS } from '../../../../packages/shared/src/social';
+import { mmss } from '../../../../packages/shared/src/kitchen';
+import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, moneyInst, outsideInst, peopleInst, socialInst, workInst } from '../ui/lifeinst';
+import { bodyState } from '../features/body/sheet';
+import { CREATIVE_TITLES } from '../features/creative/sheet';
+import { saved as creativeSaved } from '../features/creative/draw';
+import { NEARS } from '../features/outside/sheet';
+import { socialInfo, waiting } from '../features/social/queue';
+import { dayOf, loadProgress, streak } from '../coach/progress';
+import { houseNow, loadHouse } from '../house/api';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -100,6 +113,20 @@ export const hubFacts = {
   keptLast: null as { title: string; at: number } | null,
   /** The Workshop's projects that run for days (null until read). */
   projects: null as Project[] | null,
+  // [tabs] the screens the sheets became (null until read; `false`: read, and none kept)
+  /** MONEY: the last statement's month, money out, its categories biggest first. */
+  money: null as { month: string; out: number; cats: { c: string; spent: number }[] } | null | false,
+  /** BODY: this week since Monday, as the pack keeps it. */
+  body: null as { days: number; reps: number; km: number } | null,
+  people: null as { n: number; next: { name: string; on: string } | null } | null,
+  work: null as { open: number; done: number } | null,
+  /** OUTSIDE: where the car is (car null: none kept). */
+  outside: null as { car: string | null } | null,
+  /** HOME: what is due in the next 45 days, in date order. */
+  home: null as { on: string; text: string }[] | null,
+  learning: null as { streak: number; today: boolean; skills: number } | null,
+  coach: null as { streak: number; today: boolean; passed: number } | null,
+  social: null as { waiting: number; linked: boolean[] } | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
 const loadArcade = every(3_000, async () => {
@@ -127,6 +154,50 @@ const loadKept = every(30_000, async () => {
 });
 const loadProjects = every(120_000, async () => (hubFacts.projects = (await brain.projects()).projects));
 const loadStatus = every(120_000, () => brain.status());
+// [tabs] the reads the new screens' pages make when they open, made by their cards when the hub opens (each pack's own
+// read actions, or what the page itself reads first; no model, nothing changed)
+const loadMoney = every(300_000, async () => {
+  const s = await brain.spending();
+  hubFacts.money = s.kept && s.view ? { month: s.view.month, out: s.view.out, cats: s.view.categories.map((x) => ({ c: String(x.c), spent: x.spent })) } : false;
+});
+const loadBody = every(120_000, async () => {
+  const d = (await brain.packDo('body', 'week', {})).data as { days?: number; reps?: number; km?: number } | undefined;
+  if (d && typeof d.days === 'number') hubFacts.body = { days: d.days, reps: d.reps ?? 0, km: d.km ?? 0 };
+});
+const loadPeople = every(300_000, async () => {
+  const ps = ((await brain.packDo('people', 'who', {})).data as { people?: { name: string; next?: string }[] } | undefined)?.people ?? [];
+  const next = ps.filter((p) => p.next).sort((a, b) => a.next!.localeCompare(b.next!))[0];
+  hubFacts.people = { n: ps.length, next: next ? { name: next.name, on: next.next! } : null };
+});
+const loadWork = every(120_000, async () => {
+  const list = ((await brain.packDo('work', 'todo', { words: '' })).data as { list?: { done?: boolean }[] } | undefined)?.list ?? [];
+  hubFacts.work = { open: list.filter((t) => !t.done).length, done: list.filter((t) => t.done).length };
+});
+const loadOutside = every(300_000, async () => {
+  const r = await brain.packDo('outside', 'parked', { ask: true });
+  hubFacts.outside = { car: (r.data as { parked?: { label?: string } } | undefined)?.parked?.label ?? null };
+});
+const loadHome = every(300_000, async () => {
+  // (nothing due comes back as words alone: an answer with no lines is an empty list)
+  hubFacts.home = ((await brain.packDo('homeadmin', 'due', { days: 45 })).data as { lines?: { on: string; text: string }[] } | undefined)?.lines ?? [];
+});
+const loadLearning = every(300_000, async () => {
+  const d = (await brain.packDo('learning', 'progress', {})).data as { rows?: unknown[]; overall?: { current?: number; today?: boolean } } | undefined;
+  if (d) hubFacts.learning = { streak: d.overall?.current ?? 0, today: !!d.overall?.today, skills: d.rows?.length ?? 0 };
+});
+/** The coach's practice is kept on this phone (coach/progress.ts): read again when the hub repaints its cards. */
+const loadCoach = every(3_000, async () => {
+  const p = loadProgress();
+  const today = dayOf(Date.now());
+  hubFacts.coach = { streak: streak(p.days, today), today: p.days.includes(today), passed: Object.keys(p.passed).length };
+});
+const loadSocial = every(60_000, async () => {
+  const info = await socialInfo();
+  if (info) hubFacts.social = { waiting: waiting(info).length, linked: ACCOUNTS.map((a) => !!info.accounts.find((x) => x.id === a.id)?.who) };
+});
+/** The kitchen's timers run on this phone (features/kitchen/timers.ts, started only where there are any): taken when the hub opens. */
+let kitchenTimers: typeof import('../features/kitchen/timers') | null = null;
+const loadKitchen = async () => void (kitchenTimers ??= await import('../features/kitchen/timers'));
 
 /* ------------------------------------------------------------------ helpers */
 const n = (x: number | null | undefined) => (x == null || !Number.isFinite(x) ? null : fmt.n(x));
@@ -158,6 +229,26 @@ const nextEvent = () => {
 };
 const btc = () => coins.data?.find((c) => c.sym === 'BTC') ?? null;
 const quakesToday = () => (quakes.data ? quakes.data.filter((q) => Date.now() - q.t < 86_400_000).length : null);
+/** [tabs] "Tomorrow", "Tue", "14 Mar" for a day (YYYY-MM-DD). */
+function dayWords(day: string, now = Date.now()): string {
+  const t = Date.parse(`${day}T12:00:00`);
+  if (!Number.isFinite(t)) return day;
+  const d = new Date(t);
+  if (d.toDateString() === new Date(now).toDateString()) return 'Today';
+  if (d.toDateString() === new Date(now + 86_400_000).toDateString()) return 'Tomorrow';
+  return d.toLocaleDateString('en-GB', Math.abs(t - now) < 6 * 86_400_000 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
+}
+/** Days from today to `day` (0: today). */
+const daysTo = (day: string, now = Date.now()) => Math.round((Date.parse(`${day}T12:00:00`) - new Date(now).setHours(12, 0, 0, 0)) / 86_400_000);
+/** The kitchen's timer that rings next (or is ringing). */
+const nextTimer = () => (kitchenTimers?.timersNow() ?? []).sort((a, b) => (b.ringing ? 1 : 0) - (a.ringing ? 1 : 0) || a.left - b.left)[0] ?? null;
+/** His house's lights and switches, and how many are on. */
+const houseLit = () => {
+  const v = houseNow.get().view;
+  const all = v?.linked ? v.entities.filter((e) => e.domain === 'light' || e.domain === 'switch' || e.domain === 'fan') : [];
+  return { of: all.length, on: all.filter((e) => e.state === 'on').length };
+};
+
 /** The instrument with a number in its middle (the GYM's and SCHOOL's rings). */
 const centred = (svg: Element, big: string, of: string, word: string) =>
   h('span.insc', svg, h('span.ctr', h('span', h('b.tnum', big, h('span.of', of)), h('small', word))));
@@ -473,6 +564,179 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Favourites', value: String(favourites.list().length) },
       ];
     },
+  },
+  // ---------------------------------------------------------------- [tabs] LIFE: the eight everyday packs (BRIEF-TABS 3)
+  money: {
+    title: 'Your spending',
+    status: () => 'READY',
+    instrument: () => moneyInst(hubFacts.money ? hubFacts.money.cats.map((x) => x.spent) : null),
+    readouts: () => {
+      const m = hubFacts.money;
+      const none = m === false ? 'None yet' : 'Not yet';
+      return [
+        { label: 'Spent', value: m ? `£${fmt.n(Math.round(m.out))}` : null, unit: m ? new Date(`${m.month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'short' }) : '', none },
+        { label: 'Most on', value: m && m.cats[0] ? niceCase(m.cats[0].c) : null, none },
+      ];
+    },
+    why: () => (hubFacts.money === false ? 'Paste a statement: read by rules, no bank access' : ''),
+    load: loadMoney,
+  },
+  body: {
+    title: 'Move and breathe',
+    status: () => (bodyState.run.on || bodyState.camera === 'on' ? 'LIVE' : 'READY'),
+    instrument: () => bodyInst(hubFacts.body?.days ?? null),
+    readouts: () => {
+      const b = hubFacts.body;
+      return [
+        { label: 'Active', value: b ? String(b.days) : null, unit: b ? (b.days === 1 ? 'day' : 'days') : '' },
+        { label: 'Reps', value: b ? fmt.n(b.reps) : null, unit: b && b.km ? `${b.km} km` : '' },
+      ];
+    },
+    load: loadBody,
+  },
+  kitchen: {
+    title: 'Timers and meals',
+    status: () => (kitchenTimers?.timersNow().length ? 'LIVE' : 'READY'),
+    // the soonest timer's last hour, filling as it comes up to ringing (as the diary's next thing does)
+    instrument: () => {
+      const t = nextTimer();
+      return countdownInst(t ? (t.ringing ? 1 : t.left < 3600 ? 1 - t.left / 3600 : 0.01) : null);
+    },
+    readouts: () => {
+      const n = kitchenTimers?.timersNow().length ?? 0;
+      const t = nextTimer();
+      return [
+        { label: 'Timers', value: n ? String(n) : null, none: kitchenTimers ? 'None' : 'Not yet', live: n > 0 },
+        { label: 'Next', value: t ? (t.ringing ? 'Ringing' : mmss(t.left)) : null, unit: t ? t.name : '', none: '—', live: !!t },
+      ];
+    },
+    load: loadKitchen,
+  },
+  people: {
+    title: 'Birthdays and gifts',
+    status: () => 'READY',
+    instrument: () => peopleInst(hubFacts.people?.n ?? null),
+    readouts: () => {
+      const p = hubFacts.people;
+      return [
+        { label: 'People', value: p?.n ? String(p.n) : null, none: p ? 'None yet' : 'Not yet' },
+        { label: 'Birthday', value: p?.next ? p.next.name : null, unit: p?.next ? dayWords(p.next.on) : '', none: p ? 'None yet' : 'Not yet' },
+      ];
+    },
+    why: () => (hubFacts.people && !hubFacts.people.n ? 'Tell me about someone: “Sam is my cousin”' : ''),
+    load: loadPeople,
+  },
+  work: {
+    title: 'Your to-do list',
+    status: () => 'READY',
+    instrument: () => workInst(hubFacts.work?.done ?? null, hubFacts.work ? hubFacts.work.open + hubFacts.work.done : null),
+    readouts: () => {
+      const w = hubFacts.work;
+      return [
+        { label: 'To do', value: w?.open ? String(w.open) : null, none: w ? 'Nothing' : 'Not yet' },
+        { label: 'Done', value: w ? String(w.done) : null },
+      ];
+    },
+    load: loadWork,
+  },
+  creative: {
+    title: 'Songs and posters',
+    status: () => 'READY',
+    instrument: () => creativeInst(!!creativeSaved.name),
+    // the seven things the screen makes, and what was last saved from it on this visit
+    readouts: () => [
+      { label: 'Makes', value: String(Object.keys(CREATIVE_TITLES).length) },
+      { label: 'Saved', value: creativeSaved.name || null },
+    ],
+  },
+  outside: {
+    title: 'Out and about',
+    status: () => 'READY',
+    instrument: () => outsideInst(!!hubFacts.outside?.car),
+    readouts: () => {
+      const o = hubFacts.outside;
+      return [
+        { label: 'Car', value: o?.car ?? null, none: o ? 'None' : 'Not yet' },
+        // the kinds of place NEARBY finds (car parks, toilets, cash, water, open now)
+        { label: 'Nearby', value: String(NEARS.length), unit: 'kinds' },
+      ];
+    },
+    load: loadOutside,
+  },
+  homeadmin: {
+    title: 'Bins and bills',
+    status: () => (hubFacts.home?.some((x) => daysTo(x.on) === 0) ? 'LIVE' : 'READY'),
+    instrument: () => homeInst(hubFacts.home ? hubFacts.home.map((x) => daysTo(x.on)).filter((d) => d >= 0 && d < 14) : null),
+    readouts: () => {
+      const l = hubFacts.home;
+      const next = l?.find((x) => daysTo(x.on) >= 0) ?? null;
+      return [
+        { label: 'Next', value: next ? next.text : null, unit: next ? dayWords(next.on) : '', none: l ? 'Nothing' : 'Not yet', live: !!next && daysTo(next.on) <= 1 },
+        { label: 'Due soon', value: l ? String(l.filter((x) => daysTo(x.on) >= 0 && daysTo(x.on) < 14).length) : null },
+      ];
+    },
+    why: () => (hubFacts.home && !hubFacts.home.length ? 'Tell me your bin days, or photograph a bill' : ''),
+    load: loadHome,
+  },
+  // ---------------------------------------------------------------- [tabs] LEARN: the learning pack and the coach
+  learning: {
+    title: 'A little a day',
+    status: () => 'READY',
+    instrument: () => learningInst(hubFacts.learning?.streak ?? null),
+    readouts: () => {
+      const l = hubFacts.learning;
+      return [
+        { label: 'Streak', value: l?.skills ? String(l.streak) : null, unit: l?.skills ? (l.streak === 1 ? 'day' : 'days') : '', none: l ? 'None yet' : 'Not yet', live: !!l?.today },
+        { label: 'Skills', value: l ? String(l.skills) : null },
+      ];
+    },
+    load: loadLearning,
+  },
+  coach: {
+    title: 'Music and typing',
+    status: () => 'READY',
+    instrument: () => coachInst(!!hubFacts.coach?.today, hubFacts.coach?.streak ?? 0),
+    readouts: () => {
+      const c = hubFacts.coach;
+      return [
+        { label: 'Streak', value: c?.streak ? String(c.streak) : null, unit: c?.streak ? (c.streak === 1 ? 'day' : 'days') : '', none: c ? 'None yet' : 'Not yet', live: !!c?.today },
+        { label: 'Passed', value: c ? String(c.passed) : null, unit: c?.passed === 1 ? 'lesson' : 'lessons' },
+      ];
+    },
+    load: loadCoach,
+  },
+  // ---------------------------------------------------------------- [tabs] MAKE: the house (the converter and the documents are above)
+  house: {
+    title: 'Your smart home',
+    status: () => (houseNow.get().view?.linked === false ? 'OFF' : 'READY'),
+    instrument: () => {
+      const l = houseLit();
+      return houseInst(l.of ? l.on : null, l.of || null);
+    },
+    readouts: () => {
+      const v = houseNow.get().view;
+      const l = houseLit();
+      return [
+        { label: 'Things', value: v?.linked ? String(v.entities.length) : null, none: v ? 'Not set up' : 'Not yet' },
+        { label: 'Lights on', value: v?.linked ? String(l.on) : null, none: v ? '—' : 'Not yet' },
+      ];
+    },
+    why: () => (houseNow.get().view?.linked === false ? 'Link your own Home Assistant: SYSTEM → KEYS' : ''),
+    load: () => loadHouse(),
+  },
+  // ---------------------------------------------------------------- [tabs] ME: his social self
+  social: {
+    title: 'Posts wait for you',
+    status: () => 'READY',
+    instrument: () => socialInst(hubFacts.social?.linked ?? null, hubFacts.social?.waiting ?? 0),
+    readouts: () => {
+      const s = hubFacts.social;
+      return [
+        { label: 'Waiting', value: s?.waiting ? String(s.waiting) : null, none: s ? 'Nothing' : 'Not yet', live: !!s?.waiting },
+        { label: 'Linked', value: s ? String(s.linked.filter(Boolean).length) : null, unit: s ? `of ${s.linked.length}` : '' },
+      ];
+    },
+    load: loadSocial,
   },
 };
 

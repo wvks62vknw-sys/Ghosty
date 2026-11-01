@@ -85,4 +85,9 @@ export const TABS_WORDS: Record<string, CatValue> = {
   },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
+
+  // ---- their cards on their hubs (each opens its screen)
+  'hub:money': { same: 'screen:money' }, 'hub:body': { same: 'screen:body' }, 'hub:kitchen': { same: 'screen:kitchen' }, 'hub:people': { same: 'screen:people' },
+  'hub:work': { same: 'screen:work' }, 'hub:creative': { same: 'screen:creative' }, 'hub:outside': { same: 'screen:outside' }, 'hub:homeadmin': { same: 'screen:homeadmin' },
+  'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' },
 };
