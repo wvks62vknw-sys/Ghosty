@@ -5217,7 +5217,7 @@ html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); co
 .g3arena:not([data-mode="play"]) :is(.g3hud, .g3board, .g3split, .g3eject, .g3pause, .g3tags) { display: none; }
 .g3arena:not([data-mode="play"]) .g3touch { pointer-events: none; }
 
-/* ---- [resta] BRIEF-REST-A: WIKIPEDIA, OFFLINE (wiki/view.ts), SETTINGS → SHORTCUTS (features/settings/shortcuts.ts) */
+/* ---- [resta] BRIEF-REST-A: WIKIPEDIA, OFFLINE (wiki/view.ts), SETTINGS → SHORTCUTS (features/settings/shortcuts.ts), the MORSE sheet (morse/sheet.ts) */
 .wiki .wikilead { margin: 0 0 10px; }
 .wikihead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .wikibadge { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 12px; font: 600 11px/1 var(--b); letter-spacing: .08em; color: #04210d; background: var(--ok, #30d158); }
@@ -5257,5 +5257,35 @@ html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); co
 .scrow .row button, .scown .row button { min-height: 44px; }
 .scown .scpick, .scown .scwords { flex: 1 1 140px; min-width: 0; min-height: 44px; font-size: 16px; }
 .scown .scwords[hidden] { display: none; }
+.morse { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 12px; }
+.morsetabs { gap: 6px; flex-wrap: nowrap; }
+.morsetabs button { min-height: 44px; flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
+.morseside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.morseside[hidden] { display: none; }
+.morselab { display: flex; flex-direction: column; gap: 4px; font: 500 12px/1.2 var(--b); color: var(--l2); }
+.morsein, .morseout { width: 100%; min-height: 64px; font: 18px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; box-sizing: border-box; }
+.morseplay, .morsespeed { gap: 8px; flex-wrap: wrap; align-items: center; }
+.morseplay button { min-height: 44px; }
+.morsewpm { flex: 1 1 160px; min-width: 0; min-height: 44px; }
+.morsewpmv { font: 600 14px/1 var(--b); color: var(--fg); min-width: 64px; }
+.morsepad { width: 100%; min-height: 168px; border-radius: 24px; font: 700 22px/1 var(--b); letter-spacing: .2em; color: var(--fg); background: var(--fill2); border: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.morsepad.down { background: rgba(var(--cr), .35); border-color: var(--c); }
+.morsetapcode { min-height: 30px; font: 24px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--c); overflow-wrap: anywhere; }
+.morsetaptext { min-height: 30px; font: 600 26px/1.2 var(--b); color: var(--fg); letter-spacing: .06em; overflow-wrap: anywhere; }
+.morsebig { display: flex; align-items: baseline; gap: 16px; }
+.morsebig b { font: 700 64px/1 var(--d, var(--b)); color: var(--fg); }
+.morsebig span { font: 40px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--c); }
+.morsequiz .row { gap: 8px; flex-wrap: wrap; align-items: center; }
+.morseans { width: 64px; min-height: 44px; font: 600 22px/1 var(--b); text-align: center; text-transform: uppercase; }
+.morsescore { font: 600 18px/1.3 var(--b); color: var(--fg); }
+.morsechart { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.morsecell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 6px 4px; border-radius: 10px; background: var(--fill); border: 0; color: var(--fg); }
+.morsecell b { font: 600 18px/1 var(--b); }
+.morsecell span { font: 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--c); }
 /* every control here takes a finger: 44 pt (over the touch screens' 40 pt rule above) */
-html .pn.wiki :is(button, input), html :is(.scrow, .scown) :is(button, select, input) { min-height: 44px !important; }
+html .pn.wiki :is(button, input), html :is(.scrow, .scown) :is(button, select, input), html .morse :is(button:not(.morsepad, .morsecell), input, textarea) { min-height: 44px !important; }
+html .morse .morsepad { min-height: 168px !important; }
+html .morse .morsecell { min-height: 52px !important; }
+.morseflash { position: fixed; inset: 0; z-index: 400; pointer-events: none; background: #fff; opacity: 0; transition: opacity 20ms linear; }
+.morseflash.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .morseflash { transition: none; } }

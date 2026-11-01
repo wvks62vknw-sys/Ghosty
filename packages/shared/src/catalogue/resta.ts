@@ -37,4 +37,14 @@ export const RESTA_WORDS: Record<string, CatValue> = {
     cat: 'do',
     since: SINCE,
   },
+  'phrase:morse': {
+    name: 'Morse code, both ways',
+    line: 'You can turn words into Morse and back, hear it, flash it on the screen, tap it out, and learn a letter a day.',
+    more: 'Say “morse”, “SOS in morse” or “decode morse”. The sheet plays it at the speed you set and flashes the screen (a web page cannot use the torch), reads your taps on its pad, and has the chart and a five-letter quiz. All on the phone.',
+    say: ['SOS in morse', 'Decode morse', 'Learn morse'],
+    scene: ['playing', 'phone'],
+    cat: 'play',
+    go: { ask: 'SOS in morse' },
+    since: SINCE,
+  },
 };

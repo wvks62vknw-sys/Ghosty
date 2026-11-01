@@ -286,6 +286,46 @@ await ctx.close();
   await ctx.close();
 }
 
+// ================================================================ 3. MORSE
+{
+  const { ctx, page } = await phone();
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForSelector('#cin', { timeout: 10000 });
+  await say(page, 'SOS in morse');
+  check(await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => m.textContent?.includes('“SOS” in Morse: ... --- ...'))), '"SOS in morse" answers in the chat');
+  check(await until(page, () => document.querySelector('.modal .morseout')?.value === '... --- ...'), 'and opens the Morse sheet with it');
+  await page.locator('.modal .morseplay button', { hasText: 'PLAY' }).click();
+  check(await until(page, () => window.__ghostyMorse?.playing === true, null, 5000), 'PLAY plays it on the synth');
+  check(await until(page, () => window.__ghostyMorse?.playing === false && window.__ghostyMorse.played === '... --- ...', null, 15000), '…to the end');
+  await page.locator('.modal .morsetabs button', { hasText: 'TAP' }).click();
+  // a short press and a long one, timed on the page: A
+  await page.evaluate(async () => {
+    const pad = document.querySelector('.modal .morsepad');
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const press = async (ms) => {
+      pad.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      await wait(ms);
+      pad.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    };
+    await press(60);
+    await wait(40);
+    await press(480);
+  });
+  const tapped = await page.evaluate(() => ({ code: window.__ghostyMorse.taps, text: document.querySelector('.modal .morsetaptext')?.textContent }));
+  check(tapped.code === '.-' && tapped.text === 'A', `a tapped letter is read: ${JSON.stringify(tapped)}`);
+  await page.locator('.modal .morsetabs button', { hasText: 'CHART' }).click();
+  check((await page.locator('.modal .morsecell').count()) === 36, 'the chart: every letter and figure');
+  await page.locator('.modal .morsetabs button', { hasText: 'LEARN' }).click();
+  check(/today’s letter/.test((await page.locator('.modal .morseside[data-side="learn"]').textContent()) ?? ''), 'LEARN: today’s letter');
+  await page.screenshot({ path: `${out}/resta-morse.png` });
+  check(!(await wide(page)), 'the Morse sheet does not scroll sideways');
+  const sw3 = await sideways(page, '.modal .morse :is(div, button, textarea, input, section)');
+  check(!sw3.length, `nothing in the Morse sheet sticks out sideways ${sw3.join(', ')}`);
+  const un3 = await unnamed(page, '.modal .morse');
+  check(!un3.length, `every control in the Morse sheet has a name: ${un3.join(' ; ')}`);
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.log(`\n${problems.length} problem(s):\n${problems.map((p) => ` - ${p}`).join('\n')}`);

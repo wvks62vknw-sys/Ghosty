@@ -131,7 +131,7 @@ async function doCommand(d: DoCmd, L: typeof import('../../shell/launcher')): Pr
     case 'remind':
       return say(`remind me ${d.text}`);
     case 'morse':
-      return say(d.text ? `${d.text} in morse` : 'morse');
+      return void import('../../morse/sheet').then((m) => m.openMorse(d.text ? { mode: 'text', text: d.text } : { mode: 'text' }));
     case 'wiki':
       return void import('../../wiki/view').then((w) => w.openWiki('', d.title ?? ''));
   }

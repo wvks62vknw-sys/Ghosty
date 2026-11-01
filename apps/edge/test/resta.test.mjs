@@ -17,6 +17,7 @@ await build({
     words: at('../../web/src/wiki/words.ts'),
     files: at('../../web/src/wiki/files.ts'),
     links: at('../../web/src/features/settings/deeplinks.ts'),
+    morse: at('../../web/src/morse/code.ts'),
     pass: at('../src/zim.ts'),
     catalogue: at('../../../packages/shared/src/catalogue.ts'),
     resta: at('../../../packages/shared/src/catalogue/resta.ts'),
@@ -33,6 +34,7 @@ const H = await import('./.build/resta/html.mjs');
 const W = await import('./.build/resta/words.mjs');
 const F = await import('./.build/resta/files.mjs');
 const L = await import('./.build/resta/links.mjs');
+const M = await import('./.build/resta/morse.mjs');
 const P = await import('./.build/resta/pass.mjs');
 const C = await import('./.build/resta/catalogue.mjs');
 const R = await import('./.build/resta/resta.mjs');
@@ -248,10 +250,72 @@ test('the shortcut links made for him, the twelve ready ones, and the steps', ()
   assert.equal(L.durationSecs('soon'), 0);
 });
 
+// ---------------------------------------------------------------- Morse
+
+test('Morse both ways, its timing at a speed, and his words for it', () => {
+  assert.equal(M.toMorse('SOS'), '... --- ...');
+  assert.equal(M.toMorse('Hello, world!'), '.... . .-.. .-.. --- --..-- / .-- --- .-. .-.. -.. -.-.--');
+  assert.equal(M.toMorse('café'), '-.-. .- ..-. .', 'accents off');
+  assert.equal(M.fromMorse('... --- ...'), 'SOS');
+  assert.equal(M.fromMorse('.... ..   - .... . .-. .'), 'HI THERE', 'three spaces part words');
+  assert.equal(M.fromMorse('·−/−···'), 'A B', 'the other marks');
+  assert.equal(M.fromMorse('...---... .-.-.-.-'), '??');
+  for (const c of M.CHART) assert.equal(M.fromMorse(M.toMorse(c)), c);
+  assert.equal(M.unitMs(20), 60);
+  // PARIS: 43 units without the gap after the word
+  assert.equal(M.duration(M.toMorse('PARIS'), 20), 43 * 60);
+  assert.deepEqual(M.timeline('.- / -', 10).map((x) => [x.on, x.ms]), [[true, 120], [false, 120], [true, 360], [false, 840], [true, 360]]);
+  assert.deepEqual(M.morseAsked('morse'), { mode: 'text' });
+  assert.deepEqual(M.morseAsked('in morse'), { mode: 'text' });
+  assert.deepEqual(M.morseAsked('SOS in morse'), { mode: 'text', text: 'SOS' });
+  assert.deepEqual(M.morseAsked('how do you say hello in morse code?'), { mode: 'text', text: 'hello' });
+  assert.deepEqual(M.morseAsked('decode morse'), { mode: 'decode' });
+  assert.deepEqual(M.morseAsked('decode ... --- ...'), { mode: 'decode', text: '... --- ...' });
+  assert.deepEqual(M.morseAsked('... --- ...'), { mode: 'decode', text: '... --- ...' });
+  assert.deepEqual(M.morseAsked('learn morse'), { mode: 'learn' });
+  assert.deepEqual(M.morseAsked('morse chart'), { mode: 'chart' });
+  assert.deepEqual(M.morseAsked('tap morse'), { mode: 'tap' });
+  for (const t of ['...', 'what is morse code?', 'read the news', 'morse is cool, isn’t it']) assert.equal(M.morseAsked(t), null, t);
+});
+
+test('the tap timer: his presses into dots, dashes, letters and words, at his own pace', () => {
+  // A: a short press, a long one; then SOS with pauses between the letters; then two words
+  const seq = (spec, t0 = 1000) => {
+    const out = [];
+    let t = t0;
+    for (const [len, gap] of spec) {
+      out.push({ down: t, up: t + len });
+      t += len + gap;
+    }
+    return out;
+  };
+  assert.deepEqual(M.decodeTaps(seq([[90, 90], [300, 0]])), { code: '.-', text: 'A', dot: 90 });
+  const sos = M.decodeTaps(seq([[80, 80], [80, 80], [80, 320], [260, 80], [260, 80], [260, 320], [80, 80], [80, 80], [80, 0]]));
+  assert.equal(sos.code, '... --- ...');
+  assert.equal(sos.text, 'SOS');
+  assert.equal(M.decodeTaps(seq([[100, 100], [100, 800], [300, 0]])).text, 'I T', 'a long pause starts a word');
+  // all dots, or all dashes: the speed set decides (15 WPM: a unit of 80 ms, the line at 160 ms)
+  assert.equal(M.decodeTaps(seq([[70, 70], [70, 70], [70, 0]]), 15).text, 'S');
+  assert.equal(M.decodeTaps(seq([[260, 80], [260, 80], [260, 0]]), 15).text, 'O');
+  assert.deepEqual(M.decodeTaps([]), { code: '', text: '', dot: 80 });
+});
+
+test('a letter a day (Koch’s order) and its five-letter quiz', () => {
+  assert.deepEqual(M.letterOfDay('2026-11-01', '2026-11-01'), { letter: 'K', known: ['K'], day: 1 });
+  assert.deepEqual(M.letterOfDay('2026-11-01', '2026-11-03'), { letter: 'R', known: ['K', 'M', 'R'], day: 3 });
+  assert.equal(M.letterOfDay('2026-01-01', '2026-11-01').letter, 'X', 'the last letter stays once all are learnt');
+  let s = 1;
+  const rand = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const q = M.quizLetters(['K', 'M', 'R'], 'R', rand);
+  assert.equal(q.length, 5);
+  assert.ok(q.filter((x) => x === 'R').length >= 2, 'today’s letter twice at least');
+  assert.ok(q.every((x) => ['K', 'M', 'R'].includes(x)));
+});
+
 // ---------------------------------------------------------------- the catalogue
 
 test('every new thing has its words: the Wikipedia panel, the chat’s two phrases, SHORTCUTS, and the Morse sheet (its phrase)', () => {
-  assert.deepEqual(Object.keys(R.RESTA_WORDS).sort(), ['panel:library:WIKIPEDIA, OFFLINE', 'panel:settings:SHORTCUTS', 'phrase:wiki']);
+  assert.deepEqual(Object.keys(R.RESTA_WORDS).sort(), ['panel:library:WIKIPEDIA, OFFLINE', 'panel:settings:SHORTCUTS', 'phrase:morse', 'phrase:wiki']);
   for (const [k, v] of Object.entries(R.RESTA_WORDS)) {
     assert.deepEqual(C.wordProblems(k, v), [], k);
     assert.ok(C.CATALOGUE[k], `${k} joined into the catalogue`);
