@@ -126,13 +126,17 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   "GET Qwen2.5 0.5B (290 MB) and sit", then a third, tiny brain (SmolLM2 360M, 212 MB) that fits any phone; a shorter
   sitting prompt; one line after a close saying which brain closed and what SIT uses next. Why the 0.6B died: its
   library sets aside about 630 MB of working space at the first question; the tiny one needs 22 MB.
+- Batch ②, SIDEWAYS (PR #49 too): live cards in the chat (a map, a car from its plate, a person you introduced, an
+  estimate, what the camera read, a piece of the day), he brings things up himself from what you type, what the camera
+  sees, the people and cars you've named and the day, speaks first a few times a day at most (SETTINGS → CHARACTER →
+  SPEAK FIRST: QUIET · SOME · CHATTY; any stop word silences the day), Home is your wall ("Now": what matters first,
+  the deck below), and Telegram and the lock screen carry the same cards.
 
 - Nothing waiting: everything built so far is live (PR #47 merged at 19:10 UK on 31 Oct).
 
 ## 3. Happening right now
 
-- BUILDING NOW (1 Nov, from 03:40 UK): ② SIDEWAYS (live cards in the chat, the trigger table, the speak-first cadence,
-  Home as your wall); ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
+- BUILDING NOW (1 Nov): ③ THE ARCADE — the screen and the DOS library (the free classics as they are, from the
   Archive on your tap) and, separately, DOOM and Quake natively in the browser. Each: review, one PR, merged when green.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in

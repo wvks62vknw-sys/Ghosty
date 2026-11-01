@@ -1081,6 +1081,11 @@ folder that no longer exists; ignore those paths).
   script's `&&` parts does it). Building: ② sideways (8866), ③ library + arcade screen (8855), ③ native engines (8811).
   Next free slot: GAMES-2 (brief ready), then PACKS-1 (brief ready). Hold pushes while a PR is open unless a batch is
   joining it.
+- 1 Nov 06:25 UK: BATCH ② MERGED (ec681b8; fix-ups c78526f, daa6474; OWNER-ISSUES 101) and pushed into PR #49 (now ①+②+⑥a;
+  the push restarted its checks: the stop hook asked for the push and the builders' work lived only in this container).
+  Rule from here: a batch joins the open PR only while its checks are under ~45 min old; otherwise it waits for the next
+  PR. The merged tree's full suite and eight specs run in the background (scratchpad val2.log). Building: ③ library +
+  arcade screen (8855, finishing), ③ engines (8811), ③ games-2 (8800). Next slot: PACKS-1.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
