@@ -1098,6 +1098,10 @@ folder that no longer exists; ignore those paths).
   the player; three add/add conflicts (two builders created types/saves/audio from the same spec) resolved as unions.
   Held locally with the docs; the engines builder continues with the integration step on the branch tip (its worktree
   kept); all of it goes to PR #50 after #49 merges.
+- 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
+  wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
+  engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
+  with a brief instead; the three finished worktrees were locked and needed `worktree unlock` before `remove`.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
