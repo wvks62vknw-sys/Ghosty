@@ -33,10 +33,12 @@ import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
 import { speak } from './voice';
+import { originLines } from '../../../../packages/shared/src/social';
+import { card } from '../../../../packages/shared/src/cards';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'origin';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -172,6 +174,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page
+  origin(text, opts) {
+    answer(text, originLines().join(' '), { kind: 'origin' }, opts);
+    const c = card({ id: 'origin', kind: 'brief', title: 'Father and the origin', line: 'Who made me, when, of what, what I learned and my promises', brief: { icon: 'origin' }, acts: [{ label: 'OPEN', run: { name: 'open_origin', args: {} } }] });
+    void import('../features/core/cards').then((c2) => c2.postCard(c)).catch(() => undefined);
+    return true;
+  },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

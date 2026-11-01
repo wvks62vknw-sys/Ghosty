@@ -5107,3 +5107,18 @@ html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); co
 @keyframes pkring { 50% { background: rgba(var(--accr), .55); } }
 @media (prefers-reduced-motion: reduce) { .pkbreath { transition: none; } .pktimer.ringing { animation: none; } }
 
+
+/* ==== HIS SOCIAL SELF (BRIEF-SOCIAL, batch ⑦): FATHER AND THE ORIGIN (features/me/origin.ts), the drafts' cards in the
+   chat (features/links/drafts.ts) and his accounts in LINKS (features/links/social.ts). One block, last in the file. ==== */
+html .origin { display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow-wrap: anywhere; }
+html .orlead { margin: 0; font: 600 18px/1.35 var(--sf); color: var(--ink); text-transform: none; }
+html .orpart { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+html .orhead { margin: 0; font: 600 12px/16px var(--sf); letter-spacing: .6px; color: var(--ink3); }
+html .orpart p { margin: 0; font: 400 15px/1.45 var(--sf); color: var(--ink2); text-transform: none; }
+html .orlist { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 18px; font: 400 15px/1.45 var(--sf); color: var(--ink2); text-transform: none; }
+html .orlist q { color: var(--ink); }
+html .orday { font: 600 12px/1 var(--sf); color: var(--ink3); }
+html .ormonth { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+html .ormonth > b { font: 600 15px/1.3 var(--sf); color: var(--ink); text-transform: none; }
+html .orpromise li { color: var(--ink); }
+html .charorigin button { min-height: 44px; }

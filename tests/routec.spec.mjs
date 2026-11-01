@@ -289,7 +289,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const db = st2?.meter ? Math.round(st2.meter.level * 100) : null;
   if (db != null && !(Math.abs(num(me.dials[1]?.split('|')[0]) - db) <= 4 && /%/.test(me.dials[1] ?? ''))) problems.push(`[${W} me] Database today reads "${me.dials[1]}", the meter says ${db}%`);
   if (!/All good|Needs a look|Brain offline/.test(me.ok ?? '')) problems.push(`[${W} me] the Status line reads "${me.ok}"`);
-  if (me.rows.join(',') !== 'memory,settings,system,links,abilities,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  if (me.rows.join(',') !== 'memory,settings,system,links,abilities,origin,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
   // his mood (OWNER-ISSUES 70b, 63): a shape and a word, never colour alone (whatever this preview brain feels now)
   if (!me.mood?.shape || !/^(?:Calm|Focused|Protective|Pleased|Cross|Subdued)$/.test(me.mood.word ?? '') || me.mood.word.toLowerCase() !== me.mood.kind) problems.push(`[${W} me] the mood reads ${JSON.stringify(me.mood)}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);
