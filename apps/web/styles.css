@@ -2953,6 +2953,13 @@ html .hubgrid:has(> :nth-child(5)) .hubtile .ins { height: 52px; }
 html .hubgrid:has(> :nth-child(5)) .hubtile .ins > :is(svg, .insc > svg) { height: 52px; }
 html .hubgrid:has(> :nth-child(5)) .hubtile .ins svg:is(.i-trace, .i-count, .i-day) { height: 40px; }
 html .hub:has(.hubgrid > :nth-child(5)) .hubsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* [reste] six and a More row under them (MAKE since the converter and the documents joined it) still fit one screen at
+   390 × 844: shorter instruments again, on a screen that short (a taller phone has the room for them as they are) */
+@media (max-height: 900px) {
+  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins { height: 28px; margin-bottom: 4px; }
+  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins > :is(svg, .insc > svg) { height: 28px; }
+  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins svg:is(.i-trace, .i-count, .i-day) { height: 24px; }
+}
 html .hubtile .ins::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; pointer-events: none; opacity: 0; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent); box-shadow: 0 0 10px rgba(var(--cr), .6); }
 html .pg.on .hubtile .ins::after { animation: ironscan 1.6s var(--spring) .15s 1 both; }
 @keyframes ironscan { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: 1; } 88% { opacity: .8; } 100% { opacity: 0; transform: translateY(72px); } }

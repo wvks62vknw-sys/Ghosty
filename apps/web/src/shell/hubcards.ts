@@ -293,7 +293,7 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Last', value: t ? t.last : null, none: '—' },
       ];
     },
-    why: () => 'Pictures, PDFs, Word, tables, sound and QR codes, all on this phone.',
+    why: () => (convertTally() ? '' : 'Choose a file, or drop one on the chat: nothing is uploaded'),
   },
   // [reste] MAKE → DOCUMENTS (docs/sheet.ts): read, write, edit and translate; kept on this phone
   docs: {
@@ -307,7 +307,7 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Last', value: all[0]?.title ?? null, none: '—' },
       ];
     },
-    why: () => 'Ask me to write a letter in the chat, or open a PDF, Word file or e-book.',
+    why: () => (listDocs().length ? '' : 'Ask me to write a letter, or open a PDF, Word file or e-book'),
   },
   learn: {
     title: 'Learn anything',
