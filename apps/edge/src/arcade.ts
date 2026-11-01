@@ -4,9 +4,9 @@
  * plain passthrough. On 1 Nov 2026 every fetch of archive.org/cors/… from his iPhone ended in Safari's "Load failed", a fetch
  * that never got an answer: the page's side is right (its security policy lets archive.org through), so it is the network
  * between the phone and the Archive, or Safari, refusing the direct fetch. The Worker asks the Archive for the same address
- * instead and streams the answer back as it comes, with its size and range headers. Nothing is kept or cached here, nothing
- * is read: the brain never sees the package (the phone checks its exact size and SHA-256 and unpacks it), and the Durable
- * Object is not involved at all.
+ * instead and streams the answer back as it comes, with its size and range headers. Nothing is kept here and nothing is
+ * read: the brain never sees the package (the phone checks its exact size and SHA-256 and unpacks it), and the Durable
+ * Object is not involved at all. The packages are fixed releases, so the answer tells the phone it may keep it a week.
  *
  * Only for the owner (index.ts checks his sign-in first), only the Archive items the shelf uses (ARCADE_ITEMS, which the
  * arcade mirror test holds to shelf.ts and levels.ts, both ways), only a file or a ZIP member by the name the shelf writes
