@@ -25,6 +25,9 @@ const LANG = /\b(spanish|french|german|italian)\b/;
 export function coachAsked(text: string): CoachAsk | null {
   const t = text.toLowerCase().replace(/[’']/g, "'").replace(/[.!?]+$/g, '').trim();
   if (!t || t.length > 120) return null;
+  // "can you juggle?", "could you tune my guitar?": a question about what I can do is the catalogue's to answer ("Not yet",
+  // or the thing with a GO), never a coach ask (the abilities spec: "can you juggle?" is answered "Not yet" in the chat)
+  if (/^(?:can|could|do|would|will|are) you\b/.test(t)) return null;
   // juggling and tricks by camera: not in, and said so
   if (/\bjuggl\w*\b|\b(?:learn|teach me|coach me (?:on|with)) (?:a |some )?(?:skateboard|bike|yo-?yo|football|basketball|parkour|dance|ball) tricks?\b/.test(t)) return { what: 'juggle' };
   // the tuner
