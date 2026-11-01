@@ -50,7 +50,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', brain: '', resume: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
+export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', brain: '', resume: '', closed: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -60,6 +60,21 @@ function expose(): void {
     if (attach() || ++n > 40) clearInterval(timer);
   }, 500);
 }
+
+/**
+ * After a brain closed Ghosty (offline/brain.ts recoverFromClose, 1 Nov): one line when Ghosty is open again, once per
+ * record, said as a toast once the boot screen has gone: "Qwen3 0.6B closed Ghosty while answering. Next time SIT uses
+ * Qwen2.5 0.5B." It is kept on this phone until it has been said.
+ */
+function sayClosed(): void {
+  const line = offlineBrain.get().closedNote;
+  if (!line || typeof document === 'undefined') return;
+  if (document.getElementById('boot')) return void setTimeout(sayClosed, 500);
+  offlineBrain.set({ closedNote: '' });
+  schoolState.closed = line;
+  toast(line, 'warn');
+}
+if (typeof window !== 'undefined') setTimeout(sayClosed, 300);
 
 export const schoolTab: TabDef = {
   id: 'school',

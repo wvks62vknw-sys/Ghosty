@@ -135,6 +135,12 @@ export function sitOffer(m: Pick<ModelDef, 'label' | 'mb'> | null, mobile: boole
   const button = `GET ${m.label} (${sizeText(m.mb)}) and sit`;
   return mobile ? { button, line: `You are on mobile data, and ${m.label} is ${sizeText(m.mb)}: it waits for Wi-Fi. Join Wi-Fi, then tap it again.`, go: false } : { button, line: '', go: true };
 }
+/**
+ * After a close, the one line said when Ghosty is open again (once per record): "<brain> closed Ghosty while
+ * <loading|answering>. Next time SIT uses <brain>." — or, with no brain left to try, the truth.
+ */
+export const closeLine = (m: Pick<ModelDef, 'label'>, phase: 'loading' | 'answering', next: Pick<ModelDef, 'label'> | null): string =>
+  `${m.label} closed Ghosty while ${phase}. ${next ? `Next time SIT uses ${next.label}.` : NO_BRAIN}`;
 /** Why the one button is there, in one line: the brain that closed Ghosty and the smaller one to try. */
 export const sitOfferWhy = (after: Pick<ModelDef, 'label'> | null, m: Pick<ModelDef, 'label' | 'mb'>): string =>
   `${after ? `${after.label} closed Ghosty on this phone. ` : ''}The smaller ${m.label} may fit: one tap gets it (${sizeText(m.mb)}, on Wi-Fi) and I sit on it.`;

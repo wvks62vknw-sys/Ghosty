@@ -43,7 +43,8 @@
 // 12. (1 Nov: "the brain school thing is still crashing") the 0.5B's answer closed Ghosty too: the floor (SmolLM2 360M,
 //     "the tiniest") is offered first; SCHOOL shows ONE button, "GET SmolLM2 360M (212 MB) and sit": on mobile data it
 //     waits with its line and fetches nothing; on Wi-Fi it gets the floor at its pinned commit, loads it and the paper is
-//     sat on it, the 0.5B still his choice.
+//     sat on it, the 0.5B still his choice. After each close one line, once, when Ghosty is open again: "<brain> closed
+//     Ghosty while answering. Next time SIT uses <brain>."
 //   BASE=http://localhost:8892 node tests/bigbrain.spec.mjs [outDir]
 import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -726,6 +727,8 @@ await cp.waitForTimeout(400);
 // a reply that closed Ghosty: its record is still there when Ghosty opens again
 await cp.evaluate((id) => localStorage.setItem('ghosty.offlinebrain.answering', JSON.stringify({ model: id, at: Date.now() - 90_000 })), ID.small);
 await killAndReopen(cp);
+// (1 Nov) one line when Ghosty is open again, once: which brain closed it and what SIT uses next
+check(await cp.waitForFunction(() => /Qwen3 0\.6B closed Ghosty while answering\. Next time SIT uses Qwen2\.5 0\.5B\./.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false), `[closed] the line after the close: "${await toasts(cp)}"`);
 await cp.waitForTimeout(600);
 let cst = await stored(cp);
 check(cst.held?.['qwen3-0.6b']?.s === 'closed' && cst.held?.['qwen3-0.6b']?.phase === 'answering', `[closed] the 0.6B is remembered as having closed Ghosty while answering: ${JSON.stringify(cst.held)}`);
@@ -779,8 +782,10 @@ await shot(cp, 'smallest-after-close');
 //      is ONE button that gets it and sits; on mobile data the button waits with its line and nothing is fetched
 await cp.evaluate((id) => localStorage.setItem('ghosty.offlinebrain.answering', JSON.stringify({ model: id, at: Date.now() - 60_000 })), ID.least);
 await killAndReopen(cp);
+check(await cp.waitForFunction(() => /Qwen2\.5 0\.5B closed Ghosty while answering\. Next time SIT uses SmolLM2 360M\./.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false), `[floor] the line after the close: "${await toasts(cp)}"`);
 await cp.waitForTimeout(600);
 cst = await stored(cp);
+check(cst.closedNote === '', `[floor] the line is said once (not kept to say again): "${cst.closedNote}"`);
 check(cst.held?.[ID.least]?.s === 'closed' && cst.held?.[ID.least]?.phase === 'answering' && cst.held?.['qwen3-0.6b']?.s === 'closed', `[floor] the 0.5B is remembered as having closed Ghosty while answering, apart from the 0.6B: ${JSON.stringify(cst.held)}`);
 const floorFell = await text(cp, '.obfell');
 check(/^Qwen2\.5 0\.5B closed Ghosty while answering \(\d+ \w+, \d\d:\d\d\): this phone could not hold it while it worked\. The smaller SmolLM2 360M \(about 212 MB, 0\.4 GB when running\) may fit: GET it in WHICH BRAIN, on Wi-Fi, and Ghosty uses it\. Qwen2\.5 0\.5B stays on this phone, and USE asks before it is tried again\.$/.test(floorFell), `[floor] the words after the close: "${floorFell}"`);
@@ -825,6 +830,10 @@ check(closer.net.hits.slice(hitsBeforeTap).every((u) => u.startsWith(`https://hu
 check(await cp.waitForFunction(() => window.__ghosty?.school?.sitting === false, null, { timeout: 90000 }).then(() => true, () => false), '[floor] the paper on the floor was not handed in');
 const afterFloor = await stored(cp);
 check(afterFloor.model === ID.least && afterFloor.have?.includes(ID.floor) && afterFloor.held?.[ID.floor]?.s === 'loaded', `[floor] after it: the 0.5B is still his choice, the floor is on this phone and has run: ${JSON.stringify({ model: afterFloor.model, have: afterFloor.have, held: afterFloor.held?.[ID.floor] })}`);
+// once per record: the next open has nothing to say
+await killAndReopen(cp);
+await cp.waitForTimeout(1500);
+check(!/closed Ghosty while/.test(await toasts(cp)), `[floor] the line was said again on the next open: "${await toasts(cp)}"`);
 await putBack(cp);
 await closer.ctx.close();
 

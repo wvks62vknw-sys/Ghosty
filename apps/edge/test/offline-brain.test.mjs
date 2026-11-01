@@ -445,6 +445,22 @@ test('the sitting prompt on a small brain (1 Nov): the question and the instruct
   assert.match(sit, /writing: writingCap\(brain\),\n            budget: sitBudget\(brain\),/);
 });
 
+test('after a close (1 Nov): one line when Ghosty is open again, once per record, naming the brain, the phase and what SIT uses next', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  assert.equal(M.closeLine(small, 'answering', half), 'Qwen3 0.6B closed Ghosty while answering. Next time SIT uses Qwen2.5 0.5B.');
+  assert.equal(M.closeLine(half, 'loading', floor), 'Qwen2.5 0.5B closed Ghosty while loading. Next time SIT uses SmolLM2 360M.');
+  assert.equal(M.closeLine(floor, 'answering', null), "SmolLM2 360M closed Ghosty while answering. No brain runs in this phone's browser yet. I keep my schooling for when one does.");
+  // made where the close is found (brain.ts closedHere, from the chain as it stands after the close), kept on the phone
+  // until it is said, and said once by SCHOOL when the boot screen has gone
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.match(brain, /const line = closeLine\(m, phase, pick\.sit \?\? pick\.get \?\? \(pick\.none \? null : CHAIN\[0\]!\)\);/);
+  assert.match(brain, /'held', 'guarded', 'closedNote'\] \}/);
+  const tab = readFileSync(new URL('../../web/src/features/school/index.ts', import.meta.url), 'utf8');
+  assert.match(tab, /function sayClosed\(\): void \{\n  const line = offlineBrain\.get\(\)\.closedNote;[\s\S]*?if \(document\.getElementById\('boot'\)\) return void setTimeout\(sayClosed, 500\);\n  offlineBrain\.set\(\{ closedNote: '' \}\);[\s\S]*?toast\(line, 'warn'\);/);
+});
+
 test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {
   const { readFileSync } = await import('node:fs');
   // the service worker's activate step, run as a browser runs it on a new version: only its own older caches go

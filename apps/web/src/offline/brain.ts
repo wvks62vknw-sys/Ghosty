@@ -30,7 +30,7 @@ import { clearLog, fill, filled, markStored, PARTS_STORE, pieceLine, presence, r
 import { settings } from '../state/app';
 import { checkStorage, storageState } from '../features/system/storage';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
-import { BIGGER, brainModels, brainOf, CHAIN, downloadFailure, FLOOR, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, rungOf, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
+import { BIGGER, brainModels, brainOf, CHAIN, chainPick, closeLine, downloadFailure, FLOOR, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, rungOf, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
@@ -72,8 +72,10 @@ export const offlineBrain = createStore(
     getting: '',
     /** The legacy check below has run once on this phone. */
     guarded: false,
+    /** The one line to say when Ghosty is open again after a brain closed it (models.ts closeLine): kept until it is said, once per record. */
+    closedNote: '',
   },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase', 'held', 'guarded'] },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase', 'held', 'guarded', 'closedNote'] },
 );
 
 /** Every model this phone can use: the trained ones, the stock Qwen3 and Qwen2.5, and the bigger brains (offline/models.ts). */
@@ -714,6 +716,11 @@ function closedSmall(m: ModelDef, at: number | null, phase: NonNullable<Held['ph
 function closedHere(m: ModelDef, at: number | null, phase: NonNullable<Held['phase']>): void {
   if (isBigger(m)) backToSmall(m, at, phase);
   else closedSmall(m, at, phase);
+  // The one line for when Ghosty is open again (SCHOOL says it, once): which brain closed it, and what SIT uses next —
+  // the chain's pick from what is on this phone now, or the one tap's brain, or no brain left.
+  const pick = chainPick(CHAIN.filter((x) => (offlineBrain.get().have ?? []).includes(x.id)), mayUse);
+  const line = closeLine(m, phase, pick.sit ?? pick.get ?? (pick.none ? null : CHAIN[0]!));
+  offlineBrain.set({ closedNote: [offlineBrain.get().closedNote, line].filter(Boolean).join(' ') });
 }
 
 /** The record of a reply being written on this phone (localStorage, synchronously before the model runs): still there on opening, the brain closed Ghosty while answering. */
