@@ -1054,6 +1054,10 @@ folder that no longer exists; ignore those paths).
   test opens Ghosty there. Nothing in the build order changes for ①–⑥.
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
+
+- 1 Nov 03:20 UK (OWNER-ISSUES 95): his usage at 32% all models / 29% Fable for the week after seven batches; the
+  seven rules (Opus builders, review by risk, fewer wakes, short outputs, no rework, free validation, an 85% reserve) are
+  the way of working from here. About 4.5% of a week per batch all-in; 25–35 batches planned; two resets before 14 Nov.
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
 to get the same result?", and take it. (the owner's request, updated 19 Oct)
