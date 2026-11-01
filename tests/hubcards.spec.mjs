@@ -1,12 +1,14 @@
 // The hub cards (BRIEF-IRON-BUILD; OWNER-ISSUES 32, 41, 43) on the owner's iPhone 18 Pro Max (440 × 956):
-//  - every tab's hub fits one screen with nothing to scroll (the navigation sheet, mockups/nav: six cards at most in
-//    two columns, any more in a More row) and shows each of its tools as an instrument card (shell/hubcards.ts): one
+//  - every hub shows EVERY tool of its area as an instrument card, two to a row, and scrolls to the last of them (the owner
+//    changed this rule on 1 Nov 2026, OWNER-ISSUES 119: findability outranks the navigation sheet's "one screen, six cards
+//    and a More row"; BRIEF-TABS 3): no More row, nothing left out; each instrument card (shell/hubcards.ts) is one
 //    button, an instrument, a status word (LIVE, READY, TRAINING or OFF), one line on what it does, two readouts — and the readouts are the app's own numbers: the
 //    library's passages from the brain, the Lens's 4,624 names and its ways to look, the GYM's games, the studio's
 //    built-in models, the school's stage from /api/school; a reading the phone has not got says so ("Not yet", or
 //    the card's word), never a sample;
 //  - the instruments are drawn (svg.inst) on the tools that have one, and the globe marks his home;
-//  - nothing sits under the floating tab bar (every tool card is above it with the hub at the top), every card is a
+//  - nothing has to be tapped under the floating tab bar: every card, scrolled to, sits wholly above it (restated on
+//    1 Nov 2026 with the hub that scrolls: it was "every card is above it with the hub at the top"); every card is a
 //    44 pt target, a tap anywhere on a card opens its tool, nothing sticks out sideways;
 //  - no app icons: no glyph tile (.sq) in a hub's tools, the kicker's glyph a bare line of 16 pt or less;
 //  - the GYM: all 22 games have a picture, a meter with the pass mark's tick, the level and the next mark;
@@ -68,9 +70,14 @@ const cardsOf = (page, a) => page.$$eval(`#pg-area-${a} .hubgrid > *`, (els) => 
 const barTop = (page) => page.$eval('#dock .tabcap', (e) => e.getBoundingClientRect().top);
 const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
-// what each hub holds (shell/areas.ts AREAS; Ask adds Voice; Make adds its two sheets, CONVERT and DOCUMENTS: BRIEF-REST-E,
-// 1 Nov, so Make has seven tools, the first six as cards and the seventh in the More row)
-const TOOLS = { ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs'], learn: ['learn', 'arcade', 'gym', 'school', 'library'], plan: ['agenda', 'markets', 'threats', 'radio'] };
+// what each hub holds, every tool of its area as a card (shell/areas.ts AREAS; Ask adds Voice). Since 1 Nov, night
+// (BRIEF-TABS): MAKE's converter and documents are screens of their own with the house, LEARN has the learning pack and the
+// coach, and LIFE, the seventh area, its eight everyday packs
+const TOOLS = {
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], plan: ['agenda', 'markets', 'threats', 'radio'],
+  life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
+};
 const WORDS = ['LIVE', 'READY', 'TRAINING', 'OFF'];
 const NONE = /^(Not yet|None yet|None|Nothing|Off air|Start one|Not set up|—)$/;
 
@@ -81,8 +88,14 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const cards = await cardsOf(page, a);
   seen[a] = cards;
   const got = cards.map((c) => c.id).join(',');
-  if (got !== ids.slice(0, 6).join(',')) problems.push(`[${a}] the hub's cards are "${got}", want "${ids.slice(0, 6).join(',')}"`);
+  if (got !== ids.join(',')) problems.push(`[${a}] the hub's cards are "${got}", want every tool: "${ids.join(',')}"`);
   const bar = await barTop(page);
+  // each card scrolled to as a thumb would (to the hub's end of the screen): where it then sits
+  const reach = await page.$$eval(`#pg-area-${a} .hubgrid > *`, (els) => els.map((e) => {
+    e.scrollIntoView({ block: 'end', behavior: 'instant' });
+    return e.getBoundingClientRect().bottom;
+  }));
+  await page.$eval(`#pg-area-${a} .hub`, (h) => (h.scrollTop = 0));
   for (const c of cards) {
     const at = `[${a} ${c.id}]`;
     if (c.tag !== 'BUTTON' || !c.inst) problems.push(`${at} is not one instrument card (a ${c.tag}${c.inst ? '' : ' without .inst'})`);
@@ -98,16 +111,16 @@ for (const [a, ids] of Object.entries(TOOLS)) {
     if (!c.glyph || c.glyph > 16.5) problems.push(`${at} kicker glyph is ${c.glyph} pt (want a bare line of 16 pt or less)`);
     if (c.glyphBg && !/rgba\(0, 0, 0, 0\)|transparent/.test(c.glyphBg)) problems.push(`${at} glyph sits on a filled background ${c.glyphBg}`);
     if (c.w < 44 || c.h < 44) problems.push(`${at} is ${Math.round(c.w)}×${Math.round(c.h)} (under 44 pt)`);
-    if (c.bottom > bar + 0.5) problems.push(`${at} runs under the tab bar (card bottom ${Math.round(c.bottom)}, bar top ${Math.round(bar)})`);
+    const end = reach[cards.indexOf(c)];
+    if (!(end <= bar + 0.5)) problems.push(`${at} cannot be scrolled clear of the tab bar (card bottom ${Math.round(end)}, bar top ${Math.round(bar)})`);
   }
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`[${a}] the hub scrolls sideways`);
-  // one screen, nothing to scroll (the navigation sheet): the hub's own scroller has no more than it shows
-  const scroll = await page.$eval(`#pg-area-${a} .hub`, (e) => ({ sh: e.scrollHeight, ch: e.clientHeight }));
-  if (scroll.sh > scroll.ch + 1) problems.push(`[${a}] the hub scrolls (${scroll.sh} > ${scroll.ch})`);
-  if (cards.length > 6) problems.push(`[${a}] ${cards.length} cards (six at most; the rest belong in the More row)`);
-  // the More row holds the tools past the sixth, and is there only then
-  const more = await page.$$eval(`#pg-area-${a} .hubmore:not([hidden]) .hubmini`, (els) => els.map((e) => e.dataset.id).join(','));
-  if (more !== ids.slice(6).join(',')) problems.push(`[${a}] the More row holds "${more}", want "${ids.slice(6).join(',')}"`);
+  // (restated 1 Nov 2026, OWNER-ISSUES 119: it was "one screen, nothing to scroll; six cards at most, the rest in a More row")
+  // every tool a card, none in a row of small ones; a hub whose cards run past the screen scrolls, and its last card is
+  // reachable by that scroll (above: every card scrolled to sits clear of the tab bar)
+  if (await page.locator(`#pg-area-${a} :is(.hubmore, .hubmini)`).count()) problems.push(`[${a}] a More row is still drawn`);
+  const scroll = await page.$eval(`#pg-area-${a} .hub`, (e) => ({ sh: e.scrollHeight, ch: e.clientHeight, last: e.querySelector('.hubgrid > :last-child')?.getBoundingClientRect().bottom ?? 0 }));
+  if (scroll.last > bar && scroll.sh <= scroll.ch + 1) problems.push(`[${a}] its last card is under the tab bar and the hub does not scroll (${scroll.sh} ≤ ${scroll.ch})`);
   await page.screenshot({ path: `${out}/hubcards-${a}.png` });
 }
 
@@ -139,6 +152,8 @@ if (!you?.inside) problems.push(`[see eye] the globe does not mark his home on i
 
 // ---- a tap anywhere on a card opens the tool
 await hub(page, 'learn');
+// (the hub scrolls since 1 Nov: the card is brought into view first, as a thumb would)
+await page.locator('#pg-area-learn .hubtile[data-id="library"]').scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
 const box = await page.locator('#pg-area-learn .hubtile[data-id="library"] .reads').boundingBox({ timeout: 5000 }).catch(() => null);
 if (box) await page.mouse.click(box.x + box.width - 8, box.y + box.height / 2);
 else problems.push('the Library card has no readouts to tap');
@@ -199,4 +214,4 @@ if (problems.length) {
   console.error(`FAIL hubcards\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('hubcards: OK (every hub\'s tools as instrument cards with real readouts, nothing under the tab bar, 44 pt cards, no app icons, a tap anywhere opens the tool, the GYM\'s 22 pictures and meters, Learn\'s live dot while training, Graphite in steel)');
+console.log('hubcards: OK (every tool of every area as an instrument card with real readouts, LIFE\'s eight too, the hub scrolling to its last card clear of the tab bar, 44 pt cards, no app icons, a tap anywhere opens the tool, the GYM\'s 22 pictures and meters, Learn\'s live dot while training, Graphite in steel)');
