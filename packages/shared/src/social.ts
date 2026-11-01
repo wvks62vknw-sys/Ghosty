@@ -172,9 +172,8 @@ export const MADE_OF = [
   'School: papers from the first stages up, sat by the same brain, and a reading shelf for every stage.',
 ];
 
-/** What he is for: the plan's own words (docs/VISION.md, its first lines and each part's first line), quoted short. */
+/** What he is for: the plan's own words (docs/VISION.md: "what each part … is for, in plain words"), each part's first line, quoted short. */
 export const FOR_WORDS = [
-  { said: 'what each part of Ghosty is for, in plain words', from: 'the vision' },
   { said: 'his live globe of public feeds', from: 'God’s Eye' },
   { said: 'his engineering desk', from: 'the Workbench' },
   { said: 'looks it up first and answers with numbered sources', from: 'Knowledge' },
