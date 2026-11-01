@@ -1123,6 +1123,9 @@ folder that no longer exists; ignore those paths).
   final head after four restarts from joining batches (lesson: join only while the run is young; after that, a new PR).
   Main's own push run with the guard finishes ~13:55 UK: confirm no "Undo broken change" then. PR #50 opens now with
   games-3 wired and the car (studio and packs specs stalled on screenshots under load 20 here; CI judges them).
+- 1 Nov 12:10 UK: SOCIAL MERGED (24c7aa9; OWNER-ISSUES 109). Specs social/deck/character/cards/routec run on the merged
+  tree (val8); if green it joins PR #50 while its checks are young. Running: packs-2 (8766), rest-A (8744, final tests),
+  rest-B (8733), rest-C (8722: liveness, hand blueprints, TV mode). Themes and Cinematic stay HELD for his opinion.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
