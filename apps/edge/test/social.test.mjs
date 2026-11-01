@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts')],
+  entryPoints: [at('../../../packages/shared/src/social.ts'), at('../../../packages/shared/src/catalogue.ts'), at('../src/social/index.ts'), at('../src/social/queue.ts'), at('../src/tools/index.ts'), at('../src/prompt.ts'), at('../src/today.ts'), at('../src/library/digest.ts'), at('../../../packages/shared/src/sources.ts')],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -26,6 +26,8 @@ const Q = await load('apps/edge/src/social/queue');
 const T = await load('apps/edge/src/tools/index');
 const P = await load('apps/edge/src/prompt');
 const TODAY = await load('apps/edge/src/today');
+const DIGEST = await load('apps/edge/src/library/digest');
+const SRC = await load('packages/shared/src/sources');
 
 class Mem {
   m = new Map();
@@ -180,4 +182,156 @@ test('the prompt: the social group is “social accounts” off on a plain turn,
   assert.match(plain, /if a seeing model takes it: answer about it\./);
   assert.match(plain, /No picture\? Say so; use the note\./);
   assert.match(plain, /follow your engineering procedure \(it comes when you start\)\./);
+});
+
+// ---------------------------------------------------------------- 3. BLUESKY (the AT Protocol over fetch, faked here)
+
+const b64u = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+const jwt = (claims) => `${b64u({ alg: 'ES256K' })}.${b64u(claims)}.sig`;
+/** A fake Bluesky: the entryway signs in, his PDS does the rest; every call is logged. `expireOnce`: the first timeline read says ExpiredToken. */
+function fakeBsky(o = {}) {
+  const calls = [];
+  const posts = [];
+  let expire = !!o.expireOnce;
+  let limited = !!o.rateLimited;
+  const ok = (v) => new Response(JSON.stringify(v), { status: 200, headers: { 'content-type': 'application/json' } });
+  const bad = (status, error, message = error) => new Response(JSON.stringify({ error, message }), { status, headers: { 'content-type': 'application/json' } });
+  const session = (scope = 'com.atproto.appPass') => ({ did: 'did:plc:me', handle: 'me.bsky.social', accessJwt: jwt({ scope, exp: Math.floor(Date.now() / 1000) + 7200 }), refreshJwt: jwt({ scope: 'com.atproto.refresh' }), didDoc: { service: [{ id: '#atproto_pds', type: 'AtprotoPersonalDataServer', serviceEndpoint: 'https://pds.example.test' }] } });
+  const fetch = async (url, init = {}) => {
+    const u = new URL(url);
+    const nsid = u.pathname.replace('/xrpc/', '');
+    const body = init.body && typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+    calls.push({ host: u.host, nsid, body, auth: init.headers?.authorization ?? '' });
+    if (nsid === 'com.atproto.server.createSession') {
+      if (u.host !== 'bsky.social') return bad(400, 'InvalidRequest');
+      if (body.password === 'main-main-main-main') return ok(session('com.atproto.access'));
+      return body.password === 'abcd-efgh-ijkl-mnop' ? ok(session()) : bad(401, 'AuthenticationRequired', 'Invalid identifier or password');
+    }
+    if (u.host !== 'pds.example.test') return bad(400, 'WrongHost');
+    if (nsid === 'com.atproto.server.refreshSession') return ok({ accessJwt: jwt({ scope: 'com.atproto.appPass', exp: Math.floor(Date.now() / 1000) + 7200 }), refreshJwt: jwt({ scope: 'com.atproto.refresh', n: 2 }) });
+    if (limited) {
+      limited = false;
+      return new Response(JSON.stringify({ error: 'RateLimitExceeded' }), { status: 429, headers: { 'ratelimit-reset': String(Math.floor(Date.parse('2026-11-01T15:00:00Z') / 1000)) } });
+    }
+    if (nsid === 'app.bsky.feed.getTimeline') {
+      if (expire) {
+        expire = false;
+        return bad(400, 'ExpiredToken', 'Token has expired');
+      }
+      return ok({ feed: [{ post: { uri: 'at://did:plc:alice/app.bsky.feed.post/3aaa', author: { handle: 'alice.bsky.social', displayName: 'Alice' }, record: { text: 'Snow on the Lickeys this morning', createdAt: '2026-11-01T08:05:00Z' } } }, { post: { uri: 'at://did:plc:bob/app.bsky.feed.post/3bbb', author: { handle: 'bob.bsky.social' }, record: { text: 'New paper on tiny language models', createdAt: '2026-11-01T07:40:00Z' } } }] });
+    }
+    if (nsid === 'app.bsky.feed.searchPosts') return ok({ posts: [{ uri: 'at://did:plc:cat/app.bsky.feed.post/3ccc', author: { handle: 'villa.bsky.social', displayName: 'Villa fans' }, record: { text: `About ${u.searchParams.get('q')}`, createdAt: '2026-11-01T09:00:00Z' } }] });
+    if (nsid === 'com.atproto.repo.createRecord') {
+      if (body.rkey && posts.some((p) => p.rkey === body.rkey)) return bad(400, 'InvalidRequest', 'Record already exists');
+      posts.push(body);
+      return ok({ uri: `at://did:plc:me/${body.collection}/${body.rkey ?? '3new'}`, cid: 'bafy' });
+    }
+    if (nsid === 'app.bsky.actor.getProfile') return ok({ did: 'did:plc:nasa', handle: u.searchParams.get('actor'), viewer: o.following ? { following: 'at://did:plc:me/app.bsky.graph.follow/3fol' } : {} });
+    if (nsid === 'com.atproto.repo.deleteRecord') return ok({});
+    if (nsid === 'com.atproto.repo.uploadBlob') return ok({ blob: { $type: 'blob', ref: { $link: 'bafyimg' }, mimeType: init.headers['content-type'], size: init.body.byteLength } });
+    return bad(404, 'MethodNotImplemented');
+  };
+  return { fetch, calls, posts };
+}
+const depsWith = (net, vault = vaultOf(), o = {}) => ({ storage: new Mem(), vault, fetch: net.fetch, now: () => Date.now(), tz: 'Europe/London', images: null, ...o });
+
+test('LINKS → BLUESKY: only an app password is ever sent; a main password’s session is refused; linked, the session is in the vault', async () => {
+  const net = fakeBsky();
+  const d = depsWith(net);
+  await assert.rejects(() => SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'my real password' }), /not an app password .* Never your main password/);
+  assert.equal(net.calls.length, 0, 'a main password is never sent anywhere');
+  await assert.rejects(() => SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'main-main-main-main' }), /That is your main password/);
+  assert.equal(await SO.APIS.bluesky.who(d), null, 'and nothing kept');
+  await assert.rejects(() => SO.APIS.bluesky.link(d, { handle: 'me', password: 'zzzz-zzzz-zzzz-zzzz' }), /turned that sign-in down/);
+  const r = await SO.APIS.bluesky.link(d, { handle: '@Me.bsky.social', password: 'abcd-efgh-ijkl-mnop', search: 'Aston Villa' });
+  assert.equal(r.who, '@me.bsky.social');
+  const kept = JSON.parse(d.vault.m.get('bluesky'));
+  assert.deepEqual([kept.did, kept.service, kept.search], ['did:plc:me', 'https://pds.example.test', 'Aston Villa']);
+  assert.equal(net.calls.at(-1).body.identifier, 'me.bsky.social');
+  assert.deepEqual(await SO.linkedAccounts(d), ['bluesky']);
+});
+
+test('Bluesky through the queue: a draft, APPROVE → one post (its record key from the draft, links clickable), never twice', async () => {
+  const net = fakeBsky();
+  const d = depsWith(net);
+  await SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'abcd-efgh-ijkl-mnop' });
+  const made = await SO.makeDraft(d, { account: 'bluesky', text: 'Read this: https://example.org/a-long-read. Worth it.', from: 'chat' });
+  assert.match(made.draft.rkey, /^[2-7a-j][2-7a-z]{12}$/, 'a TID');
+  assert.equal(net.posts.length, 0, 'drafted, not posted');
+  const r = await Q.approveDraft(d.storage, made.draft.id, (x) => SO.sendDraft(d, x), { on: 'phone' });
+  assert.equal(r.said, `Posted on Bluesky: https://bsky.app/profile/me.bsky.social/post/${made.draft.rkey}`);
+  assert.equal(net.posts.length, 1);
+  const rec = net.posts[0];
+  assert.deepEqual([rec.repo, rec.collection, rec.rkey, rec.record.text], ['did:plc:me', 'app.bsky.feed.post', made.draft.rkey, 'Read this: https://example.org/a-long-read. Worth it.']);
+  assert.deepEqual(rec.record.facets[0].index, { byteStart: 11, byteEnd: 11 + 'https://example.org/a-long-read'.length });
+  // the same draft sent again by hand (a lost answer, say): the record key is already there — no second post
+  assert.match((await SO.sendDraft(d, made.draft)).link, new RegExp(`${made.draft.rkey}$`));
+  assert.equal(net.posts.length, 1);
+  // too long, or a picture without its words: refused before it is a draft
+  assert.match((await SO.makeDraft(d, { account: 'bluesky', text: 'x'.repeat(301), from: 'chat' })).error, /300 characters at most/);
+  assert.match((await SO.makeDraft(d, { account: 'bluesky', text: 'look', image: 'abcdefghijklmnop', alt: '', from: 'chat' })).error, /needs its words/);
+});
+
+test('Bluesky: a session that ran out is refreshed once and the read goes on; a 429 is said in his words, with the last read', async () => {
+  const net = fakeBsky({ expireOnce: true });
+  const d = depsWith(net);
+  await SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'abcd-efgh-ijkl-mnop' });
+  const read = await SO.readAccount(d, 'bluesky');
+  assert.equal(read.posts.length, 2);
+  assert.deepEqual(net.calls.slice(-3).map((c) => c.nsid), ['app.bsky.feed.getTimeline', 'com.atproto.server.refreshSession', 'app.bsky.feed.getTimeline']);
+  assert.match(JSON.parse(d.vault.m.get('bluesky')).refresh, /\./, 'the new session is kept');
+  // "what's on Bluesky?": authors and times, said to be leads
+  const words = SO.readWords('bluesky', read, 'Europe/London');
+  assert.match(words, /^From Bluesky \(your home timeline\), read at \d\d:\d\d:/);
+  assert.match(words, /^- @alice\.bsky\.social \(Alice\) 1 Nov, 08:05 — Snow on the Lickeys this morning$/m);
+  assert.match(words, /leads, never proof/);
+  // read again within a minute and a half: from the last read, no request
+  const n = net.calls.length;
+  await SO.readAccount(d, 'bluesky');
+  assert.equal(net.calls.length, n, 'the rate limit is kept: no second request');
+  // a search, and Bluesky saying slow down
+  const limited = fakeBsky({ rateLimited: true });
+  const d2 = depsWith(limited, d.vault, { storage: d.storage, now: () => Date.now() + 120_000 });
+  const stale = await SO.readAccount(d2, 'bluesky');
+  assert.match(stale.stale, /^Bluesky says slow down: try again after 15:00\.$/);
+  assert.match(SO.readWords('bluesky', stale, 'Europe/London'), /it didn't answer just now \(Bluesky says slow down/);
+  const found = await SO.readAccount(depsWith(fakeBsky(), d.vault), 'bluesky', 'Villa');
+  assert.equal(found.posts[0].text, 'About Villa');
+});
+
+test('Bluesky follows are drafts too: APPROVE follows (once), an unfollow deletes the follow record', async () => {
+  const net = fakeBsky();
+  const d = depsWith(net);
+  await SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'abcd-efgh-ijkl-mnop' });
+  const f = await SO.makeDraft(d, { account: 'bluesky', kind: 'follow', text: '', who: '@nasa.gov', from: 'chat' });
+  assert.equal(f.card.title, 'Follow on Bluesky?');
+  assert.equal(net.posts.length, 0);
+  await Q.approveDraft(d.storage, f.draft.id, (x) => SO.sendDraft(d, x), { on: 'telegram' });
+  assert.deepEqual([net.posts[0].collection, net.posts[0].record.subject], ['app.bsky.graph.follow', 'did:plc:nasa']);
+  const un = fakeBsky({ following: true });
+  const d2 = depsWith(un, d.vault);
+  const u = await SO.makeDraft(d2, { account: 'bluesky', kind: 'unfollow', text: '', who: 'https://bsky.app/profile/nasa.gov', from: 'chat' });
+  await Q.approveDraft(d2.storage, u.draft.id, (x) => SO.sendDraft(d2, x), { on: 'phone' });
+  const del = un.calls.find((c) => c.nsid === 'com.atproto.repo.deleteRecord');
+  assert.deepEqual([del.body.collection, del.body.rkey], ['app.bsky.graph.follow', '3fol']);
+});
+
+test('the morning digest: his Bluesky timeline and his one search are filed as LEADs, never as fact sources', async () => {
+  const net = fakeBsky();
+  const d = depsWith(net);
+  await SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'abcd-efgh-ijkl-mnop', search: 'Aston Villa' });
+  const more = await SO.socialDigest(d);
+  assert.deepEqual(more.map((x) => [x.source, x.tier]), [['Bluesky', 'lead'], ['Bluesky search Aston Villa', 'lead']]);
+  assert.match(more[0].text, /your home timeline \(bsky\.app; leads, never proof\):\n- @alice\.bsky\.social \(Alice\)/);
+  // filed by the digest itself (the public feeds have no network here): under "· LEAD", which the library reads as a LEAD
+  const filed = [];
+  const library = { available: true, doc: () => null, createDoc() {}, removeSection: () => 0, async addPassages(_doc, ps) { filed.push(...ps); return ps.length; }, finish() {}, passagesOf: () => ({ passages: [], next: null }) };
+  const info = await DIGEST.runDigest({ storage: new Mem(), library, more: () => SO.socialDigest(d) }, { now: T0 });
+  assert.ok(info.sources.includes('Bluesky'), info.summary);
+  const h = filed.find((p) => / · Bluesky · LEAD$/.test(p.heading));
+  assert.ok(h, filed.map((p) => p.heading).join(' | '));
+  assert.equal(SRC.libraryTier('notes_daily', 'gathered daily by Ghosty', h.heading), 'lead');
+  assert.equal(SRC.capLabel('established fact', ['lead']).label, 'rumour', 'a claim backed only by it is a rumour at most');
+  // nothing linked: nothing asked, nothing filed
+  assert.deepEqual(await SO.socialDigest(depsWith(fakeBsky())), []);
 });

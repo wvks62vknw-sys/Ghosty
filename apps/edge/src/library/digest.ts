@@ -94,6 +94,11 @@ export interface DigestDeps {
   library: Library;
   /** One cheap model call (never waiting on rate limits); throws when no model is free. Absent: no "three levels" passage. */
   ai?: (system: string, user: string) => Promise<string>;
+  /**
+   * [social] More passages from his own accounts (social/index.ts socialDigest: his Bluesky timeline and his one search),
+   * each with its tier — LEAD: where claims are found, never what proves them. At most three requests; none when unlinked.
+   */
+  more?: () => Promise<Gathered[]>;
 }
 
 export const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
@@ -237,7 +242,7 @@ function fetcher(): { get(url: string): Promise<string>; count(): number } {
   };
 }
 
-interface Gathered {
+export interface Gathered {
   source: string;
   tier: Tier;
   text: string;
@@ -301,7 +306,9 @@ export async function runDigest(deps: DigestDeps, opts: { force?: boolean; now?:
   if (!library.available) return none('the library is not available here');
   const last = await storage.get<{ day: string }>(DIGEST_KEY).catch(() => undefined);
   if (!opts.force && last?.day === day) return none('already gathered today');
-  const { got, failed } = await gather(now);
+  const { got: feeds, failed } = await gather(now);
+  // [social] his own accounts' passages after the public feeds (a lead is filed as one, never as a fact source)
+  const got = [...feeds, ...(deps.more ? await deps.more().catch(() => []) : [])];
   if (!got.length) return none(`nothing could be fetched (${failed.join('; ').slice(0, 200)})`);
   if (!library.doc(DIGEST_DOC)) library.createDoc({ id: DIGEST_DOC, title: 'Fresh knowledge', source: 'gathered daily by Ghosty', kind: 'notes' });
   let passages = 0;

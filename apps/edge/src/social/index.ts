@@ -18,6 +18,7 @@ import type { Card } from '../../../../packages/shared/src/cards';
 import type { Vault } from '../kernel/vault';
 import type { ImageKv } from '../lens';
 import { addDraft, approveDraft, editDraft, findDraft, loadDrafts, refuseDraft, sentSince, type Sent } from './queue';
+import { BLUESKY, blueskyDigest } from './bluesky';
 
 export interface SocialDeps {
   storage: DurableObjectStorage;
@@ -45,8 +46,13 @@ export interface AccountApi {
   max?(d: SocialDeps): Promise<number | null>;
 }
 
-/** The accounts this brain can use (filled by items 3–6). */
-export const APIS: Partial<Record<Account, AccountApi>> = {};
+/** The accounts this brain can use. */
+export const APIS: Partial<Record<Account, AccountApi>> = { bluesky: BLUESKY };
+
+/** The morning digest's passages from his accounts (library/digest.ts `more`): Bluesky's timeline and search, as LEADs. */
+export async function socialDigest(d: SocialDeps): Promise<{ source: string; tier: 'lead'; text: string }[]> {
+  return blueskyDigest(d).catch(() => []);
+}
 
 /** The last read of an account's timeline or a search, kept for "what's on Bluesky?" when it cannot be read again now. */
 export const lastKey = (a: Account, what = 'home') => `social:last:${a}:${what}`;

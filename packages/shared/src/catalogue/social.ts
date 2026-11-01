@@ -43,6 +43,13 @@ export const SOCIAL_WORDS: Record<string, CatValue> = {
     say: ['Follow @nasa.gov on Bluesky', 'Unfollow that account'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
     go: { ask: 'Follow ', send: false },
   },
+  // ---------------------------------------------------------------- LINKS: the accounts he made, linked once (items 3–6)
+  'section:links:social': { same: 'panel:links:BLUESKY' },
+  'panel:links:BLUESKY': {
+    name: 'My own Bluesky account', line: 'You can make me a Bluesky account and link it with an app password; I post only what you approve.',
+    more: 'You make the account and an app password, never your main one: I check it by signing in and keep it in my vault. I read your home timeline when you ask and each morning, and every post waits for your APPROVE on a card.',
+    say: ['Link Bluesky'], scene: ['talking'], cat: 'talk', needs: ['link:bluesky'], since: SINCE,
+  },
   'act:social:status': {
     name: 'Your accounts at a glance', line: 'I can tell you which of your accounts are linked, what waits for your APPROVE and what went out today.',
     more: 'From what I keep: the accounts you linked in LINKS, the drafts waiting (each gone after 24 hours) and every post you approved today.',

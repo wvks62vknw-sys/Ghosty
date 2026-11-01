@@ -68,7 +68,7 @@ import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
-import { socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
 import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
@@ -1789,7 +1789,7 @@ export class GhostyAgent {
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */
   private dailyDeps() {
-    return { storage: this.storage, library: this.library, ai: this.studyAi() };
+    return { storage: this.storage, library: this.library, ai: this.studyAi(), more: async () => socialDigest(await this.socialDeps()) }; // [social] his Bluesky, as a LEAD
   }
 
   /** One daily job (never throws: a miss is tried again tomorrow, and the owner is not told). */

@@ -11,6 +11,7 @@ import { sqlStorage } from './sqlite-storage.mjs';
 import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
+import { resetSocial, socialApis, socialSent } from './fixtures/social-apis.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -98,6 +99,10 @@ globalThis.fetch = async (input, init) => {
   // (tests/fixtures/foresight-feeds.mjs): never the live ones, whichever spec runs when the hourly foresee job looks.
   const fore = foresightFeeds(u);
   if (fore) return fore;
+  // Test only: his own accounts' APIs — Bluesky, Mastodon, Discord, Telegram's channel post (tests/fixtures/social-apis.mjs):
+  // never the live ones; every post that reaches them is recorded for GET /__test/social.
+  const social = socialApis(u, init);
+  if (social) return social;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -165,6 +170,17 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
       res.write(lines);
       setTimeout(() => res.end(), hold);
+      return;
+    }
+    // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.
+    // ?reset=1 forgets them and the brain's social keys and drafts (CI's one brain runs the spec again on a retry).
+    if (url.pathname === '/__test/social') {
+      if (url.searchParams.get('reset') === '1') {
+        resetSocial();
+        await state.storage.delete(['social:drafts', 'social:sent', 'social:editing', 'social:last:bluesky:home', 'speak:cadence']);
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ sent: socialSent() }));
       return;
     }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
