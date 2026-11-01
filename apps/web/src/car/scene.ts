@@ -693,38 +693,46 @@ export class CarScene {
     return { x: r.left + p.x, y: r.top + p.y };
   }
 
+  private focusFrom: { pos: TVector3; tg: TVector3; label: string } | null = null;
+
   /**
-   * The stand-in's picture of a part, for the Lens guide (item 5): in the part's own view, the camera brought close
-   * enough to see it and what is round it, one frame drawn, as a JPEG. The camera goes back where it was.
+   * The stand-in's picture of a part, for the Lens guide (item 5): the part's own view, the camera brought close enough to
+   * see it and what is round it — live (the stage moves into the guide, so nothing is read back from the picture). False
+   * when the car has no such part to show.
    */
-  picture(id: string): string | null {
-    if (!this.renderer || !this.camera || !this.controls || !this.lib || !this.scene) return null;
+  focus(id: string): boolean {
+    if (!this.camera || !this.controls || !this.lib || !this.car) return false;
     if (isPart(id) && viewOf(id) !== this.view) this.setView(viewOf(id), true);
     const c = this.centreOf(id);
-    if (!c) return null;
+    if (!c) return false;
     const T = this.lib.T;
     const box = new T.Box3();
-    this.car!.traverse((o) => {
+    this.car.traverse((o) => {
       if (o.userData.part === id && (o as TMesh).isMesh && visibleUp(o)) box.union(new T.Box3().setFromObject(o));
     });
     const size = box.isEmpty() ? new T.Vector3(0.2, 0.2, 0.2) : box.getSize(new T.Vector3());
     const cam = this.camera;
-    const pos0 = cam.position.clone();
-    const tg0 = this.controls.target.clone();
-    const dir = pos0.clone().sub(tg0);
+    const el = this.renderer!.domElement;
+    this.focusFrom ??= { pos: cam.position.clone(), tg: this.controls.target.clone(), label: el.getAttribute('aria-label') ?? '' };
+    const dir = cam.position.clone().sub(this.controls.target);
     dir.multiplyScalar(1 / (dir.length() || 1));
     const dist = this.fitDistance(Math.max(0.14, size.length() * 0.5)) * 2.1;
     cam.position.copy(c.clone().add(dir.clone().multiplyScalar(dist)));
     this.controls.target.copy(c);
-    cam.lookAt(c);
-    this.tick(performance.now());
-    this.renderer.render(this.scene, cam);
-    const url = this.renderer.domElement.toDataURL('image/jpeg', 0.86);
-    cam.position.copy(pos0);
-    this.controls.target.copy(tg0);
     this.controls.update();
-    this.renderer.render(this.scene, cam);
-    return url;
+    el.setAttribute('aria-label', `The stand-in’s picture of the ${labelOf(id, this.spec ?? undefined)}, lit`);
+    return true;
+  }
+
+  /** Back to where the camera was before the guide. */
+  unfocus(): void {
+    const f = this.focusFrom;
+    this.focusFrom = null;
+    if (!f || !this.camera || !this.controls) return;
+    this.camera.position.copy(f.pos);
+    this.controls.target.copy(f.tg);
+    this.controls.update();
+    this.renderer?.domElement.setAttribute('aria-label', f.label);
   }
 
   /** Every part id the car carries (what a tap can name). */

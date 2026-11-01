@@ -171,18 +171,20 @@ await until(() => { const s = window.__ghosty.car?.state(); return s?.on && s.vi
 const findBtn = page.locator('#pg-studio button', { hasText: 'FIND IT ON THE CAR' }).first();
 if (await findBtn.count()) {
   await findBtn.click();
-  await until(() => { const g = document.querySelector('.carguide'); const v = g?.querySelector('video'); const i = g?.querySelector('img'); return !!g && !!v && v.videoWidth > 0 && !!i && /^data:image\//.test(i.src) && i.naturalWidth > 0; }, null, 30000, 'the Lens guide: no picture beside the camera');
+  await until(() => { const g = document.querySelector('.carguide'); const v = g?.querySelector('video'); const c = g?.querySelector('canvas.carcanvas'); return !!g && !!v && v.videoWidth > 0 && !!c && c.width > 0; }, null, 30000, 'the Lens guide: no picture beside the camera');
+  const f0 = (await car()).frames;
   const guide = await page.evaluate(() => {
     const g = document.querySelector('.carguide');
-    const i = g.querySelector('img').getBoundingClientRect();
+    const i = g.querySelector('canvas.carcanvas').getBoundingClientRect();
     const v = g.querySelector('video').getBoundingClientRect();
-    return { side: Math.abs(i.top - v.top) < 40 && (i.right <= v.left + 2 || v.right <= i.left + 2), text: g.innerText, alt: g.querySelector('img').alt, label: g.getAttribute('aria-label') };
+    return { side: Math.abs(i.top - v.top) < 40 && (i.right <= v.left + 2 || v.right <= i.left + 2), text: g.innerText, alt: g.querySelector('canvas.carcanvas').getAttribute('aria-label'), label: g.getAttribute('aria-label') };
   });
   check(guide.side, 'the Lens guide: the picture is not beside the camera');
-  check(/Alternator/.test(guide.text) && /round finned metal unit/.test(guide.text) && /I don’t recognise parts from the camera/.test(guide.text) && /Alternator/.test(guide.alt), `the Lens guide's words: ${JSON.stringify(guide)}`);
+  check(/Alternator/.test(guide.text) && /round finned metal unit/.test(guide.text) && /I don’t recognise parts from the camera/.test(guide.text) && /picture of the Alternator/.test(guide.alt ?? ''), `the Lens guide's words: ${JSON.stringify(guide)}`);
+  await until((f) => window.__ghosty.car.state().frames > f + 1, f0, 20000, 'the Lens guide: the stand-in’s picture is not drawing');
   await page.screenshot({ path: `${out}/car-guide.png` });
   await page.locator('.carguide button', { hasText: 'CLOSE' }).click();
-  await until(() => !document.querySelector('.carguide'), null, 5000, 'the Lens guide did not close');
+  await until(() => !document.querySelector('.carguide') && !!document.querySelector('#pg-studio .studioview > .carstage canvas.carcanvas'), null, 5000, 'the Lens guide did not close (the car back on its stage)');
 } else problems.push('no FIND IT ON THE CAR button in FIX IT');
 
 // ---- 6. nothing sideways at 390 × 844; the card still a card; nothing of the record kept; the security policy
