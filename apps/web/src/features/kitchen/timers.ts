@@ -16,6 +16,8 @@ export interface Timer {
   secs: number;
   /** When it rings (ms on this phone's clock). */
   end: number;
+  /** What it says when it rings, when it is not the plain "the pasta timer is done" (a pomodoro's break). */
+  say?: string;
   /** Ringing since (ms), or done. */
   ringing?: number;
   done?: boolean;
@@ -54,9 +56,9 @@ const changed = () => {
   for (const f of listeners) f();
 };
 
-export function startTimers(add: { secs: number; name: string }[], now = clockNow()): Timer[] {
+export function startTimers(add: { secs: number; name: string; say?: string }[], now = clockNow()): Timer[] {
   unlockAudio();
-  const made = add.map((t) => ({ id: Math.random().toString(36).slice(2, 8), name: t.name || 'timer', secs: t.secs, end: now + t.secs * 1000 }));
+  const made = add.map((t) => ({ id: Math.random().toString(36).slice(2, 8), name: t.name || 'timer', secs: t.secs, end: now + t.secs * 1000, ...(t.say ? { say: t.say } : {}) }));
   list = [...list.filter((t) => !t.done), ...made];
   run();
   changed();
@@ -103,7 +105,7 @@ function ring(t: Timer, now: number): void {
   t.ringing = now;
   beep();
   navigator.vibrate?.([400, 200, 400, 200, 400]);
-  const words = `The ${t.name === 'timer' ? 'timer' : `${t.name} timer`} is done: ${spanWords(t.secs)}.`;
+  const words = t.say ?? `The ${t.name === 'timer' ? 'timer' : `${t.name} timer`} is done: ${spanWords(t.secs)}.`;
   speakIn(words, 'en');
   toast(words, 'ok', { title: 'TIMER' });
   void import('../core/cards')

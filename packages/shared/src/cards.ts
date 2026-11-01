@@ -270,6 +270,9 @@ export function cardsFromTool(o: ToolOutcome): Card[] {
     case 'body':
     case 'kitchen':
     case 'social': // [social] a draft's card, sent by the social tool like a pack's (apps/edge/src/tools/social.ts)
+    case 'people':
+    case 'work':
+    case 'creative':
       return packCards(o);
     default:
       return [];

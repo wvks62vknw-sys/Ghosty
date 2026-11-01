@@ -48,7 +48,7 @@ export function timerCommand(a: Record<string, unknown>): void {
     toast(n ? `Stopped ${n} timer${n === 1 ? '' : 's'}.` : 'No timer by that name.', n ? 'ok' : 'warn');
     return;
   }
-  const list = (Array.isArray(a.timers) ? a.timers : []).map((t) => ({ secs: Number((t as { secs?: unknown }).secs), name: String((t as { name?: unknown }).name ?? 'timer') })).filter((t) => t.secs > 0 && t.secs <= 86_400);
+  const list = (Array.isArray(a.timers) ? a.timers : []).map((t) => ({ secs: Number((t as { secs?: unknown }).secs), name: String((t as { name?: unknown }).name ?? 'timer'), ...(typeof (t as { say?: unknown }).say === 'string' ? { say: String((t as { say: string }).say).slice(0, 120) } : {}) })).filter((t) => t.secs > 0 && t.secs <= 86_400);
   if (list.length) toast(`Timer${list.length === 1 ? '' : 's'}: ${startedWords(startTimers(list))}.`, 'ok');
 }
 

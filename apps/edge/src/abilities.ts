@@ -34,7 +34,7 @@ export const GROUP_CAT: Record<string, AbilityCat> = {
   memory: 'know', web: 'know', video: 'know', data: 'know', library: 'know', scan: 'know', vehicle: 'know', gadgets: 'know',
   traffic: 'see', roads: 'see', maps: 'see', lens: 'see',
   widgets: 'build', sites: 'build', build: 'build', pictures: 'build', repo: 'build', reverse: 'build', home: 'build', homeplan: 'build', photo: 'build', '3d': 'build', workbench: 'build',
-  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch', money: 'watch', body: 'do', kitchen: 'do',
+  agenda: 'watch', crime: 'watch', recon: 'watch', spending: 'watch', guardian: 'watch', foresight: 'watch', money: 'watch', body: 'do', kitchen: 'do', people: 'do', work: 'do', creative: 'build',
   media: 'play', spotify: 'play',
   school: 'learn', 'library-admin': 'learn', knowledge: 'learn', evolve: 'learn', learn: 'learn',
   ui: 'do', travel: 'do', journeys: 'do', projects: 'do', places: 'do',

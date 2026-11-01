@@ -33,7 +33,7 @@ import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { bodyTurn, kitchenTurn, statementOrBox, type PackReply } from './packs';
+import { bodyTurn, creativeTurn, kitchenTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
@@ -212,6 +212,11 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
               : 'The Morse sheet is open: type words or dots and dashes, play them, flash them, or tap them out.';
     return answer(text, reply, { kind: 'pack' }, opts);
   },
+  people: async (text, opts) => packAnswer(await peopleTurn(text), opts),
+  interview: async (text, opts) => packAnswer(await workTurn(text), opts),
+  pomodoro: async (text, opts) => packAnswer(await workTurn(text), opts),
+  beat: async (text, opts) => packAnswer(await creativeTurn(text), opts),
+  drawing: async (text, opts) => packAnswer(await creativeTurn(text), opts),
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

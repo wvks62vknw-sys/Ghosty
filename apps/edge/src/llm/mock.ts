@@ -174,6 +174,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     }
     // [social] After social: what it read or drafted, as it came (authors and times; never "posted" for a draft).
     if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
+    // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
+    if (lastCall && ['people', 'work', 'creative'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -375,6 +377,16 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^search (bluesky|mastodon) for (.+?)\??$/)) && has('social')) return { message: call('social', { action: 'search', account: m[1], query: m[2] }), model };
   if ((m = ownerWords(textOf(last.content)).match(/^post (?:this |that )?(?:on|to) (bluesky|mastodon|discord|my channel|my telegram channel): ([\s\S]+)$/i)) && has('social')) return { message: call('social', { action: 'draft', account: /channel/i.test(m[1]!) ? 'channel' : m[1]!.toLowerCase(), text: m[2]!.trim() }), model };
   if ((m = text.match(/^(un)?follow (\S+) on (bluesky|mastodon)$/)) && has('social')) return { message: call('social', { action: 'follow_ask', account: m[3], who: m[2], ...(m[1] ? { undo: true } : {}) }), model };
+  // [packs2] THE PEOPLE PACK (tools/people.ts): a birthday kept, gift ideas, a thank-you note — from his own words.
+  if (/^(?:my )?.+['’]s birthday is .+$/.test(text) && has('people')) return { message: call('people', { action: 'birthday', words: ownerWords(textOf(last.content)) }), model };
+  if ((m = text.match(/^gift ideas for (.+?)(?: (?:under|around|about) .+)?$/)) && has('people')) return { message: call('people', { action: 'gift', who: m[1], words: ownerWords(textOf(last.content)) }), model };
+  // [packs2] THE WORK PACK (tools/work.ts): a cover letter for a pasted ad, pay after tax.
+  if ((m = ownerWords(textOf(last.content)).match(/^write (?:me )?a cover letter for this job:\s*([\s\S]+)$/i)) && has('work')) return { message: call('work', { action: 'cover', text: m[1]!.trim() }), model };
+  if (/^what is £?[\d,]+ ?k? (?:a year|a month|an hour) after tax\??$/.test(text) && has('work')) return { message: call('work', { action: 'pay', words: ownerWords(textOf(last.content)) }), model };
+  // [packs2] THE CREATIVE PACK (tools/creative.ts): the mock writes the words of a song (the tune is made by code), a poster, a comic strip.
+  if ((m = ownerWords(textOf(last.content)).match(/^write me a song about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'song', words: `a song about ${m[1]}`, lyrics: 'The kettle sings at half past six\nA grey sky leans against the glass\nI hum along to nothing much\nAnd let the Monday pass\n\n[Chorus]\nRain, rain on my window\nSlow, slow goes the day\nI will keep the lamp on\nAnd let the clouds drift away' }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^a poster for (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'poster', words: m[1] }), model };
+  if ((m = ownerWords(textOf(last.content)).match(/^a comic about (.+)$/i)) && has('creative')) return { message: call('creative', { action: 'comic', words: m[1], captions: /\bcat\b/i.test(m[1]!) ? ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] : [`${m[1]![0]!.toUpperCase()}${m[1]!.slice(1)}.`, 'Then something goes wrong!', 'So they try again, a new way.', 'It works out in the end, happily.'] }), model };
   // [workbench] THE WORKBENCH's tool (tools/workbench.ts): a beam's strength and a gear ratio, from his words.
   if (/^how strong is an? .*\bbeam\b/.test(text) && has('estimate')) return { message: call('estimate', { kind: 'beam', words: ownerWords(textOf(last.content)) }), model };
   if (/^what'?s the gear ratio of /.test(text) && has('estimate')) return { message: call('estimate', { kind: 'gears', words: ownerWords(textOf(last.content)) }), model };

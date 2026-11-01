@@ -439,6 +439,36 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
+      id: 'open_people',
+      title: 'People: who is who, group plan',
+      group: 'GO',
+      run: async (a) => {
+        const { openPeople } = await import('../features/people/sheet');
+        await openPeople(typeof a?.what === 'string' ? a.what : 'who');
+      },
+    },
+    {
+      // [packs2] THE WORK PACK's sheets (features/work): a document to copy or share, interview practice, the to-do list.
+      id: 'open_work',
+      title: 'Work: documents, interview practice, to-do',
+      group: 'GO',
+      run: async (a) => {
+        const { openWork } = await import('../features/work/sheet');
+        await openWork(typeof a?.what === 'string' ? a.what : 'doc', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // [packs2] THE CREATIVE PACK's sheets (features/creative): a song, a poster, a comic strip, a card, a logo, a palette, a beat.
+      id: 'open_creative',
+      title: 'Creative: song, poster, comic, card, logo, palette, beat',
+      group: 'GO',
+      run: async (a) => {
+        const { openCreative } = await import('../features/creative/sheet');
+        await openCreative(typeof a?.what === 'string' ? a.what : 'song', a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

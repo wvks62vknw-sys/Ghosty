@@ -25,6 +25,9 @@ import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
 import { wikiAsked } from '../wiki/words';
 import { morseAsked } from '../morse/code';
+import { PEOPLE_ASK } from '../../../../packages/shared/src/people';
+import { INTERVIEW_ASK, POMO_ASK } from '../../../../packages/shared/src/work';
+import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -49,6 +52,12 @@ export const LOCAL_ASKS = [
   // [resta] Wikipedia from the file on this phone (wiki/ask.ts) and the Morse sheet (morse/sheet.ts), both with no model
   { id: 'wiki', test: (t: string) => !!wikiAsked(t) },
   { id: 'morse', test: (t: string) => !!morseAsked(t) },
+  // [packs2] the people pack's who's who, on the phone (features/people); the work and creative packs' phrases follow
+  { id: 'people', test: (t: string) => PEOPLE_ASK.test(t.trim()) },
+  { id: 'interview', test: (t: string) => INTERVIEW_ASK.test(t.trim()) },
+  { id: 'pomodoro', test: (t: string) => POMO_ASK.test(t.trim()) },
+  { id: 'beat', test: (t: string) => BEAT_ASK.test(t.trim()) },
+  { id: 'drawing', test: (t: string) => DRAW_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
