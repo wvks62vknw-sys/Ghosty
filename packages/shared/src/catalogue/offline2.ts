@@ -1,7 +1,7 @@
 /**
  * The catalogue's words for batch ⑥ part 2 (BRIEF-OFFLINE-DEFAULT): the brain on his phone answering FIRST what it has
- * passed (ASK THE CLOUD under such an answer), the INDEPENDENCE sheet in System with its pill, and "how independent are
- * you?" in the chat. TRUST itself is a part of SETTINGS → OFFLINE BRAIN (no panel of its own), said in these words too.
+ * passed (ASK THE CLOUD under such an answer), the INDEPENDENCE sheet in System (under its Report card pill), and "how
+ * independent are you?" in the chat. TRUST itself is a part of SETTINGS → OFFLINE BRAIN (no panel of its own), said in these words too.
  * Joined into APP_WORDS in app.ts.
  */
 import type { CatValue } from '../catalogue';
@@ -18,7 +18,6 @@ export const OFFLINE2_WORDS: Record<string, CatValue> = {
     cat: 'know',
     since: SINCE,
   },
-  'section:system:independence': { same: 'panel:system:INDEPENDENCE' },
   'phrase:independent': {
     name: 'How independent are you',
     line: 'You can ask "how independent are you?" and I say how much of your week stayed on your phone, and open the meter.',

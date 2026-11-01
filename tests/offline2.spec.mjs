@@ -151,6 +151,8 @@ await page.waitForFunction(() => {
   const t = (JSON.parse(localStorage.getItem('ghosty.independence') ?? '{}').days ?? []).find((x) => x.d === `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
   return t?.g?.greet?.o === 1;
 }, null, { timeout: 8000 }).catch(async () => problems.push(`[1] the meter did not count it as his own greeting: ${JSON.stringify(await today())}`));
+// (the reply card eases in: measured once it has settled)
+await page.waitForTimeout(900);
 await small('chat', '.msg button.askcloud, #ccap button.askcloud');
 await sideways('chat');
 await page.screenshot({ path: `${out}/offline2-first.png` });
@@ -251,7 +253,7 @@ await page.waitForTimeout(1500);
 const leaked = sent.slice(quiet).filter((r) => r.body.includes('ZORBLAX'));
 check(6, !leaked.length, `the marker left the phone: ${leaked.map((r) => r.path).join(', ')}`);
 await page.evaluate(() => (location.hash = 'system'));
-await openSection(page, 'system', 'Independence');
+await openSection(page, 'system', 'Report card');
 await openPanel(page, 'system', 'INDEPENDENCE');
 check(6, /SOVEREIGN MODE · ON/.test(((await sheet.textContent().catch(() => '')) ?? '')), 'the sheet does not show Sovereign mode on');
 await sideways('sovereign');

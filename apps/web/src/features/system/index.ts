@@ -58,9 +58,8 @@ export const systemTab: TabDef = {
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
       { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
-      { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS)/ },
+      { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS|INDEPENDENCE)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
-      { id: 'independence', label: 'Independence', match: /^INDEPENDENCE/ },
       { id: 'backup', label: 'Backup', match: /^(STORAGE|BACKUP)/ },
     ]);
     let status: BrainStatus | null = null;
