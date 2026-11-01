@@ -90,7 +90,8 @@ test('replies are cleaned of the empty thinking block and end marks; the downloa
 test('the models are pinned to one Hugging Face commit each, and the vendored WebLLM keeps that revision', async () => {
   const { readFileSync } = await import('node:fs');
   const M = await import(`${B}/offline-models.mjs`);
-  assert.equal(M.MODELS.length, 2);
+  // the 0.6B, its Qwen2.5 stand-in and the floor (1 Nov), each checked below like the first two
+  assert.equal(M.MODELS.length, 3);
   for (const m of M.MODELS) {
     assert.match(m.repo, /^mlc-ai\/[\w.-]+-MLC$/);
     assert.match(m.rev, /^[0-9a-f]{40}$/, `${m.id} is not pinned to a commit`);
@@ -290,6 +291,174 @@ test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, t
   assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' } }), /^What this phone can hold: closed Ghosty answering on Qwen3 0\.6B \(24 Oct\); not tried yet: Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
   assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'loading' }, [M.MODELS[1].id]: { s: 'loaded', at } }, [M.MODELS[1], ...M.PICKER]), /^What this phone can hold: has run Qwen2\.5 0\.5B \(24 Oct\); closed Ghosty loading Qwen3 0\.6B \(24 Oct\); not tried yet: /);
   assert.equal(M.shortName(two), '2B');
+});
+
+test('the floor (1 Nov: the 0.6B closed Ghosty at its first answer): SmolLM2 360M exactly as WebLLM 0.2.85 lists it, its code vendored, a stand-in kept on its own, and what this phone can hold with three small brains', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  const [small, half, floor] = M.MODELS;
+  assert.equal(M.FLOOR, floor);
+  assert.deepEqual(M.STAND_INS.map((m) => m.id), [half.id, floor.id]);
+  assert.deepEqual([floor.id, floor.label, floor.repo, floor.rev, floor.lib], ['SmolLM2-360M-Instruct-q4f16_1-MLC', 'SmolLM2 360M', 'mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC', '3a622fd89e0216e8bb10c410c007c786baa8a033', 'SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm']);
+  // the prebuilt entry in the very runtime the phone runs: same repo and library, its memory figure, 16-bit shaders
+  const entry = src.match(/model: "https:\/\/huggingface\.co\/mlc-ai\/SmolLM2-360M-Instruct-q4f16_1-MLC",\s*model_id: "SmolLM2-360M-Instruct-q4f16_1-MLC",[\s\S]*?\n        \}/)?.[0];
+  assert.ok(entry, "the floor is in WebLLM 0.2.85's own list");
+  assert.match(entry, /"\/SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu\.wasm"/);
+  assert.match(entry, new RegExp(`vram_required_MB: ${floor.vram},`));
+  assert.match(entry, /required_features: \["shader-f16"\]/);
+  // the smallest instruct brain worth having in that list: the one below it is the 135M, unquantised (q0f16), 16 MB less
+  // at 4,096 tokens for 16-bit weights (a bigger download than these 4-bit ones) and a far weaker brain
+  assert.match(src, /model_id: "SmolLM2-135M-Instruct-q0f16-MLC",[\s\S]*?vram_required_MB: 359\.69,/);
+  const lib = new URL(`../../web/public/vendor/webllm/libs/${floor.lib}`, import.meta.url);
+  assert.ok(statSync(lib).size > 5_000_000, 'its compiled code is vendored');
+  const wasm = readFileSync(lib);
+  assert.deepEqual([...wasm.subarray(0, 4)], [0, 0x61, 0x73, 0x6d], 'a WebAssembly file');
+  // WebLLM's figure taken apart: 194.18 MB of weights (203,614,080 bytes in its tensor-cache.json at the pinned commit)
+  // + the library's largest working space + 40 KB a token of cache; as the phone runs it (2,048 tokens), about 296 MB
+  const plan = JSON.parse(`{${wasm.toString('latin1').match(/"memory_usage": \{[^}]*\}/)[0]}}`).memory_usage;
+  const work = Math.max(...Object.values(plan)) / 2 ** 20;
+  assert.ok(Math.abs(floor.work - work - 194.18) < 0.02, `weights 194.18 MB + working space ${work.toFixed(2)} MB = ${floor.work}`);
+  assert.equal(M.memAt(floor, 4096), floor.vram);
+  assert.equal(M.memAt(floor, 2048), 296.06);
+  assert.equal(floor.ctx, undefined, 'the phone gives it 2,048 tokens (brain.ts appConfig), like the other two');
+  // materially smaller: under a third of the 0.6B as the phone runs them, under half the 0.5B's listed figure
+  assert.ok(M.memAt(floor, 2048) < M.memAt(small, 2048) / 3 && floor.vram < half.vram / 2);
+  assert.deepEqual([M.sizeText(floor.mb), M.memText(floor.vram), M.fitLine(floor)], ['212 MB', '0.4 GB', 'fits an 18 Pro Max: yes']);
+  assert.equal(floor.largest, 23_592_960, 'its biggest piece: the embedding table');
+  const safari = { maxBufferSize: 256 * 2 ** 20, maxStorageBufferBindingSize: 128 * 2 ** 20, maxComputeWorkgroupStorageSize: 32768, maxStorageBuffersPerShaderStage: 10, maxComputeInvocationsPerWorkgroup: 1024 };
+  assert.equal(M.limitsProblem(floor, safari, true), '');
+  // a stand-in like the 0.5B: not a bigger brain, the 0.6B's base for the training, its record kept under its own id
+  assert.ok(!M.isBigger(floor) && M.brainOf(floor) === 'qwen3-0.6b' && M.slotOf(floor) === 'qwen3-0.6b');
+  assert.equal(M.heldKey(floor), floor.id);
+  assert.equal(M.heldKey(half), half.id);
+  assert.equal(M.heldKey(small), 'qwen3-0.6b');
+  const [week] = M.trainedModels([{ week: 5, label: 'w5', repo: 'ghosty/w5', commit: 'd'.repeat(40) }], '', `/api/w/${'e'.repeat(48)}/`);
+  assert.equal(M.heldKey(week), 'qwen3-0.6b', "a week trained from the 0.6B is on the 0.6B's record");
+  assert.ok(M.allModels([]).includes(floor) && M.brainModels([]).includes(floor), 'every list the phone loads from has it');
+  // what this phone can hold, three ways: the chip's pieces with the three small brains, the 0.5B that closed Ghosty
+  // with the floor not tried, and the floor's own record kept apart from the 0.6B's
+  const at = Date.UTC(2026, 10, 1, 3);
+  const rows = [floor, half, ...M.PICKER];
+  assert.equal(M.holdLine(safari, {}, rows), 'What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 360M, 0.5B, 0.6B, 0.8B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
+  assert.match(M.holdLine(null, { 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' }, [half.id]: { s: 'closed', at, phase: 'answering' } }, rows), /^What this phone can hold: closed Ghosty answering on Qwen2\.5 0\.5B \(1 Nov\), Qwen3 0\.6B \(1 Nov\); not tried yet: SmolLM2 360M, Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
+  assert.match(M.holdLine(null, { [floor.id]: { s: 'loaded', at }, 'qwen3-0.6b': { s: 'closed', at, phase: 'answering' }, [half.id]: { s: 'closed', at, phase: 'loading' } }, rows), /^What this phone can hold: has run SmolLM2 360M \(1 Nov\); closed Ghosty loading Qwen2\.5 0\.5B \(1 Nov\); closed Ghosty answering on Qwen3 0\.6B \(1 Nov\); not tried yet: Qwen3\.5 0\.8B, Qwen3\.5 2B, Qwen3\.5 4B\./);
+  assert.equal(M.shortName(floor), '360M');
+});
+
+test('the chain (1 Nov: "press SIT and it works"): the 0.6B, the 0.5B, the floor; the largest here that has not closed Ghosty sits, after a close the next one down is one tap away, and the truth when the floor closed too', async () => {
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  const two = M.BIGGER[1];
+  assert.deepEqual(M.CHAIN.map((m) => m.label), ['Qwen3 0.6B', 'Qwen2.5 0.5B', 'SmolLM2 360M']);
+  assert.deepEqual([small, half, floor, ...M.BIGGER].map(M.rungOf), [0, 1, 2, -1, -1, -1]);
+  const [week] = M.trainedModels([{ week: 6, label: 'w6', repo: 'ghosty/w6', commit: 'f'.repeat(40) }], '', `/api/w/${'a'.repeat(48)}/`);
+  assert.equal(M.rungOf(week), 0, "a week trained from the 0.6B is on the 0.6B's rung");
+  const closed = (...ms) => (m) => !ms.includes(m);
+  const pick = (here, usable) => {
+    const p = M.chainPick(here, usable);
+    return { sit: p.sit?.label ?? null, get: p.get?.label ?? null, after: p.after?.label ?? null, none: p.none };
+  };
+  const nothing = { sit: null, get: null, after: null, none: false };
+  // none here and nothing closed (a new phone): neither; DOWNLOAD in SETTINGS, as it always was
+  assert.deepEqual(pick([], closed()), nothing);
+  // the largest here sits: the 0.6B, even with a smaller one here too
+  assert.deepEqual(pick([half, small], closed()), { ...nothing, sit: 'Qwen3 0.6B' });
+  assert.deepEqual(pick([floor], closed()), { ...nothing, sit: 'SmolLM2 360M' });
+  // the 0.6B closed (his phone, 31 Oct) and the 0.5B here: the 0.5B sits; nothing smaller here: the 0.5B is the one tap
+  assert.deepEqual(pick([small, half], closed(small)), { sit: 'Qwen2.5 0.5B', get: null, after: 'Qwen3 0.6B', none: false });
+  assert.deepEqual(pick([small], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+  assert.deepEqual(pick([], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+  // both closed and the floor here: the floor sits; not here: the floor is the one tap
+  assert.deepEqual(pick([small, half, floor], closed(small, half)), { sit: 'SmolLM2 360M', get: null, after: 'Qwen2.5 0.5B', none: false });
+  assert.deepEqual(pick([small, half], closed(small, half)), { sit: null, get: 'SmolLM2 360M', after: 'Qwen2.5 0.5B', none: false });
+  // after a close the one tap is always a smaller brain, never the bigger 0.6B the phone has not tried
+  assert.deepEqual(pick([], closed(half)), { sit: null, get: 'SmolLM2 360M', after: 'Qwen2.5 0.5B', none: false });
+  // all closed: nothing sits, nothing is offered, and the words say the truth
+  assert.deepEqual(pick([small, half, floor], closed(small, half, floor)), { sit: null, get: null, after: 'SmolLM2 360M', none: true });
+  assert.deepEqual(pick([], closed(small, half, floor)), { sit: null, get: null, after: 'SmolLM2 360M', none: true });
+  // his yes after a close (USE): that brain may sit again
+  assert.deepEqual(pick([small], () => true), { ...nothing, sit: 'Qwen3 0.6B' });
+  // a bigger brain is never the chain's (it sits only when he chose it for school: school/sit.ts sitPlan)
+  assert.deepEqual(pick([two], closed(small)), { sit: null, get: 'Qwen2.5 0.5B', after: 'Qwen3 0.6B', none: false });
+});
+
+test('the one tap (1 Nov): "GET <brain> (<size>) and sit" goes at once on Wi-Fi; on mobile data it says so and waits; the floor closed: no button, the truth', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  // Wi-Fi: the button names the brain and its size; it goes
+  assert.deepEqual(M.sitOffer(half, false), { button: 'GET Qwen2.5 0.5B (290 MB) and sit', line: '', go: true });
+  assert.deepEqual(M.sitOffer(floor, false), { button: 'GET SmolLM2 360M (212 MB) and sit', line: '', go: true });
+  // mobile data: the same button stays, nothing goes, and the line says why
+  assert.deepEqual(M.sitOffer(floor, true), { button: 'GET SmolLM2 360M (212 MB) and sit', line: 'You are on mobile data, and SmolLM2 360M is 212 MB: it waits for Wi-Fi. Join Wi-Fi, then tap it again.', go: false });
+  // the floor closed too: no button, no cloud sitting, the truth
+  const all = M.chainPick([small, half, floor], () => false);
+  assert.deepEqual(M.sitOffer(all.get, false), { button: '', line: M.NO_BRAIN, go: false });
+  assert.equal(M.NO_BRAIN, "No brain runs in this phone's browser yet. I keep my schooling for when one does.");
+  assert.equal(M.sitOfferWhy(small, half), 'Qwen3 0.6B closed Ghosty on this phone. The smaller Qwen2.5 0.5B may fit: one tap gets it (290 MB, on Wi-Fi) and I sit on it.');
+  // SCHOOL's tap: only a brain of the chain that has not closed Ghosty, the network asked before a byte comes, then GET
+  const sit = readFileSync(new URL('../../web/src/school/sit.ts', import.meta.url), 'utf8');
+  assert.match(sit, /export async function getForSit\(id: string, onProgress\?: \(frac: number, text: string\) => void\): Promise<ModelDef> \{\n  const m = CHAIN\.find\(\(x\) => x\.id === id\);\n  if \(!m \|\| !mayUse\(m\)\) throw [^\n]+\n  const o = sitOffer\(m, onMobileData\(\)\);\n  if \(!o\.go\) throw Object\.assign\(new Error\(o\.line\), \{ wait: true \}\);\n  return getBrain\(m\.id, onProgress\);\n\}/);
+  // and a paper is only ever sat on the phone's own model (no cloud sitting)
+  assert.match(sit, /export const sitGen: Gen = async \(messages, o\) => \{\n  try \{\n    return \(await offlineReply\(/);
+  assert.doesNotMatch(sit, /askBigBrain|\/api\/chat|brain\.chat\(/);
+});
+
+test('the sitting prompt on a small brain (1 Nov): the question and the instruction only, at most 600 tokens by the chat budget\'s own estimate; a bigger brain keeps the shared exam prompt; the chat stays at 1,500', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const tokens = (msgs) => msgs.reduce((n, x) => n + P.estimateTokens(x.content) + 4, 0);
+  assert.equal(M.SIT_BUDGET, 600);
+  assert.equal(P.PROMPT_BUDGET, 1500, "the chat's own budget is untouched");
+  assert.deepEqual(M.MODELS.map(M.sitBudget), [600, 600, 600]);
+  assert.deepEqual(M.BIGGER.map(M.sitBudget), [0, 0, 0]);
+  const [week] = M.trainedModels([{ week: 7, label: 'w7', repo: 'ghosty/w7', commit: 'b'.repeat(40) }], '', `/api/w/${'c'.repeat(48)}/`);
+  assert.equal(M.sitBudget(week), 600, 'a week trained from the 0.6B is a small brain');
+  // a short question whole: the framing gone, the instruction the marking reads kept
+  assert.deepEqual(M.sitMessages({ q: 'Which animal says moo?', type: 'mcq', marks: 1, options: ['cow', 'cat', 'dog', 'hen'] }), [
+    { role: 'system', content: "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'" },
+    { role: 'user', content: 'Which animal says moo?\n\nA) cow\nB) cat\nC) dog\nD) hen\nAnswer with the letter.' },
+  ]);
+  assert.deepEqual(M.sitMessages({ q: 'Why did the crow drop stones in the jug?', type: 'short', marks: 2 }, { title: 'The Crow and the Jug', text: 'A thirsty crow found a jug.' })[1].content, '"The Crow and the Jug"\nA thirsty crow found a jug.\n\nWhy did the crow drop stones in the jug?\n\nExplain briefly.');
+  const essay = M.sitMessages({ q: 'Write a story about a dragon.', type: 'extended', marks: 10 });
+  assert.equal(essay[0].content, "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'. For a piece of writing, write the whole piece, then finish with 'Answer: done'.");
+  assert.equal(essay[1].content, 'Write a story about a dragon.\n\nWrite it out in full.');
+  // a long passage: cut at its end to fit, its title and start kept, the question and the instruction whole
+  const long = { title: 'The Crow and the Jug', text: Array.from({ length: 400 }, (_, i) => `Sentence ${i} about the crow and the jug.`).join(' ') };
+  const read = M.sitMessages({ q: 'What did the crow drop into the jug?', type: 'short', marks: 2 }, long);
+  assert.ok(tokens(read) <= 600 && tokens(read) > 540, `the passage takes what is left: ${tokens(read)} tokens`);
+  assert.match(read[1].content, /^"The Crow and the Jug"\nSentence 0 about the crow and the jug\. Sentence 1 /);
+  assert.match(read[1].content, /…\n\nWhat did the crow drop into the jug\?\n\nExplain briefly\.$/);
+  // an enormous question, no passage: cut to fit, the choices and the instruction whole
+  const huge = M.sitMessages({ q: 'why '.repeat(3000), type: 'mcq', marks: 1, options: ['a', 'b', 'c', 'd'] });
+  assert.ok(tokens(huge) <= 600, `${tokens(huge)} tokens`);
+  assert.match(huge[1].content, /^why why [\s\S]*…\n\nA\) a\nB\) b\nC\) c\nD\) d\nAnswer with the letter\.$/);
+  // never over, whatever the passage's length; under it, the prompt is the question as written
+  for (const n of [0, 10, 300, 900, 1000, 1100, 5000, 40000]) {
+    const m = M.sitMessages({ q: 'Who sat on the wall?', type: 'exact', marks: 1 }, { title: 'Humpty Dumpty', text: 'Humpty Dumpty sat on a wall. '.repeat(n) });
+    assert.ok(tokens(m) <= 600 && m[1].content.endsWith('\n\nWho sat on the wall?'), `${n} lines: ${tokens(m)} tokens`);
+  }
+  // SCHOOL gives the brain a paper is sat on its budget; runPaper builds the short prompt from it
+  const sit = readFileSync(new URL('../../web/src/school/sit.ts', import.meta.url), 'utf8');
+  assert.match(sit, /const asked = d\.budget \? sitMessages\(it, [^;]+, d\.budget\) : examPrompt\(it, paper\.passages\);\n      given = await d\.gen\(asked,/);
+  assert.match(sit, /writing: writingCap\(brain\),\n            budget: sitBudget\(brain\),/);
+});
+
+test('after a close (1 Nov): one line when Ghosty is open again, once per record, naming the brain, the phase and what SIT uses next', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const [small, half, floor] = M.MODELS;
+  assert.equal(M.closeLine(small, 'answering', half), 'Qwen3 0.6B closed Ghosty while answering. Next time SIT uses Qwen2.5 0.5B.');
+  assert.equal(M.closeLine(half, 'loading', floor), 'Qwen2.5 0.5B closed Ghosty while loading. Next time SIT uses SmolLM2 360M.');
+  assert.equal(M.closeLine(floor, 'answering', null), "SmolLM2 360M closed Ghosty while answering. No brain runs in this phone's browser yet. I keep my schooling for when one does.");
+  // made where the close is found (brain.ts closedHere, from the chain as it stands after the close), kept on the phone
+  // until it is said, and said once by SCHOOL when the boot screen has gone
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.match(brain, /const line = closeLine\(m, phase, pick\.sit \?\? pick\.get \?\? \(pick\.none \? null : CHAIN\[0\]!\)\);/);
+  assert.match(brain, /'held', 'guarded', 'closedNote'\] \}/);
+  const tab = readFileSync(new URL('../../web/src/features/school/index.ts', import.meta.url), 'utf8');
+  assert.match(tab, /function sayClosed\(\): void \{\n  const line = offlineBrain\.get\(\)\.closedNote;[\s\S]*?if \(document\.getElementById\('boot'\)\) return void setTimeout\(sayClosed, 500\);\n  offlineBrain\.set\(\{ closedNote: '' \}\);[\s\S]*?toast\(line, 'warn'\);/);
 });
 
 test('the brain kept on the phone (25 Oct: "you have to download the offline brain every time"): a new service worker leaves the downloads alone', async () => {

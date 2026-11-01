@@ -12,6 +12,7 @@ browser keeps them in WebLLM's Cache API stores (`webllm/model`, `webllm/config`
 | `worker.mjs` | ours: the Web Worker that holds `MLCEngine` and speaks a few plain messages to the page | — | as Ghosty | 3 KB |
 | `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` | the compiled model code for Qwen3-0.6B (q4f16_1) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` (the version 0.2.85's prebuilt config names) | Apache-2.0 | 5.5 MB |
 | `libs/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen2.5-0.5B-Instruct (the fallback when a phone can't hold Qwen3) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` | Apache-2.0 | 4.9 MB |
+| `libs/SmolLM2-360M-Instruct-q4f16_1_cs1k-webgpu.wasm` | the same for SmolLM2-360M-Instruct (q4f16_1), the floor: the smallest brain 0.2.85's list ships, for a phone that can hold neither Qwen | binary-mlc-llm-libs `web-llm-models/v0_2_84/base`, fetched 2026-11-01, sha256 `5c200986…064ad41b` | Apache-2.0 | 5.7 MB |
 | `libs/Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen3.5-0.8B (q4f16_1), the step between the 0.6B and the 2B | binary-mlc-llm-libs `web-llm-models/v0_2_84/base`, fetched 2026-10-24, sha256 `3dd8cff0…1348ae29` | Apache-2.0 | 6.2 MB |
 | `libs/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm` | the compiled model code for Qwen3.5-2B (q4f16_1), a bigger brain he can choose | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` (the version 0.2.85's prebuilt config names), fetched 2026-10-24, sha256 `b0f951d4…98df912` | Apache-2.0 | 6.2 MB |
 | `libs/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen3.5-4B (q4f16_1) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base`, fetched 2026-10-24, sha256 `7e8f9895…0bdc904712` | Apache-2.0 | 6.5 MB |
@@ -26,6 +27,7 @@ with, never whatever the repository's main branch holds that day:
 | --- | --- |
 | `mlc-ai/Qwen3-0.6B-q4f16_1-MLC` | `8c14ce481d4c692769976ad52afea453a102df19` |
 | `mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC` | `32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad` |
+| `mlc-ai/SmolLM2-360M-Instruct-q4f16_1-MLC` (the floor, Apache-2.0 (Hugging Face's SmolLM2), 206 MB fetched: 7 shards, list, tokenizer, config; its last commit, checked 2026-11-01, only added the `tensor-cache.json` this WebLLM reads) | `3a622fd89e0216e8bb10c410c007c786baa8a033` |
 | `mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC` (447 MB fetched: 11 shards, tokenizer, config; the repo's only upload, checked 2026-10-24) | `0ec138972555613c1d7812a821778ad0398c8790` |
 | `mlc-ai/Qwen3.5-2B-q4f16_1-MLC` (1,082 MB fetched: 31 shards, tokenizer, config; the repo's only upload, checked 2026-10-24) | `dd74e9c8a20c4546df85c844103bff87b6dcacad` |
 | `mlc-ai/Qwen3.5-4B-q4f16_1-MLC` (2,390 MB fetched: 78 shards, tokenizer, config; the repo's only upload, checked 2026-10-24) | `44b42469f9e192814bfd90440e3b377d89ba7a13` |

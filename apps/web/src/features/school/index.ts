@@ -32,9 +32,9 @@ import type { PaperResult, StageId, StageRow, StageView } from '../../school/sit
 import { STAGES, SUBJECT_LABEL } from '../../../../../packages/shared/src/school';
 import { clear, h, icon } from '../../core/dom';
 import { mayUse, offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
-import { MODELS } from '../../offline/models';
+import { CHAIN, MODELS, NO_BRAIN, sitOffer, sitOfferWhy, sizeText, type ModelDef } from '../../offline/models';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
-import { brainLine, notDownloaded, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
+import { brainLine, getForSit, notDownloaded, resumeNow, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
 import { loadOffline, withModel } from '../../offline/brain';
 import type { TabDef } from '../../shell/tabs';
@@ -50,7 +50,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', brain: '', resume: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
+export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', brain: '', resume: '', closed: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -60,6 +60,21 @@ function expose(): void {
     if (attach() || ++n > 40) clearInterval(timer);
   }, 500);
 }
+
+/**
+ * After a brain closed Ghosty (offline/brain.ts recoverFromClose, 1 Nov): one line when Ghosty is open again, once per
+ * record, said as a toast once the boot screen has gone: "Qwen3 0.6B closed Ghosty while answering. Next time SIT uses
+ * Qwen2.5 0.5B." It is kept on this phone until it has been said.
+ */
+function sayClosed(): void {
+  const line = offlineBrain.get().closedNote;
+  if (!line || typeof document === 'undefined') return;
+  if (document.getElementById('boot')) return void setTimeout(sayClosed, 500);
+  offlineBrain.set({ closedNote: '' });
+  schoolState.closed = line;
+  toast(line, 'warn');
+}
+if (typeof window !== 'undefined') setTimeout(sayClosed, 300);
 
 export const schoolTab: TabDef = {
   id: 'school',
@@ -116,6 +131,33 @@ export const schoolTab: TabDef = {
         .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad'))
         .finally(() => void refresh());
       paint();
+    };
+    /** The brain the one tap is getting now (null: none), and the line it waits with on mobile data. */
+    let getting: ModelDef | null = null;
+    let waitLine = '';
+    /**
+     * The one tap after a close (1 Nov: "press SIT and it works"): GET the next brain down (his tap; on Wi-Fi only, the
+     * size on the button), then sit on it, or carry on the paper that stopped (`small`). On mobile data nothing is
+     * fetched: it says so and the button stays.
+     */
+    const oneTap = (m: ModelDef, stage: StageId, subjects: string[], small: boolean) => {
+      if (getting || sitting.get().busy) return;
+      waitLine = '';
+      getting = m;
+      paint();
+      void getForSit(m.id, () => paint())
+        .then(() => {
+          getting = null;
+          start(stage, subjects, small);
+        })
+        .catch((e) => {
+          getting = null;
+          const msg = String((e as Error)?.message ?? e).slice(0, 220);
+          const wait = !!(e as { wait?: boolean })?.wait;
+          if (wait) waitLine = msg;
+          toast(wait ? msg : `Download stopped: ${msg}`, wait ? 'warn' : 'bad');
+          void refresh();
+        });
     };
     const subjectName = (id: string) => SUBJECT_LABEL[id] ?? id;
     const stageLabel = (id: string) => short(view?.stages.find((s) => s.id === id)?.label ?? id);
@@ -278,11 +320,17 @@ export const schoolTab: TabDef = {
       const st = sitting.get();
       const cur = v.current;
       const busy = st.busy;
+      // The plan (school/sit.ts sitPlan): the brain the next paper is sat on and whether it is on this phone; after a close
+      // with none here that may sit, the one tap (GET the next brain down and sit), or the truth when no brain is left.
+      const p = !busy ? plan : null;
+      const sitReady = can !== false && (p ? !!p.brain && p.here : !!ready);
+      const re = busy ? null : st.resume;
+      const tapM = can === false ? null : p ? p.get : re?.get ? (CHAIN.find((x) => x.id === re.get) ?? null) : null;
       const rows = cur.subjects.map((s) => {
         const r = s.latest;
         const grade = r ? (r.marked.pending ? 'marks pending' : `${r.grade} · ${r.raw}/${r.max}`) : 'not sat yet';
         const sitOne = button('SIT', () => start(cur.stage, [s.id]));
-        sitOne.disabled = busy || !ready || !cur.papers;
+        sitOne.disabled = busy || !sitReady || !cur.papers || !!getting;
         sitOne.setAttribute('aria-label', `Sit ${s.label}`);
         const now = busy && st.stage === cur.stage && st.subject === s.id;
         sitOne.disabled = sitOne.disabled || !s.source;
@@ -306,44 +354,69 @@ export const schoolTab: TabDef = {
             st.brain ? h('div.note.schbrain', st.brain) : null,
             h('div.note', 'Keep Ghosty open while he sits it. STOP hands in the answers so far.'),
           )
-        : null;
+        : getting
+          ? h('div.schlive.schgetting',
+              h('div.schliveh', h('b', `Getting ${getting.label}…`), h('small', 'then I sit on it')),
+              bar('GET', offlineBrain.get().progress, `${Math.round(offlineBrain.get().progress * 100)}%`),
+              offlineBrain.get().text ? h('div.note', offlineBrain.get().text) : null,
+              h('div.note', 'Keep Ghosty open, on Wi-Fi: nothing is loaded until it is all here.'),
+            )
+          : null;
+      // ONE button after a close, with the brain's name and size (1 Nov): GET it, on Wi-Fi, and sit (or carry on).
+      const tap = (m: ModelDef, stage: StageId, subjects: string[], small: boolean): HTMLButtonElement => {
+        const words = sitOffer(m, false).button;
+        // (the brain's name and size as written: a text node, kept out of the stylesheet's sentence case)
+        const b = button(document.createTextNode(words), () => oneTap(m, stage, subjects, small), 'on');
+        b.dataset.case = 'keep';
+        b.style.textTransform = 'none';
+        b.classList.add('schgetsit');
+        b.setAttribute('aria-label', `${words}: about ${sizeText(m.mb)}, on Wi-Fi`);
+        b.disabled = !!getting || !!offlineBrain.get().busy;
+        return b;
+      };
       // A sitting that closed Ghosty, or whose brain failed: the one line, how far it got, and CARRY ON (never by itself).
-      const re = busy ? null : st.resume;
       const kept = re ? Math.max(0, re.n - 1) : 0;
       const resume = re
         ? h('div.schlive.schresume',
             h('div.schliveh', h('b', re.line)),
             re.of ? bar('PAPER', kept / re.of, `${kept}/${re.of}`) : null,
-            h('div.keyrow', Object.assign(button('CARRY ON', () => start(re.stage as StageId, re.subjects, true), 'on'), { disabled: !!re.blocked })),
+            h('div.keyrow', tapM ? tap(tapM, re.stage as StageId, re.subjects, true) : Object.assign(button('CARRY ON', () => start(re.stage as StageId, re.subjects, true), 'on'), { disabled: !!re.blocked || !!getting })),
+            tapM && waitLine ? h('div.note.schwait', waitLine) : null,
           )
         : null;
       // Which brain sits the papers, in one line; when the brain in use is a bigger one, he may choose it for school.
-      const p = ready && !busy ? plan : null;
-      const choose = p?.least
+      const choose = p?.least && sitReady
         ? named(button(p.chosen ? 'SIT ON THE SMALLEST' : `SIT ON ${p.cur.label.toUpperCase()}`, () => {
             sitPrefs.set({ brain: p.chosen ? '' : p.cur.id });
             void sitPlan().then((x) => ((plan = x), paint()));
           }), p.chosen ? 'Sit on the smallest' : `Sit on ${p.cur.label}`)
         : null;
-      const which = p ? h('div.schbrain', h('div.note', brainLine(p, false)), choose ? h('div.keyrow', choose) : null) : null;
-      // The only brain here closed Ghosty on this phone (31 Oct: the 0.6B on a paper's first answer): no SIT by itself;
-      // the words say what to do (the smaller brain, or USE in SETTINGS as his yes).
-      const blocked = p && !mayUse(p.brain) ? offlineBrain.get().fellBack || `${p.brain.label} closed Ghosty on this phone: in Settings → Offline brain, GET the smaller ${MODELS[1]!.label} or press USE to try it again.` : '';
-      sitAll.disabled = busy || !ready || !cur.papers || !!blocked;
+      const which = p?.brain && sitReady ? h('div.schbrain', h('div.note', brainLine({ ...p, brain: p.brain }, false)), choose ? h('div.keyrow', choose) : null) : null;
+      // The brain it would sit on closed Ghosty on this phone and nothing else may sit (a bigger one alone): no SIT by
+      // itself; the words say what to do (a smaller brain, or USE in SETTINGS as his yes).
+      const blocked = p?.brain && !mayUse(p.brain) ? offlineBrain.get().fellBack || `${p.brain.label} closed Ghosty on this phone: in Settings → Offline brain, GET the smaller ${MODELS[1]!.label} or press USE to try it again.` : '';
+      // (the one tap stands in for SIT THE EXAM: in CARRY ON's place when a paper waits, else here)
+      const keyTap = tapM && !re && cur.papers ? tap(tapM, cur.stage, cur.subjects.map((s) => s.id), false) : null;
+      sitAll.disabled = busy || !sitReady || !cur.papers || !!blocked || !!getting;
+      sitAll.hidden = !!p?.none || (!!tapM && (!!re || !!cur.papers));
       gpuAll.disabled = gpuBusy() || !cur.papers;
       gpuAll.hidden = !gpuOk();
       stop.hidden = !busy;
-      toSettings.hidden = (ready !== false || can === false) && !blocked;
+      toSettings.hidden = !(blocked || (can !== false && (p ? !p.here : ready === false) && !tapM && !p?.none));
       const why =
         blocked
           ? blocked
           : can === false
           ? 'This phone cannot run the offline brain, so he cannot sit exams on it.'
-          : ready === false
-            ? notDownloaded
-            : !cur.papers && !cur.bank
-              ? `There are no papers for ${short(cur.label)} yet, so it cannot be sat. Earlier stages can still be sat for revision.`
-              : '';
+          : p?.none
+            ? re ? '' : NO_BRAIN
+            : tapM
+              ? re ? '' : `${sitOfferWhy(p?.after ?? null, tapM)}${waitLine ? ` ${waitLine}` : ''}`
+              : (p ? !p.here : ready === false)
+                ? notDownloaded
+                : !cur.papers && !cur.bank
+                  ? `There are no papers for ${short(cur.label)} yet, so it cannot be sat. Earlier stages can still be sat for revision.`
+                  : '';
       const row = v.stages.find((s) => s.id === cur.stage);
       clear(
         stageP.body,
@@ -355,7 +428,7 @@ export const schoolTab: TabDef = {
         why ? h('div.note.schwhy', why) : null,
         !cur.papers && cur.bank ? writeBlock(cur.stage) : null,
         which,
-        h('div.keyrow.schbtns', sitAll, gpuAll, stop, toSettings),
+        h('div.keyrow.schbtns', sitAll, keyTap, gpuAll, stop, toSettings),
         gpuOk() ? (gpuLine() ?? h('div.note.schgpunote', 'Sit on the free GPU · about 10 minutes a paper, no phone time: the same brain sits it on Kaggle’s free GPU, one subject after another.')) : null,
         gpuWhy() ? h('div.note.schgpuwhy', gpuWhy()) : null,
         resultCard,
@@ -563,7 +636,7 @@ export const schoolTab: TabDef = {
       const st = sitting.get();
       schoolState.sitting = st.busy;
       schoolState.line = st.line;
-      schoolState.brain = st.busy ? st.brain : plan && ready ? brainLine(plan, false) : '';
+      schoolState.brain = st.busy ? st.brain : plan?.brain && plan.here ? brainLine({ ...plan, brain: plan.brain }, false) : '';
       schoolState.resume = st.resume?.line ?? '';
       if (!view) {
         P.big.textContent = 'School';
@@ -604,6 +677,8 @@ export const schoolTab: TabDef = {
         ensurePoll();
         can = sup.ok;
         ready = sup.ok && rd;
+        // (a brain got or used since the offer to carry on was made: it is said again from what is here now)
+        resumeNow();
         schoolState.error = '';
         // Something is being written or read: carry on with it while SCHOOL is on screen.
         if (shown && v.work.busy) startWork();
