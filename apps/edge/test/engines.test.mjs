@@ -153,6 +153,10 @@ test("DOOM: the buttons are DOOM's own keys in a level, in its menu and when it 
   assert.deepEqual(keys(['weapon'], 'game'), [KEY.NEXT_WEAPON]);
   assert.deepEqual(keys(['weaponPrev', 'map', 'run'], 'game'), [KEY.TAB, KEY.PREV_WEAPON, KEY.RSHIFT].sort((a, b) => a - b));
   assert.deepEqual(keys(['pause'], 'game'), [KEY.ESCAPE], "the pause action opens DOOM's own menu");
+  assert.deepEqual(keys(['menu'], 'game'), [KEY.ESCAPE], "MENU (the touch layer's small key) opens DOOM's own menu too");
+  assert.deepEqual(keys(['menu'], 'menu'), [KEY.ESCAPE], 'and closes it');
+  assert.deepEqual(keys(['ok'], 'menu'), [KEY.ENTER]);
+  assert.deepEqual(keys(['crouch', 'special'], 'game'), [], 'DOOM has no crouch and no special');
   assert.deepEqual(keys(['jump'], 'game'), [], 'DOOM has no jump');
   assert.deepEqual(keys(['fire', 'use'], 'menu'), [KEY.ENTER], 'FIRE or USE picks in the menu');
   assert.deepEqual(keys(['weapon'], 'menu'), [KEY.BACKSPACE], 'WEAPON goes back a menu');
@@ -217,7 +221,10 @@ test("QUAKE: the stick (full tilt runs), the look (yaw, and pitch held to Quake'
 
 test("QUAKE: the buttons are Quake's own commands and menu keys; its files where it looks; a tally in words", () => {
   assert.deepEqual(quake.QUAKE_HOLD, { fire: 'attack', jump: 'jump', run: 'speed' });
-  assert.deepEqual(quake.QUAKE_PRESS, { weapon: 'impulse 10', weaponPrev: 'impulse 12' });
+  assert.deepEqual(quake.QUAKE_PRESS, { weapon: 'impulse 10', weaponPrev: 'impulse 12', menu: 'togglemenu' });
+  assert.equal(quake.QUAKE_MENU.menu, quake.QKEY.ESCAPE, 'MENU leaves the menu as ESC does');
+  assert.equal(quake.QUAKE_ASK.menu, quake.QKEY.ESCAPE, 'and says no to quit? y/n, as ESC does');
+  assert.ok(!('crouch' in quake.QUAKE_HOLD) && !('special' in quake.QUAKE_PRESS), 'Quake has no crouch and no special');
   for (const c of Object.values(quake.QUAKE_HOLD)) assert.ok(quake.QUAKE_KEYNUM[c] > 255, `${c} carries a key number no real key has`);
   assert.equal(quake.QUAKE_MENU.fire, quake.QKEY.ENTER);
   assert.equal(quake.QUAKE_MENU.weapon, quake.QKEY.ESCAPE);
@@ -240,21 +247,24 @@ test('every button each game shows on the touch layer and every pad button does 
   const does = { doom: (a) => doomGame[a] !== undefined, quake: quakeDoes };
   const known = (k) => k.split('+').every((part) => dos.KEYS[part] !== undefined);
   for (const g of SHELF) {
+    // what the touch layer shows for the game (input.ts: the player draws exactly these)
+    const shown = input.gameButtons(g);
+    assert.ok(shown.length > 0, `${g.id}: buttons`);
     if (g.engine === 'dos') {
       // a DOS game shows its own CONTROLS block: each button presses DOS keys that exist, and a controller reaches each
       // (its pad slots are the DOS engine's: the ones the game fills press its keys, START is the player's PAUSE)
-      const shown = g.dos.controls.buttons;
-      assert.ok(shown.length > 0, `${g.id}: buttons`);
+      assert.equal(shown, g.dos.controls.buttons, `${g.id}: its own CONTROLS block`);
       for (const b of shown) {
         assert.ok(known(b.key) && (b.cycle ?? []).every(known), `${g.id}: the ${b.label} button presses no DOS key`);
         assert.ok(Object.values(input.PAD_BUTTONS.dos).includes(b.act), `${g.id}: no pad button reaches ${b.label}`);
       }
       continue;
     }
-    const buttons = input.touchButtons(g.controls);
-    assert.ok(buttons.length > 0, `${g.id}: buttons`);
-    for (const a of buttons) assert.ok(does[g.engine](a), `${g.id}: the ${a} button does nothing`);
+    for (const b of shown) assert.ok(does[g.engine](b.act), `${g.id}: the ${b.label} button does nothing`);
     for (const a of Object.values(input.PAD_BUTTONS[g.engine])) assert.ok(does[g.engine](a), `${g.id}: the pad's ${a} does nothing`);
+    // the slots the DOS step added: MENU is the game's own menu here too; no ENTER, crouch or special is shown or pressed
+    assert.equal(shown.at(-1).act, 'menu', `${g.id}: MENU along the top`);
+    for (const a of ['ok', 'crouch', 'special']) assert.ok(!shown.some((b) => b.act === a) && !Object.values(input.PAD_BUTTONS[g.engine]).includes(a), `${g.id}: shows or presses ${a}`);
   }
   assert.equal(input.PAD_BUTTONS.dos[input.BTN.START], 'pause');
 });

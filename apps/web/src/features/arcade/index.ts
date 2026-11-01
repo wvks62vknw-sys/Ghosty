@@ -1,29 +1,40 @@
 /**
  * THE ARCADE: real, free games playing entirely on this phone. The SHELF lists every game an engine here plays today
- * (arcade/shelf.ts, through arcade/engines), one card a game: its title, one plain line, its size, GET (his tap, on
- * Wi-Fi, the size said on the button; on mobile data it says so and waits) or PLAY, the best score, Ghosty's line, and
- * a ⋯ with its licence, its credit, its controls and DELETE. The PLAYER is a full-screen canvas under the TOUCH LAYER
- * (a stick under the left thumb, drag-to-look on the right half, buttons where the right thumb rests, small keys along
- * the top, PAUSE → RESUME · QUIT · SOUND · CONTROLS) and the GAMEPAD LAYER (the standard mapping, read every frame);
- * both fill one Intent that the game's engine reads.
+ * (arcade/shelf.ts, through arcade/engines: DOOM and Quake natively, the DOS classics in DOSBox), one card a game: its
+ * title, one plain line, its size, GET (his tap, on Wi-Fi, the size said on the button; on mobile data it says so and
+ * waits) or PLAY, the scores, Ghosty's line, and a ⋯ with its licence, its credit, its controls and DELETE. The
+ * PLAYER is a fresh full-screen canvas for each game under the TOUCH LAYER (a stick under the left thumb, drag-to-look
+ * on the right half, buttons where the right thumb rests, small keys along the top, PAUSE → RESUME · GAME MENU · QUIT ·
+ * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
+ * one Intent the game's engine reads.
  */
 import { clear, h } from '../../core/dom';
-import { type Action, BTN, idle, type Intent, merge, PAD_BUTTONS, readPad, touchLook, touchMove } from '../../arcade/input';
+import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
 import type { DosButton } from '../../arcade/dos';
 import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
 import { saveStore } from '../../arcade/engines/saves';
-import type { EngineFiles, EngineHandle } from '../../arcade/engines/types';
-import { allScores, recordScore, type Score } from '../../arcade/scores';
-import { keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
+import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
+import { allScores, recordScore, recordSitting, type Score, sittingKey } from '../../arcade/scores';
+import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
 import type { TabDef } from '../../shell/tabs';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 
-/** What the spec and Ghosty read: the game on screen, what is kept here, the engine's numbers. */
-export const arcadeState = { playing: '' as string, here: [] as string[], stats: dosStats, pad: false, intent: null as Intent | null };
+/** What the spec and Ghosty read: the game on screen, what is kept here, the engines' numbers. */
+export const arcadeState = {
+  playing: '' as string,
+  here: [] as string[],
+  stats: dosStats,
+  pad: false,
+  intent: null as Intent | null,
+  /** The native engine's own numbers while it plays (null for a DOS game, whose are `stats`). */
+  probe: (): EngineProbe | null => null,
+  /** Whether the last PLAY started its engine inside the tap itself ('tap') or once its files were read ('after'). */
+  started: '' as '' | 'tap' | 'after',
+};
 
 const SOUND_KEY = 'ghosty.arcade.sound';
 const soundOn = (): boolean => {
@@ -47,34 +58,51 @@ function shelf(): ShelfEntry[] {
   return [...SHELF, ...extra].filter(playsToday);
 }
 
-/** "12 min", "45 s": a DOS game's score is the time he played it in one sitting. */
+/** "12 min", "45 s": how long he played. */
 const timeWords = (s: number): string => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.round(s / 60)} min` : `${Math.max(0, Math.round(s))} s`);
-const scoreWords = (e: ShelfEntry, sc: Score | undefined): string => {
-  if (!sc) return 'Not played yet';
-  return e.engine === 'dos' ? `Longest sitting ${timeWords(sc.best)} · last ${timeWords(sc.last)}` : `Best ${sc.best.toLocaleString('en-GB')} · last ${sc.last.toLocaleString('en-GB')}`;
+/** The most a finished level scores: DOOM's kills, items and secrets, each out of 100; Quake's kills and secrets. */
+const TOP: Partial<Record<EngineId, number>> = { doom: 300, quake: 200 };
+/** A card's scores: a DOS game's is its longest sitting; DOOM and Quake score a finished level and keep the sitting too. */
+const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefined): string => {
+  if (engine === 'dos') return sc ? `Longest sitting ${timeWords(sc.best)} · last ${timeWords(sc.last)}` : 'Not played yet';
+  const parts = [...(sc ? [`Best ${sc.best} of ${TOP[engine]} · last ${sc.last}`] : []), ...(sit ? [`${sc ? 'longest' : 'Longest'} sitting ${timeWords(sit.best)}`] : [])];
+  return parts.length ? parts.join(' · ') : 'Not played yet';
 };
 
-/** The buttons a game shows: its DOS CONTROLS block's, or the engine's own actions under plain labels. */
-function buttonsOf(e: ShelfEntry): DosButton[] {
-  if (e.dos) return e.dos.controls.buttons;
-  const words: Partial<Record<Action, string>> = { fire: 'FIRE', jump: 'JUMP', use: 'USE', weapon: 'WEAPON', map: 'MAP' };
-  return e.controls.flatMap((c) => (words[c as Action] ? [{ act: c as Action, key: '', label: words[c as Action]! }] : []));
-}
+/** The engine's own menu, by name. */
+const menuOf = (e: ShelfEntry): string => (e.engine === 'quake' ? "Quake's" : e.engine === 'doom' ? "DOOM's" : "the game's");
+/** What DOOM's and Quake's buttons do, in words (the CONTROLS sheet and VoiceOver). */
+const nativeDoes = (e: ShelfEntry, a: Action): string =>
+  (({
+    fire: 'shoots; in the game’s menu it picks',
+    use: 'opens doors and flips switches',
+    jump: 'jumps',
+    weapon: 'the next weapon; in the game’s menu it goes back',
+    weaponPrev: 'the weapon before',
+    map: 'the map, over the game',
+    run: 'runs while held',
+    menu: `${menuOf(e)} own menu: new game, save, load, options`,
+  }) as Partial<Record<Action, string>>)[a] ?? '';
 
 const PAD_WORDS: Partial<Record<number, string>> = { [BTN.A]: 'A', [BTN.B]: 'B', [BTN.X]: 'X', [BTN.Y]: 'Y', [BTN.LB]: 'LB', [BTN.RB]: 'RB', [BTN.LT]: 'LT', [BTN.RT]: 'RT', [BTN.SELECT]: 'VIEW', [BTN.START]: 'MENU', [BTN.LS]: 'L-STICK', [BTN.RS]: 'R-STICK' };
 
-/** The CONTROLS sheet's lines: the stick, the drag, each button and its key, and the controller. */
+/** The CONTROLS sheet's lines: the stick, the drag, each button (and its key, or what it does), and the controller. */
 function controlLines(e: ShelfEntry): string[] {
   const c = e.dos?.controls;
   const out: string[] = [];
-  out.push(c ? `Left thumb: the stick presses the ${c.stick === 'wasd' ? 'W A S D keys' : 'arrow keys'}${c.run ? ', and runs when pushed all the way' : ''}.` : 'Left thumb: the stick moves.');
-  if (!c || c.drag !== 'none') out.push('Right half: drag to turn and look.');
-  for (const b of buttonsOf(e)) out.push(`${b.label}${b.key ? ` — ${b.cycle?.length ? b.cycle.map(keyWord).join(', ') : keyWord(b.key)}` : ''}`);
-  const pad = PAD_BUTTONS[e.engine];
-  const labels = new Map(buttonsOf(e).map((b) => [b.act, b.label] as const));
-  const padLine = Object.entries(pad)
-    .filter(([, a]) => a && (a === 'pause' || labels.has(a)))
-    .map(([i, a]) => `${PAD_WORDS[Number(i)] ?? i} ${a === 'pause' ? 'PAUSE' : labels.get(a!)}`);
+  if (c) out.push(`Left thumb: the stick presses the ${c.stick === 'wasd' ? 'W A S D keys' : 'arrow keys'}${c.run ? ', and runs when pushed all the way' : ''}.`);
+  else out.push('Left thumb: the stick walks and strafes; pushed all the way, it runs.');
+  if (!c) out.push(`Right half: drag to turn${e.engine === 'quake' ? ' and to look up and down' : ''}.`);
+  else if (c.drag !== 'none') out.push('Right half: drag to turn and look.');
+  const shown = gameButtons(e) as (TouchButton & Partial<DosButton>)[];
+  for (const b of shown) out.push(c ? `${b.label}${b.key ? ` — ${b.cycle?.length ? b.cycle.map(keyWord).join(', ') : keyWord(b.key)}` : ''}` : `${b.label} — ${nativeDoes(e, b.act)}`);
+  const labels = new Map(shown.map((b) => [b.act, b.label] as const));
+  // a DOS game's pad presses only the slots its buttons fill; START is the player's PAUSE there, and DOOM's or Quake's
+  // own menu in theirs (the player's PAUSE is the button at the top)
+  const word = (a: Action): string | undefined => (a === 'pause' ? (c ? 'PAUSE' : 'GAME MENU') : (labels.get(a) ?? (c ? undefined : ({ weaponPrev: 'WEAPON BACK', run: 'RUN' } as Partial<Record<Action, string>>)[a])));
+  const padLine = Object.entries(PAD_BUTTONS[e.engine])
+    .filter(([, a]) => a && word(a))
+    .map(([i, a]) => `${PAD_WORDS[Number(i)] ?? i} ${word(a!)}`);
   out.push(`A controller: the left stick and the d-pad move${!c || c.drag !== 'none' ? ', the right stick looks' : ''}; ${padLine.join(' · ')}.`);
   return out;
 }
@@ -88,6 +116,7 @@ const capture = (el: Element, id: number) => {
   }
 };
 
+/** A haptic tick where the phone has them (Android; iPhone Safari has no vibration). */
 const vibrate = (ms: number) => {
   try {
     navigator.vibrate?.(ms);
@@ -95,6 +124,26 @@ const vibrate = (ms: number) => {
     /* no vibration here */
   }
 };
+
+/** What PLAY starts: the card's game (its engine, controls and lines), where its scores and saves are kept, the kept
+ *  files it reads ([where kept, name]) and any words for its engine's command line. */
+interface Run {
+  id: string;
+  title: string;
+  entry: ShelfEntry;
+  reads: [string, string][];
+  args?: string[];
+}
+const runOf = (e: ShelfEntry): Run => ({ id: e.id, title: e.title, entry: e, reads: readsFor(e) });
+
+/** A card on the screen: what one GET keeps (where, and the package), and its title for the words. */
+interface CardOf {
+  id: string;
+  title: string;
+  at: string;
+  data: GameData;
+  saves: boolean;
+}
 
 export const arcadeTab: TabDef = {
   id: 'arcade',
@@ -109,7 +158,9 @@ export const arcadeTab: TabDef = {
     const P = page(root, { tag: 'ARCADE', sub: 'Free classics, playing on this phone. No accounts, no adverts.', leftLabel: 'SHELF', rightLabel: 'ABOUT', stack: true });
     expose();
     const games = shelf();
-    const cards = new Map<string, { el: HTMLElement; paint(): void }>();
+    /** Every card, by its id, with where its files are kept. */
+    const cards = new Map<string, { el: HTMLElement; paint(): void; of: CardOf }>();
+    /** Where kept files are on this phone (by where they are kept: one package can fill several cards). */
     const here = new Set<string>();
     const busy = new Map<string, AbortController>();
     const status = new Map<string, string>();
@@ -119,21 +170,34 @@ export const arcadeTab: TabDef = {
     const about = panel('HOW IT PLAYS', { cls: 'arcabout' });
     about.body.append(
       h('p.arcnote', 'Each game is fetched once, on Wi-Fi, from the Internet Archive, checked against its known checksum and kept on this phone; it plays with no connection after that.'),
+      h('p.arcnote', 'DOOM, Freedoom and Quake run on their own engines, built for the web from their published source; the other classics run in a DOS machine inside the page.'),
       h('p.arcnote', 'Only games whose own licence lets anyone pass them on are here: the free shareware episodes and the freeware releases, each named with its credit. Your saved games stay on this phone.'),
     );
     P.left.append(shelfPanel.el);
     P.right.append(about.el);
 
+    const ofGame = (e: ShelfEntry): CardOf => ({ id: e.id, title: e.title, at: keptAs(e), data: e.data, saves: e.saves });
     /** The cards one GET fills (a game, and any card sharing its package: Freedoom's two phases). */
-    const sharers = (e: ShelfEntry) => games.filter((g) => keptAs(g) === keptAs(e));
-    const keeping = (e: ShelfEntry) => ({ id: keptAs(e), data: e.data });
-
+    const sharing = (at: string) => [...cards.values()].filter((c) => c.of.at === at);
+    const paintAll = () => {
+      for (const c of cards.values()) c.paint();
+    };
     const hero = () => {
-      P.big.textContent = here.size ? `${here.size} of ${games.length} ready` : `${games.length} game${games.length === 1 ? '' : 's'}`;
-      arcadeState.here = [...here];
+      const ready = games.filter((g) => here.has(keptAs(g))).length;
+      P.big.textContent = ready ? `${ready} of ${games.length} ready` : `${games.length} game${games.length === 1 ? '' : 's'}`;
+      arcadeState.here = games.filter((g) => here.has(keptAs(g))).map((g) => g.id);
+    };
+
+    /** The act button's look: STOP while it is being got, PLAY once here, else GET with the size said. */
+    const setAct = (act: HTMLButtonElement, text: string, label: string, aria: string, cls: string) => {
+      act.textContent = text;
+      act.dataset.label = label; // shown in sentence case, the size's unit kept ("Get · 2.5 MB")
+      act.setAttribute('aria-label', aria);
+      act.className = `arcact ${cls}`;
     };
 
     const card = (e: ShelfEntry) => {
+      const of = ofGame(e);
       const title = h('h4.arctitle', e.title);
       const line = h('p.arcline', e.line);
       const said = h('p.arcghost', h('b', 'Ghosty'), ` ${e.ghosty}`);
@@ -145,159 +209,191 @@ export const arcadeTab: TabDef = {
       const details = h('div.arcdetails', { hidden: true });
       const el = h('article.arccard', { role: 'listitem', dataset: { id: e.id }, 'aria-label': e.title }, title, line, said, score, h('div.arcrow', act, more), stat, bar, details);
       const paint = () => {
-        const kept = here.has(e.id);
-        const getting = busy.has(keptAs(e));
+        const kept = here.has(of.at);
+        const getting = busy.has(of.at);
         el.classList.toggle('kept', kept);
         el.classList.toggle('getting', getting);
-        score.textContent = scoreWords(e, allScores()[e.id]);
+        const all = allScores();
+        score.textContent = scoreWords(e.engine, all[e.id], all[sittingKey(e.id)]);
         stat.textContent = status.get(e.id) ?? '';
         bar.hidden = !getting;
-        const set = (text: string, label: string, aria: string, cls: string) => {
-          act.textContent = text;
-          act.dataset.label = label; // shown in sentence case, the size's unit kept ("Get · 2.5 MB")
-          act.setAttribute('aria-label', aria);
-          act.className = `arcact ${cls}`;
-        };
-        if (getting) set('STOP', 'Stop', `Stop getting ${e.title}`, 'stop');
-        else if (kept) set('PLAY', 'Play', `Play ${e.title}`, 'play');
-        else set(`GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
+        if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${e.title}`, 'stop');
+        else if (kept) setAct(act, 'PLAY', 'Play', `Play ${e.title}`, 'play');
+        else setAct(act, `GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         clear(details,
           h('p.arcnote', h('b', 'Licence '), e.data.licence),
           h('p.arcnote', h('b', 'Credit '), e.data.credit),
           h('ul.arcctl', ...controlLines(e).map((t) => h('li', t))),
-          kept ? button('DELETE FROM THIS PHONE', () => void del(e), 'arcdel') : null,
+          kept ? button('DELETE FROM THIS PHONE', () => void del(of), 'arcdel') : null,
         );
         const del2 = details.querySelector<HTMLButtonElement>('.arcdel');
         del2?.setAttribute('aria-label', `Delete ${e.title} from this phone (your saved games stay)`);
       };
+      // the files are read from the moment his finger lands on PLAY, so the engine can start inside the tap itself
+      act.addEventListener('pointerdown', () => {
+        if (here.has(of.at) && !busy.has(of.at)) readAhead(runOf(e));
+      });
       act.addEventListener('click', () => {
-        if (busy.has(keptAs(e))) busy.get(keptAs(e))!.abort();
-        else if (here.has(e.id)) void play(e);
-        else void get(e);
+        if (busy.has(of.at)) busy.get(of.at)!.abort();
+        else if (here.has(of.at)) play(runOf(e));
+        else void get(of);
       });
       more.addEventListener('click', () => {
         details.hidden = !details.hidden;
         more.setAttribute('aria-expanded', String(!details.hidden));
       });
-      cards.set(e.id, { el, paint });
+      cards.set(e.id, { el, paint, of });
       paint();
       return el;
     };
     clear(grid, ...games.map(card));
     hero();
-    const paint = (id: string) => cards.get(id)?.paint();
 
     // ---- GET: his tap, the size already said; on mobile data it waits for Wi-Fi
-    const get = async (e: ShelfEntry) => {
+    const get = async (of: CardOf) => {
       const ctl = new AbortController();
-      busy.set(keptAs(e), ctl);
-      const bars = () => sharers(e).flatMap((g) => [...(cards.get(g.id)?.el.querySelectorAll<HTMLElement>('.arcbar') ?? [])]);
+      busy.set(of.at, ctl);
       const say = (t: string) => {
-        for (const g of sharers(e)) {
-          status.set(g.id, t);
-          paint(g.id);
+        for (const c of sharing(of.at)) {
+          status.set(c.of.id, t);
+          c.paint();
         }
       };
       try {
         if (onMobileData()) {
-          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(e.data.bytes)}.`);
+          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(of.data.bytes)}.`);
           await Promise.race([offMobileData(ctl.signal), new Promise((_, reject) => ctl.signal.addEventListener('abort', () => reject(new DOMException('Stopped', 'AbortError')), { once: true }))]);
         }
-        say(`Fetching ${sizeWords(e.data.bytes)} from the Internet Archive…`);
+        say(`Fetching ${sizeWords(of.data.bytes)} from the Internet Archive…`);
         const onProgress = (p: Progress) => {
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
-          for (const b of bars()) {
-            b.style.setProperty('--p', `${pct}%`);
-            b.setAttribute('aria-valuenow', String(pct));
+          for (const c of sharing(of.at)) {
+            const b = c.el.querySelector<HTMLElement>('.arcbar');
+            b?.style.setProperty('--p', `${pct}%`);
+            b?.setAttribute('aria-valuenow', String(pct));
           }
           const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
-          if (status.get(e.id) !== t) say(t);
+          if (status.get(of.id) !== t) say(t);
         };
-        await getFiles(keeping(e), onProgress, { signal: ctl.signal });
-        for (const g of sharers(e)) here.add(g.id);
-        say(`On this phone. ${e.saves ? 'Saved games stay here too.' : ''}`.trim());
+        await getFiles({ id: of.at, data: of.data }, onProgress, { signal: ctl.signal });
+        here.add(of.at);
+        say(`On this phone. ${of.saves ? 'Saved games stay here too.' : ''}`.trim());
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
         say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${(err as Error)?.message ?? err}`);
       } finally {
-        busy.delete(keptAs(e));
-        for (const g of sharers(e)) paint(g.id);
+        busy.delete(of.at);
+        paintAll();
         hero();
       }
     };
 
-    const del = async (e: ShelfEntry) => {
-      await removeFiles(keeping(e));
-      for (const g of sharers(e)) {
-        here.delete(g.id);
-        status.set(g.id, `Deleted from this phone (${sizeWords(e.data.bytes)} back). GET brings it back; your saved games stay.`);
-        paint(g.id);
-      }
+    const del = async (of: CardOf) => {
+      await removeFiles({ id: of.at, data: of.data });
+      here.delete(of.at);
+      for (const c of sharing(of.at)) status.set(c.of.id, `Deleted from this phone (${sizeWords(of.data.bytes)} back). GET brings it back; your saved games stay.`);
+      paintAll();
       hero();
     };
 
-    // ---- PLAY: the player over everything
-    const play = async (e: ShelfEntry) => {
+    // ---- PLAY's files, read ahead: from the finger landing on PLAY, so that its tap can start the engine at once
+    const reading = new Map<string, { files: Promise<EngineFiles>; got: EngineFiles | null }>();
+    const readAhead = (r: Run) => {
+      const had = reading.get(r.id);
+      if (had) return had;
+      const entry: { files: Promise<EngineFiles>; got: EngineFiles | null } = { files: Promise.resolve({}), got: null };
+      entry.files = (async () => {
+        const kept: EngineFiles = {};
+        for (const [at, name] of r.reads) {
+          const b = await readKept(at, name);
+          if (!b) throw new Error(`${name} is no longer on this phone: GET it again`);
+          kept[name] = b;
+        }
+        entry.got = kept;
+        return kept;
+      })();
+      entry.files.catch(() => undefined);
+      reading.set(r.id, entry);
+      // a finger that slid off PLAY: the bytes are let go
+      setTimeout(() => reading.get(r.id) === entry && reading.delete(r.id), 15_000);
+      return entry;
+    };
+
+    // ---- PLAY: the player over everything, its engine started inside the tap where the files are already read
+    const play = (r: Run) => {
+      const e = r.entry;
       const engine = engineFor(e);
       if (!engine || arcadeState.playing) return;
-      primeAudio(); // inside the tap: the phone allows sound from here on
-      arcadeState.playing = e.id;
-      const p = player(e);
+      primeAudio(); // first thing, inside the tap: the phone allows sound from here on
+      arcadeState.playing = r.id;
+      const p = player(e, r.title);
       arcadeState.intent = p.intent;
+      arcadeState.probe = p.probe;
       document.body.append(p.el);
       document.documentElement.classList.add('arcplaying');
-      let handle: EngineHandle | null = null;
+      const pending = readAhead(r);
+      reading.delete(r.id); // the bytes go to the engine once; nothing here keeps them
+      const said: string[] = [];
+      const begin = (files: EngineFiles): Promise<EngineHandle> =>
+        engine.start(p.canvas, filesFor(e, files), p.intent, {
+          onError: (err) => p.fail(err.message),
+          onHit: () => vibrate(25),
+          onQuit: () => p.quit(),
+          onLevelDone: (sc, words) => {
+            const best = recordScore(r.id, sc).isBest;
+            const line = `${words ? `${words} ` : ''}${e.done}${best ? ' New best.' : ''}`;
+            said.push(line);
+            p.say(line);
+          },
+        }, { saves: saveStore(r.id), sound: soundOn(), args: r.args });
+      arcadeState.started = pending.got ? 'tap' : 'after';
+      const started = pending.got ? begin(pending.got) : pending.files.then(begin);
       const close = () => {
         p.stop();
         p.el.remove();
         document.documentElement.classList.remove('arcplaying');
         arcadeState.playing = '';
-        paint(e.id);
+        arcadeState.intent = null;
+        arcadeState.probe = () => null;
+        paintAll();
       };
-      try {
-        const kept: EngineFiles = {};
-        for (const [at, name] of readsFor(e)) {
-          const b = await readKept(at, name);
-          if (!b) throw new Error(`${name} is no longer on this phone: GET it again`);
-          kept[name] = b;
+      void (async () => {
+        let handle: EngineHandle | null = null;
+        try {
+          handle = await started;
+          p.ready(handle);
+          const seconds = await p.done;
+          await handle.quit();
+          if (e.engine === 'dos') {
+            const best = recordScore(r.id, seconds).isBest;
+            status.set(r.id, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
+          } else {
+            const best = recordSitting(r.id, seconds).isBest;
+            status.set(r.id, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
+          }
+        } catch (err) {
+          status.set(r.id, `It would not start: ${(err as Error)?.message ?? err}`);
+          await handle?.quit().catch(() => undefined);
+        } finally {
+          close();
         }
-        handle = await engine.start(p.canvas, filesFor(e, kept), p.intent, {
-          onError: (err) => p.fail(err.message),
-          onHit: () => vibrate(25),
-          onLevelDone: (sc, words) => {
-            const r = recordScore(e.id, sc);
-            toast(`${words || e.done}${r.isBest ? ' New best.' : ''}`, 'ok');
-          },
-        }, { saves: saveStore(e.id), sound: soundOn() });
-        p.ready(handle);
-        const seconds = await p.done;
-        await handle.quit();
-        if (e.engine === 'dos') {
-          const r = recordScore(e.id, seconds);
-          status.set(e.id, `${e.done} ${timeWords(seconds)} this time${r.isBest ? ', your longest yet' : ''}.`);
-        }
-      } catch (err) {
-        status.set(e.id, `It would not start: ${(err as Error)?.message ?? err}`);
-        await handle?.quit().catch(() => undefined);
-      } finally {
-        close();
-      }
+      })();
     };
 
     // what is already on this phone
-    void Promise.all(games.map(async (e) => ((await isHere(keeping(e))) ? here.add(e.id) : undefined))).then(() => {
-      for (const e of games) paint(e.id);
+    void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => ((await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {
+      paintAll();
       hero();
     });
 
     return {
       enter() {
-        for (const e of games) paint(e.id);
+        paintAll();
       },
       describe() {
         const g = games.find((x) => x.id === arcadeState.playing);
-        return g ? `ARCADE: playing ${g.title}` : `ARCADE: ${games.length} free games on the shelf, ${here.size} on this phone`;
+        return g ? `ARCADE: playing ${g.title}` : arcadeState.playing ? `ARCADE: playing ${arcadeState.playing}` : `ARCADE: ${games.length} free games on the shelf, ${arcadeState.here.length} on this phone`;
       },
     };
   },
@@ -313,23 +409,28 @@ function expose(): void {
   }, 500);
 }
 
-/** The player: the canvas, the touch layer, the gamepad layer and PAUSE. `done` settles with the seconds played. */
-function player(e: ShelfEntry) {
+/** The player: a fresh canvas, the touch layer, the gamepad layer and PAUSE. `done` settles with the seconds played. */
+function player(e: ShelfEntry, title = e.title) {
+  /** DOOM and Quake: the pause action is their own menu (engines/types.ts), so the player's PAUSE is its own button. */
+  const native = e.engine !== 'dos';
   const intent: Intent = idle();
   const touch: Intent = idle();
   let padIntent: Intent | null = null;
-  const canvas = h('canvas.arccanvas', { width: 320, height: 200, role: 'img', 'aria-label': `${e.title}, playing` });
-  const screen = h(`div.arcscreen${e.engine === 'dos' ? '.dos' : ''}` as 'div', canvas);
-  const loading = h('div.arcloading', { role: 'status' }, `Starting ${e.title}…`);
+  // a canvas no engine has drawn on (DOOM draws in 2-D, Quake in WebGL), let go when the game ends
+  const canvas = h('canvas.arccanvas', { width: 320, height: 200, role: 'img', 'aria-label': `${title}, playing` });
+  const screen = h(`div.arcscreen.${e.engine}` as 'div', canvas);
+  const loading = h('div.arcloading', { role: 'status' }, `Starting ${title}…`);
   const knob = h('i.arcknob');
   const base = h('div.arcbase', { 'aria-hidden': 'true' }, knob);
   const stickZone = h('div.arcstick', { role: 'application', 'aria-label': 'Move: put your left thumb down anywhere here and slide it' }, base);
   const dragOn = !e.dos || e.dos.controls.drag !== 'none';
   const lookZone = h('div.arclook', { role: 'application', 'aria-label': dragOn ? 'Look: drag with your right thumb' : 'Right thumb area' });
-  const big = buttonsOf(e).filter((b) => !b.small).slice(0, 4);
-  const small = buttonsOf(e).filter((b) => b.small);
-  const holdBtn = (b: DosButton, cls: string) => {
-    const el = h(`button.${cls}` as 'button', { type: 'button', 'aria-label': `${b.label}${b.key ? ` (${b.cycle?.length ? 'next weapon' : keyWord(b.key)})` : ''}`, dataset: { act: b.act, case: 'keep' } }, b.label);
+  const shown = gameButtons(e) as (TouchButton & Partial<DosButton>)[];
+  const big = shown.filter((b) => !b.small).slice(0, 4);
+  const small = shown.filter((b) => b.small);
+  const holdBtn = (b: TouchButton & Partial<DosButton>, cls: string) => {
+    const aria = native ? `${b.label}: ${nativeDoes(e, b.act)}` : `${b.label}${b.key ? ` (${b.cycle?.length ? 'next weapon' : keyWord(b.key)})` : ''}`;
+    const el = h(`button.${cls}` as 'button', { type: 'button', 'aria-label': aria, dataset: { act: b.act, case: 'keep' } }, b.label);
     const on = (ev: PointerEvent) => {
       ev.preventDefault();
       capture(el, ev.pointerId);
@@ -359,7 +460,9 @@ function player(e: ShelfEntry) {
     return el;
   }));
   const padNote = h('div.arcpadnote', { role: 'status', hidden: true }, 'Controller connected');
-  const layer = h('div.arctouch', stickZone, lookZone, btns, keys, pauseBtn, padNote);
+  // a finished level's tally and Ghosty's line, over the game for a few seconds
+  const saidNote = h('div.arcsaid', { role: 'status', hidden: true });
+  const layer = h('div.arctouch', stickZone, lookZone, btns, keys, pauseBtn, padNote, saidNote);
 
   // the PAUSE sheet
   const sndBtn = h('button.arcm', { type: 'button', role: 'switch', 'aria-checked': String(soundOn()) });
@@ -370,14 +473,16 @@ function player(e: ShelfEntry) {
     sndBtn.setAttribute('aria-label', on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');
   };
   paintSnd();
-  const resumeBtn = h('button.arcm.resume', { type: 'button', 'aria-label': `Resume ${e.title}` }, 'RESUME');
-  const quitBtn = h('button.arcm.quit', { type: 'button', 'aria-label': `Quit ${e.title} (it saves first)` }, 'QUIT');
+  const resumeBtn = h('button.arcm.resume', { type: 'button', 'aria-label': `Resume ${title}` }, 'RESUME');
+  const gameMenuBtn = native ? h('button.arcm.gamemenu', { type: 'button', 'aria-label': `${menuOf(e)} own menu: new game and its skill, save, load, options` }, 'GAME MENU') : null;
+  const quitBtn = h('button.arcm.quit', { type: 'button', 'aria-label': native ? `Quit ${title} (your saved games stay)` : `Quit ${title} (it saves first)` }, 'QUIT');
   const ctlBtn = h('button.arcm', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Controls: what each button and key does' }, 'CONTROLS');
   const ctlList = h('ul.arcctl', { hidden: true }, ...controlLines(e).map((t) => h('li', t)));
-  const menu = h('div.arcmenu', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${e.title} paused`, hidden: true },
-    h('div.arcsheet', h('h4', e.title), h('p.arcnote', 'Paused. It saves when you quit.'), resumeBtn, quitBtn, sndBtn, ctlBtn, ctlList));
+  const fpsLine = h('p.arcnote.arcfps');
+  const menu = h('div.arcmenu', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${title} paused`, hidden: true },
+    h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ctlBtn, ctlList));
   const errBox = h('p.arcerr', { role: 'alert', hidden: true });
-  const el = h('div.arcplayer', { role: 'region', 'aria-label': `${e.title}: the game` }, screen, layer, loading, menu, errBox, kbd);
+  const el = h('div.arcplayer', { role: 'region', 'aria-label': `${title}: the game` }, screen, layer, loading, menu, errBox, kbd);
 
   let handle: EngineHandle | null = null;
   let finish: (seconds: number) => void = () => undefined;
@@ -386,9 +491,18 @@ function player(e: ShelfEntry) {
   let since = 0;
   let paused = false;
   const clock = () => (since ? played + (performance.now() - since) / 1000 : played);
+  const probe = (): EngineProbe | null => handle?.probe?.() ?? null;
 
+  /** One small line: how fast it was going when he paused (the engine's own count over the last whole second). */
+  const paintFps = () => {
+    const pr = probe();
+    const fps = pr ? pr.fps : dosStats.running ? dosStats.fps : 0;
+    fpsLine.textContent = fps > 0 || pr ? `${fps} fps${pr?.level ? ` · ${pr.level}` : ''}${pr?.loadMs != null ? ` · ready in ${(pr.loadMs / 1000).toFixed(1)} s` : ''}` : '';
+    fpsLine.hidden = !fpsLine.textContent;
+  };
   const pause = () => {
     if (paused || !handle) return;
+    paintFps();
     paused = true;
     played = clock();
     since = 0;
@@ -404,8 +518,15 @@ function player(e: ShelfEntry) {
     menu.hidden = true;
     handle.resume();
   };
+  /** A button pressed for him for a moment (GAME MENU's pause action): held for at least four frames and 160 ms, so a
+   *  slow frame cannot swallow it (an engine that has opened its menu ignores it until it is let go). */
+  let pulse: { act: Action; until: number; frames: number } | null = null;
   pauseBtn.addEventListener('click', pause);
   resumeBtn.addEventListener('click', resume);
+  gameMenuBtn?.addEventListener('click', () => {
+    resume();
+    pulse = { act: 'pause', until: performance.now() + 160, frames: 4 };
+  });
   quitBtn.addEventListener('click', () => {
     quitBtn.disabled = true;
     quitBtn.textContent = 'SAVING…';
@@ -465,7 +586,7 @@ function player(e: ShelfEntry) {
   stickZone.addEventListener('pointerup', stickOff);
   stickZone.addEventListener('pointercancel', stickOff);
 
-  // ---- drag to look, on the right half
+  // ---- drag to look, on the right half: the degrees add up in the one Intent until the engine takes them
   let lookId = -1;
   let lx = 0;
   let ly = 0;
@@ -491,10 +612,11 @@ function player(e: ShelfEntry) {
   lookZone.addEventListener('pointerup', lookOff);
   lookZone.addEventListener('pointercancel', lookOff);
 
-  // ---- every frame: the pad, then both layers into the one Intent the engine reads
+  // ---- every frame: the pad, then both layers into the one Intent the engine reads (updated in place)
   let raf = 0;
   let last = performance.now();
-  let padPause = false;
+  let padStart = false;
+  let swallowStart = false; // START closed the PAUSE sheet: it reaches the game again once let go
   const frame = () => {
     raf = requestAnimationFrame(frame);
     const now = performance.now();
@@ -514,9 +636,17 @@ function player(e: ShelfEntry) {
       }
       break;
     }
-    const wantsPause = !!padIntent?.held.has('pause');
-    if (wantsPause && !padPause) (paused ? resume : pause)();
-    padPause = wantsPause;
+    // START: with the sheet open it closes it; otherwise a DOS game's START is the player's PAUSE, and DOOM's or
+    // Quake's goes through to the game, whose own menu it opens
+    const start = !!padIntent?.held.has('pause');
+    if (start && !padStart) {
+      if (paused) {
+        resume();
+        swallowStart = true;
+      } else if (!native) pause();
+    }
+    if (!start) swallowStart = false;
+    padStart = start;
     if (paused) {
       intent.moveX = intent.moveY = 0;
       intent.held.clear();
@@ -526,7 +656,11 @@ function player(e: ShelfEntry) {
     intent.moveX = m.moveX;
     intent.moveY = m.moveY;
     intent.held.clear();
-    for (const a of m.held) if (a !== 'pause') intent.held.add(a);
+    for (const a of m.held) if (a !== 'pause' || (native && !swallowStart)) intent.held.add(a);
+    if (pulse) {
+      intent.held.add(pulse.act);
+      if (--pulse.frames <= 0 && now >= pulse.until) pulse = null;
+    }
     if (padIntent) {
       intent.lookX += padIntent.lookX;
       intent.lookY += padIntent.lookY;
@@ -534,25 +668,42 @@ function player(e: ShelfEntry) {
   };
   raf = requestAnimationFrame(frame);
 
+  let sayTimer = 0;
   return {
     el,
     canvas,
     intent,
     done,
+    probe,
     ready(hd: EngineHandle) {
       handle = hd;
       loading.hidden = true;
       since = performance.now();
     },
+    /** The game ended itself (its own QUIT, and yes): back to the shelf. */
+    quit() {
+      finish(clock());
+    },
+    say(text: string) {
+      saidNote.textContent = text;
+      saidNote.hidden = false;
+      clearTimeout(sayTimer);
+      sayTimer = window.setTimeout(() => (saidNote.hidden = true), 7000);
+    },
     fail(message: string) {
       errBox.hidden = false;
-      errBox.textContent = `${e.title} stopped: ${message}. Quit to go back.`;
+      errBox.textContent = `${title} stopped: ${message}. Quit to go back.`;
       pause();
     },
     stop() {
       cancelAnimationFrame(raf);
+      clearTimeout(sayTimer);
       document.removeEventListener('visibilitychange', hidden);
       kbd.blur();
+      // the canvas's pixels go back to the phone (each game is given a new one)
+      canvas.width = 0;
+      canvas.height = 0;
+      canvas.remove();
     },
   };
 }

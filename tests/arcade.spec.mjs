@@ -7,10 +7,16 @@
 // own save file comes back after a reload (it counts its visits); DELETE takes the game off the phone in one tap;
 // every control has a VoiceOver label; nothing sticks out sideways at 440 × 956 or 390 × 844; the page's security
 // policy blocks nothing.
+// THE NATIVE ENGINES, with the real free data (fetched once by tests/fixtures/engines/fetch.sh, never committed; without
+// it these checks skip with one line), each GOT through the store from the Archive's address (served here from the
+// fetched file): DOOM's free episode on doomgeneric starts inside PLAY's tap, renders frames, FIRE from its title reaches
+// E1M1, PAUSE shows the fps line and GAME MENU (which opens DOOM's own menu; the MENU key closes it), QUIT returns and
+// the longest sitting is written; Freedoom Phase 1 the same (its one GET fills Phase 2's card too); Quake starts and
+// renders.
 //   BASE=http://localhost:8855 node tests/arcade.spec.mjs tests/.shots
 import { launch, webkitNoise, engine } from './browser.mjs';
 import { PHONE, UK, openScreen } from './nav.mjs';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { crc32 } from 'node:zlib';
 
@@ -98,12 +104,15 @@ await page.addInitScript((fixture) => {
   window.__net = net;
   Object.defineProperty(Navigator.prototype, 'connection', { configurable: true, get: () => window.__net });
 }, FIXTURE);
-// the Archive: the fixture only (no real game is ever fetched by a spec)
+// the Archive: the fixture, and the real free packages from fetch.sh's files when the native checks run (no game is
+// ever fetched from the network by a spec)
 const asked = [];
+const served = new Map(); // a package's first mirror → the fetched file
 await page.route('https://archive.org/**', (route) => {
   const u = route.request().url();
   asked.push(u);
   if (u === FIXTURE.data.url[0]) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: pkg });
+  if (served.has(u)) return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/zip' }, body: readFileSync(served.get(u)) });
   return route.abort('blockedbyclient');
 });
 
@@ -128,7 +137,8 @@ const saved = () => page.evaluate(() => new Promise((resolve) => {
   const r = indexedDB.open('ghosty-arcade-saves');
   r.onsuccess = () => {
     try {
-      const g = r.result.transaction('saves').objectStore('saves').get(['test-flash', 'changes.zip']);
+      // the saves store (engines/saves.ts): one object store, each file under '<game>/<name>'
+      const g = r.result.transaction('files').objectStore('files').get('test-flash/changes.zip');
       g.onsuccess = () => resolve(g.result ? [...g.result] : null);
       g.onerror = () => resolve(null);
     } catch {
@@ -266,6 +276,175 @@ await until(() => !document.querySelector('.arcplayer'), 15000, 'the second QUIT
 const second = visits(await saved());
 if (second !== 2) problems.push(`after a reload the program did not find its save (SAVE.DAT reads ${second}, not 2)`);
 
+// ---------- THE NATIVE ENGINES with the real free data: DOOM, Freedoom Phase 1, Quake
+const DATA = new URL('./fixtures/engines/data/', import.meta.url);
+const REAL = {
+  'https://archive.org/cors/doom19s_202607/doom19s.zip': 'doom19s.zip',
+  'https://archive.org/cors/freedoom-0.13.0/freedoom-0.13.0.zip': 'freedoom-0.13.0.zip',
+  'https://archive.org/cors/msdos_Quake106_shareware/msdos_Quake106_shareware.zip': 'msdos_Quake106_shareware.zip',
+};
+const realMissing = Object.values(REAL).filter((f) => !existsSync(new URL(f, DATA)));
+const numbers = [];
+if (realMissing.length) {
+  console.log(`arcade: the native engines' checks skipped: the free game data is not here (${realMissing.join(', ')}). Fetch it once with: sh tests/fixtures/engines/fetch.sh`);
+} else {
+  for (const [url, file] of Object.entries(REAL)) served.set(url, new URL(file, DATA));
+  const probe = () => page.evaluate(() => window.__ghosty.arcade.probe?.() ?? null);
+  // a fingerprint of the whole picture, read in the frame the engine drew it (a WebGL canvas keeps no copy after)
+  const fingerprint = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
+    const c = document.querySelector('.arcplayer canvas');
+    if (!c || !c.width) return resolve('');
+    const small = document.createElement('canvas');
+    small.width = 96;
+    small.height = 72;
+    const g = small.getContext('2d', { willReadFrequently: true });
+    g.drawImage(c, 0, 0, 96, 72);
+    const px = g.getImageData(0, 0, 96, 72).data;
+    let a = 2166136261;
+    for (let i = 0; i < px.length; i++) a = Math.imul(a ^ px[i], 16777619);
+    resolve((a >>> 0).toString(16));
+  })));
+  /** A touch button (or small key) held for a moment, then let go. */
+  const press = async (act, ms = 250) => {
+    const sel = `.arcplayer [data-act="${act}"]`;
+    await page.dispatchEvent(sel, 'pointerdown', { pointerId: 21, isPrimary: false, pointerType: 'touch' });
+    await page.waitForTimeout(ms);
+    await page.dispatchEvent(sel, 'pointerup', { pointerId: 21, pointerType: 'touch' });
+  };
+  const getGame = async (id, tag) => {
+    await page.click(`${card(id)} .arcact`);
+    return until((s) => document.querySelector(s)?.textContent === 'PLAY', 120000, `${tag}: GET did not finish`, `${card(id)} .arcact`);
+  };
+  /** PLAY: the finger lands and stays a moment (the files are read meanwhile), then lifts: the engine starts in the tap. */
+  const playNative = async (id, tag) => {
+    await page.dispatchEvent(`${card(id)} .arcact`, 'pointerdown', { pointerId: 30, isPrimary: true, pointerType: 'touch' });
+    await page.waitForTimeout(2000);
+    await page.click(`${card(id)} .arcact`);
+    if (!(await until(() => (window.__ghosty?.arcade?.probe?.()?.frames ?? 0) > 30, 60000, `${tag}: PLAY did not start its engine (no frames)`))) return false;
+    const started = await page.evaluate(() => window.__ghosty.arcade.started);
+    if (started !== 'tap') problems.push(`${tag}: the engine started ${started || 'nowhere'}, not inside PLAY's tap`);
+    const cls = await page.evaluate(() => document.querySelector('.arcplayer .arcscreen')?.className ?? '');
+    if (!cls.includes(id.startsWith('quake') ? 'quake' : 'doom')) problems.push(`${tag}: the picture's box is "${cls}"`);
+    return true;
+  };
+  /** Frames render (two pictures 0.7 s apart differ); in a level, the stick walks the player and a drag turns him. */
+  const dist = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : 0);
+  const plays = async (tag, inLevel) => {
+    const st = await page.locator('.arcplayer .arcstick').boundingBox();
+    if (inLevel) {
+      await page.dispatchEvent('.arcplayer .arcstick', 'pointerdown', { pointerId: 17, clientX: st.x + 80, clientY: st.y + 200, isPrimary: true, pointerType: 'touch' });
+      await page.dispatchEvent('.arcplayer .arcstick', 'pointermove', { pointerId: 17, clientX: st.x + 80, clientY: st.y + 140, isPrimary: true, pointerType: 'touch' });
+    }
+    const p0 = await probe();
+    const a = await fingerprint();
+    await page.waitForTimeout(700);
+    const b = await fingerprint();
+    const p1 = await probe();
+    if (inLevel) await page.dispatchEvent('.arcplayer .arcstick', 'pointerup', { pointerId: 17, pointerType: 'touch' });
+    if (!a || a === b) problems.push(`${tag}: two pictures 0.7 s apart are the same (no frames render)`);
+    if (!inLevel) return;
+    if (!(dist(p0.pos, p1.pos) > 8)) problems.push(`${tag}: the stick held forward walked the player ${dist(p0.pos, p1.pos).toFixed(1)} units`);
+    // a drag of 100 points on the right half turns him about 23° to the right (the look adds up in the one Intent)
+    await page.waitForTimeout(300);
+    const a0 = (await probe()).angle;
+    const lz = await page.locator('.arcplayer .arclook').boundingBox();
+    const y = st.y + 120;
+    await page.dispatchEvent('.arcplayer .arclook', 'pointerdown', { pointerId: 18, clientX: lz.x + 20, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointermove', { pointerId: 18, clientX: lz.x + 70, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointermove', { pointerId: 18, clientX: lz.x + 120, clientY: y, isPrimary: false, pointerType: 'touch' });
+    await page.dispatchEvent('.arcplayer .arclook', 'pointerup', { pointerId: 18, pointerType: 'touch' });
+    await page.waitForTimeout(500);
+    const a1 = (await probe()).angle;
+    const turned = ((((a0 - a1) % 360) + 540) % 360) - 180;
+    if (Math.abs(turned - 23) > 3) problems.push(`${tag}: a 100-point drag turned the player ${turned.toFixed(1)}° (want 23°)`);
+  };
+  /** FIRE alone, from the title: the menu, NEW GAME, the episode, the skill, then the first level. */
+  const fireToLevel = async (tag, levelName) => {
+    for (let i = 0; i < 6 && (await probe())?.level !== levelName; i++) {
+      await press('fire');
+      await page.waitForTimeout(450);
+    }
+    return until((n) => window.__ghosty.arcade.probe()?.level === n, 10000, `${tag}: FIRE from the title did not reach ${levelName} (${JSON.stringify(await probe())})`, levelName);
+  };
+  /** PAUSE: the sheet, its one fps line and GAME MENU (said back for the report). */
+  const pauseSheet = async (tag) => {
+    await page.click('.arcplayer .arcpause');
+    await until(() => !document.querySelector('.arcplayer .arcmenu')?.hidden, 3000, `${tag}: PAUSE did not open its sheet`);
+    const sheet = await page.evaluate(() => ({ fps: document.querySelector('.arcplayer .arcfps')?.textContent ?? '', buttons: [...document.querySelectorAll('.arcplayer .arcmenu button')].map((b) => b.textContent) }));
+    if (!/^\d+ fps\b/.test(sheet.fps)) problems.push(`${tag}: PAUSE's fps line reads "${sheet.fps}"`);
+    for (const w of ['RESUME', 'GAME MENU', 'QUIT', 'SOUND', 'CONTROLS']) if (!sheet.buttons.some((t) => t.startsWith(w))) problems.push(`${tag}: PAUSE has no ${w}: ${sheet.buttons.join(', ')}`);
+    return sheet.fps;
+  };
+  /** QUIT from PAUSE: back to the shelf, the picture let go, the longest sitting written and said on the card. */
+  const quitNative = async (id, tag) => {
+    await page.click('.arcplayer .arcmenu button.quit');
+    await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing && !document.querySelector('canvas.arccanvas'), 15000, `${tag}: QUIT did not return to the shelf and let the picture go`);
+    const sit = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')[k] ?? null, `${id}/sitting`);
+    if (!sit || !(sit.best > 0) || !sit.when) problems.push(`${tag}: QUIT wrote no longest sitting: ${JSON.stringify(sit)}`);
+    const words = await page.evaluate((s) => document.querySelector(`${s} .arcscore`)?.textContent ?? '', card(id));
+    if (!/sitting \d+ (s|min)/i.test(words)) problems.push(`${tag}: after QUIT the card's score reads "${words}"`);
+  };
+
+  // DOOM, the free episode, on doomgeneric
+  if (await getGame('doom-shareware', 'DOOM')) {
+    if (await playNative('doom-shareware', 'DOOM')) {
+      const title = (await probe())?.level ?? null;
+      if (title !== null) problems.push(`DOOM: no title screen first (${title})`);
+      if (await fireToLevel('DOOM', 'E1M1')) {
+        await page.waitForTimeout(1500); // past the screen melt
+        await plays('DOOM', true);
+        await page.waitForTimeout(2000); // whole seconds of play counted for the fps
+        await page.screenshot({ path: `${out}/arcade-doom-440.png` });
+        const p = await probe();
+        const fps = await pauseSheet('DOOM');
+        // GAME MENU opens DOOM's own menu over the game; the MENU key closes it again
+        await page.click('.arcplayer .arcmenu .gamemenu');
+        await until(() => window.__ghosty.arcade.probe()?.menu === true, 3000, "DOOM: GAME MENU did not open DOOM's own menu");
+        await page.waitForTimeout(400);
+        await press('menu');
+        await until(() => window.__ghosty.arcade.probe()?.menu === false, 3000, "DOOM: the MENU key did not close DOOM's menu");
+        await page.click('.arcplayer .arcpause');
+        numbers.push(`DOOM E1M1: ${p.fps} fps (the engine's own work ${p.workMs} ms a frame), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
+        await quitNative('doom-shareware', 'DOOM');
+      }
+    }
+  }
+
+  // Freedoom Phase 1: one GET for both phases
+  const fdAsked = () => asked.filter((u) => u.includes('freedoom-0.13.0')).length;
+  if (await getGame('freedoom', 'FREEDOOM')) {
+    const phase2 = await page.evaluate((s) => document.querySelector(s)?.textContent ?? '', `${card('freedoom2')} .arcact`);
+    if (phase2 !== 'PLAY' || fdAsked() !== 1) problems.push(`FREEDOOM: one GET did not fill Phase 2's card too (it reads "${phase2}"; the Archive asked ${fdAsked()} times)`);
+    if (await playNative('freedoom', 'FREEDOOM')) {
+      if (await fireToLevel('FREEDOOM', 'E1M1')) {
+        await page.waitForTimeout(1500);
+        await plays('FREEDOOM', true);
+        await page.waitForTimeout(2000);
+        await page.screenshot({ path: `${out}/arcade-freedoom-440.png` });
+        const p = await probe();
+        const fps = await pauseSheet('FREEDOOM');
+        numbers.push(`Freedoom Phase 1 E1M1: ${p.fps} fps (work ${p.workMs} ms), on screen ${p.loadMs} ms after start; PAUSE said "${fps}"`);
+        await quitNative('freedoom', 'FREEDOOM');
+      }
+    }
+  }
+
+  // Quake: it starts and renders (its demos), PAUSE as the others, QUIT
+  if (await getGame('quake-shareware', 'QUAKE')) {
+    if (await playNative('quake-shareware', 'QUAKE')) {
+      await page.waitForTimeout(2000);
+      await plays('QUAKE', false);
+      await page.waitForTimeout(1000);
+      await page.screenshot({ path: `${out}/arcade-quake-440.png` });
+      const p = await probe();
+      const size = await page.evaluate(() => { const c = document.querySelector('.arcplayer canvas'); return `${c.width} × ${c.height}`; });
+      const fps = await pauseSheet('QUAKE');
+      numbers.push(`Quake (its demo): ${p.fps} fps on this machine's software GPU at ${size} (the engine's own work ${p.workMs} ms a frame); PAUSE said "${fps}"`);
+      await quitNative('quake-shareware', 'QUAKE');
+    }
+  }
+}
+
 // ---------- ⋯ → DELETE in one tap; labels; 390 × 844
 await page.click(`${card('test-flash')} .arcmore`);
 const shelfLabels = await unlabelled('#pg-arcade button');
@@ -285,4 +464,5 @@ if (problems.length) {
   console.error(`arcade: ${problems.length} problem(s)\n - ${problems.join('\n - ')}`);
   process.exit(1);
 }
-console.log(`arcade: ok (${shelf.length} games on the shelf; the fixture played, paused, quit, saved and came back after a reload)`);
+if (numbers.length) console.log(numbers.join('\n'));
+console.log(`arcade: ok (${shelf.length} games on the shelf; the fixture played, paused, quit, saved and came back after a reload${numbers.length ? `; ${numbers.length} native games played` : ''})`);

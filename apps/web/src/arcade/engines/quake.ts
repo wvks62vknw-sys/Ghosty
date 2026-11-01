@@ -81,12 +81,13 @@ export const QKEY = { ENTER: 13, ESCAPE: 27, UP: 128, DOWN: 129, LEFT: 130, RIGH
 export type QuakeMode = 'game' | 'menu' | 'ask';
 /** Held in a level: Quake's own button commands (with a key number of ours, so a real keyboard's never mixes in). */
 export const QUAKE_HOLD: Partial<Record<Action, string>> = { fire: 'attack', jump: 'jump', run: 'speed' };
-/** Pressed in a level: a command once (or, for the pause action, Quake's menu). */
-export const QUAKE_PRESS: Partial<Record<Action, string>> = { weapon: 'impulse 10', weaponPrev: 'impulse 12' };
+/** Pressed in a level: a command once (or, for the pause action, Quake's menu; MENU, the touch layer's small key,
+ *  opens it with Quake's own command for what ESC does). */
+export const QUAKE_PRESS: Partial<Record<Action, string>> = { weapon: 'impulse 10', weaponPrev: 'impulse 12', menu: 'togglemenu' };
 /** Pressed in the menu (and the console): Quake's own keys. */
-export const QUAKE_MENU: Partial<Record<Action, number>> = { fire: QKEY.ENTER, jump: QKEY.ENTER, use: QKEY.ENTER, weapon: QKEY.ESCAPE, weaponPrev: QKEY.ESCAPE, map: QKEY.ESCAPE, pause: QKEY.ESCAPE };
-/** Pressed when the menu asks "quit? y/n": FIRE says yes, WEAPON no. */
-export const QUAKE_ASK: Partial<Record<Action, number>> = { fire: QKEY.YES, jump: QKEY.YES, use: QKEY.YES, weapon: QKEY.NO, weaponPrev: QKEY.NO, map: QKEY.NO, pause: QKEY.ESCAPE };
+export const QUAKE_MENU: Partial<Record<Action, number>> = { fire: QKEY.ENTER, jump: QKEY.ENTER, use: QKEY.ENTER, ok: QKEY.ENTER, weapon: QKEY.ESCAPE, weaponPrev: QKEY.ESCAPE, map: QKEY.ESCAPE, pause: QKEY.ESCAPE, menu: QKEY.ESCAPE };
+/** Pressed when the menu asks "quit? y/n": FIRE says yes, WEAPON no (MENU, as ESC, no). */
+export const QUAKE_ASK: Partial<Record<Action, number>> = { fire: QKEY.YES, jump: QKEY.YES, use: QKEY.YES, ok: QKEY.YES, weapon: QKEY.NO, weaponPrev: QKEY.NO, map: QKEY.NO, pause: QKEY.ESCAPE, menu: QKEY.ESCAPE };
 /** The key numbers our held commands carry (above every real key's). */
 export const QUAKE_KEYNUM: Record<string, number> = { attack: 301, jump: 302, speed: 303 };
 

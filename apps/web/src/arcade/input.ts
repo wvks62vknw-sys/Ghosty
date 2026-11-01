@@ -3,11 +3,14 @@
  * and the gamepad layer (the Gamepad API's standard mapping) both fill the same Intent, which each engine turns into its
  * own keys and motions. Pure arithmetic here, so the node test can hold it to the numbers.
  */
-import type { Control, EngineId } from './shelf';
+import type { Control, EngineId, ShelfEntry } from './shelf';
 
 /**
  * What a button does in a game. A DOS game's CONTROLS block (dos.ts) puts its own keys in these slots, plus 'menu'
- * (its own menu, ESC), 'ok' (ENTER), 'crouch' and 'special' (a game's extra button).
+ * (its own menu, ESC), 'ok' (ENTER), 'crouch' and 'special' (a game's extra button). DOOM and Quake read the same
+ * slots where they mean something to them: 'menu' is their own menu too (as 'pause' is: engines/types.ts) and 'ok'
+ * picks in it; neither has a crouch or a special, so no DOOM or Quake game shows those or presses them from the pad
+ * (apps/edge/test/engines.test.mjs holds every button each game shows, and every pad button, to its engine).
  */
 export type Action = 'fire' | 'use' | 'weapon' | 'weaponPrev' | 'jump' | 'map' | 'run' | 'pause' | 'menu' | 'ok' | 'crouch' | 'special';
 
@@ -122,4 +125,26 @@ export function edges(prev: ReadonlySet<Action>, now: ReadonlySet<Action>): { do
 export function touchButtons(controls: readonly Control[]): Action[] {
   const order: Action[] = ['fire', 'jump', 'use', 'weapon', 'map'];
   return order.filter((a) => (controls as readonly string[]).includes(a));
+}
+
+/** One button of the touch layer: the slot it fills (a pad presses the same slot), its label, and whether it is a small
+ *  key along the top rather than a big one under the right thumb. A DOS game's (dos.ts's DosButton) also names its key. */
+export interface TouchButton {
+  act: Action;
+  label: string;
+  small?: boolean;
+}
+
+/** DOOM's and Quake's button labels (a DOS game's CONTROLS block names its own). */
+export const NATIVE_LABELS: Partial<Record<Action, string>> = { fire: 'FIRE', jump: 'JUMP', use: 'USE', weapon: 'WEAPON', map: 'MAP', menu: 'MENU' };
+
+/**
+ * The buttons the touch layer shows for a game: a DOS game's own CONTROLS block; for DOOM and Quake, the big buttons its
+ * controls list (touchButtons, in thumb order), then the small keys along the top: the map where it has one, and MENU,
+ * the game's own menu (new game and its skill, save, load, options).
+ */
+export function gameButtons(e: Pick<ShelfEntry, 'engine' | 'controls' | 'dos'>): TouchButton[] {
+  if (e.dos) return e.dos.controls.buttons;
+  const out: TouchButton[] = touchButtons(e.controls).map((a) => (a === 'map' ? { act: a, label: NATIVE_LABELS[a]!, small: true } : { act: a, label: NATIVE_LABELS[a]! }));
+  return [...out.filter((b) => !b.small), ...out.filter((b) => b.small), { act: 'menu', label: NATIVE_LABELS.menu!, small: true }];
 }

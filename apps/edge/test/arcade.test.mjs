@@ -128,6 +128,12 @@ test('the scores store: best, last and when per game; a damaged record reads as 
     assert.equal(scores.recordScore('freedoom', 1500.4).score.best, 1500);
     assert.equal(scores.recordScore('quake-shareware', Number.NaN).score.best, 0);
     assert.deepEqual(Object.keys(JSON.parse(mem.get(scores.SCORES_KEY))).sort(), ['freedoom', 'quake-shareware']);
+    // the longest sitting, kept beside a native game's level score
+    assert.equal(scores.sittingKey('freedoom'), 'freedoom/sitting');
+    assert.equal(scores.recordSitting('freedoom', 300, t0).isBest, true);
+    assert.equal(scores.recordSitting('freedoom', 120).isBest, false);
+    assert.deepEqual([scores.sittingOf('freedoom').best, scores.sittingOf('freedoom').last], [300, 120]);
+    assert.equal(scores.scoreOf('freedoom').best, 1500, 'the level score stands apart');
     mem.set(scores.SCORES_KEY, '{not json');
     assert.deepEqual(scores.allScores(), {});
     mem.set(scores.SCORES_KEY, JSON.stringify({ a: { best: 'x' }, b: { best: 5, last: 4, when: 'w' } }));
@@ -156,6 +162,13 @@ test('the touch mapping: the stick has a dead zone and never runs past 1; draggi
   close(input.touchLook(0, -10, 2).lookY, 4.6);
   assert.deepEqual(input.touchButtons(SHELF[0].controls), ['fire', 'use', 'weapon', 'map']);
   assert.deepEqual(input.touchButtons(SHELF.find((g) => g.engine === 'quake').controls), ['fire', 'jump', 'weapon']);
+  // what the touch layer shows: DOOM's and Quake's big buttons, then the small keys along the top (the map, MENU for the
+  // game's own menu); a DOS game shows its own CONTROLS block
+  const shows = (g) => input.gameButtons(g).map((b) => `${b.label}${b.small ? '·' : ''}`).join();
+  assert.equal(shows(SHELF[0]), 'FIRE,USE,WEAPON,MAP·,MENU·');
+  assert.equal(shows(SHELF.find((g) => g.engine === 'quake')), 'FIRE,JUMP,WEAPON,MENU·');
+  const keen = SHELF.find((g) => g.id === 'keen4-sw');
+  assert.equal(input.gameButtons(keen), keen.dos.controls.buttons);
 });
 
 test('the gamepad mapping: standard indices → each game\'s inputs; sticks move and look; d-pad walks', () => {

@@ -55,6 +55,15 @@ export function recordScore(id: string, value: number, now: Date = new Date()): 
   return { score, isBest };
 }
 
+/**
+ * His longest sitting with a game (seconds), kept beside its score under `<id>/sitting`: DOOM and Quake score a
+ * finished level (their own tally), and every game they play keeps how long he stayed too. A DOS game, which says
+ * nothing of its levels, has its sitting AS its score (recordScore), so it keeps no second record.
+ */
+export const sittingKey = (id: string): string => `${id}/sitting`;
+export const recordSitting = (id: string, seconds: number, now: Date = new Date()): { score: Score; isBest: boolean } => recordScore(sittingKey(id), seconds, now);
+export const sittingOf = (id: string): Score | null => scoreOf(sittingKey(id));
+
 /** Forget one game's score. */
 export function clearScore(id: string): void {
   const all = allScores();
