@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { Card } from './cards';
 import type { Mood } from './mood';
 import type { PersonaSettings } from './persona';
 import type { SpeedSummary } from './speed';
@@ -21,7 +22,9 @@ export type ChatEvent =
   /** A cited answer (CITED on, or "with sources"): its numbered sources and each claim checked against them; sent after its `text`. */
   | ({ t: 'cited' } & CitedInfo)
   /** His mood changed with this message (packages/shared/src/mood.ts): the phone shows it at once, not at the next status. */
-  | { t: 'mood'; mood: Mood };
+  | { t: 'mood'; mood: Mood }
+  /** Live cards a tool's result made, by code (packages/shared/src/cards.ts cardsFromTool): sent after its `tool_result`. */
+  | { t: 'cards'; cards: Card[] };
 
 /** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
 export interface Citation {
@@ -569,6 +572,8 @@ export interface InboxEntry {
   pushKind?: string;
   /** That switch was off when it came: listed in the Agenda inbox, but no alert. */
   quiet?: boolean;
+  /** Its live card (a piece of the day, a reminder, a warning): the phone posts it in the chat and on Home's wall. */
+  card?: Card;
 }
 
 export interface FeedInfo {

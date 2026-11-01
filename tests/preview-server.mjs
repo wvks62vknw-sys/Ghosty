@@ -220,6 +220,29 @@ createServer(async (req, res) => {
       res.end(JSON.stringify({ ledger: await state.storage.get('foresight:ledger') }));
       return;
     }
+    // Test only (tests/cards.spec.mjs): the brain's speak-first job run now, on a clock stood at `at` (ms) for that one
+    // request — a piece of the day "at its minute", whatever the hour the spec runs at. Only that job runs (through its
+    // own RUN NOW route): nothing else falls due. ?reset=1 first forgets what was said before (CI's one brain keeps it).
+    if (url.pathname === '/__test/speak-at') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete('speak:cadence');
+      const at = Number(url.searchParams.get('at'));
+      const job = ((await state.storage.get('jobs')) ?? []).find((j) => j.kind === 'speak');
+      let result = null;
+      if (job && Number.isFinite(at) && at > 0) {
+        const real = Date.now;
+        const t0 = real();
+        Date.now = () => at + (real() - t0);
+        try {
+          const r = await mod.default.fetch(new Request(`http://localhost:${port}/api/jobs/${job.id}/run`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: '{}' }), env, { waitUntil: () => undefined });
+          result = await r.json().catch(() => null);
+        } finally {
+          Date.now = real;
+        }
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ job: !!job, result, cadence: (await state.storage.get('speak:cadence')) ?? null }));
+      return;
+    }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) {
       const chunks = [];

@@ -11,6 +11,7 @@
  * One Durable Object alarm is always set for the soonest job; agent.ts handles it.
  */
 import type { NotifyKind } from './notifyprefs';
+import type { Card } from '../../../packages/shared/src/cards';
 import type { Vault } from './kernel/vault';
 import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
@@ -18,7 +19,7 @@ import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
  * Every kind of job the brain keeps on its clock: the registry `Job['kind']` is made from (the abilities catalogue lists
  * each one, the ones he asks for and the ones behind the scenes: packages/shared/src/catalogue).
  */
-export const JOB_KINDS = ['reminder', 'task', 'verify', 'study', 'reflect', 'digest', 'project', 'upgrade', 'revise', 'train', 'guard', 'walk', 'foresee'] as const;
+export const JOB_KINDS = ['reminder', 'task', 'verify', 'study', 'reflect', 'digest', 'project', 'upgrade', 'revise', 'train', 'guard', 'walk', 'foresee', 'speak'] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export interface Job {
@@ -30,7 +31,8 @@ export interface Job {
    * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
    * upgrade = the daily upgrade ideas (upgrades.ts); train = the offline brain's weekly self-training (selftrain/cycle.ts);
    * guard = the hourly look at the public warnings near his places (guardian.ts), walk = a walk home's clock (walk.ts);
-   * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts)
+   * foresee = the hourly foresight: the day's predictions made and scored against the public feeds (foresight.ts);
+   * speak = speaking first: the day's pieces at their minute, under the cadence (speak.ts)
    */
   kind: JobKind;
   title: string;
@@ -58,6 +60,8 @@ export interface InboxItem {
   pushKind?: NotifyKind;
   /** That switch was off when it came: kept here only (no push, no Telegram, no alert in the app). */
   quiet?: boolean;
+  /** Its live card (packages/shared/src/cards.ts): the phone posts it in the chat and on Home's wall. */
+  card?: Card;
 }
 
 export interface AgendaEvent {

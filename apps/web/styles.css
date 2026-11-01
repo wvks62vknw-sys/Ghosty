@@ -4821,3 +4821,71 @@ html .tunbtns button[hidden] { display: none; }
    to hold it. One line for the value, two for what it is about (cut with an ellipsis), never fewer. */
 html #pg-workbench .two > .hero .bigv { height: 28px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html #pg-workbench .two > .hero .sub, html #pg-workbench .two > .hero .sub:empty { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; height: 40px; }
+
+/* ==== SIDEWAYS (BRIEF-SIDEWAYS, batch ②): live cards in the chat (features/core/cards.ts), Home's wall (core/wall.ts),
+   the people in GUARDIAN and the speak-first dial in CHARACTER. One block, last in the file. ==== */
+html .ccard { display: flex; flex: none; gap: 12px; align-items: stretch; max-height: 180px; margin: 6px 0; padding: 12px; overflow: hidden; border-radius: var(--card); background: var(--thin); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); color: var(--ink); text-align: left; }
+html .ccard[data-danger] { box-shadow: inset 0 0 0 1px rgba(255,69,58,.6); }
+html .ccvis { position: relative; flex: none; display: grid; place-items: center; width: 104px; height: 84px; overflow: hidden; border-radius: 14px; background: rgba(255,255,255,.06); }
+html .ccvis.tap { cursor: pointer; }
+html .ccvisin { display: grid; place-items: center; gap: 4px; text-align: center; }
+html .ccvisin .ic { width: 34px; height: 34px; stroke: var(--ink); }
+html .ccvisin small { font: 600 11px/13px var(--sf); color: var(--ink2); text-transform: none; }
+html .ccard[data-danger] .ccvisin .ic { stroke: #ff453a; }
+html .ccbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+html .cctitle { overflow: hidden; font: 600 17px/22px var(--sf); letter-spacing: -.3px; color: var(--ink); white-space: nowrap; text-overflow: ellipsis; }
+html .ccline { display: -webkit-box; overflow: hidden; font: 400 14px/19px var(--sf); color: var(--ink2); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+html .cctag { font: 600 11px/14px var(--sf); color: #ffb340; }
+html .ccacts { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+html .ccacts .ccbtn { flex: 1 1 0; min-width: 0; height: 44px; min-height: 44px !important; padding: 0 10px; font-size: 15px; }
+html .ccmap { position: absolute; inset: 0; }
+html .ccmap img { position: absolute; width: 128px; height: 128px; max-width: none; filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.6); }
+html .ccmapdraw { position: absolute; inset: 0; width: 100%; height: 100%; }
+html .ccpin { fill: #0a84ff; stroke: #fff; stroke-width: 1.5; }
+html .ccpinhalo { fill: rgba(10,132,255,.28); }
+html .ccroute { stroke: #0a84ff; }
+html .ccosm { position: absolute; right: 3px; bottom: 2px; font: 500 8px/1 var(--sf); color: rgba(255,255,255,.6); text-transform: none; }
+html .cc3d { width: 60px; height: 60px; overflow: visible; }
+html .cc3d line { stroke: var(--ink); stroke-width: 1.3; stroke-linecap: round; }
+html .cc3dspin { animation: cc3dturn 5s ease-in-out infinite; }
+@keyframes cc3dturn { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(-1); } }
+@media (prefers-reduced-motion: reduce) { html .cc3dspin { animation: none; } }
+html .ccinitial { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font: 600 24px/1 var(--sf); color: var(--ink); background: radial-gradient(circle at 35% 30%, #3a4148, #1a1e22 70%); box-shadow: inset 0 0 0 1px var(--hair2); }
+html .cccar { width: 84px; height: 40px; }
+html .cccarbody { fill: #8a939b; }
+html .cccarwheel { fill: #111; stroke: #555; stroke-width: 1.5; }
+html .cccarglass { fill: rgba(170,200,230,.55); }
+html .ccplate { padding: 3px 6px; border-radius: 4px; font: 700 12px/1 ui-monospace, Menlo, monospace; letter-spacing: .5px; color: #111; background: #ffd60a; }
+html .ccnum b { max-width: 96px; overflow: hidden; font: 700 19px/23px var(--sf); white-space: nowrap; text-overflow: ellipsis; text-transform: none; }
+html .ccring { width: 52px; height: 52px; }
+html .ccring .cctrack { fill: none; stroke: rgba(255,255,255,.12); stroke-width: 4; }
+html .ccring .ccfill { fill: none; stroke: #30d158; stroke-width: 4; stroke-linecap: round; }
+html .guardpeople { display: flex; flex-direction: column; gap: 10px; }
+html .guardperson { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--thin); }
+html .guardperson > b { font: 600 17px/22px var(--sf); color: var(--ink); text-transform: none; }
+html .guardcar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 400 14px/19px var(--sf); color: var(--ink2); }
+html .guardcar > span:nth-child(2) { flex: 1; min-width: 0; }
+html .guardcar button { height: 44px; min-height: 44px !important; }
+html .ccwhy { overflow: hidden; font: 500 11px/14px var(--sf); color: var(--ink3); white-space: nowrap; text-overflow: ellipsis; text-transform: none; }
+html .speaknow { margin-top: 4px; }
+html #pg-settings .character .speakdial { margin-top: 12px; }
+html #pg-settings .character .speakdial button { height: 44px; min-height: 44px !important; }
+html section.wall { display: flex; flex-direction: column; gap: 8px; }
+html .wallhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+html .wallhead b { font: 600 20px/25px var(--sf); letter-spacing: -.4px; color: var(--ink); text-transform: none; }
+html .wallhead .wallall, html section.wall .wallmore { height: 44px; min-height: 44px !important; padding: 0 14px; }
+html .walllist { display: flex; flex-direction: column; gap: 8px; }
+html .wallempty { margin: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html .wallempty[hidden], html section.wall .wallmore[hidden] { display: none; }
+html .ccard.wall { align-items: center; max-height: 96px; margin: 0; padding: 10px 12px; cursor: pointer; }
+html .ccard.wall .ccvis { width: 64px; height: 52px; border-radius: 12px; }
+html .ccard.wall .ccvisin .ic { width: 26px; height: 26px; }
+html .ccard.wall .ccinitial { width: 40px; height: 40px; font-size: 18px; }
+html .ccard.wall .cccar { width: 56px; height: 26px; }
+html .ccard.wall .ccplate { font-size: 10px; padding: 2px 4px; }
+html .ccard.wall .ccring { width: 40px; height: 40px; }
+html .ccard.wall .cc3d { width: 44px; height: 44px; }
+html .ccard.wall .ccnum b { max-width: 60px; font-size: 14px; line-height: 18px; }
+html .ccard.wall .ccline { -webkit-line-clamp: 1; }
+html .ccard.wall .ccwhy, html .ccard.wall .cctag, html .ccard.wall .ccvisin small:not(.ccplate) { display: none; }
+html .ccard.wall:focus-visible { outline: 2px solid rgba(var(--cr), .7); outline-offset: 2px; }

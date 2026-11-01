@@ -11,6 +11,7 @@
 import type { ChatEvent } from '../../../packages/shared/src/protocol';
 import { argWords, whyAsked, whyLines, type Trail } from '../../../packages/shared/src/abilities';
 import { brainAbilities, markUsed } from './abilities';
+import { CADENCE_KEY, readCadence } from '../../../packages/shared/src/cadence';
 
 export const WHY_KEY = 'why:turns';
 const KEEP = 30;
@@ -80,6 +81,9 @@ export async function whyReply(storage: DurableObjectStorage, text: string): Pro
   const asked = whyAsked(text);
   if (!asked) return null;
   const last = (await loadTrails(storage)).at(-1);
+  // [cards] a line he did not ask for, newer than his last turn: why I said it (speak.ts records every one with its reason)
+  const spoke = readCadence(await storage.get<unknown>(CADENCE_KEY).catch(() => undefined)).log.filter((s) => !s.held).at(-1);
+  if (spoke && (!last || spoke.at > last.at)) return `Why I said that: “${spoke.title}” — ${spoke.why}.`;
   if (!last || (asked === 'bare' && !last.steps.length)) return null;
   return [`Why I did that:`, ...whyLines(last, brainAbilities(() => true))].join('\n');
 }

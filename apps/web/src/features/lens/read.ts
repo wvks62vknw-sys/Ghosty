@@ -152,6 +152,8 @@ export function createReadMode(L: LensContext): Mode {
       S.ocrText = t;
       S.ocrConfidence = r.confidence;
       offerPlates();
+      // [cards] what it read goes in the chat as its LENS card too: a plate → its CAR offer, a bill → the reminder offer (core/cards.ts)
+      if (t) void import('../core/cards').then((m) => m.lensRead(t)).catch(() => undefined);
       regions = wordRegions(r.words);
       const summary = ocrSummary(t, r.confidence);
       sure.textContent = t ? `${summary} · edit the text, then save, copy or ask` : 'No text found: try closer, flatter, with more light';
