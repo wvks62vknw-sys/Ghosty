@@ -64,6 +64,7 @@ import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './u
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
+import { cardsFromTool } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
 import { walkRoute, walkTick } from './walk'; // [guardian] the walk home, the named person, the panic phrase
 import { ensureForeseeJob, foreseeTick, foresightRoute, type ForeDeps } from './foresight'; // [foresight] the prediction ledger and its hourly job
@@ -899,6 +900,7 @@ export class GhostyAgent {
 
   /** Run tool calls while paused. Returns true when it stopped to ask the owner's approval (kept in memory). */
   private async pausedCalls(ctx: Msg[], calls: ToolCall[], tools: Tool[], tctx: ToolContext, emit: (ev: ChatEvent) => void, keep: { sys: string; client: ClientContext; passages: DevicePassage[]; text: string }, first?: 'approved' | 'declined'): Promise<boolean> {
+    const shown: Shown[] = [];
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i]!;
       const tool = tools.find((t) => t.name === call.function.name);
@@ -927,13 +929,17 @@ export class GhostyAgent {
         try {
           // Not offered while paused (memory, agenda, library imports, self-editing…): say that, not that it needs the database.
           if (!tool) throw new Error(`${call.function.name} is not available while my database is paused (it is back at midnight UTC)`);
-          result = await tool.run(args, forCall(tctx, emit, call.id, tool.name));
+          result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), emit: watching(tctx.emit, shown) });
         } catch (e) {
           ok = false;
           result = `Error: ${String((e as Error)?.message ?? e)}`;
         }
       }
       emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
+      // [cards] what it found, as live cards in the chat: by code from its result (packages/shared/src/cards.ts)
+      const got = shown.splice(0);
+      const cards = ok ? cardsFromTool({ name: call.function.name, args, result, shown: got }) : [];
+      if (cards.length) emit({ t: 'cards', cards });
       ctx.push({ role: 'tool', tool_call_id: call.id, content: clipResult(call.function.name, result) });
     }
     return false;
@@ -1064,15 +1070,20 @@ export class GhostyAgent {
   /** One tool call: its `tool`, progress and `tool_result` events, and the text the model reads (errors included), cut to the tool's budget (context.ts). */
   private async runOne(call: ToolCall, tool: Tool, args: Record<string, unknown>, tctx: ToolContext, emit: (ev: ChatEvent) => void, code = false): Promise<string> {
     emit({ t: 'tool', id: call.id, name: tool.name, args });
+    // [cards] the screen commands this call sends (a map, a model): its card is drawn from them, by code
+    const shown: Shown[] = [];
     try {
       const read: Read[] = [];
-      const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), found: (source) => read.push({ call: call.id, source }) });
+      const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), emit: watching(tctx.emit, shown), found: (source) => read.push({ call: call.id, source }) });
       this.turnRead.push(...read);
       if (tool.name === 'publish_site' || tool.name === 'build_app') { // [links] a mini-app's link is delivered like a page's
         const title = result.match(/^Published (?:the mini-app )?"([^"]*)"/)?.[1] ?? result.match(/^"([^"]*)" is live at/)?.[1] ?? '';
         for (const url of linksIn(result)) if (!this.turnLinks.some((l) => l.url === url)) this.turnLinks.push({ url, title });
       }
       emit({ t: 'tool_result', id: call.id, name: tool.name, ok: true, summary: result.slice(0, 280) });
+      // [cards] what it found, as live cards in the chat: by code from its result, never the model's words (cards.ts)
+      const cards = cardsFromTool({ name: tool.name, args, result, shown });
+      if (cards.length) emit({ t: 'cards', cards });
       // What it changed goes in the day log (mind.ts: only the tools that do something, in his own words).
       const ep = toolEpisode(tool.name, args);
       if (ep) await observe(this.storage, ep).catch(() => null);
@@ -1946,6 +1957,14 @@ function pureCall(call: ToolCall): boolean {
     return false;
   }
 }
+
+/** A screen command a tool sent while it ran (show_map, open_studio…): what its live card is drawn from. */
+type Shown = { name: string; args: Record<string, unknown> };
+/** The tool's own `emit`, noting each screen command it sends on the way through. */
+const watching = (emit: (ev: ChatEvent) => void, shown: Shown[]) => (ev: ChatEvent) => {
+  if (ev.t === 'client') shown.push({ name: ev.name, args: ev.args });
+  emit(ev);
+};
 
 /** The tool context for one call: its progress reports carry the call's id, so the chat shows them under that tool's line. */
 function forCall(tctx: ToolContext, emit: (ev: ChatEvent) => void, id: string, name: string): ToolContext {

@@ -4,6 +4,7 @@
  */
 import { normalisePlate, redactPlates } from '../../../../packages/shared/src/plates';
 import type { ChatEvent, CitedInfo } from '../../../../packages/shared/src/protocol';
+import type { Card } from '../../../../packages/shared/src/cards';
 import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
@@ -63,7 +64,9 @@ export type Entry =
   | { kind: 'error'; text: string; ask?: string }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
-  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number };
+  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number }
+  /** A live card (features/core/cards.ts): from a tool's result, the trigger table or a piece of the day. `once`: a vehicle's record, never kept. */
+  | { kind: 'card'; card: Card; at: number; once?: boolean };
 
 /**
  * A vehicle check from the chat is shown once (integrations/vehicle.ts on the brain): the plates
@@ -74,7 +77,7 @@ const checkedPlates = new Set<string>();
 let vehicleTurn = false;
 function kept(entries: Entry[]): Entry[] {
   const out = entries
-    .filter((e) => !(e.kind === 'assistant' && e.once))
+    .filter((e) => !(e.kind === 'assistant' && e.once) && !(e.kind === 'card' && (e.once || e.card.once)))
     // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
     .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
@@ -228,6 +231,10 @@ function handle(ev: ChatEvent): void {
     case 'mood':
       // his mood moved with this message (the brain's mood.ts): shown at once
       setMood(ev.mood);
+      break;
+    case 'cards':
+      // [cards] what a tool found, as live cards under its line (built by code on the brain: packages/shared/src/cards.ts)
+      for (const card of ev.cards) push({ kind: 'card', card, at: stamp(), ...(vehicleTurn || card.once ? { once: true } : {}) });
       break;
     case 'cited': {
       // Belongs to the reply just sent (the latest one still without its model line).

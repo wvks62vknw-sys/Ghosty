@@ -24,6 +24,7 @@ import { mindGlyph } from '../../ui/instruments';
 import { citedReply } from './cited';
 import { homeAfterReply, homeCard } from './homecard';
 import { routeCHome } from './home';
+import { cardEl } from './cards';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
@@ -275,6 +276,9 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
     case 'home':
       // a plan drawn from the owner's words: OPEN IN SPACE / SEE IN 3-D (homecard.ts)
       return homeCard(e);
+    case 'card':
+      // a live card (cards.ts): a place, a car, a person, a number, a piece of the day
+      return cardEl(e.card);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
