@@ -1141,6 +1141,9 @@ folder that no longer exists; ignore those paths).
   <old> <worktree-branch>` (their own commits replay; never a plain merge, which would drag the old blob back in).
   rest-B's base 3879ae2 is in the pushed history: a normal merge. The old→new map is in the session's scratchpad
   (sha-map.txt). The packs spec's three-squats step failed once at load 11 and passed alone (167 s): load, as PACKS-2 said.
+- 1 Nov 13:10 UK: PUSHED to PR #50 (46d6e81; its checks restarted at 13:01, done ~15:20). REST-B MERGED locally (OWNER-ISSUES
+  112; a normal merge, its base is in the pushed history); held for PR #51, which opens the moment #50 merges. ⑥b started
+  (8688, Opus). Running: rest-C (8722), rest-D (8711), packs-3 (8700), offline-default (8688). REST-E starts when a slot frees.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
