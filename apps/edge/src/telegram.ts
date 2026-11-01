@@ -48,6 +48,7 @@ import { personJoined, walkButton, walkTelegram } from './walk'; // [guardian]
 import { checkLink, linksIn, messageShape, verdictWords } from './integrations/linkcheck'; // [guardian]
 import { feel } from './mood'; // [guardian]
 import { foresightReply, type ForeDeps } from './foresight'; // [foresight]
+import { cardText, type Card } from '../../../packages/shared/src/cards'; // [cards] the cards as text (BRIEF-SIDEWAYS 5)
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -427,6 +428,8 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
         });
       }
       else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
+      // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText)
+      else if (ev.t === 'cards' && ev.cards.length) queue(() => tgSend(token, chatId, ev.cards.map((c) => `▸ ${cardText(c, origin)}`).join('\n')));
       else if (ev.t === 'error') queue(() => tgSend(token, chatId, ev.message));
     },
     flush: () => chain,
@@ -593,13 +596,14 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
 }
 
 /** A notification (reminder, task result, error) to the paired chat, if there is one. */
-export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' | 'vault' | 'origin'>, item: { kind: string; title: string; text: string }): Promise<boolean> {
+export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' | 'vault' | 'origin'>, item: { kind: string; title: string; text: string; card?: Card }): Promise<boolean> {
   const link = await loadLink(host.env, host.storage).catch(() => undefined);
   if (!link?.chatId) return false;
   const token = await host.vault.get('telegram').catch(() => null);
   if (!token) return false;
   const head = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-  await tgReply(token, link.chatId, `${head}\n${item.text}`, host.origin);
+  // [cards] a card he did not ask for (speak.ts): the same card as text — title · line · the deep link
+  await tgReply(token, link.chatId, item.card ? `✦ ${cardText(item.card, host.origin)}` : `${head}\n${item.text}`, host.origin);
   // New upgrade ideas (upgrades.ts names them in the text): each with BUILD IT / NOT NOW.
   if (item.title === 'Upgrade idea') {
     const ideas = (await loadIdeas(host.storage).catch(() => [])).filter((i) => item.text.includes(i.title)).slice(0, 3);

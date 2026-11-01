@@ -388,3 +388,31 @@ test('the wall’s order: danger, what is due within two hours (soonest first), 
   assert.deepEqual(C.wallOrder([], now), []);
   assert.equal(C.wallRank(c('x', 'lens'), now), 4);
 });
+
+test('Telegram carries the same card as text — title · line · the deep link — for a line he did not ask for; a reminder keeps its own words', async () => {
+  const TG = await import('./.build/telegram.mjs');
+  const storage = new Store();
+  await storage.put('telegram:link', { chatId: 42 });
+  const host = { env: {}, storage, vault: { get: async (n) => (n === 'telegram' ? '123:TOKEN' : null) }, origin: 'https://ghosty.example' };
+  const sent = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith('https://api.telegram.org/')) {
+      sent.push(JSON.parse(init.body).text);
+      return new Response(JSON.stringify({ ok: true, result: {} }), { headers: { 'content-type': 'application/json' } });
+    }
+    return real(url, init);
+  };
+  try {
+    const morning = C.card({ id: 'brief:morning:2026-11-04', kind: 'brief', title: 'Good morning', line: 'Rain likely from 15:00 · nothing in your diary today', why: 'the morning piece', acts: [{ label: 'OPEN BRIEF', open: { tab: 'brief' } }] });
+    assert.equal(await TG.telegramNotify(host, { kind: 'task', title: 'Good morning', text: morning.line, card: morning }), true);
+    assert.equal(sent.at(-1), '✦ Good morning · Rain likely from 15:00 · nothing in your diary today · https://ghosty.example/#brief');
+    await TG.telegramNotify(host, { kind: 'reminder', title: 'Reminder', text: 'Call Mum' });
+    assert.equal(sent.at(-1), '⏰ Reminder\nCall Mum');
+  } finally {
+    globalThis.fetch = real;
+  }
+  // push: the card's deep link, relative to the app
+  assert.equal(C.deepLink({ acts: [{ label: 'OPEN', open: { tab: 'brief' } }] }, ''), '/#brief');
+  assert.equal(C.deepLink({ acts: [{ label: 'SHOW THE CAR', car: 'RX15 KNG' }] }, ''), '/#core');
+});

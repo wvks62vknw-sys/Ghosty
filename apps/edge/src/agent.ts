@@ -64,7 +64,7 @@ import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './u
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
 import { todayRoute } from './today'; // [abilities]
-import { cardsFromTool, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
+import { cardsFromTool, deepLink, inboxCard, type Card } from '../../../packages/shared/src/cards'; // [cards] live cards from tool results (BRIEF-SIDEWAYS)
 import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept in his memory (BRIEF-SIDEWAYS 2d)
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { ensureGuardJob, guardianRoute, watchTick, type GuardDeps } from './guardian'; // [guardian] the watch over his places
@@ -1502,9 +1502,13 @@ export class GhostyAgent {
     const it = await addInbox(this.storage, { ...item, ...(card ? { card } : {}), ...(wanted ? {} : { quiet: true }) });
     if (!wanted) return it;
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-    this.state.waitUntil(pushIfWanted(this.storage, null, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    // [cards] a line he did not ask for (speak.ts, under the cadence) goes as its card: the title, the line, and a tap that
+    // opens the app where the card's OPEN goes; Telegram gets title · line · the deep link (telegram.ts telegramNotify)
+    const spoken = card?.why ? card : undefined;
+    const msg = spoken ? { title: spoken.title, body: spoken.line, tag: it.id, url: deepLink(spoken, '') } : { title, body: item.text, tag: it.id };
+    this.state.waitUntil(pushIfWanted(this.storage, null, msg, this.contact()).catch(() => 0));
     // The owner's Telegram chat gets it too, once paired (telegram.ts).
-    this.state.waitUntil(telegramNotify(this.telegramHost(), item).catch(() => false));
+    this.state.waitUntil(telegramNotify(this.telegramHost(), spoken ? { ...item, card: spoken } : item).catch(() => false));
     return it;
   }
 
