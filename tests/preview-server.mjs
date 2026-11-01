@@ -12,6 +12,7 @@ import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
 import { resetSocial, socialApis, socialSent } from './fixtures/social-apis.mjs';
+import { houseApi, houseCalls, resetHouse } from './fixtures/house-api.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -77,6 +78,9 @@ function manualsWeb(u) {
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  // Test only: his Home Assistant box, stood in for (tests/fixtures/house-api.mjs): the bridge's every call lands here.
+  const house = houseApi(u, init);
+  if (house) return house;
   const manualSearch = manualsWeb(u);
   if (manualSearch) return new Response(manualSearch, { headers: { 'content-type': 'text/html' } });
   if (u.href === 'https://media3.bosch-home.com/robots.txt') return new Response('', { headers: { 'content-type': 'text/plain' } });
@@ -195,6 +199,17 @@ createServer(async (req, res) => {
       }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ sent: socialSent() }));
+      return;
+    }
+    // Test only (tests/restd.spec.mjs): the service calls that reached the stand-in Home Assistant; ?reset=1 puts the house
+    // back and forgets the switches marked "needs my word".
+    if (url.pathname === '/__test/house') {
+      if (url.searchParams.get('reset') === '1') {
+        resetHouse();
+        await state.storage.delete(['house:marked']);
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ calls: houseCalls() }));
       return;
     }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).

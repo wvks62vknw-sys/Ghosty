@@ -112,7 +112,7 @@ for (const [a, ids] of Object.entries(TOOLS)) {
 const read = (a, id, k) => seen[a]?.find((c) => c.id === id)?.reads.find((r) => r.k === k)?.v;
 if (read('see', 'lens', 'Names') !== '4,624') problems.push(`[see lens] Names reads "${read('see', 'lens', 'Names')}"`);
 if (read('see', 'lens', 'Modes') !== '11') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 11 modes: PEOPLE joined on 31 Oct, SHAPES on 1 Nov)`);
-if (read('make', 'studio', 'Built in') !== '6') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}" (six: the five samples and the car from its plate, which joined on 1 Nov)`);
+if (read('make', 'studio', 'Built in') !== '7') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}" (seven: the five samples, the car from its plate and Design a build, which joined on 1 Nov)`);
 if (!/^Birmingham today$/.test(seen.ask?.find((c) => c.id === 'brief')?.title ?? '')) problems.push(`[ask brief] the title does not name his city: "${seen.ask?.find((c) => c.id === 'brief')?.title}"`);
 const lib = await brainGet('/library');
 const passages = num(read('learn', 'library', 'Passages'));

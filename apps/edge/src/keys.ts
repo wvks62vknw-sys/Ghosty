@@ -7,6 +7,7 @@ import { MailError, parseEmailKey, testLogin } from './integrations/mail';
 import { parseTfwmKey } from './integrations/transit';
 import { dropTokens, motToken, parseMotKey, VES_API, VehicleError } from './integrations/vehicle';
 import { hfWhoami, kaggleWorks, parseKaggleKey, RemoteError } from './selftrain/remote'; // [selftrain]
+import { HOUSE_STEPS } from '../../../packages/shared/src/house'; // [restd]
 
 export interface KeyDef {
   name: string;
@@ -375,6 +376,16 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Paste it below and press SAVE. The Lens uses it only when you press LIVING THING → PLANT.',
       ],
     },
+    { // [restd] his own Home Assistant box, for anything smart in his house (house.ts): the address and the token stay here
+      name: 'homeassistant',
+      label: 'Home Assistant',
+      hint: 'two lines: your https:// address, then the long-lived token',
+      link: 'https://www.home-assistant.io/installation/',
+      need: 'optional',
+      lines: 2,
+      why: 'Lets me see and work the smart things in your house through your own free Home Assistant box: lights, heating, blinds, TVs. The token stays in my vault, never on your phone.',
+      steps: HOUSE_STEPS,
+    },
   ];
 }
 
@@ -511,6 +522,8 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       case 'plantnet': // [lens]
         status = await check(`https://my-api.plantnet.org/v2/quota/daily?api-key=${encodeURIComponent(value)}`);
         break;
+      case 'homeassistant': // [restd] asked of his own box (house.ts); the address and the token never in the answer
+        return (await import('./house')).testHouse(value);
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);

@@ -233,6 +233,10 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     tvSetting.set({ mode: on ? 'on' : 'off' });
     return answer(text, on ? 'TV mode is on: big buttons, and the arrow keys or a controller’s d-pad move between them. Say “TV mode off” to go back.' : 'TV mode is off.', { kind: 'tv' }, opts);
   },
+  // [restd] DESIGN A BUILD (build/ask.ts): a design from his words, the 3-D, a part's prices, a change; no model
+  build: (text, opts) => import('../build/ask').then((b) => b.buildTurn(text, opts, answer)).catch(() => false),
+  // [restd] THE HOUSE (house/ask.ts): his things by their names, a guarded one only by his tap with a confirm; no model
+  house: (text, opts) => import('../house/ask').then((x) => x.houseTurn(text, opts, answer)).catch(() => false),
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
     if (ui.get().tab === 'lens' && /\bsee\b/i.test(text)) return false;

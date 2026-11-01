@@ -13,10 +13,12 @@ export const SAMPLES = [
   { id: 'truck', title: 'Milk truck', note: 'Khronos sample · CC BY 4.0', file: 'CesiumMilkTruck.glb', credit: 'Cesium Milk Truck © 2017 Cesium, CC BY 4.0; Cesium logo is a trademark of Cesium (Khronos glTF Sample Assets)' },
   // the car from a plate, built here from its public facts (apps/web/src/car): it opens the CAR · FIX IT pane
   { id: 'car', title: 'Car, bonnet up', note: 'built in · from its plate', file: '', credit: 'A stand-in car made for Ghosty from its public facts' },
+  // [restd] a build designed from his words (apps/web/src/build): it opens the DESIGN A BUILD pane
+  { id: 'build', title: 'Design a build', note: 'built in · from your words', file: '', credit: 'A design drawn by Ghosty from your words: a first estimate, never certified' },
 ] as const;
 export type SampleId = (typeof SAMPLES)[number]['id'];
 
-export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline' | 'car';
+export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline' | 'car' | 'build';
 export const PANES: { id: Pane; label: string }[] = [
   { id: 'models', label: 'MODELS' },
   { id: 'parts', label: 'PARTS' },
@@ -25,4 +27,5 @@ export const PANES: { id: Pane; label: string }[] = [
   { id: 'room', label: 'ROOM' },
   { id: 'spline', label: 'SPLINE' },
   { id: 'car', label: 'CAR · FIX IT' },
+  { id: 'build', label: 'DESIGN A BUILD' },
 ];

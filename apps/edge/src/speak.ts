@@ -34,6 +34,8 @@ export interface SpeakDeps {
   now?: () => number;
   /** For the tests: the hourly rain at a place, instead of Open-Meteo. */
   rain?: (lat: number, lon: number, tz: string) => Promise<{ time: number[]; prob: (number | null)[] } | null>;
+  /** [restd] His house's one morning line (the coldest room, the heating) when his Home Assistant is linked (house.ts). */
+  houseLine?: () => Promise<string | null>;
 }
 
 const nowOf = (d: Pick<SpeakDeps, 'now'>) => (d.now ? d.now() : Date.now());
@@ -103,9 +105,13 @@ async function morning(d: SpeakDeps, now: number, tz: string): Promise<Card | nu
     if (h) rain = rainWords(h, now, tz);
   }
   const diary = diaryWords((m?.today.items ?? []).filter((x) => x.allDay || (x.end ?? x.at) > now));
+  // [restd] one house line when it fits the morning's line (its cap): read from his box, no model
+  const house = d.houseLine ? await d.houseLine().catch(() => null) : null;
+  const base = cap1([rain?.line, diary].filter(Boolean).join(' · '));
+  const withHouse = house ? `${base} · ${house}` : base;
   return card({
     id: `brief:morning:${localDay(now, tz)}`, kind: 'brief', at: now, title: 'Good morning',
-    line: cap1([rain?.line, diary].filter(Boolean).join(' · ')),
+    line: withHouse.length <= 110 ? withHouse : base,
     brief: { icon: rain?.wet ? 'rain' : 'morning' }, acts: [{ label: 'OPEN BRIEF', open: { tab: 'brief' } }],
   });
 }

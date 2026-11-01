@@ -5586,3 +5586,117 @@ body.tv #cbar .tvkbbtn { display: grid; place-items: center; grid-column: 4; wid
 .brindep { margin: 6px 0 0; font: 500 14px/1.35 var(--sf); opacity: .9; overflow-wrap: anywhere; }
 /* [offline2] WHICH BRAIN's line per brain: what each answers on the phone first */
 .trustwhich div { overflow-wrap: anywhere; }
+/* ---- [restd] DESIGN A BUILD (BRIEF-REST-D 1): the Studio's eighth pane and its stage, and the sheet ---- */
+.studioseg { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.studioseg button { grid-column: span 2; }
+.studioseg button[data-pane="car"], .studioseg button[data-pane="build"] { grid-column: span 3; }
+.buildstage { position: absolute; inset: 0; z-index: 3; overflow: hidden; border-radius: inherit; background: #cfe3f2; touch-action: none; user-select: none; -webkit-user-select: none; }
+.buildstage[hidden] { display: none; }
+.buildstage canvas.buildcanvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.hud.studio[data-pane="build"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
+.buildhud { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 4; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; pointer-events: none; }
+.buildname { min-width: 0; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 13px/1.25 var(--sf); white-space: nowrap; text-overflow: ellipsis; }
+.buildhud .buildchips { display: flex; flex: none; gap: 6px; pointer-events: auto; }
+.buildstage .buildchips button { min-height: 40px; padding: 0 12px; border-radius: 999px; background: rgba(8,10,14,.62); color: #fff; font: 600 12px/1 var(--sf); }
+.buildnote { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; padding: 4px 9px; border-radius: 10px; background: rgba(8,10,14,.55); color: rgba(255,255,255,.9); font: 400 10.5px/1.35 var(--sf); pointer-events: none; }
+.buildnote:empty { display: none; }
+.buildtag { position: absolute; left: 0; top: 0; z-index: 5; max-width: 70%; overflow: hidden; padding: 5px 10px; border-radius: 999px; background: rgba(8,10,14,.85); color: #fff; font: 600 13px/1.2 var(--sf); white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
+.buildtag[hidden] { display: none; }
+.buildpane, .build { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.build { flex: 1; align-self: flex-start; padding: 4px 14px 18px; }
+.build > *, .buildbody > * { flex-shrink: 0; }
+.buildwordsnote:empty { display: none; }
+.build .buildtitle, .buildpane .buildtitle { margin: 0; font: 600 17px/1.3 var(--sf); color: var(--ink); }
+.buildsum { margin: 2px 0; font: 400 13px/1.4 var(--sf); color: var(--ink2); }
+.buildest { margin: 2px 0; font: 600 14px/1.35 var(--sf); color: var(--ink); }
+.buildcert { margin: 2px 0; font: 600 11px/1.3 var(--sf); letter-spacing: .4px; color: #ffb340; }
+.buildfields { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; min-width: 0; }
+.buildfield { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 8px; border-radius: 12px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+.buildfield span { flex: none; font: 500 12px/1.2 var(--sf); color: var(--ink2); }
+.buildfield :is(input, select) { flex: 1; width: 100%; min-width: 0; min-height: 40px; color: var(--ink); font: 500 15px var(--sf); }
+.buildfield small { flex: none; color: var(--ink2); }
+.buildtick { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px; color: var(--ink); font: 500 14px var(--sf); }
+.buildtick input { width: 22px; height: 22px; }
+.buildlist { display: flex; flex-direction: column; gap: 6px; }
+.buildrow { width: 100%; min-height: 44px; text-align: left; }
+.buildrow.on { box-shadow: inset 0 0 0 1.5px #ffa21a !important; }
+.buildrowin { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; }
+.buildrowin small { color: var(--ink2); }
+.buildlines { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 6px; }
+.buildline { display: flex; justify-content: space-between; gap: 8px; font: 400 12.5px/1.35 var(--sf); color: var(--ink2); }
+.buildrow + .buildlines .buildline span { color: var(--ink); }
+.buildpane .buildrow:not(button) { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 6px 2px; font: 400 13px/1.35 var(--sf); color: var(--ink); }
+.buildpane .buildrow:not(button) small { grid-column: 2; color: var(--ink2); }
+.buildacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.buildacts button { flex: 1 1 28%; min-height: 44px; }
+.buildkind { min-height: 44px; }
+.buildpane .buildfields .buildkind { width: 100%; }
+.buildform { display: flex; gap: 6px; }
+.buildform input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ink); font: 400 15px var(--sf); }
+.build .buildchips { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+.build .buildchips::-webkit-scrollbar { display: none; }
+.build .buildchips button { flex: none; min-height: 40px; padding: 0 14px; font-size: 13px !important; }
+.buildtabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+.buildtabs button { min-width: 0; min-height: 44px; }
+.buildbody { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.buildbody h4 { margin: 6px 0 0; font: 600 12px/1.3 var(--sf); letter-spacing: .4px; color: var(--ink2); }
+.buildplanbox { width: 100%; overflow: hidden; border-radius: 14px; }
+canvas.buildplan { display: block; max-width: 100%; }
+.buildplanwords { font-size: 12.5px; }
+.buildbomgroup { padding: 2px; border-radius: 14px; }
+.buildbomgroup.lit { box-shadow: inset 0 0 0 1.5px #ffa21a; }
+.buildbomgroup h4 { display: flex; justify-content: space-between; gap: 8px; padding: 0 8px; }
+.buildbomgroup ul, .buildcompat, .buildparts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.buildbomline { padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--hair); }
+.buildbomtop { display: flex; justify-content: space-between; gap: 8px; color: var(--ink); font: 600 14px/1.35 var(--sf); }
+.buildbomprice { flex: none; }
+.buildbommeta, .buildbomnote, .buildlivenote { display: block; font: 400 12px/1.4 var(--sf); color: var(--ink2); }
+.buildcut { font: 500 12px/1.4 var(--sf); color: var(--ink); }
+.buildlivegot { font: 500 12px/1.4 var(--sf); color: #52f2b5; }
+.buildliverow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.buildliverow input { flex: 1 1 100%; min-width: 0; min-height: 40px; padding: 0 10px; border-radius: 10px; border: 0; background: rgba(255,255,255,.06); color: var(--ink); font: 400 14px var(--sf); }
+.buildliverow button { flex: 1 1 40%; min-height: 40px; }
+.buildtotal { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.07); color: var(--ink2); font: 400 12.5px/1.4 var(--sf); }
+.buildtotal b { color: var(--ink); font: 600 17px/1.3 var(--sf); }
+.buildcompat li { padding: 6px 10px; border-radius: 10px; font: 400 13px/1.4 var(--sf); }
+.buildcompat li.ok { color: #52f2b5; background: rgba(82,242,181,.07); }
+.buildcompat li.bad { color: #ff8a80; background: rgba(255,69,58,.1); }
+.buildrefused { color: #ff8a80; }
+.buildparts li { padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); font: 400 13px/1.45 var(--sf); color: var(--ink); }
+.buildparts small { color: var(--ink2); }
+.buildconcept { margin: 0; font: 600 15px/1.35 var(--sf); color: #ffb340; }
+.buildsteps, .buildtools, .buildsafety, .buildlaw, .buildnotes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font: 400 13.5px/1.45 var(--sf); color: var(--ink); }
+.buildlaw small { color: var(--ink2); }
+.buildload, .buildtime { margin: 0; font: 400 13.5px/1.45 var(--sf); color: var(--ink); }
+.buildexports button, .buildexport { min-height: 44px; }
+.buildfoot button { width: 100%; min-height: 48px; }
+.buildgloss { padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); }
+.buildgloss summary { min-height: 36px; display: flex; align-items: center; color: var(--ink2); font: 600 12px/1.3 var(--sf); letter-spacing: .4px; cursor: pointer; }
+.buildgloss dl { margin: 6px 0 0; display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 4px 10px; font: 400 12.5px/1.4 var(--sf); }
+.buildgloss dt { color: var(--ink); font-weight: 600; }
+.buildgloss dd { margin: 0; color: var(--ink2); }
+/* ---- [restd] THE HOME ASSISTANT BRIDGE (BRIEF-REST-D 2): the HOUSE sheet and LINKS → HOME ASSISTANT ---- */
+.house { flex: 1; align-self: flex-start; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 4px 14px 18px; overflow-wrap: anywhere; }
+.house > * { flex-shrink: 0; }
+.housetop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.houseline { margin: 0; color: var(--ink); font: 600 14px/1.4 var(--sf); }
+.housetop button { flex: none; min-height: 40px; }
+.houseroom { display: flex; flex-direction: column; gap: 6px; }
+.houseroom > h4 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 2px 0; color: var(--ink2); font: 600 12px/1.3 var(--sf); letter-spacing: .4px; }
+.housecard { display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; border-radius: 14px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+.housecard.guarded { box-shadow: inset 0 0 0 1px rgba(255,159,10,.5); }
+.househead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.househead b { color: var(--ink); font: 600 14.5px/1.3 var(--sf); }
+.housestate { color: var(--ink); font: 400 13.5px/1.35 var(--sf); }
+.househead small, .houseguard { flex-basis: 100%; color: var(--ink2); font: 400 11.5px/1.3 var(--sf); }
+.houseguard { color: #ffb340; }
+.housectl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.housectl button { min-width: 44px; min-height: 40px; }
+.housectl .houserange { flex: 1 1 140px; min-width: 0; }
+.housectl select { min-height: 40px; max-width: 100%; }
+.housetarget { min-width: 64px; text-align: center; color: var(--ink); font: 600 15px var(--sf); }
+.housetick { display: flex; align-items: center; gap: 6px; min-height: 40px; color: var(--ink2); font: 400 12.5px var(--sf); }
+.housetick input { width: 20px; height: 20px; }
+.housesteps { margin: 6px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; color: var(--ink); font: 400 13px/1.45 var(--sf); }
+.houseintro, .housefoot { margin: 0; font: 400 13px/1.45 var(--sf); color: var(--ink2); }
+.houseacts button { min-height: 44px; }

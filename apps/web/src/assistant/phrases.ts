@@ -33,6 +33,8 @@ import { coachAsked } from '../coach/ask';
 import { shapesAsked } from '../hands/words';
 import { tvAsked } from '../tv/detect';
 import { INDEPENDENT_ASK } from '../offline/trust';
+import { buildAsked } from '../build/words';
+import { houseAsked } from '../../../../packages/shared/src/house';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -72,6 +74,10 @@ export const LOCAL_ASKS = [
   { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
   // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
   { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
+  // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
+  { id: 'build', test: (t: string) => !!buildAsked(t) },
+  // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
+  { id: 'house', test: (t: string) => !!houseAsked(t) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

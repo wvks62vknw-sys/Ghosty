@@ -469,6 +469,38 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [restd] DESIGN A BUILD's sheet (apps/web/src/build): the plan, the bill and the build, from the chat's buttons
+      id: 'open_build',
+      title: 'Design a build: plan, bill of materials, 3-D',
+      group: 'TOOLS',
+      run: async (a) => {
+        const { openBuild } = await import('../build/sheet');
+        const side = a?.side === 'bill' || a?.side === 'build' || a?.side === 'plan' ? a.side : undefined;
+        openBuild({ ...(side ? { side } : {}), ...(typeof a?.words === 'string' ? { words: a.words } : {}) });
+      },
+    },
+    {
+      // [restd] THE HOUSE sheet (apps/web/src/house): his Home Assistant's rooms and things, each with its control
+      id: 'open_house',
+      title: 'House: lights, heating, blinds, the TV',
+      group: 'TOOLS',
+      run: async () => {
+        const { openHouse } = await import('../house/sheet');
+        openHouse();
+      },
+    },
+    {
+      // [restd] a house reply's button: done on his tap, the guarded set only after his confirm (house/sheet.ts houseDo)
+      id: 'house_do',
+      title: 'Do it in the house',
+      hidden: true,
+      run: async (a) => {
+        if (typeof a?.entity !== 'string' || typeof a.service !== 'string') return;
+        const { houseDo } = await import('../house/sheet');
+        await houseDo({ id: a.entity, name: typeof a.name === 'string' ? a.name : a.entity, domain: typeof a.domain === 'string' ? a.domain : a.entity.split('.')[0]!, guarded: a.guarded === true }, a.service, a.data && typeof a.data === 'object' ? (a.data as Record<string, unknown>) : {}, typeof a.said === 'string' ? a.said : '');
+      },
+    },
+    {
       // [packs] Kitchen timers on this phone (features/kitchen/timers.ts): the brain's kitchen tool sets or stops them.
       id: 'kitchen_timer',
       title: 'Kitchen timer',

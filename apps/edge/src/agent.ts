@@ -69,6 +69,7 @@ import { carsRoute, carTurn } from './cars'; // [cards] the cars he names, kept 
 import { ensureSpeakJob, noteDanger, speakRoute, speakTick, stopSpeaking, type SpeakDeps } from './speak'; // [cards] speaking first, under the cadence (BRIEF-SIDEWAYS 3)
 import { packsRoute, packsTick, type PacksDeps } from './packs'; // [packs] the money, body and kitchen packs: the phone's buttons and the price watches (BRIEF-PACKS-1)
 import { socialDigest, socialRoute, socialTelegram, type SocialDeps } from './social'; // [social] his own accounts behind the approval queue (BRIEF-SOCIAL)
+import { houseJob, houseRoute, houseTurnFacts, morningHouseLine, type HouseDeps } from './house'; // [restd] his own Home Assistant, the Worker the only thing that talks to it (BRIEF-REST-D 2)
 import { discordInteraction } from './social/discord'; // [social] his own bot in his own server: /ask, signature checked first
 import { ensureMusingJob, musingTick, type MusingDeps } from './social/musing'; // [social] one line of his own a day, under the cadence
 import { zoneOf } from './guardstate'; // [social] his time zone, for his accounts' days
@@ -446,7 +447,7 @@ export class GhostyAgent {
         const was = name === 'telegram' ? await this.vault.get('telegram').catch(() => null) : null;
         await this.vault.set(name, v);
         await this.router.resetHealth(true); // a provider known to be out of allowance today stays known
-        if (!['github', 'email', 'telegram'].includes(name) && v) this.state.waitUntil(this.router.discover(true));
+        if (!['github', 'email', 'telegram', 'homeassistant'].includes(name) && v) this.state.waitUntil(this.router.discover(true));
         const check = name === 'telegram' ? await telegramKey(this.telegramHost(), v, was) : v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
         // waiting > 0: the database is paused — the key is in use now (memory, KV, this device) and written to it after the reset.
         return json({ ok: true, works: check.ok, info: check.info, waiting: await this.vault.waiting() });
@@ -480,6 +481,7 @@ export class GhostyAgent {
       if (path === '/speak' || path.startsWith('/speak/')) return await speakRoute(req, path, method, this.speakDeps()); // [cards] the speak-first dial and his day's unprompted lines (speak.ts)
       if (path === '/packs' || path.startsWith('/packs/')) return await packsRoute(req, path, method, this.packsDeps()); // [packs] a pack action with no model (packs/index.ts)
       if (path === '/social' || path.startsWith('/social/')) return await socialRoute(req, path, method, url, await this.socialDeps()); // [social] his accounts: link, drafts, APPROVE · EDIT · NO (social/index.ts)
+      if (path === '/house' || path.startsWith('/house/')) return await houseRoute(req, path, method, this.houseDeps()); // [restd] the HOUSE sheet and his house words (house.ts)
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
@@ -1276,6 +1278,9 @@ export class GhostyAgent {
         /* the library is a bonus; never block a reply on it */
       }
     }
+    // [restd] his house's state as a fact for this turn only, when his words are about it and his Home Assistant is linked (no tool)
+    const house = code ? '' : await houseTurnFacts(this.houseDeps(), text).catch(() => '');
+    if (house) prompt += `\n\nHIS HOUSE NOW (read from his Home Assistant for this message; you cannot change it: the HOUSE sheet and his own words do):\n${asData('his Home Assistant', house)}`;
     if (code) {
       const book = findPlaybooks(text, 1)[0];
       if (book) prompt += `\n\nPLAYBOOK FOR THIS TASK (from your handbook; study other topics if needed):\n### ${book.title}\n${book.body.slice(0, 5000)}`;
@@ -1503,7 +1508,8 @@ export class GhostyAgent {
       if (job.kind === 'speak') return json({ next: await speakTick(this.speakDeps()) }); // [cards]
       if (job.kind === 'follow') return json({ next: await packsTick(this.packsDeps()) }); // [packs]
       if (job.kind === 'musing') return json({ next: await musingTick(await this.musingDeps()) }); // [social]
-      const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
+      // [restd] a task whose words are a house action is acted as a job, the guarded set refused (house.ts); any other runs as ever
+      const result = job.kind === 'task' ? ((await houseJob(this.houseDeps(), job).catch(() => null)) ?? (await this.runBackground(job))) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
     }
@@ -1790,7 +1796,12 @@ export class GhostyAgent {
 
   /** [cards] What speaking first (speak.ts) may use: the database, the vault and his notifications (with the card). */
   private speakDeps(): SpeakDeps {
-    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item) };
+    return { storage: this.storage, vault: this.vault, notify: (item) => this.notify(item), houseLine: () => morningHouseLine(this.houseDeps()) }; // [restd] the morning's one house line
+  }
+
+  /** [restd] What the Home Assistant bridge needs: the database (the marked switches, the WHY ledger) and the vault's key. */
+  private houseDeps(): HouseDeps {
+    return { storage: this.storage, vault: this.vault };
   }
 
   /**

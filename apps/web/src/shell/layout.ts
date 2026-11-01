@@ -37,7 +37,8 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM(?! CHANNEL))/ },
     { title: 'Social', match: /^(BLUESKY|MASTODON|DISCORD|TELEGRAM CHANNEL)/, foot: 'The accounts you made for me: every post waits for your APPROVE.' },
     { title: 'This phone', match: /^(PHONE|NOTIF)/ },
-    { title: 'Services', match: /^(LIVE|AI|GITHUB)/ },
+    // [restd] HOME ASSISTANT follows GITHUB in the same column (features/links/index.ts): one Services card
+    { title: 'Services', match: /^(LIVE|AI|GITHUB|HOME ASSISTANT)/ },
   ],
 };
 const LOGO = '<path d="M12 3c-4 0-7 3-7 7v11l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10c0-4-3-7-7-7z"/><circle cx="9.5" cy="10.5" r="1.1"/><circle cx="14.5" cy="10.5" r="1.1"/>';

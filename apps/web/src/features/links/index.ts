@@ -88,9 +88,11 @@ export const linksTab: TabDef = {
     const bp = panel('AI BRAIN', { grow: false });
     const gp = panel('GITHUB · SELF-EDIT', { grow: false });
     const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
+    // [restd] his own Home Assistant box: the steps, or the house in a line (house/links.ts)
+    const hp = panel('HOME ASSISTANT', { grow: false, cls: 'housepn' });
     const social = socialPanels();
     P.left.append(ep.el, spot.el, tg.el, ...social.panels.map((x) => x.el));
-    P.right.append(ap.el, np.el, tp.el, bp.el, gp.el);
+    P.right.append(ap.el, np.el, tp.el, bp.el, gp.el, hp.el);
     // Sections (ui/sections.ts): a pill for each of the list's groups: his accounts (email, music, Telegram), this phone
     // (the app and its notifications) and the services behind Ghosty (traffic, the AI brain, GitHub).
     sections(root, 'links', [
@@ -98,7 +100,7 @@ export const linksTab: TabDef = {
       // [social] the accounts he made for me, each posting only with his APPROVE (features/links/social.ts)
       { id: 'social', label: 'Social', match: /^(BLUESKY|MASTODON|DISCORD|TELEGRAM CHANNEL)/ },
       { id: 'phone', label: 'This phone', match: /^(PHONE|NOTIFICATIONS)/ },
-      { id: 'services', label: 'Services', match: /^(LIVE|AI|GITHUB)/ },
+      { id: 'services', label: 'Services', match: /^(LIVE|AI|GITHUB|HOME ASSISTANT)/ },
     ]);
 
     const online = { email: false, spotify: false, telegram: false, phone: false, traffic: false, brain: false, github: false };
@@ -499,6 +501,7 @@ export const linksTab: TabDef = {
         void paintNotifications(np);
         void paintBrain();
         void social.paint(); // [social]
+        void import('../../house/links').then((m) => m.paintHouseLink(hp)).catch(() => undefined); // [restd]
       },
       leave() {
         clearInterval(codeTimer);
