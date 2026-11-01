@@ -8,6 +8,7 @@ import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { imageResponse } from './lens';
 import { zimPassthrough } from './zim';
+import { arcadePassthrough } from './arcade';
 import { demoRoute } from './demo';
 export { GhostyAgent } from './agent';
 
@@ -178,6 +179,9 @@ export default {
     // [resta] WIKIPEDIA, OFFLINE: the owner's phone fetches a Kiwix file a piece at a time through here (zim.ts), streamed
     // and kept nowhere; the brain never reads it.
     if (url.pathname.startsWith('/api/zim/')) return zimPassthrough(req, url.pathname.slice('/api/zim/'.length));
+    // [arcade] A shelf package for the owner's phone when its network will not let it reach the Internet Archive itself: asked
+    // for here (arcade.ts), streamed from the Archive and kept nowhere; the brain never reads it.
+    if (url.pathname.startsWith('/api/arcade/')) return arcadePassthrough(req, url.pathname.slice('/api/arcade/'.length));
     const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
     const fwd = new Request(req);
     fwd.headers.set('x-ghosty-owner', auth.who);

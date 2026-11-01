@@ -4,9 +4,10 @@
 // FLASH.COM, a 131-byte DOS program written for these tests, public domain), PLAY opens the player on the real DOS
 // engine, frames render (two canvas snapshots differ), the touch layer shows and its stick and buttons reach the game,
 // PAUSE shows RESUME · QUIT · SOUND · CONTROLS, QUIT returns to the shelf and the best score is written; the program's
-// own save file comes back after a reload (it counts its visits); DELETE takes the game off the phone in one tap;
-// every control has a VoiceOver label; nothing sticks out sideways at 440 × 956 or 390 × 844; the page's security
-// policy blocks nothing.
+// own save file comes back after a reload (it counts its visits); DELETE takes the game off the phone in one tap; with
+// the Archive out of reach (his network's filter) GET asks this site for the same file under /api/arcade/, with his key,
+// and its reason names both mirrors; every control has a VoiceOver label; nothing sticks out sideways at 440 × 956 or
+// 390 × 844; the page's security policy blocks nothing.
 // THE NATIVE ENGINES, with the real free data (fetched once by tests/fixtures/engines/fetch.sh, never committed; without
 // it these checks skip with one line), each GOT through the store from the Archive's address (served here from the
 // fetched file): DOOM's free episode on doomgeneric starts inside PLAY's tap, renders frames, FIRE from its title reaches
@@ -537,6 +538,23 @@ const shelfLabels = await unlabelled('#pg-arcade button');
 if (shelfLabels.length) problems.push(`shelf controls without a VoiceOver label: ${shelfLabels.join(', ')}`);
 await page.click(`${card('test-flash')} .arcdel`);
 await until((s) => /^GET · /.test(document.querySelector(s)?.textContent ?? ''), 5000, 'DELETE did not take the game off this phone', `${card('test-flash')} .arcact`);
+// ---------- the Archive out of reach (his network's filter: the phone's fetch of archive.org gets no answer): GET asks this
+// site for the same file under /api/arcade/, with his key; the Worker has never heard of the fixture's item, so it answers
+// 404 (not 401: the key was let in) and the reason names both mirrors
+{
+  const own = [];
+  const onRequest = (r) => r.url().includes('/api/arcade/') && own.push({ url: r.url(), key: r.headers()['x-ghosty-key'] ?? '' });
+  const blocked = (route) => route.abort('blockedbyclient');
+  page.on('request', onRequest);
+  await page.route('https://archive.org/**', blocked);
+  await page.click(`${card('test-flash')} .arcact`);
+  await until((s) => /Could not get it/.test(document.querySelector(s)?.textContent ?? ''), 15000, 'GET with the Archive out of reach did not give its reason', `${card('test-flash')} .arcstatus`);
+  const said = await page.textContent(`${card('test-flash')} .arcstatus`);
+  if (!/^Could not get it: No mirror gave the right file \(archive\.org: [^;]+; this site: answered 404\)\.$/.test(said ?? '')) problems.push(`with the Archive out of reach, GET said "${said}"`);
+  if (own.length !== 1 || own[0].url !== `${base}/api/arcade/ghosty-test-fixture/flash.zip` || own[0].key !== 'preview-owner-key-0123456789') problems.push(`this site's copy was asked as ${JSON.stringify(own)}`);
+  page.off('request', onRequest);
+  await page.unroute('https://archive.org/**', blocked);
+}
 await page.setViewportSize({ width: 390, height: 844 });
 await page.waitForTimeout(400);
 wide = await sideways('#pg-arcade .arccard, #pg-arcade .arcact, #pg-arcade .arcmore, #pg-arcade .arcdetails');

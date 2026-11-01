@@ -11,6 +11,7 @@
  * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
  * one Intent the game's engine reads.
  */
+import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
 import type { DosButton } from '../../arcade/dos';
@@ -377,7 +378,8 @@ export const arcadeTab: TabDef = {
           const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
           if (status.get(of.id) !== t) say(t);
         };
-        await getFiles({ id: of.at, data }, onProgress, { signal: ctl.signal });
+        // (`headers`: the owner's key, for Ghosty's own copy of the Archive's file, which the Worker streams to him alone)
+        await getFiles({ id: of.at, data }, onProgress, { signal: ctl.signal, ownHeaders: headers });
         here.add(of.at);
         say(`On this phone. ${of.saves ? 'Saved games stay here too.' : ''}`.trim());
         vibrate(15);
