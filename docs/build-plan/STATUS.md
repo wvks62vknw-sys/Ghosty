@@ -4,7 +4,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 1. Done and live on your phone (merged to main: PR #32 to PR #54, the last at 10:26 UK on 2 Nov)
 
-- LIVE since 10:26 UK on 2 Nov (PR #54, green on every job): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122, with your seven-step phone check):
+- LIVE since 10:26 UK on 2 Nov (PR #54: its own run green; main's run after the merge went red on the talk spec alone — a notice read out over the reply, fixed in PR #55, OWNER-ISSUES 123): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122, with your seven-step phone check):
   the first spoken word while the rest is still being written, interruptions he recovers from mid-sentence ("sorry, go on"), narration
   instead of spinners, a conversation with no taps and a two-note tone for your turn, models warmed before they run dry and "cooling
   down" said within a second, "Hey Siri, Ghosty listen". Honest: on your phone the first spoken word is about 1.5 to 2.5 s.
@@ -180,6 +180,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - PR #51 (section 3).
 
 ## 3. Happening right now
+
+- PR #55 (2 Nov, midday): NOTICES IN TURN and main green again (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
+  because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
+  greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
+  cuts one and it is not read again. Your two-minute phone check is in 123.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

@@ -1281,6 +1281,23 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 11:27–13:00 UK: MAIN RED AFTER PR #54 (run 302, 10:26 → 11:25, 8825d5a): shard 1's talk spec failed twice (the same tree had
+  passed as PR #54's run 301 an hour before); brain, interface, deploy-build and shards 2–4 green. CAUSE (OWNER-ISSUES 123): restd
+  (right before talk on shard 1) runs a refused house job that leaves an unread inbox item; a fresh page reads any unread notice
+  from the last ten minutes aloud (notices.ts, the first poll); talk's pages opened four minutes after it, so the notice was being
+  read when the spec typed: the reply cut it, the notice's clip was counted as the reply's first (gaps `[3420, 17, …]`: the first
+  is the page clock, the cut clip has no "ended"), and in the phone-voice case the cancelled, never-begun sentence had no end mark
+  ("not said to the end"). Reproduced on a fresh preview in one go by leaving such an item and running `ONLY=first`. FIXED
+  FORWARD on the branch (PR #55): notices.ts reads notices in turn in a quiet moment (boot and greeting over, voice idle, no turn at
+  work), never over anything, dropped after 30 s without one; a reply cuts a notice and it is not re-read. The talk spec reads the
+  inbox before every measured page (`api('/inbox/read')`), its stand-in `cancel` drops queued utterances with an `error` event as
+  browsers do, and part 7 (`ONLY=notice`) holds the rules: greeting then notices in turn, nothing cut; a reply cuts a notice (the
+  voice at a person's 400 ms a word there) and it is not read again; a notice arriving mid-turn waits for the reply. THE GUARD
+  (read, not touched — the owner's rule; written up for him in 123): its `select(.name=="smoke")` misses the sharded names, so it
+  walked past every green merge since #51 and chose Batch 7 (93408747) to restore; the push was rejected (GitHub: a workflow token
+  may not change .github/workflows/check.yml) → main unchanged; it stays inert while the chosen version's check.yml differs.
+  LESSON: the talk spec's budgets are timing — three browser chains at once here blew the first word and the ear budgets with
+  nothing wrong; run it alone (and the voice spec's barge step wants a quiet machine too).
 - 2 Nov 10:26 UK: PR #54 MERGED (main 8825d5a), green on every job at the first run. Nothing new starts until the owner has written: he
   has the ten-step (121) and seven-step (122) phone checks to do, and PLAN-STARS says Pass 2 (reliability and the checks) is next.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the

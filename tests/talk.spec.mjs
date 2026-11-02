@@ -13,9 +13,14 @@
 //     ends in an answer, and the scripted "no model:"), aloud in a spoken turn; the phone's brain is offered when warm.
 //  6. SIRI SHORTCUT: ?do=listen opens Ghosty listening within a second of it showing; SHORTCUTS lists it and says iOS
 //     listens to nothing in the background.
+//  7. NOTICES IN TURN (OWNER-ISSUES 123): a notice from the inbox is read out only in a quiet moment — after the greeting,
+//     whole, one after another, oldest first — never over anything; a reply he asks for cuts it and it is not read again;
+//     one that arrives while a turn is at work waits for the reply.
 // The phone's speech here is a stand-in modelled on an iPhone's: one queue; an idle voice takes a moment to start (longer
 // when it has not spoken for a while, which the mic tap's priming saves); a queued sentence starts the moment the one
-// before it ends. Ghosty's own voice is /api/tts answered with silent WAV as long as the words. What only his iPhone can
+// before it ends; cancel drops what was queued with an error event, as a browser does. Ghosty's own voice is /api/tts
+// answered with silent WAV as long as the words. Each measured page starts with the brain's inbox read: a notice another
+// spec left on this brain would otherwise be read out over what is measured (that is what part 7 checks on its own). What only his iPhone can
 // show (the real voices, the real microphone, Siri) is named in the report, not pretended here.
 //   BASE=http://localhost:8788 node tests/talk.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
@@ -31,11 +36,14 @@ const problems = [];
 const measured = {};
 const RUN = Date.now().toString(36).slice(-5);
 const SMALL = { width: 390, height: 844 };
-// ONLY=first,spoken,narrate,convo,cooling,shortcut runs some parts (while working on one); unset, all of them.
+// ONLY=first,spoken,narrate,convo,cooling,shortcut,notice runs some parts (while working on one); unset, all of them.
 const only = (process.env.ONLY ?? '').split(',').filter(Boolean);
 const part = (k) => !only.length || only.includes(k);
 const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 const ms = (n) => (n == null || !Number.isFinite(n) ? 'n/a' : `${Math.round(n)} ms`);
+const KEY = 'preview-owner-key-0123456789';
+/** The brain's own API, as the owner's phone calls it. */
+const api = (path, init = {}) => fetch(`${base}/api${path}`, { ...init, headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json', ...(init.headers ?? {}) } }).then((r) => r.json());
 
 /** A WAV of silence as long as `secs` (16 kHz mono): Ghosty's voice saying something that long. */
 function wav(secs) {
@@ -107,7 +115,8 @@ const fakeTalk = () => {
   }
   // The phone's speech, as an iPhone's behaves: one queue; an idle voice takes 120 ms to start, 450 ms when it has said
   // nothing for half a minute (the slow first utterance a tap's priming avoids); a queued one starts as the last ends;
-  // each lasts 60 ms a word; pause, resume and cancel as Safari's.
+  // each lasts 60 ms a word (quick, for the checks; a page may ask for a person's pace, window.__talkWordMs); pause,
+  // resume and cancel as Safari's.
   const voices = [
     { name: 'Daniel', lang: 'en-GB' },
     { name: 'Daniel (Enhanced)', lang: 'en-GB' },
@@ -144,7 +153,7 @@ const fakeTalk = () => {
       if (!cur) return;
       Object.assign(cur.rec, { startAt: performance.now(), captionStart: caption() });
       cur.u.onstart?.({});
-      left = Math.max(150, 60 * cur.u.text.split(/\s+/).length);
+      left = Math.max(150, (window.__talkWordMs ?? 60) * cur.u.text.split(/\s+/).length);
       since = performance.now();
       timer = setTimeout(end, left);
     };
@@ -169,7 +178,11 @@ const fakeTalk = () => {
     run(!cur);
   };
   synth.cancel = () => {
-    q.length = 0;
+    // (as a browser does: what was queued and never began is dropped with an error event, 'canceled'; for the record it ended)
+    for (const { u, rec } of q.splice(0)) {
+      Object.assign(rec, { endAt: performance.now(), cancelled: true, dropped: true });
+      setTimeout(() => u.onerror?.({ error: 'canceled' }), 0);
+    }
     clearTimeout(timer);
     paused = false;
     if (cur) {
@@ -196,12 +209,23 @@ const fakeTalk = () => {
   };
 };
 
-/** A phone-sized Ghosty with the made-up microphone and voices; `heard` is what the brain's ears will write down, in order. */
-async function talkPage(name, { tts = true, viewport = PHONE } = {}) {
+/**
+ * A phone-sized Ghosty with the made-up microphone and voices; `heard` is what the brain's ears will write down, in order.
+ * `keepInbox`: the brain's inbox is left as it is (part 7 wants its notices); otherwise it is read first — a used brain (the
+ * specs before this one on its shard) may have left an unread notice, and a fresh page reads one from the last ten minutes
+ * out loud (notices.ts), over what is measured. `boot`: the cinematic plays (its greeting is spoken); checks are otherwise
+ * spared it (boot.ts). `before`: routes to lay before the page loads. `wordMs`: the phone's voice at this pace (a person's is
+ * about 400 ms a word; the checks' quick default is 60).
+ */
+async function talkPage(name, { tts = true, viewport = PHONE, keepInbox = false, boot = false, before = null, wordMs = 0 } = {}) {
+  if (!keepInbox) await api('/inbox/read', { method: 'POST', body: '{}' }).catch(() => undefined);
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
+  if (wordMs) await ctx.addInitScript((ms) => { window.__talkWordMs = ms; }, wordMs);
   await ctx.addInitScript(fakeTalk);
+  if (boot) await ctx.addInitScript(() => { window.__ghostyBoot = true; window.__ghostyBootKind = 'still'; });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  if (before) await before(page);
   const io = { heard: [], stt: [], statusSeen: 0 };
   await ctx.route('**/api/status', async (route) => {
     const r = await route.fetch();
@@ -221,7 +245,7 @@ async function talkPage(name, { tts = true, viewport = PHONE } = {}) {
   });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 15000 });
-  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.fill('#pair input', KEY);
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   for (let i = 0; i < 50 && !io.statusSeen; i++) await page.waitForTimeout(100);
@@ -672,7 +696,7 @@ if (part('cooling')) {
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 15000 });
-  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.fill('#pair input', KEY);
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await page.waitForTimeout(800);
@@ -723,7 +747,105 @@ if (part('shortcut')) {
   await ctx.close();
 }
 
+// ================================================================ 7. NOTICES IN TURN
+// (OWNER-ISSUES 123: main went red after PR #54 when a notice the spec before this one had left was read out over the reply)
+if (part('notice')) {
+  const name = 'notice';
+  /** An inbox item as a scheduled job leaves one (as tests/restd.spec.mjs makes it): a task for the house, run now, the job gone. */
+  const leave = async (title) => {
+    const job = await api('/jobs', { method: 'POST', body: JSON.stringify({ kind: 'task', title, text: 'unlock the back door', at: Date.now() + 3_600_000, tz: 'Europe/London' }) });
+    const ran = await api(`/jobs/${job.job?.id}/run`, { method: 'POST', body: '{}' });
+    await api(`/jobs/${job.job?.id}`, { method: 'DELETE' });
+    if (!ran.item) problems.push(`[${name}] the brain left no inbox item for "${title}": ${JSON.stringify(ran).slice(0, 120)}`);
+    return ran.item;
+  };
+  /** What the phone's voice was handed, in order, with when each began and ended (the stand-in's record). */
+  const voiceLog = (page) => page.evaluate(() => window.__talk.synth.map((s) => ({ text: s.text, calledAt: s.calledAt, startAt: s.startAt ?? null, endAt: s.endAt ?? null, cancelled: !!s.cancelled })));
+  // (the inbox read first each time: a used brain's own notices would queue ahead of these)
+  const quietInbox = () => api('/inbox/read', { method: 'POST', body: '{}' }).catch(() => undefined);
+  // 7a. two notices waiting at open, and the greeting: the greeting first and whole, then each notice whole, oldest first
+  {
+    await quietInbox();
+    await leave(`Dog walker ${RUN}`);
+    await leave(`Garden gate ${RUN}`);
+    const { ctx, page } = await talkPage(name, { tts: false, keepInbox: true, boot: true });
+    const greeting = await page.evaluate(() => window.__bootState?.greeting ?? '');
+    await page.waitForFunction((m) => window.__talk.synth.filter((s) => s.text.startsWith(m)).length >= 1 && window.__talk.synth.every((s) => s.endAt), `Garden gate ${RUN}`, { timeout: 25000 }).catch(() => problems.push(`[${name}] the greeting and two notices were not all said within 25 s`));
+    await page.waitForTimeout(300);
+    const log = await voiceLog(page);
+    const said = log.filter((s) => s.startAt !== null);
+    const cut = log.filter((s) => s.cancelled);
+    if (cut.length) problems.push(`[${name}] something was cut off: ${cut.map((s) => `"${s.text.slice(0, 40)}"`).join(', ')}`);
+    if (!greeting || !said[0] || !said[0].text.startsWith(greeting.replace(/\.$/, ''))) problems.push(`[${name}] the greeting was not the first thing said (greeting "${greeting}"; first "${said[0]?.text.slice(0, 60) ?? ''}")`);
+    const ia = said.findIndex((s) => s.text.startsWith(`Dog walker ${RUN}`));
+    const ib = said.findIndex((s) => s.text.startsWith(`Garden gate ${RUN}`));
+    if (ia < 0 || ib < 0) problems.push(`[${name}] a notice was not read out (dog walker ${ia}, garden gate ${ib}): ${said.map((s) => s.text.slice(0, 30)).join(' | ')}`);
+    else if (!(ia < ib)) problems.push(`[${name}] the notices were not read oldest first`);
+    // nothing begins before what came before it has ended; the greeting had ended before the first notice began
+    const over = said.slice(1).filter((s, i) => s.startAt < said[i].endAt - 1);
+    if (over.length) problems.push(`[${name}] said over something else: "${over[0].text.slice(0, 40)}"`);
+    if (ia > 0 && said[ia].startAt < said[0].endAt) problems.push(`[${name}] the first notice began before the greeting ended`);
+    measured.notices = { pieces: said.length, cut: cut.length };
+    console.log(`[${name}] the greeting, then ${Math.max(0, said.length - 1)} notice pieces, each after the last: ${said.map((s) => `${words(s.text)}w`).join(' ')}; cut off: ${cut.length}`);
+    await ctx.close();
+  }
+  // 7b. a reply he asks for while a notice is being read: the notice gives way at once, and is not read again after the reply
+  // (the voice slower here, 200 ms a word: the notice takes about five seconds to read, so the reply lands inside it for sure)
+  {
+    await quietInbox();
+    await leave(`Dog walker ${RUN}2`);
+    const { ctx, page } = await talkPage(name, { tts: false, keepInbox: true, wordMs: 200 });
+    const started = await page.waitForFunction((m) => window.__talk.synth.some((s) => s.text.startsWith(m) && s.startAt), `Dog walker ${RUN}2`, { timeout: 15000 }).then(() => true, () => false);
+    if (!started) problems.push(`[${name}] the notice was not read out at open`);
+    await page.click('.logbtn');
+    await page.fill('#cin', ASK('the hills'));
+    await page.keyboard.press('Enter');
+    await seen(page, new RegExp(`The hills ${RUN}: I could talk`));
+    // (the reply is 55 words: eleven seconds at this pace)
+    await page.waitForFunction(() => !window.__ghosty.ui.get().busy && window.__ghosty.ui.get().voice === 'idle' && window.__talk.synth.every((s) => s.endAt), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] the reply was not said to the end`));
+    await page.waitForTimeout(1500); // (a notice read again would begin in this time)
+    const log = await voiceLog(page);
+    const key = await page.evaluate(() => window.__talk.key);
+    const before = log.filter((s) => s.calledAt < key);
+    const after = log.filter((s) => s.calledAt >= key);
+    if (started && !before.some((s) => s.cancelled)) problems.push(`[${name}] the notice did not give way to the reply (${before.map((s) => `${words(s.text)}w${s.cancelled ? ' cut' : ''}`).join(' ')})`);
+    if (!after.length || !after.every((s) => s.endAt && !s.cancelled)) problems.push(`[${name}] the reply was not said whole after the notice gave way`);
+    if (after.some((s) => s.text.startsWith('Dog walker'))) problems.push(`[${name}] the notice was read again after the reply`);
+    console.log(`[${name}] a reply over a notice: the notice ${before.some((s) => s.cancelled) ? 'gave way' : 'was over'}; the reply ${after.length} pieces, ${after.every((s) => s.endAt && !s.cancelled) ? 'whole' : 'NOT whole'}; the notice ${after.some((s) => s.text.startsWith('Dog walker')) ? 'READ AGAIN' : 'not read again'}`);
+    await ctx.close();
+  }
+  // 7c. a notice that arrives while a turn is at work waits for the reply to be said, then is read, whole
+  {
+    let late = null;
+    const { ctx, page } = await talkPage(name, {
+      tts: false,
+      before: (page) => page.route('**/api/inbox', (r) => (r.request().method() !== 'GET' ? r.continue() : r.fulfill({ contentType: 'application/json', body: JSON.stringify(late ? { unread: 1, items: [late] } : { unread: 0, items: [] }) }))),
+    });
+    await page.click('.logbtn');
+    await page.fill('#cin', ASK('the woods'));
+    await page.keyboard.press('Enter');
+    // the brain's inbox has a notice now; the page looks on coming back to the front (notices.ts)
+    late = { id: `late-${RUN}`, at: Date.now(), kind: 'task', title: `Bins ${RUN}`, text: 'The bins go out tonight, both of them.' };
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await seen(page, new RegExp(`The woods ${RUN}: I could talk`));
+    await page.waitForFunction((m) => window.__talk.synth.some((s) => s.text.startsWith(m)) && window.__talk.synth.every((s) => s.endAt), `Bins ${RUN}`, { timeout: 25000 }).catch(() => problems.push(`[${name}] the notice that arrived mid-turn was not read after the reply`));
+    await page.waitForTimeout(300);
+    const log = await voiceLog(page);
+    const key = await page.evaluate(() => window.__talk.key);
+    // the reply's pieces were handed to the voice before the notice's (a notice is handed over whole, title then text)
+    const noticeAt = log.find((s) => s.text.startsWith(`Bins ${RUN}`))?.calledAt ?? Infinity;
+    const reply = log.filter((s) => s.calledAt >= key && s.calledAt < noticeAt);
+    const notice = log.filter((s) => s.calledAt >= noticeAt);
+    if (!reply.length || !reply.every((s) => s.endAt && !s.cancelled)) problems.push(`[${name}] the reply was cut by the notice that arrived mid-turn`);
+    const replyEnd = Math.max(0, ...reply.map((s) => s.endAt ?? 0));
+    if (notice[0] && notice[0].startAt !== null && notice[0].startAt < replyEnd - 1) problems.push(`[${name}] the notice began ${ms(replyEnd - notice[0].startAt)} before the reply had ended`);
+    if (notice.some((s) => s.cancelled)) problems.push(`[${name}] the notice read after the reply was cut off`);
+    console.log(`[${name}] a notice mid-turn: read ${notice[0] && notice[0].startAt !== null ? ms(notice[0].startAt - replyEnd) : 'n/a'} after the reply ended, whole`);
+    await ctx.close();
+  }
+}
+
 await browser.close();
 console.log(`MEASURED ${JSON.stringify(measured)}`);
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Talk run clean: the first word within a second (typed and spoken), sentences queued with no gap, a cut silent within 150 ms and carried on from its sentence, the brain told what he heard, narration per step, ten turns with no tap, cooling down said within two seconds with its time, and Siri’s listen link.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Talk run clean: the first word within a second (typed and spoken), sentences queued with no gap, a cut silent within 150 ms and carried on from its sentence, the brain told what he heard, narration per step, ten turns with no tap, cooling down said within two seconds with its time, Siri’s listen link, and notices read in turn, never over the greeting or a reply.');
 process.exit(problems.length ? 1 : 0);
