@@ -279,10 +279,12 @@ for (const viewport of [PHONE, SMALL]) {
   await ctx.close();
 }
 
-// ===================================================================== 3. a link opens each: ?open=<screen>, and ?do=open:<screen>
+// ===================================================================== 3. a link opens them: ?open=<screen>, and ?do=open:<screen>
+// (a screen from each area here, each way; every one of the fourteen is held to both by the brain's test of the links,
+// apps/edge/test/resta.test.mjs, so this run stays inside its time)
 {
   const { ctx, page } = await open(PHONE);
-  for (const [i, id] of Object.keys(NEW).entries()) {
+  for (const [i, id] of ['kitchen', 'coach', 'house', 'social'].entries()) {
     const q = i % 2 ? `?do=open:${id}` : `?open=${id}`;
     await page.goto(`${base}/${q}`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
