@@ -4,12 +4,17 @@
 //    top; every label whole and readable, every button a finger's (44 pt; 56 on the television, where the bar stands up on
 //    the left and the d-pad's Enter opens Life);
 //  - every area's hub lists every tool of its area as a card, and its last card is reachable by a scroll, clear of the bar
-//    (Me's are the Me sheet's rows, SOCIAL among them);
+//    (Me's hub too, its cards the Me sheet's rows, SOCIAL among them); every card's words whole (its title, its readings'
+//    names, its why line, at both widths: the five-second test of 2 Nov), and IN THE WORKS on the two cards whose screens
+//    hold a table typed in by hand (LEARNING, COACH) and on no other;
 //  - each of the fourteen new screens (LIFE's eight packs; LEARN's learning pack and coach; MAKE's converter, documents and
 //    house; ME's social self) opens from its card, from Every screen and from the jump bar (by its name, and by a plain
 //    word from what it does), and from a link (?open=, ?do=open:); it shows its sheet's own pages under its pills, each page
 //    drawn when its pill is picked; at 390 × 844 nothing sticks out sideways and every control is named for VoiceOver and
-//    44 pt; opening a screen and its pages never starts the camera, the microphone or the phone's position;
+//    44 pt; its line at the top says what it holds (never left on "Reading…"); a page holding a table typed in by hand
+//    says so in one plain line over it (LEARNING's words and first aid, the COACH's words) and no other page does; at
+//    440 × 956 each opens on its first page whole too; opening a screen and its pages never starts the camera, the
+//    microphone or the phone's position;
 //  - the chat's doors still open the sheets: "when are the bins?" answers with HOME's bins in the chat and its chip opens the
 //    HOME sheet there; "typing test" opens the coach's sheet on TYPING; "convert this to PDF" the converter's sheet.
 // The preview's brain is shared with the specs before this one: nothing here needs it fresh, every chat check waits for the
@@ -33,7 +38,13 @@ const AREA_TOOLS = {
   ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
+  // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
+  me: ['memory', 'settings', 'system', 'links', 'abilities', 'social'],
 };
+/** The pages that hold a table typed in by hand, and what their one plain line says (ui/sheetpage.ts SheetPart.line). */
+const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AID': /NHS.*999/ }, coach: { WORDS: /starter set, typed in by hand/ } };
+/** The cards that carry IN THE WORKS (shell/hubcards.ts HubCard.works): the screens whose pages hold one of those tables. */
+const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
   money: { area: 'life', name: 'Money', word: 'statement', pills: [], pages: ['PASTE A STATEMENT'] },
@@ -116,6 +127,16 @@ const small = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=hid
     const r = { width: t.offsetWidth || t.getBoundingClientRect().width, height: t.offsetHeight || t.getBoundingClientRect().height };
     return r.width >= 43.5 && r.height >= 43.5 ? '' : `${t.tagName.toLowerCase()}${t.type ? `[${t.type}]` : ''} "${(t.getAttribute('aria-label') || t.textContent || '').trim().slice(0, 30)}" ${Math.round(r.width)}×${Math.round(r.height)}`;
   }).filter(Boolean).slice(0, 6));
+/** A hub card's words cut short (an ellipsis, or more lines than it shows): its title, its kicker, its readings' names, its
+ * why line and its IN THE WORKS line. (A reading's value is live — the sky, a game's name — and is not held here.) */
+const cutWords = (page, area) => page.$$eval(`#pg-area-${area} .hubgrid > .hubtile`, (cs) => cs.flatMap((c) => [...c.querySelectorAll('.t, .kick .nm, .rd em, .why:not([hidden]), .works span')]
+  .filter((e) => e.getClientRects().length && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 2))
+  .map((e) => `${c.dataset.id} "${e.textContent.trim().slice(0, 50)}" (${e.scrollWidth}×${e.scrollHeight} in ${e.clientWidth}×${e.clientHeight})`)));
+/** The line at the top of a screen: said once it is read (never left on "Reading…", never empty). */
+const heroSaid = (page, id, at) => until(page, (t) => {
+  const s = document.querySelector(`#pg-${t} .hero .bigv`)?.textContent?.trim() ?? '';
+  return !!s && s !== 'Reading…';
+}, id, 10000, async () => `${at} the line at its top reads "${await page.$eval(`#pg-${id} .hero .bigv`, (e) => e.textContent).catch(() => 'nothing')}"`);
 const sheetState = (page, id) => page.evaluate((t) => JSON.parse(JSON.stringify(window.__ghosty?.sheetpages?.[t] ?? null)), id);
 /** The page at rest: every animation that ends has ended (a page coming in is drawn a little smaller until it lands). */
 const settle = (page) => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
@@ -146,8 +167,11 @@ for (const viewport of [PHONE, SMALL]) {
   for (const x of await sideways(page, '#dock *, #top *')) problems.push(`[${W}] the bars stick out sideways: ${x}`);
   await page.screenshot({ path: `${out}/tabs-${W}-life.png` });
   // every area's hub: every tool a card, the last reachable by a scroll and clear of the bar
+  const works = [];
   for (const [area, ids] of Object.entries(AREA_TOOLS)) {
     await go(page, `area-${area}`, 1200);
+    for (const c of await cutWords(page, area)) problems.push(`[${W} ${area}] a card's words are cut short: ${c}`);
+    works.push(...(await page.$$eval(`#pg-area-${area} .hubtile .works`, (ws) => ws.map((w) => ({ id: w.closest('.hubtile')?.dataset.id, label: getComputedStyle(w.querySelector('b')).textTransform === 'uppercase' ? w.querySelector('b')?.textContent?.toUpperCase() : w.querySelector('b')?.textContent, line: w.querySelector('span')?.textContent?.trim() ?? '' })))));
     const h = await page.evaluate((a) => {
       const hub = document.querySelector(`#pg-area-${a} .hub`);
       const cards = [...(hub?.querySelectorAll('.hubgrid > .hubtile') ?? [])];
@@ -165,6 +189,8 @@ for (const viewport of [PHONE, SMALL]) {
     if (h.more) problems.push(`[${W} ${area}] a More row is still drawn`);
     for (const x of await sideways(page, `#pg-area-${area} *`)) problems.push(`[${W} ${area}] sticks out sideways: ${x}`);
   }
+  if (works.map((w) => w.id).sort().join(',') !== IN_THE_WORKS.join(',')) problems.push(`[${W}] IN THE WORKS is on ${works.map((w) => w.id).join(', ') || 'no card'} (want ${IN_THE_WORKS.join(', ')})`);
+  for (const w of works) if (w.label !== 'IN THE WORKS' || w.line.length < 12) problems.push(`[${W} ${w.id}] its IN THE WORKS reads "${w.label}: ${w.line}" (want the label and its one line)`);
   // Me: the avatar's sheet, its rows the area's screens, SOCIAL among them
   await go(page, 'core', 800);
   await page.click('#top .you');
@@ -194,6 +220,7 @@ for (const viewport of [PHONE, SMALL]) {
       await card.click({ timeout: 5000 }).catch(() => problems.push(`${at} has no card on the ${s.area} hub`));
     }
     await until(page, (t) => document.body.dataset.tab === t && window.__ghosty?.sheetpages?.[t]?.ready, id, 10000, async () => `${at} its card did not open it (on ${await tabNow(page)})`);
+    await heroSaid(page, id, at);
     // ---- its pages under its pills, each drawn when its pill is picked
     const pills = await page.$$eval(`#pg-${id} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? ''));
     if (pills.join('|') !== s.pills.join('|')) problems.push(`${at} the pills read "${pills.join(', ')}" (want "${s.pills.join(', ')}")`);
@@ -215,6 +242,12 @@ for (const viewport of [PHONE, SMALL]) {
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`${at} ${label || 'its page'}: the page scrolls sideways`);
       for (const u of await unnamed(page, shown)) problems.push(`${at} ${label || 'its page'}: a control with no name: ${u}`);
       for (const t of await small(page, shown)) problems.push(`${at} ${label || 'its page'}: under 44 pt: ${t}`);
+      // a page holding a table typed in by hand says so over it, in one plain line; no other page carries one
+      for (const l of await page.$$eval(`${shown}`, (ps) => ps.map((p) => ({ title: p.querySelector('.ptitle')?.textContent ?? '', line: p.querySelector(':scope > .bd > .sheetline')?.textContent ?? '' })))) {
+        const want = STAND_IN[id]?.[l.title];
+        if (want && !want.test(l.line)) problems.push(`${at} ${l.title}: its line over the page reads "${l.line}" (want ${want})`);
+        if (!want && l.line) problems.push(`${at} ${l.title}: a stand-in line on a page that holds none: "${l.line}"`);
+      }
     }
     // pages that are not on screen are not drawn (a pill shows its own; the rest wait)
     if (s.pills.length > 1) {
@@ -275,6 +308,31 @@ for (const viewport of [PHONE, SMALL]) {
       await hit.click();
       await until(page, (t) => document.body.dataset.tab === t, id, 6000, async () => `[jump bar] "${words}" → ${s.name} did not open it (on ${await tabNow(page)})`);
     }
+  }
+  await ctx.close();
+}
+
+// ===================================================================== 2b. the fourteen at 440 × 956, each on its first page
+{
+  const W = PHONE.width;
+  const { ctx, page } = await open(PHONE);
+  for (const id of Object.keys(NEW)) {
+    const at = `[${W} ${id}]`;
+    await go(page, id, 600);
+    const ok = await until(page, (t) => {
+      const shown = [...document.querySelectorAll(`#pg-${t} .pn`)].filter((p) => !p.hidden);
+      return document.body.dataset.tab === t && shown.length > 0 && shown.every((p) => p.querySelector(':scope > .bd')?.childElementCount && !p.querySelector('.sheetwait'));
+    }, id, 15000, async () => `${at} did not open on its first page drawn (${JSON.stringify(await sheetState(page, id))})`);
+    if (!ok) continue;
+    await heroSaid(page, id, at);
+    await page.waitForTimeout(400);
+    await settle(page);
+    const shown = `#pg-${id} .pn:not([hidden])`;
+    for (const x of await sideways(page, `${shown} *, #pg-${id} .secpills, #pg-${id} .hero *`)) problems.push(`${at} sticks out sideways: ${x}`);
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`${at} the page scrolls sideways`);
+    for (const u of await unnamed(page, shown)) problems.push(`${at} a control with no name: ${u}`);
+    for (const t of await small(page, shown)) problems.push(`${at} under 44 pt: ${t}`);
+    await page.screenshot({ path: `${out}/tabs-440-${id}.png` });
   }
   await ctx.close();
 }

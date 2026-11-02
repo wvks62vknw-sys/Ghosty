@@ -25,7 +25,12 @@ export const learningTab: TabDef = {
       sections: async () => {
         const m = await import('./sheet');
         type V = (typeof m.LEARN_VIEWS)[number]['id'];
-        const part = (id: V) => ({ title: (m.LEARN_VIEWS.find((v) => v.id === id)?.label ?? id).toUpperCase(), pack: 'learning', screen: id, build: () => m.learningView(id) });
+        // (a page whose content is a table written in says so, in one plain line: IN THE WORKS on its card until it is more)
+        const LINES: Partial<Record<V, string>> = {
+          words: 'These words are a starter set, typed in by hand: sixty in each of the eight languages, ten a day for six days, then round again. Not a dictionary yet.',
+          firstaid: 'These steps were typed in from the NHS’s first-aid pages, not read from them live: practise here, check nhs.uk, and in a real emergency call 999.',
+        };
+        const part = (id: V) => ({ title: (m.LEARN_VIEWS.find((v) => v.id === id)?.label ?? id).toUpperCase(), pack: 'learning', screen: id, ...(LINES[id] ? { line: LINES[id] } : {}), build: () => m.learningView(id) });
         return [
           { id: 'words', label: 'Words', parts: [part('words'), part('review')] },
           { id: 'draw', label: 'Draw', parts: [part('draw'), part('hand')] },

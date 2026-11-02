@@ -106,6 +106,9 @@ const voiceTap = () => {
  * readouts, from shell/hubcards.ts (or the tab's own TabDef.instrument / readouts / status). One button: a tap
  * anywhere opens the tool. `paint()` redraws it from the state in place, so a tap is never lost to a repaint.
  */
+/** [tabs] A reading that is a figure ("21", "0.4", "£1,240", "+0.7%", "8°C", "12:30"), set in the mono; anything else is words. */
+const isFigure = (v: string) => /^[-+−]?[£$€]?\d[\d.,:/]*(%|°[CF]?)?$/.test(v.trim());
+
 function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
   const c = CARDS[id];
   const word = h('em.st');
@@ -120,10 +123,12 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
     e.stopPropagation();
     navTo(c.lineTo, 'push');
   });
-  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
+  // [tabs] IN THE WORKS: a small label and its one line, on a card whose screen still holds a stand-in or a table written in
+  const works = c?.works ? h('span.works', h('b', 'In the works'), h('span', c.works)) : null;
+  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
     h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, reads, why, line,
+    title, works, reads, why, line,
   );
   let insKey: Element | null = null;
   const paint = () => {
@@ -140,7 +145,7 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
       insKey = drawn.cloneNode(true) as Element;
     }
     const rs = (t?.readouts ?? c.readouts)().slice(0, 2);
-    clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}` as 'span',
+    clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}${r.value != null && !isFigure(r.value) ? '.wd' : ''}` as 'span',
       h('em', r.label),
       h('b.tnum', r.value ?? r.none ?? 'Not yet', r.value != null && r.unit ? h('small', r.unit) : null))));
     const w = rs.some((r) => r.value == null) ? c.why?.() ?? '' : '';

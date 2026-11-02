@@ -14,7 +14,7 @@
  */
 import { clear, h } from '../core/dom';
 import type { TabInstance } from '../shell/tabs';
-import { panel, type Panel } from './components';
+import { button, panel, type Panel } from './components';
 import { page } from './page';
 import { sections, type Sections } from './sections';
 
@@ -35,6 +35,8 @@ export interface SheetPart {
   build?(): SheetScreen | Promise<SheetScreen>;
   /** Or a panel another screen makes too (LINKS' account panels), with what fills it. */
   made?: { panel: Panel; paint?(): unknown };
+  /** One plain line over the page when what it holds is a stand-in or a table written in (said, never hidden). */
+  line?: string;
 }
 
 /** A pill and the pages it shows. */
@@ -97,6 +99,8 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
     }
     if (x.live || x.want || !x.part.build) return;
     const ticket = (x.want = Date.now() + Math.random());
+    // (while it is made: a line saying so, never an empty frame)
+    clear(x.pn.body, h('p.pknote.sheetwait', { 'aria-live': 'polite' }, `Opening ${x.part.title.toLowerCase()}…`));
     void Promise.resolve()
       .then(() => x.part.build!())
       .then((made) => {
@@ -106,11 +110,19 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
           return;
         }
         x.live = made;
-        clear(x.pn.body, x.part.pack ? h('div.pk', { dataset: { pack: x.part.pack, screen: x.part.screen ?? '' } }, made.el) : made.el);
+        const line = x.part.line ? h('p.pknote.sheetline', x.part.line) : null;
+        clear(x.pn.body, line, x.part.pack ? h('div.pk', { dataset: { pack: x.part.pack, screen: x.part.screen ?? '' } }, made.el) : made.el);
         record();
       })
       .catch((e: Error) => {
-        if (x.want === ticket) clear(x.pn.body, h('p.note', `This page did not open: ${e?.message ?? e}`));
+        // (what went wrong in plain words, and a way to try again)
+        if (x.want !== ticket) return;
+        const again = button('Try again', () => {
+          x.want = 0;
+          show(x);
+        });
+        again.setAttribute('aria-label', `Try opening ${x.part.title.toLowerCase()} again`);
+        clear(x.pn.body, h('div.pkcol.sheeterr', h('p.note', `This page did not open: ${e?.message ?? e}`), again));
       })
       .finally(() => {
         if (x.want === ticket && !x.live) x.want = 0;

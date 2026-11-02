@@ -129,3 +129,51 @@ export function houseInst(on: number | null, of: number | null): SVGSVGElement {
     box(lit > 2 ? 'lit' : 'ln2', 52, 66, 16, 12), path(lit > 3 ? 'lit' : 'ln2', 'M92 82V68h16v14'),
   );
 }
+
+/** MEMORY: the facts I keep as a constellation, a star lit for each (up to nine), joined as I join them. */
+export function memoryInst(n: number | null): SVGSVGElement {
+  const at = [[30, 30], [52, 62], [70, 22], [84, 52], [104, 30], [118, 66], [134, 40], [46, 78], [96, 76]] as const;
+  const k = clamp(n ?? 0, 0, at.length);
+  const joins = [[0, 1], [0, 2], [2, 3], [1, 3], [3, 4], [4, 6], [3, 5], [5, 6], [1, 7], [5, 8], [3, 8]] as const;
+  return art(
+    ...joins.map(([a, b]) => path(a < k && b < k ? 'ln' : 'ln2', `M${at[a][0]} ${at[a][1]}L${at[b][0]} ${at[b][1]}`)),
+    ...at.map(([x, y], i) => dot(i < k ? 'fl' : 'ln2', x, y, i < k ? 3.4 : 2.6)),
+  );
+}
+
+/** SETTINGS: three of his switches as sliders (my voice, home set, the sounds), each knob lit and to the right when on. */
+export function settingsInst(on: boolean[]): SVGSVGElement {
+  return art(...[0, 1, 2].flatMap((i) => {
+    const y = 24 + i * 22;
+    const lit = !!on[i];
+    return [path('ln2', `M30 ${y}h100`), lit ? path('lit', `M30 ${y}h${70}`) : null, dot(lit ? 'fl' : 'ln', lit ? 100 : 46, y, 5.5)];
+  }));
+}
+
+/** SYSTEM: the brain's keys as a row of slots, as many lit as are set, over the database's day as a bar (lit as it fills). */
+export function systemInst(set: number | null, of: number | null, level: number | null): SVGSVGElement {
+  const lit = of ? Math.round(((set ?? 0) / of) * 10) : 0;
+  const w = level == null ? 0 : clamp(level, 0, 1) * 112;
+  return art(
+    ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => box(i < lit ? 'lit' : 'ln2', 24 + i * 11.6, 22, 7, 16, 1.5)),
+    path('ln2', 'M24 64h112'), w ? path('lit', `M24 64h${f(w)}`) : null, path('ln', 'M24 58v12M136 58v12'),
+  );
+}
+
+/** LINKS: me in the middle and five of the things I am plugged into round me (email, Telegram, GitHub, traffic, the house), each set one lit. */
+export function linksInst(on: (boolean | null)[]): SVGSVGElement {
+  const at = [[28, 26], [132, 26], [28, 68], [132, 68], [80, 82]] as const;
+  return art(
+    box('ln', 66, 32, 28, 22, 6),
+    ...at.flatMap(([x, y], i) => {
+      const lit = !!on[i];
+      return [path(lit ? 'lit' : 'ln2', `M${x} ${y}L${x < 80 ? 66 : x > 80 ? 94 : 80} ${y < 47 ? 38 : y > 70 ? 54 : 48}`), dot(lit ? 'fl' : 'ln', x, y, 5)];
+    }),
+  );
+}
+
+/** ABILITIES: everything I can do as a grid of cells, as many lit as the share of them that can work now. */
+export function abilitiesInst(ready: number | null, all: number | null): SVGSVGElement {
+  const lit = all ? Math.max(ready ? 1 : 0, Math.round(((ready ?? 0) / all) * 24)) : 0;
+  return art(...Array.from({ length: 24 }, (_, i) => box(i < lit ? 'lit' : 'ln2', 26 + (i % 8) * 14.5, 18 + Math.floor(i / 8) * 20, 9, 9, 2)));
+}

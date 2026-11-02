@@ -5803,6 +5803,20 @@ canvas.buildplan { display: block; max-width: 100%; }
    are given the few points more here (the sheets over the chat are drawn as they were) */
 html .sheetpg .pn > .bd :is(button, [role="button"]) { min-height: 44px !important; }
 html .sheetpg .pn > .bd :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select) { min-height: 44px; }
+/* the plain line over a page that holds a stand-in or a table written in, in the IN THE WORKS amber; while a page is made, its line */
+.sheetpg .pn > .bd > .sheetline { margin: 2px 0 12px; padding: 9px 12px; border-radius: 12px; font: 400 13.5px/1.45 var(--sf); color: var(--fg); background: rgba(var(--ar), .1); box-shadow: inset 3px 0 0 rgba(var(--ar), .75); }
+.sheetpg .pn > .bd > .sheetwait { margin: 6px 0; }
+/* IN THE WORKS on a hub card: at its foot, under a dashed rule in the warning amber, the small label and its one line whole
+   (two lines at most): what on the screen is still a stand-in or a table written in */
+html .hubtile .works { order: 7; display: block; min-width: 0; margin-top: 9px; padding-top: 8px; border-top: 1px dashed rgba(var(--ar), .35); white-space: normal; }
+html .hubtile .works b { display: block; font: 600 10.5px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--a); }
+html .hubtile .works span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font: 400 12px/15px var(--sf); color: var(--ink2); }
+/* A card's words whole (the five-second test: what it does, and what to tap first, read at a glance): its title takes a
+   second line rather than an ellipsis, its why line two, and a reading that is a word ("Partly cloudy", "Elevated",
+   "Linked") is set in the text face at the size of an unknown one, so it fits a half card at 390; numbers stay in the mono */
+html .hubtile .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-wrap: balance; }
+html .hubtile .why:not([hidden]) { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html .hubtile .rd.wd b { padding: 2px 0; font: 500 14px/18px var(--sf); letter-spacing: -.1px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* [tabs] The hubs scroll now (every tool of an area is a card: BRIEF-TABS 3). The hub is a column flexbox, and a child that
    clips its overflow (the line under the title, clamped to two lines) has an automatic minimum height of nothing: with more
    cards than the screen holds it was the one squeezed, to no height at all (the More row's fault of 1 Nov, OWNER-ISSUES

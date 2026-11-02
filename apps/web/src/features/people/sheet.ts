@@ -116,6 +116,8 @@ function whoSheet(): HTMLElement {
   };
   const load = async () => {
     const r = await say('who', { words: 'everyone' });
+    // [tabs] not answered: said so on the page, rather than "you haven't told me about anyone"
+    if (!r.text && r.data === undefined) return void list.replaceChildren(h('p.pknote', 'My brain didn’t answer, so I can’t read your people just now.'));
     peopleState.people = ((r.data as { people?: PersonRow[] } | undefined)?.people ?? []).slice();
     paint();
   };

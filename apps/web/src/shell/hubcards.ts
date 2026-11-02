@@ -52,7 +52,8 @@ import { allScores } from '../arcade/scores';
 // [tabs] what the new screens' cards read (BRIEF-TABS 3)
 import { ACCOUNTS } from '../../../../packages/shared/src/social';
 import { mmss } from '../../../../packages/shared/src/kitchen';
-import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, moneyInst, outsideInst, peopleInst, socialInst, workInst } from '../ui/lifeinst';
+import { abilitiesInst, bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
+import { checkStorage, storageState } from '../features/system/storage';
 import { bodyState } from '../features/body/sheet';
 import { CREATIVE_TITLES } from '../features/creative/sheet';
 import { saved as creativeSaved } from '../features/creative/draw';
@@ -86,6 +87,18 @@ export interface HubCard {
   /** A status line of its own under the readouts, and where a tap on it goes (God's Eye: the Machine view, `eye?machine`). */
   line?(): string;
   lineTo?: string;
+  /**
+   * [tabs] Its reading as one line, as a person says it ("£1,240 out in October, most on groceries", "Recycling tomorrow"):
+   * the top of its screen (ui/sheetpage.ts) and its live line in Every screen. '' while it has nothing read yet.
+   */
+  say?(): string;
+  /** [tabs] What its screen says at the top when there is no reading to say (a card read on this phone only, nothing there yet). */
+  idle?: string;
+  /**
+   * [tabs] IN THE WORKS: what on it is still a stand-in, a first estimate or a table written in (one plain line, on the card
+   * under a small IN THE WORKS label), until it is the real thing.
+   */
+  works?: string;
 }
 
 /* ------------------------------------------------------------------ the few reads a hub makes */
@@ -127,6 +140,8 @@ export const hubFacts = {
   learning: null as { streak: number; today: boolean; skills: number } | null,
   coach: null as { streak: number; today: boolean; passed: number } | null,
   social: null as { waiting: number; linked: boolean[] } | null,
+  /** ABILITIES (the Me hub): everything I can do, and how many of them cannot work yet (each says why: a key, a link). */
+  abilities: null as { all: number; off: number } | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
 const loadArcade = every(3_000, async () => {
@@ -154,6 +169,19 @@ const loadKept = every(30_000, async () => {
 });
 const loadProjects = every(120_000, async () => (hubFacts.projects = (await brain.projects()).projects));
 const loadStatus = every(120_000, () => brain.status());
+// [tabs] the Me hub's cards: the facts as the Memory screen reads them (kept on this phone as it does), this phone's storage
+// as SYSTEM measures it (never asking to keep it), and the abilities as the ABILITIES screen counts them
+const loadMemory = every(120_000, () => brain.memory());
+const loadStorage = every(60_000, () => checkStorage(false));
+const loadAbilities = every(300_000, async () => {
+  const m = await import('../abilities/registry');
+  await m.loadBrainSide();
+  const all = m.allAbilities();
+  hubFacts.abilities = { all: all.length, off: all.filter((a) => a.off).length };
+});
+/** [tabs] The brain's keys as it last told this phone (null: not heard yet), and whether one of them is set. */
+const keysNow = () => lastSeen.get().status?.keys ?? null;
+const keySet = (name: string) => keysNow()?.find((k) => k.name === name)?.set ?? null;
 // [tabs] the reads the new screens' pages make when they open, made by their cards when the hub opens (each pack's own
 // read actions, or what the page itself reads first; no model, nothing changed)
 const loadMoney = every(300_000, async () => {
@@ -238,6 +266,16 @@ function dayWords(day: string, now = Date.now()): string {
   if (d.toDateString() === new Date(now + 86_400_000).toDateString()) return 'Tomorrow';
   return d.toLocaleDateString('en-GB', Math.abs(t - now) < 6 * 86_400_000 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
 }
+/** [tabs] "Oct" or "October" for a month (YYYY-MM). */
+const monthOf = (ym: string, month: 'short' | 'long') => new Date(`${ym}-15T12:00:00`).toLocaleDateString('en-GB', { month });
+/** [tabs] A day in a sentence: "today", "tomorrow", "on Tuesday", "on 14 March". */
+function dayPhrase(day: string, now = Date.now()): string {
+  const d = daysTo(day, now);
+  if (d === 0) return 'today';
+  if (d === 1) return 'tomorrow';
+  const t = new Date(`${day}T12:00:00`);
+  return `on ${t.toLocaleDateString('en-GB', d > 1 && d < 7 ? { weekday: 'long' } : { day: 'numeric', month: 'long' })}`;
+}
 /** Days from today to `day` (0: today). */
 const daysTo = (day: string, now = Date.now()) => Math.round((Date.parse(`${day}T12:00:00`) - new Date(now).setHours(12, 0, 0, 0)) / 86_400_000);
 /** The kitchen's timer that rings next (or is ringing). */
@@ -306,7 +344,7 @@ export const CARDS: Record<string, HubCard> = {
     // while the Machine view is on, its reading first ("WATCHING · 41 AIR · 188 TRANSIT": the quick switcher shows it too)
     readouts: () => [
       machineState.on ? { label: 'Machine', value: machineState.hub || 'WATCHING', live: true } : { label: 'Aircraft', value: air.list.size ? fmt.n(air.list.size) : null, live: air.list.size > 0 },
-      { label: 'Quakes 24 h', value: n(quakesToday()), live: quakesToday() != null },
+      { label: 'Quakes', value: n(quakesToday()), unit: 'in 24 h', live: quakesToday() != null },
     ],
     // the status line: a tap opens God's Eye in the Machine view
     line: () => (machineState.on ? machineState.hub || 'WATCHING' : 'MACHINE VIEW'),
@@ -360,7 +398,7 @@ export const CARDS: Record<string, HubCard> = {
     load: loadReverse,
   },
   space: {
-    title: 'Plan a room to scale',
+    title: 'Rooms to scale',
     status: () => 'READY',
     instrument: planInst,
     readouts: () => {
@@ -393,11 +431,16 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Last', value: t ? t.last : null, none: '—' },
       ];
     },
-    why: () => (convertTally() ? '' : 'Choose a file, or drop one on the chat: nothing is uploaded'),
+    why: () => (convertTally() ? '' : 'Choose a file, or drop one: nothing is uploaded'),
+    say: () => {
+      const t = convertTally();
+      return t ? `${fmt.n(t.n)} done on this phone, the last ${t.last}` : '';
+    },
+    idle: 'Nothing converted yet: choose or drop a file below',
   },
   // [reste] MAKE → DOCUMENTS (docs/sheet.ts): read, write, edit and translate; kept on this phone
   docs: {
-    title: 'Read, write, translate',
+    title: 'Letters and files',
     status: () => 'READY',
     instrument: docsInst,
     readouts: () => {
@@ -407,7 +450,12 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Last', value: all[0]?.title ?? null, none: '—' },
       ];
     },
-    why: () => (listDocs().length ? '' : 'Ask me to write a letter, or open a PDF, Word file or e-book'),
+    why: () => (listDocs().length ? '' : 'Write a letter, or open a PDF or Word file'),
+    say: () => {
+      const all = listDocs();
+      return all.length ? `${all.length} ${all.length === 1 ? 'document' : 'documents'} on this phone, the newest “${all[0]!.title}”` : '';
+    },
+    idle: 'No documents yet: start a new one, or open a file',
   },
   learn: {
     title: 'Learn anything',
@@ -462,7 +510,7 @@ export const CARDS: Record<string, HubCard> = {
       const s = hubFacts.school;
       return [
         { label: 'Stage', value: s ? s.label : null, none: s === false ? 'Not set up' : 'Not yet' },
-        { label: 'Papers sat', value: schoolState.stage ? String(schoolState.results) : null, none: '—' },
+        { label: 'Papers', value: schoolState.stage ? String(schoolState.results) : null, none: '—' },
       ];
     },
     why: () => (hubFacts.school === false ? 'Download his school in Settings' : ''),
@@ -484,7 +532,7 @@ export const CARDS: Record<string, HubCard> = {
   // [arcade] the ARCADE's card on Learn (1 Nov; it had no card, so the owner could not find it): free classics and our own
   // games, played on this phone; LIVE while one is playing comes from the tab itself (features/arcade: arcadeTab.status)
   arcade: {
-    title: 'Play free classics, no adverts',
+    title: 'Free classics',
     status: () => 'READY',
     instrument: () => levelInst(hubFacts.arcade?.here ?? null, SHELF.length),
     readouts: () => {
@@ -492,10 +540,10 @@ export const CARDS: Record<string, HubCard> = {
       const title = last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
       return [
         { label: 'Games', value: String(SHELF.length), unit: 'free' },
-        { label: 'Last played', value: title, none: 'None yet' },
+        { label: 'Last game', value: title, none: 'None yet' },
       ];
     },
-    why: () => (hubFacts.arcade ? `${hubFacts.arcade.here} of ${SHELF.length} ready on this phone; the rest are fetched on Wi-Fi when you ask` : ''),
+    why: () => (hubFacts.arcade ? `${hubFacts.arcade.here} of ${SHELF.length} here; the rest on Wi-Fi, when you ask` : ''),
     load: loadArcade,
   },
   agenda: {
@@ -554,14 +602,14 @@ export const CARDS: Record<string, HubCard> = {
     load: () => Promise.all([quakes.refresh(), events.refresh()]),
   },
   radio: {
-    title: 'Radio from everywhere',
+    title: 'World radio',
     status: () => (player.get().state === 'playing' ? 'LIVE' : player.get().state === 'paused' ? 'READY' : 'OFF'),
     instrument: () => dialInst(player.get().state === 'playing'),
     readouts: () => {
       const p = player.get();
       return [
         { label: 'On air', value: p.state === 'playing' && p.now ? p.now.name : null, none: p.state === 'paused' && p.now ? `${p.now.name} · paused` : 'Off air', live: p.state === 'playing' },
-        { label: 'Favourites', value: String(favourites.list().length) },
+        { label: 'Saved', value: String(favourites.list().length) },
       ];
     },
   },
@@ -574,11 +622,17 @@ export const CARDS: Record<string, HubCard> = {
       const m = hubFacts.money;
       const none = m === false ? 'None yet' : 'Not yet';
       return [
-        { label: 'Spent', value: m ? `£${fmt.n(Math.round(m.out))}` : null, unit: m ? new Date(`${m.month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'short' }) : '', none },
+        { label: 'Spent', value: m ? `£${fmt.n(Math.round(m.out))}` : null, unit: m ? monthOf(m.month, 'short') : '', none },
         { label: 'Most on', value: m && m.cats[0] ? niceCase(m.cats[0].c) : null, none },
       ];
     },
     why: () => (hubFacts.money === false ? 'Paste a statement: read by rules, no bank access' : ''),
+    say: () => {
+      const m = hubFacts.money;
+      if (m == null) return '';
+      if (m === false) return 'No statement yet: paste one below, or pick its CSV or PDF';
+      return `£${fmt.n(Math.round(m.out))} out in ${monthOf(m.month, 'long')}${m.cats[0] ? `, most on ${m.cats[0].c}` : ''}`;
+    },
     load: loadMoney,
   },
   body: {
@@ -591,6 +645,13 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Active', value: b ? String(b.days) : null, unit: b ? (b.days === 1 ? 'day' : 'days') : '' },
         { label: 'Reps', value: b ? fmt.n(b.reps) : null, unit: b && b.km ? `${b.km} km` : '' },
       ];
+    },
+    why: () => 'Count your squats, or start a run',
+    say: () => {
+      const b = hubFacts.body;
+      if (!b) return '';
+      if (!b.days) return 'Nothing logged this week: count some squats, or start a run';
+      return `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
     },
     load: loadBody,
   },
@@ -610,6 +671,15 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Next', value: t ? (t.ringing ? 'Ringing' : mmss(t.left)) : null, unit: t ? t.name : '', none: '—', live: !!t },
       ];
     },
+    why: () => 'Set one, or say “timer 8 minutes for the pasta”',
+    say: () => {
+      if (!kitchenTimers) return '';
+      const all = kitchenTimers.timersNow();
+      const t = nextTimer();
+      if (!t) return 'No timers running';
+      if (t.ringing) return `The ${t.name} timer is ringing`;
+      return all.length === 1 ? `The ${t.name} timer: ${mmss(t.left)} to go` : `${all.length} timers running, the ${t.name} next in ${mmss(t.left)}`;
+    },
     load: loadKitchen,
   },
   people: {
@@ -624,6 +694,12 @@ export const CARDS: Record<string, HubCard> = {
       ];
     },
     why: () => (hubFacts.people && !hubFacts.people.n ? 'Tell me about someone: “Sam is my cousin”' : ''),
+    say: () => {
+      const p = hubFacts.people;
+      if (!p) return '';
+      if (!p.n) return 'No one yet: tell me about someone and I keep it';
+      return `${p.n} ${p.n === 1 ? 'person' : 'people'} you told me about${p.next ? `; ${p.next.name}’s birthday ${dayPhrase(p.next.on)}` : ''}`;
+    },
     load: loadPeople,
   },
   work: {
@@ -637,6 +713,14 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Done', value: w ? String(w.done) : null },
       ];
     },
+    why: () => 'Add a job, or practise an interview out loud',
+    say: () => {
+      const w = hubFacts.work;
+      if (!w) return '';
+      if (!w.open && !w.done) return 'Nothing on your list yet';
+      if (!w.open) return `All done: ${w.done} ticked off`;
+      return `${w.open} to do${w.done ? `, ${w.done} done` : ''}`;
+    },
     load: loadWork,
   },
   creative: {
@@ -648,9 +732,12 @@ export const CARDS: Record<string, HubCard> = {
       { label: 'Makes', value: String(Object.keys(CREATIVE_TITLES).length) },
       { label: 'Saved', value: creativeSaved.name || null },
     ],
+    why: () => 'A song, a poster, a card or a beat, made here',
+    say: () => (creativeSaved.name ? `Last saved: ${creativeSaved.name}` : ''),
+    idle: 'Seven things to make here, saved to your phone only when you tap',
   },
   outside: {
-    title: 'Out and about',
+    title: 'Find what’s near',
     status: () => 'READY',
     instrument: () => outsideInst(!!hubFacts.outside?.car),
     readouts: () => {
@@ -661,6 +748,9 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Nearby', value: String(NEARS.length), unit: 'kinds' },
       ];
     },
+    why: () => 'Toilets, cash, parking and a safer walk',
+    say: () => (hubFacts.outside?.car ? `Your car: ${hubFacts.outside.car}` : ''),
+    idle: 'No car kept: when you park, tap My car and I keep the spot',
     load: loadOutside,
   },
   homeadmin: {
@@ -676,11 +766,19 @@ export const CARDS: Record<string, HubCard> = {
       ];
     },
     why: () => (hubFacts.home && !hubFacts.home.length ? 'Tell me your bin days, or photograph a bill' : ''),
+    say: () => {
+      const l = hubFacts.home;
+      if (!l) return '';
+      const next = l.find((x) => daysTo(x.on) >= 0);
+      if (!next) return 'Nothing due at home that I know of';
+      const soon = l.filter((x) => daysTo(x.on) >= 0 && daysTo(x.on) < 14).length;
+      return `${niceCase(next.text)} ${dayPhrase(next.on)}${soon > 1 ? `; ${soon} things due in the next fortnight` : ''}`;
+    },
     load: loadHome,
   },
   // ---------------------------------------------------------------- [tabs] LEARN: the learning pack and the coach
   learning: {
-    title: 'A little a day',
+    title: 'Words and maths',
     status: () => 'READY',
     instrument: () => learningInst(hubFacts.learning?.streak ?? null),
     readouts: () => {
@@ -690,10 +788,20 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Skills', value: l ? String(l.skills) : null },
       ];
     },
+    why: () => 'Ten words a day, typing, maths and first aid',
+    say: () => {
+      const l = hubFacts.learning;
+      if (!l) return '';
+      if (!l.skills) return 'Nothing practised yet: start with today’s ten words';
+      return `${l.streak}-day streak${l.today ? ', practised today' : ''}; ${l.skills} ${l.skills === 1 ? 'skill' : 'skills'} logged`;
+    },
+    // (its words and its first-aid steps are tables written in, not from a live source: said on the screen too)
+    works: 'Its words and first aid are typed in by hand',
     load: loadLearning,
   },
   coach: {
     title: 'Music and typing',
+    works: 'Its words are a starter set, typed in by hand',
     status: () => 'READY',
     instrument: () => coachInst(!!hubFacts.coach?.today, hubFacts.coach?.streak ?? 0),
     readouts: () => {
@@ -703,6 +811,13 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Passed', value: c ? String(c.passed) : null, unit: c?.passed === 1 ? 'lesson' : 'lessons' },
       ];
     },
+    why: () => 'A tuner, and lessons that hear you play',
+    say: () => {
+      const c = hubFacts.coach;
+      if (!c?.streak) return '';
+      return `${c.streak}-day streak${c.today ? ', practised today' : ''}${c.passed ? `; ${c.passed} ${c.passed === 1 ? 'lesson' : 'lessons'} passed` : ''}`;
+    },
+    idle: 'Practise today and the streak starts; it all stays on this phone',
     load: loadCoach,
   },
   // ---------------------------------------------------------------- [tabs] MAKE: the house (the converter and the documents are above)
@@ -721,12 +836,21 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Lights on', value: v?.linked ? String(l.on) : null, none: v ? '—' : 'Not yet' },
       ];
     },
-    why: () => (houseNow.get().view?.linked === false ? 'Link your own Home Assistant: SYSTEM → KEYS' : ''),
+    why: () => (houseNow.get().view?.linked === false ? 'Link Home Assistant in SYSTEM → KEYS' : ''),
+    say: () => {
+      const st = houseNow.get();
+      const v = st.view;
+      if (!v) return st.offline ? 'Offline: I can’t reach my brain, so I can’t reach your house' : '';
+      if (!v.linked) return 'Not linked yet: the steps are below, and it needs nothing paid';
+      const rooms = new Set(v.entities.map((e) => e.area || 'Elsewhere')).size;
+      const l = houseLit();
+      return `${v.entities.length} ${v.entities.length === 1 ? 'thing' : 'things'} in ${rooms} ${rooms === 1 ? 'room' : 'rooms'}${l.of ? `; ${l.on} ${l.on === 1 ? 'light' : 'lights'} on` : ''}`;
+    },
     load: () => loadHouse(),
   },
   // ---------------------------------------------------------------- [tabs] ME: his social self
   social: {
-    title: 'Posts wait for you',
+    title: 'Approve your posts',
     status: () => 'READY',
     instrument: () => socialInst(hubFacts.social?.linked ?? null, hubFacts.social?.waiting ?? 0),
     readouts: () => {
@@ -736,7 +860,88 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Linked', value: s ? String(s.linked.filter(Boolean).length) : null, unit: s ? `of ${s.linked.length}` : '' },
       ];
     },
+    why: () => 'Nothing goes out without your APPROVE',
+    say: () => {
+      const s = hubFacts.social;
+      if (!s) return '';
+      const linked = s.linked.filter(Boolean).length;
+      if (s.waiting) return `${s.waiting} ${s.waiting === 1 ? 'post waits' : 'posts wait'} for your APPROVE`;
+      if (!linked) return 'No account linked yet: the steps are under Accounts';
+      return `Nothing waiting; ${linked} of ${s.linked.length} accounts linked`;
+    },
     load: loadSocial,
+  },
+  // ---------------------------------------------------------------- [tabs] ME: the Me sheet's screens, each a card of its own
+  memory: {
+    title: 'What I remember',
+    status: () => 'READY',
+    instrument: () => memoryInst(offline.get().memory?.length ?? null),
+    readouts: () => {
+      const m = offline.get().memory;
+      const newest = m?.length ? Math.max(...m.map((f) => f.at)) : 0;
+      return [
+        { label: 'Facts', value: m?.length ? fmt.n(m.length) : null, none: m ? 'None yet' : 'Not yet' },
+        { label: 'Newest', value: newest ? dayWords(new Date(newest).toLocaleDateString('en-CA')) : null, none: m ? 'None yet' : 'Not yet' },
+      ];
+    },
+    why: () => 'Tell me something about you, and I keep it',
+    load: loadMemory,
+  },
+  settings: {
+    title: 'Voice and home',
+    status: () => 'READY',
+    instrument: () => settingsInst([settings.get().speak, !!settings.get().home, settings.get().sounds]),
+    readouts: () => [
+      { label: 'Voice', value: settings.get().speak ? 'On' : 'Off' },
+      { label: 'Units', value: settings.get().units === 'imperial' ? 'Imperial' : 'Metric' },
+    ],
+  },
+  system: {
+    title: 'Keys and storage',
+    status: () => 'READY',
+    instrument: () => {
+      const k = keysNow();
+      return systemInst(k ? k.filter((x) => x.set).length : null, k?.length ?? null, lastSeen.get().status?.meter?.level ?? null);
+    },
+    readouts: () => {
+      const k = keysNow();
+      const used = storageState.get().usage;
+      return [
+        { label: 'Keys', value: k ? String(k.filter((x) => x.set).length) : null, unit: k ? `of ${k.length}` : '' },
+        { label: 'On phone', value: used >= 0 ? fmt.n(used / 1_048_576, used < 10_485_760 ? 1 : 0) : null, unit: 'MB' },
+      ];
+    },
+    why: () => 'Read from my brain when you open it',
+    load: () => Promise.all([loadStatus(), loadStorage()]),
+  },
+  links: {
+    title: 'Link your email',
+    status: () => 'READY',
+    instrument: () => linksInst(['email', 'telegram', 'github', 'tomtom', 'homeassistant'].map((n) => keySet(n))),
+    readouts: () => {
+      const said = (on: boolean | null) => (on ? 'Linked' : null);
+      const none = (on: boolean | null) => (on === false ? 'Not set up' : 'Not yet');
+      return [
+        { label: 'Email', value: said(keySet('email')), none: none(keySet('email')) },
+        { label: 'Telegram', value: said(keySet('telegram')), none: none(keySet('telegram')) },
+      ];
+    },
+    why: () => 'Email, Spotify and Telegram, linked once',
+    load: loadStatus,
+  },
+  abilities: {
+    title: 'All I can do',
+    status: () => 'READY',
+    instrument: () => abilitiesInst(hubFacts.abilities ? hubFacts.abilities.all - hubFacts.abilities.off : null, hubFacts.abilities?.all ?? null),
+    readouts: () => {
+      const a = hubFacts.abilities;
+      return [
+        { label: 'Abilities', value: a ? fmt.n(a.all) : null },
+        { label: 'Not ready', value: a?.off ? fmt.n(a.off) : null, none: a ? 'None' : 'Not yet' },
+      ];
+    },
+    why: () => 'Tap any one, and it explains itself',
+    load: loadAbilities,
   },
 };
 

@@ -25,7 +25,9 @@ export const coachTab: TabDef = {
       sections: async () => {
         const m = await import('../../coach/sheet');
         // (a practice kept lights the streak at the top, as the sheet's line does)
-        return m.COACH_TABS.map((t) => ({ id: t.id, label: t.label.charAt(0) + t.label.slice(1).toLowerCase(), parts: [{ title: t.label, pack: 'coach', screen: t.id, build: () => m.coachScreen(t.id, {}, () => void cardLoad('coach').then(inst.repaint)) }] }));
+        // (the words of the day are a table written in: said in one plain line on that page)
+        const line = (id: string) => (id === 'words' ? { line: 'The words of the day are a starter set, typed in by hand: forty in each of four languages, ten a day, round again every four days. Not a dictionary yet.' } : {});
+        return m.COACH_TABS.map((t) => ({ id: t.id, label: t.label.charAt(0) + t.label.slice(1).toLowerCase(), parts: [{ title: t.label, pack: 'coach', screen: t.id, ...line(t.id), build: () => m.coachScreen(t.id, {}, () => void cardLoad('coach').then(inst.repaint)) }] }));
       },
     });
     return inst;
