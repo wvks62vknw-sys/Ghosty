@@ -147,7 +147,9 @@ await clean();
   log('home');
   const bins = await ask(page, 'bins are Tuesday, recycling every other Tuesday, next recycling is 10 November', /Kept: Rubbish: every Tuesday; Recycling: every other Tuesday/, W, 'the bin days were not kept');
   if (bins && !/Recycling: every other Tuesday \(next from Tue 10 Nov\)/.test(bins)) problems.push(`[${W}] the recycling anchor: ${bins}`);
-  await ask(page, 'when are the bins?', /Rubbish: \w{3} \d+ \w{3}, then \w{3} \d+ \w{3}[^]*Recycling: \w{3} \d+ \w{3}, then/, W, '"when are the bins?" did not answer from the kept days');
+  // (a date that is today or tomorrow carries its note, "Tue 3 Nov (tomorrow)", as the brain's binLines says it; the check
+  // missed that note and so failed on the day before and the day of a collection. Fixed 2 Nov 2026, a Monday; the rule as it was)
+  await ask(page, 'when are the bins?', /Rubbish: \w{3} \d+ \w{3}(?: \((?:today|tomorrow)\))?, then \w{3} \d+ \w{3}[^]*Recycling: \w{3} \d+ \w{3}(?: \((?:today|tomorrow)\))?, then/, W, '"when are the bins?" did not answer from the kept days');
   // the sheet: a bill pasted → kept → paid; a meter; a room's things as CSV
   if (await open(page, 'open_homeadmin', { what: 'bills' }, 'bills', W, 'the HOME sheet did not open on the bills')) {
     const bill = `British Gas\nYour energy bill\nStatement date: ${dayWords(-3)}\nBilling period 1 Oct 2026 to 31 Oct 2026\nTotal amount due £84.20\nPlease pay by ${dayWords(10)}`;
