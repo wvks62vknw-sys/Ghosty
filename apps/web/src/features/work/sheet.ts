@@ -11,7 +11,9 @@ import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
-const TITLES: Record<WorkWhat, string> = { doc: 'DOCUMENT', interview: 'INTERVIEW PRACTICE', todo: 'TO-DO' };
+/** Each sheet's name, as its title and as its panel on the WORK screen (features/work/index.ts). */
+export const WORK_TITLES: Record<WorkWhat, string> = { doc: 'DOCUMENT', interview: 'INTERVIEW PRACTICE', todo: 'TO-DO' };
+const TITLES = WORK_TITLES;
 
 export const workState = {
   open: '' as '' | WorkWhat,
@@ -26,9 +28,7 @@ let stopNow: (() => void) | null = null;
 export async function openWork(what: string, args: Record<string, unknown> = {}): Promise<void> {
   const w: WorkWhat = what === 'interview' || what === 'todo' ? what : 'doc';
   open?.close();
-  const win = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (win.__ghosty) win.__ghosty.work = workState;
-  const s = w === 'interview' ? interviewScreen(args) : w === 'todo' ? todoScreen() : docScreen(args);
+  const s = workScreen(w, args);
   workState.open = w;
   stopNow = s.stop;
   open = modal(typeof args.title === 'string' && w === 'doc' ? args.title.slice(0, 30) : TITLES[w], h('div.pk', { dataset: { pack: 'work', screen: w } }, s.el), () => {
@@ -42,6 +42,13 @@ export async function openWork(what: string, args: Record<string, unknown> = {})
 interface Screen {
   el: HTMLElement;
   stop(): void;
+}
+
+/** One sheet's page, made by its own function (the sheet's, and the WORK screen's panels). */
+export function workScreen(w: WorkWhat, args: Record<string, unknown> = {}): Screen {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.work = workState;
+  return w === 'interview' ? interviewScreen(args) : w === 'todo' ? todoScreen() : docScreen(args);
 }
 
 /** A document as text he can copy or share; an email also opens in his mail app on his tap. */

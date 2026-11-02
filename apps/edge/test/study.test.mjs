@@ -26,11 +26,18 @@ const QUARTER = 15 * 60_000;
 const HOUR = 3600_000;
 const seen = [];
 let wikiDown = false;
+/** Run once at the next page read (the owner's request arriving while a session reads), then cleared. */
+let midRead = null;
 const lorem = (title) => `${title} is explained here in detail. ${Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1} about ${title}: it matters for a builder because of what it lets you do, with examples, pitfalls and the words people use for it.`).join(' ')}`;
 // Every source kind the curriculum can name answers with a page about the topic asked for.
 globalThis.fetch = async (input) => {
   const url = new URL(typeof input === 'string' ? input : input.url);
   seen.push(url.hostname + url.pathname);
+  if (midRead) {
+    const f = midRead;
+    midRead = null;
+    await f();
+  }
   const j = (o) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
   const html = (t, b) => new Response(`<html><head><title>${t}</title></head><body><p>${b}</p></body></html>`, { headers: { 'content-type': 'text/html' } });
   const q = url.searchParams.get('q') ?? url.searchParams.get('srsearch') ?? url.searchParams.get('search_query') ?? '';
@@ -123,6 +130,32 @@ test("questions the library couldn't answer are studied first; a failed source i
   const doc = lib.doc('read_questions');
   assert.equal(doc.title, 'Reading: Your questions');
   assert.equal(ok.state.cursor[first.id] ?? 0, 0, 'the curriculum waited');
+});
+
+test("the owner's STUDY ALL, TURN OFF and FOCUS pressed while a session reads are kept, not written back over by its save", async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  assert.equal((await S.loadStudy(st)).all, true, 'STUDY ALL is on to begin with');
+  // his switch, as the Library's STUDY ALL sends it (FOCUS words: POST /library/study), arriving mid-read
+  midRead = async () => {
+    const now = await S.loadStudy(st);
+    await st.put(S.STUDY_KEY, { ...now, focus: [S.ALL_OFF, second.id] });
+  };
+  const r = await S.studySession(st, lib, { reads: 1 });
+  assert.equal(midRead, null, 'the session read a page');
+  const kept = await S.loadStudy(st);
+  assert.equal(kept.all, false, 'STUDY ALL stays off after the session saved');
+  assert.deepEqual(kept.focus, [second.id], 'his FOCUS stays as he set it');
+  assert.equal(r.state.all, false, 'and the session says so');
+  assert.equal(kept.queue[0], second.id, 'the queue planned again from his focus');
+  // TURN OFF the same way
+  midRead = async () => {
+    const now = await S.loadStudy(st);
+    await st.put(S.STUDY_KEY, { ...now, on: false });
+  };
+  await S.studySession(st, lib, { reads: 1 });
+  assert.equal((await S.loadStudy(st)).on, false, 'TURN OFF pressed mid-read stays off');
+  midRead = null;
 });
 
 test('a question whose source keeps failing is tried once a session (the curriculum still moves) and given up after three', async () => {

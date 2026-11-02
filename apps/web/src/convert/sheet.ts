@@ -28,13 +28,33 @@ const openDoc = async (doc: Doc) => {
 export const convertState = { open: false, picked: [] as { name: string; kind: string; size: number }[], offered: [] as string[], outputs: [] as { name: string; size: number; type: string; note?: string }[], said: '', runs: 0 };
 let current: { close(): void } | null = null;
 
+type ConvertAsk = { tool?: string; conversion?: string; to?: string };
+/** The sheet's name (its title, and its panel on the CONVERT screen: features/convert/index.ts). */
+export const CONVERT_TITLE = 'CONVERT';
+
 /** The sheet, with these files already chosen (dropped on the chat, or "convert this") or a tool opened. */
-export async function openConvert(files: File[] = [], o: { tool?: string; conversion?: string; to?: string } = {}): Promise<void> {
+export async function openConvert(files: File[] = [], o: ConvertAsk = {}): Promise<void> {
   current?.close();
-  const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.convert = convertState;
+  const c = convertParts(o);
   convertState.open = true;
   convertState.outputs = [];
+  current = modal(CONVERT_TITLE, c.el, () => {
+    c.stop();
+    convertState.open = false;
+    current = null;
+  });
+  await c.start(files, o);
+}
+
+/**
+ * The converter's page (the sheet's, and the CONVERT screen's: features/convert/index.ts): `start` takes the files already
+ * chosen and what his words asked for; `stop` ends a recording still under way.
+ */
+export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files: File[], o: ConvertAsk): Promise<void>; stop(): void } {
+  const w = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (w.__ghosty) w.__ghosty.convert = convertState;
+  /** What a page left running stops here (a recording). */
+  const stops: (() => void)[] = [];
   let picked: Picked[] = [];
   let outputs: Output[] = [];
   let chosen: Conversion | null = null;
@@ -318,6 +338,11 @@ export async function openConvert(files: File[] = [], o: { tool?: string; conver
     let stream: MediaStream | null = null;
     const show = h('div.cvqr');
     const btn = button('START RECORDING', () => void toggle(), 'on');
+    // a recording under way ends when the page is put away (the sheet closed, another screen): the microphone is not left on
+    stops.push(() => {
+      if (rec?.state === 'recording') rec.stop();
+      else stream?.getTracks().forEach((t) => t.stop());
+    });
     const toggle = async () => {
       if (rec) {
         rec.stop();
@@ -353,14 +378,18 @@ export async function openConvert(files: File[] = [], o: { tool?: string; conver
   }
 
   const body = h('div.cvsheet', drop, fileIn, list, convs, optsBox, status, results, tools, toolBox);
-  current = modal('CONVERT', body, () => {
-    convertState.open = false;
-    current = null;
-  });
-  if (files.length) await add(files);
-  if (o.tool) openTool(o.tool);
-  wanted = o.conversion ?? '';
-  if (wanted) (convs.querySelector(`button.cvbtn[data-id="${wanted}"]`) as HTMLButtonElement | null)?.click();
+  return {
+    el: body,
+    async start(files, a) {
+      if (files.length) await add(files);
+      if (a.tool) openTool(a.tool);
+      wanted = a.conversion ?? '';
+      if (wanted) (convs.querySelector(`button.cvbtn[data-id="${wanted}"]`) as HTMLButtonElement | null)?.click();
+    },
+    stop: () => {
+      for (const f of stops.splice(0)) f();
+    },
+  };
 }
 
 /** Kinds a dropped file can be, for a quick word on the chat ("a PDF, 2.4 MB"). */

@@ -21,5 +21,6 @@ import { RESTA_WORDS } from './resta';
 import { RESTE_WORDS } from './reste';
 import { RESTD_WORDS } from './restd';
 import { OFFLINE2_WORDS } from './offline2';
+import { TABS_WORDS } from './tabs';
 
-export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS };
+export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS, ...TABS_WORDS };

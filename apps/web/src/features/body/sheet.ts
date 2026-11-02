@@ -13,7 +13,9 @@ import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 
 export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water';
-const TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY' };
+/** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
+export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY' };
+const TITLES = BODY_TITLES;
 
 /** What the screens are doing, for the specs (window.__ghosty.body). */
 export const bodyState = {
@@ -40,19 +42,23 @@ export interface Screen {
 let open: { close(): void } | null = null;
 let stopNow: (() => void) | null = null;
 
+/** One screen, made by its own file (the sheet's, and the BODY screen's panels: features/body/index.ts). */
+export async function bodyScreen(w: BodyWhat, args: Record<string, unknown> = {}): Promise<Screen> {
+  expose();
+  return w === 'reps' ? (await import('./reps')).repsScreen(String(args.exercise ?? 'squats'))
+    : w === 'run' ? (await import('./run')).runScreen()
+    : w === 'breathe' ? (await import('./calm')).breatheScreen(args.pattern === '478' ? '478' : 'box')
+    : w === 'stretch' ? (await import('./calm')).stretchScreen()
+    : w === 'health' ? (await import('./health')).healthScreen()
+    : waterScreen();
+}
+
 export async function openBody(what: string, args: Record<string, unknown> = {}): Promise<void> {
   const w = (Object.keys(TITLES) as BodyWhat[]).includes(what as BodyWhat) ? (what as BodyWhat) : 'reps';
   closeBody();
-  expose();
   let s: Screen;
   try {
-    s =
-      w === 'reps' ? (await import('./reps')).repsScreen(String(args.exercise ?? 'squats'))
-      : w === 'run' ? (await import('./run')).runScreen()
-      : w === 'breathe' ? (await import('./calm')).breatheScreen(args.pattern === '478' ? '478' : 'box')
-      : w === 'stretch' ? (await import('./calm')).stretchScreen()
-      : w === 'health' ? (await import('./health')).healthScreen()
-      : waterScreen();
+    s = await bodyScreen(w, args);
   } catch (e) {
     toast(`That screen didn’t open: ${(e as Error).message}`, 'warn');
     return;

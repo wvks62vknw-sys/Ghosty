@@ -42,12 +42,30 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
   return b;
 };
 
+/** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
+export const DOCS_TITLE = 'DOCUMENTS';
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters'; language?: string };
+
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
-export async function openDocs(o: { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters'; language?: string } = {}): Promise<void> {
+export async function openDocs(o: DocsAsk = {}): Promise<void> {
   current?.close();
+  const d = docsParts();
+  docsState.open = true;
+  current = modal(DOCS_TITLE, d.el, () => {
+    d.stop();
+    docsState.open = false;
+    current = null;
+  });
+  await d.start(o);
+}
+
+/**
+ * The documents' page (the sheet's, and the DOCUMENTS screen's: features/docs/index.ts): `start` opens what was asked for
+ * (a document, a reply laid out, a new one, MY DOCUMENTS); `stop` ends a reading aloud.
+ */
+export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>; stop(): void } {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   if (w.__ghosty) w.__ghosty.docs = docsState;
-  docsState.open = true;
   let hist: History | null = null;
   let focused = '';
   let suggestions: Suggestion[] = [];
@@ -573,36 +591,33 @@ export async function openDocs(o: { doc?: Doc; reply?: number; ask?: string; id?
     (page.querySelector('.dcb') as HTMLElement | null)?.focus();
   }), button('OPEN A FILE', () => fileIn.click()), fileIn);
   const root = h('div.dcsheet', bar, status, view);
-  current = modal('DOCUMENTS', root, () => {
-    stopReading();
-    docsState.open = false;
-    current = null;
-  });
-
-  if (o.doc) {
-    showDoc(o.doc);
-    keep(o.doc);
-  } else if (o.reply) {
-    const text = replyText(o.reply);
-    if (!text) {
+  const start = async (o: DocsAsk) => {
+    if (o.doc) {
+      showDoc(o.doc);
+      keep(o.doc);
+    } else if (o.reply) {
+      const text = replyText(o.reply);
+      if (!text) {
+        showList();
+        say('That reply is no longer on this phone.');
+      } else {
+        const d = docFromReply(text, o.ask ?? '', { name: myName(), date: letterDate() });
+        saveDoc(d);
+        showDoc(d);
+        say(`Laid out as a ${d.kind === 'letter' ? 'letter' : 'document'} and kept in My documents.${d.kind === 'letter' && !myName() ? ' Your name isn’t set (Settings → your name), so “[Your name]” stays for you to fill in.' : ''}`);
+      }
+    } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
+    else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
+    else if (o.what === 'open') {
       showList();
-      say('That reply is no longer on this phone.');
-    } else {
-      const d = docFromReply(text, o.ask ?? '', { name: myName(), date: letterDate() });
-      saveDoc(d);
-      showDoc(d);
-      say(`Laid out as a ${d.kind === 'letter' ? 'letter' : 'document'} and kept in My documents.${d.kind === 'letter' && !myName() ? ' Your name isn’t set (Settings → your name), so “[Your name]” stays for you to fill in.' : ''}`);
-    }
-  } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
-  else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
-  else if (o.what === 'open') {
-    showList();
-    say('Choose the document to read: PDF, Word, EPUB, a web page, Markdown or text.');
-    fileIn.click();
-  } else if ((o.what === 'translate' || o.what === 'letters') && listDocs()[0]) {
-    showDoc(listDocs()[0]!);
-    if (o.what === 'translate' && o.language) void translate(o.language);
-    else letters('to');
-  } else showList();
+      say('Choose the document to read: PDF, Word, EPUB, a web page, Markdown or text.');
+      fileIn.click();
+    } else if ((o.what === 'translate' || o.what === 'letters') && listDocs()[0]) {
+      showDoc(listDocs()[0]!);
+      if (o.what === 'translate' && o.language) void translate(o.language);
+      else letters('to');
+    } else showList();
+  };
+  return { el: root, start, stop: stopReading };
 }
 

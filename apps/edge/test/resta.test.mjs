@@ -206,6 +206,17 @@ test('the Worker passes a piece of a Kiwix file through, streamed and kept nowhe
 // ---------------------------------------------------------------- Siri Shortcuts' links
 
 const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'library', 'school', 'arcade', 'settings'];
+// [tabs] every screen of this build — the fourteen the sheets became on 1 Nov among them (BRIEF-TABS 6) — opens by a link,
+// as `?open=<screen>` and as `?do=open:<screen>` (read from features/index.ts and each feature's own id, as the catalogue's test does)
+test('a link opens every screen of this build, the fourteen new ones too', () => {
+  const idx = readFileSync(at('../../web/src/features/index.ts'), 'utf8');
+  const ids = [...idx.matchAll(/import \{ \w+ \} from '\.\/(\w+)';/g)].map((m) => /TabDef = \{\s*id: '([^']+)'/.exec(readFileSync(at(`../../web/src/features/${m[1]}/index.ts`), 'utf8'))?.[1]).filter(Boolean);
+  for (const id of ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house']) assert.ok(ids.includes(id), `${id} is a screen of this build`);
+  for (const id of ids) {
+    assert.deepEqual(L.parseLink(`?open=${id}`, { owner: true, tabs: ids }), { kind: 'open', tab: id });
+    assert.deepEqual(L.parseLink(`?do=open:${id}`, { owner: true, tabs: ids }), { kind: 'do', what: { cmd: 'open', tab: id } });
+  }
+});
 test('a link’s say, do and open, for the owner only; a stranger gets the sign-in', () => {
   const owner = { owner: true, tabs: TABS };
   assert.deepEqual(L.parseLink('?say=what%20is%20a%20cat', owner), { kind: 'say', text: 'what is a cat', send: true });

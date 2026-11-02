@@ -1,9 +1,10 @@
 /**
- * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
- * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
+ * The areas: ASK · SEE · MAKE · LEARN · PLAN · LIFE, and ME.
+ * Every tab belongs to one area. The tab bar shows the six; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
- * its hub: a large title and its tools as instrument cards (shell/hubcards.ts), on one screen with nothing to scroll
- * (six at most; any more in a More row); the recent screens are in Search.
+ * its hub: a large title and every one of its tools as an instrument card (shell/hubcards.ts); the hub scrolls when they
+ * run past the screen (the owner's word on 1 Nov, OWNER-ISSUES 119: findability outranks the old "one screen, six cards
+ * and a More row" rule, so nothing hides in a row of small ones); the recent screens are in Search.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
  */
 import { addPaletteDecor, register, togglePalette, type Command } from '../commands/registry';
@@ -43,6 +44,9 @@ export const TINT: Record<string, string> = {
   learn: '#30d158', gym: '#ff375f', school: '#ffd60a', library: '#a2845e',
   agenda: '#ff453a', markets: '#00c7be', threats: '#ffd60a', radio: '#ff6482',
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
+  // [tabs] the screens the sheets became (BRIEF-TABS 2)
+  money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
@@ -102,6 +106,9 @@ const voiceTap = () => {
  * readouts, from shell/hubcards.ts (or the tab's own TabDef.instrument / readouts / status). One button: a tap
  * anywhere opens the tool. `paint()` redraws it from the state in place, so a tap is never lost to a repaint.
  */
+/** [tabs] A reading that is a figure ("21", "0.4", "£1,240", "+0.7%", "8°C", "12:30"), set in the mono; anything else is words. */
+const isFigure = (v: string) => /^[-+−]?[£$€]?\d[\d.,:/]*(%|°[CF]?)?$/.test(v.trim());
+
 function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
   const c = CARDS[id];
   const word = h('em.st');
@@ -116,10 +123,12 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
     e.stopPropagation();
     navTo(c.lineTo, 'push');
   });
-  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
+  // [tabs] IN THE WORKS: a small label and its one line, on a card whose screen still holds a stand-in or a table written in
+  const works = c?.works ? h('span.works', h('b', 'In the works'), h('span', c.works)) : null;
+  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
     h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, reads, why, line,
+    title, works, reads, why, line,
   );
   let insKey: Element | null = null;
   const paint = () => {
@@ -136,7 +145,7 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
       insKey = drawn.cloneNode(true) as Element;
     }
     const rs = (t?.readouts ?? c.readouts)().slice(0, 2);
-    clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}` as 'span',
+    clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}${r.value != null && !isFigure(r.value) ? '.wd' : ''}` as 'span',
       h('em', r.label),
       h('b.tnum', r.value ?? r.none ?? 'Not yet', r.value != null && r.unit ? h('small', r.unit) : null))));
     const w = rs.some((r) => r.value == null) ? c.why?.() ?? '' : '';
@@ -149,35 +158,13 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
 
-/** A tool past the sixth: a small instrument, its name and its first reading, in the hub's More row. */
-function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
-  const c = CARDS[id];
-  const ins = h('span.mins');
-  const line = h('small');
-  const el = h('button.hubmini', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap }, ins, h('span.mtx', h('b', name), line), icon('<path d="M9 5l7 7-7 7"/>'));
-  const paint = () => {
-    if (!c) return;
-    const drawn = (t?.instrument ?? c.instrument)?.() ?? null;
-    clear(ins, drawn);
-    const r = (t?.readouts ?? c.readouts)()[0];
-    line.textContent = r ? `${r.label}: ${r.value ?? r.none ?? 'Not yet'}${r.value != null && r.unit ? ` ${r.unit}` : ''}` : '';
-  };
-  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
-}
-
-const CONVERT_GLYPH = '<path d="M4 7.5h12.5l-3-3M20 16.5H7.5l3 3"/>';
-const DOCS_GLYPH = '<path d="M6.5 3.5h8l3.5 3.5v13.5h-11.5z"/><path d="M14.5 3.5V7H18M9 11h6M9 14.5h6M9 18h4"/>';
-
-/** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
-export const HUB_MAX = 6;
-
 type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
 /** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
 function areaTools(a: Area): Tool[] {
   const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
   if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
-  // [reste] MAKE's two sheets (BRIEF-REST-E): the converter, and the documents
-  if (a.id === 'make') tools.push(['convert', 'Convert', CONVERT_GLYPH, null, () => void import('../convert/sheet').then((s) => s.openConvert())], ['docs', 'Documents', DOCS_GLYPH, null, () => void import('../docs/sheet').then((s) => s.openDocs())]);
+  // ([reste] MAKE's two sheets, the converter and the documents, were added here by hand: since 1 Nov they are screens of
+  // their own in MAKE's tabs, with the house: BRIEF-TABS 2)
   return tools;
 }
 
@@ -192,24 +179,17 @@ function hubTab(a: Area): TabDef {
     mount(root) {
       ensureDefs();
       const grid = h('div.hubgrid');
-      const moreRow = h('div.hubmore');
       const sub = h('p.hubsub', a.sub);
       const wrap = h('div.hub',
         sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
-        moreRow,
       );
       root.append(wrap);
-      // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
-      // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
-      const tools = areaTools(a);
-      const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
-      const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
+      // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen. Every
+      // tool of the area is an instrument card, two to a row; the hub scrolls when they run past the screen (BRIEF-TABS 3).
+      const cards = areaTools(a).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
       clear(grid, ...cards.map((c) => c.el));
-      clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
-      moreRow.hidden = !minis.length;
-      cards.push(...minis);
       // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
       // city, his latest project) where the phone has the reading, else the plain line; never a sample
       const paintSub = () => {
@@ -371,10 +351,13 @@ export function openMe(openDeck: () => void): void {
   })();
 }
 
-/** The tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
+/**
+ * The tab bar: six areas in a frosted capsule (LIFE joined between Plan and Me on 1 Nov: BRIEF-TABS 1); the avatar ("Me")
+ * sits at the top right of the navigation bar, so the seven areas are all one tap away.
+ */
 export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void {
   const cap = h('div.tabcap', { role: 'tablist' });
-  for (const a of AREAS.slice(0, 5)) {
+  for (const a of AREAS.filter((x) => x.id !== 'me')) {
     // data-id is the area's main tab, so hooks that look for #dock button[data-id="core"] or the agenda badge still find it.
     // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
     // something runs in that area right now (liveIn below).
@@ -551,7 +534,8 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
-  if (tab === 'memory' || tab === 'settings' || tab === 'abilities') return { back: '', backTo: '', title: niceCase(t.title) };
+  // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like ABILITIES: Me's screens are the Me sheet's rows)
+  if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
   if (tab === 'system' || tab === 'links') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

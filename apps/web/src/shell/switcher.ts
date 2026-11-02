@@ -102,17 +102,30 @@ export function buildSwitcher(): {
     const W = innerWidth;
     const n = list.length;
     const R = Math.min(W / 2 - 52, 172);
-    const spread = n < 2 ? 0 : Math.min(140, 48 * (n - 1));
     const cx = W / 2;
     const cy = bar.top - 36;
     const bx = btn.getBoundingClientRect();
     const ox = bx.left + bx.width / 2;
     const oy = bx.top + bx.height / 2;
+    // [tabs] five or fewer on one arc, as always; six or more (an area shows every tool since 1 Nov: LIFE and MAKE have eight)
+    // on two, the first half on the arc nearest the thumb and the rest on one above it, as wide as the screen lets its ends
+    // be, so no two overlap on a 390-pt phone. Where there is no room above (a computer's rail), one arc, wider.
+    const R2 = R + 110;
+    const two = n > 5 && cy - R2 - 36 >= 12;
+    const inner = two ? Math.ceil(n / 2) : n;
+    const place = (i: number): [number, number] => {
+      const out = two && i >= inner;
+      const m = out ? n - inner : inner;
+      const k = out ? i - inner : i;
+      const r = out ? R2 : R;
+      const most = out ? 180 - (2 * Math.acos(Math.min(1, (W / 2 - 52) / r)) * 180) / Math.PI : n > 5 && !two ? 170 : 140;
+      const spread = m < 2 ? 0 : Math.min(most, 48 * (m - 1));
+      const deg = m < 2 ? 90 : 90 + spread / 2 - (k * spread) / (m - 1);
+      return [Math.round(cx + r * Math.cos((deg * Math.PI) / 180)), Math.round(cy - r * Math.sin((deg * Math.PI) / 180))];
+    };
     clear(arc);
     items = list.map((it, i) => {
-      const deg = n < 2 ? 90 : 90 + spread / 2 - (i * spread) / (n - 1);
-      const x = Math.round(cx + R * Math.cos((deg * Math.PI) / 180));
-      const y = Math.round(cy - R * Math.sin((deg * Math.PI) / 180));
+      const [x, y] = place(i);
       const b = h('button.switem', { type: 'button', tabindex: '-1', dataset: { id: it.id, status: it.status.toLowerCase(), case: 'keep' }, onclick: () => choose(i) },
         h('span.swring', face(it.instrument, it.glyph)),
         h('span.swnm', it.name),

@@ -26,6 +26,22 @@ import { workshopTab } from './workshop';
 import { abilitiesTab } from './abilities';
 import { workbenchTab } from './workbench';
 import { arcadeTab } from './arcade';
+// [tabs] the fourteen sheets as screens of their own (BRIEF-TABS 2): LIFE's eight packs, LEARN's learning and coach, MAKE's
+// converter, documents and house, and ME's social self
+import { moneyTab } from './money';
+import { bodyTab } from './body';
+import { kitchenTab } from './kitchen';
+import { peopleTab } from './people';
+import { workTab } from './work';
+import { creativeTab } from './creative';
+import { outsideTab } from './outside';
+import { homeadminTab } from './homeadmin';
+import { learningTab } from './learning';
+import { coachTab } from './coach';
+import { socialTab } from './social';
+import { convertTab } from './convert';
+import { docsTab } from './docs';
+import { houseTab } from './house';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, systemTab, abilitiesTab, arcadeTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];

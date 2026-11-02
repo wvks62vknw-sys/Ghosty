@@ -9,6 +9,7 @@ import { routeLayer, type RouteInfo } from '../engine/layers/route';
 import { globe, SENSOR_MODES, type LayerVisibility } from '../engine/globe';
 import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
+import { DECK } from '../shell/deckcopy';
 import { ui } from '../state/app';
 import { applyTheme, THEMES } from '../state/theme';
 import { keepWidget } from '../state/widgets';
@@ -721,7 +722,9 @@ export function registerBuiltins(): void {
       },
     },
   );
-  for (const t of tabs()) register({ id: `tab_${t.id}`, title: t.title, group: 'GO', run: () => void go(t.id) });
+  // each screen by its name, and by its plain words too ([tabs] BRIEF-TABS 5: "bins" finds HOME, "tuner" the COACH): what it
+  // says of itself in Every screen (shell/deckcopy.ts), so the jump bar and the deck find a screen the same way
+  for (const t of tabs()) register({ id: `tab_${t.id}`, title: t.title, group: 'GO', words: [t.blurb ?? '', DECK[t.id]?.name ?? '', DECK[t.id]?.promise ?? '', ...(DECK[t.id]?.can.map((l) => l.text) ?? [])].join(' '), run: () => void go(t.id) });
   for (const [k, t] of Object.entries(THEMES)) register({ id: `theme_${k}`, title: `Theme: ${t.label}`, group: 'THEME', run: () => applyTheme(k) });
   SENSOR_MODES.forEach(([n], i) =>
     register({

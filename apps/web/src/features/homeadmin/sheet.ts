@@ -20,7 +20,8 @@ interface BillRow {
   due: string;
   paid?: string;
 }
-const VIEWS: { id: HomeWhat; label: string }[] = [
+/** The sheet's pages (its row of buttons, and the HOME screen's pills: features/homeadmin/index.ts). */
+export const HOME_VIEWS: { id: HomeWhat; label: string }[] = [
   { id: 'due', label: 'Due' },
   { id: 'bins', label: 'Bins' },
   { id: 'bills', label: 'Bills' },
@@ -31,7 +32,7 @@ export const homeState = { open: '' as '' | HomeWhat, said: '', due: [] as { on:
 let openSheet: { close(): void } | null = null;
 
 export async function openHomeadmin(what: string): Promise<void> {
-  const v: HomeWhat = (VIEWS.find((x) => x.id === what)?.id ?? 'due') as HomeWhat;
+  const v: HomeWhat = (HOME_VIEWS.find((x) => x.id === what)?.id ?? 'due') as HomeWhat;
   openSheet?.close();
   const win = window as unknown as { __ghosty?: Record<string, unknown> };
   if (win.__ghosty) win.__ghosty.homeadmin = homeState;
@@ -42,9 +43,9 @@ export async function openHomeadmin(what: string): Promise<void> {
     homeState.open = view;
     pk.dataset.screen = view;
     for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
-    body.replaceChildren(view === 'due' ? dueView() : view === 'bins' ? binsView() : view === 'bills' ? billsView() : view === 'meter' ? meterView() : thingsView());
+    body.replaceChildren(homeView(view));
   };
-  for (const t of VIEWS) {
+  for (const t of HOME_VIEWS) {
     const b = button(t.label, () => show(t.id));
     b.dataset.view = t.id;
     b.setAttribute('aria-label', `${t.label} page`);
@@ -55,6 +56,13 @@ export async function openHomeadmin(what: string): Promise<void> {
     homeState.open = '';
   });
   show(v);
+}
+
+/** One page of the sheet, made by its own function (the sheet's, and the HOME screen's panels). */
+export function homeView(view: HomeWhat): HTMLElement {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.homeadmin = homeState;
+  return view === 'due' ? dueView() : view === 'bins' ? binsView() : view === 'bills' ? billsView() : view === 'meter' ? meterView() : thingsView();
 }
 
 async function run(action: string, a: Record<string, unknown>): Promise<{ text: string; data?: unknown }> {
