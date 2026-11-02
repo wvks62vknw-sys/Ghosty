@@ -49,7 +49,7 @@ import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { capabilityLines, lengthBand, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
 import { mindSnapshot, observe, toolEpisode, turnGist } from './mind'; // [mind] the one shared mind (OWNER-ISSUES 74)
-import { clipResult, compact, trimContext } from './context';
+import { clipResult, compact, noteHeard, trimContext } from './context';
 import { backAt, directPlan, directReply, localTimeAnswer, noModelLine, noModelMessage, raisedReply, smallTalk, waitOf, type DirectPlan } from './direct';
 import { selectGroups, TOOL_GROUPS, TOOLS, toolByName, toolSpecs } from './tools';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
@@ -114,6 +114,12 @@ interface Pending {
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+
+/** The phone's word that his last reply was cut off as it was read out: what he heard of it and its first words, or nothing. */
+const heardOf = (v: unknown): { said: string; head: string } | undefined => {
+  const h = v as { said?: unknown; head?: unknown } | null;
+  return h && typeof h === 'object' && typeof h.said === 'string' && typeof h.head === 'string' && h.head.trim() ? { said: h.said.slice(0, 2000), head: h.head.slice(0, 200) } : undefined;
+};
 
 function stream(): { response: Response; emit: (ev: ChatEvent) => void; close: () => Promise<void> } {
   const ts = new TransformStream<Uint8Array, Uint8Array>();
@@ -685,7 +691,7 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown; seen?: unknown; scan?: unknown; cited?: unknown };
+    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown; seen?: unknown; scan?: unknown; cited?: unknown; heard?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     // Pictures from the Lens ride along as parts of the owner's message (never stored: see trimContext).
@@ -700,7 +706,7 @@ export class GhostyAgent {
     this.state.waitUntil(
       (async () => {
         try {
-          await this.runTurn(text, images, client, s.emit, signal, { seen, scan, recent: body.recent, offline: body.offline, cited: body.cited === true });
+          await this.runTurn(text, images, client, s.emit, signal, { seen, scan, recent: body.recent, offline: body.offline, cited: body.cited === true, heard: heardOf(body.heard) });
         } finally {
           done();
           await s.close();
@@ -716,7 +722,7 @@ export class GhostyAgent {
    * paused — the paused-mode answer instead. `seen`/`scan`: what the phone's camera saw and
    * read, marked as data; `recent`/`offline`: what the device sends for paused mode.
    */
-  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean; note?: string } = {}): Promise<void> {
+  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean; note?: string; heard?: { said: string; head: string } } = {}): Promise<void> {
     const seen = extra.seen ?? '';
     this.citedTurn = !!extra.cited || citedAsked(text);
     this.turnRead = [];
@@ -742,6 +748,8 @@ export class GhostyAgent {
         for (const c of stale.calls) prev.push({ role: 'tool', tool_call_id: c.id, content: 'Not run: the owner moved on without approving.' });
         await this.storage.delete(PENDING_KEY);
       }
+      // [talk] his last reply was cut off as it was read out: its copy here says what he heard of it (BRIEF-TALK-1A 2)
+      if (extra.heard) noteHeard(prev, extra.heard);
       await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
       // (the day log: what he asked, in a line — the nightly reflection consolidates it; mind.ts)
       await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);

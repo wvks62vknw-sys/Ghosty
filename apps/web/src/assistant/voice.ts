@@ -443,6 +443,9 @@ export interface CutOff {
   /** What had been said when Ghosty stopped (whole sentences). */
   said: string;
   how: 'tap' | 'voice';
+  /** The pieces it was saying, and which one it was in when cut (`said` is the ones before it): "go on" starts there. */
+  parts: string[];
+  at: number;
 }
 const cutListeners = new Set<(c: CutOff) => void>();
 /** Called when the owner interrupts Ghosty (session.ts marks the reply as cut off). */
@@ -454,10 +457,10 @@ export function onCutOff(f: (c: CutOff) => void): () => void {
 /** The owner cut in (a tap, or talking over Ghosty): speech stops now. False when Ghosty was not speaking. */
 export function interrupt(how: 'tap' | 'voice' = 'tap'): boolean {
   if (ui.get().voice !== 'speaking') return false;
-  const said = progress.parts.slice(0, progress.i).join(' ');
+  const { parts, i: at, owner } = progress;
+  const said = parts.slice(0, at).join(' ');
   stopSpeaking();
-  const owner = progress.owner;
-  for (const f of cutListeners) f({ said, how, owner });
+  for (const f of cutListeners) f({ said, how, owner, parts, at });
   return true;
 }
 
@@ -646,9 +649,19 @@ function armBargeIn(): void {
   } catch {
     return;
   }
+  // Held: the owner's voice has begun over Ghosty's and the detector is not yet sure (barge.ts hearing): Ghosty is silent
+  // meanwhile — within a reading or two of his first sound, not after the 180 ms the detector needs to be sure (BRIEF-TALK-1A
+  // 2: quiet within 150 ms) — and carries on from the same word if it was a cough or a click.
+  let held = false;
+  const hold = (on: boolean) => {
+    if (on === held) return;
+    held = on;
+    holdSpeech(on);
+  };
   const end = (keep: boolean) => {
     clearInterval(timer);
     watch = null;
+    if (!keep) hold(false);
     if (!keep && r.rec.state === 'recording') r.rec.stop();
   };
   let was = true;
@@ -665,13 +678,30 @@ function armBargeIn(): void {
       end(true);
       carry = { ...r, from: det.speechStart };
       interrupt('voice');
+      return;
     }
+    hold(det.hearing);
   }, 20);
   watch = { stop: () => end(false) };
 }
 
 function disarmBargeIn(): void {
   watch?.stop();
+}
+
+/** Ghosty's voice held silent (`on`) or let go on from where it was: the clip playing now, else the phone's voice. */
+function holdSpeech(on: boolean): void {
+  try {
+    if (stopClip && player) {
+      if (on) player.pause();
+      else void player.play().catch(() => undefined);
+    } else if ('speechSynthesis' in window) {
+      if (on) speechSynthesis.pause();
+      else speechSynthesis.resume();
+    }
+  } catch {
+    /* nothing to hold */
+  }
 }
 
 /**

@@ -24,7 +24,7 @@ import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
-import { stopIntent } from '../../../../packages/shared/src/intent';
+import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
 import { REBOOT } from './phrases';
@@ -59,7 +59,10 @@ export type Entry =
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
   /** `first`: answered on this phone FIRST, its kind being trusted (offline/trust.ts), with ASK THE CLOUD under it;
    *  `struck`: he tapped ASK THE CLOUD, so the cloud's answer follows and this one stays above it, struck faintly. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean }
+  /** [talk] `heard`: of a reply cut off, the sentences he heard; `carried`: he said "go on" and it was carried on below.
+   *  `carries`: this is that carrying on (BRIEF-TALK-1A 2), of the reply at that tag, `heardBefore` being what he had heard of
+   *  it, `head` that reply's first words as said (so the brain can tell which of its replies he means). */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean; heard?: string; carried?: boolean; carries?: number; heardBefore?: string; head?: string }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
    *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
@@ -148,8 +151,61 @@ function push(e: Entry): void {
 onCutOff((c) => {
   // Only the reply that was being read out (its tag is its time): never a later or earlier one.
   if (!c.owner) return;
-  patch((e) => e.kind === 'assistant' && String(e.at) === c.owner, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true }));
+  const tag = Number(c.owner);
+  const reply = chat.get().entries.find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at === tag);
+  if (!reply) return;
+  patch((e) => e === reply, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true, heard: c.said }));
+  // (a carrying on that is cut again: what he has heard of the brain's reply is what he heard before, and what he heard since)
+  const said = reply.carries !== undefined ? [reply.heardBefore ?? '', c.said.replace(BRIDGE, '')].filter(Boolean).join(' ') : c.said;
+  lastCut = { tag, parts: c.parts, at: c.at, said, head: reply.carries !== undefined ? (reply.head ?? '') : headOf(c.parts), when: Date.now() };
 });
+
+/**
+ * [talk] The reply he cut off last as it was read out (BRIEF-TALK-1A 2; STARS 2): the pieces it was saying and the one it was
+ * in (for "go on"), what he heard of the brain's reply it belongs to and that reply's first words (for the brain's next turn).
+ * Good while that reply is still the latest; cleared once he says "go on" or the brain has been told.
+ */
+let lastCut: { tag: number; parts: string[]; at: number; said: string; head: string; when: number } | null = null;
+/** How long after a cut "go on" still carries the reply on (later, it is an ordinary message). */
+const CARRY_MS = 10 * 60_000;
+/** The bridge back into a reply he cut off: what Ghosty says before the sentence he was cut in. */
+const BRIDGE = /^…as I was saying,\s*/i;
+/** A reply's first words as said (its first piece, at most eight words): how the brain finds which reply was cut. */
+const headOf = (parts: string[]): string => (parts[0] ?? '').split(/\s+/).slice(0, 8).join(' ');
+/** The latest reply in the chat, if any. */
+const latestReply = (): Extract<Entry, { kind: 'assistant' }> | undefined => [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant');
+/** Words a sentence can start with that are lower-cased after the bridge ("…as I was saying, it changes"); a name keeps its capital. */
+const COMMON = /^(?:the|a|an|it|it's|its|there|there's|that|that's|this|these|those|then|so|and|but|or|if|when|while|you|your|you're|we|our|they|their|he|she|his|her|my|on|in|at|for|from|to|with|after|before|once|also|just|both|each|every|most|some|all|no|not|one|two|three|here|here's|what|which|who|how|why|where|as|by|of|up|out|over|more|less|only|even|still|now|today|tomorrow|tonight|yes|sure|right|well|first|next|last)$/i;
+const lowerFirst = (s: string): string => (COMMON.test(s.split(/\s+/)[0]!.replace(/[^\p{L}']/gu, '')) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/**
+ * "Go on", "and then?", "sorry, continue" just after he cut a reply off (BRIEF-TALK-1A 2): it carries on from the sentence he
+ * cut it in, after "…as I was saying," — here at once, with no model and nothing sent: never again from the top. His words and
+ * the carrying on are in the chat; the cut reply keeps its mark. False when there is nothing to carry on (an ordinary message).
+ */
+function carryOn(t: string, speakIt: boolean): boolean {
+  const c = lastCut;
+  if (!c || Date.now() - c.when > CARRY_MS || !continueIntent(t)) return false;
+  const reply = latestReply();
+  if (!reply || reply.at !== c.tag) return false;
+  const rest = c.parts.slice(c.at);
+  if (!rest.length) return false;
+  lastCut = null;
+  const text = `…as I was saying, ${lowerFirst(rest[0]!)}${rest.length > 1 ? ` ${rest.slice(1).join(' ')}` : ''}`;
+  const asked = stamp();
+  const at = stamp();
+  const priv = reply.private ? { private: true } : {};
+  chat.set((s) => ({
+    entries: [
+      ...s.entries.map((e) => (e === reply ? { ...reply, carried: true } : e)),
+      { kind: 'user' as const, text: t, at: asked, ...priv },
+      { kind: 'assistant' as const, text, at, ...(reply.model ? { model: reply.model } : {}), carries: reply.carries ?? reply.at, heardBefore: c.said, head: c.head, ...priv },
+    ].slice(-120),
+    live: text,
+  }));
+  if (speakIt && settings.get().speak) void speak(text, { owner: String(at), here: !!reply.private });
+  return true;
+}
 
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {
@@ -622,6 +678,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     await import('../shell/boot').then((b) => b.reboot());
     return;
   }
+  // "go on" after a reply he cut off: carried on from where he cut it, on the phone (BRIEF-TALK-1A 2)
+  if (carryOn(t, opts.speak ?? true)) return;
   // A newer message while a phone-first answer is still being thought (he spoke again, or tapped the mic and said it again):
   // that attempt is cut short first, so it never makes this message wait, and the cloud answers its ask. Only that path:
   // what is kept on the phone is never ended by a newer message (it has no cloud to go to).
@@ -645,11 +703,13 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
     .slice(-12);
-  const recent = turns.map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  // (a reply he cut off is, to whatever reads it next, only what he heard of it: BRIEF-TALK-1A 2)
+  const asHeard = (e: Extract<Entry, { kind: 'user' | 'assistant' }>) => (e.kind === 'assistant' && e.cut && e.heard !== undefined ? `${e.heard}${e.heard ? ' ' : ''}[cut off here: he heard no more of this reply]` : e.text);
+  const recent = turns.map((e) => ({ role: e.kind, text: asHeard(e).slice(0, 1500) }));
   // [offline2] the kind of ask (offline/trust.ts): whether the phone may answer it first, and the meter's count by kind
   turnCat = categorise(t, [...turns].reverse().find((e) => e.kind === 'assistant')?.text ?? '');
   // What the brain may read of the conversation: never a turn that was kept on the phone, nor an answer he sent on to the cloud.
-  let shared = turns.filter((e) => !e.private && !(e.kind === 'assistant' && e.struck)).map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  let shared = turns.filter((e) => !e.private && !(e.kind === 'assistant' && e.struck)).map((e) => ({ role: e.kind, text: asHeard(e).slice(0, 1500) }));
   // ASK THE CLOUD: the question is on screen already, above the phone's answer: not shown again, nor sent twice.
   if (opts.again) {
     const k = shared.map((x) => x.role === 'user' && x.text === t.slice(0, 1500)).lastIndexOf(true);
@@ -715,6 +775,11 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // on-screen action): the small model can't see any of it, so the brain's own error stands.
   let acted = false;
   let held: Extract<ChatEvent, { t: 'error' }> | null = null;
+  // A reply he cut off is still the latest: the brain is told what he heard of it (BRIEF-TALK-1A 2), so its next turn never
+  // assumes he heard the rest. The cut reply itself stays on screen as it was.
+  const cut = lastCut && latestReply()?.at === lastCut.tag ? lastCut : null;
+  const heard = cut ? { said: cut.said, head: cut.head } : undefined;
+  lastCut = null;
   const rescue = async (e: unknown) => here && !acted && shouldFallBack(e) && answerHere(t, recent);
   await stream(
     async (cb) => {
@@ -727,7 +792,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
           return;
         }
         cb(ev);
-      }, undefined, shared, settings.get().cited, library);
+      }, undefined, shared, settings.get().cited, library, heard);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
     // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)

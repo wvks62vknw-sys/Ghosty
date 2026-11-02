@@ -265,7 +265,7 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number):
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', e.carried ? 'Cut off — carried on below' : 'Cut off — you interrupted') : null);
 }
 
 /**

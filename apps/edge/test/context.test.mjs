@@ -83,3 +83,32 @@ test('trimContext: at most 36 messages and 45,000 characters, the oldest whole e
   assert.equal(C.CONTEXT_MESSAGES, 36);
   assert.equal(C.CONTEXT_CHARS, 45000);
 });
+
+// BRIEF-TALK-1A 2: a reply he cut off as it was read out says, in the brain's own copy, what he heard of it.
+test('a reply cut off as it was read out: the brain’s copy says what he heard, once, and only on that reply', () => {
+  const reply = '**The sea:** I could talk about it for hours, but here is the short version. It is older than it looks. It changes with the seasons.';
+  const ctx = () => [
+    { role: 'user', content: 'talk to me about the sea' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'list_memory', arguments: '{}' } }] },
+    { role: 'tool', tool_call_id: 'c1', content: 'nothing' },
+    { role: 'assistant', content: reply },
+  ];
+  const c = ctx();
+  // found by its first words as said (no markdown, no capitals): the note is on the reply, never on the tool call
+  assert.equal(C.noteHeard(c, { said: 'The sea: I could talk about it for hours, but here is the short version.', head: 'The sea: I could talk about it' }), true);
+  assert.match(c[3].content, /\n\n\[He cut me off while I was saying this\. He heard only: "The sea: I could talk about it for hours, but here is the short version\."\]$/);
+  assert.ok(c[3].content.startsWith(reply), 'what was written stays whole');
+  assert.equal(c[1].content, null);
+  // noted once only
+  assert.equal(C.noteHeard(c, { said: 'x', head: 'The sea: I could talk about it' }), false);
+  // cut before the first sentence ended: he heard none of it
+  const none = ctx();
+  assert.equal(C.noteHeard(none, { said: '', head: 'The sea: I could talk' }), true);
+  assert.match(none[3].content, /he heard none of this\.\]$/);
+  // another reply (its first words differ), or nothing to note: left as it is
+  const other = ctx();
+  assert.equal(C.noteHeard(other, { said: 'It rained.', head: 'It rained all day' }), false);
+  assert.equal(other[3].content, reply);
+  assert.equal(C.noteHeard([], { said: 'x', head: 'x' }), false);
+  assert.equal(C.noteHeard(ctx(), { said: 'x', head: '' }), false);
+});

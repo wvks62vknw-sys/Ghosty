@@ -320,12 +320,13 @@ export const brain = {
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
   /** `cited`: CITED is on — the answer is looked up, with numbered sources and each claim checked (cited.ts in the brain). */
   /** `library`: those passages already being looked up (session.ts starts it with the message, so it costs the turn nothing). */
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false, library?: Promise<unknown[]>) =>
+  /** `heard`: his last reply was cut off as it was read out: what he heard of it and its first words (BRIEF-TALK-1A 2). */
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false, library?: Promise<unknown[]>, heard?: { said: string; head: string }) =>
     // `offline`: memory, agenda and the owner's documents most related to the message, kept on this
     // device, so Ghosty still knows them if its database is paused. A slow look-up never holds the message: after
     // LIBRARY_WAIT_MS it goes without them (they matter only on the rare day the database is paused).
     Promise.race([(library ?? passagesFor(message)).catch(() => []), new Promise<unknown[]>((r) => setTimeout(() => r([]), LIBRARY_WAIT_MS))]).then((lib) =>
-      streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library: lib }, ...(cited ? { cited: true } : {}) }, onEvent, signal),
+      streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library: lib }, ...(cited ? { cited: true } : {}), ...(heard ? { heard } : {}) }, onEvent, signal),
     ),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
