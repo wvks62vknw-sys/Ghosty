@@ -189,7 +189,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #56 merged at 15:40 UK on 2 Nov (main 250f0e1), green on every job; main's run after the merge being read next (OWNER-ISSUES 126).
+- PR #56 merged at 15:40 UK on 2 Nov (main 250f0e1), its own run and main's run after the merge both green on every job (OWNER-ISSUES 126).
 - PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
   greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
