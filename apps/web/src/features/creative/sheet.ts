@@ -15,7 +15,9 @@ import { brain } from '../../api/brain';
 import { canvasOf, drawPrims, loadFont, measureBody, measureOn, pngOf, saveFile, saved } from './draw';
 
 export type CreativeWhat = 'song' | 'poster' | 'birthday' | 'comic' | 'logo' | 'palette' | 'beat';
-const TITLES: Record<CreativeWhat, string> = { song: 'YOUR SONG', poster: 'POSTER', birthday: 'BIRTHDAY CARD', comic: 'COMIC STRIP', logo: 'LOGO SKETCH', palette: 'PALETTE', beat: 'DRUM PADS' };
+/** Each sheet's name, as its title and as its panel on the CREATIVE screen (features/creative/index.ts). */
+export const CREATIVE_TITLES: Record<CreativeWhat, string> = { song: 'YOUR SONG', poster: 'POSTER', birthday: 'BIRTHDAY CARD', comic: 'COMIC STRIP', logo: 'LOGO SKETCH', palette: 'PALETTE', beat: 'DRUM PADS' };
+const TITLES = CREATIVE_TITLES;
 
 export const creativeState = {
   open: '' as '' | CreativeWhat,
@@ -43,12 +45,10 @@ let stopNow: (() => void) | null = null;
 export async function openCreative(what: string, args: Record<string, unknown> = {}): Promise<void> {
   const w = (Object.keys(TITLES) as CreativeWhat[]).includes(what as CreativeWhat) ? (what as CreativeWhat) : 'song';
   opened?.close();
-  const win = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (win.__ghosty) win.__ghosty.creative = creativeState;
   creativeState.error = '';
   let s: Screen;
   try {
-    s = w === 'song' ? songScreen(args) : w === 'poster' ? posterScreen(args) : w === 'birthday' ? cardScreen(args) : w === 'comic' ? comicScreen(args) : w === 'logo' ? logoScreen(args) : w === 'palette' ? paletteScreen(args) : beatScreen(args);
+    s = creativeScreen(w, args);
   } catch (e) {
     creativeState.error = (e as Error).message;
     toast(`That screen didn’t open: ${(e as Error).message}`, 'warn');
@@ -62,6 +62,13 @@ export async function openCreative(what: string, args: Record<string, unknown> =
     opened = null;
     creativeState.open = '';
   });
+}
+
+/** One sheet's page, made by its own function (the sheet's, and the CREATIVE screen's panels). */
+export function creativeScreen(w: CreativeWhat, args: Record<string, unknown> = {}): Screen {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.creative = creativeState;
+  return w === 'song' ? songScreen(args) : w === 'poster' ? posterScreen(args) : w === 'birthday' ? cardScreen(args) : w === 'comic' ? comicScreen(args) : w === 'logo' ? logoScreen(args) : w === 'palette' ? paletteScreen(args) : beatScreen(args);
 }
 
 // ---------------------------------------------------------------- the phone's audio, started by his tap

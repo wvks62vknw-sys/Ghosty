@@ -2948,18 +2948,11 @@ html .hubgrid:not(:has(> :nth-child(5))) .hubtile .ins { height: 100px; }
 html .hubgrid:not(:has(> :nth-child(5))) .hubtile .ins > :is(svg, .insc > svg) { height: 100px; }
 html .hubtile .ins > svg, html .hubtile .ins > .insc > svg { width: 100%; height: 72px; }
 html .hubtile .ins svg.i-trace, html .hubtile .ins svg.i-count, html .hubtile .ins svg.i-day { width: 70%; height: 54px; }
-/* a hub of five or six (three rows: MAKE since the Workbench joined it) still fits one screen at 390 × 844: shorter instruments */
+/* a hub of five or more: shorter instruments, so three rows show before the hub scrolls (it scrolls since 1 Nov: every tool
+   of the area is a card, the owner's word on findability, BRIEF-TABS 3; the line under the title wraps rather than is cut) */
 html .hubgrid:has(> :nth-child(5)) .hubtile .ins { height: 52px; }
 html .hubgrid:has(> :nth-child(5)) .hubtile .ins > :is(svg, .insc > svg) { height: 52px; }
 html .hubgrid:has(> :nth-child(5)) .hubtile .ins svg:is(.i-trace, .i-count, .i-day) { height: 40px; }
-html .hub:has(.hubgrid > :nth-child(5)) .hubsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* [reste] six and a More row under them (MAKE since the converter and the documents joined it) still fit one screen at
-   390 × 844: shorter instruments again, on a screen that short (a taller phone has the room for them as they are) */
-@media (max-height: 900px) {
-  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins { height: 28px; margin-bottom: 4px; }
-  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins > :is(svg, .insc > svg) { height: 28px; }
-  html .hub:has(> .hubmore:not([hidden])) .hubtile .ins svg:is(.i-trace, .i-count, .i-day) { height: 24px; }
-}
 html .hubtile .ins::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; pointer-events: none; opacity: 0; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent); box-shadow: 0 0 10px rgba(var(--cr), .6); }
 html .pg.on .hubtile .ins::after { animation: ironscan 1.6s var(--spring) .15s 1 both; }
 @keyframes ironscan { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: 1; } 88% { opacity: .8; } 100% { opacity: 0; transform: translateY(72px); } }
@@ -2978,21 +2971,6 @@ html .segs i.live { background: var(--c2); box-shadow: 0 0 10px var(--c); }
 html .hubtile .lensvf { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
 html .hubtile .lensvf svg { width: 100%; height: 100%; }
 html .hubtile .lensvf .vfcap { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font: 600 11px/13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
-/* the More row (a hub with more than six tools): small instruments, a name and the first reading, one tap each */
-/* flex: none — the hub is a column flexbox that scrolls; a row with overflow-x has an automatic minimum height of nothing,
-   so when the cards ran past a shorter screen (an iPhone's safe areas, Safari's bars) this row was the one child squeezed,
-   to a sliver with its DOCUMENTS card cut off, and the hub had nothing left to scroll (the owner's find, 1 Nov) */
-html .hubmore { flex: none; display: flex; align-items: stretch; gap: 8px; padding: 8px; border-radius: var(--card); background: rgba(8,12,15,.7); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .3); overflow-x: auto; scrollbar-width: none; }
-html .hubmore[hidden] { display: none; }
-html .hubmore .mk { flex: none; display: flex; flex-direction: column; justify-content: center; padding: 0 6px; font: 600 11px/14px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .7); }
-html .hubmore .mk small { font: 500 13px/16px var(--mono); color: var(--ink2); }
-html .hubmore .hubmini { flex: none; display: flex; align-items: center; gap: 8px; min-height: 48px !important; padding: 6px 10px 6px 6px; border-radius: 14px; text-align: left; color: var(--ink); background: rgba(var(--cr), .05) !important; box-shadow: inset 0 0 0 1px var(--hud2); }
-html .hubmore .mins { width: 40px; height: 34px; display: grid; place-items: center; }
-html .hubmore .mins svg { width: 40px; height: 34px; }
-html .hubmore .mtx { display: flex; flex-direction: column; }
-html .hubmore .mtx b { font: 600 15px/19px var(--sf); color: #fff; }
-html .hubmore .mtx small { font: 400 12px/15px var(--sf); color: rgba(var(--cr), .7); white-space: nowrap; }
-html .hubmore .hubmini > .ic { width: 14px; height: 14px; fill: none; stroke: var(--ink3); stroke-width: 2.2; }
 
 /* ---------- the instruments' line work (scoped to svg.inst: nothing else in the app is touched) ---------- */
 html svg.inst { display: block; overflow: visible; }
@@ -5815,3 +5793,40 @@ canvas.buildplan { display: block; max-width: 100%; }
 .pkpass:empty { display: none; }
 /* (the page he is on, in the tabs of the outside, home and learning sheets and in their toggles: said in the label for VoiceOver, shown here) */
 .pkrow[role="group"] button[aria-pressed="true"] { background: rgba(var(--accr), .22); box-shadow: inset 0 0 0 1px rgba(var(--accr), .55); color: var(--fg); }
+
+/* ---------------------------------------------------------------- [tabs] EVERY FEATURE A SCREEN (BRIEF-TABS; OWNER-ISSUES 119)
+   A sheet's pages on a screen of their own (ui/sheetpage.ts): the panel is the page's frame, so the sheet's own padding and
+   scroller step aside (the page scrolls as one, under the pills). */
+.sheetpg .pn > .bd > :is(.pk, .cvsheet, .dcsheet) { flex: none; padding: 0; overflow: visible; }
+.sheetpg .pn > .bd > .house { padding: 0; }
+/* every control on these screens takes a finger, 44 pt: the app-wide touch rule draws a button 40 pt (and a box 43), so these
+   are given the few points more here (the sheets over the chat are drawn as they were) */
+html .sheetpg .pn > .bd :is(button, [role="button"]) { min-height: 44px !important; }
+html .sheetpg .pn > .bd :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select) { min-height: 44px; }
+/* the plain line over a page that holds a stand-in or a table written in, in the IN THE WORKS amber; while a page is made, its line */
+.sheetpg .pn > .bd > .sheetline { margin: 2px 0 12px; padding: 9px 12px; border-radius: 12px; font: 400 13.5px/1.45 var(--sf); color: var(--fg); background: rgba(var(--ar), .1); box-shadow: inset 3px 0 0 rgba(var(--ar), .75); }
+.sheetpg .pn > .bd > .sheetwait { margin: 6px 0; }
+/* IN THE WORKS on a hub card: at its foot, under a dashed rule in the warning amber, the small label and its one line whole
+   (two lines at most): what on the screen is still a stand-in or a table written in */
+html .hubtile .works { order: 7; display: block; min-width: 0; margin-top: 9px; padding-top: 8px; border-top: 1px dashed rgba(var(--ar), .35); white-space: normal; }
+html .hubtile .works b { display: block; font: 600 10.5px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--a); }
+html .hubtile .works span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; font: 400 12px/15px var(--sf); color: var(--ink2); }
+/* A card's words whole (the five-second test: what it does, and what to tap first, read at a glance): its title takes a
+   second line rather than an ellipsis, its why line two, and a reading that is a word ("Partly cloudy", "Elevated",
+   "Linked") is set in the text face at the size of an unknown one, so it fits a half card at 390; numbers stay in the mono */
+html .hubtile .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-wrap: balance; }
+html .hubtile .why:not([hidden]) { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+html .hubtile .rd.wd b { padding: 2px 0; font: 500 14px/18px var(--sf); letter-spacing: -.1px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* [tabs] The hubs scroll now (every tool of an area is a card: BRIEF-TABS 3). The hub is a column flexbox, and a child that
+   clips its overflow (the line under the title, clamped to two lines) has an automatic minimum height of nothing: with more
+   cards than the screen holds it was the one squeezed, to no height at all (the More row's fault of 1 Nov, OWNER-ISSUES
+   118 (c), again). Nothing in the hub shrinks: the hub scrolls instead. */
+html .hub > * { flex-shrink: 0; }
+/* [tabs] A wide screen and the television, the tab bar standing up on the left (six areas on it since 1 Nov, measured at
+   1,920 × 1,080 in TV mode): its capsule holds its buttons (it was held to one row's height, 64 pt, the rest spilling out
+   below it), and a hub starts clear of the bar as the screens do (its own padding, written after the wide screen's, undid it,
+   so the first column of cards ran under the bar). */
+@media (min-width: 900px) {
+  html #dock .tabcap { height: auto; }
+  html .hub { padding-left: 92px; }
+}

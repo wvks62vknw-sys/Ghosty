@@ -762,6 +762,16 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     st.today.quick++;
     next = QUICK_TICK;
   } else if (workLeft && (did.reads || did.digests || did.drills || grew)) next = QUARTER;
+  // The owner's own settings as they stand now, not as this session found them: STUDY ALL, TURN OFF or FOCUS pressed while it
+  // read (a page fetched, a model asked: his requests run in between) are kept, never written back over (found 2 Nov 2026:
+  // STUDY ALL switched off during a session came back on after a reload); the queue is planned again from them.
+  const owner = await loadStudy(storage).catch(() => null);
+  if (owner) {
+    st.on = owner.on;
+    st.all = owner.all;
+    st.focus = owner.focus;
+    planQueue(st);
+  }
   await storage.put(STUDY_KEY, st).catch(() => undefined);
   await hurryJob(storage, next);
   return { state: st, did, next };

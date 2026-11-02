@@ -36,6 +36,9 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   gym: 'play', school: 'learn', library: 'learn', agenda: 'watch', markets: 'know', threats: 'watch', radio: 'play', memory: 'know',
   settings: 'talk', system: 'do', links: 'talk', abilities: 'talk',
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
+  // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
+  'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
+  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', house: 'do',
 };
 
 /** The chat's own controls (features/core/index.ts and the reply's buttons), by the element each is. */

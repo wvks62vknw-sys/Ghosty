@@ -2,18 +2,22 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #51, the last at 21:24 UK on 1 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #52, the last at 03:53 UK on 2 Nov)
 
+- LIVE since 03:53 UK on 2 Nov (PR #52, green on every job): THE STALL FIX (OWNER-ISSUES 120). No reply waits in silence: the brain on your
+  phone answers first only when its model is already warm, with five seconds to a first word and twenty in all, else the cloud answers at
+  once and the phone warms for next time; talking while he is "thinking" cuts in; a stop word ends a stuck attempt. You will see "On this
+  phone · first" only when the model is warm. Still yours: two free AI keys in System → Keys so a demo day cannot run the models dry.
 - LIVE since 21:24 UK on 1 Nov (PR #51, green on every job, the four browser shards in 44 minutes): ④ THE OUTSIDE, HOME AND LEARNING PACKS (50 more real
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
-  minutes instead of two hours and a quarter; a newer push cancels the run before it). BUILDING NOW (from 21:40 UK, overnight): EVERY FEATURE A TAB
-  (BRIEF-TABS, your words in OWNER-ISSUES 119): a seventh area LIFE on the dock for the eight life packs; the fourteen sheets become
-  real tabs with screens, cards, deck entries and words for the jump bar; every hub shows everything in its area. The UI depth
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). GOING UP AS PR #53 (2 Nov, 04:55 UK; merged when green): EVERY FEATURE A TAB
+  (BRIEF-TABS, your words in OWNER-ISSUES 119; the build record and your five-minute phone check in 121): LIFE on the bar for the eight
+  life packs, Me as your avatar; the fourteen sheets are real screens with cards, deck pictures and words for the jump bar; every hub
+  shows everything in its area and scrolls; every state said in a sentence; IN THE WORKS, honestly, on the two with typed-in tables. The UI depth
   pass's other families now live in PLAN-STARS.md (the order from tonight to the ceiling; STARS.md the 150 gaps; STANDARD.md the bar).
-  GOING UP AS PR #52 (2 Nov, 01:10): THE STALL FIX (OWNER-ISSUES 120): no reply waits in silence; the phone answers first only when its
-  brain is warm, within a budget; talking over "thinking" cuts in. HELD for your opinion: the twelve themes and the Cinematic touch-up.
+  HELD for your opinion: the twelve themes and the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through
   Ghosty's own site when archive.org does not answer from your phone, MAKE's DOCUMENTS row no longer cut off, and four tests fixed at
   their cause.

@@ -190,6 +190,8 @@ const week: ActionFn = async (_a, d) => {
   return {
     text: `This week since Monday: ${line}.${t.now !== null ? ` Weight ${t.now} kg on average.` : ''}${h?.avgSleep ? ` Sleep (your last Health export): ${hoursText(h.avgSleep)} a night.` : ''} From what you told me and what the phone counted. ${NOT_ADVICE}`,
     cards: [card({ id: `body:week:${from}`, kind: 'progress', at: d.now(), title: 'Your body this week', line, progress: { frac: Math.min(1, days / 5) } })],
+    // [tabs] the same week as numbers, for the BODY card on the LIFE hub (apps/web/src/shell/hubcards.ts)
+    data: { from, days, reps: repsN, km: Math.round(km * 10) / 10 },
   };
 };
 

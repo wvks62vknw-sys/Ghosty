@@ -1,6 +1,7 @@
 // The Every screen deck (BRIEF-DECK-BUILD.md; shell/launcher.ts, shell/deckcopy.ts) and the icon language without app
 // icons (OWNER-ISSUES 32–34), on the iPhone 18 Pro Max (440 × 956, en-GB, Europe/London):
-//  - the deck opens (tests/nav.mjs openDeck) with its four groups and all twenty-two cards, each promise whole (two
+//  - the deck opens (tests/nav.mjs openDeck) with its five groups (LIFE joined on 1 Nov, night: BRIEF-TABS) and all
+//    thirty-seven cards (the fourteen sheets that became screens among them, each in its area's group), each promise whole (two
 //    lines at most, never cut), Core's live line lit ("you are here"), nothing sticking out sideways;
 //  - tapping Lens opens it in place: the miniature of the real screen, at least three YOU CAN rows, DID YOU KNOW and
 //    OPEN; only one card is open at a time; a YOU CAN row deep-links (Lens → SCAN on TRANSLATE, read from
@@ -58,10 +59,18 @@ const look = await page.evaluate(() => ({
   wide: document.documentElement.scrollWidth > innerWidth || [...document.querySelectorAll('#deck .dkcard, #deck .dkgo, #deck .dkhead')].some((e) => { const r = e.getBoundingClientRect(); return r.left < -1 || r.right > innerWidth + 1; }),
 }));
 if (look.kick !== 'Every screen' || look.title !== 'At your service, Boss' || look.sub !== 'Tap any screen to find out what it can do.') problems.push(`the deck's header reads ${JSON.stringify([look.kick, look.title, look.sub])}`);
-// (the ARCADE sits in Learn and plan since 1 Nov, evening: shell/deckcopy.ts DECK_GROUPS, beside its card on the Learn hub)
-if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
+// (the ARCADE sits in Learn and plan since 1 Nov, evening: shell/deckcopy.ts DECK_GROUPS, beside its card on the Learn hub;
+// LIFE, the seventh area, has its own group since that night: BRIEF-TABS)
+if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Life,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
 // (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
-const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities', 'arcade'];
+// (the fourteen sheets became screens on 1 Nov, night, BRIEF-TABS: LIFE's eight, LEARN's two, MAKE's three and ME's one)
+const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities', 'arcade',
+  'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house'];
+// and each sits in its area's group, never in a More row
+const GROUP = { Make: ['convert', 'docs', 'house'], 'Learn and plan': ['learning', 'coach'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
+const inGroups = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#deck .dkgroup')].map((g) => [g.dataset.group, [...g.querySelectorAll('.dkcard')].map((c) => c.dataset.id)])));
+for (const [g, ids] of Object.entries(GROUP)) for (const id of ids) if (!inGroups[g]?.includes(id)) problems.push(`${id} is not in the deck's ${g} group: ${JSON.stringify(inGroups)}`);
+if (inGroups.More?.some((id) => ALL.includes(id) && Object.values(GROUP).flat().includes(id))) problems.push(`a new screen is in the deck's More row: ${inGroups.More.join(', ')}`);
 if (look.cards.length !== ALL.length || ALL.some((id) => !look.cards.includes(id))) problems.push(`the deck has ${look.cards.length} cards: ${look.cards.join(', ')}`);
 for (const c of look.cut) problems.push(`a promise runs past two lines: ${c}`);
 if (!/^Online/.test(look.core.live) || !look.core.hot) problems.push(`Core's live line is "${look.core.live}" (lit: ${look.core.hot})`);
@@ -167,9 +176,10 @@ const me = async () => {
 await me();
 for (const f of await filled('#mesheet :is(.rctile, .sq, .rowic)')) problems.push(`a Me sheet glyph has a filled background: ${f}`);
 const rows = await page.$$eval('#mesheet .merow', (rs) => rs.map((r) => r.dataset.id));
-if (rows.join(',') !== 'memory,settings,system,links,abilities,origin,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
+// (SOCIAL, his own accounts and the posts waiting for his APPROVE, has its row since 1 Nov, night: BRIEF-TABS)
+if (rows.join(',') !== 'memory,settings,system,links,abilities,social,origin,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
 await page.screenshot({ path: `${out}/deck-440-me.png` });
-for (const id of ['memory', 'settings', 'links', 'abilities']) {
+for (const id of ['memory', 'settings', 'links', 'abilities', 'social']) {
   if (id !== 'memory') await me();
   await page.click(`#mesheet .merow[data-id="${id}"]`);
   await until((want) => document.body.dataset.tab === want && !document.querySelector('#mesheet'), id, 6000, `the Me sheet's ${id} row did not open ${id}`);
@@ -203,4 +213,4 @@ if (problems.length) {
   console.error(`FAIL deck\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('deck: OK (23 cards in four groups and More, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');
+console.log('deck: OK (37 cards in five groups and More, the fourteen new screens in their areas\' groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');

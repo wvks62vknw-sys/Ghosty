@@ -21,7 +21,8 @@ import { metronome, micMessage, openMic, playNotes, type Mic } from './mic';
 import { dailyWords, drawPrompt, LANGUAGES, languageOf, pickText, scoreTyping, typingWords, wordMatch } from './skills';
 
 export type CoachWhat = 'tuner' | 'lessons' | 'typing' | 'draw' | 'words';
-const TABS: { id: CoachWhat; label: string }[] = [
+/** The sheet's pages (its row of tabs, and the COACH screen's pills: features/coach/index.ts). */
+export const COACH_TABS: { id: CoachWhat; label: string }[] = [
   { id: 'tuner', label: 'TUNER' },
   { id: 'lessons', label: 'LESSONS' },
   { id: 'typing', label: 'TYPING' },
@@ -71,22 +72,15 @@ export async function openCoach(what: CoachWhat = 'lessons', args: { instrument?
     stopNow = null;
     coachState.open = id;
     for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.tab === id));
-    let s: Screen;
-    try {
-      s = id === 'tuner' ? tunerScreen((a.instrument as Instrument) ?? 'guitar') : id === 'lessons' ? lessonsScreen((a.instrument as Teach) ?? startInstrument(prog), paintStreak) : id === 'typing' ? typingScreen(paintStreak) : id === 'draw' ? drawScreen(paintStreak) : wordsScreen(a.language ?? 'es', paintStreak);
-    } catch (e) {
-      coachState.error = (e as Error).message;
-      s = { el: h('p.pknote', `That screen did not open: ${(e as Error).message}`), stop: () => undefined };
-    }
+    const s = coachScreen(id, a, paintStreak);
     stopNow = s.stop;
     clear(body, s.el);
     paintStreak();
   };
   const paintStreak = () => {
-    const n = streak(prog.days, today());
-    streakLine.textContent = n ? `${n}-day streak: ${n === 1 ? 'you practised today' : `${n} days in a row`}. Everything here stays on this phone.` : 'Practise today and the streak starts. Everything here stays on this phone.';
+    streakLine.textContent = streakWords();
   };
-  for (const t of TABS) {
+  for (const t of COACH_TABS) {
     const b = button(t.label, () => show(t.id));
     b.dataset.tab = t.id;
     b.setAttribute('role', 'tab');
@@ -103,6 +97,31 @@ export async function openCoach(what: CoachWhat = 'lessons', args: { instrument?
 
 export function closeCoach(): void {
   sheet?.close();
+}
+
+/** The streak, in words (the sheet's line over its pages, and the COACH screen's). */
+export function streakWords(): string {
+  const n = streak(prog.days, today());
+  return n ? `${n}-day streak: ${n === 1 ? 'you practised today' : `${n} days in a row`}. Everything here stays on this phone.` : 'Practise today and the streak starts. Everything here stays on this phone.';
+}
+
+/** One page of the coach, made by its own function (the sheet's, and the COACH screen's panels); `onStreak` when a practice is kept. */
+export function coachScreen(id: CoachWhat, a: { instrument?: string; language?: string } = {}, onStreak: () => void = () => undefined): Screen {
+  const w = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;
+  if (w) w.coach = coachState;
+  try {
+    return id === 'tuner' ? tunerScreen((a.instrument as Instrument) ?? 'guitar') : id === 'lessons' ? lessonsScreen((a.instrument as Teach) ?? startInstrument(prog), onStreak) : id === 'typing' ? typingScreen(onStreak) : id === 'draw' ? drawScreen(onStreak) : wordsScreen(a.language ?? 'es', onStreak);
+  } catch (e) {
+    coachState.error = (e as Error).message;
+    return { el: h('p.pknote', `That screen did not open: ${(e as Error).message}`), stop: () => undefined };
+  }
+}
+
+/** The practice kept on this phone, read afresh (the COACH screen's streak and its card's readings). */
+export function coachProgress(): Progress {
+  prog = loadProgress();
+  coachState.streak = streak(prog.days, today());
+  return prog;
 }
 
 // ================================================================================================ TUNER

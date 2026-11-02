@@ -1,8 +1,10 @@
 // BRIEF-REST-E (batch ⑧ part E) on the preview, a 390 × 844 phone:
-//  1. THE CONVERTER (MAKE → CONVERT): the hub's CONVERT card opens the sheet; a JPG chosen is "a JPEG photo" with its
+//  1. THE CONVERTER (MAKE → CONVERT): the hub's CONVERT card opens the converter (its own screen since 1 Nov, night,
+//     BRIEF-TABS: the sheet's own page; the chat's doors still open the sheet); a JPG chosen is "a JPEG photo" with its
 //     size, PICTURES INTO ONE PDF makes a PDF on the phone (SAVE gives a real PDF with the photo in it as it is); a CSV
 //     becomes an Excel file with its header row; "3.5 miles in km" is answered in the chat with no model; a QR code is made.
-//  2. DOCUMENTS (MAKE → DOCUMENTS): a PDF of words opened is read as a document (its title, its heading) and READ IT TO
+//  2. DOCUMENTS (MAKE → DOCUMENTS, a card and a screen of its own since 1 Nov, night): a PDF of words opened is read as a
+//     document (its title, its heading) and READ IT TO
 //     ME speaks it (the voice stub); "write a letter to my landlord about the damp" in the chat: the brain's letter, its
 //     card, OPEN lays it out (the chatter gone, the date in), exported as a PDF and a Word file; MAKE IT SHORTER brings
 //     suggestions, one accepted changes the words; a translation into Urdu shows side by side, right to left.
@@ -75,10 +77,15 @@ const unnamed = (page, sel) =>
   page.$$eval(`${sel} :is(button, input, select, textarea, iframe)`, (els) =>
     els.filter((e) => e.getClientRects().length && !((e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || '').trim() || e.closest('label'))).map((e) => e.outerHTML.slice(0, 80)),
   );
-const looked = async (page, name) => {
-  const s = await sideways(page, '.modal *');
+/**
+ * Nothing sideways and every control named, where it is shown: the sheet (`.modal`), or a screen (`#pg-convert`), measured at
+ * rest (a screen pushed in from its hub card slides in on a spring that runs a little past its place for a moment).
+ */
+const looked = async (page, name, where = '.modal') => {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+  const s = await sideways(page, `${where} *`);
   check(!s.length && !(await wide(page)), `${name}: nothing sideways at 390 × 844${s.length ? `: ${s.slice(0, 4).join(', ')}` : ''}`);
-  const u = await unnamed(page, '.modal');
+  const u = await unnamed(page, where);
   check(!u.length, `${name}: every control has a name VoiceOver reads${u.length ? `: ${u.slice(0, 3).join(' | ')}` : ''}`);
 };
 
@@ -121,9 +128,12 @@ async function saved(click) {
 // ================================================================ 1. THE CONVERTER
 await page.evaluate(() => (location.hash = 'area-make'));
 await page.waitForSelector('#pg-area-make .hubtile[data-id="convert"]', { timeout: 15000 });
-check(await page.locator('#pg-area-make .hubmore .hubmini[data-id="docs"]').count() === 1, 'MAKE: CONVERT is a card, DOCUMENTS the seventh tool in the More row');
+// (since 1 Nov, night, every tool of MAKE is a card, DOCUMENTS and the HOUSE too, and each opens its own screen: BRIEF-TABS;
+// it was "CONVERT a card, DOCUMENTS the seventh tool in the More row", each opening its sheet)
+check(await page.locator('#pg-area-make .hubtile[data-id="docs"]').count() === 1 && await page.locator('#pg-area-make .hubtile[data-id="house"]').count() === 1 && !(await page.locator('#pg-area-make .hubmini').count()), 'MAKE: CONVERT, DOCUMENTS and the HOUSE are cards, with no More row');
 await page.click('#pg-area-make .hubtile[data-id="convert"]');
-await page.waitForSelector('.modal .cvsheet', { timeout: 15000 });
+await page.waitForSelector('#pg-convert .cvsheet', { timeout: 15000 });
+check(await page.evaluate(() => document.body.dataset.tab) === 'convert', 'the CONVERT card opens the converter’s own screen');
 check(/nothing is uploaded/i.test((await page.locator('.cvstatus').textContent()) ?? ''), 'the sheet says nothing is uploaded');
 const lemon = readFileSync(new URL('./fixtures/lemon.jpg', import.meta.url));
 await page.setInputFiles('.cvsheet input[type=file]', { name: 'lemon.jpg', mimeType: 'image/jpeg', buffer: lemon });
@@ -132,7 +142,7 @@ const fileLine = (await page.locator('.cvfile').first().textContent()) ?? '';
 check(/lemon\.jpg/.test(fileLine) && /a JPEG photo, \d+(\.\d)? KB/.test(fileLine), `what it is and its size: "${fileLine}"`);
 const offered = await page.evaluate(() => window.__ghosty?.convert?.offered ?? []);
 check(['img-png', 'img-resize', 'img-strip', 'images-pdf', 'code-read'].every((id) => offered.includes(id)) && !offered.includes('pdf-join'), `the conversions that apply to a photo: ${offered.join(', ')}`);
-await looked(page, 'the converter');
+await looked(page, 'the converter', '#pg-convert');
 await page.screenshot({ path: `${out}/reste-convert-offered.png` });
 await page.click('.cvbtn[data-id="images-pdf"]');
 await page.click('.cvgo');
@@ -157,7 +167,7 @@ await page.locator('.cvtoolbtn[data-id="qr-make"]').click();
 await page.fill('.cvtool textarea', 'https://example.com/reste');
 await page.locator('.cvtool button', { hasText: 'MAKE THE CODE' }).click();
 check(await until(page, () => !!document.querySelector('.cvqr img') && /QR code \(version \d/.test(window.__ghosty?.convert?.said ?? '')), 'a QR code is drawn on the phone');
-await looked(page, 'the converter with its results');
+await looked(page, 'the converter with its results', '#pg-convert');
 await page.screenshot({ path: `${out}/reste-convert-qr.png` });
 await closeSheet();
 // the chat's numbers, with no model
@@ -181,9 +191,9 @@ function wordsPdf() {
   return Buffer.from(s, 'latin1');
 }
 await page.evaluate(() => (location.hash = 'area-make'));
-await page.waitForSelector('#pg-area-make .hubmini[data-id="docs"]', { timeout: 15000 });
-await page.click('#pg-area-make .hubmini[data-id="docs"]');
-await page.waitForSelector('.modal .dcsheet', { timeout: 15000 });
+await page.waitForSelector('#pg-area-make .hubtile[data-id="docs"]', { timeout: 15000 });
+await page.click('#pg-area-make .hubtile[data-id="docs"]');
+await page.waitForSelector('#pg-docs .dcsheet', { timeout: 15000 });
 await page.setInputFiles('.dcsheet input[type=file]', { name: 'damp leaflet.pdf', mimeType: 'application/pdf', buffer: wordsPdf() });
 check(await until(page, () => window.__ghosty?.docs?.view === 'doc' && /Black mould/.test(window.__ghosty.docs.text)), 'a PDF is read as a document on the phone (pdf.js, vendored)');
 const read = await page.evaluate(() => ({ title: window.__ghosty.docs.title, heads: [...document.querySelectorAll('.dcpage :is(h2,h3,h4)')].map((e) => e.textContent) }));
@@ -192,7 +202,7 @@ await page.locator('.dctools button', { hasText: 'CONTENTS' }).click();
 check(/Who to call/.test((await page.locator('.dccontents').textContent()) ?? ''), 'CONTENTS lists its headings');
 await page.locator('.dctools button', { hasText: 'READ IT TO ME' }).click();
 check(await until(page, () => (window.__said ?? []).some((s) => /Damp and mould\. Black mould grows/.test(s)) && (window.__said ?? []).some((s) => /council deals with landlords/.test(s))), 'READ IT TO ME reads it in the phone’s voice, from the title to the end');
-await looked(page, 'a document read');
+await looked(page, 'a document read', '#pg-docs');
 await page.screenshot({ path: `${out}/reste-docs-read.png` });
 await closeSheet();
 

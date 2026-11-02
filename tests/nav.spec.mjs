@@ -19,7 +19,11 @@
 //    his next event (made here in the brain) and his city's weather, his city, his latest project; with no reading the
 //    plain line, never a sample; Ghosty says "I", never "he" or "him", on every hub;
 //  - Graphite draws the same shapes (the pills, the dots, the arc) in its own colour, from the theme's tokens;
-//  - nothing sticks out sideways at 440 or 390, every new target takes a finger (44 pt), the hubs still fit one screen.
+//  - nothing sticks out sideways at 440 or 390, every new target takes a finger (44 pt); every hub holds every tool of its
+//    area as a card and its last card is reachable by a scroll (the owner changed the "one screen" rule on 1 Nov 2026,
+//    OWNER-ISSUES 119: findability outranks it; it was "the hubs still fit one screen");
+//  - the seventh area (LIFE, 1 Nov 2026: BRIEF-TABS 1): six areas on the tab bar and Me at the top, at 440 and 390 every
+//    label whole and every button a finger's, nothing sideways; LIFE's arc and its plain line like the others'.
 // Fails on the old interface: no switcher, no pills, the hubs' generic lines ("… a library for him.").
 //   BASE=http://localhost:8788 node tests/nav.spec.mjs [outDir]
 import { chromium } from 'playwright';
@@ -143,7 +147,8 @@ await page.waitForTimeout(700);
 s = await sw(page);
 if (s.tab !== 'area-learn' || s.open) problems.push(`a short press on Learn: tab ${s.tab}, switcher ${s.open ? 'open' : 'closed'}`);
 if (s.aria !== 'true') problems.push(`the closed switcher is not aria-hidden (${s.aria})`);
-// the long press: the arc fans out above the bar, Learn's five tools (the arcade joined on 1 Nov) with their instruments, names and readings
+// the long press: the arc fans out above the bar, Learn's seven tools (the arcade joined on 1 Nov; the learning pack and the coach,
+// screens of their own since that night: BRIEF-TABS) with their instruments, names and readings, past five on two arcs
 await show(page, 'gym', 900);
 await f.down(at.x, at.y);
 await page.waitForTimeout(600);
@@ -154,7 +159,9 @@ if (!held) problems.push('the held tab does not keep its touch flare while the a
 await settle(page);
 s = await sw(page);
 if (s.aria !== null) problems.push(`the open switcher is still aria-hidden (${s.aria})`);
-if (s.items.map((i) => i.id).join(',') !== 'learn,arcade,gym,school,library') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Arcade, Gym, School, Library)`);
+if (s.items.map((i) => i.id).join(',') !== 'learn,arcade,gym,school,library,learning,coach') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Arcade, Gym, School, Library, Learning, Coach)`);
+// (seven tools: no two of them on top of each other, the rings 72 pt across)
+for (const [k, i] of s.items.entries()) for (const j of s.items.slice(k + 1)) if (Math.hypot(i.x - j.x, i.y - j.y) < 72) problems.push(`[switcher] ${i.id} and ${j.id} overlap (${i.x},${i.y} and ${j.x},${j.y})`);
 for (const i of s.items) {
   if (!i.drawn) problems.push(`[switcher ${i.id}] no instrument in its face`);
   if (!i.name || !i.read) problems.push(`[switcher ${i.id}] no name or reading ("${i.name}", "${i.read}")`);
@@ -184,6 +191,9 @@ await f.down(at.x, at.y);
 await page.waitForTimeout(600);
 await f.up();
 await page.waitForTimeout(400);
+// (the arc has two tiers past five tools since 2 Nov and its landing takes a moment longer: read the places once the animations
+// have finished, as the other arc checks do, or the tap lands where School was mid-flight)
+await settle(page);
 s = await sw(page);
 if (!s.open) problems.push('lifted on the held tab, the switcher closed (it should stay for a tap)');
 else {
@@ -548,7 +558,7 @@ await ctx.close();
     await p.route('**/api/agenda?**', (r) => r.fulfill({ status: 503, json: { error: 'down' } }));
   },
 }));
-const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you; the gym, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.' };
+const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you; the gym, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.', life: 'Money, body, kitchen, people, work, creative, outside and home: the everyday, kept.' };
 for (const [a, want] of Object.entries(PLAIN)) {
   await show(page, `area-${a}`, 2500);
   const w = await page.$eval(`#pg-area-${a} .hubsub`, (e) => ({ text: e.textContent, personal: e.dataset.personal }));
@@ -618,19 +628,53 @@ if (!reactor.pills.length || !reactor.dots.length || !reactor.arc.length || JSON
 if (!reactor.on || reactor.on !== reactor.c2 || graphite.on !== graphite.c2 || reactor.on === graphite.on) problems.push(`[graphite] the selected pill is not drawn in each theme's own light: reactor ${reactor.on} (its --c2 ${reactor.c2}), graphite ${graphite.on} (its --c2 ${graphite.c2})`);
 if (!graphite.dotOn || graphite.dotOn === reactor.dotOn) problems.push(`[graphite] the GYM's page dot is not in Graphite's colour (${graphite.dotOn} vs ${reactor.dotOn})`);
 
-// ===================================================================== nothing sideways at 440 and 390; the hubs still fit
+// ===================================================================== nothing sideways at 440 and 390; every tool on its hub
+// (the area's tools, shell/areadefs.ts: Ask adds Voice)
+const HUBS = {
+  'area-see': ['eye', 'lens'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  'area-learn': ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], 'area-plan': ['agenda', 'markets', 'threats', 'radio'],
+  'area-life': ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
+};
 for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   const W = viewport.width;
   ({ ctx, page } = await phone({ viewport }));
-  for (const tab of ['gym', 'system', 'agenda', 'area-learn', 'area-plan', 'area-make', 'area-see']) {
+  for (const tab of ['gym', 'system', 'agenda', 'area-learn', 'area-plan', 'area-make', 'area-see', 'area-life']) {
     await show(page, tab, 1500);
     for (const x of await sideways(page, `#pg-${tab} :is(button, .pn, .secpills, .gympager, .hubsub), #dock button`)) problems.push(`[${W} ${tab}] sticks out sideways: ${x}`);
     if (await pageWide(page)) problems.push(`[${W} ${tab}] the page scrolls sideways`);
     if (tab.startsWith('area-')) {
-      const fit = await page.$eval(`#pg-${tab} .hub`, (e) => ({ sh: e.scrollHeight, ch: e.clientHeight }));
-      if (fit.sh > fit.ch + 1) problems.push(`[${W} ${tab}] the hub no longer fits one screen (${fit.sh} > ${fit.ch})`);
+      // (restated 1 Nov 2026, OWNER-ISSUES 119: "the hub no longer fits one screen" is retired by the owner's word —
+      // findability outranks it. Now: every tool of the area has a card, and the last card is reachable by a scroll.)
+      const got = await page.$$eval(`#pg-${tab} .hubgrid > .hubtile`, (els) => els.map((e) => e.dataset.id).join(','));
+      if (got !== HUBS[tab].join(',')) problems.push(`[${W} ${tab}] the hub's cards are "${got}", want every tool: "${HUBS[tab].join(',')}"`);
+      const last = await page.$eval(`#pg-${tab} .hub`, (h) => {
+        const c = h.querySelector('.hubgrid > :last-child');
+        c?.scrollIntoView({ block: 'end', behavior: 'instant' });
+        const r = c?.getBoundingClientRect();
+        const bar = document.querySelector('#dock .tabcap')?.getBoundingClientRect().top ?? innerHeight;
+        const out = { bottom: r?.bottom ?? 0, top: r?.top ?? 0, bar, scrolled: h.scrollTop };
+        h.scrollTop = 0;
+        return out;
+      });
+      if (!(last.bottom <= last.bar + 0.5 && last.top >= 0)) problems.push(`[${W} ${tab}] the last card is not reachable by a scroll (it ends at ${Math.round(last.bottom)}, the tab bar starts at ${Math.round(last.bar)})`);
     }
   }
+  // the seventh area: six on the bar (Life between Plan and the Me at the top right), every label whole, a finger's each
+  await show(page, 'area-life', 900);
+  const dock = await page.evaluate(() => ({
+    areas: [...document.querySelectorAll('#dock .tabcap button[data-area]')].map((b) => b.dataset.area),
+    me: !!document.querySelector('#top .you[data-area="me"]'),
+    lit: document.querySelector('#dock .tabcap button.on')?.dataset.area ?? '',
+    cut: [...document.querySelectorAll('#dock .tabcap button')].map((b) => ({ b: b.getBoundingClientRect(), s: b.querySelector('span') })).filter(({ b, s }) => {
+      const r = s?.getBoundingClientRect();
+      return !s || !s.textContent?.trim() || s.scrollWidth > s.clientWidth + 1 || r.left < b.left - 0.5 || r.right > b.right + 0.5 || parseFloat(getComputedStyle(s).fontSize) < 10;
+    }).map(({ s }) => s?.textContent ?? '?'),
+  }));
+  if (dock.areas.join(',') !== 'ask,see,make,learn,plan,life' || !dock.me) problems.push(`[${W}] the tab bar holds ${dock.areas.join(', ')}${dock.me ? ' and Me' : ', and no Me'} (want Ask, See, Make, Learn, Plan, Life and Me)`);
+  if (dock.lit !== 'life') problems.push(`[${W}] Life is not lit on its own hub (${dock.lit})`);
+  if (dock.cut.length) problems.push(`[${W}] a tab-bar label is cut or too small to read: ${dock.cut.join(', ')}`);
+  for (const t of await target44(page, '#dock .tabcap button, #top .you')) problems.push(`[${W}] a tab-bar button under a 44 pt target: ${t}`);
+  if (W === PHONE.width) await page.screenshot({ path: `${out}/nav-life-440.png` });
   // the other long screens' pills, one after another at this width
   for (const L of LONG) {
     await onScreen(page, L.tab, 900);
@@ -644,7 +688,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await show(page, 'system', 1500);
   for (const t of await target44(page, '#pg-system .secpill')) problems.push(`[${W} system] a pill under a 44 pt target: ${t}`);
   const fg = await fingerOf(ctx, page);
-  for (const area of ['ask', 'see', 'make', 'learn', 'plan']) {
+  for (const area of ['ask', 'see', 'make', 'learn', 'plan', 'life']) {
     const pt = await tabAt(page, area);
     await fg.down(pt.x, pt.y);
     await page.waitForTimeout(650);
@@ -653,7 +697,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     if (!a.open) problems.push(`[${W} ${area}] a long press did not open the switcher`);
     for (const i of a.items) if (i.box.l < 0 || i.box.r > W || i.box.b > a.bar + 1 || i.box.t < 0) problems.push(`[${W} ${area}] ${i.id} is off the screen or under the bar (${Math.round(i.box.l)}–${Math.round(i.box.r)}, ${Math.round(i.box.t)}–${Math.round(i.box.b)})`);
     for (const x of await sideways(page, '#switcher :is(.switem, .swcap)')) problems.push(`[${W} ${area}] the switcher sticks out sideways: ${x}`);
-    if (area === 'learn' && W === PHONE.width) await page.screenshot({ path: `${out}/nav-switcher-learn-open.png` });
+    // (eight tools on Make and Life since 1 Nov, night: on two arcs, none on top of another)
+    for (const [k, i] of a.items.entries()) for (const j of a.items.slice(k + 1)) if (Math.hypot(i.x - j.x, i.y - j.y) < 72) problems.push(`[${W} ${area}] ${i.id} and ${j.id} overlap in the switcher`);
+    if (area === 'life' && a.items.map((i) => i.id).sort().join(',') !== 'body,creative,homeadmin,kitchen,money,outside,people,work') problems.push(`[${W}] the Life arc holds ${a.items.map((i) => i.id).join(', ')}`);
+    if ((area === 'learn' || area === 'life') && W === PHONE.width) await page.screenshot({ path: `${out}/nav-switcher-${area}-open.png` });
     await fg.move(pt, { x: W / 2, y: 120 });
     await fg.up();
     await page.waitForTimeout(300);
@@ -725,4 +772,4 @@ if (problems.length) {
   console.error(`FAIL nav\n${[...new Set(problems)].join('\n')}`);
   process.exit(1);
 }
-console.log('nav: OK (the switcher by touch, by mouse and under Reduce Motion: hold, slide, let go; a tap and a short press unchanged; the sections on System and Agenda and on Settings, the Library, Memory, School, the Workshop, Threats and Links: pills held in reach, one section at a time, remembered per screen, deep links select their pill and stop clear of the pills, no name cut short, every panel on a wide screen and, on a computer at 1440 × 900, the columns in their places with their buttons tappable; the hubs in his own words against the brain, the plain line with no reading, "I" throughout; Graphite the same shapes in its colour; nothing sideways at 440 or 390; 44 pt targets)');
+console.log('nav: OK (the switcher by touch, by mouse and under Reduce Motion: hold, slide, let go; a tap and a short press unchanged; seven areas, Life on the bar, every label whole and 44 pt; every tool on its hub, the last card reachable by a scroll; past five tools the arc on two tiers, none overlapping; the sections on System and Agenda and on Settings, the Library, Memory, School, the Workshop, Threats and Links: pills held in reach, one section at a time, remembered per screen, deep links select their pill and stop clear of the pills, no name cut short, every panel on a wide screen and, on a computer at 1440 × 900, the columns in their places with their buttons tappable; the hubs in his own words against the brain, the plain line with no reading, "I" throughout; Graphite the same shapes in its colour; nothing sideways at 440 or 390; 44 pt targets)');
