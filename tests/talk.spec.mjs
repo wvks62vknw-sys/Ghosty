@@ -153,6 +153,8 @@ const fakeTalk = () => {
     setTimeout(begin, cold ? 450 : 120);
   };
   synth.getVoices = () => voices;
+  Object.defineProperty(synth, 'speaking', { configurable: true, get: () => !!cur });
+  Object.defineProperty(synth, 'pending', { configurable: true, get: () => q.length > 0 });
   synth.speak = (u) => {
     const rec = { text: u.text, volume: u.volume, voice: u.voice?.name ?? null, calledAt: performance.now() };
     if (!u.text.trim() || u.volume === 0) {
@@ -428,7 +430,7 @@ const slow = createServer((req, res) => {
 });
 await new Promise((r) => slow.listen(0, '127.0.0.1', r));
 const slowAsk = (k) => `read http://127.0.0.1:${slow.address().port}/a${k} and http://127.0.0.1:${slow.address().port}/b${k} together`;
-const GENERIC = /^(?:thinking|processing|working)\b|^$/i;
+const GENERIC = /^(?:thinking|thinking about the results|processing|working|working on it)(?:…|\.\.\.)?$|^$/i;
 if (part('narrate')) {
   const name = 'narrate';
   const { ctx, page, io } = await talkPage(name, { tts: true });
@@ -447,11 +449,11 @@ if (part('narrate')) {
   const replyAt = t.tts.find((x) => x.at >= t0 && !/…$/.test(x.text))?.at ?? Infinity;
   const lines = t.status.filter((s) => s.at >= sentAt + 1500 && s.at < replyAt && s.busy);
   const asides = t.tts.filter((x) => x.at >= t0 && x.at < replyAt);
-  measured.narration = { lines: [...new Set(lines.map((l) => l.text))], asides: asides.map((a) => a.text) };
+  measured.narration = { lines: [...new Set(t.status.filter((x) => x.at >= sentAt && x.at < replyAt && x.busy).map((l) => l.text))], asides: asides.map((a) => a.text), firstAsideMs: asides[0] ? Math.round(asides[0].at - sentAt) : null };
   if (!lines.length && !t.status.some((s) => s.at >= sentAt && s.busy && !GENERIC.test(s.text))) problems.push(`[${name}] the status line said nothing specific while the slow turn worked (${JSON.stringify(t.status.slice(-6))})`);
   const bare = lines.filter((l) => GENERIC.test(l.text));
   if (bare.length) problems.push(`[${name}] a bare "${bare[0].text || '(empty)'}" in the status line ${ms(bare[0].at - sentAt)} into the turn`);
-  if (!lines.some((l) => /read|page|look/i.test(l.text))) problems.push(`[${name}] the status line never said what he was doing: ${JSON.stringify(measured.narration.lines)}`);
+  if (!measured.narration.lines.some((l) => /read|page|look/i.test(l))) problems.push(`[${name}] the status line never said what he was doing: ${JSON.stringify(measured.narration.lines)}`);
   if (!asides.length) problems.push(`[${name}] no spoken aside in a spoken turn that worked for seconds`);
   if (asides.some((a) => a.at < sentAt + 1400)) problems.push(`[${name}] an aside before 1.5 s of work`);
   if (asides.some((a) => words(a.text) > 7)) problems.push(`[${name}] an aside is long: ${JSON.stringify(asides.map((a) => a.text))}`);

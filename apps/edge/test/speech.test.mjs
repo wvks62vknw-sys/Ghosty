@@ -429,3 +429,42 @@ test('the first piece said is the first sentence or its first twelve words, cut 
   }
   assert.deepEqual(SP.quickFirst([]), []);
 });
+
+// BRIEF-TALK-1A 3: narration (apps/web/src/assistant/narrate.ts) — what he is doing, in his words, never a bare "thinking".
+const NR = await bundle(new URL('../../web/src/assistant/narrate.ts', import.meta.url).pathname);
+test('narration: each step said as he would say it, short enough to say aloud, never a bare "thinking"', () => {
+  assert.equal(NR.toolLine('plan_journey'), 'looking at the trains…');
+  assert.equal(NR.toolLine('web_fetch'), 'reading that page…');
+  assert.equal(NR.toolLine('weather'), 'checking the weather…');
+  // a tool with no line of its own says its label, its detail left off
+  assert.equal(NR.toolLine('cert_search', 'Searching certificates: example.com'), 'searching certificates…');
+  assert.equal(NR.toolLine('some_new_tool'), 'some new tool…');
+  // a tool's own report: a count is said as a person says it; its words when they say what it is doing; nothing else
+  assert.equal(NR.progressLine('pages', 2, 5), 'two of five so far…');
+  assert.equal(NR.progressLine('reading bosch-home.com…'), 'reading bosch-home.com…');
+  assert.equal(NR.progressLine('searching for the manual'), 'searching for the manual…');
+  assert.equal(NR.progressLine('crt.sh…', 3), null);
+  assert.equal(NR.progressLine('reading…'), null, 'one word says nothing he would say');
+  assert.equal(NR.progressLine('pages', 5, 5), null, 'all done is not "so far"');
+  // after the tools, from the last one
+  assert.equal(NR.afterLine('web_search'), 'reading what I found…');
+  assert.equal(NR.afterLine('next_departures'), 'picking the best one…');
+  assert.equal(NR.afterLine('make_picture'), 'putting it together…');
+  // before any tool, from his words
+  assert.equal(NR.askLine('when is the next train to Leeds?'), 'working out the trains…');
+  assert.equal(NR.askLine('will it rain tomorrow'), 'checking the weather…');
+  assert.equal(NR.askLine('write me a letter to the council'), 'drafting it…');
+  assert.equal(NR.askLine('what is 12 x 7'), 'working it out…');
+  assert.equal(NR.askLine('why is the sky blue?'), 'working that out…');
+  assert.equal(NR.askLine('hmm'), 'on it…');
+  // every line: short (an aside is a few words), in the present, ending "…", and never "thinking"
+  const all = [...['plan_journey', 'web_search', 'web_fetch', 'weather', 'remember', 'send_email', 'gadget_manual', 'spotify_now_playing', 'propose_change'].map((t) => NR.toolLine(t)), NR.afterLine('x'), NR.afterLine('weather'), ...['trains', 'weather', 'news', 'email', 'diary', 'code', 'draft', 'translate', 'read', '2+2', 'what', 'x'].map((t) => NR.askLine(t))];
+  for (const l of all) {
+    assert.ok(l.split(/\s+/).length <= 6, `"${l}" is short`);
+    assert.match(l, /…$/, l);
+    assert.doesNotMatch(l, /^thinking|processing/i, l);
+  }
+  // the brain's bare statuses are replaced; its others (a wait, its own words) are shown as they are
+  for (const b of ['thinking…', 'thinking about the results…', 'Thinking...', 'processing…']) assert.ok(NR.BARE.test(b), b);
+  for (const k of ['waiting for free AI room · 12 s', 'Let me check the trains.', 'that model would not engage: asking another…']) assert.ok(!NR.BARE.test(k), k);
+});

@@ -152,11 +152,16 @@ let progress = { parts: [] as string[], i: 0, owner: undefined as string | undef
  * screen." (LISTEN reads the whole of it). `here`: a reply kept on the phone (OWNER-ISSUES 72): only the
  * phone's own voice reads it, never Ghosty's (the brain makes that voice from the words).
  */
-export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean; here?: boolean } = {}): Promise<void> {
+export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean; here?: boolean; aside?: boolean } = {}): Promise<void> {
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
+  // An aside still being said ("looking at the trains…") gives way to what comes next at once: never under or after it.
+  if (asideToken === speakToken && ui.get().voice === 'speaking') cancelPhone();
   const token = ++speakToken;
+  // [talk] `aside`: a word on what he is doing while the brain works (session.ts narration, BRIEF-TALK-1A 3): no reply is
+  // marked if it is cut, and anything said after it takes its place.
+  asideToken = opts.aside ? token : 0;
   // (the first piece short: the voice starts on it while the rest is still being made — BRIEF-TALK-1A 1)
   const parts = quickFirst(opts.brief ? brief(sentences(t)) : sentences(t));
   progress = { parts, i: 0, owner: opts.owner };
@@ -169,6 +174,17 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
     return speakGhosty(parts, token, choice).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token, choice, from) : undefined));
   }
   return speakPhone(parts, token, choice);
+}
+
+/** The speech now being said is an aside (its token), or 0. */
+let asideToken = 0;
+/** The phone's voice stops what it is saying and forgets what it was to say next. */
+function cancelPhone(): void {
+  try {
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  } catch {
+    /* no speech synthesis */
+  }
 }
 
 /** SETTINGS → VOICE → SAMPLE: a line in the voice shown, whatever is saved. */

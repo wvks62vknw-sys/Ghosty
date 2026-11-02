@@ -24,6 +24,7 @@ import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
+import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
@@ -254,10 +255,14 @@ let spokenTurn = false;
 function handle(ev: ChatEvent): void {
   switch (ev.t) {
     case 'status':
-      ui.set({ status: ev.text });
+      // [talk] a bare "thinking…" from the brain: the narration says what he is doing instead (BRIEF-TALK-1A 3)
+      if (narr.on && BARE.test(ev.text.trim())) narrate(`step:${++narr.steps}`, narr.lastTool ? afterLine(narr.lastTool) : askLine(narr.ask));
+      else ui.set({ status: ev.text });
       break;
     case 'tool':
       toolRan = true;
+      narr.lastTool = ev.name;
+      narrate(`tool:${ev.id}`, toolLine(ev.name, label(ev.name, ev.args)));
       if (ev.name === 'vehicle_check') {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
@@ -265,6 +270,8 @@ function handle(ev: ChatEvent): void {
       push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running', tool: ev.name, args: argWords(ev.args) });
       break;
     case 'progress':
+      // (a count is said; a tool's own words — "fetching bbc.co.uk…" — go up but are not read out)
+      narrate(`progress:${ev.id}:${ev.done ?? ev.label}`, progressLine(ev.label, ev.done, ev.total), typeof ev.done === 'number' && typeof ev.total === 'number');
       // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
       patch(
         (e) => e.kind === 'activity' && e.id === ev.id && e.state === 'running',
@@ -288,6 +295,7 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
     case 'text': {
+      narr.replied = true; // (no aside once the reply has begun: it is said instead)
       const at = stamp();
       push({ kind: 'assistant', text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) });
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
@@ -345,8 +353,10 @@ function handle(ev: ChatEvent): void {
 /**
  * `rescue`: a last try before the error is shown (the offline brain on the phone); true when it answered.
  */
-async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>): Promise<void> {
-  ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
+async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>, ask?: string): Promise<void> {
+  // `ask`: a turn of the brain's, narrated from his words on (BRIEF-TALK-1A 3); without one, this phone's own work says its own.
+  ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: ask === undefined ? 'thinking…' : askLine(ask) });
+  if (ask !== undefined) narrateTurn(ask);
   const since = Date.now();
   toolRan = approvalAsked = false;
   try {
@@ -377,6 +387,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
+    if (ask !== undefined) narrateEnd();
     vehicleTurn = false;
     settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
     tally(since);
@@ -388,6 +399,48 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
 /** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
 let toolRan = false;
 let approvalAsked = false;
+
+/**
+ * [talk] NARRATION (BRIEF-TALK-1A 3; STARS 9): while the brain works, the status line says what he is doing in his own words,
+ * from his ask, then each tool and its own report (narrate.ts) — never a bare "thinking". In a spoken turn, once the brain has
+ * worked for ASIDE_AFTER_MS, each new step is also said as a short aside ("reading that page…"): once per step, never the
+ * same words twice in a turn, never while he is talking or being listened to, ASIDE_GAP_MS apart at least, and never once
+ * the reply has begun (it is said instead, and an aside still being said gives way to it at once: voice.ts).
+ */
+const narr = { on: false, t0: 0, ask: '', key: '', say: '', sayAt: 0, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: false, timer: 0 };
+const ASIDE_AFTER_MS = 1500;
+const ASIDE_GAP_MS = 2000;
+/** A step must last this long to be said (a step the reply follows at once gets no aside to be cut short). */
+const STEP_GRACE_MS = 400;
+function narrateTurn(ask: string): void {
+  clearInterval(narr.timer);
+  const now = Date.now();
+  Object.assign(narr, { on: true, t0: now, ask, key: '', say: askLine(ask), sayAt: now, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: spokenTurn && speakReplies });
+  // (the first aside can only come at 1.5 s; this also catches a moment the voice or the ear has just let go)
+  narr.timer = window.setInterval(aside, 250);
+}
+function narrateEnd(): void {
+  narr.on = false;
+  clearInterval(narr.timer);
+}
+/** A new step of the turn at work: its line goes up; `say` (a tool, a count, the step after the tools) may also be said. */
+function narrate(key: string, line: string | null, say = true): void {
+  if (!narr.on || narr.replied || !line || key === narr.key) return;
+  narr.key = key;
+  ui.set({ status: line });
+  if (!say) return;
+  narr.say = line;
+  narr.sayAt = Date.now();
+}
+function aside(): void {
+  if (!narr.on || narr.replied || !narr.spoken || !settings.get().speak) return;
+  const now = Date.now();
+  const v = ui.get().voice;
+  if (now - narr.t0 < ASIDE_AFTER_MS || now - narr.sayAt < STEP_GRACE_MS || now - narr.asideAt < ASIDE_GAP_MS || v === 'speaking' || v === 'listening' || narr.said.has(narr.say)) return;
+  narr.said.add(narr.say);
+  narr.asideAt = now;
+  void speak(narr.say, { aside: true }).finally(() => (narr.asideAt = Date.now()));
+}
 
 /**
  * The independence meter (core/independence.ts): the answer this stream gave, counted once by where it was answered (its
@@ -798,6 +851,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t).then((a) => import('../wiki/ask').then((w) => w.offlineWiki(t, a)).catch(() => a))),
     rescue,
+    t,
   );
   lap.end();
   // [reste] a letter or a document he asked me to write: offered laid out as a DOCUMENT under the reply (docs/ask.ts)
@@ -814,7 +868,7 @@ export async function answerApproval(id: string, allow: boolean): Promise<void> 
     (e) => e.kind === 'approval' && e.id === id,
     (e) => ({ ...(e as Extract<Entry, { kind: 'approval' }>), state: allow ? 'approved' : 'declined' }),
   );
-  await stream((cb) => brain.approve(id, allow, cb));
+  await stream((cb) => brain.approve(id, allow, cb), undefined, undefined, '');
 }
 
 /** Approvals being followed (one watcher each). */
