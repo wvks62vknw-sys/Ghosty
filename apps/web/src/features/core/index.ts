@@ -3,7 +3,9 @@
  */
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
-import { answerApproval, askBigBrain, askCloud, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, askCloud, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { sfx } from '../../assistant/sfx';
+import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
@@ -144,8 +146,9 @@ async function voiceTurn(id: number): Promise<void> {
       toast("I can't hear you on the phone alone in this browser: it has no speech recognition of its own. Type it instead.", 'warn');
       return;
     }
-    // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
-    const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }));
+    // The brain hears when its status says so (any status call since the app opened, not only CORE's own). The moment the
+    // ear can hear him, a soft tone says it is his turn (BRIEF-TALK-1A 4).
+    const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }), () => sfx('turn'));
     if (!live()) return;
     if (!text) {
       if (++quiet >= 2) {
@@ -157,14 +160,33 @@ async function voiceTurn(id: number): Promise<void> {
       return;
     }
     quiet = 0;
+    // "that's all", "bye", "see you later": the conversation ends here, signed off, the microphone let go (BRIEF-TALK-1A 4)
+    if (endIntent(text)) {
+      endConversation();
+      await signOff(text);
+      return;
+    }
     await sendWithEars(text, live);
-    // wait for speech to finish, then listen again
-    const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : live() && setTimeout(() => void voiceTurn(id), 250));
-    wait();
+    // the ear opens again the moment his reply ends: no wait of its own (it used to look every quarter second, twice)
+    await untilFree(live);
+    if (live()) void voiceTurn(id);
   } catch (e) {
     if (id === convoId) endConversation();
     toast(String((e as Error)?.message ?? e), 'bad');
   }
+}
+
+/** Resolves the moment Ghosty is neither speaking nor thinking (his reply has ended), or the conversation is over. */
+function untilFree(live: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    const free = () => !live() || (ui.get().voice !== 'speaking' && !ui.get().busy);
+    if (free()) return resolve();
+    const off = ui.subscribe(() => {
+      if (!free()) return;
+      off();
+      resolve();
+    });
+  });
 }
 
 /** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */

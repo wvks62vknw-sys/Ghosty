@@ -489,6 +489,7 @@ if (part('convo')) {
   await waitVoice(page, 'listening', 8000);
   await settle(page);
   const reopen = [];
+  const firstWords = [];
   let answered = 0;
   for (let i = 1; i <= 10; i++) {
     const said = `turn ${i} of ten ${RUN}`;
@@ -496,8 +497,10 @@ if (part('convo')) {
     const sfxBefore = await page.evaluate(() => window.__talk.sfx.filter((s) => s.kind === 'turn').length);
     // turn 5 is said the moment the ear opens: it must already be able to hear him
     if (i !== 5 && i !== 1) await page.waitForTimeout(150);
-    await speakFor(page, 700);
+    const endAt0 = await speakFor(page, 700);
     const ok = await seen(page, new RegExp(`Mock reply to: ${said}`), 15000);
+    const first = await page.waitForFunction((t) => window.__talk.clips.find((c) => c.at >= t && c.ev === 'playing' && c.dur > 0.3)?.at, endAt0, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
+    if (first) firstWords.push(Math.round(first - endAt0));
     if (!ok) {
       problems.push(`[${name}] turn ${i} was not answered (heard ${JSON.stringify(io.stt.slice(-2))})`);
       break;
@@ -515,11 +518,14 @@ if (part('convo')) {
     reopen.push(Math.round(at - endAt));
     if ((await page.evaluate(() => window.__talk.sfx.filter((s) => s.kind === 'turn').length)) <= sfxBefore) problems.push(`[${name}] no "your turn" tone after turn ${i}`);
   }
-  measured.convo = { taps, answered, reopen };
+  const median = [...firstWords].sort((a, b) => a - b)[Math.floor(firstWords.length / 2)];
+  measured.convo = { taps, answered, reopen, firstWords, firstWordMedian: median };
+  // his last word to Ghosty's first, turn after turn of a running conversation: within the second
+  if (!(median <= 1000)) problems.push(`[${name}] the first word came a median ${ms(median)} after he stopped speaking (${firstWords.join(', ')} ms; budget 1,000 ms)`);
   if (answered < 10) problems.push(`[${name}] ${answered} of ten turns answered with no tap`);
   if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);
   if (reopen.some((r) => r > 400)) problems.push(`[${name}] the ear opened again late after a reply: ${reopen.join(', ')} ms`);
-  console.log(`[${name}] ten turns: ${answered} answered with ${taps} tap (the one that started it); ear open again ${reopen.join(', ')} ms after each reply`);
+  console.log(`[${name}] ten turns: ${answered} answered with ${taps} tap (the one that started it); ear open again ${reopen.join(', ')} ms after each reply; his last word to the first of Ghosty's ${firstWords.join(', ')} ms (median ${median})`);
   // "that's all": signed off, the microphone let go, both in the chat
   io.heard.push("that's all");
   const byeAt = await speakFor(page, 500);

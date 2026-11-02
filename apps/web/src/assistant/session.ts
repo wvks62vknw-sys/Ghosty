@@ -922,6 +922,22 @@ function followApproval(id: string): void {
   document.addEventListener('visibilitychange', onHide);
 }
 
+/** [talk] What a spoken conversation ends on when he says "that's all" or "bye" (in turn, never the same twice running). */
+const SIGN_OFFS = ['Okay. Shout if you need me.', "Right. I'm here when you want me.", 'Bye for now.'];
+let signed = -1;
+/**
+ * He ended a spoken conversation ("that's all", "bye": BRIEF-TALK-1A 4): his words and a short sign-off go in the chat and the
+ * sign-off is said. Answered here with no model (core/index.ts has already let the microphone go); nothing is sent.
+ */
+export function signOff(words: string): Promise<void> {
+  const hour = new Date().getHours();
+  const line = hour >= 22 || hour < 5 ? "Night. I'm here if you need me." : SIGN_OFFS[(signed = (signed + 1) % SIGN_OFFS.length)]!;
+  const asked = stamp();
+  const at = stamp();
+  chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: words, at: asked }, { kind: 'assistant' as const, text: line, at, model: LOCAL_MODEL }].slice(-120), live: line }));
+  return settings.get().speak ? speak(line, { owner: String(at) }) : Promise.resolve();
+}
+
 /** Load recent conversation from the brain on start-up. */
 export async function loadHistory(): Promise<void> {
   try {

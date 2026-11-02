@@ -735,7 +735,7 @@ async function toWav(ctx: AudioContext, blob: Blob, skip = 0): Promise<Blob> {
   return new Blob([encodeWav(toMono16k(channels, decoded.sampleRate))], { type: 'audio/wav' });
 }
 
-async function listenWhisper(): Promise<string> {
+async function listenWhisper(onReady: () => void = () => undefined): Promise<string> {
   const m = await openMic();
   // After a barge-in the recording is already running and the owner already talking.
   const c = carry;
@@ -760,6 +760,7 @@ async function listenWhisper(): Promise<string> {
     let speechAt = 0;
     let calib = c || floor ? 20 : 0;
     floor ||= 0.008;
+    let ready = false;
     const t0 = performance.now();
     let last = t0;
     let stopped = false;
@@ -773,6 +774,10 @@ async function listenWhisper(): Promise<string> {
       micLevel.level = Math.min(1, rms * 9);
       micLevel.spectrum = m.freq;
       if (!speech) floor = ++calib < 20 ? Math.max(floor * 0.9 + rms * 0.1, 0.003) : floor * 0.995 + Math.min(rms, floor * 1.5) * 0.005;
+      if (!ready && calib >= 20) {
+        ready = true;
+        onReady();
+      }
       const thr = Math.max(0.018, floor * 3.2);
       if (rms > Math.max(0.008, floor * 2)) voiced += Math.min(1000, now - last);
       last = now;
@@ -898,14 +903,18 @@ let writing = false;
  * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
  * instead when there is one, else the owner is told so before saying a word.
  */
-export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined): Promise<string> {
+export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined, onReady: () => void = () => undefined): Promise<string> {
   stopSpeaking();
   const offline = navigator.onLine === false;
   if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
   const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {
-    return useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
+    // `onReady`: the ear can hear him now (BRIEF-TALK-1A 4: the "your turn" tone) — the brain's ear once it knows the room,
+    // the phone's own recogniser as it starts.
+    if (useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined') return await listenWhisper(onReady);
+    onReady();
+    return await listenBrowser(onInterim);
   } finally {
     abortListen = null;
     if (ui.get().voice === 'listening') ui.set({ voice: 'idle' });
