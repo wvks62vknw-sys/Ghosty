@@ -1281,6 +1281,10 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
+  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md), builder NOT started: a four-to-six-hour
+  build plus checks costs more than the 6% left. It is the first build after the reset. Committed locally behind PR #55 and pushed
+  only once #55 has merged (a push while #55's checks ran would have cancelled them under the workflow's concurrency rule).
 - 2 Nov 11:27–13:00 UK: MAIN RED AFTER PR #54 (run 302, 10:26 → 11:25, 8825d5a): shard 1's talk spec failed twice (the same tree had
   passed as PR #54's run 301 an hour before); brain, interface, deploy-build and shards 2–4 green. CAUSE (OWNER-ISSUES 123): restd
   (right before talk on shard 1) runs a refused house job that leaves an unread inbox item; a fresh page reads any unread notice

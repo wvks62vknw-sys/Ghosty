@@ -209,6 +209,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
+- FIRST AFTER FRIDAY'S RESET: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
+  page to tap, each a full card in its area's hub like every screen has (his words: like how it already is); one generator
+  from the tools' own definitions. Not
+  started this week: the credits do not cover it.
+
 The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your words in OWNER-ISSUES 91 and 92):
 ① the everything-tab · ② sideways (everything lands in the chat as live cards; he brings things up himself; Home as your
 wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
