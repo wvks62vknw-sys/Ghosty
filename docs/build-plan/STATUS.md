@@ -12,9 +12,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
-  minutes instead of two hours and a quarter; a newer push cancels the run before it). BUILDING NOW (from 21:40 UK, overnight): EVERY FEATURE A TAB
-  (BRIEF-TABS, your words in OWNER-ISSUES 119): a seventh area LIFE on the dock for the eight life packs; the fourteen sheets become
-  real tabs with screens, cards, deck entries and words for the jump bar; every hub shows everything in its area. The UI depth
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). GOING UP AS PR #53 (2 Nov, 04:55 UK; merged when green): EVERY FEATURE A TAB
+  (BRIEF-TABS, your words in OWNER-ISSUES 119; the build record and your five-minute phone check in 121): LIFE on the bar for the eight
+  life packs, Me as your avatar; the fourteen sheets are real screens with cards, deck pictures and words for the jump bar; every hub
+  shows everything in its area and scrolls; every state said in a sentence; IN THE WORKS, honestly, on the two with typed-in tables. The UI depth
   pass's other families now live in PLAN-STARS.md (the order from tonight to the ceiling; STARS.md the 150 gaps; STANDARD.md the bar).
   HELD for your opinion: the twelve themes and the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through

@@ -1259,6 +1259,16 @@ folder that no longer exists; ignore those paths).
 - 2 Nov 03:53 UK: PR #52 MERGED (main fc70208), green on every job at the second run; the first run's shard 1 was the packs-3 spec's
   eve-of-collection time bomb ("Tue 3 Nov (tomorrow)" and "Bins out tonight" on the night before its own Tuesday), allowed for in the spec.
   Running: the TABS builder (8666) since 21:41 UK, to land as PR #53 with OWNER-ISSUES 121.
+- 2 Nov 04:54 UK: main's run for PR #52 (fc70208) green (03:53 → 04:31). TABS MERGED (OWNER-ISSUES 121; builder base f59bffe, HEAD
+  b640d3e, 15 commits, 67 files; one conflict, tests/packs3.spec.mjs's bins regex, both sides the same fix: ours kept). The dock: six
+  areas on the bar (Life replaces Me's slot; Me is the avatar at the top with a Me hub). HUB_MAX and the More row are gone (areas.ts);
+  the switcher's arc has two tiers past five tools; ui/sheetpage.ts draws a sheet's pages as a screen; ui/lifeinst.ts the Life
+  instruments; shell/cardline.ts the card words; catalogue/tabs.ts the words; tests/tabs.spec.mjs in the loop after engines (about
+  five minutes); `window.__ghosty.sheetpages` exposes each screen's state to the specs. Brain: body's week action returns data
+  {from, days, reps, km}; library/study.ts saves the session's state with his settings as they stand (a new test). The builder's
+  full 100-spec run: 96 first try, library and routec fixed at cause, scroll Chromium-only, safari and engines not runnable here.
+  Goes up as PR #53 after my own confirmation (typechecks, catalogue/abilities/study/resta, build, hubcards, deck, tabs, offline2,
+  packs3, nav on one preview).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
