@@ -1269,6 +1269,9 @@ folder that no longer exists; ignore those paths).
   full 100-spec run: 96 first try, library and routec fixed at cause, scroll Chromium-only, safari and engines not runnable here.
   Goes up as PR #53 after my own confirmation (typechecks, catalogue/abilities/study/resta, build, hubcards, deck, tabs, offline2,
   packs3, nav on one preview).
+- 2 Nov 06:19 UK: PR #53 MERGED (main 7c700f4), green on every job at the first run (shard 4 took 57 minutes with the tabs spec). Live:
+  the LIFE area, the fourteen screens, hubs that show everything, every state said. Next: Pass 1a of PLAN-STARS (talking to him: speed and
+  presence), BRIEF-TALK-1A, one Opus builder from the local tip.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
