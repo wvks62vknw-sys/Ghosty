@@ -2,8 +2,12 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #53, the last at 06:19 UK on 2 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #54, the last at 10:26 UK on 2 Nov)
 
+- LIVE since 10:26 UK on 2 Nov (PR #54: its own run green; main's run after the merge went red on the talk spec alone — a notice read out over the reply, fixed in PR #55, OWNER-ISSUES 123): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122, with your seven-step phone check):
+  the first spoken word while the rest is still being written, interruptions he recovers from mid-sentence ("sorry, go on"), narration
+  instead of spinners, a conversation with no taps and a two-note tone for your turn, models warmed before they run dry and "cooling
+  down" said within a second, "Hey Siri, Ghosty listen". Honest: on your phone the first spoken word is about 1.5 to 2.5 s.
 - LIVE since 06:19 UK on 2 Nov (PR #53, green on every job): EVERY FEATURE A TAB (your words in OWNER-ISSUES 119; the build record and your
   ten-step phone check in 121): LIFE on the bar for the eight life packs and Me as your avatar; the fourteen sheets are real screens with
   cards, deck pictures and words for the jump bar; every hub shows everything in its area and scrolls; every state said in a sentence;
@@ -16,9 +20,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
-  minutes instead of two hours and a quarter; a newer push cancels the run before it). GOING UP AS PR #54 (2 Nov, 09:19 UK; merged when green): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122): the first spoken word while the
-  rest is still being written, interruptions he recovers from mid-sentence, narration instead of spinners, a conversation with no
-  taps, models warmed before they run dry, "Ghosty listen" for Siri. The UI depth
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). The UI depth
   pass's other families now live in PLAN-STARS.md (the order from tonight to the ceiling; STARS.md the 150 gaps; STANDARD.md the bar).
   HELD for your opinion: the twelve themes and the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through
@@ -178,6 +180,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - PR #51 (section 3).
 
 ## 3. Happening right now
+
+- PR #55 (2 Nov, midday): NOTICES IN TURN and main green again (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
+  because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
+  greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
+  cuts one and it is not read again. Your two-minute phone check is in 123.
 
 - Waiting on you: the phone tests in my morning message (batches 1 to 4); for batch 6 (live since 19:10 UK): save Home and Work in
   Memory → ME → PLACES, open God's Eye → MACHINE VIEW once (how fast the first line comes, how the drift feels), and the

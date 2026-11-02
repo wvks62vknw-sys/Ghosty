@@ -2,11 +2,18 @@
  * Notifications from the brain (reminders, results of scheduled tasks). While Ghosty is
  * open it checks the inbox every 45 seconds and shows anything new as a toast, speaks
  * short reminders, and (if allowed) raises a system notification when the tab is hidden.
+ *
+ * [talk] What is said waits its turn (BRIEF-TALK-1A; OWNER-ISSUES 123): a notice is read out only once the boot and its
+ * greeting are over, nothing else is being said, no turn is at work and the microphone is closed; several are said one
+ * after another, never one over another, oldest first. A reply he asks for while one is being read cuts it (voice.ts: the
+ * newest speech wins), and it is not read again: the toast and the Agenda inbox keep it. One that finds no quiet moment in
+ * half a minute (a conversation under way) is dropped the same way.
  */
 import type { InboxEntry } from '../../../../packages/shared/src/protocol';
 import { brain } from '../api/brain';
 import { createStore } from '../core/store';
-import { settings } from '../state/app';
+import { bootState } from '../shell/boot';
+import { settings, ui } from '../state/app';
 import { toast } from '../ui/components';
 import { speak } from './voice';
 
@@ -63,10 +70,72 @@ function announce(it: InboxEntry): void {
       /* some browsers only allow notifications from a service worker */
     }
   }
-  if (settings.get().speak && !document.hidden) void speak(it.kind === 'reminder' ? `Reminder: ${it.text}` : `${it.title}. ${it.text}`.slice(0, 400));
+  if (settings.get().speak && !document.hidden) say(it.kind === 'reminder' ? `Reminder: ${it.text}` : `${it.title}. ${it.text}`.slice(0, 400));
   // [cards] a piece of the day — a reminder, the morning, a warning near his places — as its card in the chat (BRIEF-SIDEWAYS 2c)
   const card = it.card;
   if (card) void import('../features/core/cards').then((c) => c.dayCard(card)).catch(() => undefined);
+}
+
+// ---------------------------------------------------------------- said in turn, in a quiet moment
+
+/** How long a notice waits for a quiet moment before it is left to the toast and the inbox. */
+const WAIT_MS = 30_000;
+/** What is still to be said, oldest first. */
+const queue: string[] = [];
+let draining = false;
+
+/**
+ * A quiet moment: the boot and its greeting over (a cold open's greeting may wait for his first tap: so does this), nothing
+ * being said or heard, no turn at work. (The boot's state is not a store: `turn` looks again every quarter second.)
+ */
+function quiet(): boolean {
+  const u = ui.get();
+  return (bootState.phase === '' || bootState.phase === 'done') && bootState.spoken !== 'waiting' && u.voice === 'idle' && !u.busy;
+}
+
+/** Resolves true at the next quiet moment, false when none comes within WAIT_MS. */
+function turn(): Promise<boolean> {
+  if (quiet()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    let over = false;
+    const done = (ok: boolean) => {
+      if (over) return;
+      over = true;
+      off();
+      clearInterval(tick);
+      resolve(ok);
+    };
+    const look = () => {
+      if (quiet()) done(true);
+      else if (Date.now() - t0 > WAIT_MS) done(false);
+    };
+    const off = ui.subscribe(look);
+    const tick = setInterval(look, 250);
+  });
+}
+
+/** A notice to be read out: queued behind whatever is being said, and said at the next quiet moment. */
+function say(text: string): void {
+  queue.push(text);
+  if (draining) return;
+  draining = true;
+  void (async () => {
+    try {
+      while (queue.length) {
+        if (!(await turn())) {
+          queue.length = 0; // (no quiet moment in half a minute: he is talking with Ghosty; the toast and the inbox have them)
+          return;
+        }
+        const next = queue.shift()!;
+        if (!settings.get().speak || document.hidden) continue;
+        // (cut by a reply he asked for meanwhile: speak settles at once, and the notice is not said again)
+        await speak(next).catch(() => undefined);
+      }
+    } finally {
+      draining = false;
+    }
+  })();
 }
 
 export function startNotices(): void {
