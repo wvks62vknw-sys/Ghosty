@@ -51,3 +51,13 @@ export const ownerWords = (text: string): string => text.replace(/\n*<<external 
 export function stripImages(messages: Msg[]): Msg[] {
   return messages.map((m) => (Array.isArray(m.content) ? { ...m, content: markPhotos(textOf(m.content), imagesIn(m.content)) } : m));
 }
+
+/**
+ * [talk] A reply the owner cut off while it was read out (BRIEF-TALK-1A 2): the brain's own copy of that reply ends with this
+ * note, so its next turn knows what he really heard and never assumes he heard the rest. `said`: the whole sentences he heard
+ * ('' when he cut in before the first one ended). Kept in the working context only; the history keeps the reply as written.
+ */
+export const heardNote = (said: string): string =>
+  said.trim() ? `\n\n[He cut me off while I was saying this. He heard only: "${said.trim().replace(/"/g, "'").slice(0, 1200)}"]` : '\n\n[He cut me off before I had finished the first sentence: he heard none of this.]';
+/** The note `heardNote` wrote, found at the end of a reply: group 1 is what he heard (undefined when he heard none of it). */
+export const HEARD_NOTE = /\n\n\[He cut me off (?:while I was saying this\. He heard only: "([^"]*)"|before I had finished the first sentence: he heard none of this\.)\]$/;

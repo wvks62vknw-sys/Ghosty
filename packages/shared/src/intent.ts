@@ -125,6 +125,89 @@ export function stopIntent(text: string): { harsh: boolean } | null {
   return { harsh: harsh || HARSH_PHRASE.test(said) };
 }
 
+// ---------------------------------------------------------------- carrying on, and ending a conversation (BRIEF-TALK-1A)
+
+/** Words that dress a "go on" or a "bye" without changing it: his name, sorry, thanks, yes or no, a filler sound. */
+const DRESS = new Set('ghosty ghost mate bro man pal buddy boss sorry soz apologies please pls ok okay oh ah um uh erm er hmm well right alright yeah yes yep no nope so anyway anyways thanks thx cheers ta just'.split(' '));
+const plainWords = (text: string): string[] =>
+  String(text ?? '')
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\b(?:my bad|sorry about that|sorry for that|excuse me|thank you(?: very much)?|thanks a lot)\b/g, ' ')
+    .replace(/[^\p{L}\p{N}' ]+/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+/** The message without the dressing at either end ("sorry, go on mate" → "go on"). */
+function undressed(text: string): string {
+  const w = plainWords(text);
+  while (w.length && DRESS.has(w[0]!)) w.shift();
+  while (w.length && DRESS.has(w[w.length - 1]!)) w.pop();
+  return w.join(' ');
+}
+
+/** Every way the whole message asks him to carry on with what he was saying. */
+const CARRY = new RegExp(
+  '^(?:' +
+    [
+      "(?:do |you can )?(?:go on|carry on|continue|keep going|keep talking|resume|go ahead and finish)(?: then| with it| with that| what you were saying)?(?: i'?m listening)?",
+      'and(?: then| what else| after that)?',
+      'then(?: what)?',
+      'what (?:then|next|else)',
+      "(?:you were saying|as you were saying|what were you saying|what were you going to say|where were you|where was i)",
+      'finish (?:what you were saying|that|it|your sentence|the sentence|your point)',
+      'pick up where you left off',
+      'back to what you were saying',
+      "i'?m (?:still )?listening(?: go on| carry on)?",
+      'say (?:the rest|that again from where you stopped)',
+      'the rest',
+    ].join('|') +
+    ')$',
+);
+
+/**
+ * He wants the reply he cut off carried on, not a new answer (BRIEF-TALK-1A 2; STARS 2): "go on", "and then?", "sorry,
+ * continue", "you were saying", "finish what you were saying" — the whole message, dressed or not. The phone only reads it
+ * when a reply he cut off is still the latest; anywhere else these are ordinary words for the brain.
+ */
+export function continueIntent(text: string): boolean {
+  if (String(text ?? '').length > 80) return false;
+  const b = undressed(text);
+  return !!b && CARRY.test(b);
+}
+
+/** Every way the whole message ends a spoken conversation. */
+const CLOSE = new RegExp(
+  '^(?:' +
+    [
+      "that(?:'s| is| will be|'ll be) (?:all|it|everything)(?: for (?:now|today|tonight))?",
+      "(?:that'?s )?all (?:done|good)(?: for now)?",
+      '(?:bye|goodbye|good bye)(?: bye)?(?: for now| then| now)?',
+      'bye bye',
+      '(?:see|catch) (?:you|ya|u)(?: later| soon| tomorrow| in a bit)?',
+      '(?:talk|speak) (?:to you )?(?:later|soon|tomorrow)',
+      'ta ra|tara|cheerio|ttyl',
+      '(?:good ?)?night(?: night)?|nighty night|night then',
+      "(?:we'?re|i'?m|we are|i am) (?:done|finished)(?: here| for now| talking)?",
+      "that'?s me(?: done)?",
+      '(?:you can )?stop listening(?: now)?',
+      'end (?:the |this )?(?:conversation|call|chat)',
+      'hang up',
+      "i'?ll (?:talk|speak) to you (?:later|soon|tomorrow)",
+    ].join('|') +
+    ')$',
+);
+
+/**
+ * He is ending a spoken conversation (BRIEF-TALK-1A 4; STARS 10): "that's all", "bye", "see you later", "good night", "stop
+ * listening", "we're done" — the whole message, dressed or not ("thanks, that's all", "okay bye Ghosty"). Read only in a
+ * voice conversation; typed, the same words are a message like any other.
+ */
+export function endIntent(text: string): boolean {
+  if (String(text ?? '').length > 80) return false;
+  const b = undressed(text);
+  return !!b && CLOSE.test(b);
+}
+
 // ---------------------------------------------------------------- raising him
 
 /**

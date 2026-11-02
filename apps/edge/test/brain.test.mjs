@@ -241,3 +241,20 @@ test('widgets kept on the device while the database was paused are saved to the 
   assert.equal(saved.at, 1700000000000);
   assert.equal((await call('/api/widgets', { method: 'POST', body: JSON.stringify({ name: 'x', title: 'x', html: 'not html' }) })).status, 500);
 });
+
+// BRIEF-TALK-1A 2: the phone says what he heard of a reply he cut off; the brain's next turn knows, and only that.
+test('a reply cut off as it was read out: the next turn is told what he heard of it, never that he heard the rest', async () => {
+  const said = (ev) => ev.filter((e) => e.t === 'text').map((e) => e.text).join('\n');
+  const reply = said(await chat('talk to me about the brook'));
+  assert.match(reply, /^The brook: I could talk about it for hours, but here is the short version/);
+  // cut in its second piece: he heard the first only
+  const heard = { said: 'The brook: I could talk about it for hours,', head: 'The brook: I could talk about it' };
+  assert.equal(said(await chat('what did I hear?', '/api/chat', { message: 'what did I hear?', heard })), 'You heard only: "The brook: I could talk about it for hours,"');
+  // a reply heard to the end: nothing said about it
+  assert.equal(said(await chat('what did I hear?')), 'You heard all of my last reply.');
+  // a word about a reply that is not the last one (its first words differ) changes nothing
+  said(await chat('talk to me about the hills'));
+  assert.equal(said(await chat('what did I hear?', '/api/chat', { message: 'what did I hear?', heard: { said: 'x', head: 'The brook: I could talk' } })), 'You heard all of my last reply.');
+  // nonsense in its place is ignored
+  assert.ok(said(await chat('hello', '/api/chat', { message: 'hello', heard: { said: 3 } })).length > 0);
+});

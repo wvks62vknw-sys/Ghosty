@@ -5,7 +5,8 @@
  */
 import { settings } from '../state/app';
 
-export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok';
+/** `turn`: his turn to talk in a voice conversation (BRIEF-TALK-1A 4): the ear has just opened and can hear him. */
+export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn';
 
 let ctx: AudioContext | null = null;
 
@@ -51,5 +52,11 @@ export function sfx(kind: Sfx): void {
   else if (kind === 'ok') {
     tone(a, 990, 990, 0.06);
     tone(a, 1480, 1480, 0.09, 0.07);
+  } else if (kind === 'turn') {
+    // two soft rising notes, a fifth apart, quieter than the rest: heard, never talked over
+    tone(a, 587, 587, 0.07, 0, 0.022);
+    tone(a, 880, 880, 0.11, 0.075, 0.018);
   } else tone(a, 1500, 1200, 0.03, 0, 0.02);
+  // (what played, for the checks that listen for it: tests/talk.spec.mjs)
+  document.dispatchEvent(new CustomEvent('ghosty-sfx', { detail: kind }));
 }

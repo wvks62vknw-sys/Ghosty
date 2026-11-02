@@ -33,7 +33,7 @@ export const MOOD_TONE: Partial<Record<MoodKind, { rate: number; pitch: number; 
   protective: { rate: 0.95, pitch: 1, volume: 1 },
 };
 const tone = () => MOOD_TONE[mood.get().now.kind] ?? { rate: 1, pitch: 1, volume: 1 };
-import { brief, clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
+import { brief, clean, quickFirst, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 
 let voices: SpeechSynthesisVoice[] = [];
@@ -152,12 +152,18 @@ let progress = { parts: [] as string[], i: 0, owner: undefined as string | undef
  * screen." (LISTEN reads the whole of it). `here`: a reply kept on the phone (OWNER-ISSUES 72): only the
  * phone's own voice reads it, never Ghosty's (the brain makes that voice from the words).
  */
-export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean; here?: boolean } = {}): Promise<void> {
+export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean; here?: boolean; aside?: boolean } = {}): Promise<void> {
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
+  // What the phone's voice was still to say of an earlier speech — an aside ("looking at the trains…"), a reply he did not wait
+  // for — gives way to this at once: every sentence is queued at once (speakPhone), so it would otherwise all be said first.
+  const dropped = cancelPhone();
   const token = ++speakToken;
-  const parts = opts.brief ? brief(sentences(t)) : sentences(t);
+  // ([talk] `aside`: a word on what he is doing while the brain works — session.ts narration, BRIEF-TALK-1A 3 — said like
+  // anything else: it has no reply to mark if it is cut, and whatever is said next takes its place at once, as above.)
+  // (the first piece short: the voice starts on it while the rest is still being made — BRIEF-TALK-1A 1)
+  const parts = quickFirst(opts.brief ? brief(sentences(t)) : sentences(t));
   progress = { parts, i: 0, owner: opts.owner };
   // A clip still playing from the last reply stops now, so its handlers never touch the next clip.
   stopClip?.();
@@ -167,7 +173,18 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
     ui.set({ voice: 'speaking' });
     return speakGhosty(parts, token, choice).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token, choice, from) : undefined));
   }
-  return speakPhone(parts, token, choice);
+  return speakPhone(parts, token, choice, 0, dropped);
+}
+
+/** The phone's voice stops what it is saying and forgets what it was to say next. True when it had something to drop. */
+function cancelPhone(): boolean {
+  try {
+    if (!speechSynthesis.speaking && !speechSynthesis.pending) return false;
+    speechSynthesis.cancel();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** SETTINGS → VOICE → SAMPLE: a line in the voice shown, whatever is saved. */
@@ -182,49 +199,104 @@ settings.subscribe((s, prev) => {
   if (prev.speak && !s.speak) stopSpeaking();
 });
 
-function speakPhone(parts: string[], token: number, choice: Choice, offset = 0): Promise<void> {
-  if (!('speechSynthesis' in window)) {
+/** The phone voice a reply is read in: the one picked in SETTINGS, else (automatic) a natural British one, else the best. */
+const phoneVoiceFor = (choice: Choice): SpeechSynthesisVoice | null => (choice.phoneVoice !== 'auto' ? voices.find((x) => x.name === choice.phoneVoice) : null) ?? (choice.engine === 'auto' ? naturalPhoneVoice() : null) ?? bestVoice();
+
+/** Ends the phone's reading now (stopSpeaking): its promise resolves even if the voice never says it was cut. */
+let stopPhone: (() => void) | null = null;
+
+/**
+ * The sentences in the phone's own voice. Every one is handed to the voice at once, in order: it starts each the moment the
+ * one before it ends (BRIEF-TALK-1A 1). One at a time from here, as it used to be, left the voice idle between sentences, and
+ * an idle voice on an iPhone takes a moment to start again: a gap after every sentence. `progress` follows each one's start.
+ */
+function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, afterCancel = false): Promise<void> {
+  if (!('speechSynthesis' in window) || !parts.length) {
     if (token === speakToken) ui.set({ voice: 'idle' });
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const next = (i: number) => {
-      if (token !== speakToken || i >= parts.length) {
-        if (token === speakToken) ui.set({ voice: 'idle' });
-        resolve();
-        return;
-      }
-      progress.i = offset + i;
-      const u = new SpeechSynthesisUtterance(parts[i]!.trim());
-      const picked = choice.phoneVoice !== 'auto' ? voices.find((x) => x.name === choice.phoneVoice) : null;
-      const v = picked ?? (choice.engine === 'auto' ? naturalPhoneVoice() : null) ?? bestVoice();
+    let left = parts.length;
+    let over = false;
+    const finish = () => {
+      if (over) return;
+      over = true;
+      audible = false;
+      if (stopPhone === finish) stopPhone = null;
+      if (token === speakToken) ui.set({ voice: 'idle' });
+      resolve();
+    };
+    stopPhone = finish;
+    const v = phoneVoiceFor(choice);
+    Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice" });
+    const t = tone();
+    ui.set({ voice: 'speaking' });
+    try {
+      speechSynthesis.resume(); // iOS sometimes leaves the synthesiser paused
+    } catch {
+      /* ignore */
+    }
+    // (just after a cancel, a moment's pause first: a voice told to speak in the same instant can drop what it was told)
+    const queue = () => parts.forEach((part, i) => {
+      if (token !== speakToken) return;
+      const u = new SpeechSynthesisUtterance(part.trim());
       if (v) {
         u.voice = v;
         u.lang = v.lang;
       }
-      Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice" });
-      const t = tone();
       u.rate = t.rate;
       u.pitch = (v && naturalBritish(v) ? 1 : 0.92) * t.pitch;
       u.volume = t.volume;
       u.onstart = () => {
+        if (token !== speakToken || over) return;
+        progress.i = offset + i;
         audible = true;
         armBargeIn();
       };
       u.onend = u.onerror = () => {
+        if (token !== speakToken) return finish();
         audible = false;
-        next(i + 1);
+        if (--left <= 0) finish();
       };
-      ui.set({ voice: 'speaking' });
-      try {
-        speechSynthesis.resume(); // iOS sometimes leaves the synthesiser paused
-      } catch {
-        /* ignore */
-      }
       speechSynthesis.speak(u);
-    };
-    next(0);
+    });
+    if (afterCancel) setTimeout(() => (token === speakToken ? queue() : finish()), 60);
+    else queue();
   });
+}
+
+/**
+ * The voices woken before they are needed (the mic tap, the chat box taken: BRIEF-TALK-1A 1): the phone's voice says a silent
+ * "." in the voice that will read the reply, so the first real sentence is not the slow one an idle iPhone voice gives; and the
+ * audio element plays a moment of silence, so Ghosty's own first clip starts at once. Nothing is heard; nothing that is
+ * speaking or playing is touched.
+ */
+export function primeSpeech(): void {
+  unlockSpeech();
+  try {
+    const el = audioEl();
+    if (el.paused && !stopClip) {
+      const url = URL.createObjectURL(new Blob([encodeWav(new Float32Array(800))], { type: 'audio/wav' }));
+      el.src = url;
+      void el.play().catch(() => undefined).finally(() => setTimeout(() => URL.revokeObjectURL(url), 3000));
+    }
+  } catch {
+    /* no audio */
+  }
+  if (!('speechSynthesis' in window)) return;
+  try {
+    if (speechSynthesis.speaking || speechSynthesis.pending) return;
+    const u = new SpeechSynthesisUtterance('.');
+    const v = phoneVoiceFor(chosen());
+    if (v) {
+      u.voice = v;
+      u.lang = v.lang;
+    }
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** The next midnight UTC, when the brain's daily share of natural voice comes back. */
@@ -377,6 +449,7 @@ export function stopSpeaking(): void {
   } catch {
     /* ignore */
   }
+  stopPhone?.();
   stopClip?.();
   disarmBargeIn();
   if (ui.get().voice === 'speaking') ui.set({ voice: 'idle' });
@@ -390,6 +463,9 @@ export interface CutOff {
   /** What had been said when Ghosty stopped (whole sentences). */
   said: string;
   how: 'tap' | 'voice';
+  /** The pieces it was saying, and which one it was in when cut (`said` is the ones before it): "go on" starts there. */
+  parts: string[];
+  at: number;
 }
 const cutListeners = new Set<(c: CutOff) => void>();
 /** Called when the owner interrupts Ghosty (session.ts marks the reply as cut off). */
@@ -401,10 +477,10 @@ export function onCutOff(f: (c: CutOff) => void): () => void {
 /** The owner cut in (a tap, or talking over Ghosty): speech stops now. False when Ghosty was not speaking. */
 export function interrupt(how: 'tap' | 'voice' = 'tap'): boolean {
   if (ui.get().voice !== 'speaking') return false;
-  const said = progress.parts.slice(0, progress.i).join(' ');
+  const { parts, i: at, owner } = progress;
+  const said = parts.slice(0, at).join(' ');
   stopSpeaking();
-  const owner = progress.owner;
-  for (const f of cutListeners) f({ said, how, owner });
+  for (const f of cutListeners) f({ said, how, owner, parts, at });
   return true;
 }
 
@@ -502,12 +578,32 @@ async function openMic(): Promise<Mic> {
     throw e;
   }
   if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined); // (never awaited: Safari holds it until a tap)
+  // Opened with no touch at all (Siri's "Ghosty listen": BRIEF-TALK-1A 6): an iPhone keeps the page's sound off until one, so
+  // the ear cannot hear the room yet. It says so, and the first touch anywhere turns it on.
+  if (ctx.state !== 'running') tapToHear(ctx);
   const an = ctx.createAnalyser();
   an.fftSize = 512;
   ctx.createMediaStreamSource(stream).connect(an);
   mic = { ctx, stream, an, time: new Float32Array(an.fftSize), freq: new Uint8Array(an.frequencyBinCount) };
   return mic;
 }
+
+/** One touch anywhere wakes the page's sound (an iPhone wants it), said once on the screen while it waits. */
+function tapToHear(ctx: AudioContext): void {
+  const go = () => {
+    document.removeEventListener('pointerdown', go, true);
+    void ctx.resume().catch(() => undefined);
+    unlockSpeech();
+    tapNote?.remove();
+    tapNote = null;
+  };
+  setTimeout(() => {
+    if (ctx.state === 'running' || ctx.state === 'closed') return;
+    document.addEventListener('pointerdown', go, true);
+    tapNote ??= document.body.appendChild(Object.assign(document.createElement('div'), { id: 'taptohear', role: 'status', textContent: 'Tap anywhere and I’m listening' }));
+  }, 250);
+}
+let tapNote: HTMLElement | null = null;
 
 /** The microphone off: the phone's mic light goes out. */
 export function closeMic(): void {
@@ -572,6 +668,11 @@ function record(m: Mic): { rec: MediaRecorder; chunks: Blob[]; mime: string; at:
 
 /** A barge-in recording handed to the next listen: it began before the owner spoke; `from` is when their voice began. */
 let carry: (ReturnType<typeof record> & { from: number }) | null = null;
+/**
+ * [talk] He talked over Ghosty and what he is saying is still being recorded for the next listen: a turn still at work opens
+ * its ear for it at once (core/index.ts), so talking over an aside while the brain works is heard like talking over a reply.
+ */
+export const heardOver = (): boolean => !!carry && carry.rec.state === 'recording';
 /** Ghosty's voice is playing right now (a clip between `playing` and its end, or an utterance between start and end). */
 let audible = false;
 /** The barge-in watch while Ghosty speaks. */
@@ -593,9 +694,19 @@ function armBargeIn(): void {
   } catch {
     return;
   }
+  // Held: the owner's voice has begun over Ghosty's and the detector is not yet sure (barge.ts hearing): Ghosty is silent
+  // meanwhile — within a reading or two of his first sound, not after the 180 ms the detector needs to be sure (BRIEF-TALK-1A
+  // 2: quiet within 150 ms) — and carries on from the same word if it was a cough or a click.
+  let held = false;
+  const hold = (on: boolean) => {
+    if (on === held) return;
+    held = on;
+    holdSpeech(on);
+  };
   const end = (keep: boolean) => {
     clearInterval(timer);
     watch = null;
+    if (!keep) hold(false);
     if (!keep && r.rec.state === 'recording') r.rec.stop();
   };
   let was = true;
@@ -612,7 +723,9 @@ function armBargeIn(): void {
       end(true);
       carry = { ...r, from: det.speechStart };
       interrupt('voice');
+      return;
     }
+    hold(det.hearing);
   }, 20);
   watch = { stop: () => end(false) };
 }
@@ -620,6 +733,28 @@ function armBargeIn(): void {
 function disarmBargeIn(): void {
   watch?.stop();
 }
+
+/** Ghosty's voice held silent (`on`) or let go on from where it was: the clip playing now, else the phone's voice. */
+function holdSpeech(on: boolean): void {
+  try {
+    if (stopClip && player) {
+      if (on) player.pause();
+      else void player.play().catch(() => undefined);
+    } else if ('speechSynthesis' in window) {
+      if (on) speechSynthesis.pause();
+      else speechSynthesis.resume();
+    }
+  } catch {
+    /* nothing to hold */
+  }
+}
+
+/**
+ * How long a quiet after his voice ends what he said (BRIEF-TALK-1A 1: his last word to Ghosty's first within a second, and
+ * this wait is part of it). 700 ms is a breath between sentences kept and a finished sentence heard at once; it was 1,000 ms.
+ * (A design pick he may change: a longer one suits someone who pauses mid-thought.)
+ */
+const END_SILENCE_MS = 700;
 
 /** The recording as 16 kHz mono WAV, which every recogniser reads (iPhones record AAC, which not all of them do); `skip` seconds off the start. */
 async function toWav(ctx: AudioContext, blob: Blob, skip = 0): Promise<Blob> {
@@ -629,7 +764,7 @@ async function toWav(ctx: AudioContext, blob: Blob, skip = 0): Promise<Blob> {
   return new Blob([encodeWav(toMono16k(channels, decoded.sampleRate))], { type: 'audio/wav' });
 }
 
-async function listenWhisper(): Promise<string> {
+async function listenWhisper(onReady: () => void = () => undefined): Promise<string> {
   const m = await openMic();
   // After a barge-in the recording is already running and the owner already talking.
   const c = carry;
@@ -642,11 +777,19 @@ async function listenWhisper(): Promise<string> {
   let voiced = 0;
   let ticks = 0;
   let dropped = false; // stopListening(true): what was caught is not wanted
+  // A barge-in recording began while Ghosty was still speaking: it is cut to a moment before the owner's voice began.
+  const skip = c ? Math.max(0, (c.from - r.at - 400) / 1000) : 0;
+  // EARLY EARS (BRIEF-TALK-1A 1): once he has been quiet for EARLY_MS, what he said so far goes to be written down while the
+  // ear waits out the rest of END_SILENCE_MS; if he says no more, those words are already back when the quiet ends (the
+  // writing down is no longer added to his wait). If he speaks again, they are set aside and the whole recording is sent.
+  let early: { from: number; text: Promise<string | null> } | null = null;
+  let lastLoud = c ? performance.now() : 0;
   const done = new Promise<void>((resolve) => {
-    let floor = 0.008;
+    let floor = carriedFloor(m);
     let speechAt = 0;
-    let lastLoud = c ? performance.now() : 0;
-    let calib = c ? 20 : 0;
+    let calib = c || floor ? 20 : 0;
+    floor ||= 0.008;
+    let ready = false;
     const t0 = performance.now();
     let last = t0;
     let stopped = false;
@@ -660,6 +803,10 @@ async function listenWhisper(): Promise<string> {
       micLevel.level = Math.min(1, rms * 9);
       micLevel.spectrum = m.freq;
       if (!speech) floor = ++calib < 20 ? Math.max(floor * 0.9 + rms * 0.1, 0.003) : floor * 0.995 + Math.min(rms, floor * 1.5) * 0.005;
+      if (!ready && calib >= 20) {
+        ready = true;
+        onReady();
+      }
       const thr = Math.max(0.018, floor * 3.2);
       if (rms > Math.max(0.008, floor * 2)) voiced += Math.min(1000, now - last);
       last = now;
@@ -671,9 +818,11 @@ async function listenWhisper(): Promise<string> {
           if (now - speechAt > 110) speech = true;
         }
       } else if (!speech) speechAt = 0;
-      const silence = speech && now - lastLoud > 1000;
+      if (speech && !early && !stopped && now - lastLoud > EARLY_MS) early = { from: lastLoud, text: writeDownSoFar(m, r, skip) };
+      const silence = speech && now - lastLoud > END_SILENCE_MS;
       const tooLong = now - t0 > (speech ? 30000 : 12000);
       if (stopped || silence || tooLong || mic !== m) {
+        if (calib >= 20) floors.set(m, floor);
         resolve();
         return;
       }
@@ -682,18 +831,28 @@ async function listenWhisper(): Promise<string> {
     requestAnimationFrame(tick);
   });
   await done;
-  await new Promise<void>((res) => {
+  // the words written down early are his whole utterance when nothing louder than the room came after them
+  const sent = early as { from: number; text: Promise<string | null> } | null; // (set inside the meter's loop above)
+  const earlyText = sent && sent.from === lastLoud && !dropped ? sent.text : null;
+  const stopped = new Promise<void>((res) => {
     if (r.rec.state === 'inactive') return res();
     r.rec.onstop = () => res();
     r.rec.stop();
   });
-  micLevel.level = 0;
-  micLevel.spectrum = null;
-  // Not in a conversation: the mic light goes out now; the context stays to decode the recording.
-  if (!keepMic && mic === m) {
-    mic = null;
-    m.stream.getTracks().forEach((t) => t.stop());
+  if (earlyText) {
+    writing = true;
+    ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
+    const said = await earlyText;
+    if (said !== null) {
+      void stopped.then(() => {
+        afterRecording(m);
+        if (mic !== m) void m.ctx.close().catch(() => undefined);
+      });
+      return heardWords(said, voiced);
+    }
   }
+  await stopped;
+  afterRecording(m);
   // Let go of by the caller (stopListening(true): Ghosty began to speak while this listened): what the microphone caught is his
   // own voice and the room, so nothing goes to the brain, and the screen keeps saying what it said.
   if (dropped) {
@@ -706,21 +865,64 @@ async function listenWhisper(): Promise<string> {
     return '';
   }
   const blob = new Blob(r.chunks, { type: r.rec.mimeType || r.mime }); // iPhones record audio/mp4, others webm
-  // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats). A barge-in
-  // recording began while Ghosty was still speaking: it is cut to a moment before the owner's voice began.
-  const skip = c ? Math.max(0, (c.from - r.at - 400) / 1000) : 0;
+  // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats).
   const wav = blob.size >= 4000 ? await toWav(m.ctx, blob, skip).catch(() => null) : null;
   if (mic !== m) void m.ctx.close().catch(() => undefined);
   if (blob.size < 4000) return '';
   // The recording is done: the screen stops saying LISTENING while the words are worked out.
   writing = true;
   ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
-  const text = (
-    await brain.stt(wav ?? blob).catch((e: unknown) => {
-      throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
-    })
-  ).trim();
-  return /^(thank you|thanks for watching|you|bye)\.?$/i.test(text) ? '' : text;
+  const text = await brain.stt(wav ?? blob).catch((e: unknown) => {
+    throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
+  });
+  return heardWords(text, voiced);
+}
+
+/** After this much quiet, what he said so far is sent to be written down while the ear still listens (EARLY EARS). */
+const EARLY_MS = 400;
+
+/** The room's level each open microphone last learned: the next listen on it starts from that, so it can hear him at once. */
+const floors = new WeakMap<Mic, number>();
+/** The level learned on this microphone's last listen (0 when none): a conversation's ear needs no new learning between turns. */
+const carriedFloor = (m: Mic): number => floors.get(m) ?? 0;
+
+/** The recording so far, sent to be written down; null when it is too short or anything fails (then the whole one is sent). */
+async function writeDownSoFar(m: Mic, r: { rec: MediaRecorder; chunks: Blob[]; mime: string }, skip: number): Promise<string | null> {
+  try {
+    if (typeof r.rec.requestData === 'function' && r.rec.state === 'recording') {
+      await new Promise<void>((res) => {
+        const t = setTimeout(res, 200);
+        r.rec.addEventListener('dataavailable', () => (clearTimeout(t), res()), { once: true });
+        r.rec.requestData();
+      });
+    }
+    const blob = new Blob(r.chunks.slice(), { type: r.rec.mimeType || r.mime });
+    if (blob.size < 4000) return null;
+    const wav = await toWav(m.ctx, blob, skip).catch(() => null);
+    return await brain.stt(wav ?? blob);
+  } catch {
+    return null;
+  }
+}
+
+/** The microphone after a recording: the level meter rests, and outside a conversation the mic light goes out (the context stays to decode). */
+function afterRecording(m: Mic): void {
+  micLevel.level = 0;
+  micLevel.spectrum = null;
+  if (!keepMic && mic === m) {
+    mic = null;
+    m.stream.getTracks().forEach((t) => t.stop());
+  }
+}
+
+/**
+ * What the recogniser wrote, as heard: the words Whisper invents in a near-silent recording ("you", "thank you", "thanks for
+ * watching", "bye") count as nothing. "Bye" said with a real voice behind it (300 ms or more) is kept: it ends a conversation.
+ */
+function heardWords(text: string, voiced: number): string {
+  const t = text.trim();
+  if (/^bye\.?$/i.test(t) && voiced >= 300) return t;
+  return /^(thank you|thanks for watching|you|bye)\.?$/i.test(t) ? '' : t;
 }
 
 /** The recording is with the brain and its words are being worked out (listen shows "writing down what you said…"). */
@@ -730,14 +932,18 @@ let writing = false;
  * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
  * instead when there is one, else the owner is told so before saying a word.
  */
-export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined): Promise<string> {
+export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined, onReady: () => void = () => undefined): Promise<string> {
   stopSpeaking();
   const offline = navigator.onLine === false;
   if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
   const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {
-    return useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
+    // `onReady`: the ear can hear him now (BRIEF-TALK-1A 4: the "your turn" tone) — the brain's ear once it knows the room,
+    // the phone's own recogniser as it starts.
+    if (useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined') return await listenWhisper(onReady);
+    onReady();
+    return await listenBrowser(onInterim);
   } finally {
     abortListen = null;
     if (ui.get().voice === 'listening') ui.set({ voice: 'idle' });

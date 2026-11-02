@@ -247,6 +247,15 @@ test('the shortcut links made for him, the twelve ready ones, and the steps', ()
   assert.equal(L.shortcutUrl('https://g.example', { open: 'library', panel: 'WIKIPEDIA' }), 'https://g.example/?open=library&panel=WIKIPEDIA');
   assert.equal(L.READY.length, 12);
   assert.equal(new Set(L.READY.map((r) => r.name)).size, 12);
+  // [talk] "Ghosty listen" on its own, above the twelve: Siri straight into a conversation (BRIEF-TALK-1A 6), and the truth
+  // about the background
+  assert.deepEqual(L.LISTEN, { name: 'Ghosty listen', does: L.LISTEN.does, ask: { do: 'listen' } });
+  assert.ok(!L.READY.some((r) => r.name === L.LISTEN.name), 'not twice');
+  assert.equal(L.shortcutUrl('https://g.example', L.LISTEN.ask), 'https://g.example/?do=listen');
+  assert.deepEqual(L.parseLink('?do=listen', { owner: true, tabs: TABS }), { kind: 'do', what: { cmd: 'listen' } });
+  assert.deepEqual(L.parseLink('?do=talk', { owner: true, tabs: TABS }), { kind: 'do', what: { cmd: 'listen' } });
+  assert.deepEqual(L.parseLink('?do=listen', { owner: false, tabs: TABS }), { kind: 'signin' }, 'a stranger never opens the microphone');
+  assert.match(L.NO_BACKGROUND, /in the background/);
   for (const r of L.READY) {
     assert.match(r.name, /^Ghosty /);
     const link = L.parseLink(new URL(L.shortcutUrl('https://g.example', r.ask)).search, { owner: true, tabs: TABS });
