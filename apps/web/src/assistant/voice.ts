@@ -420,7 +420,7 @@ export const voiceSupport = {
 /** Live mic level and spectrum for the reactor while listening. */
 export const micLevel = { level: 0, spectrum: null as Uint8Array | null };
 
-let abortListen: (() => void) | null = null;
+let abortListen: ((drop?: boolean) => void) | null = null;
 
 /** What the owner is told when Ghosty cannot hear (plain words, never "Failed to fetch"). */
 const NO_SIGNAL = "No connection, so I can't hear you right now. Type it instead.";
@@ -453,8 +453,12 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       reject(new Error(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? MIC_BLOCKED : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? 'No microphone found on this device.' : "This phone couldn't turn what you said into words. Try again, or type it."));
     };
-    rc.onend = () => resolve(fin.trim());
-    abortListen = () => rc.abort();
+    let dropped = false;
+    rc.onend = () => resolve(dropped ? '' : fin.trim());
+    abortListen = (drop) => {
+      dropped = !!drop;
+      rc.abort();
+    };
     rc.start();
   });
 }
@@ -637,6 +641,7 @@ async function listenWhisper(): Promise<string> {
   let speech = !!c;
   let voiced = 0;
   let ticks = 0;
+  let dropped = false; // stopListening(true): what was caught is not wanted
   const done = new Promise<void>((resolve) => {
     let floor = 0.008;
     let speechAt = 0;
@@ -645,8 +650,9 @@ async function listenWhisper(): Promise<string> {
     const t0 = performance.now();
     let last = t0;
     let stopped = false;
-    abortListen = () => {
+    abortListen = (drop) => {
       stopped = true;
+      dropped = !!drop;
     };
     const tick = () => {
       const now = performance.now();
@@ -687,6 +693,12 @@ async function listenWhisper(): Promise<string> {
   if (!keepMic && mic === m) {
     mic = null;
     m.stream.getTracks().forEach((t) => t.stop());
+  }
+  // Let go of by the caller (stopListening(true): Ghosty began to speak while this listened): what the microphone caught is his
+  // own voice and the room, so nothing goes to the brain, and the screen keeps saying what it said.
+  if (dropped) {
+    if (mic !== m) void m.ctx.close().catch(() => undefined);
+    return '';
   }
   // Only the room was heard (12 s and no voice): nothing goes to the brain (Whisper "hears" words in silence, and each try counts).
   if (!speech && voiced < 250 && ticks >= 30 && m.ctx.state === 'running') {
@@ -736,6 +748,7 @@ export async function listen(useWhisper: boolean, onInterim: (t: string) => void
   }
 }
 
-export function stopListening(): void {
-  abortListen?.();
+/** Stop listening now; what was caught so far is heard as usual, unless `drop` (a listen cut because Ghosty began to speak). */
+export function stopListening(drop = false): void {
+  abortListen?.(drop);
 }
