@@ -306,11 +306,11 @@ function handle(ev: ChatEvent): void {
     case 'text': {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)
       const at = stamp();
-      push({ kind: 'assistant', text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) });
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
-      chat.set({ live: cited ? citedBody(ev.text) : ev.text });
+      // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
       if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
+      chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
       break;
     }
     case 'mood':
