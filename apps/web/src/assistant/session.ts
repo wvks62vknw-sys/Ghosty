@@ -8,7 +8,7 @@ import type { Card } from '../../../../packages/shared/src/cards';
 import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
-import { offlineAnswer } from '../library/local';
+import { offlineAnswer, passagesFor } from '../library/local';
 import { answerOffline, modelWarm, offlineReady, stopOffline, translateOffline, trustFirst, warmUp, type First } from '../offline/brain';
 import { categorise, keptAnswer, keptTurn, mayGoFirst, noteMiss, workedOut, type AskCat } from '../offline/trust';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
@@ -614,6 +614,9 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     if (ui.get().busy || !kept) await brain.stop(kept ? undefined : stop.harsh).catch(() => undefined);
     return;
   }
+  // The phone's library passages for the brain (api/brain.ts chat) are looked up from now, while the rest of this is decided,
+  // so they never hold the message back (BRIEF-TALK-1A 1).
+  const library = passagesFor(t).catch(() => [] as unknown[]);
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
   if (REBOOT.test(t)) {
     await import('../shell/boot').then((b) => b.reboot());
@@ -651,8 +654,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   if (opts.again) {
     const k = shared.map((x) => x.role === 'user' && x.text === t.slice(0, 1500)).lastIndexOf(true);
     if (k >= 0) shared = shared.filter((_, i) => i !== k);
-  } else push({ kind: 'user', text: t, at: Date.now(), ...(priv ? { private: true } : {}) });
-  chat.set({ live: t });
+    chat.set({ live: t });
+  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
   // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
   const lap = stopwatch.reply();
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
@@ -724,7 +727,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
           return;
         }
         cb(ev);
-      }, undefined, shared, settings.get().cited);
+      }, undefined, shared, settings.get().cited, library);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
     // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)

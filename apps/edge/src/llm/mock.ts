@@ -50,6 +50,13 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
   const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
   if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  // [talk] A reply of several sentences, the first a long one (BRIEF-TALK-1A 1: the phone says its first piece while the rest
+  // queue; 2: a cut in the third sentence resumes from it).
+  const about = /^talk to me about (.+?)[?.!]*$/.exec(owner)?.[1];
+  if (about) {
+    const topic = about.charAt(0).toUpperCase() + about.slice(1);
+    return { message: { role: 'assistant', content: `${topic}: I could talk about it for hours, but here is the short version for you tonight. It is older than it looks. It changes with the seasons, and the light on it is never quite the same twice. And most people never notice the best part, which is how quiet it is.` }, model };
+  }
   // The one shared mind (mind.ts): the day as the chat's CONTEXT has it, read back word for word (routec: the Brief and the chat agree).
   if (owner === 'what does my day look like to you?') return { message: { role: 'assistant', content: system.match(/\n(Today: [^\n]*|Nothing more today\. Next: [^\n]*)/)?.[1] ?? 'Nothing in my context about today.' }, model };
   if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };

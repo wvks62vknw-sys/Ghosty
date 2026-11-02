@@ -405,3 +405,27 @@ test('read aloud by itself: a long reply stops after about half a minute and say
   // one very long first sentence is still said (cut into clips as usual), never nothing
   assert.equal(SP.brief(['x'.repeat(600), 'and more.'])[0], 'x'.repeat(600));
 });
+
+// BRIEF-TALK-1A 1: the first thing said is short, so the voice starts on it while the rest is still being made.
+test('the first piece said is the first sentence or its first twelve words, cut at a clause where there is one', () => {
+  const q = (t) => SP.quickFirst(said(t));
+  // a short first sentence is said whole, and nothing else moves
+  assert.deepEqual(q('It is 14.5°C. Bring a coat!'), ['It is 14.5°C.', 'Bring a coat!']);
+  // a long one: cut at its last comma within twelve words (four words at least before it), the rest of it next
+  const moon = q('The moon: I could talk about it for hours, but here is the short version for you tonight. It is older than it looks.');
+  assert.deepEqual(moon, ['The moon: I could talk about it for hours,', 'but here is the short version for you tonight.', 'It is older than it looks.']);
+  // no clause mark in reach: before the last joining word ("which", "and", "for"…) within the twelve
+  const join = q('Your train from New Street leaves at twenty past eight which gives you time for a coffee first.');
+  assert.deepEqual(join, ['Your train from New Street leaves at twenty past eight', 'which gives you time for a coffee first.']);
+  // nothing to cut at: after exactly twelve words
+  const plain = q('One two three four five six seven eight nine ten eleven twelve thirteen fourteen.');
+  assert.deepEqual(plain, ['One two three four five six seven eight nine ten eleven twelve', 'thirteen fourteen.']);
+  // a comma too early (fewer than four words before it) is not where it cuts
+  assert.ok(SP.quickFirst(['Right, so the plan for the whole of tomorrow is simple and very short indeed.'])[0].split(' ').length >= 4);
+  // every word is still said, in order, and none twice; the first piece is never over twelve words
+  for (const t of ['The moon: I could talk about it for hours, but here is the short version for you tonight. It is older.', 'a b c d e f g h i j k l m n o p.', 'Fine.']) {
+    assert.equal(q(t).join(' '), said(t).join(' '));
+    assert.ok(q(t)[0].split(/\s+/).length <= 12);
+  }
+  assert.deepEqual(SP.quickFirst([]), []);
+});

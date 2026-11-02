@@ -6,7 +6,7 @@ import { brain, speechCaps } from '../../api/brain';
 import { answerApproval, askBigBrain, askCloud, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
+import { holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -446,6 +446,8 @@ export const coreTab: TabDef = {
     const log = h('div.log');
     // The field is narrow (its buttons sit inside it): a short invitation.
     const input = h('input#cin', { placeholder: 'Talk to me', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
+    // (taking the box wakes the voices, so the reply's first word is not the slow one: BRIEF-TALK-1A 1)
+    input.addEventListener('focus', () => primeSpeech());
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -480,7 +482,8 @@ export const coreTab: TabDef = {
       }
       conversation = true;
       quiet = 0; // a fresh tap starts a fresh conversation: the quiet listens that ended the last one do not count against it
-      quiet = 0;
+      // the voices woken in the tap itself, so his first answer's first word is not the slow one (BRIEF-TALK-1A 1)
+      primeSpeech();
       mic.classList.add('on');
       void voiceTurn(++convoId).finally(() => mic.classList.toggle('on', conversation));
     });
