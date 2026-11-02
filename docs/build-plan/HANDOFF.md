@@ -1281,6 +1281,8 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 10:26 UK: PR #54 MERGED (main 8825d5a), green on every job at the first run. Nothing new starts until the owner has written: he
+  has the ten-step (121) and seven-step (122) phone checks to do, and PLAN-STARS says Pass 2 (reliability and the checks) is next.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
