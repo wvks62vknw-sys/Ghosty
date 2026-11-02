@@ -11,8 +11,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   minutes instead of two hours and a quarter; a newer push cancels the run before it). BUILDING NOW (from 21:40 UK, overnight): EVERY FEATURE A TAB
   (BRIEF-TABS, your words in OWNER-ISSUES 119): a seventh area LIFE on the dock for the eight life packs; the fourteen sheets become
   real tabs with screens, cards, deck entries and words for the jump bar; every hub shows everything in its area. The UI depth
-  pass's other families (one voice, 44 pt, nothing baffling) follow if credits allow. HELD for your opinion: the twelve themes and
-  the Cinematic touch-up.
+  pass's other families now live in PLAN-STARS.md (the order from tonight to the ceiling; STARS.md the 150 gaps; STANDARD.md the bar).
+  GOING UP AS PR #52 (2 Nov, 01:10): THE STALL FIX (OWNER-ISSUES 120): no reply waits in silence; the phone answers first only when its
+  brain is warm, within a budget; talking over "thinking" cuts in. HELD for your opinion: the twelve themes and the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through
   Ghosty's own site when archive.org does not answer from your phone, MAKE's DOCUMENTS row no longer cut off, and four tests fixed at
   their cause.

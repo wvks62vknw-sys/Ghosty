@@ -1246,6 +1246,16 @@ folder that no longer exists; ignore those paths).
   four spec fixes, the four-shard checks. Main's own push run is sharded from here too (about 45 minutes); read it at the next
   check-in. Open: the depth pass (stopped; the owner's word), themes and Cinematic (HELD), the owner's answer on
   https://archive.org in Safari (the mirror makes it moot unless the Worker cannot reach the Archive either: a 502 in the message).
+- 2 Nov 02:17 UK: THE STALL FIX MERGED (OWNER-ISSUES 120; builder branch base f59bffe, HEAD 0773651, a plain merge, six files disjoint from
+  the TABS builder's): session.ts answerHere with `first` budgets (FIRST_WORD_MS 5 s, FIRST_ALL_MS 20 s), the race, the card removed
+  before the meter's tally; brain.ts modelWarm()/warmUp() and abort signals through answerOffline/translateOffline; core/index.ts the
+  voice loop's ear at EARS_MS 8 s with convoId; voice.ts stopListening(drop). Specs offline2 (+30 s) and voice (+60–80 s) carry
+  timing assertions written for the 5 s limit. Also tonight: STANDARD.md (the bar), STARS.md (150 gaps), PLAN-STARS.md (the order),
+  BRIEF-TABS.md (running on 8666 since 21:41 UK). Goes up as PR #52 alone (voice matters tonight); TABS as PR #53.
+  SPEC FRAGILITY SEEN, NOT FIXED: tests/hubcards.spec.mjs read the God's Eye card's rim as amber (255, 214, 10) instead of Graphite's
+  steel after the `direct` spec had run on the same brain: the rim is `var(--c)`, which follows Ghosty's MOOD colour, and `direct`
+  leaves the brain strained (no model free, a back-at time). The smoke loop runs hubcards long before direct, so CI is unaffected; a
+  depth pass should make the spec read the theme's colour under whatever mood (or stand the mood down first).
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
