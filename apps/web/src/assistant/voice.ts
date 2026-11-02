@@ -156,12 +156,12 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
-  // An aside still being said ("looking at the trains…") gives way to what comes next at once: never under or after it.
-  if (asideToken === speakToken && ui.get().voice === 'speaking') cancelPhone();
+  // What the phone's voice was still to say of an earlier speech — an aside ("looking at the trains…"), a reply he did not wait
+  // for — gives way to this at once: every sentence is queued at once (speakPhone), so it would otherwise all be said first.
+  const dropped = cancelPhone();
   const token = ++speakToken;
-  // [talk] `aside`: a word on what he is doing while the brain works (session.ts narration, BRIEF-TALK-1A 3): no reply is
-  // marked if it is cut, and anything said after it takes its place.
-  asideToken = opts.aside ? token : 0;
+  // ([talk] `aside`: a word on what he is doing while the brain works — session.ts narration, BRIEF-TALK-1A 3 — said like
+  // anything else: it has no reply to mark if it is cut, and whatever is said next takes its place at once, as above.)
   // (the first piece short: the voice starts on it while the rest is still being made — BRIEF-TALK-1A 1)
   const parts = quickFirst(opts.brief ? brief(sentences(t)) : sentences(t));
   progress = { parts, i: 0, owner: opts.owner };
@@ -173,17 +173,17 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
     ui.set({ voice: 'speaking' });
     return speakGhosty(parts, token, choice).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token, choice, from) : undefined));
   }
-  return speakPhone(parts, token, choice);
+  return speakPhone(parts, token, choice, 0, dropped);
 }
 
-/** The speech now being said is an aside (its token), or 0. */
-let asideToken = 0;
-/** The phone's voice stops what it is saying and forgets what it was to say next. */
-function cancelPhone(): void {
+/** The phone's voice stops what it is saying and forgets what it was to say next. True when it had something to drop. */
+function cancelPhone(): boolean {
   try {
-    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    if (!speechSynthesis.speaking && !speechSynthesis.pending) return false;
+    speechSynthesis.cancel();
+    return true;
   } catch {
-    /* no speech synthesis */
+    return false;
   }
 }
 
@@ -210,7 +210,7 @@ let stopPhone: (() => void) | null = null;
  * one before it ends (BRIEF-TALK-1A 1). One at a time from here, as it used to be, left the voice idle between sentences, and
  * an idle voice on an iPhone takes a moment to start again: a gap after every sentence. `progress` follows each one's start.
  */
-function speakPhone(parts: string[], token: number, choice: Choice, offset = 0): Promise<void> {
+function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, afterCancel = false): Promise<void> {
   if (!('speechSynthesis' in window) || !parts.length) {
     if (token === speakToken) ui.set({ voice: 'idle' });
     return Promise.resolve();
@@ -236,7 +236,9 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0):
     } catch {
       /* ignore */
     }
-    parts.forEach((part, i) => {
+    // (just after a cancel, a moment's pause first: a voice told to speak in the same instant can drop what it was told)
+    const queue = () => parts.forEach((part, i) => {
+      if (token !== speakToken) return;
       const u = new SpeechSynthesisUtterance(part.trim());
       if (v) {
         u.voice = v;
@@ -258,6 +260,8 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0):
       };
       speechSynthesis.speak(u);
     });
+    if (afterCancel) setTimeout(() => (token === speakToken ? queue() : finish()), 60);
+    else queue();
   });
 }
 

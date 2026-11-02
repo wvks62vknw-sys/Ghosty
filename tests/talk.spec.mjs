@@ -383,6 +383,11 @@ if (part('spoken')) {
   if (!fromCut) problems.push(`[${name}] he did not carry on from the piece he was cut in ("${cutPiece}"): "${resumed.slice(0, 120)}"`);
   if (/I could talk about it for hours/.test(resumed)) problems.push(`[${name}] he started again from the top`);
   if (await page.evaluate(() => document.body.innerText.includes('Mock reply to: sorry, go on'))) problems.push(`[${name}] "sorry, go on" was sent to the brain as a new ask`);
+  // 2b'. cut again at once, in the carrying on's own first sentence (a tap), then "go on" once more: one bridge, never two
+  const rw = await page.locator('#pg-core .rwrap').boundingBox();
+  const cutAgain = await waitVoice(page, 'speaking', 5000);
+  if (cutAgain) await page.mouse.click(rw.x + rw.width / 2, rw.y + rw.height / 2);
+  else problems.push(`[${name}] the carrying on was not being said, to cut it again`);
   await page.click('.logbtn');
   await page.waitForTimeout(400);
   if ((await page.locator('#pg-core .log .msg .cutchip').count()) < 1) problems.push(`[${name}] the cut reply is not marked cut off`);
@@ -390,6 +395,17 @@ if (part('spoken')) {
   await page.screenshot({ path: `${out}/talk-carry-on.png` });
   await page.click('.logbtn');
   console.log(`[${name}] cut in "${cutPiece}"; carried on: "${resumed.slice(0, 90)}…"`);
+  if (cutAgain) {
+    await waitVoice(page, 'listening', 8000);
+    const again = await page.evaluate(() => performance.now());
+    io.heard.push('go on');
+    await speakFor(page, 400);
+    await page.waitForFunction((t) => window.__talk.tts.some((x) => x.at > t + 300), again, { timeout: 15000 }).catch(() => undefined);
+    const twice = (await ttsSince(page, again + 300)).map((x) => x.text).join(' ');
+    if (!/^…?\s*as I was saying,/i.test(twice)) problems.push(`[${name}] a second "go on" did not carry on: "${twice.slice(0, 80) || '(nothing said)'}"`);
+    if (/as I was saying,.*as I was saying/i.test(twice)) problems.push(`[${name}] carried on with the bridge twice: "${twice.slice(0, 100)}"`);
+    await waitVoice(page, 'listening', 20000);
+  }
 
   // 2c. a new ask after a cut: the cut reply stays as it is, the ask is answered, and the brain knows what he heard
   await waitVoice(page, 'listening', 20000);

@@ -195,7 +195,8 @@ function carryOn(t: string, speakIt: boolean): boolean {
   const rest = c.parts.slice(c.at);
   if (!rest.length) return false;
   lastCut = null;
-  const text = `…as I was saying, ${lowerFirst(rest[0]!)}${rest.length > 1 ? ` ${rest.slice(1).join(' ')}` : ''}`;
+  // (cut again in its own first sentence: one bridge, not two)
+  const text = `…as I was saying, ${lowerFirst(rest[0]!.replace(BRIDGE, ''))}${rest.length > 1 ? ` ${rest.slice(1).join(' ')}` : ''}`;
   const asked = stamp();
   const at = stamp();
   const priv = reply.private ? { private: true } : {};

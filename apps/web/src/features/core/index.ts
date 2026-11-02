@@ -187,7 +187,8 @@ export function listenNow(): void {
   conversation = true;
   quiet = 0;
   primeSpeech();
-  void brain.status().catch(() => undefined);
+  // (not for a conversation kept on this phone: nothing of it goes to the brain, not even a hello)
+  if (settings.get().offlineBrain !== 'always' && !hereNext) void brain.status().catch(() => undefined);
   const mic = document.querySelector('#mic');
   mic?.classList.add('on');
   void voiceTurn(++convoId).finally(() => document.querySelector('#mic')?.classList.toggle('on', conversation));
