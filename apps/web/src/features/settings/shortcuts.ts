@@ -1,6 +1,7 @@
 /**
  * SETTINGS → SHORTCUTS (BRIEF-REST-A 2): Siri Shortcuts for Ghosty, made of the links the app understands
- * (deeplinks.ts). A gallery of thirteen ready ones (a name to say, what it does, its link, COPY), the plain steps once for
+ * (deeplinks.ts). "Ghosty listen" first, on its own (Siri straight into a conversation, with the truth about the background),
+ * then a gallery of twelve ready ones (a name to say, what it does, its link, COPY), the plain steps once for
  * the Shortcuts app, and MAKE YOUR OWN: a screen picked or words typed, the link made, COPY. Nothing is installed by us:
  * iOS lets no web page add a shortcut. `followLink` (called by main.ts once Ghosty is up) does what a link asks, on the
  * owner's own signed-in phone only.
@@ -8,7 +9,7 @@
 import { h } from '../../core/dom';
 import { tabs } from '../../shell/tabs';
 import { button, panel, toast, type Panel } from '../../ui/components';
-import { NO_BACKGROUND, NOT_INSTALLED, parseLink, READY, shortcutUrl, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
+import { LISTEN, NO_BACKGROUND, NOT_INSTALLED, parseLink, READY, shortcutUrl, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
 
 const origin = () => (typeof location !== 'undefined' ? location.origin : '');
 
@@ -39,6 +40,11 @@ const urlEl = (url: string) => h('code.scurl', { tabIndex: 0, 'aria-label': `Lin
 
 export function shortcutsPanel(): Panel {
   const p = panel('SHORTCUTS', { grow: false, status: 'Siri' });
+  // [talk] "Ghosty listen": the one that matters most for talking, first and on its own, with what iPhone allows (BRIEF-TALK-1A 6)
+  const listenUrl = shortcutUrl(origin(), LISTEN.ask);
+  const listenCopy = button('COPY', (btn) => void copy(listenUrl, btn), 'on');
+  listenCopy.setAttribute('aria-label', `Copy the link for ${LISTEN.name}`);
+  const listen = h('div.sclisten', { dataset: { name: LISTEN.name } }, h('b', `“${LISTEN.name}”`), h('span', LISTEN.does), urlEl(listenUrl), h('div.row', listenCopy), h('p.note', NO_BACKGROUND));
   const gallery = h('div.scgal', ...READY.map((r) => {
     const url = shortcutUrl(origin(), r.ask);
     const b = button('COPY', (btn) => void copy(url, btn), 'on');
@@ -68,7 +74,7 @@ export function shortcutsPanel(): Panel {
     h('p.note', 'Say “Hey Siri, Ghosty timer” and it happens: each shortcut is a link that the Shortcuts app opens.'),
     h('p.note.scsteps', STEPS),
     h('p.note', NOT_INSTALLED),
-    h('p.note.scbg', NO_BACKGROUND),
+    listen,
     h('p.note', 'A shortcut opens Ghosty in Safari: sign in there once (Passwords fills your key). Words that would start something, like a reminder, wait in the chat box for your send.'),
     gallery,
     h('div.scown', h('b', 'MAKE YOUR OWN'), h('div.row', pick, words), made, h('div.row', copyMine)),

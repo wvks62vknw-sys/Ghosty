@@ -141,9 +141,14 @@ export interface Ready {
   ask: LinkAsk;
 }
 
-/** The thirteen ready shortcuts (the SHORTCUTS panel's gallery), "Ghosty listen" first: Siri straight into a conversation. */
+/**
+ * [talk] The shortcut for talking (BRIEF-TALK-1A 6; STARS 16): Siri straight into a conversation. The SHORTCUTS panel shows it
+ * on its own, first, above the gallery.
+ */
+export const LISTEN: Ready = { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking. No tap.', ask: { do: 'listen' } };
+
+/** The twelve ready shortcuts (the SHORTCUTS panel's gallery). */
 export const READY: Ready[] = [
-  { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking. No tap.', ask: { do: 'listen' } },
   { name: 'Ghosty timer', does: 'Starts a 10-minute timer on the phone.', ask: { do: 'timer:10m' } },
   { name: 'Ghosty scan', does: 'Opens the Lens on SCAN, for a barcode or a QR code.', ask: { do: 'lens:scan' } },
   { name: 'Ghosty read this', does: 'Opens the Lens on READ, for a sign, a page or a menu.', ask: { do: 'lens:read' } },
