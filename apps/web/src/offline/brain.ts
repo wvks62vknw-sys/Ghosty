@@ -19,8 +19,9 @@
  * "closed Ghosty on this phone", goes back to the 0.6B, and never loads it again without the owner's yes (USE asks).
  *
  * Tests (no WebGPU in CI) set `window.__ghostyOfflineEngine = { chat(messages, onToken) }`, with
- * optional `load()` (stands in for loading the model), `unload()`, `idleMs` and `files` (true: GET and DOWNLOAD
- * really fill the Cache API, from the spec's stand-in files).
+ * optional `load()` (stands in for loading the model), `unload()`, `loaded` (whether the model is in memory: a phone-first
+ * answer goes first only on one that is; the stand-in sets it in `load` and `unload`), `idleMs` and `files` (true: GET and
+ * DOWNLOAD really fill the Cache API, from the spec's stand-in files).
  */
 import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
@@ -108,6 +109,11 @@ export function setTrainedModels(trained: TrainedModel[], active: string | null,
 /** The test engine, when a browser test put one there. */
 interface TestEngine {
   ready?: boolean;
+  /**
+   * Whether the model is in memory now, set by the stand-in itself in `load` and `unload` (modelWarm: a phone-first ask only
+   * goes first on a model that is). One that says nothing counts as in memory.
+   */
+  loaded?: boolean;
   /** Stands in for loading the model into memory (a reply waits for it); told which model (a throw like the phone's "out of memory" tests the fallback). */
   load?(model?: string): Promise<unknown> | unknown;
   /** Told when the model leaves memory. */
@@ -1020,17 +1026,62 @@ export async function loadOffline(): Promise<void> {
   await load();
 }
 
-/** Answer one message on this phone: the prompt (persona, memory, agenda, library, recent turns) and the streamed reply. */
-export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void, opts: { first?: boolean } = {}): Promise<{ text: string; tokens: number; perSecond: number }> {
+/**
+ * The model is in memory and nothing else has it, so a reply would start at once. A phone-first answer (assistant/session.ts)
+ * goes first only on a model that is: it never loads one inside the owner's turn (a cold load on a phone takes tens of
+ * seconds and can hang) and never waits in line behind another job on it. A test engine says so itself (`loaded`).
+ */
+export function modelWarm(): boolean {
+  if (modelJob.get().job) return false;
+  const t = testEngine();
+  return t ? t.loaded !== false : offlineBrain.get().loaded && !!worker;
+}
+
+/** When a background load last failed: another is not started for a minute (a phone that cannot hold the model would only try again and again). */
+let warmFailed = 0;
+const WARM_RETRY_MS = 60_000;
+
+/**
+ * Start loading the model in the background, quietly: a phone-first ask found it out of memory and went to the cloud at once,
+ * so the next ask can go first. Nothing waits for it and nothing is shown; a failure is recorded where every load records it
+ * (the held and fell-back notes) and is otherwise swallowed. Nothing happens while the model is loaded, loading, being
+ * downloaded or in use by another job.
+ */
+export function warmUp(): void {
+  if (modelWarm() || modelJob.get().job || offlineBrain.get().busy || Date.now() - warmFailed < WARM_RETRY_MS) return;
+  void loadOffline().catch(() => {
+    warmFailed = Date.now();
+  });
+}
+
+/** `ctl` aborts when `signal` does (a phone-first attempt giving up on the reply it asked for); returns the way to let go. */
+function follow(signal: AbortSignal | undefined, ctl: AbortController): () => void {
+  if (!signal) return () => undefined;
+  if (signal.aborted) {
+    ctl.abort();
+    return () => undefined;
+  }
+  const on = () => ctl.abort();
+  signal.addEventListener('abort', on, { once: true });
+  return () => signal.removeEventListener('abort', on);
+}
+
+/**
+ * Answer one message on this phone: the prompt (persona, memory, agenda, library, recent turns) and the streamed reply.
+ * `signal`: the caller's own way to end this reply (a phone-first attempt that ran out of time), besides the owner's "stop".
+ */
+export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void, opts: { first?: boolean; signal?: AbortSignal } = {}): Promise<{ text: string; tokens: number; perSecond: number }> {
   // Made before the first wait, so a "stop" while the library is searched (or the model is busy) counts too.
   const ctl = new AbortController();
   replying = ctl;
+  const unfollow = follow(opts.signal, ctl);
   try {
     return await withModel('chat', async () => {
       if (ctl.signal.aborted) throw stopped();
       return offlineReply(await offlinePrompt(question, recent, undefined, opts.first), onToken, ctl.signal);
     });
   } finally {
+    unfollow();
     if (replying === ctl) replying = null;
   }
 }
@@ -1038,11 +1089,13 @@ export async function answerOffline(question: string, recent: { role: 'user' | '
 /**
  * Translate on this phone (no signal, or the offline brain set to "always"): the small model asked only to
  * translate `text` into language `to` (a code), cool and short. Rough — the words with it say so. `onToken` gets
- * the raw pieces; the result's `text` is the clean translation. "Stop" stops it like any offline reply.
+ * the raw pieces; the result's `text` is the clean translation. "Stop" stops it like any offline reply; `signal` is the
+ * caller's own way to end it (as answerOffline's).
  */
-export async function translateOffline(text: string, to: string, onToken: (t: string) => void = () => undefined): Promise<{ text: string; tokens: number; perSecond: number }> {
+export async function translateOffline(text: string, to: string, onToken: (t: string) => void = () => undefined, signal?: AbortSignal): Promise<{ text: string; tokens: number; perSecond: number }> {
   const ctl = new AbortController();
   replying = ctl;
+  const unfollow = follow(signal, ctl);
   try {
     return await withModel('chat', async () => {
       if (ctl.signal.aborted) throw stopped();
@@ -1053,6 +1106,7 @@ export async function translateOffline(text: string, to: string, onToken: (t: st
       return { ...r, text: cleanTranslation(raw || r.text, to) };
     });
   } finally {
+    unfollow();
     if (replying === ctl) replying = null;
   }
 }

@@ -6,11 +6,15 @@
 // with a made-up microphone and made-up phone voices: SETTINGS → VOICE (automatic by default,
 // the brain's voices, the phone's natural British voices first, SAMPLE, the fallbacks), and
 // barge-in — Ghosty's own echo never stops it, the owner talking over it does within ~300 ms,
-// the reply is marked cut off, what they said is heard and answered, a tap cuts in too.
+// the reply is marked cut off, what they said is heard and answered, a tap cuts in too. Last, a turn still thinking after 8 s
+// (a slow answer, or the phone's own answer stuck) no longer leaves the conversation deaf: it listens again, a quiet room sends
+// nothing and a reply that arrives meanwhile is spoken and never heard back, the owner speaking again cuts a stuck attempt on
+// the phone short, and a very long turn does not leave the microphone open (the ear gives up after two quiet listens)
+// (the owner, 2 Nov: ten spoken asks in a row to a Ghosty that was "just thinking", with no reply).
 //   node tests/voice.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -634,6 +638,256 @@ const toastSays = (page, re, ms = 6000) => page.waitForFunction((src) => new Reg
   if (!told || r.starts > 1 || r.on) problems.push(`[${name}] the phone's recogniser failing: told ${told}, started ${r.starts} times, mic ${r.on ? 'still on' : 'off'}`);
   await ctx2.close();
 }
+// ---- Thinking (the owner, 2 Nov: ten spoken asks in a row to a Ghosty that was "just thinking for so long", no reply): a turn still
+// thinking after 8 s no longer leaves the conversation deaf. It listens again; what the owner says meanwhile is sent, and cuts a
+// stuck attempt on the phone short; a quiet room sends nothing; a reply that arrives while it listens is never heard back ----
+// (Each ask below carries a tag of this run's own: the preview brain keeps every earlier run's conversation, and the log shows only
+// its last 40 entries, so what was said is found by its words, never by counting what is on screen.)
+const RUN = Date.now().toString(36).slice(-5);
+const voiceStateOf = (page) => page.evaluate(() => window.__ghosty.ui.get().voice);
+const waitVoiceOf = (page, want, ms = 15000) => page.waitForFunction((w) => window.__ghosty.ui.get().voice === w, want, { timeout: ms }).then(() => true, () => false);
+/** Speak into an ear that is already open: after the room's calibration (20 animation frames, measured on this page), as tapAndSpeak does. */
+async function speakNow(page, { level = 0.3, ms = 1000 } = {}) {
+  const perFrame = await page.evaluate(() => new Promise((res) => {
+    const t0 = performance.now();
+    let n = 0;
+    const f = () => (++n >= 12 || performance.now() - t0 > 1500 ? res((performance.now() - t0) / n) : requestAnimationFrame(f));
+    requestAnimationFrame(f);
+  }));
+  await page.waitForTimeout(Math.min(7000, Math.max(500, Math.ceil(perFrame * 26))));
+  await page.evaluate((v) => window.__mic.set(v), level);
+  await page.waitForTimeout(ms);
+  await page.evaluate(() => window.__mic.set(0));
+}
+/** Marks, on the page (wall clock), when the screen first listens while it still thinks, and first speaks after that. */
+const watchEars = () => {
+  window.__ears = { listenAt: 0, spokeAt: 0 };
+  window.__ghosty.ui.subscribe((s) => {
+    if (s.busy && s.voice === 'listening' && !window.__ears.listenAt) window.__ears.listenAt = Date.now();
+    if (window.__ears.listenAt && s.voice === 'speaking' && !window.__ears.spokeAt) window.__ears.spokeAt = Date.now();
+  });
+};
+{
+  // A. a slow answer from the cloud and a quiet room: the ear opens after 8 s, hears nothing, sends nothing; the reply arrives and is spoken
+  const name = 'think-cloud';
+  const { ctx, page } = await micPage(name, { stt: true });
+  const said = `tell me about the weather ${RUN}`;
+  let stt = 0;
+  await ctx.route('**/api/stt', (route) => {
+    stt++;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: said }) });
+  });
+  let chats = 0;
+  let chatAt = 0;
+  await ctx.route('**/api/chat', async (route) => {
+    chats++;
+    if (chats === 1) {
+      chatAt = Date.now();
+      await new Promise((r) => setTimeout(r, 11500));
+    }
+    const lines = `${JSON.stringify({ t: 'text', text: `Mock reply to: ${said}` })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
+    await route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: lines });
+  });
+  await page.evaluate(watchEars);
+  const mine = () => page.evaluate((w) => [...document.querySelectorAll('.msg.me')].filter((m) => (m.textContent ?? '').includes(w)).length, said);
+  await tapAndSpeak(page, name);
+  // the ear is shut for the first 8 s of thinking (the answer is on its way), then open while it still thinks
+  await page.waitForTimeout(5000);
+  if (await page.evaluate(() => window.__ears.listenAt)) problems.push(`[${name}] the conversation listened again before the turn had thought for 8 s`);
+  const opened = await page.waitForFunction(() => window.__ears.listenAt > 0, null, { timeout: 12000 }).then(() => true, () => false);
+  if (!opened) problems.push(`[${name}] a turn still thinking after 8 s did not open the ear (voice ${await voiceStateOf(page)})`);
+  else {
+    // (the answer is held 11.5 s: the ear must be open before it comes, and not before 8 s of thinking)
+    const after = (await page.evaluate(() => window.__ears.listenAt)) - chatAt;
+    if (after < 7000 || after > 10500) problems.push(`[${name}] the ear opened ${after} ms after the brain was asked (want about 8000)`);
+  }
+  // the answer arrives while the ear is open: spoken, once; the quiet room was written down for nothing and sent nowhere
+  await page.waitForFunction((w) => document.body.innerText.includes(`Mock reply to: ${w}`), said, { timeout: 15000 }).catch(() => problems.push(`[${name}] the slow answer never came`));
+  if (!(await page.waitForFunction(() => window.__ears.spokeAt > 0, null, { timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] the answer that arrived while the ear was open was not spoken`);
+  await page.waitForTimeout(2500);
+  if (stt !== 1) problems.push(`[${name}] ${stt} recordings were written down: the quiet ear sent something, or the reply was heard back`);
+  if ((await mine()) !== 1) problems.push(`[${name}] the one ask is in the log ${await mine()} times`);
+  // the conversation goes on listening, as before
+  if (!(await waitVoiceOf(page, 'listening', 15000))) problems.push(`[${name}] after the answer the conversation did not listen again`);
+  await page.screenshot({ path: `${out}/phone-think-cloud.png` });
+  await ctx.close();
+}
+{
+  // B. the phone's own answer is stuck (it gives a word a second and then one every second and a half: alive, never done): the
+  // ear opens after 8 s; the owner speaks again; that cuts the stuck attempt short at once (not at its own 20 s), the first ask
+  // is answered by the cloud and the second, which finds the phone's brain free, on the phone
+  const name = 'think-phone';
+  const models = readFileSync(new URL('../apps/web/src/offline/models.ts', import.meta.url), 'utf8');
+  const [, id0, rev0] = /MODELS: ModelDef\[\] = \[\s*\{ id: '([^']+)'[^}]*?rev: '([0-9a-f]{40})'/.exec(models) ?? [];
+  const table = { floor: 20, brains: [{ model: `${id0}@${rev0?.slice(0, 7)}`, at: Date.now() - 86_400_000, papers: 7, rows: [{ cat: 'greet', pct: 92, items: 24, from: 'talking and listening' }] }] };
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx.addInitScript(fakePhone);
+  await ctx.addInitScript(() => {
+    // The phone's brain, stood in for (as tests/offline2.spec.mjs): in memory, greetings trusted below. Its first answer is stuck.
+    if (!sessionStorage.getItem('v-seeded')) {
+      sessionStorage.setItem('v-seeded', '1');
+      localStorage.setItem('ghosty.offlinebrain', JSON.stringify({ downloaded: true, have: [], guarded: true }));
+    }
+    window.__ghostyOfflineEngine = {
+      ready: true,
+      loaded: true,
+      calls: [],
+      aborted: [],
+      idleMs: 600000,
+      stuck: 1,
+      async load() {
+        this.loaded = true;
+      },
+      unload() {
+        this.loaded = false;
+      },
+      async chat(messages, onToken, signal) {
+        const call = this.calls.push(messages.at(-1)?.content ?? '') - 1;
+        if (call < this.stuck) {
+          for (let i = 0; i < 80; i++) {
+            const ended = await new Promise((resolve) => {
+              const t = setTimeout(() => resolve(false), i ? 1500 : 1000);
+              signal?.addEventListener('abort', () => (clearTimeout(t), resolve(true)), { once: true });
+            });
+            if (ended) {
+              this.aborted.push({ call, at: Date.now() });
+              return;
+            }
+            onToken('well ');
+          }
+          return;
+        }
+        for (const w of ['Hello ', 'from ', 'your ', 'phone.']) {
+          await new Promise((r) => setTimeout(r, 20));
+          onToken(w);
+        }
+      },
+    };
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await ctx.route('**/api/status', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    j.speech = { stt: true, tts: true };
+    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+  });
+  await ctx.route('**/api/tts', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav' }, body: wav() }));
+  await ctx.route('**/api/school/trust', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(table) }));
+  const heard = [`hello there ${RUN}`, `hello again ${RUN}`];
+  const sttAt = [];
+  await ctx.route('**/api/stt', (route) => {
+    sttAt.push(Date.now());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: heard[sttAt.length - 1] ?? '' }) });
+  });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.waitForFunction(() => (JSON.parse(localStorage.getItem('ghosty.trust') ?? '{}').brains ?? []).length === 1, null, { timeout: 15000 }).catch(() => problems.push(`[${name}] the trust table was not fetched at start`));
+  await page.waitForTimeout(800);
+  await page.evaluate(watchEars);
+  await tapAndSpeak(page, name);
+  if (!(await page.waitForFunction(() => window.__ghostyOfflineEngine.calls.length === 1, null, { timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] the first ask did not reach the phone's brain`);
+  // thinking on the phone: the ear opens after 8 s
+  if (!(await page.waitForFunction(() => window.__ears.listenAt > 0, null, { timeout: 14000 }).then(() => true, () => false))) problems.push(`[${name}] the conversation did not listen while the phone's own answer was stuck`);
+  else {
+    await speakNow(page);
+    const gone = await page.waitForFunction(() => window.__ghostyOfflineEngine.aborted.length === 1, null, { timeout: 12000 }).then(() => page.evaluate(() => window.__ghostyOfflineEngine.aborted[0].at), () => 0);
+    // ended by what the owner said (within a moment of the second recording being written down), not by its own 20 s
+    if (!gone) problems.push(`[${name}] speaking again did not cut the stuck attempt short`);
+    else if (!sttAt[1] || gone < sttAt[1] - 300 || gone - sttAt[1] > 3000) problems.push(`[${name}] the stuck attempt ended ${sttAt[1] ? gone - sttAt[1] : 'with no second recording'} ms after the owner’s second ask was written down: not by it`);
+    else console.log(`[${name}] speaking again cut the stuck attempt short ${gone - sttAt[1]} ms after it was written down (its own limit is 20 s)`);
+  }
+  // both asks are answered: the first by the cloud, the second on the phone (its brain was free again)
+  const first = await page.waitForFunction((w) => [...document.querySelectorAll('.msg')].some((m) => !m.classList.contains('me') && !m.classList.contains('off') && (m.textContent ?? '').includes(`Mock reply to: ${w}`)), heard[0], { timeout: 12000 }).then(() => true, () => false);
+  if (!first) problems.push(`[${name}] the first ask was not answered by the cloud once its stuck attempt was cut short`);
+  // (what follows the second ask's own message in the log: an "On this phone · first" card with its answer)
+  const second = await page.waitForFunction((w) => {
+    const all = [...document.querySelectorAll('.msg')];
+    const i = all.findLastIndex((m) => m.classList.contains('me') && (m.textContent ?? '').includes(w));
+    return i >= 0 && all.slice(i + 1).some((m) => m.classList.contains('first') && /phone\./.test(m.textContent ?? ''));
+  }, heard[1], { timeout: 12000 }).then(() => true, () => false);
+  if (!second) problems.push(`[${name}] the second ask was not answered on the phone`);
+  // (and no card without an answer after the first ask's own message: the stuck attempt's)
+  const left = await page.evaluate((w) => {
+    const all = [...document.querySelectorAll('.msg')];
+    const i = all.findLastIndex((m) => m.classList.contains('me') && (m.textContent ?? '').includes(w));
+    return i < 0 ? -1 : all.slice(i + 1).filter((m) => m.classList.contains('first') && !(m.textContent ?? '').includes('phone.')).length;
+  }, heard[0]);
+  if (left) problems.push(`[${name}] ${left < 0 ? 'the first ask is not in the log' : "the stuck attempt's card is still in the log"}`);
+  if (!(await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] the screen is still thinking`);
+  await page.screenshot({ path: `${out}/phone-think-phone.png` });
+  await ctx.close();
+}
+{
+  // C. a very long turn in a quiet room: the ear gives up after two quiet listens, as the conversation itself does, so the microphone
+  // is not left open (and recordings going to be written down) for minutes. The phone's own recogniser, stood in for: it hears one
+  // sentence, and every listen after that is a quiet one.
+  const name = 'think-quiet';
+  const said = `tell me a long story ${RUN}`;
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx.addInitScript((words) => {
+    window.__rec = 0;
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() {
+        const n = ++window.__rec;
+        setTimeout(() => {
+          if (n === 1) this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: words }], { isFinal: true })] });
+          this.onend?.();
+        }, n === 1 ? 500 : 150);
+      }
+      abort() {
+        this.onend?.();
+      }
+    };
+  }, said);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await ctx.route('**/api/status', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    j.speech = { stt: false, tts: true };
+    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+  });
+  await ctx.route('**/api/tts', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav' }, body: wav() }));
+  let chatAt = 0;
+  await ctx.route('**/api/chat', async (route) => {
+    chatAt = Date.now();
+    await new Promise((r) => setTimeout(r, 20000));
+    const lines = `${JSON.stringify({ t: 'text', text: `Mock reply to: ${said}` })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
+    await route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: lines });
+  });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => {
+    window.__ears = { opens: 0, first: 0 };
+    window.__ghosty.ui.subscribe((s, prev) => {
+      if (s.busy && s.voice === 'listening' && prev.voice !== 'listening') {
+        window.__ears.opens++;
+        window.__ears.first ||= Date.now();
+      }
+    });
+  });
+  await page.click('#mic');
+  const t0 = Date.now();
+  while (!chatAt && Date.now() - t0 < 30000) await page.waitForTimeout(100);
+  if (!chatAt) problems.push(`[${name}] what was said never reached the brain`);
+  // 15 s into the answer's 20: the ear opened once the screen had thought for 8 s, listened twice, and gave up (an ear that kept
+  // listening would have opened a dozen times by now)
+  await page.waitForTimeout(Math.max(0, chatAt + 15000 - Date.now()));
+  const ears = await page.evaluate(() => ({ opens: window.__ears.opens, first: window.__ears.first, recs: window.__rec }));
+  if (ears.opens !== 2) problems.push(`[${name}] the ear opened ${ears.opens} times in a turn that thought for 15 s of a quiet room (want 2: it gives up after two quiet listens)`);
+  else if (ears.first - chatAt < 7000 || ears.first - chatAt > 11000) problems.push(`[${name}] the ear opened ${ears.first - chatAt} ms after the brain was asked (want about 8000)`);
+  // the turn ends as ever: the answer comes, and the conversation carries on
+  await page.waitForFunction((w) => document.body.innerText.includes(`Mock reply to: ${w}`), said, { timeout: 15000 }).catch(() => problems.push(`[${name}] the slow answer never came`));
+  await ctx.close();
+}
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in.");
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in, and a conversation that keeps listening while a turn is still thinking (and gives up after two quiet listens).");
 process.exit(problems.length ? 1 : 0);

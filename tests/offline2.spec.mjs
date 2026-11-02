@@ -13,6 +13,16 @@
 //     kinds and why, the sparkline week by week, Sovereign mode's truth and the honest ceiling; the Brief's weekly line;
 //  6. SOVEREIGN MODE (Always) with no brain to answer: a greeting stops with the refusal line, and its marker reaches no
 //     address;
+//  7. a phone-first answer never holds a turn (the owner, 2 Nov: "he literally isn't responding, just thinking for so long",
+//     ten spoken asks in a row with no reply). The stand-in says whether its model is in memory and how slow it is:
+//     a. NOT in memory: it is never loaded inside the turn — the cloud answers at once, no card, the phone's brain is not
+//        asked, a load is started in the background, and the next ask is then answered first on the phone;
+//     b. in memory but giving no first word: ended after 5 s — the phone's brain was asked and the generation aborted, the
+//        cloud's reply arrives within about 10 s, the "On this phone · first" card is gone, and the meter counts the ask as
+//        the cloud's, never the phone's;
+//     c. a newer message while it is still thinking ends it first (not after its 5 s), and both asks are answered; a stop
+//        in words ends it for good, the cloud is not asked for it, and the screen is not left thinking;
+//     d. a task kept on the phone (Always) is not given this budget: it is the phone's alone and waits for its model.
 // nothing scrolls sideways at 390 × 844, every button is at least 44 px tall, and the new parts carry VoiceOver labels.
 //   BASE=http://localhost:<port> node tests/offline2.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -60,18 +70,39 @@ const engine = (have) => {
   }
   window.__ghostyOfflineEngine = {
     ready: true,
+    // In memory when the page opens, as after an earlier answer: a phone-first ask goes first only on a model that is, so the
+    // steps below that need it cold or slow say so (offline/brain.ts modelWarm reads `loaded`; one that says nothing counts as in)
+    loaded: true,
     calls: [],
+    // the calls whose generation was ended before it gave a word (the 5 s limit, a newer message or a stop), with the time
+    aborted: [],
     loads: 0,
     unloads: 0,
     idleMs: 500,
+    // milliseconds before the first word (0: as before); and how long a load takes (the model comes into memory when it ends)
+    firstDelay: 0,
+    loadMs: 0,
     async load() {
       this.loads++;
+      if (this.loadMs) await new Promise((r) => setTimeout(r, this.loadMs));
+      this.loaded = true;
     },
     unload() {
       this.unloads++;
+      this.loaded = false;
     },
-    async chat(messages, onToken) {
-      this.calls.push(messages.at(-1)?.content ?? '');
+    async chat(messages, onToken, signal) {
+      const call = this.calls.push(messages.at(-1)?.content ?? '') - 1;
+      if (this.firstDelay) {
+        const ended = await new Promise((resolve) => {
+          const t = setTimeout(() => resolve(false), this.firstDelay);
+          signal?.addEventListener('abort', () => (clearTimeout(t), resolve(true)), { once: true });
+        });
+        if (ended) {
+          this.aborted.push({ call, at: Date.now() });
+          return;
+        }
+      }
       for (const w of ['Hello ', 'from ', 'your ', 'phone.']) {
         await new Promise((r) => setTimeout(r, 20));
         onToken(w);
@@ -262,6 +293,156 @@ check(6, /SOVEREIGN MODE · ON/.test(((await sheet.textContent().catch(() => '')
 await sideways('sovereign');
 await page.screenshot({ path: `${out}/offline2-sovereign.png` });
 
+// 7. a phone-first answer never holds a turn hostage (the owner, 2 Nov: ten spoken asks in a row, no reply). The stand-in says
+// whether its model is in memory and how slow it is; the cloud is the preview brain ("Mock reply to: …").
+// (Each ask below carries a tag of this run's own. The preview brain keeps every earlier run's conversation and the log shows only
+// its last 40 entries, so counting the entries on screen means nothing here: an ask's entries are found by its words, and by what
+// follows its own message in the log.)
+await page.evaluate(() => {
+  window.__ghosty.settings.set({ offlineBrain: 'auto' });
+  window.__ghostyOfflineEngine.ready = true;
+});
+const RUN = Date.now().toString(36).slice(-5);
+const tagged = (words) => `${words} ${RUN}`;
+const setEngine = (p) => page.evaluate((x) => Object.assign(window.__ghostyOfflineEngine, x), p);
+const engineNow = () => page.evaluate(() => {
+  const e = window.__ghostyOfflineEngine;
+  return { calls: e.calls.length, aborted: e.aborted.length, loads: e.loads, loaded: e.loaded };
+});
+const meterNow = async () => {
+  const d = await today();
+  return { phone: d.n?.phone ?? 0, cloud: d.n?.cloud ?? 0, greetN: d.g?.greet?.n ?? 0, greetO: d.g?.greet?.o ?? 0 };
+};
+/** The meter once the cloud's answer to a greeting is in it (the phone's stores save 200 ms after a change). */
+const meterAfter = async (was) => {
+  await page.waitForFunction((n) => {
+    const d = new Date();
+    const p = (x) => String(x).padStart(2, '0');
+    const t = (JSON.parse(localStorage.getItem('ghosty.independence') ?? '{}').days ?? []).find((x) => x.d === `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+    return (t?.g?.greet?.n ?? 0) > n;
+  }, was.greetN, { timeout: 4000 }).catch(() => undefined);
+  return meterNow();
+};
+/** Milliseconds from `t0` until the cloud's reply to `words` is on screen (-1: it never came). */
+const cloudSaid = async (words, t0, ms = 15000) => {
+  const ok = await page.waitForFunction((w) => [...document.querySelectorAll('.msg')].some((m) => !m.classList.contains('me') && !m.classList.contains('off') && (m.textContent ?? '').includes(`Mock reply to: ${w}`)), words, { timeout: ms }).then(() => true, () => false);
+  return ok ? Date.now() - t0 : -1;
+};
+/** What follows, in the log, the ask whose own message holds `words`: the classes of its entries (null: the ask is not on screen). */
+const classesAfter = (words) => page.evaluate((w) => {
+  const all = [...document.querySelectorAll('.msg')];
+  const i = all.findLastIndex((m) => m.classList.contains('me') && (m.textContent ?? '').includes(w));
+  return i < 0 ? null : all.slice(i + 1).map((m) => m.className);
+}, words);
+const noCardsAfter = async (words, what) => {
+  const after = await classesAfter(words);
+  check(what, after !== null && !after.some((c) => /\bfirst\b/.test(c)), after === null ? 'the ask is not in the log' : 'an "On this phone · first" card is still in the log for an ask the cloud answered');
+};
+/** An answer on the phone follows the ask whose message holds `words`: an "On this phone · first" card (`first`), or a kept task's offline card. */
+const phoneAnswerAfter = (words, first, ms = 10000) => page.waitForFunction(([w, f]) => {
+  const all = [...document.querySelectorAll('.msg')];
+  const i = all.findLastIndex((m) => m.classList.contains('me') && (m.textContent ?? '').includes(w));
+  return i >= 0 && all.slice(i + 1).some((m) => m.classList.contains('off') && m.classList.contains('first') === f && /phone\./.test(m.textContent ?? ''));
+}, [words, first], { timeout: ms }).then(() => true, () => false);
+
+// a. the model is NOT in memory (the page has just opened, or it was idle two minutes): never loaded inside the turn
+await setEngine({ loaded: false, loadMs: 800, firstDelay: 0 });
+{
+  const cold = tagged('hello cold');
+  const e0 = await engineNow();
+  const m0 = await meterNow();
+  const t0 = Date.now();
+  await say(cold);
+  const took = await cloudSaid(cold, t0);
+  check('7a', took >= 0 && took < 10000, `the cloud's reply to an ask on a model not in memory took ${took} ms (-1: never)`);
+  const e1 = await engineNow();
+  check('7a', e1.calls === e0.calls, `the phone's brain was asked on a model that was not in memory (${e1.calls - e0.calls} calls)`);
+  await noCardsAfter(cold, '7a');
+  await page.waitForFunction((n) => window.__ghostyOfflineEngine.loads > n, e0.loads, { timeout: 4000 }).catch(() => problems.push('[7a] no load was started in the background'));
+  const m1 = await meterAfter(m0);
+  check('7a', m1.greetN === m0.greetN + 1 && m1.greetO === m0.greetO && m1.phone === m0.phone && m1.cloud === m0.cloud + 1, `the meter did not count it as the cloud's: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
+  // the load ends in the background, and the next ask is the one that goes first
+  await page.waitForFunction(() => window.__ghostyOfflineEngine.loaded === true, null, { timeout: 5000 }).catch(() => problems.push('[7a] the background load did not finish'));
+  const warm = tagged('hello warm');
+  await say(warm);
+  if (!(await phoneAnswerAfter(warm, true))) problems.push('[7a] after the load, the next ask was not answered first on the phone');
+  check('7a', (await engineNow()).calls === e0.calls + 1, `the phone's brain was asked ${(await engineNow()).calls - e0.calls} times for the one ask it could take`);
+  await page.screenshot({ path: `${out}/offline2-cold.png` });
+}
+
+// b. in memory, but no first word: ended after 5 s, the cloud answers within about 10, the card goes, the meter is the cloud's
+await setEngine({ loaded: true, loadMs: 0, firstDelay: 60000 });
+{
+  const slow = tagged('hello slow');
+  const e0 = await engineNow();
+  const m0 = await meterNow();
+  const t0 = Date.now();
+  await say(slow);
+  await page.waitForFunction((n) => window.__ghostyOfflineEngine.calls.length > n, e0.calls, { timeout: 5000 }).catch(() => problems.push('[7b] the phone’s brain was not asked'));
+  const took = await cloudSaid(slow, t0);
+  check('7b', took >= 4500 && took < 10000, `the cloud's reply came after ${took} ms (a first word is waited for 5 s; the reply is due within about 10; -1: never)`);
+  const e1 = await engineNow();
+  check('7b', e1.calls === e0.calls + 1 && e1.aborted === e0.aborted + 1, `the attempt was not made and ended once: ${JSON.stringify(e0)} → ${JSON.stringify(e1)}`);
+  await noCardsAfter(slow, '7b');
+  const m1 = await meterAfter(m0);
+  check('7b', m1.greetN === m0.greetN + 1 && m1.greetO === m0.greetO && m1.phone === m0.phone && m1.cloud === m0.cloud + 1, `the meter counted an ended attempt as the phone's: ${JSON.stringify(m0)} → ${JSON.stringify(m1)}`);
+  await sideways('ended attempt');
+}
+
+// c. a newer message while it is still thinking ends that attempt first (not at its own 5 s); a stop in words ends it for good
+await setEngine({ loaded: true, firstDelay: 60000 });
+{
+  const first = tagged('hello first');
+  const second = tagged('hello second');
+  const third = tagged('hello third');
+  const e0 = await engineNow();
+  await say(first);
+  await page.waitForFunction((n) => window.__ghostyOfflineEngine.calls.length > n, e0.calls, { timeout: 5000 }).catch(() => problems.push('[7c] the first ask did not reach the phone’s brain'));
+  await page.waitForTimeout(1000);
+  const t0 = Date.now();
+  await say(second);
+  const ended = await page.waitForFunction((n) => window.__ghostyOfflineEngine.aborted.length > n, e0.aborted, { timeout: 4000 }).then(() => Date.now() - t0, () => -1);
+  check('7c', ended >= 0 && ended < 3000, `the attempt was ended ${ended} ms after the newer message (its own limit is 5 s; -1: not ended)`);
+  const one = await cloudSaid(first, t0, 12000);
+  const two = await cloudSaid(second, t0, 12000);
+  check('7c', one >= 0 && one < 10000 && two >= 0 && two < 10000, `both asks are due an answer within about 10 s of the newer message: first ${one} ms, second ${two} ms (-1: never)`);
+  await noCardsAfter(first, '7c');
+  // (the newer ask may find the phone's brain free again and be tried there too: then it is ended at its own 5 s; both are the cloud's)
+  // a stop in words: ended at once; the cloud is not asked for it; the screen is not left thinking
+  // (the stand-in's model leaves memory 500 ms after it was last used, as an idle phone's does: warm it again)
+  await setEngine({ loaded: true });
+  const e1 = await engineNow();
+  const sent0 = sent.length;
+  await say(third);
+  await page.waitForFunction((n) => window.__ghostyOfflineEngine.calls.length > n, e1.calls, { timeout: 5000 }).catch(() => problems.push('[7c] the third ask did not reach the phone’s brain'));
+  await page.waitForTimeout(800);
+  await say('stop');
+  await page.waitForFunction((n) => window.__ghostyOfflineEngine.aborted.length > n, e1.aborted, { timeout: 3000 }).catch(() => problems.push('[7c] a stop did not end the phone’s attempt'));
+  await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 3000 }).catch(() => problems.push('[7c] after a stop the screen is still thinking'));
+  await page.waitForTimeout(6500); // longer than its own limit, which would have sent the ask to the cloud
+  check('7c', !sent.slice(sent0).some((r) => r.path === '/api/chat' && r.body.includes(third)), 'an ask the owner said stop to went to the cloud');
+  check('7c', (await cloudSaid(third, Date.now(), 300)) === -1, 'an ask the owner said stop to was answered');
+}
+
+// d. a task kept on the phone ("Always") is not given this budget: it is the phone's alone; it loads its model inside the turn and waits for it
+await page.evaluate(() => window.__ghosty.settings.set({ offlineBrain: 'always' }));
+await setEngine({ loaded: false, loadMs: 600, firstDelay: 7000 });
+{
+  const kept = tagged('hello kept ZORBLAX-7742');
+  const e0 = await engineNow();
+  const sent0 = sent.length;
+  const t0 = Date.now();
+  await say(kept);
+  const done = await phoneAnswerAfter(kept, false, 25000);
+  const took = done ? Date.now() - t0 : -1;
+  check('7d', took >= 7000, `a task kept on the phone was answered after ${took} ms: it was given up at the 5 s that only a phone-first answer gets (-1: never)`);
+  const e1 = await engineNow();
+  check('7d', e1.calls === e0.calls + 1 && e1.aborted === e0.aborted && e1.loads > e0.loads, `the kept task: ${JSON.stringify(e0)} → ${JSON.stringify(e1)}`);
+  check('7d', !sent.slice(sent0).some((r) => r.body.includes('ZORBLAX-7742')), 'a task kept on the phone left it');
+}
+await setEngine({ loaded: true, loadMs: 0, firstDelay: 0 });
+await page.evaluate(() => window.__ghosty.settings.set({ offlineBrain: 'auto' }));
+
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Offline2 run clean: a trusted greeting answered first on the phone with ASK THE CLOUD (struck, a miss, counted as the cloud’s), rewording at 70% to the cloud, TRUST and WHICH BRAIN, the INDEPENDENCE sheet with its sparkline, the Brief’s line, and Sovereign mode’s refusal with the marker kept on the phone.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Offline2 run clean: a trusted greeting answered first on the phone with ASK THE CLOUD (struck, a miss, counted as the cloud’s), rewording at 70% to the cloud, TRUST and WHICH BRAIN, the INDEPENDENCE sheet with its sparkline, the Brief’s line, Sovereign mode’s refusal with the marker kept on the phone, and a phone-first answer that never holds a turn: a model not in memory is warmed and the cloud answers at once, one with no first word in 5 s is ended and counted as the cloud’s, a newer message or a stop ends it first, and a task kept on the phone is left its own time.');
 process.exit(problems.length ? 1 : 0);
