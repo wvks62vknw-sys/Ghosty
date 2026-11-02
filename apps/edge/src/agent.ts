@@ -368,7 +368,10 @@ export class GhostyAgent {
         this.busy?.abort();
         this.busy = null;
         // a stop by intent from the phone (intent.ts): a harsh one leaves him subdued, any other puts him back to calm
-        const b = (await req.json().catch(() => ({}))) as { harsh?: unknown };
+        const b = (await req.json().catch(() => ({}))) as { harsh?: unknown; cancel?: unknown };
+        // [talk] `cancel`: the phone answers this one itself (ASK MY PHONE while every model cools: BRIEF-TALK-1A 5) — the turn
+        // waiting for a model ends, and nothing else: no mood, no quiet for the day
+        if (b.cancel === true) return json({ ok: true });
         const mood = await feel(this.storage, { kind: 'stop', harsh: b.harsh === true }).catch(() => undefined);
         // [cards] any stop word silences the rest of his day: nothing more unasked but danger (speak.ts)
         await stopSpeaking(this.storage).catch(() => undefined);
@@ -1202,7 +1205,7 @@ export class GhostyAgent {
         (this.citedTurn ? CITED_PROMPT : '');
       let answer: { message: Msg; model: string };
       try {
-        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', onWait: (text) => emit({ t: 'status', text }), ...(avoid ? { avoid } : {}) });
+        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', warm: true, onWait: (text) => emit({ t: 'status', text }), ...(avoid ? { avoid } : {}) });
       } catch (e) {
         const why = String((e as Error)?.message ?? e);
         // A photo, but no model that can see it: say so, and pass on what the phone itself saw.

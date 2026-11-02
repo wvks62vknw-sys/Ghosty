@@ -331,6 +331,8 @@ export const brain = {
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
   stop: (harsh?: boolean) => req<{ ok: boolean }>('POST', '/stop', harsh === undefined ? undefined : { harsh }),
+  /** [talk] Ends the turn under way and nothing else (no mood, no quiet for the day): ASK MY PHONE answers it here instead. */
+  cancel: () => req<{ ok: boolean }>('POST', '/stop', { cancel: true }),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
   addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),

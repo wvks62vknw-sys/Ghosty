@@ -3,7 +3,7 @@
  */
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
-import { answerApproval, askBigBrain, askCloud, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
@@ -405,6 +405,16 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       return el;
     }
     case 'error': {
+      if (e.cool) {
+        // [talk] every model cooling down (BRIEF-TALK-1A 5): said with the time; ASK MY PHONE while the wait is on and the phone's brain is awake
+        const cool = h('div.msg.cool', h('small', 'COOLING DOWN'), h('span', e.text));
+        if (e.cool.ask && ui.get().busy) {
+          const b = button('ASK MY PHONE', () => void askPhone(e.cool!.ask!), 'askphone');
+          b.title = 'End the wait: the brain on your phone answers this now';
+          cool.append(h('div.row', b));
+        }
+        return cool;
+      }
       const box = h('div.msg.err', h('small', e.ask ? 'KEPT ON THIS PHONE' : 'PROBLEM'), h('span', e.text));
       // A task kept on the phone that the phone could not do: the brain only by this tap, while it can be reached (OWNER-ISSUES 72).
       if (e.ask && ui.get().connected) {

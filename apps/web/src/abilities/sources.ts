@@ -57,6 +57,7 @@ export const CHAT_CONTROLS = [
   { id: 'harder', sel: '.thinkbtn' },
   { id: 'bigbrain', sel: '.bigbrain' },
   { id: 'askcloud', sel: '.askcloud' }, // [offline2] under an answer the phone gave first (offline/trust.ts)
+  { id: 'askphone', sel: '.askphone' }, // [talk] under "my models are all cooling down" when the phone's brain is awake (session.ts)
 ] as const;
 
 /** What works on every screen. */

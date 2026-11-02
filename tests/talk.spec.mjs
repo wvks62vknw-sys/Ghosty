@@ -582,6 +582,64 @@ for (const viewport of part('cooling') ? [PHONE, SMALL] : []) {
   await page.click('#mic').catch(() => undefined);
   await ctx.close();
 }
+if (part('cooling')) {
+  // C. the brain on the phone is awake: the cooling line offers it; ASK MY PHONE ends the wait and the phone answers at once
+  const name = 'cooling-phone';
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx.addInitScript(fakeTalk);
+  await ctx.addInitScript(() => {
+    if (!sessionStorage.getItem('t-seeded')) {
+      sessionStorage.setItem('t-seeded', '1');
+      localStorage.setItem('ghosty.offlinebrain', JSON.stringify({ downloaded: true, have: [], guarded: true }));
+    }
+    window.__ghostyOfflineEngine = {
+      ready: true,
+      loaded: true,
+      calls: [],
+      async load() {
+        this.loaded = true;
+      },
+      unload() {},
+      async chat(messages, onToken) {
+        this.calls.push(messages.at(-1)?.content ?? '');
+        for (const w of ['Hello ', 'from ', 'your ', 'phone.']) {
+          await new Promise((r) => setTimeout(r, 20));
+          onToken(w);
+        }
+      },
+    };
+  });
+  // (no kind of ask is trusted to the phone first here: only the offer can send this one to it)
+  await ctx.route('**/api/school/trust', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ floor: 20, brains: [] }) }));
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.waitForTimeout(800);
+  await page.click('.logbtn');
+  const ask = `cooling for 8 s: hello ${RUN}`;
+  await page.fill('#cin', ask);
+  await page.keyboard.press('Enter');
+  const offer = page.locator('#pg-core .log .msg.cool .askphone');
+  if (!(await offer.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false))) problems.push(`[${name}] the cooling line did not offer the brain on the phone while it was awake`);
+  else {
+    const line = (await page.locator('#pg-core .log .msg.cool').last().textContent()) ?? '';
+    if (!/until \d\d:\d\d/.test(line)) problems.push(`[${name}] the offer does not say when the models are back: "${line}"`);
+    const box = await offer.boundingBox();
+    if (!box || box.height < 44) problems.push(`[${name}] ASK MY PHONE is ${box?.height ?? 0} pt tall (44 at least)`);
+    await page.screenshot({ path: `${out}/talk-cooling-offer.png` });
+    await offer.click();
+    if (!(await seen(page, /Hello from your phone\./, 6000))) problems.push(`[${name}] ASK MY PHONE did not have the phone answer`);
+    // the wait was ended, in the brain too: the cloud's answer never comes after it
+    await page.waitForTimeout(9000);
+    if (await page.evaluate((a) => document.body.innerText.includes(`Mock reply to: ${a}`), ask)) problems.push(`[${name}] the cloud still answered after ASK MY PHONE`);
+    if (await page.locator('#pg-core .log .msg.cool .askphone').count()) problems.push(`[${name}] ASK MY PHONE is still offered after it was tapped`);
+  }
+  await ctx.close();
+}
 
 // ================================================================ 6. SIRI SHORTCUT: ?do=listen
 if (part('shortcut')) {

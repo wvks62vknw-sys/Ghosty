@@ -5830,3 +5830,8 @@ html .hub > * { flex-shrink: 0; }
   html #dock .tabcap { height: auto; }
   html .hub { padding-left: 92px; }
 }
+/* [talk] every model cooling down (BRIEF-TALK-1A 5): the line with its time under an amber rule, and ASK MY PHONE (44 pt) while the wait is on */
+.msg.cool { border-left: 2px solid var(--amber, #ffb340); padding-left: 10px; }
+html .hud.core .convo .msg.cool { padding-left: 12px; border-left: 2px solid var(--amber, #ffb340); }
+.msg.cool small, html .hud.core .convo .msg.cool small { color: var(--amber, #ffb340); }
+.msg.cool .askphone { min-height: 44px; margin-top: 8px; }

@@ -22,6 +22,7 @@ import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
+import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
@@ -69,7 +70,9 @@ export type Entry =
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
-  | { kind: 'error'; text: string; ask?: string }
+  /** [talk] `cool`: every model cooling down, said at once with the time the first is back (BRIEF-TALK-1A 5); `cool.ask`, when the
+   *  phone's brain was awake: the question ASK MY PHONE answers there. */
+  | { kind: 'error'; text: string; ask?: string; cool?: { ask?: string } }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
   | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number }
@@ -254,11 +257,15 @@ let spokenTurn = false;
 
 function handle(ev: ChatEvent): void {
   switch (ev.t) {
-    case 'status':
+    case 'status': {
       // [talk] a bare "thinking…" from the brain: the narration says what he is doing instead (BRIEF-TALK-1A 3)
       if (narr.on && BARE.test(ev.text.trim())) narrate(`step:${++narr.steps}`, narr.lastTool ? afterLine(narr.lastTool) : askLine(narr.ask));
       else ui.set({ status: ev.text });
+      // [talk] every model it could use is cooling down: said in the chat at once, with the time (BRIEF-TALK-1A 5)
+      const wait = WAITING.exec(ev.text.trim());
+      if (wait) cooling(Number(wait[1]) * 1000);
       break;
+    }
     case 'tool':
       toolRan = true;
       narr.lastTool = ev.name;
@@ -325,6 +332,8 @@ function handle(ev: ChatEvent): void {
       settle(); // the turn ends here: nothing is running any more
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
+      // [talk] no model free at all, in a spoken turn: said aloud too, in one sentence with the time (BRIEF-TALK-1A 5)
+      if (noModelError(ev.message) && spokenTurn && speakReplies && settings.get().speak) void speak(coolSaid(ev.message));
       break;
     case 'done':
       vehicleTurn = false;
@@ -432,6 +441,53 @@ function narrate(key: string, line: string | null, say = true): void {
   narr.say = line;
   narr.sayAt = Date.now();
 }
+/**
+ * [talk] MODEL SUPPLY, as the phone says it (BRIEF-TALK-1A 5; STARS 83). The brain counts down "waiting for free AI room · N s"
+ * while every model it could use is cooling down or full (llm/router.ts): a wait of COOL_SAY_MS or more is said in the chat at
+ * once — one sentence with the time the first is back — and aloud in a spoken turn; when the brain on this phone is awake,
+ * ASK MY PHONE under it ends the wait and the phone answers. A turn with no model at all says the same in its error.
+ */
+const WAITING = /^waiting for free AI room · (\d+) s$/;
+const COOL_SAY_MS = 4000;
+/** The brain's turn now under way: his ask and recent turns (for ASK MY PHONE), how to end its request, and when it is over. */
+let cloudTurn: { ask: string; recent: { role: 'user' | 'assistant'; text: string }[]; stop: AbortController; done: Promise<void>; said: boolean } | null = null;
+/** The time a wait of `ms` from now ends, as he reads times ("14:32"). */
+const backAt = (ms: number): string => fmt.time(new Date(Date.now() + ms));
+function cooling(ms: number): void {
+  const c = cloudTurn;
+  if (!c || c.said || ms < COOL_SAY_MS) return;
+  c.said = true;
+  const phone = settings.get().offlineBrain !== 'off' && modelWarm();
+  const at = backAt(ms);
+  const text = phone ? `My models are all cooling down until ${at}; tap ASK MY PHONE and the brain on your phone answers now.` : `My models are all cooling down; the first is back at ${at}, and I'll answer then.`;
+  push({ kind: 'error', text, cool: phone ? { ask: c.ask } : {} });
+  chat.set({ live: text });
+  if (spokenTurn && speakReplies && settings.get().speak) void speak(text, { aside: true });
+}
+/** The brain's "no model is free" as one sentence said aloud, with the time the first is back when it gives one. */
+function coolSaid(message: string): string {
+  const secs = /frees up in about (\d+) seconds?/.exec(message)?.[1];
+  const at = /back at (\d{1,2}:\d{2})/.exec(message)?.[1] ?? (secs ? backAt(Number(secs) * 1000) : '');
+  return at ? `My models are all cooling down; the first is back at ${at}.` : 'My models are all cooling down, and none can answer right now.';
+}
+
+/**
+ * ASK MY PHONE (BRIEF-TALK-1A 5): the turn waiting for a model ends, here and in the brain (a quiet cancel: no stop, no mood),
+ * and the brain on this phone answers his question now, as when there is no signal.
+ */
+export async function askPhone(ask: string): Promise<void> {
+  const c = cloudTurn && cloudTurn.ask === ask ? cloudTurn : null;
+  patch((e) => e.kind === 'error' && e.cool?.ask === ask, (e) => ({ ...(e as Extract<Entry, { kind: 'error' }>), cool: {} }));
+  if (c) {
+    c.stop.abort();
+    void brain.cancel().catch(() => undefined);
+    await c.done.catch(() => undefined);
+  }
+  await stream(async () => {
+    if (!(await answerHere(ask, c?.recent ?? []))) push({ kind: 'error', text: "The brain on your phone couldn't answer that either; I'll answer it as soon as a model is back." });
+  });
+}
+
 function aside(): void {
   if (!narr.on || narr.replied || !narr.spoken || !settings.get().speak) return;
   const now = Date.now();
@@ -834,6 +890,10 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const heard = cut ? { said: cut.said, head: cut.head } : undefined;
   lastCut = null;
   const rescue = async (e: unknown) => here && !acted && shouldFallBack(e) && answerHere(t, recent);
+  const ended = new AbortController();
+  let over: () => void = () => undefined;
+  const turn = { ask: t, recent, stop: ended, done: new Promise<void>((r) => (over = r)), said: false };
+  cloudTurn = turn;
   await stream(
     async (cb) => {
       await brain.chat(t, context(), (ev) => {
@@ -845,14 +905,22 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
           return;
         }
         cb(ev);
-      }, undefined, shared, settings.get().cited, library, heard);
-      if (held && !(await answerHere(t, recent))) cb(held);
+      }, ended.signal, shared, settings.get().cited, library, heard);
+      if (held) {
+        // [talk] no model is free, and the brain on this phone answers instead: said, so the wait for it is never silent
+        const said = `${coolSaid((held as { message: string }).message).replace(/\.$/, '')}, so the brain on your phone is answering this one.`;
+        ui.set({ status: 'the brain on your phone is answering…' });
+        if (spokenTurn && speakReplies && settings.get().speak) void speak(said, { aside: true });
+        if (!(await answerHere(t, recent))) cb(held);
+      }
     },
     // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t).then((a) => import('../wiki/ask').then((w) => w.offlineWiki(t, a)).catch(() => a))),
     rescue,
     t,
   );
+  over();
+  if (cloudTurn === turn) cloudTurn = null;
   lap.end();
   // [reste] a letter or a document he asked me to write: offered laid out as a DOCUMENT under the reply (docs/ask.ts)
   void import('../docs/ask').then((d) => d.offerDocument(t)).catch(() => undefined);
