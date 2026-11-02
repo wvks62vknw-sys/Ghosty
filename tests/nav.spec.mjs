@@ -191,6 +191,9 @@ await f.down(at.x, at.y);
 await page.waitForTimeout(600);
 await f.up();
 await page.waitForTimeout(400);
+// (the arc has two tiers past five tools since 2 Nov and its landing takes a moment longer: read the places once the animations
+// have finished, as the other arc checks do, or the tap lands where School was mid-flight)
+await settle(page);
 s = await sw(page);
 if (!s.open) problems.push('lifted on the held tab, the switcher closed (it should stay for a tap)');
 else {
