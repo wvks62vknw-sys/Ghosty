@@ -1281,6 +1281,8 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 13:26 UK: PR #55 MERGED (main b6a1782), green on every job at the first run (shard 1 with the talk spec's part 7: 41 min).
+  Main's push run for b6a1782 to be read (~14:30 UK); nothing else starts before Friday's reset.
 - 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
   to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md), builder NOT started: a four-to-six-hour
   build plus checks costs more than the 6% left. It is the first build after the reset. Committed locally behind PR #55 and pushed

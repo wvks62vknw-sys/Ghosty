@@ -2,7 +2,11 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #54, the last at 10:26 UK on 2 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #55, the last at 13:26 UK on 2 Nov)
+
+- LIVE since 13:26 UK on 2 Nov (PR #55, green on every job): NOTICES IN TURN (OWNER-ISSUES 123, with your two-minute phone check): a notice
+  is read only in a quiet moment, after the greeting, one after another, never over him or over you; a reply you ask for cuts one and it
+  is not read again. Also the fix for main's red run after PR #54 (the talk spec, a used brain's notice read over its measurement).
 
 - LIVE since 10:26 UK on 2 Nov (PR #54: its own run green; main's run after the merge went red on the talk spec alone — a notice read out over the reply, fixed in PR #55, OWNER-ISSUES 123): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122, with your seven-step phone check):
   the first spoken word while the rest is still being written, interruptions he recovers from mid-sentence ("sorry, go on"), narration
@@ -181,7 +185,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #55 (2 Nov, midday): NOTICES IN TURN and main green again (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
+- PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run green on every job; main's run after the merge being read next. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
   greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
   cuts one and it is not read again. Your two-minute phone check is in 123.
