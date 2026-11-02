@@ -16,7 +16,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   abilities: where you parked and a safer walk, car parks, toilets and cash machines, a fare split to the penny; bills read from a
   statement or a photo, bin days, meter readings, planning near you, what is due; eight languages, a typing test in the chat
   box, drawing lessons, mental maths, memory drills, first aid, four-week plans) and THE CHECKS IN FOUR SHARDS (about forty
-  minutes instead of two hours and a quarter; a newer push cancels the run before it). The UI depth
+  minutes instead of two hours and a quarter; a newer push cancels the run before it). GOING UP AS PR #54 (2 Nov, 09:19 UK; merged when green): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122): the first spoken word while the
+  rest is still being written, interruptions he recovers from mid-sentence, narration instead of spinners, a conversation with no
+  taps, models warmed before they run dry, "Ghosty listen" for Siri. The UI depth
   pass's other families now live in PLAN-STARS.md (the order from tonight to the ceiling; STARS.md the 150 gaps; STANDARD.md the bar).
   HELD for your opinion: the twelve themes and the Cinematic touch-up.
   Also in it, from your first evening on the live code (OWNER-ISSUES 118): the ARCADE as a card on LEARN, its downloads through

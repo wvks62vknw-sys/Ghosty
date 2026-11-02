@@ -1272,6 +1272,15 @@ folder that no longer exists; ignore those paths).
 - 2 Nov 06:19 UK: PR #53 MERGED (main 7c700f4), green on every job at the first run (shard 4 took 57 minutes with the tabs spec). Live:
   the LIFE area, the fourteen screens, hubs that show everything, every state said. Next: Pass 1a of PLAN-STARS (talking to him: speed and
   presence), BRIEF-TALK-1A, one Opus builder from the local tip.
+- 2 Nov 09:19 UK: main's run for PR #53 (7c700f4) green (06:18 → 07:09). TALK-1A MERGED (OWNER-ISSUES 122; builder base 7f432e2, HEAD
+  7fee664, 11 commits, 29 files, a plain merge, no conflicts): assistant/{voice,session,narrate,spoken,barge,sfx}.ts, api/brain.ts,
+  features/core/index.ts, settings/{deeplinks,shortcuts}.ts, abilities/sources.ts; brain agent.ts (a newer message closes the older
+  turn's stream; /stop {cancel:true} is a quiet cancel; the chat body takes `heard`), context.ts noteHeard, llm/router.ts (chat waits 2 s
+  for its best model, was 8; the warm-up opt-in through CallOptions.warm), content.ts, mock.ts ("talk to me about X", "what did I
+  hear?", "cooling for N s: …"); shared intent.ts, catalogue/talk.ts (chat:askphone); tests/talk.spec.mjs in the loop after tabs
+  (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
+  passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
+  speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
