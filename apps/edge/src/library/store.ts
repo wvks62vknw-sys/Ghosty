@@ -64,6 +64,15 @@ function cosine(a: Float32Array, b: Float32Array): number {
 /** The seeding pass in flight for each brain's storage (see seedStarter). */
 const seeding = new WeakMap<object, Promise<boolean>>();
 
+/**
+ * The Durable Object's SQLite binds at most 100 values a statement ("too many SQL variables" past that — the owner's
+ * library, 2 Nov, OWNER-ISSUES 126: a book's 300 passages asked for in one IN list). A list of ids is looked up in
+ * chunks of this many, each its own statement.
+ */
+const BIND_CHUNK = 90;
+const chunks = <T>(items: T[], size = BIND_CHUNK): T[][] => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
+const marks = (n: number): string => Array.from({ length: n }, () => '?').join(',');
+
 export class Library {
   private ready = false;
 
@@ -172,7 +181,7 @@ export class Library {
     const db = this.db;
     const rids = db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE doc = ? AND heading = ? ORDER BY rid LIMIT 40`, docId, heading).toArray().map((r) => Number(r.rid));
     if (!rids.length) return '';
-    const rows = db.exec<{ rid: number; text: string }>(`SELECT rowid AS rid, text FROM lib_fts WHERE rowid IN (${rids.map(() => '?').join(',')})`, ...rids).toArray();
+    const rows = chunks(rids).flatMap((part) => db.exec<{ rid: number; text: string }>(`SELECT rowid AS rid, text FROM lib_fts WHERE rowid IN (${marks(part.length)})`, ...part).toArray());
     const byRid = new Map(rows.map((r) => [Number(r.rid), String(r.text)]));
     // passages overlap by design (each carries the tail of the one before); joined, the text reads once
     const joined = joinPassages(rids.flatMap((rid) => byRid.get(rid) ?? []));
@@ -188,7 +197,8 @@ export class Library {
     const n = Math.max(1, Math.min(400, Math.floor(limit)));
     const rids = db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE doc = ? AND rid > ? ORDER BY rid LIMIT ?`, docId, Math.max(0, Math.floor(after)), n).toArray().map((r) => Number(r.rid));
     if (!rids.length) return { passages: [], next: null };
-    const rows = db.exec<{ rid: number; text: string; heading: string | null; page: number | null }>(`SELECT rowid AS rid, text, heading, page FROM lib_fts WHERE rowid IN (${rids.map(() => '?').join(',')})`, ...rids).toArray();
+    // (never more than BIND_CHUNK ids a statement: the whole page in one IN list was the "too many SQL variables" of 2 Nov)
+    const rows = chunks(rids).flatMap((part) => db.exec<{ rid: number; text: string; heading: string | null; page: number | null }>(`SELECT rowid AS rid, text, heading, page FROM lib_fts WHERE rowid IN (${marks(part.length)})`, ...part).toArray());
     const byRid = new Map(rows.map((r) => [Number(r.rid), r]));
     const passages = rids.flatMap((rid) => {
       const r = byRid.get(rid);
@@ -217,9 +227,8 @@ export class Library {
   /** Delete passages by row id (FTS rowid lookups and lib_vec/lib_pass are by primary key: no scans). */
   private dropRows(ids: number[]): void {
     const db = this.db;
-    for (let i = 0; i < ids.length; i += 200) {
-      const part = ids.slice(i, i + 200);
-      const q = part.map(() => '?').join(',');
+    for (const part of chunks(ids)) {
+      const q = marks(part.length);
       db.exec(`DELETE FROM lib_fts WHERE rowid IN (${q})`, ...part);
       db.exec(`DELETE FROM lib_vec WHERE rid IN (${q})`, ...part);
       db.exec(`DELETE FROM lib_pass WHERE rid IN (${q})`, ...part);
@@ -258,7 +267,7 @@ export class Library {
     const vecs = new Map<number, Float32Array>();
     if (this.env.AI) {
       const ids = rows.map((r) => Number(r.rowid));
-      const found = db.exec<{ rid: number; v: unknown }>(`SELECT rid, v FROM lib_vec WHERE rid IN (${ids.map(() => '?').join(',')})`, ...ids).toArray();
+      const found = chunks(ids).flatMap((part) => db.exec<{ rid: number; v: unknown }>(`SELECT rid, v FROM lib_vec WHERE rid IN (${marks(part.length)})`, ...part).toArray());
       for (const f of found) {
         const v = vecOf(f.v);
         if (v) vecs.set(Number(f.rid), v);

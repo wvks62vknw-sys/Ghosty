@@ -11,6 +11,9 @@ export function sqlStorage() {
   return {
     plans,
     exec(query, ...bindings) {
+      // The real one binds at most 100 values a statement and says so (the owner's library, 2 Nov: a book's 300 passages in
+      // one IN list, "too many SQL variables at offset 270"); Node's SQLite would take thousands, so the limit is held here.
+      if (bindings.length > 100) throw new Error(`too many SQL variables at offset ${Math.min(query.length, query.indexOf('?') + 200)}: SQLITE_ERROR (the Durable Object binds at most 100 a statement; this one binds ${bindings.length})`);
       if (/^\s*(SELECT|UPDATE|DELETE|INSERT)/i.test(query)) {
         try {
           const detail = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...bindings.map((b) => (b === undefined ? null : b))).map((r) => r.detail);

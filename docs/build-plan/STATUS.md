@@ -185,7 +185,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run green on every job; main's run after the merge being read next. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
+- PR #56 (2 Nov, afternoon): the library's "too many SQL variables" fixed at cause (OWNER-ISSUES 126): a book longer than a few pages
+  could not be opened; every id list now goes to the database in chunks the Durable Object accepts, and the test storage holds the same
+  limit so it cannot come back.
+- PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
   greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
   cuts one and it is not read again. Your two-minute phone check is in 123.
