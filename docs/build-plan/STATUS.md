@@ -213,7 +213,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-- FIRST AFTER FRIDAY'S RESET: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
+- FIRST AFTER FRIDAY'S RESET: THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): a reader screen with your place
+  kept, chapters and search, and LISTEN under the talking rules; "read me <book>" by words. Then: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
   page to tap, each a full card in its area's hub like every screen has (his words: like how it already is); one generator
   from the tools' own definitions. Not
   started this week: the credits do not cover it.

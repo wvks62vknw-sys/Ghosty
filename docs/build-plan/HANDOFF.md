@@ -1281,6 +1281,9 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 13:35–13:50 UK: the owner: the library must act as a library (read a book himself; Ghosty reads it to him) — OWNER-ISSUES 125,
+  BRIEF-LIBRARY-READER.md written; first build after Friday's reset, before the ability pages unless he swaps them. What exists today:
+  the Shelf's `openDoc` modal, passage by passage with MORE, no place, no LISTEN; the wiki reader's whole-article `speak` is the pattern.
 - 2 Nov 13:26 UK: PR #55 MERGED (main b6a1782), green on every job at the first run (shard 1 with the talk spec's part 7: 41 min).
   Main's push run for b6a1782 to be read (~14:30 UK); nothing else starts before Friday's reset.
 - 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
