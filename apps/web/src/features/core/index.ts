@@ -8,7 +8,7 @@ import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
+import { heardOver, holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -101,7 +101,8 @@ async function sendWithEars(words: string, live: () => boolean): Promise<void> {
       continue;
     }
     busyAt ||= Date.now();
-    if (u.voice === 'speaking' || u.voice === 'listening' || Date.now() - busyAt < EARS_MS) continue;
+    // (he talked over an aside: his words are being recorded already, so the ear opens for them now, not at 8 s)
+    if (u.voice === 'speaking' || u.voice === 'listening' || (Date.now() - busyAt < EARS_MS && !heardOver())) continue;
     const here = settings.get().offlineBrain === 'always' || hereNext || peopleOpen();
     if (here && !voiceSupport.browserStt) break; // (no ears of the phone's own: the next listen says so)
     // A reply that starts to be spoken shuts the ear and drops what it caught (his own voice and the room): it is never heard back.

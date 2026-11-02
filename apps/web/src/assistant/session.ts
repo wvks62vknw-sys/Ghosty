@@ -230,9 +230,10 @@ function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void 
  * as running has no result coming, so its row stops blinking and its step leaves the HUD,
  * instead of being shown as the task at work through the whole next turn.
  */
-function settle(): void {
+function settle(ids?: Set<string>): void {
   patch(
-    (e) => e.kind === 'activity' && e.state === 'running',
+    // (`ids`: this stream's own tools only — a newer turn may already be at work beside it: BRIEF-TALK-1A)
+    (e) => e.kind === 'activity' && e.state === 'running' && (!ids || ids.has(e.id)),
     (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: 'fail', detail: 'stopped', progress: undefined }),
   );
 }
@@ -329,7 +330,7 @@ function handle(ev: ChatEvent): void {
     }
     case 'error':
       vehicleTurn = false;
-      settle(); // the turn ends here: nothing is running any more
+      // (the turn ends here: its tools still shown as running are settled by its stream, stream() below)
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
       // [talk] no model free at all, in a spoken turn: said aloud too, in one sentence with the time (BRIEF-TALK-1A 5)
@@ -337,7 +338,6 @@ function handle(ev: ChatEvent): void {
       break;
     case 'done':
       vehicleTurn = false;
-      settle();
       if (/memory paused/.test(ev.model)) {
         // Only this exchange: the message that got the paused reply, and the replies since.
         const es = chat.get().entries;
@@ -365,11 +365,20 @@ function handle(ev: ChatEvent): void {
 async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>, ask?: string): Promise<void> {
   // `ask`: a turn of the brain's, narrated from his words on (BRIEF-TALK-1A 3); without one, this phone's own work says its own.
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: ask === undefined ? 'thinking…' : askLine(ask) });
-  if (ask !== undefined) narrateTurn(ask);
+  const told = ask !== undefined ? narrateTurn(ask) : 0;
+  // [talk] Streams can overlap (he spoke again while a turn was at work, or talked over an aside): each settles only its own
+  // tools when it ends, and the screen stops being busy only when the last of them has ended.
+  streams++;
+  const mine = new Set<string>();
+  const cb = (ev: ChatEvent) => {
+    if (ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'approval') mine.add(ev.id);
+    if (ev.t === 'done' || ev.t === 'error') settle(mine);
+    handle(ev);
+  };
   const since = Date.now();
   toolRan = approvalAsked = false;
   try {
-    await fn(handle);
+    await fn(cb);
   } catch (e) {
     if ((e as Error)?.name === 'AbortError') {
       // the owner said stop (or STOP, or spoke over him): he goes quiet, and says nothing about it
@@ -396,14 +405,20 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
-    if (ask !== undefined) narrateEnd();
+    if (told && narr.told === told) narrateEnd();
     vehicleTurn = false;
-    settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
+    settle(mine); // a stream that broke off (connection lost, stopped) sent no done or error event
     tally(since);
-    ui.set({ busy: false, status: '' });
-    if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
+    if (--streams <= 0) {
+      streams = 0;
+      ui.set({ busy: false, status: '' });
+      if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
+    }
   }
 }
+
+/** [talk] How many streams are running now (they can overlap: see stream). */
+let streams = 0;
 
 /** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
 let toolRan = false;
@@ -416,17 +431,19 @@ let approvalAsked = false;
  * same words twice in a turn, never while he is talking or being listened to, ASIDE_GAP_MS apart at least, and never once
  * the reply has begun (it is said instead, and an aside still being said gives way to it at once: voice.ts).
  */
-const narr = { on: false, t0: 0, ask: '', key: '', say: '', sayAt: 0, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: false, timer: 0 };
+const narr = { on: false, told: 0, t0: 0, ask: '', key: '', say: '', sayAt: 0, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: false, timer: 0 };
 const ASIDE_AFTER_MS = 1500;
 const ASIDE_GAP_MS = 2000;
 /** A step must last this long to be said (a step the reply follows at once gets no aside to be cut short). */
 const STEP_GRACE_MS = 400;
-function narrateTurn(ask: string): void {
+/** The newest turn is narrated (one at a time: the newest is what he is waiting on); its number, so only it ends its narration. */
+function narrateTurn(ask: string): number {
   clearInterval(narr.timer);
   const now = Date.now();
-  Object.assign(narr, { on: true, t0: now, ask, key: '', say: askLine(ask), sayAt: now, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: spokenTurn && speakReplies });
+  Object.assign(narr, { on: true, told: narr.told + 1, t0: now, ask, key: '', say: askLine(ask), sayAt: now, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: spokenTurn && speakReplies });
   // (the first aside can only come at 1.5 s; this also catches a moment the voice or the ear has just let go)
   narr.timer = window.setInterval(aside, 250);
+  return narr.told;
 }
 function narrateEnd(): void {
   narr.on = false;
@@ -505,8 +522,13 @@ function aside(): void {
 function tally(since: number): void {
   if (approvalAsked) return;
   const a = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at >= since && !!e.text.trim() && !e.think);
-  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length, ...(turnCat ? { cat: turnCat } : {}) });
+  // (each answer once: with two streams at work, the one that ends second must not count the other's answer again)
+  if (!a || counted.has(a.at)) return;
+  counted.add(a.at);
+  noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length, ...(turnCat ? { cat: turnCat } : {}) });
 }
+/** The answers the meter has counted (their tags), this session. */
+const counted = new Set<number>();
 /** The kind of ask this turn is (offline/trust.ts `categorise`): the meter counts each answer by it too. */
 let turnCat: AskCat | undefined;
 

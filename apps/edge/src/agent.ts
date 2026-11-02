@@ -704,6 +704,9 @@ export class GhostyAgent {
     const seen = field(body.seen, MAX_SEEN_CHARS).replace(/\s+/g, ' ');
     const scan = field(body.scan, MAX_SCAN_CHARS);
     const { s, signal, done } = this.begin();
+    // [talk] A turn a newer message (or a stop) has ended says nothing more: its stream closes at once rather than staying open
+    // while its tools finish, so the phone is free for the turn that replaced it (BRIEF-TALK-1A).
+    signal.addEventListener('abort', () => void s.close(), { once: true });
     const client = body.context ?? {};
     await this.rememberClient(client).catch(() => undefined);
     this.state.waitUntil(

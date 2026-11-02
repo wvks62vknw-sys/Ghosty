@@ -664,6 +664,11 @@ function record(m: Mic): { rec: MediaRecorder; chunks: Blob[]; mime: string; at:
 
 /** A barge-in recording handed to the next listen: it began before the owner spoke; `from` is when their voice began. */
 let carry: (ReturnType<typeof record> & { from: number }) | null = null;
+/**
+ * [talk] He talked over Ghosty and what he is saying is still being recorded for the next listen: a turn still at work opens
+ * its ear for it at once (core/index.ts), so talking over an aside while the brain works is heard like talking over a reply.
+ */
+export const heardOver = (): boolean => !!carry && carry.rec.state === 'recording';
 /** Ghosty's voice is playing right now (a clip between `playing` and its end, or an utterance between start and end). */
 let audible = false;
 /** The barge-in watch while Ghosty speaks. */
