@@ -9,7 +9,7 @@ import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
-import { answerOffline, offlineReady, stopOffline, translateOffline, trustFirst, type First } from '../offline/brain';
+import { answerOffline, modelWarm, offlineReady, stopOffline, translateOffline, trustFirst, warmUp, type First } from '../offline/brain';
 import { categorise, keptAnswer, keptTurn, mayGoFirst, noteMiss, workedOut, type AskCat } from '../offline/trust';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
 import { offlineSiteReply, offlineSiteTurn } from '../offline/site';
@@ -363,55 +363,129 @@ async function siteHere(t: string, priv = false): Promise<void> {
 }
 
 /**
+ * A phone-first answer (offline/trust.ts) is an optimisation and never holds a turn hostage (the owner, 2 Nov, speaking to
+ * Ghosty: "he literally isn't responding, just thinking for so long and not responding at all, to the point I talk like 10
+ * times back to back with 0 response"): it gets this long to its first word and this long in all, then the cloud answers.
+ */
+const FIRST_WORD_MS = 5_000;
+const FIRST_ALL_MS = 20_000;
+
+type FirstEnd = 'cloud' | 'stopped';
+/**
+ * The phone-first attempt being made now, if any (one at a time: it needs the model free). `end('cloud')` gives it up so the
+ * cloud answers the ask instead (it ran out of time, or a newer message came); `end('stopped')` is the owner's stop in words:
+ * nothing more is said or sent. Only this path: a task kept on the phone is never ended by either (it has no cloud to go to).
+ */
+let firstTry: { end(how: FirstEnd): void } | null = null;
+
+/** The budget of one phone-first attempt: the signal that ends its generation, the way it left, and the timers that give it up. */
+function budgeted() {
+  const ctl = new AbortController();
+  const state = { how: null as FirstEnd | null };
+  let leave: () => void = () => undefined;
+  // (what the turn waits on besides the model: an engine that never answers its abort must not keep the turn)
+  const left = new Promise<void>((resolve) => (leave = resolve));
+  const end = (how: FirstEnd): void => {
+    if (state.how) return;
+    state.how = how;
+    ctl.abort();
+    leave();
+  };
+  const word = setTimeout(() => end('cloud'), FIRST_WORD_MS);
+  const all = setTimeout(() => end('cloud'), FIRST_ALL_MS);
+  firstTry = { end };
+  return {
+    signal: ctl.signal,
+    state,
+    left,
+    /** A first word came: only the whole-answer limit is left. */
+    heard: () => clearTimeout(word),
+    /** The attempt is over, however it ended. */
+    over: () => {
+      clearTimeout(word);
+      clearTimeout(all);
+      if (firstTry?.end === end) firstTry = null;
+    },
+  };
+}
+
+/**
  * Answer on the phone itself with the offline brain (offline/brain.ts): the reply streams into
  * its entry like any other and is spoken the usual way. False (and nothing left on screen) if the
  * model could not answer; true, with nothing spoken, when the owner said "stop". `priv`: a task kept on the phone (its
  * reply is marked private and read out in the phone's own voice: Ghosty's voice is made by the brain).
+ * `first`: answered here FIRST (its kind is trusted): then it has a budget (above) and never loads the model inside the
+ * turn; false means the cloud answers, exactly as when the phone could not answer after all.
  */
 async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[], priv = false, first: First | null = null): Promise<boolean> {
+  // The model is not in memory (a cold load on a phone takes tens of seconds and can hang), or another job has it: the cloud
+  // answers at once, with no card shown, and the model is warmed in the background so the next ask can go first.
+  if (first && !modelWarm()) {
+    warmUp();
+    return false;
+  }
   const at = stamp();
   const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.offline;
   const show = (text: string) => patch(mine, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), text }));
+  const remove = () => chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
   // "Translate this into Spanish" with no signal: the same small model, asked only to translate (roughly; the card says so).
   const tr = translateAsk(t, [...recent].reverse().find((x) => x.role === 'assistant')?.text ?? '');
   push({ kind: 'assistant', text: '', at, model: first ? FIRST_MODEL : OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}), ...(priv ? { private: true } : {}), ...(first ? { first } : {}) });
   ui.set({ status: tr ? 'translating on your phone…' : 'thinking on your phone…' });
   let raw = '';
   let painted = 0;
+  const b = first ? budgeted() : null;
   try {
-    const r = await (tr ? translateOffline(tr.text, tr.to, (piece) => {
+    const run = tr ? translateOffline(tr.text, tr.to, (piece) => {
+      b?.heard();
       raw += piece;
       if (Date.now() - painted > 120) {
         painted = Date.now();
         show(cleanTranslation(raw, tr.to));
       }
-    }) : answerOffline(t, recent, (piece) => {
+    }, b?.signal) : answerOffline(t, recent, (piece) => {
+      b?.heard();
       raw += piece;
       // A repaint per word redraws the whole log: a few times a second is smooth enough.
       if (Date.now() - painted > 120) {
         painted = Date.now();
         show(cleanReply(raw));
       }
-    }, { first: !!first }));
-    if (!r.text) throw new Error('no reply');
+    }, { first: !!first, ...(b ? { signal: b.signal } : {}) });
+    if (b) void run.catch(() => undefined); // (let go of: whatever it does after the turn has gone on is not this turn's)
+    const r = b ? await Promise.race([run, b.left.then(() => null)]) : await run;
+    // Given up (late, or a newer message): the card goes, with whatever it had, so nothing of it is counted as the phone's
+    // answer (the meter counts the reply the cloud gives instead), and the cloud answers.
+    if (b?.state.how === 'cloud') {
+      remove();
+      return false;
+    }
+    if (b?.state.how === 'stopped') throw Object.assign(new Error('stopped'), { name: 'AbortError' });
+    if (!r?.text) throw new Error('no reply');
     show(r.text);
     chat.set({ live: r.text });
     // (a translation is read aloud in its own language's voice by its READ ALOUD button, not in Ghosty's English one)
     if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at), brief: true, here: priv });
     return true;
   } catch (e) {
+    if (b?.state.how === 'cloud') {
+      remove();
+      return false;
+    }
     // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
     const said = (tr ? cleanTranslation(raw, tr.to) : cleanReply(raw)).trim();
     if ((e as Error)?.name === 'AbortError' && said) {
       show(said);
       return true;
     }
-    chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
+    remove();
     if ((e as Error)?.name === 'AbortError') return true;
     // A brain that closed Ghosty before is refused in plain words (offline/brain.ts): said, so the silence is explained.
     if ((e as { refuse?: boolean })?.refuse) toast(String((e as Error).message).slice(0, 220), 'warn');
     console.warn('offline brain', e);
     return false;
+  } finally {
+    b?.over();
   }
 }
 
@@ -531,6 +605,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     stopSpeaking();
     stopListening();
     stopOffline();
+    firstTry?.end('stopped'); // (a phone-first answer still being thought: ended now, even if the model is slow to hear it)
     stopThinking();
     // His mood (OWNER-ISSUES 70b): a harsh stop leaves him subdued, any other puts him back to calm — here at once, and in
     // the brain; with everything kept on this phone ("always") not even that a stop happened leaves it.
@@ -544,6 +619,10 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     await import('../shell/boot').then((b) => b.reboot());
     return;
   }
+  // A newer message while a phone-first answer is still being thought (he spoke again, or tapped the mic and said it again):
+  // that attempt is cut short first, so it never makes this message wait, and the cloud answers its ask. Only that path:
+  // what is kept on the phone is never ended by a newer message (it has no cloud to go to).
+  firstTry?.end('cloud');
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
@@ -607,6 +686,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // [offline2] TRUST BY GRADE (offline/trust.ts): what the brain sitting on this phone has passed is answered here FIRST,
   // tagged "on this phone", with ASK THE CLOUD under it; a sum is worked out with no model first. Should the phone not
   // answer after all, the cloud does, as before: this is not a task he kept on the phone (those never reach this line).
+  // That includes the model not being in memory (it is not loaded inside this turn: it is warmed for the next ask), a first
+  // word that does not come in 5 s or an answer not done in 20 s (answerHere), and a newer message (above).
   // (not DO IT under a "can you…?" answer: he meant it as a request for the brain)
   if (!opts.plain && mayGoFirst({ cloud: opts.cloud, here: opts.here, again: opts.again, mode, cat: turnCat })) {
     const first = await trustFirst(turnCat);

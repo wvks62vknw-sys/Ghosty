@@ -41,6 +41,8 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/** Which voice conversation this is (a tap on the mic starts a new one): a turn of an earlier one finishing late never carries on in it. */
+let convoId = 0;
 /**
  * ON THIS PHONE (OWNER-ISSUES 72): the next message stays on the phone, as every one does with the offline brain on
  * "always" — my offline brain answers it and nothing of it is sent anywhere. Off again once that message is sent.
@@ -56,7 +58,76 @@ const takeHere = (): boolean => {
 /** Listens in a row that heard nothing: after two (about 25 s of quiet) the conversation ends and the microphone goes off. */
 let quiet = 0;
 
-async function voiceTurn(): Promise<void> {
+/** A turn that has been thinking (the screen busy) this long, and Ghosty not speaking, is listened over: the conversation hears him again. */
+const EARS_MS = 8_000;
+
+/**
+ * Send what was said, and keep the conversation's ears open while the turn is still thinking. A reply that takes more than 8 s
+ * (a slow answer, or the phone's own attempt stuck: the owner, 2 Nov, spoke ten times in a row to a Ghosty that was "just
+ * thinking for so long") no longer leaves him talking to one that is deaf: the conversation listens again, what he says is
+ * sent like any message, and `send` cuts a stuck attempt on the phone short before it goes on (assistant/session.ts). It keeps
+ * listening while anything it sent is still thinking, and never while Ghosty speaks: talking over a reply is voice.ts's
+ * barge-in, left as it is (a reply that starts while an ear is open shuts it, and what it caught is dropped). As the
+ * conversation itself does, it leaves the microphone alone after two quiet listens in a row (about 25 s), so a very long turn
+ * never leaves it open and recordings going to be written down for nothing.
+ * Resolves when everything sent has ended; a failure to send is thrown, as it always was.
+ */
+async function sendWithEars(words: string, live: () => boolean): Promise<void> {
+  const turns = new Set<Promise<void>>();
+  const failed: unknown[] = [];
+  let ears = false; // a listen of this turn's own is open
+  let quietEars = 0; // listens of it in a row that heard nothing
+  const go = (said: string): void => {
+    quiet = 0;
+    const p: Promise<void> = send(said.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || said, { speak: true, voice: true, here: takeHere() })
+      .catch((e: unknown) => void failed.push(e))
+      .finally(() => {
+        turns.delete(p);
+        // everything is answered (or ended) with no word spoken: the ear shuts, and what it caught is heard as usual
+        if (!turns.size && ears) stopListening();
+      });
+    turns.add(p);
+  };
+  go(words);
+  let busyAt = 0; // since when the screen has been thinking, as seen from here
+  while (turns.size && live()) {
+    await Promise.race([...turns, new Promise<void>((resolve) => setTimeout(resolve, 250))]);
+    const u = ui.get();
+    if (!turns.size || !live()) continue;
+    if (!u.busy) {
+      busyAt = 0;
+      continue;
+    }
+    busyAt ||= Date.now();
+    if (u.voice === 'speaking' || u.voice === 'listening' || Date.now() - busyAt < EARS_MS) continue;
+    const here = settings.get().offlineBrain === 'always' || hereNext || peopleOpen();
+    if (here && !voiceSupport.browserStt) break; // (no ears of the phone's own: the next listen says so)
+    // A reply that starts to be spoken shuts the ear and drops what it caught (his own voice and the room): it is never heard back.
+    const off = ui.subscribe((s) => {
+      if (s.voice === 'speaking' && ears) stopListening(true);
+    });
+    ears = true;
+    let heard = '';
+    try {
+      heard = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }));
+    } catch {
+      break; // (the next listen, once the answer is in, says why it cannot hear)
+    } finally {
+      ears = false;
+      off();
+    }
+    if (heard && live()) {
+      quietEars = 0;
+      go(heard);
+    } else if (++quietEars >= 2) break; // (the answer is waited for, and the next listen is the conversation's own)
+  }
+  await Promise.all([...turns]);
+  if (failed.length) throw failed[0];
+}
+
+async function voiceTurn(id: number): Promise<void> {
+  // (a turn of an earlier conversation, finishing late, must not carry on in a later one)
+  const live = () => conversation && id === convoId;
   if (!voiceSupport.mic && !voiceSupport.browserStt) {
     toast('No microphone access in this browser', 'warn');
     conversation = false;
@@ -75,23 +146,23 @@ async function voiceTurn(): Promise<void> {
     }
     // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
     const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }));
-    if (!conversation) return;
+    if (!live()) return;
     if (!text) {
       if (++quiet >= 2) {
         endConversation();
         toast("I've stopped listening. Tap the mic when you want me.");
         return;
       }
-      if (conversation) setTimeout(() => void voiceTurn(), 300);
+      if (live()) setTimeout(() => void voiceTurn(id), 300);
       return;
     }
     quiet = 0;
-    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true, here: takeHere() });
+    await sendWithEars(text, live);
     // wait for speech to finish, then listen again
-    const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
+    const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : live() && setTimeout(() => void voiceTurn(id), 250));
     wait();
   } catch (e) {
-    endConversation();
+    if (id === convoId) endConversation();
     toast(String((e as Error)?.message ?? e), 'bad');
   }
 }
@@ -411,7 +482,7 @@ export const coreTab: TabDef = {
       quiet = 0; // a fresh tap starts a fresh conversation: the quiet listens that ended the last one do not count against it
       quiet = 0;
       mic.classList.add('on');
-      void voiceTurn().finally(() => mic.classList.toggle('on', conversation));
+      void voiceTurn(++convoId).finally(() => mic.classList.toggle('on', conversation));
     });
     // CITED: answers looked up and sourced, each claim checked (remembered on this device).
     const citedBtn = button('CITED', (b) => {
