@@ -57,6 +57,27 @@ export function sentences(t: string, max = 300): string[] {
   return out;
 }
 
+/** Words that open a clause: a long first sentence is cut before one of these rather than in the middle of a phrase. */
+const JOINS = new Set(['and', 'but', 'so', 'or', 'because', 'which', 'that', 'who', 'when', 'where', 'while', 'for', 'to', 'with', 'about', 'from', 'as', 'if', 'since', 'though', 'although', 'after', 'before', 'until', 'than', 'then']);
+
+/**
+ * The first thing said is short, so the voice starts at once (BRIEF-TALK-1A 1; STARS 1): the first sentence when it has at
+ * most `max` words; otherwise its first clause, cut at a comma, semicolon, colon or dash within the first `max` words when
+ * at least four words come before it; else before the last joining word ("and", "which", "for"…) within them; else after
+ * exactly `max` words. The rest of that sentence is the next piece; the others are as they were.
+ */
+export function quickFirst(parts: string[], max = 12): string[] {
+  const first = parts[0];
+  if (!first) return parts;
+  const ws = first.trim().split(/\s+/);
+  if (ws.length <= max) return parts;
+  let cut = 0;
+  for (let i = max - 1; i >= 3 && !cut; i--) if (/[,;:—–]$/.test(ws[i]!)) cut = i + 1;
+  for (let i = max - 1; i >= 4 && !cut; i--) if (JOINS.has(ws[i]!.toLowerCase())) cut = i;
+  cut ||= max;
+  return [ws.slice(0, cut).join(' '), ws.slice(cut).join(' '), ...parts.slice(1)];
+}
+
 /** What a long reply's spoken part ends with: the rest is on the screen, not lost. */
 export const REST_ON_SCREEN = 'The rest is on screen.';
 

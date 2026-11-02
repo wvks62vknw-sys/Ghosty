@@ -7,7 +7,7 @@
  */
 import { forgetVehicleChecks } from './integrations/vehicle';
 import { dropLensExchanges } from '../../../packages/shared/src/living';
-import { stripImages, textOf } from './llm/content';
+import { HEARD_NOTE, heardNote, stripImages, textOf } from './llm/content';
 import type { Msg } from './llm/router';
 import { clip } from './tools/types';
 
@@ -108,4 +108,22 @@ export function shortenArgs(raw: string): string {
   } catch {
     return '{}';
   }
+}
+
+/**
+ * [talk] His last reply was cut off as it was read out, and the phone says what he heard of it (BRIEF-TALK-1A 2): Ghosty's own
+ * copy of that reply in the working context gets a note saying so (content.ts heardNote), so the next turn never assumes he
+ * heard the rest. Only the latest of Ghosty's replies, and only when it starts with the first words the phone heard said
+ * (`head`, as spoken: punctuation and case aside); a reply already noted is left. True when the note went on.
+ */
+export function noteHeard(ctx: Msg[], heard: { said: string; head: string }): boolean {
+  let i = ctx.length - 1;
+  while (i >= 0 && !(ctx[i]!.role === 'assistant' && !ctx[i]!.tool_calls?.length && textOf(ctx[i]!.content).trim())) i--;
+  if (i < 0) return false;
+  const reply = textOf(ctx[i]!.content);
+  const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const head = plain(heard.head).slice(0, 24);
+  if (!head || HEARD_NOTE.test(reply) || !plain(reply).startsWith(head)) return false;
+  ctx[i] = { ...ctx[i]!, content: `${reply}${heardNote(heard.said)}` };
+  return true;
 }

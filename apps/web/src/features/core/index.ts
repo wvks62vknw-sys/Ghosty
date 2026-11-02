@@ -3,10 +3,12 @@
  */
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
-import { answerApproval, askBigBrain, askCloud, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { sfx } from '../../assistant/sfx';
+import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
+import { heardOver, holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -99,7 +101,8 @@ async function sendWithEars(words: string, live: () => boolean): Promise<void> {
       continue;
     }
     busyAt ||= Date.now();
-    if (u.voice === 'speaking' || u.voice === 'listening' || Date.now() - busyAt < EARS_MS) continue;
+    // (he talked over an aside: his words are being recorded already, so the ear opens for them now, not at 8 s)
+    if (u.voice === 'speaking' || u.voice === 'listening' || (Date.now() - busyAt < EARS_MS && !heardOver())) continue;
     const here = settings.get().offlineBrain === 'always' || hereNext || peopleOpen();
     if (here && !voiceSupport.browserStt) break; // (no ears of the phone's own: the next listen says so)
     // A reply that starts to be spoken shuts the ear and drops what it caught (his own voice and the room): it is never heard back.
@@ -144,8 +147,9 @@ async function voiceTurn(id: number): Promise<void> {
       toast("I can't hear you on the phone alone in this browser: it has no speech recognition of its own. Type it instead.", 'warn');
       return;
     }
-    // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
-    const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }));
+    // The brain hears when its status says so (any status call since the app opened, not only CORE's own). The moment the
+    // ear can hear him, a soft tone says it is his turn (BRIEF-TALK-1A 4).
+    const text = await listen(!here && (whisper || speechCaps.get().stt), (t) => chat.set({ live: t }), () => sfx('turn'));
     if (!live()) return;
     if (!text) {
       if (++quiet >= 2) {
@@ -157,14 +161,50 @@ async function voiceTurn(id: number): Promise<void> {
       return;
     }
     quiet = 0;
+    // "that's all", "bye", "see you later": the conversation ends here, signed off, the microphone let go (BRIEF-TALK-1A 4)
+    if (endIntent(text)) {
+      endConversation();
+      await signOff(text);
+      return;
+    }
     await sendWithEars(text, live);
-    // wait for speech to finish, then listen again
-    const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : live() && setTimeout(() => void voiceTurn(id), 250));
-    wait();
+    // the ear opens again the moment his reply ends: no wait of its own (it used to look every quarter second, twice)
+    await untilFree(live);
+    if (live()) void voiceTurn(id);
   } catch (e) {
     if (id === convoId) endConversation();
     toast(String((e as Error)?.message ?? e), 'bad');
   }
+}
+
+/**
+ * A voice conversation starts: the mic's tap, and Siri's "Ghosty listen" (?do=listen: BRIEF-TALK-1A 6). A fresh one: the quiet
+ * listens that ended the last do not count against it; the voices are woken first (in the tap itself, when there is one), so
+ * his first answer's first word is not the slow one (BRIEF-TALK-1A 1); the brain is woken too, for his first question.
+ */
+export function listenNow(): void {
+  if (conversation) return;
+  conversation = true;
+  quiet = 0;
+  primeSpeech();
+  // (not for a conversation kept on this phone: nothing of it goes to the brain, not even a hello)
+  if (settings.get().offlineBrain !== 'always' && !hereNext) void brain.status().catch(() => undefined);
+  const mic = document.querySelector('#mic');
+  mic?.classList.add('on');
+  void voiceTurn(++convoId).finally(() => document.querySelector('#mic')?.classList.toggle('on', conversation));
+}
+
+/** Resolves the moment Ghosty is neither speaking nor thinking (his reply has ended), or the conversation is over. */
+function untilFree(live: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    const free = () => !live() || (ui.get().voice !== 'speaking' && !ui.get().busy);
+    if (free()) return resolve();
+    const off = ui.subscribe(() => {
+      if (!free()) return;
+      off();
+      resolve();
+    });
+  });
 }
 
 /** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */
@@ -265,7 +305,7 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number):
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', e.carried ? 'Cut off — carried on below' : 'Cut off — you interrupted') : null);
 }
 
 /**
@@ -383,6 +423,16 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       return el;
     }
     case 'error': {
+      if (e.cool) {
+        // [talk] every model cooling down (BRIEF-TALK-1A 5): said with the time; ASK MY PHONE while the wait is on and the phone's brain is awake
+        const cool = h('div.msg.cool', h('small', 'COOLING DOWN'), h('span', e.text));
+        if (e.cool.ask && ui.get().busy) {
+          const b = button('ASK MY PHONE', () => void askPhone(e.cool!.ask!), 'askphone');
+          b.title = 'End the wait: the brain on your phone answers this now';
+          cool.append(h('div.row', b));
+        }
+        return cool;
+      }
       const box = h('div.msg.err', h('small', e.ask ? 'KEPT ON THIS PHONE' : 'PROBLEM'), h('span', e.text));
       // A task kept on the phone that the phone could not do: the brain only by this tap, while it can be reached (OWNER-ISSUES 72).
       if (e.ask && ui.get().connected) {
@@ -446,6 +496,8 @@ export const coreTab: TabDef = {
     const log = h('div.log');
     // The field is narrow (its buttons sit inside it): a short invitation.
     const input = h('input#cin', { placeholder: 'Talk to me', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
+    // (taking the box wakes the voices, so the reply's first word is not the slow one: BRIEF-TALK-1A 1)
+    input.addEventListener('focus', () => primeSpeech());
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -478,11 +530,7 @@ export const coreTab: TabDef = {
         mic.classList.remove('on');
         return;
       }
-      conversation = true;
-      quiet = 0; // a fresh tap starts a fresh conversation: the quiet listens that ended the last one do not count against it
-      quiet = 0;
-      mic.classList.add('on');
-      void voiceTurn(++convoId).finally(() => mic.classList.toggle('on', conversation));
+      listenNow();
     });
     // CITED: answers looked up and sourced, each claim checked (remembered on this device).
     const citedBtn = button('CITED', (b) => {

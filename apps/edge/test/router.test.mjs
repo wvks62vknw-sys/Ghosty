@@ -684,5 +684,77 @@ test('a reply slower than the short wait (8 s) is an answer: the model is not co
   assert.equal(await r.nextFree(), 0, 'free again at once');
 });
 
+// BRIEF-TALK-1A 5: before a cool-down bites, the next model is chosen and woken, so the owner never meets it mid-conversation.
+test('the model that answered is nearly out of room: the next one is woken with one token, and his next message goes to it', async () => {
+  const log = [];
+  const full = new Set(['gemini-3.8-flash']);
+  let refuse = '';
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    const ping = body.max_tokens === 1 || body.max_completion_tokens === 16;
+    log.push({ model: body.model, ping, tools: (body.tools ?? []).length });
+    if (ping && body.model === refuse) return new Response('{"error":{"message":"rate limit"}}', { status: 429, headers: { 'retry-after': '120' } });
+    // the provider says this model has nothing left this minute
+    const headers = { 'content-type': 'application/json', ...(full.has(body.model) ? { 'x-ratelimit-limit-requests-minute': '10', 'x-ratelimit-remaining-requests-minute': '0', 'x-ratelimit-reset-requests-minute': '40s' } : {}) };
+    return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: ping ? 'H' : `hi from ${body.model}` } }] }), { headers });
+  };
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  const chat = { warm: true }; // (the agent's chat turns ask for it)
+  const first = await r.complete([{ role: 'user', content: 'hello' }], TOOLS, undefined, chat);
+  assert.equal(first.model, 'Gemini · gemini-3.8-flash');
+  await r.warming;
+  const pings = log.filter((x) => x.ping);
+  assert.equal(pings.length, 1, JSON.stringify(log));
+  assert.notEqual(pings[0].model, 'gemini-3.8-flash', 'the next one, not the one that is full');
+  assert.equal(pings[0].tools, 0, 'one token, no tools');
+  // his next message goes straight to the woken model: not a request to the full one first
+  log.length = 0;
+  const second = await r.complete([{ role: 'user', content: 'and again' }], TOOLS, undefined, chat);
+  assert.equal(second.model, `Gemini · ${pings[0].model}`);
+  assert.deepEqual(log.filter((x) => !x.ping).map((x) => x.model), [pings[0].model]);
+  // plenty of room left: nobody is woken
+  log.length = 0;
+  full.clear();
+  const r2 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  await r2.complete([{ role: 'user', content: 'hello' }], TOOLS, undefined, chat);
+  await r2.warming;
+  assert.equal(log.filter((x) => x.ping).length, 0);
+  // a model that will not answer the wake-up is marked as a turn would mark it: his next message skips it
+  full.add('gemini-3.8-flash');
+  log.length = 0;
+  const r3 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  refuse = 'gemini-3.6-flash';
+  await r3.complete([{ role: 'user', content: 'hello' }], TOOLS, undefined, chat);
+  await r3.warming;
+  assert.deepEqual(log.filter((x) => x.ping).map((x) => x.model), ['gemini-3.6-flash']);
+  log.length = 0;
+  const third = await r3.complete([{ role: 'user', content: 'and again' }], TOOLS, undefined, chat);
+  assert.ok(!/gemini-3\.(8|6)-flash/.test(third.model), `the full one and the one that refused are both passed over: ${third.model}`);
+  assert.ok(!log.some((x) => !x.ping && /gemini-3\.(8|6)-flash/.test(x.model)), JSON.stringify(log));
+  // background work never wakes anything (the owner is not waiting)
+  log.length = 0;
+  const r4 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  refuse = '';
+  await r4.complete([{ role: 'user', content: 'hello' }], [], undefined, { priority: 'background', warm: true });
+  await r4.warming;
+  assert.equal(log.filter((x) => x.ping).length, 0);
+  // nor does a call that is not the owner's conversation (Ghosty's own small jobs, a check): it never asked
+  const r5 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  await r5.complete([{ role: 'user', content: 'hello' }], []);
+  await r5.warming;
+  assert.equal(log.filter((x) => x.ping).length, 0);
+});
+
+test('the owner’s chat waits for its best model two seconds at most, then the next with room answers at once', async () => {
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  await r.mark('gemini|gemini-3.8-flash', { cool: Date.now() + 5000, why: 'rate limit' });
+  const t0 = Date.now();
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Gemini · gemini-3.6-flash');
+  assert.ok(Date.now() - t0 < 1000, `no silent wait in a conversation (${Date.now() - t0} ms)`);
+});
+
 // The stopwatch's tests (speed.ts and the phone's core/stopwatch.ts) run with these.
 await import('./speed.test.mjs');

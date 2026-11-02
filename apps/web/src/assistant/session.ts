@@ -8,7 +8,7 @@ import type { Card } from '../../../../packages/shared/src/cards';
 import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
-import { offlineAnswer } from '../library/local';
+import { offlineAnswer, passagesFor } from '../library/local';
 import { answerOffline, modelWarm, offlineReady, stopOffline, translateOffline, trustFirst, warmUp, type First } from '../offline/brain';
 import { categorise, keptAnswer, keptTurn, mayGoFirst, noteMiss, workedOut, type AskCat } from '../offline/trust';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
@@ -22,9 +22,11 @@ import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
+import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
-import { stopIntent } from '../../../../packages/shared/src/intent';
+import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
+import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
 import { REBOOT } from './phrases';
@@ -59,13 +61,18 @@ export type Entry =
    *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
   /** `first`: answered on this phone FIRST, its kind being trusted (offline/trust.ts), with ASK THE CLOUD under it;
    *  `struck`: he tapped ASK THE CLOUD, so the cloud's answer follows and this one stays above it, struck faintly. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean }
+  /** [talk] `heard`: of a reply cut off, the sentences he heard; `carried`: he said "go on" and it was carried on below.
+   *  `carries`: this is that carrying on (BRIEF-TALK-1A 2), of the reply at that tag, `heardBefore` being what he had heard of
+   *  it, `head` that reply's first words as said (so the brain can tell which of its replies he means). */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean; heard?: string; carried?: boolean; carries?: number; heardBefore?: string; head?: string }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
    *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
-  | { kind: 'error'; text: string; ask?: string }
+  /** [talk] `cool`: every model cooling down, said at once with the time the first is back (BRIEF-TALK-1A 5); `cool.ask`, when the
+   *  phone's brain was awake: the question ASK MY PHONE answers there. */
+  | { kind: 'error'; text: string; ask?: string; cool?: { ask?: string } }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
   | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number }
@@ -148,8 +155,62 @@ function push(e: Entry): void {
 onCutOff((c) => {
   // Only the reply that was being read out (its tag is its time): never a later or earlier one.
   if (!c.owner) return;
-  patch((e) => e.kind === 'assistant' && String(e.at) === c.owner, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true }));
+  const tag = Number(c.owner);
+  const reply = chat.get().entries.find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at === tag);
+  if (!reply) return;
+  patch((e) => e === reply, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true, heard: c.said }));
+  // (a carrying on that is cut again: what he has heard of the brain's reply is what he heard before, and what he heard since)
+  const said = reply.carries !== undefined ? [reply.heardBefore ?? '', c.said.replace(BRIDGE, '')].filter(Boolean).join(' ') : c.said;
+  lastCut = { tag, parts: c.parts, at: c.at, said, head: reply.carries !== undefined ? (reply.head ?? '') : headOf(c.parts), when: Date.now() };
 });
+
+/**
+ * [talk] The reply he cut off last as it was read out (BRIEF-TALK-1A 2; STARS 2): the pieces it was saying and the one it was
+ * in (for "go on"), what he heard of the brain's reply it belongs to and that reply's first words (for the brain's next turn).
+ * Good while that reply is still the latest; cleared once he says "go on" or the brain has been told.
+ */
+let lastCut: { tag: number; parts: string[]; at: number; said: string; head: string; when: number } | null = null;
+/** How long after a cut "go on" still carries the reply on (later, it is an ordinary message). */
+const CARRY_MS = 10 * 60_000;
+/** The bridge back into a reply he cut off: what Ghosty says before the sentence he was cut in. */
+const BRIDGE = /^…as I was saying,\s*/i;
+/** A reply's first words as said (its first piece, at most eight words): how the brain finds which reply was cut. */
+const headOf = (parts: string[]): string => (parts[0] ?? '').split(/\s+/).slice(0, 8).join(' ');
+/** The latest reply in the chat, if any. */
+const latestReply = (): Extract<Entry, { kind: 'assistant' }> | undefined => [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant');
+/** Words a sentence can start with that are lower-cased after the bridge ("…as I was saying, it changes"); a name keeps its capital. */
+const COMMON = /^(?:the|a|an|it|it's|its|there|there's|that|that's|this|these|those|then|so|and|but|or|if|when|while|you|your|you're|we|our|they|their|he|she|his|her|my|on|in|at|for|from|to|with|after|before|once|also|just|both|each|every|most|some|all|no|not|one|two|three|here|here's|what|which|who|how|why|where|as|by|of|up|out|over|more|less|only|even|still|now|today|tomorrow|tonight|yes|sure|right|well|first|next|last)$/i;
+const lowerFirst = (s: string): string => (COMMON.test(s.split(/\s+/)[0]!.replace(/[^\p{L}']/gu, '')) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+
+/**
+ * "Go on", "and then?", "sorry, continue" just after he cut a reply off (BRIEF-TALK-1A 2): it carries on from the sentence he
+ * cut it in, after "…as I was saying," — here at once, with no model and nothing sent: never again from the top. His words and
+ * the carrying on are in the chat; the cut reply keeps its mark. False when there is nothing to carry on (an ordinary message).
+ */
+function carryOn(t: string, speakIt: boolean): boolean {
+  const c = lastCut;
+  if (!c || Date.now() - c.when > CARRY_MS || !continueIntent(t)) return false;
+  const reply = latestReply();
+  if (!reply || reply.at !== c.tag) return false;
+  const rest = c.parts.slice(c.at);
+  if (!rest.length) return false;
+  lastCut = null;
+  // (cut again in its own first sentence: one bridge, not two)
+  const text = `…as I was saying, ${lowerFirst(rest[0]!.replace(BRIDGE, ''))}${rest.length > 1 ? ` ${rest.slice(1).join(' ')}` : ''}`;
+  const asked = stamp();
+  const at = stamp();
+  const priv = reply.private ? { private: true } : {};
+  chat.set((s) => ({
+    entries: [
+      ...s.entries.map((e) => (e === reply ? { ...reply, carried: true } : e)),
+      { kind: 'user' as const, text: t, at: asked, ...priv },
+      { kind: 'assistant' as const, text, at, ...(reply.model ? { model: reply.model } : {}), carries: reply.carries ?? reply.at, heardBefore: c.said, head: c.head, ...priv },
+    ].slice(-120),
+    live: text,
+  }));
+  if (speakIt && settings.get().speak) void speak(text, { owner: String(at), here: !!reply.private });
+  return true;
+}
 
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {
@@ -170,9 +231,10 @@ function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void 
  * as running has no result coming, so its row stops blinking and its step leaves the HUD,
  * instead of being shown as the task at work through the whole next turn.
  */
-function settle(): void {
+function settle(ids?: Set<string>): void {
   patch(
-    (e) => e.kind === 'activity' && e.state === 'running',
+    // (`ids`: this stream's own tools only — a newer turn may already be at work beside it: BRIEF-TALK-1A)
+    (e) => e.kind === 'activity' && e.state === 'running' && (!ids || ids.has(e.id)),
     (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: 'fail', detail: 'stopped', progress: undefined }),
   );
 }
@@ -197,11 +259,19 @@ let spokenTurn = false;
 
 function handle(ev: ChatEvent): void {
   switch (ev.t) {
-    case 'status':
-      ui.set({ status: ev.text });
+    case 'status': {
+      // [talk] a bare "thinking…" from the brain: the narration says what he is doing instead (BRIEF-TALK-1A 3)
+      if (narr.on && BARE.test(ev.text.trim())) narrate(`step:${++narr.steps}`, narr.lastTool ? afterLine(narr.lastTool) : askLine(narr.ask));
+      else ui.set({ status: ev.text });
+      // [talk] every model it could use is cooling down: said in the chat at once, with the time (BRIEF-TALK-1A 5)
+      const wait = WAITING.exec(ev.text.trim());
+      if (wait) cooling(Number(wait[1]) * 1000);
       break;
+    }
     case 'tool':
       toolRan = true;
+      narr.lastTool = ev.name;
+      narrate(`tool:${ev.id}`, toolLine(ev.name, label(ev.name, ev.args)));
       if (ev.name === 'vehicle_check') {
         vehicleTurn = true;
         if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
@@ -209,6 +279,8 @@ function handle(ev: ChatEvent): void {
       push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running', tool: ev.name, args: argWords(ev.args) });
       break;
     case 'progress':
+      // (a count is said; a tool's own words — "fetching bbc.co.uk…" — go up but are not read out)
+      narrate(`progress:${ev.id}:${ev.done ?? ev.label}`, progressLine(ev.label, ev.done, ev.total), typeof ev.done === 'number' && typeof ev.total === 'number');
       // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
       patch(
         (e) => e.kind === 'activity' && e.id === ev.id && e.state === 'running',
@@ -232,12 +304,13 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
     case 'text': {
+      narr.replied = true; // (no aside once the reply has begun: it is said instead)
       const at = stamp();
-      push({ kind: 'assistant', text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) });
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
-      chat.set({ live: cited ? citedBody(ev.text) : ev.text });
+      // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
       if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
+      chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
       break;
     }
     case 'mood':
@@ -258,13 +331,14 @@ function handle(ev: ChatEvent): void {
     }
     case 'error':
       vehicleTurn = false;
-      settle(); // the turn ends here: nothing is running any more
+      // (the turn ends here: its tools still shown as running are settled by its stream, stream() below)
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
+      // [talk] no model free at all, in a spoken turn: said aloud too, in one sentence with the time (BRIEF-TALK-1A 5)
+      if (noModelError(ev.message) && spokenTurn && speakReplies && settings.get().speak) void speak(coolSaid(ev.message));
       break;
     case 'done':
       vehicleTurn = false;
-      settle();
       if (/memory paused/.test(ev.model)) {
         // Only this exchange: the message that got the paused reply, and the replies since.
         const es = chat.get().entries;
@@ -289,12 +363,23 @@ function handle(ev: ChatEvent): void {
 /**
  * `rescue`: a last try before the error is shown (the offline brain on the phone); true when it answered.
  */
-async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>): Promise<void> {
-  ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
+async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>, ask?: string): Promise<void> {
+  // `ask`: a turn of the brain's, narrated from his words on (BRIEF-TALK-1A 3); without one, this phone's own work says its own.
+  ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: ask === undefined ? 'thinking…' : askLine(ask) });
+  const told = ask !== undefined ? narrateTurn(ask) : 0;
+  // [talk] Streams can overlap (he spoke again while a turn was at work, or talked over an aside): each settles only its own
+  // tools when it ends, and the screen stops being busy only when the last of them has ended.
+  streams++;
+  const mine = new Set<string>();
+  const cb = (ev: ChatEvent) => {
+    if (ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'approval') mine.add(ev.id);
+    if (ev.t === 'done' || ev.t === 'error') settle(mine);
+    handle(ev);
+  };
   const since = Date.now();
   toolRan = approvalAsked = false;
   try {
-    await fn(handle);
+    await fn(cb);
   } catch (e) {
     if ((e as Error)?.name === 'AbortError') {
       // the owner said stop (or STOP, or spoke over him): he goes quiet, and says nothing about it
@@ -321,17 +406,115 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
+    if (told && narr.told === told) narrateEnd();
     vehicleTurn = false;
-    settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
+    settle(mine); // a stream that broke off (connection lost, stopped) sent no done or error event
     tally(since);
-    ui.set({ busy: false, status: '' });
-    if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
+    if (--streams <= 0) {
+      streams = 0;
+      ui.set({ busy: false, status: '' });
+      if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
+    }
   }
 }
+
+/** [talk] How many streams are running now (they can overlap: see stream). */
+let streams = 0;
 
 /** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
 let toolRan = false;
 let approvalAsked = false;
+
+/**
+ * [talk] NARRATION (BRIEF-TALK-1A 3; STARS 9): while the brain works, the status line says what he is doing in his own words,
+ * from his ask, then each tool and its own report (narrate.ts) — never a bare "thinking". In a spoken turn, once the brain has
+ * worked for ASIDE_AFTER_MS, each new step is also said as a short aside ("reading that page…"): once per step, never the
+ * same words twice in a turn, never while he is talking or being listened to, ASIDE_GAP_MS apart at least, and never once
+ * the reply has begun (it is said instead, and an aside still being said gives way to it at once: voice.ts).
+ */
+const narr = { on: false, told: 0, t0: 0, ask: '', key: '', say: '', sayAt: 0, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: false, timer: 0 };
+const ASIDE_AFTER_MS = 1500;
+const ASIDE_GAP_MS = 2000;
+/** A step must last this long to be said (a step the reply follows at once gets no aside to be cut short). */
+const STEP_GRACE_MS = 400;
+/** The newest turn is narrated (one at a time: the newest is what he is waiting on); its number, so only it ends its narration. */
+function narrateTurn(ask: string): number {
+  clearInterval(narr.timer);
+  const now = Date.now();
+  Object.assign(narr, { on: true, told: narr.told + 1, t0: now, ask, key: '', say: askLine(ask), sayAt: now, steps: 0, lastTool: '', said: new Set<string>(), asideAt: 0, replied: false, spoken: spokenTurn && speakReplies });
+  // (the first aside can only come at 1.5 s; this also catches a moment the voice or the ear has just let go)
+  narr.timer = window.setInterval(aside, 250);
+  return narr.told;
+}
+function narrateEnd(): void {
+  narr.on = false;
+  clearInterval(narr.timer);
+}
+/** A new step of the turn at work: its line goes up; `say` (a tool, a count, the step after the tools) may also be said. */
+function narrate(key: string, line: string | null, say = true): void {
+  if (!narr.on || narr.replied || !line || key === narr.key) return;
+  narr.key = key;
+  ui.set({ status: line });
+  if (!say) return;
+  narr.say = line;
+  narr.sayAt = Date.now();
+}
+/**
+ * [talk] MODEL SUPPLY, as the phone says it (BRIEF-TALK-1A 5; STARS 83). The brain counts down "waiting for free AI room · N s"
+ * while every model it could use is cooling down or full (llm/router.ts): a wait of COOL_SAY_MS or more is said in the chat at
+ * once — one sentence with the time the first is back — and aloud in a spoken turn; when the brain on this phone is awake,
+ * ASK MY PHONE under it ends the wait and the phone answers. A turn with no model at all says the same in its error.
+ */
+const WAITING = /^waiting for free AI room · (\d+) s$/;
+const COOL_SAY_MS = 4000;
+/** The brain's turn now under way: his ask and recent turns (for ASK MY PHONE), how to end its request, and when it is over. */
+let cloudTurn: { ask: string; recent: { role: 'user' | 'assistant'; text: string }[]; stop: AbortController; done: Promise<void>; said: boolean } | null = null;
+/** The time a wait of `ms` from now ends, as he reads times ("14:32"). */
+const backAt = (ms: number): string => fmt.time(new Date(Date.now() + ms));
+function cooling(ms: number): void {
+  const c = cloudTurn;
+  if (!c || c.said || ms < COOL_SAY_MS) return;
+  c.said = true;
+  const phone = settings.get().offlineBrain !== 'off' && modelWarm();
+  const at = backAt(ms);
+  const text = phone ? `My models are all cooling down until ${at}; tap ASK MY PHONE and the brain on your phone answers now.` : `My models are all cooling down; the first is back at ${at}, and I'll answer then.`;
+  push({ kind: 'error', text, cool: phone ? { ask: c.ask } : {} });
+  chat.set({ live: text });
+  if (spokenTurn && speakReplies && settings.get().speak) void speak(text, { aside: true });
+}
+/** The brain's "no model is free" as one sentence said aloud, with the time the first is back when it gives one. */
+function coolSaid(message: string): string {
+  const secs = /frees up in about (\d+) seconds?/.exec(message)?.[1];
+  const at = /back at (\d{1,2}:\d{2})/.exec(message)?.[1] ?? (secs ? backAt(Number(secs) * 1000) : '');
+  return at ? `My models are all cooling down; the first is back at ${at}.` : 'My models are all cooling down, and none can answer right now.';
+}
+
+/**
+ * ASK MY PHONE (BRIEF-TALK-1A 5): the turn waiting for a model ends, here and in the brain (a quiet cancel: no stop, no mood),
+ * and the brain on this phone answers his question now, as when there is no signal.
+ */
+export async function askPhone(ask: string): Promise<void> {
+  const c = cloudTurn && cloudTurn.ask === ask ? cloudTurn : null;
+  patch((e) => e.kind === 'error' && e.cool?.ask === ask, (e) => ({ ...(e as Extract<Entry, { kind: 'error' }>), cool: {} }));
+  if (c) {
+    c.stop.abort();
+    void brain.cancel().catch(() => undefined);
+    await c.done.catch(() => undefined);
+  }
+  await stream(async () => {
+    if (!(await answerHere(ask, c?.recent ?? []))) push({ kind: 'error', text: "The brain on your phone couldn't answer that either; I'll answer it as soon as a model is back." });
+  });
+}
+
+function aside(): void {
+  if (!narr.on || narr.replied || !narr.spoken || !settings.get().speak) return;
+  const now = Date.now();
+  const v = ui.get().voice;
+  if (now - narr.t0 < ASIDE_AFTER_MS || now - narr.sayAt < STEP_GRACE_MS || now - narr.asideAt < ASIDE_GAP_MS || v === 'speaking' || v === 'listening' || narr.said.has(narr.say)) return;
+  narr.said.add(narr.say);
+  narr.asideAt = now;
+  void speak(narr.say, { aside: true }).finally(() => (narr.asideAt = Date.now()));
+}
 
 /**
  * The independence meter (core/independence.ts): the answer this stream gave, counted once by where it was answered (its
@@ -340,8 +523,13 @@ let approvalAsked = false;
 function tally(since: number): void {
   if (approvalAsked) return;
   const a = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant' && e.at >= since && !!e.text.trim() && !e.think);
-  if (a) noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length, ...(turnCat ? { cat: turnCat } : {}) });
+  // (each answer once: with two streams at work, the one that ends second must not count the other's answer again)
+  if (!a || counted.has(a.at)) return;
+  counted.add(a.at);
+  noteAnswer(a.model, { kept: !!a.private, tool: toolRan, length: a.text.length, ...(turnCat ? { cat: turnCat } : {}) });
 }
+/** The answers the meter has counted (their tags), this session. */
+const counted = new Set<number>();
 /** The kind of ask this turn is (offline/trust.ts `categorise`): the meter counts each answer by it too. */
 let turnCat: AskCat | undefined;
 
@@ -614,11 +802,16 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     if (ui.get().busy || !kept) await brain.stop(kept ? undefined : stop.harsh).catch(() => undefined);
     return;
   }
+  // The phone's library passages for the brain (api/brain.ts chat) are looked up from now, while the rest of this is decided,
+  // so they never hold the message back (BRIEF-TALK-1A 1).
+  const library = passagesFor(t).catch(() => [] as unknown[]);
   // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
   if (REBOOT.test(t)) {
     await import('../shell/boot').then((b) => b.reboot());
     return;
   }
+  // "go on" after a reply he cut off: carried on from where he cut it, on the phone (BRIEF-TALK-1A 2)
+  if (carryOn(t, opts.speak ?? true)) return;
   // A newer message while a phone-first answer is still being thought (he spoke again, or tapped the mic and said it again):
   // that attempt is cut short first, so it never makes this message wait, and the cloud answers its ask. Only that path:
   // what is kept on the phone is never ended by a newer message (it has no cloud to go to).
@@ -642,17 +835,19 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
     .slice(-12);
-  const recent = turns.map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  // (a reply he cut off is, to whatever reads it next, only what he heard of it: BRIEF-TALK-1A 2)
+  const asHeard = (e: Extract<Entry, { kind: 'user' | 'assistant' }>) => (e.kind === 'assistant' && e.cut && e.heard !== undefined ? `${e.heard}${e.heard ? ' ' : ''}[cut off here: he heard no more of this reply]` : e.text);
+  const recent = turns.map((e) => ({ role: e.kind, text: asHeard(e).slice(0, 1500) }));
   // [offline2] the kind of ask (offline/trust.ts): whether the phone may answer it first, and the meter's count by kind
   turnCat = categorise(t, [...turns].reverse().find((e) => e.kind === 'assistant')?.text ?? '');
   // What the brain may read of the conversation: never a turn that was kept on the phone, nor an answer he sent on to the cloud.
-  let shared = turns.filter((e) => !e.private && !(e.kind === 'assistant' && e.struck)).map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  let shared = turns.filter((e) => !e.private && !(e.kind === 'assistant' && e.struck)).map((e) => ({ role: e.kind, text: asHeard(e).slice(0, 1500) }));
   // ASK THE CLOUD: the question is on screen already, above the phone's answer: not shown again, nor sent twice.
   if (opts.again) {
     const k = shared.map((x) => x.role === 'user' && x.text === t.slice(0, 1500)).lastIndexOf(true);
     if (k >= 0) shared = shared.filter((_, i) => i !== k);
-  } else push({ kind: 'user', text: t, at: Date.now(), ...(priv ? { private: true } : {}) });
-  chat.set({ live: t });
+    chat.set({ live: t });
+  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
   // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
   const lap = stopwatch.reply();
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
@@ -712,7 +907,16 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // on-screen action): the small model can't see any of it, so the brain's own error stands.
   let acted = false;
   let held: Extract<ChatEvent, { t: 'error' }> | null = null;
+  // A reply he cut off is still the latest: the brain is told what he heard of it (BRIEF-TALK-1A 2), so its next turn never
+  // assumes he heard the rest. The cut reply itself stays on screen as it was.
+  const cut = lastCut && latestReply()?.at === lastCut.tag ? lastCut : null;
+  const heard = cut ? { said: cut.said, head: cut.head } : undefined;
+  lastCut = null;
   const rescue = async (e: unknown) => here && !acted && shouldFallBack(e) && answerHere(t, recent);
+  const ended = new AbortController();
+  let over: () => void = () => undefined;
+  const turn = { ask: t, recent, stop: ended, done: new Promise<void>((r) => (over = r)), said: false };
+  cloudTurn = turn;
   await stream(
     async (cb) => {
       await brain.chat(t, context(), (ev) => {
@@ -724,13 +928,22 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
           return;
         }
         cb(ev);
-      }, undefined, shared, settings.get().cited);
-      if (held && !(await answerHere(t, recent))) cb(held);
+      }, ended.signal, shared, settings.get().cited, library, heard);
+      if (held) {
+        // [talk] no model is free, and the brain on this phone answers instead: said, so the wait for it is never silent
+        const said = `${coolSaid((held as { message: string }).message).replace(/\.$/, '')}, so the brain on your phone is answering this one.`;
+        ui.set({ status: 'the brain on your phone is answering…' });
+        if (spokenTurn && speakReplies && settings.get().speak) void speak(said, { aside: true });
+        if (!(await answerHere(t, recent))) cb(held);
+      }
     },
     // [resta] a "what is X?" with no connection also offers X from the Wikipedia file on this phone (wiki/ask.ts)
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t).then((a) => import('../wiki/ask').then((w) => w.offlineWiki(t, a)).catch(() => a))),
     rescue,
+    t,
   );
+  over();
+  if (cloudTurn === turn) cloudTurn = null;
   lap.end();
   // [reste] a letter or a document he asked me to write: offered laid out as a DOCUMENT under the reply (docs/ask.ts)
   void import('../docs/ask').then((d) => d.offerDocument(t)).catch(() => undefined);
@@ -746,7 +959,7 @@ export async function answerApproval(id: string, allow: boolean): Promise<void> 
     (e) => e.kind === 'approval' && e.id === id,
     (e) => ({ ...(e as Extract<Entry, { kind: 'approval' }>), state: allow ? 'approved' : 'declined' }),
   );
-  await stream((cb) => brain.approve(id, allow, cb));
+  await stream((cb) => brain.approve(id, allow, cb), undefined, undefined, '');
 }
 
 /** Approvals being followed (one watcher each). */
@@ -798,6 +1011,22 @@ function followApproval(id: string): void {
   };
   const timer = setTimeout(() => void forward(), 60_000);
   document.addEventListener('visibilitychange', onHide);
+}
+
+/** [talk] What a spoken conversation ends on when he says "that's all" or "bye" (in turn, never the same twice running). */
+const SIGN_OFFS = ['Okay. Shout if you need me.', "Right. I'm here when you want me.", 'Bye for now.'];
+let signed = -1;
+/**
+ * He ended a spoken conversation ("that's all", "bye": BRIEF-TALK-1A 4): his words and a short sign-off go in the chat and the
+ * sign-off is said. Answered here with no model (core/index.ts has already let the microphone go); nothing is sent.
+ */
+export function signOff(words: string): Promise<void> {
+  const hour = new Date().getHours();
+  const line = hour >= 22 || hour < 5 ? "Night. I'm here if you need me." : SIGN_OFFS[(signed = (signed + 1) % SIGN_OFFS.length)]!;
+  const asked = stamp();
+  const at = stamp();
+  chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: words, at: asked }, { kind: 'assistant' as const, text: line, at, model: LOCAL_MODEL }].slice(-120), live: line }));
+  return settings.get().speak ? speak(line, { owner: String(at) }) : Promise.resolve();
 }
 
 /** Load recent conversation from the brain on start-up. */

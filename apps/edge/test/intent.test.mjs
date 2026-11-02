@@ -218,3 +218,22 @@ test('mood through the brain: a harsh stop leaves him subdued and he still answe
   await chat('go dark');
   assert.equal(JSON.parse(await call('/stop', {})).mood.kind, 'calm');
 });
+
+// BRIEF-TALK-1A 2 and 4: "go on" after a reply he cut off carries it on; "that's all" ends a spoken conversation.
+test('carrying on: every way of saying "go on" (dressed, sorry, his name), and nothing that is a new ask', () => {
+  const GO_ON = ['go on', 'Go on.', 'sorry, go on', 'sorry go on', 'Sorry, continue', 'continue', 'carry on', 'sorry carry on mate', 'and then?', 'and?', 'then what?', 'what next?', 'keep going', 'go on then', 'no, go on', 'please continue', 'you were saying?', 'what were you saying?', 'finish what you were saying', 'sorry about that, carry on', 'go on Ghosty', 'ok carry on', 'I’m listening', 'sorry, I’m listening', 'yeah go on', 'the rest?'];
+  for (const t of GO_ON) assert.equal(I.continueIntent(t), true, t);
+  const NOT = ['go on holiday', 'carry on with the project', 'continue my essay', 'what is next week like', 'and the weather?', 'then book it', 'sorry', 'no', 'go ahead', 'tell me more about trains', 'what were you doing yesterday', 'stop', 'and so what is the time in Tokyo', ''];
+  for (const t of NOT) assert.equal(I.continueIntent(t), false, t);
+});
+
+test('ending a conversation: "that\'s all", "bye", "see you", "good night", "stop listening", dressed; never a question or an ask', () => {
+  const END = ["that's all", 'That’s all, thanks', 'thanks, that’s all', 'that is all for now', "that's it", "that's everything", 'bye', 'Bye!', 'bye bye', 'okay bye Ghosty', 'goodbye', 'bye for now', 'see you', 'see you later', 'catch you later', 'talk later', 'speak soon', 'cheerio', 'good night', 'goodnight', 'night night', "we're done", "I'm done", "that's me done", 'stop listening', 'you can stop listening now', 'end the conversation', 'hang up', 'thank you, bye', 'cheers, bye'];
+  for (const t of END) assert.equal(I.endIntent(t), true, t);
+  const NOT = ['is that all?', "that's all I need to know about the weather", 'say bye to Sam for me', 'see you at the station at 5', 'what time is it', 'good morning', 'stop', 'later', 'listening to music', 'no', 'thanks', 'cheers', ''];
+  for (const t of NOT) assert.equal(I.endIntent(t), false, t);
+  // the two never read the same words, and a stop stays a stop (the conversation goes on after it)
+  for (const t of END) assert.equal(I.continueIntent(t), false, t);
+  assert.equal(I.endIntent('stop it'), false);
+  assert.ok(I.stopIntent('stop it'));
+});

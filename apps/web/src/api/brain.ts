@@ -297,6 +297,9 @@ export async function streamEvents(path: string, body: unknown, onEvent: (e: Cha
   }
 }
 
+/** The longest a message waits for this phone's library passages before it goes without them (BRIEF-TALK-1A 1: first words). */
+const LIBRARY_WAIT_MS = 150;
+
 /** What the brain can do with sound (from its status): hear a recording, speak with its own voice. assistant/voice.ts reads it. */
 export const speechCaps = createStore({ stt: false, tts: false });
 
@@ -316,15 +319,20 @@ export const brain = {
   publicKeys: () => req<{ mapbox?: string }>('GET', '/keys/public').catch(() => ({}) as { mapbox?: string }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
   /** `cited`: CITED is on — the answer is looked up, with numbered sources and each claim checked (cited.ts in the brain). */
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false) =>
+  /** `library`: those passages already being looked up (session.ts starts it with the message, so it costs the turn nothing). */
+  /** `heard`: his last reply was cut off as it was read out: what he heard of it and its first words (BRIEF-TALK-1A 2). */
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false, library?: Promise<unknown[]>, heard?: { said: string; head: string }) =>
     // `offline`: memory, agenda and the owner's documents most related to the message, kept on this
-    // device, so Ghosty still knows them if its database is paused.
-    passagesFor(message)
-      .catch(() => [])
-      .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library }, ...(cited ? { cited: true } : {}) }, onEvent, signal)),
+    // device, so Ghosty still knows them if its database is paused. A slow look-up never holds the message: after
+    // LIBRARY_WAIT_MS it goes without them (they matter only on the rare day the database is paused).
+    Promise.race([(library ?? passagesFor(message)).catch(() => []), new Promise<unknown[]>((r) => setTimeout(() => r([]), LIBRARY_WAIT_MS))]).then((lib) =>
+      streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library: lib }, ...(cited ? { cited: true } : {}), ...(heard ? { heard } : {}) }, onEvent, signal),
+    ),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */
   stop: (harsh?: boolean) => req<{ ok: boolean }>('POST', '/stop', harsh === undefined ? undefined : { harsh }),
+  /** [talk] Ends the turn under way and nothing else (no mood, no quiet for the day): ASK MY PHONE answers it here instead. */
+  cancel: () => req<{ ok: boolean }>('POST', '/stop', { cancel: true }),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
   addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),

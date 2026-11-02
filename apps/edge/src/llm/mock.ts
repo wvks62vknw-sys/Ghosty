@@ -3,7 +3,7 @@
  * It turns simple phrases into tool calls so the agent loop can be tested offline.
  */
 import type { Msg, ToolSpec } from './router';
-import { imagesIn, ownerWords, textOf } from './content';
+import { HEARD_NOTE, imagesIn, ownerWords, textOf } from './content';
 import { EXERCISES } from '../training/exercises';
 
 let n = 0;
@@ -50,6 +50,19 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
   const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
   if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  // [talk] A reply of several sentences, the first a long one (BRIEF-TALK-1A 1: the phone says its first piece while the rest
+  // queue; 2: a cut in the third sentence resumes from it). "what did i hear?": what the brain was told he heard of the reply
+  // before (the note the turn puts on a reply cut off as it was read out, content.ts heardNote).
+  const about = /^talk to me about (.+?)[?.!]*$/.exec(owner)?.[1];
+  if (about) {
+    const topic = about.charAt(0).toUpperCase() + about.slice(1);
+    return { message: { role: 'assistant', content: `${topic}: I could talk about it for hours, but here is the short version for you tonight. It is older than it looks. It changes with the seasons, and the light on it is never quite the same twice. And most people never notice the best part, which is how quiet it is.` }, model };
+  }
+  if (owner === 'what did i hear?') {
+    const before = messages.slice(0, -1).reverse().find((x) => x.role === 'assistant' && !x.tool_calls?.length && textOf(x.content));
+    const heard = before ? HEARD_NOTE.exec(textOf(before.content)) : null;
+    return { message: { role: 'assistant', content: !heard ? 'You heard all of my last reply.' : heard[1] !== undefined ? `You heard only: "${heard[1]}"` : 'You heard none of my last reply.' }, model };
+  }
   // The one shared mind (mind.ts): the day as the chat's CONTEXT has it, read back word for word (routec: the Brief and the chat agree).
   if (owner === 'what does my day look like to you?') return { message: { role: 'assistant', content: system.match(/\n(Today: [^\n]*|Nothing more today\. Next: [^\n]*)/)?.[1] ?? 'Nothing in my context about today.' }, model };
   if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };

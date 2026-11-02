@@ -79,6 +79,15 @@ const ORDER_KEY = 'llm:order';
 
 /** A wait this short is sat through (for the best model, or a 429's Retry-After) rather than falling to a worse model. */
 const SHORT_WAIT_MS = 8_000;
+/**
+ * [talk] The owner's chat waits for its best model this long at most (BRIEF-TALK-1A 5): a model that frees up later is passed
+ * over for the next one with room now, rather than a silent wait of up to SHORT_WAIT_MS in the middle of a conversation.
+ */
+const CHAT_SHORT_WAIT_MS = 2_000;
+/** [talk] The answering model is this full for the minute (0–1, after its call): the next one with room is woken. */
+const WARM_AT = 0.8;
+/** [talk] A model is woken at most once in this long. */
+const WARM_EVERY_MS = 60_000;
 
 /** No model answered: the message for the owner, and how long until the first one is back (Infinity when none is coming back). */
 export class RouterError extends Error {
@@ -96,6 +105,9 @@ interface Clock {
   wait: number;
   model: number;
 }
+
+/** What the owner's chat is told each second while every model it could use is cooling down or full (the phone reads it: session.ts). */
+export const waitLine = (ms: number): string => `waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`;
 
 /** A pause that ends early when the turn is stopped. */
 const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
@@ -174,6 +186,11 @@ export interface CallOptions {
   tier?: 'small' | 'big';
   priority?: Priority;
   onWait?: (text: string) => void;
+  /**
+   * [talk] This call answers the owner in a conversation (the agent's chat turns): when the model that answers is nearly out of
+   * room, the next one is woken for his next message (warmNext). Off for everything else.
+   */
+  warm?: boolean;
   /**
    * A model to try last (its label as `complete` returns it, "Provider · model"): a cited turn's one retry after that model
    * declined to engage (OWNER-ISSUES 77e; packages/shared/src/refusal.ts). Never excluded: with no other model free it answers
@@ -355,10 +372,19 @@ export class Router {
   }
 
   /** The scripted mock (tests and the preview), timed like a real call so the SPEED card has something to show there. */
-  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority, avoid?: string): Promise<{ message: Msg; model: string }> {
+  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority, avoid?: string, onWait?: (text: string) => void): Promise<{ message: Msg; model: string }> {
     this.speed.callStart(signal);
     const t0 = Date.now();
     try {
+      // [talk] "cooling for N s: …": every model cooling down for N seconds before the turn's first step, counted down as the
+      // real wait is (complete), then answered as usual (BRIEF-TALK-1A 5: the phone says so within two seconds, with the time).
+      const last = messages[messages.length - 1];
+      const cool = last?.role === 'user' && lane === 'chat' ? /^cooling for (\d{1,2}) ?s(?:econds)?: /i.exec(ownerWords(textOf(last.content))) : null;
+      for (let ms = cool ? Number(cool[1]) * 1000 : 0; ms > 0 && !signal?.aborted; ms -= 1000) {
+        onWait?.(waitLine(ms));
+        await sleep(Math.min(ms, 1000), signal);
+      }
+      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
       const r = await mockComplete(messages, tools, avoid);
       const ms = Date.now() - t0;
       this.speed.model({ provider: 'Mock', model: 'scripted', first: ms, ms, wait: 0, ok: true, chat: lane === 'chat' });
@@ -377,7 +403,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat', opts.avoid));
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat', opts.avoid, opts.onWait));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;
@@ -389,7 +415,7 @@ export class Router {
     this.speed.callStart(signal);
     try {
       for (let freeNow = 0; ; ) {
-        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane, clock, opts.avoid);
+        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, lane === 'chat' ? CHAT_SHORT_WAIT_MS : SHORT_WAIT_MS), lane, clock, opts.avoid, !!opts.warm);
         if ('message' in r) {
           this.speed.callEnd(signal, { ...clock, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
           return inCharacter(messages, r);
@@ -405,7 +431,7 @@ export class Router {
         let ms = r.waitMs + (r.full ? 50 : 500);
         const t = Date.now();
         while (ms > 0 && !signal?.aborted) {
-          opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
+          opts.onWait?.(waitLine(ms));
           const step = Math.min(ms, 1000);
           await sleep(step, signal);
           ms -= step;
@@ -416,6 +442,80 @@ export class Router {
     } catch (e) {
       this.speed.fail(signal); // no answer: nothing to time this turn by
       throw e;
+    }
+  }
+
+  /** [talk] When each model was last woken (memory only), and the waking now under way (a test can wait for it). */
+  private warmedAt = new Map<string, number>();
+  warming: Promise<void> | null = null;
+
+  /**
+   * [talk] BEFORE A COOL-DOWN BITES (BRIEF-TALK-1A 5; STARS 83): the model that just answered the owner is nearly out of room
+   * this minute (the counters, WARM_AT), or has none left, so the next model with room — the one his next message will go to —
+   * is chosen now and woken with the smallest request there is (one token), off his turn: its key, the model and the way to it
+   * are known to answer before he needs them, and one that will not is marked as it would be in a turn, so his next message
+   * skips it. Free allowances only, his own keys and the open endpoints as ever; never Cloudflare's binding (always awake, and
+   * its share is counted); never more than once a minute a model.
+   */
+  private warmNext(p: Provider, model: string, est: number): void {
+    const now = this.room(p, model, est, 'chat');
+    if (now.ok && now.load < WARM_AT) return;
+    this.warming = (async () => {
+      const next = await this.nextChat(`${p.id}|${model}`, est);
+      if (!next) return;
+      const k = `${next.p.id}|${next.model}`;
+      if (Date.now() - (this.warmedAt.get(k) ?? 0) < WARM_EVERY_MS) return;
+      this.warmedAt.set(k, Date.now());
+      await this.ping(next.p, next.key, next.model);
+    })().catch(() => undefined);
+  }
+
+  /** The model the owner's next chat message goes to, leaving out `not`: the first by the chat's order with room now. */
+  private async nextChat(not: string, est: number): Promise<{ p: Provider; key: string; model: string } | null> {
+    const h = await this.health();
+    const now = Date.now();
+    const list: { p: Provider; key: string; model: string }[] = [];
+    for (const p of await this.order()) {
+      const key = await this.keyFor(p);
+      if (key === null || p.codeOnly || p.smallOnly || p.noTools || p.transport === 'workers-ai') continue;
+      if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now || (h[`cool|${p.id}`]?.cool ?? 0) > now) continue;
+      for (const model of await this.models(p)) {
+        const s = h[`${p.id}|${model}`] ?? {};
+        if (`${p.id}|${model}` !== not && (s.dead ?? 0) <= now && (s.cool ?? 0) <= now) list.push({ p, key, model });
+      }
+    }
+    list.sort((a, b) => (a.p.tier ?? 0) - (b.p.tier ?? 0));
+    return list.find((c) => this.room(c.p, c.model, est, 'chat').ok) ?? null;
+  }
+
+  /** One token asked of a model, counted like any call; what it answers is learned (a limit, a hold, a dead key or model). */
+  private async ping(p: Provider, key: string, model: string): Promise<void> {
+    const settle = this.quota.take(keysOf(p, model), 20);
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 10_000);
+    try {
+      const body = { model, messages: [{ role: 'user', content: 'Hi' }], ...(/gpt-oss/.test(model) ? { max_completion_tokens: 16 } : { max_tokens: 1 }) };
+      const r = await fetch(`${p.base}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) }, body: JSON.stringify(body), signal: ctl.signal });
+      this.quota.learnHeaders(limitKey(p, model), r.headers);
+      if (r.ok) {
+        settle(20, true);
+        await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '' });
+        return;
+      }
+      const e: LlmError = { code: r.status, message: (await r.text().catch(() => '')).slice(0, 400), retryAfter: r.headers.get('retry-after') };
+      settle(undefined, false);
+      // Only what is about the model or the key is learned: a refusal of this tiny request's own shape says nothing.
+      if (![401, 403, 404, 410, 429].includes(r.status)) return;
+      const c = classify(e);
+      if (r.status === 429) this.quota.learn429(limitKey(p, model), statedWait(e), { daily: !!c.daily, holdKey: `${p.id}|${model}`, perMinute: perMinuteLimit(e.message) });
+      if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
+      else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
+      else if (c.daily) await this.mark(`cool|${p.id}`, { cool: Date.now() + (resetDelay(p) ?? c.ms), why: c.why });
+      else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
+    } catch {
+      settle(0); // never reached it: nothing counted, nothing learned
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -529,7 +629,7 @@ export class Router {
    * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
    * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
    */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }, avoid?: string): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }, avoid?: string, warm = false): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -637,6 +737,7 @@ export class Router {
           settle(tokens, true);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
+          if (warm && lane === 'chat' && !cheap && !vision) this.warmNext(p, model, est);
           return { message, model: `${p.name} · ${model}` };
         } catch (err) {
           const e = err as LlmError;

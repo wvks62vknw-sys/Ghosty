@@ -113,6 +113,15 @@ export class BargeDetector {
     return false;
   }
 
+  /**
+   * A voice over the echo has begun and is not yet sure enough to fire (BRIEF-TALK-1A 2): voice.ts holds Ghosty's speech
+   * while this is true — silent within a reading or two of the owner's first sound — and lets it go on if the voice
+   * stops short of `minSpeechMs` (a cough, a click: he carries on where he was), or cuts it when `feed` fires.
+   */
+  get hearing(): boolean {
+    return !this.fired && this.calibrated && this.onset >= 0;
+  }
+
   /** When the voice that fired began (ms, the clock `feed` was given), or -1. */
   get speechStart(): number {
     return this.fired ? this.onset : -1;
