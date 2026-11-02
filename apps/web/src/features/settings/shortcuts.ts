@@ -1,6 +1,6 @@
 /**
  * SETTINGS → SHORTCUTS (BRIEF-REST-A 2): Siri Shortcuts for Ghosty, made of the links the app understands
- * (deeplinks.ts). A gallery of twelve ready ones (a name to say, what it does, its link, COPY), the plain steps once for
+ * (deeplinks.ts). A gallery of thirteen ready ones (a name to say, what it does, its link, COPY), the plain steps once for
  * the Shortcuts app, and MAKE YOUR OWN: a screen picked or words typed, the link made, COPY. Nothing is installed by us:
  * iOS lets no web page add a shortcut. `followLink` (called by main.ts once Ghosty is up) does what a link asks, on the
  * owner's own signed-in phone only.
@@ -8,7 +8,7 @@
 import { h } from '../../core/dom';
 import { tabs } from '../../shell/tabs';
 import { button, panel, toast, type Panel } from '../../ui/components';
-import { NOT_INSTALLED, parseLink, READY, shortcutUrl, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
+import { NO_BACKGROUND, NOT_INSTALLED, parseLink, READY, shortcutUrl, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
 
 const origin = () => (typeof location !== 'undefined' ? location.origin : '');
 
@@ -68,6 +68,7 @@ export function shortcutsPanel(): Panel {
     h('p.note', 'Say “Hey Siri, Ghosty timer” and it happens: each shortcut is a link that the Shortcuts app opens.'),
     h('p.note.scsteps', STEPS),
     h('p.note', NOT_INSTALLED),
+    h('p.note.scbg', NO_BACKGROUND),
     h('p.note', 'A shortcut opens Ghosty in Safari: sign in there once (Passwords fills your key). Words that would start something, like a reminder, wait in the chat box for your send.'),
     gallery,
     h('div.scown', h('b', 'MAKE YOUR OWN'), h('div.row', pick, words), made, h('div.row', copyMine)),
@@ -134,5 +135,22 @@ async function doCommand(d: DoCmd, L: typeof import('../../shell/launcher')): Pr
       return void import('../../morse/sheet').then((m) => m.openMorse(d.text ? { mode: 'text', text: d.text } : { mode: 'text' }));
     case 'wiki':
       return void import('../../wiki/view').then((w) => w.openWiki('', d.title ?? ''));
+    case 'listen': {
+      // [talk] Siri's "Ghosty listen" (BRIEF-TALK-1A 6): Home, and a conversation listening the moment Ghosty shows (the boot
+      // cinematic over), as if the mic had been tapped
+      L.perform({ open: 'core' });
+      await shown();
+      (await import('../core/index')).listenNow();
+      return;
+    }
   }
+}
+
+/** Resolves once Ghosty is on the screen: the boot cinematic has gone (or after 15 s whatever it is doing). */
+function shown(): Promise<void> {
+  const t0 = Date.now();
+  return new Promise((resolve) => {
+    const look = () => (!document.getElementById('boot') || Date.now() - t0 > 15_000 ? resolve() : void setTimeout(look, 40));
+    look();
+  });
 }

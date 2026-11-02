@@ -176,6 +176,22 @@ async function voiceTurn(id: number): Promise<void> {
   }
 }
 
+/**
+ * A voice conversation starts: the mic's tap, and Siri's "Ghosty listen" (?do=listen: BRIEF-TALK-1A 6). A fresh one: the quiet
+ * listens that ended the last do not count against it; the voices are woken first (in the tap itself, when there is one), so
+ * his first answer's first word is not the slow one (BRIEF-TALK-1A 1); the brain is woken too, for his first question.
+ */
+export function listenNow(): void {
+  if (conversation) return;
+  conversation = true;
+  quiet = 0;
+  primeSpeech();
+  void brain.status().catch(() => undefined);
+  const mic = document.querySelector('#mic');
+  mic?.classList.add('on');
+  void voiceTurn(++convoId).finally(() => document.querySelector('#mic')?.classList.toggle('on', conversation));
+}
+
 /** Resolves the moment Ghosty is neither speaking nor thinking (his reply has ended), or the conversation is over. */
 function untilFree(live: () => boolean): Promise<void> {
   return new Promise((resolve) => {
@@ -512,12 +528,7 @@ export const coreTab: TabDef = {
         mic.classList.remove('on');
         return;
       }
-      conversation = true;
-      quiet = 0; // a fresh tap starts a fresh conversation: the quiet listens that ended the last one do not count against it
-      // the voices woken in the tap itself, so his first answer's first word is not the slow one (BRIEF-TALK-1A 1)
-      primeSpeech();
-      mic.classList.add('on');
-      void voiceTurn(++convoId).finally(() => mic.classList.toggle('on', conversation));
+      listenNow();
     });
     // CITED: answers looked up and sourced, each claim checked (remembered on this device).
     const citedBtn = button('CITED', (b) => {

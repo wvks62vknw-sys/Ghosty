@@ -661,6 +661,7 @@ if (part('shortcut')) {
   const panelText = await page.evaluate(() => [...document.querySelectorAll('.panel')].find((p) => /SHORTCUTS/.test(p.querySelector('.ph, h2, header')?.textContent ?? p.textContent ?? ''))?.textContent ?? document.body.innerText);
   if (!/Ghosty listen/.test(panelText) || !/\?do=listen/.test(panelText)) problems.push(`[${name}] SHORTCUTS does not offer "Ghosty listen"`);
   if (!/background/i.test(panelText)) problems.push(`[${name}] SHORTCUTS does not say that iPhone lets nothing listen in the background`);
+  await page.waitForTimeout(900); // (the panes assemble with a short animation: photographed where they land)
   await page.screenshot({ path: `${out}/talk-shortcuts.png` });
   await ctx.close();
 }

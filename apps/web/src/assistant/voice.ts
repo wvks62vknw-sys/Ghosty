@@ -574,12 +574,32 @@ async function openMic(): Promise<Mic> {
     throw e;
   }
   if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined); // (never awaited: Safari holds it until a tap)
+  // Opened with no touch at all (Siri's "Ghosty listen": BRIEF-TALK-1A 6): an iPhone keeps the page's sound off until one, so
+  // the ear cannot hear the room yet. It says so, and the first touch anywhere turns it on.
+  if (ctx.state !== 'running') tapToHear(ctx);
   const an = ctx.createAnalyser();
   an.fftSize = 512;
   ctx.createMediaStreamSource(stream).connect(an);
   mic = { ctx, stream, an, time: new Float32Array(an.fftSize), freq: new Uint8Array(an.frequencyBinCount) };
   return mic;
 }
+
+/** One touch anywhere wakes the page's sound (an iPhone wants it), said once on the screen while it waits. */
+function tapToHear(ctx: AudioContext): void {
+  const go = () => {
+    document.removeEventListener('pointerdown', go, true);
+    void ctx.resume().catch(() => undefined);
+    unlockSpeech();
+    tapNote?.remove();
+    tapNote = null;
+  };
+  setTimeout(() => {
+    if (ctx.state === 'running' || ctx.state === 'closed') return;
+    document.addEventListener('pointerdown', go, true);
+    tapNote ??= document.body.appendChild(Object.assign(document.createElement('div'), { id: 'taptohear', role: 'status', textContent: 'Tap anywhere and I’m listening' }));
+  }, 250);
+}
+let tapNote: HTMLElement | null = null;
 
 /** The microphone off: the phone's mic light goes out. */
 export function closeMic(): void {

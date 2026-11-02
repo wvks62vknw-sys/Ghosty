@@ -6,7 +6,7 @@
  *  - `?say=<words>`: the words in the chat box, sent when they ask something (a question, a look-up), left in the box when
  *    they would start something (a reminder, a message, a purchase, a standing rule, praise: the catalogue's TRY IT rule);
  *  - `?do=<command>`: one of the app's own commands: `timer:10m`, `lens:scan`, `open:<screen>`, `arcade`, `sit`, `walkhome`,
- *    `remind:<words>`, `morse`, `wiki:<title>`.
+ *    `remind:<words>`, `morse`, `wiki:<title>`, `listen` (a conversation, listening the moment Ghosty shows: BRIEF-TALK-1A 6).
  * Only on the owner's own signed-in phone: anyone else's opening of such a link shows the sign-in and runs nothing.
  */
 
@@ -19,7 +19,8 @@ export type DoCmd =
   | { cmd: 'walkhome' }
   | { cmd: 'remind'; text: string }
   | { cmd: 'morse'; text?: string }
-  | { cmd: 'wiki'; title?: string };
+  | { cmd: 'wiki'; title?: string }
+  | { cmd: 'listen' };
 
 export type Link =
   | { kind: 'open'; tab: string; panel?: string }
@@ -86,6 +87,9 @@ export function parseDo(raw: string, tabs: string[]): DoCmd | null {
       return arg ? { cmd: 'morse', text: arg.slice(0, 200) } : { cmd: 'morse' };
     case 'wiki':
       return arg ? { cmd: 'wiki', title: arg.slice(0, 200) } : { cmd: 'wiki' };
+    case 'listen':
+    case 'talk':
+      return { cmd: 'listen' };
     default:
       return null;
   }
@@ -137,8 +141,9 @@ export interface Ready {
   ask: LinkAsk;
 }
 
-/** The twelve ready shortcuts (the SHORTCUTS panel's gallery). */
+/** The thirteen ready shortcuts (the SHORTCUTS panel's gallery), "Ghosty listen" first: Siri straight into a conversation. */
 export const READY: Ready[] = [
+  { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking. No tap.', ask: { do: 'listen' } },
   { name: 'Ghosty timer', does: 'Starts a 10-minute timer on the phone.', ask: { do: 'timer:10m' } },
   { name: 'Ghosty scan', does: 'Opens the Lens on SCAN, for a barcode or a QR code.', ask: { do: 'lens:scan' } },
   { name: 'Ghosty read this', does: 'Opens the Lens on READ, for a sign, a page or a menu.', ask: { do: 'lens:read' } },
@@ -155,5 +160,10 @@ export const READY: Ready[] = [
 
 /** The plain steps, said once in the panel. */
 export const STEPS = 'Shortcuts → + → Add Action → Open URLs → paste the link → name it (the name is what you say) → Done. Then: “Hey Siri, Ghosty timer”.';
+/**
+ * [talk] And the truth about listening (BRIEF-TALK-1A 6; STARS 16): iPhone lets no web page listen in the background or from
+ * the lock screen; the nearest is Siri opening Ghosty, listening.
+ */
+export const NO_BACKGROUND = 'iPhone lets no web page listen in the background or from the lock screen: “Hey Siri, Ghosty listen” opens Ghosty and I listen from there (on a locked phone, Siri asks you to unlock it first). Allow the microphone for Ghosty once (aA › Website Settings › Microphone › Allow) so it never asks. If I show “Tap anywhere and I’m listening”, iPhone wants one touch before a page may use sound.';
 /** And the truth about installing. */
 export const NOT_INSTALLED = 'Nothing is installed by Ghosty: iPhone lets no web page add a shortcut, so you make each one in the Shortcuts app in a minute.';
