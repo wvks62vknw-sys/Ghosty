@@ -1256,6 +1256,9 @@ folder that no longer exists; ignore those paths).
   steel after the `direct` spec had run on the same brain: the rim is `var(--c)`, which follows Ghosty's MOOD colour, and `direct`
   leaves the brain strained (no model free, a back-at time). The smoke loop runs hubcards long before direct, so CI is unaffected; a
   depth pass should make the spec read the theme's colour under whatever mood (or stand the mood down first).
+- 2 Nov 03:53 UK: PR #52 MERGED (main fc70208), green on every job at the second run; the first run's shard 1 was the packs-3 spec's
+  eve-of-collection time bomb ("Tue 3 Nov (tomorrow)" and "Bins out tonight" on the night before its own Tuesday), allowed for in the spec.
+  Running: the TABS builder (8666) since 21:41 UK, to land as PR #53 with OWNER-ISSUES 121.
 - 1 Nov 08:05 UK: GAMES-2 MERGED (a665fe7; OWNER-ISSUES 104): the block world and the runner, not yet on the shelf; the
   wiring builder (8811) wires them with the engines (addendum sent). Running: arcade-wire (8811), packs-1 (8822). The
   engines builder's worktree was removed by mistake (a `remove` ran before I meant it): a fresh builder took the wiring
