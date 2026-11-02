@@ -1281,6 +1281,8 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 15:40 UK: PR #56 MERGED (main 250f0e1), green on every job at the first run. Main's push run for 250f0e1 to be read (~16:45 UK).
+  Nothing else starts before Friday's reset; the owner's phone check for 126 is in OWNER-ISSUES.
 - 2 Nov 14:05–14:50 UK: THE LIBRARY'S "too many SQL variables" (OWNER-ISSUES 126): `store.ts passagesOf` bound a page's 300 rowids into
   one IN list; the Durable Object's SQLite allows 100 a statement (the offset in his error is the 101st). Fixed at cause: `chunks`/`marks`
   helpers, BIND_CHUNK 90, used by passagesOf, dropRows (was 200), the meaning re-rank and sectionText; `tests/sqlite-storage.mjs` now
