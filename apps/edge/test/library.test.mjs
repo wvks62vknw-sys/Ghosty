@@ -116,6 +116,28 @@ test('a section read back is its text once: the overlap each passage carries fro
   assert.equal(lib.sectionText(doc.id, 'Long note', 500).length, 500, 'a cap still cuts the text at the cap');
 });
 
+test('a book of 350 passages reads back a page at a time and goes whole: no statement binds more than the Durable Object allows (OWNER-ISSUES 126)', async () => {
+  // The owner's phone, 2 Nov: "Could not read it: too many SQL variables at offset 270: SQLITE_ERROR" — a page of 300 passages
+  // asked for in one IN list. The stand-in storage holds the real limit (100 values a statement), so this failed before the fix.
+  const lib = new Library(new MemStorage(), {});
+  const doc = lib.createDoc({ title: 'A long book', source: 'book.epub', kind: 'book', pages: 350 });
+  const passages = Array.from({ length: 350 }, (_, i) => ({ text: `Passage ${i + 1} of the long book, about chapter ${Math.floor(i / 50) + 1}.`, heading: `Chapter ${Math.floor(i / 50) + 1}`, page: i + 1 }));
+  for (let i = 0; i < passages.length; i += 40) await lib.addPassages(doc.id, passages.slice(i, i + 40));
+  const first = lib.passagesOf(doc.id, 0, 300);
+  assert.equal(first.passages.length, 300);
+  assert.equal(first.passages[0].text, 'Passage 1 of the long book, about chapter 1.');
+  assert.equal(first.passages[299].page, 300);
+  assert.notEqual(first.next, null);
+  const rest = lib.passagesOf(doc.id, first.next, 300);
+  assert.equal(rest.passages.length, 50);
+  assert.equal(rest.next, null);
+  assert.equal(rest.passages[49].text, 'Passage 350 of the long book, about chapter 7.');
+  // the section read back whole, and the whole book removed in one go
+  assert.match(lib.sectionText(doc.id, 'Chapter 7'), /Passage 301 of the long book/);
+  assert.equal(lib.remove(doc.id), true);
+  assert.equal(lib.passagesOf(doc.id, 0, 300).passages.length, 0);
+});
+
 test('at most 40 passages per call (each request stays small)', async () => {
   const lib = new Library(new MemStorage(), {});
   const doc = lib.createDoc({ title: 'Big' });

@@ -2,7 +2,11 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #54, the last at 10:26 UK on 2 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #55, the last at 13:26 UK on 2 Nov)
+
+- LIVE since 13:26 UK on 2 Nov (PR #55, green on every job): NOTICES IN TURN (OWNER-ISSUES 123, with your two-minute phone check): a notice
+  is read only in a quiet moment, after the greeting, one after another, never over him or over you; a reply you ask for cuts one and it
+  is not read again. Also the fix for main's red run after PR #54 (the talk spec, a used brain's notice read over its measurement).
 
 - LIVE since 10:26 UK on 2 Nov (PR #54: its own run green; main's run after the merge went red on the talk spec alone — a notice read out over the reply, fixed in PR #55, OWNER-ISSUES 123): TALKING TO HIM, PASS 1a (OWNER-ISSUES 122, with your seven-step phone check):
   the first spoken word while the rest is still being written, interruptions he recovers from mid-sentence ("sorry, go on"), narration
@@ -181,7 +185,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #55 (2 Nov, midday): NOTICES IN TURN and main green again (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
+- PR #56 (2 Nov, afternoon): the library's "too many SQL variables" fixed at cause (OWNER-ISSUES 126): a book longer than a few pages
+  could not be opened; every id list now goes to the database in chunks the Durable Object accepts, and the test storage holds the same
+  limit so it cannot come back.
+- PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
   greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
   cuts one and it is not read again. Your two-minute phone check is in 123.
@@ -208,6 +215,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   still counts as the camera).
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
+
+- FIRST AFTER FRIDAY'S RESET: THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): a reader screen with your place
+  kept, chapters and search, and LISTEN under the talking rules; "read me <book>" by words. Then: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
+  page to tap, each a full card in its area's hub like every screen has (his words: like how it already is); one generator
+  from the tools' own definitions. Not
+  started this week: the credits do not cover it.
 
 The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your words in OWNER-ISSUES 91 and 92):
 ① the everything-tab · ② sideways (everything lands in the chat as live cards; he brings things up himself; Home as your

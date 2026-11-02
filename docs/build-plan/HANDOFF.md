@@ -1281,6 +1281,20 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 2 Nov 14:05–14:50 UK: THE LIBRARY'S "too many SQL variables" (OWNER-ISSUES 126): `store.ts passagesOf` bound a page's 300 rowids into
+  one IN list; the Durable Object's SQLite allows 100 a statement (the offset in his error is the 101st). Fixed at cause: `chunks`/`marks`
+  helpers, BIND_CHUNK 90, used by passagesOf, dropRows (was 200), the meaning re-rank and sectionText; `tests/sqlite-storage.mjs` now
+  throws past 100 bindings with the engine's words (so the preview and every unit test hold the real limit); a 350-passage test that
+  fails on the old bundle. PR #56. LESSON: a stand-in that is more permissive than the real engine hides exactly this; hold the real limits in it.
+- 2 Nov 13:35–13:50 UK: the owner: the library must act as a library (read a book himself; Ghosty reads it to him) — OWNER-ISSUES 125,
+  BRIEF-LIBRARY-READER.md written; first build after Friday's reset, before the ability pages unless he swaps them. What exists today:
+  the Shelf's `openDoc` modal, passage by passage with MORE, no place, no LISTEN; the wiki reader's whole-article `speak` is the pattern.
+- 2 Nov 13:26 UK: PR #55 MERGED (main b6a1782), green on every job at the first run (shard 1 with the talk spec's part 7: 41 min).
+  Main's push run for b6a1782 (run 304) green, 13:25 → 14:24 UK: brain, interface, deploy-build, four shards; the guard skipped.
+- 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
+  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md), builder NOT started: a four-to-six-hour
+  build plus checks costs more than the 6% left. It is the first build after the reset. Committed locally behind PR #55 and pushed
+  only once #55 has merged (a push while #55's checks ran would have cancelled them under the workflow's concurrency rule).
 - 2 Nov 11:27–13:00 UK: MAIN RED AFTER PR #54 (run 302, 10:26 → 11:25, 8825d5a): shard 1's talk spec failed twice (the same tree had
   passed as PR #54's run 301 an hour before); brain, interface, deploy-build and shards 2–4 green. CAUSE (OWNER-ISSUES 123): restd
   (right before talk on shard 1) runs a refused house job that leaves an unread inbox item; a fresh page reads any unread notice
