@@ -1281,6 +1281,9 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 4 Nov, last word of the day: the owner set Friday's order — everything already discussed first (the reader, the ability pages, the
+  themes), then IDEAS-ROUND-1 in its order, then the editors. STATUS section 4 holds the queue with sizes; the editors fall after the
+  14th unless the plan continues. Defaults if he says nothing more: the briefs as written, all ten themes built, Paper not.
 - 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
   workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
   plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.

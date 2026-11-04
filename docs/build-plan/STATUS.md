@@ -218,6 +218,21 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
+THE QUEUE FROM FRIDAY 7 NOV (the owner, 4 Nov: "on the day let's do everything else we talked about first … then the editors").
+Sizes are a builder's hours plus one checks run each; the week's credits, not the hours, are the limit (last week's went in
+about sixty hours of building). The plan ends on 14 Nov: the queue runs as far as the credits reach, in this order.
+
+1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, your place kept, LISTEN under the talking rules. 4–6 h.
+2. EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES): a hub card and a page per ability, like the screens have. 4–6 h.
+3. THE THEMES (the sheet of 2 Nov): the ten rendered ones built in with the contrast check and the picker; you strike any you
+   dislike on the day, or before; Paper (the daytime look) only if you ask. An afternoon.
+4. IDEAS-ROUND-1, in its order: measured health on every ability; verification on actions; context awareness; Lens → understand →
+   act; workflows by words; the research report mode; the simulation lab; Memory 2.0; the performance project; the permissions
+   screen. About 70–90 h in all.
+5. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,
+   spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most; the first starts when the
+   queue above is through, which at the week's pace is the week after next — after the 14th, so only if the plan continues.
+
 - THE FULL EDITORS, his decision of 4 Nov (OWNER-ISSUES 127; PROGRAMME-EDITORS.md): eight real workspaces on proper engines, two a week
   at most; his order awaited; recommended: the 3-D engine and library first.
 - The owner's ChatGPT brainstorm of 4 Nov, triaged in IDEAS-ROUND-1.md: ten ideas adopted in order (measured health on every
