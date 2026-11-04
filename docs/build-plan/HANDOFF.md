@@ -4,6 +4,42 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+## START HERE (written 4 Nov for the next session; everything below is history and detail)
+
+- **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (Opus for
+  design-heavy work, Sonnet for pattern work, Haiku for mechanical jobs), review, merge their branches into your session branch,
+  validate locally, push, open the pull request, and MERGE IT YOURSELF when every check is green (the owner, standing: "everytime
+  you think the pull request should be merged on github etc just merge it dont wait for me to do it"). Then read main's push run.
+- **The bar.** docs/build-plan/STANDARD.md. No new features beyond the queue; one thing perfected at a time; every change proven by
+  a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
+  into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
+- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov): the library reader (BRIEF-LIBRARY-READER, OWNER-ISSUES 125),
+  the ability pages (BRIEF-ABILITY-PAGES, 124), the themes (the ten rendered on 2 Nov, patch in 124's note), IDEAS-ROUND-1 in its
+  order, then PROGRAMME-EDITORS in its order. Defaults if he says nothing: the briefs as written, all ten themes, Paper not.
+- **Credits.** The weekly allowance resets on Friday; the plan ends 14 Nov. Use them wisely and never waste one: the expensive model
+  only plans, briefs, reviews and merges; builders build; one builder at a time unless the areas share no files; validate once
+  before each push, not after every small fix; never run the timing specs (talk, voice) alongside other browser specs; let the
+  builder read the code, do not read it yourself to save tokens; batch pushes. Wise never means cheaper quality.
+- **The boundary (never crossed).** Only the owner's own data and public sources; no prediction about any person; no private
+  person searched or profiled; faces only the owner and people he introduces, on the phone; nothing that can bill (no SMS, paid
+  APIs or new keys unless he adds them); the brain never gets live GPS (saved places only); every engineering, car or build number
+  a FIRST ESTIMATE, never certified; social posting only with his APPROVE every time; downloads only on his tap on Wi-Fi with the
+  size said; keys in the vault only; number plates never in docs or code; kept-on-phone paths fail closed.
+- **Hard rules of the repo.** Never raise the prompt guard (5,500; the worst dial, telegramVoice, is exactly 5,500: any addition
+  trims exactly and lists the trims). Never skip or weaken a test; a rule the owner changes is restated with a dated comment. Never
+  touch the CI guard job (its two findings are his decision: OWNER-ISSUES 123). Never a model name in code, comments, tests, docs,
+  PR titles or bodies (the Co-Authored-By footer is the only exception). Every spec tolerates a used brain (the shards share one
+  brain in order). The catalogue test holds every registry to the catalogue both ways: a new screen, card or page needs its entry.
+- **Mechanics that bit us.** A builder's worktree may be created from main: every brief says `git log -1` and reset to the branch
+  tip first; builders symlink the three node_modules. Local validation runs as `setsid nohup` chains in the scratchpad (an
+  interrupted turn must not kill them); kill with anchored patterns, never a bare `pkill -f name`. The preview brain is
+  `node tests/preview-server.mjs <port>` over `apps/edge/test/.build/brain.mjs` (built by `npm test` in apps/edge); specs take
+  `BASE=http://localhost:<port>`. CI: `.github/workflows/check.yml`, four smoke shards round-robin over the `all=` list; a new spec
+  joins the list. A push to the branch while its PR's checks run cancels them. GitHub tools reconnect often: load schemas again.
+- **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
+  questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 4 Nov: two free
+  AI keys in System → Keys; any theme to strike; corrections to the two briefs; whether the plan continues after the 14th.
+
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
   checkout fast-forwarded to 6d90d98. No PR is open yet: it is opened with the first code chunk after the owner's yes.
