@@ -17,10 +17,19 @@ folder that no longer exists; ignore those paths).
   the ability pages (BRIEF-ABILITY-PAGES, 124), the themes (BRIEF-THEMES), then THE DEPTH PLAN of 1–2 Nov — STARS (150 gaps) worked
   through PLAN-STARS's passes from Pass 2 on, with IDEAS-ROUND-1's ten folded into the passes they belong to (STATUS section 4 says
   which) — then PROGRAMME-EDITORS in its order. Defaults if he says nothing: the briefs as written, all ten themes, Paper not.
-- **Credits.** The weekly allowance resets on Friday; the plan ends 14 Nov. Use them wisely and never waste one: the expensive model
-  only plans, briefs, reviews and merges; builders build; one builder at a time unless the areas share no files; validate once
-  before each push, not after every small fix; never run the timing specs (talk, voice) alongside other browser specs; let the
-  builder read the code, do not read it yourself to save tokens; batch pushes. Wise never means cheaper quality.
+- **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
+  be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
+  never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits
+  batched, logs read by a cheap worker); builders on the cheapest model that gives the same result, the costly one only for
+  design-heavy work; one builder at a time unless the areas share no files; tight briefs with MAP.md; locally only the touched
+  specs plus the touched package's typecheck and unit tests before a push (CI's full checks are free, let them run); never the
+  timing specs (talk, voice) alongside other browser specs; never a rework (read the brief line by line before the builder starts
+  and check its report against it before merging); batch pushes; cut each day's plan to what the remaining usage fits, highest
+  value first, and write the usage percentage he reports into this file. Wise never means cheaper quality.
+- **More than the 150 (OWNER-ISSUES 128).** Any idea beyond STARS that would make Ghosty better is written into STARS as a numbered
+  gap the moment it is thought of (its group letter, one line, a size) and given a place in the queue; built in order, never
+  dropped, never started out of turn; STATUS shows the list growing. "Perfect in every single way" means every gap closed to the
+  bar, pass by pass, with his phone check on each.
 - **The boundary (never crossed).** Only the owner's own data and public sources; no prediction about any person; no private
   person searched or profiled; faces only the owner and people he introduces, on the phone; nothing that can bill (no SMS, paid
   APIs or new keys unless he adds them); the brain never gets live GPS (saved places only); every engineering, car or build number
