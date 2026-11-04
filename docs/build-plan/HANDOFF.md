@@ -1358,6 +1358,11 @@ folder that no longer exists; ignore those paths).
   to be built; STARS 160 (the redesign) carries the requirement instead — every ability reachable and runnable in two taps within the
   new navigation, the three directions judged on it — and STATUS section 4's item 5 is the themes alone. Commits 655a5dd and this one
   carry it; PR #57 picks them up.
+- 4 Nov, 02:43 UTC, CI: all four smoke shards of PR #57's run died at the browser install — GitHub's ubuntu-latest image became Ubuntu
+  26.04 overnight and Playwright 1.56.0 refuses it ("Playwright does not support chromium on ubuntu26.04-x64"), before any spec ran;
+  brain, interface and deploy-build passed on the new image. Not this PR's (docs only); main's next run would fail the same way. Fix in
+  check.yml: the smoke job pinned to ubuntu-24.04 with a dated comment; nothing else in the workflow touched (the guard job included).
+  If a later Playwright supports 26.04 the pin can go, in its own PR, with the timing specs re-measured.
 - 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
   workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
   plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.

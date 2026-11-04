@@ -63,7 +63,9 @@ jobs:
   # Opens the built interface in a real browser (phone and desktop sizes) and clicks
   # through chat, approvals, tabs, agenda, radio and the app/notifications setup.
   smoke:
-    runs-on: ubuntu-latest
+    # Pinned on 4 Nov 2026: ubuntu-latest became Ubuntu 26.04, which Playwright 1.56.0 does not know (the browser install
+    # fails before any spec runs). 24.04 is the image every green run so far used. The jobs without browsers stay on latest.
+    runs-on: ubuntu-24.04
     # [shards] The browser run is about a hundred specs, two hours and a quarter on one runner: four runners take a quarter
     # of the list each (round robin, so the slow ones spread), about forty minutes. Each shard has its own preview brain,
     # so a spec never meets another's leftovers. The guard's `needs: smoke` covers every shard.
