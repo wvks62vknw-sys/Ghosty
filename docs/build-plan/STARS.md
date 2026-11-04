@@ -193,6 +193,62 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
 149. Approval for anything outward (exists) with a preview that looks like the real post.
 150. A plain page on what he never does, kept true by tests.
 
+## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look (151–165), and three offered, not yet picked (166–168)
+
+151. (C) ONE LENS, no modes to pick: point it and he tags what he sees — text, a sign in another language, a plant, a barcode, a
+     part, a bolt, a face he knows — and offers the act (read, translate, add to the agenda, name it, measure, find the part);
+     a tap or a word does it. Faces only his own and the people he has introduced; a stranger is "someone I don't know". Large.
+152. (C) The Machine's reticle on the Lens: the tags drawn as the Machine view draws them (thin boxes, one true line each), the
+     same language as God's Eye. Medium.
+153. (E, A) AWARENESS, the context model: every screen publishes what is open and what is selected; a turn carries it in a few
+     words within the prompt guard; "add a wardrobe there", "make that wall longer", "find me a replacement", "read that one"
+     resolve on the room plan, the car, the shed, the reader and the deck. Large.
+154. (A, L) HIS VOICE KNOWN: a voiceprint of the owner kept on the phone (a small speaker model, a download on his tap, size
+     said); another voice is "a voice I don't know" or a person he has introduced and taught; guarded actions (locks, sending,
+     posting, keys) only on his voice; never used to identify a stranger; fails closed. Large.
+155. (A) Who is speaking, said: with two people in the room he addresses each by name when he knows them, and says nothing
+     private to a voice he does not know until the owner says so. Medium.
+156. (K, B) THE MACHINE, DEEPER: a Machine screen — what he is watching now (feeds, places, devices), what he predicted and how
+     it scored, what he decided today and why, what he will do next — in the Machine's own voice and type. Medium.
+157. (B) Foresight widened: more public things predicted and scored (the first train, the bins, rain at each of his places, a
+     strike day, the MOT month, the markets' open), the ledger as a card on Home with its score. Medium.
+158. (K) The Machine speaks first with relevance: one line at the right moment when something touches his day (a flood warning,
+     a strike, the MOT due), under the cadence dial; the speak-first job exists. Small.
+159. (K) Machine view on more screens: the thin-box overlay as a mode of the Lens (152) and of the house plan, with one true
+     count line. Medium.
+160. (D) THE UI REDESIGNED for the size Ghosty has now, Mind kept at the centre: three directions rendered as real screens at
+     390 and 440, his pick, then a design system and every screen rebuilt to it, area by area; less on each screen, more
+     layers; the bar, the hubs and the cards rethought for 44 screens, 135 panels and the brain's abilities — every ability
+     reachable and runnable in two taps within the new navigation, no phrase to remember (the owner withdrew the separate ability
+     pages for this, OWNER-ISSUES 130); the three directions are judged on that too. Large, the largest.
+161. (D) A Home that follows the hour: the Brief in the morning, the journey at commute time, the reading in the evening, Mind
+     always at the centre. Medium.
+162. (E) Siri hands-free asking: "Hey Siri, ask Ghosty <words>" through a Shortcut with dictation and a `?ask=` link; Ghosty
+     opens, answers aloud, no touch. Small.
+163. (E) Recent and favourite abilities on ABILITIES and in the jump bar; the deck remembers where he was. Small.
+
+164. (K, B, H) SHOW ME, BY DEFAULT, AT SCALE — what the owner means by the Machine (his words, 4 Nov: "if we're talking about
+     something he should just make it and pull it up, for example something in 3D, a song, whatever it is literally whatever it
+     is he pulls it up immediately and i see it"). Every reply that is about a thing shows the thing, unasked: a place → the map
+     or God's Eye flown there; a route → the journey drawn; numbers → a chart drawn by code; a process → a diagram; a room, a
+     shed, a part, a shape → it in 3-D on the Stage, built from parameters and the product library; a tune → the Studio plays
+     it; a picture → made and shown; a plan or a letter → the document open; a formula or a physics question → the simulation
+     running. One mechanism: the brain emits a "show" with the best renderer, the phone pulls it up on the Stage (the surface at
+     the centre with Mind: the redesign must make room for it) or inline as a card, and words follow the picture, never the other
+     way round. Honest walls, said on screen: an arbitrary object from words alone in 3-D (no free text-to-3D on a phone: it
+     composes from parameters and the library, and says so); a song with sung vocals (the Studio makes the tune and the beat).
+     Large, the heart of the Machine.
+165. (K) PHONE IN HAND, MACHINE ON THE WALL: talking on the phone while the TV (TV MODE exists) shows what he is talking about —
+     the map, the plan, the car, the chart, the tune's waveform — the two as one session over the brain, the wall following the
+     conversation with no touch. Medium, after 164.
+
+166. (C, H) WALK ME THROUGH IT (offered 4 Nov, not yet picked): the Lens watches while he does a job — a wiper blade, a fuse, a
+     flat-pack — and Ghosty says the next step when the last is done; hands free; first estimates only, safety said. Medium.
+167. (B, K) WHAT CHANGED SINCE YESTERDAY (offered 4 Nov, not yet picked): the Machine's daily delta of his world — prices, feeds,
+     his places, his devices — in one card, built on the Digest. Small.
+168. (J, G) REHEARSE (offered 4 Nov, not yet picked): Ghosty plays the other side of an interview, a call or an exam, then scores
+     him; built on the school's marking. Medium.
+
 ## The walls (honest)
 
 - iOS Safari and the installed web app: no wake word in the background, no HealthKit, no true haptics, no background audio

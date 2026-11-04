@@ -2,8 +2,8 @@
 
 The owner, 2 Nov 13:35 UK: "our library should act as just that, a library, i insert books but he can't even read them to
 me and i can't pull up the library and read them myself which is semi disappointing". Decided: a real reader screen and a
-real LISTEN, under the talking rules of BRIEF-TALK-1A. Order after Friday 7 Nov's reset: this first, then
-BRIEF-ABILITY-PAGES (the owner may swap them). Nothing of this starts before the reset (the week ran out at 94% on 2 Nov).
+real LISTEN, under the talking rules of BRIEF-TALK-1A. Order after Friday 7 Nov's reset: this first (STATUS section 4
+item 1; the ability pages that were to follow it were withdrawn by the owner on 4 Nov, OWNER-ISSUES 130). Nothing of this starts before the reset (the week ran out at 94% on 2 Nov).
 
 Read first: STANDARD.md, STARS.md, PLAN-STARS.md, BRIEF-TALK-1A.md (interruption, "go on", the two voices), OWNER-ISSUES
 122, 123 and 125, HANDOFF, MAP.md. Start from the tip of `claude/ghosty-ai-training-idwhp9` (`git log -1` first).

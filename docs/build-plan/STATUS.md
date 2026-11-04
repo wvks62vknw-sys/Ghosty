@@ -2,7 +2,11 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #55, the last at 13:26 UK on 2 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #56, the last at 15:40 UK on 2 Nov)
+
+- LIVE since 15:40 UK on 2 Nov (PR #56, green on every job): THE LIBRARY OPENS LONG BOOKS AGAIN (OWNER-ISSUES 126, your "too many SQL
+  variables"): a book of any length opens passage by passage with MORE to the end, and the copy on your phone reads whole; the test
+  database now holds the same limit as the real one, so this cannot come back.
 
 - LIVE since 13:26 UK on 2 Nov (PR #55, green on every job): NOTICES IN TURN (OWNER-ISSUES 123, with your two-minute phone check): a notice
   is read only in a quiet moment, after the greeting, one after another, never over him or over you; a reply you ask for cuts one and it
@@ -185,9 +189,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #56 (2 Nov, afternoon): the library's "too many SQL variables" fixed at cause (OWNER-ISSUES 126): a book longer than a few pages
-  could not be opened; every id list now goes to the database in chunks the Durable Object accepts, and the test storage holds the same
-  limit so it cannot come back.
+- PR #56 merged at 15:40 UK on 2 Nov (main 250f0e1), its own run and main's run after the merge both green on every job (OWNER-ISSUES 126).
 - PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
   greeting, over each other and over him — is fixed: a notice waits for a quiet moment, several are read one after another, a reply
@@ -216,35 +218,46 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-- FIRST AFTER FRIDAY'S RESET: THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): a reader screen with your place
-  kept, chapters and search, and LISTEN under the talking rules; "read me <book>" by words. Then: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
-  page to tap, each a full card in its area's hub like every screen has (his words: like how it already is); one generator
-  from the tools' own definitions. Not
-  started this week: the credits do not cover it.
+THE ONE ORDER (the owner, 4 Nov: "put all the things in the necessary orders and make sure he remembers EVERYTHING"). This list is
+the queue; HANDOFF's START HERE and the new-chat message point here; where anything else disagrees, this wins. Sizes are a
+builder's hours plus one checks run each; the week's credits, not the hours, are the limit (last week's went in about sixty hours
+of building). The plan ends on 14 Nov: the queue runs as far as the credits reach, in this order, and continues after the 14th
+only if the plan continues.
 
-The order you agreed at 02:10 UK on 1 Nov (the whole thing in ROADMAP.md; your words in OWNER-ISSUES 91 and 92):
-① the everything-tab · ② sideways (everything lands in the chat as live cards; he brings things up himself; Home as your
-wall) · ③ games (free classics running as they are, faithful remakes with our own look, the GYM with no ceiling) · ④ the
-packs (money, body, kitchen, people, work, creative, out and about, home admin) · ⑤ the car in 3-D and show-me-don't-
-tell-me · ⑥ the offline brain runs, then smarter every week, used by default · ⑦ the social self and the rituals (your
-four picks, settled) · ⑧ the rest. WHAT I NEED FROM YOU: the 0.5B SIT test result (the words under WHICH BRAIN if it closes), and the PS5 test (a
-message to yourself with Ghosty's address, opened from Game Base: does Ghosty open?). All four picks are settled (OWNER-
-ISSUES 93, 94): no fixed name, he may speak first, Bluesky with approval and reading, no weekly letter. Games: ten made by
-us at a high bar plus a library of a few hundred real free games (94). "The rest is cool": the order stands. TARGET: everything merged by Thursday 5 Nov, 22:00 UK (OWNER-ISSUES 98). HELD for his opinion: the twelve themes and the Cinematic touch-up.
+1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, his place kept, LISTEN under the talking rules.
+   4–6 h. On the same day, in parallel and cheap: THREE DIRECTIONS FOR THE REDESIGN (STARS 160) rendered as real screens at 390
+   and 440, with the Stage for show-me (164) beside Mind in each, for his pick, so the pick is in before item 3 starts.
+2. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): he knows what you are
+   looking at, the Lens just knows what it sees, he knows your voice and the people you introduced. 2–3 days, two or three PRs.
+3. THE UI REDESIGNED (STARS 160–161; PLAN-STARS Pass 3 moved up): the design system for the size Ghosty has now, Mind at the
+   centre with the Stage beside it, every screen rebuilt to it area by area, after his pick. 3–4 days.
+4. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164) — every reply about a thing shows the thing, unasked, on
+   the Stage or inline — then PHONE IN HAND, MACHINE ON THE WALL (165). 2–3 days.
+5. THE THEMES (BRIEF-THEMES), inside the new design. An afternoon. (The ability pages of 124 were withdrawn by the owner on 4 Nov,
+   OWNER-ISSUES 130: the redesign makes every ability findable instead.)
+6. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
+   project and the permissions screen from IDEAS-ROUND-1). 1–2 days.
+7. THE REST OF THE DEPTH PLAN: STARS 1–150, 156–159 (the Machine's supporting pieces), 162–163 and 166–168 (offered, not yet
+   picked: he may strike them), through PLAN-STARS's passes 4–11, with IDEAS-ROUND-1's remaining items folded in (Lens → act in
+   Pass 4; the simulation lab in Pass 5; the report mode and Memory 2.0 in Pass 6; the wardrobe test on the house, the car and
+   the shed in Pass 7; workflows by words in Pass 8), and the older open items below where they belong. About 120–160 h.
+8. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,
+   spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most.
 
-The order for your list 55–82 (PLAN.md; OWNER-ISSUES 80–82): ① dependability (live) → ② the conversation and the soul (live) →
-③ one shared mind and his own brain (live) → ④ the ABILITIES tab (live) → ⑤ the eyes and the guardian (live) → the Machine view and
-foresight (live) → the workbench and knowledge (building now) → the social self and rituals. The older list below still stands after those.
+OLDER ORDERS, ALL LIVE OR FOLDED IN (kept so nothing is lost): the 1 Nov order ① the everything tab · ② sideways · ③ games · ④ the
+packs · ⑤ the car in 3-D · ⑥ the offline brain · ⑦ the social self · ⑧ the rest — all live by PR #51 (STATUS section 1), their
+depth now in item 7. The list 55–82 order (dependability, the conversation and the soul, one shared mind, ABILITIES, the eyes and
+the guardian, the Machine view and foresight, the workbench and knowledge, the social self) — all live. The 4 Nov brainstorm —
+triaged in IDEAS-ROUND-1, its adopted ten placed in items 2, 6 and 7; the editors in item 8.
 
-1. Upgrade passes still to run: Agenda and System (every other tab's pass is merged; both got their sections from the navigation build, so their passes start from the new shape when the allowance resets).
-2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
-3. UK threats near home: done in batch 5 (THREATS → NEAR HOME: flood and weather warnings, the month's street crime).
-4. ASK gets PICK PHOTO (ask about a picture with no camera); the red primary buttons (a design call for you); READ's picked photo shown whole.
-5. The retrain right after a base switch should replay every week (one line); the two "Reading" rows and the LOOPS card's day point.
-6. Week-3 items that need the real 18 Pro Max: 120 Hz motion, the GYM's training on WebGPU, larger vision and depth models, the offline brain's speed and memory settled on the device.
-7. Offline maps for your area, offline Wikipedia, offline "eyes".
-8. The self-edit trial (Ghosty builds a small batch of himself; the GitHub token is set).
-9. Polish and final reviews of every screen, flow, message and default; the final merge with a margin before 14 November.
+OLDER OPEN ITEMS, KEPT, EACH IN ITS PASS: the Agenda and System upgrade passes (Pass 10); the five worst speed offenders once the
+SPEED card has a day of real numbers (Pass 2, the performance project); ASK's PICK PHOTO and READ's picked photo shown whole (Pass
+4); the red primary buttons (the redesign, item 3); the retrain replay after a base switch and the LOOPS card's day point (Pass 9);
+the week-3 items that need the real phone — 120 Hz motion, the GYM's training on WebGPU, larger vision and depth models, the
+offline brain's speed and memory on the device (Pass 2 and Pass 4, measured on his phone); offline maps for his area and offline
+"eyes" (Pass 4; offline Wikipedia is live); the self-edit trial (Pass 9); the final polish of every screen, flow, message and
+default (Pass 10 and Pass 11). STILL HIS: the 0.5B SIT test result; the PS5 test; the two free AI keys; the theme strikes; the
+redesign pick from the three directions; whether the plan continues after the 14th.
 
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 

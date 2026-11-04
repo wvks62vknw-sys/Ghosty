@@ -8,7 +8,7 @@ slop job or a quick job."
 Every brief from here points at this file first. A feature is not done because it exists, passes its spec and is in
 the catalogue. It is done when it meets every line below on HIS iPHONE, and he has tried it and said so.
 
-## The ten tests
+## The eleven tests
 
 1. THE FIVE SECONDS. A stranger handed the phone understands what this screen is for and what to do first within five
    seconds, with no words from anyone. If it needs explaining, it is not finished.
@@ -34,10 +34,16 @@ the catalogue. It is done when it meets every line below on HIS iPHONE, and he h
    hub until it is the real thing. No pretending.
 10. PROVEN, NOT PRESENT. The spec checks the detail, not the presence: the words on the empty state, the two-second
     budget, the cancel, the state after an error, the 44 pt, the names for VoiceOver, both widths, both browsers.
+11. THE WARDROBE TEST (the owner, 4 Nov: "if you place a wardrobe, you should be able to open the drawers, change the
+    handles, change the wood, change the dimensions, move shelves, see the internal structure, inspect the back, measure the
+    components, place a television next to it, see how it looks in an actual room, export the design"). On anything he can
+    see, everything he would reasonably expect to open, change, measure, combine or export does, and the change flows to
+    everything that depends on it. A feature is not finished because its main button works; it is finished when the whole
+    experience feels deliberately engineered. Where the depth is not there yet, test nine applies: say so, IN THE WORKS.
 
 ## What a builder delivers against it
 
-- A MEASURE first: the feature as it is, against the ten tests, with screenshots at both widths; the list of what fails.
+- A MEASURE first: the feature as it is, against the eleven tests, with screenshots at both widths; the list of what fails.
 - The fixes, by test, each with its rule written where it lives and a check that catches the next instance.
 - A before/after: the same screenshots, the same measurements (first words in ms, taps to reach, states covered).
 - The owner's five-minute phone check: exact taps, what he should see, what to say if he does not.

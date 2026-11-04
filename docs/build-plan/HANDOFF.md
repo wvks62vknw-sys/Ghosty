@@ -4,6 +4,75 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+## START HERE (written 4 Nov for the next session; everything below is history and detail)
+
+- **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (Opus for
+  design-heavy work, Sonnet for pattern work, Haiku for mechanical jobs), review, merge their branches into your session branch,
+  validate locally, push, open the pull request, and MERGE IT YOURSELF when every check is green (the owner, standing: "everytime
+  you think the pull request should be merged on github etc just merge it dont wait for me to do it"). Then read main's push run.
+- **The bar.** docs/build-plan/STANDARD.md. No new features beyond the queue; one thing perfected at a time; every change proven by
+  a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
+  into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
+- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised the same night, OWNER-ISSUES 129): the library reader;
+  AWARENESS (STARS 153 with one Lens 151–152 and his voice 154–155); THE UI REDESIGN (160–161: three directions rendered on day one
+  for his pick, built after it, with the Stage for show-me at the centre with Mind, and every ability findable in two taps within
+  it — the separate ability pages were withdrawn by him, OWNER-ISSUES 130); THE MACHINE AS HE MEANS IT — SHOW ME, BY DEFAULT, AT
+  SCALE (164) then the wall (165); the themes inside the new design; reliability and health (Pass 2 with IDEAS-ROUND-1's items);
+  the rest of STARS (156–159 among them) through PLAN-STARS's passes; then PROGRAMME-EDITORS.
+  STATUS section 4 is the one order and wins over everything else, this block included. Defaults if he says nothing: the briefs
+  as written, all ten themes, Paper not; the redesign waits for his pick from the three directions.
+- **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
+  be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
+  never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits
+  batched, logs read by a cheap worker); builders on the cheapest model that gives the same result, the costly one only for
+  design-heavy work; one builder at a time unless the areas share no files; tight briefs with MAP.md; locally only the touched
+  specs plus the touched package's typecheck and unit tests before a push (CI's full checks are free, let them run); never the
+  timing specs (talk, voice) alongside other browser specs; never a rework (read the brief line by line before the builder starts
+  and check its report against it before merging); batch pushes; cut each day's plan to what the remaining usage fits, highest
+  value first, and write the usage percentage he reports into this file. Wise never means cheaper quality. EFFORT (his words in
+  128): your own effort stays as he set it; every worker you launch gets its effort per task — max for design-heavy builds, hard
+  bugs and reviews; medium for pattern work from a tight brief; low for mechanical jobs — and a kind of task whose lower-effort
+  result needed redoing goes back to max.
+- **More than the 150 (OWNER-ISSUES 128).** Any idea beyond STARS that would make Ghosty better is written into STARS as a numbered
+  gap the moment it is thought of (its group letter, one line, a size) and given a place in the queue; built in order, never
+  dropped, never started out of turn; STATUS shows the list growing. "Perfect in every single way" means every gap closed to the
+  bar, pass by pass, with his phone check on each.
+- **The boundary (never crossed).** Only the owner's own data and public sources; no prediction about any person; no private
+  person searched or profiled; faces only the owner and people he introduces, on the phone; nothing that can bill (no SMS, paid
+  APIs or new keys unless he adds them); the brain never gets live GPS (saved places only); every engineering, car or build number
+  a FIRST ESTIMATE, never certified; social posting only with his APPROVE every time; downloads only on his tap on Wi-Fi with the
+  size said; keys in the vault only; number plates never in docs or code; kept-on-phone paths fail closed.
+- **Hard rules of the repo.** Never raise the prompt guard (5,500; the worst dial, telegramVoice, is exactly 5,500: any addition
+  trims exactly and lists the trims). Never skip or weaken a test; a rule the owner changes is restated with a dated comment. Never
+  touch the CI guard job (its two findings are his decision: OWNER-ISSUES 123). Never a model name in code, comments, tests, docs,
+  PR titles or bodies (the Co-Authored-By footer is the only exception). Every spec tolerates a used brain (the shards share one
+  brain in order). The catalogue test holds every registry to the catalogue both ways: a new screen, card or page needs its entry.
+- **Mechanics that bit us.** A builder's worktree may be created from main: every brief says `git log -1` and reset to the branch
+  tip first; builders symlink the three node_modules. Local validation runs as `setsid nohup` chains in the scratchpad (an
+  interrupted turn must not kill them); kill with anchored patterns, never a bare `pkill -f name`. The preview brain is
+  `node tests/preview-server.mjs <port>` over `apps/edge/test/.build/brain.mjs` (built by `npm test` in apps/edge); specs take
+  `BASE=http://localhost:<port>`. CI: `.github/workflows/check.yml`, four smoke shards round-robin over the `all=` list; a new spec
+  joins the list. A push to the branch while its PR's checks run cancels them. GitHub tools reconnect often: load schemas again.
+- **Nothing is dropped.** His lists are the work: OWNER-ISSUES (his words, by number), STARS (150 gaps), IDEAS-ROUND-1 and its
+  verbatim source IDEAS-ROUND-1-SOURCE.md, PROGRAMME-EDITORS, the briefs. Every item in them is in one of three states at all
+  times: built (named in STATUS section 1 with its PR), scheduled (in STATUS section 4 with its place in the queue), or refused
+  with a reason he has read (IDEAS-ROUND-1 or OWNER-ISSUES). Before a pass is called finished, re-read its brief line by line and
+  tick each line against the code and the spec; a line not done is said in the PR, never left silent. When he gives an instruction
+  that changes a rule or an order, write it into OWNER-ISSUES in his words the same hour. "Depth" means the wardrobe test
+  (STANDARD, test eleven): on anything he can see, everything he would expect to open, change, measure or export does.
+- **Do not forget (open as of 4 Nov, late).** STATUS section 4 is THE ONE ORDER; where any file or message disagrees, it wins. His
+  phone checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what he reports first. The two free AI keys
+  (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead: the reader (125) replaces it. The ten-theme
+  entries are in BRIEF-THEMES.md, exactly as rendered. Day one also renders THREE REDESIGN DIRECTIONS (STARS 160, the Stage of 164
+  beside Mind in each) for his pick. Voices and faces: only his own and the people he introduces, on the phone, never a stranger
+  identified (154–155). The guard job's two findings (123) are his decision, untouched. The talk spec's budgets are timing: run it
+  alone. STARS 166–168 are offered ideas he has not picked: ask once, build only if he says. The editors (item 8) begin only when
+  the queue above them is through, and only if his plan continues past 14 Nov. Still his: the redesign pick; the plan after the
+  14th; the theme strikes; the 0.5B SIT and PS5 tests.
+- **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
+  questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 4 Nov: two free
+  AI keys in System → Keys; any theme to strike; corrections to the two briefs; whether the plan continues after the 14th.
+
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
   checkout fast-forwarded to 6d90d98. No PR is open yet: it is opened with the first code chunk after the owner's yes.
@@ -1281,18 +1350,45 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 4 Nov, last word of the day: the owner set Friday's order — everything already discussed first (the reader, the ability pages [withdrawn later
+  that night, OWNER-ISSUES 130], the themes), then IDEAS-ROUND-1 in its order, then the editors. STATUS section 4 holds the queue with sizes; the editors fall after the
+  14th unless the plan continues. Defaults if he says nothing more: the briefs as written, all ten themes built, Paper not.
+- 4 Nov, later still: the owner withdrew the ability pages (his words in OWNER-ISSUES 130: "get rid of the abilities page for every
+  ability because the way i wanna redesign it you'll be able to navigate and find everything"). 124 and BRIEF-ABILITY-PAGES are not
+  to be built; STARS 160 (the redesign) carries the requirement instead — every ability reachable and runnable in two taps within the
+  new navigation, the three directions judged on it — and STATUS section 4's item 5 is the themes alone. Commits 655a5dd and this one
+  carry it; PR #57 picks them up.
+- 4 Nov, 02:43 UTC, CI: all four smoke shards of PR #57's run died at the browser install — GitHub's ubuntu-latest image became Ubuntu
+  26.04 overnight and Playwright 1.56.0 refuses it ("Playwright does not support chromium on ubuntu26.04-x64"), before any spec ran;
+  brain, interface and deploy-build passed on the new image. Not this PR's (docs only); main's next run would fail the same way. Fix in
+  check.yml: the smoke job pinned to ubuntu-24.04 with a dated comment; nothing else in the workflow touched (the guard job included).
+  If a later Playwright supports 26.04 the pin can go, in its own PR, with the timing specs re-measured.
+- 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
+  workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
+  plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.
+- 4 Nov, evening UK: the owner brought back a long brainstorm from another assistant; triaged in IDEAS-ROUND-1.md (already built /
+  adopt in order with sizes / refuse with reasons). Also sent him the full catalogue as GHOSTY-EVERYTHING.md (592 entries, generated
+  from packages/shared/src/catalogue by a one-off script in the scratchpad) and a contact sheet of twelve themes rendered on the real
+  app (ten from a local patch, kept in the scratchpad as ten-themes.patch; not committed). Credits: the week was at 94% on 2 Nov;
+  nothing builds before Friday 7 Nov's reset; first builds after it: the library reader (125), the ability pages (124; withdrawn by him later on 4 Nov, 130), the themes he
+  picks, then IDEAS-ROUND-1 in his order.
+- 2 Nov 15:40 UK: PR #56 MERGED (main 250f0e1), green on every job at the first run. Main's push run for 250f0e1 (run 306) green,
+  15:39 → 16:32 UK. The owner then said "he still can't read it to me": reading a book aloud was never built (the brief, 125, has it);
+  a small interim LISTEN in the book pop-up (the loaded pages read in his voice, stop by tap or talking over him, no place kept, ~1% of
+  the week) was offered at 17:00 UK and waits on his yes; nothing is built without it.
+  Nothing else starts before Friday's reset; the owner's phone check for 126 is in OWNER-ISSUES.
 - 2 Nov 14:05–14:50 UK: THE LIBRARY'S "too many SQL variables" (OWNER-ISSUES 126): `store.ts passagesOf` bound a page's 300 rowids into
   one IN list; the Durable Object's SQLite allows 100 a statement (the offset in his error is the 101st). Fixed at cause: `chunks`/`marks`
   helpers, BIND_CHUNK 90, used by passagesOf, dropRows (was 200), the meaning re-rank and sectionText; `tests/sqlite-storage.mjs` now
   throws past 100 bindings with the engine's words (so the preview and every unit test hold the real limit); a 350-passage test that
   fails on the old bundle. PR #56. LESSON: a stand-in that is more permissive than the real engine hides exactly this; hold the real limits in it.
 - 2 Nov 13:35–13:50 UK: the owner: the library must act as a library (read a book himself; Ghosty reads it to him) — OWNER-ISSUES 125,
-  BRIEF-LIBRARY-READER.md written; first build after Friday's reset, before the ability pages unless he swaps them. What exists today:
+  BRIEF-LIBRARY-READER.md written; first build after Friday's reset (the ability pages that were to follow it were withdrawn by him later on 4 Nov, 130). What exists today:
   the Shelf's `openDoc` modal, passage by passage with MORE, no place, no LISTEN; the wiki reader's whole-article `speak` is the pattern.
 - 2 Nov 13:26 UK: PR #55 MERGED (main b6a1782), green on every job at the first run (shard 1 with the talk spec's part 7: 41 min).
   Main's push run for b6a1782 (run 304) green, 13:25 → 14:24 UK: brain, interface, deploy-build, four shards; the guard skipped.
 - 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
-  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md), builder NOT started: a four-to-six-hour
+  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md; WITHDRAWN by him later on 4 Nov, OWNER-ISSUES 130: the redesign covers finding everything), builder NOT started: a four-to-six-hour
   build plus checks costs more than the 6% left. It is the first build after the reset. Committed locally behind PR #55 and pushed
   only once #55 has merged (a push while #55's checks ran would have cancelled them under the workflow's concurrency rule).
 - 2 Nov 11:27–13:00 UK: MAIN RED AFTER PR #54 (run 302, 10:26 → 11:25, 8825d5a): shard 1's talk spec failed twice (the same tree had
