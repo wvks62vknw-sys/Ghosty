@@ -218,6 +218,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
+- THE FULL EDITORS, his decision of 4 Nov (OWNER-ISSUES 127; PROGRAMME-EDITORS.md): eight real workspaces on proper engines, two a week
+  at most; his order awaited; recommended: the 3-D engine and library first.
 - The owner's ChatGPT brainstorm of 4 Nov, triaged in IDEAS-ROUND-1.md: ten ideas adopted in order (measured health on every
   ability first, then verification on actions, context awareness, Lens → understand → act, workflows by words, a research report
   mode, a simulation lab, Memory 2.0, performance, permissions), the rest refused with reasons; his order and his push-back awaited.
