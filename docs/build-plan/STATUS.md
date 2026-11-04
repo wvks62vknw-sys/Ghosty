@@ -228,14 +228,14 @@ building). The plan ends on 14 Nov: the queue runs as far as the credits reach, 
 2. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): he knows what you are
    looking at, the Lens just knows what it sees, he knows your voice and who else he knows. 2–3 days, in two or three PRs.
 3. THE UI REDESIGNED (STARS 160–161; PLAN-STARS Pass 3 moved up): the design system for the size Ghosty has now, Mind at the
-   centre, every screen rebuilt to it area by area, after his pick. 3–4 days.
-4. THE THEMES (BRIEF-THEMES) and EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES), inside the new design so neither is done twice.
+   centre WITH THE STAGE for show-me (164) beside it, every screen rebuilt to it area by area, after his pick. 3–4 days.
+4. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164) — every reply about a thing shows the thing, unasked, on
+   the Stage or inline — then PHONE IN HAND, MACHINE ON THE WALL (165). 2–3 days.
+5. THE THEMES (BRIEF-THEMES) and EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES), inside the new design so neither is done twice.
    An afternoon and 4–6 h.
-5. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
+6. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
    project and the permissions screen from IDEAS-ROUND-1). 1–2 days.
-6. THE MACHINE, DEEPER (STARS 156–159): the Machine screen, foresight widened, speaking first with relevance, the Machine view on
-   more screens. 1–2 days.
-7. THE REST OF THE DEPTH PLAN (STARS 1–150 and 162–163 through PLAN-STARS's passes 4–11, with IDEAS-ROUND-1's remaining items
+7. THE REST OF THE DEPTH PLAN (STARS 1–150, 156–159 the Machine's supporting pieces, 162–163, through PLAN-STARS's passes 4–11, with IDEAS-ROUND-1's remaining items
    folded in: Lens → act in Pass 4, the simulation lab in Pass 5, the report mode and Memory 2.0 in Pass 6, the wardrobe test on
    the house, the car and the shed in Pass 7, workflows by words in Pass 8). About 120–160 h.
 5. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,

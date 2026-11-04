@@ -225,6 +225,21 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
      opens, answers aloud, no touch. Small.
 163. (E) Recent and favourite abilities on ABILITIES and in the jump bar; the deck remembers where he was. Small.
 
+164. (K, B, H) SHOW ME, BY DEFAULT, AT SCALE — what the owner means by the Machine (his words, 4 Nov: "if we're talking about
+     something he should just make it and pull it up, for example something in 3D, a song, whatever it is literally whatever it
+     is he pulls it up immediately and i see it"). Every reply that is about a thing shows the thing, unasked: a place → the map
+     or God's Eye flown there; a route → the journey drawn; numbers → a chart drawn by code; a process → a diagram; a room, a
+     shed, a part, a shape → it in 3-D on the Stage, built from parameters and the product library; a tune → the Studio plays
+     it; a picture → made and shown; a plan or a letter → the document open; a formula or a physics question → the simulation
+     running. One mechanism: the brain emits a "show" with the best renderer, the phone pulls it up on the Stage (the surface at
+     the centre with Mind: the redesign must make room for it) or inline as a card, and words follow the picture, never the other
+     way round. Honest walls, said on screen: an arbitrary object from words alone in 3-D (no free text-to-3D on a phone: it
+     composes from parameters and the library, and says so); a song with sung vocals (the Studio makes the tune and the beat).
+     Large, the heart of the Machine.
+165. (K) PHONE IN HAND, MACHINE ON THE WALL: talking on the phone while the TV (TV MODE exists) shows what he is talking about —
+     the map, the plan, the car, the chart, the tune's waveform — the two as one session over the brain, the wall following the
+     conversation with no touch. Medium, after 164.
+
 ## The walls (honest)
 
 - iOS Safari and the installed web app: no wake word in the background, no HealthKit, no true haptics, no background audio

@@ -15,8 +15,9 @@ folder that no longer exists; ignore those paths).
   into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
 - **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised the same night, OWNER-ISSUES 129): the library reader;
   AWARENESS (STARS 153 with one Lens 151–152 and his voice 154–155); THE UI REDESIGN (160–161: three directions rendered on day one
-  for his pick, built after it); the themes and the ability pages inside the new design; reliability and health (Pass 2 with
-  IDEAS-ROUND-1's items); THE MACHINE DEEPER (156–159); the rest of STARS through PLAN-STARS's passes; then PROGRAMME-EDITORS.
+  for his pick, built after it, with the Stage for show-me at the centre with Mind); THE MACHINE AS HE MEANS IT — SHOW ME, BY
+  DEFAULT, AT SCALE (164) then the wall (165); the themes and the ability pages inside the new design; reliability and health
+  (Pass 2 with IDEAS-ROUND-1's items); the rest of STARS (156–159 among them) through PLAN-STARS's passes; then PROGRAMME-EDITORS.
   Defaults if he says nothing: the briefs as written, all ten themes, Paper not, the redesign direction he picks from the three.
 - **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
   be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
