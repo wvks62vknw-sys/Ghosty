@@ -1,3 +1,5 @@
+> WITHDRAWN by the owner on 4 Nov (OWNER-ISSUES 130): "get rid of the abilities page for every ability because the way i wanna redesign it you'll be able to navigate and find everything". Not to be built. The redesign (STARS 160) carries the requirement that every ability is reachable and runnable in two taps within the new navigation. Kept for reference only.
+
 # BRIEF: EVERY ABILITY A PAGE — the 147 brain tools, each with a place to tap, split across the six areas
 
 The owner, 2 Nov (after EVERY FEATURE A TAB landed, PR #53): "i want tabs for these 147 abilities too like they should

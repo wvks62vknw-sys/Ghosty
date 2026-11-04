@@ -218,7 +218,9 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
      count line. Medium.
 160. (D) THE UI REDESIGNED for the size Ghosty has now, Mind kept at the centre: three directions rendered as real screens at
      390 and 440, his pick, then a design system and every screen rebuilt to it, area by area; less on each screen, more
-     layers; the bar, the hubs and the cards rethought for 44 screens, 135 panels and the ability pages. Large, the largest.
+     layers; the bar, the hubs and the cards rethought for 44 screens, 135 panels and the brain's abilities — every ability
+     reachable and runnable in two taps within the new navigation, no phrase to remember (the owner withdrew the separate ability
+     pages for this, OWNER-ISSUES 130); the three directions are judged on that too. Large, the largest.
 161. (D) A Home that follows the hour: the Brief in the morning, the journey at commute time, the reading in the evening, Mind
      always at the centre. Medium.
 162. (E) Siri hands-free asking: "Hey Siri, ask Ghosty <words>" through a Shortcut with dictation and a `?ask=` link; Ghosty

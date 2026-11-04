@@ -233,8 +233,8 @@ only if the plan continues.
    centre with the Stage beside it, every screen rebuilt to it area by area, after his pick. 3–4 days.
 4. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164) — every reply about a thing shows the thing, unasked, on
    the Stage or inline — then PHONE IN HAND, MACHINE ON THE WALL (165). 2–3 days.
-5. THE THEMES (BRIEF-THEMES) and EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES), inside the new design so neither is done twice.
-   An afternoon and 4–6 h.
+5. THE THEMES (BRIEF-THEMES), inside the new design. An afternoon. (The ability pages of 124 were withdrawn by the owner on 4 Nov,
+   OWNER-ISSUES 130: the redesign makes every ability findable instead.)
 6. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
    project and the permissions screen from IDEAS-ROUND-1). 1–2 days.
 7. THE REST OF THE DEPTH PLAN: STARS 1–150, 156–159 (the Machine's supporting pieces), 162–163 and 166–168 (offered, not yet
