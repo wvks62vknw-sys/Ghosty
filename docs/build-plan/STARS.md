@@ -193,7 +193,7 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
 149. Approval for anything outward (exists) with a preview that looks like the real post.
 150. A plain page on what he never does, kept true by tests.
 
-## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look
+## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look (151–165), and three offered, not yet picked (166–168)
 
 151. (C) ONE LENS, no modes to pick: point it and he tags what he sees — text, a sign in another language, a plant, a barcode, a
      part, a bolt, a face he knows — and offers the act (read, translate, add to the agenda, name it, measure, find the part);
@@ -239,6 +239,13 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
 165. (K) PHONE IN HAND, MACHINE ON THE WALL: talking on the phone while the TV (TV MODE exists) shows what he is talking about —
      the map, the plan, the car, the chart, the tune's waveform — the two as one session over the brain, the wall following the
      conversation with no touch. Medium, after 164.
+
+166. (C, H) WALK ME THROUGH IT (offered 4 Nov, not yet picked): the Lens watches while he does a job — a wiper blade, a fuse, a
+     flat-pack — and Ghosty says the next step when the last is done; hands free; first estimates only, safety said. Medium.
+167. (B, K) WHAT CHANGED SINCE YESTERDAY (offered 4 Nov, not yet picked): the Machine's daily delta of his world — prices, feeds,
+     his places, his devices — in one card, built on the Digest. Small.
+168. (J, G) REHEARSE (offered 4 Nov, not yet picked): Ghosty plays the other side of an interview, a call or an exam, then scores
+     him; built on the school's marking. Medium.
 
 ## The walls (honest)
 

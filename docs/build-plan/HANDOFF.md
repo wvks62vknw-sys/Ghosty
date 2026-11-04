@@ -18,7 +18,8 @@ folder that no longer exists; ignore those paths).
   for his pick, built after it, with the Stage for show-me at the centre with Mind); THE MACHINE AS HE MEANS IT — SHOW ME, BY
   DEFAULT, AT SCALE (164) then the wall (165); the themes and the ability pages inside the new design; reliability and health
   (Pass 2 with IDEAS-ROUND-1's items); the rest of STARS (156–159 among them) through PLAN-STARS's passes; then PROGRAMME-EDITORS.
-  Defaults if he says nothing: the briefs as written, all ten themes, Paper not, the redesign direction he picks from the three.
+  STATUS section 4 is the one order and wins over everything else, this block included. Defaults if he says nothing: the briefs
+  as written, all ten themes, Paper not; the redesign waits for his pick from the three directions.
 - **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
   be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
   never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits
@@ -58,11 +59,15 @@ folder that no longer exists; ignore those paths).
   tick each line against the code and the spec; a line not done is said in the PR, never left silent. When he gives an instruction
   that changes a rule or an order, write it into OWNER-ISSUES in his words the same hour. "Depth" means the wardrobe test
   (STANDARD, test eleven): on anything he can see, everything he would expect to open, change, measure or export does.
-- **Do not forget (open as of 4 Nov).** His phone checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what
-  he reports first. The two free AI keys (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead: the reader
-  (125) replaces it. The ten-theme entries are in BRIEF-THEMES.md, exactly as rendered. The guard job's two findings (123) are his
-  decision, untouched. The talk spec's budgets are timing: run it alone. The editors begin only when the queue above them is
-  through, and only if his plan continues past 14 Nov.
+- **Do not forget (open as of 4 Nov, late).** STATUS section 4 is THE ONE ORDER; where any file or message disagrees, it wins. His
+  phone checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what he reports first. The two free AI keys
+  (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead: the reader (125) replaces it. The ten-theme
+  entries are in BRIEF-THEMES.md, exactly as rendered. Day one also renders THREE REDESIGN DIRECTIONS (STARS 160, the Stage of 164
+  beside Mind in each) for his pick. Voices and faces: only his own and the people he introduces, on the phone, never a stranger
+  identified (154–155). The guard job's two findings (123) are his decision, untouched. The talk spec's budgets are timing: run it
+  alone. STARS 166–168 are offered ideas he has not picked: ask once, build only if he says. The editors (item 8) begin only when
+  the queue above them is through, and only if his plan continues past 14 Nov. Still his: the redesign pick; the plan after the
+  14th; the theme strikes; the 0.5B SIT and PS5 tests.
 - **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
   questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 4 Nov: two free
   AI keys in System → Keys; any theme to strike; corrections to the two briefs; whether the plan continues after the 14th.
