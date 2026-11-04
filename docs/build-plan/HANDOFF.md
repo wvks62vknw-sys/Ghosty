@@ -25,7 +25,10 @@ folder that no longer exists; ignore those paths).
   specs plus the touched package's typecheck and unit tests before a push (CI's full checks are free, let them run); never the
   timing specs (talk, voice) alongside other browser specs; never a rework (read the brief line by line before the builder starts
   and check its report against it before merging); batch pushes; cut each day's plan to what the remaining usage fits, highest
-  value first, and write the usage percentage he reports into this file. Wise never means cheaper quality.
+  value first, and write the usage percentage he reports into this file. Wise never means cheaper quality. EFFORT (his words in
+  128): your own effort stays as he set it; every worker you launch gets its effort per task — max for design-heavy builds, hard
+  bugs and reviews; medium for pattern work from a tight brief; low for mechanical jobs — and a kind of task whose lower-effort
+  result needed redoing goes back to max.
 - **More than the 150 (OWNER-ISSUES 128).** Any idea beyond STARS that would make Ghosty better is written into STARS as a numbered
   gap the moment it is thought of (its group letter, one line, a size) and given a place in the queue; built in order, never
   dropped, never started out of turn; STATUS shows the list growing. "Perfect in every single way" means every gap closed to the
