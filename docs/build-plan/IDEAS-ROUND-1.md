@@ -69,7 +69,7 @@ empty-state suggestions (largely done in TABS); adjustable font size; reduced mo
   fine and partly there. Parts data is not free; a maybe later for his own car only.
 - **CCTV, Ring and IP camera centres.** Ring has no free official API; a large build for one owner. Later, his own devices
   only, if he asks.
-- **Extension marketplace.** One owner; the ability-pages generator (BRIEF-ABILITY-PAGES) is the local version.
+- **Extension marketplace.** One owner; the ABILITIES screen, and the redesign's rule that every ability is reachable in two taps (STARS 160, OWNER-ISSUES 130), is the local version.
 - **Evolution engine / "prove better before replace" machinery.** The rule already exists: the training gate for the model,
   CI with the guard for code, the review link for self-edits. No new machinery.
 - **Historical event playback in God's Eye.** Nice; earthquakes (USGS) and weather (Open-Meteo archive) are free; satellites

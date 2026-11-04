@@ -1350,9 +1350,14 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
-- 4 Nov, last word of the day: the owner set Friday's order — everything already discussed first (the reader, the ability pages, the
-  themes), then IDEAS-ROUND-1 in its order, then the editors. STATUS section 4 holds the queue with sizes; the editors fall after the
+- 4 Nov, last word of the day: the owner set Friday's order — everything already discussed first (the reader, the ability pages [withdrawn later
+  that night, OWNER-ISSUES 130], the themes), then IDEAS-ROUND-1 in its order, then the editors. STATUS section 4 holds the queue with sizes; the editors fall after the
   14th unless the plan continues. Defaults if he says nothing more: the briefs as written, all ten themes built, Paper not.
+- 4 Nov, later still: the owner withdrew the ability pages (his words in OWNER-ISSUES 130: "get rid of the abilities page for every
+  ability because the way i wanna redesign it you'll be able to navigate and find everything"). 124 and BRIEF-ABILITY-PAGES are not
+  to be built; STARS 160 (the redesign) carries the requirement instead — every ability reachable and runnable in two taps within the
+  new navigation, the three directions judged on it — and STATUS section 4's item 5 is the themes alone. Commits 655a5dd and this one
+  carry it; PR #57 picks them up.
 - 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
   workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
   plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.
@@ -1360,7 +1365,7 @@ folder that no longer exists; ignore those paths).
   adopt in order with sizes / refuse with reasons). Also sent him the full catalogue as GHOSTY-EVERYTHING.md (592 entries, generated
   from packages/shared/src/catalogue by a one-off script in the scratchpad) and a contact sheet of twelve themes rendered on the real
   app (ten from a local patch, kept in the scratchpad as ten-themes.patch; not committed). Credits: the week was at 94% on 2 Nov;
-  nothing builds before Friday 7 Nov's reset; first builds after it: the library reader (125), the ability pages (124), the themes he
+  nothing builds before Friday 7 Nov's reset; first builds after it: the library reader (125), the ability pages (124; withdrawn by him later on 4 Nov, 130), the themes he
   picks, then IDEAS-ROUND-1 in his order.
 - 2 Nov 15:40 UK: PR #56 MERGED (main 250f0e1), green on every job at the first run. Main's push run for 250f0e1 (run 306) green,
   15:39 → 16:32 UK. The owner then said "he still can't read it to me": reading a book aloud was never built (the brief, 125, has it);
@@ -1373,12 +1378,12 @@ folder that no longer exists; ignore those paths).
   throws past 100 bindings with the engine's words (so the preview and every unit test hold the real limit); a 350-passage test that
   fails on the old bundle. PR #56. LESSON: a stand-in that is more permissive than the real engine hides exactly this; hold the real limits in it.
 - 2 Nov 13:35–13:50 UK: the owner: the library must act as a library (read a book himself; Ghosty reads it to him) — OWNER-ISSUES 125,
-  BRIEF-LIBRARY-READER.md written; first build after Friday's reset, before the ability pages unless he swaps them. What exists today:
+  BRIEF-LIBRARY-READER.md written; first build after Friday's reset (the ability pages that were to follow it were withdrawn by him later on 4 Nov, 130). What exists today:
   the Shelf's `openDoc` modal, passage by passage with MORE, no place, no LISTEN; the wiki reader's whole-article `speak` is the pattern.
 - 2 Nov 13:26 UK: PR #55 MERGED (main b6a1782), green on every job at the first run (shard 1 with the talk spec's part 7: 41 min).
   Main's push run for b6a1782 (run 304) green, 13:25 → 14:24 UK: brain, interface, deploy-build, four shards; the guard skipped.
 - 2 Nov 12:40–13:00 UK: the owner (weekly credits at 94% used, reset Friday 7 Nov) asked for a page per brain ability and chose
-  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md), builder NOT started: a four-to-six-hour
+  to split them across the six areas (OWNER-ISSUES 124). Brief written (BRIEF-ABILITY-PAGES.md; WITHDRAWN by him later on 4 Nov, OWNER-ISSUES 130: the redesign covers finding everything), builder NOT started: a four-to-six-hour
   build plus checks costs more than the 6% left. It is the first build after the reset. Committed locally behind PR #55 and pushed
   only once #55 has merged (a push while #55's checks ran would have cancelled them under the workflow's concurrency rule).
 - 2 Nov 11:27–13:00 UK: MAIN RED AFTER PR #54 (run 302, 10:26 → 11:25, 8825d5a): shard 1's talk spec failed twice (the same tree had
