@@ -36,6 +36,18 @@ folder that no longer exists; ignore those paths).
   `node tests/preview-server.mjs <port>` over `apps/edge/test/.build/brain.mjs` (built by `npm test` in apps/edge); specs take
   `BASE=http://localhost:<port>`. CI: `.github/workflows/check.yml`, four smoke shards round-robin over the `all=` list; a new spec
   joins the list. A push to the branch while its PR's checks run cancels them. GitHub tools reconnect often: load schemas again.
+- **Nothing is dropped.** His lists are the work: OWNER-ISSUES (his words, by number), STARS (150 gaps), IDEAS-ROUND-1 and its
+  verbatim source IDEAS-ROUND-1-SOURCE.md, PROGRAMME-EDITORS, the briefs. Every item in them is in one of three states at all
+  times: built (named in STATUS section 1 with its PR), scheduled (in STATUS section 4 with its place in the queue), or refused
+  with a reason he has read (IDEAS-ROUND-1 or OWNER-ISSUES). Before a pass is called finished, re-read its brief line by line and
+  tick each line against the code and the spec; a line not done is said in the PR, never left silent. When he gives an instruction
+  that changes a rule or an order, write it into OWNER-ISSUES in his words the same hour. "Depth" means the wardrobe test
+  (STANDARD, test eleven): on anything he can see, everything he would expect to open, change, measure or export does.
+- **Do not forget (open as of 4 Nov).** His phone checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what
+  he reports first. The two free AI keys (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead: the reader
+  (125) replaces it. The ten-theme entries are in BRIEF-THEMES.md, exactly as rendered. The guard job's two findings (123) are his
+  decision, untouched. The talk spec's budgets are timing: run it alone. The editors begin only when the queue above them is
+  through, and only if his plan continues past 14 Nov.
 - **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
   questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 4 Nov: two free
   AI keys in System → Keys; any theme to strike; corrections to the two briefs; whether the plan continues after the 14th.

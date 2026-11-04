@@ -224,8 +224,8 @@ about sixty hours of building). The plan ends on 14 Nov: the queue runs as far a
 
 1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, your place kept, LISTEN under the talking rules. 4–6 h.
 2. EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES): a hub card and a page per ability, like the screens have. 4–6 h.
-3. THE THEMES (the sheet of 2 Nov): the ten rendered ones built in with the contrast check and the picker; you strike any you
-   dislike on the day, or before; Paper (the daytime look) only if you ask. An afternoon.
+3. THE THEMES (BRIEF-THEMES: the ten exactly as rendered on 2 Nov, the contrast check, the picker); you strike any you dislike on
+   the day, or before; Paper (the daytime look) only if you ask. An afternoon.
 4. IDEAS-ROUND-1, in its order: measured health on every ability; verification on actions; context awareness; Lens → understand →
    act; workflows by words; the research report mode; the simulation lab; Memory 2.0; the performance project; the permissions
    screen. About 70–90 h in all.
