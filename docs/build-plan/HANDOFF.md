@@ -13,10 +13,11 @@ folder that no longer exists; ignore those paths).
 - **The bar.** docs/build-plan/STANDARD.md. No new features beyond the queue; one thing perfected at a time; every change proven by
   a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
   into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
-- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov): the library reader (BRIEF-LIBRARY-READER, OWNER-ISSUES 125),
-  the ability pages (BRIEF-ABILITY-PAGES, 124), the themes (BRIEF-THEMES), then THE DEPTH PLAN of 1–2 Nov — STARS (150 gaps) worked
-  through PLAN-STARS's passes from Pass 2 on, with IDEAS-ROUND-1's ten folded into the passes they belong to (STATUS section 4 says
-  which) — then PROGRAMME-EDITORS in its order. Defaults if he says nothing: the briefs as written, all ten themes, Paper not.
+- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised the same night, OWNER-ISSUES 129): the library reader;
+  AWARENESS (STARS 153 with one Lens 151–152 and his voice 154–155); THE UI REDESIGN (160–161: three directions rendered on day one
+  for his pick, built after it); the themes and the ability pages inside the new design; reliability and health (Pass 2 with
+  IDEAS-ROUND-1's items); THE MACHINE DEEPER (156–159); the rest of STARS through PLAN-STARS's passes; then PROGRAMME-EDITORS.
+  Defaults if he says nothing: the briefs as written, all ten themes, Paper not, the redesign direction he picks from the three.
 - **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
   be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
   never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits

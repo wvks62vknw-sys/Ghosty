@@ -193,6 +193,38 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
 149. Approval for anything outward (exists) with a preview that looks like the real post.
 150. A plain page on what he never does, kept true by tests.
 
+## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look
+
+151. (C) ONE LENS, no modes to pick: point it and he tags what he sees — text, a sign in another language, a plant, a barcode, a
+     part, a bolt, a face he knows — and offers the act (read, translate, add to the agenda, name it, measure, find the part);
+     a tap or a word does it. Faces only his own and the people he has introduced; a stranger is "someone I don't know". Large.
+152. (C) The Machine's reticle on the Lens: the tags drawn as the Machine view draws them (thin boxes, one true line each), the
+     same language as God's Eye. Medium.
+153. (E, A) AWARENESS, the context model: every screen publishes what is open and what is selected; a turn carries it in a few
+     words within the prompt guard; "add a wardrobe there", "make that wall longer", "find me a replacement", "read that one"
+     resolve on the room plan, the car, the shed, the reader and the deck. Large.
+154. (A, L) HIS VOICE KNOWN: a voiceprint of the owner kept on the phone (a small speaker model, a download on his tap, size
+     said); another voice is "a voice I don't know" or a person he has introduced and taught; guarded actions (locks, sending,
+     posting, keys) only on his voice; never used to identify a stranger; fails closed. Large.
+155. (A) Who is speaking, said: with two people in the room he addresses each by name when he knows them, and says nothing
+     private to a voice he does not know until the owner says so. Medium.
+156. (K, B) THE MACHINE, DEEPER: a Machine screen — what he is watching now (feeds, places, devices), what he predicted and how
+     it scored, what he decided today and why, what he will do next — in the Machine's own voice and type. Medium.
+157. (B) Foresight widened: more public things predicted and scored (the first train, the bins, rain at each of his places, a
+     strike day, the MOT month, the markets' open), the ledger as a card on Home with its score. Medium.
+158. (K) The Machine speaks first with relevance: one line at the right moment when something touches his day (a flood warning,
+     a strike, the MOT due), under the cadence dial; the speak-first job exists. Small.
+159. (K) Machine view on more screens: the thin-box overlay as a mode of the Lens (152) and of the house plan, with one true
+     count line. Medium.
+160. (D) THE UI REDESIGNED for the size Ghosty has now, Mind kept at the centre: three directions rendered as real screens at
+     390 and 440, his pick, then a design system and every screen rebuilt to it, area by area; less on each screen, more
+     layers; the bar, the hubs and the cards rethought for 44 screens, 135 panels and the ability pages. Large, the largest.
+161. (D) A Home that follows the hour: the Brief in the morning, the journey at commute time, the reading in the evening, Mind
+     always at the centre. Medium.
+162. (E) Siri hands-free asking: "Hey Siri, ask Ghosty <words>" through a Shortcut with dictation and a `?ask=` link; Ghosty
+     opens, answers aloud, no touch. Small.
+163. (E) Recent and favourite abilities on ABILITIES and in the jump bar; the deck remembers where he was. Small.
+
 ## The walls (honest)
 
 - iOS Safari and the installed web app: no wake word in the background, no HealthKit, no true haptics, no background audio

@@ -218,29 +218,26 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-THE QUEUE FROM FRIDAY 7 NOV (the owner, 4 Nov: "on the day let's do everything else we talked about first … then the editors").
-Sizes are a builder's hours plus one checks run each; the week's credits, not the hours, are the limit (last week's went in
-about sixty hours of building). The plan ends on 14 Nov: the queue runs as far as the credits reach, in this order.
+THE QUEUE FROM FRIDAY 7 NOV (the owner's order of 4 Nov, revised the same night with OWNER-ISSUES 129). Sizes are a builder's
+hours plus one checks run each; the week's credits, not the hours, are the limit (last week's went in about sixty hours of
+building). The plan ends on 14 Nov: the queue runs as far as the credits reach, in this order.
 
-1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, your place kept, LISTEN under the talking rules. 4–6 h.
-2. EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES): a hub card and a page per ability, like the screens have. 4–6 h.
-3. THE THEMES (BRIEF-THEMES: the ten exactly as rendered on 2 Nov, the contrast check, the picker); you strike any you dislike on
-   the day, or before; Paper (the daytime look) only if you ask. An afternoon.
-4. THE DEPTH PLAN WE MADE ON 1–2 NOV, which is what "the stuff we was talking about the other day" means (STARS.md: the 150 gaps in
-   twelve groups A–L; PLAN-STARS.md: the passes, each with its done-when), from Pass 2 on, with the brainstorm's ten (IDEAS-ROUND-1)
-   folded in where each belongs rather than run as a separate list:
-   - Pass 2, reliability and the checks: plus measured health on every ability, verification on actions, the performance project
-     and the permissions screen.
-   - Pass 3, the look: the design system, then area by area (the themes are item 3 above; Paper only if asked).
-   - Pass 4, the Lens: plus Lens → understand → act.
-   - Pass 5, fun: plus the simulation lab.
-   - Pass 6, answers and knowledge: plus the research report mode and Memory 2.0.
-   - Pass 7, making: the wardrobe test (STANDARD, test eleven) on the house, the car in 3-D and the shed, with the shared object
-     inspector (PROGRAMME-EDITORS item 1 grows out of this).
-   - Pass 8, life, deep: plus workflows by words.
-   - Passes 9, 10 and 11: him growing; the other screens; trust, felt.
-   - Context awareness (IDEAS-ROUND-1 item 3) goes with "Flow, finding and the rest, folded in".
-   Each pass is one or two pull requests, measured first, proven by tests, with the owner's phone check. About 150–200 h in all.
+1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, his place kept, LISTEN under the talking rules.
+   4–6 h. On the same day, in parallel and cheap: THREE DIRECTIONS FOR THE REDESIGN (STARS 160) rendered as real screens at 390
+   and 440 for his pick, so the pick is in before item 3 starts.
+2. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): he knows what you are
+   looking at, the Lens just knows what it sees, he knows your voice and who else he knows. 2–3 days, in two or three PRs.
+3. THE UI REDESIGNED (STARS 160–161; PLAN-STARS Pass 3 moved up): the design system for the size Ghosty has now, Mind at the
+   centre, every screen rebuilt to it area by area, after his pick. 3–4 days.
+4. THE THEMES (BRIEF-THEMES) and EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES), inside the new design so neither is done twice.
+   An afternoon and 4–6 h.
+5. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
+   project and the permissions screen from IDEAS-ROUND-1). 1–2 days.
+6. THE MACHINE, DEEPER (STARS 156–159): the Machine screen, foresight widened, speaking first with relevance, the Machine view on
+   more screens. 1–2 days.
+7. THE REST OF THE DEPTH PLAN (STARS 1–150 and 162–163 through PLAN-STARS's passes 4–11, with IDEAS-ROUND-1's remaining items
+   folded in: Lens → act in Pass 4, the simulation lab in Pass 5, the report mode and Memory 2.0 in Pass 6, the wardrobe test on
+   the house, the car and the shed in Pass 7, workflows by words in Pass 8). About 120–160 h.
 5. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,
    spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most; the first starts when the
    queue above is through — several weeks out, so only if the plan continues past the 14th.
