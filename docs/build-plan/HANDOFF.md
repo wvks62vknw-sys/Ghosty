@@ -14,8 +14,9 @@ folder that no longer exists; ignore those paths).
   a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
   into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
 - **The queue.** STATUS.md section 4 (the owner's order of 4 Nov): the library reader (BRIEF-LIBRARY-READER, OWNER-ISSUES 125),
-  the ability pages (BRIEF-ABILITY-PAGES, 124), the themes (the ten rendered on 2 Nov, patch in 124's note), IDEAS-ROUND-1 in its
-  order, then PROGRAMME-EDITORS in its order. Defaults if he says nothing: the briefs as written, all ten themes, Paper not.
+  the ability pages (BRIEF-ABILITY-PAGES, 124), the themes (BRIEF-THEMES), then THE DEPTH PLAN of 1–2 Nov — STARS (150 gaps) worked
+  through PLAN-STARS's passes from Pass 2 on, with IDEAS-ROUND-1's ten folded into the passes they belong to (STATUS section 4 says
+  which) — then PROGRAMME-EDITORS in its order. Defaults if he says nothing: the briefs as written, all ten themes, Paper not.
 - **Credits.** The weekly allowance resets on Friday; the plan ends 14 Nov. Use them wisely and never waste one: the expensive model
   only plans, briefs, reviews and merges; builders build; one builder at a time unless the areas share no files; validate once
   before each push, not after every small fix; never run the timing specs (talk, voice) alongside other browser specs; let the

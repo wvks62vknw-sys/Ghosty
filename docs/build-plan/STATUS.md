@@ -226,12 +226,24 @@ about sixty hours of building). The plan ends on 14 Nov: the queue runs as far a
 2. EVERY ABILITY A PAGE (124; BRIEF-ABILITY-PAGES): a hub card and a page per ability, like the screens have. 4–6 h.
 3. THE THEMES (BRIEF-THEMES: the ten exactly as rendered on 2 Nov, the contrast check, the picker); you strike any you dislike on
    the day, or before; Paper (the daytime look) only if you ask. An afternoon.
-4. IDEAS-ROUND-1, in its order: measured health on every ability; verification on actions; context awareness; Lens → understand →
-   act; workflows by words; the research report mode; the simulation lab; Memory 2.0; the performance project; the permissions
-   screen. About 70–90 h in all.
+4. THE DEPTH PLAN WE MADE ON 1–2 NOV, which is what "the stuff we was talking about the other day" means (STARS.md: the 150 gaps in
+   twelve groups A–L; PLAN-STARS.md: the passes, each with its done-when), from Pass 2 on, with the brainstorm's ten (IDEAS-ROUND-1)
+   folded in where each belongs rather than run as a separate list:
+   - Pass 2, reliability and the checks: plus measured health on every ability, verification on actions, the performance project
+     and the permissions screen.
+   - Pass 3, the look: the design system, then area by area (the themes are item 3 above; Paper only if asked).
+   - Pass 4, the Lens: plus Lens → understand → act.
+   - Pass 5, fun: plus the simulation lab.
+   - Pass 6, answers and knowledge: plus the research report mode and Memory 2.0.
+   - Pass 7, making: the wardrobe test (STANDARD, test eleven) on the house, the car in 3-D and the shed, with the shared object
+     inspector (PROGRAMME-EDITORS item 1 grows out of this).
+   - Pass 8, life, deep: plus workflows by words.
+   - Passes 9, 10 and 11: him growing; the other screens; trust, felt.
+   - Context awareness (IDEAS-ROUND-1 item 3) goes with "Flow, finding and the rest, folded in".
+   Each pass is one or two pull requests, measured first, proven by tests, with the owner's phone check. About 150–200 h in all.
 5. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,
    spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most; the first starts when the
-   queue above is through, which at the week's pace is the week after next — after the 14th, so only if the plan continues.
+   queue above is through — several weeks out, so only if the plan continues past the 14th.
 
 - THE FULL EDITORS, his decision of 4 Nov (OWNER-ISSUES 127; PROGRAMME-EDITORS.md): eight real workspaces on proper engines, two a week
   at most; his order awaited; recommended: the 3-D engine and library first.
