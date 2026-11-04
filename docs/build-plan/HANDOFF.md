@@ -1281,6 +1281,12 @@ folder that no longer exists; ignore those paths).
   (about 260 s). The builder saw offline2 step 7c fail once in an earlier full run ("the first ask did not reach the phone's brain"),
   passing alone and in two later full runs: watch it. Validated here before the push: both typechecks, 28 bundles, catalogue, router,
   speech, intent, context, resta tests, the web build; specs voice, direct, talk, offline2, abilities on one preview. Goes up as PR #54.
+- 4 Nov, evening UK: the owner brought back a long brainstorm from another assistant; triaged in IDEAS-ROUND-1.md (already built /
+  adopt in order with sizes / refuse with reasons). Also sent him the full catalogue as GHOSTY-EVERYTHING.md (592 entries, generated
+  from packages/shared/src/catalogue by a one-off script in the scratchpad) and a contact sheet of twelve themes rendered on the real
+  app (ten from a local patch, kept in the scratchpad as ten-themes.patch; not committed). Credits: the week was at 94% on 2 Nov;
+  nothing builds before Friday 7 Nov's reset; first builds after it: the library reader (125), the ability pages (124), the themes he
+  picks, then IDEAS-ROUND-1 in his order.
 - 2 Nov 15:40 UK: PR #56 MERGED (main 250f0e1), green on every job at the first run. Main's push run for 250f0e1 (run 306) green,
   15:39 → 16:32 UK. The owner then said "he still can't read it to me": reading a book aloud was never built (the brief, 125, has it);
   a small interim LISTEN in the book pop-up (the loaded pages read in his voice, stop by tap or talking over him, no place kept, ~1% of

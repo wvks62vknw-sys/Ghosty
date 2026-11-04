@@ -218,6 +218,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
+- The owner's ChatGPT brainstorm of 4 Nov, triaged in IDEAS-ROUND-1.md: ten ideas adopted in order (measured health on every
+  ability first, then verification on actions, context awareness, Lens → understand → act, workflows by words, a research report
+  mode, a simulation lab, Memory 2.0, performance, permissions), the rest refused with reasons; his order and his push-back awaited.
+
 - FIRST AFTER FRIDAY'S RESET: THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): a reader screen with your place
   kept, chapters and search, and LISTEN under the talking rules; "read me <book>" by words. Then: EVERY ABILITY A PAGE (OWNER-ISSUES 124; BRIEF-ABILITY-PAGES): the 147 brain tools each with a
   page to tap, each a full card in its area's hub like every screen has (his words: like how it already is); one generator
