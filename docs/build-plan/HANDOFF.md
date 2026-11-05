@@ -13,6 +13,10 @@ folder that no longer exists; ignore those paths).
 - **The bar.** docs/build-plan/STANDARD.md. No new features beyond the queue; one thing perfected at a time; every change proven by
   a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
   into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
+  THE BRIEF IS THE FLOOR, NOT THE CEILING (OWNER-ISSUES 133, his words of 5 Nov): a better way or more depth inside the item's scope
+  is simply done and said in the PR; one that changes what he asked for, trades against his words, moves the order or costs more than
+  about an hour is put to him in one line ("you said X, but we can do Y. Shall we?", recommendation first) while the rest keeps
+  building; anything beyond the item's scope goes into STARS with a number. Never a silent change to words he gave about HOW.
 - **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised 5 Nov on his "okay fix all of this", OWNER-ISSUES 131):
   0 his four phone checks asked once and fixed first, and THE GUARD FIXED as Friday's first PR; 1 DAY ONE — three directions as
   static mock screens for his pick (Mind the orb kept, the current look may go), then THE DESIGN SYSTEM from the pick, the ten themes
@@ -23,7 +27,7 @@ folder that no longer exists; ignore those paths).
   first slice first, then the wall (165); 6 reliability and health (the two habits ride in every PR from Friday); 7 the rest of
   STARS through PLAN-STARS's passes; 8 PROGRAMME-EDITORS. The week realistically holds 0 to 3 and the shell started; the cut rule:
   the first slice of SHOW ME before the last screens of the shell. STATUS section 4 is the one order and wins over everything else,
-  this block included. Defaults if he says nothing: the briefs as written, all ten themes, Paper not; the shell waits for his pick.
+  this block included. Defaults if he says nothing: the briefs as the floor (133), all ten themes, Paper not; the shell waits for his pick.
 - **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
   be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
   never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits
