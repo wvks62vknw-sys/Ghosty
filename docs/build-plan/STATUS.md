@@ -2,9 +2,9 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #57, the last at 03:38 UK on 5 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #57, the last at 03:38 UK on 4 Nov)
 
-- ON MAIN since 03:38 UK on 5 Nov (PR #57, green on every job): THE PLAN FOR FRIDAY'S SESSION (the START HERE block, this section 4 as
+- ON MAIN since 03:38 UK on 4 Nov (PR #57, green on every job): THE PLAN FOR FRIDAY'S SESSION (the START HERE block, this section 4 as
   the one order, STARS 151–169, OWNER-ISSUES 124–131, the brainstorm and its triage, the editors programme, the briefs) and one line of
   CI: the smoke job pinned to ubuntu-24.04, because GitHub's default runner image became Ubuntu 26.04 overnight and Playwright 1.56.0
   cannot install browsers there (every smoke shard died before a spec ran); nothing in the app changed. Section 4 revised again on
@@ -194,7 +194,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #57 merged at 03:38 UK on 5 Nov (main c731cb0), its own run and main's run 319 after the merge both green on every job (docs and the
+- PR #57 merged at 03:38 UK on 4 Nov (main c731cb0), its own run and main's run 319 after the merge both green on every job (docs and the
   runner pin).
 - PR #56 merged at 15:40 UK on 2 Nov (main 250f0e1), its own run and main's run after the merge both green on every job (OWNER-ISSUES 126).
 - PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec

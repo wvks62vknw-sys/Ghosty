@@ -1372,9 +1372,9 @@ folder that no longer exists; ignore those paths).
   brain, interface and deploy-build passed on the new image. Not this PR's (docs only); main's next run would fail the same way. Fix in
   check.yml: the smoke job pinned to ubuntu-24.04 with a dated comment; nothing else in the workflow touched (the guard job included).
   If a later Playwright supports 26.04 the pin can go, in its own PR, with the timing specs re-measured.
-- 5 Nov, 03:38 UTC: PR #57 merged as c731cb0; main's run 319 green on every job, the four smoke shards on the pinned 24.04 image
+- 4 Nov, 03:38 UTC: PR #57 merged as c731cb0; main's run 319 green on every job, the four smoke shards on the pinned 24.04 image
   included. The plan for Friday's session is on main.
-- 5 Nov, 04:40–06:00 UTC: THE REVIEW. The owner asked for an honest pass over the whole plan ("there's definitely things even in our
+- 5 Nov, 03:50–04:40 UTC: THE REVIEW. The owner asked for an honest pass over the whole plan ("there's definitely things even in our
   upgrades that we have written down that could be better, 100% find them") and then said "okay fix all of this". Twenty findings,
   all written in (OWNER-ISSUES 131 lists them with where each went): the design system before the reader so no screen is built twice;
   the redesign honestly sized as the shell now and the screens by pass; what the week realistically holds and the cut rule; the
@@ -1388,6 +1388,11 @@ folder that no longer exists; ignore those paths).
   orb in the middle and that is all that must stay; the current iOS-like look may go entirely ("we could redesign it entirely to just
   look a lot better"). Written into STATUS section 4 (rewritten with items 0–8), STARS 151/153/154/160/161/164 and 169, both briefs,
   STANDARD, PLAN-STARS Pass 3, IDEAS-ROUND-1 items 1 and 3, this block, and the new-chat message. PR #58.
+- 5 Nov, 04:44 UTC: PR #58's run went red on every job that runs the brain suite — one test in apps/edge/test/foresight.test.mjs asked
+  the foresee tool, on the real clock, for "Friday 18:00" and expected "to be checked on Friday"; on a Thursday the tool rightly says
+  "tomorrow at 18:00" (and on a Friday "on Friday 13/11"), so the check was red on those two days with nothing wrong in Ghosty. The
+  test now asks for the day three days ahead in his zone and expects "on <that day>"; the tool is unchanged (OWNER-ISSUES 132). The
+  lesson for every spec: a test that reads the real clock must choose its dates relative to it, never name a weekday.
 - 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
   workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
   plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.
