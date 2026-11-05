@@ -48,6 +48,9 @@ the catalogue. It is done when it meets every line below on HIS iPHONE, and he h
 - A before/after: the same screenshots, the same measurements (first words in ms, taps to reach, states covered).
 - The owner's five-minute phone check: exact taps, what he should see, what to say if he does not.
 - IN THE WORKS labels for anything left below the bar, with the one line saying why.
+- THE TWO HABITS (5 Nov, OWNER-ISSUES 131; they ride in every PR, not in a later pass): a speed budget in every new spec — first
+  paint, first words, the screen's open, failed if slower; and a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every new
+  ability as it lands, fed by its spec's result, shown where the ability is found.
 
 ## What this costs, honestly
 

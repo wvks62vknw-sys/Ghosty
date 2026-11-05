@@ -2,8 +2,13 @@
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 
-## 1. Done and live on your phone (merged to main: PR #32 to PR #56, the last at 15:40 UK on 2 Nov)
+## 1. Done and live on your phone (merged to main: PR #32 to PR #57, the last at 03:38 UK on 5 Nov)
 
+- ON MAIN since 03:38 UK on 5 Nov (PR #57, green on every job): THE PLAN FOR FRIDAY'S SESSION (the START HERE block, this section 4 as
+  the one order, STARS 151–169, OWNER-ISSUES 124–131, the brainstorm and its triage, the editors programme, the briefs) and one line of
+  CI: the smoke job pinned to ubuntu-24.04, because GitHub's default runner image became Ubuntu 26.04 overnight and Playwright 1.56.0
+  cannot install browsers there (every smoke shard died before a spec ran); nothing in the app changed. Section 4 revised again on
+  5 Nov after the owner's review (OWNER-ISSUES 131; PR #58).
 - LIVE since 15:40 UK on 2 Nov (PR #56, green on every job): THE LIBRARY OPENS LONG BOOKS AGAIN (OWNER-ISSUES 126, your "too many SQL
   variables"): a book of any length opens passage by passage with MORE to the end, and the copy on your phone reads whole; the test
   database now holds the same limit as the real one, so this cannot come back.
@@ -189,6 +194,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
+- PR #57 merged at 03:38 UK on 5 Nov (main c731cb0), its own run and main's run 319 after the merge both green on every job (docs and the
+  runner pin).
 - PR #56 merged at 15:40 UK on 2 Nov (main 250f0e1), its own run and main's run after the merge both green on every job (OWNER-ISSUES 126).
 - PR #55 merged at 13:26 UK on 2 Nov (main b6a1782); its own run and main's run after the merge both green on every job. NOTICES IN TURN (OWNER-ISSUES 123). Main's run after PR #54 failed the talk spec
   because a notice left by the check before it was read out over the reply; the flaw underneath — notices barging in over the
@@ -218,31 +225,60 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-THE ONE ORDER (the owner, 4 Nov: "put all the things in the necessary orders and make sure he remembers EVERYTHING"). This list is
-the queue; HANDOFF's START HERE and the new-chat message point here; where anything else disagrees, this wins. Sizes are a
-builder's hours plus one checks run each; the week's credits, not the hours, are the limit (last week's went in about sixty hours
-of building). The plan ends on 14 Nov: the queue runs as far as the credits reach, in this order, and continues after the 14th
-only if the plan continues.
+THE ONE ORDER (the owner, 4 Nov: "put all the things in the necessary orders and make sure he remembers EVERYTHING"; revised 5 Nov on
+his "okay fix all of this" to the review written in OWNER-ISSUES 131). This list is the queue; HANDOFF's START HERE and the new-chat
+message point here; where anything else disagrees, this wins. Sizes are a builder's hours plus one checks run each; the week's
+credits, not the hours, are the limit (last week's went in about sixty hours of building). The plan ends on 14 Nov: the queue runs
+as far as the credits reach, in this order, and continues after the 14th only if the plan continues.
 
-1. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER): the reader, his place kept, LISTEN under the talking rules.
-   4–6 h. On the same day, in parallel and cheap: THREE DIRECTIONS FOR THE REDESIGN (STARS 160) rendered as real screens at 390
-   and 440, with the Stage for show-me (164) beside Mind in each, for his pick, so the pick is in before item 3 starts.
-2. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): he knows what you are
-   looking at, the Lens just knows what it sees, he knows your voice and the people you introduced. 2–3 days, two or three PRs.
-3. THE UI REDESIGNED (STARS 160–161; PLAN-STARS Pass 3 moved up): the design system for the size Ghosty has now, Mind at the
-   centre with the Stage beside it, every screen rebuilt to it area by area, after his pick. 3–4 days.
-4. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164) — every reply about a thing shows the thing, unasked, on
-   the Stage or inline — then PHONE IN HAND, MACHINE ON THE WALL (165). 2–3 days.
-5. THE THEMES (BRIEF-THEMES), inside the new design. An afternoon. (The ability pages of 124 were withdrawn by the owner on 4 Nov,
-   OWNER-ISSUES 130: the redesign makes every ability findable instead.)
+WHAT THE WEEK REALISTICALLY HOLDS (honest, 5 Nov): items 0 to 3 to the bar and the shell of item 4 started; the first slice of SHOW
+ME (item 5) if credits remain. Items 6 to 8 need the plan to continue. THE CUT RULE when the credits run thin: the first slice of
+SHOW ME before the last screens of the shell — the owner said show-me is the heart of the Machine (129). Nothing user-facing is
+built in the old look after day one, so no screen is built twice.
+
+0. FIRST, AND SMALL. (a) Ask the owner once for his four phone checks (121, 122, 123, 126) and fix what he reports before anything
+   new: the whole queue builds on the talking pass and the tabs working on his real phone, and nobody has confirmed they do.
+   (b) THE GUARD FIXED (his decision, 5 Nov, OWNER-ISSUES 131, which overrides the 2 Nov "never touch it"): match any check whose
+   name starts with "smoke", restore only to the commit just before the failing merge, and leave .github/workflows as it is when
+   restoring. About fifteen minutes; the first PR of Friday, because a week of ten merges needs a working net.
+1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
+   tokens, not app code: Home, one hub, the Lens and the reader in each, at 390 and 440; one direction with Mind (the orb) as the
+   navigation itself; one that drops the current iOS-like look entirely (his words, 5 Nov: "we might get rid of the iphone theme …
+   we could redesign it entirely to just look a lot better"); Mind the orb at the centre in all three, the Stage taking the centre
+   while something is shown and Mind becoming its frame. 2–3 h, the mid builder tier. He picks in one line. (b) THE DESIGN SYSTEM
+   from the pick (PLAN-STARS 3a: tokens, type scale, grid, motion, icons, written down and held by a test), the first screen-facing
+   PR, about a day. (c) THE TEN THEMES (BRIEF-THEMES) re-expressed as token sets of the new system, in the same PR or the next, an
+   afternoon.
+2. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER; STARS 169 for the Shelf), the first screen built in the new
+   system: the reader, his place kept, the Shelf as a shelf (covers, authors, sort by recent and by progress, progress on every
+   row), LISTEN under the talking rules with the phone's own voice as the default for books and the brain's voice an option for
+   about an hour a day, the switch said aloud. 5–7 h.
+3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): the context line rides
+   in his message to the brain, never in the system prompt (the guard untouched, nothing trimmed); the Lens runs its cheap
+   detectors on every frame and the heavy ones on a steady frame, two seconds per tag; his voice known as a courtesy signal, the
+   confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
+   protocol (packages/shared) defined here and reused by item 5. 2–3 days, two or three PRs, every screen in the new system.
+4. THE SHELL REDESIGNED (STARS 160–161; PLAN-STARS 3b): the bar, the hubs, the deck, Home following the hour, Mind the orb with the
+   Stage, the switcher and the jump bar, rebuilt to the system; the finding rule — two taps for recents and favourites, three taps
+   or one typed word for everything else; the other screens migrate to the system as their passes touch them (item 7), each
+   migration said in its PR. 3–4 days for the shell; the full migration is weeks and is not promised for this week.
+5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
+   route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
+   the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,
+   pulled forward from item 8). The speaking rule: the first sentence at once, the picture when its data is ready, the sentence
+   that points at it after. Honest walls on screen (no free text-to-3D; pictures composed from the poster engine and his photos
+   unless he adds a key). Then PHONE IN HAND, MACHINE ON THE WALL (165). 2–3 days.
 6. RELIABILITY AND HEALTH (PLAN-STARS Pass 2, with measured health on every ability, verification on actions, the performance
-   project and the permissions screen from IDEAS-ROUND-1). 1–2 days.
+   project and the permissions screen from IDEAS-ROUND-1). 1–2 days. TWO HABITS RIDE IN EVERY PR FROM FRIDAY, not waiting for this
+   item (STANDARD, what a builder delivers): a speed budget in every new spec (first paint, first words, the screen's open), and a
+   WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every new ability as it lands.
 7. THE REST OF THE DEPTH PLAN: STARS 1–150, 156–159 (the Machine's supporting pieces), 162–163 and 166–168 (offered, not yet
    picked: he may strike them), through PLAN-STARS's passes 4–11, with IDEAS-ROUND-1's remaining items folded in (Lens → act in
    Pass 4; the simulation lab in Pass 5; the report mode and Memory 2.0 in Pass 6; the wardrobe test on the house, the car and
-   the shed in Pass 7; workflows by words in Pass 8), and the older open items below where they belong. About 120–160 h.
-8. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library, documents,
-   spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most.
+   the shed in Pass 7; workflows by words in Pass 8), the screens of each pass rebuilt to the design system as the pass touches
+   them, and the older open items below where they belong. About 120–160 h.
+8. THE FULL EDITORS (127; PROGRAMME-EDITORS), in the recommended order: the 3-D engine and product library (its first slice lands
+   in item 5), documents, spreadsheets, presentations, the workspace, photo, video, the game studio. Two a week at most.
 
 OLDER ORDERS, ALL LIVE OR FOLDED IN (kept so nothing is lost): the 1 Nov order ① the everything tab · ② sideways · ③ games · ④ the
 packs · ⑤ the car in 3-D · ⑥ the offline brain · ⑦ the social self · ⑧ the rest — all live by PR #51 (STATUS section 1), their

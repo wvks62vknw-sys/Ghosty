@@ -2,11 +2,12 @@
 
 The owner, 2 Nov 13:35 UK: "our library should act as just that, a library, i insert books but he can't even read them to
 me and i can't pull up the library and read them myself which is semi disappointing". Decided: a real reader screen and a
-real LISTEN, under the talking rules of BRIEF-TALK-1A. Order after Friday 7 Nov's reset: this first (STATUS section 4
-item 1; the ability pages that were to follow it were withdrawn by the owner on 4 Nov, OWNER-ISSUES 130). Nothing of this starts before the reset (the week ran out at 94% on 2 Nov).
+real LISTEN, under the talking rules of BRIEF-TALK-1A. Order after Friday 7 Nov's reset: STATUS section 4
+item 2 — right after the design system of item 1, and built as the first screen in the new system, its tokens the only styles
+used (OWNER-ISSUES 131; the ability pages that were to follow it were withdrawn by the owner on 4 Nov, 130). Nothing of this starts before the reset (the week ran out at 94% on 2 Nov).
 
-Read first: STANDARD.md, STARS.md, PLAN-STARS.md, BRIEF-TALK-1A.md (interruption, "go on", the two voices), OWNER-ISSUES
-122, 123 and 125, HANDOFF, MAP.md. Start from the tip of `claude/ghosty-ai-training-idwhp9` (`git log -1` first).
+Read first: STANDARD.md, STARS.md (125's gaps and 169), PLAN-STARS.md, BRIEF-TALK-1A.md (interruption, "go on", the two voices),
+the design system landed by STATUS item 1, OWNER-ISSUES 122, 123, 125 and 131, HANDOFF, MAP.md. Start from the tip of `claude/ghosty-ai-training-idwhp9` (`git log -1` first).
 
 ## What exists (reuse it; do not rebuild it)
 
@@ -43,7 +44,10 @@ Read first: STANDARD.md, STARS.md, PLAN-STARS.md, BRIEF-TALK-1A.md (interruption
    from here."); a chapter's end says the next chapter's name and goes on unless he said "just this chapter". A reply he
    asks for mid-read ("what does that word mean?") is answered and then, on "go on", the reading resumes from the same
    passage: the carry-on of TALK-1A 2, with the book as the thing cut. Never `brief`: a book is read whole, at the pace
-   of the voice.
+   of the voice. THE VOICE FOR A BOOK (5 Nov, OWNER-ISSUES 131): the phone's own voice by default — a book is hours of speech and
+   the brain's free voice has a daily share that would run out mid-chapter; the brain's voice is an option (SETTINGS → READING →
+   HIS VOICE FOR BOOKS) for about an hour a day within that share, and when the share runs out mid-read he says "my own voice from
+   here" and carries on: never silent, never a switch unannounced.
 4. **By words.** `packages/shared/src/intent.ts` gains the reading intents: "read me <book>" (the Shelf's titles matched
    loosely, as the jump bar matches), "carry on reading" / "where were we", "read chapter <n>" / "read from page <n>",
    "stop reading". Answered with no model (the phone knows the shelf and the place); a book he has not got gets
@@ -51,6 +55,9 @@ Read first: STANDARD.md, STARS.md, PLAN-STARS.md, BRIEF-TALK-1A.md (interruption
 5. **The card and the catalogue.** CARDS.library's readouts: "Reading · The Hobbit" and "Page · 42 of 300" when a book is
    open, else the shelf count and the last book; the reader is `screen:reader` with its sections and phrases in the
    catalogue; the deck's Learn group card for the library says what it is now.
+7. **The Shelf as a shelf (STARS 169).** The Shelf becomes the library he browses: a cover per book (the first page's picture where
+   the file has one, else a drawn cover from the title in the theme's accent), the author where the file says it, sort by recent, by
+   progress and by title, progress on every row ("page 42 of 300 · yesterday"), a finished book marked, the grid whole at 390 and 440.
 6. **Honest on the phone.** Whether iOS keeps him reading with the screen locked is checked on the owner's phone, not
    claimed: the brain's clips play through the audio element (may continue), the phone's own voice stops (iOS pauses
    speech synthesis); the ABOUT pill says which voice keeps reading when the screen locks, once he has told us.
@@ -74,7 +81,10 @@ Read first: STANDARD.md, STARS.md, PLAN-STARS.md, BRIEF-TALK-1A.md (interruption
   resumes from that passage with the bridge, never from the top; "stop reading" ends it and says the page; a question
   mid-read is answered and "go on" resumes the book; "read me <book>" and "where were we" by words with no model (the
   mock's call count stays); the card's readouts; nothing sticks out sideways at 390 and 440; every control has a name;
-  offline, a book kept on the phone still reads and LISTEN uses the phone's voice.
+  offline, a book kept on the phone still reads and LISTEN uses the phone's voice; LISTEN on a book uses the phone's voice by
+  default and, with HIS VOICE FOR BOOKS on and the stand-in share exhausted, says "my own voice from here" and carries on without a
+  gap; the Shelf shows covers, progress and the sort; the spec's first word and page-open times are held to the speed budget
+  (STANDARD, the two habits).
 - `apps/edge/test/library-place.test.mjs`: the place route keeps and returns a place per book, owner-only, and refuses a
   place past the book's end.
 - The library, talk, voice, tabs, hubcards and deck specs still pass.
@@ -95,5 +105,5 @@ going (brain's voice) and whether he did with the phone's voice.
 
 ## Size
 
-One Opus builder, about four to six hours (the reader, the place, LISTEN under the talk rules, the intents, the spec), then
-review and one checks run. Not before Friday's reset.
+One strong builder, about five to seven hours (the reader, the Shelf, the place, LISTEN under the talk rules with the voice rule,
+the intents, the spec), then review and one checks run. Not before Friday's reset, and not before the design system of item 1.

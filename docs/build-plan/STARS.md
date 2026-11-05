@@ -193,19 +193,27 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
 149. Approval for anything outward (exists) with a preview that looks like the real post.
 150. A plain page on what he never does, kept true by tests.
 
-## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look (151–165), and three offered, not yet picked (166–168)
+## M. From the owner on 4 Nov, after the handover (his words in OWNER-ISSUES 129): awareness, one Lens, his voice, the Machine, the look (151–165), three offered, not yet picked (166–168), and the Shelf from the 5 Nov review (169)
 
 151. (C) ONE LENS, no modes to pick: point it and he tags what he sees — text, a sign in another language, a plant, a barcode, a
      part, a bolt, a face he knows — and offers the act (read, translate, add to the agenda, name it, measure, find the part);
-     a tap or a word does it. Faces only his own and the people he has introduced; a stranger is "someone I don't know". Large.
+     a tap or a word does it. Faces only his own and the people he has introduced; a stranger is "someone I don't know".
+     Budgets (5 Nov, OWNER-ISSUES 131): the cheap detectors run on every frame (a barcode, text present, a face he knows); the
+     heavy ones (naming an object, a plant, a part) run on a steady frame; two seconds per tag; when he is unsure he says what he
+     can ("I see text — tap to read it") and never guesses. Large.
 152. (C) The Machine's reticle on the Lens: the tags drawn as the Machine view draws them (thin boxes, one true line each), the
      same language as God's Eye. Medium.
 153. (E, A) AWARENESS, the context model: every screen publishes what is open and what is selected; a turn carries it in a few
      words within the prompt guard; "add a wardrobe there", "make that wall longer", "find me a replacement", "read that one"
-     resolve on the room plan, the car, the shed, the reader and the deck. Large.
+     resolve on the room plan, the car, the shed, the reader and the deck. The context line rides in his message to the brain,
+     never in the system prompt, so the prompt guard is untouched and nothing is trimmed; the Context and Show shapes are one
+     protocol in packages/shared, defined here and reused by 164 (5 Nov, OWNER-ISSUES 131). Large.
 154. (A, L) HIS VOICE KNOWN: a voiceprint of the owner kept on the phone (a small speaker model, a download on his tap, size
-     said); another voice is "a voice I don't know" or a person he has introduced and taught; guarded actions (locks, sending,
-     posting, keys) only on his voice; never used to identify a stranger; fails closed. Large.
+     said); another voice is "a voice I don't know" or a person he has introduced and taught; never used to identify a stranger;
+     fails closed. Revised 5 Nov (OWNER-ISSUES 131): his voice is a courtesy signal, never a lock — a phone speaker model misfires
+     a few times in a hundred and a recording defeats it — so he knows it is you, is wary when it is not, and the confirm tap stays
+     the gate for guarded actions (locks, sending, posting, keys); another person's voice is introduced only with them present,
+     saying yes aloud, and is deletable by name; nothing of it leaves the phone. Large.
 155. (A) Who is speaking, said: with two people in the room he addresses each by name when he knows them, and says nothing
      private to a voice he does not know until the owner says so. Medium.
 156. (K, B) THE MACHINE, DEEPER: a Machine screen — what he is watching now (feeds, places, devices), what he predicted and how
@@ -216,13 +224,19 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
      a strike, the MOT due), under the cadence dial; the speak-first job exists. Small.
 159. (K) Machine view on more screens: the thin-box overlay as a mode of the Lens (152) and of the house plan, with one true
      count line. Medium.
-160. (D) THE UI REDESIGNED for the size Ghosty has now, Mind kept at the centre: three directions rendered as real screens at
-     390 and 440, his pick, then a design system and every screen rebuilt to it, area by area; less on each screen, more
-     layers; the bar, the hubs and the cards rethought for 44 screens, 135 panels and the brain's abilities — every ability
-     reachable and runnable in two taps within the new navigation, no phrase to remember (the owner withdrew the separate ability
-     pages for this, OWNER-ISSUES 130); the three directions are judged on that too. Large, the largest.
+160. (D) THE LOOK REDESIGNED for the size Ghosty has now, Mind kept at the centre — Mind is the orb in the middle (his words, 5 Nov:
+     "with the mind i just meant the orb kinda thing in the middle"); everything else may change, the current iOS-like look included
+     ("we might get rid of the iphone theme because the theme we currently have was designed for when we had a lot less things … we
+     could redesign it entirely to just look a lot better"). Day one: THREE DIRECTIONS as static mock screens on real tokens (Home,
+     one hub, the Lens, the reader; 390 and 440), one with Mind as the navigation itself, one dropping the current look entirely,
+     the Stage taking the centre while something is shown and Mind becoming its frame; his pick in one line; then the design system
+     (PLAN-STARS 3a) and THE SHELL rebuilt to it (the bar, the hubs, the deck, Home, the switcher, the jump bar); the other screens
+     migrate to the system as their passes touch them. The finding rule: two taps for recents and favourites, three taps or one
+     typed word for everything else (two taps to three hundred things is the clutter he hates; the separate ability pages were
+     withdrawn for this, OWNER-ISSUES 130); the three directions are judged on that and on the five-second test. Sizes, honestly:
+     the system a day, the shell 3–4 days, the full migration weeks, pass by pass. Large, the largest.
 161. (D) A Home that follows the hour: the Brief in the morning, the journey at commute time, the reading in the evening, Mind
-     always at the centre. Medium.
+     always at the centre. Medium. Folded into 160's Home (5 Nov).
 162. (E) Siri hands-free asking: "Hey Siri, ask Ghosty <words>" through a Shortcut with dictation and a `?ask=` link; Ghosty
      opens, answers aloud, no touch. Small.
 163. (E) Recent and favourite abilities on ABILITIES and in the jump bar; the deck remembers where he was. Small.
@@ -236,8 +250,13 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
      running. One mechanism: the brain emits a "show" with the best renderer, the phone pulls it up on the Stage (the surface at
      the centre with Mind: the redesign must make room for it) or inline as a card, and words follow the picture, never the other
      way round. Honest walls, said on screen: an arbitrary object from words alone in 3-D (no free text-to-3D on a phone: it
-     composes from parameters and the library, and says so); a song with sung vocals (the Studio makes the tune and the beat).
-     Large, the heart of the Machine.
+     composes from parameters and the library, and says so); a song with sung vocals (the Studio makes the tune and the beat); a
+     picture is composed from the poster engine and his photos (no free image model inside the boundary) unless he adds a key.
+     Added 5 Nov (OWNER-ISSUES 131): the speaking rule — the first sentence speaks at once (TALK-1A's budget holds), the picture
+     lands when its data is ready, and the sentence that points at it comes after, never before; the Stage takes the centre while
+     something is shown and Mind becomes its frame; the first slice is maps, routes, charts, documents, simulations and rooms from
+     parametric furniture plus a first set of free models fetched on his tap (the product library's first slice, pulled forward
+     from PROGRAMME-EDITORS 1); the Show shape is the protocol of 153. Large, the heart of the Machine.
 165. (K) PHONE IN HAND, MACHINE ON THE WALL: talking on the phone while the TV (TV MODE exists) shows what he is talking about —
      the map, the plan, the car, the chart, the tune's waveform — the two as one session over the brain, the wall following the
      conversation with no touch. Medium, after 164.
@@ -248,6 +267,9 @@ STANDARD.md says when an item is finished. Add to this file; never tick an item 
      his places, his devices — in one card, built on the Digest. Small.
 168. (J, G) REHEARSE (offered 4 Nov, not yet picked): Ghosty plays the other side of an interview, a call or an exam, then scores
      him; built on the school's marking. Medium.
+
+169. (B) THE SHELF AS A SHELF (5 Nov, from the review, OWNER-ISSUES 131): covers, authors, sort by recent and by progress, progress on
+     every row, a finished book marked — the library he browses, not only the reader. Small; built with the reader (STATUS item 2).
 
 ## The walls (honest)
 

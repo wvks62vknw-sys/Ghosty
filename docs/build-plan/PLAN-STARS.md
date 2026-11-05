@@ -55,6 +55,9 @@ run one after another, two at most in parallel when their files do not touch. "D
 
 ## Pass 3 — The look (the design system first, then area by area; themes when he has given his opinion)
 
+(5 Nov, OWNER-ISSUES 131: 3a moves to day one, right after his pick from the three directions; 3b's shell is STATUS section 4
+item 4; the other screens migrate to the system as their passes touch them; the themes land with the system as token sets.)
+
 3a The system
 3.1 [51] Tokens, type scale, 8-point grid, spacing, elevation, one icon family, written down and enforced by a test.
 3.2 [52] Motion: one set of durations and curves; every transition says where things went.

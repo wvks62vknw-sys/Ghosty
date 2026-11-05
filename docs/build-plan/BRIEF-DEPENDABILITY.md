@@ -87,7 +87,7 @@ he resolved "kiddo" to a stored person (the owner's cousin) and invented a confi
 ## How to work (this is the budget — read it as law)
 - Branch/worktree as given. One commit per item, message in the repo's style (what changed and why, in plain words).
   End every commit message with these two lines exactly:
-  `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and
+  `Co-Authored-By: Claude the top tier 5.1 <noreply@anthropic.com>` and
   `Claude-Session: https://claude.ai/code/session_01PxJsFpBagxwsDNyyZqF76o`.
   Never put a model name anywhere else (not in code, comments, the PR title or body).
 - **Validate locally before any push, all of it green:** `cd apps/edge && npm run typecheck && npm test` (the full

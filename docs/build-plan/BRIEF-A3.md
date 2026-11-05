@@ -30,7 +30,7 @@ what he sees. Read BRIEF-W0.md (standing rules), MAP.md's "tests/" rows and `tes
 ## Finish
 
 Commit on your worktree branch (do not push, do not merge), each commit message ending with the two lines:
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Co-Authored-By: Claude the top tier 5.1 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01PxJsFpBagxwsDNyyZqF76o
 Final report: the files changed; every spec's exact result; each 440-specific failure and what you did about it (a real
 interface fix, or a check updated, with why); anything not done and why.

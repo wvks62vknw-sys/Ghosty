@@ -21,5 +21,5 @@ How to run things
 
 Finish
 - Commit on your branch with clear messages (end each commit message with the two lines:
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_01ES7c6SvDr3ASLUXV6NSh36`). Do not push.
+  `Co-Authored-By: Claude the strong tier 5.5 <noreply@anthropic.com>` and `Claude-Session: https://claude.ai/code/session_01ES7c6SvDr3ASLUXV6NSh36`). Do not push.
 - Final report: what you changed (files), what tests you added and that they fail on the old code, every check you ran and its result, anything you could not do and why. Be exact; do not claim checks you did not run.

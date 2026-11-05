@@ -27,13 +27,14 @@ order of passes; this file feeds it.
 1. **Measured health on every ability** (Pass 2 of PLAN-STARS, made concrete). WORKING / DEGRADED / NEEDS KEY / OFFLINE /
    BROKEN / NOT IMPLEMENTED per catalogue entry, fed by: the CI specs' last results (published as a small JSON the brain reads),
    a daily self-test job on the brain (each tool's smoke call with stand-in inputs where safe), and the phone's own probes
-   (model present, mic, camera). Shown on System and on every ABILITIES row and hub card foot. Size: medium (6–8 h).
+   (model present, mic, camera). Shown on System and on every ABILITIES row and hub card foot. Size: medium (6–8 h). From 5 Nov
+   the mark on every NEW ability rides in its own PR (STANDARD, the two habits); this item is the pass that covers the rest.
 2. **Verification on actions.** Every tool result carries VERIFIED (checked independently: a read-back, a second source, a
    calculation re-run), ESTIMATED (assumptions stated), or FAILED (the action did not complete); the chat and the voice say
    it; nothing is ever said done because a model wrote a success line. Size: small to medium (4–6 h), shares code with 1.
 3. **Context awareness.** Each screen publishes a one-line "what he is looking at" (the screen, the selected thing, its id)
-   that the turn carries in a few words (the prompt guard holds: trimmed from the lowest-value prompt part and the trims
-   listed), so "make that wall 30 cm longer", "find me a replacement", "read that one" resolve. Size: medium (6–8 h).
+   that the turn carries in a few words in his message to the brain, not in the system prompt (the guard untouched, nothing
+   trimmed; 5 Nov), so "make that wall 30 cm longer", "find me a replacement", "read that one" resolve. Size: medium (6–8 h).
 4. **Lens → understand → act.** A photographed timetable, letter, receipt or poster is read (OCR on the phone), extracted
    into dates, amounts, names, checked, and offered to the Agenda / spending / memory with APPROVE per item; nothing added
    without the tap. Size: small to medium (4–6 h).

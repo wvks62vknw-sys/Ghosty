@@ -109,5 +109,5 @@ page; (5) ABILITIES → any row opens its page; (6) Wi-Fi off: a page says it ne
 
 ## Size
 
-One Opus builder, about four to six hours (the generator and the route are the work; the rest is wiring and the spec),
+One the strong tier builder, about four to six hours (the generator and the route are the work; the rest is wiring and the spec),
 then review and one checks run. Not before Friday's reset.

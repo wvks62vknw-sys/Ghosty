@@ -76,7 +76,7 @@ not touch `persona.ts`, `theme.ts`, `mind.ts` or the report card beyond what is 
 
 ## How to work (the budget is law)
 - Branch/worktree as given; FIRST verify your base commit as the prompt says. One commit per item in the repo's style.
-  End every commit message with exactly: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and
+  End every commit message with exactly: `Co-Authored-By: Claude the top tier 5.1 <noreply@anthropic.com>` and
   `Claude-Session: https://claude.ai/code/session_01PxJsFpBagxwsDNyyZqF76o`. No model name anywhere else.
 - **Do not push and do not open a pull request.** Commit on your worktree's branch and stop when everything is green
   locally; the orchestrator reviews, merges into the session branch and opens the one pull request.
