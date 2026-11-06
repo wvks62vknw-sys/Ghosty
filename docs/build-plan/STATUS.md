@@ -236,12 +236,12 @@ ME (item 5) if credits remain. Items 6 to 8 need the plan to continue. THE CUT R
 SHOW ME before the last screens of the shell — the owner said show-me is the heart of the Machine (129). Nothing user-facing is
 built in the old look after day one, so no screen is built twice.
 
-0. FIRST, AND SMALL. (a) Ask the owner once for his four phone checks (121, 122, 123, 126) and fix what he reports before anything
+0. FIRST, AND SMALL. (b) DONE 6 Nov: the guard fixed in PR #59, merged (OWNER-ISSUES 131, 134 for the packs3 check fixed on the way); main's own run read after. (a) Ask the owner once for his four phone checks (121, 122, 123, 126) and fix what he reports before anything
    new: the whole queue builds on the talking pass and the tabs working on his real phone, and nobody has confirmed they do.
    (b) THE GUARD FIXED (his decision, 5 Nov, OWNER-ISSUES 131, which overrides the 2 Nov "never touch it"): match any check whose
    name starts with "smoke", restore only to the commit just before the failing merge, and leave .github/workflows as it is when
    restoring. About fifteen minutes; the first PR of Friday, because a week of ten merges needs a working net.
-1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
+1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) RENDERED 6 Nov (OWNER-ISSUES 135, docs/build-plan/mockups/directions/contact.png), waiting on his pick. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
    tokens, not app code: Home, one hub, the Lens and the reader in each, at 390 and 440; one direction with Mind (the orb) as the
    navigation itself; one that drops the current iOS-like look entirely (his words, 5 Nov: "we might get rid of the iphone theme …
    we could redesign it entirely to just look a lot better"); Mind the orb at the centre in all three, the Stage taking the centre

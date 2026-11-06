@@ -96,6 +96,9 @@ folder that no longer exists; ignore those paths).
   bundle is the first half of apps/edge's test script with `apps/edge/node_modules/.bin` on PATH; the preview on 8790; the global
   Playwright linked into the repo root's node_modules (`playwright` and `playwright-core` from /opt/node-tools) so specs import it.
   Usage percentage: asked; not yet given.
+- 6 Nov 19:12 UTC: PR #59 MERGED into main (e66d3e0, every check green); #58 closed as superseded; main's own run read by a check-in
+  an hour later. The three redesign directions rendered (OWNER-ISSUES 135; a mid-tier builder, 79 min) and sent to the owner for his
+  pick with three questions; nothing of the design system starts before the pick. The directions ride to main with the next PR.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
