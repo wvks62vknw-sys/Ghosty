@@ -80,7 +80,7 @@ STAGE = dict(
     title='The 7:42 from New Street',
     sentence='That’s the 7:42 from New Street. Platform 3 — I’ll say when to leave.',
     readings=[('Leave by', '07:24'), ('Walk', '14 min'), ('Platform', '3'), ('Coventry', '08:03')],
-    ask_placeholder='Ask me about it, or change it',
+    ask_placeholder='Ask about it, or change it',
 )
 
 # --------------------------------------------------------------------------------------------------------- the Lens
@@ -98,7 +98,7 @@ LENS = dict(
     act=dict(
         kicker='I read it',
         title='A letter about your bins',
-        body='From Monday 9 November your general waste moves to Thursdays. Recycling stays on alternate Fridays.',
+        body='From Monday 9 November your general waste bin moves to Thursdays.',
         actions=['Add to my agenda', 'Read it to me'],
     ),
 )
@@ -115,7 +115,7 @@ HUB = dict(
     cards={
         'library': dict(glyph='library', name='Library', status='READY', title='All I have read',
                         reads=[('Reading', 'Alice’s Adventures in Wonderland', ''), ('Page', '42 of 112', '')],
-                        panels=['The reader', 'The shelf', 'Ask the library']),
+                        panels=['Reader', 'Shelf', 'Ask the library']),
         'gym': dict(glyph='gym', name='Gym', status='TRAINING', live=True, title='I teach myself',
                     reads=[('Rating', '1,240', '↑35'), ('Now', 'Sudoku Lv 6', '')],
                     panels=['Train all', 'Play me at chess'], ring=(3, 22)),

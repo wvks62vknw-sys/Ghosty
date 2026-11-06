@@ -87,15 +87,15 @@ def ring_ticks(cx, cy, rx, ry, half, minor, major, step=2.4, every=5, lo=0.0, hi
     return ''.join(out)
 
 
-def orb(size, style='glass', uid='o', seed=11, lit=0.31, nodes=96, yaw=0.62, pitch=0.34, detail='full',
+def orb(size, style='glass', uid='o', seed=11, lit=0.31, nodes=96, yaw=0.62, pitch=0.34, detail='auto',
         ring=True, sweep=(24, 78), progress=None, halo=1.0, glow=1.0, label=None):
     """The orb. size: the sphere's diameter in px. lit: the studied share of the nodes (1,312 of 4,186 passages is 0.31).
     progress: 0..1 draws a thin flat ring round it (free answers left today); None draws none. detail 'mini' drops the
-    graticule and the scale for an orb under about 72 px. label: the accessible name."""
+    graticule and the scale (the default, 'auto', does so under 72 px; 'full' keeps them). label: the accessible name."""
     S = float(size)
     r = S / 2
     cx = cy = r
-    mini = detail == 'mini' or S < 72
+    mini = detail == 'mini' or (detail == 'auto' and S < 72)
     ink = style == 'ink'
     # stroke weights scale with the sphere so a 48 px orb and a 240 px orb are the same drawing
     k = S / 232.0

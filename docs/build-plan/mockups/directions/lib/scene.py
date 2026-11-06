@@ -8,7 +8,7 @@ in the same 440 x 956 space (x, y, w, h)."""
 import math
 import random
 
-TAGS = dict(plant=(26, 104, 214, 332), text=(184, 392, 232, 168), barcode=(112, 732, 118, 92))
+TAGS = dict(plant=(28, 134, 164, 330), text=(196, 266, 232, 176), barcode=(276, 552, 92, 84))
 
 _L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011']
 _G = ['0100111', '0110011', '0011011', '0100001', '0011101', '0111001', '0000101', '0010001', '0001001', '0010111']
@@ -112,7 +112,7 @@ def _oats():
            '<path d="M112 702c-6-10 6-14 0-24M138 700c-6-10 6-14 0-26M164 702c-6-10 6-14 0-24" stroke="#8a7a52" stroke-width="2" fill="none" stroke-linecap="round" opacity=".7"/>'
            '<text x="62" y="822" font-size="12.5" font-weight="700" font-family="var(--font-text)" fill="#3a3a30">1 kg</text>'
            '<rect x="116" y="728" width="106" height="98" rx="3" fill="#f7f4ea"/>')
-    return box + barcode(128, 738, 84, 44)
+    return box + barcode(122, 738, 92, 46)
 
 
 def _paper():
@@ -161,13 +161,19 @@ def lens_scene(uid='s'):
         (60, 318, 20, 'rgba(160,200,255,.22)'), (214, 300, 12, 'rgba(255,196,120,.22)')])
     back = (f'<rect width="440" height="956" fill="url(#wall)"/>'
             f'<g filter="url(#sceneblur14)"><rect x="-30" y="-24" width="210" height="270" fill="#5e8196" opacity=".72"/><rect x="-30" y="108" width="210" height="9" fill="#14212a" opacity=".6"/><rect x="62" y="-24" width="9" height="270" fill="#14212a" opacity=".6"/>{bokeh}</g>')
-    table = ('<path d="M-12 372L452 348V980H-12Z" fill="url(#tbl)"/>'
-             '<path d="M-12 372L452 348V980H-12Z" filter="url(#wood)" opacity=".42"/>'
-             '<path d="M-12 372L452 348" stroke="#a37450" stroke-width="1.4" opacity=".55"/>'
-             '<rect x="0" y="360" width="440" height="596" fill="url(#lamp)"/>')
-    scene = (f'<g filter="url(#soft)">{_plant(rnd)}{_paper()}{_oats()}{_mug()}</g>')
+    table = ('<path d="M-12 268L452 244V980H-12Z" fill="url(#tbl)"/>'
+             '<path d="M-12 268L452 244V980H-12Z" filter="url(#wood)" opacity=".42"/>'
+             '<path d="M-12 268L452 244" stroke="#a37450" stroke-width="1.4" opacity=".55"/>'
+             '<rect x="0" y="250" width="440" height="706" fill="url(#lamp)"/>')
+    # the three things sit in the upper two thirds, so a card can open under the one he taps and the others stay in view
+    scene = ('<g filter="url(#soft)">'
+             f'<g transform="translate(0 -40) translate(120 486) scale(.82) translate(-120 -486)">{_plant(rnd)}</g>'
+             f'<g transform="translate(14 -124)">{_paper()}</g>'
+             f'<g transform="translate(-126 -6) scale(.72)">{_mug()}</g>'
+             f'<g transform="translate(200 34) scale(.72)">{_oats()}</g>'
+             '</g>')
     over = ('<rect width="440" height="956" fill="url(#lamp)" style="mix-blend-mode:screen" opacity=".7"/>'
             '<rect width="440" height="956" fill="url(#vig)"/>'
-            '<rect width="440" height="956" filter="url(#grain)" style="mix-blend-mode:overlay" opacity=".26"/>')
+            '<rect width="440" height="956" filter="url(#grain)" style="mix-blend-mode:overlay" opacity=".15"/>')
     return (f'<svg class="scene" width="100%" height="100%" viewBox="0 0 440 956" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
             f'{defs}{back}{table}{scene}{over}</svg>')

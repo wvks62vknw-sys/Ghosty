@@ -43,6 +43,17 @@ function inspect({ W, isScreen, strict }) {
     if (clips && el.scrollWidth > el.clientWidth + 1) out.push(`text cut off: <${el.tagName.toLowerCase()} class="${el.className}"> "${txt}"`);
     if (el.children.length === 0 && txt && el.scrollWidth > el.clientWidth + 1 && cs.whiteSpace === 'nowrap' && cs.display !== 'inline') out.push(`text wider than its box: <${el.tagName.toLowerCase()} class="${el.className}"> "${txt}"`);
     if (strict && isScreen) {
+      // something wider than the box it sits in (a chip row longer than its card, a value pushing past its column)
+      const p = el.parentElement;
+      if (p && p !== document.body && cs.position !== 'absolute' && cs.position !== 'fixed') {
+        const pcs = getComputedStyle(p);
+        if (pcs.overflowX === 'visible' && pcs.display !== 'contents') {
+          const pr = p.getBoundingClientRect();
+          const right = pr.right - parseFloat(pcs.paddingRight) - parseFloat(pcs.borderRightWidth);
+          const left = pr.left + parseFloat(pcs.paddingLeft) + parseFloat(pcs.borderLeftWidth);
+          if (r.right > right + 1.5 || r.left < left - 1.5) out.push(`sticks out of its parent: <${el.tagName.toLowerCase()} class="${el.className}"> "${txt}" (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(left)}..${Math.round(right)})`);
+        }
+      }
       if (el.matches('button, a[href], [role="button"], [data-target]') && !el.closest('[data-notarget]') && (r.width < 43.5 || r.height < 43.5)) out.push(`target under 44 pt: <${el.tagName.toLowerCase()} class="${el.className}"> "${txt}" (${Math.round(r.width)} x ${Math.round(r.height)})`);
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
       if (own && parseFloat(cs.fontSize) < 10.95 && !el.closest('[data-tiny]')) out.push(`type under 11 pt (${cs.fontSize}): <${el.tagName.toLowerCase()} class="${el.className}"> "${txt}"`);

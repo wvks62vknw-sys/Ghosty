@@ -44,6 +44,7 @@ def _grid(angle, step, rect, jitter, rnd):
     return ''.join(out)
 
 
+SHIFT = 34  # the picture is drawn round New Street at (190, 232); the Stage's frame is taller, so it sits 34 lower
 HOME = (92, 334)
 NEW_STREET = (190, 232)
 WALK = [HOME, (92, 298), (142, 298), (142, 262), (190, 262), (190, 240)]
@@ -52,29 +53,30 @@ TRAIN = [NEW_STREET, (232, 248), (272, 264), (310, 284), (344, 308)]
 
 def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
     rnd = random.Random(seed)
-    rect = (-20, -20, 380, 460)
+    rect = (-20, -60, 380, 520)
     fine = _grid(-18, 21, rect, 3.5, rnd) + _grid(72, 24, rect, 3.5, rnd)
     coarse = _grid(-18, 52, rect, 6, rnd) + _grid(72, 58, rect, 6, rnd)
     ring = smooth([(205, 128), (278, 150), (322, 232), (296, 318), (212, 352), (126, 322), (92, 238), (128, 156)], closed=True)
     roads = [
         # Corporation Street to the north-east, Colmore Row to Snow Hill, and the radials a city has
-        [(190, 232), (232, 190), (280, 148), (330, 104), (372, 70)],
-        [(190, 232), (150, 196), (112, 162), (70, 120), (30, 84)],
-        [(190, 232), (186, 170), (178, 100), (170, 20), (166, -20)],
-        [(190, 232), (130, 238), (70, 252), (20, 270)],
-        [(190, 232), (176, 286), (198, 340), (222, 410), (232, 460)],
+        [(190, 232), (232, 190), (280, 148), (330, 104), (372, 70), (404, 40)],
+        [(190, 232), (150, 196), (112, 162), (70, 120), (30, 84), (-10, 50)],
+        [(190, 232), (186, 170), (178, 100), (170, 20), (166, -20), (160, -60)],
+        [(190, 232), (130, 238), (70, 252), (20, 270), (-20, 282)],
+        [(190, 232), (176, 286), (198, 340), (222, 410), (232, 460), (240, 520)],
         [(190, 232), (250, 236), (312, 226), (380, 210)],
-        [(190, 232), (150, 280), (118, 340), (84, 410), (66, 460)],
+        [(190, 232), (150, 280), (118, 340), (84, 410), (66, 460), (52, 520)],
     ]
     main = ''.join(smooth(r) for r in roads)
     canal = smooth([(-20, 318), (36, 300), (88, 286), (132, 262), (150, 214), (158, 168), (196, 124), (252, 100), (316, 98), (380, 82)])
     rails = ''.join(smooth(r) for r in [
-        [(190, 232), (150, 246), (96, 262), (30, 270)],
-        [(190, 232), (158, 204), (126, 160), (100, 100), (88, 40), (82, -20)],
-        [(190, 232), (196, 280), (206, 340), (214, 400), (216, 460)],
+        [(190, 232), (150, 246), (96, 262), (30, 270), (-20, 276)],
+        [(190, 232), (158, 204), (126, 160), (100, 100), (88, 40), (82, -20), (78, -60)],
+        [(190, 232), (196, 280), (206, 340), (214, 400), (216, 460), (218, 520)],
     ])
     parks = (f'<path d="{smooth([(40, 360), (88, 372), (120, 404), (92, 436), (44, 426), (22, 394)], closed=True)}"/>'
              f'<path d="{smooth([(262, 36), (318, 30), (344, 62), (310, 92), (268, 84)], closed=True)}"/>'
+             f'<path d="{smooth([(262, 430), (318, 420), (348, 454), (316, 492), (270, 484)], closed=True)}"/>'
              f'<rect x="212" y="256" width="34" height="22" rx="7"/><rect x="40" y="168" width="30" height="26" rx="6"/>')
     walk = 'M' + 'L'.join(f'{x} {y}' for x, y in WALK)
     train = smooth(TRAIN)
@@ -89,7 +91,7 @@ def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
         f'style="fill:{fill};stroke:var(--map-halo);stroke-width:{halo_w};paint-order:stroke;stroke-linejoin:round" font-family="var(--font-text)" {extra}>{t}</text>')
     text = ''
     if labels:
-        text = lab(60, 146, 'SNOW HILL') + lab(252, 292, 'BULLRING') + lab(262, 152, 'CORPORATION ST', extra='transform="rotate(-42 262 152)"')
+        text = lab(60, 146, 'SNOW HILL') + lab(204, 306, 'BULLRING') + lab(262, 152, 'CORPORATION ST', extra='transform="rotate(-42 262 152)"')
     me = (f'<circle cx="{HOME[0]}" cy="{HOME[1]}" r="17" style="fill:rgba(var(--accent-rgb),.16)"/>'
           f'<circle cx="{HOME[0]}" cy="{HOME[1]}" r="6.2" style="fill:rgb(var(--accent-pale-rgb));stroke:rgb(var(--accent-rgb));stroke-width:2.4"/>')
     ns = (f'<circle cx="{NEW_STREET[0]}" cy="{NEW_STREET[1]}" r="13" style="fill:rgba(var(--accent-rgb),.18)"/>'
@@ -99,9 +101,9 @@ def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
              lab(NEW_STREET[0] + 16, NEW_STREET[1] - 22, 'New Street', 12.5, 700, fill='var(--ink-1)') +
              lab(NEW_STREET[0] + 16, NEW_STREET[1] - 7, 'Platform 3 · 07:42', 11.5, 600, fill='var(--accent-text)') +
              lab(346, 338, 'Coventry · 08:03', 12.5, 700, anchor='end', fill='var(--ink-1)'))
-    return (f'<svg class="routemap" width="100%" height="100%" viewBox="0 0 360 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    return (f'<svg class="routemap" width="100%" height="100%" viewBox="0 0 360 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
             f'<defs><filter id="{uid}b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter></defs>'
-            f'<g fill="none" stroke-linecap="round" stroke-linejoin="round">'
+            f'<g transform="translate(0 {SHIFT})"><g fill="none" stroke-linecap="round" stroke-linejoin="round">'
             f'<g style="fill:var(--map-park);stroke:none">{parks}</g>'
             f'<path d="{coarse}" style="stroke:var(--map-street)" stroke-width=".7" opacity=".7"/>'
             f'<path d="{fine}" style="stroke:var(--map-street)" stroke-width=".8"/>'
@@ -114,4 +116,4 @@ def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
             f'<path d="{train}" style="stroke:rgba(var(--accent-rgb),.6)" stroke-width="11" filter="url(#{uid}b)"/>'
             f'<path d="{train}" style="stroke:rgb(var(--accent-rgb))" stroke-width="4.2"/>'
             f'<path d="{head}" style="fill:rgb(var(--accent-rgb));stroke:rgb(var(--accent-rgb))" stroke-width="1.4"/>'
-            f'</g>{me}{ns}{text}{names}</svg>')
+            f'</g>{me}{ns}{text}{names}</g></svg>')
