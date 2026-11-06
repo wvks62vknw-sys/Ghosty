@@ -169,6 +169,8 @@ export function machineEye(size: number, o: { label?: string } = {}): Eye {
     el.append(canvas);
   } else {
     info.mode = 'flat';
+    // drawn flat it neither turns nor breathes: it is still, and its name says so
+    info.still = true;
     el.append(eyeGlyph(size));
   }
 
@@ -229,7 +231,7 @@ export function machineEye(size: number, o: { label?: string } = {}): Eye {
   document.addEventListener('visibilitychange', vis);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const onMotion = () => {
-    info.still = motion.matches;
+    info.still = motion.matches || info.mode === 'flat';
     name();
     kick();
   };

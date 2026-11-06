@@ -214,19 +214,28 @@ export function stampLine(facts: () => StampFacts): { el: HTMLElement; refresh()
 
 // ---------------------------------------------------------------- the eye, drawn small
 
-/** The orb drawn small (the line of sight's origin where the real eye is not on screen): its edge, a ring of points, the core. */
+/**
+ * The orb drawn flat (the line of sight's origin where the real eye is not on screen, a swatch's mark, and the eye itself on a
+ * browser with no 3-D): its edge, rings of points, the core. Drawn for its size: small, three rings of points; large, seven
+ * finer ones, so it reads as a sphere of points at 240 px as it does at 30; the edge stays one hairline at any size.
+ */
 export function eyeGlyph(size = 40): SVGSVGElement {
   const s = svgEl('svg', { viewBox: '0 0 40 40', width: size, height: size, class: 'g-eye', 'aria-hidden': 'true' });
-  s.append(svgEl('circle', { cx: 20, cy: 20, r: 18.5, class: 'g-eye-edge' }));
-  for (let ring = 0; ring < 3; ring++) {
-    const r = [15, 10.5, 6][ring]!;
-    const n = [22, 15, 9][ring]!;
+  const unit = size / 40;
+  const big = size >= 120;
+  s.append(svgEl('circle', { cx: 20, cy: 20, r: 18.5, class: 'g-eye-edge', 'vector-effect': 'non-scaling-stroke' }));
+  const radii = big ? [17, 15, 13, 11, 9, 7, 5] : [15, 10.5, 6];
+  const step = big ? 1.9 : 4.3;
+  // a point about 1.4 px across its radius when large; the small glyph's own 0.75 units below that
+  const dot = Math.min(0.75, 1.4 / unit);
+  radii.forEach((r, ring) => {
+    const n = Math.max(6, Math.round((2 * Math.PI * r) / step));
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + ring * 0.4;
-      s.append(svgEl('circle', { cx: (20 + Math.cos(a) * r).toFixed(2), cy: (20 + Math.sin(a) * r * 0.62).toFixed(2), r: 0.75, class: 'g-eye-pt' }));
+      s.append(svgEl('circle', { cx: (20 + Math.cos(a) * r).toFixed(2), cy: (20 + Math.sin(a) * r * 0.62).toFixed(2), r: dot.toFixed(3), class: 'g-eye-pt' }));
     }
-  }
-  s.append(svgEl('circle', { cx: 20, cy: 20, r: 3.4, class: 'g-eye-core' }), svgEl('circle', { cx: 20, cy: 20, r: 1.3, class: 'g-eye-mid' }));
+  });
+  s.append(svgEl('circle', { cx: 20, cy: 20, r: big ? 2.2 : 3.4, class: 'g-eye-core' }), svgEl('circle', { cx: 20, cy: 20, r: big ? 0.9 : 1.3, class: 'g-eye-mid' }));
   return s;
 }
 

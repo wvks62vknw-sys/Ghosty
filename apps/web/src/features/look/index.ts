@@ -324,7 +324,9 @@ export const lookTab: TabDef = {
         idle.setAttribute('aria-pressed', String(s === 'idle'));
         listen.setAttribute('aria-pressed', String(s === 'listening'));
         const still = motion.matches;
-        said.replaceChildren(...truthLine(s === 'idle' ? (still ? 'Idle · held still' : 'Idle · turning slowly') : [{ text: 'Listening', tone: 'on' }, still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
+        // (drawn flat, it neither turns nor breathes, and says so)
+        const flat = eye!.info.mode === 'flat';
+        said.replaceChildren(...truthLine(s === 'idle' ? (flat ? ['Idle', 'drawn flat, still'] : still ? ['Idle', 'held still'] : ['Idle', 'turning slowly']) : [{ text: 'Listening', tone: 'on' }, flat ? 'drawn flat, still' : still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
       };
       b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Mind, drawn as my eye: a sphere of points with what I know inside it, my core in your colour, no glow. I breathe while I listen.'),
         h('div.gstage', h('div.gorbwrap', eye.el), tag('Mind · my eye', { tone: 'on' }), said, h('div.gkeys', idle, listen)),
