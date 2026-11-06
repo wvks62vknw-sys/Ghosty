@@ -91,7 +91,11 @@ folder that no longer exists; ignore those paths).
 - 06 Nov: took over through the repository. PR #58 (the 5 Nov review, OWNER-ISSUES 131–133, the queue 0–8, STARS 169, the two
   habits, the foresight test) was still open with one smoke shard red: its branch is the base of this session's branch, so PR #59
   carries it plus the guard fix; #58 is closed as superseded once #59 is on main. The shard's failure is read from its log before
-  the merge (a flake is fixed at its cause, never retried into green). Usage percentage: asked; not yet given.
+  the merge (a flake is fixed at its cause, never retried into green): it was the packs3 spec's Arabic letters (OWNER-ISSUES 134),
+  fixed in the spec and run clean locally. Local set-up this session: `npm install` in apps/edge (builds the web too); the brain
+  bundle is the first half of apps/edge's test script with `apps/edge/node_modules/.bin` on PATH; the preview on 8790; the global
+  Playwright linked into the repo root's node_modules (`playwright` and `playwright-core` from /opt/node-tools) so specs import it.
+  Usage percentage: asked; not yet given.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
