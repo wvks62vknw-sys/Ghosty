@@ -196,6 +196,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- PR #60 (opened 7 Nov, merged by the orchestrator when every check is green; main's run read after): THE DESIGN SYSTEM from W1 The Scan (OWNER-ISSUES 140): the tokens with the lit graphite canvas and the readability floor held by a test, the Machine's marks as components, Mind as the eye on THE LOOK, Settings → Appearance → THE LOOK, the twelve themes as token sets with live swatches, look.test.mjs and look.spec.mjs; both rounds of directions ride with it. His five-minute phone check is in OWNER-ISSUES 140.
 - PR #51 (section 3).
 
 ## 3. Happening right now
@@ -247,7 +248,7 @@ built in the old look after day one, so no screen is built twice.
    (b) THE GUARD FIXED (his decision, 5 Nov, OWNER-ISSUES 131, which overrides the 2 Nov "never touch it"): match any check whose
    name starts with "smoke", restore only to the commit just before the failing merge, and leave .github/workflows as it is when
    restoring. About fifteen minutes; the first PR of Friday, because a week of ten merges needs a working net.
-1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) ROUND ONE RENDERED 6 Nov and REJECTED by him (OWNER-ISSUES 135, 136: "a total redesign, something that hasn't been seen before"); ROUND TWO RENDERED the same night on the top tier (OWNER-ISSUES 138; mockups/directions-2/contact.png: three worlds with storyboards, the Machine's eye in each), HIS PICK 6 Nov: W1 THE SCAN, not so dark, the Machine felt, nothing hard to find (OWNER-ISSUES 139). (b) RUNNING: BRIEF-DESIGN-SYSTEM on the top tier. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
+1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) ROUND ONE RENDERED 6 Nov and REJECTED by him (OWNER-ISSUES 135, 136: "a total redesign, something that hasn't been seen before"); ROUND TWO RENDERED the same night on the top tier (OWNER-ISSUES 138; mockups/directions-2/contact.png: three worlds with storyboards, the Machine's eye in each), HIS PICK 6 Nov: W1 THE SCAN, not so dark, the Machine felt, nothing hard to find (OWNER-ISSUES 139). (b) and (c) BUILT 7 Nov in PR #60 (OWNER-ISSUES 140: the tokens, the marks, THE LOOK, the twelve themes as token sets, the two tests, the not-so-dark proof); Mind as the eye is on THE LOOK only, Home's eye offered as a half-day pass after the reader (140a). Next: item 2. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
    tokens, not app code: Home, one hub, the Lens and the reader in each, at 390 and 440; one direction with Mind (the orb) as the
    navigation itself; one that drops the current iOS-like look entirely (his words, 5 Nov: "we might get rid of the iphone theme …
    we could redesign it entirely to just look a lot better"); Mind the orb at the centre in all three, the Stage taking the centre
