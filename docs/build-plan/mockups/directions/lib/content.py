@@ -75,6 +75,16 @@ SHELF = [
 
 SHELF_LINE = f'Four books. I’ve read {HOME["stats"]["passages"]} passages myself.'
 
+# How many screens each area holds (shell/areadefs.ts: AREAS[].tabs), and Learn's seven by name: the Areas layer lists them.
+AREA_COUNTS = {'see': 2, 'make': 8, 'learn': 7, 'plan': 4, 'life': 8, 'me': 6}
+LEARN_SCREENS = ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach']
+
+# What the typed-word layer says about each recent and starred screen: its card's own first reading, in one line.
+FIND_ROWS = [
+    ('Recent', [('Library', 'Reading Alice’s Adventures in Wonderland, page 42'), ('God’s eye', 'Watching Birmingham'), ('Brief', '9° and clear in Birmingham')]),
+    ('Favourites', [('Lens', 'Ready'), ('Agenda', 'Dentist, tomorrow at 09:15'), ('Gym', 'Training: Sudoku Lv 6'), ('Courses', 'Next: Lesson 3')]),
+]
+
 # --------------------------------------------------------------------------------------------------------- the Stage
 STAGE = dict(
     time=MORNING,

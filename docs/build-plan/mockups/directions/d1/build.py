@@ -147,13 +147,10 @@ def fold_row(c):
             f'<div class="rr"><span>{k1}</span><b class="num">{v1}{(" " + u1) if u1 else ""}</b><span>{k2}</span><b class="num">{v2}{(" " + u2) if u2 else ""}</b></div></div>')
 
 
-def hub():
+def hub_col():
     H = C.HUB
     cards = H['cards']
-    body = f'''<div class="screen hub">
-  {sky(seed=5)}
-  {status_bar('21:11')}
-  <div class="col">
+    return f'''<div class="col">
     <div class="titlebar"><button class="roundb" aria-label="Back to Home">{g('back')}</button><h1>{H['title']}</h1></div>
     <p class="cap hubline">{H['line']}</p>
     <div class="stack">
@@ -161,12 +158,45 @@ def hub():
       <section class="tier"><div class="tl"><i></i>Favourites</div><div class="pair">{''.join(small_card(cards[k]) for k in H['favourites'])}</div></section>
       <section class="tier"><div class="tl rec"><i></i>Recent</div>{big_card(cards['library'])}</section>
     </div>
-  </div>
+  </div>'''
+
+
+def hub():
+    body = f'''<div class="screen hub">
+  {sky(seed=5)}
+  {status_bar('21:11')}
+  {hub_col()}
   <span class="thread" aria-hidden="true"></span>
   {ghost('Find anything in Learn')}
   {HOME_INDICATOR}
 </div>'''
     return page('D1 · Hub, Learn', body)
+
+
+# ============================================================================================ the first gesture, from a hub: hold the orb and the areas open round it
+def fan():
+    """The orb held on a hub: the six areas open on an arc round it (as the quick switcher's arc does today); he slides to one and lets go."""
+    R, RL = 196, 238
+    order = [('see', -90), ('make', -75), ('learn', -60), ('plan', -45), ('life', -30), ('me', -15)]
+    discs, labels = '', ''
+    for aid, th in order:
+        a = next(x for x in C.AREAS if x['id'] == aid)
+        c, s = math.cos(math.radians(th)), math.sin(math.radians(th))
+        target, here = aid == 'plan', aid == 'learn'
+        discs += (f'<button class="fs{" tgt" if target else ""}{" here" if here else ""}" style="--dx:{R * c:.1f}px;--dy:{-R * s:.1f}px" aria-label="{a["name"]}">{g(a["glyph"], "i sm")}</button>')
+        labels += f'<span class="fl{" tgt" if target else ""}" style="--dx:{RL * c:.1f}px;--dy:{-RL * s:.1f}px">{a["name"]}</span>'
+    body = f'''<div class="screen hub fanscr">
+  {sky(seed=5)}
+  {status_bar('21:11')}
+  {hub_col()}
+  <div class="scrim"></div>
+  <svg class="fanarc" aria-hidden="true" data-bleed><path class="arc" d="M0 {-R}A{R} {R} 0 0 1 {R * math.cos(math.radians(-8)):.1f} {R * math.sin(math.radians(-8)):.1f}"/><path class="drag" d="M0 0L{R * math.cos(math.radians(-45)) * .86:.1f} {R * math.sin(math.radians(-45)) * .86:.1f}"/></svg>
+  {discs}{labels}
+  <p class="fhint">Slide to an area and let go.<span>{next(a for a in C.AREAS if a['id'] == 'plan')['sub']}</span></p>
+  <div class="fant"><span class="pulse held"></span>{orb(64, 'glass', 'fo', detail='full', halo=1.2, label='Mind')}</div>
+  {HOME_INDICATOR}
+</div>'''
+    return page('D1 · The areas open round the orb', body)
 
 
 # ============================================================================================ THE LENS
@@ -276,6 +306,7 @@ if __name__ == '__main__':
     write(HERE, 'home.html', home())
     write(HERE, 'show.html', show())
     write(HERE, 'hub.html', hub())
+    write(HERE, 'nav.html', fan())
     write(HERE, 'lens.html', lens())
     write(HERE, 'reader.html', reader())
     write(HERE, 'shelf.html', shelf())

@@ -9,7 +9,7 @@ ul { list-style: none; }
 .i { display: block; flex: none; width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
 .i.sm { width: var(--icon-sm); height: var(--icon-sm); }
 .i.xs { width: 16px; height: 16px; }
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: var(--tr-mono); }
+.num { font-family: var(--font-mono); font-variant-numeric: var(--num); letter-spacing: var(--tr-mono); }
 .kicker { font: var(--t-kicker); letter-spacing: var(--tr-kicker); text-transform: uppercase; color: var(--ink-3); }
 .cap { font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-2); }
 .acc { color: var(--accent-text); }
@@ -132,6 +132,23 @@ ul { list-style: none; }
 .frow .rr span { color: var(--ink-3); }
 .frow .rr b { font: 500 12px/16px var(--font-mono); letter-spacing: -.02em; color: var(--ink-1); }
 .thread { position: absolute; z-index: 24; left: calc(var(--gutter) + 28px); width: 2px; margin-left: -1px; bottom: calc(var(--safe-bottom) + var(--s-1) + var(--target-lg) - 2px); height: var(--s-3); background: linear-gradient(180deg, rgba(var(--accent-rgb), .15), var(--accent)); box-shadow: 0 0 10px var(--accent-halo); }
+
+/* ============================================================== the first gesture, from a hub: hold the orb and the areas open round it */
+.scrim { position: absolute; z-index: 20; inset: 0; background: linear-gradient(180deg, rgba(var(--canvas-rgb), .80), rgba(var(--canvas-rgb), .94) 52%, rgba(var(--canvas-rgb), .97)); }
+.fanarc { position: absolute; z-index: 22; left: calc(var(--gutter) + 28px); bottom: calc(var(--safe-bottom) + var(--s-1) + 28px); width: 1px; height: 1px; overflow: visible; }
+.fanarc .arc { fill: none; stroke: var(--orbit); stroke-width: 1; stroke-dasharray: 2 6; }
+.fanarc .drag { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--accent-halo)); }
+.fs { position: absolute; z-index: 30; left: calc(var(--gutter) + 28px + var(--dx)); bottom: calc(var(--safe-bottom) + var(--s-1) + 28px + var(--dy)); transform: translate(-50%, 50%); width: var(--target); height: var(--target); border-radius: var(--r-round); display: grid; place-items: center; background: rgba(var(--canvas-rgb), .94); box-shadow: var(--edge-1); color: var(--ink-1); }
+.fs.here::after { content: ''; position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: var(--r-round); background: var(--ink-3); }
+.fs.tgt { width: 56px; height: 56px; background: var(--accent-tint); box-shadow: var(--edge-2), var(--glow-2); color: var(--accent-text); }
+.fs.tgt .i { width: var(--icon); height: var(--icon); }
+.fl { position: absolute; z-index: 30; left: calc(var(--gutter) + 28px + var(--dx)); bottom: calc(var(--safe-bottom) + var(--s-1) + 28px + var(--dy)); transform: translate(-50%, 50%); font: 600 13px/16px var(--font-text); letter-spacing: -.004em; color: var(--ink-2); white-space: nowrap; }
+.fl.tgt { font-size: 15px; color: var(--accent-text); }
+.fhint { position: absolute; z-index: 30; left: calc(var(--gutter) + 56px + var(--s-2) + var(--s-1)); right: var(--gutter); bottom: calc(var(--safe-bottom) + var(--s-1)); font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-1); }
+.fhint span { display: block; margin-top: 2px; font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-2); }
+.fant { position: absolute; z-index: 35; left: calc(var(--gutter) - 4px); bottom: calc(var(--safe-bottom) + 4px); width: 64px; height: 64px; }
+.fant .orb { width: 64px; height: 64px; }
+.pulse.held { inset: -6px; box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .55), 0 0 0 11px rgba(var(--accent-rgb), .10), 0 0 0 20px rgba(var(--accent-rgb), .05); }
 
 /* ============================================================== THE LENS */
 .lens .cam { position: absolute; inset: 0; z-index: 0; }

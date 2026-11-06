@@ -5,7 +5,7 @@
 // After each screen it checks for text that is cut off or anything poking out of the screen, and says so.
 //
 // THE THREE DIRECTIONS (route "directions/d1", "directions/d2", "directions/d3", or "directions" for the sheet across all three):
-//   node docs/build-plan/mockups/tools/render.mjs directions/d1            home, show, hub, lens, reader, shelf, contact
+//   node docs/build-plan/mockups/tools/render.mjs directions/d1            home, show, hub, nav, lens, reader, shelf, contact (home-ember by name)
 //   node docs/build-plan/mockups/tools/render.mjs directions contact       the one sheet across the three
 // Every screen is rendered at BOTH 390 x 844 and 440 x 956 (deviceScaleFactor 2) as <page>-390.png and <page>-440.png, and the
 // check is stricter: nothing sideways at either width, every button and link at least 44 x 44 pt, no text under 11 pt.
@@ -21,7 +21,7 @@ const dir = resolve(here, '..', route);
 const directions = route === 'directions' || route.startsWith('directions/');
 const SHEETS = ['language', 'contact'];
 const isSheet = (name) => SHEETS.includes(name) || name.startsWith('contact');
-const SCREENS = directions ? ['home', 'show', 'hub', 'lens', 'reader', 'shelf'] : ['home', 'chat', 'eye', 'gym', 'settings'];
+const SCREENS = directions ? ['home', 'show', 'hub', 'nav', 'lens', 'reader', 'shelf'] : ['home', 'chat', 'eye', 'gym', 'settings'];
 const SIZES = directions ? [[390, 844], [440, 956]] : [[440, 956]];
 const asked = process.argv.slice(3);
 const pages = asked.length ? asked : directions ? (route === 'directions' ? ['contact'] : [...SCREENS, 'contact']) : [...SCREENS, 'language', 'contact'];

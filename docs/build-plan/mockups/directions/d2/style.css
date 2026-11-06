@@ -7,7 +7,7 @@ ul { list-style: none; }
 
 /* glyphs and type roles */
 .i { display: block; flex: none; width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: square; stroke-linejoin: miter; }
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: var(--tr-mono); }
+.num { font-family: var(--font-mono); font-variant-numeric: var(--num); letter-spacing: var(--tr-mono); }
 .kicker { font: var(--t-kicker); letter-spacing: var(--tr-kicker); text-transform: uppercase; color: var(--ink-3); }
 .voice { font: var(--t-voice); letter-spacing: var(--tr-voice); color: var(--ink-2); }
 .cap { font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-2); }
@@ -119,6 +119,16 @@ ul { list-style: none; }
 .trow .rr .kicker { font-size: 11px; letter-spacing: .1em; color: var(--ink-3); }
 .trow .rr b { font: 500 13px/18px var(--font-mono); letter-spacing: -.02em; color: var(--ink-1); }
 
+/* ============================================================== the first press, from a hub: the ask line opens a layer */
+.layer { position: absolute; z-index: 40; left: 0; right: 0; top: calc(var(--safe-top) + 45px); bottom: calc(var(--safe-bottom) + 92px); padding: 0 var(--gutter); overflow: hidden; background: var(--plane-2); box-shadow: var(--lift-2); }
+.lhd { display: flex; align-items: baseline; justify-content: space-between; height: 40px; padding-top: var(--s-2); }
+.lhd + .fr { border-top: 0; }
+.fr { display: block; width: 100%; min-height: 56px; padding: 6px 0; border-top: 1px solid var(--rule); text-align: left; }
+.fr b { display: block; font: 500 17px/24px var(--font-text); letter-spacing: -.012em; color: var(--ink-1); }
+.fr span { display: block; font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-3); }
+.try { margin-top: var(--s-3); font-size: 15px; line-height: 22px; }
+.caret { display: inline-block; width: 2px; height: 22px; margin-right: 6px; background: var(--accent); }
+
 /* ============================================================== THE LENS: the Machine's boxes, an annotation in place of a card */
 .lens .cam { position: absolute; inset: 0; }
 .lens .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .62), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 56%, rgba(11, 10, 9, .86) 100%); }
@@ -156,7 +166,7 @@ ul { list-style: none; }
 .tabs button:first-child { padding-left: 0; }
 .tabs button:last-child { padding-right: 0; }
 .tabs button.on { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }
-.page { position: relative; flex: 1; min-height: 0; overflow: hidden; margin-top: var(--s-1); }
+.page { position: relative; flex: 1; min-height: 0; overflow: hidden; margin: var(--s-1) calc(var(--gutter) * -1) 0; padding: 0 var(--gutter); }  /* the page reaches into the gutter so the lit rule can hang in the margin */
 .page::before { content: ''; position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 32px; background: linear-gradient(180deg, var(--canvas), rgba(var(--canvas-rgb), 0)); pointer-events: none; }
 .page::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(180deg, rgba(var(--canvas-rgb), 0), var(--canvas)); pointer-events: none; }
 .flow { margin-top: calc(var(--s-1) * -13); }

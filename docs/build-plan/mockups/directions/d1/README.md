@@ -87,7 +87,9 @@ foot of every screen is a second view of the same renderer).
 
 `tokens.css` (the real tokens; Ember is the second block: a theme is a swap of the accent block alone, `home-ember-390.png` shows it),
 `style.css`, `build.py` (`python3 -I -B docs/build-plan/mockups/directions/d1/build.py` from the repo root, then
-`node docs/build-plan/mockups/tools/render.mjs directions/d1`), and the pictures: `home`, `show`, `hub`, `lens`, `reader` and
-`shelf` (a sixth small frame) each at `-390.png` and `-440.png`, `home-ember-390.png` and `-440.png`, `contact.png`. The words are the
+`node docs/build-plan/mockups/tools/render.mjs directions/d1`), and the pictures: `home`, `show`, `hub`, `lens`, `reader`
+each at `-390.png` and `-440.png`; and three beyond the five: `shelf` (a sixth small frame), `nav` (the orb held on a hub: the six areas open
+on an arc round it and he is sliding to Plan: the proof that Mind is the navigation on every screen, not only on Home) and `home-ember`
+(the same Home under Ember); `contact.png` is the five at 390. The words are the
 real ones (`hubcards.ts`'s names and readings, a real station, a real book): *Alice's Adventures in Wonderland*, page 42 of 112, because
 its text is public domain and can be set in full (*The Hobbit* is in copyright until 2043; `lib/content.py` swaps it).

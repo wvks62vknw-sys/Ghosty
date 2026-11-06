@@ -68,8 +68,10 @@ each, need the fold to do its job).
 
 `tokens.css` (the real tokens; Ember is the second block: a theme is a swap of the accent block alone, `home-ember-390.png` shows it),
 `style.css`, `build.py` (`python3 -I -B docs/build-plan/mockups/directions/d2/build.py` from the repo root, then
-`node docs/build-plan/mockups/tools/render.mjs directions/d2`), and the pictures: `home`, `show`, `hub`, `lens`, `reader` and
-`shelf` (a sixth small frame) each at `-390.png` and `-440.png`, `home-ember-390.png` and `-440.png`, `contact.png`. The words are the
+`node docs/build-plan/mockups/tools/render.mjs directions/d2`), and the pictures: `home`, `show`, `hub`, `lens`, `reader`
+each at `-390.png` and `-440.png`; and three beyond the five: `shelf` (a sixth small frame), `nav` (the ask line pressed on a hub: Recent and
+Favourites open above it as ruled rows, each with its first reading, and words to type: the proof of "a recent in 2 taps, anything by a
+word") and `home-ember` (the same Home under Ember); `contact.png` is the five at 390. The words are the
 real ones (`hubcards.ts`'s names and readings, a real station, a real book): *Alice's Adventures in Wonderland*, page 42 of 112, because
 its text is public domain and can be set in full (*The Hobbit* is in copyright until 2043; `lib/content.py` swaps it). The serif is
 Source Serif in the pictures as the stand-in for New York.

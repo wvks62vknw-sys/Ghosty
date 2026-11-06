@@ -22,10 +22,11 @@ from scene import TAGS, lens_scene  # noqa: E402
 g = glyph
 
 
-def dock(placeholder='Ask or find anything', on=None, ask=True, over=False):
+def dock(placeholder='Ask or find anything', on=None, ask=True, over=False, caret=False):
     """The bottom of every screen: the typed word on a ruled line, and the areas as an index of words. The dot is Mind."""
     words = ''.join(f'<button class="{"on" if a == on else ""}">{n}</button>' for a, n in [('see', 'See'), ('make', 'Make'), ('learn', 'Learn'), ('plan', 'Plan'), ('life', 'Life')])
-    asked = f'<div class="ask"><button class="askf">{placeholder}</button><button class="speak kicker">Speak</button></div>' if ask else ''
+    cur = '<i class="caret"></i>' if caret else ''
+    asked = f'<div class="ask"><button class="askf">{cur}{placeholder}</button><button class="speak kicker">Speak</button></div>' if ask else ''
     return (f'<div class="dock{" over" if over else ""}">{asked}<nav class="index" aria-label="Areas">'
             f'<button class="dotbtn" aria-label="Mind: home">{orb(24, "ink", "dk", detail="mini")}</button>{words}</nav></div>')
 
@@ -123,13 +124,11 @@ def trow(c):
             f'<div class="rr"><span class="kicker">{k1}</span><b>{v1}{(" " + u1) if u1 else ""}</b><span class="kicker">{k2}</span><b>{v2}{(" " + u2) if u2 else ""}</b></div></div>')
 
 
-def hub():
+def hub_col():
     H = C.HUB
     cards = H['cards']
     rest = ''.join(trow(cards[k]) for k in H['rest'])
-    body = f'''<div class="screen hub">
-  {status_bar('21:11')}
-  <div class="col">
+    return f'''<div class="col">
     <header class="mast"><button class="word l kicker">{g('back')}Home</button><button class="word kicker" aria-label="Me">{C.NAME}</button></header>
     <div class="hubhead"><h1>{H['title']}</h1><p class="voice">{H['line']}</p></div>
     <div class="secs">
@@ -137,11 +136,33 @@ def hub():
       {pair([cards[k] for k in H['favourites']], '02')}
       <section class="sec"><div class="slabel"><span class="kicker"><i class="n">03</i>Everything else</span><span class="kicker"><i class="dot works"></i> in the works · {len(H['rest'])}</span></div>{rest}</section>
     </div>
-  </div>
+  </div>'''
+
+
+def hub():
+    body = f'''<div class="screen hub">
+  {status_bar('21:11')}
+  {hub_col()}
   {dock('Find anything in Learn', on='learn')}
   {HOME_INDICATOR}
 </div>'''
     return page('D2 · Hub, Learn', body)
+
+
+# ============================================================================================ the first press, from a hub: the ask line opens a layer of Recent and Favourites
+def find():
+    rows = ''
+    for n, (label, items) in enumerate(C.FIND_ROWS, start=1):
+        rows += f'<div class="lhd"><span class="kicker"><i class="n">0{n}</i>{label}</span><span class="kicker num">{len(items)}</span></div>'
+        rows += ''.join(f'<button class="fr"><b>{name}</b><span>{line}</span></button>' for name, line in items)
+    body = f'''<div class="screen hub findscr">
+  {status_bar('21:11')}
+  {hub_col()}
+  <section class="layer" aria-label="Find">{rows}<p class="try voice">Or type a word: “chess”, “bins”, “convert”, “where is the car”.</p></section>
+  {dock('Find anything', on='learn', caret=True)}
+  {HOME_INDICATOR}
+</div>'''
+    return page('D2 · The ask line opened', body)
 
 
 # ============================================================================================ THE LENS
@@ -182,7 +203,7 @@ def reader():
     <header class="running"><button class="word kicker">{g('back')}Library</button><button class="word r kicker" aria-label="Text size">Aa</button></header>
     <p class="rline"><b>{b['title']}</b><span>page {b['page']} of {b['of']} · {b['when']}</span></p>
     <nav class="tabs" aria-label="Book sections">{tabs}</nav>
-    <article class="page"><div class="flow">{paras}</div></article>
+    <article class="page" data-bleed><div class="flow">{paras}</div></article>
   </div>
   <div class="listen" role="group" aria-label="Listen"><div class="row">
     <button class="go" aria-label="Pause">{g('pause')}</button>
@@ -250,6 +271,7 @@ if __name__ == '__main__':
     write(HERE, 'home.html', home())
     write(HERE, 'show.html', show())
     write(HERE, 'hub.html', hub())
+    write(HERE, 'nav.html', find())
     write(HERE, 'lens.html', lens())
     write(HERE, 'reader.html', reader())
     write(HERE, 'shelf.html', shelf())

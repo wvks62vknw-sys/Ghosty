@@ -67,7 +67,8 @@ per screen, not with a different feel.
 `tokens.css` (the real tokens; Ember is the second block: a theme is a swap of the accent block alone, `home-ember-390.png` shows it),
 `style.css` (components and the five screens, written only from the tokens), `build.py` (`python3 -I -B docs/build-plan/mockups/directions/d3/build.py`
 from the repo root, then `node docs/build-plan/mockups/tools/render.mjs directions/d3`), and the pictures: `home`, `show`, `hub`, `lens`,
-`reader` and `shelf` (the Shelf row, a sixth small frame) each at `-390.png` and `-440.png`, `home-ember-390.png` and `-440.png`,
-`contact.png`. The words are the real ones (the hub cards' names and readings from `hubcards.ts`; a real station; a real book).
+`reader` each at `-390.png` and `-440.png`; and three beyond the five: `shelf` (the Shelf row with a cover, the author and progress, a sixth
+small frame), `nav` (the Areas layer opened from a hub: recent and starred on top, every area below with Learn open, the deck folded in:
+the proof of "any screen in 2 taps") and `home-ember` (the same Home under Ember); `contact.png` is the five at 390. The words are the real ones (the hub cards' names and readings from `hubcards.ts`; a real station; a real book).
 The book is *Alice's Adventures in Wonderland*, page 42 of 112, because its text is in the public domain and can be set in full;
 *The Hobbit* is in copyright until 2043. `BOOK` and `READER_TEXT` in `lib/content.py` swap it.

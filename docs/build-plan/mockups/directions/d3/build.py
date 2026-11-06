@@ -119,12 +119,10 @@ def fold_row(c):
             f'<div class="rr"><span>{k1}</span><b class="num">{v1}{(" " + u1) if u1 else ""}</b><span>{k2}</span><b class="num">{v2}{(" " + u2) if u2 else ""}</b></div></div>')
 
 
-def hub():
+def hub_col():
     H = C.HUB
     cards = H['cards']
-    body = f'''<div class="screen hub">
-  {status_bar('21:11')}
-  <div class="col">
+    return f'''<div class="col">
     <div class="titlebar"><button class="roundb" aria-label="Back">{g('back')}</button><h1>{H['title']}</h1><button class="avatar" aria-label="Me">B</button></div>
     <p class="hubline">{H['line']}</p>
     <div class="layers">
@@ -132,11 +130,45 @@ def hub():
       <section class="tier"><div class="kicker">Favourites</div><div class="pair">{''.join(small_card(cards[k]) for k in H['favourites'])}</div></section>
       <section class="tier"><div class="kicker">Everything else · {len(H['rest'])}<em><i></i>In the works</em></div><div class="fold">{''.join(fold_row(cards[k]) for k in H['rest'])}</div></section>
     </div>
-  </div>
+  </div>'''
+
+
+def hub():
+    body = f'''<div class="screen hub">
+  {status_bar('21:11')}
+  {hub_col()}
   {bar('Find anything in Learn')}
   {HOME_INDICATOR}
 </div>'''
     return page('D3 · Hub, Learn', body)
+
+
+# ============================================================================================ the first tap, from a hub: the Areas layer (the deck folded in)
+def nav():
+    chips_recent = ''.join(f'<button class="chip">{g("clock")}<span>{n}</span></button>' for n in ('Library', 'God’s eye', 'Brief'))
+    chips_star = ''.join(f'<button class="chip star">{g("star")}<span>{n}</span></button>' for n in ('Lens', 'Agenda', 'Gym'))
+    rows = ''
+    for a in C.AREAS:
+        n = C.AREA_COUNTS[a['id']]
+        if a['id'] == 'learn':
+            screens = ''.join(f'<button class="chip{" now" if s == "Library" else ""}">{s}</button>' for s in C.LEARN_SCREENS)
+            rows += (f'<div class="arow open"><div class="ah">{g(a["glyph"])}<b>{a["name"]}</b><span class="cap">{n} screens · you are here</span>{g("chevdown", "i xs")}</div><div class="chips">{screens}</div></div>')
+        else:
+            rows += f'<button class="arow"><div class="ah">{g(a["glyph"])}<b>{a["name"]}</b><span class="cap">{n} screens</span>{g("chev", "i xs")}</div></button>'
+    body = f'''<div class="screen hub navscr">
+  {status_bar('21:11')}
+  {hub_col()}
+  <div class="scrim"></div>
+  <section class="sheet" aria-label="Go to">
+    <div class="grab"></div>
+    <header class="sh-head"><h2>Go to</h2><button class="roundb" aria-label="Close">{g('close')}</button></header>
+    <div class="sh-sec"><div class="kicker">Recent and starred</div><div class="chips">{chips_recent}{chips_star}</div></div>
+    <div class="sh-sec grow"><div class="kicker">Every screen, by area</div><div class="alist">{rows}</div></div>
+  </section>
+  {bar()}
+  {HOME_INDICATOR}
+</div>'''
+    return page('D3 · The Areas layer', body)
 
 
 # ============================================================================================ THE LENS
@@ -249,6 +281,7 @@ if __name__ == '__main__':
     write(HERE, 'home.html', home())
     write(HERE, 'show.html', show())
     write(HERE, 'hub.html', hub())
+    write(HERE, 'nav.html', nav())
     write(HERE, 'lens.html', lens())
     write(HERE, 'reader.html', reader())
     write(HERE, 'shelf.html', shelf())

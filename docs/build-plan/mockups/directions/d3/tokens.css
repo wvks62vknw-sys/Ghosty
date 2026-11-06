@@ -69,6 +69,7 @@
   --tr-kicker: .12em;                                  /* kicker tracking: open, because it is capitals */
   --t-mono: 500 14px/20px var(--font-mono);            /* mono: a reading (1,240 · 42 of 112 · 07:24); numerals are tabular */
   --tr-mono: -.01em;                                   /* mono tracking */
+  --num: tabular-nums;                                 /* every reading that lines up (1,240 · 42 of 112 · 07:24) sets its numerals tabular */
   --t-reading: 400 19px/30px var(--font-serif);        /* reading: a book's text, 19 on 30 so a line is easy to find again */
   --tr-reading: 0;                                     /* reading tracking: none, the serif is already set for it */
 
@@ -122,9 +123,9 @@
    --------------------------------------------------------------------------------------------------------------------- */
 :root[data-theme="ember"] {
   --accent: #ff7a3d;                                   /* Forge orange */
-  --accent-rgb: 255, 122, 61;
-  --accent-pale: #ffd2bd;
-  --accent-pale-rgb: 255, 210, 189;
-  --accent-glow: 1;
-  --accent-text: #ff7a3d;
+  --accent-rgb: 255, 122, 61;                          /* Ember as a triplet: every derived tint, line and halo follows it */
+  --accent-pale: #ffd2bd;                              /* its pale tint */
+  --accent-pale-rgb: 255, 210, 189;                    /* the tint as a triplet, for the orb's lines */
+  --accent-glow: 1;                                    /* it lights the room fully, as Reactor does */
+  --accent-text: #ff7a3d;                              /* it passes as text on the canvas (over 7:1), so no darker variant is needed */
 }
