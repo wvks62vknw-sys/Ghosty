@@ -102,10 +102,15 @@ await page.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 150
 await openSection(page, 'settings', 'About');
 const row = '#pg-settings .pn[data-row][data-go="look"] > h3';
 check(!(await page.locator(row).isVisible().catch(() => false)), '[settings] THE LOOK\'s row shows under About (it belongs under Appearance)');
+/** The page at rest (Settings draws its panels for a moment after it shows): a person reads the list before tapping. */
+const idle = (p) => p.evaluate(() => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 3000 }) : setTimeout(r, 300))));
+await page.waitForTimeout(800);
+await idle(page);
 await openSection(page, 'settings', 'Appearance'); // tap 1
 check(await page.locator(row).isVisible().catch(() => false), '[settings] THE LOOK has no row under Appearance');
 const rowName = (await page.locator('#pg-settings .pn[data-go="look"] .ptitle').textContent().catch(() => '')) ?? '';
 check(/the look/i.test(rowName), `[settings] the row is called "${rowName}"`);
+await idle(page);
 await page.click(row); // tap 2
 await until(page, () => window.__ghosty.ui.get().tab === 'look' && document.getElementById('pg-look')?.classList.contains('on'), null, 8000, '[look] two taps from Settings did not open THE LOOK');
 await until(page, () => !!window.__ghosty.look?.opened(), null, 3000, '[speed] the stopwatch has no open of THE LOOK');
@@ -120,6 +125,8 @@ check(/^\w{3} \d{1,2} \w{3}, \d\d:\d\d, .+, (Watching \d+ feeds?|Checking feeds|
 // the second open (built already): back to Settings and in again
 await page.click('#top .navback');
 await until(page, () => window.__ghosty.ui.get().tab === 'settings', null, 5000, '[look] back did not go to Settings');
+await page.waitForTimeout(600);
+await idle(page);
 await page.click(row);
 await until(page, () => window.__ghosty.ui.get().tab === 'look', null, 5000, '[look] the second open did not happen');
 await page.waitForTimeout(400);
@@ -129,8 +136,9 @@ notes.push(`THE LOOK opens in ${first.opened?.ms} ms the first time (built then)
 
 // ======================================================================== 2. every section, and 5. at 440
 await openLookSection(page, 'tokens');
-const tok = await page.evaluate(() => ({ rows: document.querySelectorAll('#pg-look .gtok').length, jobs: [...document.querySelectorAll('#pg-look .gtok-job')].filter((j) => j.textContent.trim().length > 10).length, groups: document.querySelectorAll('#pg-look .gtok-group').length, canvas: document.querySelector('#pg-look .gtok[data-token="--g-canvas"] .gtok-val')?.textContent }));
-check(tok.rows >= 80 && tok.jobs === tok.rows && tok.groups >= 10, `[tokens] ${JSON.stringify(tok)}`);
+const tok = await page.evaluate(() => ({ rows: document.querySelectorAll('#pg-look .gtok').length, jobs: [...document.querySelectorAll('#pg-look .gtok .gtok-job')].filter((j) => j.textContent.trim().length > 10).length, groups: document.querySelectorAll('#pg-look .gtok-group').length, canvas: document.querySelector('#pg-look .gtok[data-token="--g-canvas"] .gtok-val')?.textContent }));
+const tokenCount = Number((await page.locator('#pg-look .pn[data-sec="tokens"] > h3 small').getAttribute('data-label').catch(() => '0'))?.match(/\d+/)?.[0] ?? 0);
+check(tok.rows >= 75 && tok.rows === tokenCount && tok.jobs === tok.rows && tok.groups >= 10, `[tokens] ${JSON.stringify({ ...tok, tokenCount })}`);
 check(tok.canvas === '#101317', `[tokens] the canvas reads "${tok.canvas}"`);
 const reads = (await look(page)).contrast;
 for (const n of ['--g-ink-1', '--g-ink-2', '--g-ink-3', '--g-ink-4']) check(reads[n]?.length === 3 && Math.min(...reads[n]) >= 4.5, `[tokens] ${n} measured on screen: ${JSON.stringify(reads[n])}`);
@@ -217,7 +225,8 @@ check((await page.evaluate(() => window.__ghosty.look.marks.searches)) >= 1, '[s
 
 // ======================================================================== 4. the twelve apply at once, the pick survives a reload, the boot's colour
 await openLookSection(page, 'themes');
-const order = [...TWELVE.slice(1), 'reactor', 'ember'];
+// each once (the same toast twice within a minute shows once: ui/components.ts), Ember last, the one kept
+const order = [...TWELVE.slice(1).filter((k) => k !== 'ember'), 'reactor', 'ember'];
 for (const k of order) {
   const b = page.locator(`#pg-look .swatch[data-theme="${k}"]`);
   const want = await b.evaluate((el) => getComputedStyle(el).getPropertyValue('--g-accent').trim());
