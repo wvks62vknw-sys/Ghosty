@@ -107,3 +107,26 @@ going (brain's voice) and whether he did with the phone's voice.
 
 One strong builder, about five to seven hours (the reader, the Shelf, the place, LISTEN under the talk rules with the voice rule,
 the intents, the spec), then review and one checks run. Not before Friday's reset, and not before the design system of item 1.
+
+## Addendum, 7 Nov: the first screen in the design system (read before "The shape")
+
+- Start from the tip of `claude/new-session-4erjve` (PR #60: the design system, OWNER-ISSUES 139 and 140), on a branch
+  `builder/library-reader`. Read `apps/web/src/design/tokens.css`, `apps/web/src/ui/machine.ts`, `apps/web/src/features/look/index.ts`
+  (how a screen is drawn from the tokens and the marks) and MAP.md's rows for them first.
+- HIS THREE RULES (OWNER-ISSUES 139), held on every surface of the reader and the Shelf: (1) NOT SO DARK: the canvas and the plates
+  are the tokens' (`--g-canvas`, `--g-plate`), never a raw colour, never true black; the reader's page is a plate. (2) THE MACHINE
+  FELT, NOT NAMED: the reader's top line is the stamp line (`stampLine`: the day, the time, his place, what is watched, LOOKING AT
+  <the book>); the place is a truth line ("PAGE 42 OF 300 · YESTERDAY · CARRY ON"); the passage being read aloud is held in the
+  reticle (ATTENDING) and the line of sight is not used here; a Shelf cover drawn from the title uses the tag and the plate; the
+  recognition tone plays once when a book opens at his place, following his sound setting. Never the word "Machine" on screen.
+  (3) EASY TO NAVIGATE: the reader is two taps from Learn (Learn → Library → the book) and one typed word ("read", a title) from
+  the search; every pill, button and row has a name; nothing under 44 pt; body text 17 pt by default (SETTINGS → READING changes it,
+  never under 12); contrast held by the tokens in every theme (the look test's floor applies to the reader's own CSS: no raw colour).
+- Mind as the eye stays on THE LOOK (OWNER-ISSUES 140a); the reader's LISTEN bar does not draw the eye.
+- Styles: a `/* THE READER */` section in styles.css written from the tokens alone (the look test's no-raw-colour rule), kept short;
+  the shell's rules are not changed.
+- Validation, learned the hard way on 6 Nov (two container restarts killed a builder mid-run): COMMIT BEFORE EVERY HEAVY STEP and run
+  the steps one at a time: both typechecks; the brain bundle, then `node --import ./test/no-network.mjs --test test/library-place.test.mjs
+  test/catalogue.test.mjs test/look.test.mjs`; the web build; the preview; then the specs ONE AT A TIME, the reader spec FIRST AND ALONE
+  (it times the voice: never beside another spec), then library, talk, voice, tabs, hubcards, deck, look; the full brain suite last;
+  the model-name scan. If a step is killed, continue from the last commit.
