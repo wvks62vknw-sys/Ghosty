@@ -52,7 +52,8 @@ folder that no longer exists; ignore those paths).
 - **Hard rules of the repo.** Never raise the prompt guard (5,500; the worst dial, telegramVoice, is exactly 5,500: any addition
   trims exactly and lists the trims). Never skip or weaken a test; a rule the owner changes is restated with a dated comment. The
   CI guard job is the owner's: on 5 Nov he said fix it (OWNER-ISSUES 131 — match any check whose name starts with "smoke", restore
-  only to the commit just before the failing merge, leave the workflow file alone when restoring); beyond that fix, never touch it.
+  only to the commit just before the failing merge, leave the workflow file alone when restoring); FIXED on 6 Nov in PR #59 (the three
+  findings exactly, proven locally against seven sample check sets and a scratch repository); beyond that fix, never touch it.
   Never a model name in code, comments, tests, docs, PR titles or bodies (the Co-Authored-By footer is the only exception; the plan
   files were scrubbed on 5 Nov, and builders are named by tier: the top tier, the strong tier, the mid tier, the cheap tier). Every
   spec tolerates a used brain (the shards share one
@@ -85,6 +86,12 @@ folder that no longer exists; ignore those paths).
 - **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
   questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 5 Nov: the four phone
   checks; two free AI keys in System → Keys; any theme to strike; the redesign pick on day one; whether the plan continues after the 14th.
+
+## 6 Nov (Friday, after the reset): the new session
+- 06 Nov: took over through the repository. PR #58 (the 5 Nov review, OWNER-ISSUES 131–133, the queue 0–8, STARS 169, the two
+  habits, the foresight test) was still open with one smoke shard red: its branch is the base of this session's branch, so PR #59
+  carries it plus the guard fix; #58 is closed as superseded once #59 is on main. The shard's failure is read from its log before
+  the merge (a flake is fixed at its cause, never retried into green). Usage percentage: asked; not yet given.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
