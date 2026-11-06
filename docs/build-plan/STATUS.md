@@ -9,6 +9,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   CI: the smoke job pinned to ubuntu-24.04, because GitHub's default runner image became Ubuntu 26.04 overnight and Playwright 1.56.0
   cannot install browsers there (every smoke shard died before a spec ran); nothing in the app changed. Section 4 revised again on
   5 Nov after the owner's review (OWNER-ISSUES 131; PR #58).
+- LIVE since 19:12 UK on 6 Nov (PR #59, green on every job on its own run and on main's run after the merge): THE CI GUARD WORKS
+  AGAIN (OWNER-ISSUES 123's findings, your decision in 131): a version counts as green with the four smoke shards; only the commit
+  just before a failing merge is put back, and only if it was green; the workflows are left as they were so the push is accepted.
+  Also in it: the 5 Nov review (131–133) and the queue as items 0–8, the foresight test freed of the weekday, the packs3 check freed of
+  the hamza (134), the brief for the redesign directions. Nothing to see on your phone.
+
 - LIVE since 15:40 UK on 2 Nov (PR #56, green on every job): THE LIBRARY OPENS LONG BOOKS AGAIN (OWNER-ISSUES 126, your "too many SQL
   variables"): a book of any length opens passage by passage with MORE to the end, and the copy on your phone reads whole; the test
   database now holds the same limit as the real one, so this cannot come back.
