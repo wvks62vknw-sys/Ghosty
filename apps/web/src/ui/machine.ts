@@ -83,14 +83,23 @@ export function tag(text: string, o: { count?: string | number; tone?: 'on' | 'w
 /** A segment of a truth line: plain, `strong` (ink 2) or `on` (the accent: live). */
 export type TruthPart = string | { text: string; tone: 'strong' | 'on' | 'warn' };
 
+/**
+ * The segments of a truth line or a stamp line: each one kept whole where it fits (it moves to the next line rather than
+ * breaking inside), its separator at its end, so a wrapped line ends on the dot and never starts with one.
+ */
+function segments(el: HTMLElement, list: { text: string; tone?: string }[]): void {
+  list.forEach((p, i) => {
+    const seg = h(`span.g-seg${p.tone ? `.${p.tone}` : ''}` as 'span', p.text);
+    if (i < list.length - 1) seg.append(h('span.g-sep', { 'aria-hidden': 'true' }, '\u00a0·'));
+    el.append(seg, i < list.length - 1 ? ' ' : '');
+  });
+}
+
 /** One mono line below a thing: what is known now ("PAGE 42 OF 112 · YESTERDAY"). */
 export function truthLine(parts: TruthPart | TruthPart[]): HTMLElement {
   const list = Array.isArray(parts) ? parts : [parts];
   const el = h('p.g-truth', { dataset: { g: 'truth', case: 'keep' } });
-  list.forEach((p, i) => {
-    if (i) el.append(h('span.g-sep', { 'aria-hidden': 'true' }, ' · '));
-    el.append(typeof p === 'string' ? h('span', p) : h(`span.${p.tone}` as 'span', p.text));
-  });
+  segments(el, list.map((p) => (typeof p === 'string' ? { text: p } : p)));
   return el;
 }
 
@@ -181,7 +190,9 @@ export function stampLine(facts: () => StampFacts): { el: HTMLElement; refresh()
   const paint = () => {
     const f = facts();
     const words = stampWords(focus ? { ...f, looking: focus } : f);
-    el.replaceChildren(...words.flatMap((w, i) => [i ? h('span.g-sep', { 'aria-hidden': 'true' }, ' · ') : null, h(`span${i === words.length - 1 ? '.on' : ''}` as 'span', w)].filter((x): x is HTMLSpanElement => !!x)));
+    el.replaceChildren();
+    // (what it is looking at, last, in the accent: the thing in focus)
+    segments(el, words.map((w, i) => ({ text: w, tone: i === words.length - 1 ? 'on' : undefined })));
     el.setAttribute('aria-label', words.join(', '));
   };
   const tick = () => {

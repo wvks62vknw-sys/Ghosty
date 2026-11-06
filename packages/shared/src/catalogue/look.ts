@@ -15,7 +15,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'screen:look': {
     name: 'The look: how I draw',
     line: 'You can see how I draw everything: my colours, my type, the marks I see with and my eye, each one live.',
-    more: 'Settings → The look. Every token with its job, the type at its own sizes, the Machine’s marks working when you tap them, my eye breathing, and the twelve themes with their contrast measured.',
+    more: 'Settings → The look. Every token with its job, the type at its own sizes, the marks I see with, working when you tap them, my eye breathing, and the twelve themes with their contrast measured.',
     say: ['Show me the look', 'How do you draw things?'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'panel:look:TOKENS': {

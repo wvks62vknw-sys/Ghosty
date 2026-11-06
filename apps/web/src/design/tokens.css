@@ -23,48 +23,48 @@
 
   /* ---------------------------------------------------------------- colour: bone ink at four strengths */
   --g-bone-rgb: 236, 232, 223;                           /* bone as a triplet: the scan's points; the inks are bone at four strengths */
-  --g-ink-1: #ece8df;                                    /* ink 1: a title, a value, what Ghosty says first */
+  --g-ink-1: #ece8df;                                    /* ink 1: a title, a value, what I say first */
   --g-ink-2: #c8c5bd;                                    /* ink 2: a second sentence, a reading's sub-line */
   --g-ink-3: #a8a59e;                                    /* ink 3: the truth line, a label, a kicker */
   --g-ink-4: #918f8a;                                    /* ink 4: what is switched off or not there yet (still 4.5:1 and up) */
 
   /* ---------------------------------------------------------------- colour: lines */
-  --g-line: #cfcbc3;                                     /* the Machine's one drawn weight: a reticle, a key's edge, a plate's border */
-  --g-line-faint: #75746f;                               /* a rule between rows, a wall of the plan he is not in (3:1 and up: a rule you can see) */
+  --g-line: #cfcbc3;                                     /* the one weight I draw in: a reticle, a key's edge, a plate's border */
+  --g-line-faint: #75746f;                               /* a rule between rows, a wall of the plan you are not in (3:1 and up: a rule you can see) */
 
   /* ---------------------------------------------------------------- colour: the accent (THE ONLY BLOCK A THEME SWAPS; Reactor's) */
-  --g-accent: #64d2ff;                                   /* what Ghosty is attending to: the lit reticle, the orb's core, tonight's thing, the route */
+  --g-accent: #64d2ff;                                   /* what I am attending to: the lit reticle, my eye's core, tonight's thing, the route */
   --g-accent-rgb: 100, 210, 255;                         /* the accent as a triplet: the 3-D engine and the orb read it, so they recolour with a theme */
-  --g-accent-pale: #bff0ff;                              /* its pale tint: the lit points of what he is attending to, the listening ring */
+  --g-accent-pale: #bff0ff;                              /* its pale tint: the lit points of what I am attending to, the listening ring */
   --g-accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet, for the 3-D scenes */
   --g-accent-text: #64d2ff;                              /* the accent where it is text: itself where it clears 5:1 on every surface, else its text variant */
   --g-accent-glow: 1;                                    /* how strongly the accent lights a scene (the room's light, the orb's core); Mono's is low */
 
   /* ---------------------------------------------------------------- colour: meaning only, never decoration */
-  --g-amber: #ffb340;                                    /* a warning, and IN THE WORKS: the Machine view's own amber */
+  --g-amber: #ffb340;                                    /* a warning, and anything still IN THE WORKS */
   --g-amber-rgb: 255, 179, 64;                           /* amber as a triplet: a warning reticle's light */
   --g-red: #ff6961;                                      /* something that failed */
   --g-ok: #30d158;                                       /* a number that went up, a check that passed */
 
   /* ---------------------------------------------------------------- type: the phone's own faces, then their stand-ins */
-  --g-font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Helvetica Neue', sans-serif;              /* SF Pro for his words and Ghosty's sentences */
-  --g-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Inter', system-ui, sans-serif;      /* SF Pro Display for a screen's name and what Ghosty says first */
-  --g-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'JetBrains Mono', 'IBM Plex Mono', monospace;               /* SF Mono for the Machine: tags, truth lines, readings */
+  --g-font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Helvetica Neue', sans-serif;              /* SF Pro for your words and my sentences */
+  --g-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Inter', system-ui, sans-serif;      /* SF Pro Display for a screen's name and what I say first */
+  --g-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'JetBrains Mono', 'IBM Plex Mono', monospace;               /* SF Mono for what I see: tags, truth lines, readings */
   --g-font-serif: ui-serif, 'New York', 'Iowan Old Style', Georgia, 'Source Serif 4', 'DejaVu Serif', serif;                  /* New York for a book's own words in the reader */
 
   /* ---------------------------------------------------------------- type: the scale (weight size/line family), its tracking */
   --g-t-display: 600 34px/40px var(--g-font-display);   /* a screen's name, once ("The look") */
   --g-tr-display: -.022em;                               /* display tracking: tight, as SF Pro Display sets large sizes */
-  --g-t-say: 500 22px/28px var(--g-font-display);       /* what Ghosty says first: one sentence at the top of a screen */
+  --g-t-say: 500 22px/28px var(--g-font-display);       /* what I say first: one sentence at the top of a screen */
   --g-tr-say: -.016em;                                   /* its tracking */
   --g-t-head: 600 17px/24px var(--g-font-text);         /* a row's title, the name of a thing */
   --g-t-body: 400 17px/24px var(--g-font-text);         /* a sentence: the body (the floor: 17) */
   --g-tr-body: -.01em;                                   /* body and head tracking */
   --g-t-value: 500 22px/28px var(--g-font-mono);        /* a reading at size: 07:24 · 1,240 · 42 of 112 */
-  --g-t-reading: 500 15px/20px var(--g-font-mono);      /* a reading in a row, a fact in the Machine's voice (the floor: 15) */
+  --g-t-reading: 500 15px/20px var(--g-font-mono);      /* a reading in a row, a fact said flatly (the floor: 15) */
   --g-tr-mono: 0;                                        /* mono tracking for readings: the face is already even */
   --g-t-tag: 600 13px/16px var(--g-font-mono);          /* a tag, a kicker, a section's name: capitals (the floor: 13) */
-  --g-tr-tag: .08em;                                     /* tag tracking: open, as the Machine view's labels */
+  --g-tr-tag: .08em;                                     /* tag tracking: open, so capitals read at 13 */
   --g-t-truth: 500 13px/16px var(--g-font-mono);        /* the truth line and the stamp line: capitals */
   --g-tr-truth: .06em;                                   /* their tracking */
   --g-t-key: 600 13px/16px var(--g-font-mono);          /* a key's word: capitals */
@@ -82,16 +82,16 @@
   --g-s-3: 24px;                                         /* between groups */
   --g-s-4: 32px;                                         /* between sections */
   --g-s-6: 48px;                                         /* a screen's breathing room at its foot */
-  --g-gutter: 16px;                                      /* the side gutter at 390 (24 from 428 up: his 440) */
+  --g-gutter: 16px;                                      /* the side gutter at 390 (24 from 428 up: your 440) */
   --g-safe-top: env(safe-area-inset-top, 0px);           /* the status bar and the Dynamic Island */
   --g-safe-bottom: env(safe-area-inset-bottom, 0px);     /* the home indicator */
   --g-safe-left: env(safe-area-inset-left, 0px);         /* a phone on its side: the notch's edge */
   --g-safe-right: env(safe-area-inset-right, 0px);       /* and the other edge */
 
-  /* ---------------------------------------------------------------- corners: the Machine draws square */
+  /* ---------------------------------------------------------------- corners: I draw square */
   --g-radius-key: 2px;                                   /* a key, a field and a plate: square, the corner softened by a hair */
   --g-radius-mark: 0;                                    /* a reticle, a tag, a rule: drawn square */
-  --g-radius-orb: 50%;                                   /* the orb: the one circle in Ghosty */
+  --g-radius-orb: 50%;                                   /* my eye, the orb: the one circle I draw */
 
   /* ---------------------------------------------------------------- lines and marks */
   --g-stroke: 1.5px;                                     /* the one weight a reticle, a key's edge and the line of sight are drawn in */
@@ -113,11 +113,11 @@
   --g-icon: 20px;                                        /* a line glyph's size */
   --g-icon-small: 16px;                                  /* a glyph inside a key or a tag */
   --g-icon-stroke: 1.5;                                  /* a glyph's stroke (an SVG stroke width) */
-  --g-target: 44px;                                      /* the least a thing he can press may be, both ways */
+  --g-target: 44px;                                      /* the least a thing you can press may be, both ways */
 
   /* ---------------------------------------------------------------- the scan (read by the room's canvas in the shell pass) */
   --g-scan-floor: .045;                                  /* metres between the scan's points on a floor or a wall */
-  --g-scan-thing: .02;                                   /* metres between the points of a thing he uses: denser, so it reads first */
+  --g-scan-thing: .02;                                   /* metres between the points of a thing you use: denser, so it reads first */
 }
 
 /* the gutter at his 440 (and anything from 428 up) */

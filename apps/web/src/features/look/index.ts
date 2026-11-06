@@ -57,6 +57,8 @@ function feedsWatched(): number | null {
 }
 
 const SECTION_WORDS: Record<string, string> = { tokens: 'the tokens', type: 'the type', marks: 'the marks', mind: 'my eye', themes: 'the themes' };
+/** A token's job as a sentence on screen (the file writes it as a note: "the page: …" reads "The page: …"). */
+const sentence = (job: string) => job.charAt(0).toUpperCase() + job.slice(1);
 
 /** What each type style is set in, as a person would say it. */
 const FACE: Record<string, string> = { '--g-font-text': 'SF Pro Text', '--g-font-display': 'SF Pro Display', '--g-font-mono': 'SF Mono', '--g-font-serif': 'New York' };
@@ -153,7 +155,7 @@ export const lookTab: TabDef = {
         plate({},
           tag('The floor', { tone: 'on' }),
           truthLine([`Text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, 'nothing under 12 pt']),
-          worst ? truthLine([{ text: `Weakest ink ${worst.t.name.replace('--g-', '')}`, tone: 'strong' }, `${ratioWords(worst.r)} on the brightest surface`]) : null));
+          worst ? truthLine([{ text: 'Weakest ink', tone: 'strong' }, worst.t.name.replace('--g-', '').replace('-', ' '), `${ratioWords(worst.r)} on the brightest surface`]) : null));
       for (const [group, list] of groups) {
         const g = h('div.gtok-group', { dataset: { group } }, tag(group, { count: list.length }));
         for (const t of list) {
@@ -166,7 +168,7 @@ export const lookTab: TabDef = {
             h('span.gtok-txt',
               h('span.gtok-name', t.name),
               h('span.gtok-val', live && live !== t.value ? `${live} in this theme (Reactor’s ${t.value})` : t.value),
-              h('span.gtok-job', { dataset: { case: 'keep' } }, t.job),
+              h('span.gtok-job', { dataset: { case: 'keep' } }, sentence(t.job)),
               reads.length ? truthLine([`On the canvas ${ratioWords(reads[0]!)}`, `plate ${ratioWords(reads[1]!)}`, `strong ${ratioWords(reads[2]!)}`]) : null)));
         }
         b.append(g);
@@ -192,7 +194,7 @@ export const lookTab: TabDef = {
         b.append(h('div.gtype', { dataset: { token: t.name } },
           h('span.gtype-sample', { dataset: { case: 'keep' }, style: `font: var(${t.name});${tr ? ` letter-spacing: var(${tr});` : ''}${caps ? ' text-transform: uppercase;' : ''} font-variant-numeric: var(--g-num)` }, SAMPLE[t.name] ?? t.name),
           truthLine([{ text: t.name.replace('--g-t-', ''), tone: 'strong' }, `${p.size}/${p.line}`, `weight ${p.weight}`, `tracking ${track === '0' ? 'none' : track}`, face]),
-          h('span.gtok-job', { dataset: { case: 'keep' } }, t.job)));
+          h('span.gtok-job', { dataset: { case: 'keep' } }, sentence(t.job))));
       }
     };
 
@@ -312,7 +314,7 @@ export const lookTab: TabDef = {
         const still = motion.matches;
         said.replaceChildren(...truthLine(s === 'idle' ? (still ? 'Idle · held still' : 'Idle · turning slowly') : [{ text: 'Listening', tone: 'on' }, still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
       };
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Mind, as the Machine’s eye: a sphere of points with what I know inside it, my core in your colour, no glow. I breathe while I listen.'),
+      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Mind, drawn as my eye: a sphere of points with what I know inside it, my core in your colour, no glow. I breathe while I listen.'),
         h('div.gstage', h('div.gorbwrap', eye.el), tag('Mind · my eye', { tone: 'on' }), said, h('div.gkeys', idle, listen)),
         h('p.glook-state', { dataset: { case: 'keep' }, style: 'margin-top: var(--g-s-2)' }, h('b', 'In the works'), 'My eye lives here for now. Home keeps today’s Mind until the new shell takes this one.'));
       setEye('idle');
