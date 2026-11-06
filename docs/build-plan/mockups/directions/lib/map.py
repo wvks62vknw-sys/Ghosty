@@ -48,10 +48,14 @@ SHIFT = 34  # the picture is drawn round New Street at (190, 232); the Stage's f
 HOME = (92, 334)
 NEW_STREET = (190, 232)
 WALK = [HOME, (92, 298), (142, 298), (142, 262), (190, 262), (190, 240)]
-TRAIN = [NEW_STREET, (232, 248), (272, 264), (310, 284), (344, 308)]
+TRAIN = [NEW_STREET, (228, 247), (262, 261), (294, 279), (322, 300)]
 
 
-def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
+# the neighbourhood names, as (x, y, extra attributes); a frame that crops the map (D1's sphere) passes the few that survive the crop
+LABELS = {'SNOW HILL': (60, 146, ''), 'BULLRING': (204, 306, ''), 'CORPORATION ST': (262, 152, 'transform="rotate(-42 262 152)"')}
+
+
+def route_map(uid='m', seed=3, labels=None, halo_w=4.5):
     rnd = random.Random(seed)
     rect = (-20, -60, 380, 520)
     fine = _grid(-18, 21, rect, 3.5, rnd) + _grid(72, 24, rect, 3.5, rnd)
@@ -89,9 +93,8 @@ def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
     lab = lambda x, y, t, s=10.5, w=600, anchor='start', fill='var(--map-label)', extra='': (
         f'<text x="{x}" y="{y}" font-size="{s}" font-weight="{w}" text-anchor="{anchor}" letter-spacing=".06em" '
         f'style="fill:{fill};stroke:var(--map-halo);stroke-width:{halo_w};paint-order:stroke;stroke-linejoin:round" font-family="var(--font-text)" {extra}>{t}</text>')
-    text = ''
-    if labels:
-        text = lab(60, 146, 'SNOW HILL') + lab(204, 306, 'BULLRING') + lab(262, 152, 'CORPORATION ST', extra='transform="rotate(-42 262 152)"')
+    use = LABELS if labels is None else labels
+    text = ''.join(lab(x, y, name, extra=extra) for name, (x, y, extra) in use.items())
     me = (f'<circle cx="{HOME[0]}" cy="{HOME[1]}" r="17" style="fill:rgba(var(--accent-rgb),.16)"/>'
           f'<circle cx="{HOME[0]}" cy="{HOME[1]}" r="6.2" style="fill:rgb(var(--accent-pale-rgb));stroke:rgb(var(--accent-rgb));stroke-width:2.4"/>')
     ns = (f'<circle cx="{NEW_STREET[0]}" cy="{NEW_STREET[1]}" r="13" style="fill:rgba(var(--accent-rgb),.18)"/>'
@@ -100,7 +103,7 @@ def route_map(uid='m', seed=3, labels=True, halo_w=4.5):
     names = (lab(HOME[0] + 14, HOME[1] + 20, 'Home', 12.5, 700, fill='var(--ink-1)') +
              lab(NEW_STREET[0] + 16, NEW_STREET[1] - 22, 'New Street', 12.5, 700, fill='var(--ink-1)') +
              lab(NEW_STREET[0] + 16, NEW_STREET[1] - 7, 'Platform 3 · 07:42', 11.5, 600, fill='var(--accent-text)') +
-             lab(346, 338, 'Coventry · 08:03', 12.5, 700, anchor='end', fill='var(--ink-1)'))
+             lab(326, 330, 'Coventry · 08:03', 12.5, 700, anchor='end', fill='var(--ink-1)'))
     return (f'<svg class="routemap" width="100%" height="100%" viewBox="0 0 360 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
             f'<defs><filter id="{uid}b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter></defs>'
             f'<g transform="translate(0 {SHIFT})"><g fill="none" stroke-linecap="round" stroke-linejoin="round">'

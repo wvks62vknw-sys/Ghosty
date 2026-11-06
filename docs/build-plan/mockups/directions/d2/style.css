@@ -52,7 +52,7 @@ ul { list-style: none; }
 .mind .orb { position: relative; z-index: 1; width: var(--orb); height: var(--orb); }
 .mind::before { content: ''; position: absolute; left: calc(var(--gutter) * -1); right: calc(var(--gutter) * -1); top: 50%; height: 9px; margin-top: -4px; background: repeating-linear-gradient(90deg, var(--ink-4) 0 1px, transparent 1px 8px); -webkit-mask: linear-gradient(90deg, #000, rgba(0, 0, 0, .15) 38%, rgba(0, 0, 0, .15) 62%, #000); mask: linear-gradient(90deg, #000, rgba(0, 0, 0, .15) 38%, rgba(0, 0, 0, .15) 62%, #000); }
 .mind::after { content: ''; position: absolute; left: calc(var(--gutter) * -1); right: calc(var(--gutter) * -1); top: 50%; height: 1px; background: var(--rule); }
-.home { --orb: clamp(176px, 48vw, 216px); }
+.home { --orb: clamp(176px, calc(48vw + (100vh - 844px) * .45), 264px); }  /* 187 at 390 x 844 as before; a taller phone has the room, so Mind grows */
 .tonight { flex: none; }
 .book { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--s-2); align-items: start; padding: var(--s-1) 0 var(--s-2); }
 .book .cover { display: block; border-radius: 0; }
@@ -92,7 +92,7 @@ ul { list-style: none; }
 .hubhead { flex: none; margin-top: var(--s-1); }
 .hubhead h1 { font: var(--t-display); letter-spacing: var(--tr-display); }
 .hubhead .voice { margin-top: var(--s-0); font-size: 15px; line-height: 20px; }
-.secs { flex: 1; min-height: 0; margin-top: var(--s-1); display: flex; flex-direction: column; gap: var(--tier-gap); --tier-gap: calc(4px + (100vh - 844px) * .06); }
+.secs { flex: 1; min-height: 0; margin-top: var(--s-1); display: flex; flex-direction: column; gap: var(--tier-gap); --tier-gap: calc(4px + (100vh - 844px) * .2); }  /* 4 at 844; a taller phone opens the gaps */
 .bh { display: flex; align-items: baseline; justify-content: space-between; }
 .bn { display: flex; align-items: baseline; gap: var(--s-2); }
 .bh b { font: 500 17px/24px var(--font-text); letter-spacing: -.012em; }
@@ -112,7 +112,7 @@ ul { list-style: none; }
 .col2 .rd { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; }
 .col2 .rd .kicker { color: var(--ink-3); letter-spacing: .12em; }
 .col2 .ttl { margin-bottom: var(--s-0); }
-.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2); align-items: center; min-height: var(--target); padding: 3px 0; border-top: 1px solid var(--rule); }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2); align-items: center; min-height: calc(var(--target) + (100vh - 844px) * .08); padding: 3px 0; border-top: 1px solid var(--rule); }
 .trow .nm { display: flex; align-items: center; gap: var(--s-1); font: 500 15px/20px var(--font-text); letter-spacing: -.01em; }
 .trow .tt { font: italic 400 14px/20px var(--font-serif); color: var(--ink-3); }
 .trow .rr { display: grid; grid-template-columns: 76px auto; column-gap: var(--s-1); align-items: baseline; }

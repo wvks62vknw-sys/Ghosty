@@ -78,7 +78,7 @@ ul { list-style: none; }
 .titlebar h1 { flex: 1; font: var(--t-display); letter-spacing: var(--tr-display); }
 .titlebar .roundb { background: none; border: 0; box-shadow: none; }
 .hubline { flex: none; margin-top: var(--s-0); font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-2); }
-.layers { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--tier-gap); margin-top: var(--tier-gap); --tier-gap: calc(12px + (100vh - 844px) * .07); }
+.layers { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--tier-gap); margin-top: var(--tier-gap); --tier-gap: calc(12px + (100vh - 844px) * .2); }  /* 12 at 844; a taller phone opens the gaps, the layers stay together */
 .tier > .kicker { display: flex; align-items: center; justify-content: space-between; height: var(--s-2); margin-bottom: var(--s-0); }
 .tier > .kicker em { display: inline-flex; align-items: center; gap: 6px; font-style: normal; color: var(--ink-3); letter-spacing: .08em; }
 .tier > .kicker em i { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px rgba(var(--amber-rgb), .6); }
