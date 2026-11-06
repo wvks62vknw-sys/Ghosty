@@ -141,12 +141,15 @@ export const lookTab: TabDef = {
 
     // ---------------------------------------------------------------- TOKENS
     /** A token drawn as itself beside its name: a colour as a paint chip, a space as a bar its length, a line at its weight, a
-     *  corner at its radius; nothing for the rest (a face, a duration: their own sections show them working). */
+     *  corner at its radius, a reticle at its arm, a plate at its lift; nothing for the rest (a face, a duration: the TYPE and
+     *  MARKS sections show them working). */
     const tokenChip = (t: Token): HTMLElement => {
       const hide = { 'aria-hidden': 'true' };
       if (/^#|^rgba?\(/.test(t.value) || /-rgb$/.test(t.name)) return h('span.gtok-chip.colour', { ...hide, style: `background: ${/-rgb$/.test(t.name) ? `rgb(var(${t.name}))` : `var(${t.name})`}` });
       if (/^--g-(s-|unit$|gutter$)/.test(t.name)) return h('span.gtok-chip.space', hide, h('i', { style: `width: var(${t.name})` }));
       if (/^--g-(stroke|hair)$/.test(t.name)) return h('span.gtok-chip.weight', hide, h('i', { style: `height: var(${t.name})` }));
+      if (t.name === '--g-ret-arm') return h('span.gtok-chip.ret', hide, h('i', h('span.g-ret-frame')));
+      if (/^--g-lift-/.test(t.name)) return h('span.gtok-chip.lift', hide, h('i', { style: `box-shadow: var(${t.name})` }));
       if (/^--g-radius-/.test(t.name)) return h('span.gtok-chip.corner', hide, h('i', { style: `border-top-left-radius: ${t.name === '--g-radius-orb' ? '100%' : `var(${t.name})`}` }));
       return h('span.gtok-chip.none', hide);
     };

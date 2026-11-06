@@ -1192,7 +1192,8 @@ button.on { background: var(--acc); color: #03070a; box-shadow: inset 0 .5px 0 r
 button.warn { color: #ff6961; background: rgba(255,105,97,.12); border: 0; }
 @media (hover: hover) { button.warn:hover { background: rgba(255,105,97,.18); color: #ff6961; } }
 button:disabled { opacity: .4; }
-:is(#app, #deck, .modal, #palette, #pair) button:not(.gymcell, .dtile, .ltile, .gymcard, .learnrate, .scanthumb button, .maplibregl-ctrl button, .zoomrail button, .jtab, .csrc, #mic, #lensbtn, .logo, .npstop, .hubtile, .recent, .cmdbar, .msgact, .plusbtn, .navback, [data-label]) { font-size: 16px; letter-spacing: -.012em; font-weight: 600; }
+:is(#app, #deck, .modal, #palette, #pair) button:not(.gymcell, .dtile, .ltile, .gymcard, .learnrate, .scanthumb button, .maplibregl-ctrl button, .zoomrail button, .jtab, .csrc, #mic, #lensbtn, .logo, .npstop, .hubtile, .recent, .cmdbar, .msgact, .plusbtn, .navback, [data-label], [data-g], .gthing) { font-size: 16px; letter-spacing: -.012em; font-weight: 600; }
+/* (the design system's own controls, [data-g] and THE LOOK's things, take their type from the tokens: ui/machine.ts, THE SYSTEM below) */
 :is(.pn > .ft, .chips, .tabs, .grid3, .modes, .lookmenu .chips, .fmchips, .jchips, .jacts, .maptabs, .fmbtns, .svbar, .eyebot .btns, .eyeinfo .row.wrap, .change, .idea, .studiomodes, .studioseg, .learnchips, #chips) button:not([data-label]) { font-size: 14px; padding: 8px 13px; }
 .tabs { gap: 6px; } .tabs button { padding: 8px 6px; }
 :is(input, textarea, select) {
@@ -5976,15 +5977,18 @@ html #pg-look .glede { margin: 0 0 var(--g-s-2); font: var(--g-t-body); letter-s
 html #pg-look .pn > .bd > .g-plate { margin: 0 0 var(--g-s-3); }
 /* TOKENS: each token with its name, its value and its job, in its group; the inks and lines with their measured contrast */
 html #pg-look .gtok-group { margin: 0 0 var(--g-s-3); }
-html #pg-look .gtok-group > .g-tag { margin-bottom: var(--g-s-1); flex-wrap: wrap; white-space: normal; overflow: visible; }
+html #pg-look .gtok-group > .g-tag { display: inline-block; margin-bottom: var(--g-s-1); white-space: normal; overflow: visible; }
 html #pg-look .gtok-group > .g-tag > span { overflow: visible; }
+html #pg-look .gtok-group > .g-tag .g-count { margin-left: var(--g-s-half); white-space: nowrap; }
 html #pg-look .gtok { display: grid; grid-template-columns: var(--g-s-6) minmax(0, 1fr); column-gap: var(--g-s-2); padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
 /* each token drawn as itself beside its name: a colour as a paint chip, a space as a bar its length, a line at its weight,
-   a corner at its radius (the orb's, a quarter of the one circle) */
+   a corner at its radius (the orb's, a quarter of the one circle), a reticle at its arm, a plate at its lift */
 html #pg-look .gtok-chip { display: flex; align-items: center; width: var(--g-s-6); height: var(--g-s-3); margin-top: 2px; }
 html #pg-look .gtok-chip.colour { border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 html #pg-look .gtok-chip.space > i { display: block; max-width: 100%; height: var(--g-s-1); background: var(--g-ink-3); }
 html #pg-look .gtok-chip.weight > i { display: block; width: 100%; background: var(--g-line); }
+html #pg-look .gtok-chip.ret > i { position: relative; display: block; width: var(--g-s-3); height: var(--g-s-3); }
+html #pg-look .gtok-chip.lift > i { display: block; width: var(--g-s-4); height: var(--g-s-2); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 html #pg-look .gtok-chip.corner > i { display: block; width: var(--g-s-3); height: var(--g-s-3); border-top: var(--g-stroke) solid var(--g-line); border-left: var(--g-stroke) solid var(--g-line); }
 html #pg-look .gtok-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html #pg-look .gtok-name { font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); color: var(--g-ink-1); overflow-wrap: anywhere; }
