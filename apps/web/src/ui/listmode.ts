@@ -32,9 +32,12 @@ const G = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.4"/>',
   hand: '<path d="M12 3.5l7 2.6v5.4c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6.1z"/><path d="M9 12l2 2 4-4"/>',
   help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 014.9.8c0 1.7-2.5 2.2-2.5 3.8M12 16.6v.4"/>',
+  // THE LOOK: the Machine's eye in a reticle's corners
+  look: '<circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2"/><path d="M3.5 7.5v-4h4M16.5 3.5h4v4M20.5 16.5v4h-4M7.5 20.5h-4v-4"/>',
 };
 /** Panel title (start of it) → glyph and colour: by what the row does, the same language as the rest of the app. */
 const MAP: [RegExp, keyof typeof G, string][] = [
+  [/^THE LOOK$/, 'look', '#bf5af2'],
   [/^THEME/, 'brush', '#bf5af2'],
   [/^NAME/, 'person', '#98989d'],
   [/^VOICE/, 'wave', '#ff375f'],

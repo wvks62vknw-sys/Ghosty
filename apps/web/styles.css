@@ -1,3 +1,4 @@
+@import url('src/design/tokens.css'); /* the design system's tokens come first (BRIEF-DESIGN-SYSTEM); build.mjs puts the file in their place */
 /* =====================================================================
    GHOSTY — one design (route C, the owner's pick) in the colour of a theme.
    A theme (state/theme.ts: Reactor, the default, and Graphite) sets only the accent and what is made from it,

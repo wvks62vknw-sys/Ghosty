@@ -536,6 +536,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
   // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like ABILITIES: Me's screens are the Me sheet's rows)
   if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
-  if (tab === 'system' || tab === 'links') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
+  // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
+  if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

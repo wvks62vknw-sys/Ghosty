@@ -1,11 +1,12 @@
-/** SETTINGS tab: theme (Reactor, Graphite), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
-import { clear, fmt, h } from '../../core/dom';
+/** SETTINGS tab: theme (the twelve), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
+import { fmt, h } from '../../core/dom';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
-import { applyTheme, themeKey, THEMES } from '../../state/theme';
+import { themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
+import { themeSwatches } from '../../ui/swatches';
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { characterPanel } from './character';
@@ -22,7 +23,7 @@ export const settingsTab: TabDef = {
   title: 'SETTINGS',
   icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
-  blurb: 'theme · name · character · units · voice · sounds · tilt · home · offline brain',
+  blurb: 'theme · the look · name · character · units · voice · sounds · tilt · home · offline brain',
   mount(root) {
     const P = page(root, { tag: 'SETTINGS', leftLabel: 'THEME', rightLabel: 'VOICE & HOME', stack: true });
     // THEME: the one design in a colour (state/theme.ts); NAME & UNITS: what he calls you, and how he measures.
@@ -33,10 +34,6 @@ export const settingsTab: TabDef = {
     const cp = characterPanel();
     // [guardian] GUARDIAN goes with You (after CHARACTER, like it with no group of its own): the one person, the panic phrase
     const gp = guardianPanel();
-    P.left.append(lp.el, np.el, cp.el, gp.el);
-    P.right.append(vp.el);
-    const op = offlinePanel();
-    P.right.append(op.el);
     // System and Links are rows of Settings (they open their own screens), then About, Privacy and Help.
     const goRow = (title: string, to: string, status: string) => {
       const p = panel(title, { grow: false, status });
@@ -44,6 +41,11 @@ export const settingsTab: TabDef = {
       p.el.classList.add('gorow');
       return p.el;
     };
+    // THE LOOK (features/look, BRIEF-DESIGN-SYSTEM 5): how everything is drawn from here, a row under the theme (two taps away)
+    P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), np.el, cp.el, gp.el);
+    P.right.append(vp.el);
+    const op = offlinePanel();
+    P.right.append(op.el);
     const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
@@ -69,7 +71,7 @@ export const settingsTab: TabDef = {
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
-      { id: 'appearance', label: 'Appearance', match: /^THEME/ },
+      { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK)/ },
       { id: 'you', label: 'You', match: /^NAME/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
@@ -77,9 +79,9 @@ export const settingsTab: TabDef = {
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 
-    // Theme: one live swatch per theme, drawn in its own accent (a little Home: the glow, the reactor, the lit
-    // tab). A tap applies it at once, everywhere, and this phone remembers it.
-    const themes = h('div.swatches', { role: 'radiogroup', 'aria-label': 'Theme' });
+    // Theme: the twelve as live swatches (ui/swatches.ts), each drawn by the design system in its own accent block. A tap
+    // applies it at once, everywhere, and this phone remembers it.
+    const themes = themeSwatches();
     const paintHead = () => {
       const t = THEMES[themeKey(settings.get().theme)]!;
       const units = settings.get().units === 'metric' ? '°C · km' : '°F · miles';
@@ -91,30 +93,14 @@ export const settingsTab: TabDef = {
       lp.setStatus(t.label);
       np.setStatus(settings.get().name);
     };
-    const paintThemes = () => {
-      const cur = themeKey(settings.get().theme);
-      clear(themes, ...Object.entries(THEMES).map(([k, t]) => {
-        const b = h('button.swatch', { type: 'button', role: 'radio', 'aria-checked': String(cur === k), dataset: { theme: k, case: 'keep' }, style: `--sw:${t.c};--sw2:${t.pale};--swk:${t.glow}` },
-          h('span.swprev', { 'aria-hidden': 'true' }, h('i.swglow'), h('i.swcore'), h('i.swbar', h('i'), h('i'), h('i'))),
-          h('span.swtxt', h('b', { dataset: { case: 'keep' } }, t.label), h('small', { dataset: { case: 'keep' } }, t.tag)),
-          h('i.swtick', { 'aria-hidden': 'true' }),
-        );
-        b.classList.toggle('on', cur === k);
-        b.addEventListener('click', () => {
-          if (themeKey(settings.get().theme) === k) return;
-          applyTheme(k);
-          toast(`Theme: ${t.label}`, 'ok');
-        });
-        return b;
-      }));
-    };
+    const paintThemes = () => themes.paint();
     paintThemes();
     const name = h('input', { value: settings.get().name, placeholder: 'What should I call you?', 'aria-label': 'Your name' });
     name.addEventListener('change', () => settings.set({ name: name.value.trim() || 'Boss' }));
     const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
-    lp.body.append(themes, h('p.note.swnote', 'A theme changes Ghosty’s colour and nothing else: every screen keeps its layout.'));
+    lp.body.append(themes.el, h('p.note.swnote', 'A theme changes my colour and nothing else: every screen keeps its layout. Settings › The look shows how I draw everything.'));
     // [restc] TV MODE (tv/): big buttons, a focus ring, the arrow keys or a controller's d-pad; on by itself on a television
     const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring you move with the arrow keys or a controller’s d-pad. On by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
     tvSw.el.classList.add('tvsw');
