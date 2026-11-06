@@ -9,6 +9,14 @@
 //   node docs/build-plan/mockups/tools/render.mjs directions contact       the one sheet across the three
 // Every screen is rendered at BOTH 390 x 844 and 440 x 956 (deviceScaleFactor 2) as <page>-390.png and <page>-440.png, and the
 // check is stricter: nothing sideways at either width, every button and link at least 44 x 44 pt, no text under 11 pt.
+//
+// ROUND TWO, THE THREE WORLDS (BRIEF-DIRECTIONS-2; route "directions-2/w1", "w2", "w3", or "directions-2" for the sheet across them):
+//   node docs/build-plan/mockups/tools/render.mjs directions-2/w1          home, show, hub, lens, reader at both widths; the storyboard's
+//                                                                          four frames (story-1..4) at 390; the strip (story) and contact
+//   node docs/build-plan/mockups/tools/render.mjs directions-2/w1 home-ember   the theme proof, by name
+//   node docs/build-plan/mockups/tools/render.mjs directions-2 contact     the one sheet across the three worlds
+// The same checks as round one, at zero. A world screen draws its picture into a WebGL canvas (lib/gl.js) and says when it is done
+// (<meta name="mock-gl"> on the page, window.__ready); the renderer waits for that, then a short settle, before the screenshot.
 import { chromium } from 'playwright';
 import { statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -18,13 +26,19 @@ const here = dirname(fileURLToPath(import.meta.url));
 const route = process.argv[2];
 if (!route) throw new Error('route?');
 const dir = resolve(here, '..', route);
-const directions = route === 'directions' || route.startsWith('directions/');
-const SHEETS = ['language', 'contact'];
+const round2 = route === 'directions-2' || route.startsWith('directions-2/');
+const directions = route === 'directions' || route.startsWith('directions/') || round2;
+const SHEETS = ['language', 'contact', 'story'];
 const isSheet = (name) => SHEETS.includes(name) || name.startsWith('contact');
-const SCREENS = directions ? ['home', 'show', 'hub', 'nav', 'lens', 'reader', 'shelf'] : ['home', 'chat', 'eye', 'gym', 'settings'];
+const STORY = ['story-1', 'story-2', 'story-3', 'story-4'];
+const SCREENS = round2 ? ['home', 'show', 'hub', 'lens', 'reader'] : directions ? ['home', 'show', 'hub', 'nav', 'lens', 'reader', 'shelf'] : ['home', 'chat', 'eye', 'gym', 'settings'];
 const SIZES = directions ? [[390, 844], [440, 956]] : [[440, 956]];
 const asked = process.argv.slice(3);
-const pages = asked.length ? asked : directions ? (route === 'directions' ? ['contact'] : [...SCREENS, 'contact']) : [...SCREENS, 'language', 'contact'];
+const pages = asked.length
+  ? asked
+  : round2
+    ? (route === 'directions-2' ? ['contact'] : [...SCREENS, ...STORY, 'story', 'contact'])
+    : directions ? (route === 'directions' ? ['contact'] : [...SCREENS, 'contact']) : [...SCREENS, 'language', 'contact'];
 
 /** Runs inside the page: what a designer would reject on sight. */
 function inspect({ W, isScreen, strict }) {
@@ -66,7 +80,8 @@ const browser = await chromium.launch();
 try {
   for (const name of pages) {
     const screen = !isSheet(name);
-    const sizes = screen ? SIZES : [null];
+    // a storyboard frame is one moment of a transition, drawn at 390 only (the strip is read at that width)
+    const sizes = screen ? (STORY.includes(name) ? [[390, 844]] : SIZES) : [null];
     for (const size of sizes) {
       const [W, H] = size ?? [440, 956];
       let ctx = await browser.newContext({
@@ -75,9 +90,21 @@ try {
         colorScheme: name.endsWith('-light') ? 'light' : 'dark',
       });
       let page = await ctx.newPage();
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
       await page.goto(pathToFileURL(join(dir, `${name}.html`)).href);
       await page.evaluate(() => document.fonts.ready);
       await page.waitForLoadState('networkidle');
+      // a world screen: wait for its canvas to be drawn, then let the page settle
+      const gl = await page.evaluate(() => !!document.querySelector('meta[name="mock-gl"]'));
+      let glNote = '';
+      if (gl) {
+        await page.waitForFunction(() => window.__ready === true, null, { timeout: 240000, polling: 250 });
+        await page.waitForTimeout(250);
+        const info = await page.evaluate(() => ({ ms: window.__glMs, err: window.__glError }));
+        glNote = info.err ? `  ** GL: ${info.err} **` : `  (canvas ${info.ms} ms)`;
+      }
       if (!screen) {
         const dims = await page.evaluate(() => ({ width: Math.ceil(document.body.scrollWidth), height: Math.ceil(document.body.scrollHeight) }));
         // A sheet may ask for a lower scale (<meta name="mock-scale">) to stay under 1.5 MB.
@@ -96,8 +123,9 @@ try {
       const file = join(dir, `${name}${directions && screen ? `-${W}` : ''}.png`);
       await page.screenshot({ path: file, fullPage: !screen });
       const kb = Math.round(statSync(file).size / 1024);
-      console.log(`${route}/${file.split('/').pop()} ${kb} KB${kb > 1500 ? '  ** OVER 1.5 MB **' : ''}`);
+      console.log(`${route}/${file.split('/').pop()} ${kb} KB${kb > 1500 ? '  ** OVER 1.5 MB **' : ''}${glNote}`);
       for (const p of problems.slice(0, 16)) console.log(`   ! ${p}`);
+      for (const e of errors.slice(0, 4)) console.log(`   ! page error: ${e.slice(0, 300)}`);
       await ctx.close();
     }
   }

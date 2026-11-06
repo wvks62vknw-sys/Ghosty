@@ -1,0 +1,112 @@
+/* W1 · THE SCAN — the screens' own layout. The marks themselves (reticle, tag, truth line, key, ask line) are lib/machine.css;
+   the colours, type and grid are tokens.css. */
+.lead { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible; }
+.lead path { fill: none; stroke: var(--line); stroke-width: 1; }
+.lead circle { fill: var(--line); }
+.lead.on path { stroke: var(--accent); }
+.lead.on circle { fill: var(--accent); }
+
+/* the top of a screen: the truth line, then what Ghosty says */
+.top { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); top: 62px; }
+.top .say { margin-top: 8px; }
+.top .say2 { margin-top: 4px; }
+.top .title { font: var(--t-display); letter-spacing: var(--tr-display); color: var(--ink-1); margin-top: 8px; }
+
+/* a callout: a thing's tag and its reading, at the edge of the screen, its leader running into the room */
+.co { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--target); min-width: var(--target);
+  padding: 0; border: 0; background: none; text-align: left; color: inherit; font: inherit; }
+.co.r { align-items: flex-end; text-align: right; }
+.co .sub { background: var(--plate); padding: 0 6px 2px; }
+.co .big { font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-1); background: var(--plate); padding: 2px 6px 4px; max-width: 200px; }
+.co .rows { display: flex; gap: 16px; background: var(--plate); padding: 4px 6px 6px; }
+.co .works { font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--amber); background: var(--plate); padding: 2px 6px; }
+.co .key { margin-top: 4px; }
+
+/* the plan of the house: the six areas as rooms off Home, drawn as the Machine draws a building; the room he is in, lit */
+.plan { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); bottom: calc(var(--safe-bottom) + 8px + 48px + 16px); }
+.plan .kick { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.plan .rooms { display: flex; height: 56px; border: var(--stroke) solid var(--line); background: var(--plate); }
+.plan .rooms button { position: relative; flex: 1 1 0; min-width: var(--target); min-height: var(--target); border: 0; border-left: var(--stroke) solid var(--line); background: none;
+  font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-2); display: flex; align-items: flex-end; justify-content: flex-start; padding: 0 0 6px 6px; }
+.plan .rooms button:first-child { border-left: 0; }
+.plan .rooms button::after { content: ''; position: absolute; left: -2px; top: 18px; width: 3px; height: 14px; background: var(--canvas); } /* a door in the wall */
+.plan .rooms button:first-child::after { display: none; }
+.plan .rooms button.here { color: var(--accent-text); box-shadow: inset 0 0 0 var(--stroke) var(--accent); }
+.plan .rooms button.here i { position: absolute; right: 7px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.plan .rooms button.w2 { flex-grow: 1.5; }
+
+/* the Stage: the window brought to the front, its frame the room's own window; the readings under it */
+.frame { position: absolute; z-index: 2; left: var(--gutter); right: var(--gutter); box-sizing: border-box; border: var(--stroke) solid var(--line); pointer-events: none; }
+.readings { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line-faint); border-bottom: 1px solid var(--line-faint); }
+.readings .rd { padding: 10px 0 10px 10px; border-left: 1px solid var(--line-faint); }
+.readings .rd:first-child { border-left: 0; padding-left: 0; }
+.say-stage { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); }
+.back { position: absolute; z-index: 4; left: var(--gutter); top: 60px; }
+
+/* the reader: the page brought to the front of the room */
+.page { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); background: var(--plate-strong); border: var(--stroke) solid var(--line); box-shadow: var(--depth-front);
+  }
+.page .head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line-faint); }
+.page .pills { display: flex; border-bottom: 1px solid var(--line-faint); }
+.page .pills button { flex: 1; min-height: 48px; border: 0; border-left: 1px solid var(--line-faint); background: none; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.page .pills button:first-child { border-left: 0; }
+.page .pills button.here { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }
+.page .text { padding: 12px 16px 8px 20px; }
+.page .text p { font: var(--t-reading); color: var(--ink-2); margin: 0 0 12px; }
+.page .text p.lit { color: var(--ink-1); position: relative; }
+.page .text p.lit::before { content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 2px; background: var(--accent); }
+.page .mark { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font: var(--t-tag); letter-spacing: var(--tr-tag); color: var(--ink-3); }
+.page .mark::before, .page .mark::after { content: ''; flex: 1; border-top: 1px solid var(--line-faint); }
+.listen { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); height: 56px; display: flex; align-items: center; gap: 12px; border: var(--stroke) solid var(--line); background: var(--plate-strong); padding: 0 6px 0 12px; }
+.listen .what { flex: 1; min-width: 0; }
+.listen .what b { display: block; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--accent-text); }
+.listen .what span { font: var(--t-mono); color: var(--ink-2); }
+.listen .key { min-width: 44px; padding: 0; }
+.shelf { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.shelf button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--target); border: 0; background: none; padding: 0; text-align: left; color: inherit; }
+.shelf .cover { display: block; box-shadow: 0 0 0 1px var(--line-faint); }
+.shelf b { font: var(--t-tag); letter-spacing: .02em; color: var(--ink-1); text-transform: none; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.shelf span { font: var(--t-tag); letter-spacing: .02em; color: var(--ink-3); }
+.shelf .bar { width: 100%; height: 2px; background: var(--line-faint); }
+.shelf .bar i { display: block; height: 2px; background: var(--accent); }
+
+/* the Lens: the act, the letter brought to the front */
+.act { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); border: var(--stroke) solid var(--line); background: var(--plate-strong); box-shadow: var(--depth-front);
+  padding: 14px 14px 14px; transform: perspective(900px) rotateX(6deg) translateZ(20px); transform-origin: 50% 100%; }
+.act .kick { color: var(--accent-text); }
+.act h2 { margin: 6px 0 0; font: var(--t-say); letter-spacing: var(--tr-say); color: var(--ink-1); }
+.act p { margin: 6px 0 12px; font: var(--t-body); color: var(--ink-2); }
+.act .keys { display: flex; gap: 8px; }
+.act .keys .key { flex: 1; }
+.depth { color: var(--ink-3); }
+
+/* the hub: the room as a band, then the Machine's inventory of it: what is at hand open, the rest folded */
+.ret > .tag.n { left: auto; right: calc(-1 * var(--stroke)); bottom: auto; top: calc(-1 * var(--stroke)); padding: 1px 4px; }
+.inv { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); }
+.inv-k { display: flex; justify-content: space-between; margin: 0 0 4px; }
+.inv-row { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; column-gap: 8px; width: 100%; min-height: 52px; padding: 4px 0; border: 0; border-top: 1px solid var(--line-faint); background: none; text-align: left; color: inherit; font: inherit; }
+.inv-row .n, .inv-mini .n { font: var(--t-tag); letter-spacing: var(--tr-tag); color: var(--ink-3); align-self: start; padding-top: 2px; }
+.inv-row .n.on { color: var(--accent-text); }
+.inv-row .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-row .tag { background: none; padding: 0; }
+.inv-row .ttl { font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-1); }
+.inv-row .reads { display: flex; gap: 14px; }
+.inv-row .rd .v { font: 500 14px/18px var(--font-mono); }
+.inv-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line-faint); margin-bottom: 0; }
+.inv-mini { display: grid; grid-template-columns: 24px 1fr; column-gap: 4px; min-height: 48px; padding: 5px 0; border: 0; border-bottom: 1px solid var(--line-faint); background: none; text-align: left; color: inherit; font: inherit; }
+.inv-mini:nth-child(odd) { border-right: 1px solid var(--line-faint); }
+.inv-mini:nth-child(even) { padding-left: 10px; }
+.inv-mini .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-mini .tag, .inv-mini .sub { background: none; padding: 0; }
+.inv-mini .works { color: var(--amber); }
+
+/* the reader: the orb in the listen bar (the canvas draws it there), and the shelf as a 2 x 2 */
+.listen .orbslot { width: 32px; height: 32px; flex: none; }
+.shelf2 { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 8px; }
+.shelf2 button { display: flex; gap: 8px; align-items: flex-start; min-height: var(--target); border: 0; background: none; padding: 0; text-align: left; color: inherit; font: inherit; }
+.shelf2 .cover { flex: none; box-shadow: 0 0 0 1px var(--line-faint); }
+.shelf2 .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.shelf2 b { font: 600 12px/15px var(--font-text); color: var(--ink-1); }
+.shelf2 .au, .shelf2 .pr { font: 500 11px/14px var(--font-mono); color: var(--ink-3); }
+.shelf2 .bar { height: 2px; background: var(--line-faint); margin: 2px 0; }
+.shelf2 .bar i { display: block; height: 2px; background: var(--accent); }
