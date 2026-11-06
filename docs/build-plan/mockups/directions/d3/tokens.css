@@ -1,0 +1,131 @@
+/* =====================================================================================================================
+   D3 · THE CURRENT LOOK, GROWN UP — the tokens the design system would be built from.
+   Route C's graphite glass and Mind kept; less on each screen, more layers; one bar instead of two; the Stage in the centre.
+   Every value below has one job, said beside it. A theme is a swap of the ACCENT block alone (see the Ember block at the end):
+   everything that is lit, tinted or glowing is derived from --accent-rgb, nothing else names a colour of a theme.
+   ===================================================================================================================== */
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------- colour: the canvas and its three surface levels */
+  --canvas: #050607;                                   /* the page, graphite black (the same in every theme, as today) */
+  --canvas-rgb: 5, 6, 7;                               /* the canvas as a triplet, for things that fade into it */
+  --surface-1: linear-gradient(180deg, rgba(255, 255, 255, .072), rgba(255, 255, 255, .034));   /* level 1: a card at rest, a veil of glass */
+  --surface-2: linear-gradient(180deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .06));     /* level 2: a card that is raised, selected or being pressed */
+  --surface-3: linear-gradient(180deg, rgba(40, 44, 50, .74), rgba(24, 27, 31, .78));           /* level 3: a layer over a layer (the bar, a sheet, the Stage) */
+
+  /* ---------------------------------------------------------------- colour: ink at four strengths and the hairlines */
+  --ink-rgb: 244, 246, 248;                            /* ink as a triplet, for alpha */
+  --ink-1: #f4f6f8;                                    /* ink 1: titles and what he is reading now */
+  --ink-2: rgba(var(--ink-rgb), .66);                  /* ink 2: body and secondary lines */
+  --ink-3: rgba(var(--ink-rgb), .42);                  /* ink 3: captions, kickers, labels of readings */
+  --ink-4: rgba(var(--ink-rgb), .22);                  /* ink 4: what is switched off, and the faintest rules */
+  --hairline: rgba(255, 255, 255, .08);                /* a rule between things on the same level */
+  --hairline-strong: rgba(255, 255, 255, .14);         /* the edge of a control, and a rule that must be seen */
+
+  /* ---------------------------------------------------------------- colour: the accent (THE ONLY BLOCK A THEME SWAPS) */
+  --accent: #64d2ff;                                   /* what is live or active: the lit key, Mind's rim, a filled button */
+  --accent-rgb: 100, 210, 255;                         /* the accent as a triplet; everything below is made from it */
+  --accent-pale: #bff0ff;                              /* a pale tint of it: Mind's crisp edge, the listening ring, a pulse */
+  --accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet, for the orb's lines */
+  --accent-glow: 1;                                    /* how strongly it lights the room (Reactor 1, Graphite .55, Mono .25) */
+  --accent-text: #64d2ff;                              /* the accent where it is TEXT: a darker variant where the accent fails 4.5:1 */
+  --accent-on: #021017;                                /* ink on a filled accent (button labels): dark, so any accent passes */
+  --accent-tint: rgba(var(--accent-rgb), .14);         /* a wash of it: a selected pill, a lit passage (derived) */
+  --accent-line: rgba(var(--accent-rgb), .42);         /* a hairline in it: a live card's edge, a tag's box when picked (derived) */
+  --accent-halo: rgba(var(--accent-rgb), calc(.16 * var(--accent-glow)));   /* the light behind Mind and under a lit card (derived) */
+
+  /* ---------------------------------------------------------------- colour: the Stage's map (a picture's own inks, made from ink and accent) */
+  --map-street: rgba(var(--ink-rgb), .09);             /* minor streets: barely there, so the route is the only line that is lit */
+  --map-main: rgba(var(--ink-rgb), .24);               /* main roads and the ring road */
+  --map-water: rgba(var(--accent-rgb), .30);           /* the canal (derived: it takes the theme's colour) */
+  --map-rail: rgba(var(--ink-rgb), .38);               /* railway that is not his journey */
+  --map-park: rgba(var(--ink-rgb), .05);               /* parks, and the block of a big building */
+  --map-label: rgba(var(--ink-rgb), .50);              /* a place name on the map */
+  --map-halo: #0a0d11;                                 /* what a map label sits on, so it stays readable across lines */
+
+  /* ---------------------------------------------------------------- colour: what is not a theme (kept as today) */
+  --amber: #ffb340;                                    /* a warning, a queue, something that needs a look */
+  --amber-rgb: 255, 179, 64;                           /* amber as a triplet */
+  --red: #ff6961;                                      /* an alert, something that failed */
+  --ok: #30d158;                                       /* a thing that went up or went well (a rating's arrow) */
+
+  /* ---------------------------------------------------------------- type: families (the phone's own faces, nothing to bundle) */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Mock', 'Inter', system-ui, sans-serif;   /* titles and numbers at size */
+  --font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Mock', 'Inter', system-ui, sans-serif;         /* everything he reads in a sentence */
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;                                          /* readings: figures that must line up */
+  --font-serif: ui-serif, 'New York', 'Source Serif Mock', 'Iowan Old Style', Georgia, serif;                         /* the reader's text only */
+
+  /* ---------------------------------------------------------------- type: the scale (weight size/line family) and its tracking */
+  --t-display: 700 34px/40px var(--font-display);      /* display: the greeting and a hub's name, once a screen */
+  --tr-display: -.022em;                               /* display tracking: tight, as the system's large titles are */
+  --t-title: 600 22px/28px var(--font-display);        /* title: a card's name, a sentence Ghosty says under a picture */
+  --tr-title: -.016em;                                 /* title tracking */
+  --t-body: 400 17px/24px var(--font-text);            /* body: what a line says; 17 so it is read without leaning in */
+  --tr-body: -.012em;                                  /* body tracking */
+  --t-caption: 400 13px/18px var(--font-text);         /* caption: a second line under a title, a label */
+  --tr-caption: -.004em;                               /* caption tracking */
+  --t-kicker: 600 11px/16px var(--font-text);          /* kicker: the small caps line over a card (name, state) */
+  --tr-kicker: .12em;                                  /* kicker tracking: open, because it is capitals */
+  --t-mono: 500 14px/20px var(--font-mono);            /* mono: a reading (1,240 · 42 of 112 · 07:24); numerals are tabular */
+  --tr-mono: -.01em;                                   /* mono tracking */
+  --num: tabular-nums;                                 /* every reading that lines up (1,240 · 42 of 112 · 07:24) sets its numerals tabular */
+  --t-reading: 400 19px/30px var(--font-serif);        /* reading: a book's text, 19 on 30 so a line is easy to find again */
+  --tr-reading: 0;                                     /* reading tracking: none, the serif is already set for it */
+
+  /* ---------------------------------------------------------------- grid: 8 points, the gutter and the safe areas */
+  --unit: 8px;                                         /* the one step every space is a multiple of */
+  --s-0: 4px;                                          /* half a step: inside a control only (icon to label) */
+  --s-1: 8px;                                          /* one step: between related things */
+  --s-2: 16px;                                         /* two steps: between groups; the side gutter */
+  --s-3: 24px;                                         /* three: between sections; the reader's margin */
+  --s-4: 32px;                                         /* four: a screen's breathing room */
+  --s-5: 48px;                                         /* six: the largest gap, round the orb */
+  --gutter: 16px;                                      /* the side gutter at 390 (24 from 428 up, below) */
+  --safe-top: 54px;                                    /* the status bar and the Dynamic Island (47 + 7); env(safe-area-inset-top) on the phone */
+  --safe-bottom: 34px;                                 /* the home indicator; env(safe-area-inset-bottom) on the phone */
+
+  /* ---------------------------------------------------------------- radii */
+  --r-1: 8px;                                          /* a chip's inner corner, a tag */
+  --r-2: 16px;                                         /* a card inside a card, a button */
+  --r-3: 24px;                                         /* a card */
+  --r-4: 32px;                                         /* the Stage, a sheet */
+  --r-pill: 999px;                                     /* a bar, a chip, a round button */
+
+  /* ---------------------------------------------------------------- elevation: how a layer sits over another (glass, then shadow) */
+  --elev-1: inset 0 1px 0 rgba(255, 255, 255, .07), 0 12px 28px rgba(0, 0, 0, .34);    /* level 1: lies on the canvas */
+  --elev-2: inset 0 1px 0 rgba(255, 255, 255, .10), 0 18px 40px rgba(0, 0, 0, .46);    /* level 2: lifted, the card in front */
+  --elev-3: inset 0 1px 0 rgba(255, 255, 255, .13), 0 28px 64px rgba(0, 0, 0, .62);    /* level 3: over everything (the bar, a sheet, the Stage) */
+  --blur-1: 20px;                                      /* how much level 1 blurs what is behind it */
+  --blur-3: 36px;                                      /* how much level 3 blurs what is behind it */
+
+  /* ---------------------------------------------------------------- motion: three durations and two curves, by name */
+  --dur-tap: 160ms;                                    /* a press answering: a chip, a button */
+  --dur-sheet: 350ms;                                  /* a layer arriving or leaving (the system's own spring: .35 s) */
+  --dur-stage: 600ms;                                  /* the Stage growing out of Mind, and Mind returning */
+  --ease-spring: cubic-bezier(.32, .72, 0, 1);         /* arrivals: fast then settling, as every sheet moves */
+  --ease-calm: cubic-bezier(.4, 0, .2, 1);             /* travel and fades: symmetrical, never noticed */
+
+  /* ---------------------------------------------------------------- icons and targets */
+  --icon: 24px;                                        /* a line glyph's size */
+  --icon-sm: 20px;                                     /* a glyph inside a chip or a kicker */
+  --icon-stroke: 1.75;                                 /* a line glyph's stroke, round caps and joins */
+  --target: 44px;                                      /* the least a thing he can press may be, both ways */
+  --target-lg: 56px;                                   /* the bar, and a primary button */
+}
+
+/* from 428 wide up (the larger phones) the gutter opens to 24 and nothing else changes */
+@media (min-width: 428px) { :root { --gutter: 24px; } }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   A THEME: the accent block, swapped whole. Ember's values are the ones BRIEF-THEMES gives (c, pale, glow); nothing else in the
+   file changes for any of the ten, so a theme is one block like this and the system never branches on one.
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-theme="ember"] {
+  --accent: #ff7a3d;                                   /* Forge orange */
+  --accent-rgb: 255, 122, 61;                          /* Ember as a triplet: every derived tint, line and halo follows it */
+  --accent-pale: #ffd2bd;                              /* its pale tint */
+  --accent-pale-rgb: 255, 210, 189;                    /* the tint as a triplet, for the orb's lines */
+  --accent-glow: 1;                                    /* it lights the room fully, as Reactor does */
+  --accent-text: #ff7a3d;                              /* it passes as text on the canvas (over 7:1), so no darker variant is needed */
+}
