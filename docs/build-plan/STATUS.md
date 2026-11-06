@@ -241,7 +241,7 @@ built in the old look after day one, so no screen is built twice.
    (b) THE GUARD FIXED (his decision, 5 Nov, OWNER-ISSUES 131, which overrides the 2 Nov "never touch it"): match any check whose
    name starts with "smoke", restore only to the commit just before the failing merge, and leave .github/workflows as it is when
    restoring. About fifteen minutes; the first PR of Friday, because a week of ten merges needs a working net.
-1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) RENDERED 6 Nov (OWNER-ISSUES 135, docs/build-plan/mockups/directions/contact.png), waiting on his pick. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
+1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) ROUND ONE RENDERED 6 Nov and REJECTED by him (OWNER-ISSUES 135, 136: "a total redesign, something that hasn't been seen before"); ROUND TWO running on the top tier (BRIEF-DIRECTIONS-2: three worlds with storyboards), then his pick. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
    tokens, not app code: Home, one hub, the Lens and the reader in each, at 390 and 440; one direction with Mind (the orb) as the
    navigation itself; one that drops the current iOS-like look entirely (his words, 5 Nov: "we might get rid of the iphone theme …
    we could redesign it entirely to just look a lot better"); Mind the orb at the centre in all three, the Stage taking the centre
