@@ -205,17 +205,17 @@ def hub():
                 f'<span class="ttl">{title}</span></span><span class="reads">{r}</span></button>')
 
     def mini(n, name, line, works=False):
-        w = ' <span class="works">· in the works</span>' if works else ''
-        return f'<button class="inv-mini" aria-label="{name}"><span class="n">{n}</span><span class="body"><span class="tag">{name}{w}</span><span class="sub">{line}</span></span></button>'
+        w = '<span class="works">In the works</span>' if works else ''
+        return f'<button class="inv-mini" aria-label="{name}"><span class="n">{n}</span><span class="body"><span class="tag">{name}</span><span class="sub">{line}</span>{w}</span></button>'
     inv = ('<section class="inv" style="top:350px"><div class="kick inv-k"><span>At hand · 3</span><span>Recent and starred</span></div>'
            + row('01', 'Library', f' · {CLOCK}', cards['library']['title'], [('Reading', 'Alice', ''), ('Page', '42/112', '')])
            + row('02', 'Gym', f' {STAR} · training', cards['gym']['title'], cards['gym']['reads'])
            + row('03', 'Courses', f' {STAR}', cards['learn']['title'], cards['learn']['reads'])
            + '<div class="kick inv-k"><span>Folded · 4 more</span><span>Tap to open</span></div><div class="inv-grid">'
-           + mini('04', 'School', 'Nursery · 7 papers') + mini('05', 'Arcade', '16 free · Epic Pinball')
+           + mini('04', 'School', 'Nursery · 7 papers') + mini('05', 'Arcade', '16 free · last: Epic Pinball')
            + mini('06', 'Learning', '12 days · 9 skills', works=True) + mini('07', 'Coach', '3 days · 5 passed', works=True)
            + '</div></section>')
-    js = gl(2, CAM_LEARN, L, orb_lit=1.0, orb_at=[318, 196, 2.4, 18], room=dict(room=[1.02, 2.38, -2.4, 1.5], win=[0, 0, 0, 0]), clip=[0, 150, 390, 344])
+    js = gl(2, CAM_LEARN, L, orb_lit=1.0, orb_at=[318, 222, 2.4, 16], room=dict(room=[1.02, 2.38, -2.4, 1.5], win=[0, 0, 0, 0]), clip=[0, 184, 390, 340])
     return w1page('W1 · Learn', '21:11', top + marks + inv + plan('learn') + ask('Find anything in Learn'), js)
 
 
