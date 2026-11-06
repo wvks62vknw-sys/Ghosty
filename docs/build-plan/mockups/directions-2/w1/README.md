@@ -20,6 +20,12 @@ the room, the city, the Lens), `build.py` (writes the pages), the PNGs at 390 an
 strip), `contact.png`, `home-ember-*.png` (the theme proof: the scan's lit points and the route turn orange with no other
 change).
 
+**Not so dark** (his pick, OWNER-ISSUES 139: "i don't like how dark it looks"): `lift.css` lays the design system's own
+surfaces, inks and lines (`apps/web/src/design/tokens.css`: canvas `#101317`, plates `#171b20` and `#1e2329`) over these
+tokens, the scan laid on the graphite as light; `home-graphite-*.png` and `hub-graphite-*.png` are the same rooms rendered
+so, and `lift-home.png` and `lift-learn.png` put each beside the original (mean lightness of the whole screen, L*: 4.9 to
+11.6 on Home, 4.1 to 10.6 on Learn). The type and the marks are left as rendered, so the two compare on light alone.
+
 ## The finding rule
 
 | What | Taps | How |
