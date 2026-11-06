@@ -62,7 +62,7 @@ void main() {
   if (!clipped && rd.y < 0.) {
     float t = -ro.y / rd.y; vec2 p = (ro + rd * t).xz * uGridK;
     vec2 dp = fwidth(p); float px = max(dp.x, dp.y);          // one device pixel, in map units, here
-    float fade = exp(-t * .018);
+    float fade = exp(-t * .018) * smoothstep(.55, .12, px);
     if (uLens > .5) {
       vec2 uv = gl_FragCoord.xy / uRes;
       vec3 im = texture(uImg, uv).rgb; float l = dot(im, vec3(.299, .587, .114));
@@ -91,13 +91,13 @@ void main() {
       col += mix(uBoneC, gAcc, here ? .6 : 0.) * dotp * .8 * fade;
       // the square of what is at hand, round the origin: a full box and its nine squares
       float sq = sdBox2(p, vec2(1.5));
-      col += uBoneC * lineAA(abs(sq), px * 1.5) * .85;
+      col += uBoneC * lineAA(abs(sq), px * 1.5) * .85 * fade;
       vec2 fi = abs(fract(p + .5) - .5);
-      col += uBoneC * lineAA(min(fi.x, fi.y), px * 1.) * step(sq, 0.) * .14;
+      col += uBoneC * lineAA(min(fi.x, fi.y), px * 1.) * step(sq, 0.) * .14 * fade;
       // the Journey's point, when he has asked for it
       if (uCityAt.x < 900.) {
         float jd = sdBox2(p - uCityAt, vec2(.32));
-        col += gAcc * lineAA(abs(jd), px * 1.6) * .95;
+        col += gAcc * lineAA(abs(jd), px * 1.6) * .95 * fade;
       }
       }
     } else {
@@ -120,7 +120,7 @@ void main() {
     // the orb's foot: where it stands over the field, a ring and the line up to it
     vec2 foot = uOrb.xz;
     float fr = abs(length(p - foot) - uOrb.w * .9);
-    col += uBoneC * lineAA(fr, px * 1.4) * .7 * (1. - uCity) * uField * uFoot;
+    col += uBoneC * lineAA(fr, px * 1.4) * .7 * (1. - uCity) * uField * uFoot * fade;
   }
   // the altitude line from the foot to the orb, then the orb itself
   {

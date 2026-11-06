@@ -93,7 +93,7 @@ def story_sheet(world, name, line, frames):
             cells.append('<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>')
         cells.append(f'<figure><div class="ph"><img src="story-{i}-390.png" alt="{cap}"></div><figcaption><b>{i} · {cap}</b>{what}</figcaption></figure>')
     return f'''<!doctype html>
-<html lang="en-GB"><head><meta charset="utf-8"><title>{world} · storyboard</title><link rel="stylesheet" href="../../fonts.css"><style>{SHEET_CSS}
+<html lang="en-GB"><head><meta charset="utf-8"><title>{world} · storyboard</title><link rel="stylesheet" href="../../fonts.css"><meta name="mock-scale" content="1.6"><style>{SHEET_CSS}
 body {{ width: 1180px; }}</style></head>
 <body><h1>{world} <span>· {name}, in motion</span></h1><p class="lede">{line}</p><div class="row">{''.join(cells)}</div></body></html>
 '''
@@ -110,7 +110,7 @@ def contact_sheet(world, name, idea, screens=SCREENS, story_caps=None):
         story = ''.join(f'<figure><div class="ph"><img src="story-{i}-390.png" alt="{c}"></div><figcaption><b>{i} · {c}</b></figcaption></figure>' for i, c in enumerate(story_caps, 1))
         story = f'<h2 style="margin-top:40px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:rgba(238,240,242,.6);font-weight:600">The storyboard: Home becomes the thing he asked for</h2><div class="row" style="margin-top:16px">{story}</div>'
     return f'''<!doctype html>
-<html lang="en-GB"><head><meta charset="utf-8"><title>{world} · contact</title><link rel="stylesheet" href="../../fonts.css"><meta name="mock-scale" content="1.4"><style>{SHEET_CSS}
+<html lang="en-GB"><head><meta charset="utf-8"><title>{world} · contact</title><link rel="stylesheet" href="../../fonts.css"><meta name="mock-scale" content="1.2"><style>{SHEET_CSS}
 body {{ width: 1444px; }}</style></head>
 <body><h1>{world} <span>· {name}</span></h1><p class="lede">{idea}</p><div class="row">{five}</div>{story}</body></html>
 '''

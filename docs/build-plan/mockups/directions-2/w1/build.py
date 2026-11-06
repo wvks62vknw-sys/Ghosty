@@ -149,7 +149,7 @@ def home(theme='reactor'):
            f'<div class="say">Good evening, Boss.</div><div class="say2">Nothing needs you tonight. Shall we read?</div></div>')
     marks = [
         mark('r-win', ([0, 1.525, -2.4], 0, [0.5, 0.525, 0.0], 0), f'{CLOCK}God’s eye', '41 aircraft · 188 buses', cls='r', pad=0, label='God’s eye, recent'),
-        mark('r-shelf', H['shelf'], f'{CLOCK}Library', '4 books', cls='below', pad=0, label='Library, recent'),
+        mark('r-shelf', H['shelf'], f'{CLOCK}Library · 4', pad=0, label='Library, recent: 4 books'),
         mark('r-lens', H['lens'], f'Lens{STAR}', pad=3, label='Lens, favourite'),
         mark('r-agenda', H['agenda'], f'Agenda{STAR}', 'Dentist 09:15', cls='r', pad=2, label='Agenda, favourite'),
         mark('r-brief', H['brief'], f'{CLOCK}Brief', pad=4, label='Brief, recent'),

@@ -116,7 +116,7 @@ def home_tiles(att='alice', hide=()):
         ('eye', T(0, 1), f'{CLOCK}God’s eye', '41 aircraft', ''), ('brief', T(3, 1), f'{CLOCK}Brief', '9° clear', ''),
         ('lens', T(0, 2), f'Lens{STAR}', 'Ready', 'edge'), ('agenda', T(3, 2), f'Agenda{STAR}', '09:15', 'edge'),
         ('gym', T(0, 3), f'Gym{STAR}', 'Lv 6', 'edge'), ('courses', T(3, 3), f'Courses{STAR}', 'Lesson 3', 'edge'),
-        ('learn', T(0, 4), 'Learn', '7 screens', ''), ('me', T(1, 4), 'Me', '6 screens', ''), ('deck', T(2, 4), 'Every screen', '44', ''), ('all', T(3, 4), 'All I do', '', ''),
+        ('learn', T(0, 4), 'Learn', '7 screens', ''), ('me', T(1, 4), 'Me', '6 screens', ''), ('deck', T(2, 4), 'Screens', 'All 44', ''), ('all', T(3, 4), 'Abilities', 'All I do', ''),
     ]
     return ''.join(tile(r, tag, sub, cls, label=key) for key, r, tag, sub, cls in t if key not in hide)
 
@@ -129,11 +129,11 @@ def home(theme='reactor'):
     top = (f'<div class="top"><div class="truth">Fri 6 Nov · 21:08 · watching 15 · <i>looking at 1</i></div>'
            f'<div class="say">Good evening, Boss.</div><div class="say2">Nothing needs you tonight. Shall we read?</div></div>')
     alice = tile(big, f'{CLOCK}Library · tonight', cls='att', label='Carry on reading Alice',
-                 extra='<span class="sub" style="color:var(--ink-1)">Alice, page 42 of 112 · carry on</span>')
+                 extra='<span class="sub" style="color:var(--ink-1)">Page 42 of 112</span>')
     edge_r = [cellr(0, 2), cellr(3, 2), cellr(0, 3), cellr(3, 3)]
     att = [(big, 1.0)] + [(r, 0.5) for r in edge_r]
     js = gl(data_url(wall_svg()), att, orb=EYE_HOME, sight=(195, 503, 195, 477))
-    note = '<div class="truth ov" data-px="16 708" data-align="tl">In focus: tonight · at the edge: starred</div>'
+    note = '<div class="truth ov" data-px="16 83.4%" data-align="tl">In focus: tonight · at the edge: starred</div>'
     return w3page('W3 · Home', '21:08', top + home_tiles() + alice + note + ask(), js, theme)
 
 

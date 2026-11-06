@@ -48,7 +48,7 @@ ROUTE = [mu(p) for p in WALK + TRAIN]
 
 def gl(cam, orb=ORB, orb_lit=1.0, here=-1, city=0.0, city_at=(999, 999), city_r=0.0, scale=1.0, dots=1.0, field=1.0, image=None,
        clip=None, orb_at=None, lens=0.0, grid_k=1.0):
-    u = dict(uFoot=0.0 if orb_at else 1.0, uOrb=orb, uOrbLit=orb_lit, uSeed=[[s[2], s[3]] for s in SEEDS], uHere=here, uCity=city, uCityAt=list(city_at), uCityR=city_r,
+    u = dict(uFoot=0.0 if (orb_at or orb[1] < -5) else 1.0, uOrb=orb, uOrbLit=orb_lit, uSeed=[[s[2], s[3]] for s in SEEDS], uHere=here, uCity=city, uCityAt=list(city_at), uCityR=city_r,
              uCityScale=scale, uRoute=ROUTE, uRouteOn=1.0, uDots=dots, uField=field, uClip=clip or [0, 0, 0, 0], uLens=lens, uGridK=grid_k)
     cam_js = json.dumps(dict(pos=cam['pos'], tgt=cam['tgt'], fov=cam['fov'] * 3.14159265 / 180))
     more = f', image: {json.dumps(image)}' if image else ''
@@ -113,9 +113,9 @@ def field_labels(here=None, near_points=True):
             continue
         out.append(region(key, name, x, z + 0.2, n, far=far, here=(key == here)))
     if here is None:
-        out.append('<div class="truth ov" data-px="374 330" data-align="tr" style="text-align:right">Life · Me ↑ farther</div>')
+        out.append('<div class="truth ov" data-px="195 352" data-align="c" style="text-align:center">↑ Life · Me<br>farther</div>')
     if near_points:
-        out += [point('Arcade', -4.2, -3.0), point('School', -2.0, -3.0), point('Markets', 1.0, -3.0), point('Radio', 3.0, -4.6)]
+        out += [point('Arcade', -4.3, -3.0), point('School', -1.7, -2.3), point('Markets', 1.4, -2.3), point('Radio', 3.0, -4.6)]
     return ''.join(out)
 
 
