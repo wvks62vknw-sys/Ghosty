@@ -399,11 +399,19 @@ test('the foresee tool: his question on record (never a person), today, the reco
   assert.equal(tool.pure({ what: 'record' }), true);
   assert.equal(tool.pure({ what: 'expect' }), false, 'putting one on record writes');
   assert.equal(await tool.run({ what: 'today' }, ctx), S.NONE_YET);
-  const said = await tool.run({ what: 'expect', subject: 'will the price of a PS5 drop at Argos by Friday?', expect: 'the price to drop by Friday', by: 'Friday 18:00', confidence: 0.65 }, ctx);
-  assert.match(said, /^On record: I expect the price to drop by Friday \(65%\), to be checked on Friday\. Tell him your expectation in a line and that it's on record/);
+  // 5 Nov 2026: the tool reads the real clock (Date.now()), so the day asked for is three days ahead in his zone and the
+  // wording expected is "on <that day>" whatever today is. Asked for "Friday" it read "tomorrow at 18:00" on a Thursday and
+  // "on Friday 13/11" on a Friday, so the check went red on those two days alone with nothing wrong (OWNER-ISSUES 132).
+  const WEEK = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayWd = WEEK.indexOf(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'long' }).format(new Date()).toLowerCase());
+  assert.ok(todayWd >= 0, 'the weekday in his zone');
+  const askWd = (todayWd + 3) % 7;
+  const Day = WEEK[askWd].charAt(0).toUpperCase() + WEEK[askWd].slice(1);
+  const said = await tool.run({ what: 'expect', subject: `will the price of a PS5 drop at Argos by ${Day}?`, expect: `the price to drop by ${Day}`, by: `${Day} 18:00`, confidence: 0.65 }, ctx);
+  assert.match(said, new RegExp(`^On record: I expect the price to drop by ${Day} \\(65%\\), to be checked on ${Day}\\. Tell him your expectation in a line and that it's on record`));
   const p = k.ledger().items[0];
   assert.equal(p.kind, 'answer');
-  assert.equal(new Date(p.by).getUTCDay(), 5, 'Friday');
+  assert.equal(new Date(p.by).getUTCDay(), askWd, Day);
   assert.equal(await tool.run({ what: 'expect', subject: 'will my mum call tonight?', expect: 'yes', confidence: 0.6 }, ctx), "I don't make predictions about people. (Nothing was recorded. Say exactly that to him, and say nothing about the person.)");
   assert.equal(k.ledger().items.length, 1, 'nothing recorded about a person');
   assert.match(await tool.run({ what: 'record' }, ctx), /^Nothing has been scored yet/);

@@ -6,21 +6,28 @@ folder that no longer exists; ignore those paths).
 
 ## START HERE (written 4 Nov for the next session; everything below is history and detail)
 
-- **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (Opus for
-  design-heavy work, Sonnet for pattern work, Haiku for mechanical jobs), review, merge their branches into your session branch,
+- **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (the strong tier for
+  design-heavy work, the mid tier for pattern work, the cheap tier for mechanical jobs), review, merge their branches into your session branch,
   validate locally, push, open the pull request, and MERGE IT YOURSELF when every check is green (the owner, standing: "everytime
   you think the pull request should be merged on github etc just merge it dont wait for me to do it"). Then read main's push run.
 - **The bar.** docs/build-plan/STANDARD.md. No new features beyond the queue; one thing perfected at a time; every change proven by
   a test that fails on the old code; every state said in a sentence; nothing cut short; nothing fake; his phone check written
   into OWNER-ISSUES with every pass. "The absolute best for every single little thing, no matter what" is his instruction.
-- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised the same night, OWNER-ISSUES 129): the library reader;
-  AWARENESS (STARS 153 with one Lens 151–152 and his voice 154–155); THE UI REDESIGN (160–161: three directions rendered on day one
-  for his pick, built after it, with the Stage for show-me at the centre with Mind, and every ability findable in two taps within
-  it — the separate ability pages were withdrawn by him, OWNER-ISSUES 130); THE MACHINE AS HE MEANS IT — SHOW ME, BY DEFAULT, AT
-  SCALE (164) then the wall (165); the themes inside the new design; reliability and health (Pass 2 with IDEAS-ROUND-1's items);
-  the rest of STARS (156–159 among them) through PLAN-STARS's passes; then PROGRAMME-EDITORS.
-  STATUS section 4 is the one order and wins over everything else, this block included. Defaults if he says nothing: the briefs
-  as written, all ten themes, Paper not; the redesign waits for his pick from the three directions.
+  THE BRIEF IS THE FLOOR, NOT THE CEILING (OWNER-ISSUES 133, his words of 5 Nov): a better way or more depth inside the item's scope
+  is simply done and said in the PR; one that changes what he asked for, trades against his words, moves the order or costs more than
+  about an hour is put to him in one line ("you said X, but we can do Y. Shall we?", recommendation first) while the rest keeps
+  building; anything beyond the item's scope goes into STARS with a number. Never a silent change to words he gave about HOW.
+- **The queue.** STATUS.md section 4 (the owner's order of 4 Nov, revised 5 Nov on his "okay fix all of this", OWNER-ISSUES 131):
+  0 his four phone checks asked once and fixed first, and THE GUARD FIXED as Friday's first PR; 1 DAY ONE — three directions as
+  static mock screens for his pick (Mind the orb kept, the current look may go), then THE DESIGN SYSTEM from the pick, the ten themes
+  as its token sets; 2 THE LIBRARY AS A LIBRARY (the reader, the Shelf, LISTEN with the phone's voice by default), the first screen
+  in the new system; 3 AWARENESS (153 with one Lens 151–152 and his voice 154–155; the context in his message, not the system
+  prompt; voice a courtesy signal, not a lock); 4 THE SHELL REDESIGNED (160–161: the bar, the hubs, the deck, Home, Mind with the
+  Stage, the switcher, the jump bar; the other screens migrate as their passes touch them); 5 SHOW ME, BY DEFAULT, AT SCALE (164),
+  first slice first, then the wall (165); 6 reliability and health (the two habits ride in every PR from Friday); 7 the rest of
+  STARS through PLAN-STARS's passes; 8 PROGRAMME-EDITORS. The week realistically holds 0 to 3 and the shell started; the cut rule:
+  the first slice of SHOW ME before the last screens of the shell. STATUS section 4 is the one order and wins over everything else,
+  this block included. Defaults if he says nothing: the briefs as the floor (133), all ten themes, Paper not; the shell waits for his pick.
 - **Credits (OWNER-ISSUES 128, his words).** The weekly allowance resets on Friday; the plan ends 14 Nov; the whole queue has to
   be driven on one week's usage with the effort setting left as it is (his wish: do not lower it). So the saving is in method,
   never in quality: your own turns few and short (no code reading a builder can do, no narration, one message per event, edits
@@ -43,9 +50,13 @@ folder that no longer exists; ignore those paths).
   a FIRST ESTIMATE, never certified; social posting only with his APPROVE every time; downloads only on his tap on Wi-Fi with the
   size said; keys in the vault only; number plates never in docs or code; kept-on-phone paths fail closed.
 - **Hard rules of the repo.** Never raise the prompt guard (5,500; the worst dial, telegramVoice, is exactly 5,500: any addition
-  trims exactly and lists the trims). Never skip or weaken a test; a rule the owner changes is restated with a dated comment. Never
-  touch the CI guard job (its two findings are his decision: OWNER-ISSUES 123). Never a model name in code, comments, tests, docs,
-  PR titles or bodies (the Co-Authored-By footer is the only exception). Every spec tolerates a used brain (the shards share one
+  trims exactly and lists the trims). Never skip or weaken a test; a rule the owner changes is restated with a dated comment. The
+  CI guard job is the owner's: on 5 Nov he said fix it (OWNER-ISSUES 131 — match any check whose name starts with "smoke", restore
+  only to the commit just before the failing merge, leave the workflow file alone when restoring); FIXED on 6 Nov in PR #59 (the three
+  findings exactly, proven locally against seven sample check sets and a scratch repository); beyond that fix, never touch it.
+  Never a model name in code, comments, tests, docs, PR titles or bodies (the Co-Authored-By footer is the only exception; the plan
+  files were scrubbed on 5 Nov, and builders are named by tier: the top tier, the strong tier, the mid tier, the cheap tier). Every
+  spec tolerates a used brain (the shards share one
   brain in order). The catalogue test holds every registry to the catalogue both ways: a new screen, card or page needs its entry.
 - **Mechanics that bit us.** A builder's worktree may be created from main: every brief says `git log -1` and reset to the branch
   tip first; builders symlink the three node_modules. Local validation runs as `setsid nohup` chains in the scratchpad (an
@@ -60,18 +71,31 @@ folder that no longer exists; ignore those paths).
   tick each line against the code and the spec; a line not done is said in the PR, never left silent. When he gives an instruction
   that changes a rule or an order, write it into OWNER-ISSUES in his words the same hour. "Depth" means the wardrobe test
   (STANDARD, test eleven): on anything he can see, everything he would expect to open, change, measure or export does.
-- **Do not forget (open as of 4 Nov, late).** STATUS section 4 is THE ONE ORDER; where any file or message disagrees, it wins. His
-  phone checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what he reports first. The two free AI keys
-  (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead: the reader (125) replaces it. The ten-theme
-  entries are in BRIEF-THEMES.md, exactly as rendered. Day one also renders THREE REDESIGN DIRECTIONS (STARS 160, the Stage of 164
-  beside Mind in each) for his pick. Voices and faces: only his own and the people he introduces, on the phone, never a stranger
-  identified (154–155). The guard job's two findings (123) are his decision, untouched. The talk spec's budgets are timing: run it
-  alone. STARS 166–168 are offered ideas he has not picked: ask once, build only if he says. The editors (item 8) begin only when
-  the queue above them is through, and only if his plan continues past 14 Nov. Still his: the redesign pick; the plan after the
-  14th; the theme strikes; the 0.5B SIT and PS5 tests.
+- **Do not forget (open as of 5 Nov).** STATUS section 4 is THE ONE ORDER; where any file or message disagrees, it wins. His phone
+  checks for 121, 122, 123 and 126 have had no reply yet: ask once, then fix what he reports before anything new (item 0). The guard
+  job is Friday's first PR (131). The two free AI keys (System → Keys) are still not in. The interim LISTEN offered on 2 Nov is dead:
+  the reader (125) replaces it, and a book reads in the phone's own voice by default. The ten-theme entries are in BRIEF-THEMES.md,
+  exactly as rendered, to be re-expressed as token sets of the new system. Day one renders THREE REDESIGN DIRECTIONS as static mock
+  screens (STARS 160: Mind is the orb and stays; everything else may change, the current iOS-like look included; the Stage takes the
+  centre while something is shown) for his pick, then the system is built from the pick before any screen. Voices and faces: only his
+  own and the people he introduces, on the phone, never a stranger identified, and his voice is never a lock (154–155). The two
+  habits ride in every PR (STANDARD). The talk spec's budgets are timing: run it alone. STARS 166–168 are offered ideas he has not
+  picked: ask once, build only if he says. The editors (item 8) begin only when the queue above them is through, and only if his plan
+  continues past 14 Nov; the product library's first slice comes earlier, inside SHOW ME. Still his: the redesign pick; the plan
+  after the 14th; the theme strikes (Ice and Mono sit close to Graphite); the 0.5B SIT and PS5 tests; the usage percentage each day.
 - **The owner.** Short patience, the highest bar, decides in one line. He wants: short messages, his phone check with every PR, no
-  questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 4 Nov: two free
-  AI keys in System → Keys; any theme to strike; corrections to the two briefs; whether the plan continues after the 14th.
+  questions that a default can answer, "finished" said only when a pass is done and green on main. Still his as of 5 Nov: the four phone
+  checks; two free AI keys in System → Keys; any theme to strike; the redesign pick on day one; whether the plan continues after the 14th.
+
+## 6 Nov (Friday, after the reset): the new session
+- 06 Nov: took over through the repository. PR #58 (the 5 Nov review, OWNER-ISSUES 131–133, the queue 0–8, STARS 169, the two
+  habits, the foresight test) was still open with one smoke shard red: its branch is the base of this session's branch, so PR #59
+  carries it plus the guard fix; #58 is closed as superseded once #59 is on main. The shard's failure is read from its log before
+  the merge (a flake is fixed at its cause, never retried into green): it was the packs3 spec's Arabic letters (OWNER-ISSUES 134),
+  fixed in the spec and run clean locally. Local set-up this session: `npm install` in apps/edge (builds the web too); the brain
+  bundle is the first half of apps/edge's test script with `apps/edge/node_modules/.bin` on PATH; the preview on 8790; the global
+  Playwright linked into the repo root's node_modules (`playwright` and `playwright-core` from /opt/node-tools) so specs import it.
+  Usage percentage: asked; not yet given.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
@@ -85,15 +109,15 @@ folder that no longer exists; ignore those paths).
 - The ordered plan the owner asked for is `docs/build-plan/PLAN.md` (weeks 1–3, chunk sizes, what only he can do, my
   own ideas). The planning chat with him started on 23 Oct; nothing is built until he says yes to the Week 1 list.
 - The browser specs run at the owner's 440 × 956 in en-GB / Europe/London (`PHONE`, `UK` in tests/nav.mjs; A3, merged 24 Oct); specs that check a second size on purpose keep it.
-- Usage check-in, 23 Oct ~21:30 UK (the owner's numbers): session 31 %, all models weekly 9 %, Fable weekly 6 %. Plenty
-  of room: the pipeline was widened to four builders. Every builder, designer and reviewer runs on Opus (high); Fable
-  only plans, briefs, reviews and merges; Haiku is for the mechanical jobs (the first: the specs' viewport switch, A3).
+- Usage check-in, 23 Oct ~21:30 UK (the owner's numbers): session 31 %, all models weekly 9 %, the top tier weekly 6 %. Plenty
+  of room: the pipeline was widened to four builders. Every builder, designer and reviewer runs on the strong tier (high); the top tier
+  only plans, briefs, reviews and merges; the cheap tier is for the mechanical jobs (the first: the specs' viewport switch, A3).
 - Merged 23 Oct late: route C built into the app (design-1), SCHOOL part 2a (banks + official papers), Mind as Home's
   centrepiece, fixes A2, the training pre-flight fixes. Running: SCHOOL 2b (training side), SCHOOL 3 (reading), the
   website builder's fixes (BRIEF-WEBSITES-FIX.md, from its adversarial review: must land before the next merge to main).
   Next: the specs' viewport switch to 440 × 956 (A3, a cheap model), the design polish pass (GYM's empty LEVELS card,
   WHAT'S NEW), the stopwatch (B3), the human voice (D6), the first real training run (E1) after the merge to main.
-- Owner, 24 Oct ~00:30 UK: usage all models 14 %, Fable 9 %; route C becomes the ONLY look with colour themes
+- Owner, 24 Oct ~00:30 UK: usage all models 14 %, the top tier 9 %; route C becomes the ONLY look with colour themes
   (BRIEF-ONE-LOOK.md, after route C part 2 lands); a GitHub token is set (the self-edit trial can run after the merge
   to main); the new look reaches his phone only when PR #32 merges. Later that night (OWNER-ISSUES 31) he said: "don't ask me to merge when it's ready, just do it": a batch is merged into main by this session once CI is green and every piece in it is complete and reviewed.
 - Merged 24 Oct early: SCHOOL 2b (exams on the free GPU, practice into training, the gap), SCHOOL 3 (reading), the
@@ -148,7 +172,7 @@ folder that no longer exists; ignore those paths).
   `build_app` as a Workshop project (projects.ts kind `app`, five steps, pause with the reason, RESUME, UNDO; the
   preview server's `/__test/blip` hook) and the SPEED card (SYSTEM → STATUS, `features/system/speed.ts`,
   `Router.mockTimed` under MOCK_LLM=1, tests/speed.spec.mjs in the CI loop). Owner at ~12:30 UK: usage all models
-  30 %, Fable 19 %; "do every single thing we talked about… now" (OWNER-ISSUES 36): nine builders run in parallel on
+  30 %, the top tier 19 %; "do every single thing we talked about… now" (OWNER-ISSUES 36): nine builders run in parallel on
   the Week 2–3 list (courses, Library by meaning, Lens names living things and meals, the photo tools, the website
   builder's lift, saved places and spending, marking handwritten work and gadget manuals, Night School and monthly
   retraining, the GYM's next level), each in its own worktree on its own preview port; queued behind the machine
@@ -532,15 +556,15 @@ folder that no longer exists; ignore those paths).
   spending, speed, training, night, backup, undo, scrollfeel, scroll (Chromium), markets and settings on a fresh preview.
 - 25 Oct 04:20 UK: THE OWNER WROTE (OWNER-ISSUES 47–51): the brain re-downloads every time and the biggest one still
   closes Ghosty on download; little tabs inside every tab; the cinematic every boot and cooler; the UI "the tiniest bit";
-  the allowance at 84 % (all models) and 49 % (Fable). Started two builders on the branch head 63f1150 (the navigation
-  merged): BRAINKEEP (`.claude/worktrees/brainkeep`, preview 8885, Opus) on the two brain bugs, and SECTIONS
-  (`.claude/worktrees/sections`, preview 8886, Sonnet) putting `ui/sections.ts` on Settings, Library, Memory, School,
+  the allowance at 84 % (all models) and 49 % (the top tier). Started two builders on the branch head 63f1150 (the navigation
+  merged): BRAINKEEP (`.claude/worktrees/brainkeep`, preview 8885, the strong tier) on the two brain bugs, and SECTIONS
+  (`.claude/worktrees/sections`, preview 8886, the mid tier) putting `ui/sections.ts` on Settings, Library, Memory, School,
   Workshop, Threats and Links. Boot 2 (every cold open, cooler) starts when Reverse or Radio reports. Agenda and System
   passes wait for the allowance reset.
 - 25 Oct 04:40 UK: THE OWNER WROTE AGAIN (OWNER-ISSUES 52): the GYM "improved massively" (he beats Connect 4 every time in
   five minutes); the Harold-and-the-Machine relationship as the feel. Started GYM2 (`.claude/worktrees/gym2`, created by
-  the builder itself from the branch head, preview 8887, Opus): PLAY HIM at full strength always, lessons from his
-  games, the voice. Builders now: Reverse (8883), Radio (8884), brainkeep (8885), sections (8886, Sonnet), gym2 (8887).
+  the builder itself from the branch head, preview 8887, the strong tier): PLAY HIM at full strength always, lessons from his
+  games, the voice. Builders now: Reverse (8883), Radio (8884), brainkeep (8885), sections (8886, the mid tier), gym2 (8887).
   Boot 2 waits for the first of these to report. The allowance is the constraint (84 % all models): no further
   builders this week beyond boot 2 unless one of these finishes early.
 - 25 Oct 04:50 UK: merged after review: the RADIO pass (6 commits, 10 fixes; merge 812c8af, clean). Kernel line: `radio`
@@ -554,9 +578,9 @@ folder that no longer exists; ignore those paths).
   and nothing sent somewhere new); only the de1 directory mirror (a fallback mirror needs `'de2.api.radio-browser.info',
   'fi1.api.radio-browser.info',` in FEED_HOSTS, index.ts). Verification on the merged tree: web check, tsc, the full edge
   suite (tools/media.ts changed), then radio, media, hubcards, routec, layout, ui on a fresh preview.
-- 25 Oct 04:55 UK: started BOOT 2 (`.claude/worktrees/boot2`, preview 8888, Opus): every cold open, a richer cut of MIND
+- 25 Oct 04:55 UK: started BOOT 2 (`.claude/worktrees/boot2`, preview 8888, the strong tier): every cold open, a richer cut of MIND
   waking in 3.5–4.5 s, no facts, no reactor, frame-budgeted, the spec extended; the radio worktree removed. Builders
-  now: Reverse (8883), brainkeep (8885), sections (8886, Sonnet), gym2 (8887), boot2 (8888). That is the week's last
+  now: Reverse (8883), brainkeep (8885), sections (8886, the mid tier), gym2 (8887), boot2 (8888). That is the week's last
   set unless the allowance resets.
 - CLOCKS: British Summer Time ended at 01:00 UTC on 25 Oct 2026, so from then UK time = UTC. The 25 Oct labels above
   from the Iron Man merge onward were first written an hour ahead and have been corrected (05:20 UK → 04:20 UK, and so
@@ -628,7 +652,7 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 08:13 UK: PR #39 MERGED (cd44d71) after run 243 went green on 23bd0e2 (smoke 06:43–08:12; brain,
   interface, deploy-build, Workers Builds green). Run 242's red (1838a6d) was only the safari date-box check fixed on
   23bd0e2. The branch fast-forwarded to main; the held HANDOFF note committed (b5671c8).
-- 25 Oct 08:15 UK: gym2 (Opus) merged (d1dfd50) — PLAY HIM at full strength (gym/c4solve.ts exact bitboard solver with a
+- 25 Oct 08:15 UK: gym2 (the strong tier) merged (d1dfd50) — PLAY HIM at full strength (gym/c4solve.ts exact bitboard solver with a
   4,194,301-entry table kept for the worker's life; c4play.ts: four → block → the book (solved positions and lessons) →
   the solver for 30 % of 1.5 s → a deepening look-ahead with threat-parity leaves → the net's tree search among equals
   → the rest of the time proving the choice), lessons from the owner's games (c4study.ts; the journal under '~journal'
@@ -643,7 +667,7 @@ folder that no longer exists; ignore those paths).
   tic-tac-toe's (very large numbers); the chess floor sees only mates in two that start with a check. Only the phone can
   prove: how deep 1.5 s reaches, heat while he solves in idle time, IndexedDB under iOS eviction, Safari, whether HIS
   trick is beaten (he never said the columns), how the voice feels.
-- 25 Oct 08:15 UK: boot2 (Opus) merged (80936c7) — every cold open; the 3.9 s cut; the frame budget and the short/lean
+- 25 Oct 08:15 UK: boot2 (the strong tier) merged (80936c7) — every cold open; the 3.9 s cut; the frame budget and the short/lean
   cuts; shader warm-up in mind.ts bootBegin (BootLook gains haze, mer, rim, trails, refract; one material per meridian;
   Home's look unchanged). My addition on its branch (e177612): the frame loop is wrapped (`step` → `frame` in try/catch,
   `bail()`): a throwing frame removes #boot and the booting/bootland/bootwait classes, hands Mind to the hero and Home
@@ -653,7 +677,7 @@ folder that no longer exists; ignore those paths).
   6-of-24 lean rule, the GPU cost of the depths/trails/refraction, the hum in silent mode, whether the greeting speaks at
   once or on the first tap, the HUD's beat at real speed.
 - 25 Oct 08:15 UK: CI's loop gains boot, hubcards, spending and undo (`[boot]`; written 24 Oct, never run by GitHub). 73 specs.
-- 25 Oct 08:32 UK: sections merged (a2cca29; the builder began on Sonnet and finished on Opus after a model switch):
+- 25 Oct 08:32 UK: sections merged (a2cca29; the builder began on the mid tier and finished on the strong tier after a model switch):
   10 commits, pills on Settings, the Library, Memory, School, the Workshop, Threats and Links (the table is in UPGRADES);
   ui/sections.ts: pills sized to their names, `.dense` then `.scrolls` when they do not fit, `scroll-padding-top: 86px`
   for deck links, the `applying` guard removed (it swallowed the first sort: an empty YOU heading on a first visit to
@@ -701,7 +725,7 @@ folder that no longer exists; ignore those paths).
   Seen in the new pictures, for the Settings pass: the Appearance section holds one row (THEME), so the screen opens
   nearly empty under its pills — Appearance and You may belong together, or You should come first (a design pick for
   the owner, or the pass). Pushed as PR #41.
-- 25 Oct 12:30 UK: the owner's numbers, corrected at 12:40: ALL MODELS weekly 95 %, Fable weekly 60 % (OWNER-ISSUES 53).
+- 25 Oct 12:30 UK: the owner's numbers, corrected at 12:40: ALL MODELS weekly 95 %, the top tier weekly 60 % (OWNER-ISSUES 53).
   RULE FROM HERE: no builder starts until the weekly reset (every model counts against the 95 %); the orchestrator spends
   almost nothing: merge PR #41 on green, answer the owner, write the first brief for the reset once he picks. Ask him
   when the window resets (the app shows it). A fresh session starts from HANDOFF, STATUS and OWNER-ISSUES 53.
@@ -728,7 +752,7 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 15:55 UK: OWNER-ISSUES 57: the school sitting on the offline brain crashes the page on his phone (first fix
   after the reset: memory headroom while sitting, the smallest brain by default, resume after a crash); no mastery cap
   in the GYM; a working 3-D engine and car knowledge; the full Machine/Harold list put to him. Builders wait for the reset.
-- 30 Oct 20:50 UK (the weekly reset; Fable): main had moved — the guard (`check.yml`'s `guard` job, user `ghosty-guard`)
+- 30 Oct 20:50 UK (the weekly reset; the top tier): main had moved — the guard (`check.yml`'s `guard` job, user `ghosty-guard`)
   reverted PR #41 at 16:57 UK on 25 Oct ("Undo broken change: restore f1d9cc6 (checks failed on 002f7b3)"), so the
   stop-goes-quiet and built-app-link fixes were OFF the owner's phone all week. Cause, read from run 253's log: ONE spec
   failed, `voice`, step 3 ("with no connection the owner was told ''"). NOT a regression from #41: the STT no-connection
@@ -747,9 +771,9 @@ folder that no longer exists; ignore those paths).
   gitignored and built by apps/edge's postinstall — a local spec run after a web change needs `npm run build` in apps/web
   first, or it tests the old bundle. Re-landed in the pull request opened right after this note (the branch merged with
   main by `-s ours`, so it carries the guard's revert in history and restores #41's tree). The build backlog is
-  OWNER-ISSUES 55–79 (his call, 26 Oct); batch 1 = BRIEF-DEPENDABILITY.md (57c, 64a, 72, 79) on one Opus builder.
+  OWNER-ISSUES 55–79 (his call, 26 Oct); batch 1 = BRIEF-DEPENDABILITY.md (57c, 64a, 72, 79) on one strong-tier builder.
 - 30 Oct 22:51 UK: PR #42 merged (main 78f82ef): #41 restored, the voice spec robust; main's own run checked at ~00:20 (the
-  guard). BATCH 1 (BRIEF-DEPENDABILITY; one Opus builder in a worktree, 2 h 19 m, ~760k tokens; branch
+  guard). BATCH 1 (BRIEF-DEPENDABILITY; one strong-tier builder in a worktree, 2 h 19 m, ~760k tokens; branch
   worktree-agent-ae2743014d05a616f, commits 8191924 / 9af9c38 / a48e085 / 5997c7c) reviewed (router wait and the privacy
   marking read in full) and validated on its final tree: brain 1213/1213, notebook checks 84 OK, assets.ts up to date, web
   typecheck + build, ten specs clean (sit, onphone, school, telegram, voice, direct, routec, thinkharder, gym, hero); merged
@@ -786,12 +810,12 @@ folder that no longer exists; ignore those paths).
   the wall clock says so in a comment. The guard stays: it is the owner's protection against a bad merge; the retry is
   what makes it safe to live with.
 - TOKEN BUDGET (owner, 25 Oct, OWNER-ISSUES 67 and clarified in 68): the rule is EFFICIENCY, NOT SLOWNESS — fast is fine,
-  waste is not. Maximise output per credit across BOTH all-models and Fable weekly. Means: the cheapest model that does
-  the job (Sonnet mechanical, Opus only hard design/architecture, Fable plan/review/merge); batch related work into one
+  waste is not. Maximise output per credit across BOTH all-models and the top tier weekly. Means: the cheapest model that does
+  the job (the mid tier mechanical, the strong tier only hard design/architecture, the top tier plan/review/merge); batch related work into one
   builder rather than fanning out several; one CI run per batch, validate locally first; small fixes by hand not a
   builder; the orchestrator reads minimally (grep not whole files, log tails not whole logs, no re-reads); no redundant
   push-fix-push cycles. Speed is allowed; wasted credits are not. (All-models hit 95 % in a day this week via several
-  concurrent Opus builders + many CI pushes — that was the waste to avoid, not the speed.) The BRIEF-MACHINE vision is
+  concurrent strong-tier builders + many CI pushes — that was the waste to avoid, not the speed.) The BRIEF-MACHINE vision is
   fully in OWNER-ISSUES 55–68; build next (conversational pass first per 64, then the Abilities tab per 68), stop
   expanding the spec.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
@@ -1105,7 +1129,7 @@ folder that no longer exists; ignore those paths).
   3-D → ⑥ the offline brain → ⑦ the social self (his four picks, re-asked plainly in ROADMAP) → ⑧ the rest. Written and
   pushed with no PR open: ROADMAP.md, BRIEF-EVERYTHING.md (its first commit is the two Workbench layout bugs from his
   screenshots: mode buttons and titles under the sticky pills; the stale hero line). Builder ① started 02:35 UK on one
-  Opus worktree (preview port 8877) from 3b71a08 (= main 9340874 + docs). Main's guard check-in is armed for 03:35 UTC
+  the strong tier worktree (preview port 8877) from 3b71a08 (= main 9340874 + docs). Main's guard check-in is armed for 03:35 UTC
   (trig_01UoPMaUEC2ibEYJ2KW4VT6F). Still wanted from him: the 0.5B SIT test; his first ten games; how often Ghosty may
   speak first in a day; his dad's and Haris's plates with their OK; the four picks. He sleeps; the morning message shows
   him ROADMAP and the brief (sent as files at 02:40).
@@ -1124,21 +1148,21 @@ folder that no longer exists; ignore those paths).
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 
-- 1 Nov 03:20 UK (OWNER-ISSUES 95): his usage at 32% all models / 29% Fable for the week after seven batches; the
-  seven rules (Opus builders, review by risk, fewer wakes, short outputs, no rework, free validation, an 85% reserve) are
+- 1 Nov 03:20 UK (OWNER-ISSUES 95): his usage at 32% all models / 29% the top tier for the week after seven batches; the
+  seven rules (strong-tier builders, review by risk, fewer wakes, short outputs, no rework, free validation, an 85% reserve) are
   the way of working from here. About 4.5% of a week per batch all-in; 25–35 batches planned; two resets before 14 Nov.
 - 1 Nov 03:40 UK (OWNER-ISSUES 96): the bucket resets FRIDAY; he wants ①–⑧ done by Thursday night at the same bar.
-  Parallel builders in separate areas (Opus for design-heavy, Sonnet for brief-plus-tests work), lean rules in every brief,
-  review by risk with an Opus reviewer for big diffs, PRs paired, docs one commit per merge. Running: ① (8877), ② (8866),
+  Parallel builders in separate areas (the strong tier for design-heavy, the mid tier for brief-plus-tests work), lean rules in every brief,
+  review by risk with a strong-tier reviewer for big diffs, PRs paired, docs one commit per merge. Running: ① (8877), ② (8866),
   ③ part 1 ARCADE (8855).
 - 1 Nov 03:55 UK (OWNER-ISSUES 97): School still "crashing to my knowledge" (he never did GET → USE); builder ⑥ part 1
-  BRIEF-SMALLEST started (Opus, 8833): a floor brain, the chain, one-tap GET-and-sit, a 600-token sitting prompt. The PS5
+  BRIEF-SMALLEST started (the strong tier, 8833): a floor brain, the chain, one-tap GET-and-sit, a 600-token sitting prompt. The PS5
   opens Ghosty (older WebKit: the Eye and the new centre piece fail) → TV MODE in ⑧. Four builders run.
 - 1 Nov 04:40–05:00 UK: the ARCADE's first half handed back engine-free (the proxy refuses GitHub archive and API URLs;
   `git clone` of a public repository works, which the builder did not know) → merged 0e542d6; BRIEF-LIBRARY (the DOS
-  engine from npm `emulators` + the arcade screen; Opus, 8855) started; the owner allowed the two engine repos and "all
+  engine from npm `emulators` + the arcade screen; the strong tier, 8855) started; the owner allowed the two engine repos and "all
   access in future" → `.claude/settings.json` allows add_repo; doomgeneric and WebQuake cloned read-only under /home/user;
-  BRIEF-ENGINES (native DOOM and Quake behind a shared Engine adapter; Opus, 8811) started. Five builders at once: load
+  BRIEF-ENGINES (native DOOM and Quake behind a shared Engine adapter; the strong tier, 8811) started. Five builders at once: load
   ~12–14 on 4 cores, so specs run 1.5–2× slower; do not start a sixth.
 - 1 Nov 05:25 UK: BATCH ① MERGED onto the branch (f91ca18; OWNER-ISSUES 99). Light validation on the merged tree
   (typechecks, web build, catalogue + arcade tests 19/19) on top of the builder's full run at its HEAD; CI carries the
@@ -1157,7 +1181,7 @@ folder that no longer exists; ignore those paths).
   arcade screen (8855, finishing), ③ engines (8811), ③ games-2 (8800). Next slot: PACKS-1.
 - 1 Nov 06:40 UK: BATCH ③ PART 5 MERGED (26d12e6; words 8d69309; OWNER-ISSUES 102): the ARCADE tab with 13 free DOS classics
   on the DOSBox-wasm engine behind the shared Engine adapter. Joins PR #49 once deck + arcade specs pass on the merged tree
-  (running on 8844 while the chain on 8788 finishes nav/brief + the suite). PACKS-1 started (Opus, 8822). Running: engines
+  (running on 8844 while the chain on 8788 finishes nav/brief + the suite). PACKS-1 started (the strong tier, 8822). Running: engines
   (8811), games-2 (8800), packs-1 (8822).
 - 1 Nov 07:10 UK: #49's old head failed CI on the SELFTRAIN spec: its brain-chooser list lacked the floor brain (⑥a changed
   the stock list; the spec was not in that batch's validation list). Fixed (6ddc5a6), proven on a fresh preview, pushed.
@@ -1173,21 +1197,21 @@ folder that no longer exists; ignore those paths).
   (c36aac4). Everything local was pushed at 08:18 (c36aac4): #49 now carries ①②③a⑥a + the inert engines and two games.
 - 1 Nov 08:55 UK: PACKS-1 MERGED (0ea2e8d; OWNER-ISSUES 105): money, body, kitchen; the prompt at exactly 5,500 on the worst
   dial. Held for PR #50 with the wiring. Running: arcade-wire (8811, final tests), games-3 (8799), car (8777); PACKS-2
-  next on Sonnet (the pattern is set).
-- 1 Nov 09:05 UK: PACKS-1 joined PR #49 (bf773b0; five batches). PACKS-2 started on Sonnet (8766).
+  next on the mid tier (the pattern is set).
+- 1 Nov 09:05 UK: PACKS-1 joined PR #49 (bf773b0; five batches). PACKS-2 started on the mid tier (8766).
 - 1 Nov 09:25 UK: ARCADE-WIRE MERGED (1b52633; OWNER-ISSUES 106): DOOM, Freedoom, the free levels, Quake and the two 3-D
   games on the shelf. Deck/arcade/games2/engines specs run on the merged tree (val5); if green it joins #49 (checks ~35 min
-  old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (Opus).
+  old). Running: games-3 (8799), car (8777), packs-2 (8766); BRIEF-SOCIAL next (the strong tier).
 - 1 Nov 09:50 UK: ARCADE-WIRE joined PR #49 (cf13efb; five batches, the full arcade); the engines spec had failed once
-  under load 10 (Freedoom's first level: inputs before the level was ready) and passed alone. SOCIAL started (Opus, 8755).
+  under load 10 (Freedoom's first level: inputs before the level was ready) and passed alone. SOCIAL started (the strong tier, 8755).
 - 1 Nov 10:15 UK: GAMES-3 MERGED AND WIRED by hand (7e6ebc6, 0644646; OWNER-ISSUES 107): five games of our own on the
   shelf, eight engines. Specs deck/arcade/games3 run on the merged tree (val6). From here nothing more joins #49: it
   must finish; everything after cf13efb goes to PR #50. Running: car (8777), packs-2 (8766), social (8755).
-- 1 Nov 10:30 UK: REST-A started (Opus, 8744: offline Wikipedia, Shortcuts, Morse). The arcade spec learnt the five games
+- 1 Nov 10:30 UK: REST-A started (the strong tier, 8744: offline Wikipedia, Shortcuts, Morse). The arcade spec learnt the five games
   of our own (ca2ac3d).
 - 1 Nov 10:50 UK: CAR MERGED (34313e5; OWNER-ISSUES 108). A merge committed with conflict markers once more (local.ts,
   phrases.ts: my resolver printed UNHANDLED and the commit went through anyway) and was amended: ALWAYS grep for markers
-  before committing a merge. Specs cards/car/studio/deck/packs run on the merged tree (val7). REST-B next (Sonnet).
+  before committing a merge. Specs cards/car/studio/deck/packs run on the merged tree (val7). REST-B next (the mid tier).
 - 1 Nov 11:52 UK: PR #49 MERGED (main 4821e1b): ①, ②, ③ (the full arcade), ④a, ⑥a live. The checks took 2 h on the
   final head after four restarts from joining batches (lesson: join only while the run is young; after that, a new PR).
   Main's own push run with the guard finishes ~13:55 UK: confirm no "Undo broken change" then. PR #50 opens now with
@@ -1199,8 +1223,8 @@ folder that no longer exists; ignore those paths).
   the social and packs-2 batches trimmed the same "full" — when two batches trim the prompt, re-run the prompt test after
   the merge and pay the difference once. Pushing to PR #50 now (its run was 11:54: one restart, three batches more in it).
   Running: rest-B (8733), rest-C (8722), rest-D (8711: design a build + Home Assistant), packs-3 (8700). Briefs ready for
-  the next slots: BRIEF-OFFLINE-DEFAULT (⑥b, Opus), BRIEF-REST-E (converter + documents + rights-and-law, Opus). After
-  everything: the UI depth pass (Opus, last). Themes and Cinematic HELD for his opinion.
+  the next slots: BRIEF-OFFLINE-DEFAULT (⑥b, the strong tier), BRIEF-REST-E (converter + documents + rights-and-law, the strong tier). After
+  everything: the UI depth pass (the strong tier, last). Themes and Cinematic HELD for his opinion.
 - 1 Nov 13:00 UK: THE PUSH WAS BLOCKED by GitHub's push protection: the social test's fake Discord bot token matched the
   real pattern (`[MN]…24.6.27+`). Fixed by rewriting the 29 unpushed commits (git filter-branch, tree filter on that one
   line) so no pushed diff ever held it; the token is now `fake-bot-token-for-tests-only.middle.not-a-real-…`, which still
@@ -1212,7 +1236,7 @@ folder that no longer exists; ignore those paths).
   (sha-map.txt). The packs spec's three-squats step failed once at load 11 and passed alone (167 s): load, as PACKS-2 said.
 - 1 Nov 13:10 UK: PUSHED to PR #50 (46d6e81; its checks restarted at 13:01, done ~15:20). REST-B MERGED locally (OWNER-ISSUES
   112; a normal merge, its base is in the pushed history); held for PR #51, which opens the moment #50 merges. ⑥b started
-  (8688, Opus). Running: rest-C (8722), rest-D (8711), packs-3 (8700), offline-default (8688). REST-E starts when a slot frees.
+  (8688, the strong tier). Running: rest-C (8722), rest-D (8711), packs-3 (8700), offline-default (8688). REST-E starts when a slot frees.
 - 1 Nov 14:00 UK: PR #50's FIRST run (head 6970462) finished RED at 13:56 on hubcards: the MAKE hub's Studio card says
   "Built in 6" since the car's stand-in joined the samples, and the spec pinned 5 (twice: a real failure, not a flake).
   Fixed in the spec with the reason, as the Lens's "10 modes" line is. LESSON: a batch that adds a Studio sample, a Lens
@@ -1222,7 +1246,7 @@ folder that no longer exists; ignore those paths).
 - 1 Nov 14:15 UK: REST-C APPLIED (OWNER-ISSUES 113) as one squashed change (`git diff --binary <old base> <head> | git apply -3`,
   then the usual marker resolution: the apply's markers read `ours`/`theirs`), because its base was in the rewritten history.
   The same route for rest-D (old base e425869) and packs-3 (old base a59329d). Held for PR #51 behind #50's run (14:00).
-  REST-E started (8677, Opus). Running: rest-D (8711), packs-3 (8700), offline-default (8688), rest-E (8677).
+  REST-E started (8677, the strong tier). Running: rest-D (8711), packs-3 (8700), offline-default (8688), rest-E (8677).
 - 1 Nov 14:30 UK: MAIN'S RUN AFTER PR #49 WENT RED (routec, twice: the Home quick chips read as under 44 pt at 440 because a
   scroll to the end was taken before the wall's last card landed, so the chips sat below the fold and the finger probe read the
   dock — a race, reproduced once here and not the next time; nothing is broken for him). THE GUARD COULD NOT REVERT: its push
@@ -1340,7 +1364,7 @@ folder that no longer exists; ignore those paths).
   packs3, nav on one preview).
 - 2 Nov 06:19 UK: PR #53 MERGED (main 7c700f4), green on every job at the first run (shard 4 took 57 minutes with the tabs spec). Live:
   the LIFE area, the fourteen screens, hubs that show everything, every state said. Next: Pass 1a of PLAN-STARS (talking to him: speed and
-  presence), BRIEF-TALK-1A, one Opus builder from the local tip.
+  presence), BRIEF-TALK-1A, one strong-tier builder from the local tip.
 - 2 Nov 09:19 UK: main's run for PR #53 (7c700f4) green (06:18 → 07:09). TALK-1A MERGED (OWNER-ISSUES 122; builder base 7f432e2, HEAD
   7fee664, 11 commits, 29 files, a plain merge, no conflicts): assistant/{voice,session,narrate,spoken,barge,sfx}.ts, api/brain.ts,
   features/core/index.ts, settings/{deeplinks,shortcuts}.ts, abilities/sources.ts; brain agent.ts (a newer message closes the older
@@ -1363,6 +1387,27 @@ folder that no longer exists; ignore those paths).
   brain, interface and deploy-build passed on the new image. Not this PR's (docs only); main's next run would fail the same way. Fix in
   check.yml: the smoke job pinned to ubuntu-24.04 with a dated comment; nothing else in the workflow touched (the guard job included).
   If a later Playwright supports 26.04 the pin can go, in its own PR, with the timing specs re-measured.
+- 4 Nov, 03:38 UTC: PR #57 merged as c731cb0; main's run 319 green on every job, the four smoke shards on the pinned 24.04 image
+  included. The plan for Friday's session is on main.
+- 5 Nov, 03:50–04:40 UTC: THE REVIEW. The owner asked for an honest pass over the whole plan ("there's definitely things even in our
+  upgrades that we have written down that could be better, 100% find them") and then said "okay fix all of this". Twenty findings,
+  all written in (OWNER-ISSUES 131 lists them with where each went): the design system before the reader so no screen is built twice;
+  the redesign honestly sized as the shell now and the screens by pass; what the week realistically holds and the cut rule; the
+  product library's first slice inside SHOW ME; the finding rule (two taps for recents and favourites, three or a typed word for the
+  rest); the Stage taking the centre while showing, Mind becoming its frame; voice as a courtesy signal, never a lock, with consent
+  for introduced voices; the Lens's always-on and steady-frame detector sets with a two-second budget; LISTEN in the phone's own
+  voice by default with the switch said aloud; the speaking rule for show-me; pictures composed, not generated, unless he adds a key;
+  the context line in his message, not the system prompt; the Shelf as a shelf (STARS 169); the two habits in every PR (STANDARD);
+  the guard fixed as Friday's first PR (his decision, overriding 2 Nov); the four phone checks asked first; the plan files scrubbed
+  of builder model names (tiers instead); the ledger-growth expectation said plainly. His clarification the same hour: Mind means the
+  orb in the middle and that is all that must stay; the current iOS-like look may go entirely ("we could redesign it entirely to just
+  look a lot better"). Written into STATUS section 4 (rewritten with items 0–8), STARS 151/153/154/160/161/164 and 169, both briefs,
+  STANDARD, PLAN-STARS Pass 3, IDEAS-ROUND-1 items 1 and 3, this block, and the new-chat message. PR #58.
+- 5 Nov, 04:44 UTC: PR #58's run went red on every job that runs the brain suite — one test in apps/edge/test/foresight.test.mjs asked
+  the foresee tool, on the real clock, for "Friday 18:00" and expected "to be checked on Friday"; on a Thursday the tool rightly says
+  "tomorrow at 18:00" (and on a Friday "on Friday 13/11"), so the check was red on those two days with nothing wrong in Ghosty. The
+  test now asks for the day three days ahead in his zone and expects "on <that day>"; the tool is unchanged (OWNER-ISSUES 132). The
+  lesson for every spec: a test that reads the real clock must choose its dates relative to it, never name a weekday.
 - 4 Nov, later: the owner overruled the refusal of the full editors (OWNER-ISSUES 127). PROGRAMME-EDITORS.md written: eight
   workspaces, engines and licences named, first versions sized (2–7 days each), benchmarks, the rules; one week fits two before the
   plan ends on 14 Nov. His order awaited; nothing before Friday's reset. The briefs per workspace are written as each comes up.
@@ -1420,15 +1465,15 @@ to get the same result?", and take it. (the owner's request, updated 19 Oct)
 He wants the best possible quality WITHOUT burning through his weekly usage limit (last week ran out at 89%). So:
 - Think at maximum effort where judgement matters: the planning chat with him, architecture, design and design
   critique, hard bugs, adversarial review, and the final check of every merge.
-- Use Fable only where it is truly needed; pick the cheapest model that gives the SAME result for everything else:
-  - Fable, max: the planning chat with the owner, architecture, ideas, design and design critique, hard bugs,
+- Use the top tier only where it is truly needed; pick the cheapest model that gives the SAME result for everything else:
+  - the top tier, max: the planning chat with the owner, architecture, ideas, design and design critique, hard bugs,
     adversarial reviews, the final check before any merge.
-  - Opus, medium (or high for trickier code): building from a tight, already-decided brief; applying a fix whose
+  - the strong tier, medium (or high for trickier code): building from a tight, already-decided brief; applying a fix whose
     cause is known; writing tests and specs to a clear description; merging branches; restyling to an agreed design.
-  - Haiku: purely mechanical jobs, like finding files, summarising long CI logs, running a list of checks and
+  - the cheap tier: purely mechanical jobs, like finding files, summarising long CI logs, running a list of checks and
     reporting results.
-  - Every cheaper-model build is reviewed by a Fable reviewer before it is merged. If a cheaper model's work needs
-    redoing twice, give that kind of task to Fable instead: rework costs more than it saves.
+  - Every cheaper-model build is reviewed by a the top tier reviewer before it is merged. If a cheaper model's work needs
+    redoing twice, give that kind of task to the top tier instead: rework costs more than it saves.
 - Spend credits on thinking, not on repetition. Last week's waste came from: several builders in parallel on separate
   branches that then conflicted (each re-merge cost a whole agent run); full test suites re-run many times (one bug made
   the suite hang for hours); browser checks re-run after every small push; design rounds before the owner had seen a
@@ -1742,7 +1787,7 @@ quota line, and the daily GPU on Hugging Face. What follows needs the owner at a
   sessions a week are ~2,200–2,600 min a month, over a private repo's free 2,000. Either the CLI can start a run and
   return (then the job is ~2 min and the brain polls), or the sessions are capped at 4 a week. Checked in the first run.
   Nothing can bill: on a free GitHub account with no card the minutes simply stop at the limit (spending limit $0).
-- **The supervised first run**: Fable watching, the owner at a computer: sign in, set the secret, press RUN once. Check
+- **The supervised first run**: the top tier watching, the owner at a computer: sign in, set the secret, press RUN once. Check
   (1) the CLI gets a T4 on the free tier; (2) the notebook trades its ticket and posts {paused} after its 1.75 h; (3) the
   second session carries on mid-phase; (4) the Actions minutes one session used; (5) no warning on his Colab account.
 - **The free-tier rules risk**: Colab's free-tier FAQ says it is for interactive use and forbids "bypassing the notebook

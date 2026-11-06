@@ -41,6 +41,15 @@ the catalogue. It is done when it meets every line below on HIS iPHONE, and he h
     everything that depends on it. A feature is not finished because its main button works; it is finished when the whole
     experience feels deliberately engineered. Where the depth is not there yet, test nine applies: say so, IN THE WORKS.
 
+## The brief is the floor, not the ceiling (the owner, 5 Nov; OWNER-ISSUES 133)
+
+A brief says the least a pass must do. While building, a better way, more depth or a better thing than the brief names is done when it
+stays inside the pass's scope, costs little more and breaks no rule (the boundary, the prompt guard, nothing that bills, no new keys),
+and the PR says what was done beyond the brief and why. One that changes what he asked for, trades against words he gave, moves the
+order or costs more than about an hour is put to him in one line — "you said X, but we can do Y. Shall we?" — with the recommendation
+first, while the rest keeps building. Anything beyond the pass goes into STARS with a number. Words he gave about HOW a thing should be
+are never changed without asking.
+
 ## What a builder delivers against it
 
 - A MEASURE first: the feature as it is, against the eleven tests, with screenshots at both widths; the list of what fails.
@@ -48,6 +57,9 @@ the catalogue. It is done when it meets every line below on HIS iPHONE, and he h
 - A before/after: the same screenshots, the same measurements (first words in ms, taps to reach, states covered).
 - The owner's five-minute phone check: exact taps, what he should see, what to say if he does not.
 - IN THE WORKS labels for anything left below the bar, with the one line saying why.
+- THE TWO HABITS (5 Nov, OWNER-ISSUES 131; they ride in every PR, not in a later pass): a speed budget in every new spec — first
+  paint, first words, the screen's open, failed if slower; and a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every new
+  ability as it lands, fed by its spec's result, shown where the ability is found.
 
 ## What this costs, honestly
 

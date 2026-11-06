@@ -2,13 +2,16 @@
 
 The owner asked "what we thinking for the themes?" then "show me" (2 Nov). All twelve were rendered on the real app at
 390 × 844 (Home and the Plan hub each) from a local patch and shown to him as one contact sheet. He has not struck any; the
-default is all ten built, Paper (a daytime light look) not. Queue position: third after Friday's reset (STATUS section 4).
+default is all ten built, Paper (a daytime light look) not. Queue position: STATUS section 4 item 1(c): re-expressed as token sets
+of the new design system, in the system's PR or the next (OWNER-ISSUES 131); the ten colours stay exactly as rendered.
 
 ## What a theme is (state/theme.ts)
 A theme is `{ label, tag, c (the accent), pale (its tint), glow (how strongly it lights the room; Reactor 1) }`. Every
 instrument line, Mind's constellation, the boot's colour, the switcher and the chat's highlights take the accent; layout, type
 and spacing never change. Reactor (`#64d2ff`, glow 1) and Graphite (`#9db7cc`, glow 0.55) exist; Graphite is the quiet one.
-Mood colours (MOOD_LIGHT) still override a theme while a mood lasts.
+Mood colours (MOOD_LIGHT) still override a theme while a mood lasts. AFTER THE REDESIGN (5 Nov): a theme is a token set of the new
+system — accent, tint, glow, a text variant of the accent where the accent fails as text, and the glass — and the system's PR
+defines that shape; the entries below give the colours, which the owner has seen and not struck.
 
 ## The ten, exactly as rendered (THEMES entries)
 ```
@@ -49,4 +52,4 @@ and reopen: the boot is orange and the pick held; tap Gold, then Lime: every rea
 almost off.
 
 ## Size
-An afternoon (3–4 h) for one builder, plus one checks run.
+An afternoon (3–4 h) for one builder, plus one checks run, inside or right after the design system's PR.

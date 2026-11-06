@@ -137,15 +137,19 @@ jobs:
         run: |
           git fetch origin main
           if [ "$(git rev-parse origin/main)" != "${{ github.sha }}" ]; then echo "main has moved on; nothing to do"; exit 0; fi
-          good=""
-          for sha in $(git rev-list --first-parent -n 40 origin/main | tail -n +2); do
-            res=$(gh api "repos/${{ github.repository }}/commits/$sha/check-runs?per_page=50" --jq '[.check_runs[] | select(.name=="brain" or .name=="interface" or .name=="smoke" or .name=="deploy-build") | .conclusion] | (length >= 4 and all(. == "success"))')
-            if [ "$res" = "true" ]; then good=$sha; break; fi
-          done
-          if [ -z "$good" ]; then echo "::warning::no earlier passing version found"; exit 0; fi
+          # [guard] Fixed on 6 Nov 2026 as OWNER-ISSUES 123 found and 131 decided: (a) the browser job has been four shards
+          # named "smoke (1)" to "smoke (4)" since PR #51, so a check is green when brain, interface and deploy-build and
+          # EVERY check whose name starts with "smoke" passed; (b) the only version restored is the one just before the
+          # failing merge, and only if it was green on every check (never an older one: that would undo good merges too);
+          # (c) a workflow's own token may not change .github/workflows, so the restore leaves them as the failing version
+          # left them. Not touched again beyond this fix (the owner's rule).
+          good=$(git rev-parse "${{ github.sha }}^1")
+          res=$(gh api "repos/${{ github.repository }}/commits/$good/check-runs?per_page=100" --jq '[.check_runs[] | select(.name=="brain" or .name=="interface" or .name=="deploy-build" or (.name | startswith("smoke")))] | (map(.name) | unique) as $names | ((["brain","interface","deploy-build"] - $names) | length == 0) and (($names | map(select(startswith("smoke"))) | length) >= 1) and all(.conclusion == "success")')
+          if [ "$res" != "true" ]; then echo "::warning title=guard::Checks failed on ${GITHUB_SHA:0:7}, and the version before it (${good:0:7}) was not green on every check; main left as it is"; exit 0; fi
           git config user.name "ghosty-guard"
           git config user.email "ghosty-guard@users.noreply.github.com"
           git read-tree -u --reset "$good"
-          git commit -m "Undo broken change: restore ${good:0:7} (checks failed on ${GITHUB_SHA:0:7})" || exit 0
+          git checkout "${{ github.sha }}" -- .github/workflows
+          git commit -m "Undo broken change: restore ${good:0:7} (checks failed on ${GITHUB_SHA:0:7}; the workflows kept as they were)" || exit 0
           git push origin HEAD:main
           echo "::warning title=guard::Checks failed on ${GITHUB_SHA:0:7}; main restored to ${good:0:7}"
