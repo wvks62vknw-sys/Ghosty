@@ -98,7 +98,9 @@ folder that no longer exists; ignore those paths).
   Usage percentage: asked; not yet given.
 - 6 Nov 19:12 UTC: PR #59 MERGED into main (e66d3e0, every check green); #58 closed as superseded; main's own run GREEN on every
   job at 20:39 UTC (one shard's Playwright download took 49 minutes on a slow runner: the run takes up to 90 minutes, not 55). The three redesign directions rendered (OWNER-ISSUES 135; a mid-tier builder, 79 min) and sent to the owner for his
-  pick with three questions; nothing of the design system starts before the pick. The directions ride to main with the next PR.
+  pick with three questions; HE REJECTED ALL THREE (OWNER-ISSUES 136) and gave his reference (137: JARVIS in how it answers, the
+  Machine in how it looks, modern and clean). Round two on the top tier (77 min) rendered three worlds with storyboards (138), sent for
+  his pick. Nothing of the design system starts before the pick. Both rounds ride to main with the next PR.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
