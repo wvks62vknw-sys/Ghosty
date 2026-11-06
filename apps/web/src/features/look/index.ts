@@ -140,6 +140,16 @@ export const lookTab: TabDef = {
     if (!kept) secs.select('marks');
 
     // ---------------------------------------------------------------- TOKENS
+    /** A token drawn as itself beside its name: a colour as a paint chip, a space as a bar its length, a line at its weight, a
+     *  corner at its radius; nothing for the rest (a face, a duration: their own sections show them working). */
+    const tokenChip = (t: Token): HTMLElement => {
+      const hide = { 'aria-hidden': 'true' };
+      if (/^#|^rgba?\(/.test(t.value) || /-rgb$/.test(t.name)) return h('span.gtok-chip.colour', { ...hide, style: `background: ${/-rgb$/.test(t.name) ? `rgb(var(${t.name}))` : `var(${t.name})`}` });
+      if (/^--g-(s-|unit$|gutter$)/.test(t.name)) return h('span.gtok-chip.space', hide, h('i', { style: `width: var(${t.name})` }));
+      if (/^--g-(stroke|hair)$/.test(t.name)) return h('span.gtok-chip.weight', hide, h('i', { style: `height: var(${t.name})` }));
+      if (/^--g-radius-/.test(t.name)) return h('span.gtok-chip.corner', hide, h('i', { style: `border-top-left-radius: ${t.name === '--g-radius-orb' ? '100%' : `var(${t.name})`}` }));
+      return h('span.gtok-chip.none', hide);
+    };
     const measure = (name: string): number[] => {
       const surf = ['--g-canvas', '--g-plate', '--g-plate-strong'].map((n) => parseColour(css.getPropertyValue(n)));
       const c = parseColour(getComputedStyle(document.documentElement).getPropertyValue(name));
@@ -159,9 +169,8 @@ export const lookTab: TabDef = {
       for (const [group, list] of groups) {
         const g = h('div.gtok-group', { dataset: { group } }, tag(group, { count: list.length }));
         for (const t of list) {
-          const colour = /^#|^rgba?\(/.test(t.value) || /-rgb$/.test(t.name);
           const live = (ACCENT_BLOCK as readonly string[]).includes(t.name) ? getComputedStyle(document.documentElement).getPropertyValue(t.name).trim() : '';
-          const chip = h(`span.gtok-chip${colour ? '' : '.none'}` as 'span', { 'aria-hidden': 'true', style: colour ? `background: ${/-rgb$/.test(t.name) ? `rgb(var(${t.name}))` : `var(${t.name})`}` : '' });
+          const chip = tokenChip(t);
           const reads = inks.includes(t) ? measure(t.name) : [];
           if (reads.length) lookState.contrast[t.name] = reads.map((r) => +r.toFixed(2));
           g.append(h('div.gtok', { dataset: { token: t.name } }, chip,
