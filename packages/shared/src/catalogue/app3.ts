@@ -59,8 +59,8 @@ export const APP_3: Record<string, CatValue> = {
     since: '2026-10-31',
   },
   'panel:settings:THEME': {
-    name: 'Pick my colour', line: 'You can pick my colour: Reactor or Graphite, applied at once.',
-    more: 'Each swatch is a little Home in that colour. Only the colour changes.',
+    name: 'Pick my colour', line: 'You can pick my colour from twelve themes, applied at once, and I wake up in it.',
+    more: 'Each swatch is drawn in its own colour, my eye in a reticle, with its line. Only the colour changes; every screen keeps its layout.',
     say: ['Switch to Graphite'], scene: ['talking'], cat: 'talk',
   },
   'panel:settings:NAME & UNITS': {

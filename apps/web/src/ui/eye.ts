@@ -78,7 +78,7 @@ void main() {
   vec3 col = vec3(0.); float cov = 0.;
   float b = dot(o, d), c = dot(o, o) - 1.; float hh = b * b - c;
   float miss = sqrt(max(c - b * b + 1., 0.));
-  float sil = smoothstep(px * 1.6, 0., abs(miss - 1.)) * .5;
+  float sil = smoothstep(px * 1.6, 0., abs(miss - 1.)) * .65;
   col += uBone * sil; cov = max(cov, sil);
   if (hh > 0.) {
     float t0 = -b - sqrt(hh), t1 = -b + sqrt(hh);
@@ -86,8 +86,8 @@ void main() {
     float rr = px * 1.1 + .009 * (1. + .25 * uBreath);
     float df = sphereDots(normalize(pf)), db = sphereDots(normalize(pb));
     float edge = pow(1. - abs(dot(normalize(pf), d)), 2.);
-    float front = smoothstep(rr, rr - px * 1.5, df) * (.55 + .45 * edge) * (.9 + .1 * uBreath);
-    float back = smoothstep(rr * .8, rr * .8 - px * 1.5, db) * .22;
+    float front = smoothstep(rr, rr - px * 1.5, df) * (.72 + .5 * edge) * (.9 + .1 * uBreath);
+    float back = smoothstep(rr * .8, rr * .8 - px * 1.5, db) * .3;
     vec3 inner = vec3(0.);
     for (int i = 0; i < 22; i++) {
       float t = mix(t0, t1, (float(i) + .5) / 22.);

@@ -244,7 +244,9 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'Settings',
     promise: 'Make him yours: colour, voice, manner',
     can: [
-      { text: 'Pick his colour: Reactor or Graphite', act: { open: 'settings', panel: 'THEME' } },
+      { text: 'Pick his colour: twelve themes', act: { open: 'settings', panel: 'THEME' } },
+      // THE LOOK (BRIEF-DESIGN-SYSTEM 5): the design system shown by itself, a row of Settings
+      { text: 'The look: how he draws everything', act: { open: 'look' } },
       { text: 'Three dials: how dry, how brief, how warm', act: { open: 'settings', panel: 'CHARACTER' } },
       { text: 'Choose the voice he speaks in', act: { open: 'settings', panel: 'VOICE' } },
       { text: 'Download the offline brain', act: { open: 'settings', panel: 'OFFLINE BRAIN' } },
