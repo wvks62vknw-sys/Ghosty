@@ -208,7 +208,7 @@ def shelf():
   {status_bar('21:03')}
   <div class="col">
     <div class="titlebar"><button class="roundb" aria-label="Back">{g('back')}</button><h1>Library</h1><button class="avatar" aria-label="Me">B</button></div>
-    <p class="hubline">Four books on the shelf. I’ve read {C.HOME['stats']['passages']} passages myself.</p>
+    <p class="hubline">{C.SHELF_LINE}</p>
     <nav class="sortrow" aria-label="Sort the shelf">{sorts}</nav>
     <div class="shelf">{rows}</div>
   </div>

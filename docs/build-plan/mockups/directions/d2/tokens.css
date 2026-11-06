@@ -1,0 +1,128 @@
+/* =====================================================================================================================
+   D2 · ONE INK — the tokens the design system would be built from.
+   Drops the current look entirely: no glass, no iOS grammar, no rounded cells. One ink (bone on warm black), one light (the accent),
+   a serif for Ghosty's voice, rules instead of boxes, square corners, layers as numbered sections. The orb is the only round,
+   lit thing on the page. Every value has one job, said beside it. A theme is a swap of the ACCENT block alone (Ember at the end).
+   ===================================================================================================================== */
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------- colour: the page and its three planes (no glass, no shadow) */
+  --canvas: #0b0a09;                                   /* the page: warm black, never pure black, so ink has something to sit on */
+  --canvas-rgb: 11, 10, 9;                             /* the page as a triplet, for things that fade into it */
+  --plane-1: #12110f;                                  /* plane 1: a sheet lying on the page (a card's ground, a field) */
+  --plane-2: #1a1815;                                  /* plane 2: a sheet laid over a sheet (the front layer, a callout) */
+  --plane-3: #25221d;                                  /* plane 3: the layer on top (a pressed row, the open drawer) */
+
+  /* ---------------------------------------------------------------- colour: the ink, at four strengths, and the rules */
+  --ink-rgb: 236, 230, 216;                            /* the ink as a triplet, for alpha: bone, a warm white */
+  --ink-1: #ece6d8;                                    /* ink 1: titles, what he is reading now, a rule that must be seen */
+  --ink-2: rgba(var(--ink-rgb), .70);                  /* ink 2: body and second lines */
+  --ink-3: rgba(var(--ink-rgb), .46);                  /* ink 3: captions, kickers, the labels of readings */
+  --ink-4: rgba(var(--ink-rgb), .26);                  /* ink 4: what is switched off, and a grid line */
+  --rule: rgba(var(--ink-rgb), .16);                   /* a rule between rows: a hairline, 1 px */
+  --rule-strong: rgba(var(--ink-rgb), .38);            /* the rule over a section, and the edge of a button */
+  --rule-ink: var(--ink-1);                            /* the rule over the front layer: full ink, the heaviest line there is */
+
+  /* ---------------------------------------------------------------- colour: the accent (THE ONLY BLOCK A THEME SWAPS) */
+  --accent: #64d2ff;                                   /* the light: what is live now, the one thing lit on a page */
+  --accent-rgb: 100, 210, 255;                         /* the accent as a triplet; everything below is made from it */
+  --accent-pale: #bff0ff;                              /* a pale tint of it: the orb's core, a pulse */
+  --accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet */
+  --accent-glow: 1;                                    /* how strongly it lights its surroundings (Reactor 1, Mono .25) */
+  --accent-text: #64d2ff;                              /* the accent where it is TEXT: a darker variant where the accent fails 4.5:1 */
+  --accent-on: #04141b;                                /* ink on a filled accent (a live button's label) */
+  --accent-tint: rgba(var(--accent-rgb), .12);         /* a wash of it: the passage being read (derived) */
+  --accent-line: rgba(var(--accent-rgb), .55);         /* a rule in it: the live route's margin, the picked tag's underline (derived) */
+  --accent-halo: rgba(var(--accent-rgb), calc(.14 * var(--accent-glow)));   /* the light round the orb's core (derived) */
+
+  /* ---------------------------------------------------------------- colour: the map is drawn in the ink, nothing else */
+  --map-street: rgba(var(--ink-rgb), .10);             /* minor streets */
+  --map-main: rgba(var(--ink-rgb), .32);               /* main roads and the ring road */
+  --map-water: rgba(var(--ink-rgb), .46);              /* the canal, in the same ink, a little stronger */
+  --map-rail: rgba(var(--ink-rgb), .50);               /* other railway */
+  --map-park: rgba(var(--ink-rgb), .045);              /* parks and big blocks */
+  --map-label: rgba(var(--ink-rgb), .56);              /* a place name */
+  --map-halo: #0b0a09;                                 /* what a label sits on, so it stays readable across lines */
+
+  /* ---------------------------------------------------------------- colour: what is not a theme (kept as today) */
+  --amber: #ffb340;                                    /* a warning, a queue, something in the works */
+  --amber-rgb: 255, 179, 64;                           /* amber as a triplet */
+  --red: #ff6961;                                      /* an alert, something that failed */
+  --ok: #30d158;                                       /* a thing that went up or went well */
+
+  /* ---------------------------------------------------------------- type: families */
+  --font-serif: 'Source Serif Mock', ui-serif, 'New York', 'Iowan Old Style', Georgia, serif;                    /* Ghosty's voice, titles, the book: the phone's own New York */
+  --font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Mock', 'Inter', system-ui, sans-serif;     /* the work: labels, buttons, rows */
+  --font-display: var(--font-serif);                   /* display is the serif: the one place D2 differs from D1 and D3 */
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;                                      /* readings: figures that must line up */
+
+  /* ---------------------------------------------------------------- type: the scale (weight size/line family) and its tracking */
+  --t-display: 400 40px/44px var(--font-serif);        /* display: the greeting and a screen's name, once a screen */
+  --tr-display: -.022em;                               /* display tracking */
+  --t-title: 500 24px/30px var(--font-serif);          /* title: what Ghosty says under a picture; a book's name */
+  --tr-title: -.012em;                                 /* title tracking */
+  --t-voice: italic 400 18px/26px var(--font-serif);   /* voice: a second sentence, a hub's line: Ghosty speaking, set in italic */
+  --tr-voice: -.006em;                                 /* voice tracking */
+  --t-body: 400 17px/24px var(--font-text);            /* body: a row's name, a line in a list */
+  --tr-body: -.012em;                                  /* body tracking */
+  --t-caption: 400 13px/20px var(--font-text);         /* caption: the line under a name */
+  --tr-caption: -.004em;                               /* caption tracking */
+  --t-kicker: 600 11px/16px var(--font-text);          /* kicker: a section's label, a state; always capitals */
+  --tr-kicker: .16em;                                  /* kicker tracking: wide, as printed small capitals are */
+  --tr-kicker-tight: .08em;                            /* the same capitals in a dense row (a table's labels, four columns across) */
+  --t-mono: 500 13px/20px var(--font-mono);            /* mono: a reading (1,240 · 42 of 112 · 07:24); numerals are tabular */
+  --tr-mono: -.01em;                                   /* mono tracking */
+  --t-reading: 400 19px/30px var(--font-serif);        /* reading: a book's text, 19 on 30 */
+  --tr-reading: 0;                                     /* reading tracking */
+
+  /* ---------------------------------------------------------------- grid: 8 points, wide margins, the safe areas */
+  --unit: 8px;                                         /* the one step every space is a multiple of */
+  --s-0: 4px;                                          /* half a step: inside a control only */
+  --s-1: 8px;                                          /* one step: between a label and what it labels */
+  --s-2: 16px;                                         /* two steps: between rows' parts */
+  --s-3: 24px;                                         /* three: between sections; the side gutter at 390 */
+  --s-4: 32px;                                         /* four: the side gutter from 428 up */
+  --s-5: 48px;                                         /* six: the largest gap */
+  --gutter: 24px;                                      /* the side gutter at 390: wide, because ink needs margins (32 from 428 up, below) */
+  --row: 56px;                                         /* the height of a row he can press: a 44 target with room round it */
+  --safe-top: 54px;                                    /* the status bar and the Dynamic Island; env(safe-area-inset-top) on the phone */
+  --safe-bottom: 34px;                                 /* the home indicator; env(safe-area-inset-bottom) on the phone */
+
+  /* ---------------------------------------------------------------- radii: there are none, but the orb and a dot */
+  --r-0: 0;                                            /* every box, button, field and sheet: square */
+  --r-round: 999px;                                    /* the orb, a status dot, nothing else */
+
+  /* ---------------------------------------------------------------- elevation: how a layer sits over another (neither glass nor shadow) */
+  --lift-1: inset 0 1px 0 var(--rule-strong);          /* plane 2 over plane 1: its top edge is a rule */
+  --lift-2: inset 0 1px 0 var(--rule-ink);             /* the front layer: its top edge is the ink itself */
+  --lift-3: inset 0 2px 0 var(--accent-line);          /* a layer that is live: its top edge is the light */
+
+  /* ---------------------------------------------------------------- motion: three durations and two curves, by name */
+  --dur-snap: 100ms;                                   /* a press answering: the row goes one plane up */
+  --dur-turn: 240ms;                                   /* a layer turning over, a section unfolding */
+  --dur-settle: 480ms;                                 /* the plate settling when the Stage opens, and Mind returning */
+  --ease-cut: cubic-bezier(.2, 0, 0, 1);               /* arrivals: decisive, no overshoot, as a cut is */
+  --ease-ink: cubic-bezier(.4, 0, .6, 1);              /* fades and bleeds: even, never noticed */
+
+  /* ---------------------------------------------------------------- icons and targets */
+  --icon: 20px;                                        /* a line glyph's size; D2 uses few: words do the work */
+  --icon-stroke: 1.5;                                  /* a line glyph's stroke, square caps and mitred joins */
+  --target: 44px;                                      /* the least a thing he can press may be, both ways */
+}
+
+/* from 428 wide up (the larger phones) the gutter opens to 32 and nothing else changes */
+@media (min-width: 428px) { :root { --gutter: 32px; } }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   A THEME: the accent block, swapped whole. Ember's values are BRIEF-THEMES' (c, pale, glow); the ink, the planes and the rules
+   do not change for any of the ten, so a theme is one block like this and the system never branches on one.
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-theme="ember"] {
+  --accent: #ff7a3d;                                   /* Forge orange */
+  --accent-rgb: 255, 122, 61;
+  --accent-pale: #ffd2bd;
+  --accent-pale-rgb: 255, 210, 189;
+  --accent-glow: 1;
+  --accent-text: #ff7a3d;
+}

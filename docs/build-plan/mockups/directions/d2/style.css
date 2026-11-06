@@ -1,0 +1,191 @@
+/* D2 · the components and the five screens, written only from tokens.css. There is no box in this file: a thing is set off by a
+   rule, a plane (one step lighter) or space; there is no radius but the orb's and a dot's, no shadow, no blur. */
+*, *::before, *::after { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; border-radius: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; }
+h1, h2, h3, p, ul, figure { margin: 0; padding: 0; }
+ul { list-style: none; }
+
+/* glyphs and type roles */
+.i { display: block; flex: none; width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; stroke-width: var(--icon-stroke); stroke-linecap: square; stroke-linejoin: miter; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: var(--tr-mono); }
+.kicker { font: var(--t-kicker); letter-spacing: var(--tr-kicker); text-transform: uppercase; color: var(--ink-3); }
+.voice { font: var(--t-voice); letter-spacing: var(--tr-voice); color: var(--ink-2); }
+.cap { font: var(--t-caption); letter-spacing: var(--tr-caption); color: var(--ink-2); }
+.acc { color: var(--accent-text); }
+.n { font: 500 11px/16px var(--font-mono); color: var(--ink-4); letter-spacing: .04em; margin-right: var(--s-2); font-style: normal; }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--ink-4); vertical-align: 1px; }
+.dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.dot.works { background: var(--amber); }
+
+/* the frame: a column between the gutters; the masthead is a line of small capitals over a rule */
+.col { position: absolute; inset: 0; display: flex; flex-direction: column; padding: var(--safe-top) var(--gutter) calc(var(--safe-bottom) + 92px); }
+.mast { flex: none; height: var(--target); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--rule-strong); }
+.mast .word { height: var(--target); display: flex; align-items: center; padding: 0 0 0 var(--s-2); color: var(--ink-1); }
+.mast .word.l { padding: 0 var(--s-2) 0 0; }
+.mast .word .i { margin-right: var(--s-1); width: 16px; height: 16px; }
+
+/* the dock: the typed word on a ruled line, and the index of the areas as words; Mind is the dot that is Home */
+.dock { position: absolute; z-index: 30; left: 0; right: 0; bottom: 0; padding: 0 var(--gutter) var(--safe-bottom); background: var(--canvas); }
+.dock.over { background: transparent; }
+.ask { height: 48px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--rule-strong); }
+.ask .askf { flex: 1; min-width: 0; height: 48px; display: flex; align-items: center; font: italic 400 19px/28px var(--font-serif); letter-spacing: var(--tr-voice); color: var(--ink-3); white-space: nowrap; }
+.ask .speak { flex: none; height: var(--target); display: flex; align-items: center; padding-left: var(--s-2); color: var(--accent-text); }
+.index { height: 44px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--rule); }
+.index button { min-width: var(--target); height: var(--target); padding: 0 var(--s-0); display: flex; align-items: center; justify-content: center; font: 600 12px/16px var(--font-text); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+.index button.on { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }
+.index .dotbtn { width: var(--target); padding: 0; justify-content: flex-start; }
+.index .dotbtn .orb { width: 24px; height: 24px; }
+
+/* the section: a heavy rule, a numbered label, then its rows */
+.slabel { display: flex; align-items: baseline; justify-content: space-between; height: 32px; padding-top: var(--s-1); border-top: 1px solid var(--rule-strong); }
+.sec.first .slabel { border-top-color: var(--rule-ink); }
+.slabel .kicker { color: var(--ink-3); }
+.btn { height: var(--target); padding: 0 var(--s-2); display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1); border: 1px solid var(--rule-strong); font: 600 12px/16px var(--font-text); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; color: var(--ink-1); }
+.btn.primary { background: var(--ink-1); border-color: var(--ink-1); color: var(--canvas); }
+.btn.live { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+
+/* ============================================================== HOME, idle */
+.greet { flex: none; margin-top: var(--s-3); }
+.greet h1 { font: var(--t-display); letter-spacing: var(--tr-display); }
+.greet .voice { margin-top: var(--s-1); }
+.mind { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
+.mind .orb { position: relative; z-index: 1; width: var(--orb); height: var(--orb); }
+.mind::before { content: ''; position: absolute; left: calc(var(--gutter) * -1); right: calc(var(--gutter) * -1); top: 50%; height: 9px; margin-top: -4px; background: repeating-linear-gradient(90deg, var(--ink-4) 0 1px, transparent 1px 8px); -webkit-mask: linear-gradient(90deg, #000, rgba(0, 0, 0, .15) 38%, rgba(0, 0, 0, .15) 62%, #000); mask: linear-gradient(90deg, #000, rgba(0, 0, 0, .15) 38%, rgba(0, 0, 0, .15) 62%, #000); }
+.mind::after { content: ''; position: absolute; left: calc(var(--gutter) * -1); right: calc(var(--gutter) * -1); top: 50%; height: 1px; background: var(--rule); }
+.home { --orb: clamp(176px, 48vw, 216px); }
+.tonight { flex: none; }
+.book { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--s-2); align-items: start; padding: var(--s-1) 0 var(--s-2); }
+.book .cover { display: block; border-radius: 0; }
+.book h2 { font: var(--t-title); letter-spacing: var(--tr-title); font-size: 21px; line-height: 26px; }
+.book .num { margin-top: var(--s-0); color: var(--ink-3); font-size: 12px; line-height: 16px; }
+.book .when { font: italic 400 15px/20px var(--font-serif); color: var(--ink-2); }
+.rprog { position: relative; height: 9px; margin: var(--s-1) 0 var(--s-0); background: linear-gradient(var(--ink-4), var(--ink-4)) center / 100% 1px no-repeat; }
+.rprog i { position: absolute; left: 0; top: 3px; height: 3px; background: var(--accent); box-shadow: 0 0 8px var(--accent-halo); }
+.rprog i::after { content: ''; position: absolute; right: 0; top: -3px; width: 1px; height: 9px; background: var(--accent); }
+.acts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-1); }
+.finds { flex: none; margin-top: var(--s-2); margin-bottom: var(--s-1); }
+.frow { display: flex; align-items: center; border-top: 1px solid var(--rule); min-height: var(--target); }
+.frow .kicker { flex: none; width: 96px; }
+.words { display: flex; align-items: center; flex-wrap: nowrap; gap: var(--s-0); }
+.words button { min-width: var(--target); height: var(--target); padding: 0 6px; display: flex; align-items: center; font: 500 15px/20px var(--font-text); letter-spacing: -.01em; color: var(--ink-1); text-decoration: underline; text-decoration-color: var(--ink-4); text-decoration-thickness: 1px; text-underline-offset: 6px; white-space: nowrap; }
+.words button:first-child { padding-left: 0; }
+
+/* ============================================================== HOME, showing: the Stage is a plate; Mind is its seal and its scale */
+.plate { position: relative; flex: 1; min-height: 0; margin: var(--s-3) 0 0; }
+.plate-in { position: absolute; inset: 0; overflow: hidden; background: var(--canvas); border: 1px solid var(--rule-strong); }
+.plate-in .routemap { position: absolute; inset: 0; }
+.plate-ticks { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); overflow: visible; pointer-events: none; }
+.seal { position: absolute; z-index: 5; left: 50%; top: 0; width: 56px; height: 56px; margin: -28px 0 0 -28px; display: grid; place-items: center; }
+.seal::before { content: ''; position: absolute; inset: -8px; border-radius: var(--r-round); background: var(--canvas); box-shadow: 0 0 0 1px var(--rule-strong); }
+.seal .orb { position: relative; width: 56px; height: 56px; }
+.reads { position: absolute; z-index: 4; left: -1px; right: -1px; bottom: -1px; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--plane-2); box-shadow: var(--lift-2); }
+.reads > div { padding: var(--s-1) 10px var(--s-2); border-left: 1px solid var(--rule); }
+.reads > div:first-child { border-left: 0; }
+.reads .kicker { display: block; letter-spacing: var(--tr-kicker-tight); }
+.reads b { display: block; margin-top: 2px; font: 500 15px/20px var(--font-mono); letter-spacing: -.02em; color: var(--ink-1); }
+.reads .lead b { color: var(--accent-text); }
+.cite { flex: none; margin-top: var(--s-2); display: flex; justify-content: space-between; font: 500 11px/16px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.say { flex: none; margin-top: var(--s-1); font: var(--t-title); font-size: 22px; line-height: 28px; letter-spacing: var(--tr-title); color: var(--ink-1); }
+.say-2 { flex: none; margin: var(--s-0) 0 var(--s-2); }
+
+/* ============================================================== ONE HUB: numbered layers */
+.hubhead { flex: none; margin-top: var(--s-1); }
+.hubhead h1 { font: var(--t-display); letter-spacing: var(--tr-display); }
+.hubhead .voice { margin-top: var(--s-0); font-size: 15px; line-height: 20px; }
+.secs { flex: 1; min-height: 0; margin-top: var(--s-1); display: flex; flex-direction: column; gap: var(--tier-gap); --tier-gap: calc(4px + (100vh - 844px) * .06); }
+.bh { display: flex; align-items: baseline; justify-content: space-between; }
+.bn { display: flex; align-items: baseline; gap: var(--s-2); }
+.bh b { font: 500 17px/24px var(--font-text); letter-spacing: -.012em; }
+.st { font: var(--t-kicker); letter-spacing: var(--tr-kicker); text-transform: uppercase; font-style: normal; color: var(--ink-3); display: inline-flex; align-items: center; gap: var(--s-1); }
+.st.live { color: var(--accent-text); }
+.ttl { font: italic 400 17px/24px var(--font-serif); letter-spacing: var(--tr-voice); color: var(--ink-2); }
+.block { padding: var(--s-0) 0 var(--s-1); }
+.r2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2); margin-top: var(--s-1); }
+.r2 .kicker, .col2 .kicker { display: block; }
+.val { font: 500 15px/20px var(--font-text); letter-spacing: -.01em; color: var(--ink-1); }
+.val.num { font: 500 15px/20px var(--font-mono); letter-spacing: -.02em; }
+.val small { font: inherit; color: var(--ok); margin-left: 4px; }
+.block .words { margin-top: var(--s-0); }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.col2 { padding: var(--s-0) var(--s-2) var(--s-1) 0; }
+.col2 + .col2 { padding: var(--s-0) 0 var(--s-1) var(--s-2); border-left: 1px solid var(--rule); }
+.col2 .rd { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2px; }
+.col2 .rd .kicker { color: var(--ink-3); letter-spacing: .12em; }
+.col2 .ttl { margin-bottom: var(--s-0); }
+.trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2); align-items: center; min-height: var(--target); padding: 3px 0; border-top: 1px solid var(--rule); }
+.trow .nm { display: flex; align-items: center; gap: var(--s-1); font: 500 15px/20px var(--font-text); letter-spacing: -.01em; }
+.trow .tt { font: italic 400 14px/20px var(--font-serif); color: var(--ink-3); }
+.trow .rr { display: grid; grid-template-columns: 76px auto; column-gap: var(--s-1); align-items: baseline; }
+.trow .rr .kicker { font-size: 11px; letter-spacing: .1em; color: var(--ink-3); }
+.trow .rr b { font: 500 13px/18px var(--font-mono); letter-spacing: -.02em; color: var(--ink-1); }
+
+/* ============================================================== THE LENS: the Machine's boxes, an annotation in place of a card */
+.lens .cam { position: absolute; inset: 0; }
+.lens .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .62), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 56%, rgba(11, 10, 9, .86) 100%); }
+.lenstop { position: absolute; z-index: 10; left: var(--gutter); right: var(--gutter); top: var(--safe-top); height: var(--target); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(var(--ink-rgb), .3); color: var(--ink-1); }
+.lenstop .word { height: var(--target); display: flex; align-items: center; padding: 0 var(--s-2); color: var(--ink-1); }
+.lenstop .word:first-child { padding-left: 0; }
+.lenstop .word:last-child { padding-right: 0; }
+.lenstop .word .i { width: 16px; height: 16px; margin-right: var(--s-1); }
+.lenstop .mid { font: 500 11px/16px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: rgba(var(--ink-rgb), .9); display: flex; align-items: center; gap: var(--s-1); }
+.tag { position: absolute; z-index: 6; border: 1.5px solid #fff; border-radius: 0; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+.tag .lab { position: absolute; left: -1.5px; bottom: calc(100% + 2px); height: 18px; padding: 0 6px; display: flex; align-items: center; white-space: nowrap; background: rgba(2, 7, 13, .82); color: #fff; font: 600 11px/18px var(--font-mono); letter-spacing: 0; }
+.tag .lab em { font-style: normal; font-weight: 500; opacity: .66; }
+.tag.rt .lab { left: auto; right: -1.5px; }
+.tag.on { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+.tag.on .lab { background: var(--accent); color: var(--accent-on); }
+.tag.on .lab em { opacity: .72; }
+.note { position: absolute; z-index: 12; left: var(--gutter); right: var(--gutter); bottom: calc(var(--safe-bottom) + 44px + var(--s-1)); height: 184px; padding: var(--s-2) var(--s-2) 0; background: var(--plane-2); box-shadow: var(--lift-3); }
+.note .kicker { color: var(--accent-text); }
+.note h2 { margin-top: var(--s-0); font: 500 20px/26px var(--font-serif); letter-spacing: var(--tr-title); }
+.note p { margin-top: var(--s-0); font: 400 14px/20px var(--font-text); color: var(--ink-2); }
+.note .acts { position: absolute; left: var(--s-2); right: var(--s-2); bottom: var(--s-2); }
+.note .leader { position: absolute; bottom: 100%; width: 1px; background: var(--accent); }
+.note .leader::before { content: ''; position: absolute; left: -3px; top: -3px; width: 7px; height: 7px; background: var(--accent); }
+
+/* ============================================================== THE READER: the book's own typography */
+.running { flex: none; height: var(--target); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--rule-strong); }
+.running .word { height: var(--target); display: flex; align-items: center; color: var(--ink-1); }
+.running .word.r { min-width: var(--target); padding-left: var(--s-2); justify-content: flex-end; text-transform: none; letter-spacing: .04em; font-size: 15px; }
+.running .word .i { width: 16px; height: 16px; margin-right: var(--s-1); }
+.rline { flex: none; margin-top: var(--s-2); }
+.rline b { display: block; font: var(--t-title); font-size: 21px; line-height: 26px; letter-spacing: var(--tr-title); color: var(--ink-1); }
+.rline span { display: block; margin-top: 2px; font: 500 12px/16px var(--font-mono); letter-spacing: -.01em; color: var(--ink-3); }
+.tabs { flex: none; display: flex; justify-content: space-between; margin-top: var(--s-2); border-bottom: 1px solid var(--rule-strong); }
+.tabs button { min-width: var(--target); height: var(--target); padding: 0 var(--s-0); display: flex; align-items: center; font: 600 11px/16px var(--font-text); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+.tabs button:first-child { padding-left: 0; }
+.tabs button:last-child { padding-right: 0; }
+.tabs button.on { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }
+.page { position: relative; flex: 1; min-height: 0; overflow: hidden; margin-top: var(--s-1); }
+.page::before { content: ''; position: absolute; z-index: 2; left: 0; right: 0; top: 0; height: 32px; background: linear-gradient(180deg, var(--canvas), rgba(var(--canvas-rgb), 0)); pointer-events: none; }
+.page::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(180deg, rgba(var(--canvas-rgb), 0), var(--canvas)); pointer-events: none; }
+.flow { margin-top: calc(var(--s-1) * -13); }
+.para { font: var(--t-reading); letter-spacing: var(--tr-reading); color: rgba(var(--ink-rgb), .72); margin: 0 0 var(--s-2); padding: 4px 0; position: relative; isolation: isolate; }
+.para.lit { color: var(--ink-1); }
+.para.lit::before { content: ''; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--s-1) * -1); right: calc(var(--s-1) * -1); background: linear-gradient(90deg, var(--accent-tint), rgba(var(--accent-rgb), 0) 92%); }
+.para.lit::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--s-2) * -1); width: 2px; background: var(--accent); }  /* the rule hangs in the margin: the text keeps the title's edge */
+.mark { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-3) 0; color: var(--ink-3); font: 500 11px/16px var(--font-mono); letter-spacing: .16em; }
+.mark::before, .mark::after { content: ''; flex: 1; height: 1px; background: var(--rule-strong); }
+.listen { position: absolute; z-index: 30; left: 0; right: 0; bottom: 0; padding: 0 var(--gutter) var(--safe-bottom); background: var(--canvas); }
+.listen .row { height: 72px; display: grid; grid-template-columns: var(--target) minmax(0, 1fr) auto; gap: var(--s-2); align-items: center; border-top: 1px solid var(--rule-ink); }
+.listen .go { width: var(--target); height: var(--target); display: grid; place-items: center; background: var(--accent); color: var(--accent-on); }
+.listen .tx b { display: block; font: 600 12px/16px var(--font-text); letter-spacing: .12em; text-transform: uppercase; }
+.listen .tx span { display: block; margin-top: 2px; font: 500 12px/16px var(--font-mono); color: var(--ink-3); letter-spacing: -.01em; }
+.listen .skip { height: var(--target); padding-left: var(--s-2); display: flex; align-items: center; font: 600 11px/16px var(--font-text); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+.wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; margin-right: var(--s-1); vertical-align: -1px; }
+.wave i { width: 2px; background: var(--accent); }
+
+/* ============================================================== THE SHELF */
+.shelf { flex: 1; min-height: 0; margin-top: var(--s-1); }
+.bk { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: var(--s-2); align-items: center; padding: 12px 0; border-top: 1px solid var(--rule); }
+.bk .cover { display: block; border-radius: 0; }
+.bk h2 { font: 500 19px/24px var(--font-serif); letter-spacing: var(--tr-title); }
+.bk .by { font: var(--t-caption); color: var(--ink-2); }
+.bk .rprog { margin: var(--s-1) 0 var(--s-0); }
+.bk .num { color: var(--ink-3); font-size: 12px; line-height: 16px; }
+.bk .num b { color: var(--ink-1); font-weight: 500; }
+.done { color: var(--ok); }
+.sorts { flex: none; display: flex; justify-content: space-between; margin-top: var(--s-2); border-bottom: 1px solid var(--rule-strong); }
+.sorts button { min-width: var(--target); height: var(--target); padding: 0 var(--s-0); display: flex; align-items: center; font: 600 11px/16px var(--font-text); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+.sorts button:first-child { padding-left: 0; }
+.sorts button.on { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }

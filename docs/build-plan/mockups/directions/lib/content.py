@@ -73,6 +73,8 @@ SHELF = [
     dict(id='willows', title='The Wind in the Willows', author='Kenneth Grahame', progress='Not started', when='added 2 November', pct=0.0),
 ]
 
+SHELF_LINE = f'Four books. I’ve read {HOME["stats"]["passages"]} passages myself.'
+
 # --------------------------------------------------------------------------------------------------------- the Stage
 STAGE = dict(
     time=MORNING,
