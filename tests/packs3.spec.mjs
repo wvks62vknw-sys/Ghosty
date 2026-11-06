@@ -220,7 +220,9 @@ await clean();
     if (rows !== 10) problems.push(`[${W}] the words page shows ${rows} words, not ten`);
     await page.selectOption('.modal .pk select[aria-label="Language"]', 'ar');
     const ar = await page.evaluate(() => ({ rtl: document.querySelector('.modal .pkperson b')?.getAttribute('dir'), lang: document.querySelector('.modal .pkperson b')?.getAttribute('lang'), sound: document.querySelector('.modal .pkperson .pklab')?.textContent ?? '' }));
-    if (ar.rtl !== 'rtl' || ar.lang !== 'ar-SA' || !/ · [a-zʿāīūḥṣṭḍẓ’' -]+$/i.test(ar.sound)) problems.push(`[${W}] the Arabic row: ${JSON.stringify(ar)}`);
+    // [packs3] 6 Nov: the sound's letters are the table's own (packages/shared/src/learning.ts, the ar line): ʾ (hamza) was
+    // missing, so the check went red on the days "water · māʾ", "masāʾ al-khayr", "ʿāʾila" or "sayyiʾ" came first (PR #58's run).
+    if (ar.rtl !== 'rtl' || ar.lang !== 'ar-SA' || !/ · [a-zʾʿāīūḥṣṭḍẓ’' -]+$/i.test(ar.sound)) problems.push(`[${W}] the Arabic row: ${JSON.stringify(ar)}`);
     await page.selectOption('.modal .pk select[aria-label="Language"]', 'fr');
     await page.selectOption('.modal .pk select[aria-label^="Today"]', 'cafe');
     const ph = await page.$$eval('.modal .pk .pkperson[role=listitem]', (els) => els.length);
