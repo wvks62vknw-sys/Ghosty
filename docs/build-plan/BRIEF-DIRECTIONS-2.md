@@ -42,6 +42,18 @@ Three worlds to build (seeds, not scripts: replace any with a stronger idea of y
   route, a room). Type set in the light; the glow is the structure, not decoration; dark is not a background colour, it is the
   absence of Mind's attention.
 
+## His reference (6 Nov, OWNER-ISSUES 137, given while this round ran)
+
+"iron man jarvis vibes but more like person of interest 'The Machine' vibes like don't just write 'The Machine' somewhere, make it
+actually feel like that, you know? make it look like kinda modern and clean not like AI slop though". So: the system's own point of
+view — the calm, certain eye of a machine that sees his world (his places, feeds, devices, the city; never a person: the boundary
+holds): thin reticles and classification tags over what it watches, monospaced truth lines, the feed as the surface, a restrained
+palette (black, bone, one accent, a second colour only for meaning), precise type, no fog of gradients, nothing that says nothing.
+JARVIS in how it answers and anticipates; the Machine in how it looks and watches. Modern and clean: a designed instrument, not a
+film prop and not a dark-mode template. Ghosty's existing Machine view (apps/web/src/features/eye/machine.ts) is the seed of that
+language; grow it into the whole app. Every world must FEEL like this; the seeds above bend to it (the Room becomes the Machine's
+space, the Field its map of everything it sees, the Material its attention made visible), or are replaced by stronger ideas.
+
 ## What you deliver (the same shape as round one, plus the storyboards)
 
 `docs/build-plan/mockups/directions-2/w1/`, `w2/`, `w3/`, each: `tokens.css` (as round one: real tokens, every token's purpose, Ember
