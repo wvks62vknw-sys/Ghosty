@@ -15,6 +15,8 @@
  *   recognise()   the moment of recognition: the box snaps onto a thing with one short tone (his sound setting honoured)
  *   search()      ADDED (the reference's own hallmark the list lacked): before the lock, the box checks each candidate in
  *                 turn and says which, then recognises the one it found
+ *   index()       ADDED (W1's inventory, 01 · 02 · 03): a thing's number in the Machine's list, so a list can be read and
+ *                 said by number ("open three")
  *   eyeGlyph()    the orb drawn small, as the line of sight's origin where the real eye is not on screen
  *
  * Every colour, size and duration comes from the design system's tokens (src/design/tokens.css), through the `.g-*` rules in
@@ -60,7 +62,13 @@ export const MARKS: MarkDef[] = [
   { id: 'typed', name: 'The typed-out line', rule: 'My narration and my status as I write them, with a block cursor while I’m still writing. It goes when I finish.' },
   { id: 'recognise', name: 'The moment of recognition', rule: 'When I find what you asked for, the box snaps onto it with one short tone. Once for each thing.' },
   { id: 'search', name: 'The search', rule: 'While I look, the box checks each place in turn and says which; then it locks on the one I found.' },
+  { id: 'index', name: 'The index', rule: 'Every thing in one of my lists has its number, 01, 02, 03, so you can find it again and say it: “open three”.' },
 ];
+
+/** A thing's number in a list, two digits ("03"); `on` when it is the attended one. VoiceOver hears "number 3". */
+export function index(n: number, o: { on?: boolean } = {}): HTMLElement {
+  return h(`span.g-index${o.on ? '.on' : ''}` as 'span', { dataset: { g: 'index', case: 'keep' }, 'aria-label': `number ${n}` }, String(n).padStart(2, '0'));
+}
 
 // ---------------------------------------------------------------- the small marks
 
@@ -150,13 +158,15 @@ export interface StampFacts {
   watching: number | null;
   /** The thing in focus ("the look", "Library"). */
   looking: string;
+  /** No signal: the feeds cannot be read, and the line says so. */
+  offline?: boolean;
 }
 
 /** "Fri 6 Nov · 21:08 · Birmingham · Watching 3 feeds · Looking at the look" (shown in mono capitals). */
 export function stampWords(f: StampFacts, now = new Date()): string[] {
   const day = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '');
   const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const w = f.watching == null ? 'Checking feeds' : f.watching === 0 ? 'No feeds yet' : `Watching ${f.watching} ${f.watching === 1 ? 'feed' : 'feeds'}`;
+  const w = f.offline ? 'Offline, feeds paused' : f.watching == null ? 'Checking feeds' : f.watching === 0 ? 'No feeds yet' : `Watching ${f.watching} ${f.watching === 1 ? 'feed' : 'feeds'}`;
   return [day, time, f.place || 'Here', w, `Looking at ${f.looking}`];
 }
 
@@ -227,7 +237,9 @@ export function lineOfSight(host: HTMLElement): { el: SVGSVGElement; aim(eye: El
     aim(eye, thing) {
       svg.classList.toggle('on', !!thing);
       if (!thing) return;
-      const hb = host.getBoundingClientRect();
+      // (inside the host's border: a positioned child's 0,0 is its padding box)
+      const r0 = host.getBoundingClientRect();
+      const hb = { left: r0.left + host.clientLeft, top: r0.top + host.clientTop, width: host.clientWidth, height: host.clientHeight };
       const e = eye.getBoundingClientRect();
       const t = thing.getBoundingClientRect();
       svg.setAttribute('width', String(hb.width));
@@ -324,7 +336,8 @@ export function typedLine(o: { label?: string } = {}): TypedLine {
 function boxIn(host: HTMLElement, el: Element): { left: number; top: number; width: number; height: number } {
   const hb = host.getBoundingClientRect();
   const r = el.getBoundingClientRect();
-  return { left: r.left - hb.left, top: r.top - hb.top, width: r.width, height: r.height };
+  // (inside the host's border: a positioned child's 0,0 is its padding box)
+  return { left: r.left - hb.left - host.clientLeft, top: r.top - hb.top - host.clientTop, width: r.width, height: r.height };
 }
 const px = (b: { left: number; top: number; width: number; height: number }) => ({ left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
 

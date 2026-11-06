@@ -51,7 +51,12 @@ export const TINT: Record<string, string> = {
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
 const hubId = (a: Area) => `area-${a.id}`;
-export const areaOf = (tab: string): Area | undefined => AREAS.find((a) => a.tabs.includes(tab) || hubId(a) === tab);
+/** A screen that is a row of another (THE LOOK, a row of Settings: BRIEF-DESIGN-SYSTEM 5) lights that one's area. */
+const ROW_OF: Record<string, string> = { look: 'settings' };
+export const areaOf = (tab: string): Area | undefined => {
+  const t = ROW_OF[tab] ?? tab;
+  return AREAS.find((a) => a.tabs.includes(t) || hubId(a) === t);
+};
 export const isHub = (tab: string) => tab.startsWith('area-');
 /** Where the tab bar's button for an area goes: ASK straight to the reactor, the others to their hub. */
 export const areaHome = (a: Area) => (a.id === 'ask' ? 'core' : hubId(a));

@@ -4241,26 +4241,9 @@ html body:not([data-tab="core"]) .rcglow { animation: none; }
   html :is(#pg-library .pn.shelf .rw.link, #pg-library .studyfields .bar, #pg-learn button.learncourse, #pg-learn button.learnbig, #pg-radio .rw.station, #pg-brief .pn.news .rw.link, #pg-threats .pn.signals .rw.link, #pg-markets .pn.coins .rw.link):active { transform: none; }
   html #pg-radio .npart .eq i { transform: scaleY(.6); }
 }
-/* ---------- Settings → Theme (features/settings/index.ts): one live swatch per theme, a little Home in its own
-   accent (--sw, --sw2 its pale tint, --swk its glow's strength); the one in use carries the tick. Applied at once. ---------- */
-html #pg-settings .swatches { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 2px; }
-html #pg-settings .swatch { display: grid; grid-template-columns: 84px minmax(0, 1fr) 28px; align-items: center; gap: 14px; width: 100%; min-height: 96px; padding: 6px 14px 6px 6px; border: 0; border-radius: 20px; background: var(--rcglass); box-shadow: inset 0 0 0 1px var(--hair), 0 10px 26px rgba(0,0,0,.3); color: var(--ink); text-align: left; text-transform: none; cursor: pointer; transition: box-shadow var(--rcsp) var(--spring), transform var(--rcsp) var(--spring); }
-html #pg-settings .swatch.on { box-shadow: inset 0 0 0 2px var(--sw), 0 12px 30px -10px color-mix(in srgb, var(--sw) 45%, transparent); }
-html #pg-settings .swatch:active { transform: scale(.98); }
-html #pg-settings .swprev { position: relative; display: block; width: 84px; height: 84px; border-radius: 16px; overflow: hidden; background: radial-gradient(circle at 50% 42%, #14171b, #07080a 72%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
-html #pg-settings .swprev i { position: absolute; display: block; }
-html #pg-settings .swglow { inset: -20% -20% 10%; opacity: var(--swk); background: radial-gradient(closest-side, color-mix(in srgb, var(--sw) 34%, transparent), transparent 100%); }
-html #pg-settings .swcore { left: 50%; top: 42%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: radial-gradient(circle, #fff 0 14%, var(--sw2) 26%, var(--sw) 46%, color-mix(in srgb, var(--sw) 30%, #000) 62%, transparent 66%); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--sw) 55%, #2a2e33), 0 0 calc(var(--swk) * 18px) color-mix(in srgb, var(--sw) 60%, transparent); }
-html #pg-settings .swbar { left: 12px; right: 12px; bottom: 9px; height: 13px; display: flex !important; align-items: center; justify-content: space-around; border-radius: 7px; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); }
-html #pg-settings .swbar i { position: static; width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.32); }
-html #pg-settings .swbar i:first-child { background: var(--sw); box-shadow: 0 0 6px var(--sw); }
-html #pg-settings .swtxt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-html #pg-settings .swtxt b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
-html #pg-settings .swtxt small { font: 400 13px/18px var(--sf); color: var(--ink2); }
-html #pg-settings .swtick { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--hair2); }
-html #pg-settings .swatch.on .swtick { background: var(--sw) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2303070a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 15px no-repeat; box-shadow: none; }
+/* ---------- Settings → Theme: the twelve swatches are the design system's own (ui/swatches.ts), drawn in THE SYSTEM's section at
+   the end of this file from the tokens alone (BRIEF-DESIGN-SYSTEM 4). Only the note under them is today's look. ---------- */
 html #pg-settings .swnote { margin: 12px 2px 2px; }
-@media (prefers-reduced-motion: reduce) { html #pg-settings .swatch { transition: none; } html #pg-settings .swatch:active { transform: none; } }
 /* Settings → CHARACTER (features/settings/character.ts): every dial step and DEFAULT a full 44 pt target (they were 40) */
 html #pg-settings .character .chardials button, html #pg-settings .character .charreset button { height: 44px; min-height: 44px !important; }
 html #pg-settings .character .charnow { margin: 2px 0 10px; color: var(--ink, inherit); }
@@ -5845,3 +5828,181 @@ html .hud.core .convo .msg.cool { padding-left: 12px; border-left: 2px solid var
 .sclisten .row { gap: 8px; flex-wrap: wrap; }
 html .sclisten :is(button, select, input) { min-height: 44px !important; }
 .sclisten .note { margin: 6px 0 0; }
+
+/* =====================================================================================================================
+   THE SYSTEM (BRIEF-DESIGN-SYSTEM; his pick, W1 THE SCAN, OWNER-ISSUES 139). The Machine's marks as components (ui/machine.ts),
+   the twelve swatches (ui/swatches.ts), the eye (ui/eye.ts) and the first screen drawn in the system, Settings → THE LOOK
+   (features/look). EVERY VALUE HERE IS A TOKEN of src/design/tokens.css: no colour of its own (a tint is a token's triplet
+   at an alpha), the type from the scale, the spaces from the grid, square corners, the three durations and two curves.
+   apps/edge/test/look.test.mjs reads this section and fails on a raw colour. Selectors start `html #app` where a generic
+   button rule (an id in it) would otherwise win; today's screens keep today's look (nothing here matches them).
+   ===================================================================================================================== */
+
+/* ---- the tag: mono capitals above a thing, on a plate so it reads over anything */
+html .g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--g-radius-mark); }
+html .g-tag .g-count { color: var(--g-ink-3); }
+html .g-tag.on { color: var(--g-accent-text); }
+html .g-tag.warn { color: var(--g-amber); }
+html .g-tag.off { color: var(--g-ink-4); }
+html .g-glyph { width: var(--g-icon-small); height: var(--g-icon-small); flex: none; fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+/* the index: a thing's number in the Machine's inventory (01, 02 …), so a list can be read and said by number */
+html .g-index { flex: none; min-width: 2.4ch; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); font-variant-numeric: var(--g-num); color: var(--g-ink-3); }
+html .g-index.on { color: var(--g-accent-text); }
+
+/* ---- the truth line and the stamp line: what it knows now, flatly, in mono capitals */
+html .g-truth, html .g-stamp { margin: 0; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .g-truth .strong { color: var(--g-ink-2); font-weight: 600; }
+html :is(.g-truth, .g-stamp) .on { color: var(--g-accent-text); }
+html .g-truth .warn { color: var(--g-amber); }
+html :is(.g-truth, .g-stamp) .g-sep { color: var(--g-ink-4); }
+
+/* ---- the plate: one step up from the canvas (two for a page brought to the front) */
+html .g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-plate); }
+html .g-plate.strong { background: var(--g-plate-strong); box-shadow: var(--g-lift-front); }
+
+/* ---- the key: a square button, 44 pt at least, its word in capitals; one filled key on a screen at most */
+html #app button.g-key, html .g-key { display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-width: var(--g-target); min-height: var(--g-target); height: auto; margin: 0; padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate); box-shadow: none; font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; transform: none; transition: background-color var(--g-dur-lock) var(--g-ease-lock), border-color var(--g-dur-lock) var(--g-ease-lock); }
+html #app button.g-key.fill { background: var(--g-ink-1); border-color: var(--g-ink-1); color: var(--g-canvas); }
+html #app button.g-key.ghost { background: transparent; }
+html #app button.g-key[aria-pressed="true"] { border-color: var(--g-accent); color: var(--g-accent-text); background: var(--g-plate-strong); }
+html #app button.g-key:active:not(:disabled) { background: var(--g-plate-strong); transform: none; }
+html #app button.g-key.fill:active:not(:disabled) { background: var(--g-ink-2); }
+html #app button.g-key:disabled { color: var(--g-ink-4); border-color: var(--g-line-faint); opacity: 1; }
+html #app :is(.g-key, .g-ret, .swatch, .secpill):focus-visible { outline: var(--g-stroke) solid var(--g-accent); outline-offset: 2px; }
+@media (hover: hover) { html #app button.g-key:hover:not(:disabled) { background: var(--g-plate-strong); color: var(--g-ink-1); border-color: var(--g-line); } }
+
+/* ---- the reticle: one hairline box with its four corners marked; a full box in the accent when it attends, amber when a
+   thing needs a look (and its words say so, never the colour alone) */
+html .g-ret { position: relative; display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); max-width: 100%; }
+html #app button.g-ret { min-width: var(--g-target); min-height: var(--g-target); margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; transform: none; }
+html .g-ret-box { position: relative; display: block; min-width: var(--g-target); min-height: var(--g-target); padding: var(--g-s-1); }
+html .g-ret-frame { --rc: var(--g-line); position: absolute; inset: 0; display: block; pointer-events: none; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark);
+  background:
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-arm) var(--g-stroke) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-stroke) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-arm) var(--g-stroke) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-stroke) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-arm) var(--g-stroke) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-stroke) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-arm) var(--g-stroke) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-stroke) var(--g-ret-arm) no-repeat;
+  transition: border-color var(--g-dur-lock) var(--g-ease-lock); }
+html .g-ret-body { position: relative; display: block; }
+html .g-ret[data-state="attend"] > .g-ret-box > .g-ret-frame, html .g-lock[data-state="attend"] > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+html .g-ret[data-state="warn"] > .g-ret-box > .g-ret-frame { --rc: var(--g-amber); border: var(--g-stroke) solid var(--g-amber); }
+html .g-ret-tag, html .g-ret-truth { display: block; max-width: 100%; }
+
+/* ---- the moment of recognition: the box that snaps onto a thing (laid over its host, which is positioned) */
+html .g-lock { position: absolute; left: 0; top: 0; z-index: 3; display: block; pointer-events: none; }
+html .g-lock[hidden] { display: none; }
+html .g-lock[data-state="watch"] > .g-ret-frame { --rc: var(--g-ink-2); }
+
+/* ---- the line of sight: one thin line from the eye to the attended thing, a dot where it lands */
+html .g-sight { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; pointer-events: none; opacity: 0; transition: opacity var(--g-dur-turn) var(--g-ease-bring); }
+html .g-sight.on { opacity: 1; }
+html .g-sight-line { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); }
+html .g-sight-dot { fill: var(--g-accent); }
+
+/* ---- the typed-out line: words as the brain writes them, a block cursor while it is still writing */
+html .g-typed { margin: 0; min-height: 40px; font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .g-cursor { display: none; width: .62em; height: 1.05em; margin-left: 2px; vertical-align: -.16em; background: var(--g-accent); }
+html .g-typed.writing .g-cursor { display: inline-block; animation: g-blink 1s steps(1) infinite; }
+@keyframes g-blink { 50% { opacity: 0; } }
+
+/* ---- the eye, drawn small (an SVG): its edge, rings of points, the core in the accent */
+html .g-eye { display: block; flex: none; }
+html .g-eye-edge { fill: none; stroke: var(--g-line-faint); stroke-width: 1; }
+html .g-eye-pt { fill: var(--g-ink-2); }
+html .g-eye-core { fill: var(--g-accent); }
+html .g-eye-mid { fill: var(--g-ink-1); }
+/* the eye at size (ui/eye.ts): the one circle in Ghosty, drawn by the shared shader into its own canvas */
+html .g-orb { position: relative; display: block; flex: none; border-radius: var(--g-radius-orb); }
+html .g-orb > canvas, html .g-orb > svg { display: block; width: 100%; height: 100%; }
+
+/* ---- the twelve swatches (Settings → Theme, THE LOOK → THEMES): each row drawn in its own theme's accent block */
+html .swatches[data-g="swatches"] { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-half) 0; }
+html #app button.swatch[data-g="swatch"] { display: grid; grid-template-columns: var(--g-target) minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-2); width: 100%; min-height: 64px; height: auto; margin: 0; padding: var(--g-s-1) var(--g-s-2) var(--g-s-1) var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate); box-shadow: none; color: var(--g-ink-1); font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; transform: none; transition: border-color var(--g-dur-lock) var(--g-ease-lock); }
+html #app button.swatch[data-g="swatch"].on { border: var(--g-stroke) solid var(--g-accent); background: var(--g-plate-strong); }
+html #app button.swatch[data-g="swatch"]:active { background: var(--g-plate-strong); transform: none; }
+html .swatch[data-g="swatch"] .swprev { position: relative; display: grid; place-items: center; width: var(--g-target); height: var(--g-target); }
+html .swatch[data-g="swatch"] .swprev .g-ret-frame { --rc: var(--g-accent); }
+html .swatch[data-g="swatch"].on .swprev .g-ret-frame { border: var(--g-stroke) solid var(--g-accent); }
+html .swatch[data-g="swatch"] .swtxt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .swatch[data-g="swatch"] .swtxt b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .swatch[data-g="swatch"] .swtxt small { font: var(--g-t-caption); color: var(--g-ink-2); }
+html .swatch[data-g="swatch"] .swread { font: var(--g-t-fine); font-variant-numeric: var(--g-num); color: var(--g-ink-3); }
+html .swatch[data-g="swatch"] .swread:empty { display: none; }
+html .swatch[data-g="swatch"] .swstate { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); white-space: nowrap; }
+
+/* ---- SETTINGS → THE LOOK (features/look): the first screen drawn in the system. The lit graphite, the bone ink, the marks. */
+html #pg-look { background: var(--g-canvas); color: var(--g-ink-1); }
+html #pg-look .hud.glook { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; pointer-events: auto; padding: 0 var(--g-gutter) var(--g-s-6); -webkit-mask-image: none; mask-image: none; }
+html #pg-look .glook > * { max-width: 680px; margin-left: auto; margin-right: auto; }
+html #pg-look .glook > .hero { display: block; padding: var(--g-s-2) 0 var(--g-s-1); text-align: left; }
+html #pg-look .glook-title { margin: var(--g-s-1) 0 0; font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); }
+html #pg-look .glook-say { margin: var(--g-s-1) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html #pg-look .glook-states { display: flex; flex-direction: column; gap: var(--g-s-half); margin-top: var(--g-s-2); }
+html #pg-look .glook-states:empty { display: none; }
+html #pg-look .glook-state { margin: 0; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-plate); border-left: var(--g-stroke) solid var(--g-amber); }
+html #pg-look .glook-state b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-amber); margin-right: var(--g-s-1); }
+/* the sections as square keys under the title, held under the navigation bar while the page scrolls */
+html #pg-look .secpills { top: 0; gap: 0; margin: var(--g-s-2) 0 var(--g-s-2); padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong); box-shadow: var(--g-lift-plate); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html #pg-look .secpills .secpill { height: var(--g-target); min-height: var(--g-target) !important; padding: 0 var(--g-s-half); border-left: var(--g-hair) solid var(--g-line-faint) !important; border-radius: 0; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-2); }
+html #pg-look .secpills .secpill:first-child { border-left: 0 !important; }
+html #pg-look .secpills .secpill.on { color: var(--g-accent-text); background: var(--g-plate) !important; box-shadow: inset 0 calc(-1 * var(--g-stroke) * 2) 0 var(--g-accent) !important; text-shadow: none; }
+html #pg-look .secpills.dense .secpill { font-size: 12px !important; letter-spacing: .04em; }
+/* a section: its tag and its count on a rule, then what it holds */
+html #pg-look .glook > .col { display: block; }
+html #pg-look .pn { position: relative; display: block; margin: 0 0 var(--g-s-4); padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; overflow: visible; min-height: 0; }
+html #pg-look .pn > h3 { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); margin: 0 0 var(--g-s-2); padding: 0; border-bottom: var(--g-hair) solid var(--g-line-faint); cursor: default; }
+html #pg-look .pn > h3 .light { display: none; }
+html #pg-look .pn > h3 .ptitle { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
+html #pg-look .pn > h3 .sp { flex: 1; }
+html #pg-look .pn > h3 small[data-label]::before { --lfs: 13px; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html #pg-look .pn > .bd { display: block; padding: 0; overflow: visible; max-height: none; }
+html #pg-look .glede { margin: 0 0 var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+/* TOKENS: each token with its name, its value and its job, in its group; the inks and lines with their measured contrast */
+html #pg-look .gtok-group { margin: 0 0 var(--g-s-3); }
+html #pg-look .gtok-group > .g-tag { margin-bottom: var(--g-s-1); }
+html #pg-look .gtok { display: grid; grid-template-columns: var(--g-s-3) minmax(0, 1fr); column-gap: var(--g-s-2); padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html #pg-look .gtok-chip { width: var(--g-s-3); height: var(--g-s-3); margin-top: 2px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html #pg-look .gtok-chip.none { border-color: transparent; }
+html #pg-look .gtok-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html #pg-look .gtok-name { font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html #pg-look .gtok-val { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html #pg-look .gtok-job { font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-look .gtok .g-truth { margin-top: 2px; }
+/* TYPE: the scale, each style set in its own size */
+html #pg-look .gtype { padding: var(--g-s-2) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html #pg-look .gtype-sample { display: block; margin: 0 0 var(--g-s-1); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html #pg-look .gfloor { margin: 0 0 var(--g-s-2); }
+html #pg-look .gfloor .g-truth + .g-truth { margin-top: var(--g-s-half); }
+/* MARKS: each mark numbered, named, its rule, and the mark itself working on a piece of the scan */
+html #pg-look .gmark { padding: var(--g-s-2) 0 var(--g-s-3); border-top: var(--g-hair) solid var(--g-line-faint); }
+html #pg-look .gmark-head { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-s-3); }
+html #pg-look .gmark-rule { margin: var(--g-s-1) 0 var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html #pg-look .gstage { position: relative; display: block; padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: radial-gradient(rgba(var(--g-bone-rgb), .14) 1px, transparent 1.5px) 0 0 / var(--g-s-2) var(--g-s-2), var(--g-canvas); overflow: hidden; }
+html #pg-look .gstage > * + * { margin-top: var(--g-s-1); }
+html #pg-look .gstage > :is(.g-lock, .g-sight) { margin: 0; }
+html #pg-look .gkeys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html #pg-look .gkeys > .g-key { flex: 1 1 auto; }
+html #pg-look .grow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); }
+html #pg-look .gthings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-1); }
+html #app #pg-look .gthing { border-radius: var(--g-radius-key); box-shadow: none; transform: none; margin: 0; min-width: 0; height: auto; }
+html #pg-look .gthing { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--g-s-half); min-height: 72px; padding: var(--g-s-1) var(--g-s-half); border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); text-align: center; }
+html #pg-look .gthing svg { width: var(--g-icon); height: var(--g-icon); fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+html #pg-look .gthing.found { color: var(--g-ink-1); }
+html #pg-look .gsight { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--g-s-4); min-height: 120px; }
+html #pg-look .gplates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+html #pg-look .gplates .g-plate { padding: var(--g-s-1) var(--g-s-2); }
+/* MIND: the eye at size, centred on its piece of the scan, its state in words and on two keys */
+html #pg-look .gorbwrap { display: grid; place-items: center; padding: var(--g-s-3) 0; }
+html #pg-look .gorbwrap .g-orb { width: min(240px, 62vw); height: min(240px, 62vw); }
+html #pg-look .gorbwrap .g-ret { position: absolute; inset: var(--g-s-1); pointer-events: none; }
+
+/* Reduce Motion: nothing travels (the durations are already nothing); the cursor holds still, lit */
+@media (prefers-reduced-motion: reduce) {
+  html .g-typed.writing .g-cursor { animation: none; }
+  html :is(.g-ret-frame, .g-sight, .g-key, .swatch) { transition: none; }
+}
+/* ==== end THE SYSTEM ==== */
