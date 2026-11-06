@@ -1,0 +1,88 @@
+/* W3 · THE EYE — the screens' own layout. The marks (reticle, tag, truth line, key, ask line) are lib/machine.css; colours,
+   type and grid are tokens.css. Positions on the wall are fractions of the screen, so 390 and 440 frame the same feeds. */
+.top { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); top: 62px; }
+.top .say { margin-top: 8px; }
+.top .say2 { margin-top: 4px; }
+.top .title { font: var(--t-display); letter-spacing: var(--tr-display); color: var(--ink-1); margin-top: 6px; }
+
+/* a feed on the wall: its tag top left, one true line bottom left; the one the eye is on is boxed in the accent, the edge of its
+   attention in brackets, the rest bare grain */
+.tile { position: absolute; z-index: 2; box-sizing: border-box; min-width: var(--target); min-height: var(--target); padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.tile > .tag { position: absolute; left: 0; top: 0; background: var(--plate); }
+.tile > .sub { position: absolute; left: 0; bottom: 0; background: var(--plate); padding: 1px 6px 2px; white-space: nowrap; }
+.tile.att { box-shadow: inset 0 0 0 var(--stroke) var(--accent); }
+.tile.att > .tag { color: var(--accent-text); }
+.tile.edge { --c: var(--line); --l: 9px; --w: var(--stroke);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l) no-repeat; }
+.tile.dim > .tag { color: var(--ink-2); }
+.tile .works { position: absolute; right: 0; top: 0; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--amber); background: var(--plate); padding: 3px 6px; }
+.tile .big { position: absolute; left: 0; right: 0; bottom: 0; background: var(--plate-strong); padding: 6px 8px 8px; }
+.tile .big b { display: block; font: var(--t-body); letter-spacing: var(--tr-body); font-weight: 500; color: var(--ink-1); }
+.tile .big span { font: var(--t-mono); color: var(--ink-2); }
+
+/* what the eye is on, in full, under the wall (the hub) */
+.focus { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); border-top: var(--stroke) solid var(--accent); padding-top: 10px; }
+.focus .tag { background: none; padding: 0; color: var(--accent-text); }
+.focus .ttl { font: var(--t-say); letter-spacing: var(--tr-say); color: var(--ink-1); margin-top: 4px; }
+.focus .reads { display: flex; gap: 24px; margin-top: 8px; }
+.focus .keys { display: flex; gap: 8px; margin-top: 12px; }
+.focus .keys .key { flex: 1; padding: 0 8px; }
+
+/* the Stage */
+.say-stage { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); }
+.readings { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line-faint); border-bottom: 1px solid var(--line-faint); }
+.readings .rd { padding: 10px 0 10px 10px; border-left: 1px solid var(--line-faint); }
+.readings .rd:first-child { border-left: 0; padding-left: 0; }
+.back { position: absolute; z-index: 4; left: var(--gutter); top: 60px; }
+.box { position: absolute; z-index: 2; box-sizing: border-box; pointer-events: none; }
+.box.on { box-shadow: inset 0 0 0 var(--stroke) var(--accent); }
+.box.br { --c: var(--line); --l: 8px; --w: var(--stroke);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w) no-repeat, linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l) no-repeat; }
+.lab { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-height: var(--target); min-width: var(--target); border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; }
+.lab.r { align-items: flex-end; text-align: right; }
+.lab .sub { background: var(--plate); padding: 1px 6px 2px; }
+
+/* the Lens */
+.act { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); border: var(--stroke) solid var(--accent); background: var(--plate-strong); padding: 14px; }
+.act .kick { color: var(--accent-text); }
+.act h2 { margin: 6px 0 0; font: var(--t-say); letter-spacing: var(--tr-say); color: var(--ink-1); }
+.act p { margin: 6px 0 12px; font: var(--t-body); color: var(--ink-2); }
+.act .keys { display: flex; gap: 8px; }
+.act .keys .key { flex: 1; }
+
+/* the reader: the passage the eye is on, sharp; the rest of the page just out of its attention */
+.page { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); }
+.page .pills { display: flex; border: var(--stroke) solid var(--line); }
+.page .pills button { flex: 1; min-height: 48px; border: 0; border-left: 1px solid var(--line-faint); background: none; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.page .pills button:first-child { border-left: 0; }
+.page .pills button.here { color: var(--canvas); background: var(--ink-1); }
+.page .text { padding: 14px 4px 0 14px; }
+.page .text p { font: var(--t-reading); color: var(--ink-3); margin: 0 0 12px; filter: blur(.35px); }
+.page .text p.lit { color: var(--ink-1); filter: none; position: relative; }
+.page .text p.lit::before { content: ''; position: absolute; left: -14px; top: -4px; bottom: -4px; right: -4px; box-shadow: inset 0 0 0 var(--stroke) var(--accent); pointer-events: none; }
+.page .mark { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font: var(--t-tag); letter-spacing: var(--tr-tag); color: var(--ink-3); }
+.page .mark::before, .page .mark::after { content: ''; flex: 1; border-top: 1px solid var(--line-faint); }
+.listen { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); height: 56px; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--line-faint); border-bottom: 1px solid var(--line-faint); padding: 0 0 0 52px; }
+.listen .what { flex: 1; min-width: 0; }
+.listen .what b { display: block; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--accent-text); }
+.listen .what span { font: var(--t-mono); color: var(--ink-2); }
+.listen .key { min-width: 44px; padding: 0; }
+.shelf3 { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.shelf3 button { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 96px; border: 0; background: none; padding: 0; text-align: left; color: inherit; font: inherit; }
+.shelf3 button.att { box-shadow: inset 0 0 0 var(--stroke) var(--accent); }
+.shelf3 .t { background: var(--plate-strong); padding: 4px 6px; display: flex; flex-direction: column; gap: 1px; }
+.shelf3 b { font: 600 11px/14px var(--font-mono); color: var(--ink-1); text-transform: uppercase; letter-spacing: .04em; }
+.shelf3 span { font: 500 11px/14px var(--font-mono); color: var(--ink-3); }
+
+/* the way on the Stage: drawn over the city, the walk dashed, the train solid, in the accent */
+.way { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
+.way path { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.focus .keys .key { flex: 1 1 auto; letter-spacing: .06em; padding: 0 10px; }
