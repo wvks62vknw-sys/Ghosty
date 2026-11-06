@@ -1,0 +1,22 @@
+/* =====================================================================================================================
+   W1 · THE SCAN, NOT SO DARK (his words, OWNER-ISSUES 139: "i don't like how dark it looks"). Laid over tokens.css for
+   home-graphite and hub-graphite: the design system's own surfaces, inks and lines (apps/web/src/design/tokens.css) in place
+   of W1's true black, so the same room can be seen before and after (lift-home.png, lift-learn.png). Nothing else changes:
+   the room, the camera, the marks, the type sizes and the accent are W1's as rendered on 6 Nov (the system's floor raises the
+   mock's 11 pt tags to 13 on the phone; that is the type's change, not the light's, and is left out here so the two compare).
+   ===================================================================================================================== */
+:root {
+  --canvas: #101317;                                   /* the page: a graphite with the scan's light in it, never true black */
+  --plate: #171b20;                                    /* what a tag and a key sit on: one step up, so a thing reads as placed in a lit room */
+  --plate-strong: #1e2329;                             /* what the ask line and a brought-forward page sit on: a second step up */
+  --ink-1: #ece8df;                                    /* the system's four inks: each 4.5:1 or more on every surface */
+  --ink-2: #c8c5bd;
+  --ink-3: #a8a59e;
+  --ink-4: #918f8a;
+  --line: #cfcbc3;                                     /* the one drawn weight */
+  --line-faint: #75746f;                               /* a rule you can see: 3:1 and up */
+}
+/* the scan is light, so it is laid on the graphite as light (a screen blend): the points and edges keep their brightness and
+   the empty room is the lit graphite instead of black */
+.screen { isolation: isolate; }
+canvas.gl { mix-blend-mode: screen; }

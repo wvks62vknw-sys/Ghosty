@@ -138,12 +138,16 @@ def screen(time, inner):
     return f'<div class="screen"><canvas class="gl"></canvas>{status_bar(time)}{inner}{HOME_INDICATOR}</div>'
 
 
-def w1page(title, time, inner, js, theme='reactor'):
-    return page(title, screen(time, inner), theme=theme, scripts=('room.js',), gl=js, css=CSS)
+def w1page(title, time, inner, js, theme='reactor', css=CSS):
+    return page(title, screen(time, inner), theme=theme, scripts=('room.js',), gl=js, css=css)
+
+
+# NOT SO DARK (OWNER-ISSUES 139): the same screen with the design system's surfaces, inks and lines laid over W1's (lift.css)
+LIFT = CSS + ('lift.css',)
 
 
 # ------------------------------------------------------------------------------------------------ HOME
-def home(theme='reactor'):
+def home(theme='reactor', lift=False):
     H = HOME
     top = (f'<div class="top"><div class="truth">Fri 6 Nov · 21:08 · Birmingham · <b>9° clear</b></div>'
            f'<div class="say">Good evening, Boss.</div><div class="say2">Nothing needs you tonight. Shall we read?</div></div>')
@@ -159,7 +163,7 @@ def home(theme='reactor'):
         callout('c-alice', '16 552', 'tl', 'Tonight · Library', big=C.BOOK['title'], sub='Page 42 of 112 · yesterday · carry on', lit=True, label='Carry on reading Alice'),
         lead('c-alice', 'r-alice', lit=True),
     ]
-    return w1page('W1 · Home', '21:08', top + ''.join(marks) + plan('home') + ask(), gl(0, CAM_HOME, HOME), theme)
+    return w1page('W1 · Home' + (', lit graphite' if lift else ''), '21:08', top + ''.join(marks) + plan('home') + ask(), gl(0, CAM_HOME, HOME), theme, LIFT if lift else CSS)
 
 
 # ------------------------------------------------------------------------------------------------ SHOW (the Stage)
@@ -189,7 +193,7 @@ def show(story=False):
 
 
 # ------------------------------------------------------------------------------------------------ HUB (the Learn room)
-def hub():
+def hub(lift=False):
     L = LEARN
     cards = C.HUB['cards']
     top = (f'<div class="top"><div class="truth">The Learn room · 7 things · 21:11</div>'
@@ -216,7 +220,7 @@ def hub():
            + mini('06', 'Learning', '12 days · 9 skills', works=True) + mini('07', 'Coach', '3 days · 5 passed', works=True)
            + '</div></section>')
     js = gl(2, CAM_LEARN, L, orb_lit=1.0, orb_at=[318, 222, 2.4, 16], room=dict(room=[1.02, 2.38, -2.4, 1.5], win=[0, 0, 0, 0]), clip=[0, 184, 390, 340])
-    return w1page('W1 · Learn', '21:11', top + marks + inv + plan('learn') + ask('Find anything in Learn'), js)
+    return w1page('W1 · Learn' + (', lit graphite' if lift else ''), '21:11', top + marks + inv + plan('learn') + ask('Find anything in Learn'), js, css=LIFT if lift else CSS)
 
 
 # ------------------------------------------------------------------------------------------------ LENS
@@ -297,9 +301,49 @@ def story(i):
     return w1page('W1 · story 3', '07:12', ov, gl(1, cam, {}, orb_lit=1.3, orb_at=[195, 112, 2.6, 26], extra=dict(uRouteOn=0.6), clip=FRAME))
 
 
+def lstar(png):
+    """The mean CIE lightness (L*) of a rendered screen, or None before it is rendered (or without PIL)."""
+    try:
+        from PIL import Image
+        import numpy as np
+    except ImportError:
+        return None
+    path = os.path.join(HERE, png)
+    if not os.path.exists(path):
+        return None
+    a = np.asarray(Image.open(path).convert('RGB'), dtype=np.float64) / 255
+    lin = np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4)
+    y = lin @ np.array([0.2126, 0.7152, 0.0722])
+    L = np.where(y > 0.008856, 116 * np.cbrt(y) - 16, 903.3 * y)
+    return float(L.mean())
+
+
+def lift_sheet(name, before, after):
+    """Before and after, side by side at 390: W1 as rendered on 6 Nov (true black) and the same room on the lit graphite."""
+    b, a = lstar(f'{before}-390.png'), lstar(f'{after}-390.png')
+    said = f' Mean lightness of the whole screen, L*: {b:.1f} before, {a:.1f} after.' if b is not None and a is not None else ''
+    cap = lambda h, t, png: f'<figure><img src="{png}" width="390" height="844" alt="{h}"><figcaption><b>{h}</b>{t}</figcaption></figure>'  # noqa: E731
+    return f'''<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><title>W1 · {name}: not so dark</title><link rel="stylesheet" href="../../fonts.css"><meta name="mock-scale" content="1.5">
+<style>body {{ margin: 0; padding: 28px 28px 24px; width: 836px; background: #101317; color: #ece8df; font: 400 15px/22px 'Inter Mock', system-ui, sans-serif; }}
+h1 {{ margin: 0; font: 600 22px/28px 'Inter Mock', system-ui, sans-serif; letter-spacing: -.01em; }}
+p {{ margin: 6px 0 18px; color: #c8c5bd; max-width: 820px; }}
+.row {{ display: flex; gap: 24px; }} figure {{ margin: 0; width: 390px; }} img {{ display: block; width: 390px; height: 844px; border: 1px solid #75746f; }}
+figcaption {{ margin-top: 10px; font: 500 13px/18px ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace; color: #a8a59e; }} figcaption b {{ display: block; color: #ece8df; letter-spacing: .06em; text-transform: uppercase; }}</style></head>
+<body><h1>W1 · {name}: not so dark</h1>
+<p>His words (6 Nov): “i don’t like how dark it looks”. Left, the room as rendered on 6 Nov; right, the same room with the design system’s surfaces, inks and lines. Nothing else changes: the scan, the marks, the type and the accent are as they were.{said}</p>
+<div class="row">{cap('Before · true black', 'Canvas #000 (L* 0), plates black at 78 and 90 %, the faintest ink bone at 24 %', f'{before}-390.png')}{cap('After · the lit graphite', 'Canvas #101317 (L* 5.8), plates #171b20 and #1e2329 (+3.8 and +7.7), every ink 4.5:1 or more', f'{after}-390.png')}</div>
+</body></html>
+'''
+
+
 if __name__ == '__main__':
     write(HERE, 'home.html', home())
     write(HERE, 'home-ember.html', home('ember'))
+    write(HERE, 'home-graphite.html', home(lift=True))
+    write(HERE, 'hub-graphite.html', hub(lift=True))
+    write(HERE, 'lift-home.html', lift_sheet('Home', 'home', 'home-graphite'))
+    write(HERE, 'lift-learn.html', lift_sheet('Learn', 'hub', 'hub-graphite'))
     write(HERE, 'show.html', show())
     write(HERE, 'hub.html', hub())
     write(HERE, 'lens.html', lens())
@@ -311,4 +355,4 @@ if __name__ == '__main__':
     write(HERE, 'contact.html', kit.contact_sheet('W1 · The Scan', 'the Room, as the Machine keeps it',
                                                  'The phone is a window into a 3-D scan of a room where everything Ghosty does has its place; tilt to look round, and what you ask for is brought to the front.',
                                                  story_caps=[s[0] for s in STORY]))
-    print('directions-2/w1: home, home-ember, show, hub, lens, reader, story-1..4, story, contact')
+    print('directions-2/w1: home, home-ember, home-graphite, show, hub, hub-graphite, lens, reader, story-1..4, story, contact, lift-home, lift-learn')

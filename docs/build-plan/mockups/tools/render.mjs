@@ -29,7 +29,8 @@ const dir = resolve(here, '..', route);
 const round2 = route === 'directions-2' || route.startsWith('directions-2/');
 const directions = route === 'directions' || route.startsWith('directions/') || round2;
 const SHEETS = ['language', 'contact', 'story'];
-const isSheet = (name) => SHEETS.includes(name) || name.startsWith('contact');
+// (lift-home and lift-learn: W1 before and after the lit graphite, side by side: OWNER-ISSUES 139)
+const isSheet = (name) => SHEETS.includes(name) || name.startsWith('contact') || name.startsWith('lift-');
 const STORY = ['story-1', 'story-2', 'story-3', 'story-4'];
 const SCREENS = round2 ? ['home', 'show', 'hub', 'lens', 'reader'] : directions ? ['home', 'show', 'hub', 'nav', 'lens', 'reader', 'shelf'] : ['home', 'chat', 'eye', 'gym', 'settings'];
 const SIZES = directions ? [[390, 844], [440, 956]] : [[440, 956]];
