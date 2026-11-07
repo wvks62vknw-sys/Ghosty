@@ -126,6 +126,8 @@ folder that no longer exists; ignore those paths).
   a fresh builder continues in the same worktree from its last commit. 06:05 UK: PR #61 red on smoke shard 1 only (the manuals
   spec still waited for the old pop-up reader); fixed in the spec at the cause (OWNER-ISSUES 146), reproduced and green locally,
   pushed. The merged design-system worktree was removed.
+  07:02 UK: PR #61 green on every job and MERGED (main b03bf93); unsubscribed, branch restarted from main, the reader's worktree
+  removed, a check-in set for main's own run. THEMES-2 builder still validating in its worktree.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
