@@ -5840,7 +5840,7 @@ html .sclisten :is(button, select, input) { min-height: 44px !important; }
    ===================================================================================================================== */
 
 /* ---- the tag: mono capitals above a thing, on a plate so it reads over anything */
-html .g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--g-radius-mark); }
+html .g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate-fill); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--g-radius-mark); }
 html .g-tag > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 html .g-tag .g-count { flex: none; color: var(--g-ink-3); }
 html .g-tag.on { color: var(--g-accent-text); }
