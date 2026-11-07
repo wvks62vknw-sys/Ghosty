@@ -134,6 +134,23 @@ export interface LibraryDoc {
   author?: string;
 }
 
+/** His place in a book (BRIEF-LIBRARY-READER 2): kept on the phone at once and on the brain (/library/place) for his other devices. */
+export interface BookPlace {
+  doc: string;
+  /** The passage he is in, counted from 0 in the book's own order (the same count on the phone and the brain). */
+  n: number;
+  /** How far into that passage, in characters of its text as the reader shows it. */
+  off: number;
+  /** The book's own page there, where it has pages (a PDF, photos of pages); null where it has none. */
+  page: number | null;
+  /** How much of the book is behind him, 0 to 1. */
+  pct: number;
+  /** He read it to its end. */
+  done: boolean;
+  /** When he was last there (ms). */
+  at: number;
+}
+
 /** A passage found in the library. */
 export interface LibraryHit {
   doc: string;

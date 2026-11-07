@@ -14,23 +14,9 @@
  * older than the one kept (another device moved on since that phone last looked) never writes over it: the newer one comes
  * back, marked `newer`, and the phone moves there.
  */
-import type { LibraryDoc } from '../../../../packages/shared/src/protocol';
+import type { BookPlace, LibraryDoc } from '../../../../packages/shared/src/protocol';
 
-export interface BookPlace {
-  doc: string;
-  /** The passage he is in, counted from 0 in the book's own order (the same count on the phone and here). */
-  n: number;
-  /** How far into that passage, in characters of its text. */
-  off: number;
-  /** The book's own page there, where the book has pages (a PDF, photos of pages); null where it has none. */
-  page: number | null;
-  /** How much of the book is behind him, 0 to 1. */
-  pct: number;
-  /** He read it to its end. */
-  done: boolean;
-  /** When he was last there (ms). */
-  at: number;
-}
+export type { BookPlace };
 
 export const PLACES_KEY = 'library:places';
 /** The most books whose place is kept (the oldest let go first): a shelf far bigger than anyone reads at once. */

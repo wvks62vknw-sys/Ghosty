@@ -15,7 +15,7 @@
 import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/src/abilities';
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
-import { stopIntent } from '../../../../packages/shared/src/intent';
+import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
@@ -113,6 +113,9 @@ export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];
 
 export const FIRST_ASKS = [
   { id: 'walk', test: (t: string) => !!walkStart(t) || homeSaid(t) || walkCancelled(t) },
+  // [reader] a book read to him by words (features/library/reader.ts readingTurn; BRIEF-LIBRARY-READER 4): before the stop, so a
+  // plain "stop" while a book is read ends it and says the page
+  { id: 'reading', test: (t: string) => !!readingIntent(t) },
   { id: 'stop', test: (t: string) => !!stopIntent(t) },
   { id: 'reboot', test: (t: string) => REBOOT.test(t) },
 ] as const;

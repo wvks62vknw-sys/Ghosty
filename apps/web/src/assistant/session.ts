@@ -786,6 +786,10 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // answered there, on the phone — the stop and the raising readings never see them, and the brain never does.
   if (await guardTurn(t, { voice: opts.voice })) return;
   if (await faceTurn(t, opts.voice)) return;
+  // [reader] a book read to him, by words, with no model (BRIEF-LIBRARY-READER 4): "go on" just after the book was cut (from the
+  // sentence he was in), a plain "stop" while it is read (the page said; a harsh one stays the silent stop below), "read me …",
+  // "carry on reading", "where were we", a chapter, a page, "just this chapter", "stop reading"
+  if (await import('../features/library/reader').then((r) => r.readingTurn(t, { voice: opts.voice, speak: opts.speak })).catch(() => false)) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
   // absolute and at once, whatever he was saying or arguing, and never answered.
   const stop = stopIntent(t);

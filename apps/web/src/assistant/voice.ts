@@ -160,6 +160,8 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
   // for — gives way to this at once: every sentence is queued at once (speakPhone), so it would otherwise all be said first.
   const dropped = cancelPhone();
   const token = ++speakToken;
+  // ([reader] a book being read aloud gives way too: anything said now is said instead of it)
+  endRead?.();
   // ([talk] `aside`: a word on what he is doing while the brain works — session.ts narration, BRIEF-TALK-1A 3 — said like
   // anything else: it has no reply to mark if it is cut, and whatever is said next takes its place at once, as above.)
   // (the first piece short: the voice starts on it while the rest is still being made — BRIEF-TALK-1A 1)
@@ -360,8 +362,11 @@ async function speakGhosty(parts: string[], token: number, choice: Choice): Prom
 }
 
 let stopClip: (() => void) | null = null;
-/** One clip through the shared element. True once it played to the end; false when it never made a sound, broke, or was stopped. */
-function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
+/**
+ * One clip through the shared element. True once it played to the end; false when it never made a sound, broke, or was stopped.
+ * `onStart`: the moment it is heard ([reader]: the place moves as each sentence of a book is said).
+ */
+function playClip(el: HTMLAudioElement, blob: Blob, onStart?: () => void): Promise<boolean> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     let timer = 0;
@@ -389,6 +394,8 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
       clearTimeout(timer);
       audible = true;
       armBargeIn();
+      onStart?.();
+      onStart = undefined;
       // An end that never comes (a stalled clip) must not leave the reactor "speaking" for good.
       timer = window.setTimeout(() => finish(true), ((Number.isFinite(el.duration) ? el.duration : 30) + 2) * 1000);
     };
@@ -451,8 +458,200 @@ export function stopSpeaking(): void {
   }
   stopPhone?.();
   stopClip?.();
+  endRead?.();
   disarmBargeIn();
   if (ui.get().voice === 'speaking') ui.set({ voice: 'idle' });
+}
+
+// ---------- reading a book aloud (BRIEF-LIBRARY-READER 3; the talking rules of BRIEF-TALK-1A) ----------
+
+/** Ends the book being read now (stopSpeaking, a cut, anything else said): its onEnd hears 'stopped', once. */
+let endRead: (() => void) | null = null;
+/** How many pieces the phone's voice is given ahead of the one it is saying: the next is always waiting when one ends. */
+const BOOK_AHEAD = 3;
+
+export type BookEngine = 'phone' | 'ghosty';
+export type SwitchWhy = 'share' | 'hour' | 'failed';
+
+/**
+ * Read a book's pieces back to back until `next()` has no more or the reading is ended (stopSpeaking; talking over him or a tap,
+ * which interrupt() turns into a cut for `owner`; anything else said). Never `brief`: a book is read whole, at the voice's pace.
+ *  - The phone's own voice (the default for a book): BOOK_AHEAD pieces are handed to it ahead, so each is waiting before the one
+ *    before it ends (no gap: BRIEF-TALK-1A 1), across the end of a passage as within one.
+ *  - `ghosty` (HIS VOICE FOR BOOKS): my own voice from the brain, the next clip fetched while one plays, for as long as today's
+ *    share for it lasts and `ghostyLeft()` (seconds left of about an hour a day for books) is above nothing. When either runs
+ *    out, or a clip fails, the phone's voice says `switchLine` ("My own voice from here.") and carries on from the piece that was
+ *    next, at once: never silent, never a switch unannounced. `spent(secs)` is told how long each clip of mine played.
+ * `onPiece(i, engine)` hears each piece as it begins to be heard (`i` counts the pieces `next()` gave, from 0): the place moves.
+ * `progress` follows it as it does a reply's, so a cut knows the piece he was in ("go on" starts there) and what he heard.
+ */
+export function readAloud(o: {
+  next: () => { text: string } | null;
+  owner: string;
+  ghosty: boolean;
+  ghostyLeft?: () => number;
+  spent?: (secs: number) => void;
+  switchLine: string;
+  onPiece: (i: number, engine: BookEngine) => void;
+  onSwitch?: (why: SwitchWhy) => void;
+  onEnd: (how: 'done' | 'stopped') => void;
+}): void {
+  endRead?.();
+  cancelPhone();
+  stopClip?.();
+  const token = ++speakToken;
+  const choice = chosen();
+  const parts: string[] = [];
+  progress = { parts, i: 0, owner: o.owner };
+  let exhausted = false;
+  const pull = (): boolean => {
+    if (exhausted) return false;
+    const p = o.next();
+    if (!p || !p.text.trim()) {
+      exhausted = true;
+      return false;
+    }
+    parts.push(p.text.trim());
+    return true;
+  };
+  let over = false;
+  const end = (how: 'done' | 'stopped') => {
+    if (over) return;
+    over = true;
+    audible = false;
+    if (endRead === stop) endRead = null;
+    if (how === 'done' && token === speakToken) ui.set({ voice: 'idle' });
+    o.onEnd(how);
+  };
+  const stop = () => end('stopped');
+  endRead = stop;
+  ui.set({ voice: 'speaking' });
+
+  /** The phone's voice from piece `from`, `preface` said first (the switch from my own voice). */
+  const phone = (from: number, preface?: string) => {
+    if (!('speechSynthesis' in window)) return end('done');
+    const v = phoneVoiceFor(choice);
+    Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice", note: preface ? 'my own voice ran out for books today' : '' });
+    const t = tone();
+    try {
+      speechSynthesis.resume(); // iOS sometimes leaves the synthesiser paused
+    } catch {
+      /* ignore */
+    }
+    let queuedTo = from - 1;
+    const utter = (text: string, onstart: () => void, onfinish: () => void) => {
+      const u = new SpeechSynthesisUtterance(text);
+      if (v) {
+        u.voice = v;
+        u.lang = v.lang;
+      }
+      u.rate = t.rate;
+      u.pitch = (v && naturalBritish(v) ? 1 : 0.92) * t.pitch;
+      u.volume = t.volume;
+      u.onstart = () => {
+        if (token !== speakToken || over) return;
+        audible = true;
+        armBargeIn();
+        onstart();
+      };
+      u.onend = u.onerror = () => {
+        if (token !== speakToken) return end('stopped');
+        audible = false;
+        onfinish();
+      };
+      speechSynthesis.speak(u);
+    };
+    const queue = (i: number) =>
+      utter(parts[i]!, () => {
+        progress.i = i;
+        o.onPiece(i, 'phone');
+        top(i);
+      }, () => {
+        if (exhausted && i === parts.length - 1) end('done');
+      });
+    // keep BOOK_AHEAD pieces waiting beyond the one being said
+    const top = (cur: number) => {
+      while (queuedTo - cur < BOOK_AHEAD) {
+        const nx = queuedTo + 1;
+        if (nx >= parts.length && !pull()) break;
+        queue(nx);
+        queuedTo = nx;
+      }
+    };
+    if (preface) utter(preface, () => (progress.i = from), () => queuedTo < from && end('done'));
+    top(from - 1);
+    if (queuedTo < from && !preface) end('done');
+  };
+
+  /** My own voice from piece `from`: the next clip fetched while one plays; the phone's voice takes over, announced, when it must. */
+  const ghosty = async (from: number) => {
+    const el = audioEl();
+    const clips: Promise<(Blob & { voice?: string; note?: string; reason?: string }) | null>[] = [];
+    let refused = false;
+    const want = choice.engine === 'ghosty' ? choice.brainVoice : 'auto';
+    const fetchClip = (i: number) => {
+      if (clips[i] || (i >= parts.length && !pull())) return;
+      clips[i] = brain.tts(parts[i]!, want).catch((e: { status?: number }) => {
+        if (e?.status === 404 || e?.status === 429) refused = true;
+        return null;
+      });
+    };
+    for (let i = from; ; i++) {
+      fetchClip(i);
+      if (i >= parts.length) return end('done');
+      fetchClip(i + 1);
+      const blob = await clips[i]!;
+      if (token !== speakToken) return end('stopped');
+      // today's share for my natural voice used up (the brain would answer in its plain one), a refusal, or the hour for books gone
+      const why: SwitchWhy | null = !blob ? (refused ? 'share' : 'failed') : blob.reason === 'share' ? 'share' : (o.ghostyLeft?.() ?? Infinity) <= 0 ? 'hour' : null;
+      if (why) {
+        o.onSwitch?.(why);
+        return phone(i, o.switchLine);
+      }
+      Object.assign(voiceNow, { engine: 'ghosty', name: brainVoice(blob!.voice ?? want).label.split(' — ')[0], note: blob!.note ?? '' });
+      ui.set({ voice: 'speaking' });
+      const t0 = performance.now();
+      const ok = await playClip(el, blob!, () => {
+        progress.i = i;
+        o.onPiece(i, 'ghosty');
+      });
+      o.spent?.((performance.now() - t0) / 1000);
+      if (token !== speakToken) return end('stopped');
+      if (!ok) {
+        o.onSwitch?.('failed');
+        return phone(i, o.switchLine);
+      }
+    }
+  };
+
+  // (HIS VOICE FOR BOOKS is his choice for books whatever voice reads replies; with no signal, or a brain with no voice, the
+  // phone's voice reads from the start and the reader says which voice is reading)
+  if (o.ghosty && ui.get().connected === true && speechCaps.get().tts) void ghosty(0);
+  else phone(0);
+}
+
+/**
+ * [reader] The voice conversation's own controls, set by features/core (so a screen can use them without that one): `converse`
+ * starts a conversation whose ear opens only once I stop speaking (LISTEN on a book: I read first; talked over, I listen, and
+ * "go on" reads on), `end` ends the one going (the microphone let go), `live` says whether one is going.
+ */
+export const talkHooks = { converse: null as null | (() => void), end: null as null | (() => void), live: (): boolean => false };
+
+/**
+ * [reader] The ear held open while a book is read, so talking over him stops him at once (barge-in, as in a voice
+ * conversation). Called in the tap that starts LISTEN: Safari starts sound only from a tap. False when he has talking over
+ * switched off, or this phone has no microphone for it (then a tap stops him).
+ */
+export async function holdEars(): Promise<boolean> {
+  if (!settings.get().bargeIn || !voiceSupport.mic || typeof MediaRecorder === 'undefined') return false;
+  keepMic = true;
+  try {
+    await openMic();
+    return true;
+  } catch {
+    keepMic = false;
+    return false;
+  }
 }
 
 // ---------- interrupting ----------
