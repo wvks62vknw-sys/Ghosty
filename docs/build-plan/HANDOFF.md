@@ -158,6 +158,9 @@ folder that no longer exists; ignore those paths).
   tier (logic, not design); the top tier kept for the shell's design work (item 4) and the owner's reviews; builders'
   validation stages on the cheap tier where a relaunch only reads logs; the orchestrator's turns short, batched, no
   re-reading of logs it can delegate.
+  14:20 UK: PR #63 green on every job and MERGED (main 96bcbc7); unsubscribed, branch restarted from main carrying the
+  usage note, the orb worktree and both builder branches removed, a check-in set for main's own run. NEXT: item 3,
+  awareness (STARS 153 with 151–152 and 154–155): write BRIEF-AWARENESS from STATUS section 4 item 3, launch on the mid tier.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
