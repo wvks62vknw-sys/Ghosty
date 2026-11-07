@@ -51,7 +51,12 @@ export const TINT: Record<string, string> = {
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
 const hubId = (a: Area) => `area-${a.id}`;
-export const areaOf = (tab: string): Area | undefined => AREAS.find((a) => a.tabs.includes(tab) || hubId(a) === tab);
+/** A screen that is a row of another (THE LOOK, a row of Settings: BRIEF-DESIGN-SYSTEM 5) lights that one's area. */
+const ROW_OF: Record<string, string> = { look: 'settings' };
+export const areaOf = (tab: string): Area | undefined => {
+  const t = ROW_OF[tab] ?? tab;
+  return AREAS.find((a) => a.tabs.includes(t) || hubId(a) === t);
+};
 export const isHub = (tab: string) => tab.startsWith('area-');
 /** Where the tab bar's button for an area goes: ASK straight to the reactor, the others to their hub. */
 export const areaHome = (a: Area) => (a.id === 'ask' ? 'core' : hubId(a));
@@ -536,6 +541,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
   // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like ABILITIES: Me's screens are the Me sheet's rows)
   if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
-  if (tab === 'system' || tab === 'links') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
+  // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
+  if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

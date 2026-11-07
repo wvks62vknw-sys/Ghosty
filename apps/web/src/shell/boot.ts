@@ -67,6 +67,8 @@ const SHORT_BY = 1700;
 /** What happened, for tests/boot.spec.mjs and the console (window.__bootState; __ghosty.boot once that exists). */
 export const bootState = {
   kind: '' as Kind | '',
+  /** The accent the cinematic plays in: the picked theme's (state/theme.ts writes it as --c before the first frame). */
+  accent: '',
   phase: '' as Phase | '',
   /** When each phase began, in ms after the first frame. */
   marks: {} as Record<string, number>,
@@ -413,6 +415,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   document.body.classList.add('booting');
   const cs0 = getComputedStyle(document.documentElement);
   const accent = cs0.getPropertyValue('--c').trim() || '#64d2ff';
+  bootState.accent = accent;
   const cr = cs0.getPropertyValue('--cr').trim() || '100, 210, 255';
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)

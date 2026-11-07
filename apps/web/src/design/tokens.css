@@ -1,0 +1,171 @@
+/* =====================================================================================================================
+   GHOSTY'S DESIGN SYSTEM: THE TOKENS (BRIEF-DESIGN-SYSTEM; his pick, W1 THE SCAN, OWNER-ISSUES 139).
+   W1's tokens (docs/build-plan/mockups/directions-2/w1/tokens.css) grown into the whole system, with his three rules:
+   NOT SO DARK (the canvas is a lit graphite, never true black, the plates a step up), THE MACHINE FELT (its marks are
+   components: ui/machine.ts), EASY TO NAVIGATE AND TO READ (the floor below, held by apps/edge/test/look.test.mjs).
+
+   Every token starts --g- (Ghosty), so none can collide with today's aliases (--c, --cr, --ink, --hair, --rc*, --t1..--t5,
+   --sf, --sfd and the rest), which keep their values until the shell pass redefines them onto these. Every token has its one
+   job beside it. Settings → THE LOOK (features/look) shows each one with its name, value and job, read from this file.
+
+   THE FLOOR, held by the test in every theme: body 17 pt, a reading 15, a tag or a caption 13, nothing under 12; every ink
+   at least 4.5:1 on every surface; every line at least 3:1; the accent as text 4.5:1 or more (it is used as text only where
+   it clears 5:1 on every surface; elsewhere its text variant, moved towards its pale until it does). Line heights sit on
+   the 4-point line grid; spaces on the 8-point grid.
+   ===================================================================================================================== */
+:root {
+  /* ---------------------------------------------------------------- colour: the surfaces (graphite, lit) */
+  --g-canvas: #101317;                                   /* the page: a graphite with the scan's light in it, never true black */
+  --g-canvas-rgb: 16, 19, 23;                            /* the canvas as a triplet: a 3-D scene clears to it, so the scan sits on the page */
+  --g-plate: #171b20;                                    /* what a tag, a key and a row sit on: one step up, so a thing reads as placed in a lit room */
+  --g-plate-strong: #1e2329;                             /* what a brought-forward page, the ask line and an open sheet sit on: a second step up */
+  --g-scrim: rgba(16, 19, 23, .72);                      /* the room behind a page brought to the front: dimmed, never blacked out */
+
+  /* ---------------------------------------------------------------- colour: bone ink at four strengths */
+  --g-bone-rgb: 236, 232, 223;                           /* bone as a triplet: the scan's points; the inks are bone at four strengths */
+  --g-ink-1: #ece8df;                                    /* ink 1: a title, a value, what I say first */
+  --g-ink-2: #c8c5bd;                                    /* ink 2: a second sentence, a reading's sub-line */
+  --g-ink-3: #a8a59e;                                    /* ink 3: the truth line, a label, a kicker */
+  --g-ink-4: #918f8a;                                    /* ink 4: what is switched off or not there yet (still 4.5:1 and up) */
+
+  /* ---------------------------------------------------------------- colour: lines */
+  --g-line: #cfcbc3;                                     /* the one weight I draw in: a reticle, a key's edge, a plate's border */
+  --g-line-faint: #75746f;                               /* a rule between rows, a wall of the plan you are not in (3:1 and up: a rule you can see) */
+
+  /* ---------------------------------------------------------------- colour: the accent (THE ONLY BLOCK A THEME SWAPS; Reactor's) */
+  --g-accent: #64d2ff;                                   /* what I am attending to: the lit reticle, my eye's core, tonight's thing, the route */
+  --g-accent-rgb: 100, 210, 255;                         /* the accent as a triplet: the 3-D engine and the orb read it, so they recolour with a theme */
+  --g-accent-pale: #bff0ff;                              /* its pale tint: the lit points of what I am attending to, the listening ring */
+  --g-accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet, for the 3-D scenes */
+  --g-accent-text: #64d2ff;                              /* the accent where it is text: itself where it clears 5:1 on every surface, else its text variant */
+  --g-accent-glow: 1;                                    /* how strongly the accent lights a scene (the room's light, the orb's core); Mono's is low */
+
+  /* ---------------------------------------------------------------- colour: meaning only, never decoration */
+  --g-amber: #ffb340;                                    /* a warning, and anything still IN THE WORKS */
+  --g-amber-rgb: 255, 179, 64;                           /* amber as a triplet: a warning reticle's light */
+  --g-red: #ff6961;                                      /* something that failed */
+  --g-ok: #30d158;                                       /* a number that went up, a check that passed */
+
+  /* ---------------------------------------------------------------- type: the phone's own faces, then their stand-ins */
+  --g-font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Helvetica Neue', sans-serif;              /* SF Pro for your words and my sentences */
+  --g-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Inter', system-ui, sans-serif;      /* SF Pro Display for a screen's name and what I say first */
+  --g-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'JetBrains Mono', 'IBM Plex Mono', monospace;               /* SF Mono for what I see: tags, truth lines, readings */
+  --g-font-serif: ui-serif, 'New York', 'Iowan Old Style', Georgia, 'Source Serif 4', 'DejaVu Serif', serif;                  /* New York for a book's own words in the reader */
+
+  /* ---------------------------------------------------------------- type: the scale (weight size/line family), its tracking */
+  --g-t-display: 600 34px/40px var(--g-font-display);   /* a screen's name, once ("The look") */
+  --g-tr-display: -.022em;                               /* display tracking: tight, as SF Pro Display sets large sizes */
+  --g-t-say: 500 22px/28px var(--g-font-display);       /* what I say first: one sentence at the top of a screen */
+  --g-tr-say: -.016em;                                   /* its tracking */
+  --g-t-head: 600 17px/24px var(--g-font-text);         /* a row's title, the name of a thing */
+  --g-t-body: 400 17px/24px var(--g-font-text);         /* a sentence: the body (the floor: 17) */
+  --g-tr-body: -.01em;                                   /* body and head tracking */
+  --g-t-value: 500 22px/28px var(--g-font-mono);        /* a reading at size: 07:24 · 1,240 · 42 of 112 */
+  --g-t-reading: 500 15px/20px var(--g-font-mono);      /* a reading in a row, a fact said flatly (the floor: 15) */
+  --g-tr-mono: 0;                                        /* mono tracking for readings: the face is already even */
+  --g-t-tag: 600 13px/16px var(--g-font-mono);          /* a tag, a kicker, a section's name: capitals (the floor: 13) */
+  --g-tr-tag: .08em;                                     /* tag tracking: open, so capitals read at 13 */
+  --g-t-truth: 500 13px/16px var(--g-font-mono);        /* the truth line and the stamp line: capitals */
+  --g-tr-truth: .06em;                                   /* their tracking */
+  --g-t-key: 600 13px/16px var(--g-font-mono);          /* a key's word: capitals */
+  --g-tr-key: .1em;                                      /* a key's tracking */
+  --g-t-caption: 400 13px/16px var(--g-font-text);      /* a caption under a control, the rule beside a mark */
+  --g-t-fine: 500 12px/16px var(--g-font-mono);         /* the least there is: a unit, a change beside a value (nothing is smaller) */
+  --g-t-page: 400 19px/28px var(--g-font-serif);        /* a book's own words in the reader */
+  --g-num: tabular-nums;                                 /* numerals: tabular everywhere, so readings line up */
+
+  /* ---------------------------------------------------------------- the grid: 8 points, the gutter, the safe areas */
+  --g-unit: 8px;                                         /* the one step every space is a multiple of */
+  --g-s-half: 4px;                                       /* the half step: a tag to its thing, a truth line to its tag */
+  --g-s-1: 8px;                                          /* inside a key, between a tag and its reticle */
+  --g-s-2: 16px;                                         /* between rows of a group; a plate's inner edge */
+  --g-s-3: 24px;                                         /* between groups */
+  --g-s-4: 32px;                                         /* between sections */
+  --g-s-6: 48px;                                         /* a screen's breathing room at its foot */
+  --g-gutter: 16px;                                      /* the side gutter at 390 (24 from 428 up: your 440) */
+  --g-safe-top: env(safe-area-inset-top, 0px);           /* the status bar and the Dynamic Island */
+  --g-safe-bottom: env(safe-area-inset-bottom, 0px);     /* the home indicator */
+  --g-safe-left: env(safe-area-inset-left, 0px);         /* a phone on its side: the notch's edge */
+  --g-safe-right: env(safe-area-inset-right, 0px);       /* and the other edge */
+
+  /* ---------------------------------------------------------------- corners: I draw square */
+  --g-radius-key: 2px;                                   /* a key, a field and a plate: square, the corner softened by a hair */
+  --g-radius-mark: 0;                                    /* a reticle, a tag, a rule: drawn square */
+  --g-radius-orb: 50%;                                   /* my eye, the orb: the one circle I draw */
+
+  /* ---------------------------------------------------------------- lines and marks */
+  --g-stroke: 1.5px;                                     /* the one weight a reticle, a key's edge and the line of sight are drawn in */
+  --g-hair: 1px;                                         /* a rule between rows, in line-faint */
+  --g-ret-arm: 10px;                                     /* how far a reticle's corner reaches along each side */
+
+  /* ---------------------------------------------------------------- elevation: what a layer is over another */
+  --g-lift-plate: inset 0 1px 0 rgba(236, 232, 223, .05), 0 8px 24px rgba(0, 0, 0, .28);   /* a plate over the scan: a lit top edge, a soft shadow */
+  --g-lift-front: inset 0 1px 0 rgba(236, 232, 223, .07), 0 24px 64px rgba(0, 0, 0, .5);   /* a page brought to the front: a deeper shadow on the room */
+
+  /* ---------------------------------------------------------------- motion: three durations and two curves, by name */
+  --g-dur-lock: 160ms;                                   /* a reticle locking onto a thing, a key answering a press */
+  --g-dur-turn: 420ms;                                   /* the eye turning to a thing, the line of sight drawing, a section changing */
+  --g-dur-bring: 900ms;                                  /* a thing brought to the front, the camera crossing the room */
+  --g-ease-bring: cubic-bezier(.2, .8, .2, 1);           /* a camera move: quick out, a long settle, like a dolly that stops */
+  --g-ease-lock: cubic-bezier(.4, 0, .2, 1);             /* a reticle closing on its thing */
+
+  /* ---------------------------------------------------------------- icons and targets */
+  --g-icon: 20px;                                        /* a line glyph's size */
+  --g-icon-small: 16px;                                  /* a glyph inside a key or a tag */
+  --g-icon-stroke: 1.5;                                  /* a glyph's stroke (an SVG stroke width) */
+  --g-target: 44px;                                      /* the least a thing you can press may be, both ways */
+
+  /* ---------------------------------------------------------------- the scan (read by the room's canvas in the shell pass) */
+  --g-scan-floor: .045;                                  /* metres between the scan's points on a floor or a wall */
+  --g-scan-thing: .02;                                   /* metres between the points of a thing you use: denser, so it reads first */
+}
+
+/* the gutter at his 440 (and anything from 428 up) */
+@media (min-width: 428px) { :root { --g-gutter: 24px; } }
+
+/* Reduce Motion: nothing travels. The durations go to nothing, so a mark appears where it lands; the typed-out line shows
+   whole, the eye holds still (ui/machine.ts and the orb read the same setting). */
+@media (prefers-reduced-motion: reduce) { :root { --g-dur-lock: 0ms; --g-dur-turn: 0ms; --g-dur-bring: 0ms; } }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE THEMES: the accent block, swapped whole (BRIEF-THEMES' values exactly: the accent, its pale tint, its glow). Canvas,
+   plates, bone, lines, amber, red and ok never change. :root[data-theme] is the phone's own (state/theme.ts sets it);
+   [data-accent] gives one element a theme's block (a swatch in Settings → Theme shows its own colours in any theme).
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-theme="reactor"], [data-accent="reactor"] {
+  --g-accent: #64d2ff; --g-accent-rgb: 100, 210, 255; --g-accent-pale: #bff0ff; --g-accent-pale-rgb: 191, 240, 255; --g-accent-text: #64d2ff; --g-accent-glow: 1;
+}
+:root[data-theme="graphite"], [data-accent="graphite"] {
+  --g-accent: #9db7cc; --g-accent-rgb: 157, 183, 204; --g-accent-pale: #dbe6ef; --g-accent-pale-rgb: 219, 230, 239; --g-accent-text: #9db7cc; --g-accent-glow: .55;
+}
+:root[data-theme="ember"], [data-accent="ember"] {
+  --g-accent: #ff7a3d; --g-accent-rgb: 255, 122, 61; --g-accent-pale: #ffd2bd; --g-accent-pale-rgb: 255, 210, 189; --g-accent-text: #ff7a3d; --g-accent-glow: 1;
+}
+:root[data-theme="gold"], [data-accent="gold"] {
+  --g-accent: #ffc53d; --g-accent-rgb: 255, 197, 61; --g-accent-pale: #ffeab8; --g-accent-pale-rgb: 255, 234, 184; --g-accent-text: #ffc53d; --g-accent-glow: .95;
+}
+/* Crimson clears 4.5:1 on the strong plate by a hair (4.50): its text is moved towards its pale to clear 5:1 (#ff5360) */
+:root[data-theme="crimson"], [data-accent="crimson"] {
+  --g-accent: #ff3b4a; --g-accent-rgb: 255, 59, 74; --g-accent-pale: #ffc2c6; --g-accent-pale-rgb: 255, 194, 198; --g-accent-text: #ff5360; --g-accent-glow: .9;
+}
+:root[data-theme="violet"], [data-accent="violet"] {
+  --g-accent: #b18cff; --g-accent-rgb: 177, 140, 255; --g-accent-pale: #e0d2ff; --g-accent-pale-rgb: 224, 210, 255; --g-accent-text: #b18cff; --g-accent-glow: .9;
+}
+:root[data-theme="emerald"], [data-accent="emerald"] {
+  --g-accent: #3ddc97; --g-accent-rgb: 61, 220, 151; --g-accent-pale: #bff4dc; --g-accent-pale-rgb: 191, 244, 220; --g-accent-text: #3ddc97; --g-accent-glow: .85;
+}
+:root[data-theme="ice"], [data-accent="ice"] {
+  --g-accent: #cfe9ff; --g-accent-rgb: 207, 233, 255; --g-accent-pale: #f0f8ff; --g-accent-pale-rgb: 240, 248, 255; --g-accent-text: #cfe9ff; --g-accent-glow: .45;
+}
+:root[data-theme="rose"], [data-accent="rose"] {
+  --g-accent: #ff7eb6; --g-accent-rgb: 255, 126, 182; --g-accent-pale: #ffd0e4; --g-accent-pale-rgb: 255, 208, 228; --g-accent-text: #ff7eb6; --g-accent-glow: .8;
+}
+:root[data-theme="lime"], [data-accent="lime"] {
+  --g-accent: #c6ff3d; --g-accent-rgb: 198, 255, 61; --g-accent-pale: #eaffb8; --g-accent-pale-rgb: 234, 255, 184; --g-accent-text: #c6ff3d; --g-accent-glow: 1;
+}
+:root[data-theme="sunset"], [data-accent="sunset"] {
+  --g-accent: #ff7f6e; --g-accent-rgb: 255, 127, 110; --g-accent-pale: #ffd3c8; --g-accent-pale-rgb: 255, 211, 200; --g-accent-text: #ff7f6e; --g-accent-glow: .9;
+}
+:root[data-theme="mono"], [data-accent="mono"] {
+  --g-accent: #ffffff; --g-accent-rgb: 255, 255, 255; --g-accent-pale: #ffffff; --g-accent-pale-rgb: 255, 255, 255; --g-accent-text: #ffffff; --g-accent-glow: .25;
+}

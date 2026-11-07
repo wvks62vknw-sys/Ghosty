@@ -81,7 +81,6 @@ export const APP_4: Record<string, CatValue> = {
   'deck:memory:edit-lock-or-forget-any-memory': { same: 'panel:memory:TIMELINE' },
   'deck:memory:patterns-he-noticed-in-your-days': { same: 'panel:memory:PATTERNS' },
   'deck:memory:read-the-diary-he-writes-each': { same: 'job:reflect' },
-  'deck:settings:pick-his-colour-reactor-or-graphite': { same: 'panel:settings:THEME' },
   'deck:settings:three-dials-how-dry-how-brief': { same: 'panel:settings:CHARACTER' },
   'deck:settings:choose-the-voice-he-speaks-in': { same: 'panel:settings:VOICE & HOME' },
   'deck:settings:download-the-offline-brain': { same: 'panel:settings:OFFLINE BRAIN' },

@@ -123,7 +123,8 @@ export function buildLauncher(): Launcher {
   deck.addEventListener('click', (e) => e.target === deck && close());
   document.body.append(deck);
 
-  const defs = () => new Map(tabs().filter((t) => !t.hub).map((t) => [t.id, t]));
+  // (a screen inside another — THE LOOK, the reader — has no card of its own: its parent's card leads to it)
+  const defs = () => new Map(tabs().filter((t) => !t.hub && !t.inside).map((t) => [t.id, t]));
   const choose = (a: DeckAct) => {
     close(true);
     perform(a);

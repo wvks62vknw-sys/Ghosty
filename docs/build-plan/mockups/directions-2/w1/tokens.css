@@ -1,0 +1,106 @@
+/* =====================================================================================================================
+   W1 · THE SCAN — the Room, as the Machine keeps it. The phone is a window into a 3-D scan of a room where everything Ghosty
+   does has its place; the orb floats in it as the eye; tilt the phone and you look round; what you ask for is brought to the
+   front. The tokens the design system would be built from. Every value has one job, said beside it.
+   The palette is the Machine's: black, bone, one accent, a second colour only for meaning. A theme is the ACCENT block alone
+   (Ember at the end). The scan's own colours are read by the canvas from here, so a theme recolours the 3-D too.
+   ===================================================================================================================== */
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------- colour: black and bone */
+  --canvas: #000;                                      /* the page: true black; the scan is drawn out of it, so nothing is ever a grey box */
+  --bone-rgb: 236, 232, 223;                           /* bone as a triplet: the scan's points, every line and word */
+  --ink-1: rgb(var(--bone-rgb));                       /* ink 1: titles, his book's title, the value of a reading */
+  --ink-2: rgba(var(--bone-rgb), .70);                 /* ink 2: what Ghosty says second, a reading's sub-line */
+  --ink-3: rgba(var(--bone-rgb), .46);                 /* ink 3: the truth line, a label, a kicker */
+  --ink-4: rgba(var(--bone-rgb), .24);                 /* ink 4: what is switched off */
+  --line: rgba(var(--bone-rgb), .92);                  /* a reticle, a key's edge, the plan's walls: the Machine draws in one weight */
+  --line-faint: rgba(var(--bone-rgb), .26);            /* a rule, a wall of the plan that is not where he is */
+  --plate: rgba(0, 0, 0, .78);                         /* what a tag and a key sit on, so they read over the scan */
+  --plate-strong: rgba(0, 0, 0, .9);                   /* what the ask line and a brought-forward page sit on */
+
+  /* ---------------------------------------------------------------- colour: the accent (THE ONLY BLOCK A THEME SWAPS) */
+  --accent: #64d2ff;                                   /* what Ghosty is attending to: the lit reticle, the orb's core, tonight's thing, the route */
+  --accent-rgb: 100, 210, 255;                         /* the accent as a triplet; the canvas reads it, so the scan recolours with a theme */
+  --accent-pale: #bff0ff;                              /* a pale tint of it: the lit points of what he is attending to */
+  --accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet, for the canvas */
+  --accent-text: #64d2ff;                              /* the accent where it is TEXT (over 7:1 on black) */
+
+  /* ---------------------------------------------------------------- colour: meaning only (never decoration) */
+  --amber: #ffb340;                                    /* a warning, and IN THE WORKS: the Machine view's own amber */
+  --amber-rgb: 255, 179, 64;                           /* amber as a triplet */
+  --red: #ff6961;                                      /* something that failed */
+  --ok: #30d158;                                       /* a number that went up */
+
+  /* ---------------------------------------------------------------- the scan (read by the canvas) */
+  --scan-floor: 0.045;                                 /* metres between the points of the floor */
+  --scan-object: 0.02;                                 /* metres between the points of a thing he uses: denser, so it reads first */
+
+  /* ---------------------------------------------------------------- type: families (the phone's own faces) */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Mock', system-ui, sans-serif;   /* what Ghosty says, a room's name */
+  --font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Mock', system-ui, sans-serif;         /* a sentence */
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;                                  /* the Machine: tags, truth lines, readings */
+  --font-serif: ui-serif, 'New York', 'Source Serif Mock', Georgia, serif;                                   /* a book's own words only */
+
+  /* ---------------------------------------------------------------- type: the scale and its tracking */
+  --t-display: 600 30px/36px var(--font-display);      /* a room's name, once a screen ("Learn") */
+  --tr-display: -.022em;                               /* display tracking */
+  --t-say: 500 22px/28px var(--font-display);          /* what Ghosty says first: "Good evening, Boss.", the sentence under the Stage */
+  --tr-say: -.016em;                                   /* its tracking */
+  --t-body: 400 16px/22px var(--font-text);            /* a second sentence, the ask line */
+  --tr-body: -.01em;                                   /* body tracking */
+  --t-tag: 600 11px/14px var(--font-mono);             /* a tag, a label, a kicker: caps */
+  --tr-tag: .08em;                                     /* tag tracking: open, as the Machine view's labels */
+  --t-truth: 500 11px/16px var(--font-mono);           /* the truth line */
+  --tr-truth: .06em;                                   /* its tracking */
+  --t-mono: 500 12px/16px var(--font-mono);            /* a reading's sub-line, a fact in a sentence of its own */
+  --tr-mono: 0;                                        /* mono tracking */
+  --t-read: 500 17px/22px var(--font-mono);            /* a reading's value at size (07:24 · 1,240 · 42 of 112); numerals tabular */
+  --t-key: 600 12px/16px var(--font-mono);             /* a key's word */
+  --tr-key: .12em;                                     /* a key's tracking */
+  --t-reading: 400 19px/30px var(--font-serif);        /* the book's text */
+
+  /* ---------------------------------------------------------------- grid: 8 points, the gutter, the safe areas */
+  --unit: 8px;                                         /* the one step every space is a multiple of */
+  --s-1: 8px;                                          /* between a tag and its reticle, inside a key */
+  --s-2: 16px;                                         /* between groups; the side gutter at 390 */
+  --s-3: 24px;                                         /* between sections; the gutter from 428 up */
+  --s-4: 32px;                                         /* a screen's breathing room */
+  --gutter: 16px;                                      /* the side gutter at 390 (24 from 428 up) */
+  --safe-top: 54px;                                    /* the status bar and the Dynamic Island */
+  --safe-bottom: 34px;                                 /* the home indicator */
+
+  /* ---------------------------------------------------------------- lines and corners: the Machine's */
+  --stroke: 1.5px;                                     /* the one weight a reticle, a key and a wall of the plan are drawn in */
+  --ret-arm: 10px;                                     /* how far a reticle's corner reaches along each side */
+  --radius: 0;                                         /* corners are square, everywhere: an instrument, not a toy */
+
+  /* ---------------------------------------------------------------- depth (what a layer is over another) */
+  --depth-front: 0 24px 64px rgba(0, 0, 0, .9);        /* a thing brought to the front: only its shadow on the scan behind it */
+
+  /* ---------------------------------------------------------------- motion: three durations and two curves, by name */
+  --dur-lock: 160ms;                                   /* a reticle locking onto a thing he touched */
+  --dur-turn: 420ms;                                   /* the eye turning to a thing; a tag typing out */
+  --dur-bring: 900ms;                                  /* the camera crossing the room; a thing brought to the front */
+  --ease-bring: cubic-bezier(.2, .8, .2, 1);           /* a camera move: quick out, a long settle, like a dolly that stops */
+  --ease-lock: cubic-bezier(.4, 0, .2, 1);             /* a reticle closing on its thing */
+
+  /* ---------------------------------------------------------------- icons and targets */
+  --icon: 20px;                                        /* a line glyph's size */
+  --icon-stroke: 1.6;                                  /* its stroke */
+  --target: 44px;                                      /* the least a thing he can press may be, both ways */
+}
+
+@media (min-width: 428px) { :root { --gutter: 24px; } }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   A THEME: the accent block, swapped whole (Ember's values are BRIEF-THEMES'). Black, bone, amber and the scan do not change.
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-theme="ember"] {
+  --accent: #ff7a3d;                                   /* Forge orange */
+  --accent-rgb: 255, 122, 61;                          /* as a triplet: the canvas reads it, so the scan's lit points turn orange */
+  --accent-pale: #ffd2bd;                              /* its pale tint */
+  --accent-pale-rgb: 255, 210, 189;                    /* the tint as a triplet */
+  --accent-text: #ff7a3d;                              /* over 7:1 on black, so no darker variant is needed */
+}

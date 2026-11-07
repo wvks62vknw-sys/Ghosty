@@ -1,0 +1,107 @@
+/* W2 · THE MAP — the screens' own layout. The marks (reticle, tag, truth line, key, ask line) are lib/machine.css; colours,
+   type and grid are tokens.css. */
+.lead { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible; }
+.lead path { fill: none; stroke: var(--line); stroke-width: 1; }
+.lead circle { fill: var(--line); }
+.lead.on path { stroke: var(--accent); }
+.lead.on circle { fill: var(--accent); }
+
+.top { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); top: 62px; }
+.top .say { margin-top: 8px; }
+.top .say2 { margin-top: 4px; }
+.top .title { font: var(--t-display); letter-spacing: var(--tr-display); color: var(--ink-1); margin-top: 6px; }
+
+/* a territory's name, set on the map as a map sets a region; the count of what is in it after */
+.region { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: var(--target); min-height: var(--target);
+  justify-content: center; border: 0; background: none; padding: 0 4px; color: var(--ink-2); font: var(--t-region); letter-spacing: var(--tr-region); text-transform: uppercase; }
+.region small { font: var(--t-tag); letter-spacing: var(--tr-tag); color: var(--ink-3); }
+.region.far { font-size: 11px; color: var(--ink-3); }
+.region.here { color: var(--accent-text); }
+
+/* a plotted thing far off: a small square and its name only (semantic zoom: the name, then its reading, then the thing) */
+.pt { position: absolute; z-index: 2; display: flex; align-items: center; gap: 6px; min-height: var(--target); min-width: var(--target); border: 0; background: none; padding: 0;
+  font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.pt i { width: 5px; height: 5px; border: 1px solid var(--line); flex: none; }
+
+/* at hand: each cell of the square round the orb holds one thing, its tag and one reading */
+.cell { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: var(--target); min-height: var(--target);
+  border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: center; }
+.cell .tag { background: none; padding: 0; }
+.cell .sub { font: var(--t-mono); color: var(--ink-2); }
+.cell.free .tag { color: var(--ink-4); }
+
+/* the scale: altitude, as a map's scale bar; the stop he is at marked; a tap on a stop is a zoom */
+.scale { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); bottom: calc(var(--safe-bottom) + 8px + 48px + 12px); height: var(--scale-h); display: flex; }
+.scale button { position: relative; flex: 1; border: 0; background: none; padding: 0 0 4px; display: flex; align-items: flex-end; justify-content: center;
+  font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.scale::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; border-top: var(--stroke) solid var(--line-faint); }
+.scale button::before { content: ''; position: absolute; left: 50%; top: 6px; height: 12px; border-left: var(--stroke) solid var(--line); }
+.scale button.here { color: var(--accent-text); }
+.scale button.here::after { content: ''; position: absolute; left: calc(50% - 5px); top: 2px; width: 10px; height: 10px; background: var(--accent); clip-path: polygon(50% 100%, 0 0, 100% 0); }
+
+/* the Stage: the field's deepest zoom; the frame is the edge of the zoom, the breadcrumb of altitude above it */
+.frame { position: absolute; z-index: 2; left: var(--gutter); right: var(--gutter); box-sizing: border-box; border: var(--stroke) solid var(--line); pointer-events: none; }
+.crumb { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); display: flex; align-items: center; gap: 0; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.crumb button { min-height: var(--target); min-width: var(--target); border: 0; background: none; padding: 0 6px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+.crumb button:first-child { padding-left: 0; }
+.crumb span { color: var(--ink-4); }
+.crumb b { font-weight: 600; color: var(--accent-text); padding: 0 6px; }
+.readings { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line-faint); border-bottom: 1px solid var(--line-faint); }
+.readings .rd { padding: 10px 0 10px 10px; border-left: 1px solid var(--line-faint); }
+.readings .rd:first-child { border-left: 0; padding-left: 0; }
+.say-stage { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); }
+.co { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--target); min-width: var(--target);
+  padding: 0; border: 0; background: none; text-align: left; color: inherit; font: inherit; }
+.co.r { align-items: flex-end; text-align: right; }
+.co .sub { background: var(--plate); padding: 0 6px 2px; }
+.co .big { font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-1); background: var(--plate); padding: 2px 6px 4px; max-width: 220px; }
+
+/* the hub: in the territory, each thing plotted with its whole reading; the near three open, the far four folded */
+.plot { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 2px; min-width: var(--target); min-height: var(--target); border: 0; background: var(--plate); padding: 6px 8px; text-align: left; color: inherit; font: inherit;
+  box-shadow: inset 0 0 0 1px var(--line-faint); }
+.plot.open { box-shadow: inset 0 0 0 var(--stroke) var(--line); }
+.plot.lit { box-shadow: inset 0 0 0 var(--stroke) var(--accent); }
+.plot .tag { background: none; padding: 0; }
+.plot .ttl { font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-1); }
+.plot .reads { display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 2px; margin-top: 2px; }
+.plot .rd .v { white-space: normal; }
+.plot .rd .v { font: 500 15px/20px var(--font-mono); }
+.plot .sub { font: var(--t-mono); color: var(--ink-2); }
+.plot .works { font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--amber); }
+
+/* the reader: the page, the deepest zoom of Library; the field's grid stays in the margins */
+.page { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); background: var(--plate-strong); border: var(--stroke) solid var(--line); }
+.page .pills { display: flex; border-bottom: 1px solid var(--line-faint); }
+.page .pills button { flex: 1; min-height: 48px; border: 0; border-left: 1px solid var(--line-faint); background: none; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.page .pills button:first-child { border-left: 0; }
+.page .pills button.here { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--accent); }
+.page .text { padding: 12px 16px 8px 20px; }
+.page .text p { font: var(--t-reading); color: var(--ink-2); margin: 0 0 12px; }
+.page .text p.lit { color: var(--ink-1); position: relative; }
+.page .text p.lit::before { content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 2px; background: var(--accent); }
+.page .mark { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font: var(--t-tag); letter-spacing: var(--tr-tag); color: var(--ink-3); }
+.page .mark::before, .page .mark::after { content: ''; flex: 1; border-top: 1px solid var(--line-faint); }
+.listen { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); height: 56px; display: flex; align-items: center; gap: 12px; border: var(--stroke) solid var(--line); background: var(--plate-strong); padding: 0 6px 0 12px; }
+.listen .what { flex: 1; min-width: 0; }
+.listen .what b { display: block; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--accent-text); }
+.listen .what span { font: var(--t-mono); color: var(--ink-2); }
+.listen .key { min-width: 44px; padding: 0; }
+.listen .orbslot { width: 32px; height: 32px; flex: none; }
+.near { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 8px; }
+.near button { display: flex; gap: 8px; align-items: flex-start; min-height: var(--target); border: 0; background: none; padding: 0; text-align: left; color: inherit; font: inherit; }
+.near .cover { flex: none; box-shadow: 0 0 0 1px var(--line-faint); }
+.near .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.near b { font: 600 12px/15px var(--font-text); color: var(--ink-1); }
+.near .au, .near .pr { font: 500 11px/14px var(--font-mono); color: var(--ink-3); }
+.near .bar { height: 2px; background: var(--line-faint); margin: 2px 0; }
+.near .bar i { display: block; height: 2px; background: var(--accent); }
+
+/* the Lens: what it sees, plotted from above — the view's own little map */
+.inset { position: absolute; z-index: 4; right: var(--gutter); width: 120px; height: 120px; border: var(--stroke) solid var(--line); background: var(--plate-strong); }
+.inset svg { display: block; }
+.act { position: absolute; z-index: 4; left: var(--gutter); right: var(--gutter); border: var(--stroke) solid var(--line); background: var(--plate-strong); padding: 14px; }
+.act .kick { color: var(--accent-text); }
+.act h2 { margin: 6px 0 0; font: var(--t-say); letter-spacing: var(--tr-say); color: var(--ink-1); }
+.act p { margin: 6px 0 12px; font: var(--t-body); color: var(--ink-2); }
+.act .keys { display: flex; gap: 8px; }
+.act .keys .key { flex: 1; }

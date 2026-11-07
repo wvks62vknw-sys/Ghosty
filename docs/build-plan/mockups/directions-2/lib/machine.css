@@ -1,0 +1,80 @@
+/* =====================================================================================================================
+   THE MACHINE'S MARKS — shared by the three worlds (BRIEF-DIRECTIONS-2, his reference, OWNER-ISSUES 137). Grown from Ghosty's
+   own Machine view (apps/web/src/features/eye/machine.ts and its CSS: thin boxes, square corners, one true line each, mono
+   labels, amber only for a warning). Every world draws the same marks; the world decides where they stand.
+   The colours, sizes and type come from the world's tokens.css; nothing here is a colour of its own.
+   ===================================================================================================================== */
+.screen { background: var(--canvas); color: var(--ink-1); }
+canvas.gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.ov { position: absolute; z-index: 2; }
+
+/* the reticle: four corner brackets round what it watches (a full box only round what it is attending to) */
+.ret { position: absolute; box-sizing: border-box; pointer-events: none; z-index: 2;
+  --c: var(--line); --l: var(--ret-arm); --w: var(--stroke);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--w) var(--l) no-repeat; }
+.ret.full { background: none; border: var(--stroke) solid var(--c); }
+/* a reticle he can press: a button, its tag above it and its one true line below (the Machine view's .mchlab and .mchsub) */
+button.ret { padding: 0; margin: 0; border: 0; pointer-events: auto; color: inherit; font: inherit; cursor: pointer; }
+button.ret.full { border: var(--stroke) solid var(--c); }
+.ret > .tag { position: absolute; left: calc(-1 * var(--stroke)); bottom: calc(100% + 4px); }
+.ret > .sub { position: absolute; left: calc(-1 * var(--stroke)); top: calc(100% + 4px); background: var(--plate); padding: 1px 6px 2px; white-space: nowrap; }
+.ret.r > .tag, .ret.r > .sub { left: auto; right: calc(-1 * var(--stroke)); }
+.ret.in > .tag { bottom: auto; top: 4px; left: 4px; }
+.ret.below > .tag { bottom: auto; top: calc(100% + 4px); }
+.ret.below > .sub { top: calc(100% + 26px); }
+.ret.on { --c: var(--accent); }
+.ret.warn { --c: var(--amber); }
+.ret.faint { --c: var(--line-faint); }
+
+/* the tag: a thing's classification, in the mono, on a dark plate so it reads over any picture */
+.tag { display: inline-flex; align-items: center; gap: 6px; font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase;
+  color: var(--ink-1); background: var(--plate); padding: 3px 6px; white-space: nowrap; }
+.tag .k { color: var(--ink-3); }
+.tag.on { color: var(--accent-text); }
+.tag.warn { color: var(--amber); }
+.tag svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sub { font: var(--t-mono); letter-spacing: var(--tr-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* the truth line: what it knows now, said flatly, in the mono */
+.truth { font: var(--t-truth); letter-spacing: var(--tr-truth); text-transform: uppercase; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.truth b { font-weight: 600; color: var(--ink-2); }
+.truth i { font-style: normal; color: var(--accent-text); }
+
+/* a key: a square-cornered outline with a mono word; the primary one is filled in bone (as the Machine view's own button) */
+.key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: var(--target); min-height: var(--target);
+  padding: 0 14px; box-sizing: border-box; border: var(--stroke) solid var(--line); border-radius: 0; background: var(--plate);
+  font: var(--t-key); letter-spacing: var(--tr-key); text-transform: uppercase; color: var(--ink-1); }
+.key.fill { background: var(--ink-1); color: var(--canvas); border-color: var(--ink-1); }
+.key.ghost { background: transparent; }
+.key svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* the ask line: where a typed word goes; the mic at its end */
+.ask { position: absolute; z-index: 3; left: var(--gutter); right: var(--gutter); bottom: calc(var(--safe-bottom) + 8px); height: 48px;
+  display: flex; align-items: stretch; border: var(--stroke) solid var(--line); background: var(--plate-strong); }
+.ask .field { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 14px; border: 0; background: none; text-align: left;
+  font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-3); white-space: nowrap; overflow: hidden; }
+.ask .field.typed { color: var(--ink-1); }
+.ask .field .caret { display: inline-block; width: 2px; height: 20px; margin-left: 2px; background: var(--accent); vertical-align: -4px; }
+.ask .mic { width: 48px; flex: none; display: grid; place-items: center; border: 0; border-left: var(--stroke) solid var(--line); background: none; color: var(--ink-1); }
+.ask .mic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Ghosty's voice: sentence case, the text face, never the mono */
+.say { font: var(--t-say); letter-spacing: var(--tr-say); color: var(--ink-1); }
+.say2 { font: var(--t-body); letter-spacing: var(--tr-body); color: var(--ink-2); }
+.kick { font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+
+/* a reading: the label in the mono caps, the value in the mono at size */
+.rd { display: flex; flex-direction: column; gap: 2px; }
+.rd .l { font: var(--t-tag); letter-spacing: var(--tr-tag); text-transform: uppercase; color: var(--ink-3); }
+.rd .v { font: var(--t-read); letter-spacing: var(--tr-mono); color: var(--ink-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rd .v small { font: var(--t-tag); color: var(--ok); margin-left: 4px; }
+
+.hairline { height: 0; border-top: 1px solid var(--line-faint); }

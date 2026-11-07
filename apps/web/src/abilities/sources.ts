@@ -120,6 +120,7 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const c of ME_CARDS) add({ id: `me:${c.id}`, kind: 'me', cat: c.id === 'guardian' ? 'watch' : 'do', go: { run: 'open_me' } });
   // (the areas' hubs are screens above, by their tabs: area-see, area-make…)
   for (const id of hubs) add({ id: `hub:${id}`, kind: 'hub', screen: have.has(id) ? id : 'core', cat: SCREEN_CAT[id] ?? 'talk', go: { open: have.has(id) ? id : 'core' } });
+  // (Reactor and Graphite since 18 Oct; the ten of BRIEF-THEMES joined with the design system, their words say when)
   for (const id of Object.keys(THEMES)) add({ id: `theme:${id}`, kind: 'theme', screen: 'settings', cat: 'talk', go: { open: 'settings', panel: 'THEME' }, since: '2026-10-18' });
   for (const k of MOOD_KINDS) add({ id: `mood:${k}`, kind: 'mood', cat: 'talk', go: { run: 'open_me' }, since: '2026-10-31' });
   for (const a of APP_WIDE) add({ id: `app:${a.id}`, kind: 'app', cat: 'do' });

@@ -9,6 +9,12 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   CI: the smoke job pinned to ubuntu-24.04, because GitHub's default runner image became Ubuntu 26.04 overnight and Playwright 1.56.0
   cannot install browsers there (every smoke shard died before a spec ran); nothing in the app changed. Section 4 revised again on
   5 Nov after the owner's review (OWNER-ISSUES 131; PR #58).
+- LIVE since 19:12 UK on 6 Nov (PR #59, green on every job on its own run and on main's run after the merge): THE CI GUARD WORKS
+  AGAIN (OWNER-ISSUES 123's findings, your decision in 131): a version counts as green with the four smoke shards; only the commit
+  just before a failing merge is put back, and only if it was green; the workflows are left as they were so the push is accepted.
+  Also in it: the 5 Nov review (131–133) and the queue as items 0–8, the foresight test freed of the weekday, the packs3 check freed of
+  the hamza (134), the brief for the redesign directions. Nothing to see on your phone.
+
 - LIVE since 15:40 UK on 2 Nov (PR #56, green on every job): THE LIBRARY OPENS LONG BOOKS AGAIN (OWNER-ISSUES 126, your "too many SQL
   variables"): a book of any length opens passage by passage with MORE to the end, and the copy on your phone reads whole; the test
   database now holds the same limit as the real one, so this cannot come back.
@@ -190,6 +196,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- PR #60 (opened 7 Nov, merged by the orchestrator when every check is green; main's run read after): THE DESIGN SYSTEM from W1 The Scan (OWNER-ISSUES 140): the tokens with the lit graphite canvas and the readability floor held by a test, the Machine's marks as components, Mind as the eye on THE LOOK, Settings → Appearance → THE LOOK, the twelve themes as token sets with live swatches, look.test.mjs and look.spec.mjs; both rounds of directions ride with it. His five-minute phone check is in OWNER-ISSUES 140.
 - PR #51 (section 3).
 
 ## 3. Happening right now
@@ -236,12 +243,12 @@ ME (item 5) if credits remain. Items 6 to 8 need the plan to continue. THE CUT R
 SHOW ME before the last screens of the shell — the owner said show-me is the heart of the Machine (129). Nothing user-facing is
 built in the old look after day one, so no screen is built twice.
 
-0. FIRST, AND SMALL. (a) Ask the owner once for his four phone checks (121, 122, 123, 126) and fix what he reports before anything
+0. FIRST, AND SMALL. (b) DONE 6 Nov: the guard fixed in PR #59, merged (OWNER-ISSUES 131, 134 for the packs3 check fixed on the way); main's own run read after. (a) Ask the owner once for his phone checks (122, 123, 126; 121 no longer asked: a tab per feature is lifted, OWNER-ISSUES 142; 126 rides with the reader's check) and fix what he reports before anything
    new: the whole queue builds on the talking pass and the tabs working on his real phone, and nobody has confirmed they do.
    (b) THE GUARD FIXED (his decision, 5 Nov, OWNER-ISSUES 131, which overrides the 2 Nov "never touch it"): match any check whose
    name starts with "smoke", restore only to the commit just before the failing merge, and leave .github/workflows as it is when
    restoring. About fifteen minutes; the first PR of Friday, because a week of ten merges needs a working net.
-1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
+1. DAY ONE: THE PICK, THEN THE DESIGN SYSTEM. (a) ROUND ONE RENDERED 6 Nov and REJECTED by him (OWNER-ISSUES 135, 136: "a total redesign, something that hasn't been seen before"); ROUND TWO RENDERED the same night on the top tier (OWNER-ISSUES 138; mockups/directions-2/contact.png: three worlds with storyboards, the Machine's eye in each), HIS PICK 6 Nov: W1 THE SCAN, not so dark, the Machine felt, nothing hard to find (OWNER-ISSUES 139). (b) and (c) BUILT 7 Nov in PR #60 (OWNER-ISSUES 140: the tokens, the marks, THE LOOK, the twelve themes as token sets, the two tests, the not-so-dark proof); Mind as the eye is on THE LOOK only, Home's eye offered as a half-day pass after the reader (140a). (d) THEMES-2 (his ask 7 Nov, OWNER-ISSUES 141, STARS 170; BRIEF-THEMES-2): the ground, the colour, the world (the directions seen along the way) and the switches that each mean something, the directions as presets; the top tier, right after PR #60 is on main, beside the reader. (e) THE ORB AND THE BOOT (his words 7 Nov, OWNER-ISSUES 142; BRIEF-ORB-AND-BOOT; STARS 58): the hologram orb kept and made a little better with its states readable, the boot cinematic a lot better, shot by shot, on the chosen ground; the top tier at max effort, after THEMES-2; the points-sphere eye is not the orb's future. Item 2 is running since 7 Nov 00:00. THREE DIRECTIONS for the redesign (STARS 160) as static mock screens built on real
    tokens, not app code: Home, one hub, the Lens and the reader in each, at 390 and 440; one direction with Mind (the orb) as the
    navigation itself; one that drops the current iOS-like look entirely (his words, 5 Nov: "we might get rid of the iphone theme …
    we could redesign it entirely to just look a lot better"); Mind the orb at the centre in all three, the Stage taking the centre
@@ -259,7 +266,8 @@ built in the old look after day one, so no screen is built twice.
    confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
    protocol (packages/shared) defined here and reused by item 5. 2–3 days, two or three PRs, every screen in the new system.
 4. THE SHELL REDESIGNED (STARS 160–161; PLAN-STARS 3b): the bar, the hubs, the deck, Home following the hour, Mind the orb with the
-   Stage, the switcher and the jump bar, rebuilt to the system; the finding rule — two taps for recents and favourites, three taps
+   Stage, the switcher and the jump bar, rebuilt to the system; EVERY FEATURE STAYS A THING HE CAN USE AND FIND, as a tab or a row as the shell
+   decides, and NO PAGE LISTING EVERY ABILITY (his words 7 Nov, OWNER-ISSUES 143, correcting 142); the finding rule — two taps for recents and favourites, three taps
    or one typed word for everything else; the other screens migrate to the system as their passes touch them (item 7), each
    migration said in its PR. 3–4 days for the shell; the full migration is weeks and is not promised for this week.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a

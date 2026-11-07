@@ -5,15 +5,21 @@
  */
 import { settings } from '../state/app';
 
-/** `turn`: his turn to talk in a voice conversation (BRIEF-TALK-1A 4): the ear has just opened and can hear him. */
-export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn';
+/** `turn`: his turn to talk in a voice conversation (BRIEF-TALK-1A 4): the ear has just opened and can hear him.
+ *  `lock`: the moment of recognition (ui/machine.ts `recognise`): the box snaps onto what he asked for, once. */
+export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn' | 'lock';
+
+/** Whether the interface may make a sound now: his setting on and the phone already tapped (said on THE LOOK when not). */
+export function sfxAllowed(): boolean {
+  if (!settings.get().sounds) return false;
+  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return !ua || ua.hasBeenActive;
+}
 
 let ctx: AudioContext | null = null;
 
 function audio(): AudioContext | null {
-  if (!settings.get().sounds) return null;
-  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
-  if (ua && !ua.hasBeenActive) return null;
+  if (!sfxAllowed()) return null;
   try {
     ctx ??= new AudioContext();
     if (ctx.state === 'suspended') void ctx.resume();
@@ -56,6 +62,10 @@ export function sfx(kind: Sfx): void {
     // two soft rising notes, a fifth apart, quieter than the rest: heard, never talked over
     tone(a, 587, 587, 0.07, 0, 0.022);
     tone(a, 880, 880, 0.11, 0.075, 0.018);
+  } else if (kind === 'lock') {
+    // the box closing on a thing: one short, level tone with a faint edge an octave up, gone in 90 ms
+    tone(a, 1568, 1568, 0.09, 0, 0.03);
+    tone(a, 3136, 3136, 0.035, 0, 0.01, 'triangle');
   } else tone(a, 1500, 1200, 0.03, 0, 0.02);
   // (what played, for the checks that listen for it: tests/talk.spec.mjs)
   document.dispatchEvent(new CustomEvent('ghosty-sfx', { detail: kind }));

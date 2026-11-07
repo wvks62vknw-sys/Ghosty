@@ -96,6 +96,17 @@ folder that no longer exists; ignore those paths).
   bundle is the first half of apps/edge's test script with `apps/edge/node_modules/.bin` on PATH; the preview on 8790; the global
   Playwright linked into the repo root's node_modules (`playwright` and `playwright-core` from /opt/node-tools) so specs import it.
   Usage percentage: asked; not yet given.
+- 6 Nov 19:12 UTC: PR #59 MERGED into main (e66d3e0, every check green); #58 closed as superseded; main's own run GREEN on every
+  job at 20:39 UTC (one shard's Playwright download took 49 minutes on a slow runner: the run takes up to 90 minutes, not 55). The three redesign directions rendered (OWNER-ISSUES 135; a mid-tier builder, 79 min) and sent to the owner for his
+  pick with three questions; HE REJECTED ALL THREE (OWNER-ISSUES 136) and gave his reference (137: JARVIS in how it answers, the
+  Machine in how it looks, modern and clean). Round two on the top tier (77 min) rendered three worlds with storyboards (138), sent for
+  his pick. Nothing of the design system starts before the pick. Both rounds ride to main with the next PR.
+- 6–7 Nov: HIS PICK W1 The Scan with three rules (OWNER-ISSUES 139: not so dark, the Machine felt not named, nothing hard to find).
+  BRIEF-DESIGN-SYSTEM built on the top tier at max effort; two container restarts killed the builder mid-validation (disk and
+  memory were fine), so the third builder was told to commit before each heavy step and ran the validation one step at a time:
+  that worked. Lesson kept: a long builder commits before every heavy run. Merged by fast-forward into this branch, PR #60 opened
+  7 Nov (OWNER-ISSUES 140 has the record, the contrast per theme and his phone check). The CI guard job untouched; the smoke list
+  gained `look` after `settings`. Usage percentage: still asked, not yet given.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

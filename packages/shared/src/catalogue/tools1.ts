@@ -58,9 +58,9 @@ export const TOOLS_1: Record<string, CatValue> = {
     say: ['Show the planes on the globe', 'Turn on the rain radar', 'Hide the satellites'], scene: ['out'], cat: 'see', where: 'God’s eye', needs: ['key:aisstream'],
   },
   'tool:set_theme': {
-    name: 'Change my colour', line: 'I can change my colour when you ask: Reactor’s bright cyan or Graphite’s quieter steel.',
+    name: 'Change my colour', line: 'I can change my colour when you ask: any of my twelve themes, from Reactor’s cyan to Mono’s white.',
     more: 'A theme changes my colour and nothing else: every screen keeps its layout. You can also tap it in Settings → THEME.',
-    say: ['Switch to Graphite', 'Go back to Reactor'], scene: ['talking'], cat: 'talk',
+    say: ['Switch to Ember', 'Go back to Reactor'], scene: ['talking'], cat: 'talk',
     go: { open: 'settings', panel: 'THEME' },
   },
   'tool:set_sensor_mode': {

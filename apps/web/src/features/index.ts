@@ -17,6 +17,8 @@ import { radioTab } from './radio';
 import { reverseTab } from './reverse';
 import { schoolTab } from './school';
 import { settingsTab } from './settings';
+// THE LOOK (BRIEF-DESIGN-SYSTEM 5): the design system shown by itself, a row of Settings
+import { lookTab } from './look';
 import { spaceTab } from './space';
 import { studioTab } from './studio';
 import { memoryTab } from './memory';
@@ -44,4 +46,4 @@ import { docsTab } from './docs';
 import { houseTab } from './house';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];
