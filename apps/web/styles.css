@@ -6121,6 +6121,13 @@ html[data-world] #boot .bbloom { scale: calc(var(--g-glow) * var(--g-room-glow))
 html[data-world] #boot .bword { text-shadow: 0 0 calc(18px * var(--g-glow) * var(--g-room-glow)) rgba(var(--cr), .55); }
 html[data-world] #boot .bdot { box-shadow: 0 0 calc(10px * var(--g-glow)) calc(2px * var(--g-glow)) rgba(var(--cr), .9), 0 0 calc(38px * var(--g-glow)) calc(12px * var(--g-glow)) rgba(var(--cr), .32); }
 
+/* ---- the 44 pt target on a touch phone: today's look holds every button to 40 there (an !important rule under hover: none), which
+   took the system's keys under the target on his iPhone; the system's own controls keep their 44 (64 for a preset's row) */
+@media (hover: none) {
+  html #app :is(button.g-key, button.g-ret, button.gchoice, button.gthing) { min-height: var(--g-target) !important; }
+  html #app button.swatch[data-g="swatch"] { min-height: 64px !important; }
+}
+
 /* ---- calm (the MOTION switch): the breathing glow behind Home's hero holds still, as under Reduce Motion */
 html[data-motion="calm"] .rcglow { animation: none; }
 /* ==== end THE SYSTEM ==== */

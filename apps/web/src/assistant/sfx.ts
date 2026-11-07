@@ -46,9 +46,15 @@ function tone(a: AudioContext, f0: number, f1: number, dur: number, at = 0, vol 
   o.stop(t + dur + 0.02);
 }
 
-export function sfx(kind: Sfx): void {
-  const a = audio();
-  if (!a) return;
+/**
+ * Play one of the set. `afterMs`: scheduled that far ahead on the audio clock (the moment of recognition plays as the box lands,
+ * sample-exact however busy the page is); the checks' event goes at once.
+ */
+export function sfx(kind: Sfx, afterMs = 0): void {
+  const a0 = audio();
+  if (!a0) return;
+  const after = Math.max(0, afterMs) / 1000;
+  const a = after ? ({ get currentTime() { return a0.currentTime + after; }, createOscillator: () => a0.createOscillator(), createGain: () => a0.createGain(), destination: a0.destination } as unknown as AudioContext) : a0;
   if (kind === 'tab') {
     tone(a, 880, 1320, 0.07);
     tone(a, 1760, 2200, 0.05, 0.05, 0.018);

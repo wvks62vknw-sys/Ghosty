@@ -392,17 +392,20 @@ export async function recognise(box: HTMLElement, thing: Element, o: { name?: st
   box.dataset.state = 'attend';
   Object.assign(box.style, px(to));
   const ms = dur('lock');
+  marksState.locks++;
+  marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
+  // THE SOUND (BRIEF-THEMES-2): one short level tone, one small click, or the lock in silence; always on top of his sound setting.
+  // Scheduled on the audio clock for the moment the box lands, so a busy page never makes it late.
+  const sound = (document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off';
+  marksState.lastSound = sound;
+  if (sound === 'tone') {
+    if (ms) sfx('lock', ms);
+    else sfx('lock');
+  } else if (sound === 'click') sfx('click', ms);
   if (ms) {
     const a = box.animate([{ ...px(from), opacity: 0.35 }, { ...px(to), opacity: 1 }], { duration: ms, easing: ease('lock') });
     await a.finished.catch(() => undefined);
   }
-  marksState.locks++;
-  marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
-  // THE SOUND (BRIEF-THEMES-2): one short level tone, one small click, or the lock in silence; always on top of his sound setting
-  const sound = (document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off';
-  marksState.lastSound = sound;
-  if (sound === 'tone') sfx('lock');
-  else if (sound === 'click') sfx('click');
   return true;
 }
 

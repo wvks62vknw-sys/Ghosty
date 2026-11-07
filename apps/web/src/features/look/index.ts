@@ -400,15 +400,17 @@ export const lookTab: TabDef = {
     }, true);
     showing();
     paintStates();
-    // the rest once the screen is drawn, one section a frame, so the first paint never waits for them
+    // the rest once the screen is drawn, one section at a time in the page's idle moments, so neither the first paint nor a tap
+    // ever waits behind them (a phone with no idle callback: a frame and 60 ms apart)
     const rest = ['marks', 'mind', 'themes', 'type', 'tokens'];
+    const idle = (fn: () => void) => (typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(() => fn(), { timeout: 1500 }) : setTimeout(() => requestAnimationFrame(fn), 60));
     const later = () => {
       const id = rest.find((x) => !lookState.built.includes(x));
       if (!id) return;
       ensure(id);
-      setTimeout(() => requestAnimationFrame(later), 60);
+      idle(later);
     };
-    requestAnimationFrame(() => setTimeout(later, 250));
+    requestAnimationFrame(() => setTimeout(() => idle(later), 250));
 
     // ---------------------------------------------------------------- following the phone
     let retoken = 0;

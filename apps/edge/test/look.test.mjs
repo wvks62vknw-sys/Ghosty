@@ -632,7 +632,7 @@ test('THEMES-2: the switches each change one thing and keep the floor — body 1
   for (const d of TH.SWITCHES) for (const o of d.options) assert.ok(o.line.length >= 20 && /[.]$/.test(o.line), `${d.key} ${o.value}: "${o.line}"`);
   // the sound: a tone, a click or silence, on top of his sound setting; calm in the marks and the eye; Reduce Motion always wins
   const machine = read('../../web/src/ui/machine.ts');
-  assert.match(machine, /if \(sound === 'tone'\) sfx\('lock'\);\s*else if \(sound === 'click'\) sfx\('click'\);/);
+  assert.match(machine, /if \(sound === 'tone'\) \{\s*if \(ms\) sfx\('lock', ms\);\s*else sfx\('lock'\);\s*\} else if \(sound === 'click'\) sfx\('click', ms\);/, 'the tone, the click, or silence; on the audio clock for the moment the box lands');
   assert.match(machine, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \|\| \(typeof document !== 'undefined' && document\.documentElement\.dataset\.motion === 'calm'\)/);
   assert.match(read('../../web/src/ui/eye.ts'), /dataset\.motion === 'calm'/);
   assert.match(read('../../web/src/assistant/sfx.ts'), /kind === 'click'/);
