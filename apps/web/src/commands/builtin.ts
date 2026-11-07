@@ -10,6 +10,7 @@ import { globe, SENSOR_MODES, type LayerVisibility } from '../engine/globe';
 import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
 import { DECK } from '../shell/deckcopy';
+import { askFromHere } from '../shell/awareness';
 import { ui } from '../state/app';
 import { applyPreset, applyRecipe, applyTheme, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
 import { applyAsk, GROUNDS, lookAsked, WORLDS } from '../../../../packages/shared/src/themes';
@@ -757,7 +758,7 @@ export function registerBuiltins(): void {
     const out: Command[] = [];
     const c = World.find(q);
     if (c) out.push({ id: 'fly', title: `Fly to ${c.name}`, group: 'FLY', run: () => void flyTo({ lat: c.lat, lon: c.lon, range_km: 400 }) });
-    out.push({ id: 'ask', title: `Ask Ghosty: ${q}`, group: 'ASK', run: async () => { go('core'); const { send } = await import('../assistant/session'); void send(q); } });
+    out.push({ id: 'ask', title: `Ask Ghosty: ${q}`, group: 'ASK', run: async () => { askFromHere(); go('core'); const { send } = await import('../assistant/session'); void send(q); } });
     return out;
   });
 }

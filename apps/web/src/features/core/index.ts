@@ -976,6 +976,11 @@ export const coreTab: TabDef = {
         clearInterval(calloutTimer);
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
+      // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here
+      context: () => {
+        const live = chat.get().live.replace(/\s+/g, ' ').trim();
+        return { screen: 'core', title: 'Home', line: `the home screen${live ? `, my last words: “${live.slice(0, 90)}${live.length > 90 ? '…' : ''}”` : ', the chat with me'}`, at: Date.now() };
+      },
     };
   },
 };

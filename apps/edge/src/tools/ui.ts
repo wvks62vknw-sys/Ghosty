@@ -3,9 +3,10 @@
  * apps/web/src/commands/builtin.ts runs it. Keep names in sync with CLIENT_COMMANDS in
  * packages/shared/src/protocol.ts.
  */
+import type { ClientCommand } from '../../../../packages/shared/src/protocol';
 import type { Tool } from './types';
 
-const client = (name: string, description: string, properties: Record<string, unknown>, required: string[] = []): Tool => ({
+const client = (name: ClientCommand, description: string, properties: Record<string, unknown>, required: string[] = []): Tool => ({
   name,
   description,
   parameters: { type: 'object', properties, required },

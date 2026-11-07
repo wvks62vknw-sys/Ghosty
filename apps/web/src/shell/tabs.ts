@@ -13,14 +13,22 @@ import { globe } from '../engine/globe';
 import { setScene } from '../engine/scheduler';
 import { ui } from '../state/app';
 import type { Readout, StatusWord } from './hubcards';
+import type { ScreenContext } from '../../../../packages/shared/src/awareness';
 
 export interface TabInstance {
   enter?(): void;
   leave?(): void;
   /** What follows a '?' in its address (#eye?machine: God's Eye in the Machine view), after enter(). */
   open?(arg: string): void;
-  /** One line describing what is on screen, sent to Ghosty as context. */
+  /** One line describing what is on screen (the older way: shell/awareness.ts makes a context of it when a screen has no `context`). */
   describe?(): string;
+  /**
+   * What is open and what is selected, said once and said the same everywhere (BRIEF-AWARENESS; packages/shared/src/awareness.ts):
+   * a one-sentence `line` (≤160 characters, no secrets, never who is in a picture) and the thing he has picked, if any. Read when
+   * a message is sent, when the stamp line looks, and for the deck's Core card; built fresh each time, so it costs nothing while
+   * nothing is asking. A screen without one is described from its TabDef (shell/awareness.ts).
+   */
+  context?(): ScreenContext;
 }
 
 export interface TabDef {

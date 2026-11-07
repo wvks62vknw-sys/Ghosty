@@ -20,7 +20,7 @@ import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
 import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
-import { currentTab } from '../shell/tabs';
+import { clientContext } from '../shell/awareness';
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -247,19 +247,8 @@ function settle(ids?: Set<string>): void {
   );
 }
 
-function context(): Record<string, unknown> {
-  const now = new Date();
-  return {
-    now: now.toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    tz: timeZone,
-    tab: ui.get().tab,
-    name: settings.get().name,
-    location: home(),
-    screen: currentTab()?.inst.describe?.() ?? '',
-    // Said into the microphone: the brain answers in its spoken style (persona.ts SPOKEN).
-    ...(spokenTurn ? { voice: true } : {}),
-  };
-}
+/** What goes with every turn (shell/awareness.ts: one function for the chat and the Lens: his time, name and saved place, and what is on screen). */
+const context = () => clientContext(spokenTurn);
 
 let speakReplies = true;
 /** This message was spoken, not typed. */

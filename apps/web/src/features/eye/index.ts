@@ -3,6 +3,7 @@
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
  * to watch it, and while no card is open a grid shows the four cameras nearest the view.
  */
+import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { flyTo } from '../../commands/builtin';
@@ -1250,6 +1251,17 @@ export const eyeTab: TabDef = {
         if (arg === 'machine') void machine?.enter();
       },
       describe: () => `${machine?.describe() ? `${machine.describe()} ` : ''}${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
+      // what is open and picked (BRIEF-AWARENESS): the globe or the machine view, and the thing he tapped, said as describe() says it
+      context: (): ScreenContext => {
+        const said = selected ? describe(selected) : '';
+        return {
+          screen: 'eye',
+          title: 'God’s Eye',
+          line: machine?.describe() ? `God’s Eye in the machine view, ${air.list.size} aircraft, ${ships.list.size} ships` : `God’s Eye, the globe ${Math.round(globe.cam.range)} km up, ${air.list.size} aircraft, ${ships.list.size} ships`,
+          ...(selected ? { selected: { kind: 'thing', id: selected.kind, label: said.slice(0, 60), ...(said.length > 60 ? { detail: said.slice(60, 140) } : {}) } } : {}),
+          at: Date.now(),
+        };
+      },
     };
   },
 };

@@ -3,6 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
+import type { ClientContext } from '../../../../packages/shared/src/awareness';
 import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
@@ -321,7 +322,7 @@ export const brain = {
   /** `cited`: CITED is on — the answer is looked up, with numbered sources and each claim checked (cited.ts in the brain). */
   /** `library`: those passages already being looked up (session.ts starts it with the message, so it costs the turn nothing). */
   /** `heard`: his last reply was cut off as it was read out: what he heard of it and its first words (BRIEF-TALK-1A 2). */
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false, library?: Promise<unknown[]>, heard?: { said: string; head: string }) =>
+  chat: (message: string, context: ClientContext, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false, library?: Promise<unknown[]>, heard?: { said: string; head: string }) =>
     // `offline`: memory, agenda and the owner's documents most related to the message, kept on this
     // device, so Ghosty still knows them if its database is paused. A slow look-up never holds the message: after
     // LIBRARY_WAIT_MS it goes without them (they matter only on the rare day the database is paused).
