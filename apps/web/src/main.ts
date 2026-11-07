@@ -167,8 +167,8 @@ async function boot(): Promise<void> {
   void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
-  // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …
-  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState };
+  // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), … (machine: the Machine's marks, so a check can lock a box on a thing: tests/hero.spec.mjs)
+  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState, machine: await import('./ui/machine') };
   // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
   if (ui.get().connected) startNight();
   // the app is up underneath: the cinematic may land (or, on a plain open, the black simply goes)

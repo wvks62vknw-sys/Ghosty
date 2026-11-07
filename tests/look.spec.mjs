@@ -1,20 +1,23 @@
 // SETTINGS → THE LOOK (BRIEF-DESIGN-SYSTEM 5 and 6; his pick, W1 THE SCAN, OWNER-ISSUES 139): the design system's own screen on
-// the owner's iPhone 18 Pro Max (440 × 956) and at 390 × 844, with software WebGL for the eye (as tests/hero.spec.mjs runs Mind).
+// the owner's iPhone 18 Pro Max (440 × 956) and at 390 × 844, with software WebGL for the orb (as tests/hero.spec.mjs runs Mind).
 // Every check fails on the code before the system (there was no THE LOOK, and two themes):
 //  1. it opens in TWO TAPS from Settings (the Appearance pill from another section, then its row) and lands, the first time, on
 //     MARKS; THE SPEED BUDGET (STANDARD's two habits): the screen opens in under 300 ms on the preview, measured by the phone's own
 //     stopwatch (the first open, built then, and the second), printed and held;
 //  2. every section: TOKENS (every token with its value and job, the inks with their contrast measured, at the floor), TYPE (the
-//     twelve styles at their own sizes, nothing under 12), MARKS (the eleven, each named and numbered), MIND (the eye drawn, and
-//     breathing when it listens), THEMES (the twelve swatches with their measured contrast);
+//     twelve styles at their own sizes, nothing under 12), MARKS (the eleven, each named and numbered), MIND (THE ORB ITSELF,
+//     BRIEF-ORB-AND-BOOT: Home's one Mind borrowed, never a copy, one WebGL canvas in the page; its five states as five stills
+//     drawn from that one context, each named with its one line, each a different picture; the live orb with a key for each
+//     state, ATTENDING locking the box on it; given back to Home's hero when the screen is left), THEMES (the twelve swatches
+//     with their measured contrast);
 //  3. the marks work: the reticle attends when tapped and says so, the typed-out line types, the line of sight draws, the search
 //     finds the agenda, and THE RECOGNITION TONE FIRES ONCE: a tap on a thing locks the box with one tone, a second tap on the same
 //     thing makes none, the key's press is recognised with one; with his sounds off the box still locks and no tone plays (said);
 //  4. THE TWELVE SWATCHES APPLY at once (the page's accent, his setting, the toast) and THE PICK SURVIVES A RELOAD; the next cold
 //     open's BOOT plays in the picked colour;
 //  5. nothing sideways and every control named and 44 pt or more, in every section, at 440 and at 390;
-//  6. the states said in a sentence: Reduce Motion on (the eye holds still, the typed line shows whole), sound off, no 3-D (the eye
-//     drawn flat, Chromium only).
+//  6. the states said in a sentence: Reduce Motion on (the orb holds still, the typed line shows whole), sound off, no 3-D (the orb
+//     cannot be drawn here, said; Chromium only).
 //  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2; every check fails on the code before it — run against it once): the Theme page two
 //     taps from Settings with the seventeen presets first and the dials under them, the row saying the recipe; EACH GROUND applies
 //     at once, is kept across a reload and the boot plays on it; PAPER IS READABLE (every text on the Theme page and THE LOOK
@@ -49,6 +52,8 @@ async function phone(viewport, extra = {}, b = browser) {
   const ctx = await b.newContext({ viewport, ...UK, ...extra });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+  // this check wants Mind (automated checks otherwise get the 2-D reactor: mind.ts), so THE LOOK can borrow it
+  await page.addInitScript(() => { window.__ghostyHero = true; });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 20000 });
   await page.fill('#pair input', KEY);
@@ -162,16 +167,48 @@ const marks = await page.evaluate(() => [...document.querySelectorAll('#pg-look 
 check(marks.length === 11 && marks.every((m, i) => m.n === String(i + 1).padStart(2, '0') && m.name && m.rule.length > 30), `[marks] ${JSON.stringify(marks.map((m) => `${m.n} ${m.id} ${m.name}`))}`);
 for (const id of ['stamp', 'reticle', 'tag', 'truth', 'plate', 'key', 'sight', 'typed', 'recognise']) check(marks.some((m) => m.id === id), `[marks] no ${id}`);
 await openLookSection(page, 'mind');
-await until(page, () => (window.__ghosty.look.eye?.frames ?? 0) > 0, null, 8000, '[mind] the eye never drew');
-const eye0 = (await look(page)).eye;
-check(eye0?.mode === 'gl' || eye0?.mode === 'flat', `[mind] the eye: ${JSON.stringify(eye0)}`);
-check(/^My eye: idle$/.test((await page.locator('#pg-look .g-orb').getAttribute('aria-label')) ?? ''), '[mind] the eye is not named with its state');
-await page.click('#pg-look .gorbwrap ~ .gkeys .g-key[aria-label="My eye listening"]').catch(() => problems.push('[mind] no LISTENING key'));
-await page.waitForTimeout(1200);
-const eye1 = (await look(page)).eye;
-check(eye1?.state === 'listening' && eye1.breathing === true && eye1.frames > eye0.frames, `[mind] listening, it does not breathe: ${JSON.stringify(eye1)}`);
-check(/listening, breathing/.test((await page.locator('#pg-look .g-orb').getAttribute('aria-label')) ?? ''), '[mind] the eye does not say it is breathing');
-await page.screenshot({ path: `${out}/look-${engine}-440-mind-listening.png` });
+// THE ORB ITSELF (BRIEF-ORB-AND-BOOT): Home's one Mind borrowed, drawing here, with its five states as stills from the same context
+await until(page, () => (window.__ghosty.look.mind?.frames ?? 0) > 0 || window.__ghosty.look.mind?.mode === 'flat', null, 20000, '[mind] the orb never drew');
+const mind0 = (await look(page)).mind;
+check(mind0?.mode === 'gl' && mind0.lent === true, `[mind] the orb is not Home's Mind borrowed: ${JSON.stringify(mind0)}`);
+check(mind0?.stills === 5, `[mind] ${mind0?.stills} stills drawn (want the five states)`);
+const one = await page.evaluate(() => ({ canvases: document.querySelectorAll('canvas.mindhero').length, here: !!document.querySelector('#pg-look .gorbwrap .g-orb > canvas.mindhero'), hero: window.__ghosty.hero?.mode }));
+check(one.canvases === 1 && one.here && one.hero === 'mind', `[mind] one WebGL canvas, here: ${JSON.stringify(one)}`);
+const stills = await page.evaluate(() => [...document.querySelectorAll('#pg-look .gstate')].map((f) => {
+  const c = f.querySelector('canvas.gstill');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let lit = 0;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4 * 5) if (d[i + 3] > 10) { lit++; sum += d[i] + d[i + 1] + d[i + 2]; }
+  return { key: f.dataset.state, name: f.querySelector('.g-tag')?.textContent, line: f.querySelector('.gstate-line')?.textContent ?? '', lit, sum, box: !!f.querySelector('.g-lock[data-state="attend"]') };
+}));
+check(stills.map((x) => x.key).join() === 'idle,listening,attending,thinking,saying', `[mind] the five states: ${stills.map((x) => x.key).join()}`);
+check(stills.every((x) => x.name && x.line.length > 20), `[mind] a state without its name or its line: ${JSON.stringify(stills.map((x) => [x.name, x.line]))}`);
+check(stills.every((x) => x.lit > 200), `[mind] a still with nothing drawn: ${JSON.stringify(stills.map((x) => [x.key, x.lit]))}`);
+check(new Set(stills.map((x) => `${x.lit}:${x.sum}`)).size === 5, `[mind] two states draw the same picture: ${JSON.stringify(stills.map((x) => [x.key, x.lit, x.sum]))}`);
+check(stills.find((x) => x.key === 'attending')?.box === true, '[mind] attending has no box on it');
+check(/^My orb: idle$/.test((await page.locator('#pg-look .gorblive').getAttribute('aria-label')) ?? ''), '[mind] the orb is not named with its state');
+// each state's key sets the live orb's state, says it, and changes the picture; ATTENDING locks the box on the orb
+const orbShot = async () => (await page.locator('#pg-look .gorblive').screenshot()).toString('base64');
+let prev = await orbShot();
+const locks0 = (await look(page)).marks.locks;
+for (const st of ['listening', 'attending', 'thinking', 'saying', 'idle']) {
+  await page.click(`#pg-look .gstatekeys .g-key[aria-label="My orb ${st}"]`).catch(() => problems.push(`[mind] no ${st.toUpperCase()} key`));
+  await page.waitForTimeout(900);
+  const m = (await look(page)).mind;
+  const want = st === 'saying' ? 'speaking' : st;
+  check(m?.state === want, `[mind] after ${st}: the orb is ${m?.state}`);
+  check(new RegExp(`^My orb: ${st}`).test((await page.locator('#pg-look .gorblive').getAttribute('aria-label')) ?? ''), `[mind] after ${st}: not said in its name`);
+  const now = await orbShot();
+  check(now !== prev, `[mind] ${st} drew the same picture as the state before it`);
+  prev = now;
+  const box = await page.evaluate(() => { const l = document.querySelector('#pg-look .gorbstage .g-lock'); return l && !l.hidden ? l.dataset.state : null; });
+  check(st === 'attending' ? box === 'attend' : box === null, `[mind] after ${st}: the box is ${box}`);
+  if (st === 'attending') check((await look(page)).marks.locks > locks0, '[mind] attending did not lock the box (marks.locks)');
+  if (st === 'attending') await page.screenshot({ path: `${out}/look-${engine}-440-mind-attending.png` });
+}
+check((await look(page)).mind?.frames > mind0.frames, '[mind] the live orb stopped drawing');
+await page.screenshot({ path: `${out}/look-${engine}-440-mind.png` });
 await openLookSection(page, 'themes');
 const sw = await page.evaluate(() => [...document.querySelectorAll('#pg-look .swatch')].map((b) => ({ k: b.dataset.theme, name: b.querySelector('b')?.textContent, read: b.querySelector('.swread')?.textContent ?? '', accent: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
 check(sw.map((x) => x.k).join() === PRESETS17.join(), `[themes] the swatches (the presets): ${sw.map((x) => x.k).join()}`);
@@ -286,17 +323,21 @@ await ctx.close();
   await p3.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
   await p3.waitForTimeout(600);
   const said = (await p3.locator('#pg-look .glook-states').textContent()) ?? '';
-  check(/Reduce Motion is on.*my eye holds still/.test(said), `[states] Reduce Motion is not said: "${said}"`);
+  check(/Reduce Motion is on.*my orb holds still/.test(said), `[states] Reduce Motion is not said: "${said}"`);
   // the typed line shows whole at once
   await p3.click('#pg-look .gmark[data-mark="typed"] .g-key');
   const whole = await p3.evaluate(() => { const t = document.querySelector('#pg-look .g-typed'); return { n: t.querySelector('.g-typed-words').textContent.length, writing: t.classList.contains('writing') }; });
   check(whole.n > 30 && !whole.writing, `[states] with Reduce Motion the typed line did not show whole: ${JSON.stringify(whole)}`);
   await openLookSection(p3, 'mind');
-  await p3.click('#pg-look .g-key[aria-label="My eye listening"]');
+  await until(p3, () => (window.__ghosty.look.mind?.frames ?? 0) > 0, null, 20000, '[states] with Reduce Motion the orb never drew');
+  await p3.click('#pg-look .g-key[aria-label="My orb listening"]');
   await p3.waitForTimeout(900);
-  const e = (await look(p3)).eye;
-  check(e?.still === true && e.breathing === false && e.state === 'listening', `[states] with Reduce Motion the eye still breathes: ${JSON.stringify(e)}`);
-  check(/held still/.test((await p3.locator('#pg-look .g-orb').getAttribute('aria-label')) ?? ''), '[states] the eye does not say it is held still');
+  const e = (await look(p3)).mind;
+  const f0 = e?.frames ?? 0;
+  await p3.waitForTimeout(1200);
+  const e2 = (await look(p3)).mind;
+  check(e?.still === true && e.state === 'listening' && e2.frames - f0 <= 1, `[states] with Reduce Motion the orb still moves: ${JSON.stringify(e)} then ${e2?.frames} frames`);
+  check(/held still/.test((await p3.locator('#pg-look .gorblive').getAttribute('aria-label')) ?? ''), '[states] the orb does not say it is held still');
   await p3.screenshot({ path: `${out}/look-${engine}-440-reduce-motion.png` });
   await c3.close();
 }
@@ -306,9 +347,10 @@ if (!isWebKit) {
   await p4.evaluate(() => (location.hash = 'look'));
   await p4.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
   await openLookSection(p4, 'mind');
-  const e = (await look(p4)).eye;
+  await until(p4, () => window.__ghosty.look.mind?.mode === 'flat', null, 20000, '[states] no 3-D: the orb did not say so');
+  const e = (await look(p4)).mind;
   const said = (await p4.locator('#pg-look .glook-states').textContent()) ?? '';
-  check(e?.mode === 'flat' && /no 3-D, so I draw my eye flat/.test(said), `[states] no 3-D: the eye ${JSON.stringify(e)}, said "${said}"`);
+  check(e?.mode === 'flat' && /no 3-D, so I can’t draw my orb here/.test(said), `[states] no 3-D: the orb ${JSON.stringify(e)}, said "${said}"`);
   await p4.screenshot({ path: `${out}/look-${engine}-440-flat.png` });
   await c4.close();
   await flat.close();
@@ -334,6 +376,7 @@ if (!isWebKit) {
       }
       window.__sfx = [];
       document.addEventListener('ghosty-sfx', (e) => window.__sfx.push(e.detail));
+      window.__ghostyHero = true;
     }, [KEY, theme, look]);
     const p = await c.newPage();
     p.on('pageerror', (e) => webkitNoise(e) || problems.push(`[recipe ${viewport.width}] pageerror: ${e.message}`));
@@ -599,7 +642,9 @@ if (!isWebKit) {
   const whole = await p6.evaluate(() => { const t = document.querySelector('#pg-look .g-typed'); return { n: t.querySelector('.g-typed-words').textContent.length, writing: t.classList.contains('writing') }; });
   check(whole.n > 30 && !whole.writing, `[switch] calm: the typed line did not appear whole: ${JSON.stringify(whole)}`);
   await openLookSection(p6, 'mind');
-  check((await look(p6)).eye?.still === true, `[switch] calm: my eye still moves: ${JSON.stringify((await look(p6)).eye)}`);
+  await until(p6, () => (window.__ghosty.look.mind?.frames ?? 0) > 0, null, 20000, '[switch] calm: the orb never drew');
+  await p6.waitForTimeout(600);
+  check((await look(p6)).mind?.still === true, `[switch] calm: my orb still moves: ${JSON.stringify((await look(p6)).mind)}`);
   await openLookSection(p6, 'themes');
   await tapSwitch(p6, T0, 'motion', 'alive');
   // the sound: a tone, a click, or silence (each on a thing not yet recognised)

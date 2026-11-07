@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en-GB" data-theme="reactor" data-ground="graphite" data-world="scan" data-night="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1, viewport-fit=cover">
+<title>Ghosty · the boot · one frame</title>
+<link rel="stylesheet" href="../../fonts.css">
+<link rel="stylesheet" href="../../../../../apps/web/src/design/tokens.css">
+<link rel="stylesheet" href="boot.css">
+</head>
+<body>
+<!--
+  ONE FRAME OF THE BOOT at ?t=<ms> (or ?shot=1..8), on ?ground=, ?theme=, ?world=, ?night=, ?offline=1.
+  The orb is the real hologram (orb.js: mind.ts ported) drawn with the app's vendored three.js at this frame's BootLook; the
+  floor is the world's, drawn from the tokens as it forms; the marks are the design system's. Nothing animates: the page draws
+  the one moment asked for and sets window.__frameReady, the way the hero mock-ups did.
+-->
+<div class="screen" id="screen">
+  <div class="room" id="room"></div>
+  <canvas class="floor" id="floor" width="880" height="1912"></canvas>
+  <div class="sb" aria-hidden="true">
+    <span class="time">21:08</span>
+    <span class="island"></span>
+    <span class="right">
+      <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+      <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+    </span>
+  </div>
+  <div class="stage" id="stage"><canvas id="orb" width="704" height="704"></canvas></div>
+  <span class="g-lock" id="lock" hidden data-state="attend"><span class="g-ret-frame"></span></span>
+  <p class="name" id="name">GHOSTY</p>
+  <div class="top">
+    <p class="g-stamp" id="stamp" data-g="stamp"></p>
+    <p class="say" id="say" style="opacity:0"></p>
+    <div class="feeds" id="feeds"></div>
+  </div>
+  <p class="skip" id="skip" hidden>Tap to skip</p>
+  <div class="hud" id="hud" style="opacity:0">
+    <div class="plan">
+      <div class="kick"><span class="g-truth">The house · 7 rooms</span><span class="g-truth">You are home</span></div>
+      <div class="rooms"><span class="here">Home<i></i></span><span>See</span><span>Make</span><span class="w2">Learn</span><span>Plan</span><span>Life</span><span>Me</span></div>
+    </div>
+    <div class="ask"><span class="field">Ask, or say where to go</span><span class="mic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span></div>
+  </div>
+  <i class="hi"></i>
+</div>
+<script type="module">
+import { Orb, BOOT_DONE } from './orb.js';
+import { CUT, BEAT, HUD_MS, LOCK, TYPE_MS, NOW, WATCH, FEEDS, GREETING, SHOTS, EXTRA } from './cut.js';
+
+const q = new URLSearchParams(location.search);
+const html = document.documentElement;
+for (const k of ['theme', 'ground', 'world', 'night']) if (q.get(k)) html.dataset[k] = q.get(k);
+if (q.get('glow') === 'off') html.dataset.glow = 'off';
+// Paper: the boot plays on the night ground (the layer carries the night ground's tokens, as the boot's own layer will)
+const paper = html.dataset.ground === 'paper';
+const screen = document.getElementById('screen');
+if (paper) { screen.dataset.ground = html.dataset.night || 'graphite'; screen.dataset.accent = html.dataset.theme; }
+const offline = q.get('offline') === '1';
+const shot = q.get('shot') ? SHOTS.find((s) => s.n === +q.get('shot')) : null;
+const extra = q.get('extra') ? EXTRA.find((e) => e.key === q.get('extra')) : null;
+const T = q.has('t') ? +q.get('t') : shot ? shot.at : extra ? extra.at : CUT.end;
+
+const clamp = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k);
+const easeOut = (k) => 1 - Math.pow(1 - clamp(k), 3);
+const easeInOut = (k) => { const x = clamp(k); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const seg = (a, b) => clamp((T - a) / (b - a));
+const tokensOf = (el) => getComputedStyle(el);
+const cs = tokensOf(paper ? screen : html);
+const num = (n, fb = 0) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : fb; };
+const str = (n) => cs.getPropertyValue(n).trim();
+const world = html.dataset.world;
+
+// ---------------------------------------------------------------- (1) the ground, one breath: the room's light breathing in
+document.getElementById('room').style.opacity = easeOut(seg(CUT.ground, CUT.floor)).toFixed(3);
+
+// ---------------------------------------------------------------- (2) the world's floor forming, drawn from its tokens
+{
+  const c = document.getElementById('floor');
+  const g = c.getContext('2d');
+  g.setTransform(2, 0, 0, 2, 0, 0);
+  const W = 440, H = 956;
+  const pts = str('--g-room-points-rgb') || str('--g-bone-rgb');
+  const a = num('--g-floor-a', 0.14);
+  const k = seg(CUT.floor, CUT.floor + 400);
+  const hash = (x, y) => { const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return v - Math.floor(v); };
+  if (world === 'scan' && a > 0) {
+    // the points sampled in from the top-left corner: a front crossing the screen, each point a little early or late; the ones
+    // just sampled a step brighter, then settling to the floor's own strength
+    for (let y = 8; y < H; y += 16)
+      for (let x = 8; x < W; x += 16) {
+        const when = (x / W) * 0.55 + (y / H) * 0.45 + (hash(x, y) - 0.5) * 0.1;
+        const d = k * 1.1 - Math.max(0, when);
+        if (k <= 0 || d <= 0) continue;
+        const fresh = d < 0.08 ? 1 - d / 0.08 : 0;
+        g.fillStyle = `rgba(${pts}, ${(a + fresh * 0.5).toFixed(3)})`;
+        g.beginPath();
+        g.arc(x, y, 1.1 + fresh * 0.5, 0, Math.PI * 2);
+        g.fill();
+      }
+  } else if (world === 'map' && a > 0) {
+    // the plotting grid drawn line by line: the verticals from the left, the horizontals from the top (the tile: lines every
+    // 16 px at .4, a crosshair of 17 px at 1.5 every five squares), then the one crosshair finding centre, where the orb forms
+    const line = (x1, y1, x2, y2, w, al) => { g.strokeStyle = `rgba(${pts}, ${al.toFixed(3)})`; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+    const kv = clamp(k / 0.45), kh = clamp((k - 0.4) / 0.4), kx = clamp((k - 0.75) / 0.25);
+    for (let x = 8.5; x < W; x += 16) if (x / W <= kv) line(x, 0, x, H * Math.min(1, (kv - x / W) * 6 + 0.2), 1, a * 0.4);
+    for (let y = 8.5; y < H; y += 16) if (y / H <= kh) line(0, y, W * Math.min(1, (kh - y / H) * 6 + 0.2), y, 1, a * 0.4);
+    for (let y = 40.5; y < H; y += 80) for (let x = 40.5; x < W; x += 80) if (kx > 0) { line(x - 8.5, y, x + 8.5, y, 1.5, a * kx); line(x, y - 8.5, x, y + 8.5, 1.5, a * kx); }
+    // the crosshair finding centre: from the first tile's crosshair to the orb's centre (220, 382), in the line colour
+    const kc = easeInOut(seg(CUT.floor + 160, CUT.orb));
+    if (seg(CUT.floor + 80, CUT.orb) > 0) {
+      const cx = 40.5 + (220 - 40.5) * kc, cy = 40.5 + (382 - 40.5) * kc;
+      const col = str('--g-line');
+      g.strokeStyle = col; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(cx - 14, cy); g.lineTo(cx + 14, cy); g.moveTo(cx, cy - 14); g.lineTo(cx, cy + 14); g.stroke();
+    }
+  }
+  // the whole floor fades away under the orb's landing? No: it is what every screen stands on. It stays.
+}
+
+// ---------------------------------------------------------------- (3) the orb: the real hologram at this frame's BootLook
+const stage = document.getElementById('stage');
+const orbCanvas = document.getElementById('orb');
+const orb = new Orb(orbCanvas, { tokensFrom: paper ? screen : html, level: 0.5 });
+orb.size(352, 352, 2);
+const G = CUT.orb, S = CUT.orb + 560, N = CUT.feeds;
+const push = 1 + 0.45 * (1 - easeInOut(seg(G, N)));
+let look = null;
+let fade = 1;
+if (T < CUT.end) {
+  look = {
+    gather: seg(G, S),
+    links: seg(G + 320, S + 50),
+    haze: easeOut(seg(S - 150, S + 250)),
+    mer: seg(S + 80, S + 640),
+    sphere: easeInOut(seg(S + 250, S + 650)),
+    rim: easeInOut(seg(S + 420, S + 820)),
+    scale: seg(S + 300, N),
+    core: 1,
+    turn: -0.35 * (1 - easeInOut(seg(S, N))),
+    push,
+    sweep: T >= G + 240 && T <= G + 540 ? 1.1 - 2.2 * seg(G + 240, G + 540) : NaN,
+    trails: 1,
+    refract: 1,
+  };
+  fade = seg(G, G + 120);
+}
+const state = q.get('state') || (T >= CUT.greeting && T < CUT.end ? 'saying' : T >= CUT.recognise ? 'attending' : 'idle');
+orb.draw(12.5 + T / 1000, state, look, 0);
+stage.style.opacity = fade.toFixed(3);
+
+// the orb's box inside the stage: the sphere's radius is 0.9 × 0.74 of the half side; the reticle sits 5 px outside it
+const side = 352, cx = 44 + side / 2, cy = 206 + side / 2;
+const R = 0.9 * 0.74 * (side / 2) / push + 5;
+const box = { left: cx - R, top: cy - R, width: 2 * R, height: 2 * R };
+
+// ---------------------------------------------------------------- (8) the landing: the stage eases up into Home's hero box
+// Home's hero (today's .rchero: 480 wide at most, 440 / 292, its orb 49.6 % of it, centred): a 238 px box, centred, under the greeting
+const hero = { x: (440 - 238) / 2, y: 150, w: 238 };
+const kl = easeInOut(seg(CUT.land, CUT.end));
+if (kl > 0) {
+  const s = 1 + (hero.w / side - 1) * kl;
+  stage.style.transform = `translate(${((hero.x - 44) * kl).toFixed(2)}px, ${((hero.y - 206) * kl).toFixed(2)}px) scale(${s.toFixed(4)})`;
+}
+const textsOut = 1 - seg(CUT.land, CUT.land + 150);
+
+// ---------------------------------------------------------------- (4) the stamp line typing itself, (5) the feeds answering
+const segs = (el, list) => {
+  el.replaceChildren();
+  list.forEach((p, i) => {
+    const sp = document.createElement('span');
+    sp.className = `g-seg${p.tone ? ' ' + p.tone : ''}`;
+    sp.textContent = p.text;
+    if (i < list.length - 1) { const sep = document.createElement('span'); sep.className = 'g-sep'; sep.textContent = ' ·'; sp.append(sep); }
+    el.append(sp, i < list.length - 1 ? ' ' : '');
+  });
+};
+const answered = offline ? 0 : FEEDS.filter((_, i) => T >= CUT.feeds + i * LOCK).length;
+const watch = offline ? WATCH.offline : answered === FEEDS.length ? WATCH.watching : WATCH.checking;
+const stampWords = [NOW.day, NOW.time, NOW.place, watch].concat(T >= CUT.end ? ['Looking at Home'] : []);
+{
+  const el = document.getElementById('stamp');
+  const full = stampWords.join(' · ');
+  const typed = Math.min(full.length, Math.floor((T - CUT.stamp) / TYPE_MS));
+  if (typed > 0) {
+    // typed so far, whole segments where the cursor has passed them
+    let n = 0;
+    const list = [];
+    for (const w of stampWords) {
+      if (n >= typed) break;
+      const text = w.slice(0, typed - n);
+      list.push({ text, tone: T >= CUT.end && w === 'Looking at Home' ? 'on' : undefined });
+      n += w.length + 3;
+    }
+    segs(el, list);
+    const cur = document.createElement('i'); cur.className = 'g-cursor';
+    el.append(cur);
+    el.classList.toggle('writing', typed < full.length);
+  }
+}
+{
+  const host = document.getElementById('feeds');
+  const gone = T >= CUT.recognise ? 1 - seg(CUT.recognise, CUT.recognise + LOCK) : 1;
+  FEEDS.slice(0, answered).forEach((f, i) => {
+    const p = document.createElement('p');
+    p.className = 'g-truth';
+    segs(p, [{ text: f.feed, tone: 'strong' }, { text: f.source }, { text: f.says }]);
+    p.style.opacity = (seg(CUT.feeds + i * LOCK, CUT.feeds + i * LOCK + LOCK) * gone).toFixed(3);
+    host.append(p);
+  });
+}
+
+// ---------------------------------------------------------------- (6) the recognition: the box snaps on, G H O S T Y under it
+{
+  const lock = document.getElementById('lock');
+  const k = easeInOut(seg(CUT.recognise, CUT.recognise + LOCK));
+  if (k > 0 && textsOut > 0) {
+    const pad = 14 * (1 - k);
+    lock.hidden = false;
+    Object.assign(lock.style, { left: `${box.left - pad}px`, top: `${box.top - pad}px`, width: `${box.width + 2 * pad}px`, height: `${box.height + 2 * pad}px`, opacity: (0.35 + 0.65 * k) * textsOut });
+  }
+  const name = document.getElementById('name');
+  name.style.top = `${box.top + box.height + 14}px`;
+  name.style.opacity = (seg(CUT.recognise + LOCK, CUT.recognise + LOCK + 120) * textsOut).toFixed(3);
+}
+
+// ---------------------------------------------------------------- (7) the greeting, his line, where Home's first line lives
+{
+  const say = document.getElementById('say');
+  say.textContent = GREETING;
+  say.style.opacity = seg(CUT.greeting, CUT.greeting + 160).toFixed(3);
+  say.hidden = T < CUT.greeting;
+}
+// a tap skips it: said once the orb is there and gone at the recognition
+document.getElementById('skip').hidden = !(T >= CUT.orb + 400 && T < CUT.recognise);
+
+// ---------------------------------------------------------------- the HUD slides in a beat after the landing
+{
+  const hud = document.getElementById('hud');
+  const k = easeOut(seg(CUT.end + BEAT, CUT.end + BEAT + HUD_MS));
+  hud.style.opacity = k.toFixed(3);
+  hud.style.transform = `translateY(${(24 * (1 - k)).toFixed(1)}px)`;
+}
+document.title = `Ghosty · the boot · ${T} ms`;
+window.__frameReady = true;
+</script>
+</body>
+</html>

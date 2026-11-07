@@ -650,7 +650,7 @@ test('THEMES-2: the switches each change one thing and keep the floor — body 1
   const machine = read('../../web/src/ui/machine.ts');
   assert.match(machine, /if \(sound === 'tone'\) \{\s*if \(ms\) sfx\('lock', ms\);\s*else sfx\('lock'\);\s*\} else if \(sound === 'click'\) sfx\('click', ms\);/, 'the tone, the click, or silence; on the audio clock for the moment the box lands');
   assert.match(machine, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\) \|\| \(typeof document !== 'undefined' && document\.documentElement\.dataset\.motion === 'calm'\)/);
-  assert.match(read('../../web/src/ui/eye.ts'), /dataset\.motion === 'calm'/);
+  assert.match(read('../../web/src/features/core/mind.ts'), /dataset\.motion === 'calm'/, 'calm holds the orb still (one frame per change)');
   assert.match(read('../../web/src/assistant/sfx.ts'), /kind === 'click'/);
   assert.match(read('../../web/src/ui/dials.ts'), /Reduce Motion is on in your phone’s settings, so I hold still whatever this says: it always wins\./);
 });

@@ -1,0 +1,107 @@
+/* THE BOOT STORYBOARD'S PAGE. Every colour, size and duration comes from the design system's tokens
+   (apps/web/src/design/tokens.css, loaded first); the marks are the `.g-*` rules of apps/web/styles.css's THE SYSTEM section,
+   copied here as they stand (the stamp line, the truth line, the reticle frame, the lock box, the typed-out line's cursor,
+   the key and the plate), so a frame shows the real marks and not a drawing of them. The phone's own fonts are stood in for by
+   the mock-ups' fonts (../../fonts.css: Inter for SF Pro; the mono stack falls to JetBrains Mono here). */
+:root { --g-font-text: 'Inter Mock', system-ui, sans-serif; --g-font-display: 'Inter Mock', system-ui, sans-serif; }
+html, body { margin: 0; padding: 0; }
+body { width: 440px; height: 956px; overflow: hidden; background: var(--g-canvas); color: var(--g-ink-1); font: var(--g-t-body); letter-spacing: var(--g-tr-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* the boot plays on the night ground under Paper: the layer carries the room's tokens (data-ground on the layer, as the boot's own div will) */
+.screen { position: relative; width: 440px; height: 956px; overflow: hidden; background: var(--g-canvas); color: var(--g-ink-1); }
+
+/* the room's light (theme.ts --room: the accent at .09 × the theme's glow × the world's glow), breathing in under the orb's place */
+.room { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 60% 42% at 50% 40%, rgba(var(--g-accent-rgb), calc(.09 * var(--g-accent-glow) * var(--g-glow) * var(--g-room-glow))), transparent 70%); }
+/* the world's floor, drawn by hand from the tokens as it forms (canvas), in the room's points */
+canvas.floor { position: absolute; inset: 0; z-index: 1; width: 440px; height: 956px; pointer-events: none; }
+
+/* the phone: status bar (time in the left ear, signal / Wi-Fi / battery in the right, the Island between) */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; display: grid; grid-template-columns: 1fr 126px 1fr; pointer-events: none; color: var(--g-ink-1); }
+.sb .time { align-self: start; margin-top: 18px; text-align: center; padding-left: 14px; font: 600 17px/22px var(--g-font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sb .island { margin-top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb .right { align-self: start; margin-top: 22px; padding-right: 12px; display: flex; gap: 6px; justify-content: center; align-items: center; }
+.sb .right svg { display: block; fill: currentColor; }
+.hi { position: absolute; z-index: 60; left: 50%; bottom: 8px; width: 139px; height: 5px; margin-left: -69.5px; border-radius: 3px; background: var(--g-ink-1); opacity: .92; pointer-events: none; }
+
+/* the stage: the boot's box (shell/boot.ts: side = min(80 % of the width, 42 % of the height, 380) at 40 % down), the orb's canvas */
+.stage { position: absolute; z-index: 3; left: 44px; top: 206px; width: 352px; height: 352px; transform-origin: 0 0; will-change: transform; }
+.stage canvas { display: block; width: 352px; height: 352px; }
+
+/* the top of the screen: the stamp line, then what Ghosty says, then the feeds' answers */
+.top { position: absolute; z-index: 4; left: var(--g-gutter); right: var(--g-gutter); top: 62px; }
+.top > * + * { margin-top: var(--g-s-half); }
+.top .say { margin-top: var(--g-s-1); font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); font-family: var(--g-face-say); }
+.top .feeds { margin-top: var(--g-s-1); }
+.top .feeds > * + * { margin-top: var(--g-s-half); }
+
+/* ---- the marks, as styles.css THE SYSTEM draws them */
+.g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate-fill); white-space: nowrap; border-radius: var(--g-radius-mark); }
+.g-tag .g-count { flex: none; color: var(--g-ink-3); }
+.g-tag.on { color: var(--g-accent-text); }
+.g-truth, .g-stamp { margin: 0; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.g-truth .strong { color: var(--g-ink-2); font-weight: 600; }
+:is(.g-truth, .g-stamp) .on { color: var(--g-accent-text); }
+.g-truth .warn { color: var(--g-amber); }
+:is(.g-truth, .g-stamp) .g-sep { color: var(--g-ink-4); }
+:is(.g-truth, .g-stamp) .g-seg { display: inline-block; max-width: 100%; }
+/* the typed-out line's block cursor (ui/machine.ts typedLine: shown while it is still writing) */
+.g-cursor { display: none; width: .62em; height: 1.05em; margin-left: 2px; vertical-align: -.16em; background: var(--g-accent); }
+.writing .g-cursor { display: inline-block; }
+/* the reticle's frame: a hairline edge between four corner marks; a full box in the accent when it attends */
+.g-ret-frame { --rc: var(--g-line); position: absolute; inset: 0; display: block; pointer-events: none; border: var(--g-hair) var(--g-ret-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-ret-side)); border-right-width: calc(var(--g-hair) * var(--g-ret-side)); border-radius: var(--g-radius-mark);
+  background:
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-weight) var(--g-ret-arm) no-repeat; }
+.g-lock { position: absolute; left: 0; top: 0; z-index: 5; display: block; pointer-events: none; }
+.g-lock[hidden] { display: none; }
+.g-lock[data-state="watch"] > .g-ret-frame { --rc: var(--g-ink-2); }
+.g-lock[data-state="attend"] > .g-ret-frame { --rc: var(--g-accent); border-style: solid; border-color: var(--g-accent); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-ret-side)); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .45); }
+.g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate-fill); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); box-shadow: var(--g-plate-shadow); }
+.g-key { display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-width: var(--g-target); min-height: var(--g-target); padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; }
+
+/* the name under the box at the recognition: a reading at size (--g-t-value), spaced out, as today's boot spaces it */
+.name { position: absolute; z-index: 4; left: 0; right: 0; top: 0; margin: 0; padding-left: .5em; text-align: center; font: var(--g-t-value); letter-spacing: .5em; color: var(--g-ink-1); white-space: nowrap; opacity: 0; }
+/* a tap skips it: said once, small, where the thumb is */
+.skip { position: absolute; z-index: 4; left: 0; right: 0; bottom: 56px; margin: 0; text-align: center; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-4); }
+
+/* ---- Home's HUD, sliding in a beat after the orb lands (W1's plan of the house and the ask line, drawn in the system's marks) */
+.hud { position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; height: 200px; will-change: transform, opacity; }
+.plan { position: absolute; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(8px + 48px + 16px + 16px); }
+.plan .kick { display: flex; justify-content: space-between; margin-bottom: var(--g-s-1); }
+.plan .rooms { display: flex; height: 56px; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-fill); border-radius: var(--g-radius-key); }
+.plan .rooms span { position: relative; flex: 1 1 0; min-width: var(--g-target); border-left: var(--g-stroke) solid var(--g-line); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); display: flex; align-items: flex-end; padding: 0 0 6px 6px; }
+.plan .rooms span:first-child { border-left: 0; }
+.plan .rooms span.w2 { flex-grow: 1.5; }
+.plan .rooms span.here { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.plan .rooms span.here i { position: absolute; right: 7px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--g-accent); }
+.ask { position: absolute; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(8px + 16px); height: 48px; display: flex; align-items: stretch; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-strong-fill); border-radius: var(--g-radius-key); }
+.ask .field { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 14px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-3); white-space: nowrap; overflow: hidden; }
+.ask .mic { width: 48px; flex: none; display: grid; place-items: center; border-left: var(--g-stroke) solid var(--g-line); color: var(--g-ink-1); }
+.ask .mic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- the sheets (contact, states): a page of frames with their captions, in the system's type on the canvas */
+.sheet { width: auto; height: auto; overflow: visible; padding: 32px 36px 40px; }
+.sheet h1 { margin: 0 0 4px; font: var(--g-t-display); letter-spacing: var(--g-tr-display); }
+.sheet .lede { margin: 0 0 24px; font: var(--g-t-body); color: var(--g-ink-2); max-width: 1180px; }
+.sheet .row { display: flex; gap: 24px; align-items: flex-start; }
+.sheet .row + .row { margin-top: 28px; }
+.sheet figure { margin: 0; width: 264px; flex: none; }
+.sheet figure img { display: block; width: 264px; height: auto; border: var(--g-hair) solid var(--g-line-faint); }
+.sheet figcaption { margin-top: 10px; }
+.sheet figcaption .g-tag { margin-bottom: 4px; }
+.sheet figcaption .what { margin: 4px 0 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+.sheet figcaption .true { margin: 4px 0 0; }
+.sheet .bar { display: flex; height: 6px; margin: 0 0 20px; border: var(--g-hair) solid var(--g-line-faint); }
+.sheet .bar i { display: block; height: 100%; border-left: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate-strong); }
+.sheet .bar i:first-child { border-left: 0; }
+.sheet .bar i.on { background: var(--g-accent); }
+.sheet .ticks { position: relative; height: 20px; margin: 0 0 8px; }
+.sheet .ticks u { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; text-decoration: none; font: var(--g-t-fine); color: var(--g-ink-3); }
+.sheet .ticks u:last-child { transform: translateX(-100%); }
+.states .row figure { width: 200px; }
+.states canvas { display: block; width: 200px; height: 200px; }
