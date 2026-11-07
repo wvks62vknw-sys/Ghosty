@@ -81,8 +81,11 @@ export const lookTab: TabDef = {
   blurb: 'tokens · type · marks · mind · themes · ground · world · switches',
   now: () => `${PRESETS.length} presets · ${recipeNow()}`,
   mount(root) {
+    // the checks' handle (window.__ghosty.look), attached once the app's own exists: opened first at the start (a reload on
+    // THE LOOK), this screen mounts before main.ts makes window.__ghosty
     const w = window as unknown as { __ghosty?: Record<string, unknown> };
-    if (w.__ghosty) w.__ghosty.look = lookState;
+    const attach = (tries = 0) => (w.__ghosty ? (w.__ghosty.look = lookState) : tries < 150 && setTimeout(() => attach(tries + 1), 100));
+    attach();
     const css = getComputedStyle(document.documentElement);
     const tokens = parseTokens(tokensCss);
 
@@ -276,8 +279,9 @@ export const lookTab: TabDef = {
       const keyStage = h('div.gstage');
       const keyBox = lockBox(keyStage);
       const keySaid = truthLine('Press a key');
+      // (the words say the lock the moment it is decided, as the box closes on the key)
       const pressed = (b2: HTMLButtonElement, word: string) => {
-        void recognise(keyBox, b2, { name: word }).then((fresh) => keySaid.replaceChildren(...truthLine(fresh ? [{ text: `Pressed ${word}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `${word} again`, tone: 'strong' }, 'held, no second tone']).childNodes));
+        void recognise(keyBox, b2, { name: word, onLock: (fresh) => keySaid.replaceChildren(...truthLine(fresh ? [{ text: `Pressed ${word}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `${word} again`, tone: 'strong' }, 'held, no second tone']).childNodes) });
       };
       keyStage.append(h('div.gkeys',
         key('Open', (b2) => pressed(b2, 'Open'), { kind: 'fill', label: 'Open: the one filled key' }),
@@ -313,7 +317,7 @@ export const lookTab: TabDef = {
       const recSaid = truthLine('Tap a thing');
       const thing = (label: string, glyph: string) => {
         const b2 = h('button.gthing', { type: 'button', 'aria-label': label, dataset: { case: 'keep' } }, icon(glyph), label);
-        b2.addEventListener('click', () => void recognise(recBox, b2, { name: label }).then((fresh) => recSaid.replaceChildren(...truthLine(fresh ? [{ text: `Locked on ${label}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `Still on ${label}`, tone: 'strong' }, 'no second tone']).childNodes)));
+        b2.addEventListener('click', () => void recognise(recBox, b2, { name: label, onLock: (fresh) => recSaid.replaceChildren(...truthLine(fresh ? [{ text: `Locked on ${label}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `Still on ${label}`, tone: 'strong' }, 'no second tone']).childNodes) }));
         return b2;
       };
       recStage.append(h('div.gthings', thing('Library', GLYPH.book), thing('Agenda', GLYPH.agenda), thing('God’s eye', GLYPH.globe)), recSaid);
@@ -400,17 +404,15 @@ export const lookTab: TabDef = {
     }, true);
     showing();
     paintStates();
-    // the rest once the screen is drawn, one section at a time in the page's idle moments, so neither the first paint nor a tap
-    // ever waits behind them (a phone with no idle callback: a frame and 60 ms apart)
+    // the rest once the screen is drawn, one section a frame, so the first paint never waits for them
     const rest = ['marks', 'mind', 'themes', 'type', 'tokens'];
-    const idle = (fn: () => void) => (typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(() => fn(), { timeout: 1500 }) : setTimeout(() => requestAnimationFrame(fn), 60));
     const later = () => {
       const id = rest.find((x) => !lookState.built.includes(x));
       if (!id) return;
       ensure(id);
-      idle(later);
+      setTimeout(() => requestAnimationFrame(later), 60);
     };
-    requestAnimationFrame(() => setTimeout(() => idle(later), 250));
+    requestAnimationFrame(() => setTimeout(later, 250));
 
     // ---------------------------------------------------------------- following the phone
     let retoken = 0;

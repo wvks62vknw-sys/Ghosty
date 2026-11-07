@@ -378,14 +378,17 @@ const lastLocked = new WeakMap<HTMLElement, Element>();
  * it stays and makes no sound (`again` makes it lock afresh). The tone follows his sound setting (assistant/sfx.ts). Resolves
  * when the box has landed.
  */
-export async function recognise(box: HTMLElement, thing: Element, o: { name?: string; again?: boolean } = {}): Promise<boolean> {
+export async function recognise(box: HTMLElement, thing: Element, o: { name?: string; again?: boolean; onLock?: (fresh: boolean) => void } = {}): Promise<boolean> {
   const host = box.parentElement as HTMLElement;
   const to = boxIn(host, thing);
   if (!o.again && lastLocked.get(box) === thing && !box.hidden) {
     Object.assign(box.style, px(to));
+    o.onLock?.(false);
     return false;
   }
   lastLocked.set(box, thing);
+  // (what the lock is, said at once: `onLock` hears it as the box starts to close, the promise when it has landed)
+  o.onLock?.(true);
   const pad = 14;
   const from = { left: to.left - pad, top: to.top - pad, width: to.width + pad * 2, height: to.height + pad * 2 };
   box.hidden = false;
