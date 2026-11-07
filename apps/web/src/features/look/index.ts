@@ -106,6 +106,7 @@ export const lookTab: TabDef = {
     const paintStates = () => {
       const said: [string, string][] = [];
       if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands, the typed line shows whole and my eye holds still.']);
+      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands, the typed line shows whole and my eye holds still. Themes › Switches › Motion brings it back.']);
       if (!settings.get().sounds) said.push(['Sound off', 'Interface sounds are off, so the recognition tone stays quiet. Settings › Voice & home turns them on.']);
       else if (!toneHeard()) said.push(['Tap once', 'I can play the recognition tone once you have tapped the screen.']);
       if (eye?.info.mode === 'flat') said.push(['Drawn flat', 'This browser has no 3-D, so I draw my eye flat here.']);
@@ -346,7 +347,7 @@ export const lookTab: TabDef = {
         eye!.set(s);
         idle.setAttribute('aria-pressed', String(s === 'idle'));
         listen.setAttribute('aria-pressed', String(s === 'listening'));
-        const still = motion.matches;
+        const still = motion.matches || document.documentElement.dataset.motion === 'calm';
         // (drawn flat, it neither turns nor breathes, and says so)
         const flat = eye!.info.mode === 'flat';
         said.replaceChildren(...truthLine(s === 'idle' ? (flat ? ['Idle', 'drawn flat, still'] : still ? ['Idle', 'held still'] : ['Idle', 'turning slowly']) : [{ text: 'Listening', tone: 'on' }, flat ? 'drawn flat, still' : still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
@@ -442,6 +443,7 @@ export const lookTab: TabDef = {
       if (typed && now !== said && secs.current() === 'marks') void typed.type((said = now));
     });
     motion.addEventListener?.('change', paintStates);
+    recipeEvents.on('change', paintStates);
     addEventListener('online', restamp);
     addEventListener('offline', restamp);
     return {

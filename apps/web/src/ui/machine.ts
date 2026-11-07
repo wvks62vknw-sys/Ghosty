@@ -27,7 +27,8 @@
 import { h, icon, svgEl } from '../core/dom';
 import { sfx, sfxAllowed } from '../assistant/sfx';
 
-const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Nothing travels: Reduce Motion (it always wins), or MOTION set to calm (BRIEF-THEMES-2: state/theme.ts writes data-motion). */
+const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || (typeof document !== 'undefined' && document.documentElement.dataset.motion === 'calm');
 /** A token's duration in ms (0 with Reduce Motion: tokens.css sets the durations to nothing). */
 export function dur(name: 'lock' | 'turn' | 'bring'): number {
   if (still()) return 0;
@@ -39,7 +40,7 @@ export function dur(name: 'lock' | 'turn' | 'bring'): number {
 const ease = (name: 'lock' | 'bring') => getComputedStyle(document.documentElement).getPropertyValue(`--g-ease-${name}`).trim() || 'ease-out';
 
 /** What the marks have done, for the checks (window.__ghosty.marks). */
-export const marksState = { locks: 0, lastLock: '', typed: 0, sights: 0, searches: 0 };
+export const marksState = { locks: 0, lastLock: '', typed: 0, sights: 0, searches: 0, lastSound: '' as '' | 'tone' | 'click' | 'off' };
 
 // ---------------------------------------------------------------- the words of each mark, and when it is used
 
@@ -397,7 +398,11 @@ export async function recognise(box: HTMLElement, thing: Element, o: { name?: st
   }
   marksState.locks++;
   marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
-  sfx('lock');
+  // THE SOUND (BRIEF-THEMES-2): one short level tone, one small click, or the lock in silence; always on top of his sound setting
+  const sound = (document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off';
+  marksState.lastSound = sound;
+  if (sound === 'tone') sfx('lock');
+  else if (sound === 'click') sfx('click');
   return true;
 }
 
