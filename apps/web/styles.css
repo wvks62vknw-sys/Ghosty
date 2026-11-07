@@ -6005,6 +6005,17 @@ html #pg-look .gtok-name { font: var(--g-t-reading); letter-spacing: var(--g-tr-
 html #pg-look .gtok-val { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html #pg-look .gtok-job { font: var(--g-t-caption); color: var(--g-ink-3); }
 html #pg-look .gtok .g-truth { margin-top: 2px; }
+/* TOKENS: each ground's and world's block (THEMES-2), a row that opens to its tokens beside their jobs; the one in force open */
+html #pg-look .gblocks > .gtok-job { display: block; margin: 0 0 var(--g-s-1); }
+html #pg-look .gblock { border-top: var(--g-hair) solid var(--g-line-faint); }
+html #pg-look .gblock-head { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-1) 0; cursor: pointer; list-style: none; }
+html #pg-look .gblock-head::-webkit-details-marker { display: none; }
+html #pg-look .gblock-head::after { content: '+'; margin-left: auto; font: var(--g-t-reading); color: var(--g-ink-3); }
+html #pg-look .gblock[open] > .gblock-head::after { content: '−'; }
+html #pg-look .gblock-name { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html #pg-look .gblock-on { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+html #pg-look .gblock-note { order: 3; flex-basis: 100%; font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-look .gbtok { display: flex; flex-direction: column; gap: 2px; padding: var(--g-s-1) 0 var(--g-s-1) var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); }
 /* TYPE: the scale, each style set in its own size */
 html #pg-look .gtype { padding: var(--g-s-2) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
 html #pg-look .gtype-sample { display: block; margin: 0 0 var(--g-s-1); color: var(--g-ink-1); overflow-wrap: anywhere; }
