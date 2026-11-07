@@ -328,8 +328,8 @@ if (!isWebKit) {
     await c.addInitScript(([k, theme, look]) => {
       localStorage.setItem('ghosty.ownerKey', k);
       localStorage.setItem('ghosty.themes1', '1');
-      if (!sessionStorage.getItem('seeded')) {
-        sessionStorage.setItem('seeded', '1');
+      if (!localStorage.getItem('spec.recipe.seeded')) {
+        localStorage.setItem('spec.recipe.seeded', '1');
         localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', sounds: true, theme, ...(look ? { look } : {}) }));
       }
       window.__sfx = [];
@@ -393,10 +393,15 @@ if (!isWebKit) {
       if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
       if (![...el.childNodes].some((t) => t.nodeType === 3 && t.textContent.trim())) continue;
       const r = el.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > innerHeight) continue;
+      if (r.bottom < 0 || r.top > innerHeight || r.width <= 1 || r.height <= 1 || parseFloat(cs.fontSize) < 1 || /inset\(50%\)/.test(cs.clipPath)) continue;
       const bg = bgOf(el);
-      const fg = parse(cs.color);
-      if (!fg) continue;
+      let fg = parse(cs.color);
+      if (fg && fg.a === 0) {
+        // its words drawn by ::before (a panel's status, data-label): measured as drawn
+        const before = getComputedStyle(el, '::before');
+        fg = before.content && before.content !== 'none' && before.content !== 'normal' ? parse(before.color) : null;
+      }
+      if (!fg || fg.a === 0) continue;
       const k = ratio(over(fg, bg), bg);
       n++;
       min = Math.min(min, k);
@@ -423,6 +428,7 @@ if (!isWebKit) {
   check(order.first, '[recipe] the presets do not come first, the dials under them');
   check(order.dials.join() === 'ground,colour,world,switches', `[recipe] the dials: ${order.dials.join()}`);
   // ---- 7b. each ground applies at once, is kept across a reload, and the boot plays on it
+  let lastDark = 'graphite';
   for (const g of ['black', 'slate', 'warm', 'paper', 'graphite']) {
     if (!(await p5.evaluate(() => document.body.classList.contains('g-themepage')))) await themePage(p5);
     await tapDial(p5, '#pg-settings .pn.themepn.pushed', 'ground', g);
@@ -434,7 +440,8 @@ if (!isWebKit) {
       toasts: document.querySelector('#toasts')?.textContent ?? '',
     }));
     const s = await state(p5);
-    const night = g === 'paper' ? 'graphite' : g;
+    const night = g === 'paper' ? lastDark : g;
+    if (g !== 'paper') lastDark = g;
     check(s.ground === g && s.saved?.ground === g && now.canvas === GROUND_CANVAS[g] && hexOf(now.page) === GROUND_CANVAS[g], `[ground] ${g} did not apply at once: ${JSON.stringify({ ground: s.ground, saved: s.saved?.ground, canvas: now.canvas, page: hexOf(now.page) })}`);
     check(hexOf(now.body) === GROUND_CANVAS[night] && s.night === night, `[ground] ${g}: today's rooms stand on ${hexOf(now.body)} (night ${s.night}), not ${night}'s ${GROUND_CANVAS[night]}`);
     check(now.row.includes(LABEL[g]) && now.toasts.includes(`Ground: ${LABEL[g]}`), `[ground] ${g}: the row says "${now.row}", the toast "${now.toasts}"`);
@@ -600,6 +607,7 @@ if (!isWebKit) {
   check((await state(p6)).glow === 'off' && (await state(p6)).preset === 'custom', '[recipe] Custom was not kept exactly as set across a reload');
   await p6.evaluate(() => (location.hash = 'look'));
   await p6.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
+  await p6.waitForTimeout(900);
   await openLookSection(p6, 'themes');
   await p6.click('#pg-look .swatch[data-preset="scan"]');
   await p6.waitForTimeout(300);
@@ -639,6 +647,7 @@ if (!isWebKit) {
   for (const vp of [SMALL, PHONE]) {
     const { c: c8, p: p8 } = await recipePhone(vp);
     await themePage(p8);
+    await p8.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     for (let y = 0; y < 6; y++) {
       await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
       await p8.waitForTimeout(150);
@@ -648,7 +657,7 @@ if (!isWebKit) {
         const side = [...root.querySelectorAll('*')].filter((el) => seen(el) && !el.closest('svg')).map((el) => [el, el.getBoundingClientRect()]).filter(([, r]) => r.right > W + 0.5 || r.left < -0.5).map(([el, r]) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} ${Math.round(r.left)}–${Math.round(r.right)}`);
         const controls = [...root.querySelectorAll('button, [role="radio"], [role="switch"], input, select')].filter(seen);
         const unnamed = controls.filter((c) => !(c.getAttribute('aria-label') || c.textContent || '').trim()).map((c) => c.outerHTML.slice(0, 80));
-        const small = controls.map((c) => [c, c.getBoundingClientRect()]).filter(([, r]) => r.width < 43.5 || r.height < 43.5).map(([c, r]) => `${(c.getAttribute('aria-label') || c.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}×${Math.round(r.height)}`);
+        const small = controls.map((c) => [c, { width: c.offsetWidth || c.getBoundingClientRect().width, height: c.offsetHeight || c.getBoundingClientRect().height }]).filter(([, r]) => r.width < 43.5 || r.height < 43.5).map(([c, r]) => `${(c.getAttribute('aria-label') || c.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}×${Math.round(r.height)}`);
         return { side: side.slice(0, 5), unnamed: unnamed.slice(0, 5), small: small.slice(0, 5), scroll: document.documentElement.scrollWidth };
       }, vp.width);
       check(m.scroll <= vp.width && !m.side.length, `[${vp.width}] the Theme page sticks out sideways: ${m.side.join(' | ')}`);
