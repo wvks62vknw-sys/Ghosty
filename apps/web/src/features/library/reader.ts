@@ -105,6 +105,17 @@ export function coverFor(d: { id: string; title: string; author?: string; kind: 
   return el;
 }
 
+/** About how many words a book has (from its characters: about six to a word with its space). */
+const wordsOf = (d: Pick<LibraryDoc, 'chars'>): number => Math.max(1, Math.round(d.chars / 6));
+/** How long it takes read aloud, as he would say it ("about 8 minutes aloud", "about 6 hours aloud"), at about 150 words a minute. */
+export function aloudWords(d: Pick<LibraryDoc, 'chars'>): string {
+  const min = wordsOf(d) / 150;
+  if (min < 1.5) return 'about a minute aloud';
+  if (min < 55) return `about ${Math.round(min)} minutes aloud`;
+  const hours = Math.round(min / 30) / 2;
+  return `about ${hours === 1 ? 'an hour' : `${String(hours).replace('.5', '½')} hours`} aloud`;
+}
+
 /** A document with pages of its own (a PDF, photos of pages, a text with page breaks): an e-book's parts are not pages. */
 export const hasOwnPages = (d: Pick<LibraryDoc, 'pages' | 'kind'>): boolean => d.pages > 1 && d.kind !== 'book';
 
@@ -794,7 +805,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       h('div.grd-aboutrow', coverFor(d, 'big'), h('div.grd-abouttxt',
         h('b.grd-abouttitle', { dataset: { case: 'keep' } }, d.title),
         d.author ? h('span.by', { dataset: { case: 'keep' } }, d.author) : null,
-        truthLine([kindWord(d.kind), hasOwnPages(d) ? `${d.pages} pages` : `${d.passages} passage${d.passages === 1 ? '' : 's'}`, ...(book ? [`${book.chapters.length} ${book.byHeadings ? 'chapters' : book.hasPages ? 'page ranges' : 'parts'}`] : [])]),
+        truthLine([kindWord(d.kind), hasOwnPages(d) ? `${d.pages} pages` : `${wordsOf(d).toLocaleString('en-GB')} words`, ...(book ? [`${book.chapters.length} ${book.byHeadings ? (book.chapters.length === 1 ? 'chapter' : 'chapters') : book.hasPages ? 'page ranges' : 'parts'}`] : []), aloudWords(d)]),
         d.source ? truthLine([{ text: 'From', tone: 'strong' }, d.source]) : null,
         added ? truthLine([{ text: 'Added', tone: 'strong' }, added]) : null,
         truthLine([{ text: 'On this phone', tone: 'strong' }, whole ? 'all of it · reads with no signal' : here ? `${here} of ${d.passages} passages` : d.id.startsWith('local-') ? 'only here so far' : 'not yet']))),

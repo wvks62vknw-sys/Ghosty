@@ -6135,6 +6135,7 @@ html .grd-cover.row .grd-cover-a { display: none; }
    own surface is the system's (his three rules on the Shelf too): a plate, square, the hairline; its name a tag; the field and the
    fold drawn from the tokens. The Library's other panels keep their look until their own pass. */
 html #pg-library .pn.shelf { background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-plate); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html #pg-library .pn.shelf > h3 .ptitle { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
 html #pg-library .pn.shelf > h3 .ptitle[data-label]::before { --lfs: 13px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
 html #pg-library .pn.shelf > h3 small[data-label]::before { --lfs: 13px; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
 html #app #pg-library .pn.shelf input.shelffind { height: var(--g-target); padding: 0 var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-canvas); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); box-shadow: none; }
