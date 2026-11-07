@@ -21,7 +21,8 @@ const GROUPS: Record<string, ListGroup[]> = {
   settings: [
     { title: 'Appearance', match: /^(THEME|THE LOOK|READING)/, foot: 'A ground, a colour, a world and the switches, or a preset that sets them all. The look shows how I draw everything from here; Reading, how a book is shown and who reads it to you.' },
     { title: 'You', match: /^NAME/ },
-    { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
+    // (BRIEF-VOICE-KNOWN: MY VOICE and PEOPLE I'VE INTRODUCED sit in this group too, or the sheet draws the group twice: the ui spec)
+    { title: 'Voice and home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/, foot: 'The offline brain answers on this phone when there is no signal.' },
     { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],
