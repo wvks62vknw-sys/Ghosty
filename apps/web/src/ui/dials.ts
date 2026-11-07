@@ -14,6 +14,7 @@
  */
 import { clear, h } from '../core/dom';
 import { applyRecipe, groundNow, recipe, recipeEvents, savedHome, THEMES } from '../state/theme';
+import { settings } from '../state/app';
 import { clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
 import { toast } from './components';
 import { eyeGlyph, tag, truthLine } from './machine';
@@ -31,6 +32,7 @@ export function switchLine(k: SwitchKey, r: Recipe, now = Date.now()): string {
     return `${dl.day ? `Paper till ${clockWords(dl.flipAt)}, then ${night}` : `${night} till ${clockWords(dl.flipAt)}, then Paper`}. ${savedHome() ? 'From your home’s sun times, never your live location.' : 'No home saved, so 08:00 to 18:00.'}`;
   }
   if (k === 'body' && r.switches.body !== 17) return `${opt.line} It reaches the pages I draw in the new system now; every room follows with the shell.`;
+  if (k === 'sound' && r.switches.sound !== 'off' && !settings.get().sounds) return `${opt.line} Your interface sounds are off, so you hear nothing until you turn them on in Voice & home.`;
   return opt.line;
 }
 
@@ -119,6 +121,8 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
   };
   paint();
   const off = recipeEvents.on('change', paint);
+  // his sound setting changing elsewhere: the sound row says so
+  const offSounds = settings.subscribe((st, prev) => st.sounds !== prev.sounds && paint());
   // the follow-the-day row keeps its clock true while it is on screen (the minute it flips)
   const tick = window.setInterval(() => el.isConnected && recipe().switches.day === 'on' && paint(), 60_000);
   return {
@@ -126,6 +130,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
     paint,
     stop() {
       if (typeof off === 'function') off();
+      offSounds();
       clearInterval(tick);
     },
   };
