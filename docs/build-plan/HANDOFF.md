@@ -210,6 +210,10 @@ folder that no longer exists; ignore those paths).
   and BRIEF-SHELL (three passes) were written before his message. PR #66 (voice) opened with its merge held. The voice
   specs: voice, settings, awareness, deck, tabs, talk all green. FROM HERE: only what was asked; his phone before merging
   anything that loads a model, the camera or the microphone; smaller PRs.
+  23:30 UK: the Lens hotfix built (five commits; one tag per kind, the finder alone first at an honest 18 MB, the namer a
+  second step with the face model's memory retry and plain words; the iPhone failure reproduced by a test-only switch);
+  applied as one commit on hotfix/lens FROM MAIN (so it carries nothing else), PR #67 opened, its preview link sent to him
+  for the phone check; the merge waits for his word. The lensfix worktree stays until then. PR #66 (voice) stays held.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

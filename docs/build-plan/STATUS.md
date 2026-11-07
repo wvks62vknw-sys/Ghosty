@@ -196,9 +196,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- FIRST, BEFORE ANYTHING ELSE MERGES (his verdict 7 Nov 22:40 UK, OWNER-ISSUES 153): THE LENS HOTFIX (one tag per kind with one key
-  row; the object finder alone first, the namer optional and honest when the iPhone cannot hold it) on the mid tier, worktree
-  lensfix, branch builder/lensfix, checked on HIS PHONE from the PR's preview link before the merge; then THE THEMES CUT BACK to what
+- FIRST, BEFORE ANYTHING ELSE MERGES (his verdict 7 Nov 22:40 UK, OWNER-ISSUES 153): THE LENS HOTFIX BUILT 7 Nov 23:30 UK (OWNER-ISSUES 154: one tag per kind with one key row, at most three tags; GET THE EYES loads the object finder alone, 18 MB, the namer a second key that says in words when the iPhone cannot hold it, with TRY AGAIN) on branch hotfix/lens from main, PR #67 OPEN, MERGED ONLY AFTER HIS PHONE CHECK on its preview; then THE THEMES CUT BACK to what
   he asked, after his answer to 153's question. Nothing new launches until both are done.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
