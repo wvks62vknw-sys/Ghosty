@@ -263,8 +263,13 @@ export function readerShell(root: HTMLElement, P: Record<'read' | 'chapters' | '
 }
 
 export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: HTMLElement }, P: Record<'read' | 'chapters' | 'search' | 'about', Panel>, secs: Sections): TabInstance {
-  const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.reader = readerState;
+  // the checks' handle: a reload on #reader builds this screen before the app has made window.__ghosty, so it waits for it
+  const expose = (tries = 0) => {
+    const w = window as unknown as { __ghosty?: Record<string, unknown> };
+    if (w.__ghosty) w.__ghosty.reader = readerState;
+    else if (tries < 100) setTimeout(() => expose(tries + 1), 100);
+  };
+  expose();
   const { hud, hero } = shell;
   let book: Book | null = null;
   let doc: LibraryDoc | null = null;
@@ -371,15 +376,15 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     for (const c of el.children) if (Number((c as HTMLElement).dataset.at ?? 0) <= off) pick = c as HTMLElement;
     return pick ?? (el.firstElementChild as HTMLElement | null) ?? el;
   };
-  /** The y of a place inside its passage (the paragraph's top, and how far into it the offset falls). */
+  /** How far down the book's words an element is (from the top of the flow; the same in either mode, turned or not). */
+  const topIn = (el: Element): number => el.getBoundingClientRect().top - flow.getBoundingClientRect().top;
+  /** The y of a place in the flow: its paragraph's top, and how far into that paragraph the offset falls. */
   const yIn = (n: number, off: number): number => {
-    const el = passageEl(n);
     const para = paraAt(n, off);
-    if (!el || !para || !book) return 0;
-    const p = book.passages[n]!;
+    if (!para || !book) return 0;
     const start = Number(para.dataset.at ?? 0);
     const len = Math.max(1, para.textContent?.length ?? 1);
-    return para.offsetTop - flow.offsetTop * 0 + Math.max(0, Math.min(1, (off - start) / len)) * para.offsetHeight * (p.text.length ? 1 : 0);
+    return topIn(para) + Math.max(0, Math.min(1, (off - start) / len)) * para.getBoundingClientRect().height;
   };
   let auto = 0; // a scroll the reader made itself (opening, following the voice): not his
   let touched = 0; // when he last scrolled or turned by hand
@@ -433,8 +438,10 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       // the place: the passage at the top of this screen
       const y = screen * step;
       let n = 0;
-      for (const el of els) if (el && el.offsetTop <= y + 2) n = Number(el.dataset.n);
-      if (!reading.get().state.startsWith('read')) keepAt(n, Math.round(Math.max(0, y - (passageEl(n)?.offsetTop ?? 0)) / Math.max(1, passageEl(n)?.offsetHeight ?? 1) * (book.passages[n]?.text.length ?? 0)));
+      for (const el of els) if (el && topIn(el) <= y + 2) n = Number(el.dataset.n);
+      const el = passageEl(n);
+      const into = el ? Math.max(0, y - topIn(el)) / Math.max(1, el.getBoundingClientRect().height) : 0;
+      if (reading.get().state !== 'reading') keepAt(n, Math.round(into * (book.passages[n]?.text.length ?? 0)));
     }
   };
   const unfitPages = () => {
