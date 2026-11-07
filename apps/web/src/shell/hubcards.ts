@@ -536,7 +536,7 @@ export const CARDS: Record<string, HubCard> = {
     readouts: () => {
       const r = readingNow();
       if (r) {
-        const paged = r.doc.pages > 1 && !!r.place.page;
+        const paged = r.doc.pages > 1 && r.doc.kind !== 'book' && !!r.place.page;
         return [
           { label: 'Reading', value: shortTitle(r.doc.title), live: reading.get().state === 'reading' },
           paged ? { label: 'Page', value: `${r.place.page} of ${r.doc.pages}` } : { label: 'Read', value: `${Math.max(1, Math.floor(r.place.pct * 100))}%` },

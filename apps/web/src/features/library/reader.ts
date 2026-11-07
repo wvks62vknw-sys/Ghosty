@@ -105,12 +105,15 @@ export function coverFor(d: { id: string; title: string; author?: string; kind: 
   return el;
 }
 
+/** A document with pages of its own (a PDF, photos of pages, a text with page breaks): an e-book's parts are not pages. */
+export const hasOwnPages = (d: Pick<LibraryDoc, 'pages' | 'kind'>): boolean => d.pages > 1 && d.kind !== 'book';
+
 /** How far through a book he is, as the Shelf row and the reader's head say it. */
 export function progressOf(d: LibraryDoc, p: Place | null = placeOf(d.id)): { parts: TruthPart[]; started: boolean; finished: boolean; words: string } {
   if (!p) return { parts: [{ text: 'Not started', tone: 'strong' }], started: false, finished: false, words: 'not started' };
   const when = whenWords(p.at);
   if (p.done) return { parts: [{ text: 'Finished', tone: 'on' }, when], started: true, finished: true, words: `finished ${when}` };
-  const where = d.pages > 1 && p.page ? `Page ${p.page} of ${d.pages}` : `${Math.max(1, Math.floor(p.pct * 100))}% read`;
+  const where = hasOwnPages(d) && p.page ? `Page ${p.page} of ${d.pages}` : `${Math.max(1, Math.floor(p.pct * 100))}% read`;
   return { parts: [{ text: where, tone: 'strong' }, when], started: true, finished: false, words: `${where.toLowerCase()} · ${when}` };
 }
 
@@ -130,7 +133,7 @@ export function shelfRow(d: LibraryDoc, open: () => void): HTMLElement {
   h('span.btxt',
     h('span.v', d.title),
     d.author ? h('span.by', d.author) : null,
-    h('span.k', `${kindWord(d.kind)}${d.pages > 1 ? ` · ${d.pages} pages` : ''}`),
+    h('span.k', `${kindWord(d.kind)}${hasOwnPages(d) ? ` · ${d.pages} pages` : ''}`),
     truthLine(pr.parts)),
   pr.finished ? tag('Finished', { tone: 'on' }) : null);
   r.addEventListener('click', open);
@@ -356,7 +359,10 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   };
 
   // ---------------------------------------------------------------- where he is on the page
+  /** Where the pills end now (what is under them is his place as he scrolls)… */
   const pillsBottom = () => (secs.el.hidden ? hud.getBoundingClientRect().top : secs.el.getBoundingClientRect().bottom) + 8;
+  /** …and where they end once held at the top (where a place is brought to). */
+  const stuckBottom = () => hud.getBoundingClientRect().top + (secs.el.hidden ? 0 : secs.el.offsetHeight) + 8;
   /** The paragraph of passage `n` that holds `off`. */
   const paraAt = (n: number, off: number): HTMLElement | null => {
     const el = passageEl(n);
@@ -379,13 +385,17 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   let touched = 0; // when he last scrolled or turned by hand
   const mode = () => readingPrefs.get().mode;
 
-  /** Scroll mode: the page scrolled so the place sits under the pills. */
+  /** Scroll mode: the page scrolled so the place sits under the pills (the book's very start: the head shown above it). */
   const scrollTo = (n: number, off: number, smooth = false) => {
     const el = passageEl(n);
     if (!el) return;
     auto = performance.now();
+    if (n === 0 && off < 40) {
+      hud.scrollTo({ top: 0, behavior: smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
+      return;
+    }
     const rect = flow.getBoundingClientRect();
-    const target = hud.scrollTop + rect.top + yIn(n, off) - pillsBottom();
+    const target = hud.scrollTop + rect.top + yIn(n, off) - stuckBottom();
     hud.scrollTo({ top: Math.max(0, target), behavior: smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
   };
 
@@ -399,7 +409,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     // the page brought up under the pills, then as tall as the screen leaves room for, in whole lines
     hud.style.overflowY = '';
     auto = performance.now();
-    hud.scrollTop += page.getBoundingClientRect().top - pillsBottom();
+    hud.scrollTop += page.getBoundingClientRect().top - stuckBottom();
     const top = page.getBoundingClientRect().top;
     const tab = (document.querySelector('#dock') as HTMLElement | null)?.getBoundingClientRect().top ?? innerHeight;
     const room = Math.max(lh() * 6, Math.min(innerHeight, tab) - top - bar.offsetHeight - 16);
@@ -734,7 +744,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       h('div.grd-aboutrow', coverFor(d, 'big'), h('div.grd-abouttxt',
         h('b.grd-abouttitle', { dataset: { case: 'keep' } }, d.title),
         d.author ? h('span.by', { dataset: { case: 'keep' } }, d.author) : null,
-        truthLine([kindWord(d.kind), d.pages > 1 ? `${d.pages} pages` : `${d.passages} passage${d.passages === 1 ? '' : 's'}`, ...(book ? [`${book.chapters.length} ${book.byHeadings ? 'chapters' : book.hasPages ? 'page ranges' : 'parts'}`] : [])]),
+        truthLine([kindWord(d.kind), hasOwnPages(d) ? `${d.pages} pages` : `${d.passages} passage${d.passages === 1 ? '' : 's'}`, ...(book ? [`${book.chapters.length} ${book.byHeadings ? 'chapters' : book.hasPages ? 'page ranges' : 'parts'}`] : [])]),
         d.source ? truthLine([{ text: 'From', tone: 'strong' }, d.source]) : null,
         added ? truthLine([{ text: 'Added', tone: 'strong' }, added]) : null,
         truthLine([{ text: 'On this phone', tone: 'strong' }, whole ? 'all of it · reads with no signal' : here ? `${here} of ${d.passages} passages` : d.id.startsWith('local-') ? 'only here so far' : 'not yet']))),
