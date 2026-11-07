@@ -311,6 +311,16 @@ async function speakFor(page, ms = 700, level = 0.3) {
 /** What the phone's voice was handed after `from` (the page's clock), with when each began and ended. */
 const synthSince = (page, from = 0) => page.evaluate((t0) => window.__talk.synth.filter((s) => s.calledAt >= t0).map((s) => ({ text: s.text, calledAt: s.calledAt, startAt: s.startAt ?? null, endAt: s.endAt ?? null, pausedAt: s.pausedAt ?? null, cancelled: !!s.cancelled })), from);
 const docByTitle = async (title) => (await api('/library')).docs?.find((d) => d.title === title) ?? null;
+/**
+ * He heard `re` after `from` (the page's clock): what the phone's voice was handed since, in order, as one line (a line of mine is
+ * handed to the voice a sentence at a time, as every reply is: "Page 7." then "I'll carry on from here.").
+ */
+async function heardLine(page, from, re, timeout, what) {
+  const ok = await page.waitForFunction(([t, src]) => new RegExp(src).test(window.__talk.synth.filter((s) => s.calledAt > t).map((s) => s.text).join(' ')), [from, re.source], { timeout }).then(() => true, () => false);
+  if (!ok) problems.push(`${what}: ${JSON.stringify((await synthSince(page, from)).map((s) => s.text).slice(-6))}`);
+  return ok;
+}
+const PAGE_LINE = /Page \d\. I['’]ll carry on from here\./;
 
 /** The Library on the Shelf pill, with the two books added if they are not there yet (each spec run adds its own, by RUN). */
 async function shelfWithBooks(page) {
@@ -367,7 +377,9 @@ async function measure(page, sel, W) {
     const controls = [...root.querySelectorAll('button, a[href], input, select, textarea, [role="button"], [role="tab"], [role="switch"]')].filter(seenEl);
     const unnamed = controls.filter((c) => !(c.getAttribute('aria-label') || c.textContent || c.getAttribute('placeholder') || '').trim()).map((c) => c.outerHTML.slice(0, 80));
     const small = controls.map((c) => [c, c.getBoundingClientRect()]).filter(([, r]) => r.width < 43.5 || r.height < 43.5).map(([c, r]) => `${(c.getAttribute('aria-label') || c.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}×${Math.round(r.height)}`);
-    const tiny = [...root.querySelectorAll('*')].filter((el) => seenEl(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(el).fontSize) < 12).map((el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} ${getComputedStyle(el).fontSize}`);
+    // (an element with a data-label shows its words through its ::before, at the label's size: its own text sits at 0 px, unseen)
+    const sizeOf = (el) => parseFloat(getComputedStyle(el, el.hasAttribute('data-label') ? '::before' : null).fontSize);
+    const tiny = [...root.querySelectorAll('*')].filter((el) => seenEl(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()) && sizeOf(el) < 12).map((el) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} ${sizeOf(el)}px`);
     return { side: side.slice(0, 6), unnamed: unnamed.slice(0, 6), small: small.slice(0, 6), tiny: tiny.slice(0, 6), scroll: document.documentElement.scrollWidth };
   }, { sel, W });
 }
@@ -529,7 +541,7 @@ if (part('listen')) {
   // STOP: the reading ends and the page is said ("Page 7. I'll carry on from here.")
   const s0 = await page.evaluate(() => performance.now());
   await page.click('#pg-reader .grd-bar .g-key.fill');
-  await until(page, (t) => window.__talk.synth.some((s) => s.calledAt > t && /^Page \d\. I['’]ll carry on from here\.$/.test(s.text)), s0, 8000, `[${name}] STOP did not say the page: ${JSON.stringify((await synthSince(page, s0)).map((s) => s.text))}`);
+  await heardLine(page, s0, PAGE_LINE, 8000, `[${name}] STOP did not say the page`);
   console.log(`[${name}] first word ${ms(measured.listenFirstWord)} after the tap; ${said.length} pieces; gaps ${JSON.stringify(measured.listenGaps)}`);
   await ctx.close();
 }
@@ -599,7 +611,7 @@ if (part('talk')) {
   await page.waitForTimeout(1200);
   io.heard.push('stop reading');
   const st = await speakFor(page, 600);
-  await until(page, (t) => window.__talk.synth.some((s) => s.calledAt > t && /^Page \d\. I['’]ll carry on from here\.$/.test(s.text)), st, 12000, `[${name}] "stop reading" did not end it with the page said: ${JSON.stringify((await synthSince(page, st)).map((s) => s.text).slice(-3))}`);
+  await heardLine(page, st, PAGE_LINE, 12000, `[${name}] "stop reading" did not end it with the page said`);
   check((await R(page)).reading.state === 'ended', `[${name}] after "stop reading" the reading is "${(await R(page)).reading.state}"`);
   check(await page.evaluate(() => [...document.querySelectorAll('#pg-core .log .msg')].slice(-2).map((m) => m.textContent ?? '').join(' | ').match(/stop reading.*Page \d\. I['’]ll carry on from here/i) !== null), `[${name}] "stop reading" and the page are not in the conversation`);
   // "that's all" while I read: the conversation ends, signed off with the page, the microphone let go
@@ -608,7 +620,7 @@ if (part('talk')) {
   await page.waitForTimeout(1500);
   io.heard.push("that's all");
   const ta = await speakFor(page, 600);
-  await until(page, (t) => window.__talk.synth.some((s) => s.calledAt > t && /^Page \d\. I['’]ll carry on from here\.$/.test(s.text)), ta, 12000, `[${name}] "that's all" did not sign off with the page`);
+  await heardLine(page, ta, PAGE_LINE, 12000, `[${name}] "that's all" did not sign off with the page`);
   await page.waitForTimeout(800);
   const after = await page.evaluate(() => ({ mic: document.querySelector('#mic')?.classList.contains('on'), live: window.__mic.stream?.getTracks().some((t) => t.readyState === 'live'), voice: window.__ghosty.ui.get().voice, chat: window.__talk.chat }));
   check(!after.mic && after.voice !== 'listening', `[${name}] after "that's all" the microphone is still held: ${JSON.stringify(after)}`);
@@ -632,6 +644,8 @@ if (part('words')) {
   await until(page, () => document.body.dataset.tab === 'reader' && window.__ghosty.reader.reading.state === 'reading', null, 15000, `[${name}] "read me night walks" did not open the reader and read`);
   const r1 = await R(page);
   const enter = await page.evaluate(() => window.__talk.key);
+  // (handed to the voice is not yet heard: the first word is timed when it begins)
+  await page.waitForFunction((t) => window.__talk.synth.some((s) => s.calledAt >= t && s.startAt), enter, { timeout: 8000 }).catch(() => undefined);
   const said1 = await synthSince(page, enter);
   measured.readMeFirstWord = said1[0]?.startAt ? said1[0].startAt - enter : null;
   check(said1[0] && /^Night Walks/.test(said1[0].text) && /from the start/.test(said1[0].text), `[${name}] "read me night walks" did not start with the book's name: "${said1[0]?.text}"`);
@@ -775,6 +789,10 @@ if (part('offline')) {
   await page.evaluate(() => { window.__talk.tts.length = 0; });
   const open = await openFromShelf(page, NW);
   check(open && (await page.evaluate(() => /moon sat in the water/.test(document.querySelector('#pg-reader .grd-flow')?.textContent ?? ''))), `[${name}] offline, the kept book does not read`);
+  // (from its first chapter, The Canal: the checks before left his place anywhere in it)
+  await pickSection(page, 'chapters');
+  await page.click('#pg-reader .grd-chrow[data-i="0"]');
+  await page.waitForTimeout(400);
   const t0 = await page.evaluate(() => performance.now());
   await page.click('#pg-reader .grd-bar .g-key.fill');
   await until(page, (t) => window.__talk.synth.some((s) => s.calledAt > t && s.startAt && /canal|towpath|Canal/.test(s.text)), t0, 10000, `[${name}] offline, LISTEN did not read the kept book in the phone's voice`);
@@ -908,7 +926,7 @@ if (part('chapter')) {
   const queued = await page.evaluate(() => window.__talk.synth.some((x) => /^Chapter Three/.test(x.text)));
   await type('just this chapter');
   const t0 = await page.evaluate(() => performance.now());
-  await until(page, (t) => window.__talk.synth.some((x) => x.calledAt > t && /^That['’]s the end of Chapter Two: The Gale\. Page 7\. I['’]ll carry on from here\.$/.test(x.text)), t0, 20000, `[${name}] the end of the chapter was not said: ${JSON.stringify((await synthSince(page, t0)).map((x) => x.text).slice(-4))}`);
+  await heardLine(page, t0, /That['’]s the end of Chapter Two: The Gale\. Page 7\. I['’]ll carry on from here\./, 20000, `[${name}] the end of the chapter was not said`);
   await page.waitForTimeout(800);
   const heard = await page.evaluate(() => window.__talk.synth.filter((x) => /^Chapter Three|^On page 7/.test(x.text)).map((x) => ({ text: x.text.slice(0, 30), startAt: x.startAt ?? null, endAt: x.endAt ?? null, cancelled: !!x.cancelled })));
   check(heard.every((x) => x.startAt === null || (x.cancelled && x.endAt - x.startAt <= 30)), `[${name}] the next chapter was heard after "just this chapter": ${JSON.stringify(heard)}`);

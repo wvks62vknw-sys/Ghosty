@@ -281,9 +281,10 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   const title = h('h2.grd-title', { dataset: { case: 'keep' } }, 'Your books');
   const by = h('p.grd-by', { dataset: { case: 'keep' } });
   const placeBtn = h('button.grd-place', { type: 'button', dataset: { case: 'keep' } });
+  hero.append(stamp.el, title, by, placeBtn);
+  // what I say while the book waits (a question he asked mid-read, answered): the typed-out line on the bar, gone when it goes on
   const say = typedLine({ label: 'What I am saying' });
   say.el.classList.add('grd-say');
-  hero.append(stamp.el, title, by, placeBtn, say.el);
 
   // ---------------------------------------------------------------- READ: the page, the bar under it, the text settings
   const flow = h('div.grd-flow');
@@ -300,7 +301,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   textKey.setAttribute('aria-expanded', 'false');
   const prevKey = key('', () => turn(-1), { label: 'Back a page', glyph: G.prev });
   const nextKey = key('', () => turn(1), { label: 'Next page', glyph: G.next });
-  const bar = h('div.grd-bar', { role: 'group', 'aria-label': 'Listen' }, barLine, h('div.grd-keys', prevKey, listenKey, textKey, nextKey));
+  const bar = h('div.grd-bar', { role: 'group', 'aria-label': 'Listen' }, say.el, barLine, h('div.grd-keys', prevKey, listenKey, textKey, nextKey));
   P.read.el.classList.add('grd-readpn');
   P.read.body.append(prefsBox, note, page, bar);
 
@@ -387,6 +388,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     return topIn(para) + Math.max(0, Math.min(1, (off - start) / len)) * para.getBoundingClientRect().height;
   };
   let auto = 0; // a scroll the reader made itself (opening, following the voice): not his
+  let landing = false; // a book is opening: every scroll until it lands at the place is the reader's own
   let touched = 0; // when he last scrolled or turned by hand
   const mode = () => readingPrefs.get().mode;
 
@@ -421,7 +423,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     const pad = 16;
     const lines = Math.max(4, Math.floor((room - pad * 2) / lh()));
     step = lines * lh();
-    page.style.height = `${step + pad * 2}px`;
+    // (its border counted too: the inside, where the words show, is exactly the lines)
+    page.style.height = `${step + pad * 2 + (page.offsetHeight - page.clientHeight)}px`;
     screens = Math.max(1, Math.ceil(flow.scrollHeight / step));
     hud.style.overflowY = 'hidden';
     readerState.screens = screens;
@@ -478,7 +481,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     ticking = true;
     requestAnimationFrame(() => {
       ticking = false;
-      if (performance.now() - auto < 600 || reading.get().state === 'reading') return;
+      if (performance.now() - auto < 600 || landing || ui.get().tab !== 'reader' || reading.get().state === 'reading') return;
       touched = performance.now();
       const y = pillsBottom() + 4;
       const x = page.getBoundingClientRect().left + 24;
@@ -624,6 +627,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   };
   reading.subscribe((s, prev) => {
     paintBar();
+    // the book goes on (or another starts): what I said while it waited goes from the bar
+    if (s.state === 'reading' && prev.state !== 'reading') say.set('');
     if (!doc || s.doc !== doc.id) return light(-1);
     light(s.state === 'reading' || s.state === 'cut' ? s.lit : -1);
     if (s.state === 'reading' && (s.n !== prev.n || s.off !== prev.off) && performance.now() - touched > 6000) {
@@ -638,6 +643,16 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       }
     }
     paintHead();
+  });
+
+  // a question he asked while I read, answered (BRIEF-LIBRARY-READER 3): my answer typed out on the bar as I say it, while the book
+  // waits at the sentence he stopped me in; "go on" takes it away and reads on (the whole answer is in the conversation too)
+  chat.subscribe((c, prev) => {
+    if (c.live === prev.live || !c.live) return;
+    const s = reading.get();
+    const last = c.entries[c.entries.length - 1];
+    if (!doc || s.doc !== doc.id || s.state === 'reading' || s.state === 'idle' || last?.kind !== 'assistant' || last.at < s.stoppedAt) return;
+    void say.type(c.live);
   });
 
   // ---------------------------------------------------------------- CHAPTERS
@@ -803,6 +818,20 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   let opening = 0;
   const open = async (r: OpenReq) => {
     const me = ++opening;
+    // (showing READ scrolls the page to the pills; that, and every scroll until the book lands at the place, is not his: taken as
+    // his, it moved his place to the top of the book a moment before it was read)
+    landing = true;
+    auto = performance.now();
+    try {
+      await openNow(r, me);
+    } finally {
+      if (me === opening) {
+        landing = false;
+        auto = performance.now();
+      }
+    }
+  };
+  const openNow = async (r: OpenReq, me: number) => {
     const d = r.doc;
     if (reading.get().state === 'reading' && reading.get().doc !== d.id) stopQuietly();
     doc = d;
@@ -811,6 +840,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     looking = shortTitle(d.title);
     secs.select('read');
     prefsBox.hidden = true;
+    say.set('');
     clear(found);
     clear(foundLine);
     q.value = '';
@@ -911,11 +941,20 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   guardian.subscribe(() => stamp.refresh());
   addEventListener('online', () => stamp.refresh());
   addEventListener('offline', () => stamp.refresh());
+  // a section changed: the page moves under the pills, which is not his reading (a change of section never moves his place)
+  secs.el.addEventListener('click', () => (auto = performance.now()), true);
   secs.el.addEventListener('click', () => requestAnimationFrame(() => {
     readerState.section = secs.current();
+    auto = performance.now();
     // pages mode holds the page still under the pills: the other sections scroll as usual
     if (secs.current() === 'read' && mode() === 'pages') fitPages();
     else hud.style.overflowY = '';
+    // back on READ: the page at his place again (or where I am reading)
+    if (secs.current() === 'read' && book && doc && mode() !== 'pages') {
+      const s = reading.get();
+      const at = s.doc === doc.id && (s.state === 'reading' || s.state === 'cut') ? { n: s.lit >= 0 ? s.lit : s.n, off: s.lit >= 0 ? 0 : s.off } : placeOf(doc.id) ?? { n: 0, off: 0 };
+      scrollTo(at.n, at.off);
+    }
   }));
 
   readerState.mode = mode();
@@ -1120,13 +1159,20 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
   const kept = placeOf(d.id);
   if (n === undefined) {
     const s2 = reading.get();
-    if (s2.doc === d.id && canResume()) lead = `Back to ${name}.`;
+    const resumable = s2.doc === d.id && canResume();
+    // "where were we": the answer is where we were, said first (a moment after he stopped me as much as a week later)
+    const asked = ask.kind === 'resume' && /\bwhere (?:were we|did (?:we|i)|was i)\b/i.test(text);
+    const at = resumable ? { n: s2.n, off: s2.off, at: Date.now() } : kept && !kept.done ? kept : null;
+    if (asked && at) {
+      const where = placeInfo(b, at.n, at.off);
+      lead = `We were ${where.page ? `on page ${where.page}` : `${Math.max(1, Math.round(where.pct * 100))}% of the way`} into ${name}, ${whenWords(kept?.at ?? at.at)}.`;
+    } else if (resumable) lead = `Back to ${name}.`;
     else if (kept?.done) {
       setPlace(d.id, { n: 0, off: 0, page: b.passages[0]?.page ?? null, pct: 0, done: false });
       lead = `You finished ${name} ${whenWords(kept.at)}. From the start.`;
     } else if (kept) {
       const where = placeInfo(b, kept.n, kept.off);
-      lead = ask.kind === 'resume' && /where were we/i.test(text) ? `We were ${where.page ? `on page ${where.page}` : `${Math.max(1, Math.round(where.pct * 100))}% of the way`} into ${name}, ${whenWords(kept.at)}.` : `${name}, ${where.page ? `page ${where.page}` : `${Math.max(1, Math.round(where.pct * 100))}% in`}.`;
+      lead = `${name}, ${where.page ? `page ${where.page}` : `${Math.max(1, Math.round(where.pct * 100))}% in`}.`;
     } else lead = `${name}, from the start.`;
   }
   answer(text, lead);

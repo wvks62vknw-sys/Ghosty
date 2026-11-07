@@ -6067,6 +6067,8 @@ html :is(#pg-reader .grd-p, #pg-reader .grd-snip) mark { padding: 0 1px; color: 
 /* the passage read aloud, held in the reticle in his colour (the bar's line says ATTENDING: never the colour alone) */
 html #pg-reader .grd-p.lit > .grd-litframe { --rc: var(--g-accent); inset: calc(var(--g-s-1) * -1); border: var(--g-stroke) solid var(--g-accent); }
 html #pg-reader .grd-page .g-lock { z-index: 2; }
+/* what I say while the book waits (an answer mid-read): the typed-out line on the bar, four lines at most (the rest is in the chat) */
+html #pg-reader .grd-bar .grd-say { min-height: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 /* the bar under the page: quiet, kept in reach above the tab bar; LISTEN its one filled key */
 html #pg-reader .grd-bar { position: sticky; bottom: var(--g-s-1); z-index: 4; display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-2); padding: var(--g-s-1) var(--g-s-2); background: var(--g-plate-strong); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-front); }
 html body.tabbar #pg-reader .grd-bar { bottom: calc(var(--tabh) + var(--g-safe-bottom) + var(--g-s-1)); }
