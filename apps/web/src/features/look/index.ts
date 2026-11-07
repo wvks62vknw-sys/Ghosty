@@ -13,6 +13,8 @@
  * (it opens on MARKS, where "tap a mark" is). SPEED: the section in view is built at once and the others just after the first
  * paint, so the screen opens in under 300 ms on the preview (tests/look.spec.mjs holds it).
  */
+import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
+import { lookingAt } from '../../shell/awareness';
 import { h, icon } from '../../core/dom';
 import { stopwatch } from '../../core/stopwatch';
 import { parseColour, contrast, ratioWords, FLOOR, type RGB } from '../../design/contrast';
@@ -94,7 +96,9 @@ export const lookTab: TabDef = {
 
     // ---------------------------------------------------------------- the head: the stamp, the name, his line, the states
     let looking = 'the marks';
-    const facts = (): StampFacts => ({ place: home().name, watching: feedsWatched(), looking, offline: typeof navigator !== 'undefined' && navigator.onLine === false });
+    // what this screen says it is (BRIEF-AWARENESS), and the stamp line says the same: one source
+    const context = (): ScreenContext => ({ screen: 'look', title: 'The look', line: `the look, ${looking}`, looking, at: Date.now() });
+    const facts = (): StampFacts => ({ place: home().name, watching: feedsWatched(), looking: lookingAt(context()), offline: typeof navigator !== 'undefined' && navigator.onLine === false });
     const stamp = stampLine(facts);
     const states = h('div.glook-states', { role: 'status', 'aria-live': 'polite' });
     // (the screen's name is the navigation bar's large title, "The look": the head starts with the stamp under it)
@@ -561,6 +565,7 @@ export const lookTab: TabDef = {
       leave() {
         giveBack();
       },
+      context,
       describe: () => `THE LOOK: how I draw everything (${SECTION_WORDS[secs.current()] ?? 'the marks'} showing); theme ${settings.get().theme}`,
     };
   },

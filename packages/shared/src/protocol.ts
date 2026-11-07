@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { Show } from './awareness';
 import type { Card } from './cards';
 import type { Mood } from './mood';
 import type { PersonaSettings } from './persona';
@@ -14,7 +15,8 @@ export type ChatEvent =
   | { t: 'tool_result'; id: string; name: string; ok: boolean; summary: string }
   /** What a running tool is doing right now ("crt.sh… 3 of 7"); sits between its `tool` and `tool_result`, same id. */
   | { t: 'progress'; id: string; name: string; label: string; done?: number; total?: number }
-  | { t: 'client'; name: string; args: Record<string, unknown> }
+  /** The brain asks the phone to run a command, or to show cards: the typed `Show` (awareness.ts). */
+  | Extract<Show, { t: 'client' }>
   | { t: 'approval'; id: string; name: string; args: Record<string, unknown>; reason: string }
   | { t: 'text'; text: string }
   | { t: 'done'; model: string }
@@ -24,7 +26,7 @@ export type ChatEvent =
   /** His mood changed with this message (packages/shared/src/mood.ts): the phone shows it at once, not at the next status. */
   | { t: 'mood'; mood: Mood }
   /** Live cards a tool's result made, by code (packages/shared/src/cards.ts cardsFromTool): sent after its `tool_result`. */
-  | { t: 'cards'; cards: Card[] };
+  | Extract<Show, { t: 'cards' }>;
 
 /** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
 export interface Citation {
@@ -111,6 +113,7 @@ export const CLIENT_COMMANDS = [
   'open_learning', // [packs3] the learning pack's sheet: words, drawing, typing, maths, memory, reading, first aid, a plan (BRIEF-PACKS-3)
   'open_outside', // [packs3] the outside pack's sheet: a safer walk, what is near, the car, lost (BRIEF-PACKS-3)
   'open_work', // [packs] the work pack's documents, interview practice, rota and to-do
+  'pack_card', // [packs] not run on the phone: a pack's cards ride in it, and cardsFromTool makes them the chat's live cards (BRIEF-AWARENESS: found when emit became typed)
   'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];

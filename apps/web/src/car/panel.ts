@@ -8,6 +8,8 @@
  * `car` sample and the CAR · FIX IT pane, and stops it when it is left. A test reads and drives it through
  * window.__ghosty.car.
  */
+import type { ScreenContext } from '../../../../packages/shared/src/awareness';
+import { carContext } from './awareness';
 import { h, clear } from '../core/dom';
 import { button } from '../ui/components';
 import { costWords, faultFor, symptomOf, type FaultPick } from './faults';
@@ -23,6 +25,8 @@ export interface CarPane {
   scene: CarScene;
   enter(): Promise<void>;
   leave(): void;
+  /** What is on the pane (BRIEF-AWARENESS), null while it is not showing. */
+  context(): ScreenContext | null;
 }
 
 /** The MOT history's defects for this car, newest test first (from the record held this session). */
@@ -273,5 +277,5 @@ export function carPane(view: HTMLElement): CarPane {
     /** Turn the camera round the car by some degrees (a test's second frame; a look from behind). */
     turn: (deg: number) => scene.turn(deg),
   };
-  return { el, scene, enter, leave };
+  return { el, scene, enter, leave, context: () => (on ? carContext({ spec: shown, view: scene.view, picked: scene.state().picked, fault: carNow.get().fault }) : null) };
 }

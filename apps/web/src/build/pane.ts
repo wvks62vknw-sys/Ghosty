@@ -6,6 +6,8 @@
  * Studio (features/studio/index.ts) shows it for the `build` sample and the pane, and stops it when it is left. A test reads
  * and drives it through window.__ghosty.build.
  */
+import type { ScreenContext } from '../../../../packages/shared/src/awareness';
+import { buildContext } from './awareness';
 import { clear, h } from '../core/dom';
 import { button } from '../ui/components';
 import { BuildScene } from './scene';
@@ -20,6 +22,8 @@ export interface BuildPane {
   scene: BuildScene;
   enter(): Promise<void>;
   leave(): void;
+  /** What is on the pane (BRIEF-AWARENESS), null while it is not showing. */
+  context(): ScreenContext | null;
 }
 
 /** A size field: metres, to the centimetre. */
@@ -191,5 +195,14 @@ export function buildPane(view: HTMLElement): BuildPane {
   paneHooks.screenOf = (group) => scene.screenOf(group);
   paneHooks.explode = (v) => (scene.setExplode(v), paintHud());
   paneHooks.roof = (v) => (scene.setRoof(v), paintHud());
-  return { el, scene, enter, leave };
+  return {
+    el,
+    scene,
+    enter,
+    leave,
+    context: () => {
+      const d = designNow();
+      return on && d ? buildContext(d, buildNow.get().side, buildNow.get().lit) : null;
+    },
+  };
 }

@@ -10,6 +10,10 @@ import { dropLensExchanges } from '../../../packages/shared/src/living';
 import { HEARD_NOTE, heardNote, stripImages, textOf } from './llm/content';
 import type { Msg } from './llm/router';
 import { clip } from './tools/types';
+import { asData } from './kernel/permissions';
+import { screenWords, type ClientContext } from '../../../packages/shared/src/awareness';
+export { contextWords, screenWords, isShow, cleanScreen, type ScreenContext, type Show } from '../../../packages/shared/src/awareness';
+export { CLIENT_COMMANDS } from '../../../packages/shared/src/protocol';
 
 /** Characters of a tool's result the model reads; the rest is cut with clip()'s "…[truncated]" note, so it knows to ask for more. */
 const RESULT_BUDGET: Record<string, number> = {
@@ -58,7 +62,8 @@ function chars(m: Msg): number {
  */
 export function trimContext(msgs: Msg[], budget = CONTEXT_CHARS): Msg[] {
   // nor the Lens's NAME IT / WHAT'S IN IT exchanges: the phone's card was the answer (packages/shared/src/living.ts)
-  let out = dropLensExchanges(forgetVehicleChecks(stripImages(msgs)), (m) => m.role === 'user', (m) => textOf(m.content)).slice(-CONTEXT_MESSAGES);
+  // nor what was on screen at an earlier turn (withScreen): it was true then, and the newest turn carries its own
+  let out = dropLensExchanges(forgetScreens(forgetVehicleChecks(stripImages(msgs))), (m) => m.role === 'user', (m) => textOf(m.content)).slice(-CONTEXT_MESSAGES);
   while (out.length && out[0]!.role !== 'user') out = out.slice(1);
   out = out.map((m, i) => (m.role === 'tool' && i < out.length - 8 && typeof m.content === 'string' && m.content.length > 600 ? { ...m, content: `${m.content.slice(0, 600)}…[older tool output trimmed]` } : m));
   let total = out.reduce((n, m) => n + chars(m), 0);
@@ -126,4 +131,41 @@ export function noteHeard(ctx: Msg[], heard: { said: string; head: string }): bo
   if (!head || HEARD_NOTE.test(reply) || !plain(reply).startsWith(head)) return false;
   ctx[i] = { ...ctx[i]!, content: `${reply}${heardNote(heard.said)}` };
   return true;
+}
+
+/** What the model is told about the screen, and from whom: the block `withScreen` adds to his message (data, never his instructions). */
+export const SCREEN_SOURCE = 'what the phone has on screen';
+const SCREEN_BLOCK = new RegExp(`\\n*<<external content from ${SCREEN_SOURCE} [^\\n]*>>\\n[^\\n]*\\n<<end external content>>`, 'g');
+
+/**
+ * [awareness] BRIEF-AWARENESS: what is on his screen rides at the end of HIS message to the model, marked as data (`asData`), never in
+ * the system prompt (his rule, OWNER-ISSUES 131: the prompt guard stays where it is and nothing is trimmed). The line is the
+ * phone's (`screenLine`, checked and cut: packages/shared/src/awareness.ts screenWords), one sentence of what is open and what
+ * he has picked. It goes on the LAST user message of the working context only, so it never steers the tools (`ownerWords`
+ * strips it) and the history keeps his words alone. True when a line went on; Telegram and a phone that sent none add nothing.
+ */
+export function withScreen(ctx: Msg[], client: ClientContext | undefined | null): boolean {
+  const line = screenWords(client);
+  if (!line) return false;
+  let i = ctx.length - 1;
+  while (i >= 0 && ctx[i]!.role !== 'user') i--;
+  if (i < 0) return false;
+  const block = `\n\n${asData(SCREEN_SOURCE, line)}`;
+  const m = ctx[i]!;
+  if (typeof m.content === 'string') ctx[i] = { ...m, content: `${m.content}${block}` };
+  else if (Array.isArray(m.content)) {
+    // a message with pictures: the line goes on the end of its words, the pictures stay as they were
+    const parts = m.content.slice();
+    const t = parts.findIndex((x) => x.type === 'text');
+    if (t < 0) return false;
+    const part = parts[t] as { type: 'text'; text: string };
+    parts[t] = { ...part, text: `${part.text}${block}` };
+    ctx[i] = { ...m, content: parts };
+  } else return false;
+  return true;
+}
+
+/** Earlier messages without the screen block `withScreen` added (it was true at that turn; the newest carries its own). */
+function forgetScreens(msgs: Msg[]): Msg[] {
+  return msgs.map((m) => (m.role === 'user' && typeof m.content === 'string' && m.content.includes(SCREEN_SOURCE) ? { ...m, content: m.content.replace(SCREEN_BLOCK, '') } : m));
 }

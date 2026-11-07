@@ -18,9 +18,16 @@ import { PARTS, pickPart, PC_LINE, SLOTS, type PcBuild } from './pc';
 import { drawPlan, planPng } from './plan';
 import { cutWords, ESTIMATE, PRICE_LINE, pounds } from './prices';
 import { buildNow, designNow, exposeBuild, setDesign, type Side } from './state';
+import { buildContext } from './awareness';
+import { setOverlay } from '../shell/awareness';
 import { applyChange, paramsFromWords, startFor } from './words';
 
 let open: { close(): void } | null = null;
+// while the sheet is up it speaks for the screen (BRIEF-AWARENESS): the thing being made, its size, the side shown and the group lit
+setOverlay('build', () => {
+  const d = open ? designNow() : null;
+  return d ? buildContext(d, buildNow.get().side, buildNow.get().lit, 'build') : null;
+});
 
 const KINDS: Kind[] = ['shed', 'gardenroom', 'garage', 'room', 'shelf', 'desk', 'bench', 'pc'];
 

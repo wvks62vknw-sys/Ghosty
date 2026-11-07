@@ -18,7 +18,11 @@
  * page (`bookSignOff`). Every state is said in a sentence: no book yet, opening, not on this phone with no signal, a failure.
  */
 import type { LibraryDoc } from '../../../../../packages/shared/src/protocol';
-import { continueIntent, readingIntent, stopIntent, titleMatch } from '../../../../../packages/shared/src/intent';
+import type { ScreenContext, Selected } from '../../../../../packages/shared/src/awareness';
+import { lookingAt } from '../../shell/awareness';
+import { selectionNow } from '../../assistant/thatone';
+import { thatOne } from '../../assistant/thatwords';
+import { continueIntent, readingIntent, stopIntent, titleMatch, type ReadingAsk } from '../../../../../packages/shared/src/intent';
 import { brain } from '../../api/brain';
 import { addPaletteProvider, register } from '../../commands/registry';
 import { clear, h, icon } from '../../core/dom';
@@ -286,6 +290,22 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   let doc: LibraryDoc | null = null;
 
   // ---------------------------------------------------------------- the head: the stamp, the name, his place
+  // what is open and picked (BRIEF-AWARENESS): the book and his place, the passage lit while I read it aloud (the thing "read that
+  // one" means), the section he is in; the shelf when no book is open. The stamp line's LOOKING AT reads the same (one source).
+  const context = (): ScreenContext => {
+    const s = reading.get();
+    const secName = { read: '', chapters: ', on its chapters', search: ', searching it', about: ', on its details' }[secs.current()] ?? '';
+    if (!doc) return { screen: 'reader', title: 'The reader', line: 'the reader, your shelf', looking: 'your shelf', at: Date.now() };
+    const p = placeOf(doc.id);
+    const where = book && p ? placeInfo(book, p.n, p.off).words.toLowerCase() : '';
+    const aloud = s.doc === doc.id && s.state === 'reading';
+    const lit = s.doc === doc.id && (s.state === 'reading' || s.state === 'cut') && s.lit >= 0 && book?.passages[s.lit] ? s.lit : -1;
+    const line = `the reader, “${shortTitle(doc.title)}”${where ? `, ${where}` : ''}${aloud ? ', reading it aloud' : ''}${secName}`;
+    const selected: Selected = lit >= 0
+      ? { kind: 'passage', id: `${doc.id}#${lit}`, label: 'the passage being read', detail: book!.passages[lit]!.page && book!.hasPages ? `page ${book!.passages[lit]!.page}` : placeInfo(book!, lit, 0).words.toLowerCase() }
+      : { kind: 'book', id: doc.id, label: `“${shortTitle(doc.title)}”`, ...(where ? { detail: where } : {}) };
+    return { screen: 'reader', title: 'The reader', line, looking: shortTitle(doc.title), selected, at: Date.now() };
+  };
   let looking = 'your shelf';
   const facts = (): StampFacts => ({ place: home().name, watching: feedsWatched(), looking, offline: typeof navigator !== 'undefined' && navigator.onLine === false });
   const stamp = stampLine(facts);
@@ -555,7 +575,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
 
   // ---------------------------------------------------------------- the head, kept true
   const paintHead = () => {
-    stamp.look(looking);
+    stamp.look(lookingAt(context()));
     if (!doc) {
       title.textContent = 'Your books';
       by.textContent = '';
@@ -658,6 +678,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   };
   reading.subscribe((s, prev) => {
     paintBar();
+    stamp.look(lookingAt(context()));
     // the book goes on (or another starts): what I said while it waited goes from the bar
     if (s.state === 'reading' && prev.state !== 'reading') say.set('');
     if (!doc || s.doc !== doc.id) return light(-1);
@@ -1053,6 +1074,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       if (d) void open({ doc: d, t0: performance.now() });
     },
     describe: () => (doc ? `The reader: “${doc.title}”${book && placeOf(doc.id) ? `, ${placeInfo(book, placeOf(doc.id)!.n, placeOf(doc.id)!.off).words.toLowerCase()}` : ''}${reading.get().state === 'reading' ? ', reading it aloud' : ''}.` : 'The reader, no book open.'),
+    context,
   };
 }
 
@@ -1115,6 +1137,17 @@ function answer(asked: string, reply: string, local?: LocalAnswer): void {
   chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: asked, at: a }, { kind: 'assistant' as const, text: reply, at: b, model: 'Direct · no AI', ...(local ? { local } : {}) }].slice(-120), live: reply }));
 }
 
+/** The book (and passage) selected on the screen that is up (the reader's book or lit passage, the Library's one found book), or null. */
+function selectedBook(): { doc: LibraryDoc; n?: number } | null {
+  const { screen, sel } = selectionNow();
+  if (!sel || (screen !== 'reader' && screen !== 'library')) return null;
+  const [id, at] = sel.id.split('#');
+  const d = shelfDocs.get().docs.find((x) => x.id === id) ?? (docNow && docNow.id === id ? docNow : undefined);
+  if (!d || (sel.kind !== 'book' && sel.kind !== 'passage')) return null;
+  const n = sel.kind === 'passage' && at !== undefined && Number.isFinite(Number(at)) ? Number(at) : undefined;
+  return n === undefined ? { doc: d } : { doc: d, n };
+}
+
 /**
  * Reading by words, with no model (BRIEF-LIBRARY-READER 4): true when the words were about a book and are answered here.
  *  - "go on" / "carry on" just after the book was cut or stopped: on from the sentence he was in, after "Back to <it>.";
@@ -1147,7 +1180,10 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
     if (aloud) await speak(line, { here: !readingPrefs.get().bookVoice });
     return true;
   }
-  const ask = readingIntent(text);
+  // "read that one" (BRIEF-AWARENESS item 4): the book, or the passage, that is selected on the screen; nothing selected, or not a
+  // book: the words are left to the rest (a bare "read that one" is no title, so the brain gets it, with what is on screen)
+  const that = thatOne(text)?.act === 'read' ? selectedBook() : null;
+  const ask: ReadingAsk | null = that ? { kind: 'resume' } : readingIntent(text);
   if (!ask) return false;
   const reply = (line: string, local?: LocalAnswer) => {
     answer(text, line, local);
@@ -1196,7 +1232,7 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
     d = m.book;
   } else {
     const inHand = bookNow();
-    d = (inHand && docs.find((x) => x.id === inHand.id)) ?? docNow ?? (await lastBook());
+    d = that?.doc ?? (inHand && docs.find((x) => x.id === inHand.id)) ?? docNow ?? (await lastBook());
     if (!d) return reply('We haven’t started a book yet. Say “read me” and a title, or pick one on your Shelf.');
   }
   // where to start: the chapter or page he named, his place (a finished book from the start), or where the cut left it
@@ -1212,7 +1248,12 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
   let n: number | undefined;
   let lead = '';
   const name = shortTitle(d.title);
-  if (chapter !== undefined) {
+  if (that?.n !== undefined && b.passages[that.n]) {
+    // the passage he pointed at: from its first words
+    n = that.n;
+    const pg = b.hasPages ? b.passages[n]!.page : null;
+    lead = `${name}, ${pg ? `page ${pg}` : placeInfo(b, n, 0).words.toLowerCase()}, from that passage.`;
+  } else if (chapter !== undefined) {
     const c = b.chapters[chapter - 1];
     if (!c || !b.byHeadings) return reply(b.byHeadings ? `“${name}” has ${b.chapters.length} chapter${b.chapters.length === 1 ? '' : 's'}.` : `“${name}” has no chapter headings of its own. Say “read from page” and a number${b.hasPages ? '' : ', or open it and pick a part'}.`);
     n = c.n;

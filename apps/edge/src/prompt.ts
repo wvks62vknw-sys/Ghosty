@@ -19,16 +19,8 @@ import { asData } from './kernel/permissions';
 import { character, readPersona, SPOKEN } from '../../../packages/shared/src/persona';
 export { CHARACTER_MARK, character, DEFAULT_PERSONA, lengthBand, polish, readPersona, SPOKEN } from '../../../packages/shared/src/persona';
 
-export interface ClientContext {
-  now?: string;
-  tz?: string;
-  tab?: string;
-  name?: string;
-  location?: { name: string; lat: number; lon: number };
-  screen?: string;
-  /** This turn was spoken (the app's microphone, a Telegram voice note): the reply will be heard. */
-  voice?: boolean;
-}
+export type { ClientContext } from '../../../packages/shared/src/awareness';
+import { cleanScreen, contextWords, type ClientContext } from '../../../packages/shared/src/awareness';
 
 /** Which tool groups are described this turn (`on`) and which are only named (`off`); see tools/index.ts selectGroups. */
 export interface PromptGroups {
@@ -108,12 +100,16 @@ export function contextLines(m: MindSnapshot, c: ClientContext): string[] {
   // (his own messages are in the conversation already: the day log adds what happened elsewhere)
   const earlier = m.recent.filter((e) => e.kind !== 'turn').slice(-3);
   if (earlier.length && m.now.tz) out.push(`Earlier: ${earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).join('; ')}`);
+  // 7 Nov 2026, BRIEF-AWARENESS: these two lines leave the prompt in the follow-up PR that adds the agent.ts call (his 5 Nov rule: the
+  // screen rides in his message). Until then they stay, as they were; `withScreen` in context.ts is ready and waiting for that call.
+  // The phone now sends `screen` as a ScreenContext: it is said with the same `contextWords` the wrapped line uses, so the two never drift.
   if (c.tab === 'telegram') {
     // On Telegram there is no screen: one short line instead of the tab and agent.ts's longer screen note (the prompt budget).
     out.push(TELEGRAM);
   } else {
     if (c.tab) out.push(`Open tab: ${c.tab}`);
-    if (c.screen) out.push(`On screen: ${c.screen.slice(0, 400)}`);
+    const said = typeof c.screen === 'object' && c.screen ? (cleanScreen(c.screen) ? contextWords(cleanScreen(c.screen)!).replace(/^On screen: /, '') : '') : c.screen;
+    if (said) out.push(`On screen: ${said.slice(0, 400)}`);
   }
   return out;
 }

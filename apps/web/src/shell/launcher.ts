@@ -16,6 +16,7 @@ import { register, run } from '../commands/registry';
 import { clear, h, icon } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { send } from '../assistant/session';
+import { thatOne } from '../assistant/thatwords';
 import { listen, stopListening, voiceSupport } from '../assistant/voice';
 import { speechCaps } from '../api/brain';
 import { settings, ui } from '../state/app';
@@ -24,6 +25,8 @@ import { revealPanel } from '../ui/sections';
 import { navTo } from './areas';
 import { DECK, DECK_GROUPS, picksFor, type DeckAct, type DeckLine, type DeckScreen, type TryPick } from './deckcopy';
 import { tabs, type TabDef } from './tabs';
+import { askFromHere, awarenessMark, screenActs, setOverlay } from './awareness';
+import type { ScreenContext } from '../../../../packages/shared/src/awareness';
 
 const SEARCH = '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>';
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -42,6 +45,24 @@ export interface Launcher {
 
 /** What the deck shows, for specs and the console (window.__ghosty.deck). */
 export const deckState = { open: false, expanded: '', query: '', shown: [] as string[], picks: [] as string[] };
+
+/**
+ * What the deck says while it is open (BRIEF-AWARENESS): it sits over the tab underneath, so for as long as it is up it speaks
+ * instead of that tab: what he has typed in its search and the card he has open. Closed, null (the tab's own context counts).
+ */
+export function deckContext(): ScreenContext | null {
+  if (!deckState.open) return null;
+  const q = deckState.query.trim();
+  const t = deckState.expanded ? tabs().find((x) => x.id === deckState.expanded) : undefined;
+  const c = t ? copyOf(t) : null;
+  return {
+    screen: 'deck',
+    title: 'Every screen',
+    line: `the deck of every screen${q ? `, searching for '${q.replace(/'/g, '’')}'` : ''}`,
+    ...(t && c ? { selected: { kind: 'card', id: t.id, label: c.name, ...(c.promise ? { detail: c.promise } : {}) } } : {}),
+    at: Date.now(),
+  };
+}
 
 /** Words for matching: lower case, accents off, split at anything that is not a letter or a digit. */
 const words = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(Boolean);
@@ -74,6 +95,7 @@ function reveal(tab: string, title: string): void {
 
 /** The conversation, open (on a phone the chat sits behind its own button). */
 export function openChat(): void {
+  askFromHere(); // (the screen he asks from is what "this" means in the question: shell/awareness.ts)
   if (ui.get().tab !== 'core') navTo('core', 'pop');
   setTimeout(() => {
     const hud = document.querySelector('#pg-core .hud.core');
@@ -97,6 +119,7 @@ export function perform(a: DeckAct): void {
 const actKind = (a: DeckAct) => ('ask' in a ? 'ask' : 'chat' in a ? 'chat' : 'open');
 
 export function buildLauncher(): Launcher {
+  setOverlay('deck', deckContext);
   let expanded = '';
   let listening = false;
   const name = h('span.dkname', { dataset: { case: 'keep' } });
@@ -129,6 +152,12 @@ export function buildLauncher(): Launcher {
     close(true);
     perform(a);
   };
+  // "open that one" while a card is open (assistant/thatone.ts): the same as its OPEN button
+  screenActs.openCard = (id) => {
+    if (!defs().has(id)) return false;
+    choose({ open: id });
+    return true;
+  };
 
   // ---------- the cards
   const liveOf = (t: TabDef, cur: string): { text: string; hot: boolean } | null => {
@@ -141,6 +170,10 @@ export function buildLauncher(): Launcher {
     const here = t.id === cur;
     if (!text && here) text = 'You are here';
     return text ? { text, hot: here || DUE.test(text) } : null;
+  };
+  const lookRow = () => {
+    const m = awarenessMark();
+    return h(`span.dklook${m.state === 'working' ? '' : '.warn'}` as 'span', { dataset: { state: m.state, case: 'keep' } }, m.words);
   };
   const glyph = (t: TabDef) => h('span.dkg', { 'aria-hidden': 'true' }, icon(t.icon));
   const card = (t: TabDef, cur: string) => {
@@ -155,6 +188,8 @@ export function buildLauncher(): Launcher {
       h('span.dkhd', glyph(t), h('b', c.name), icon(DOWN, 'ic dkmore')),
       h('span.dkpr', c.promise),
       live ? h(`span.dklive${live.hot ? '.hot' : ''}` as 'span', h('i'), live.text) : null,
+      // the Core card says what I am looking at (BRIEF-AWARENESS), with the mark: WORKING while my last turn carried the screen
+      t.id === 'core' ? lookRow() : null,
     );
     return b;
   };
@@ -246,6 +281,8 @@ export function buildLauncher(): Launcher {
   type Hit = { t: TabDef; line: DeckLine };
   let found: { cards: TabDef[]; lines: Hit[] } = { cards: [], lines: [] };
   const filter = () => {
+    // "open that one" (BRIEF-AWARENESS): words that point at the open card filter nothing, so the card stays as it is
+    if (deckState.expanded && thatOne(input.value.trim())) return;
     const q = words(input.value);
     deckState.query = input.value;
     const all = defs();
@@ -275,6 +312,12 @@ export function buildLauncher(): Launcher {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
+    // "open that one" with a card open: said to Ghosty while the deck is still up, so it is the card he means (assistant/thatone.ts)
+    if (deckState.expanded && thatOne(text)) {
+      input.value = '';
+      void send(text);
+      return;
+    }
     const top = found.cards[0];
     if (top) choose({ open: top.id });
     else if (found.lines[0]) choose(found.lines[0].line.act);
