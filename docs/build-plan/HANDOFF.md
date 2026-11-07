@@ -161,6 +161,12 @@ folder that no longer exists; ignore those paths).
   14:20 UK: PR #63 green on every job and MERGED (main 96bcbc7); unsubscribed, branch restarted from main carrying the
   usage note, the orb worktree and both builder branches removed, a check-in set for main's own run. NEXT: item 3,
   awareness (STARS 153 with 151–152 and 154–155): write BRIEF-AWARENESS from STATUS section 4 item 3, launch on the mid tier.
+  14:40 UK: a mid-tier explorer wrote the facts sheet for awareness (FACTS-AWARENESS.md: the system prompt already carries
+  "Open tab" and "On screen", no Context or Show type exists, the shed is DESIGN A BUILD inside STUDIO, no voiceprint code);
+  BRIEF-AWARENESS written as PR A (the protocol, the five screens, the brain's side without agent.ts; B the Lens and C his
+  voice after); builder launched on the mid tier in worktree awareness, branch builder/awareness, port 8805, results to
+  scratchpad/awareness-build.md. 15:23 UK: main's own run 343 (96bcbc7) green on every job: item 1(e), the orb and the
+  boot, FINISHED. Item 1 is complete on main; item 2 complete on main; item 3 building.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
