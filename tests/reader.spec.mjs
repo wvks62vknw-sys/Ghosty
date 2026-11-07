@@ -546,7 +546,13 @@ if (part('listen')) {
   check(lit.lit === String(lit.reading.lit) && lit.frame && lit.current === lit.lit && Number(lit.lit) >= 5, `[${name}] the lit passage does not follow the voice: ${JSON.stringify(lit)}`);
   check(lit.place?.n >= 5 && lit.place.n === lit.reading.n, `[${name}] the place did not move with the voice: ${JSON.stringify(lit.place)} (reading ${lit.reading.n})`);
   check(/attending/i.test(lit.bar) && /phone/i.test(lit.bar), `[${name}] the bar does not say it is attending, in the phone's voice: "${lit.bar}"`);
-  // (in view is between the held pills and the bar: the words under either are hidden)
+  // (in view is between the held pills and the bar: the words under either are hidden; the page glides there, so a moment is given)
+  const between = () => {
+    const r = document.querySelector('#pg-reader .grd-p.lit')?.getBoundingClientRect();
+    const lh = parseFloat(getComputedStyle(document.querySelector('#pg-reader .grd-flow')).lineHeight);
+    return !!r && r.top < document.querySelector('#pg-reader .grd-bar').getBoundingClientRect().top - lh && r.bottom > document.querySelector('#pg-reader .secpills').getBoundingClientRect().bottom + lh;
+  };
+  await page.waitForFunction(between, null, { timeout: 2000 }).catch(() => undefined);
   const litBox = await page.evaluate(() => {
     const r = document.querySelector('#pg-reader .grd-p.lit')?.getBoundingClientRect();
     const lh = parseFloat(getComputedStyle(document.querySelector('#pg-reader .grd-flow')).lineHeight);
@@ -555,6 +561,7 @@ if (part('listen')) {
   check(litBox && litBox.top < litBox.bar - litBox.lh && litBox.bottom > litBox.pills + litBox.lh, `[${name}] the page did not follow the voice: the lit passage is not between the pills and the bar ${JSON.stringify(litBox)}`);
   // a chapter's end names the next chapter: Chapter Three's head is read as it comes
   await until(page, () => window.__ghosty.reader.listen.pieces.some((p) => /^Chapter Three/.test(p.text)), null, 30000, `[${name}] the next chapter's name was not said at the chapter's end`);
+  await page.waitForTimeout(900); // (the page glides to the new chapter: the picture once it is there)
   await page.screenshot({ path: `${out}/reader-listen-440.png` });
   // STOP: the reading ends and the page is said ("Page 7. I'll carry on from here.")
   const s0 = await page.evaluate(() => performance.now());
