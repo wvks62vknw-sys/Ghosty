@@ -196,7 +196,14 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- PR #64 OPEN 7 Nov 17:40 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
+- PR #65 OPEN 7 Nov 19:30 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
+  ONE LENS, awareness PR B (OWNER-ISSUES 151; BRIEF-LENS; STARS 151–152): point it and Ghosty tags what he sees in the
+  Machine's marks with the act under each tag (READ, TRANSLATE, ASK, LOOK, NAME IT, MEASURE, FIND THE PART), a face he knows
+  by its name and a stranger as "someone I don't know" with no act, the cheap pass every frame in a worker and the heavy pass
+  on a steady frame, two seconds a tag, every old mode under MORE and by words, WORKING / DEGRADED / OFFLINE on the bar.
+  Locally: both typechecks, the build, the bundle, 87 brain tests, the lens, faces, name, awareness, deck and tabs specs.
+  His seven-step phone check and two questions with their context are in 151.
+- PR #64 MERGED 7 Nov 19:02 UK (main fe76ce3, every check green on its own run after one fix at the red shard, OWNER-ISSUES 150; finished when main's own run is green):
   AWARENESS PR A (OWNER-ISSUES 150; BRIEF-AWARENESS with FACTS-AWARENESS; STARS 153): the Context and Show protocol in
   packages/shared, every screen publishing what is open and what is picked (the room plan, the car, the shed, the reader, the
   deck, and Home, the Library, the Lens, God's Eye, THE LOOK), "that one" acting on the phone with no model, the stamp's
@@ -286,7 +293,7 @@ built in the old look after day one, so no screen is built twice.
    the session branch, every touched check green locally; PR #61 MERGED 7 Nov 07:02 UK (main b03bf93) after one spec fix at its
    cause (OWNER-ISSUES 146); main's own run 337 green on every job 07:57 UK: FINISHED.
    His phone check (seven steps, 126 folded in) and three small questions are in 145.
-3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in). PR A, THE PROTOCOL AND THE FIVE SCREENS (BRIEF-AWARENESS with FACTS-AWARENESS): LAUNCHED 7 Nov 14:40 UK on the mid tier in worktree awareness, branch builder/awareness; PR B ONE LENS (BRIEF-LENS; STARS 151–152) LAUNCHED 7 Nov 17:20 UK on the mid tier in worktree lens, branch builder/lens, from the branch with A on it (no shared files with A's CI run); PR C HIS VOICE KNOWN gets its brief after B. BUILT 7 Nov 17:30 UK (OWNER-ISSUES 150: the protocol, the five screens and five more publishing, "that one" with no model, the stamp and the Core card's mark, the brain's withScreen ready; the prompt's screen lines STAY until he unlocks two lines in agent.ts, his question (a) in 150, so nothing regresses); merged into the session branch, every touched check green locally; PR going up, merged when every check is green, finished when main's own run is green; the kernel follow-up waits for his word. The item: the context line rides
+3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in). PR A, THE PROTOCOL AND THE FIVE SCREENS (BRIEF-AWARENESS with FACTS-AWARENESS): LAUNCHED 7 Nov 14:40 UK on the mid tier in worktree awareness, branch builder/awareness; PR B ONE LENS (BRIEF-LENS; STARS 151–152) LAUNCHED 7 Nov 17:20 UK on the mid tier in worktree lens, branch builder/lens, from the branch with A on it (no shared files with A's CI run); BUILT 7 Nov 18:30 UK (OWNER-ISSUES 151: the one view with the Machine's tags and the acts under them, the cheap pass in a worker, the heavy pass on a steady frame, two seconds a tag, every old mode under MORE, the mark on the bar with the 47 MB download on his tap, faces never leaving the phone; aim.spec red the same way on the old build); applied to the session branch as one commit, both typechecks, the build, the bundle and 87 brain tests green; PR #65 going up when the specs are green; PR C HIS VOICE KNOWN gets its brief after B. BUILT 7 Nov 17:30 UK (OWNER-ISSUES 150: the protocol, the five screens and five more publishing, "that one" with no model, the stamp and the Core card's mark, the brain's withScreen ready; the prompt's screen lines STAY until he unlocks two lines in agent.ts, his question (a) in 150, so nothing regresses); PR #64 MERGED 7 Nov 19:02 UK (main fe76ce3) after one fix at the red shard (the Lens's context line had dropped NAME's names: 150); main's own run read after; the kernel follow-up waits for his word. The item: the context line rides
    in his message to the brain, never in the system prompt (the guard untouched, nothing trimmed); the Lens runs its cheap
    detectors on every frame and the heavy ones on a steady frame, two seconds per tag; his voice known as a courtesy signal, the
    confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
