@@ -214,6 +214,7 @@ folder that no longer exists; ignore those paths).
   second step with the face model's memory retry and plain words; the iPhone failure reproduced by a test-only switch);
   applied as one commit on hotfix/lens FROM MAIN (so it carries nothing else), PR #67 opened, its preview link sent to him
   for the phone check; the merge waits for his word. The lensfix worktree stays until then. PR #66 (voice) stays held.
+  22:35 UK: main's own run 349 (6c02cd0, ONE LENS) green on every job; by his verdict it is finished only with PR #67 on main.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
