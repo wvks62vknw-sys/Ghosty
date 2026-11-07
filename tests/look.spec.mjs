@@ -349,7 +349,7 @@ if (!isWebKit) {
     await p.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
     await p.waitForTimeout(500);
     await openSection(p, 'settings', 'Appearance');
-    await p.click('#pg-settings .pn[data-row].themepn > h3');
+    await p.click('#pg-settings .pn[data-row].themepn > h3', { timeout: 8000 });
     await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, '[recipe] two taps did not open the Theme page');
     await p.waitForTimeout(450);
   }
@@ -357,14 +357,14 @@ if (!isWebKit) {
   const clearToasts = (p) => p.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
   const tapDial = async (p, root, dial, choice) => {
     const b = p.locator(`${root} .gdial[data-dial="${dial}"] .gchoice[data-choice="${choice}"]`);
-    await b.scrollIntoViewIfNeeded().catch(() => undefined);
-    await b.click();
+    await b.scrollIntoViewIfNeeded({ timeout: 4000 }).catch(() => undefined);
+    await b.click({ timeout: 8000 });
     await p.waitForTimeout(250);
   };
   const tapSwitch = async (p, root, key, val) => {
     const b = p.locator(`${root} .gswitch[data-switch="${key}"] button[data-val="${val}"]`);
-    await b.scrollIntoViewIfNeeded().catch(() => undefined);
-    await b.click();
+    await b.scrollIntoViewIfNeeded({ timeout: 4000 }).catch(() => undefined);
+    await b.click({ timeout: 8000 });
     await p.waitForTimeout(250);
     await clearToasts(p);
   };
@@ -413,8 +413,17 @@ if (!isWebKit) {
     return { n, min: +min.toFixed(2), low: low.slice(0, 8) };
   }, sel);
 
+  /** Run one part; an error in it (a control that is not there) is a named problem, and the parts after it still run. */
+  const part = async (name, fn) => {
+    try {
+      await fn();
+    } catch (e) {
+      problems.push(`[recipe] ${name} could not run: ${String(e?.message ?? e).split('\n')[0].slice(0, 160)}`);
+    }
+  };
   // ---- 7a. the Theme page: two taps from Settings, the presets first, the dials under them, the row saying the recipe
   const { c: c5, p: p5 } = await recipePhone(PHONE);
+  await part('the Theme page, each ground and Paper', async () => {
   await p5.evaluate(() => (location.hash = 'settings'));
   await p5.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
   await openSection(p5, 'settings', 'Appearance');
@@ -491,10 +500,12 @@ if (!isWebKit) {
   await p5.evaluate(() => { const h = document.querySelector('#pg-look .hud.glook'); if (h) h.scrollTop = 0; });
   await p5.screenshot({ path: `${out}/look-${engine}-440-paper-look.png` });
   notes.push(`Paper, measured on screen: every text on the Theme page and THE LOOK at ${worst}:1 or more`);
+  });
   await c5.close();
 
   // ---- 7d. each world changes the floor, the corners and the marks (computed styles, measured)
   const { c: c6, p: p6 } = await recipePhone(PHONE);
+  await part('the worlds, the switches and the words', async () => {
   await p6.evaluate(() => (location.hash = 'look'));
   await p6.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
   await openLookSection(p6, 'marks');
@@ -637,10 +648,12 @@ if (!isWebKit) {
   const reply = await p6.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /nothing lit/.test(t)).pop() ?? '');
   check(black && /Black: nothing lit but what I’m looking at\./.test(reply) && !asked.length, `[words] "black background": ground ${(await state(p6)).ground}, said "${reply.slice(0, 80)}", the brain asked ${asked.length} times`);
   await p6.screenshot({ path: `${out}/look-${engine}-440-words-black.png` });
+  });
   await c6.close();
 
   // ---- 7f. ground follows the day, on a stand-in clock: Paper by day at his home, the night ground once the sun has set
   const { c: c7, p: p7 } = await recipePhone(PHONE, { look: { ground: 'black', night: 'black', switches: { day: 'on' } }, clock: '2026-11-07T15:00:00Z' });
+  await part('ground follows the day', async () => {
   const day = await state(p7);
   check(day.ground === 'paper' && day.night === 'black' && /^Reactor · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
   await p7.clock.fastForward('02:00:00');
@@ -648,11 +661,13 @@ if (!isWebKit) {
   const night = await state(p7);
   check(flipped && /^Reactor · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
   notes.push(`ground follows the day on a stand-in clock: "${day.words}" at 15:00, "${night.words}" at 17:00`);
+  });
   await c7.close();
 
   // ---- 7h. the Theme page at 390 and 440: nothing sideways, every control named and 44 pt
   for (const vp of [SMALL, PHONE]) {
     const { c: c8, p: p8 } = await recipePhone(vp);
+    await part(`the Theme page at ${vp.width}`, async () => {
     await themePage(p8);
     await p8.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     for (let y = 0; y < 6; y++) {
@@ -672,6 +687,7 @@ if (!isWebKit) {
       check(!m.small.length, `[${vp.width}] the Theme page has a control under 44 pt: ${m.small.join(' | ')}`);
     }
     await p8.screenshot({ path: `${out}/look-${engine}-${vp.width}-theme-page.png` });
+    });
     await c8.close();
   }
 }
