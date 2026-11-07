@@ -147,6 +147,7 @@ folder that no longer exists; ignore those paths).
   ea5596e..9fa044d was applied as one patch (clean; the tree equals the builder's outside the docs). Locally: typecheck,
   build, bundle, look tests, then the full brain suite and the boot/hero/look/routec/deck/tabs specs. OWNER-ISSUES 149,
   STATUS 1(e) and section 2; PR #63 opened and subscribed. The orb worktree stays until the PR merges.
+  11:37 UK: main's own run 340 (7e837c7) green on every job: item 1(d), themes that mean something, FINISHED.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
