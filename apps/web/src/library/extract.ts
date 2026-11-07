@@ -17,6 +17,8 @@ export interface Extracted {
   code?: boolean;
   /** Something the owner should know (e.g. "looks scanned"). */
   warning?: string;
+  /** [reader] Who wrote it, where the file says so (an e-book's or a Word file's dc:creator, a PDF's /Author): the Shelf shows it. */
+  author?: string;
 }
 
 const CODE_EXT = /\.(js|mjs|cjs|ts|tsx|jsx|py|rs|go|c|h|cc|cpp|hpp|java|kt|swift|rb|php|cs|scala|lua|sh|bash|sql|r|m|dart|zig|ex|exs|hs|ml|clj|vue|svelte)$/i;
@@ -34,8 +36,17 @@ export async function extractFile(file: File): Promise<Extracted> {
   if (lower.endsWith('.epub')) return extractEpub(new Uint8Array(await file.arrayBuffer()), stem(name));
   if (/\.html?$/.test(lower) || file.type === 'text/html') return extractHtml(await file.text(), stem(name));
   if (CODE_EXT.test(lower)) return { title: name, pages: [await file.text()], kind: 'code', code: true };
-  if (TEXT_EXT.test(lower) || file.type.startsWith('text/') || !file.type) return { title: stem(name), pages: [await file.text()], kind: lower.endsWith('.md') ? 'notes' : 'text' };
+  if (TEXT_EXT.test(lower) || file.type.startsWith('text/') || !file.type) return { title: stem(name), pages: textPages(await file.text()), kind: lower.endsWith('.md') ? 'notes' : 'text' };
   throw new Error(`can't read ${name} — supported: PDF, Word (.docx), e-books (.epub), web pages, text, Markdown, CSV/JSON and code`);
+}
+
+/**
+ * [reader] A plain text's pages: where it carries page breaks (form feeds, as a PDF turned into text has between its pages),
+ * each page is its own, so the reader shows its page marks and keeps a place by page; else the whole text is one.
+ */
+export function textPages(text: string): string[] {
+  const pages = text.split('\f');
+  return pages.length > 1 ? pages.map((p) => p.replace(/^\s*\n/, '')).filter((p, i, all) => p.trim() || i < all.length - 1) : [text];
 }
 
 // ---------------------------------------------------------------- HTML
@@ -126,13 +137,15 @@ export async function extractDocx(bytes: Uint8Array, fallbackTitle: string): Pro
   const main = files.get('word/document.xml');
   if (!main) throw new Error('this Word file has no document text');
   const xml = new TextDecoder().decode(main);
-  const title = xmlText(new TextDecoder().decode(files.get('docProps/core.xml') ?? new Uint8Array()).match(/<dc:title>([\s\S]*?)<\/dc:title>/)?.[1] ?? '').trim();
+  const core = new TextDecoder().decode(files.get('docProps/core.xml') ?? new Uint8Array());
+  const title = xmlText(core.match(/<dc:title>([\s\S]*?)<\/dc:title>/)?.[1] ?? '').trim();
+  const author = xmlText(core.match(/<dc:creator>([\s\S]*?)<\/dc:creator>/)?.[1] ?? '').trim();
   const paras = xml.split(/<\/w:p>/).map((p) => {
     const text = [...p.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:(tab|br)\/>/g)].map((m) => (m[2] === 'tab' ? '\t' : m[2] === 'br' ? '\n' : xmlText(m[1] ?? ''))).join('');
     const heading = /<w:pStyle w:val="(Heading|Title)\d*"/i.test(p);
     return heading && text.trim() ? `# ${text.trim()}` : text;
   });
-  return { title: title || fallbackTitle, pages: [paras.join('\n\n')], kind: 'document' };
+  return { title: title || fallbackTitle, pages: [paras.join('\n\n')], kind: 'document', ...(author ? { author } : {}) };
 }
 
 export async function extractEpub(bytes: Uint8Array, fallbackTitle: string): Promise<Extracted> {
@@ -144,6 +157,7 @@ export async function extractEpub(bytes: Uint8Array, fallbackTitle: string): Pro
   const opf = dec.decode(files.get(opfPath)!);
   const base = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
   const title = xmlText(opf.match(/<dc:title[^>]*>([\s\S]*?)<\/dc:title>/)?.[1] ?? '').trim();
+  const author = xmlText(opf.match(/<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/)?.[1] ?? '').trim();
   const items = new Map<string, string>();
   for (const m of opf.matchAll(/<item\b[^>]*>/g)) {
     const id = m[0].match(/\bid="([^"]+)"/)?.[1];
@@ -160,5 +174,5 @@ export async function extractEpub(bytes: Uint8Array, fallbackTitle: string): Pro
     if (t.trim()) pages.push(t);
   }
   if (!pages.length) throw new Error('found no readable chapters in this e-book');
-  return { title: title || fallbackTitle, pages, kind: 'book' };
+  return { title: title || fallbackTitle, pages, kind: 'book', ...(author ? { author } : {}) };
 }

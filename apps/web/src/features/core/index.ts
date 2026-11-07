@@ -8,7 +8,7 @@ import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { heardOver, holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
+import { heardOver, holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, talkHooks, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -128,7 +128,7 @@ async function sendWithEars(words: string, live: () => boolean): Promise<void> {
   if (failed.length) throw failed[0];
 }
 
-async function voiceTurn(id: number): Promise<void> {
+async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
   // (a turn of an earlier conversation, finishing late, must not carry on in a later one)
   const live = () => conversation && id === convoId;
   if (!voiceSupport.mic && !voiceSupport.browserStt) {
@@ -138,6 +138,9 @@ async function voiceTurn(id: number): Promise<void> {
   }
   // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
   holdMic(true);
+  // [reader] LISTEN on a book: I read first; the ear opens when I stop (talked over, or the book read to its end)
+  if (afterSpeech) await untilFree(live);
+  if (!live()) return;
   try {
     // Kept on the phone ("always", or ON THIS PHONE): only the phone's own recogniser may hear it (the brain's gets the recording).
     // [guardian] So too with the Lens's PEOPLE open: an introduction ("this is Sam") is heard on the phone, never by the brain.
@@ -161,10 +164,12 @@ async function voiceTurn(id: number): Promise<void> {
       return;
     }
     quiet = 0;
-    // "that's all", "bye", "see you later": the conversation ends here, signed off, the microphone let go (BRIEF-TALK-1A 4)
+    // "that's all", "bye", "see you later": the conversation ends here, signed off, the microphone let go (BRIEF-TALK-1A 4);
+    // [reader] with a book being read (or just cut), the sign-off is where we are in it ("Page 48. I'll carry on from here.")
     if (endIntent(text)) {
       endConversation();
-      await signOff(text);
+      const book = await import('../library/reader').then((r) => r.bookSignOff(text)).catch(() => false);
+      if (!book) await signOff(text);
       return;
     }
     await sendWithEars(text, live);
@@ -193,6 +198,22 @@ export function listenNow(): void {
   mic?.classList.add('on');
   void voiceTurn(++convoId).finally(() => document.querySelector('#mic')?.classList.toggle('on', conversation));
 }
+
+/**
+ * [reader] A conversation that starts by waiting while I speak (LISTEN on a book, which holds the microphone itself in the tap
+ * that started it): talked over, I stop and listen, and what he says is a turn like any other ("go on" reads on, a question is
+ * answered, "that's all" ends it with where we are).
+ */
+function converseAfterSpeech(): void {
+  if (conversation) return;
+  conversation = true;
+  quiet = 0;
+  document.querySelector('#mic')?.classList.add('on');
+  void voiceTurn(++convoId, true).finally(() => document.querySelector('#mic')?.classList.toggle('on', conversation));
+}
+talkHooks.converse = converseAfterSpeech;
+talkHooks.end = () => conversation && endConversation();
+talkHooks.live = () => conversation;
 
 /** Resolves the moment Ghosty is neither speaking nor thinking (his reply has ended), or the conversation is over. */
 function untilFree(live: () => boolean): Promise<void> {
@@ -528,6 +549,8 @@ export const coreTab: TabDef = {
         holdMic(false);
         stopListening();
         mic.classList.remove('on');
+        // [reader] the microphone let go just after he stopped a book: where we are, said once ("Page 48. I'll carry on from here.")
+        void import('../library/reader').then((r) => r.micLetGo()).catch(() => undefined);
         return;
       }
       listenNow();

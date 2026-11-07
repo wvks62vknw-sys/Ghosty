@@ -61,6 +61,10 @@ import { NEARS } from '../features/outside/sheet';
 import { socialInfo, waiting } from '../features/social/queue';
 import { dayOf, loadProgress, streak } from '../coach/progress';
 import { houseNow, loadHouse } from '../house/api';
+// [reader] the library card: the book he is reading (BRIEF-LIBRARY-READER 5)
+import { hisBooks, lastRead, readingNow, shelfDocs } from '../features/library/reader';
+import { reading, shortTitle } from '../library/listen';
+import { syncPlaces } from '../library/place';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -149,8 +153,11 @@ const loadArcade = every(3_000, async () => {
   hubFacts.arcade = { here: ready.filter(Boolean).length };
 });
 const loadLib = every(300_000, async () => {
-  const [, st] = await Promise.all([brain.library().catch(() => null), brain.studyStatus().catch(() => null)]);
+  const [lib, st] = await Promise.all([brain.library().catch(() => null), brain.studyStatus().catch(() => null)]);
   if (st) hubFacts.study = st;
+  // [reader] the shelf the card counts, and his places in it (the book he is reading, the last one)
+  if (lib) shelfDocs.set({ docs: lib.docs, at: Date.now() });
+  await syncPlaces();
 });
 const loadSchool = every(600_000, async () => {
   const j = (await fetch('/api/school', { headers: headers() }).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as Record<string, unknown> | null;
@@ -516,17 +523,34 @@ export const CARDS: Record<string, HubCard> = {
     why: () => (hubFacts.school === false ? 'Download his school in Settings' : ''),
     load: loadSchool,
   },
+  // [reader] the Library as a library (BRIEF-LIBRARY-READER 5): the book he is reading and where, else his shelf and the last book
   library: {
-    title: 'All I have read',
-    status: () => 'READY',
+    title: 'Your books, read to you',
+    status: () => (reading.get().state === 'reading' ? 'LIVE' : 'READY'),
     instrument: () => {
+      const r = readingNow();
+      if (r) return mindInst({ frac: r.place.pct });
       const s = hubFacts.study?.summary;
       return mindInst({ frac: s && s.topics ? s.read / s.topics : null });
     },
-    readouts: () => [
-      { label: 'Passages', value: n(lastSeen.get().passages) },
-      { label: 'Studied', value: n(hubFacts.study?.summary.read) },
-    ],
+    readouts: () => {
+      const r = readingNow();
+      if (r) {
+        const paged = r.doc.pages > 1 && r.doc.kind !== 'book' && !!r.place.page;
+        return [
+          { label: 'Reading', value: shortTitle(r.doc.title), live: reading.get().state === 'reading' },
+          paged ? { label: 'Page', value: `${r.place.page} of ${r.doc.pages}` } : { label: 'Read', value: `${Math.max(1, Math.floor(r.place.pct * 100))}%` },
+        ];
+      }
+      const s = shelfDocs.get();
+      const mine = hisBooks(s.docs);
+      const last = lastRead();
+      return [
+        { label: 'Shelf', value: s.at ? fmt.n(mine.length) : null, unit: mine.length === 1 ? 'book' : 'books' },
+        { label: 'Last book', value: last ? shortTitle(last.title) : null, none: 'None yet' },
+      ];
+    },
+    why: () => (shelfDocs.get().at && !hisBooks(shelfDocs.get().docs).length ? 'Add a book in the Library and I’ll read it to you' : ''),
     load: loadLib,
   },
   // [arcade] the ARCADE's card on Learn (1 Nov; it had no card, so the owner could not find it): free classics and our own

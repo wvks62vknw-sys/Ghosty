@@ -166,7 +166,8 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
 type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
 /** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
 function areaTools(a: Area): Tool[] {
-  const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
+  // (a card opens its screen as he left it, or where the screen asks: the Library's opens on its Shelf, TabDef.cardTo)
+  const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.cardTo ?? t.id, 'push')]);
   if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
   // ([reste] MAKE's two sheets, the converter and the documents, were added here by hand: since 1 Nov they are screens of
   // their own in MAKE's tabs, with the house: BRIEF-TABS 2)
@@ -543,5 +544,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
   // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
   if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
+  // (THE READER is a book from the Library's Shelf: back is the Library, two taps from Learn: BRIEF-LIBRARY-READER)
+  if (tab === 'reader') return { back: 'Library', backTo: 'library', title: 'Reader' };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

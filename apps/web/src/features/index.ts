@@ -11,6 +11,8 @@ import { gymTab } from './gym';
 import { learnTab } from './learn';
 import { lensTab } from './lens';
 import { libraryTab } from './library';
+// THE READER (BRIEF-LIBRARY-READER): a book from the Library's Shelf, read here or aloud, its place kept
+import { readerTab } from './reader';
 import { linksTab } from './links';
 import { marketsTab } from './markets';
 import { radioTab } from './radio';
@@ -46,4 +48,4 @@ import { docsTab } from './docs';
 import { houseTab } from './house';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];

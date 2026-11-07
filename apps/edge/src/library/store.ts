@@ -105,17 +105,29 @@ export class Library {
         s.exec(`INSERT OR IGNORE INTO lib_pass (rid, doc, heading, chars, h) SELECT rowid, doc, heading, length(text), length(text) || ':' || substr(text, 1, 160) FROM lib_fts`);
         s.exec(`INSERT OR REPLACE INTO lib_meta (k, v) VALUES ('pass_index', '1')`);
       }
+      // One-time (BRIEF-LIBRARY-READER 7, the Shelf as a shelf): a book's author, where its file says it. A library from before
+      // it gets the column once (no row is read: the table's shape changes, its rows stay as they are, the author empty).
+      if (!s.exec<{ v: string }>(`SELECT v FROM lib_meta WHERE k = 'docs_author'`).toArray()[0]) {
+        try {
+          s.exec(`ALTER TABLE lib_docs ADD COLUMN author TEXT`);
+        } catch {
+          /* already there (two Library objects on one storage) */
+        }
+        s.exec(`INSERT OR REPLACE INTO lib_meta (k, v) VALUES ('docs_author', '1')`);
+      }
       this.ready = true;
     }
     return s;
   }
 
-  createDoc(d: { title: string; source?: string; kind?: string; pages?: number; builtin?: boolean; id?: string }): LibraryDoc {
+  /** `author`: who wrote it, where the file says so (an e-book's, a Word file's or a PDF's own details); '' where it does not. */
+  createDoc(d: { title: string; source?: string; kind?: string; pages?: number; builtin?: boolean; id?: string; author?: string }): LibraryDoc {
     const id = d.id ?? `doc_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const title = d.title.replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled';
+    const author = (d.author ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
     this.db.exec(
-      `INSERT OR REPLACE INTO lib_docs (id, title, source, kind, pages, passages, chars, status, builtin, at) VALUES (?, ?, ?, ?, ?, 0, 0, 'adding', ?, ?)`,
-      id, title, (d.source ?? '').slice(0, 500), (d.kind ?? 'text').slice(0, 20), Math.max(0, Math.floor(d.pages ?? 0)), d.builtin ? 1 : 0, Date.now(),
+      `INSERT OR REPLACE INTO lib_docs (id, title, source, kind, pages, passages, chars, status, builtin, at, author) VALUES (?, ?, ?, ?, ?, 0, 0, 'adding', ?, ?, ?)`,
+      id, title, (d.source ?? '').slice(0, 500), (d.kind ?? 'text').slice(0, 20), Math.max(0, Math.floor(d.pages ?? 0)), d.builtin ? 1 : 0, Date.now(), author,
     );
     return this.doc(id)!;
   }
@@ -440,6 +452,7 @@ function toDoc(r: Record<string, SqlStorageValue>): LibraryDoc {
     status: r.status === 'ready' ? 'ready' : 'adding',
     builtin: Number(r.builtin ?? 0) === 1,
     at: Number(r.at ?? 0),
+    ...(r.author ? { author: String(r.author) } : {}),
   };
 }
 

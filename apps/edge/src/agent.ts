@@ -44,6 +44,7 @@ import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
 import { runDigest } from './library/digest';
 import { exportLibrary } from './library/export';
+import { dropPlace, placeRoute } from './library/place';
 import { loadPrinciples, loadProfile, profileRoute, reflect, reflectSummary } from './profile';
 import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
@@ -1386,14 +1387,16 @@ export class GhostyAgent {
         return json({ hits: searchStarterInMemory(q, k), paused: true });
       }
     }
+    // [reader] his place in each book, so another device opens it where he left it (library/place.ts; BRIEF-LIBRARY-READER 2)
+    if (path === '/library/place') return await placeRoute(req, method, url, { storage: this.storage, doc: (id) => lib.doc(id) });
     const pg = path.match(/^\/library\/docs\/([^/]+)\/passages$/);
     if (pg && method === 'GET') {
       // The owner's device keeps a full copy of the library, fetched a page at a time.
       return json(lib.passagesOf(decodeURIComponent(pg[1]!), Number(url.searchParams.get('after')) || 0, Number(url.searchParams.get('limit')) || 300));
     }
     if (path === '/library/docs' && method === 'POST') {
-      const b = (await req.json().catch(() => ({}))) as { title?: string; source?: string; kind?: string; pages?: number };
-      return json({ doc: lib.createDoc({ title: String(b.title ?? 'Untitled'), source: String(b.source ?? ''), kind: String(b.kind ?? 'text'), pages: Number(b.pages) || 0 }) });
+      const b = (await req.json().catch(() => ({}))) as { title?: string; source?: string; kind?: string; pages?: number; author?: string };
+      return json({ doc: lib.createDoc({ title: String(b.title ?? 'Untitled'), source: String(b.source ?? ''), kind: String(b.kind ?? 'text'), pages: Number(b.pages) || 0, author: typeof b.author === 'string' ? b.author : '' }) });
     }
     const m = path.match(/^\/library\/docs\/([\w-]+)(?:\/(passages|done))?$/);
     if (m && m[2] === 'passages' && method === 'POST') {
@@ -1401,7 +1404,12 @@ export class GhostyAgent {
       return json({ added: await lib.addPassages(m[1]!, Array.isArray(b.passages) ? b.passages : []) });
     }
     if (m && m[2] === 'done' && method === 'POST') return json({ doc: lib.finish(m[1]!) });
-    if (m && !m[2] && method === 'DELETE') return json({ ok: lib.remove(m[1]!) });
+    if (m && !m[2] && method === 'DELETE') {
+      const ok = lib.remove(m[1]!);
+      // [reader] a book taken out of the library takes its place with it
+      await dropPlace(this.storage, m[1]!);
+      return json({ ok });
+    }
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {

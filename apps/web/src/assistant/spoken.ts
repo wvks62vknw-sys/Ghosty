@@ -8,8 +8,8 @@
 
 import { looksCited, spokenOf } from '../cited/text';
 
-/** Short forms that end in a full stop but never end a sentence. */
-const SHORT = /(?:^|\s)(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|St|Prof|No|Nos|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|[A-Z])\.$/;
+/** Short forms that end in a full stop but never end a sentence (the reader's LISTEN cuts a book's sentences by the same rule). */
+export const SHORT = /(?:^|\s)(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|St|Prof|No|Nos|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|[A-Z])\.$/;
 
 /**
  * What the voice reads: no code, links, markdown or list markers; a line break becomes a full stop. A

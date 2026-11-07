@@ -17,6 +17,8 @@ import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcu
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
 import { tvNow, tvSetting } from '../../tv/setting'; // [restc] TV MODE
+import { readingControls } from '../library/reader'; // [reader] READING: pages or scroll, the size, his voice for books
+import { readingPrefs } from '../../library/place';
 
 export const settingsTab: TabDef = {
   id: 'settings',
@@ -42,7 +44,14 @@ export const settingsTab: TabDef = {
       return p.el;
     };
     // THE LOOK (features/look, BRIEF-DESIGN-SYSTEM 5): how everything is drawn from here, a row under the theme (two taps away)
-    P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), np.el, cp.el, gp.el);
+    // [reader] READING (BRIEF-LIBRARY-READER 1, 3): how a book is shown in the reader and whose voice reads it to him; the same
+    // controls as the reader's own TEXT key
+    const rp = panel('READING', { grow: false });
+    const paintReading = () => rp.setStatus(`${readingPrefs.get().mode === 'pages' ? 'Pages' : 'Scroll'} · ${readingPrefs.get().size} pt`);
+    paintReading();
+    readingPrefs.subscribe(paintReading);
+    rp.body.append(readingControls());
+    P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), rp.el, np.el, cp.el, gp.el);
     P.right.append(vp.el);
     const op = offlinePanel();
     P.right.append(op.el);
@@ -71,7 +80,7 @@ export const settingsTab: TabDef = {
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
-      { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK)/ },
+      { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK|READING)/ },
       { id: 'you', label: 'You', match: /^NAME/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it

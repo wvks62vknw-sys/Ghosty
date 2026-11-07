@@ -133,9 +133,22 @@ if (read('see', 'lens', 'Names') !== '4,624') problems.push(`[see lens] Names re
 if (read('see', 'lens', 'Modes') !== '11') problems.push(`[see lens] Modes reads "${read('see', 'lens', 'Modes')}" (the Lens has 11 modes: PEOPLE joined on 31 Oct, SHAPES on 1 Nov)`);
 if (read('make', 'studio', 'Built in') !== '7') problems.push(`[make studio] Built in reads "${read('make', 'studio', 'Built in')}" (seven: the five samples, the car from its plate and Design a build, which joined on 1 Nov)`);
 if (!/^Birmingham today$/.test(seen.ask?.find((c) => c.id === 'brief')?.title ?? '')) problems.push(`[ask brief] the title does not name his city: "${seen.ask?.find((c) => c.id === 'brief')?.title}"`);
+// the Library's card (BRIEF-LIBRARY-READER 5): the book he is reading and where ("Reading · The Hobbit", "Page · 42 of 300"),
+// else his shelf's count and the last book he read — the brain's own shelf and his places in it, as the card reads them
 const lib = await brainGet('/library');
-const passages = num(read('learn', 'library', 'Passages'));
-if (lib && !(passages > 0 && Math.abs(passages - lib.stats.passages) / lib.stats.passages < 0.08)) problems.push(`[learn library] Passages reads "${read('learn', 'library', 'Passages')}", the library has ${lib.stats.passages}`);
+const marks = (await brainGet('/library/place'))?.places ?? {};
+if (lib) {
+  const his = lib.docs.filter((d) => !d.builtin && !/^(read_|digest_|study_|notes_|project_|learn_|self_|yt_)/.test(d.id) && d.kind !== 'study' && d.kind !== 'digest');
+  const short = (t) => t.split(/\s*[:—–]\s+/)[0].split(/\s+/).slice(0, 8).join(' ');
+  const newest = (list) => [...list].sort((a, b) => marks[b.id].at - marks[a.id].at)[0];
+  const now = newest(his.filter((d) => marks[d.id] && !marks[d.id].done && Date.now() - marks[d.id].at < 30 * 86_400_000));
+  const last = newest(his.filter((d) => marks[d.id]));
+  const want = now
+    ? [['Reading', short(now.title)], now.pages > 1 && now.kind !== 'book' && marks[now.id].page ? ['Page', `${marks[now.id].page} of ${now.pages}`] : ['Read', `${Math.max(1, Math.floor(marks[now.id].pct * 100))}%`]]
+    : [['Shelf', `${his.length.toLocaleString('en-GB')}${his.length === 1 ? 'book' : 'books'}`], ['Last book', last ? short(last.title) : 'None yet']];
+  const got = (seen.learn?.find((c) => c.id === 'library')?.reads ?? []).map((r) => [r.k, r.v]);
+  if (JSON.stringify(got) !== JSON.stringify(want)) problems.push(`[learn library] the card reads ${JSON.stringify(got)}, the brain's shelf and places say ${JSON.stringify(want)}`);
+}
 const school = await brainGet('/school');
 if (school?.state?.stage) {
   const want = school.current?.label ?? school.stages?.find((s) => s.id === school.state.stage)?.label;

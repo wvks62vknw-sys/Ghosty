@@ -24,5 +24,6 @@ import { OFFLINE2_WORDS } from './offline2';
 import { TABS_WORDS } from './tabs';
 import { TALK_WORDS } from './talk';
 import { LOOK_WORDS } from './look';
+import { READER_WORDS } from './reader';
 
-export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS, ...TABS_WORDS, ...TALK_WORDS, ...LOOK_WORDS };
+export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS, ...TABS_WORDS, ...TALK_WORDS, ...LOOK_WORDS, ...READER_WORDS };

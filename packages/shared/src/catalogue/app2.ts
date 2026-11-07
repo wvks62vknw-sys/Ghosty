@@ -126,9 +126,9 @@ export const APP_2: Record<string, CatValue> = {
     say: ['What did that paper say about sleep?'], scene: ['school', 'phone'], cat: 'learn',
   },
   'panel:library:SHELF': {
-    name: 'Everything on my shelf', line: 'You can see every document in my library, open it to read, or take it out.',
-    more: 'With how big each is and where it came from.',
-    say: ['What’s in your library?'], scene: ['school'], cat: 'learn',
+    name: 'Your books on the shelf', line: 'You can browse your books with their covers and how far you are, sorted by recent, progress or title, and open one.',
+    more: 'Each book’s cover is its own first picture, or one I draw from its title; finished ones are marked. A tap opens it in the reader at your place. My notebooks and the built-in books are folded away below yours.',
+    say: ['What’s in your library?'], scene: ['school'], cat: 'learn', since: '2026-11-07',
   },
   'panel:library:GADGETS': {
     name: 'Your gadgets’ manuals', line: 'You can open the manuals I found for your gadgets, each kept with where it came from.',
