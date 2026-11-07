@@ -34,6 +34,11 @@ export interface TabDef {
   blurb?: string;
   /** An area's hub (shell/areas.ts): left out of the systems deck. */
   hub?: boolean;
+  /**
+   * A screen inside another (THE LOOK in Settings, the reader in the Library): reached from that one's rows and lines, and from
+   * the jump bar, so the systems deck shows that screen's card (whose lines lead here) and no card of its own.
+   */
+  inside?: string;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
   /**

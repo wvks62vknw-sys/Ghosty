@@ -74,6 +74,8 @@ export const lookTab: TabDef = {
   title: 'THE LOOK',
   icon: GLYPH.look,
   scene: 'backdrop',
+  // a row of Settings: the deck's Settings card leads here ("The look: how he draws everything"), it has no card of its own
+  inside: 'settings',
   blurb: 'tokens · type · marks · mind · themes',
   now: () => `${Object.keys(THEMES).length} themes · ${THEMES[themeKey(settings.get().theme)]!.label} in use`,
   mount(root) {
