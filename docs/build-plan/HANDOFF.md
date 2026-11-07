@@ -122,6 +122,10 @@ folder that no longer exists; ignore those paths).
   fixed, every check green on its tree); reviewed (guard untouched, one word in check.yml, no model names, no GPS, screenshots
   looked at), merged with one trivial conflict in tabs.ts (two doc comments on neighbouring fields), checks rerun on the merged
   tree, OWNER-ISSUES 145 written with his phone check (126 folded in) and three questions; its PR going up. THEMES-2 still running.
+  05:15 UK: PR #61 opened. A FOURTH container restart killed the THEMES-2 builder mid-validation (23 commits safe, worktree clean);
+  a fresh builder continues in the same worktree from its last commit. 06:05 UK: PR #61 red on smoke shard 1 only (the manuals
+  spec still waited for the old pop-up reader); fixed in the spec at the cause (OWNER-ISSUES 146), reproduced and green locally,
+  pushed. The merged design-system worktree was removed.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
