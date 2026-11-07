@@ -114,7 +114,9 @@ folder that no longer exists; ignore those paths).
   (141, BRIEF-THEMES-2, launched after the merge), the hologram orb stays and the boot gets much better (142, BRIEF-ORB-AND-BOOT),
   every feature stays a usable findable thing and no page lists every ability (143). A third container restart killed the reader
   builder mid-validation; its ten commits were safe and a fresh builder continues in the same worktree. Branch restarted from
-  main after the merge (same name). Usage percentage: still asked, not yet given.
+  main after the merge (same name). Usage percentage, given 7 Nov ~03:00 UK after PR #60 and two builders launched:
+  all models weekly 11%, top tier weekly 7%. Plenty of week left; the method stays (cheap workers for logs, one builder
+  per shared-file area, top tier only for design-heavy work).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
