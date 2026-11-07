@@ -11,10 +11,15 @@
 // nothing and a reply that arrives meanwhile is spoken and never heard back, the owner speaking again cuts a stuck attempt on
 // the phone short, and a very long turn does not leave the microphone open (the ear gives up after two quiet listens)
 // (the owner, 2 Nov: ten spoken asks in a row to a Ghosty that was "just thinking", with no reply).
+// Then, in Chromium (tests/voiceknown.part.mjs; WebKit has no fake microphone that plays a file): his voice known — a courtesy, never a
+// lock: Chromium's fake microphone plays synthetic voices (tests/voicegen.mjs); he enrols in under 20 s of his own, with no signal and
+// with nothing written down, is YOU; another voice is "a voice I don't know" and held for GO ON (answered as unknown), the hour's grace,
+// introduced as Sam with her yes aloud and is SAM; the score within 300 ms; DELETE with UNDO; nothing in localStorage or on the network.
 //   node tests/voice.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
+import { voiceKnown } from './voiceknown.part.mjs'; // his voice known (BRIEF-VOICE-KNOWN), run last on Chromium's fake microphone
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -888,6 +893,7 @@ const watchEars = () => {
   await page.waitForFunction((w) => document.body.innerText.includes(`Mock reply to: ${w}`), said, { timeout: 15000 }).catch(() => problems.push(`[${name}] the slow answer never came`));
   await ctx.close();
 }
+if (!isWebKit) await voiceKnown({ base, out, problems });
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in, and a conversation that keeps listening while a turn is still thinking (and gives up after two quiet listens).");
 process.exit(problems.length ? 1 : 0);

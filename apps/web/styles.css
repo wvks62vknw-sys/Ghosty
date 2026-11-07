@@ -6347,3 +6347,29 @@ html .lensbar .lensback { flex: 0 0 auto; order: -2; }
 html .lenssay { margin: 0; font: var(--g-t-body, 400 15px/20px var(--sf)); color: var(--g-ink-1, var(--ink)); }
 html .lenssay[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { html :is(.lenstag, .lenstagunder) { transition: none; } }
+
+/* [voiceknown] whose voice, on the talk bar (features/core/voicetag.ts): a tag, the question when a voice I don't know is held, and
+   its keys; shown above the ask bar only while there is something to say. */
+html #voicetag { box-sizing: border-box; position: sticky; bottom: 70px; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1) var(--g-s-2); width: min(680px, 100%); margin: 0 auto var(--g-s-1); padding: var(--g-s-1) var(--g-s-2); background: var(--g-plate-strong-fill); -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html #voicetag[hidden] { display: none; }
+html #voicetag .vt-ask { margin: 0; flex: 1 1 12em; color: var(--g-ink-1); font-size: var(--g-body, 17px); }
+html #voicetag .vt-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html .hud.core.logopen #voicetag { margin-bottom: var(--g-s-1); }
+
+/* [voiceknown] MY VOICE and PEOPLE I'VE INTRODUCED (features/settings/voiceknown.ts): the sentence read aloud, big; the keys 44 pt */
+html .vk-lede { margin: 0 0 var(--g-s-2); color: var(--g-ink-1); }
+html .vk-note { margin: var(--g-s-1) 0 0; color: var(--g-ink-3); font-size: 14px; line-height: 1.45; }
+html .vk-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); margin: var(--g-s-2) 0; }
+html .vk-stage .vk-head { margin: var(--g-s-1) 0 0; color: var(--g-ink-3); font-family: var(--g-mono, monospace); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+html .vk-stage .vk-sentence { margin: var(--g-s-1) 0; color: var(--g-ink-1); font-size: 22px; line-height: 1.3; }
+html .vk-stage .vk-sub { margin: 0; color: var(--g-ink-2); font-size: 15px; }
+html .vk-stage[data-state="listening"] .g-tag { animation: vkpulse 1.1s ease-in-out infinite; }
+@keyframes vkpulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { html .vk-stage[data-state="listening"] .g-tag { animation: none; } }
+html .vk-list { display: grid; gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
+html .vk-person { display: flex; align-items: center; gap: var(--g-s-2); min-height: 44px; }
+html .vk-person > b { flex: 1; color: var(--g-ink-1); }
+html .vk-person > span { color: var(--g-ink-3); font-size: 14px; }
+html .vk-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); }
+html .vk-add .vk-label { flex: 1 1 100%; color: var(--g-ink-3); font-size: 12px; letter-spacing: .08em; }
+html .vk-add input { flex: 1 1 10em; min-height: 44px; }

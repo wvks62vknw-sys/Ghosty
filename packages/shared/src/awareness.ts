@@ -51,8 +51,12 @@ export interface ClientContext {
   screen?: ScreenContext | string;
   /** `contextWords(screen)`, made on the phone for the brain to paste; the brain checks it and cuts it (`screenWords`). */
   screenLine?: string;
-  /** This turn was spoken (the app's microphone, a Telegram voice note): the reply will be heard. */
-  voice?: boolean;
+  /**
+   * This turn was spoken (the app's microphone, a Telegram voice note): the reply will be heard. When the phone also scored the
+   * voice (BRIEF-VOICE-KNOWN: a courtesy signal, never a lock) it is the label alone: 'owner', 'unknown' (also "not sure"), or
+   * `{ name }` of a person he introduced; never a number. Any of them is true where `voice` was `true`.
+   */
+  voice?: boolean | 'owner' | 'unknown' | { name: string };
 }
 
 export const LINE_MAX = 160;
