@@ -186,6 +186,10 @@ folder that no longer exists; ignore those paths).
   bundle script at its own worktree, so this checkout's brain test build was stale and nine new tests failed until the
   script was regenerated here (bundle-main.sh; builders get their own copies from now on). PR #65 opened and subscribed
   once the specs pass. NEXT: BRIEF-VOICE-KNOWN (PR C, STARS 154–155) on the mid tier after #65 is up; then item 4, the shell.
+  19:20 UK: PR #65 (ONE LENS) opened on 1f26c7d and subscribed; BRIEF-VOICE-KNOWN written (no new model: a courtesy signal
+  from the phone's own audio features; the confirm tap the gate; the real speaker model a STARS gap) and the PR C builder
+  launched on the mid tier (worktree voiceknown, port 8809, its own bundle script). 20:08 UK: main's own run 346 (fe76ce3)
+  green on every job: awareness PR A FINISHED. PR #65: eight of nine checks green, shard 4 running.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
