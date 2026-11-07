@@ -102,14 +102,22 @@ export function plan(d: MindData): { fields: { name: string; nodes: number; lit:
   return { fields: out, nodes: out.reduce((n, f) => n + f.nodes, 0), lit: out.reduce((n, f) => n + f.lit, 0), perNode };
 }
 
-/** Can this browser draw WebGL at all? (Checked once, on a throwaway canvas.) */
+/** Can this browser draw WebGL at all? Checked ONCE, on a throwaway canvas, and remembered: the answer does not change in a
+ *  page's life, and making a WebGL context is dear (about 200 ms in a software renderer, and a context held until the next
+ *  collection on a phone), so the boot, the Mind's start and THE LOOK's borrow all share the one probe. */
+let webglKnown: boolean | null = null;
 export function webglWorks(): boolean {
+  if (webglKnown !== null) return webglKnown;
   try {
     const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') ?? c.getContext('webgl'));
+    const gl = c.getContext('webgl2') ?? c.getContext('webgl');
+    webglKnown = !!gl;
+    // let the probe's context go at once rather than wait for the collector (the page's real one is the Mind's)
+    (gl as WebGLRenderingContext | null)?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
-    return false;
+    webglKnown = false;
   }
+  return webglKnown;
 }
 
 /** One still frame per change: the phone's Reduce Motion (it always wins), or MOTION set to calm (state/theme.ts writes data-motion). */
