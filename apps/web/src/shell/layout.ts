@@ -19,7 +19,7 @@ const LISTED: Record<string, string> = { settings: 'Settings', system: 'System',
  *  (CHARACTER sits in the other column from VOICE and OFFLINE, so it has no group of its own). */
 const GROUPS: Record<string, ListGroup[]> = {
   settings: [
-    { title: 'Appearance', match: /^(THEME|THE LOOK)/, foot: 'Twelve colours for the same screens. The look shows how I draw everything from here.' },
+    { title: 'Appearance', match: /^(THEME|THE LOOK|READING)/, foot: 'Twelve colours for the same screens. The look shows how I draw everything from here; Reading, how a book is shown and who reads it to you.' },
     { title: 'You', match: /^NAME/ },
     { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
     { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },

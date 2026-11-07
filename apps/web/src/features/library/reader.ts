@@ -956,7 +956,24 @@ async function shelfNow(): Promise<LibraryDoc[]> {
   }
 }
 /** His own books (not my notebooks, not the built-in ones), the ones reading by words looks in first. */
-const hisBooks = (docs: LibraryDoc[]) => docs.filter((d) => !d.builtin && !/^(read_|digest_|study_|notes_|project_|learn_|self_|yt_)/.test(d.id) && d.kind !== 'study' && d.kind !== 'digest');
+export const hisBooks = (docs: LibraryDoc[]): LibraryDoc[] => docs.filter((d) => !d.builtin && !/^(read_|digest_|study_|notes_|project_|learn_|self_|yt_)/.test(d.id) && d.kind !== 'study' && d.kind !== 'digest');
+
+/**
+ * The book he is reading (the hub card's "Reading · The Hobbit", "Page · 42 of 300"): the one open in the reader, else his newest
+ * place in the last month on a book not finished; null when there is none.
+ */
+export function readingNow(): { doc: LibraryDoc; place: Place } | null {
+  const map = places.get().map;
+  const docs = shelfDocs.get().docs;
+  const open = docNow && map[docNow.id] && !map[docNow.id]!.done ? docNow : null;
+  const d = open ?? hisBooks(docs).filter((x) => map[x.id] && !map[x.id]!.done && Date.now() - map[x.id]!.at < 30 * 86_400_000).sort((a, b) => map[b.id]!.at - map[a.id]!.at)[0];
+  return d && map[d.id] ? { doc: d, place: map[d.id]! } : null;
+}
+/** The book he read last, finished or not (the hub card's "Last book"). */
+export function lastRead(): LibraryDoc | null {
+  const map = places.get().map;
+  return hisBooks(shelfDocs.get().docs).filter((x) => map[x.id]).sort((a, b) => map[b.id]!.at - map[a.id]!.at)[0] ?? null;
+}
 
 /** The book he read last (his newest place among the books on the shelf). */
 async function lastBook(): Promise<LibraryDoc | null> {

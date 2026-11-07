@@ -7,9 +7,12 @@
  * what Ghosty is learning on its own, one field at a time (the field he is reading, how far, the
  * time left at his pace, the fields after it), STUDY for a field picked from the list, the STUDY
  * ALL switch (go on to the next field by himself), what he learned today, the notes he wrote and
- * how his drills go; it takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
- * opens in a reader. FRESH TODAY is the day's digest (the news, papers and events Ghosty
- * gathered this morning — DIGEST NOW gathers again).
+ * how his drills go; it takes the owner's focus, and exports every notebook to GitHub. THE SHELF is the library he browses
+ * (STARS 169; BRIEF-LIBRARY-READER 7): a cover per book (its own first picture, else one drawn from its title), who wrote it,
+ * how far he is ("page 42 of 300 · yesterday"), a finished book marked, sorted by when he last read it, by how far through
+ * or by name; my own notebooks and the built-in books after his, folded away. Any document opens in THE READER
+ * (features/library/reader.ts, a screen of its own: his place kept, read to him with LISTEN). FRESH TODAY is the day's
+ * digest (the news, papers and events Ghosty gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
@@ -26,6 +29,9 @@ import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { mountWiki } from '../../wiki/view';
 import { openRights, rightsCount, rightsTopics } from '../../docs/rights';
+import { openBook, shelfDocs, shelfHooks, shelfRow, sortShelf, type ShelfSort } from './reader';
+import { places, syncPlaces } from '../../library/place';
+import { key } from '../../ui/machine';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
 const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
@@ -100,14 +106,6 @@ function around(text: string, terms: string[], max = 280): string {
   let end = Math.min(flat.length, start + max);
   if (end < flat.length) end = Math.max(flat.lastIndexOf(' ', end), start + Math.round(max / 2));
   return `${start > 0 ? '…' : ''}${flat.slice(start, end).trim()}${end < flat.length ? '…' : ''}`;
-}
-/**
- * A passage as running text: a PDF's lines (and a photo's) break where the page's edge was, so a line that does not
- * end a sentence joins the next when that one carries on in lower case ("worth\nreading twice" → "worth reading
- * twice"), and a word split by a hyphen at a line end is whole again. Headings, lists and paragraphs stay as they are.
- */
-function flowing(text: string): string {
-  return text.replace(/(\p{L}{2,})-\n(?=\p{Ll})/gu, '$1').replace(/([^\n.!?:;])[ \t]*\n(?=[ \t]*\p{Ll})/gu, '$1 ');
 }
 
 /** The text with every word that starts with a searched word in a <mark> (text nodes only, never HTML). */
@@ -372,31 +370,71 @@ export const libraryTab: TabDef = {
     const wp = panel('WIKIPEDIA, OFFLINE', { grow: false, cls: 'wiki' });
     mountWiki(wp);
 
-    // ---- shelf
-    const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
-    // A row each: the kind's glyph on a glass tile, the title with its kind under it, how many passages, a chevron.
-    // (Removing a document is in its reader: REMOVE FROM LIBRARY.)
-    // His own documents first (newest first), then Ghosty's notebooks, then the built-in ones; FIND narrows by name.
+    // ---- shelf: the library he browses (STARS 169; BRIEF-LIBRARY-READER 7)
+    const shelf = panel('SHELF', { cls: 'shelf' });
+    // His books first, each with its cover, who wrote it and how far he is (features/library/reader.ts shelfRow), in the order
+    // he picks (by when he last read it, how far through, or name: kept on this phone); then, folded away, my own notebooks
+    // and the built-in books, as plain rows. FIND narrows them all by name. (Removing a book is in the reader's ABOUT.)
     const find = h('input.shelffind', { type: 'search', placeholder: 'Find on the shelf', enterKeyHint: 'search', 'aria-label': 'Find on the shelf' });
     const findRow = h('div.keyrow.shelffindrow', find);
-    shelf.el.insertBefore(findRow, shelf.body);
+    const SORT_KEY = 'ghosty.shelf.sort';
+    const SORTS: [ShelfSort, string, string][] = [['recent', 'Recent', 'by when you last read them'], ['progress', 'Progress', 'by how far through you are'], ['title', 'Title', 'by name']];
+    let sortBy: ShelfSort = 'recent';
+    try {
+      const k = localStorage.getItem(SORT_KEY);
+      if (k === 'progress' || k === 'title') sortBy = k;
+    } catch {
+      /* storage unavailable: by recent */
+    }
+    const sortKeys = SORTS.map(([id, word, how]) => key(word, () => {
+      sortBy = id;
+      try {
+        localStorage.setItem(SORT_KEY, id);
+      } catch {
+        /* kept for this visit only */
+      }
+      paintShelf();
+    }, { label: `Sort your books ${how}` }));
+    const sortRow = h('div.shelfsort', { role: 'group', 'aria-label': 'Sort your books' }, h('span.g-tag', { dataset: { case: 'keep' } }, 'Sort'), ...sortKeys);
+    shelf.el.insertBefore(h('div.shelfhead', findRow, sortRow), shelf.body);
     const whose = (d: LibraryDoc) => (d.builtin ? 2 : GHOSTYS.test(d.id) || d.kind === 'study' || d.kind === 'digest' ? 1 : 0);
-    const paintShelf = () => {
-      const words = find.value.trim().toLowerCase();
-      const here = docs.filter((x) => !leaving.has(x.id));
-      const shown = here.filter((d) => !words || `${d.title} ${d.source} ${KIND[d.kind] ?? d.kind}`.toLowerCase().includes(words)).sort((a, b) => whose(a) - whose(b) || b.at - a.at);
-      shelfList.set(shown);
-      findRow.hidden = here.length <= 8 && !words;
-      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : `${here.length} DOCS`, 'ok');
-      if (words && !shown.length) clear(shelf.body, h('div.note', `Nothing on the shelf is called “${find.value.trim()}”.`));
-    };
-    find.addEventListener('input', paintShelf);
-    const shelfList = pager(shelf, 46, (d: LibraryDoc) => {
+    let othersOpen = false;
+    const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
-    }, () => 'SYNC', 'Add a book or a file above, or import a page from the web: it is on the shelf in seconds.');
+    };
+    const paintShelf = () => {
+      const words = find.value.trim().toLowerCase();
+      const here = docs.filter((x) => !leaving.has(x.id));
+      const shown = here.filter((d) => !words || `${d.title} ${d.author ?? ''} ${d.source} ${KIND[d.kind] ?? d.kind}`.toLowerCase().includes(words));
+      const mine = sortShelf(shown.filter((d) => whose(d) === 0), sortBy);
+      const others = shown.filter((d) => whose(d) > 0).sort((a, b) => whose(a) - whose(b) || b.at - a.at);
+      findRow.hidden = here.length <= 8 && !words;
+      sortRow.hidden = here.filter((d) => whose(d) === 0).length < 2;
+      for (const [i, b] of sortKeys.entries()) b.setAttribute('aria-pressed', String(SORTS[i]![0] === sortBy));
+      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : `${here.filter((d) => whose(d) === 0).length} BOOKS`, 'ok');
+      if (words && !shown.length) return clear(shelf.body, h('div.note', `Nothing on the shelf is called “${find.value.trim()}”.`));
+      const fold = others.length
+        ? button(`${othersOpen || words ? 'Hide' : 'Show'} my notebooks and the built-in books · ${others.length}`, () => {
+          othersOpen = !othersOpen;
+          paintShelf();
+        }, 'shelffold')
+        : null;
+      fold?.setAttribute('aria-expanded', String(othersOpen || !!words));
+      clear(shelf.body,
+        ...(mine.length ? mine.map((d) => shelfRow(d, () => openDoc(d))) : [h('div.note.shelfempty', { dataset: { case: 'keep' } }, 'No books of yours yet. Add a PDF, an e-book, a Word file or photos of pages, and it is here with its cover, ready to read or for me to read to you.')]),
+        fold,
+        ...(othersOpen || words ? others.map(compact) : []));
+    };
+    find.addEventListener('input', paintShelf);
+    // how far he is changes as he reads (here or on another device): the rows follow, a moment later
+    let placesPaint = 0;
+    places.subscribe(() => {
+      clearTimeout(placesPaint);
+      placesPaint = window.setTimeout(() => root.isConnected && paintShelf(), 250);
+    });
     // ---- GADGETS: the manuals the brain found for his gadgets (gadget_manual), each with where it came from and its licence
     // [reste] RIGHTS AND LAW (docs/rights.ts; BRIEF-REST-E part 3): the rights-and-law base's topics, each opened as a page
     // of its documents, read and dated; under the Shelf pill (the Library's six pills are all taken)
@@ -425,81 +463,26 @@ export const libraryTab: TabDef = {
         })
         : [h('div.note', 'Ask in the chat: "find the manual for my Bosch dishwasher SMS24AW01G" (the model number is on the rating plate; Lens READ can read it). Ghosty looks on the maker\'s own site first, keeps the manual here, and answers fault codes from its pages.')]));
     };
-    // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
-    // (`at`: a search result: the reader reads on until it reaches that passage, shows it marked, and scrolls to it)
-    const openDoc = (d: LibraryDoc, at?: { text: string; terms: string[] }) => {
-      const body = h('div.reader');
-      const more = button('MORE', () => void load(), 'on');
-      let after = 0;
-      let last = '';
-      let lastPage: number | null = null;
-      let found: HTMLElement | null = null;
-      const prose = d.kind !== 'code';
-      const load = async () => {
-        more.disabled = true;
-        try {
-          const r = await brain.libraryPassages(d.id, after);
-          for (const p of r.passages) {
-            // where a new page of the book starts, its number (a PDF knows each passage's page)
-            if (p.page && p.page !== lastPage && (d.pages > 1 || lastPage !== null)) body.append(h('div.pgmark', { dataset: { case: 'keep' } }, `Page ${p.page}`));
-            if (p.page) lastPage = p.page;
-            if (p.heading && p.heading !== last) {
-              body.append(h('h4', p.heading));
-              last = p.heading;
-            }
-            const text = prose ? flowing(p.text) : p.text;
-            const para = h('p', text);
-            if (at && !found && (p.text === at.text || p.text.slice(0, 80) === at.text.slice(0, 80))) {
-              found = para;
-              para.className = 'here';
-              clear(para, ...marked(text, at.terms));
-            }
-            body.append(para);
-          }
-          if (r.next === null) more.remove();
-          else {
-            after = r.next;
-            more.disabled = false;
-          }
-          return r.next !== null;
-        } catch (e) {
-          body.append(h('div.note.bad', `Could not read it: ${(e as Error).message}`));
-          more.remove();
-          return false;
-        }
-      };
-      // what it is as chips (kind, where from, how many passages), then the passages to read; REMOVE for his own
-      const kind = (KIND[d.kind] ?? d.kind).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase()).replace(/\bghosty\b/g, 'Ghosty');
-      const meta = h('div.readmeta', { dataset: { case: 'keep' } },
-        kind ? h('span.chip', { dataset: { case: 'keep' } }, kind.charAt(0).toUpperCase() + kind.slice(1)) : '',
-        d.source ? h('span.chip.src', { dataset: { case: 'keep' } }, d.source) : '',
-        d.pages > 1 ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.pages)} pages`) : d.passages ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`) : '');
-      // Off the shelf at once with UNDO; removed from the brain and this phone only when the bar goes, so UNDO
-      // brings it back exactly as it was (its passages, its meaning index, where it came from).
-      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {
-        m.close();
-        leaving.add(d.id);
-        paintShelf();
-        undo(
-          `Removed: “${d.title}”`,
-          () => {
-            leaving.delete(d.id);
-            paintShelf();
-            toast(`Back in the library: ${d.title}`, 'ok');
-          },
-          async () => {
-            await brain.libraryRemove(d.id).catch(() => toast(`Could not remove “${d.title}”`, 'bad'));
-            leaving.delete(d.id);
-            void refresh();
-          },
-        );
-      }, 'warn readrm');
-      const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
-      void (async () => {
-        // a search result far into a long book: read on to it (up to 3,000 passages), then bring it into view
-        for (let round = 0; round < 10 && (await load()) && at && !found; round++);
-        if (found) (found as HTMLElement).scrollIntoView({ block: 'center' });
-      })();
+    // ---- THE READER (features/library/reader.ts): any document on the shelf opens there at his place; a search result opens at
+    // its passage with the searched words marked (`at`). Removing one is in the reader's ABOUT: off the shelf at once with UNDO;
+    // removed from the brain and this phone only when the bar goes, so UNDO brings it back exactly as it was.
+    const openDoc = (d: LibraryDoc, at?: { text: string; terms: string[] }) => void openBook(d, at ? { hitText: at.text, terms: at.terms } : {});
+    shelfHooks.remove = (d: LibraryDoc) => {
+      leaving.add(d.id);
+      paintShelf();
+      undo(
+        `Removed: “${d.title}”`,
+        () => {
+          leaving.delete(d.id);
+          paintShelf();
+          toast(`Back in the library: ${d.title}`, 'ok');
+        },
+        async () => {
+          await brain.libraryRemove(d.id).catch(() => toast(`Could not remove “${d.title}”`, 'bad'));
+          leaving.delete(d.id);
+          void refresh();
+        },
+      );
     };
 
     // ---- self-study: Ghosty studies on its own, around the clock, within the free plan — one field at a time
@@ -734,6 +717,8 @@ export const libraryTab: TabDef = {
         unreached = !!r.offline;
         if (was !== unreached) showReach();
         docs = r.docs;
+        shelfDocs.set({ docs: r.docs, at: Date.now() });
+        void syncPlaces();
         vectors = r.vectors;
         starterReady = r.starterReady;
         // (a document whose REMOVE is waiting on its UNDO bar is already off the shelf and off the gadgets)

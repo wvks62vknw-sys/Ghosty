@@ -53,9 +53,9 @@ export const APP_1: Record<string, CatValue> = {
     say: ['What do you remember about me?'], scene: ['talking'], cat: 'know',
   },
   'screen:library': {
-    name: 'The Library: all I have read', line: 'I can keep everything I have read in one library you can search, even offline.',
-    more: 'Books, PDFs, papers and notes you add, the morning digest, gadget manuals and what I study myself.',
-    say: ['What’s in your library?'], scene: ['school'], cat: 'learn',
+    name: 'The Library: your books', line: 'You can keep your books here, read them where you left off or have me read them to you, and search all of them.',
+    more: 'Books, PDFs, e-books, papers and notes you add, each with its cover and your place; the morning digest, gadget manuals and what I study myself. A copy lives on this phone, so it works with no signal.',
+    say: ['What’s in your library?', 'Read me The Hobbit'], scene: ['school'], cat: 'learn',
   },
   'screen:workshop': {
     name: 'The Workshop: I change myself', line: 'I can change my own code when you ask: you see a preview, then ship it or bin it.',

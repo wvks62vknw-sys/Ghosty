@@ -549,6 +549,8 @@ export const coreTab: TabDef = {
         holdMic(false);
         stopListening();
         mic.classList.remove('on');
+        // [reader] the microphone let go just after he stopped a book: where we are, said once ("Page 48. I'll carry on from here.")
+        void import('../library/reader').then((r) => r.micLetGo()).catch(() => undefined);
         return;
       }
       listenNow();

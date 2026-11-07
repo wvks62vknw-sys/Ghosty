@@ -183,16 +183,18 @@ export const DECK: Record<string, DeckScreen> = {
     ],
     dyk: 'He moves up a stage only with top grades in every subject, on papers he has never trained on.',
   },
+  // [reader] the Library as a library (BRIEF-LIBRARY-READER 5): his books, read in the reader or read to him, his place kept
   library: {
     name: 'Library',
-    promise: 'Everything he has read, searchable offline',
+    promise: 'Your books, read here or read to you',
     can: [
+      { text: 'Open a book where you left it', act: { open: 'library', panel: 'SHELF' } },
+      { text: '“Where were we?” and he reads on aloud', act: { ask: 'Where were we?' } },
       { text: 'Add books and PDFs for him to read', act: { open: 'library', panel: 'ADD KNOWLEDGE' } },
       { text: 'Search it by meaning or by keywords', act: { open: 'library', panel: 'ASK THE LIBRARY' } },
       { text: 'Fresh today: the news and papers he gathered', act: { open: 'library', panel: 'FRESH TODAY' } },
-      { text: 'See what he is studying by himself', act: { open: 'library', panel: 'SELF-STUDY' } },
     ],
-    dyk: 'A copy lives on this phone, so the library still answers with no signal.',
+    dyk: 'Your place in every book is kept on this phone and on his brain, so another device opens it where you left off.',
   },
   agenda: {
     name: 'Agenda',
