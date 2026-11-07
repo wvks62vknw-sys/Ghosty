@@ -167,6 +167,15 @@ folder that no longer exists; ignore those paths).
   voice after); builder launched on the mid tier in worktree awareness, branch builder/awareness, port 8805, results to
   scratchpad/awareness-build.md. 15:23 UK: main's own run 343 (96bcbc7) green on every job: item 1(e), the orb and the
   boot, FINISHED. Item 1 is complete on main; item 2 complete on main; item 3 building.
+  17:30 UK: AWARENESS PR A reported (14 commits + 1). The brain's side needs two lines in the protected agent.ts (import
+  withScreen; call it after the user turn is appended), which only his word unlocks (131); as first built the PR would have
+  regressed (the screen lines out of the prompt, nothing pasting them), so the builder restored the prompt lines with a dated
+  comment and a drift test, OWNER-ISSUES 150 (a) asks him with the diff, and the follow-up is one small PR when he says yes.
+  A pre-existing fact surfaced: a real 400-char screen puts the plain prompt at 5,781 against the guard's 5,500, which never
+  measured a screen; the ceiling is untouched. Reviewed (one word in check.yml, no protected file, no model names, no GPS or
+  network, nothing skipped), merged (0aa83a8), both typechecks, build, bundle, 84 brain tests green; awareness/deck/space/talk
+  specs run; PR #64 opened and subscribed. The awareness worktree stays until it merges. NEXT after A is on main: BRIEF for
+  PR B ONE LENS (STARS 151–152; the facts sheet's section 5) on the mid tier, then PR C HIS VOICE KNOWN (154–155).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

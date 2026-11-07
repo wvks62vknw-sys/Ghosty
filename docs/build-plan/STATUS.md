@@ -196,6 +196,14 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- PR #64 OPEN 7 Nov 17:40 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
+  AWARENESS PR A (OWNER-ISSUES 150; BRIEF-AWARENESS with FACTS-AWARENESS; STARS 153): the Context and Show protocol in
+  packages/shared, every screen publishing what is open and what is picked (the room plan, the car, the shed, the reader, the
+  deck, and Home, the Library, the Lens, God's Eye, THE LOOK), "that one" acting on the phone with no model, the stamp's
+  LOOKING AT and the Core card's mark from the same context, the brain's withScreen ready behind two lines in agent.ts that
+  wait for his word (question (a) in 150); the prompt's screen lines stay until then. Locally on the merged tree: both
+  typechecks, the build, the bundle, the brain tests, the awareness, deck, space and talk specs. His seven-step phone check
+  and four questions with their context are in 150.
 - PR #63 MERGED 7 Nov 14:20 UK (main 96bcbc7, every check green on its own run after one fix at review and one at the red shard, both measured: OWNER-ISSUES 149; main's own run 343 green on every job, 15:18 UK: FINISHED):
   THE ORB AND THE BOOT (OWNER-ISSUES 148, 149; BRIEF-ORB-AND-BOOT; STARS 58): the hologram a little better with its five
   states, the boot re-cut shot by shot to the storyboard (2.88 s to a usable Home), THE LOOK's MIND on the one orb, the
@@ -278,7 +286,7 @@ built in the old look after day one, so no screen is built twice.
    the session branch, every touched check green locally; PR #61 MERGED 7 Nov 07:02 UK (main b03bf93) after one spec fix at its
    cause (OWNER-ISSUES 146); main's own run 337 green on every job 07:57 UK: FINISHED.
    His phone check (seven steps, 126 folded in) and three small questions are in 145.
-3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in). PR A, THE PROTOCOL AND THE FIVE SCREENS (BRIEF-AWARENESS with FACTS-AWARENESS): LAUNCHED 7 Nov 14:40 UK on the mid tier in worktree awareness, branch builder/awareness; PR B ONE LENS and PR C HIS VOICE KNOWN get their own briefs after A lands. The item: the context line rides
+3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in). PR A, THE PROTOCOL AND THE FIVE SCREENS (BRIEF-AWARENESS with FACTS-AWARENESS): LAUNCHED 7 Nov 14:40 UK on the mid tier in worktree awareness, branch builder/awareness; PR B ONE LENS and PR C HIS VOICE KNOWN get their own briefs after A lands. BUILT 7 Nov 17:30 UK (OWNER-ISSUES 150: the protocol, the five screens and five more publishing, "that one" with no model, the stamp and the Core card's mark, the brain's withScreen ready; the prompt's screen lines STAY until he unlocks two lines in agent.ts, his question (a) in 150, so nothing regresses); merged into the session branch, every touched check green locally; PR going up, merged when every check is green, finished when main's own run is green; the kernel follow-up waits for his word. The item: the context line rides
    in his message to the brain, never in the system prompt (the guard untouched, nothing trimmed); the Lens runs its cheap
    detectors on every frame and the heavy ones on a steady frame, two seconds per tag; his voice known as a courtesy signal, the
    confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
