@@ -353,6 +353,8 @@ if (!isWebKit) {
     await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, '[recipe] two taps did not open the Theme page');
     await p.waitForTimeout(450);
   }
+  // (a tap's toast is read where it is checked, then cleared, so it never sits over the section pills for the next tap)
+  const clearToasts = (p) => p.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
   const tapDial = async (p, root, dial, choice) => {
     const b = p.locator(`${root} .gdial[data-dial="${dial}"] .gchoice[data-choice="${choice}"]`);
     await b.scrollIntoViewIfNeeded().catch(() => undefined);
@@ -364,6 +366,7 @@ if (!isWebKit) {
     await b.scrollIntoViewIfNeeded().catch(() => undefined);
     await b.click();
     await p.waitForTimeout(250);
+    await clearToasts(p);
   };
   /** Every text on screen under `sel` against what it really sits on (its backgrounds blended down to the page): the lowest ratio. */
   const readable = (p, sel) => p.evaluate((sel) => {
@@ -445,6 +448,7 @@ if (!isWebKit) {
     check(s.ground === g && s.saved?.ground === g && now.canvas === GROUND_CANVAS[g] && hexOf(now.page) === GROUND_CANVAS[g], `[ground] ${g} did not apply at once: ${JSON.stringify({ ground: s.ground, saved: s.saved?.ground, canvas: now.canvas, page: hexOf(now.page) })}`);
     check(hexOf(now.body) === GROUND_CANVAS[night] && s.night === night, `[ground] ${g}: today's rooms stand on ${hexOf(now.body)} (night ${s.night}), not ${night}'s ${GROUND_CANVAS[night]}`);
     check(now.row.includes(LABEL[g]) && now.toasts.includes(`Ground: ${LABEL[g]}`), `[ground] ${g}: the row says "${now.row}", the toast "${now.toasts}"`);
+    await clearToasts(p5);
     await p5.screenshot({ path: `${out}/look-${engine}-440-ground-${g}.png` });
     await p5.reload({ waitUntil: 'domcontentloaded' });
     await p5.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
@@ -506,6 +510,7 @@ if (!isWebKit) {
   for (const [w, want] of Object.entries(WORLD)) {
     await openLookSection(p6, 'themes');
     await tapDial(p6, '#pg-look', 'world', w);
+    await clearToasts(p6);
     await openLookSection(p6, 'marks');
     const m = await p6.evaluate((ret) => {
       const floor = getComputedStyle(document.body, '::before');
@@ -535,6 +540,7 @@ if (!isWebKit) {
   // ---- 7e. each switch changes its one thing (back on The Scan, Graphite)
   await openLookSection(p6, 'themes');
   await tapDial(p6, '#pg-look', 'world', 'scan');
+  await clearToasts(p6);
   const probe = () => p6.evaluate(() => {
     const root = getComputedStyle(document.documentElement);
     return {
@@ -611,6 +617,7 @@ if (!isWebKit) {
   await openLookSection(p6, 'themes');
   await p6.click('#pg-look .swatch[data-preset="scan"]');
   await p6.waitForTimeout(300);
+  await clearToasts(p6);
   const scan = await state(p6);
   check(scan.preset === 'scan' && scan.ground === 'black' && scan.world === 'scan' && scan.glow === 'off' && scan.theme === 'reactor', `[recipe] THE SCAN: ${JSON.stringify({ preset: scan.preset, ground: scan.ground, world: scan.world, glow: scan.glow })}`);
   await p6.click('#pg-look .swatch[data-preset="glass"]');
