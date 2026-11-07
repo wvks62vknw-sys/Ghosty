@@ -58,6 +58,16 @@ async function listenOnce(stage: Stage, line: (t: string) => void): Promise<Voic
 
 /** The three sentences, one at a time, each asked again (up to three tries) if not enough of the voice was caught. */
 async function readThree(stage: Stage, who: string): Promise<Voiced[] | null> {
+  // the three sentences are listened for as sound alone, and no other listen (one still winding down) sends a recording meanwhile
+  stopListening(true);
+  sound.noWords = true;
+  try {
+    return await readEach(stage, who);
+  } finally {
+    sound.noWords = false;
+  }
+}
+async function readEach(stage: Stage, who: string): Promise<Voiced[] | null> {
   const got: Voiced[] = [];
   for (let i = 0; i < READ.length; i++) {
     let ok: Voiced | null = null;

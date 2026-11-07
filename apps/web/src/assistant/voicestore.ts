@@ -52,7 +52,7 @@ function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<
         try {
           const t = db.transaction(STORE, mode);
           const req = run(t.objectStore(STORE));
-          t.oncomplete = () => resolve(req ? req.result : fallback());
+          t.oncomplete = () => resolve(req && req.result !== undefined ? req.result : fallback());
           t.onerror = () => resolve(fallback());
           t.onabort = () => resolve(fallback());
         } catch {
@@ -64,7 +64,9 @@ function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<
 
 /** Everyone this phone knows by voice: him first, then the people he introduced, oldest first. A hurt record is left out. */
 export async function knownVoices(): Promise<Stored[]> {
-  const all = await tx<Stored[]>('readonly', (s) => s.getAll() as IDBRequest<Stored[]>, () => [...mem.values()]);
+  const read = await tx<Stored[]>('readonly', (s) => s.getAll() as IDBRequest<Stored[]>, () => [...mem.values()]);
+  // (a store that answers nothing — a database another page left without it, or wiped under us — is no voices, not an error)
+  const all = Array.isArray(read) ? read : [...mem.values()];
   return all.filter((p) => p && isPrint(p.print)).sort((a, b) => Number(b.me) - Number(a.me) || a.at - b.at);
 }
 

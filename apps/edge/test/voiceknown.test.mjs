@@ -213,3 +213,23 @@ test('too little voice to judge (a one-word yes) is not held and not labelled; a
   assert.equal(yes.profile, null, `a 0.2 s yes (${yes.secs.toFixed(2)} s of voice) has no profile`);
   assert.equal(V.judge(known(A, B), later('C', 3)).who.kind, 'unknown', 'a 2 s stranger sentence is still unknown (so held)');
 });
+
+test('a voice store that answers nothing is no voices, not an error (the gym spec: "reading filter" of undefined)', async () => {
+  await build({ entryPoints: [at('../../web/src/assistant/voicestore.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/voiceknown/voicestore.mjs'), logLevel: 'warning' });
+  const db = { objectStoreNames: { contains: () => true }, onversionchange: null, transaction: () => {
+    const t = { objectStore: () => ({ getAll: () => ({ result: undefined }) }) };
+    setTimeout(() => t.oncomplete?.(), 0);
+    return t;
+  } };
+  globalThis.indexedDB = { open: () => { const r = {}; setTimeout(() => { r.result = db; r.onsuccess?.(); }, 0); return r; } };
+  const S = await import('./.build/voiceknown/voicestore.mjs');
+  assert.deepEqual(await S.knownVoices(), [], 'no voices, and no throw');
+  delete globalThis.indexedDB;
+});
+
+test('while a voice is enrolled no listen sends a recording to be written down: both ways to /api/stt are shut (voice.ts noWords)', () => {
+  const voice = src('assistant/voice.ts');
+  assert.equal([...voice.matchAll(/brain\.stt\(/g)].length, 2, 'two ways to the writing down');
+  for (const m of voice.matchAll(/brain\.stt\(/g)) assert.ok(/sound\.noWords/.test(voice.slice(Math.max(0, m.index - 900), m.index)), 'each is behind the noWords check');
+  assert.match(src('features/settings/voiceknown.ts'), /sound\.noWords = true;[\s\S]*finally \{\s*sound\.noWords = false;/, 'the three sentences are read with it on, and it is always put down');
+});

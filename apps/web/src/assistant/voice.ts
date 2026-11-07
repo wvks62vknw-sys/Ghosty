@@ -962,7 +962,7 @@ const END_SILENCE_MS = 700;
  * always was). Made only while a voice is enrolled (`sound.wanted`, set by voiceknown), so nothing changes without one.
  * null: no sound to judge (the room alone, a recording that would not decode, an ear that gives none).
  */
-export const sound = { wanted: false };
+export const sound = { wanted: false, /** a voice is being enrolled: no listen of any kind sends a recording to be written down meanwhile */ noWords: false };
 let lastSound: { at: number; pcm: Promise<Float32Array | null> } | null = null;
 /** The sound of the listen that just ended, once (and when its recording stopped, for the speed check). */
 export function takeSound(): { at: number; pcm: Promise<Float32Array | null> } | null {
@@ -1117,6 +1117,8 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
   // The recording is done: the screen stops saying LISTENING while the words are worked out.
   writing = true;
   ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
+  // [voiceknown] a listen winding down while a voice is enrolled is let go: nothing of this phone's microphone is sent meanwhile
+  if (sound.noWords) return '';
   const text = await brain.stt(wav ?? blob).catch((e: unknown) => {
     throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
   });
@@ -1141,6 +1143,7 @@ async function writeDownSoFar(m: Mic, r: { rec: MediaRecorder; chunks: Blob[]; m
         r.rec.requestData();
       });
     }
+    if (sound.noWords) return null;
     const blob = new Blob(r.chunks.slice(), { type: r.rec.mimeType || r.mime });
     if (blob.size < 4000) return null;
     const wav = await toWav(m.ctx, blob, skip).catch(() => null);
