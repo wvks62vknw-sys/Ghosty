@@ -36,16 +36,18 @@ A theme is now a RECIPE of three choices and the switches. The twelve themes of 
    Each ground is a sentence in Ghosty's voice ("Black: nothing lit but what I'm looking at."). The boot plays on the ground.
 2. **THE COLOUR** (`data-theme` as now): the twelve accent blocks, untouched, plus their Paper text variants.
 3. **THE WORLD** (`data-world`, a block of the drawing tokens): what the directions seen along the way each DID, as tokens:
+   THE ORB IN EVERY WORLD IS THE HOLOGRAM (his decision 7 Nov, OWNER-ISSUES 142): a world governs the orb's floor and glow only,
+   never its draw; the points-sphere in eye.ts stays as THE LOOK's demonstration until BRIEF-ORB-AND-BOOT replaces it with the hologram.
    - **The Scan** (W1, the default): the floor behind every screen a field of sampled points (`--g-floor: points`), hairline
-     edges, corner-mark reticles, mono readings, radius 2, the eye a sphere of points.
+     edges, corner-mark reticles, mono readings, radius 2.
    - **The Map** (W2): the floor a plotting grid with a crosshair every five squares, square pins as the reticle, dashed
-     borders on plates, radius 0, the eye a ring over the grid (eye.ts gains the ring draw).
+     borders on plates, radius 0.
    - **The Eye** (W3): the floor a fine grain, the one sharp accent box as the reticle with the line of sight drawn on, the rest
-     as grain (plates at reduced ink), radius 2, the eye with its grain halo.
+     as grain (plates at reduced ink), radius 2.
    - **One Ink** (D2): no floor pattern, rules instead of boxes (plates become a rule above and below), a serif for what Ghosty
-     says (`--g-face-say: ui-serif`), radius 0, no glow, the eye a plain disc with one ring.
+     says (`--g-face-say: ui-serif`), radius 0, no glow.
    - **Glass** (today's route C): no floor pattern, blur and the thick/regular glass, radius 16 on cells and 26 on capsules, the
-     glow, the eye as today's hologram (the orb on THE LOOK draws the current Mind in this world).
+     glow.
    - Orbit (D1) is a navigation, not a drawing: it is NOT a world (say so on THE LOOK: "Orbit is a way round, not a look; it
      comes with the shell").
    WHAT A WORLD REACHES IN THIS PR, honestly: the floor behind every screen (body/#stage background), the corners of every
