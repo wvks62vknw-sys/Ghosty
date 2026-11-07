@@ -402,8 +402,8 @@ export function lookAsked(text: string): LookAsk | null {
   const named = t.replace(LOOKISH, '').trim();
   for (const [re, key] of DIRECTION_WORDS) if (re.test(named) && (verb || named === t || LOOKISH.test(t))) return { direction: key };
   // ---- the switches by name
-  if (/^(?:glow off|no glow|lose the glow|turn off the glow|without (?:the )?glow|kill the glow)$/.test(t)) return { switches: { glow: 'off' } };
-  if (/^(?:glow on|turn on the glow|the glow back|bring back the glow|more glow|glow)$/.test(t)) return { switches: { glow: 'on' } };
+  if (/^(?:(?:the )?glow off|no glow|lose the glow|off the glow|turn off the glow|without (?:the )?glow|kill the glow)$/.test(t)) return { switches: { glow: 'off' } };
+  if (/^(?:(?:the )?glow on|on the glow|turn on the glow|the glow back|bring back the glow|more glow|glow)$/.test(t)) return { switches: { glow: 'on' } };
   if (/^(?:(?:the )?floor off|no floor|plain floor|hide the floor|no pattern|floor pattern off|no points|points off)$/.test(t)) return { switches: { floor: 'off' } };
   if (/^(?:(?:the )?floor on|show the floor|floor pattern on|the floor back|points on)$/.test(t)) return { switches: { floor: 'on' } };
   if (/^(?:sharp|square|sharper|squarer) corners$/.test(t)) return { switches: { corners: 'sharp' } };
@@ -411,8 +411,8 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:the world's corners|default corners|normal corners)$/.test(t)) return { switches: { corners: 'world' } };
   if (/^(?:mono off|no mono|readings in (?:the )?system(?: type)?|system (?:type|font) for readings|normal font for readings)$/.test(t)) return { switches: { readings: 'system' } };
   if (/^(?:mono on|mono readings|readings in mono)$/.test(t)) return { switches: { readings: 'mono' } };
-  if (/^(?:bigger|larger|big|large) (?:text|type|writing|font|words)$|^(?:text|type|font|writing) (?:bigger|larger)$|^(?:make the )?text bigger$/.test(t)) return { body: 'bigger' };
-  if (/^(?:smaller|small) (?:text|type|writing|font|words)$|^(?:text|type|font) smaller$/.test(t)) return { body: 'smaller' };
+  if (/^(?:bigger|larger|big|large) (?:text|type|writing|font|words)$|^(?:the )?(?:text|type|font|writing) (?:bigger|larger)$/.test(t)) return { body: 'bigger' };
+  if (/^(?:smaller|small) (?:text|type|writing|font|words)$|^(?:the )?(?:text|type|font|writing) smaller$/.test(t)) return { body: 'smaller' };
   if (/^(?:normal|regular|default) (?:text|type|font)(?: size)?$/.test(t)) return { switches: { body: 17 } };
   if (/^(?:calm|calmer|calm mode|calm motion|less motion|reduce motion|no motion|keep still|stay still|hold still|be still|stop moving)$/.test(t)) return { switches: { motion: 'calm' } };
   if (/^(?:alive|motion on|more motion|move again|come alive|lively)$/.test(t)) return { switches: { motion: 'alive' } };
