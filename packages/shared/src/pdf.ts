@@ -9,6 +9,8 @@
 /** A PDF's text: one entry per page, in order. */
 export interface PdfText {
   title: string;
+  /** Who wrote it, where the PDF's own details say so. */
+  author?: string;
   pages: string[];
   kind: 'pdf';
   warning?: string;
@@ -236,9 +238,16 @@ export async function extractPdf(bytes: Uint8Array, fallbackTitle: string): Prom
     const t = info?.dict.match(/\/Title\s*\(((?:\\.|[^\\)])*)\)/)?.[1];
     return t ? pdfString(t).replace(/^\xfe\xff/, '') : '';
   })();
+  // [reader] who wrote it, where the PDF's own details say so (the Shelf shows it under the title)
+  const author = (() => {
+    const info = [...objs.values()].find((o) => /\/Author\s*\(/.test(o.dict));
+    const a = info?.dict.match(/\/Author\s*\(((?:\\.|[^\\)])*)\)/)?.[1];
+    const t = a ? pdfString(a).replace(/^\xfe\xff/, '').replace(/\0/g, '').trim() : '';
+    return /[a-z]{2}/i.test(t) ? t.slice(0, 120) : '';
+  })();
   const total = texts.join('').replace(/\s/g, '').length;
   const warning = encrypted ? 'This PDF is encrypted.' : total < Math.max(60, pages.length * 40) ? 'Very little text found — this PDF may be scanned images.' : undefined;
-  return { title: (title && /[a-z]{3}/i.test(title) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning };
+  return { title: (title && /[a-z]{3}/i.test(title) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning, ...(author ? { author } : {}) };
 }
 
 /** ToUnicode CMap: bfchar and bfrange entries. */

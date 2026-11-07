@@ -814,7 +814,7 @@ export async function sendQueued(): Promise<number> {
   const sent = offline.get().outbox.length ? await flushOutbox(raw, keepForLater) : 0;
   const docs = await syncLocalDocs({
     upload: async (d, passages) => {
-      const { doc } = await brain.libraryCreate({ title: d.title, source: d.source, kind: d.kind, pages: d.pages });
+      const { doc } = await brain.libraryCreate({ title: d.title, source: d.source, kind: d.kind, pages: d.pages, ...(d.author ? { author: d.author } : {}) });
       try {
         for (let i = 0; i < passages.length; i += 30) await brain.libraryAdd(doc.id, passages.slice(i, i + 30));
       } catch (e) {
