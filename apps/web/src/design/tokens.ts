@@ -36,7 +36,8 @@ export const GROUND_BLOCK = [
 export const WORLD_BLOCK = [
   '--g-floor-mask', '--g-floor-size', '--g-floor-a', '--g-glow', '--g-mark-glow', '--g-face-say',
   '--g-radius-key', '--g-radius-mark', '--g-radius-cell', '--g-radius-chip', '--g-radius-capsule',
-  '--g-plate-fill', '--g-plate-edge', '--g-plate-side', '--g-blur', '--g-ret-arm', '--g-ret-weight', '--g-ret-edge', '--g-ret-side', '--g-sight-dash',
+  '--g-plate-fill', '--g-plate-strong-fill', '--g-plate-shadow', '--g-front-shadow', '--g-plate-edge', '--g-plate-side', '--g-blur',
+  '--g-ret-arm', '--g-ret-weight', '--g-ret-edge', '--g-ret-side', '--g-ret-sight', '--g-sight-dash',
 ] as const;
 
 /** Every `:root[data-<attr>="<key>"] { … }` block of the file (the grounds, the worlds, the switches, the night grounds), with its comment above it. */

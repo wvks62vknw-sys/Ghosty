@@ -119,12 +119,16 @@
   --g-mark-glow: 0px;                                    /* the halo round a lit mark: none but in Glass, where the attended box glows */
   --g-face-say: var(--g-font-display);                   /* the face of what I say first (One Ink sets it in the serif) */
   --g-plate-fill: var(--g-plate);                        /* what a plate is filled with: the plate, glass, almost nothing (The Eye), nothing (One Ink) */
+  --g-plate-strong-fill: var(--g-plate-strong);          /* what a brought-forward plate is filled with, by the same rule */
+  --g-plate-shadow: var(--g-lift-plate);                 /* a plate's lift over the floor: none where the world draws flat (The Eye, One Ink) */
+  --g-front-shadow: var(--g-lift-front);                 /* a brought-forward page's lift: none where the world draws flat */
   --g-plate-edge: solid;                                 /* how a plate's edge is drawn: a hairline, dashed (The Map), dotted (The Eye) */
   --g-plate-side: 1;                                     /* whether a plate has sides: 0 in One Ink, where a plate is a rule above and a rule below */
   --g-blur: 0px;                                         /* how much a plate blurs what is behind it: Glass's frosted glass, none elsewhere */
   --g-ret-weight: 1.5px;                                 /* how thick a reticle's corner marks are: hairline arms, or square pins (The Map) */
   --g-ret-edge: solid;                                   /* the reticle's own faint edge between its corners: dotted grain in The Eye */
   --g-ret-side: 1;                                       /* whether a reticle has sides: 0 in One Ink, rules above and below */
+  --g-ret-sight: 0px;                                    /* the line of sight drawn on the attended box, towards my eye: The Eye's */
   --g-sight-dash: none;                                  /* the line of sight: whole, or dashed as a plotted line (The Map, The Eye) */
 
   /* ---------------------------------------------------------------- lines and marks */
@@ -266,39 +270,40 @@
   --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='1.1'/%3E%3C/svg%3E");
   --g-floor-size: 16px 16px; --g-floor-a: .14; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
   --g-radius-key: 2px; --g-radius-mark: 0; --g-radius-cell: 2px; --g-radius-chip: 2px; --g-radius-capsule: 2px;
-  --g-plate-fill: var(--g-plate); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 0px;
-  --g-ret-arm: 10px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-sight-dash: none;
+  --g-plate-fill: var(--g-plate); --g-plate-strong-fill: var(--g-plate-strong); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 10px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
 }
 /* The Map (W2): a plotting grid with a crosshair every five squares, square pins as the reticle, dashed plates, radius 0. */
 :root[data-world="map"], [data-world="map"] {
   --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M8.5 0V80M24.5 0V80M40.5 0V80M56.5 0V80M72.5 0V80M0 8.5H80M0 24.5H80M0 40.5H80M0 56.5H80M0 72.5H80' stroke='currentColor' stroke-opacity='.4'/%3E%3Cpath d='M32 40.5H49M40.5 32V49' stroke='currentColor' stroke-width='1.5'/%3E%3C/svg%3E");
   --g-floor-size: 80px 80px; --g-floor-a: .3; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
   --g-radius-key: 0px; --g-radius-mark: 0px; --g-radius-cell: 0px; --g-radius-chip: 0px; --g-radius-capsule: 0px;
-  --g-plate-fill: var(--g-plate); --g-plate-edge: dashed; --g-plate-side: 1; --g-blur: 0px;
-  --g-ret-arm: 5px; --g-ret-weight: 5px; --g-ret-edge: dashed; --g-ret-side: 1; --g-sight-dash: 6 4;
+  --g-plate-fill: var(--g-plate); --g-plate-strong-fill: var(--g-plate-strong); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: dashed; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 5px; --g-ret-weight: 5px; --g-ret-edge: dashed; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: 6 4;
 }
 /* The Eye (W3): a fine grain; the one sharp accent box is the reticle, its line of sight drawn on; plates at reduced ink. */
 :root[data-world="eye"], [data-world="eye"] {
   --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='1' height='1'/%3E%3Crect x='4' y='2' width='1' height='1' fill-opacity='.6'/%3E%3Crect x='2' y='5' width='1' height='1' fill-opacity='.8'/%3E%3Crect x='6' y='6' width='1' height='1' fill-opacity='.5'/%3E%3Crect x='5' y='0' width='1' height='1' fill-opacity='.35'/%3E%3Crect x='1' y='3' width='1' height='1' fill-opacity='.45'/%3E%3C/svg%3E");
   --g-floor-size: 8px 8px; --g-floor-a: .2; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
   --g-radius-key: 2px; --g-radius-mark: 0px; --g-radius-cell: 2px; --g-radius-chip: 2px; --g-radius-capsule: 2px;
-  --g-plate-fill: rgba(var(--g-bone-rgb), .03); --g-plate-edge: dotted; --g-plate-side: 1; --g-blur: 0px;
-  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: dotted; --g-ret-side: 1; --g-sight-dash: 3 3;
+  --g-plate-fill: rgba(var(--g-bone-rgb), .03); --g-plate-strong-fill: rgba(var(--g-bone-rgb), .06); --g-plate-shadow: none; --g-front-shadow: none; --g-plate-edge: dotted; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: dotted; --g-ret-side: 1; --g-ret-sight: 24px; --g-sight-dash: 3 3;
 }
 /* One Ink (D2): no floor pattern, rules instead of boxes (a plate is a rule above and below), a serif when I talk, radius 0,
    no glow. Its accent is never text: what is lit is a line, the words stay in the ink (styles.css, THE SYSTEM). */
 :root[data-world="ink"], [data-world="ink"] {
   --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 0; --g-mark-glow: 0px; --g-face-say: var(--g-font-serif);
   --g-radius-key: 0px; --g-radius-mark: 0px; --g-radius-cell: 0px; --g-radius-chip: 0px; --g-radius-capsule: 0px;
-  --g-plate-fill: transparent; --g-plate-edge: solid; --g-plate-side: 0; --g-blur: 0px;
-  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 0; --g-sight-dash: none;
+  --g-plate-fill: transparent; --g-plate-strong-fill: transparent; --g-plate-shadow: none; --g-front-shadow: none; --g-plate-edge: solid; --g-plate-side: 0; --g-blur: 0px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 0; --g-ret-sight: 0px; --g-sight-dash: none;
+  --g-accent-text: var(--g-ink-1);
 }
 /* Glass (today's route C): no floor pattern, frosted glass, radius 20 on cells (today's cards) and 26 on capsules, the glow. */
 :root[data-world="glass"], [data-world="glass"] {
   --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 1; --g-mark-glow: 14px; --g-face-say: var(--g-font-display);
   --g-radius-key: 12px; --g-radius-mark: 10px; --g-radius-cell: 20px; --g-radius-chip: 12px; --g-radius-capsule: 26px;
-  --g-plate-fill: rgba(var(--g-bone-rgb), .06); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 24px;
-  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-sight-dash: none;
+  --g-plate-fill: rgba(var(--g-bone-rgb), .06); --g-plate-strong-fill: rgba(var(--g-bone-rgb), .1); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 24px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
 }
 
 /* ---------------------------------------------------------------------------------------------------------------------
