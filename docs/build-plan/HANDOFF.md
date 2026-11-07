@@ -107,6 +107,14 @@ folder that no longer exists; ignore those paths).
   that worked. Lesson kept: a long builder commits before every heavy run. Merged by fast-forward into this branch, PR #60 opened
   7 Nov (OWNER-ISSUES 140 has the record, the contrast per theme and his phone check). The CI guard job untouched; the smoke list
   gained `look` after `settings`. Usage percentage: still asked, not yet given.
+- 7 Nov 02:02 UK: PR #60 MERGED (main 37a79d2). One shard was red first: the deck spec, because THE LOOK got a deck card of its
+  own in a "More" group; fixed at the cause with the `inside` flag on a tab (a screen inside another has no card; the reader
+  builder had made the same change on its branch), deck/look/settings run clean locally, every check green on the next run.
+  Lesson for every brief: a new screen runs deck, tabs and nav before the PR. His words tonight: themes that mean something
+  (141, BRIEF-THEMES-2, launched after the merge), the hologram orb stays and the boot gets much better (142, BRIEF-ORB-AND-BOOT),
+  every feature stays a usable findable thing and no page lists every ability (143). A third container restart killed the reader
+  builder mid-validation; its ten commits were safe and a fresh builder continues in the same worktree. Branch restarted from
+  main after the merge (same name). Usage percentage: still asked, not yet given.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
