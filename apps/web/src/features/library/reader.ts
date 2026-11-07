@@ -592,6 +592,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     listenKey.replaceChildren(icon(st === 'reading' ? G.stop : G.listen, 'g-glyph'), h('span', word));
     listenKey.setAttribute('aria-label', label);
     listenKey.disabled = !book;
+    // (no book: no bar; the note under the head says what to do)
+    bar.hidden = !book;
     const pages = mode() === 'pages';
     prevKey.hidden = nextKey.hidden = !pages;
     bar.classList.toggle('pages', pages);
@@ -999,6 +1001,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   paintChapters();
   void paintAbout();
   states([['No book open', 'Pick a book on your Shelf and I’ll open it at your place. Say “read me” and its name and I’ll read it to you.']]);
+  // (with no book there is nothing to listen to or set: the one thing to do is go to the Shelf)
+  note.append(key('Your shelf', () => void import('../../shell/areas').then((a) => a.navTo('library?shelf', 'pop')), { label: 'Your shelf: pick a book to read', kind: 'fill' }));
 
   view = {
     open,

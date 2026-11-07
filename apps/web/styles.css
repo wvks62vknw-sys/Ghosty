@@ -6089,6 +6089,10 @@ html .grd-prefs .grd-size { flex: 1 1 auto; text-align: center; font: var(--g-t-
 html #app .grd-prefs button.grd-voicekey { display: flex; width: 100%; white-space: normal; }
 html .grd-cap { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
 html #pg-reader .grd-note:empty { display: none; }
+html #pg-reader .grd-note > .g-key { margin: 0 0 var(--g-s-2); }
+/* (no book open: no empty page, no bar) */
+html #pg-reader .grd-page:has(> .grd-flow:empty) { display: none; }
+html #pg-reader .grd-bar[hidden] { display: none; }
 html #pg-reader .grd-state { margin: 0 0 var(--g-s-2); padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-plate); border-left: var(--g-stroke) solid var(--g-line); }
 html #pg-reader .grd-state b { display: block; margin-bottom: var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
 /* CHAPTERS and SEARCH: numbered rows (the index), each a 44 pt target and more; the one he is in in his colour */
@@ -6114,7 +6118,7 @@ html #pg-reader .grd-about > .g-tag { margin-top: var(--g-s-3); }
 html #pg-reader .grd-marks { display: flex; flex-direction: column; gap: var(--g-s-half); margin-top: var(--g-s-1); }
 html #pg-reader .grd-marks > .g-truth { margin: 0; }
 html #pg-reader .grd-about > .grd-cap + .grd-cap { margin-top: var(--g-s-1); }
-@media (max-width: 400px) { html #pg-reader .grd-aboutrow { grid-template-columns: 96px minmax(0, 1fr); } html #pg-reader .grd-aboutrow .grd-cover.big { width: 96px; height: 144px; } }
+@media (max-width: 400px) { html #pg-reader .grd-aboutrow { grid-template-columns: 96px minmax(0, 1fr); } html #pg-reader .grd-aboutrow .grd-cover.big { width: 96px; height: 144px; } html #pg-reader .grd-aboutrow .grd-cover.big .grd-cover-t { font: 600 15px/20px var(--g-font-display); } }
 /* a book's cover: its own first picture, or one drawn from its title (the plate, the tag, the title; the corners in his colour) */
 html .grd-cover { position: relative; display: flex; flex: none; overflow: hidden; background: var(--g-plate-strong); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 html .grd-cover.row { width: 60px; height: 90px; }

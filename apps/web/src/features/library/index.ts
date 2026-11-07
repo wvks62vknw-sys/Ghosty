@@ -423,7 +423,8 @@ export const libraryTab: TabDef = {
       findRow.hidden = here.length <= 8 && !words;
       sortRow.hidden = here.filter((d) => whose(d) === 0).length < 2;
       for (const [i, b] of sortKeys.entries()) b.setAttribute('aria-pressed', String(SORTS[i]![0] === sortBy));
-      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : `${here.filter((d) => whose(d) === 0).length} BOOKS`, 'ok');
+      const count = here.filter((d) => whose(d) === 0).length;
+      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : count === 0 ? 'NONE YET' : count === 1 ? '1 BOOK' : `${count} BOOKS`, 'ok');
       if (words && !shown.length) return clear(shelf.body, h('div.note', `Nothing on the shelf is called “${find.value.trim()}”.`));
       const fold = others.length
         ? button(`${othersOpen || words ? 'Hide' : 'Show'} my notebooks and the built-in books · ${others.length}`, () => {
