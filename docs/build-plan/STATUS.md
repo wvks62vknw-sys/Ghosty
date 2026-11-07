@@ -197,7 +197,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 2. Done, going up next
 
 - FIRST, BEFORE ANYTHING ELSE MERGES (his verdict 7 Nov 22:40 UK, OWNER-ISSUES 153): THE LENS HOTFIX BUILT 7 Nov 23:30 UK (OWNER-ISSUES 154: one tag per kind with one key row, at most three tags; GET THE EYES loads the object finder alone, 18 MB, the namer a second key that says in words when the iPhone cannot hold it, with TRY AGAIN) on branch hotfix/lens from main, PR #67 OPEN, MERGED ONLY AFTER HIS PHONE CHECK on its preview; then THE THEMES CUT BACK to what
-  he asked, after his answer to 153's question. Nothing new launches until both are done.
+  he asked. 8 Nov 00:45 UK, HIS WORDS (OWNER-ISSUES 155): A THEME IS A WHOLE DIFFERENT HUD, tabs included; the shell and the
+  themes are one thing; his input before code every time. The Theme page is cut to pick a HUD, a colour, a ground; the first HUD
+  is W1 THE SCAN as a full shell, mocked first for his pick; the cinematic re-cut after his answers. Nothing new builds until he has
+  seen the first HUD mock and the Lens hotfix is right on his phone; the voice PR and the shell's pass 1 wait behind those.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I
