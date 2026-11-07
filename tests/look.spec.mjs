@@ -15,6 +15,13 @@
 //  5. nothing sideways and every control named and 44 pt or more, in every section, at 440 and at 390;
 //  6. the states said in a sentence: Reduce Motion on (the eye holds still, the typed line shows whole), sound off, no 3-D (the eye
 //     drawn flat, Chromium only).
+//  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2; every check fails on the code before it — run against it once): the Theme page two
+//     taps from Settings with the seventeen presets first and the dials under them, the row saying the recipe; EACH GROUND applies
+//     at once, is kept across a reload and the boot plays on it; PAPER IS READABLE (every text on the Theme page and THE LOOK
+//     measured against what it sits on); EACH WORLD changes the floor behind every screen, Home's corners and the reticle (computed
+//     styles, measured); EACH SWITCH changes its one thing (glow, floor, corners, readings, body, motion, the sound); a changed dial
+//     is Custom and kept; THE SCAN and GLASS whole; "black background" by words with no model (the brain never asked); GROUND
+//     FOLLOWS THE DAY flips at sunset on a stand-in clock; the Theme page named, 44 pt and nothing sideways at 390 and 440.
 //   BASE=http://localhost:8795 node tests/look.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openSection, standDown } from './nav.mjs';
@@ -32,6 +39,8 @@ const check = (ok, what) => void (ok || problems.push(what));
 const GL = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const SECTIONS = ['tokens', 'type', 'marks', 'mind', 'themes'];
 const TWELVE = ['reactor', 'graphite', 'ember', 'gold', 'crimson', 'violet', 'emerald', 'ice', 'rose', 'lime', 'sunset', 'mono'];
+/** The presets (BRIEF-THEMES-2 5): the twelve, then the directions seen along the way. */
+const PRESETS17 = [...TWELVE, 'scan', 'map', 'eye', 'oneink', 'glass'];
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: GL });
 await standDown(base);
@@ -165,7 +174,7 @@ check(/listening, breathing/.test((await page.locator('#pg-look .g-orb').getAttr
 await page.screenshot({ path: `${out}/look-${engine}-440-mind-listening.png` });
 await openLookSection(page, 'themes');
 const sw = await page.evaluate(() => [...document.querySelectorAll('#pg-look .swatch')].map((b) => ({ k: b.dataset.theme, name: b.querySelector('b')?.textContent, read: b.querySelector('.swread')?.textContent ?? '', accent: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
-check(sw.map((x) => x.k).join() === ['reactor', 'graphite', 'ember', 'gold', 'crimson', 'violet', 'emerald', 'ice', 'rose', 'lime', 'sunset', 'mono'].join(), `[themes] the swatches: ${sw.map((x) => x.k).join()}`);
+check(sw.map((x) => x.k).join() === PRESETS17.join(), `[themes] the swatches (the presets): ${sw.map((x) => x.k).join()}`);
 check(sw.every((x) => /^Text \d+\.\d:1 · line \d+\.\d:1$/.test(x.read)), `[themes] a swatch without its measured contrast: ${JSON.stringify(sw.filter((x) => !/^Text/.test(x.read)))}`);
 for (const x of sw) {
   const [t, l] = (x.read.match(/\d+\.\d/g) ?? []).map(Number);
@@ -305,10 +314,356 @@ if (!isWebKit) {
   await flat.close();
 }
 
+
+// ======================================================================== 7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2)
+// A theme is a recipe: the ground, the colour, the world and the switches. Each is measured on screen, never assumed.
+{
+  const GROUND_CANVAS = { black: '#000000', graphite: '#101317', slate: '#0c1118', warm: '#13110f', paper: '#f3efe6' };
+  const LABEL = { black: 'Black', graphite: 'Graphite', slate: 'Slate', warm: 'Warm', paper: 'Paper' };
+  const hexOf = (c) => { const m = String(c).match(/[\d.]+/g)?.map(Number) ?? []; return m.length >= 3 ? `#${m.slice(0, 3).map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}` : String(c).trim().toLowerCase(); };
+  const alphaOf = (c) => { const m = String(c).match(/[\d.]+/g)?.map(Number) ?? []; return m.length >= 4 ? m[3] : m.length === 3 ? 1 : 0; };
+  /** A phone already paired, on a recipe of his (`look`, beside `theme`), optionally on a stand-in clock. */
+  async function recipePhone(viewport, { theme = 'reactor', look = null, clock = null } = {}) {
+    const c = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+    await c.addInitScript(([k, theme, look]) => {
+      localStorage.setItem('ghosty.ownerKey', k);
+      localStorage.setItem('ghosty.themes1', '1');
+      if (!sessionStorage.getItem('seeded')) {
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', sounds: true, theme, ...(look ? { look } : {}) }));
+      }
+      window.__sfx = [];
+      document.addEventListener('ghosty-sfx', (e) => window.__sfx.push(e.detail));
+    }, [KEY, theme, look]);
+    const p = await c.newPage();
+    p.on('pageerror', (e) => webkitNoise(e) || problems.push(`[recipe ${viewport.width}] pageerror: ${e.message}`));
+    if (clock) await p.clock.install({ time: new Date(clock) });
+    await p.goto(base, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    return { c, p };
+  }
+  const state = (p) => p.evaluate(() => ({ ...document.documentElement.dataset, saved: window.__ghosty.settings.get().look, colour: window.__ghosty.settings.get().theme, preset: window.__ghosty.theme.preset(), words: window.__ghosty.theme.words() }));
+  /** Settings → Appearance → Theme: two taps (the Appearance pill, the Theme row). */
+  async function themePage(p) {
+    await p.evaluate(() => (location.hash = 'settings'));
+    await p.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
+    await p.waitForTimeout(500);
+    await openSection(p, 'settings', 'Appearance');
+    await p.click('#pg-settings .pn[data-row].themepn > h3');
+    await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, '[recipe] two taps did not open the Theme page');
+    await p.waitForTimeout(450);
+  }
+  const tapDial = async (p, root, dial, choice) => {
+    const b = p.locator(`${root} .gdial[data-dial="${dial}"] .gchoice[data-choice="${choice}"]`);
+    await b.scrollIntoViewIfNeeded().catch(() => undefined);
+    await b.click();
+    await p.waitForTimeout(250);
+  };
+  const tapSwitch = async (p, root, key, val) => {
+    const b = p.locator(`${root} .gswitch[data-switch="${key}"] button[data-val="${val}"]`);
+    await b.scrollIntoViewIfNeeded().catch(() => undefined);
+    await b.click();
+    await p.waitForTimeout(250);
+  };
+  /** Every text on screen under `sel` against what it really sits on (its backgrounds blended down to the page): the lowest ratio. */
+  const readable = (p, sel) => p.evaluate((sel) => {
+    const parse = (c) => { const m = String(c).match(/[\d.]+/g)?.map(Number) ?? []; return m.length >= 3 ? { r: m[0], g: m[1], b: m[2], a: m.length > 3 ? m[3] : 1 } : null; };
+    const ch = (v) => { const s = v / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+    const L = (c) => 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
+    const ratio = (a, b) => (Math.max(L(a), L(b)) + 0.05) / (Math.min(L(a), L(b)) + 0.05);
+    const over = (t, u) => ({ r: t.r * t.a + u.r * (1 - t.a), g: t.g * t.a + u.g * (1 - t.a), b: t.b * t.a + u.b * (1 - t.a), a: 1 });
+    const page = parse(getComputedStyle(document.documentElement).getPropertyValue('--g-canvas').trim().replace(/^#(..)(..)(..)$/, (_, r, g, b) => `rgb(${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)})`)) ?? { r: 0, g: 0, b: 0, a: 1 };
+    const bgOf = (el) => {
+      const layers = [];
+      for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+        const c = parse(getComputedStyle(e).backgroundColor);
+        if (c && c.a > 0) {
+          layers.push(c);
+          if (c.a >= 1) break;
+        }
+      }
+      return layers.reverse().reduce((bg, l) => over(l, bg), page);
+    };
+    let n = 0;
+    let min = 99;
+    const low = [];
+    for (const el of document.querySelectorAll(sel.split(',').map((x) => `${x.trim()} *`).join(', '))) {
+      if (!el.getClientRects().length || el.closest('svg, canvas, .swprev')) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      if (![...el.childNodes].some((t) => t.nodeType === 3 && t.textContent.trim())) continue;
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight) continue;
+      const bg = bgOf(el);
+      const fg = parse(cs.color);
+      if (!fg) continue;
+      const k = ratio(over(fg, bg), bg);
+      n++;
+      min = Math.min(min, k);
+      if (k < 4.5) low.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} "${el.textContent.trim().slice(0, 24)}" ${k.toFixed(2)}:1`);
+    }
+    return { n, min: +min.toFixed(2), low: low.slice(0, 8) };
+  }, sel);
+
+  // ---- 7a. the Theme page: two taps from Settings, the presets first, the dials under them, the row saying the recipe
+  const { c: c5, p: p5 } = await recipePhone(PHONE);
+  await p5.evaluate(() => (location.hash = 'settings'));
+  await p5.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
+  await openSection(p5, 'settings', 'Appearance');
+  const rowSaid = (await p5.locator('#pg-settings .pn.themepn > h3 small').getAttribute('data-label').catch(() => '')) ?? '';
+  check(rowSaid === 'Reactor · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Reactor · Graphite · The Scan"`);
+  await themePage(p5);
+  const order = await p5.evaluate(() => {
+    const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
+    const sw = pn?.querySelector('.swatches .swatch');
+    const dial = pn?.querySelector('.gdials .gdial');
+    return { presets: [...(pn?.querySelectorAll('.swatch') ?? [])].map((b) => b.dataset.preset), first: !!sw && !!dial && sw.getBoundingClientRect().top < dial.getBoundingClientRect().top && !!(sw.compareDocumentPosition(dial) & Node.DOCUMENT_POSITION_FOLLOWING), dials: [...(pn?.querySelectorAll('.gdial') ?? [])].map((d) => d.dataset.dial) };
+  });
+  check(order.presets.join() === PRESETS17.join(), `[recipe] the Theme page's presets: ${order.presets.join()}`);
+  check(order.first, '[recipe] the presets do not come first, the dials under them');
+  check(order.dials.join() === 'ground,colour,world,switches', `[recipe] the dials: ${order.dials.join()}`);
+  // ---- 7b. each ground applies at once, is kept across a reload, and the boot plays on it
+  for (const g of ['black', 'slate', 'warm', 'paper', 'graphite']) {
+    if (!(await p5.evaluate(() => document.body.classList.contains('g-themepage')))) await themePage(p5);
+    await tapDial(p5, '#pg-settings .pn.themepn.pushed', 'ground', g);
+    const now = await p5.evaluate(() => ({
+      canvas: getComputedStyle(document.documentElement).getPropertyValue('--g-canvas').trim().toLowerCase(),
+      page: getComputedStyle(document.querySelector('#pg-settings .pn.themepn.pushed')).backgroundColor,
+      body: getComputedStyle(document.body).backgroundColor,
+      row: document.querySelector('#pg-settings .pn.themepn > h3 small')?.getAttribute('data-label') ?? '',
+      toasts: document.querySelector('#toasts')?.textContent ?? '',
+    }));
+    const s = await state(p5);
+    const night = g === 'paper' ? 'graphite' : g;
+    check(s.ground === g && s.saved?.ground === g && now.canvas === GROUND_CANVAS[g] && hexOf(now.page) === GROUND_CANVAS[g], `[ground] ${g} did not apply at once: ${JSON.stringify({ ground: s.ground, saved: s.saved?.ground, canvas: now.canvas, page: hexOf(now.page) })}`);
+    check(hexOf(now.body) === GROUND_CANVAS[night] && s.night === night, `[ground] ${g}: today's rooms stand on ${hexOf(now.body)} (night ${s.night}), not ${night}'s ${GROUND_CANVAS[night]}`);
+    check(now.row.includes(LABEL[g]) && now.toasts.includes(`Ground: ${LABEL[g]}`), `[ground] ${g}: the row says "${now.row}", the toast "${now.toasts}"`);
+    await p5.screenshot({ path: `${out}/look-${engine}-440-ground-${g}.png` });
+    await p5.reload({ waitUntil: 'domcontentloaded' });
+    await p5.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    const kept = await state(p5);
+    check(kept.ground === g, `[ground] ${g} was not kept across a reload: ${kept.ground}`);
+    const boot = await c5.newPage();
+    await boot.addInitScript(() => { window.__ghostyBoot = true; });
+    await boot.goto(base, { waitUntil: 'domcontentloaded' });
+    if (await until(boot, () => !!window.__bootState?.recipe?.ground, null, 20000, `[boot] the cinematic never started on ${g}`)) {
+      const b = await boot.evaluate(() => ({ ...window.__bootState.recipe, veil: getComputedStyle(document.querySelector('#boot .bveil') ?? document.body).backgroundColor }));
+      check(b.ground === g && hexOf(b.floor) === GROUND_CANVAS[night] && hexOf(b.veil) === GROUND_CANVAS[night], `[boot] on ${g} it played on ${JSON.stringify(b)} (want the ground ${g}, the floor ${GROUND_CANVAS[night]})`);
+    }
+    await boot.close();
+  }
+  notes.push('each ground applied at once, kept across a reload, and the boot played on it (Paper\'s boot on the night ground, said)');
+  // ---- 7c. Paper is readable: every text on THE LOOK and the Theme page measured against what it sits on
+  await themePage(p5);
+  await tapDial(p5, '#pg-settings .pn.themepn.pushed', 'ground', 'paper');
+  let worst = 99;
+  for (let y = 0; y < 6; y++) {
+    await p5.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 700; }, y);
+    await p5.waitForTimeout(150);
+    const r = await readable(p5, '#pg-settings .pn.themepn.pushed, #top');
+    worst = Math.min(worst, r.min);
+    check(!r.low.length, `[paper] the Theme page has text under 4.5:1 on screen: ${r.low.join(' | ')}`);
+  }
+  await p5.screenshot({ path: `${out}/look-${engine}-440-paper-theme.png` });
+  await p5.evaluate(() => (location.hash = 'look'));
+  await p5.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
+  for (const id of SECTIONS) {
+    await openLookSection(p5, id);
+    for (let y = 0; y < 4; y++) {
+      await p5.evaluate((y) => { const h = document.querySelector('#pg-look .hud.glook'); if (h) h.scrollTop = y * 800; }, y);
+      await p5.waitForTimeout(120);
+      const r = await readable(p5, '#pg-look, #top');
+      worst = Math.min(worst, r.min);
+      check(!r.low.length, `[paper] THE LOOK (${id}) has text under 4.5:1 on screen: ${r.low.join(' | ')}`);
+    }
+  }
+  await p5.evaluate(() => { const h = document.querySelector('#pg-look .hud.glook'); if (h) h.scrollTop = 0; });
+  await p5.screenshot({ path: `${out}/look-${engine}-440-paper-look.png` });
+  notes.push(`Paper, measured on screen: every text on the Theme page and THE LOOK at ${worst}:1 or more`);
+  await c5.close();
+
+  // ---- 7d. each world changes the floor, the corners and the marks (computed styles, measured)
+  const { c: c6, p: p6 } = await recipePhone(PHONE);
+  await p6.evaluate(() => (location.hash = 'look'));
+  await p6.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
+  await openLookSection(p6, 'marks');
+  const WORLD = {
+    scan: { mask: /circle/, cell: '2px', arm: '10px 1.5px', edge: 'solid', side: '1px', plate: 'solid', sight: '0px', say: 'display' },
+    map: { mask: /M32 40\.5H49/, cell: '0px', arm: '5px 5px', edge: 'dashed', side: '1px', plate: 'dashed', sight: '0px', say: 'display' },
+    eye: { mask: /rect/, cell: '2px', arm: '0px 1.5px', edge: 'dotted', side: '1px', plate: 'dotted', sight: '24px', say: 'display' },
+    ink: { mask: /^none$/, cell: '0px', arm: '0px 1.5px', edge: 'solid', side: '0px', plate: 'solid', sight: '0px', say: 'serif' },
+    glass: { mask: /^none$/, cell: '20px', arm: '0px 1.5px', edge: 'solid', side: '1px', plate: 'solid', sight: '0px', say: 'display' },
+  };
+  const ret = '#pg-look .gmark[data-mark="reticle"] button.g-ret';
+  await p6.click(ret);
+  for (const [w, want] of Object.entries(WORLD)) {
+    await openLookSection(p6, 'themes');
+    await tapDial(p6, '#pg-look', 'world', w);
+    await openLookSection(p6, 'marks');
+    const m = await p6.evaluate((ret) => {
+      const floor = getComputedStyle(document.body, '::before');
+      const own = getComputedStyle(document.querySelector('#pg-look'), '::before');
+      const frame = document.querySelector(`${ret} .g-ret-frame`);
+      // a reticle that only watches (the line of sight's): its corners, its edge, its sides as the world draws them
+      const fs = getComputedStyle(document.querySelector('#pg-look .gmark[data-mark="sight"] button.g-ret[data-state="watch"] .g-ret-frame'));
+      const plate = getComputedStyle(document.querySelector('#pg-look .gmark[data-mark="plate"] .g-plate'));
+      return {
+        world: document.documentElement.dataset.world,
+        mask: floor.webkitMaskImage || floor.maskImage, alpha: floor.backgroundColor, ownMask: own.webkitMaskImage || own.maskImage,
+        cell: getComputedStyle(document.querySelector('#pg-core .rccard.rctoday') ?? document.body).borderTopLeftRadius,
+        arm: fs.backgroundSize.split(',')[0].trim(), edge: fs.borderTopStyle, side: fs.borderLeftWidth, attend: frame.closest('.g-ret')?.dataset.state,
+        sight: getComputedStyle(frame, '::after').width, plate: plate.borderTopStyle, blur: plate.backdropFilter || plate.webkitBackdropFilter || 'none',
+        say: getComputedStyle(document.querySelector('#pg-look .glook-say')).fontFamily,
+      };
+    }, ret);
+    const maskOk = want.mask.test(m.mask.replace(/^url\(|\)$/g, '')) && (w === 'ink' || w === 'glass' ? alphaOf(m.alpha) === 0 : alphaOf(m.alpha) > 0) && want.mask.test(m.ownMask.replace(/^url\(|\)$/g, ''));
+    check(m.world === w && maskOk, `[world] ${w}: the floor behind every screen is ${m.mask.slice(0, 60)} at ${m.alpha} (THE LOOK's ${m.ownMask.slice(0, 40)})`);
+    check(m.cell === want.cell, `[world] ${w}: Home's Today card has ${m.cell} corners (want ${want.cell})`);
+    check(m.attend === 'attend' && m.arm === want.arm && m.edge === want.edge && m.side === want.side && (w !== 'eye' || m.sight === want.sight), `[world] ${w}: the attended reticle is drawn ${JSON.stringify({ arm: m.arm, edge: m.edge, side: m.side, sight: m.sight })} (want ${JSON.stringify({ arm: want.arm, edge: want.edge, side: want.side, sight: want.sight })})`);
+    check(m.plate === want.plate && (w === 'glass' ? /blur\(24px\)/.test(m.blur) : !/blur\([1-9]/.test(m.blur)), `[world] ${w}: a plate is ${m.plate}, ${m.blur}`);
+    check(want.say === 'serif' ? /serif/i.test(m.say) && !/SF Pro Display/.test(m.say) : /SF Pro Display/.test(m.say), `[world] ${w}: what I say is set in ${m.say.slice(0, 60)}`);
+    await p6.screenshot({ path: `${out}/look-${engine}-440-world-${w}.png` });
+  }
+  notes.push('each world changed the floor behind every screen, Home\'s corners and the reticle, measured');
+  // ---- 7e. each switch changes its one thing (back on The Scan, Graphite)
+  await openLookSection(p6, 'themes');
+  await tapDial(p6, '#pg-look', 'world', 'scan');
+  const probe = () => p6.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    return {
+      halo: root.getPropertyValue('--halo1').trim(), floor: getComputedStyle(document.body, '::before').backgroundColor,
+      cell: getComputedStyle(document.querySelector('#pg-core .rccard.rctoday') ?? document.body).borderTopLeftRadius,
+      tag: getComputedStyle(document.querySelector('#pg-look .g-tag')).fontFamily, tagSize: getComputedStyle(document.querySelector('#pg-look .g-tag')).fontSize,
+      lede: getComputedStyle(document.querySelector('#pg-look .glede')).fontSize, motion: document.documentElement.dataset.motion,
+    };
+  });
+  const base0 = await probe();
+  const T0 = '#pg-look';
+  await tapSwitch(p6, T0, 'glow', 'off');
+  check(alphaOf((await probe()).halo) === 0 && alphaOf(base0.halo) > 0, `[switch] glow off: the halo is ${(await probe()).halo} (was ${base0.halo})`);
+  await tapSwitch(p6, T0, 'glow', 'on');
+  await tapSwitch(p6, T0, 'floor', 'off');
+  check(alphaOf((await probe()).floor) === 0 && alphaOf(base0.floor) > 0, `[switch] floor off: the floor is ${(await probe()).floor}`);
+  await tapSwitch(p6, T0, 'floor', 'on');
+  await tapSwitch(p6, T0, 'corners', 'round');
+  check((await probe()).cell === '20px', `[switch] corners round: ${(await probe()).cell}`);
+  await tapSwitch(p6, T0, 'corners', 'sharp');
+  check((await probe()).cell === '0px' && base0.cell === '2px', `[switch] corners sharp: ${(await probe()).cell} (was ${base0.cell})`);
+  await tapSwitch(p6, T0, 'corners', 'world');
+  await tapSwitch(p6, T0, 'readings', 'system');
+  check(!/mono|Menlo|SF Mono/i.test((await probe()).tag) && /mono|Menlo/i.test(base0.tag), `[switch] readings system: a tag is set in ${(await probe()).tag}`);
+  await tapSwitch(p6, T0, 'readings', 'mono');
+  await tapSwitch(p6, T0, 'body', '19');
+  const b19 = await probe();
+  await tapSwitch(p6, T0, 'body', '21');
+  const b21 = await probe();
+  check(base0.lede === '17px' && b19.lede === '19px' && b21.lede === '21px' && parseFloat(b19.tagSize) > parseFloat(base0.tagSize) && parseFloat(b21.tagSize) >= parseFloat(b19.tagSize), `[switch] body: ${base0.lede} → ${b19.lede} → ${b21.lede}, tags ${base0.tagSize} → ${b19.tagSize} → ${b21.tagSize}`);
+  await p6.screenshot({ path: `${out}/look-${engine}-440-body-21.png` });
+  await tapSwitch(p6, T0, 'body', '17');
+  await tapSwitch(p6, T0, 'motion', 'calm');
+  const calmSaid = (await p6.locator('#pg-look .glook-states').textContent()) ?? '';
+  check((await probe()).motion === 'calm' && /Motion is set to calm/.test(calmSaid), `[switch] motion calm: ${JSON.stringify({ motion: (await probe()).motion, said: calmSaid.slice(0, 80) })}`);
+  await openLookSection(p6, 'marks');
+  await p6.click('#pg-look .gmark[data-mark="typed"] .g-key');
+  const whole = await p6.evaluate(() => { const t = document.querySelector('#pg-look .g-typed'); return { n: t.querySelector('.g-typed-words').textContent.length, writing: t.classList.contains('writing') }; });
+  check(whole.n > 30 && !whole.writing, `[switch] calm: the typed line did not appear whole: ${JSON.stringify(whole)}`);
+  await openLookSection(p6, 'mind');
+  check((await look(p6)).eye?.still === true, `[switch] calm: my eye still moves: ${JSON.stringify((await look(p6)).eye)}`);
+  await openLookSection(p6, 'themes');
+  await tapSwitch(p6, T0, 'motion', 'alive');
+  // the sound: a tone, a click, or silence (each on a thing not yet recognised)
+  const lockOn = async (label) => {
+    await openLookSection(p6, 'marks');
+    await p6.click(`#pg-look .gmark[data-mark="recognise"] button.gthing[aria-label="${label}"]`);
+    await p6.waitForTimeout(500);
+    return p6.evaluate(() => window.__sfx.filter((k) => k === 'lock' || k === 'click').slice(-1)[0] ?? '');
+  };
+  await p6.evaluate(() => { window.__sfx = []; });
+  const tone = await lockOn('Library');
+  await openLookSection(p6, 'themes');
+  await tapSwitch(p6, T0, 'sound', 'click');
+  await p6.evaluate(() => { window.__sfx = []; });
+  const click = await lockOn('Agenda');
+  await openLookSection(p6, 'themes');
+  await tapSwitch(p6, T0, 'sound', 'off');
+  await p6.evaluate(() => { window.__sfx = []; });
+  const none = await lockOn('God’s eye');
+  check(tone === 'lock' && click === 'click' && none === '', `[switch] the sound: tone "${tone}", click "${click}", off "${none}"`);
+  await openLookSection(p6, 'themes');
+  await tapSwitch(p6, T0, 'sound', 'tone');
+  // a dial under a preset makes Custom, kept exactly as set; a preset tapped is whole again
+  await tapSwitch(p6, T0, 'glow', 'off');
+  const custom = await state(p6);
+  check(custom.preset === 'custom' && (await p6.locator('#pg-look .swcustom').count()) === 1, `[recipe] a dial changed under a preset is not Custom: ${custom.preset}`);
+  await p6.reload({ waitUntil: 'domcontentloaded' });
+  await p6.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  check((await state(p6)).glow === 'off' && (await state(p6)).preset === 'custom', '[recipe] Custom was not kept exactly as set across a reload');
+  await p6.evaluate(() => (location.hash = 'look'));
+  await p6.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
+  await openLookSection(p6, 'themes');
+  await p6.click('#pg-look .swatch[data-preset="scan"]');
+  await p6.waitForTimeout(300);
+  const scan = await state(p6);
+  check(scan.preset === 'scan' && scan.ground === 'black' && scan.world === 'scan' && scan.glow === 'off' && scan.theme === 'reactor', `[recipe] THE SCAN: ${JSON.stringify({ preset: scan.preset, ground: scan.ground, world: scan.world, glow: scan.glow })}`);
+  await p6.click('#pg-look .swatch[data-preset="glass"]');
+  await p6.waitForTimeout(300);
+  const glass = await state(p6);
+  check(glass.preset === 'glass' && glass.ground === 'graphite' && glass.world === 'glass' && glass.glow === 'on', `[recipe] GLASS, today's look back: ${JSON.stringify({ preset: glass.preset, ground: glass.ground, world: glass.world })}`);
+  // ---- 7g. "black background" by words, with no model: answered on the phone, the brain never asked
+  const asked = [];
+  p6.on('request', (r) => /\/api\/chat\b/.test(r.url()) && asked.push(r.url()));
+  await p6.evaluate(() => (location.hash = 'core'));
+  await p6.waitForTimeout(700);
+  if (!(await p6.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await p6.locator('.logbtn:visible').first().click().catch(() => undefined);
+  await p6.waitForSelector('#cin', { state: 'visible', timeout: 15000 }).catch(() => undefined);
+  await p6.fill('#cin', 'black background');
+  await p6.press('#cin', 'Enter');
+  const black = await until(p6, () => document.documentElement.dataset.ground === 'black', null, 5000, '[words] "black background" did not make the ground black');
+  const reply = await p6.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /nothing lit/.test(t)).pop() ?? '');
+  check(black && /Black: nothing lit but what I’m looking at\./.test(reply) && !asked.length, `[words] "black background": ground ${(await state(p6)).ground}, said "${reply.slice(0, 80)}", the brain asked ${asked.length} times`);
+  await p6.screenshot({ path: `${out}/look-${engine}-440-words-black.png` });
+  await c6.close();
+
+  // ---- 7f. ground follows the day, on a stand-in clock: Paper by day at his home, the night ground once the sun has set
+  const { c: c7, p: p7 } = await recipePhone(PHONE, { look: { ground: 'black', night: 'black', switches: { day: 'on' } }, clock: '2026-11-07T15:00:00Z' });
+  const day = await state(p7);
+  check(day.ground === 'paper' && day.night === 'black' && /^Reactor · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
+  await p7.clock.fastForward('02:00:00');
+  const flipped = await until(p7, () => document.documentElement.dataset.ground === 'black', null, 8000, '[day] the ground did not flip to Black after sunset on the stand-in clock');
+  const night = await state(p7);
+  check(flipped && /^Reactor · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
+  notes.push(`ground follows the day on a stand-in clock: "${day.words}" at 15:00, "${night.words}" at 17:00`);
+  await c7.close();
+
+  // ---- 7h. the Theme page at 390 and 440: nothing sideways, every control named and 44 pt
+  for (const vp of [SMALL, PHONE]) {
+    const { c: c8, p: p8 } = await recipePhone(vp);
+    await themePage(p8);
+    for (let y = 0; y < 6; y++) {
+      await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
+      await p8.waitForTimeout(150);
+      const m = await p8.evaluate((W) => {
+        const root = document.querySelector('#pg-settings .pn.themepn.pushed');
+        const seen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && getComputedStyle(el).visibility !== 'hidden'; };
+        const side = [...root.querySelectorAll('*')].filter((el) => seen(el) && !el.closest('svg')).map((el) => [el, el.getBoundingClientRect()]).filter(([, r]) => r.right > W + 0.5 || r.left < -0.5).map(([el, r]) => `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} ${Math.round(r.left)}–${Math.round(r.right)}`);
+        const controls = [...root.querySelectorAll('button, [role="radio"], [role="switch"], input, select')].filter(seen);
+        const unnamed = controls.filter((c) => !(c.getAttribute('aria-label') || c.textContent || '').trim()).map((c) => c.outerHTML.slice(0, 80));
+        const small = controls.map((c) => [c, c.getBoundingClientRect()]).filter(([, r]) => r.width < 43.5 || r.height < 43.5).map(([c, r]) => `${(c.getAttribute('aria-label') || c.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}×${Math.round(r.height)}`);
+        return { side: side.slice(0, 5), unnamed: unnamed.slice(0, 5), small: small.slice(0, 5), scroll: document.documentElement.scrollWidth };
+      }, vp.width);
+      check(m.scroll <= vp.width && !m.side.length, `[${vp.width}] the Theme page sticks out sideways: ${m.side.join(' | ')}`);
+      check(!m.unnamed.length, `[${vp.width}] the Theme page has a control with no name: ${m.unnamed.join(' | ')}`);
+      check(!m.small.length, `[${vp.width}] the Theme page has a control under 44 pt: ${m.small.join(' | ')}`);
+    }
+    await p8.screenshot({ path: `${out}/look-${engine}-${vp.width}-theme-page.png` });
+    await c8.close();
+  }
+}
+
 await browser.close();
 for (const n of notes) console.log(n);
 if (problems.length) {
   console.error(`FAIL look (${engine}):\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`ok (${engine}): THE LOOK — two taps from Settings, under ${BUDGET} ms to open, the five sections, the marks working and the tone once (none with sounds off), the twelve applied and kept after a reload, the boot in the picked colour, nothing sideways and every control named and 44 pt at 440 and 390, Reduce Motion and no 3-D said`);
+console.log(`ok (${engine}): THE LOOK — two taps from Settings, under ${BUDGET} ms to open, the five sections, the marks working and the tone once (none with sounds off), the twelve applied and kept after a reload, the boot in the picked colour, nothing sideways and every control named and 44 pt at 440 and 390, Reduce Motion and no 3-D said; THE RECIPE — the presets first and the dials under them, each ground at once, kept and under the boot, Paper readable on screen, each world's floor, corners and marks measured, each switch's one change, Custom kept, "black background" with no model, the day flipping at sunset on a stand-in clock`);
