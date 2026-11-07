@@ -124,14 +124,14 @@ async function epubCover(bytes: Uint8Array): Promise<Blob | null> {
   if (!pick) return null;
   const data = files.get(base + pick.href) ?? files.get(pick.href);
   const type = /^image\//.test(pick.type) ? pick.type : typeOf(pick.href);
-  return data && type ? new Blob([data], { type }) : null;
+  return data && type ? new Blob([new Uint8Array(data)], { type }) : null;
 }
 
 /** A Word file's first picture (word/media/image1…). */
 async function docxCover(bytes: Uint8Array): Promise<Blob | null> {
   const files = await unzip(bytes);
   const name = [...files.keys()].filter((k) => /^word\/media\/[^/]+\.(jpe?g|png|gif|webp)$/i.test(k)).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))[0];
-  return name ? new Blob([files.get(name)!], { type: typeOf(name) }) : null;
+  return name ? new Blob([new Uint8Array(files.get(name)!)], { type: typeOf(name) }) : null;
 }
 
 /**

@@ -920,7 +920,11 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
         return;
       }
       // opened from the jump bar or a link with no book named: the book he was reading last, at his place
-      if (!doc) void lastBook().then((d) => d && !doc && open({ doc: d, t0: performance.now() }));
+      if (!doc) {
+        void lastBook().then((d) => {
+          if (d && !doc) void open({ doc: d, t0: performance.now() });
+        });
+      }
       else if (mode() === 'pages') requestAnimationFrame(() => fitPages());
     },
   };
