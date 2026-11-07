@@ -266,8 +266,8 @@ built in the old look after day one, so no screen is built twice.
    confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
    protocol (packages/shared) defined here and reused by item 5. 2–3 days, two or three PRs, every screen in the new system.
 4. THE SHELL REDESIGNED (STARS 160–161; PLAN-STARS 3b): the bar, the hubs, the deck, Home following the hour, Mind the orb with the
-   Stage, the switcher and the jump bar, rebuilt to the system; A TAB PER FEATURE IS NO LONGER REQUIRED (his words 7 Nov,
-   OWNER-ISSUES 142: the six-area bar and the per-feature tabs may be cut where the finding rule holds); the finding rule — two taps for recents and favourites, three taps
+   Stage, the switcher and the jump bar, rebuilt to the system; EVERY FEATURE STAYS A THING HE CAN USE AND FIND, as a tab or a row as the shell
+   decides, and NO PAGE LISTING EVERY ABILITY (his words 7 Nov, OWNER-ISSUES 143, correcting 142); the finding rule — two taps for recents and favourites, three taps
    or one typed word for everything else; the other screens migrate to the system as their passes touch them (item 7), each
    migration said in its PR. 3–4 days for the shell; the full migration is weeks and is not promised for this week.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
