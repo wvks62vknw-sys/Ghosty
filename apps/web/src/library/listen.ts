@@ -124,6 +124,8 @@ let meta: { n: number; off: number; line: boolean; text: string }[] = [];
 let run = 0;
 /** "Just this chapter", for the reading going now (he may say it while I read). */
 let onlyThis = false;
+/** The chapter "just this chapter" means: the one he was hearing when he said it (or the one a reading started in). */
+let onlyChapter = -1;
 
 /**
  * Read `b` aloud from a place. `lead`: a line of mine first ("Back to The Hobbit.", "The Hobbit, page 3."); `only`: just this
@@ -139,6 +141,7 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
   const lines: string[] = opts.lead ? [opts.lead] : [];
   let held: Piece | null = null;
   let chapter = b.passages[at.n]?.chapter ?? 0;
+  onlyChapter = chapter;
   let endAt: { n: number; chapter: number } | null = null;
   let last = { n: at.n, off: at.off };
   const next = (): { text: string } | null => {
@@ -155,10 +158,10 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
       p = r.value;
     }
     const c = b.passages[p.n]!.chapter;
-    if (c !== chapter) {
+    if (c !== chapter || (onlyThis && c !== onlyChapter)) {
       // the chapter is over: there, if he asked for just this one; else on, the next one named first (its own head names it)
       if (onlyThis) {
-        endAt = { n: p.n, chapter };
+        endAt = { n: p.n, chapter: onlyChapter };
         return null;
       }
       chapter = c;
@@ -189,6 +192,14 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
       if (me !== run) return;
       const m = meta[i];
       if (!m) return;
+      // "just this chapter" said once the next chapter's first words were already handed to the voice (it is given a few
+      // pieces ahead): the reading ends here, at the chapter's end, before any of the next one is heard
+      if (onlyThis && (b.passages[m.n]?.chapter ?? onlyChapter) !== onlyChapter) {
+        run++;
+        stopSpeaking();
+        chapterEnd(b, m.n, onlyChapter);
+        return;
+      }
       if (first) {
         first = false;
         listenLog.firstWordMs.push(Math.round(performance.now() - t0));
@@ -210,13 +221,8 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
       }
       // read to its end: the chapter he asked for (the place moves to the next one), or the whole book (marked finished)
       run++;
-      if (endAt) {
-        const was = endAt;
-        keep(b, was.n, 0);
-        reading.set({ state: 'ended', n: was.n, off: 0, lit: -1, stoppedAt: Date.now() });
-        listenLog.ends.push('chapter');
-        void closing(`That's the end of ${chapterName(b, was.chapter)}. ${placeLine(b, was.n, 0)} I'll carry on from here.`);
-      } else {
+      if (endAt) chapterEnd(b, endAt.n, endAt.chapter);
+      else {
         const lastN = b.passages.length - 1;
         keep(b, lastN, Math.max(0, b.passages[lastN]!.text.length - 1), true);
         reading.set({ state: 'ended', lit: -1, finished: true, stoppedAt: Date.now() });
@@ -227,6 +233,14 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
   });
 }
 
+/** The chapter he asked for is read ("just this chapter"): the place moves to the next one's start, and I say so. */
+function chapterEnd(b: Book, n: number, chapter: number): void {
+  keep(b, n, 0);
+  reading.set({ state: 'ended', n, off: 0, lit: -1, stoppedAt: Date.now() });
+  listenLog.ends.push('chapter');
+  void closing(`That's the end of ${chapterName(b, chapter)}. ${placeLine(b, n, 0)} I'll carry on from here.`);
+}
+
 /** A line of mine at the end, in the voice the book was read in (the phone's, unless HIS VOICE FOR BOOKS has mine). */
 function closing(line: string): Promise<void> {
   return speak(line, { here: !readingPrefs.get().bookVoice || reading.get().switched !== '' });
@@ -235,6 +249,9 @@ function closing(line: string): Promise<void> {
 /** "Just this chapter" while I read: I stop at the end of the chapter I am in. */
 export function onlyThisChapter(): void {
   onlyThis = true;
+  // (the chapter of the sentence he is hearing, not of the pieces already handed to the voice ahead of it)
+  const s = reading.get();
+  if (book && book.id === s.doc) onlyChapter = book.passages[s.n]?.chapter ?? onlyChapter;
   reading.set({ only: true });
 }
 

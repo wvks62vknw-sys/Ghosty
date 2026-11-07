@@ -569,9 +569,9 @@ export function readAloud(o: {
       }, () => {
         if (exhausted && i === parts.length - 1) end('done');
       });
-    // keep BOOK_AHEAD pieces waiting beyond the one being said
+    // keep BOOK_AHEAD pieces waiting beyond the one being said (never once the reading has ended: a piece's own start may end it)
     const top = (cur: number) => {
-      while (queuedTo - cur < BOOK_AHEAD) {
+      while (!over && token === speakToken && queuedTo - cur < BOOK_AHEAD) {
         const nx = queuedTo + 1;
         if (nx >= parts.length && !pull()) break;
         queue(nx);

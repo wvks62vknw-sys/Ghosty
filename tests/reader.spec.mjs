@@ -24,7 +24,11 @@
 //  9. Offline, a book kept on this phone (KEEP ON THIS PHONE, its size said) still opens and LISTEN reads it in the phone's voice.
 // 10. HIS VOICE FOR BOOKS on: my own voice reads until its share runs out (the stand-in's), then the phone's voice says "My own
 //     voice from here." and carries on, with no gap of its own.
-//   BASE=http://localhost:8788 node tests/reader.spec.mjs [outDir]          (ONLY=shelf,place,listen,talk,words,card,fit,offline,voice)
+// 11. Easy to find (the addendum's third rule): two taps from Learn (the Library's card opens the Shelf, then the book) and one
+//     typed word from the jump bar ("read", or a word of its title).
+// 12. "Just this chapter", typed while I read and after the next chapter's first words were already handed to the voice: I stop
+//     at the end of the chapter he was hearing, say so and where, and none of the next chapter is heard.
+//   BASE=http://localhost:8788 node tests/reader.spec.mjs [outDir]   (ONLY=shelf,place,listen,talk,words,card,fit,offline,voice,find,chapter)
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
@@ -818,6 +822,103 @@ if (part('voice')) {
   await page.click('#pg-reader .grd-bar .g-key.fill').catch(() => undefined);
   await page.evaluate(() => localStorage.setItem('ghosty.reading', JSON.stringify({ mode: 'scroll', size: 17, bookVoice: false })));
   console.log(`[${name}] ${played.length} clips of my own voice, then "My own voice from here." ${ms(measured.voiceSwitchGap)} after the last ended, and on`);
+  await ctx.close();
+}
+
+// ================================================================ 11. easy to find: two taps from Learn, one word from the jump bar
+if (part('find')) {
+  const name = 'find';
+  const { ctx, page } = await phone(name);
+  await shelfWithBooks(page);
+  // somewhere in the book already (Chapter Two), so the open is at his place
+  await openFromShelf(page, LH);
+  await pickSection(page, 'chapters');
+  await page.click('#pg-reader .grd-chrow[data-i="1"]');
+  await page.waitForTimeout(400);
+  // the Library somewhere else than its Shelf, as he may have left it
+  await page.evaluate(() => (location.hash = 'library'));
+  await openSection(page, 'library', 'Ask');
+  await page.evaluate(() => (location.hash = 'area-learn'));
+  await until(page, () => !!document.querySelector('#pg-area-learn .hubgrid > [data-id="library"]'), null, 10000, `[${name}] no library card on Learn`);
+  await page.waitForTimeout(600);
+  const card = page.locator('#pg-area-learn .hubgrid > [data-id="library"]');
+  await card.scrollIntoViewIfNeeded().catch(() => undefined);
+  await card.click(); // tap 1
+  await until(page, () => document.body.dataset.tab === 'library' && document.querySelector('#pg-library .secpill.on')?.dataset.sec === 'shelf', null, 8000, `[${name}] the Library's card on Learn did not open the Shelf (${await page.evaluate(() => `${document.body.dataset.tab} / ${document.querySelector('#pg-library .secpill.on')?.dataset.sec}`)})`);
+  const row = page.locator('#pg-library .pn.shelf .bookrow', { has: page.locator('.v', { hasText: LH }) }).first();
+  await row.waitFor({ state: 'visible', timeout: 8000 }).catch(() => problems.push(`[${name}] the book is not in view on the Shelf after one tap`));
+  const before = (await R(page))?.opens?.length ?? 0;
+  await row.click(); // tap 2
+  await until(page, (n) => document.body.dataset.tab === 'reader' && (window.__ghosty.reader?.opens?.length ?? 0) > n, before, 8000, `[${name}] two taps from Learn did not open the book`);
+  const two = (await R(page))?.opens?.at(-1);
+  check(two?.doc === (await docByTitle(LH))?.id && two?.kept && two?.n === 3, `[${name}] two taps from Learn did not open the book at his place: ${JSON.stringify(two)}`);
+  await page.screenshot({ path: `${out}/reader-two-taps-440.png` });
+  // one typed word: "read" finds the reader, a word of the title finds the book itself
+  const jump = async (words, want) => {
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(500);
+    await page.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+    await page.keyboard.press('Control+k');
+    await page.waitForSelector('#palette.on input', { timeout: 5000 }).catch(() => problems.push(`[${name}] the jump bar did not open`));
+    await page.fill('#palette input', words);
+    await page.waitForTimeout(300);
+    const hit = page.locator('#palette .it', { has: page.locator('span', { hasText: want }) }).first();
+    if (!(await hit.count())) {
+      problems.push(`[${name}] "${words}" in the jump bar does not find ${want}: ${(await page.$$eval('#palette .it span', (x) => x.map((e) => e.textContent))).join(' | ')}`);
+      await page.keyboard.press('Escape');
+      return null;
+    }
+    const n = (await R(page))?.opens?.length ?? 0;
+    await hit.click();
+    await until(page, (k) => document.body.dataset.tab === 'reader' && (window.__ghosty.reader?.opens?.length ?? 0) >= k, n, 8000, `[${name}] "${words}" → ${want} did not open the reader`);
+    await page.waitForTimeout(400);
+    return { tab: await page.evaluate(() => document.body.dataset.tab), doc: (await R(page))?.doc };
+  };
+  const byRead = await jump('read', /^Reader$/);
+  check(byRead?.tab === 'reader' && byRead.doc === two?.doc, `[${name}] "read" in the jump bar did not open the reader on the book he was reading: ${JSON.stringify(byRead)}`);
+  const byTitle = await jump('lighthouse', new RegExp(`^Read: ${LH}$`));
+  check(byTitle?.tab === 'reader' && byTitle.doc === two?.doc, `[${name}] a word of the title in the jump bar did not open the book: ${JSON.stringify(byTitle)}`);
+  console.log(`[${name}] two taps from Learn to the book at his place; "read" and "lighthouse" from the jump bar`);
+  await ctx.close();
+}
+
+// ================================================================ 12. "just this chapter", typed mid-read, after the voice was handed the next chapter
+if (part('chapter')) {
+  const name = 'chapter';
+  // (a slower stand-in voice: each sentence about two seconds, so the words are typed while the chapter's last sentences are said)
+  const { ctx, page } = await phone(name, { tts: true, wordMs: 120 });
+  await shelfWithBooks(page);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(500);
+  const chat0 = await page.evaluate(() => window.__talk.chat);
+  const type = async (words) => {
+    if (await page.evaluate(() => document.body.dataset.tab !== 'core')) {
+      await page.evaluate(() => (location.hash = 'core'));
+      await page.waitForTimeout(400);
+    }
+    await page.click('.logbtn').catch(() => undefined);
+    await page.fill('#cin', words);
+    await page.keyboard.press('Enter');
+  };
+  // page 6 is the last page of Chapter Two: its six sentences, then Chapter Three
+  await type(`read from page 6 of ${LH.toLowerCase()}`);
+  await until(page, () => window.__ghosty.reader?.reading?.state === 'reading', null, 15000, `[${name}] "read from page 6" did not start reading`);
+  // the fourth sentence of page 6 being said: the voice already holds the rest of the page and Chapter Three's head
+  await until(page, () => window.__ghosty.reader.listen.pieces.some((p) => p.n === 5 && /^Far out on the water/.test(p.text)), null, 30000, `[${name}] page 6's fourth sentence was never said`);
+  const queued = await page.evaluate(() => window.__talk.synth.some((x) => /^Chapter Three/.test(x.text)));
+  await type('just this chapter');
+  const t0 = await page.evaluate(() => performance.now());
+  await until(page, (t) => window.__talk.synth.some((x) => x.calledAt > t && /^That['’]s the end of Chapter Two: The Gale\. Page 7\. I['’]ll carry on from here\.$/.test(x.text)), t0, 20000, `[${name}] the end of the chapter was not said: ${JSON.stringify((await synthSince(page, t0)).map((x) => x.text).slice(-4))}`);
+  await page.waitForTimeout(800);
+  const heard = await page.evaluate(() => window.__talk.synth.filter((x) => /^Chapter Three|^On page 7/.test(x.text)).map((x) => ({ text: x.text.slice(0, 30), startAt: x.startAt ?? null, endAt: x.endAt ?? null, cancelled: !!x.cancelled })));
+  check(heard.every((x) => x.startAt === null || (x.cancelled && x.endAt - x.startAt <= 30)), `[${name}] the next chapter was heard after "just this chapter": ${JSON.stringify(heard)}`);
+  const end = await R(page);
+  check(end.reading.state === 'ended' && !end.reading.finished && end.listen.ends.at(-1) === 'chapter', `[${name}] the reading did not end at the chapter's end: ${JSON.stringify({ state: end.reading.state, finished: end.reading.finished, ends: end.listen.ends })}`);
+  const place = await page.evaluate(() => window.__ghosty.reader.place(window.__ghosty.reader.doc));
+  check(place?.n === 6 && place?.off === 0 && place?.page === 7, `[${name}] the place did not move to Chapter Three's start: ${JSON.stringify(place)}`);
+  check((await page.evaluate(() => window.__talk.chat)) === chat0, `[${name}] the brain's chat was called for reading by words`);
+  await page.screenshot({ path: `${out}/reader-chapter-440.png` });
+  console.log(`[${name}] "just this chapter" typed with Chapter Three ${queued ? 'already handed to the voice' : 'not yet handed over'}: stopped at the chapter's end, the place at page 7`);
   await ctx.close();
 }
 

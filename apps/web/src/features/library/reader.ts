@@ -23,7 +23,7 @@ import { brain } from '../../api/brain';
 import { addPaletteProvider, register } from '../../commands/registry';
 import { clear, h, icon } from '../../core/dom';
 import { createStore } from '../../core/store';
-import { chat } from '../../assistant/session';
+import { chat, replyCutSince } from '../../assistant/session';
 import type { LocalAnswer } from '../../assistant/local';
 import { holdEars, interrupt, primeSpeech, speak, talkHooks } from '../../assistant/voice';
 import { findIn, markParts, pageStart, placeInfo, type Book, type BookPassage } from '../../library/book';
@@ -544,7 +544,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   };
   placeBtn.addEventListener('click', () => {
     if (!book || !doc) {
-      void import('../../shell/areas').then((a) => a.navTo('library', 'pop'));
+      void import('../../shell/areas').then((a) => a.navTo('library?shelf', 'pop'));
       return;
     }
     const p = placeOf(doc.id);
@@ -743,7 +743,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       forgetPlace(d.id);
       void dropCover(d.id);
       docNow = null;
-      void import('../../shell/areas').then((a) => a.navTo('library', 'pop'));
+      void import('../../shell/areas').then((a) => a.navTo('library?shelf', 'pop'));
     }, { label: `Remove ${d.title} from the library (you can undo it)` });
     remove?.classList.add('grd-remove');
     const lock = 'When the screen locks: not checked on your phone yet. My own voice plays through the page’s sound and may keep going; the phone’s own voice stops, because the iPhone pauses it. Tell me what happened and I’ll say it here.';
@@ -986,6 +986,11 @@ export function readingNow(): { doc: LibraryDoc; place: Place } | null {
   const d = open ?? hisBooks(docs).filter((x) => map[x.id] && !map[x.id]!.done && Date.now() - map[x.id]!.at < 30 * 86_400_000).sort((a, b) => map[b.id]!.at - map[a.id]!.at)[0];
   return d && map[d.id] ? { doc: d, place: map[d.id]! } : null;
 }
+/** The Library's live line in Every screen: the book he is reading and where ("The Hobbit · page 42 of 300 · yesterday"); '' when none. */
+export function readingLine(): string {
+  const r = readingNow();
+  return r ? `${shortTitle(r.doc.title)} · ${progressOf(r.doc, r.place).words}` : '';
+}
 /** The book he read last, finished or not (the hub card's "Last book"). */
 export function lastRead(): LibraryDoc | null {
   const map = places.get().map;
@@ -1023,14 +1028,17 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
   const t0 = performance.now();
   const s = reading.get();
   const aloud = o.speak !== false && settings.get().speak;
-  // "go on" after the book was cut or stopped: the book, from the sentence he was in
-  if (canResume() && s.state !== 'reading' && continueIntent(text)) {
+  // "go on" after the book was cut or stopped: the book, from the sentence he was in — unless he cut a reply off since (a
+  // question asked mid-read, its answer talked over): "go on" carries that answer on first (BRIEF-TALK-1A 2), then the book
+  const replyCut = s.state !== 'reading' && replyCutSince(s.stoppedAt);
+  if (canResume() && s.state !== 'reading' && continueIntent(text) && !replyCut) {
     answer(text, `Back to ${shortTitle(s.title)}.`);
     if (aloud) resumeReading(t0);
     return true;
   }
+  // (a plain "stop" over a reply he asked for mid-read is the plain stop below: the book is left where it was cut, unsaid)
   const stop = stopIntent(text);
-  if (stop && (s.state === 'reading' || canResume())) {
+  if (stop && (s.state === 'reading' || (canResume() && !replyCut))) {
     if (stop.harsh) {
       stopQuietly();
       return false;

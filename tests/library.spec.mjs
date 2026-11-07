@@ -187,19 +187,20 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   });
   if (!hit0?.marks.some((m) => /^sulphur/.test(m ?? ''))) problems.push(`[${name}] the searched words are not marked in the result: ${JSON.stringify(hit0)}`);
   if (hit0 && hit0.len > 320) problems.push(`[${name}] a result is a wall of text (${hit0.len} characters)`);
+  // (BRIEF-LIBRARY-READER: the pop-up reader is gone; a result opens its book in THE READER, at that passage, the words marked)
   if (hit0) {
     await ui.click('#pg-library .rw.hit');
-    await ui.waitForSelector('.modal .reader p.here', { timeout: 10000 }).catch(() => problems.push(`[${name}] tapping a result did not open its document at that passage`));
+    await ui.waitForFunction(() => document.body.dataset.tab === 'reader' && !!document.querySelector('#pg-reader .grd-p.found mark'), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] tapping a result did not open its document at that passage`));
+    await ui.waitForTimeout(400);
     const at = await ui.evaluate(() => {
-      const p = document.querySelector('.modal .reader p.here');
-      const box = document.querySelector('.modal .readwrap')?.getBoundingClientRect();
-      const r = p?.getBoundingClientRect();
-      return { title: document.querySelector('.modal .mhead b')?.textContent ?? '', text: p?.textContent ?? '', inView: !!(r && box && r.top < box.bottom && r.bottom > box.top) };
+      const p = document.querySelector('#pg-reader .grd-p.found');
+      const r = p?.querySelector('mark')?.getBoundingClientRect();
+      return { title: document.querySelector('#pg-reader .grd-title')?.textContent ?? '', text: p?.textContent ?? '', marks: [...(p?.querySelectorAll('mark') ?? [])].map((m) => m.textContent?.toLowerCase()), inView: !!(r && r.top >= 0 && r.bottom <= innerHeight) };
     });
-    if (!/volcano/i.test(at.title) || !/sulphur dioxide/.test(at.text) || !at.inView) problems.push(`[${name}] the result opened ${JSON.stringify(at).slice(0, 200)}`);
+    if (!/volcano/i.test(at.title) || !/sulphur dioxide/.test(at.text) || !at.marks.some((m) => /^sulphur/.test(m ?? '')) || !at.inView) problems.push(`[${name}] the result opened ${JSON.stringify(at).slice(0, 200)}`);
     if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-result-opened.png` });
-    await ui.click('.modal .mhead button').catch(() => undefined);
-    await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => undefined);
+    await ui.evaluate(() => (location.hash = 'library'));
+    await ui.waitForFunction(() => document.body.dataset.tab === 'library', null, { timeout: 5000 }).catch(() => problems.push(`[${name}] the Library did not come back after the reader`));
   }
   // words the library has never seen: no passages that merely share a common word, and it says so
   await ui.fill('#pg-library input[aria-label="Search the library"]', 'zzqxv nothing here');
@@ -356,9 +357,10 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
       if (!(await openIt.count())) problems.push(`[${name}] the finished import offers no way to open it: "${said}"`);
       else {
         await openIt.first().click();
-        await ui.waitForFunction(() => /Quillwort/i.test(document.querySelector('.modal .mhead b')?.textContent ?? '') && /membrane/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
+        await ui.waitForFunction(() => document.body.dataset.tab === 'reader' && /Quillwort/i.test(document.querySelector('#pg-reader .grd-title')?.textContent ?? '') && /membrane/.test(document.querySelector('#pg-reader .grd-flow')?.textContent ?? ''), null, { timeout: 10000 })
           .catch(() => problems.push(`[${name}] OPEN on the finished import did not open it`));
-        await ui.click('.modal .mhead button').catch(() => undefined);
+        await ui.evaluate(() => (location.hash = 'library'));
+        await ui.waitForFunction(() => document.body.dataset.tab === 'library', null, { timeout: 5000 }).catch(() => undefined);
       }
       await openSection(ui, 'library', 'Ask');
       await ui.fill('#pg-library input[aria-label="Search the library"]', 'quillwort osmosis membrane');
@@ -385,18 +387,20 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     const vdoc = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
     if (await vdoc.count()) {
       await vdoc.click();
-      await ui.waitForFunction(() => /all the time/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+      await ui.waitForFunction(() => document.body.dataset.tab === 'reader' && /all the time/.test(document.querySelector('#pg-reader .grd-flow')?.textContent ?? '') && !!document.querySelector('#pg-reader .grd-about .g-truth'), null, { timeout: 10000 }).catch(() => undefined);
       const rd = await ui.evaluate(() => ({
-        chips: [...document.querySelectorAll('.modal .readmeta .chip')].map((c) => c.textContent ?? ''),
-        marks: [...document.querySelectorAll('.modal .reader .pgmark')].map((c) => c.textContent ?? ''),
-        para: [...document.querySelectorAll('.modal .reader p')].map((p) => p.textContent ?? '').find((t) => /Before a field day/.test(t)) ?? '',
+        // what it is, as the old chips said it: its kind and its pages (THE READER's ABOUT, the first truth line)
+        chips: [...(document.querySelector('#pg-reader .grd-about .g-truth')?.querySelectorAll('.g-seg') ?? [])].map((c) => c.firstChild?.textContent ?? ''),
+        marks: [...document.querySelectorAll('#pg-reader .grd-flow .grd-pg')].map((c) => c.textContent ?? ''),
+        para: [...document.querySelectorAll('#pg-reader .grd-flow .grd-tx')].map((p) => p.textContent ?? '').find((t) => /Before a field day/.test(t)) ?? '',
       }));
       if (!rd.chips.includes('PDF') || !rd.chips.includes('2 pages')) problems.push(`[${name}] the reader's chips read ${JSON.stringify(rd.chips)}`);
       if (!rd.marks.includes('Page 2')) problems.push(`[${name}] the reader shows no page numbers: ${JSON.stringify(rd.marks)}`);
       const wrapped = rd.para.slice(rd.para.indexOf('Before a field day'), rd.para.indexOf('all the time.') + 13);
       if (!/^Before a field day.*all the time\.$/s.test(wrapped) || /\n/.test(wrapped)) problems.push(`[${name}] a PDF paragraph breaks where the page's edge was: ${JSON.stringify(wrapped || rd.para.slice(0, 220))}`);
       await ui.screenshot({ path: `${out}/${name}-library-reader-pdf.png` });
-      await ui.click('.modal .mhead button').catch(() => undefined);
+      await ui.evaluate(() => (location.hash = 'library'));
+      await ui.waitForFunction(() => document.body.dataset.tab === 'library', null, { timeout: 5000 }).catch(() => undefined);
     } else problems.push(`[${name}] the volcano notes are not on the shelf`);
     // ---- no connection: self-study says so and offers nothing that cannot work now, DIGEST NOW waits, and a
     // document on the shelf still reads, from the phone's own copy
@@ -428,10 +432,11 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     const vrow = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
     if (await vrow.count()) {
       await vrow.click();
-      await ui.waitForFunction(() => /sulphur dioxide/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
-        .catch(async () => problems.push(`[${name}] with no connection a document on the shelf does not read: "${(await ui.evaluate(() => document.querySelector('.modal .reader')?.textContent ?? 'no reader')).slice(0, 120)}"`));
+      await ui.waitForFunction(() => document.body.dataset.tab === 'reader' && /sulphur dioxide/.test(document.querySelector('#pg-reader .grd-flow')?.textContent ?? ''), null, { timeout: 10000 })
+        .catch(async () => problems.push(`[${name}] with no connection a document on the shelf does not read: "${(await ui.evaluate(() => (document.querySelector('#pg-reader .grd-flow')?.textContent || document.querySelector('#pg-reader .grd-note')?.textContent) ?? 'no reader')).slice(0, 120)}"`));
       if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-offline-reader.png` });
-      await ui.click('.modal .mhead button').catch(() => undefined);
+      await ui.evaluate(() => (location.hash = 'library'));
+      await ui.waitForFunction(() => document.body.dataset.tab === 'library', null, { timeout: 5000 }).catch(() => undefined);
     } else problems.push(`[${name}] with no connection the volcano notes are not on the shelf`);
     await ui.fill('#pg-library input[aria-label="Find on the shelf"]', '').catch(() => undefined);
     await ctx.setOffline(false);
@@ -449,12 +454,14 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   else {
     const title = (await shelfRow.textContent())?.trim();
     await shelfRow.click();
-    await ui.waitForSelector('.modal .reader p', { timeout: 8000 }).catch(() => problems.push(`[${name}] the reader did not open for "${title}"`));
-    const shown = await ui.evaluate(() => ({ title: document.querySelector('.modal .mhead b')?.textContent, words: (document.querySelector('.modal .reader')?.textContent ?? '').length }));
+    await ui.waitForFunction(() => document.body.dataset.tab === 'reader' && !!document.querySelector('#pg-reader .grd-flow .grd-p'), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the reader did not open for "${title}"`));
+    const shown = await ui.evaluate(() => ({ title: document.querySelector('#pg-reader .grd-title')?.textContent, words: (document.querySelector('#pg-reader .grd-flow')?.textContent ?? '').length }));
     if (shown.title !== title || shown.words < 40) problems.push(`[${name}] reader shows ${JSON.stringify(shown)} for "${title}"`);
     if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-reader.png` });
-    await ui.click('.modal .mhead button');
-    await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
+    // the reader is a screen of its own now: on the phone its back (‹ Library) leaves it; on the wide screen, the Library's link
+    if (name === 'phone') await ui.click('#top .navback');
+    else await ui.evaluate(() => (location.hash = 'library'));
+    await ui.waitForFunction(() => document.body.dataset.tab === 'library', null, { timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
   }
   // squeezed: results hidden in a short scrolling box (a short list of real results is simply short)
   await openSection(ui, 'library', 'Ask');

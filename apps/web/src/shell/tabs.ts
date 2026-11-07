@@ -39,6 +39,11 @@ export interface TabDef {
    * the jump bar, so the systems deck shows that screen's card (whose lines lead here) and no card of its own.
    */
   inside?: string;
+  /**
+   * Where a tap on its card on its area's hub goes, when that is not the screen as he left it: the Library's card opens its
+   * Shelf ("library?shelf"), so a book is two taps from Learn (BRIEF-LIBRARY-READER, the 7 Nov addendum's third rule).
+   */
+  cardTo?: string;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
   /**
