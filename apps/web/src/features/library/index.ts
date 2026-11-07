@@ -377,6 +377,7 @@ export const libraryTab: TabDef = {
     let secs: Sections | null = null;
     // ---- shelf: the library he browses (STARS 169; BRIEF-LIBRARY-READER 7)
     const shelf = panel('SHELF', { cls: 'shelf' });
+    shelf.title.dataset.case = 'keep'; // (its name a tag, in the system's capitals: styles.css THE READER)
     // His books first, each with its cover, who wrote it and how far he is (features/library/reader.ts shelfRow), in the order
     // he picks (by when he last read it, how far through, or name: kept on this phone); then, folded away, my own notebooks
     // and the built-in books, as plain rows. FIND narrows them all by name. (Removing a book is in the reader's ABOUT.)
