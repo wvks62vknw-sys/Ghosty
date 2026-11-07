@@ -278,7 +278,7 @@ built in the old look after day one, so no screen is built twice.
    the session branch, every touched check green locally; PR #61 MERGED 7 Nov 07:02 UK (main b03bf93) after one spec fix at its
    cause (OWNER-ISSUES 146); main's own run 337 green on every job 07:57 UK: FINISHED.
    His phone check (seven steps, 126 folded in) and three small questions are in 145.
-3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): the context line rides
+3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in). PR A, THE PROTOCOL AND THE FIVE SCREENS (BRIEF-AWARENESS with FACTS-AWARENESS): LAUNCHED 7 Nov 14:40 UK on the mid tier in worktree awareness, branch builder/awareness; PR B ONE LENS and PR C HIS VOICE KNOWN get their own briefs after A lands. The item: the context line rides
    in his message to the brain, never in the system prompt (the guard untouched, nothing trimmed); the Lens runs its cheap
    detectors on every frame and the heavy ones on a steady frame, two seconds per tag; his voice known as a courtesy signal, the
    confirm tap stays the gate; another person's voice introduced only with them present and saying yes; the one Context + Show
