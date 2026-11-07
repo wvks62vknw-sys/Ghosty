@@ -69,6 +69,12 @@ export const bootState = {
   kind: '' as Kind | '',
   /** The accent the cinematic plays in: the picked theme's (state/theme.ts writes it as --c before the first frame). */
   accent: '',
+  /**
+   * The recipe it plays in (BRIEF-THEMES-2), as state/theme.ts set it on <html> before the first frame: the colour, the ground in
+   * force, the world, and the floor it plays on (the night ground's canvas: the boot lands on Home, a room still drawn light on
+   * dark, so under Paper it plays on the night ground and says so here).
+   */
+  recipe: { theme: '', ground: '', night: '', world: '', floor: '', glow: '' },
   phase: '' as Phase | '',
   /** When each phase began, in ms after the first frame. */
   marks: {} as Record<string, number>,
@@ -416,6 +422,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const cs0 = getComputedStyle(document.documentElement);
   const accent = cs0.getPropertyValue('--c').trim() || '#64d2ff';
   bootState.accent = accent;
+  const dd = document.documentElement.dataset;
+  bootState.recipe = { theme: dd.theme ?? '', ground: dd.ground ?? '', night: dd.night ?? '', world: dd.world ?? '', floor: cs0.getPropertyValue('--g-room-canvas').trim(), glow: dd.glow ?? '' };
+  // the greeting's bloom glows as much as the world does (One Ink and GLOW off: none)
+  const glowK = (parseFloat(cs0.getPropertyValue('--g-glow')) || 0) * (parseFloat(cs0.getPropertyValue('--g-room-glow')) || 0);
   const cr = cs0.getPropertyValue('--cr').trim() || '100, 210, 255';
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)
@@ -765,7 +775,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     greet.style.transform = `translate(-50%, ${calm ? 0 : ((1 - easeOut(gOn)) * 8).toFixed(2)}px)`;
     const breath = calm ? 0 : easeOut(seg(G, G + 170)) * (1 - 0.8 * easeInOut(seg(G + 170, G + 560)));
     bloom.style.opacity = (breath * textsOut).toFixed(3);
-    greet.style.textShadow = breath > 0 ? `0 0 ${(6 + 20 * breath).toFixed(1)}px rgba(${cr}, ${(0.2 + 0.55 * breath).toFixed(3)})` : '';
+    greet.style.textShadow = breath > 0 && glowK > 0 ? `0 0 ${((6 + 20 * breath) * glowK).toFixed(1)}px rgba(${cr}, ${(0.2 + 0.55 * breath).toFixed(3)})` : '';
     // 6. the black goes and Home is there
     veil.style.opacity = (1 - easeInOut(seg(tl.land, tl.end))).toFixed(3);
   };

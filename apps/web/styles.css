@@ -5840,7 +5840,7 @@ html .sclisten :is(button, select, input) { min-height: 44px !important; }
    ===================================================================================================================== */
 
 /* ---- the tag: mono capitals above a thing, on a plate so it reads over anything */
-html .g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--g-radius-mark); }
+html .g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate-fill); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: var(--g-radius-mark); }
 html .g-tag > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 html .g-tag .g-count { flex: none; color: var(--g-ink-3); }
 html .g-tag.on { color: var(--g-accent-text); }
@@ -5862,17 +5862,17 @@ html :is(.g-truth, .g-stamp) .g-sep { color: var(--g-ink-4); }
 html :is(.g-truth, .g-stamp) .g-seg { display: inline-block; max-width: 100%; }
 
 /* ---- the plate: one step up from the canvas (two for a page brought to the front) */
-html .g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-plate); }
-html .g-plate.strong { background: var(--g-plate-strong); box-shadow: var(--g-lift-front); }
+html .g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate-fill); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); box-shadow: var(--g-plate-shadow); -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
+html .g-plate.strong { background: var(--g-plate-strong-fill); box-shadow: var(--g-front-shadow); }
 /* on a plate, a tag needs no plate of its own: it lines up with the lines under it */
 html .g-plate > .g-tag { padding-left: 0; padding-right: 0; background: none; }
 html .g-plate > * + * { margin-top: var(--g-s-half); }
 
 /* ---- the key: a square button, 44 pt at least, its word in capitals; one filled key on a screen at most */
-html #app button.g-key, html .g-key { display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-width: var(--g-target); min-height: var(--g-target); height: auto; margin: 0; padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate); box-shadow: none; font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; transform: none; transition: background-color var(--g-dur-lock) var(--g-ease-lock), border-color var(--g-dur-lock) var(--g-ease-lock); }
+html #app button.g-key, html .g-key { display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-width: var(--g-target); min-height: var(--g-target); height: auto; margin: 0; padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-left-width: calc(var(--g-stroke) * var(--g-plate-side)); border-right-width: calc(var(--g-stroke) * var(--g-plate-side)); border-radius: var(--g-radius-key); background: var(--g-plate-fill); -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); box-shadow: none; font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; transform: none; transition: background-color var(--g-dur-lock) var(--g-ease-lock), border-color var(--g-dur-lock) var(--g-ease-lock); }
 html #app button.g-key.fill { background: var(--g-ink-1); border-color: var(--g-ink-1); color: var(--g-canvas); }
 html #app button.g-key.ghost { background: transparent; }
-html #app button.g-key[aria-pressed="true"] { border-color: var(--g-accent); color: var(--g-accent-text); background: var(--g-plate-strong); }
+html #app button.g-key:is([aria-pressed="true"], [role="radio"][aria-checked="true"]) { border-color: var(--g-accent); color: var(--g-accent-text); background: var(--g-plate-strong-fill); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .45); }
 html #app button.g-key:active:not(:disabled) { background: var(--g-plate-strong); transform: none; }
 html #app button.g-key.fill:active:not(:disabled) { background: var(--g-ink-2); }
 html #app button.g-key:disabled { color: var(--g-ink-4); border-color: var(--g-line-faint); opacity: 1; }
@@ -5884,20 +5884,22 @@ html #app :is(.g-key, .g-ret, .swatch, .secpill):focus-visible { outline: var(--
 html .g-ret { position: relative; display: inline-flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); max-width: 100%; }
 html #app button.g-ret { min-width: var(--g-target); min-height: var(--g-target); margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; transform: none; }
 html .g-ret-box { position: relative; display: block; min-width: var(--g-target); min-height: var(--g-target); padding: var(--g-s-1); }
-html .g-ret-frame { --rc: var(--g-line); position: absolute; inset: 0; display: block; pointer-events: none; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark);
+html .g-ret-frame { --rc: var(--g-line); position: absolute; inset: 0; display: block; pointer-events: none; border: var(--g-hair) var(--g-ret-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-ret-side)); border-right-width: calc(var(--g-hair) * var(--g-ret-side)); border-radius: var(--g-radius-mark);
   background:
-    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-arm) var(--g-stroke) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) top left / var(--g-stroke) var(--g-ret-arm) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-arm) var(--g-stroke) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) top right / var(--g-stroke) var(--g-ret-arm) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-arm) var(--g-stroke) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-stroke) var(--g-ret-arm) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-arm) var(--g-stroke) no-repeat,
-    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-stroke) var(--g-ret-arm) no-repeat;
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-weight) var(--g-ret-arm) no-repeat;
   transition: border-color var(--g-dur-lock) var(--g-ease-lock); }
 html .g-ret-body { position: relative; display: block; }
-html .g-ret[data-state="attend"] > .g-ret-box > .g-ret-frame, html .g-lock[data-state="attend"] > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
-html .g-ret[data-state="warn"] > .g-ret-box > .g-ret-frame { --rc: var(--g-amber); border: var(--g-stroke) solid var(--g-amber); }
+html .g-ret[data-state="attend"] > .g-ret-box > .g-ret-frame, html .g-lock[data-state="attend"] > .g-ret-frame { --rc: var(--g-accent); border-style: solid; border-color: var(--g-accent); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-ret-side)); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .45); }
+html .g-ret[data-state="warn"] > .g-ret-box > .g-ret-frame { --rc: var(--g-amber); border-style: solid; border-color: var(--g-amber); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-ret-side)); }
+/* The Eye's one sharp box carries its line of sight, drawn from its edge towards my eye (--g-ret-sight: none in the other worlds) */
+html .g-ret[data-state="attend"] > .g-ret-box > .g-ret-frame::after, html .g-lock[data-state="attend"] > .g-ret-frame::after { content: ''; position: absolute; right: 100%; top: 50%; width: var(--g-ret-sight); border-top: var(--g-stroke) dashed var(--g-accent); }
 html .g-ret-tag, html .g-ret-truth { display: block; max-width: 100%; }
 
 /* ---- the moment of recognition: the box that snaps onto a thing (laid over its host, which is positioned) */
@@ -5908,7 +5910,7 @@ html .g-lock[data-state="watch"] > .g-ret-frame { --rc: var(--g-ink-2); }
 /* ---- the line of sight: one thin line from the eye to the attended thing, a dot where it lands */
 html .g-sight { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; pointer-events: none; opacity: 0; transition: opacity var(--g-dur-turn) var(--g-ease-bring); }
 html .g-sight.on { opacity: 1; }
-html .g-sight-line { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); }
+html .g-sight-line { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); stroke-dasharray: var(--g-sight-dash); }
 html .g-sight-dot { fill: var(--g-accent); }
 
 /* ---- the typed-out line: words as the brain writes them, a block cursor while it is still writing */
@@ -5929,16 +5931,26 @@ html .g-orb > canvas, html .g-orb > svg { display: block; width: 100%; height: 1
 
 /* ---- the twelve swatches (Settings → Theme, THE LOOK → THEMES): each row drawn in its own theme's accent block */
 html .swatches[data-g="swatches"] { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-half) 0; }
-html #app button.swatch[data-g="swatch"] { display: grid; grid-template-columns: var(--g-target) minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-2); width: 100%; min-height: 64px; height: auto; margin: 0; padding: var(--g-s-1) var(--g-s-2) var(--g-s-1) var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate); box-shadow: none; color: var(--g-ink-1); font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; transform: none; transition: border-color var(--g-dur-lock) var(--g-ease-lock); }
-html #app button.swatch[data-g="swatch"].on { border: var(--g-stroke) solid var(--g-accent); background: var(--g-plate-strong); }
-html #app button.swatch[data-g="swatch"]:active { background: var(--g-plate-strong); transform: none; }
-html .swatch[data-g="swatch"] .swprev { position: relative; display: grid; place-items: center; width: var(--g-target); height: var(--g-target); }
+html #app button.swatch[data-g="swatch"] { display: grid; grid-template-columns: var(--g-target) minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-2); width: 100%; min-height: 64px; height: auto; margin: 0; padding: var(--g-s-1) var(--g-s-2) var(--g-s-1) var(--g-s-1); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); background: var(--g-plate-fill); -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); box-shadow: none; color: var(--g-ink-1); font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; transform: none; transition: border-color var(--g-dur-lock) var(--g-ease-lock); }
+html #app button.swatch[data-g="swatch"].on { border-style: solid; border-color: var(--g-accent); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-plate-side)); background: var(--g-plate-strong-fill); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .35); }
+html #app button.swatch[data-g="swatch"]:active { background: var(--g-plate-strong-fill); transform: none; }
+/* the preview: the preset's ground (its canvas), its world's floor and corners, the eye in its colour inside a reticle */
+html .swatch[data-g="swatch"] .swprev { position: relative; display: grid; place-items: center; width: var(--g-target); height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-canvas); }
+html .swatch[data-g="swatch"] .swprev > .g-eye { position: relative; z-index: 1; }
 html .swatch[data-g="swatch"] .swprev .g-ret-frame { --rc: var(--g-accent); }
 html .swatch[data-g="swatch"].on .swprev .g-ret-frame { border: var(--g-stroke) solid var(--g-accent); }
 html .swatch[data-g="swatch"] .swtxt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html .swatch[data-g="swatch"] .swtxt b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
 html .swatch[data-g="swatch"] .swtxt small { font: var(--g-t-caption); color: var(--g-ink-2); }
 html .swatch[data-g="swatch"] .swread { font: var(--g-t-fine); font-variant-numeric: var(--g-num); color: var(--g-ink-3); }
+html .swatch[data-g="swatch"] .swrecipe { font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+/* a recipe that is no preset: said above them, in use, kept exactly as set */
+html .swcustom[data-g="custom"] { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-2); min-height: var(--g-target); padding: var(--g-s-1) var(--g-s-2); border: var(--g-stroke) solid var(--g-accent); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); }
+html .swcustom .swcustom-k { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+html .swcustom .swcustom-v { min-width: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
+/* the recipe breaks between its parts, never inside one ("The Scan" stays whole) */
+html .swcustom .swcustom-v > span { white-space: nowrap; }
+html .swcustom .swstate { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); white-space: nowrap; }
 html .swatch[data-g="swatch"] .swread:empty { display: none; }
 html .swatch[data-g="swatch"] .swstate { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); white-space: nowrap; }
 
@@ -5952,7 +5964,7 @@ html body.tabbar #pg-look .hud.glook { padding-bottom: calc(var(--tabh) + var(--
 html #pg-look .glook > * { max-width: 680px; margin-left: auto; margin-right: auto; }
 html #pg-look .glook > .hero { display: block; padding: var(--g-s-2) 0 var(--g-s-1); text-align: left; }
 html #pg-look .glook-title { margin: var(--g-s-1) 0 0; font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); }
-html #pg-look .glook-say { margin: var(--g-s-1) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html #pg-look .glook-say { margin: var(--g-s-1) 0 0; font: var(--g-t-body); font-family: var(--g-face-say); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
 html #pg-look .glook-states { display: flex; flex-direction: column; gap: var(--g-s-half); margin-top: var(--g-s-2); }
 html #pg-look .glook-states:empty { display: none; }
 html #pg-look .glook-state { margin: 0; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-plate); border-left: var(--g-stroke) solid var(--g-amber); }
@@ -5995,6 +6007,17 @@ html #pg-look .gtok-name { font: var(--g-t-reading); letter-spacing: var(--g-tr-
 html #pg-look .gtok-val { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html #pg-look .gtok-job { font: var(--g-t-caption); color: var(--g-ink-3); }
 html #pg-look .gtok .g-truth { margin-top: 2px; }
+/* TOKENS: each ground's and world's block (THEMES-2), a row that opens to its tokens beside their jobs; the one in force open */
+html #pg-look .gblocks > .gtok-job { display: block; margin: 0 0 var(--g-s-1); }
+html #pg-look .gblock { border-top: var(--g-hair) solid var(--g-line-faint); }
+html #pg-look .gblock-head { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-1) 0; cursor: pointer; list-style: none; }
+html #pg-look .gblock-head::-webkit-details-marker { display: none; }
+html #pg-look .gblock-head::after { content: '+'; margin-left: auto; font: var(--g-t-reading); color: var(--g-ink-3); }
+html #pg-look .gblock[open] > .gblock-head::after { content: '−'; }
+html #pg-look .gblock-name { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html #pg-look .gblock-on { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+html #pg-look .gblock-note { order: 3; flex-basis: 100%; font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-look .gbtok { display: flex; flex-direction: column; gap: 2px; padding: var(--g-s-1) 0 var(--g-s-1) var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); }
 /* TYPE: the scale, each style set in its own size */
 html #pg-look .gtype { padding: var(--g-s-2) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
 html #pg-look .gtype-sample { display: block; margin: 0 0 var(--g-s-1); color: var(--g-ink-1); overflow-wrap: anywhere; }
@@ -6004,7 +6027,10 @@ html #pg-look .gfloor .g-truth + .g-truth { margin-top: var(--g-s-half); }
 html #pg-look .gmark { padding: var(--g-s-2) 0 var(--g-s-3); border-top: var(--g-hair) solid var(--g-line-faint); }
 html #pg-look .gmark-head { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-s-3); }
 html #pg-look .gmark-rule { margin: var(--g-s-1) 0 var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
-html #pg-look .gstage { position: relative; display: block; padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: radial-gradient(rgba(var(--g-bone-rgb), .14) 1px, transparent 1.5px) 0 0 / var(--g-s-2) var(--g-s-2), var(--g-canvas); overflow: hidden; }
+html #pg-look .gstage { position: relative; display: block; padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-canvas); overflow: hidden; }
+/* each mark works on a piece of the world's floor (the points, the grid, the grain; plain in One Ink and Glass) */
+html #pg-look .gstage::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+html #pg-look .gstage > :not(.g-lock):not(.g-sight) { position: relative; }
 html #pg-look .gstage > * + * { margin-top: var(--g-s-1); }
 html #pg-look .gstage > :is(.g-lock, .g-sight) { margin: 0; }
 html #pg-look .gkeys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
@@ -6162,4 +6188,109 @@ html #app #pg-library button.shelffold { width: 100%; min-height: var(--g-target
   html :is(.g-ret-frame, .g-sight, .g-key, .swatch) { transition: none; }
   html #pg-reader .grd-flow { transition: none; }
 }
+
+/* =====================================================================================================================
+   THE RECIPE (BRIEF-THEMES-2; his words, OWNER-ISSUES 141): the ground, the colour, the world and the switches reach past
+   the system's own screens. What a world reaches today, honestly: the floor behind every screen, the corners of every card
+   and chip (today's --card and --rad follow the world's), the glow (state/theme.ts scales today's halos by --g-glow), every
+   mark, THE LOOK, the Theme page and the boot. The rooms still drawn in today's look keep their layout and stand on the night
+   ground (light words on dark, until the shell pass); the pages drawn in the system take the ground in force, Paper included.
+   Every value is a token: nothing here names a colour.
+   ===================================================================================================================== */
+/* ---- the floor behind every screen: the night ground's canvas, the world's floor drawn over the 3-D scene in its points */
+html[data-world], html[data-world] body { background: var(--g-room-canvas); }
+html[data-world] { --bg: var(--g-room-canvas); --bgr: var(--g-room-canvas-rgb); --card: var(--g-radius-cell); --rad: var(--g-radius-chip); }
+html[data-world] body::before { content: ''; position: fixed; inset: 0; z-index: 2; pointer-events: none; background-color: rgba(var(--g-room-points-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+/* God's eye: the globe is the floor */
+html[data-world] body[data-tab="eye"]::before { display: none; }
+/* a floor of its own (a tile, a preset's preview): the world's floor in the points of the ground it stands on */
+html .g-floor { position: absolute; inset: 0; z-index: 0; display: block; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+
+/* ---- the pages drawn in the system (THE LOOK, the Theme page): on the ground in force with the world's floor, their bar too */
+/* (a panel's ::before is today's 9 px corner bracket: the floor takes the whole page, with no bracket edge) */
+html #pg-look::before, html #pg-settings .pn.themepn.pushed::before { content: ''; display: block; position: absolute; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+html #pg-settings .pn.themepn.pushed { background: var(--g-canvas); color: var(--g-ink-1); }
+html #pg-settings .pn.themepn.pushed > .bd { position: relative; }
+html body:is([data-tab="look"], .g-themepage) #top { background: var(--g-canvas); }
+/* today's pieces drawn in "the canvas colour" (a fade under the bar, a ring round the avatar) take this page's ground, not the night's */
+html body:is([data-tab="look"], .g-themepage) { --bg: var(--g-canvas); --bgr: var(--g-canvas-rgb); }
+/* a light page has no dark vignette at its edges, and nothing glows on it */
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage)::after { background: none; }
+html body:is([data-tab="look"], .g-themepage) #top .navtitle { color: var(--g-ink-1); }
+html body:is([data-tab="look"], .g-themepage) #top :is(.navback, .cmd) { background: rgba(var(--g-bone-rgb), .07) !important; box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint) !important; }
+html body:is([data-tab="look"], .g-themepage) #top .navback .ic { stroke: var(--g-ink-1); }
+html body:is([data-tab="look"], .g-themepage) #top .cmd::before { background: var(--g-ink-1); }
+html body:is([data-tab="look"], .g-themepage) #top .you .av { color: var(--g-ink-1); background: var(--g-plate-strong); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+/* the Theme page covers the whole list: the list's own fade under the title would show the 3-D scene through the page (a dark band on Paper) */
+html body.g-themepage :is(.two.stack, .hub) { -webkit-mask-image: none; mask-image: none; }
+/* the tab bar on a light page: paper too, in its inks, the one in use in the accent’s ink with a plain ring (nothing glows on Paper), a count ringed in amber (needs a look) */
+html[data-ground="paper"] body.tabbar:is([data-tab="look"], .g-themepage) #dock .tabblur { background: linear-gradient(to top, rgba(var(--g-canvas-rgb), .96), rgba(var(--g-canvas-rgb), .82) 45%, rgba(var(--g-canvas-rgb), 0)); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap { background: rgba(var(--g-canvas-rgb), .9); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint), var(--g-lift-front); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap::before { display: none; }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button { color: var(--g-ink-2); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap :is(button:active, button.held) { color: var(--g-ink-1); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button.on { color: var(--g-accent-text); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button.on .ic { filter: none; }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap :is(button.on, button:active, button.held) .gi .halo { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button.on .gi::before { background: var(--g-accent); box-shadow: none; }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap .gi .live { box-shadow: 0 0 0 2.5px var(--g-canvas); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button[data-badge]:not([data-badge=""])::after { color: var(--g-ink-1); background: var(--g-plate-strong); box-shadow: inset 0 0 0 1.5px var(--g-amber); }
+/* the Theme page's own words and its TV MODE row, in the ground's inks */
+html #pg-settings .pn.themepn.pushed .gpage-lede { margin: 0 0 var(--g-s-2); font: var(--g-t-body); font-family: var(--g-face-say); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html #pg-settings .pn.themepn.pushed .note { margin-top: var(--g-s-3); font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-settings .pn.themepn.pushed button.setsw { background: var(--g-plate-fill); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); box-shadow: none; }
+html #pg-settings .pn.themepn.pushed .setswt b { color: var(--g-ink-1); }
+html #pg-settings .pn.themepn.pushed .setswt small { color: var(--g-ink-2); }
+
+/* ---- THE DIALS (ui/dials.ts): the ground, the colour, the world, the switches; each tile drawn on what it chooses */
+html .gdials[data-g="dials"] { display: flex; flex-direction: column; gap: var(--g-s-3); margin: var(--g-s-3) 0 0; }
+html .gdial { display: flex; flex-direction: column; gap: var(--g-s-1); padding-top: var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); }
+html .gdial-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); }
+html .gdial-line, html .gdial-note { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html .gdial-note { color: var(--g-ink-3); }
+html .gchoices { display: grid; gap: var(--g-s-1); }
+html .gchoices.grounds, html .gchoices.worlds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+html .gchoices.colours { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+html #app button.gchoice { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: var(--g-s-half); min-width: var(--g-target); min-height: var(--g-target); height: auto; margin: 0; padding: var(--g-s-half); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); font: inherit; text-align: center; text-transform: none; letter-spacing: normal; white-space: normal; box-shadow: none; transform: none; cursor: pointer; }
+/* a ground's tile is a plate of that ground */
+html #app button.gchoice[data-ground]:not([data-world]) { background: var(--g-plate); border-style: solid; }
+html #app button.gchoice.on { border: var(--g-stroke) solid var(--g-accent); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .35); }
+html #app button.gchoice:active { transform: none; }
+html .gchoice-face { position: relative; display: grid; place-items: center; height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-canvas); }
+html .gchoices.colours .gchoice-face { height: 32px; background: none; }
+html .gchoices.colours button.gchoice { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--g-s-1); padding: var(--g-s-half) var(--g-s-1); text-align: left; }
+html .gchoices.colours .gchoice-face { flex: none; width: 32px; }
+html .gchoice-name { display: block; min-width: 0; font: var(--g-t-fine); font-family: var(--g-font-text); letter-spacing: 0; color: var(--g-ink-1); overflow-wrap: normal; }
+/* a ground's face: its canvas, the floor in its points, its ink and a dot of the accent as it reads there */
+html .gface-ink { position: relative; z-index: 1; font: var(--g-t-head); color: var(--g-ink-1); }
+html .gface-dot { position: absolute; z-index: 1; right: var(--g-s-half); top: var(--g-s-half); width: 6px; height: 6px; border-radius: var(--g-radius-orb); background: var(--g-accent); }
+/* a world's face: its floor, a reticle drawn its way, a plate drawn its way, its corners */
+html .wface-ret { position: relative; z-index: 1; display: block; width: 22px; height: 22px; }
+html .wface-ret > .g-ret-frame { --rc: var(--g-accent); }
+html .wface-plate { position: absolute; z-index: 1; left: var(--g-s-half); right: var(--g-s-half); bottom: var(--g-s-half); height: 6px; border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-chip); background: var(--g-plate-fill); }
+/* the switches: each a row, its name, the sentence of what it does now, its choices as square keys */
+html .gswitch { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) 0 var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); }
+html .gdial-head + .gswitch { border-top: 0; }
+html .gswitch-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .gswitch-name { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .gswitch-line { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+/* the keys share the row equally, and a longer word takes the room it needs (THE WORLD'S at BODY 21 on a 390 phone was cut) */
+html .gswitch-keys { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: var(--g-s-1); }
+html #app .gswitch-keys > button.g-key { min-width: var(--g-target); padding: 0 var(--g-s-1); }
+
+/* ---- the boot plays on the ground the room it lands in stands on, its light glowing as much as the world glows */
+html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background: var(--g-room-canvas); }
+html[data-world] #boot .bbloom { scale: calc(var(--g-glow) * var(--g-room-glow)); }
+html[data-world] #boot .bword { text-shadow: 0 0 calc(18px * var(--g-glow) * var(--g-room-glow)) rgba(var(--cr), .55); }
+html[data-world] #boot .bdot { box-shadow: 0 0 calc(10px * var(--g-glow)) calc(2px * var(--g-glow)) rgba(var(--cr), .9), 0 0 calc(38px * var(--g-glow)) calc(12px * var(--g-glow)) rgba(var(--cr), .32); }
+
+/* ---- the 44 pt target on a touch phone: today's look holds every button to 40 there (an !important rule under hover: none), which
+   took the system's keys under the target on his iPhone; the system's own controls keep their 44 (64 for a preset's row) */
+@media (hover: none) {
+  html #app :is(button.g-key, button.g-ret, button.gchoice, button.gthing) { min-height: var(--g-target) !important; }
+  html #app button.swatch[data-g="swatch"] { min-height: 64px !important; }
+}
+
+/* ---- calm (the MOTION switch): the breathing glow behind Home's hero holds still, as under Reduce Motion */
+html[data-motion="calm"] .rcglow { animation: none; }
 /* ==== end THE SYSTEM ==== */

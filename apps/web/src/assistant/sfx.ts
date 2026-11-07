@@ -6,8 +6,9 @@
 import { settings } from '../state/app';
 
 /** `turn`: his turn to talk in a voice conversation (BRIEF-TALK-1A 4): the ear has just opened and can hear him.
- *  `lock`: the moment of recognition (ui/machine.ts `recognise`): the box snaps onto what he asked for, once. */
-export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn' | 'lock';
+ *  `lock`: the moment of recognition (ui/machine.ts `recognise`): the box snaps onto what he asked for, once.
+ *  `click`: the same moment as one small click, when THE SOUND is set to click (BRIEF-THEMES-2). */
+export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn' | 'lock' | 'click';
 
 /** Whether the interface may make a sound now: his setting on and the phone already tapped (said on THE LOOK when not). */
 export function sfxAllowed(): boolean {
@@ -45,9 +46,15 @@ function tone(a: AudioContext, f0: number, f1: number, dur: number, at = 0, vol 
   o.stop(t + dur + 0.02);
 }
 
-export function sfx(kind: Sfx): void {
-  const a = audio();
-  if (!a) return;
+/**
+ * Play one of the set. `afterMs`: scheduled that far ahead on the audio clock (the moment of recognition plays as the box lands,
+ * sample-exact however busy the page is); the checks' event goes at once.
+ */
+export function sfx(kind: Sfx, afterMs = 0): void {
+  const a0 = audio();
+  if (!a0) return;
+  const after = Math.max(0, afterMs) / 1000;
+  const a = after ? ({ get currentTime() { return a0.currentTime + after; }, createOscillator: () => a0.createOscillator(), createGain: () => a0.createGain(), destination: a0.destination } as unknown as AudioContext) : a0;
   if (kind === 'tab') {
     tone(a, 880, 1320, 0.07);
     tone(a, 1760, 2200, 0.05, 0.05, 0.018);
@@ -66,6 +73,9 @@ export function sfx(kind: Sfx): void {
     // the box closing on a thing: one short, level tone with a faint edge an octave up, gone in 90 ms
     tone(a, 1568, 1568, 0.09, 0, 0.03);
     tone(a, 3136, 3136, 0.035, 0, 0.01, 'triangle');
+  } else if (kind === 'click') {
+    // the lock as a click: a dry tick, shorter and lower than the tone, the box landing rather than ringing
+    tone(a, 2400, 1800, 0.018, 0, 0.03, 'square');
   } else tone(a, 1500, 1200, 0.03, 0, 0.02);
   // (what played, for the checks that listen for it: tests/talk.spec.mjs)
   document.dispatchEvent(new CustomEvent('ghosty-sfx', { detail: kind }));

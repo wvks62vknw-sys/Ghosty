@@ -5,6 +5,7 @@
  */
 import { createStore } from '../core/store';
 import { DEFAULT_PERSONA, type PersonaSettings } from '../../../../packages/shared/src/persona';
+import type { KeptLook } from '../../../../packages/shared/src/themes';
 
 export interface Place {
   name: string;
@@ -14,7 +15,14 @@ export interface Place {
 
 export interface Settings {
   name: string;
+  /** The colour (one of the twelve), as ever: a bare colour key from before reads as Graphite + it + The Scan. */
   theme: string;
+  /**
+   * The rest of his recipe (BRIEF-THEMES-2; state/theme.ts): the ground, the world, the night ground and the switches. Null on
+   * a phone from before (the default recipe round its colour). Kept in ghosty.settings, so the daily backup carries it whole and
+   * another phone restored from it opens in the same recipe.
+   */
+  look: KeptLook | null;
   units: 'metric' | 'imperial';
   speak: boolean;
   voice: string;
@@ -55,6 +63,7 @@ export const settings = createStore<Settings>(
   {
     name: 'Boss',
     theme: 'reactor',
+    look: null,
     units: /^en-US/i.test(navigator.language) ? 'imperial' : 'metric',
     speak: true,
     voice: 'auto',

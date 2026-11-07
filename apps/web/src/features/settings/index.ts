@@ -4,9 +4,10 @@ import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
-import { themeKey, THEMES } from '../../state/theme';
+import { presetNow, recipeEvents, recipeNow, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { themeSwatches } from '../../ui/swatches';
+import { lookDials } from '../../ui/dials';
 import { page } from '../../ui/page';
 import { sections } from '../../ui/sections';
 import { characterPanel } from './character';
@@ -25,11 +26,12 @@ export const settingsTab: TabDef = {
   title: 'SETTINGS',
   icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
-  blurb: 'theme · the look · name · character · units · voice · sounds · tilt · home · offline brain',
+  blurb: 'theme · ground · world · switches · the look · name · character · units · voice · sounds · tilt · home · offline brain',
   mount(root) {
     const P = page(root, { tag: 'SETTINGS', leftLabel: 'THEME', rightLabel: 'VOICE & HOME', stack: true });
-    // THEME: the one design in a colour (state/theme.ts); NAME & UNITS: what he calls you, and how he measures.
-    const lp = panel('THEME', { grow: false, status: THEMES[themeKey(settings.get().theme)]!.label });
+    // THEME: his recipe (state/theme.ts; BRIEF-THEMES-2): the presets first, the dials under them; the row says the recipe.
+    // NAME & UNITS: what he calls you, and how he measures.
+    const lp = panel('THEME', { grow: false, status: recipeNow() });
     lp.el.classList.add('themepn');
     const np = panel('NAME & UNITS', { grow: false, status: settings.get().name });
     const vp = panel('VOICE & HOME', { grow: false });
@@ -88,9 +90,11 @@ export const settingsTab: TabDef = {
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 
-    // Theme: the twelve as live swatches (ui/swatches.ts), each drawn by the design system in its own accent block. A tap
-    // applies it at once, everywhere, and this phone remembers it.
+    // Theme: the seventeen presets as live swatches (ui/swatches.ts), each drawn by the design system on its own ground, in its
+    // colour and world; the dials under them (ui/dials.ts: GROUND, COLOUR, WORLD, the switches). A tap applies at once,
+    // everywhere, and this phone remembers it; a dial changed under a preset makes Custom, kept exactly as set.
     const themes = themeSwatches();
+    const dials = lookDials({ label: 'Theme dials' });
     const paintHead = () => {
       const t = THEMES[themeKey(settings.get().theme)]!;
       const units = settings.get().units === 'metric' ? '°C · km' : '°F · miles';
@@ -99,7 +103,9 @@ export const settingsTab: TabDef = {
       P.big.dataset.initial = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
       P.big.dataset.case = 'keep';
       P.sub.textContent = `${t.label} · ${units}`;
-      lp.setStatus(t.label);
+      // the Theme row says the recipe ("Ember · Black · The Scan"; following the day, "Paper till 16:32")
+      lp.setStatus(recipeNow());
+      lp.el.dataset.preset = presetNow()?.key ?? 'custom';
       np.setStatus(settings.get().name);
     };
     const paintThemes = () => themes.paint();
@@ -109,7 +115,19 @@ export const settingsTab: TabDef = {
     const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
-    lp.body.append(themes.el, h('p.note.swnote', 'A theme changes my colour and nothing else: every screen keeps its layout. Settings › The look shows how I draw everything.'));
+    lp.body.append(
+      h('p.gpage-lede', { dataset: { case: 'keep' } }, 'Pick a whole look, or turn the dials under it. I keep what you set, and wake up in it.'),
+      themes.el,
+      dials.el,
+      h('p.note.swnote', 'A preset is a whole recipe: its ground, its colour, its world and its switches. Change any dial and I keep it as Custom. Settings › The look shows how I draw everything.'),
+    );
+    // the Theme page is drawn in the system (its floor, its bar), as THE LOOK is: a class on the page while it is open
+    new MutationObserver(() => document.body.classList.toggle('g-themepage', lp.el.classList.contains('pushed'))).observe(lp.el, { attributes: true, attributeFilter: ['class'] });
+    // the recipe changing by itself (the day turning at sunrise or sunset) or from another screen: the row and the presets follow
+    recipeEvents.on('change', () => {
+      paintHead();
+      paintThemes();
+    });
     // [restc] TV MODE (tv/): big buttons, a focus ring, the arrow keys or a controller's d-pad; on by itself on a television
     const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring you move with the arrow keys or a controller’s d-pad. On by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
     tvSw.el.classList.add('tvsw');
@@ -161,8 +179,8 @@ export const settingsTab: TabDef = {
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
     // or Ghosty switched the theme from chat.
     settings.subscribe((s, p) => {
-      if (s.theme !== p.theme || s.name !== p.name || s.units !== p.units) paintHead();
-      if (s.theme !== p.theme) paintThemes();
+      if (s.theme !== p.theme || s.look !== p.look || s.name !== p.name || s.units !== p.units) paintHead();
+      if (s.theme !== p.theme || s.look !== p.look) paintThemes();
       if (s.home !== p.home) paintHome();
       if (s.sounds !== p.sounds) sfx.paint();
       if (s.motion !== p.motion) motion.paint();

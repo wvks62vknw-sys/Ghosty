@@ -11,7 +11,8 @@ import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
 import { DECK } from '../shell/deckcopy';
 import { ui } from '../state/app';
-import { applyTheme, THEMES } from '../state/theme';
+import { applyPreset, applyRecipe, applyTheme, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
+import { applyAsk, GROUNDS, lookAsked, WORLDS } from '../../../../packages/shared/src/themes';
 import { keepWidget } from '../state/widgets';
 import { enqueue, type NewEvent, type NewJob } from '../api/offline';
 import { modal, sandboxFrame, toast } from '../ui/components';
@@ -596,10 +597,20 @@ export function registerBuiltins(): void {
       title: 'Set theme',
       hidden: true,
       run: (a) => {
-        // accept a key ("graphite") or a label ("Reactor"); any other name (an old look's) gives Reactor
-        const want = String(a?.theme ?? 'reactor').toLowerCase().replace(/[^a-z0-9]/g, '');
+        // a colour by its key ("graphite") or its label ("Reactor"), as ever; else the look in his words ("black", "paper",
+        // "the map", "glow off", "bigger text": BRIEF-THEMES-2, the same table the chat answers with no model); any other name
+        // (an old look's) gives Reactor
+        const raw = String(a?.theme ?? 'reactor');
+        const want = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
         const hit = Object.entries(THEMES).find(([k, t]) => k === want || t.label.toLowerCase().replace(/[^a-z0-9]/g, '') === want);
-        applyTheme(hit ? hit[0] : want);
+        if (hit) return applyTheme(hit[0]);
+        const ask = lookAsked(raw) ?? lookAsked(`${raw} background`) ?? lookAsked(`switch to ${raw}`);
+        if (ask) {
+          const { recipe: next, said } = applyAsk(recipe(), ask, { now: Date.now(), home: savedHome() });
+          applyRecipe(next);
+          return toast(said, 'ok');
+        }
+        applyTheme(want);
       },
     },
     {
@@ -726,6 +737,10 @@ export function registerBuiltins(): void {
   // says of itself in Every screen (shell/deckcopy.ts), so the jump bar and the deck find a screen the same way
   for (const t of tabs()) register({ id: `tab_${t.id}`, title: t.title, group: 'GO', words: [t.blurb ?? '', DECK[t.id]?.name ?? '', DECK[t.id]?.promise ?? '', ...(DECK[t.id]?.can.map((l) => l.text) ?? [])].join(' '), run: () => void go(t.id) });
   for (const [k, t] of Object.entries(THEMES)) register({ id: `theme_${k}`, title: `Theme: ${t.label}`, group: 'THEME', run: () => applyTheme(k) });
+  // [themes2] the directions as presets, the grounds and the worlds, by name in the jump bar (BRIEF-THEMES-2)
+  for (const p of PRESETS.filter((x) => x.from)) register({ id: `preset_${p.key}`, title: `Theme: ${p.label}`, group: 'THEME', words: p.tag, run: () => applyPreset(p) });
+  for (const g of GROUNDS) register({ id: `ground_${g.key}`, title: `Ground: ${g.label}`, group: 'THEME', words: `${g.label} background ${g.line}`, run: () => { const { recipe: next } = applyAsk(recipe(), { ground: g.key }); applyRecipe(next); } });
+  for (const w of WORLDS) register({ id: `world_${w.key}`, title: `World: ${w.label}`, group: 'THEME', words: w.line, run: () => { const { recipe: next } = applyAsk(recipe(), { world: w.key }); applyRecipe(next); } });
   SENSOR_MODES.forEach(([n], i) =>
     register({
       id: `sensor_${n.toLowerCase()}`,

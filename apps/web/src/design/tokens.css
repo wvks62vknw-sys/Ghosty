@@ -12,6 +12,12 @@
    at least 4.5:1 on every surface; every line at least 3:1; the accent as text 4.5:1 or more (it is used as text only where
    it clears 5:1 on every surface; elsewhere its text variant, moved towards its pale until it does). Line heights sit on
    the 4-point line grid; spaces on the 8-point grid.
+
+   A THEME IS A RECIPE (BRIEF-THEMES-2, his words in OWNER-ISSUES 141; packages/shared/src/themes.ts): the GROUND (the surfaces,
+   inks, lines and points: `data-ground`), the COLOUR (the accent block: `data-theme`), the WORLD (the drawing tokens: the floor,
+   the corners, the glow, how a mark and a plate are drawn: `data-world`) and the switches (`data-glow`, `data-floor`,
+   `data-corners`, `data-readings`, `data-body`, `data-motion`). The :root block below is the default recipe: Graphite, Reactor,
+   The Scan. The floor holds on EVERY ground with EVERY colour (sixty pairs) and in every world: the test checks each.
    ===================================================================================================================== */
 :root {
   /* ---------------------------------------------------------------- colour: the surfaces (graphite, lit) */
@@ -20,6 +26,7 @@
   --g-plate: #171b20;                                    /* what a tag, a key and a row sit on: one step up, so a thing reads as placed in a lit room */
   --g-plate-strong: #1e2329;                             /* what a brought-forward page, the ask line and an open sheet sit on: a second step up */
   --g-scrim: rgba(16, 19, 23, .72);                      /* the room behind a page brought to the front: dimmed, never blacked out */
+  --g-glow-floor: 1;                                     /* how much glow the ground lets through: none on a light ground, where a lit thing is drawn as ink */
 
   /* ---------------------------------------------------------------- colour: bone ink at four strengths */
   --g-bone-rgb: 236, 232, 223;                           /* bone as a triplet: the scan's points; the inks are bone at four strengths */
@@ -39,12 +46,20 @@
   --g-accent-pale-rgb: 191, 240, 255;                    /* the pale tint as a triplet, for the 3-D scenes */
   --g-accent-text: #64d2ff;                              /* the accent where it is text: itself where it clears 5:1 on every surface, else its text variant */
   --g-accent-glow: 1;                                    /* how strongly the accent lights a scene (the room's light, the orb's core); Mono's is low */
+  --g-accent-ink: #355c6b;                               /* the accent on a light ground (Paper): moved towards the ink until it clears 5:1 as text and as a line */
+  --g-accent-ink-rgb: 53, 92, 107;                       /* the accent on a light ground as a triplet, for its tints there */
 
   /* ---------------------------------------------------------------- colour: meaning only, never decoration */
   --g-amber: #ffb340;                                    /* a warning, and anything still IN THE WORKS */
   --g-amber-rgb: 255, 179, 64;                           /* amber as a triplet: a warning reticle's light */
   --g-red: #ff6961;                                      /* something that failed */
   --g-ok: #30d158;                                       /* a number that went up, a check that passed */
+
+  /* ---------------------------------------------------------------- the room: the ground today's rooms stand on */
+  --g-room-canvas: #101317;                              /* the floor behind the rooms still in today's look: the ground, or the night ground under Paper */
+  --g-room-canvas-rgb: 16, 19, 23;                       /* that floor as a triplet: the 3-D scene behind the rooms clears to it */
+  --g-room-points-rgb: 236, 232, 223;                    /* the colour the world's floor is drawn in behind those rooms */
+  --g-room-glow: 1;                                      /* how much glow that floor lets through */
 
   /* ---------------------------------------------------------------- type: the phone's own faces, then their stand-ins */
   --g-font-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Helvetica Neue', sans-serif;              /* SF Pro for your words and my sentences */
@@ -92,6 +107,29 @@
   --g-radius-key: 2px;                                   /* a key, a field and a plate: square, the corner softened by a hair */
   --g-radius-mark: 0;                                    /* a reticle, a tag, a rule: drawn square */
   --g-radius-orb: 50%;                                   /* my eye, the orb: the one circle I draw */
+  --g-radius-cell: 2px;                                  /* a card, a row, a sheet in today's rooms (their --card follows it): the world's corner */
+  --g-radius-chip: 2px;                                  /* a chip and a small control in today's rooms (their --rad follows it) */
+  --g-radius-capsule: 2px;                               /* a capsule: a bar, a pill, a round key, where the world draws one */
+
+  /* ---------------------------------------------------------------- the world: what it draws (The Scan's; a world block swaps them) */
+  --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='1.1'/%3E%3C/svg%3E");   /* the floor behind every screen, as a shape: The Scan's field of sampled points */
+  --g-floor-size: 16px 16px;                             /* one tile of the floor: the spacing of the points, the squares of the grid */
+  --g-floor-a: .14;                                      /* how strongly the floor shows: present, never louder than a word */
+  --g-glow: 1;                                           /* how much the world glows: the room's light, my orb's halo (One Ink none) */
+  --g-mark-glow: 0px;                                    /* the halo round a lit mark: none but in Glass, where the attended box glows */
+  --g-face-say: var(--g-font-display);                   /* the face of what I say first (One Ink sets it in the serif) */
+  --g-plate-fill: var(--g-plate);                        /* what a plate is filled with: the plate, glass, almost nothing (The Eye), nothing (One Ink) */
+  --g-plate-strong-fill: var(--g-plate-strong);          /* what a brought-forward plate is filled with, by the same rule */
+  --g-plate-shadow: var(--g-lift-plate);                 /* a plate's lift over the floor: none where the world draws flat (The Eye, One Ink) */
+  --g-front-shadow: var(--g-lift-front);                 /* a brought-forward page's lift: none where the world draws flat */
+  --g-plate-edge: solid;                                 /* how a plate's edge is drawn: a hairline, dashed (The Map), dotted (The Eye) */
+  --g-plate-side: 1;                                     /* whether a plate has sides: 0 in One Ink, where a plate is a rule above and a rule below */
+  --g-blur: 0px;                                         /* how much a plate blurs what is behind it: Glass's frosted glass, none elsewhere */
+  --g-ret-weight: 1.5px;                                 /* how thick a reticle's corner marks are: hairline arms, or square pins (The Map) */
+  --g-ret-edge: solid;                                   /* the reticle's own faint edge between its corners: dotted grain in The Eye */
+  --g-ret-side: 1;                                       /* whether a reticle has sides: 0 in One Ink, rules above and below */
+  --g-ret-sight: 0px;                                    /* the line of sight drawn on the attended box, towards my eye: The Eye's */
+  --g-sight-dash: none;                                  /* the line of sight: whole, or dashed as a plotted line (The Map, The Eye) */
 
   /* ---------------------------------------------------------------- lines and marks */
   --g-stroke: 1.5px;                                     /* the one weight a reticle, a key's edge and the line of sight are drawn in */
@@ -128,44 +166,174 @@
 @media (prefers-reduced-motion: reduce) { :root { --g-dur-lock: 0ms; --g-dur-turn: 0ms; --g-dur-bring: 0ms; } }
 
 /* ---------------------------------------------------------------------------------------------------------------------
-   THE THEMES: the accent block, swapped whole (BRIEF-THEMES' values exactly: the accent, its pale tint, its glow). Canvas,
-   plates, bone, lines, amber, red and ok never change. :root[data-theme] is the phone's own (state/theme.ts sets it);
-   [data-accent] gives one element a theme's block (a swatch in Settings → Theme shows its own colours in any theme).
+   THE THEMES: the accent block, swapped whole (BRIEF-THEMES' values exactly: the accent, its pale tint, its glow), and its
+   ink on a light ground (Paper). A colour never touches the surfaces: those are the GROUND's (below). :root[data-theme] is the
+   phone's own (state/theme.ts sets it); [data-accent] gives one element a theme's block (a swatch in Settings → Theme shows its
+   own colours in any theme).
    --------------------------------------------------------------------------------------------------------------------- */
 :root[data-theme="reactor"], [data-accent="reactor"] {
-  --g-accent: #64d2ff; --g-accent-rgb: 100, 210, 255; --g-accent-pale: #bff0ff; --g-accent-pale-rgb: 191, 240, 255; --g-accent-text: #64d2ff; --g-accent-glow: 1;
+  --g-accent: #64d2ff; --g-accent-rgb: 100, 210, 255; --g-accent-pale: #bff0ff; --g-accent-pale-rgb: 191, 240, 255; --g-accent-text: #64d2ff; --g-accent-glow: 1; --g-accent-ink: #355c6b; --g-accent-ink-rgb: 53, 92, 107;
 }
 :root[data-theme="graphite"], [data-accent="graphite"] {
-  --g-accent: #9db7cc; --g-accent-rgb: 157, 183, 204; --g-accent-pale: #dbe6ef; --g-accent-pale-rgb: 219, 230, 239; --g-accent-text: #9db7cc; --g-accent-glow: .55;
+  --g-accent: #9db7cc; --g-accent-rgb: 157, 183, 204; --g-accent-pale: #dbe6ef; --g-accent-pale-rgb: 219, 230, 239; --g-accent-text: #9db7cc; --g-accent-glow: .55; --g-accent-ink: #4e5960; --g-accent-ink-rgb: 78, 89, 96;
 }
 :root[data-theme="ember"], [data-accent="ember"] {
-  --g-accent: #ff7a3d; --g-accent-rgb: 255, 122, 61; --g-accent-pale: #ffd2bd; --g-accent-pale-rgb: 255, 210, 189; --g-accent-text: #ff7a3d; --g-accent-glow: 1;
+  --g-accent: #ff7a3d; --g-accent-rgb: 255, 122, 61; --g-accent-pale: #ffd2bd; --g-accent-pale-rgb: 255, 210, 189; --g-accent-text: #ff7a3d; --g-accent-glow: 1; --g-accent-ink: #834629; --g-accent-ink-rgb: 131, 70, 41;
 }
 :root[data-theme="gold"], [data-accent="gold"] {
-  --g-accent: #ffc53d; --g-accent-rgb: 255, 197, 61; --g-accent-pale: #ffeab8; --g-accent-pale-rgb: 255, 234, 184; --g-accent-text: #ffc53d; --g-accent-glow: .95;
+  --g-accent: #ffc53d; --g-accent-rgb: 255, 197, 61; --g-accent-pale: #ffeab8; --g-accent-pale-rgb: 255, 234, 184; --g-accent-text: #ffc53d; --g-accent-glow: .95; --g-accent-ink: #685425; --g-accent-ink-rgb: 104, 84, 37;
 }
 /* Crimson clears 4.5:1 on the strong plate by a hair (4.50): its text is moved towards its pale to clear 5:1 (#ff5360) */
 :root[data-theme="crimson"], [data-accent="crimson"] {
-  --g-accent: #ff3b4a; --g-accent-rgb: 255, 59, 74; --g-accent-pale: #ffc2c6; --g-accent-pale-rgb: 255, 194, 198; --g-accent-text: #ff5360; --g-accent-glow: .9;
+  --g-accent: #ff3b4a; --g-accent-rgb: 255, 59, 74; --g-accent-pale: #ffc2c6; --g-accent-pale-rgb: 255, 194, 198; --g-accent-text: #ff5360; --g-accent-glow: .9; --g-accent-ink: #9f2d35; --g-accent-ink-rgb: 159, 45, 53;
 }
 :root[data-theme="violet"], [data-accent="violet"] {
-  --g-accent: #b18cff; --g-accent-rgb: 177, 140, 255; --g-accent-pale: #e0d2ff; --g-accent-pale-rgb: 224, 210, 255; --g-accent-text: #b18cff; --g-accent-glow: .9;
+  --g-accent: #b18cff; --g-accent-rgb: 177, 140, 255; --g-accent-pale: #e0d2ff; --g-accent-pale-rgb: 224, 210, 255; --g-accent-text: #b18cff; --g-accent-glow: .9; --g-accent-ink: #5f4e82; --g-accent-ink-rgb: 95, 78, 130;
 }
 :root[data-theme="emerald"], [data-accent="emerald"] {
-  --g-accent: #3ddc97; --g-accent-rgb: 61, 220, 151; --g-accent-pale: #bff4dc; --g-accent-pale-rgb: 191, 244, 220; --g-accent-text: #3ddc97; --g-accent-glow: .85;
+  --g-accent: #3ddc97; --g-accent-rgb: 61, 220, 151; --g-accent-pale: #bff4dc; --g-accent-pale-rgb: 191, 244, 220; --g-accent-text: #3ddc97; --g-accent-glow: .85; --g-accent-ink: #276046; --g-accent-ink-rgb: 39, 96, 70;
 }
 :root[data-theme="ice"], [data-accent="ice"] {
-  --g-accent: #cfe9ff; --g-accent-rgb: 207, 233, 255; --g-accent-pale: #f0f8ff; --g-accent-pale-rgb: 240, 248, 255; --g-accent-text: #cfe9ff; --g-accent-glow: .45;
+  --g-accent: #cfe9ff; --g-accent-rgb: 207, 233, 255; --g-accent-pale: #f0f8ff; --g-accent-pale-rgb: 240, 248, 255; --g-accent-text: #cfe9ff; --g-accent-glow: .45; --g-accent-ink: #50585d; --g-accent-ink-rgb: 80, 88, 93;
 }
 :root[data-theme="rose"], [data-accent="rose"] {
-  --g-accent: #ff7eb6; --g-accent-rgb: 255, 126, 182; --g-accent-pale: #ffd0e4; --g-accent-pale-rgb: 255, 208, 228; --g-accent-text: #ff7eb6; --g-accent-glow: .8;
+  --g-accent: #ff7eb6; --g-accent-rgb: 255, 126, 182; --g-accent-pale: #ffd0e4; --g-accent-pale-rgb: 255, 208, 228; --g-accent-text: #ff7eb6; --g-accent-glow: .8; --g-accent-ink: #7a445a; --g-accent-ink-rgb: 122, 68, 90;
 }
 :root[data-theme="lime"], [data-accent="lime"] {
-  --g-accent: #c6ff3d; --g-accent-rgb: 198, 255, 61; --g-accent-pale: #eaffb8; --g-accent-pale-rgb: 234, 255, 184; --g-accent-text: #c6ff3d; --g-accent-glow: 1;
+  --g-accent: #c6ff3d; --g-accent-rgb: 198, 255, 61; --g-accent-pale: #eaffb8; --g-accent-pale-rgb: 234, 255, 184; --g-accent-text: #c6ff3d; --g-accent-glow: 1; --g-accent-ink: #4a5a22; --g-accent-ink-rgb: 74, 90, 34;
 }
 :root[data-theme="sunset"], [data-accent="sunset"] {
-  --g-accent: #ff7f6e; --g-accent-rgb: 255, 127, 110; --g-accent-pale: #ffd3c8; --g-accent-pale-rgb: 255, 211, 200; --g-accent-text: #ff7f6e; --g-accent-glow: .9;
+  --g-accent: #ff7f6e; --g-accent-rgb: 255, 127, 110; --g-accent-pale: #ffd3c8; --g-accent-pale-rgb: 255, 211, 200; --g-accent-text: #ff7f6e; --g-accent-glow: .9; --g-accent-ink: #7f463e; --g-accent-ink-rgb: 127, 70, 62;
 }
 :root[data-theme="mono"], [data-accent="mono"] {
-  --g-accent: #ffffff; --g-accent-rgb: 255, 255, 255; --g-accent-pale: #ffffff; --g-accent-pale-rgb: 255, 255, 255; --g-accent-text: #ffffff; --g-accent-glow: .25;
+  --g-accent: #ffffff; --g-accent-rgb: 255, 255, 255; --g-accent-pale: #ffffff; --g-accent-pale-rgb: 255, 255, 255; --g-accent-text: #ffffff; --g-accent-glow: .25; --g-accent-ink: #565654; --g-accent-ink-rgb: 86, 86, 84;
 }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE GROUNDS (BRIEF-THEMES-2 1): what everything sits on, a block of the surface tokens, swapped whole. Graphite is the :root
+   block's own (the default); the other four follow, darkest first. Each holds the floor against all twelve colours (the test).
+   :root[data-ground] is the ground in force (state/theme.ts); [data-ground] on an element draws it on its own ground (a ground's
+   tile, a preset's swatch). Such an element carries its colour too (data-accent), so the colour on it is the right one for it.
+   --------------------------------------------------------------------------------------------------------------------- */
+/* Black: nothing lit but what I'm looking at. True black, the screen off between the points (W1 as first drawn); the plates a
+   step up, the inks and lines lifted so the floor still holds on them. */
+:root[data-ground="black"], [data-ground="black"] {
+  --g-canvas: #000000; --g-canvas-rgb: 0, 0, 0; --g-plate: #0e0f11; --g-plate-strong: #17191c; --g-scrim: rgba(0, 0, 0, .72);
+  --g-bone-rgb: 236, 232, 223; --g-ink-1: #ece8df; --g-ink-2: #c8c5bd; --g-ink-3: #a8a59e; --g-ink-4: #918f8a; --g-line: #cfcbc3; --g-line-faint: #6a6964;
+  --g-amber: #ffb340; --g-amber-rgb: 255, 179, 64; --g-red: #ff6961; --g-ok: #30d158; --g-glow-floor: 1;
+  --g-lift-plate: inset 0 1px 0 rgba(236, 232, 223, .06), 0 8px 24px rgba(0, 0, 0, .5); --g-lift-front: inset 0 1px 0 rgba(236, 232, 223, .08), 0 24px 64px rgba(0, 0, 0, .7);
+}
+/* Graphite: the lit graphite of PR #60, today's values (the :root block's own, said again so a tile can stand on it). */
+:root[data-ground="graphite"], [data-ground="graphite"] {
+  --g-canvas: #101317; --g-canvas-rgb: 16, 19, 23; --g-plate: #171b20; --g-plate-strong: #1e2329; --g-scrim: rgba(16, 19, 23, .72);
+  --g-bone-rgb: 236, 232, 223; --g-ink-1: #ece8df; --g-ink-2: #c8c5bd; --g-ink-3: #a8a59e; --g-ink-4: #918f8a; --g-line: #cfcbc3; --g-line-faint: #75746f;
+  --g-amber: #ffb340; --g-amber-rgb: 255, 179, 64; --g-red: #ff6961; --g-ok: #30d158; --g-glow-floor: 1;
+  --g-lift-plate: inset 0 1px 0 rgba(236, 232, 223, .05), 0 8px 24px rgba(0, 0, 0, .28); --g-lift-front: inset 0 1px 0 rgba(236, 232, 223, .07), 0 24px 64px rgba(0, 0, 0, .5);
+}
+/* Slate: a cold blue-black, the night room; the bone a little cooler to sit on it. */
+:root[data-ground="slate"], [data-ground="slate"] {
+  --g-canvas: #0c1118; --g-canvas-rgb: 12, 17, 24; --g-plate: #131a23; --g-plate-strong: #19212c; --g-scrim: rgba(12, 17, 24, .72);
+  --g-bone-rgb: 230, 234, 240; --g-ink-1: #e6eaf0; --g-ink-2: #c3c9d2; --g-ink-3: #a4acb7; --g-ink-4: #8e97a3; --g-line: #c9d0da; --g-line-faint: #6f7987;
+  --g-amber: #ffb340; --g-amber-rgb: 255, 179, 64; --g-red: #ff6961; --g-ok: #30d158; --g-glow-floor: 1;
+  --g-lift-plate: inset 0 1px 0 rgba(230, 234, 240, .05), 0 8px 24px rgba(0, 0, 0, .32); --g-lift-front: inset 0 1px 0 rgba(230, 234, 240, .07), 0 24px 64px rgba(0, 0, 0, .55);
+}
+/* Warm: D2's warm black (#0b0a09) lifted to the floor, with D2's bone ink at four strengths: for reading at night. */
+:root[data-ground="warm"], [data-ground="warm"] {
+  --g-canvas: #13110f; --g-canvas-rgb: 19, 17, 15; --g-plate: #1a1815; --g-plate-strong: #25221d; --g-scrim: rgba(19, 17, 15, .72);
+  --g-bone-rgb: 236, 230, 216; --g-ink-1: #ece6d8; --g-ink-2: #cbc5b8; --g-ink-3: #aca698; --g-ink-4: #979184; --g-line: #d6cfc0; --g-line-faint: #7c766a;
+  --g-amber: #ffb340; --g-amber-rgb: 255, 179, 64; --g-red: #ff6961; --g-ok: #30d158; --g-glow-floor: .85;
+  --g-lift-plate: inset 0 1px 0 rgba(236, 230, 216, .05), 0 8px 24px rgba(0, 0, 0, .3); --g-lift-front: inset 0 1px 0 rgba(236, 230, 216, .07), 0 24px 64px rgba(0, 0, 0, .52);
+}
+/* Paper: a light ground for reading in daylight. Bone canvas, the plates a step DOWN, dark ink at four strengths, the meaning
+   colours darkened to read on bone, the points dark; the accent drawn in its ink (each theme's --g-accent-ink: moved towards
+   the ink until it clears 5:1 as text and as a line). Nothing glows on paper. */
+:root[data-ground="paper"], [data-ground="paper"] {
+  --g-canvas: #f3efe6; --g-canvas-rgb: 243, 239, 230; --g-plate: #e9e4d9; --g-plate-strong: #ddd7ca; --g-scrim: rgba(243, 239, 230, .72);
+  --g-bone-rgb: 26, 26, 24; --g-ink-1: #1a1a18; --g-ink-2: #383733; --g-ink-3: #4e4c46; --g-ink-4: #5a5751; --g-line: #2e2d29; --g-line-faint: #7a776e;
+  --g-amber: #8a4f00; --g-amber-rgb: 138, 79, 0; --g-red: #b02a20; --g-ok: #196530; --g-glow-floor: 0;
+  --g-lift-plate: inset 0 1px 0 rgba(255, 255, 255, .55), 0 8px 24px rgba(26, 26, 24, .08); --g-lift-front: inset 0 1px 0 rgba(255, 255, 255, .6), 0 24px 64px rgba(26, 26, 24, .16);
+  --g-accent: var(--g-accent-ink); --g-accent-rgb: var(--g-accent-ink-rgb); --g-accent-text: var(--g-accent-ink); --g-accent-pale: var(--g-accent-ink); --g-accent-pale-rgb: var(--g-accent-ink-rgb);
+}
+/* an element in a colour of its own (a swatch) on a Paper page, standing on no ground of its own: its accent in its ink too */
+[data-ground="paper"] [data-accent]:not([data-ground]) {
+  --g-accent: var(--g-accent-ink); --g-accent-rgb: var(--g-accent-ink-rgb); --g-accent-text: var(--g-accent-ink); --g-accent-pale: var(--g-accent-ink); --g-accent-pale-rgb: var(--g-accent-ink-rgb);
+}
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE WORLDS (BRIEF-THEMES-2 3): what each direction seen along the way DID, as the drawing tokens, swapped whole. The Scan is
+   the :root block's own (the default). A world governs the floor behind every screen, the corners (today's --card and --rad
+   follow --g-radius-cell and --g-radius-chip: styles.css, THE SYSTEM), the glow, how a mark and a plate are drawn, and the face
+   of what I say. The orb is the hologram in every world: a world governs its floor and its glow, never its draw.
+   --------------------------------------------------------------------------------------------------------------------- */
+/* The Scan (W1, his pick): a field of sampled points, hairline edges, corner-mark reticles, mono readings, radius 2. */
+:root[data-world="scan"], [data-world="scan"] {
+  --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='1.1'/%3E%3C/svg%3E");
+  --g-floor-size: 16px 16px; --g-floor-a: .14; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 2px; --g-radius-mark: 0; --g-radius-cell: 2px; --g-radius-chip: 2px; --g-radius-capsule: 2px;
+  --g-plate-fill: var(--g-plate); --g-plate-strong-fill: var(--g-plate-strong); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 10px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
+}
+/* The Map (W2): a plotting grid with a crosshair every five squares, square pins as the reticle, dashed plates, radius 0. */
+:root[data-world="map"], [data-world="map"] {
+  --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M8.5 0V80M24.5 0V80M40.5 0V80M56.5 0V80M72.5 0V80M0 8.5H80M0 24.5H80M0 40.5H80M0 56.5H80M0 72.5H80' stroke='currentColor' stroke-opacity='.4'/%3E%3Cpath d='M32 40.5H49M40.5 32V49' stroke='currentColor' stroke-width='1.5'/%3E%3C/svg%3E");
+  --g-floor-size: 80px 80px; --g-floor-a: .3; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 0px; --g-radius-mark: 0px; --g-radius-cell: 0px; --g-radius-chip: 0px; --g-radius-capsule: 0px;
+  --g-plate-fill: var(--g-plate); --g-plate-strong-fill: var(--g-plate-strong); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: dashed; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 5px; --g-ret-weight: 5px; --g-ret-edge: dashed; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: 6 4;
+}
+/* The Eye (W3): a fine grain; the one sharp accent box is the reticle, its line of sight drawn on; plates at reduced ink. */
+:root[data-world="eye"], [data-world="eye"] {
+  --g-floor-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='1' height='1'/%3E%3Crect x='4' y='2' width='1' height='1' fill-opacity='.6'/%3E%3Crect x='2' y='5' width='1' height='1' fill-opacity='.8'/%3E%3Crect x='6' y='6' width='1' height='1' fill-opacity='.5'/%3E%3Crect x='5' y='0' width='1' height='1' fill-opacity='.35'/%3E%3Crect x='1' y='3' width='1' height='1' fill-opacity='.45'/%3E%3C/svg%3E");
+  --g-floor-size: 8px 8px; --g-floor-a: .2; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 2px; --g-radius-mark: 0px; --g-radius-cell: 2px; --g-radius-chip: 2px; --g-radius-capsule: 2px;
+  --g-plate-fill: rgba(var(--g-bone-rgb), .03); --g-plate-strong-fill: rgba(var(--g-bone-rgb), .06); --g-plate-shadow: none; --g-front-shadow: none; --g-plate-edge: dotted; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: dotted; --g-ret-side: 1; --g-ret-sight: 24px; --g-sight-dash: 3 3;
+}
+/* One Ink (D2): no floor pattern, rules instead of boxes (a plate is a rule above and below), a serif when I talk, radius 0,
+   no glow. Its accent is never text: what is lit is a line, the words stay in the ink (styles.css, THE SYSTEM). */
+:root[data-world="ink"], [data-world="ink"] {
+  --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 0; --g-mark-glow: 0px; --g-face-say: var(--g-font-serif);
+  --g-radius-key: 0px; --g-radius-mark: 0px; --g-radius-cell: 0px; --g-radius-chip: 0px; --g-radius-capsule: 0px;
+  --g-plate-fill: transparent; --g-plate-strong-fill: transparent; --g-plate-shadow: none; --g-front-shadow: none; --g-plate-edge: solid; --g-plate-side: 0; --g-blur: 0px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 0; --g-ret-sight: 0px; --g-sight-dash: none;
+  --g-accent-text: var(--g-ink-1);
+}
+/* Glass (today's route C): no floor pattern, frosted glass, radius 20 on cells (today's cards) and 26 on capsules, the glow. */
+:root[data-world="glass"], [data-world="glass"] {
+  --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 1; --g-mark-glow: 14px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 12px; --g-radius-mark: 10px; --g-radius-cell: 20px; --g-radius-chip: 12px; --g-radius-capsule: 26px;
+  --g-plate-fill: rgba(var(--g-bone-rgb), .06); --g-plate-strong-fill: rgba(var(--g-bone-rgb), .1); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 24px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
+}
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE SWITCHES (BRIEF-THEMES-2 4): each one visible thing, over the world (on the phone's own <html> only, so a world's tile
+   still shows that world as it is). Body never goes under 17; the readings and tags grow with it, on the 4-point line.
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-glow="off"] { --g-glow: 0; --g-mark-glow: 0px; }
+:root[data-floor="off"] { --g-floor-a: 0; }
+:root[data-corners="sharp"] { --g-radius-key: 0px; --g-radius-mark: 0px; --g-radius-cell: 0px; --g-radius-chip: 0px; --g-radius-capsule: 0px; }
+:root[data-corners="round"] { --g-radius-key: 12px; --g-radius-mark: 10px; --g-radius-cell: 20px; --g-radius-chip: 12px; --g-radius-capsule: 26px; }
+:root[data-readings="system"] { --g-font-mono: var(--g-font-text); }
+:root[data-body="19"] {
+  --g-t-head: 600 19px/28px var(--g-font-text); --g-t-body: 400 19px/28px var(--g-font-text); --g-t-reading: 500 17px/24px var(--g-font-mono);
+  --g-t-tag: 600 15px/20px var(--g-font-mono); --g-t-truth: 500 15px/20px var(--g-font-mono); --g-t-key: 600 15px/20px var(--g-font-mono);
+  --g-t-caption: 400 15px/20px var(--g-font-text); --g-t-fine: 500 13px/16px var(--g-font-mono);
+}
+:root[data-body="21"] {
+  --g-t-head: 600 21px/28px var(--g-font-text); --g-t-body: 400 21px/28px var(--g-font-text); --g-t-reading: 500 19px/24px var(--g-font-mono);
+  --g-t-tag: 600 16px/20px var(--g-font-mono); --g-t-truth: 500 16px/20px var(--g-font-mono); --g-t-key: 600 16px/20px var(--g-font-mono);
+  --g-t-caption: 400 17px/24px var(--g-font-text); --g-t-fine: 500 14px/20px var(--g-font-mono);
+}
+/* calm: nothing travels (as Reduce Motion; ui/machine.ts and the eye read the same setting) */
+:root[data-motion="calm"] { --g-dur-lock: 0ms; --g-dur-turn: 0ms; --g-dur-bring: 0ms; }
+
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE NIGHT GROUND: the floor of the rooms still drawn in today's look (light words on dark, until the shell pass) is the
+   ground in force, or under Paper the chosen night ground; ground-follows-the-day ends the day on it. data-night is always
+   a dark ground (state/theme.ts).
+   --------------------------------------------------------------------------------------------------------------------- */
+:root[data-night="black"] { --g-room-canvas: #000000; --g-room-canvas-rgb: 0, 0, 0; --g-room-points-rgb: 236, 232, 223; --g-room-glow: 1; }
+:root[data-night="graphite"] { --g-room-canvas: #101317; --g-room-canvas-rgb: 16, 19, 23; --g-room-points-rgb: 236, 232, 223; --g-room-glow: 1; }
+:root[data-night="slate"] { --g-room-canvas: #0c1118; --g-room-canvas-rgb: 12, 17, 24; --g-room-points-rgb: 230, 234, 240; --g-room-glow: 1; }
+:root[data-night="warm"] { --g-room-canvas: #13110f; --g-room-canvas-rgb: 19, 17, 15; --g-room-points-rgb: 236, 230, 216; --g-room-glow: .85; }
