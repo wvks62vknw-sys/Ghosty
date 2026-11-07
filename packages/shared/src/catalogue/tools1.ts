@@ -58,8 +58,8 @@ export const TOOLS_1: Record<string, CatValue> = {
     say: ['Show the planes on the globe', 'Turn on the rain radar', 'Hide the satellites'], scene: ['out'], cat: 'see', where: 'God’s eye', needs: ['key:aisstream'],
   },
   'tool:set_theme': {
-    name: 'Change my colour', line: 'I can change my colour when you ask: any of my twelve themes, from Reactor’s cyan to Mono’s white.',
-    more: 'A theme changes my colour and nothing else: every screen keeps its layout. You can also tap it in Settings → THEME.',
+    name: 'Change my look', line: 'I can change my look when you ask: my colour, the ground, the world or a switch, in your own words.',
+    more: 'Any of my twelve colours, a ground (black, slate, warm, paper), a world (The Scan, The Map, The Eye, One Ink, Glass) or a switch like the glow. Every screen keeps its layout. You can also tap it in Settings → THEME.',
     say: ['Switch to Ember', 'Go back to Reactor'], scene: ['talking'], cat: 'talk',
     go: { open: 'settings', panel: 'THEME' },
   },

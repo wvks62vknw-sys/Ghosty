@@ -27,7 +27,8 @@
 import { h, icon, svgEl } from '../core/dom';
 import { sfx, sfxAllowed } from '../assistant/sfx';
 
-const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Nothing travels: Reduce Motion (it always wins), or MOTION set to calm (BRIEF-THEMES-2: state/theme.ts writes data-motion). */
+const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || (typeof document !== 'undefined' && document.documentElement.dataset.motion === 'calm');
 /** A token's duration in ms (0 with Reduce Motion: tokens.css sets the durations to nothing). */
 export function dur(name: 'lock' | 'turn' | 'bring'): number {
   if (still()) return 0;
@@ -39,7 +40,7 @@ export function dur(name: 'lock' | 'turn' | 'bring'): number {
 const ease = (name: 'lock' | 'bring') => getComputedStyle(document.documentElement).getPropertyValue(`--g-ease-${name}`).trim() || 'ease-out';
 
 /** What the marks have done, for the checks (window.__ghosty.marks). */
-export const marksState = { locks: 0, lastLock: '', typed: 0, sights: 0, searches: 0 };
+export const marksState = { locks: 0, lastLock: '', typed: 0, sights: 0, searches: 0, lastSound: '' as '' | 'tone' | 'click' | 'off' };
 
 // ---------------------------------------------------------------- the words of each mark, and when it is used
 
@@ -377,27 +378,37 @@ const lastLocked = new WeakMap<HTMLElement, Element>();
  * it stays and makes no sound (`again` makes it lock afresh). The tone follows his sound setting (assistant/sfx.ts). Resolves
  * when the box has landed.
  */
-export async function recognise(box: HTMLElement, thing: Element, o: { name?: string; again?: boolean } = {}): Promise<boolean> {
+export async function recognise(box: HTMLElement, thing: Element, o: { name?: string; again?: boolean; onLock?: (fresh: boolean) => void } = {}): Promise<boolean> {
   const host = box.parentElement as HTMLElement;
   const to = boxIn(host, thing);
   if (!o.again && lastLocked.get(box) === thing && !box.hidden) {
     Object.assign(box.style, px(to));
+    o.onLock?.(false);
     return false;
   }
   lastLocked.set(box, thing);
+  // (what the lock is, said at once: `onLock` hears it as the box starts to close, the promise when it has landed)
+  o.onLock?.(true);
   const pad = 14;
   const from = { left: to.left - pad, top: to.top - pad, width: to.width + pad * 2, height: to.height + pad * 2 };
   box.hidden = false;
   box.dataset.state = 'attend';
   Object.assign(box.style, px(to));
   const ms = dur('lock');
+  marksState.locks++;
+  marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
+  // THE SOUND (BRIEF-THEMES-2): one short level tone, one small click, or the lock in silence; always on top of his sound setting.
+  // Scheduled on the audio clock for the moment the box lands, so a busy page never makes it late.
+  const sound = (document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off';
+  marksState.lastSound = sound;
+  if (sound === 'tone') {
+    if (ms) sfx('lock', ms);
+    else sfx('lock');
+  } else if (sound === 'click') sfx('click', ms);
   if (ms) {
     const a = box.animate([{ ...px(from), opacity: 0.35 }, { ...px(to), opacity: 1 }], { duration: ms, easing: ease('lock') });
     await a.finished.catch(() => undefined);
   }
-  marksState.locks++;
-  marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
-  sfx('lock');
   return true;
 }
 

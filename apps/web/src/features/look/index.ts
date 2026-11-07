@@ -16,11 +16,13 @@ import { h, icon } from '../../core/dom';
 import { stopwatch } from '../../core/stopwatch';
 import { parseColour, contrast, ratioWords, FLOOR, type RGB } from '../../design/contrast';
 import tokensCss from '../../design/tokens.css';
-import { ACCENT_BLOCK, parseTokens, typeParts, type Token } from '../../design/tokens';
+import { ACCENT_BLOCK, GROUND_BLOCK, parseAttrBlocks, parseTokens, typeParts, WORLD_BLOCK, type Token } from '../../design/tokens';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
-import { themeEvents, themeKey, THEMES } from '../../state/theme';
+import { PRESETS, recipe, recipeEvents, recipeNow, themeEvents } from '../../state/theme';
+import { COLOUR_LABELS, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
+import { lookDials } from '../../ui/dials';
 import { panel, type Panel } from '../../ui/components';
 import { machineEye, type Eye, type EyeInfo } from '../../ui/eye';
 import { eyeGlyph, index, key, lineOfSight, lockBox, MARKS, marksState, plate, recognise, reticle, search, stampLine, tag, toneHeard, truthLine, typedLine, type Reticle, type StampFacts } from '../../ui/machine';
@@ -76,11 +78,14 @@ export const lookTab: TabDef = {
   scene: 'backdrop',
   // a row of Settings: the deck's Settings card leads here ("The look: how he draws everything"), it has no card of its own
   inside: 'settings',
-  blurb: 'tokens · type · marks · mind · themes',
-  now: () => `${Object.keys(THEMES).length} themes · ${THEMES[themeKey(settings.get().theme)]!.label} in use`,
+  blurb: 'tokens · type · marks · mind · themes · ground · world · switches',
+  now: () => `${PRESETS.length} presets · ${recipeNow()}`,
   mount(root) {
+    // the checks' handle (window.__ghosty.look), attached once the app's own exists: opened first at the start (a reload on
+    // THE LOOK), this screen mounts before main.ts makes window.__ghosty
     const w = window as unknown as { __ghosty?: Record<string, unknown> };
-    if (w.__ghosty) w.__ghosty.look = lookState;
+    const attach = (tries = 0) => (w.__ghosty ? (w.__ghosty.look = lookState) : tries < 150 && setTimeout(() => attach(tries + 1), 100));
+    attach();
     const css = getComputedStyle(document.documentElement);
     const tokens = parseTokens(tokensCss);
 
@@ -104,6 +109,7 @@ export const lookTab: TabDef = {
     const paintStates = () => {
       const said: [string, string][] = [];
       if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands, the typed line shows whole and my eye holds still.']);
+      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands, the typed line shows whole and my eye holds still. Themes › Switches › Motion brings it back.']);
       if (!settings.get().sounds) said.push(['Sound off', 'Interface sounds are off, so the recognition tone stays quiet. Settings › Voice & home turns them on.']);
       else if (!toneHeard()) said.push(['Tap once', 'I can play the recognition tone once you have tapped the screen.']);
       if (eye?.info.mode === 'flat') said.push(['Drawn flat', 'This browser has no 3-D, so I draw my eye flat here.']);
@@ -117,7 +123,7 @@ export const lookTab: TabDef = {
       type: panel('TYPE', { grow: false, status: 'Floor 12 pt' }),
       marks: panel('MARKS', { grow: false, status: `${MARKS.length} marks` }),
       mind: panel('MIND', { grow: false, status: 'My eye' }),
-      themes: panel('THEMES', { grow: false, status: `${Object.keys(THEMES).length} themes` }),
+      themes: panel('THEMES', { grow: false, status: `${PRESETS.length} presets` }),
     };
     for (const p of Object.values(P)) {
       p.title.dataset.case = 'keep';
@@ -174,19 +180,37 @@ export const lookTab: TabDef = {
       for (const [group, list] of groups) {
         const g = h('div.gtok-group', { dataset: { group } }, tag(group, { count: list.length }));
         for (const t of list) {
-          const live = (ACCENT_BLOCK as readonly string[]).includes(t.name) ? getComputedStyle(document.documentElement).getPropertyValue(t.name).trim() : '';
+          // its value in force where the recipe moves it (the colour, the ground, the world, a switch), beside the file's own
+          const live = (ACCENT_BLOCK as readonly string[]).includes(t.name) || !/var\(/.test(t.value) ? getComputedStyle(document.documentElement).getPropertyValue(t.name).trim() : '';
           const chip = tokenChip(t);
           const reads = inks.includes(t) ? measure(t.name) : [];
           if (reads.length) lookState.contrast[t.name] = reads.map((r) => +r.toFixed(2));
           g.append(h('div.gtok', { dataset: { token: t.name } }, chip,
             h('span.gtok-txt',
               h('span.gtok-name', t.name),
-              h('span.gtok-val', live && live !== t.value ? `${live} in this theme (Reactor’s ${t.value})` : t.value),
+              h('span.gtok-val', live && live !== t.value && live.length <= 60 ? `${live} in your recipe (the default’s ${t.value.length > 40 ? `${t.value.slice(0, 37)}…` : t.value})` : t.value.length > 60 ? `${t.value.slice(0, 57)}…` : t.value),
               h('span.gtok-job', { dataset: { case: 'keep' } }, sentence(t.job)),
               reads.length ? truthLine([`On the canvas ${ratioWords(reads[0]!)}`, `plate ${ratioWords(reads[1]!)}`, `strong ${ratioWords(reads[2]!)}`]) : null)));
         }
         b.append(g);
       }
+      // the GROUND and WORLD blocks (BRIEF-THEMES-2): each block's values beside the job its token has above, the one in force marked
+      const jobOf = Object.fromEntries(tokens.map((t) => [t.name, t.job]));
+      const blockGroup = (title: string, lede: string, attr: 'ground' | 'world', names: readonly string[], labelOf: (k: string) => string, inForce: string) => {
+        const g = h('div.gtok-group.gblocks', { dataset: { group: title } }, tag(title, { count: names.length }), h('p.gtok-job', { dataset: { case: 'keep' } }, lede));
+        for (const bl of parseAttrBlocks(tokensCss, attr)) {
+          const on = bl.key === inForce;
+          const rows = names.filter((n) => bl.values[n] != null).map((n) => h('div.gbtok', { dataset: { token: n } },
+            h('span.gtok-name', n), h('span.gtok-val', bl.values[n]!.length > 60 ? `${bl.values[n]!.slice(0, 57)}…` : bl.values[n]!), h('span.gtok-job', { dataset: { case: 'keep' } }, sentence(jobOf[n] ?? ''))));
+          g.append(h('details.gblock', { dataset: { block: `${attr}:${bl.key}` }, ...(on ? { open: true } : {}) },
+            h('summary.gblock-head', { dataset: { case: 'keep' } }, h('span.gblock-name', labelOf(bl.key)), on ? h('span.gblock-on', 'In force') : null, h('span.gblock-note', bl.note || '')),
+            ...rows));
+        }
+        b.append(g);
+      };
+      const r = recipe();
+      blockGroup('The grounds', 'What everything sits on: each ground swaps these surface tokens whole, held to the floor with every colour.', 'ground', GROUND_BLOCK, (k) => groundOf(k)?.label ?? k, document.documentElement.dataset.ground ?? r.ground);
+      blockGroup('The worlds', 'What each direction did, as drawing tokens: the floor, the corners, the glow, how a mark and a plate are drawn.', 'world', WORLD_BLOCK, (k) => worldOf(k)?.label ?? k, r.world);
     };
 
     // ---------------------------------------------------------------- TYPE
@@ -218,7 +242,8 @@ export const lookTab: TabDef = {
     let said = '';
     const narration = () => {
       const n = feedsWatched();
-      return `I’m watching ${home().name}. ${n == null ? 'I’m still asking the feeds.' : n === 0 ? 'No feeds have answered yet.' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked.`} You have me in ${THEMES[themeKey(settings.get().theme)]!.label}.`;
+      const r = recipe();
+      return `I’m watching ${home().name}. ${n == null ? 'I’m still asking the feeds.' : n === 0 ? 'No feeds have answered yet.' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked.`} You have me in ${COLOUR_LABELS[r.colour]}, on ${groundOf(document.documentElement.dataset.ground ?? r.ground)!.label}, in ${worldOf(r.world)!.label}.`;
     };
     const fillMarks = (b: HTMLElement) => {
       b.append(h('p.glede', { dataset: { case: 'keep' } }, 'How I show you what I see. Each one is numbered, named and live: tap it.'));
@@ -226,7 +251,7 @@ export const lookTab: TabDef = {
         const m = MARKS.find((x) => x.id === id)!;
         b.append(h('div.gmark', { dataset: { mark: id } }, h('div.gmark-head', index(n), tag(m.name)), h('p.gmark-rule', { dataset: { case: 'keep' } }, m.rule), stage, after ?? null));
       };
-      const theme = () => THEMES[themeKey(settings.get().theme)]!.label;
+      const theme = () => COLOUR_LABELS[recipe().colour];
       // 01 the stamp line
       const st2 = stampLine(() => ({ ...facts(), looking: 'the stamp line' }));
       stamps.push(st2);
@@ -247,15 +272,16 @@ export const lookTab: TabDef = {
       // 03 the tag
       block(3, 'tag', h('div.gstage', h('div.grow', tag('Home', { count: home().name }), tag('Theme', { count: theme(), tone: 'on' }), tag('Sounds', { count: settings.get().sounds ? 'on' : 'off' }), tag('In the works', { tone: 'warn' }))));
       // 04 the truth line
-      block(4, 'truth', h('div.gstage', truthLine([{ text: 'Home', tone: 'strong' }, home().name, `${home().lat.toFixed(3)}, ${home().lon.toFixed(3)}`]), truthLine([{ text: 'Theme', tone: 'strong' }, { text: theme(), tone: 'on' }, `${Object.keys(THEMES).length} to choose from`])));
+      block(4, 'truth', h('div.gstage', truthLine([{ text: 'Home', tone: 'strong' }, home().name, `${home().lat.toFixed(3)}, ${home().lon.toFixed(3)}`]), truthLine([{ text: 'Theme', tone: 'strong' }, { text: theme(), tone: 'on' }, `${PRESETS.length} presets to choose from`])));
       // 05 the plate
       block(5, 'plate', h('div.gstage', h('div.gplates', plate({}, tag('Plate'), truthLine('One step up')), plate({ strong: true }, tag('Strong'), truthLine('Brought forward')))));
       // 06 the key: a press is recognised, with the one tone (his sound setting decides whether it is heard)
       const keyStage = h('div.gstage');
       const keyBox = lockBox(keyStage);
       const keySaid = truthLine('Press a key');
+      // (the words say the lock the moment it is decided, as the box closes on the key)
       const pressed = (b2: HTMLButtonElement, word: string) => {
-        void recognise(keyBox, b2, { name: word }).then((fresh) => keySaid.replaceChildren(...truthLine(fresh ? [{ text: `Pressed ${word}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `${word} again`, tone: 'strong' }, 'held, no second tone']).childNodes));
+        void recognise(keyBox, b2, { name: word, onLock: (fresh) => keySaid.replaceChildren(...truthLine(fresh ? [{ text: `Pressed ${word}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `${word} again`, tone: 'strong' }, 'held, no second tone']).childNodes) });
       };
       keyStage.append(h('div.gkeys',
         key('Open', (b2) => pressed(b2, 'Open'), { kind: 'fill', label: 'Open: the one filled key' }),
@@ -291,7 +317,7 @@ export const lookTab: TabDef = {
       const recSaid = truthLine('Tap a thing');
       const thing = (label: string, glyph: string) => {
         const b2 = h('button.gthing', { type: 'button', 'aria-label': label, dataset: { case: 'keep' } }, icon(glyph), label);
-        b2.addEventListener('click', () => void recognise(recBox, b2, { name: label }).then((fresh) => recSaid.replaceChildren(...truthLine(fresh ? [{ text: `Locked on ${label}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `Still on ${label}`, tone: 'strong' }, 'no second tone']).childNodes)));
+        b2.addEventListener('click', () => void recognise(recBox, b2, { name: label, onLock: (fresh) => recSaid.replaceChildren(...truthLine(fresh ? [{ text: `Locked on ${label}`, tone: 'on' }, settings.get().sounds ? 'one tone' : 'sound off, no tone'] : [{ text: `Still on ${label}`, tone: 'strong' }, 'no second tone']).childNodes) }));
         return b2;
       };
       recStage.append(h('div.gthings', thing('Library', GLYPH.book), thing('Agenda', GLYPH.agenda), thing('God’s eye', GLYPH.globe)), recSaid);
@@ -325,7 +351,7 @@ export const lookTab: TabDef = {
         eye!.set(s);
         idle.setAttribute('aria-pressed', String(s === 'idle'));
         listen.setAttribute('aria-pressed', String(s === 'listening'));
-        const still = motion.matches;
+        const still = motion.matches || document.documentElement.dataset.motion === 'calm';
         // (drawn flat, it neither turns nor breathes, and says so)
         const flat = eye!.info.mode === 'flat';
         said.replaceChildren(...truthLine(s === 'idle' ? (flat ? ['Idle', 'drawn flat, still'] : still ? ['Idle', 'held still'] : ['Idle', 'turning slowly']) : [{ text: 'Listening', tone: 'on' }, flat ? 'drawn flat, still' : still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
@@ -339,11 +365,15 @@ export const lookTab: TabDef = {
 
     // ---------------------------------------------------------------- THEMES
     let swatches: ReturnType<typeof themeSwatches> | null = null;
+    let dials: ReturnType<typeof lookDials> | null = null;
     const fillThemes = (b: HTMLElement) => {
       swatches = themeSwatches({ measure: true, label: 'Theme' });
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Twelve colours for the same screens. A tap applies it at once, everywhere; this phone keeps it, and I wake up in it.'),
-        plate({}, tag('Held to the floor', { tone: 'on' }), truthLine(['Every theme', `text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, 'on every surface'])),
-        swatches.el);
+      dials = lookDials({ label: 'The look’s dials' });
+      b.append(h('p.glede', { dataset: { case: 'keep' } }, `A theme is a recipe: a ground, a colour, a world and the switches. ${PRESETS.length} presets to start from; turn any dial under them and I keep it as Custom.`),
+        plate({}, tag('Held to the floor', { tone: 'on' }), truthLine([`${GROUNDS.length} grounds × ${Object.keys(COLOUR_LABELS).length} colours`, `text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, `in all ${WORLDS.length} worlds`])),
+        swatches.el,
+        dials.el,
+        plate({}, tag('Orbit'), truthLine(ORBIT_LINE), truthLine(ROOMS_LINE)));
       swatches.paint();
     };
 
@@ -385,12 +415,22 @@ export const lookTab: TabDef = {
     requestAnimationFrame(() => setTimeout(later, 250));
 
     // ---------------------------------------------------------------- following the phone
+    let retoken = 0;
     settings.subscribe((s, p) => {
       if (s.sounds !== p.sounds) paintStates();
-      if (s.theme !== p.theme) swatches?.paint();
+      if (s.theme !== p.theme || s.look !== p.look) swatches?.paint();
+    });
+    // the recipe changing (a dial here or in Settings, the words, the day turning): the presets and the token values follow
+    recipeEvents.on('change', () => {
+      swatches?.paint();
+      clearTimeout(retoken);
+      retoken = window.setTimeout(() => {
+        if (!lookState.built.includes('tokens')) return;
+        P.tokens!.body.replaceChildren();
+        fillTokens(P.tokens!.body);
+      }, 250);
     });
     // the accent block's live values and the measured contrast follow the theme (once it settles: a mood eases over a second)
-    let retoken = 0;
     themeEvents.on('change', () => {
       clearTimeout(retoken);
       retoken = window.setTimeout(() => {
@@ -407,6 +447,7 @@ export const lookTab: TabDef = {
       if (typed && now !== said && secs.current() === 'marks') void typed.type((said = now));
     });
     motion.addEventListener?.('change', paintStates);
+    recipeEvents.on('change', paintStates);
     addEventListener('online', restamp);
     addEventListener('offline', restamp);
     return {

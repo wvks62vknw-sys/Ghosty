@@ -60,5 +60,20 @@ export function textVariant(accent: RGB, pale: RGB, surfaces: RGB[]): RGB {
   return pale;
 }
 
+/**
+ * The accent on a light ground (Paper, BRIEF-THEMES-2): the accent itself where it clears 5:1 on every surface there, else the
+ * accent moved towards the ground's ink, in steps of 2 %, until it does (as text that is 5:1, and so as a line well over 3:1).
+ * The ink itself if nothing short of it clears. tokens.css holds each theme's (--g-accent-ink); a mood's is worked out so too.
+ */
+export function inkVariant(accent: RGB, ink: RGB, surfaces: RGB[]): RGB {
+  const clears = (c: RGB) => surfaces.every((s) => contrast(c, s) >= FLOOR.accentAsText);
+  if (clears(accent)) return accent;
+  for (let t = 0.02; t < 1; t += 0.02) {
+    const c = mix(accent, ink, t);
+    if (clears(c)) return c;
+  }
+  return ink;
+}
+
 /** "9.2:1": a ratio as a person writes it (one decimal, never rounded up past the floor it is held to). */
 export const ratioWords = (r: number): string => `${(Math.floor(r * 10) / 10).toFixed(1)}:1`;

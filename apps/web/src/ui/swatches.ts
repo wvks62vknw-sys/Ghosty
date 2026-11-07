@@ -1,15 +1,18 @@
 /**
- * THE TWELVE THEMES AS LIVE SWATCHES (BRIEF-DESIGN-SYSTEM 4, BRIEF-THEMES 2): one row per theme, drawn by the design system
- * itself in that theme's own accent block (`data-accent`: tokens.css), so a swatch is never a picture and never disagrees with
- * the theme it applies. Each row: the eye in its colour inside a reticle, the name, the tag line; the one in use is the
- * attended thing (a full box in its accent, IN USE in words, never colour alone). A tap applies it at once, everywhere, with
- * the toast; the phone keeps the pick (state/theme.ts). Settings → Theme and Settings → THE LOOK both show these.
- * `measure`: each row also prints its accent's worst contrast as text and as a line on the system's surfaces, read live.
+ * THE PRESETS AS LIVE SWATCHES (BRIEF-THEMES-2 5; BRIEF-DESIGN-SYSTEM 4): one row per preset — the twelve colours (Graphite + the
+ * colour + The Scan), then the directions seen along the way (The Scan, The Map, The Eye, One Ink, Glass) — drawn by the design
+ * system itself, so a swatch is never a picture and never disagrees with what it applies. Each row's preview shows the preset's
+ * GROUND, COLOUR and FLOOR at once: it stands on its ground (`data-ground`), in its colour (`data-accent`) and its world
+ * (`data-world`: the floor's points, grid or grain, and the world's corners), with the eye in its colour inside a reticle drawn
+ * the world's way. The one in use is the attended thing (a full box in its accent, IN USE in words, never colour alone); a
+ * recipe that is no preset says so above them: CUSTOM, kept exactly as set. A tap applies the preset at once, everywhere, with
+ * the toast; the phone keeps it (state/theme.ts). Settings → Theme and Settings → THE LOOK both show these.
+ * `measure`: each row also prints its accent's worst contrast as text and as a line on the ground in force, read live.
  */
 import { clear, h } from '../core/dom';
 import { contrast, parseColour, ratioWords, type RGB } from '../design/contrast';
-import { applyTheme, themeKey, THEMES } from '../state/theme';
-import { settings } from '../state/app';
+import { applyPreset, presetNow, PRESETS, recipe, recipeNow } from '../state/theme';
+import { COLOUR_LABELS, groundOf, worldOf } from '../../../../packages/shared/src/themes';
 import { toast } from './components';
 import { eyeGlyph } from './machine';
 
@@ -27,20 +30,28 @@ export function accentContrast(el: Element): { text: number; line: number } | nu
 export function themeSwatches(o: { measure?: boolean; label?: string } = {}): { el: HTMLElement; paint(): void } {
   const el = h('div.swatches', { role: 'radiogroup', 'aria-label': o.label ?? 'Theme', dataset: { g: 'swatches' } });
   const paint = () => {
-    const cur = themeKey(settings.get().theme);
-    clear(el, ...Object.entries(THEMES).map(([k, t]) => {
-      const on = cur === k;
+    const cur = presetNow()?.key ?? '';
+    const r = recipe();
+    // a recipe that is no preset: said above them, in use, kept exactly as set
+    const custom = cur
+      ? null
+      : h('div.swcustom', { role: 'status', dataset: { case: 'keep', g: 'custom' } },
+        h('span.swcustom-k', 'Custom'), h('span.swcustom-v', ...recipeNow(r).split(' · ').flatMap((part, i) => (i ? [' · ', h('span', part)] : [h('span', part)]))), h('span.swstate', 'In use'));
+    clear(el, custom, ...PRESETS.map((p) => {
+      const on = cur === p.key;
       const reads = o.measure ? h('span.swread', { dataset: { case: 'keep' } }) : null;
-      const b = h('button.swatch', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-label': `${t.label}: ${t.tag}${on ? ', in use' : ''}`, dataset: { theme: k, accent: k, case: 'keep', g: 'swatch' } },
-        h('span.swprev', { 'aria-hidden': 'true' }, h('span.g-ret-frame'), eyeGlyph(30)),
-        h('span.swtxt', h('b', { dataset: { case: 'keep' } }, t.label), h('small', { dataset: { case: 'keep' } }, t.tag), reads),
+      // the directions say their recipe; the twelve are the colour on Graphite in The Scan
+      const recipeLine = p.from ? `${groundOf(p.ground)!.label} · ${COLOUR_LABELS[p.colour]} · ${worldOf(p.world)!.label}` : '';
+      const b = h('button.swatch', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-label': `${p.label}: ${p.tag}${recipeLine ? ` (${recipeLine})` : ''}${on ? ', in use' : ''}`, dataset: { theme: p.key, preset: p.key, accent: p.colour, case: 'keep', g: 'swatch' } },
+        h('span.swprev', { 'aria-hidden': 'true', dataset: { ground: p.ground, world: p.world, accent: p.colour } }, h('i.g-floor'), h('span.g-ret-frame'), eyeGlyph(30)),
+        h('span.swtxt', h('b', { dataset: { case: 'keep' } }, p.label), h('small', { dataset: { case: 'keep' } }, p.tag), recipeLine ? h('span.swrecipe', { dataset: { case: 'keep' } }, recipeLine) : null, reads),
         h('span.swstate', { 'aria-hidden': 'true', dataset: { case: 'keep' } }, on ? 'In use' : ''),
       );
       b.classList.toggle('on', on);
       b.addEventListener('click', () => {
-        if (themeKey(settings.get().theme) === k) return;
-        applyTheme(k);
-        toast(`Theme: ${t.label}`, 'ok');
+        if (presetNow()?.key === p.key) return;
+        applyPreset(p);
+        toast(`Theme: ${p.label}`, 'ok');
       });
       return b;
     }));

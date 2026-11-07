@@ -371,10 +371,13 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await page.waitForTimeout(1000);
     await openPanel(page, 'settings', 'THEME');
     // [design system] the twelve (BRIEF-DESIGN-SYSTEM 4: Reactor and Graphite, then BRIEF-THEMES' ten), each swatch drawn in its
-    // own theme's accent block (data-accent, tokens.css): the one being tried carries exactly its accent
+    // own theme's accent block (data-accent, tokens.css): the one being tried carries exactly its accent; then the directions
     const sw = await page.$$eval('#pg-settings .swatch', (bs) => bs.map((b) => ({ id: b.dataset.theme, name: b.querySelector('b')?.textContent, on: b.getAttribute('aria-checked'), accent: b.dataset.accent, c: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
-    const TWELVE = 'Reactor,Graphite,Ember,Gold,Crimson,Violet,Emerald,Ice,Rose,Lime,Sunset,Mono';
-    if (sw.map((x) => x.name).join(',') !== TWELVE || sw.some((x) => x.accent !== x.id || !/^#[0-9a-f]{6}$/i.test(x.c)) || sw.find((x) => x.id === name)?.c !== hex) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
+    // [themes2] the presets in their order (BRIEF-THEMES-2 5): the twelve, then the directions seen along the way, each drawn in
+    // its own colour (The Scan, The Map, The Eye and Glass in Reactor, One Ink in Gold)
+    const PRESETS = 'Reactor,Graphite,Ember,Gold,Crimson,Violet,Emerald,Ice,Rose,Lime,Sunset,Mono,The Scan,The Map,The Eye,One Ink,Glass';
+    const COLOUR = { scan: 'reactor', map: 'reactor', eye: 'reactor', oneink: 'gold', glass: 'reactor' };
+    if (sw.map((x) => x.name).join(',') !== PRESETS || sw.some((x) => x.accent !== (COLOUR[x.id] ?? x.id) || !/^#[0-9a-f]{6}$/i.test(x.c)) || sw.find((x) => x.id === name)?.c !== hex) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
     // every swatch a 44 pt target where it is tapped: the list is longer than the screen now, so each is brought to the middle
     // first (a row half under the floating tab bar is scrolled to, not tapped there)
     for (const x of sw) {

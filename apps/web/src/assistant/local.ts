@@ -41,10 +41,11 @@ import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
+import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv';
+  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -172,6 +173,16 @@ type Opts = { voice?: boolean; private?: boolean };
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
+  // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",
+  // "follow the day", a switch or a colour by name: applied at once, said in a sentence (what changed, what stayed), no model
+  async look(text, opts) {
+    const ask = lookAsked(text);
+    if (!ask) return false;
+    const theme = await import('../state/theme');
+    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });
+    theme.applyRecipe(next);
+    return answer(text, said, { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
+  },
   // the car (car/ask.ts): its views open in the Studio; what is wrong with it lands on its CAR card
   carview: (text, opts) => carViewTurn(text, opts, answer),
   carfault: (text, opts) => carFaultTurn(text, opts),

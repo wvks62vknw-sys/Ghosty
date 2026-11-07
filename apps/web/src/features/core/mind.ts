@@ -22,7 +22,7 @@ import type { VoiceState } from '../../state/app';
 import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
-import { themeEvents } from '../../state/theme';
+import { glowNow, themeEvents } from '../../state/theme';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // three.js is typed by hand for the studio (studio/three.ts) and only for what the studio calls; the hero uses a few
@@ -925,8 +925,10 @@ export class Mind {
     P.h2.material.color.copy(tint(C.c));
     P.h3.material.color.copy(tint(C.c));
     P.h1.material.opacity = 0.85 * b.core;
-    P.h2.material.opacity = 0.45 * p.bright * b.core;
-    P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core);
+    // its halos glow as much as the world does (BRIEF-THEMES-2: a world governs the orb's glow, never its draw; GLOW off: none)
+    const halo = glowNow();
+    P.h2.material.opacity = 0.45 * p.bright * b.core * halo;
+    P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core) * halo;
     P.nucleus.visible = b.core > 0.02;
     P.nucleus.material.color.copy(tint(0xffffff));
     // nodes: lit ones brighter; studying or training, a steady slow pulse
@@ -938,7 +940,7 @@ export class Mind {
       P.lit.material.opacity = Math.min(1, 0.85 * p.bright) * seen;
       P.lit.material.color.copy(tint(C.c));
       P.litCore.material.opacity = seen;
-      P.halo.material.opacity = 0.16 * p.bright * beat * seen;
+      P.halo.material.opacity = 0.16 * p.bright * beat * seen * halo;
       P.halo.material.color.copy(tint(C.c));
       P.linkLit.opacity = 0.34 * p.bright * b.links;
       P.linkLit.color.copy(tint(C.c));

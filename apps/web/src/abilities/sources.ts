@@ -29,6 +29,7 @@ import { META as GAMES } from '../gym/meta';
 import { ME_CARDS, ME_ROWS } from '../shell/areadefs';
 import { DECK, type DeckAct } from '../shell/deckcopy';
 import { THEMES } from '../state/theme';
+import { DIRECTIONS, GROUNDS, SWITCHES, WORLDS } from '../../../../packages/shared/src/themes';
 
 /** Where each screen sits among the eight (the owner's way of thinking, a design pick); a screen added since is DO FOR YOU. */
 export const SCREEN_CAT: Record<string, AbilityCat> = {
@@ -124,6 +125,13 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const id of hubs) add({ id: `hub:${id}`, kind: 'hub', screen: have.has(id) ? id : 'core', cat: SCREEN_CAT[id] ?? 'talk', go: { open: have.has(id) ? id : 'core' } });
   // (Reactor and Graphite since 18 Oct; the ten of BRIEF-THEMES joined with the design system, their words say when)
   for (const id of Object.keys(THEMES)) add({ id: `theme:${id}`, kind: 'theme', screen: 'settings', cat: 'talk', go: { open: 'settings', panel: 'THEME' }, since: '2026-10-18' });
+  // [themes2] THE RECIPE (BRIEF-THEMES-2): each ground, each world, each switch, and the six directions (five presets, and Orbit
+  // said honestly as a way round, not a look); each found where it is turned, Settings → Theme
+  const recipeGo = { open: 'settings', panel: 'THEME' } as const;
+  for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  for (const sw of SWITCHES) add({ id: `theme:switch:${sw.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  for (const d of DIRECTIONS) add({ id: `theme:preset:${d.key}`, kind: 'theme', screen: d.preset ? 'settings' : 'look', cat: 'talk', go: d.preset ? recipeGo : { open: 'look' }, since: '2026-11-07' });
   for (const k of MOOD_KINDS) add({ id: `mood:${k}`, kind: 'mood', cat: 'talk', go: { run: 'open_me' }, since: '2026-10-31' });
   for (const a of APP_WIDE) add({ id: `app:${a.id}`, kind: 'app', cat: 'do' });
   return out;

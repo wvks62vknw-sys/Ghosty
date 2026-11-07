@@ -12,7 +12,7 @@
  * Home's hero, the switcher and the boot keep today's Mind until the shell pass moves them onto this one.
  */
 import { h } from '../core/dom';
-import { themeEvents } from '../state/theme';
+import { recipeEvents, themeEvents } from '../state/theme';
 import { eyeGlyph } from './machine';
 
 export type EyeState = 'idle' | 'listening';
@@ -113,7 +113,8 @@ void main() {
 }
 `;
 
-const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Held still: Reduce Motion (it always wins), or MOTION set to calm (BRIEF-THEMES-2). */
+const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
 const triplet = (el: Element, name: string, fallback: [number, number, number]): [number, number, number] => {
   const v = getComputedStyle(el).getPropertyValue(name).split(',').map((x) => parseFloat(x));
   return v.length === 3 && v.every((x) => Number.isFinite(x)) ? (v.map((x) => x / 255) as [number, number, number]) : fallback;
@@ -231,11 +232,13 @@ export function machineEye(size: number, o: { label?: string } = {}): Eye {
   document.addEventListener('visibilitychange', vis);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
   const onMotion = () => {
-    info.still = motion.matches || info.mode === 'flat';
+    info.still = still() || info.mode === 'flat';
     name();
     kick();
   };
   motion.addEventListener?.('change', onMotion);
+  // MOTION switched between alive and calm: it breathes again, or holds still
+  const offRecipe = recipeEvents.on('change', onMotion);
   const offTheme = themeEvents.on('change', () => {
     readColours();
     kick();
@@ -259,6 +262,7 @@ export function machineEye(size: number, o: { label?: string } = {}): Eye {
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', vis);
       motion.removeEventListener?.('change', onMotion);
+      offRecipe();
       if (typeof offTheme === 'function') offTheme();
     },
   };

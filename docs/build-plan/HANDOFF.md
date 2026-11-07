@@ -126,6 +126,17 @@ folder that no longer exists; ignore those paths).
   a fresh builder continues in the same worktree from its last commit. 06:05 UK: PR #61 red on smoke shard 1 only (the manuals
   spec still waited for the old pop-up reader); fixed in the spec at the cause (OWNER-ISSUES 146), reproduced and green locally,
   pushed. The merged design-system worktree was removed.
+  07:02 UK: PR #61 green on every job and MERGED (main b03bf93); unsubscribed, branch restarted from main, the reader's worktree
+  removed, a check-in set for main's own run. THEMES-2 builder still validating in its worktree.
+  08:11 UK: main's own run 337 (b03bf93) green on every job: item 2, the library reader, FINISHED. THEMES-2 builder on its
+  last validation step (the full brain test on 566cb5a); every world's touched specs green so far, ui.spec a pre-existing flake
+  (same on the base commit).
+  08:45 UK: THEMES-2 reported (24 commits on builder/themes-2, every line of the brief, five questions with context, the
+  seven-step phone check); reviewed (guard and check.yml untouched, no forbidden files, no model names, no GPS: follow-the-day
+  reads the saved home and the clock, with a test asserting no geolocation call; screenshots looked at), merged into the session
+  branch (two additive conflicts: the Appearance footer keeps the Reading sentence, the look test keeps the reader test before
+  the themes tests). Locally: brain suite 1,779/1,779, typecheck, build, look/settings/deck/reader/tabs specs clean.
+  OWNER-ISSUES 147, STARS 170's gaps, STATUS 1(d) and section 2 written; PR #62 opened and subscribed.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
