@@ -6064,6 +6064,10 @@ html #pg-look::before, html #pg-settings .pn.themepn.pushed::before { content: '
 html #pg-settings .pn.themepn.pushed { background: var(--g-canvas); color: var(--g-ink-1); }
 html #pg-settings .pn.themepn.pushed > .bd { position: relative; }
 html body:is([data-tab="look"], .g-themepage) #top { background: var(--g-canvas); }
+/* today's pieces drawn in "the canvas colour" (a fade under the bar, a ring round the avatar) take this page's ground, not the night's */
+html body:is([data-tab="look"], .g-themepage) { --bg: var(--g-canvas); --bgr: var(--g-canvas-rgb); }
+/* a light page has no dark vignette at its edges, and nothing glows on it */
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage)::after { background: none; }
 html body:is([data-tab="look"], .g-themepage) #top .navtitle { color: var(--g-ink-1); }
 html body:is([data-tab="look"], .g-themepage) #top :is(.navback, .cmd) { background: rgba(var(--g-bone-rgb), .07) !important; box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint) !important; }
 html body:is([data-tab="look"], .g-themepage) #top .navback .ic { stroke: var(--g-ink-1); }

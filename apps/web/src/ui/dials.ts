@@ -82,7 +82,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
         face: eyeGlyph(26),
         onTap: () => change({ ...r, colour: k }, `Colour: ${COLOUR_LABELS[k]}`),
       }));
-      blocks.push(h('section.gdial', { dataset: { dial: 'colour' } }, head('Colour', COLOUR_LABELS[r.colour], `${COLOUR_LABELS[r.colour]}: ${THEMES[r.colour]?.tag ?? ''}. A colour changes my light and nothing else.`),
+      blocks.push(h('section.gdial', { dataset: { dial: 'colour' } }, head('Colour', COLOUR_LABELS[r.colour], `${THEMES[r.colour]?.tag ?? COLOUR_LABELS[r.colour]}. A colour changes my light and nothing else.`),
         h('div.gchoices.colours', { role: 'radiogroup', 'aria-label': 'Colour' }, ...chips)));
     }
     if (parts.includes('world')) {
@@ -93,7 +93,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
         onTap: () => change({ ...r, world: w.key }, `World: ${w.label}`),
       }));
       const wNow = worldOf(r.world)!;
-      blocks.push(h('section.gdial', { dataset: { dial: 'world' } }, head('World', wNow.label, `${wNow.label} (${wNow.from}): ${wNow.line.charAt(0).toLowerCase()}${wNow.line.slice(1)}`),
+      blocks.push(h('section.gdial', { dataset: { dial: 'world' } }, head('World', wNow.label, `${wNow.label}${/^[WD]\d$/.test(wNow.from) ? ` (${wNow.from})` : ''}: ${wNow.line.charAt(0).toLowerCase()}${wNow.line.slice(1)}`),
         h('div.gchoices.worlds', { role: 'radiogroup', 'aria-label': 'World' }, ...tiles),
         h('p.gdial-note', { dataset: { case: 'keep' } }, `${ORBIT_LINE} ${ROOMS_LINE}`)));
     }
