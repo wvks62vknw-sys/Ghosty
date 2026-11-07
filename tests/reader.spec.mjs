@@ -321,6 +321,19 @@ async function heardLine(page, from, re, timeout, what) {
   return ok;
 }
 const PAGE_LINE = /Page \d\. I['’]ll carry on from here\./;
+/**
+ * "Go on" carried on from the sentence he was in (`cut`: the piece being said when he stopped me, from the listen log): the first
+ * of the book said after the bridge starts that sentence in the same passage (a reading's first sentence is handed over in two
+ * pieces, so he may have stopped me in its second half: then the sentence is said again from its start, never from a fragment),
+ * and what he was hearing is said again.
+ */
+async function fromTheSentence(page, said, bridge, cut, since) {
+  // (the log has a piece once it is heard: the bridge is said first)
+  await page.waitForFunction((t) => window.__ghosty.reader.listen.pieces.some((p) => p.at > t && !p.line), since, { timeout: 8000 }).catch(() => undefined);
+  const first = await page.evaluate((t) => window.__ghosty.reader.listen.pieces.find((p) => p.at > t && !p.line) ?? null, since);
+  const again = said.slice(bridge + 1, bridge + 3).map((s) => s.text).join(' ');
+  return !!first && first.n === cut.n && first.off <= cut.off && cut.off - first.off < 300 && (again.includes(cut.text) || cut.text.startsWith(said[bridge + 1]?.text.slice(0, 20) ?? '\u0000'));
+}
 
 /** The Library on the Shelf pill, with the two books added if they are not there yet (each spec run adds its own, by RUN). */
 async function shelfWithBooks(page) {
@@ -533,8 +546,13 @@ if (part('listen')) {
   check(lit.lit === String(lit.reading.lit) && lit.frame && lit.current === lit.lit && Number(lit.lit) >= 5, `[${name}] the lit passage does not follow the voice: ${JSON.stringify(lit)}`);
   check(lit.place?.n >= 5 && lit.place.n === lit.reading.n, `[${name}] the place did not move with the voice: ${JSON.stringify(lit.place)} (reading ${lit.reading.n})`);
   check(/attending/i.test(lit.bar) && /phone/i.test(lit.bar), `[${name}] the bar does not say it is attending, in the phone's voice: "${lit.bar}"`);
-  const litBox = await page.evaluate(() => { const r = document.querySelector('#pg-reader .grd-p.lit')?.getBoundingClientRect(); return r ? { top: r.top, bottom: r.bottom, h: innerHeight } : null; });
-  check(litBox && litBox.top < litBox.h - 120 && litBox.bottom > 0, `[${name}] the page did not follow the voice: the lit passage is off the screen ${JSON.stringify(litBox)}`);
+  // (in view is between the held pills and the bar: the words under either are hidden)
+  const litBox = await page.evaluate(() => {
+    const r = document.querySelector('#pg-reader .grd-p.lit')?.getBoundingClientRect();
+    const lh = parseFloat(getComputedStyle(document.querySelector('#pg-reader .grd-flow')).lineHeight);
+    return r ? { top: r.top, bottom: r.bottom, pills: document.querySelector('#pg-reader .secpills').getBoundingClientRect().bottom, bar: document.querySelector('#pg-reader .grd-bar').getBoundingClientRect().top, lh } : null;
+  });
+  check(litBox && litBox.top < litBox.bar - litBox.lh && litBox.bottom > litBox.pills + litBox.lh, `[${name}] the page did not follow the voice: the lit passage is not between the pills and the bar ${JSON.stringify(litBox)}`);
   // a chapter's end names the next chapter: Chapter Three's head is read as it comes
   await until(page, () => window.__ghosty.reader.listen.pieces.some((p) => /^Chapter Three/.test(p.text)), null, 30000, `[${name}] the next chapter's name was not said at the chapter's end`);
   await page.screenshot({ path: `${out}/reader-listen-440.png` });
@@ -585,7 +603,7 @@ if (part('talk')) {
   const resumed = await synthSince(page, endAt);
   const bridge = resumed.findIndex((s) => /^Back to The Lighthouse Keeper/.test(s.text));
   measured.resumeMs = bridge >= 0 ? resumed[bridge].startAt - endAt : null;
-  check(bridge >= 0 && resumed[bridge + 1] && cutPiece.text.startsWith(resumed[bridge + 1].text.slice(0, 20)), `[${name}] after the bridge came "${resumed[bridge + 1]?.text}", not the cut sentence "${cutPiece.text}"`);
+  check(bridge >= 0 && resumed[bridge + 1] && (await fromTheSentence(page, resumed, bridge, cutPiece, endAt)), `[${name}] after the bridge came "${resumed[bridge + 1]?.text}", not the cut sentence "${cutPiece.text}"`);
   check(!resumed.some((s) => /^Chapter One: The Lamp/.test(s.text)), `[${name}] "go on" started again from the top`);
   check(!(await page.evaluate(() => document.body.innerText.includes('Mock reply to: go on'))), `[${name}] "go on" went to the brain`);
   // a question mid-read: answered (by the brain), then "go on" goes back to the book from the same sentence
@@ -605,7 +623,7 @@ if (part('talk')) {
   await until(page, (t) => window.__talk.synth.some((s) => s.calledAt > t && /^Back to The Lighthouse Keeper/.test(s.text)), g2, 12000, `[${name}] "go on" after the answer did not go back to the book`);
   const back2 = await synthSince(page, g2);
   const b2 = back2.findIndex((s) => /^Back to The Lighthouse Keeper/.test(s.text));
-  check(b2 >= 0 && back2[b2 + 1] && q0.text.startsWith(back2[b2 + 1].text.slice(0, 20)), `[${name}] after the answer the book carried on from "${back2[b2 + 1]?.text}", not "${q0.text}"`);
+  check(b2 >= 0 && back2[b2 + 1] && (await fromTheSentence(page, back2, b2, q0, g2)), `[${name}] after the answer the book carried on from "${back2[b2 + 1]?.text}", not the sentence of "${q0.text}"`);
   // "stop reading": it ends, and the page is said
   await until(page, () => window.__ghosty.reader.reading.state === 'reading', null, 8000);
   await page.waitForTimeout(1200);
@@ -748,6 +766,9 @@ if (part('fit')) {
     await page.waitForTimeout(500);
     const pg = await page.evaluate(() => { const p = document.querySelector('#pg-reader .grd-page'); const lh = parseFloat(getComputedStyle(document.querySelector('#pg-reader .grd-flow')).lineHeight); return { pages: p.classList.contains('pages'), inner: p.clientHeight - 32, lh, screen: window.__ghosty.reader.screen, screens: window.__ghosty.reader.screens }; });
     check(pg.pages && pg.inner % pg.lh === 0 && pg.screens > 1, `[${name}] pages mode is not a box of whole lines: ${JSON.stringify(pg)}`);
+    // the bar sits under the page, never held over its last lines
+    const below = await page.evaluate(() => ({ page: document.querySelector('#pg-reader .grd-page').getBoundingClientRect().bottom, bar: document.querySelector('#pg-reader .grd-bar').getBoundingClientRect().top }));
+    check(below.bar >= below.page - 0.5, `[${name}] in pages mode the bar covers the page's last lines: ${JSON.stringify(below)}`);
     await page.click('#pg-reader .grd-prefsbox .g-key[aria-label^="Text"]').catch(() => undefined);
     await page.click('#pg-reader .grd-bar .g-key[aria-label="Next page"]');
     await page.waitForTimeout(500);

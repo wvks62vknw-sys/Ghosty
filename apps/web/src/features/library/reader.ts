@@ -402,7 +402,11 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       return;
     }
     const rect = flow.getBoundingClientRect();
-    const target = hud.scrollTop + rect.top + yIn(n, off) - stuckBottom();
+    // a place in the first lines of its paragraph shows the paragraph from its start (the box round it whole); deeper, the line
+    const para = paraAt(n, off);
+    const y = yIn(n, off);
+    const start = para ? topIn(para) : y;
+    const target = hud.scrollTop + rect.top + (y - start <= lh() * 4 ? start : y) - stuckBottom();
     hud.scrollTo({ top: Math.max(0, target), behavior: smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
   };
 
@@ -418,8 +422,12 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     auto = performance.now();
     hud.scrollTop += page.getBoundingClientRect().top - stuckBottom();
     const top = page.getBoundingClientRect().top;
-    const tab = (document.querySelector('#dock') as HTMLElement | null)?.getBoundingClientRect().top ?? innerHeight;
-    const room = Math.max(lh() * 6, Math.min(innerHeight, tab) - top - bar.offsetHeight - 16);
+    // the lowest the bar's foot can sit (the column's foot less its padding, which keeps the tab bar's room, less the bar's own
+    // step): the page and the bar under it fit above that, so the bar is never held over the page
+    const hcs = getComputedStyle(hud);
+    const bcs = getComputedStyle(bar);
+    const floor = Math.min(innerHeight, hud.getBoundingClientRect().bottom) - (parseFloat(hcs.paddingBottom) || 0) - (parseFloat(bcs.bottom) || 0);
+    const room = Math.max(lh() * 6, floor - top - bar.offsetHeight - (parseFloat(bcs.marginTop) || 0) - 2);
     const pad = 16;
     const lines = Math.max(4, Math.floor((room - pad * 2) / lh()));
     step = lines * lh();
@@ -493,7 +501,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       const frac = Math.max(0, Math.min(1, (y - r.top) / Math.max(1, r.height)));
       // the end of the book in view: finished
       const last = els[els.length - 1];
-      const atEnd = !!last && last.getBoundingClientRect().bottom <= innerHeight - bar.offsetHeight;
+      const atEnd = !!last && last.getBoundingClientRect().bottom <= bar.getBoundingClientRect().top;
       keepAt(atEnd ? book!.passages.length - 1 : n, atEnd ? Math.max(0, book!.passages[book!.passages.length - 1]!.text.length - 1) : Math.round(frac * (book!.passages[n]?.text.length ?? 0)));
       if (box && !box.hidden) release(box);
     });
@@ -637,9 +645,9 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
         const y = yIn(s.n, s.off);
         if (y >= (screen + 1) * step - lh() || y < screen * step) pagesTo(s.n, s.off);
       } else {
-        const el = passageEl(s.lit);
-        const r = el?.getBoundingClientRect();
-        if (r && (r.top < pillsBottom() - 2 || r.top > innerHeight - bar.offsetHeight - lh() * 3)) scrollTo(s.lit, 0, true);
+        // the sentence being said kept in view between the held pills and the bar (the words under the bar are hidden)
+        const y = flow.getBoundingClientRect().top + yIn(s.n, s.off);
+        if (y < pillsBottom() - 2 || y > bar.getBoundingClientRect().top - lh() * 2) scrollTo(s.n, s.off, true);
       }
     }
     paintHead();

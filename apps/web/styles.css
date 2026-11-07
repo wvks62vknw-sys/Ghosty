@@ -6056,6 +6056,11 @@ html #pg-reader .pn > .bd { display: block; padding: 0; overflow: visible; max-h
    pages mode moves whole lines */
 html #pg-reader .grd-page { position: relative; padding: var(--g-s-2); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-plate); }
 html #pg-reader .grd-page.pages { overflow: hidden; touch-action: pan-y; }
+/* (a box clips at its padding's edge: the screens before and after would show a sliver of a line in the margins, so the margins
+   are the page's own plate laid over them) */
+html #pg-reader .grd-page.pages::before, html #pg-reader .grd-page.pages::after { content: ''; position: absolute; left: 0; right: 0; z-index: 1; height: var(--g-s-2); background: var(--g-plate); pointer-events: none; }
+html #pg-reader .grd-page.pages::before { top: 0; }
+html #pg-reader .grd-page.pages::after { bottom: 0; }
 html #pg-reader .grd-flow { --rd-size: 17px; --rd-lh: 28px; font-family: var(--g-font-serif); font-size: var(--rd-size); line-height: var(--rd-lh); color: var(--g-ink-1); font-variant-numeric: var(--g-num); transition: transform var(--g-dur-turn) var(--g-ease-bring); }
 html #pg-reader .grd-p { position: relative; }
 html #pg-reader .grd-tx { margin: 0 0 var(--rd-lh); font: inherit; color: inherit; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
@@ -6071,7 +6076,7 @@ html #pg-reader .grd-page .g-lock { z-index: 2; }
 html #pg-reader .grd-bar .grd-say { min-height: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 /* the bar under the page: quiet, kept in reach above the tab bar; LISTEN its one filled key */
 html #pg-reader .grd-bar { position: sticky; bottom: var(--g-s-1); z-index: 4; display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-2); padding: var(--g-s-1) var(--g-s-2); background: var(--g-plate-strong); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-front); }
-html body.tabbar #pg-reader .grd-bar { bottom: calc(var(--tabh) + var(--g-safe-bottom) + var(--g-s-1)); }
+/* (no room of its own for the tab bar: a held bar's foot is measured from the column's own padding, which already keeps it) */
 html #pg-reader .grd-keys, html .grd-prefs .grd-keys { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); }
 html #pg-reader .grd-bar .grd-keys > .g-key { flex: 1 1 auto; }
 html #pg-reader .grd-bar .grd-keys > .g-key[hidden] { display: none; }
@@ -6091,6 +6096,7 @@ html #app #pg-reader :is(button.grd-chrow, button.grd-hit) { display: grid; grid
 html #pg-reader :is(.grd-chtxt, .grd-hittxt) { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html #pg-reader .grd-chtxt b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html #pg-reader .grd-chrow[aria-current="true"] .grd-chtxt b { color: var(--g-accent-text); }
+html #app #pg-reader .grd-chapters > button.grd-chrow:first-child { border-top: 0; }
 html #pg-reader .grd-snip { font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html #pg-reader .grd-keys.find { flex-wrap: nowrap; margin-bottom: var(--g-s-1); }
 html #app #pg-reader input.grd-q { flex: 1 1 auto; min-width: 0; height: var(--g-target); margin: 0; padding: 0 var(--g-s-2); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); box-shadow: none; }
@@ -6115,11 +6121,17 @@ html .grd-cover.pic img { display: block; width: 100%; height: 100%; object-fit:
 html .grd-cover.drawn { flex-direction: column; justify-content: flex-start; gap: var(--g-s-half); padding: var(--g-s-1) var(--g-s-half); }
 html .grd-cover.drawn > .g-ret-frame { --rc: var(--g-accent); }
 html .grd-cover.drawn > .g-tag { max-width: 100%; padding: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); color: var(--g-accent-text); background: none; }
-html .grd-cover-t { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; font: 600 12px/16px var(--g-font-display); color: var(--g-ink-1); overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
+html .grd-cover-t { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; min-width: 0; max-width: 100%; overflow: hidden; font: 600 12px/16px var(--g-font-display); color: var(--g-ink-1); text-align: left; overflow-wrap: anywhere; -webkit-hyphens: auto; hyphens: auto; }
 html .grd-cover.big .grd-cover-t { -webkit-line-clamp: 6; font: var(--g-t-head); letter-spacing: var(--g-tr-body); }
 html .grd-cover-a { margin-top: auto; font: var(--g-t-fine); font-style: normal; color: var(--g-ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 html .grd-cover.row .grd-cover-a { display: none; }
-/* THE SHELF on the Library: his books as rows, each with its cover, who wrote it and how far he is; the sort as three keys */
+/* THE SHELF on the Library: his books as rows, each with its cover, who wrote it and how far he is; the sort as three keys. Its
+   own surface is the system's (his three rules on the Shelf too): a plate, square, the hairline; its name a tag; the field and the
+   fold drawn from the tokens. The Library's other panels keep their look until their own pass. */
+html #pg-library .pn.shelf { background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: var(--g-lift-plate); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html #pg-library .pn.shelf > h3 .ptitle[data-label]::before { --lfs: 13px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
+html #pg-library .pn.shelf > h3 small[data-label]::before { --lfs: 13px; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html #app #pg-library .pn.shelf input.shelffind { height: var(--g-target); padding: 0 var(--g-s-2); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-canvas); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); box-shadow: none; }
 html #pg-library .shelfhead { display: flex; flex-direction: column; gap: var(--g-s-1); padding: 0 0 var(--g-s-1); }
 html #pg-library .shelfsort { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: center; gap: var(--g-s-1); padding: 0 var(--g-s-2); }
 html #pg-library .shelfsort[hidden] { display: none; }
@@ -6135,7 +6147,7 @@ html #pg-library .pn.shelf .bookrow .btxt .k { font: var(--g-t-fine); letter-spa
 html #pg-library .pn.shelf .bookrow[data-state="finished"] .btxt .v { color: var(--g-ink-2); }
 html #pg-library .shelfempty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-2); padding: var(--g-s-2) 0 var(--g-s-3); }
 html #pg-library .shelfempty > p { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
-html #app #pg-library button.shelffold { width: 100%; min-height: var(--g-target); margin: var(--g-s-1) 0 0; }
+html #app #pg-library button.shelffold { width: 100%; min-height: var(--g-target); height: auto; margin: var(--g-s-1) 0 0; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-body) !important; letter-spacing: var(--g-tr-body); text-transform: none; white-space: normal; color: var(--g-ink-2); background: none; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* Reduce Motion: nothing travels (the durations are already nothing); the cursor holds still, lit */
 @media (prefers-reduced-motion: reduce) {

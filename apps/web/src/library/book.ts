@@ -318,7 +318,9 @@ export function findIn(book: Book, words: string, max = 60): Found[] {
     if (a > 0) a = p.text.indexOf(' ', a) + 1 || a;
     let b = Math.min(p.text.length, off + 120);
     if (b < p.text.length) b = Math.max(p.text.lastIndexOf(' ', b), off + 20);
-    out.push({ n: p.n, off, page: p.page, chapter: p.chapter, around: `${a > 0 ? '…' : ''}${p.text.slice(a, b).replace(/\s+/g, ' ').trim()}${b < p.text.length ? '…' : ''}`, terms });
+    // (a heading's mark, "# Chapter One", is not part of what he reads: the words around it are shown as the page shows them)
+    const words = p.text.slice(a, b).replace(/(^|\n)#{1,6}[ \t]+([^\n]*)\n*/g, '$1$2 — ').replace(/\s+/g, ' ').replace(/ — $/, '').trim();
+    out.push({ n: p.n, off, page: p.page, chapter: p.chapter, around: `${a > 0 ? '…' : ''}${words}${b < p.text.length ? '…' : ''}`, terms });
     if (out.length >= max) break;
   }
   return out;
