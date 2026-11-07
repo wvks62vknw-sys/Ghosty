@@ -130,6 +130,8 @@ export interface LibraryDoc {
   /** Part of the built-in starter library. */
   builtin: boolean;
   at: number;
+  /** Who wrote it, where the file says so (an e-book's, a Word file's or a PDF's own details). */
+  author?: string;
 }
 
 /** A passage found in the library. */
