@@ -181,6 +181,30 @@ export function stampWords(f: StampFacts, now = new Date()): string[] {
 }
 
 /**
+ * A stamp line typing itself (the boot, shell/boot.ts): the first `chars` characters of `words` joined by the dot, whole
+ * segments where the cursor has passed them, the block cursor while it is still writing (the typed-out line's own). True
+ * once the whole line is there.
+ */
+export function stampTyped(el: HTMLElement, words: string[], chars: number): boolean {
+  const full = words.join(' · ');
+  const n = Math.max(0, Math.min(full.length, Math.floor(chars)));
+  el.replaceChildren();
+  const list: { text: string }[] = [];
+  let at = 0;
+  for (const w of words) {
+    if (at >= n) break;
+    list.push({ text: w.slice(0, n - at) });
+    at += w.length + 3;
+  }
+  segments(el, list);
+  el.append(h('i.g-cursor', { 'aria-hidden': 'true' }));
+  const writing = n < full.length;
+  el.classList.toggle('writing', writing);
+  el.setAttribute('aria-label', words.join(', '));
+  return !writing;
+}
+
+/**
  * The Machine's point of view at the top of a screen, from real state (`facts()`: the clock, his home, the feeds watched, the
  * thing in focus). It keeps time on the minute while it is on the page; `look(thing)` says what it is looking at now.
  */
@@ -371,6 +395,23 @@ export function lockBox(host: HTMLElement): HTMLElement {
 }
 
 const lastLocked = new WeakMap<HTMLElement, Element>();
+/** The boxes holding a thing now (locked and not released): Mind attends while one of them is on screen. */
+const held = new Set<HTMLElement>();
+
+/**
+ * Whether a reticle has landed on a thing and is still on it (a lock box shown on a page that is on screen): the orb's
+ * ATTENDING state (features/core/mind.ts), one visible change while the box is there.
+ */
+export function attendingNow(): boolean {
+  for (const b of held) {
+    if (!b.isConnected) {
+      held.delete(b);
+      continue;
+    }
+    if (!b.hidden && b.offsetParent !== null) return true;
+  }
+  return false;
+}
 
 /**
  * The box snaps onto `thing` with one short tone: from a little wider and faint, it closes on the thing's edges over the
@@ -394,6 +435,7 @@ export async function recognise(box: HTMLElement, thing: Element, o: { name?: st
   box.hidden = false;
   box.dataset.state = 'attend';
   Object.assign(box.style, px(to));
+  held.add(box);
   const ms = dur('lock');
   marksState.locks++;
   marksState.lastLock = o.name ?? thing.getAttribute('aria-label') ?? '';
@@ -440,6 +482,7 @@ export async function search(box: HTMLElement, candidates: Element[], found: Ele
 export function release(box: HTMLElement): void {
   box.hidden = true;
   lastLocked.delete(box);
+  held.delete(box);
 }
 
 /** Whether a recognition would be heard now (his sounds on, the phone tapped once): THE LOOK says so when it would not. */

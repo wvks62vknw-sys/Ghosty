@@ -32,8 +32,8 @@ const preset = (name: string, line: string, more: string, say: string): CatValue
 export const LOOK_WORDS: Record<string, CatValue> = {
   'screen:look': {
     name: 'The look: how I draw',
-    line: 'You can see how I draw everything: my colours, my type, the marks I see with and my eye, each one live.',
-    more: 'Settings → The look. Every token with its job, the type at its own sizes, the marks I see with, working when you tap them, and my eye breathing. Then the presets and the dials: ground, colour, world and switches, each live.',
+    line: 'You can see how I draw everything: my colours, my type, the marks I see with and my orb, each one live.',
+    more: 'Settings → The look. Every token with its job, the type at its own sizes, the marks I see with, working when you tap them, and my orb in its five states. Then the presets and the dials: ground, colour, world and switches, each live.',
     say: ['Show me the look', 'How do you draw things?'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'panel:look:TOKENS': {
@@ -55,10 +55,10 @@ export const LOOK_WORDS: Record<string, CatValue> = {
     say: ['Show me your marks'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'panel:look:MIND': {
-    name: 'My eye, as I see',
-    line: 'You can see my eye: a sphere of points with what I know inside it, my core in your colour, breathing as I listen.',
-    more: 'Tap Listening and it breathes; with Reduce Motion on it holds still. It lives here for now: Home keeps today’s Mind until the new shell.',
-    say: ['Show me your eye'], scene: ['talking'], cat: 'talk', since: SINCE,
+    name: 'My orb and its five states',
+    line: 'You can see my orb, the hologram of what I know, in its five states: idle, listening, attending, thinking, saying.',
+    more: 'The same orb Home shows, never a copy, borrowed while you look: five stills, one for each state, and the live orb with a key for each. Lit in your colour from the tokens, its glow following the world; with Reduce Motion on it holds still.',
+    say: ['Show me your orb'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'panel:look:THEMES': {
     name: 'My looks, contrast measured',

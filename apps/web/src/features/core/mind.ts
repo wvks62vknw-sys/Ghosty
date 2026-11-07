@@ -13,8 +13,17 @@
  * phone's brain (heavy mode, core/heavy.ts), it draws one still frame for each change and runs no loop. reactor.ts keeps
  * today's 2-D reactor whenever this cannot run.
  *
- * Its light is the theme's accent (state/theme.ts writes it as --c, and a pale tint of it as --c2): the sphere's rim,
- * the lit nodes, their links and the pulses running along them all take it, and change with the theme at once.
+ * Its light is the theme's accent from the design system's tokens (--g-accent-rgb, --g-accent-pale-rgb and the colour's own
+ * glow --g-accent-glow, read through state/theme.ts `orbTokens()`): the sphere's rim, the lit nodes, their links and the
+ * pulses running along them all take it, and change with the theme at once.
+ *
+ * A LITTLE BETTER (BRIEF-ORB-AND-BOOT; his words, OWNER-ISSUES 142: "if you can make it a little better"), ported from the
+ * storyboard's orb.js (docs/build-plan/mockups/boot/2026-11-07), each marked BETTER below: (1) sharper where it is sharp: the
+ * nodes themselves (the unlit ones and the lit ones' cores) are crisp points with one pixel of feather, only the halos soft,
+ * and the crisp rim's Fresnel is tighter (power 9) so the edge reads as one line; (2) lit in his colour from the tokens, never
+ * a constant; (3) its glow follows the world: the halos are scaled by the world's glow times the GLOW switch (glowNow()) and by
+ * the colour's own glow (Mono's .25 dims the orb as it dims the room). FIVE STATES, each one visible change (STATES, for THE
+ * LOOK): idle, listening, attending (the reticle has landed on a thing: ui/machine.ts `attendingNow()`), thinking, saying.
  */
 import { brain } from '../../api/brain';
 import { heavy } from '../../core/heavy';
@@ -22,7 +31,8 @@ import type { VoiceState } from '../../state/app';
 import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
-import { glowNow, themeEvents } from '../../state/theme';
+import { glowNow, orbTokens, themeEvents } from '../../state/theme';
+import { attendingNow } from '../../ui/machine';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // three.js is typed by hand for the studio (studio/three.ts) and only for what the studio calls; the hero uses a few
@@ -40,8 +50,8 @@ export interface MindData {
   passages: number;
   fields: MindField[];
 }
-/** The hero's states: the voice states, plus studying or training (busy) and no connection (offline). */
-export type MindState = VoiceState | 'busy' | 'offline';
+/** The hero's states: the voice states, attending (the reticle on a thing), studying or training (busy) and no connection (offline). */
+export type MindState = VoiceState | 'attending' | 'busy' | 'offline';
 
 /** How many passages one node stands for, and the most nodes drawn (beyond that each node stands for more). */
 export const PER_NODE = 20;
@@ -92,17 +102,26 @@ export function plan(d: MindData): { fields: { name: string; nodes: number; lit:
   return { fields: out, nodes: out.reduce((n, f) => n + f.nodes, 0), lit: out.reduce((n, f) => n + f.lit, 0), perNode };
 }
 
-/** Can this browser draw WebGL at all? (Checked once, on a throwaway canvas.) */
+/** Can this browser draw WebGL at all? Checked ONCE, on a throwaway canvas, and remembered: the answer does not change in a
+ *  page's life, and making a WebGL context is dear (about 200 ms in a software renderer, and a context held until the next
+ *  collection on a phone), so the boot, the Mind's start and THE LOOK's borrow all share the one probe. */
+let webglKnown: boolean | null = null;
 export function webglWorks(): boolean {
+  if (webglKnown !== null) return webglKnown;
   try {
     const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') ?? c.getContext('webgl'));
+    const gl = c.getContext('webgl2') ?? c.getContext('webgl');
+    webglKnown = !!gl;
+    // let the probe's context go at once rather than wait for the collector (the page's real one is the Mind's)
+    (gl as WebGLRenderingContext | null)?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
-    return false;
+    webglKnown = false;
   }
+  return webglKnown;
 }
 
-const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** One still frame per change: the phone's Reduce Motion (it always wins), or MOTION set to calm (state/theme.ts writes data-motion). */
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'calm';
 /** A small seeded random number generator, so the constellation keeps its shape from one visit to the next. */
 function rng(seed: number): () => number {
   let s = seed >>> 0;
@@ -123,8 +142,20 @@ const TARGET: Record<MindState, { open: number; rim: number; bright: number; spi
   speaking: { open: 0.45, rim: 1.35, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0 },
   busy: { open: 0.15, rim: 1.1, bright: 1.05, spin: 0.1, pulses: 8, pace: 0.35, busy: 1, grey: 0 },
   offline: { open: 0, rim: 0.6, bright: 0.55, spin: 0.04, pulses: 0, pace: 0.2, busy: 0, grey: 1 },
+  // attending (BRIEF-ORB-AND-BOOT): the reticle has landed on a thing: it holds nearly still (the turn to a third of idle's) and
+  // its core brightens a step; the box in the accent round the thing is the mark that says so
+  attending: { open: 0.2, rim: 1.2, bright: 1.1, spin: 0.03, pulses: 6, pace: 0.3, busy: 0, grey: 0 },
 };
 type Params = (typeof TARGET)['idle'];
+
+/** The five states as THE LOOK names them, each one visible change, and the state of TARGET each one is ('saying' is 'speaking'). */
+export const STATES: { key: 'idle' | 'listening' | 'attending' | 'thinking' | 'saying'; name: string; state: MindState; line: string }[] = [
+  { key: 'idle', name: 'Idle', state: 'idle', line: 'Turns once in about 70 s and breathes 6 %; four slow pulses on the lit links.' },
+  { key: 'listening', name: 'Listening', state: 'listening', line: 'Opens 8 %, the rim 1.6× brighter; a pale ring round it grows with your voice.' },
+  { key: 'attending', name: 'Attending', state: 'attending', line: 'Holds still (the turn to a third) and brightens its core; the reticle is on the thing it attends to.' },
+  { key: 'thinking', name: 'Thinking', state: 'thinking', line: 'Thirty-six fast pulses run along the links and it turns twice as fast.' },
+  { key: 'saying', name: 'Saying', state: 'speaking', line: 'Opens half way and brightens; ten pulses keep time with the words while it speaks.' },
+];
 
 /**
  * What the boot cinematic (shell/boot.ts) asks of the scene in one frame, each 0..1 unless said: MIND waking up.
@@ -207,15 +238,12 @@ export function mindFor(anchor: HTMLCanvasElement | null): Mind {
   return theMind;
 }
 
-/** Reactor's cyan and its pale tint: what Mind is drawn in until the theme's tokens are read. */
-const CYAN = 0x64d2ff;
-const PALE = 0xbff0ff;
+/** Offline: everything drifts towards this grey. */
 const GREY = 0x8a949a;
 
-/** The theme's accent and its pale tint, from the page's tokens (--c, --c2). */
-export function accentTokens(): { c: string; pale: string } {
-  const cs = getComputedStyle(document.documentElement);
-  return { c: cs.getPropertyValue('--c').trim() || '#64d2ff', pale: cs.getPropertyValue('--c2').trim() || '#bff0ff' };
+/** The theme's accent, its pale tint and its own glow, from the design system's tokens (state/theme.ts orbTokens()). */
+export function accentTokens(): { c: string; pale: string; glow: number } {
+  return orbTokens();
 }
 
 export class Mind {
@@ -229,6 +257,7 @@ export class Mind {
   private spin: Any = null;
   private stars: Any = null;
   private glowTex: Any = null;
+  private pointTex: Any = null;
   private parts: Record<string, Any> = {};
   private pulses: { s: Any; link: [Any, Any]; off: number; sp: number }[] = [];
   private links: [Any, Any, boolean][] = [];
@@ -256,8 +285,11 @@ export class Mind {
   private pending: MindData | null = null;
   /** The warm return's breath: how fast the kick fades (per second). */
   private kickRate = 1.5;
-  /** The accent and the tints made from it (see colours()). */
+  /** The accent and the tints made from it (see colours()), and the colour's own glow (Mono .25: BETTER 3). */
   private col: Record<'c' | 'pale' | 'soft' | 'dimLink' | 'dimNode', Any> = {} as never;
+  private ownGlow = 1;
+  /** THE LOOK holds the scene (lend()): the host its canvas is in, drawn by THE LOOK's own loop (lentFrame()). */
+  private lent: HTMLElement | null = null;
   active = false;
 
   constructor(private anchor: HTMLCanvasElement | null) {
@@ -402,12 +434,101 @@ export class Mind {
     for (const o of extras) o.visible = false;
   }
 
-  /** One frame of the cinematic, `t` seconds into it. */
-  bootFrame(t: number, look: BootLook): void {
+  /** One frame of the cinematic, `t` seconds into it, in `state` (attending while the reticle is on it, saying with the greeting). */
+  bootFrame(t: number, look: BootLook, state: MindState = 'idle'): void {
     if (!this.active || !this.boot) return;
     this.boot = look;
+    const dt = Math.max(0, Math.min(0.25, t - this.t));
     this.t = t;
+    this.ease(state, dt);
     this.draw(reduced() ? 12.5 : t);
+  }
+
+  /** The state's numbers taken on over about a quarter of a second (whole at once with reduce motion). */
+  private ease(state: MindState, dt: number): void {
+    if (state !== this.st) {
+      this.st = state;
+      heroState.state = state;
+      this.changedAt = this.t;
+    }
+    const tg = TARGET[state];
+    if (reduced()) this.p = { ...tg };
+    else {
+      const k = Math.min(1, dt * 4);
+      for (const key of Object.keys(tg) as (keyof Params)[]) this.p[key] += (tg[key] - this.p[key]) * k;
+    }
+  }
+
+  // ---------------------------------------------------------------- THE LOOK (features/look): the orb and its five states
+  /**
+   * THE LOOK borrows the one Mind the way the boot does (never a copy: one WebGL context): the canvas moves into `host`, drawn at
+   * `w` × `h` by THE LOOK's own loop (lentFrame). False while the boot holds it or it is not running.
+   */
+  lend(host: HTMLElement, w: number, h: number): boolean {
+    if (!this.active || this.boot) return false;
+    this.lent = host;
+    host.append(this.canvas);
+    this.canvas.style.display = '';
+    this.size(w, h);
+    this.dirty = true;
+    return true;
+  }
+
+  /** One tick of THE LOOK's loop while it holds the scene, in `state`: 30 fps, 60 for a second after a change; one still per change under reduce motion or heavy mode. */
+  lentFrame(dt: number, state: MindState, level = 0): void {
+    if (!this.active || !this.lent || document.hidden) return;
+    const still = reduced() || heavy.get().on;
+    heroState.loop = !still;
+    this.level += (level - this.level) * Math.min(1, dt * 12);
+    if (state !== this.st) this.dirty = true;
+    this.t += dt;
+    if (still) {
+      if (!this.dirty) return;
+      this.ease(state, 1);
+    } else {
+      const fps = this.t - this.changedAt < 1 ? 60 : 30;
+      this.acc += dt;
+      if (this.acc < 1 / fps - 0.002 && !this.dirty) return;
+      this.ease(state, this.acc);
+      this.acc = 0;
+    }
+    this.dirty = false;
+    this.draw(still ? 12.5 : this.t);
+  }
+
+  /** One still of `state` from this one context, copied into a 2-D canvas (THE LOOK's five states side by side). */
+  still(state: MindState, into: HTMLCanvasElement): boolean {
+    if (!this.active || !this.renderer) return false;
+    const was = this.p;
+    const lv = this.level;
+    this.p = { ...TARGET[state] };
+    // (listening with a voice half way up, so its ring shows; thinking a little later on the clock, so its pulses sit elsewhere than idle's)
+    if (state === 'listening') this.level = 0.5;
+    this.draw(state === 'thinking' ? 12.9 : 12.5);
+    this.p = was;
+    this.level = lv;
+    const g = into.getContext('2d');
+    if (!g) return false;
+    g.clearRect(0, 0, into.width, into.height);
+    g.drawImage(this.canvas, 0, 0, into.width, into.height);
+    this.dirty = true;
+    return true;
+  }
+
+  /** THE LOOK has let go: the canvas goes back over Home's hero. */
+  giveBack(): void {
+    if (!this.lent) return;
+    this.lent = null;
+    for (const k of ['width', 'height', 'display'] as const) this.canvas.style[k] = '';
+    this.w = this.h = 0;
+    this.dirty = true;
+    if (this.anchor?.isConnected) this.place();
+    else this.canvas.remove();
+  }
+
+  /** Whether THE LOOK is holding the scene. */
+  get lentOut(): boolean {
+    return !!this.lent;
   }
 
   /** The cinematic has landed on Home's hero: the canvas goes back over it, drawn at once at the hero's size. */
@@ -489,13 +610,14 @@ export class Mind {
    */
   frame(dt: number, voice: VoiceState, level: number): void {
     if (!this.active) return;
-    if (this.boot) {
-      // the cinematic draws it (shell/boot.ts); the hero's 2-D canvas stays clear underneath
+    if (this.boot || this.lent) {
+      // the cinematic draws it (shell/boot.ts), or THE LOOK holds it; the hero's 2-D canvas stays clear underneath
       this.anchor?.classList.add('mindon');
       return;
     }
     this.place();
-    const st: MindState = ui.get().connected === false ? 'offline' : voice === 'idle' && (this.studyBusy || !!gymState.training) ? 'busy' : voice;
+    // attending: the reticle has landed on a thing (ui/machine.ts recognise) and is still on it
+    const st: MindState = ui.get().connected === false ? 'offline' : voice === 'idle' && attendingNow() ? 'attending' : voice === 'idle' && (this.studyBusy || !!gymState.training) ? 'busy' : voice;
     if (st !== this.st) {
       this.st = st;
       heroState.state = st;
@@ -529,7 +651,7 @@ export class Mind {
   /** Keep the WebGL canvas exactly over the 2-D one (Home lays out and sizes that one). */
   private place(): void {
     const a = this.anchor;
-    if (!a?.isConnected || this.boot) return;
+    if (!a?.isConnected || this.boot || this.lent) return;
     if (this.canvas.parentElement !== a.parentElement) a.after(this.canvas);
     this.canvas.style.display = '';
     a.classList.add('mindon');
@@ -562,14 +684,16 @@ export class Mind {
     this.dirty = true;
   }
 
-  /** The accent from the theme's tokens, and its tints: pale (the crisp rim, the listening ring), soft (the
-   *  equator and its ticks), and the near-white the unlit nodes and links are drawn in, faintly tinted. */
+  /** BETTER 2: the accent from the design system's tokens (never a constant), and its tints: pale (the crisp rim, the listening
+   *  ring), soft (the equator and its ticks), and the near-white the unlit nodes and links are drawn in, tinted from the same
+   *  accent; and the colour's own glow (BETTER 3: Mono's dims the halo as it dims the room). */
   private colours(): void {
     const T = this.T;
     const a = accentTokens();
     const c = new T.Color(a.c);
     const pale = new T.Color(a.pale);
     heroState.accent = a.c;
+    this.ownGlow = a.glow;
     this.col = { c, pale, soft: c.clone().lerp(pale, 0.55), dimLink: c.clone().lerp(new T.Color(0xd2dbe1), 0.6), dimNode: c.clone().lerp(new T.Color(0xe8ecef), 0.85) };
   }
 
@@ -591,10 +715,14 @@ export class Mind {
     this.scene.add(this.root);
     this.root.scale.setScalar(0.9);
     const P = this.parts;
+    // (every material starts in the tokens' accent and is tinted again each frame in draw(): nothing here is a constant colour)
+    const CYAN = this.col.c.getHex();
+    const PALE = this.col.pale.getHex();
 
     // the sphere: a crisp rim, a softer one, a faint inner haze, faint meridians, the equator scale, a tilted ring
     P.rimSoft = new T.Mesh(new T.SphereGeometry(1, 96, 64), this.fresnel(CYAN, 2.4, 0.5, T.DoubleSide));
-    P.rimCrisp = new T.Mesh(new T.SphereGeometry(1.002, 96, 64), this.fresnel(PALE, 7, 0.95, T.FrontSide));
+    // BETTER 1: the crisp rim's Fresnel a little tighter (9, not 7), so the sphere's edge reads as one line
+    P.rimCrisp = new T.Mesh(new T.SphereGeometry(1.002, 96, 64), this.fresnel(PALE, 9, 0.95, T.FrontSide));
     P.haze = new T.Mesh(new T.SphereGeometry(0.96, 48, 32), this.haze());
     this.root.add(P.haze, P.rimSoft, P.rimCrisp);
     const lineMat = (P.lineMat = new T.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.05, blending: T.AdditiveBlending, depthWrite: false }));
@@ -680,6 +808,25 @@ export class Mind {
     return this.glowTex;
   }
 
+  /** BETTER 1: a crisp point (a hard edge, one pixel of feather) for the nodes themselves; the halos keep the soft light. */
+  private pointTexture(): Any {
+    if (this.pointTex) return this.pointTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d')!;
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.5, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.62, 'rgba(255,255,255,0.35)');
+    grd.addColorStop(0.72, 'rgba(255,255,255,0)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    this.pointTex = new this.T.CanvasTexture(c);
+    this.pointTex.colorSpace = this.T.SRGBColorSpace;
+    return this.pointTex;
+  }
+
   private glow(color: number, size: number, opacity: number): Any {
     const T = this.T;
     const s = new T.Sprite(new T.SpriteMaterial({ map: this.glowTexture(), color, transparent: true, opacity, blending: T.AdditiveBlending, depthWrite: false, depthTest: false }));
@@ -705,7 +852,7 @@ export class Mind {
   private haze(): Any {
     const T = this.T;
     return new T.ShaderMaterial({
-      uniforms: { uColor: { value: new T.Color(CYAN) }, uStrength: { value: 0.07 } },
+      uniforms: { uColor: { value: this.col.c.clone() }, uStrength: { value: 0.07 } },
       vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
       fragmentShader: 'uniform vec3 uColor; uniform float uStrength; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(abs(dot(normalize(vN), normalize(vV))), 2.0); float a = f * uStrength; gl_FragColor = vec4(uColor * a, a); }',
       transparent: true,
@@ -732,6 +879,7 @@ export class Mind {
     this.links = [];
     const n = fields.length;
     if (!n) return;
+    const CYAN = this.col.c.getHex();
     const rand = rng(42 + n);
     const gauss = () => {
       let u = 0;
@@ -766,8 +914,8 @@ export class Mind {
       s.userData.lit = !!f.lit;
       g.add(s);
     });
-    const pts = (list: { p: Any }[], size: number, color: number, opacity: number) => {
-      const m = new T.PointsMaterial({ map: this.glowTexture(), color, size, sizeAttenuation: true, transparent: true, opacity, blending: T.AdditiveBlending, depthWrite: false });
+    const pts = (list: { p: Any }[], size: number, color: number, opacity: number, crisp: boolean) => {
+      const m = new T.PointsMaterial({ map: crisp ? this.pointTexture() : this.glowTexture(), color, size, sizeAttenuation: true, transparent: true, opacity, blending: T.AdditiveBlending, depthWrite: false });
       const o = new T.Points(new T.BufferGeometry().setFromPoints(list.map((x) => x.p)), m);
       // where each node lives, kept for the boot's drift in from the point of light
       o.userData.home = Float32Array.from(o.geometry.attributes.position.array as Float32Array);
@@ -777,10 +925,11 @@ export class Mind {
     };
     const lit = nodes.filter((x) => x.lit);
     const dim = nodes.filter((x) => !x.lit);
-    this.parts.dim = pts(dim, 0.085, 0xcfe3ec, 0.5);
-    this.parts.halo = pts(lit, 0.3, CYAN, 0.16);
-    this.parts.lit = pts(lit, 0.15, CYAN, 0.95);
-    this.parts.litCore = pts(lit, 0.05, 0xffffff, 1);
+    // BETTER 1: the nodes themselves crisp (the unlit ones, the lit ones' cores); the halo round a lit node stays soft
+    this.parts.dim = pts(dim, 0.05, 0xcfe3ec, 0.5, true);
+    this.parts.halo = pts(lit, 0.3, CYAN, 0.16, false);
+    this.parts.lit = pts(lit, 0.15, CYAN, 0.95, false);
+    this.parts.litCore = pts(lit, 0.045, 0xffffff, 1, true);
     // the boot's trails: two short segments behind each node as it gathers (tail dark, head bright: with additive light,
     // a streak that fades), drawn only while the boot gathers them
     {
@@ -925,8 +1074,9 @@ export class Mind {
     P.h2.material.color.copy(tint(C.c));
     P.h3.material.color.copy(tint(C.c));
     P.h1.material.opacity = 0.85 * b.core;
-    // its halos glow as much as the world does (BRIEF-THEMES-2: a world governs the orb's glow, never its draw; GLOW off: none)
-    const halo = glowNow();
+    // BETTER 3: its halos glow as much as the world does (BRIEF-THEMES-2: a world governs the orb's glow, never its draw; GLOW off
+    // and One Ink: none, the crisp parts stand alone) and as much as the colour's own glow (Mono's .25: as quiet as its room)
+    const halo = glowNow() * this.ownGlow;
     P.h2.material.opacity = 0.45 * p.bright * b.core * halo;
     P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core) * halo;
     P.nucleus.visible = b.core > 0.02;
@@ -974,6 +1124,7 @@ export class Mind {
 
   dispose(): void {
     this.active = false;
+    this.lent = null;
     this.io?.disconnect();
     this.canvas.remove();
     this.anchor?.classList.remove('mindon');

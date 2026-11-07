@@ -1,11 +1,13 @@
 // MIND, Home's 3-D centrepiece (features/core/mind.ts), on the iPhone 18 Pro Max's 440 × 956 with
 // software WebGL (SwiftShader, as tests/studio.spec.mjs runs it). Home shows the Mind canvas once three.js has loaded
 // from this site (/vendor/three, nothing from the network); its node count follows the brain's library counts (one
-// node per 20 passages, shared across the fields by their topics, lit by what is read); listening and thinking change
-// what is drawn (the exported state, and a pixel difference); it is drawn in the theme's accent and takes another
-// theme's at once (Reactor's cyan, Graphite's steel); with "reduce motion" it draws one frame and runs no
-// loop; with WebGL unavailable today's 2-D reactor stays. It also reports the frame time at idle and saves Home in
-// each state.
+// node per 20 passages, shared across the fields by their topics, lit by what is read); ITS FIVE STATES (BRIEF-ORB-AND-BOOT),
+// each one visible change: listening, attending (a reticle locked on a thing: ui/machine.ts recognise, through the test
+// handle __ghosty.machine), thinking and saying change what is drawn (the exported state, and a pixel difference), and
+// letting the box go brings it back to idle; it is drawn in the theme's accent from the tokens and takes another theme's
+// at once (Reactor's cyan, Graphite's steel; its own glow, Mono's quieter); with "reduce motion" it draws one frame and runs
+// no loop; with WebGL unavailable today's 2-D reactor stays. It also reports the frame time at idle and saves Home in each
+// state.
 //   BASE=http://localhost:8806 node tests/hero.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -135,6 +137,24 @@ const diff = (a, b) => a !== b;
   if (!diff(a, b)) problems.push('listening drew the same picture as idle');
   await page.screenshot({ path: `${out}/hero-listening.png` });
 
+  // ---- 2b. attending: a reticle has locked on a thing (the recognition), and the orb holds nearly still and brightens its core
+  await page.evaluate(() => window.__ghosty.ui.set({ voice: 'idle' }));
+  await until(page, () => window.__ghosty.hero.state === 'idle', 8000, 'the hero never went back to idle');
+  await page.waitForTimeout(600);
+  const i2 = await shot(page);
+  await page.evaluate(async () => {
+    const M = window.__ghosty.machine;
+    window.__box = M.lockBox(document.querySelector('.hud.core .rwrap') ?? document.body);
+    await M.recognise(window.__box, document.querySelector('.hud.core canvas.reactor'), { name: 'Mind' });
+  });
+  await until(page, () => window.__ghosty.hero.state === 'attending', 8000, 'the hero never went to attending with the box locked on it');
+  await page.waitForTimeout(1200);
+  const at = await shot(page);
+  if (!diff(i2, at)) problems.push('attending drew the same picture as idle');
+  await page.screenshot({ path: `${out}/hero-attending.png` });
+  await page.evaluate(() => window.__ghosty.machine.release(window.__box));
+  await until(page, () => window.__ghosty.hero.state === 'idle', 8000, 'the hero did not go back to idle once the box let go');
+
   // ---- 3. thinking: a reply in flight, pulses race along the links
   await page.evaluate(() => window.__ghosty.ui.set({ voice: 'idle', busy: true }));
   await until(page, () => window.__ghosty.hero.state === 'thinking', 8000, 'the hero never went to thinking while a reply was in flight');
@@ -143,8 +163,17 @@ const diff = (a, b) => a !== b;
   if (!diff(b, c)) problems.push('thinking drew the same picture as listening');
   await page.screenshot({ path: `${out}/hero-thinking.png` });
 
+  // ---- 3b. saying: while it speaks, it opens half way and brightens
+  await page.evaluate(() => window.__ghosty.ui.set({ busy: false, voice: 'speaking' }));
+  await until(page, () => window.__ghosty.hero.state === 'speaking', 8000, 'the hero never went to saying (speaking)');
+  await page.waitForTimeout(1200);
+  const sy = await shot(page);
+  if (!diff(c, sy)) problems.push('saying drew the same picture as thinking');
+  await page.screenshot({ path: `${out}/hero-saying.png` });
+  await page.evaluate(() => window.__ghosty.ui.set({ voice: 'idle' }));
+
   // ---- 4. offline: the rim and core go grey
-  await page.evaluate(() => window.__ghosty.ui.set({ busy: false, connected: false }));
+  await page.evaluate(() => window.__ghosty.ui.set({ busy: false, voice: 'idle', connected: false }));
   await until(page, () => window.__ghosty.hero.state === 'offline', 8000, 'the hero never showed offline');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${out}/hero-offline.png` });
@@ -194,5 +223,5 @@ const diff = (a, b) => a !== b;
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `MIND run clean at 440 × 956: three.js loaded from this site once Home showed, ${expected().nodes} nodes (${expected().lit} lit) in ${expected().fields} field clusters from the library's counts, it took Graphite's accent and went back to Reactor's, listening and thinking changed the picture, offline went grey, nothing drawn while hidden, reduce motion drew one still per change with no loop, and with no WebGL the 2-D reactor stayed.`);
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `MIND run clean at 440 × 956: three.js loaded from this site once Home showed, ${expected().nodes} nodes (${expected().lit} lit) in ${expected().fields} field clusters from the library's counts, it took Graphite's accent and went back to Reactor's, listening, attending (the box locked on it), thinking and saying each changed the picture, offline went grey, nothing drawn while hidden, reduce motion drew one still per change with no loop, and with no WebGL the 2-D reactor stayed.`);
 process.exit(problems.length ? 1 : 0);

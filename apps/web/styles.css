@@ -4543,28 +4543,41 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .myplaces .lchip { min-height: 44px; }
 
 /* =====================================================================
-   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-BOOT.md): MIND waking up, on every cold open, on true black.
-   Its own block, last in the file; nothing above depends on it. Only transforms and opacity move (the particles are
-   drawn on a canvas, Mind by three.js). The old spinner, engine lines and "INITIALISING…" are gone.
+   the boot cinematic (shell/boot.ts; docs/build-plan/BRIEF-ORB-AND-BOOT.md and its storyboard): the orb waking on the ground,
+   in the world, in his colour, on every cold open. Its own block, last in the file; nothing above depends on it. Only
+   transforms and opacity move (the floor is drawn on a canvas, the orb by three.js); the marks are the system's own
+   (.g-stamp, .g-truth, .g-lock: THE SYSTEM below), so every colour, size and duration here is a token. Under Paper the layer
+   carries the night ground's tokens and the theme's accent block (data-ground, data-accent: tokens.css), as a swatch does.
    ===================================================================== */
-#boot { display: block; gap: 0; overflow: hidden; background: #000; transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#boot { display: block; gap: 0; overflow: hidden; background: var(--g-room-canvas, #000); transition: opacity .2s; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 #boot.playing { background: none; }
 #boot.out { opacity: 0; pointer-events: none; }
-#boot .bveil { position: absolute; inset: 0; background: #000; pointer-events: none; }
-/* the point of light: there from the first paint (index.html), dim until the cinematic wakes it */
-#boot .bdot { position: absolute; left: 50%; top: 40%; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(var(--cr), .9), 0 0 38px 12px rgba(var(--cr), .32); transform: translate(-50%, -50%); opacity: .25; pointer-events: none; will-change: transform, opacity; }
-#boot .bdust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* the ground: what everything stands on (the layer's own canvas: the night ground's under Paper); it goes as the orb lands */
+#boot .bveil { position: absolute; inset: 0; background: var(--g-canvas); pointer-events: none; will-change: opacity; }
+/* the room's light breathing in where the orb will be (state/theme.ts --room: the accent at .09 × the colour's glow × the world's glow) */
+#boot .broom { position: absolute; inset: 0; display: block; pointer-events: none; opacity: 0; background: radial-gradient(ellipse 60% 42% at 50% 40%, rgba(var(--g-accent-rgb), calc(.09 * var(--g-accent-glow) * var(--g-glow) * var(--g-room-glow))), transparent 70%); will-change: opacity; }
+/* the world's floor, drawn from its tokens as it forms (boot.ts drawFloor: the same tile body::before stands on) */
+#boot canvas.bfloor { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Glass: the blur over the ground, clearing */
+#boot .bglass { position: absolute; inset: 0; display: block; pointer-events: none; opacity: 0; background: rgba(var(--g-bone-rgb), .05); }
+/* the point of light with no 3-D (index.html paints it first; hidden until the flat cut asks for it) */
+#boot .bdot { position: absolute; left: 50%; top: 40%; width: 8px; height: 8px; border-radius: 50%; background: var(--g-ink-1); box-shadow: 0 0 calc(10px * var(--g-glow)) calc(2px * var(--g-glow)) rgba(var(--g-accent-rgb), .9), 0 0 calc(38px * var(--g-glow)) calc(12px * var(--g-glow)) rgba(var(--g-accent-rgb), .32); transform: translate(-50%, -50%); opacity: 0; pointer-events: none; will-change: transform, opacity; }
 #boot canvas.mindhero { pointer-events: none; will-change: transform, opacity; }
-/* the name, letter-spaced in the instruments' face (the trailing space is balanced so it sits in the middle) */
-#boot .bword { position: absolute; left: 50%; margin: 0; padding: 0 0 0 .62em; transform: translateX(-50%); font: 500 26px/32px var(--sf); letter-spacing: .62em; color: #fff; text-transform: none; white-space: nowrap; opacity: 0; text-shadow: 0 0 18px rgba(var(--cr), .55); pointer-events: none; }
-/* each letter moves on its own for the last tightening (a transform; inline boxes take none) */
-#boot .bword span { display: inline-block; will-change: transform; }
-/* the single thin line under the name: the instruments' light (svg.inst .fl), drawn from the middle out */
-#boot svg.bline { position: absolute; left: 50%; transform: translateX(-50%) scaleX(0); transform-origin: 50% 50%; opacity: 0; pointer-events: none; will-change: transform, opacity; }
-/* the greeting's breath of bloom: a soft light behind the line, in his colour */
-#boot .bbloom { position: absolute; left: 50%; width: 400px; max-width: 100vw; height: 120px; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--cr), .3), rgba(var(--cr), .08) 60%, rgba(var(--cr), 0)); opacity: 0; pointer-events: none; will-change: opacity; }
-/* one line, his */
-#boot .bgreet { position: absolute; left: 50%; width: max-content; max-width: calc(100vw - 32px); margin: 0; transform: translateX(-50%); font: 600 24px/30px var(--sfd); letter-spacing: -.01em; color: var(--ink, #f4f6f8); text-align: center; text-transform: none; opacity: 0; pointer-events: none; }
+/* the orb's box: the thing the reticle lands on (nothing drawn of its own) */
+#boot .borb { position: absolute; display: block; pointer-events: none; }
+#boot .g-lock { z-index: 2; will-change: opacity; }
+/* the top of the screen, under the status bar: the stamp line typing itself, his line, the feeds' answers */
+#boot .btop { position: absolute; z-index: 3; left: var(--g-gutter); right: var(--g-gutter); top: calc(max(var(--g-safe-top), 54px) + 8px); pointer-events: none; }
+#boot .bstamp { opacity: 0; }
+#boot .bgreet { margin: var(--g-s-1) 0 0; font: var(--g-t-say); letter-spacing: var(--g-tr-say); font-family: var(--g-face-say); color: var(--g-ink-1); text-transform: none; opacity: 0; will-change: transform, opacity; }
+#boot .bgreet[hidden] { display: none; }
+#boot .bfeeds { margin-top: var(--g-s-1); }
+#boot .bfeeds[hidden] { display: none; }
+#boot .bfeeds > * + * { margin-top: var(--g-s-half); }
+/* the name under the box at the recognition: a reading at size, spaced out (the trailing space is balanced so it sits in the middle) */
+#boot .bname { position: absolute; z-index: 3; left: 0; right: 0; margin: 0; padding-left: .5em; text-align: center; font: var(--g-t-value); letter-spacing: .5em; color: var(--g-ink-1); text-transform: none; white-space: nowrap; opacity: 0; pointer-events: none; }
+/* a tap skips it: said once, small, where the thumb is */
+#boot .bskip { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(var(--g-safe-bottom) + 56px); margin: 0; text-align: center; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-4); opacity: 0; pointer-events: none; }
 /* the app could not start: plain words and one button */
 #boot.fault { display: flex; align-items: center; justify-content: center; }
 #boot .bfault { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; text-align: center; }
@@ -5832,7 +5845,7 @@ html .sclisten :is(button, select, input) { min-height: 44px !important; }
 
 /* =====================================================================================================================
    THE SYSTEM (BRIEF-DESIGN-SYSTEM; his pick, W1 THE SCAN, OWNER-ISSUES 139). The Machine's marks as components (ui/machine.ts),
-   the twelve swatches (ui/swatches.ts), the eye (ui/eye.ts) and the first screen drawn in the system, Settings → THE LOOK
+   the twelve swatches (ui/swatches.ts), the orb's stage on THE LOOK (features/core/mind.ts borrowed) and the first screen drawn in the system, Settings → THE LOOK
    (features/look). EVERY VALUE HERE IS A TOKEN of src/design/tokens.css: no colour of its own (a tint is a token's triplet
    at an alpha), the type from the scale, the spaces from the grid, square corners, the three durations and two curves.
    apps/edge/test/look.test.mjs reads this section and fails on a raw colour. Selectors start `html #app` where a generic
@@ -5916,7 +5929,7 @@ html .g-sight-dot { fill: var(--g-accent); }
 /* ---- the typed-out line: words as the brain writes them, a block cursor while it is still writing */
 html .g-typed { margin: 0; min-height: 40px; font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .g-cursor { display: none; width: .62em; height: 1.05em; margin-left: 2px; vertical-align: -.16em; background: var(--g-accent); }
-html .g-typed.writing .g-cursor { display: inline-block; animation: g-blink 1s steps(1) infinite; }
+html :is(.g-typed, .g-stamp).writing .g-cursor { display: inline-block; animation: g-blink 1s steps(1) infinite; }
 @keyframes g-blink { 50% { opacity: 0; } }
 
 /* ---- the eye, drawn small (an SVG): its edge, rings of points, the core in the accent */
@@ -6044,10 +6057,20 @@ html #pg-look .gthing.found { color: var(--g-ink-1); }
 html #pg-look .gsight { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--g-s-4); min-height: 120px; }
 html #pg-look .gplates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
 html #pg-look .gplates .g-plate { padding: var(--g-s-1) var(--g-s-2); }
-/* MIND: the eye at size, centred on its piece of the scan, its state in words and on two keys */
+/* MIND: the orb itself (features/core/mind.ts, borrowed from Home) at size, centred on its piece of the floor, its state in
+   words and on five keys; above it the five states as stills from the same orb, each with its one line */
 html #pg-look .gorbwrap { display: grid; place-items: center; padding: var(--g-s-3) 0; }
 html #pg-look .gorbwrap .g-orb { width: min(240px, 62vw); height: min(240px, 62vw); }
-html #pg-look .gorbwrap .g-ret { position: absolute; inset: var(--g-s-1); pointer-events: none; }
+html #pg-look .gorbwrap .g-orb > canvas.mindhero { position: static; display: block; width: 100% !important; height: 100% !important; left: auto; top: auto; }
+html #pg-look .gstates { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-2); margin: var(--g-s-2) 0; }
+html #pg-look .gstate { margin: 0; min-width: 0; }
+html #pg-look .gstillwrap { position: relative; aspect-ratio: 1; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-canvas); overflow: hidden; }
+html #pg-look .gstillwrap::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+html #pg-look .gstill { position: relative; display: block; width: 100%; height: 100%; }
+html #pg-look .gstilllock { left: 8%; top: 8%; width: 84%; height: 84%; }
+html #pg-look .gstate figcaption { margin-top: var(--g-s-half); }
+html #pg-look .gstate-line { margin: 2px 0 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html #pg-look .gstatekeys { flex-wrap: wrap; }
 
 /* ---- THE READER (features/library/reader.ts; BRIEF-LIBRARY-READER): a book on a plate in the lit graphite, its own words in New
    York at his size on the 4-point line, the marks the system's; and the Shelf's books (their covers, how far he is, the sort).
@@ -6184,7 +6207,7 @@ html #app #pg-library button.shelffold { width: 100%; min-height: var(--g-target
 
 /* Reduce Motion: nothing travels (the durations are already nothing); the cursor holds still, lit */
 @media (prefers-reduced-motion: reduce) {
-  html .g-typed.writing .g-cursor { animation: none; }
+  html :is(.g-typed, .g-stamp).writing .g-cursor { animation: none; }
   html :is(.g-ret-frame, .g-sight, .g-key, .swatch) { transition: none; }
   html #pg-reader .grd-flow { transition: none; }
 }
@@ -6278,11 +6301,8 @@ html .gswitch-line { font: var(--g-t-caption); color: var(--g-ink-2); overflow-w
 html .gswitch-keys { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: var(--g-s-1); }
 html #app .gswitch-keys > button.g-key { min-width: var(--g-target); padding: 0 var(--g-s-1); }
 
-/* ---- the boot plays on the ground the room it lands in stands on, its light glowing as much as the world glows */
+/* ---- the boot plays on the ground the room it lands in stands on (the night ground under Paper: the layer carries its tokens too) */
 html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background: var(--g-room-canvas); }
-html[data-world] #boot .bbloom { scale: calc(var(--g-glow) * var(--g-room-glow)); }
-html[data-world] #boot .bword { text-shadow: 0 0 calc(18px * var(--g-glow) * var(--g-room-glow)) rgba(var(--cr), .55); }
-html[data-world] #boot .bdot { box-shadow: 0 0 calc(10px * var(--g-glow)) calc(2px * var(--g-glow)) rgba(var(--cr), .9), 0 0 calc(38px * var(--g-glow)) calc(12px * var(--g-glow)) rgba(var(--cr), .32); }
 
 /* ---- the 44 pt target on a touch phone: today's look holds every button to 40 there (an !important rule under hover: none), which
    took the system's keys under the target on his iPhone; the system's own controls keep their 44 (64 for a preset's row) */

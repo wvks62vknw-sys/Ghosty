@@ -1,68 +1,98 @@
 /**
- * The boot cinematic (docs/build-plan/BRIEF-BOOT.md, BRIEF-BOOT2.md; OWNER-ISSUES 43 and 45, his words: "really cinematic
- * and cool", "forget giving facts", "it's not an arc reactor anymore", then "on every boot up and just a bit cooler").
- * MIND waking up, a vast quiet intelligence, about 3.9 s, on every cold open (a launch from the Home Screen, a fresh tab):
- *   1. true black; one point of light, far away, breathing once                                         0 – 450 ms
- *   2. it splits into a drift of particles that gather into the constellation, each leaving a faint trail
- *      that fades; links light as they settle; the camera pushes in slowly through three depths of light
- *      (far dust, the constellation, a few near motes streaming past), so the push feels three-dimensional;
- *      one thin sweep of light passes down through it and refracts as it crosses the equator          450 – 1,500 ms
- *   3. the sphere resolves from the inside out: the haze, then the meridians catching the light one after
- *      another, the latitudes, the rim last; it turns a few degrees; the equator scale lights round   1,500 – 2,400 ms
- *   4. G H O S T Y assembles from particles, a little wide, then one last tightening; a single thin line
- *      draws itself under it, from the middle out (the instruments' light: svg.inst .fl)            2,400 – 3,050 ms
- *   5. one line, his, with a breath of bloom: "Good evening, <name>." (the name from Settings)       3,050 – 3,500 ms
- *   6. the sphere eases up into Home's hero, where it lives from then on (the same Mind, never a copy); a beat
- *      after it lands, the HUD slides in (the ribbon, the tab bar, Home's cards)                      3,500 – 3,900 ms
- * No readouts, no numbers, no status line. It never delays the app: main.ts keeps booting underneath and calls
- * bootReady(); the cinematic lands when both are done, and its own part is over 3.9 s after its first frame (if the app
- * is still starting then, Mind keeps turning quietly, with no words, until it is). A tap skips it, at any moment.
- * Every frame is held to a budget (a long frame: over 12 ms at 120 Hz, over 20 ms at 60): long frames are counted in
- * __bootState.budget, and a phone that cannot keep up gets less: the short version (no drift, no push-in) when even the
- * point of light stutters or one draw of Mind overruns a frame, or, mid-flight, the lean cut (the depths, the trails and
- * the refraction dropped, the rest quickened) once a quarter of the recent frames ran long. With no 3-D at all: the point
- * of light, the name and the greeting. Reduce Motion: the frames fade, nothing moves, 1.2 s.
+ * The boot cinematic (docs/build-plan/BRIEF-ORB-AND-BOOT.md and its storyboard, docs/build-plan/mockups/boot/2026-11-07;
+ * before it BRIEF-BOOT.md, BRIEF-BOOT2.md; OWNER-ISSUES 43, 45 and 142, his words: "really cinematic and cool", "on every boot
+ * up", then "the cinematic btw which can be a lot lot lot better"). The orb waking on the ground, in the world, in his colour;
+ * 2,880 ms to a usable Home on every cold open (a launch from the Home Screen, a fresh tab). The cut (cut.js, the storyboard's
+ * numbers), each shot true of its moment: nothing on it is decoration that lies:
+ *   1. the ground, nothing else, one breath: the room's light breathing in where the orb will be                 0 ms
+ *   2. the world's floor forms, drawn from its tokens as it arrives: The Scan's points sampled in from the top-left
+ *      corner; The Map's grid line by line and the one crosshair finding the orb's centre; The Eye's grain settling
+ *      and one box; One Ink's one rule drawn; Glass's blur clearing                                             240 ms
+ *   3. the orb forms from his library's points (today's gather, kept: the drift out of the point of light, the trails,
+ *      the sweep refracting at the equator, the push-in), then the sphere resolves from the inside out             560 ms
+ *   4. the stamp line types itself in mono with a block cursor: the day · the time · his saved place · CHECKING FEEDS
+ *      (ui/machine.ts stampWords, the real facts; 10 ms a character)                                           1,240 ms
+ *   5. the feeds answer, one truth line each as they connect, a lock-length apart, only the ones that really did
+ *      (the guardian's info: checked and not failed); the stamp becomes WATCHING n FEEDS; offline it says so     1,700 ms
+ *   6. the recognition: the reticle snaps onto the orb with the tone (ui/machine.ts recognise: the lock's duration and
+ *      curve from the tokens, the sound on top of his sound setting and the sound switch), G H O S T Y under it  2,180 ms
+ *   7. the greeting, his line, under the stamp where Home's first line lives; spoken now when the phone allows   2,460 ms
+ *   8. the orb eases up into Home's hero (the same Mind, never a copy); a beat after it lands the HUD slides in  2,640 ms
+ *      a usable Home                                                                                              2,880 ms
+ * A small TAP TO SKIP shows from the orb's first light to the recognition; a tap skips it at any moment. It never delays
+ * the app: main.ts keeps booting underneath and calls bootReady(); the cinematic lands when both are done, and its own part
+ * is over 2,880 ms after its first frame (if the app is still starting then, the orb keeps turning quietly, with no words,
+ * until it is). Every frame is held to a budget (a long frame: over 12 ms at 120 Hz, over 20 at 60): long frames are counted
+ * in __bootState.budget, and a phone that cannot keep up gets less: the short version (the floor and the orb fade in whole,
+ * no gather, trails, sweep or push-in; the stamp, the feeds and the recognition kept) when even the ground's breath stutters
+ * or one draw of Mind overruns a frame, or, mid-flight, the lean cut (the trails and the refraction dropped, the rest
+ * quickened) once a quarter of the recent frames ran long or one frame stalled a quarter of a second. With no 3-D at all (the flat kind): the ground, the floor, the
+ * stamp, the feeds, the box snapping onto the point of light where the 2-D fallback lives, the greeting. Reduce Motion, and
+ * MOTION set to calm: two frames, 1.2 s, nothing travels (the ground, the floor, the orb, the stamp and the feeds whole; then
+ * the box, the name and the greeting; the tone still plays once if his sounds are on: a sound, not a motion).
  * Coming back to a running app (a tab switch, the app resumed in the same page life, a page restored from the back-forward
  * cache) and a deep link (a notification, Spotify's way back): no cinematic; Mind's light breathes out once (400 ms;
  * 150 ms with Reduce Motion). "reboot" (said or typed) and SYSTEM → REBOOT HIM play it again.
- * Sound: a low hum rising to a soft chord, made here with WebAudio (no file), quiet, only with the voice setting on,
- * only where the phone allows sound (never on a resume). The greeting is spoken in his voice with the voice setting on:
- * at once if the phone allows it, else on the first tap (iOS keeps a cold open silent until a tap); once.
+ * The ground (BRIEF-THEMES-2): it plays on the ground in force in the theme's colour and world; under Paper on his night
+ * ground (the boot lands on Home, a room still drawn light on dark), the layer carrying the night ground's tokens and the
+ * theme's accent block (data-ground, data-accent), and bootState.recipe says so.
+ * Sound: a low hum, made here with WebAudio (no file), quiet, only with the voice setting on, only where the phone allows
+ * sound (never on a resume); the recognition's tone through the sound set (assistant/sfx.ts) on top of his sound setting.
+ * The greeting is spoken in his voice with the voice setting on: at once if the phone allows it, else on the first tap
+ * (iOS keeps a cold open silent until a tap); once.
  * Automated checks see none of it (it would slow every check that opens the app) unless one asks: tests/boot.spec.mjs.
  */
-import { h, svgEl } from '../core/dom';
-import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind } from '../features/core/mind';
-import { settings, ui } from '../state/app';
+import { h } from '../core/dom';
+import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind, type MindState } from '../features/core/mind';
+import { home, settings, ui } from '../state/app';
+import { guardian, loadGuardian } from '../state/guardian';
 import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
-import { ensureDefs } from '../ui/instruments';
+import { lockBox, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
+import { sfxAllowed } from '../assistant/sfx';
+import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
-type Phase = 'point' | 'gather' | 'sphere' | 'name' | 'greeting' | 'land' | 'done';
+type Phase = 'ground' | 'floor' | 'orb' | 'stamp' | 'feeds' | 'recognise' | 'greeting' | 'land' | 'done';
 type Timeline = Record<Exclude<Phase, 'done'> | 'end', number>;
 
-/** When each moment starts, in ms from the first frame: the storyboard's timing (BRIEF-BOOT.md, the richer cut). */
-const FULL: Timeline = { point: 0, gather: 450, sphere: 1500, name: 2400, greeting: 3050, land: 3500, end: 3900 };
-/** A slow phone or a late Mind: no drift and no push-in; the whole Mind fades in, and it lands sooner. */
-const SHORT: Timeline = { point: 0, gather: 400, sphere: 400, name: 900, greeting: 1500, land: 1900, end: 2200 };
-/** Reduce Motion: the frames fade, nothing moves. */
-const STILL: Timeline = { point: 0, gather: 200, sphere: 200, name: 500, greeting: 800, land: 1000, end: 1200 };
-/** No 3-D here: the point of light, the name from its particles, the greeting, then Home's own hero. */
-const FLAT: Timeline = { point: 0, gather: 400, sphere: 400, name: 400, greeting: 1000, land: 1400, end: 1700 };
+/** When each beat starts, in ms from the first frame: the storyboard's cut (mockups/boot/2026-11-07/cut.js). */
+const FULL: Timeline = { ground: 0, floor: 240, orb: 560, stamp: 1240, feeds: 1700, recognise: 2180, greeting: 2460, land: 2640, end: 2880 };
+/** A slow phone, a late Mind or a television: the floor and the orb fade in whole (no gather, trails, sweep or push-in); the rest kept. */
+const SHORT: Timeline = { ground: 0, floor: 160, orb: 400, stamp: 760, feeds: 1200, recognise: 1600, greeting: 1800, land: 1960, end: 2200 };
+/** Reduce Motion, or MOTION calm: two frames, nothing moves (A: the ground, the floor, the orb, the stamp, the feeds; B: the box, the name, the greeting). */
+const STILL: Timeline = { ground: 0, floor: 0, orb: 200, stamp: 200, feeds: 200, recognise: 600, greeting: 600, land: 1000, end: 1200 };
+/** No 3-D here: the ground, the floor, the stamp, the feeds, the box on the point of light, the greeting, then Home's own hero. */
+const FLAT: Timeline = { ground: 0, floor: 160, orb: 400, stamp: 520, feeds: 900, recognise: 1200, greeting: 1360, land: 1500, end: 1700 };
 const LINES: Record<'full' | 'short' | 'still' | 'flat', Timeline> = { full: FULL, short: SHORT, still: STILL, flat: FLAT };
-const PHASES: Exclude<Phase, 'done'>[] = ['point', 'gather', 'sphere', 'name', 'greeting', 'land'];
+const PHASES: Exclude<Phase, 'done'>[] = ['ground', 'floor', 'orb', 'stamp', 'feeds', 'recognise', 'greeting', 'land'];
 /** The cinematic's own part is over this long after its first frame, whatever happens. */
 const CAP = FULL.end;
 /** A beat between Mind landing in the hero and the HUD sliding in round it, ms. */
 const BEAT = 110;
+/** The lock's length (the tokens' --g-dur-lock): the feeds' lines come one of these apart. */
+const LOCK = 160;
+/** The stamp line's pace at boot: three times the brain's 33 ms a character (ui/machine.ts). */
+const TYPE_MS = 10;
+/** The floor forms over this long, ms. */
+const FLOOR_MS = 400;
+/** The orb's light is first seen this long after its beat starts; TAP TO SKIP shows from then to the recognition. */
+const FIRST_LIGHT = 400;
 /** A long frame, ms: over 12 at 120 Hz, over 20 at 60 (the frame and a half that the eye reads as a stutter). */
 const LONG_120 = 12;
 const LONG_60 = 20;
-/** Mid-flight: this many long frames among the last WINDOW, and the full cut leans (its extras go, the rest quickens). */
+/** Mid-flight: a quarter of the last WINDOW frames long (LEAN_AT of them; from LEAN_MIN frames on, a quarter of those seen, three
+ *  at least), and the full cut leans (its extras go, the rest quickens). */
 const WINDOW = 24;
 const LEAN_AT = 6;
+const LEAN_MIN = 8;
+/** One frame this long mid-flight (ms: fifteen 60 Hz frames) says the same by itself: the phone cannot keep up. */
+const STALL = 250;
 /** Mind (three.js) must be drawing by then for the full version, and by SHORT_BY for the short one. */
 const FULL_BY = 900;
 const SHORT_BY = 1700;
+/** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
+const FEEDS: FeedId[] = ['flood', 'weather', 'crime'];
+const FEED_WORD: Record<FeedId, string> = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 
 /** What happened, for tests/boot.spec.mjs and the console (window.__bootState; __ghosty.boot once that exists). */
 export const bootState = {
@@ -90,11 +120,11 @@ export const bootState = {
   /**
    * The frame budget: the display's rate as its frames show it (120 or 60; 0 before three gaps), what a long frame is
    * here (ms), how many came, the gaps themselves (ms, the first 600), the most and the mean one frame's own work took
-   * (ms: Mind's draw, the particles and the depths, not the app booting underneath), and where the full cut leaned because the
+   * (ms: Mind's draw, the floor, the marks, not the app booting underneath), and where the full cut leaned because the
    * phone could not keep up ('' if it never did).
    */
   budget: { hz: 0, ms: LONG_60, long: 0, gaps: [] as number[], work: 0, avg: 0, lean: '' as Phase | '' },
-  /** The cut that played (when each phase starts, ms), and the pace it ran at from the gathering on (1: real time;
+  /** The cut that played (when each phase starts, ms), and the pace it ran at from the orb on (1: real time;
    *  more after Mind was waited for, or once it leaned), for the timings the check compares against. */
   timeline: null as Timeline | null,
   pace: 1,
@@ -106,6 +136,15 @@ export const bootState = {
   mind: false,
   /** Whether the hum played (the voice setting on and the phone allowing sound). */
   sound: false,
+  /** What the recognition played: the sound switch's tone or click, off (the switch), or quiet (his sounds off, or a cold
+   *  open the phone has not been tapped: iOS allows no sound until then); '' before the recognition. */
+  tone: '' as '' | 'tone' | 'click' | 'off' | 'quiet',
+  /** The stamp line's words as typed (stampWords: the day, the time, his saved place, the feeds' state). */
+  stamp: [] as string[],
+  /** The feeds' lines as shown, one per feed that answered (none offline, none for a feed that failed). */
+  feedLines: [] as string[],
+  /** The world whose floor was drawn forming ('' when the recipe has no floor: One Ink's rule, Glass's blur count as theirs). */
+  floorDrawn: '',
   greeting: '',
   /** How the greeting was spoken: at once, on the first tap, or not (voice off, or no tap came). */
   spoken: '' as '' | 'now' | 'tap' | 'waiting' | 'off',
@@ -122,6 +161,8 @@ export const bootState = {
 };
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Nothing travels: the phone's Reduce Motion (it always wins), or MOTION set to calm (state/theme.ts writes data-motion). */
+const calmWanted = () => reduced() || document.documentElement.dataset.motion === 'calm';
 const clamp = (k: number) => (k <= 0 ? 0 : k >= 1 ? 1 : k);
 const easeOut = (k: number) => 1 - Math.pow(1 - clamp(k), 3);
 const easeInOut = (k: number) => {
@@ -136,6 +177,40 @@ export function greetingLine(d = new Date()): string {
   const hr = d.getHours();
   const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   return `${part}, ${settings.get().name.trim() || 'Boss'}.`;
+}
+
+/** The feeds that answered last time (checked and not failed), in their order; null while nothing has been heard yet. */
+function feedsAnswered(info: GuardianInfo | null): FeedId[] | null {
+  if (!info) return null;
+  return FEEDS.filter((f) => info.checked[f] && !info.failed[f]);
+}
+
+/** "2026-08" → "Aug". */
+const monthWord = (m: string) => {
+  const n = Number(m.split('-')[1]);
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][n - 1] ?? m;
+};
+
+/**
+ * One truth line per feed that answered: what it knows now (FLOOD · ENVIRONMENT AGENCY · NOTHING ACTIVE; WEATHER · MET OFFICE ·
+ * NO WARNINGS; CRIME · POLICE.UK · SEP · 14 WITHIN A MILE: police.uk publishes a month's count about two months behind, a
+ * count and never a forecast). Nothing for a feed that failed, nothing offline.
+ */
+export function feedLines(info: GuardianInfo | null): { id: FeedId; parts: TruthPart[] }[] {
+  const answered = feedsAnswered(info);
+  if (!info || !answered) return [];
+  return answered.map((f) => {
+    const parts: TruthPart[] = [{ text: FEED_WORD[f], tone: 'strong' }, FEED_NAMES[f].source];
+    if (f === 'crime') {
+      const c = info.places.find((p) => p.crime)?.crime;
+      if (c) parts.push(monthWord(c.month), `${c.total} within a mile`);
+      else parts.push('No count yet');
+    } else {
+      const n = info.places.reduce((k, p) => k + p.active.filter((a) => a.feed === f).length, 0);
+      parts.push(f === 'flood' ? (n ? `${n} active` : 'Nothing active') : n ? `${n} ${n === 1 ? 'warning' : 'warnings'}` : 'No warnings');
+    }
+    return { id: f, parts };
+  });
 }
 
 // ---------------------------------------------------------------- the app underneath
@@ -178,8 +253,8 @@ export function startBoot(): void {
   // never over a notification he tapped, a deep link or the way back from Spotify's sign-in: those open their screen
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
-  // [restc] on a television (TV MODE) the short cut: the sphere and the greeting, nothing that needs WebGPU; with no 3-D at all it is the flat one
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : reduced() ? 'still' : tvNow() ? 'short' : 'full';
+  // [restc] on a television (TV MODE) the short cut: the orb and the words, nothing that needs WebGPU; with no 3-D at all it is the flat one
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
@@ -196,7 +271,7 @@ export async function reboot(): Promise<void> {
   // let Home lay out first, so the landing has its hero to land on
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const el = document.body.appendChild(h('div#boot'));
-  const kind: Kind = reduced() ? 'still' : 'full';
+  const kind: Kind = calmWanted() ? 'still' : 'full';
   bootState.kind = kind;
   el.classList.add(kind);
   play(el, kind, true);
@@ -230,7 +305,7 @@ function breatheWhenReady(): void {
   tryIt();
 }
 
-// ---------------------------------------------------------------- sound: a low hum rising to a soft chord
+// ---------------------------------------------------------------- sound: a low hum under the orb's waking, gone at the recognition
 function hum(): (() => void) | null {
   if (!settings.get().speak) return null;
   const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
@@ -249,37 +324,24 @@ function hum(): (() => void) | null {
   const lp = a.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.setValueAtTime(260, t);
-  lp.frequency.linearRampToValueAtTime(900, t + FULL.name / 1000);
+  lp.frequency.linearRampToValueAtTime(900, t + FULL.recognise / 1000);
   lp.connect(out).connect(a.destination);
-  // the hum: two low tones a hair apart (a slow beat between them), rising a little as Mind wakes
+  // the hum: two low tones a hair apart (a slow beat between them), rising a little as the orb wakes, gone as the box lands
+  // (the recognition's own tone, ui/machine.ts, is the sound of that moment)
   for (const [f, v] of [[55, 0.05], [55.6, 0.04], [110, 0.018]] as const) {
     const o = a.createOscillator();
     const g = a.createGain();
     o.type = 'triangle';
     o.frequency.setValueAtTime(f, t);
-    o.frequency.exponentialRampToValueAtTime(f * 1.19, t + FULL.name / 1000);
+    o.frequency.exponentialRampToValueAtTime(f * 1.19, t + FULL.recognise / 1000);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(v, t + FULL.sphere / 1000);
-    g.gain.setValueAtTime(v, t + FULL.name / 1000 + 0.1);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + FULL.end / 1000 - 0.1);
+    g.gain.exponentialRampToValueAtTime(v, t + (FULL.orb + 560) / 1000);
+    g.gain.setValueAtTime(v, t + FULL.feeds / 1000);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + FULL.recognise / 1000);
     o.connect(g).connect(lp);
     o.start(t);
-    o.stop(t + FULL.end / 1000);
+    o.stop(t + FULL.recognise / 1000 + 0.1);
   }
-  // the chord as the name assembles: A, E, A, C sharp, soft attack, a long fall
-  [220, 329.63, 440, 554.37].forEach((f, i) => {
-    const o = a.createOscillator();
-    const g = a.createGain();
-    const at = t + FULL.name / 1000 - 0.05 + i * 0.04;
-    o.type = 'sine';
-    o.frequency.setValueAtTime(f, at);
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(0.014, at + 0.25);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 1.9);
-    o.connect(g).connect(out);
-    o.start(at);
-    o.stop(at + 2);
-  });
   bootState.sound = true;
   setTimeout(() => void a.close().catch(() => undefined), FULL.end + 1000);
   // skipped: the sound goes with it
@@ -327,42 +389,124 @@ function sayGreeting(text: string, cold: boolean): void {
   addEventListener('pointerup', onTap, true);
 }
 
-// ---------------------------------------------------------------- the cinematic
-interface Particle {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  d: number;
-  c: number;
-}
-/** A mote of light in one of the depths round Mind: where it lives (in sphere radii, z towards the camera), its size
- *  (px at the sphere's distance), its brightness and a seed for its drift and shimmer. */
-interface Mote {
-  x: number;
-  y: number;
-  z: number;
-  s: number;
-  a: number;
-  v: number;
-}
-/** The depths round Mind (seeded: the same sky every open): far dust well behind it, a few near motes in front of it. */
-function depthMotes(): { far: Mote[]; near: Mote[] } {
-  let seed = 7;
-  const r = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
-  const far = Array.from({ length: 170 }, () => ({ x: (r() * 2 - 1) * 5.5, y: (r() * 2 - 1) * 9.5, z: -3.5 - r() * 6, s: 1.3 + r() * 2.2, a: 0.25 + r() * 0.6, v: r() }));
-  const near = Array.from({ length: 16 }, (_, i) => {
-    const a = (i / 16) * Math.PI * 2 + r() * 0.3;
-    const d = 1.3 + r() * 1.1;
-    return { x: Math.cos(a) * d, y: Math.sin(a) * d * 1.6, z: 1.4 + r() * 2.2, s: 5 + r() * 6, a: 0.12 + r() * 0.2, v: r() };
-  });
-  return { far, near };
-}
-/** Mind's camera (mind.ts size(): a 30° view that fills 74 % of a square box with the sphere), so the depths drawn here
- *  move with the same push as the constellation drawn there. */
-const TAN15 = Math.tan((15 * Math.PI) / 180);
-const CAMZ = 1 / (TAN15 * 0.74);
+// ---------------------------------------------------------------- the world's floor, drawn from its tokens as it forms
+/** The Eye's grain as one tile, kept between frames. */
+let eyeTile: HTMLCanvasElement | null = null;
+/** A fixed pseudo-random number from a place on the floor, so each point's moment is the same every open. */
+const hash2 = (x: number, y: number) => {
+  const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+};
 
+/**
+ * The floor of the world forming at `k` (0..1) on a 2-D canvas the size of the screen, in the room's points at the floor's
+ * strength (the tokens on the layer: --g-room-points-rgb, --g-floor-a, --g-line); `at` is the orb's centre, for The Map's
+ * crosshair and The Eye's box; `rule` where One Ink's rule sits (under the stamp). What every screen stands on after the boot
+ * (styles.css body::before: the same mask tile, so the floor drawn here is the floor Home stands on), drawn as it arrives.
+ */
+function drawFloor(g: CanvasRenderingContext2D, world: string, k: number, W: number, H: number, dpr: number, tok: { pts: string; a: number; line: string }, at: { x: number; y: number; r: number }, rule: { x1: number; x2: number; y: number }, kc: number): void {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W * dpr, H * dpr);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const { pts, a, line } = tok;
+  if (k <= 0 || a <= 0 && world !== 'ink') return;
+  if (world === 'scan') {
+    // the points sampled in from the top-left corner: a front crossing the screen, each point a little early or late; the ones
+    // just sampled a step brighter, then settling to the floor's own strength
+    for (let y = 8; y < H; y += 16)
+      for (let x = 8; x < W; x += 16) {
+        const when = (x / W) * 0.55 + (y / H) * 0.45 + (hash2(x, y) - 0.5) * 0.1;
+        const d = k * 1.1 - Math.max(0, when);
+        if (d <= 0) continue;
+        const fresh = d < 0.08 ? 1 - d / 0.08 : 0;
+        g.fillStyle = `rgba(${pts}, ${(a + fresh * 0.5).toFixed(3)})`;
+        g.beginPath();
+        g.arc(x, y, 1.1 + fresh * 0.5, 0, Math.PI * 2);
+        g.fill();
+      }
+  } else if (world === 'map') {
+    // the plotting grid drawn line by line: the verticals from the left, the horizontals from the top (the tile: lines every
+    // 16 px at .4, a crosshair of 17 px at 1.5 every five squares), then the one crosshair finding the orb's centre
+    const ln = (x1: number, y1: number, x2: number, y2: number, w: number, al: number) => {
+      g.strokeStyle = `rgba(${pts}, ${al.toFixed(3)})`;
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(x1, y1);
+      g.lineTo(x2, y2);
+      g.stroke();
+    };
+    const kv = clamp(k / 0.45);
+    const kh = clamp((k - 0.4) / 0.4);
+    const kx = clamp((k - 0.75) / 0.25);
+    for (let x = 8.5; x < W; x += 16) if (x / W <= kv) ln(x, 0, x, H * (k >= 1 ? 1 : Math.min(1, (kv - x / W) * 6 + 0.2)), 1, a * 0.4);
+    for (let y = 8.5; y < H; y += 16) if (y / H <= kh) ln(0, y, W * (k >= 1 ? 1 : Math.min(1, (kh - y / H) * 6 + 0.2)), y, 1, a * 0.4);
+    for (let y = 40.5; y < H; y += 80)
+      for (let x = 40.5; x < W; x += 80)
+        if (kx > 0) {
+          ln(x - 8.5, y, x + 8.5, y, 1.5, a * kx);
+          ln(x, y - 8.5, x, y + 8.5, 1.5, a * kx);
+        }
+    if (kc > 0) {
+      const cx = 40.5 + (at.x - 40.5) * easeInOut(kc);
+      const cy = 40.5 + (at.y - 40.5) * easeInOut(kc);
+      g.strokeStyle = line;
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(cx - 14, cy);
+      g.lineTo(cx + 14, cy);
+      g.moveTo(cx, cy - 14);
+      g.lineTo(cx, cy + 14);
+      g.stroke();
+    }
+  } else if (world === 'eye') {
+    // the grain settling: the mask's tile (six grains in 8 px, each at its own strength), each grain a few pixels off its place
+    // at first and settling onto it, drawn as one 64 px tile and repeated (forty thousand grains a frame is too many fills);
+    // then the one sharp box where the orb forms, the thing The Eye looks at
+    const grains: [number, number, number][] = [[0, 0, 1], [4, 2, 0.6], [2, 5, 0.8], [6, 6, 0.5], [5, 0, 0.35], [1, 3, 0.45]];
+    const settle = easeOut(k);
+    const TILE = 64;
+    if (!eyeTile) eyeTile = document.createElement('canvas');
+    eyeTile.width = eyeTile.height = Math.round(TILE * dpr);
+    const tg = eyeTile.getContext('2d');
+    if (tg) {
+      tg.setTransform(dpr, 0, 0, dpr, 0, 0);
+      tg.clearRect(0, 0, TILE, TILE);
+      const strength = a * Math.min(1, k * 2);
+      for (let y = 0; y < TILE; y += 8)
+        for (let x = 0; x < TILE; x += 8)
+          for (const [gx, gy, op] of grains) {
+            const jx = (hash2(x + gx, y + gy) - 0.5) * 6 * (1 - settle);
+            const jy = (hash2(y + gy, x + gx) - 0.5) * 6 * (1 - settle);
+            tg.fillStyle = `rgba(${pts}, ${(strength * op).toFixed(3)})`;
+            tg.fillRect(x + gx + jx, y + gy + jy, 1, 1);
+          }
+      const pat = g.createPattern(eyeTile, 'repeat');
+      if (pat) {
+        // (the tile is drawn at device pixels: the pattern is scaled back to CSS pixels)
+        pat.setTransform?.(new DOMMatrix().scale(1 / dpr));
+        g.fillStyle = pat;
+        g.fillRect(0, 0, W, H);
+      }
+    }
+    if (kc > 0) {
+      const r = at.r * easeOut(kc);
+      g.strokeStyle = line;
+      g.lineWidth = 1;
+      g.strokeRect(at.x - r + 0.5, at.y - r + 0.5, 2 * r - 1, 2 * r - 1);
+    }
+  } else if (world === 'ink') {
+    // One Ink has no floor: one rule, drawn from the left, under where the stamp line will sit
+    g.strokeStyle = line;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(rule.x1, rule.y + 0.5);
+    g.lineTo(rule.x1 + (rule.x2 - rule.x1) * easeOut(k), rule.y + 0.5);
+    g.stroke();
+  }
+  // Glass has no floor pattern: its blur clearing is the layer's own filter (play())
+}
+
+// ---------------------------------------------------------------- the cinematic
 function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.plays++;
   bootState.marks = {};
@@ -376,6 +520,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.said = 0;
   bootState.hudAt = -1;
   bootState.pace = 1;
+  bootState.tone = '';
+  bootState.stamp = [];
+  bootState.feedLines = [];
+  bootState.floorDrawn = '';
   bootState.budget = { hz: 0, ms: LONG_60, long: 0, gaps: [], work: 0, avg: 0, lean: '' };
   const B = bootState.budget;
   if (rebooting) appIsReady = true;
@@ -384,49 +532,55 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.timeline = tl;
   const vw = innerWidth;
   const vh = innerHeight;
-  // the stage: Mind in a square box a little above the middle, the name, its line and the greeting under it
+  const dd = document.documentElement.dataset;
+  // under Paper the boot plays on his night ground in his colour: the layer carries the night ground's tokens and the theme's
+  // accent block (as a swatch does), so its marks are the night ground's and the orb keeps the theme's own light
+  if (dd.ground === 'paper') {
+    el.dataset.ground = dd.night || 'graphite';
+    el.dataset.accent = dd.theme || '';
+  }
+  // the stage: the orb in a square box a little above the middle; the stamp at the top; the name under the orb's box
   const side = Math.round(Math.min(vw * 0.8, vh * 0.42, 380));
   const box = { x: Math.round((vw - side) / 2), y: Math.round(vh * 0.4 - side / 2), w: side, h: side };
   const cx = box.x + side / 2;
   const cy = box.y + side / 2;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const ground = h('div.bveil');
+  const room = h('i.broom');
+  const floor = h('canvas.bfloor', { width: Math.round(vw * dpr), height: Math.round(vh * dpr), 'aria-hidden': 'true' });
+  const glass = h('i.bglass');
+  ground.append(room, floor, glass);
+  el.prepend(ground);
   const dot = el.querySelector<HTMLElement>('.bdot') ?? el.appendChild(h('i.bdot'));
   dot.style.left = `${cx}px`;
   dot.style.top = `${cy}px`;
-  const veil = h('div.bveil');
-  el.prepend(veil);
-  const dpr = Math.min(2, devicePixelRatio || 1);
-  const dust = h('canvas.bdust', { width: Math.round(vw * dpr), height: Math.round(vh * dpr), 'aria-hidden': 'true' });
-  const letters = [...'GHOSTY'].map((c) => h('span', c));
-  const word = h('h1.bword', { 'aria-label': 'Ghosty' }, ...letters);
-  const greet = h('p.bgreet', greetingLine());
+  // the orb's box, the thing the reticle lands on: the sphere's radius is 0.9 × 0.74 of the half side (mind.ts size()), the
+  // box 5 px outside it (the point of light with no 3-D)
+  const orbBox = h('i.borb', { 'aria-hidden': 'true' });
+  const stamp = h('p.g-stamp.bstamp', { dataset: { g: 'stamp', case: 'keep' } });
+  const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, greetingLine());
+  const feeds = h('div.bfeeds');
+  const top = h('div.btop', stamp, greet, feeds);
+  const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
+  const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
-  const wordTop = box.y + side + Math.round(side * 0.1);
-  word.style.top = `${wordTop}px`;
-  greet.style.top = `${wordTop + 66}px`;
-  // the greeting's breath of bloom: a soft light behind the line
-  const bloom = h('i.bbloom');
-  bloom.style.top = `${wordTop + 81}px`;
-  el.append(dust, word, bloom, greet);
-  // the single thin line under the name, in the instruments' own light (svg.inst .fl, its glow; .ln end stops). A bar
-  // of light, not a stroked path: a filter on a box with no height (a level line) would draw nothing at all
-  ensureDefs();
-  const lw = Math.round(Math.min(vw - 64, word.getBoundingClientRect().width * 0.84));
-  const rule = svgEl('rect', { class: 'fl', x: 0, y: 3.4, width: lw, height: 1.2, rx: 0.6 });
-  const stops = svgEl('path', { class: 'ln', d: `M0.5 0.5V7.5M${lw - 0.5} 0.5V7.5` });
-  const line = svgEl('svg', { class: 'inst bline', viewBox: `0 0 ${lw} 8`, width: lw, height: 8, 'aria-hidden': 'true', focusable: 'false' });
-  line.append(rule, stops);
-  line.style.top = `${wordTop + 42}px`;
-  el.append(line);
+  el.append(orbBox, top, name, skip);
+  const lock = lockBox(el);
   el.classList.add('playing');
   document.body.classList.add('booting');
-  const cs0 = getComputedStyle(document.documentElement);
-  const accent = cs0.getPropertyValue('--c').trim() || '#64d2ff';
+  const cs0 = getComputedStyle(el);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || '#64d2ff';
   bootState.accent = accent;
-  const dd = document.documentElement.dataset;
   bootState.recipe = { theme: dd.theme ?? '', ground: dd.ground ?? '', night: dd.night ?? '', world: dd.world ?? '', floor: cs0.getPropertyValue('--g-room-canvas').trim(), glow: dd.glow ?? '' };
-  // the greeting's bloom glows as much as the world does (One Ink and GLOW off: none)
-  const glowK = (parseFloat(cs0.getPropertyValue('--g-glow')) || 0) * (parseFloat(cs0.getPropertyValue('--g-room-glow')) || 0);
-  const cr = cs0.getPropertyValue('--cr').trim() || '100, 210, 255';
+  const world = dd.world ?? '';
+  const floorTok = { pts: cs0.getPropertyValue('--g-room-points-rgb').trim() || cs0.getPropertyValue('--g-bone-rgb').trim() || '236, 232, 223', a: parseFloat(cs0.getPropertyValue('--g-floor-a')) || 0, line: cs0.getPropertyValue('--g-line').trim() || `rgba(${accent}, .4)` };
+  const gutter = parseFloat(cs0.getPropertyValue('--g-gutter')) || 16;
+  // (the top block sits under the status bar: styles.css places it from the safe area; One Ink's rule is drawn under it)
+  const topY = Math.round(top.getBoundingClientRect().top);
+  const fctx = floor.getContext('2d');
+  let floorAt = -1;
+  const floorHas = world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass';
+  if (floorHas) bootState.floorDrawn = world;
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)
   let mind: Mind | null = null;
@@ -439,7 +593,15 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
         if (mindState === 'wait') mindState = ok ? 'ready' : 'none';
       });
   }
-  if (!mind) kind = 'flat';
+  if (!mind && kind !== 'flat') {
+    // no 3-D at all: the flat cut from the first frame (its own timeline, not the full one's)
+    kind = 'flat';
+    tl = LINES[kind];
+    bootState.timeline = tl;
+    bootState.kind = kind;
+    el.classList.remove('full', 'short', 'still');
+    el.classList.add(kind);
+  }
   let mindIn = false;
   const takeMind = () => {
     if (!mind || mindIn) return;
@@ -453,71 +615,29 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const stopSound = hum();
   let said = false;
 
-  // ---- the name's particles: each letter drawn where the real word sits, sampled into points of light
-  let parts: Particle[] = [];
-  /** The word's middle, and each letter's middle from it (px): the last tightening draws them in towards it. */
-  let wcx = cx;
-  let offs: number[] = [];
-  const sample = () => {
-    const pts: Particle[] = [];
-    const cs = getComputedStyle(word);
-    const off = document.createElement('canvas');
-    off.width = Math.ceil(vw);
-    off.height = 120;
-    const g = off.getContext('2d', { willReadFrequently: true });
-    if (!g) return pts;
-    const wr = word.getBoundingClientRect();
-    wcx = wr.left + wr.width / 2;
-    offs = letters.map((s) => {
-      const r = s.getBoundingClientRect();
-      return r.left + r.width / 2 - wcx;
+  // ---- the stamp's facts and the feeds' answers: asked now (the guardian's own first look comes later than the boot)
+  void loadGuardian();
+  const facts = () => ({ place: home().name, watching: feedsAnswered(guardian.get().info)?.length ?? null, looking: 'Home', offline: navigator.onLine === false });
+  /** The stamp's four segments at this moment (the fifth, LOOKING AT, is Home's own once it lands). */
+  const stampNow = () => stampWords(facts()).slice(0, 4);
+  let lines: { id: FeedId; parts: TruthPart[]; el: HTMLElement }[] = [];
+  let linesFrom: GuardianInfo | null | undefined;
+  const refreshLines = () => {
+    const info = navigator.onLine === false ? null : guardian.get().info;
+    if (info === linesFrom) return;
+    linesFrom = info;
+    feeds.replaceChildren();
+    lines = feedLines(info).map((l) => {
+      const p = truthLine(l.parts);
+      p.style.opacity = '0';
+      feeds.append(p);
+      return { ...l, el: p };
     });
-    g.fillStyle = '#fff';
-    g.textBaseline = 'alphabetic';
-    g.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    const base = 20;
-    // each letter's baseline where the page puts it: its box's top plus the font's ascent
-    const m = g.measureText('G');
-    const asc = m.fontBoundingBoxAscent || parseFloat(cs.fontSize) * 0.9;
-    for (const s of letters) {
-      const r = s.getBoundingClientRect();
-      g.fillText(s.textContent ?? '', r.left, base + (r.top - wr.top) + asc);
-    }
-    const img = g.getImageData(0, 0, off.width, off.height).data;
-    const step = 3;
-    for (let y = 0; y < off.height; y += step)
-      for (let x = 0; x < off.width; x += step) {
-        if (img[(y * off.width + x) * 4 + 3]! < 128) continue;
-        const r1 = Math.random();
-        const r2 = Math.random();
-        // from the sphere (its constellation lends them), or from the point of light with no 3-D
-        const a = r1 * Math.PI * 2;
-        const rad = kind === 'flat' ? 6 * r2 : side * 0.32 * Math.sqrt(r2);
-        pts.push({ x0: cx + Math.cos(a) * rad, y0: cy + Math.sin(a) * rad, x1: x, y1: wr.top - base + y, d: Math.random() * 140, c: Math.random() });
-      }
-    return pts.length > 900 ? pts.filter((_, i) => i % Math.ceil(pts.length / 900) === 0) : pts;
+    bootState.feedLines = lines.map((l) => l.el.textContent?.replace(/\s+/g, ' ').trim() ?? '');
   };
-  const dctx = dust.getContext('2d');
 
-  // ---- the depths (the full cut only): a soft round mote in his colour, drawn many times
-  const motes = depthMotes();
-  const sprite = document.createElement('canvas');
-  sprite.width = sprite.height = 32;
-  {
-    const g = sprite.getContext('2d');
-    if (g) {
-      const grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-      grd.addColorStop(0, 'rgba(255,255,255,1)');
-      grd.addColorStop(0.25, `rgba(${cr}, .7)`);
-      grd.addColorStop(0.6, `rgba(${cr}, .12)`);
-      grd.addColorStop(1, `rgba(${cr}, 0)`);
-      g.fillStyle = grd;
-      g.fillRect(0, 0, 32, 32);
-    }
-  }
-
-  // ---- the clock: timeline ms (T) runs with real time, held while Mind loads (the point keeps breathing) and before the
-  // landing until the app is up; after a hold it runs faster so its own part still ends 3.9 s after the first frame.
+  // ---- the clock: timeline ms (T) runs with real time, held while Mind loads (the ground keeps breathing) and before the
+  // landing until the app is up; after a hold it runs faster so its own part still ends 2,880 ms after the first frame.
   // It never falls behind the wall clock: on a phone whose frames come late it skips ahead (shorter, never slower).
   let t0 = 0;
   let last = 0;
@@ -532,12 +652,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   let heroWait = 0;
   let quietHold = false;
   let done = false;
+  let locked = false;
+  let released = false;
   /** The frame budget: gaps quicker than a 60 Hz frame (two say the display runs at 120), the last WINDOW frames' long
    *  ones (counted from the moment Mind takes the stage), the work each frame took. */
   let quick = 0;
   let recent: number[] = [];
   let workSum = 0;
-  /** The lean cut: the phone could not keep up mid-flight, so the depths, the trails and the refraction go. */
+  /** The lean cut: the phone could not keep up mid-flight, so the trails and the refraction go. */
   let lean = false;
   // a check may pick the version (software WebGL is too slow for the full one to choose itself); then the cut holds
   // steady too, unless the check asks to see it lean
@@ -547,7 +669,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const enter = (p: Phase, at: number) => {
     if (bootState.marks[p] !== undefined) return;
     // a skip jumps to the landing: what it skipped never happened
-    if (bootState.skipped && p !== 'land' && p !== 'done' && p !== 'point') return;
+    if (bootState.skipped && p !== 'land' && p !== 'done' && p !== 'ground') return;
     bootState.marks[p] = Math.round(at);
     bootState.phase = p;
     // the HUD waits out of sight while Mind flies; it slides in a beat after Mind lands (finish)
@@ -569,13 +691,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const decide = (now: number) => {
     // where Mind stands decides the version; the late phone gets the short one, no 3-D gets the flat one
     const e = elapsed(now);
-    // even the point of light stuttered (its frames came over a 60 Hz frame and a third apart, on average)
+    // even the ground's breath stuttered (its frames came over a 60 Hz frame and a third apart, on average)
     const slow = gaps >= 4 && gapSum / gaps > 22;
     if (mindState === 'ready') {
       if (kind === 'full' && (slow || e > FULL_BY || bootState.firstFrame > 2500) && !forced()) kind = e > SHORT_BY ? 'flat' : 'short';
       else if (kind === 'full' && mind) {
         // one draw to warm it up (its shaders), one to time: a phone that cannot draw MIND inside one of its frames
-        // gets the short version (no drift, no push-in) rather than a cinematic that stutters
+        // gets the short version (no gather, no push-in) rather than a cinematic that stutters
         takeMind();
         mind.bootFrame(e / 1000, BOOT_DONE);
         const t1 = performance.now();
@@ -591,14 +713,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     el.classList.remove('full', 'short', 'still', 'flat');
     el.classList.add(kind);
     if (kind !== 'flat') takeMind();
-    // whatever was waited, its own part still ends by 3.9 s
-    const left = tl.end - tl.gather;
+    // whatever was waited, its own part still ends by 2,880 ms
+    const left = tl.end - tl.orb;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
     paceE = e;
-    paceT = tl.gather;
+    paceT = tl.orb;
     bootState.pace = Math.round(rate * 1000) / 1000;
     decided = true;
-    // from here the budget judges the cinematic's own frames (not the point's, which share the phone with the app starting)
+    // from here the budget judges the cinematic's own frames (not the ground's, which share the phone with the app starting)
     recent = [];
     return true;
   };
@@ -610,6 +732,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     bootState.hudAt = Math.round(elapsed(performance.now()));
     setTimeout(() => document.body.classList.remove('bootland'), 900);
   };
+  const letGo = () => {
+    if (released) return;
+    released = true;
+    release(lock);
+  };
   const finish = () => {
     if (done) return;
     done = true;
@@ -617,6 +744,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     enter('done', elapsed(now));
     bootState.ended = Math.round(elapsed(now));
     stopSound?.();
+    letGo();
     if (mindIn && mind) {
       const flight = mind.canvas.getBoundingClientRect();
       const hr = heroRect();
@@ -634,11 +762,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   };
 
   // a tap skips it, at any moment: straight to the landing when the app is up (quickly), else to a quiet wait for it
-  const skip = (e: Event) => {
+  const skipIt = (e: Event) => {
     e.preventDefault();
     if (done || bootState.skipped) return;
     bootState.skipped = true;
-    // no more words; if the app is not up yet, Mind turns quietly until it is
+    // no more words; if the app is not up yet, the orb turns quietly until it is
     quietHold = true;
     if (!said) bootState.spoken = 'off';
     said = true;
@@ -656,71 +784,77 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       paceT = T;
     }
   };
-  el.addEventListener('pointerdown', skip);
+  el.addEventListener('pointerdown', skipIt);
 
-  /** The far dust and the near motes, projected through Mind's camera at this push: the push moves each depth at its
-   *  own speed (the near ones stream out past the edges, the far ones barely move), which is what makes it 3-D. */
-  const depths = (g: CanvasRenderingContext2D, push: number, seg: (a: number, b: number) => number) => {
-    const farOn = seg(tl.gather, tl.gather + 700) * (1 - 0.35 * seg(tl.name, tl.greeting)) * (1 - seg(tl.land, tl.land + 300));
-    const nearOn = seg(tl.gather + 50, tl.gather + 450) * (1 - seg(tl.sphere + 300, tl.name + 100));
-    if (farOn <= 0 && nearOn <= 0) return;
-    const D = CAMZ * push;
-    const k = side / 2 / TAN15;
-    const s = T / 1000;
-    const draw = (m: Mote, on: number, x: number, y: number, near: boolean) => {
-      const dz = D - m.z;
-      if (dz < 0.6) return;
-      const px = cx + (k * x) / dz;
-      const py = cy - (k * y) / dz;
-      const r = Math.min(48, (m.s * CAMZ) / dz);
-      if (px < -r || px > vw + r || py < -r || py > vh + r) return;
-      // far: a slow shimmer; near: out of focus, so the bigger it comes the fainter
-      g.globalAlpha = on * m.a * (near ? Math.min(1, 14 / r) : 0.75 + 0.25 * Math.sin(s * 1.3 + m.v * 20));
-      g.drawImage(sprite, px - r, py - r, 2 * r, 2 * r);
-    };
-    if (farOn > 0) for (const m of motes.far) draw(m, farOn, m.x + s * 0.05 * (0.4 + m.v), m.y, false);
-    if (nearOn > 0) for (const m of motes.near) draw(m, nearOn, m.x, m.y + s * 0.1 * (0.5 + m.v), true);
-    g.globalAlpha = 1;
+  /** The recognition: the box snaps onto the orb's box with the tone, once (ui/machine.ts recognise: the lock's duration and
+   *  curve from the tokens, the sound set's own tone on top of his sound setting). */
+  const recogniseOrb = (push: number) => {
+    if (locked) return;
+    locked = true;
+    const R = kind === 'flat' ? 22 : (0.9 * 0.74 * (side / 2)) / push + 5;
+    Object.assign(orbBox.style, { left: `${cx - R}px`, top: `${cy - R}px`, width: `${2 * R}px`, height: `${2 * R}px` });
+    name.style.top = `${cy + R + 14}px`;
+    bootState.tone = sfxAllowed() ? ((document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off') : 'quiet';
+    void recognise(lock, orbBox, { name: 'Ghosty' });
   };
 
   const render = (now: number) => {
     const e = elapsed(now);
-    // Reduce Motion: nothing moves (with or without 3-D)
-    const calm = kind === 'still' || (kind === 'flat' && reduced());
+    // Reduce Motion and calm: nothing moves (with or without 3-D)
+    const calm = kind === 'still' || (kind === 'flat' && calmWanted());
     const seg = (a: number, b: number) => clamp((T - a) / (b - a));
-    // 1. the point of light: breathes once, then gives way to Mind's own nucleus (or, with no 3-D, to the name)
-    const held = !decided && T >= tl.gather - 1;
-    const breathe = held ? 1 + 0.12 * Math.sin(((e - tl.gather) / 1600) * Math.PI * 2) : 1 + 0.55 * Math.sin(Math.PI * clamp(T / tl.gather));
-    const dotOn = kind === 'flat' ? 1 - seg(tl.name + 60, tl.name + 260) : 1 - seg(tl.gather, tl.gather + 160);
-    dot.style.opacity = String(Math.min(1, 0.25 + 0.75 * clamp(T / 180)) * dotOn * (1 - seg(tl.land, tl.land + 150)));
-    dot.style.transform = `translate(-50%, -50%) scale(${(calm ? 1 : breathe).toFixed(3)})`;
-    // 2–3. Mind
-    const push = kind === 'full' ? 1 + 0.45 * (1 - easeInOut(seg(tl.gather, tl.name))) : 1;
+    const textsOut = (1 - seg(tl.land, tl.land + 150)) * (quietHold ? 0 : 1);
+    // 1. the ground: the room's light breathing in where the orb will be (held while Mind loads: it keeps breathing)
+    const held = !decided && T >= tl.orb - 1;
+    const roomOn = calm ? 1 : easeOut(seg(tl.ground, tl.floor)) * (held ? 0.88 + 0.12 * Math.sin(((e - tl.orb) / 1600) * Math.PI * 2) : 1);
+    room.style.opacity = roomOn.toFixed(3);
+    // 2. the world's floor forming, drawn once per change (whole at once when nothing moves)
+    const fk = calm ? 1 : seg(tl.floor, tl.floor + FLOOR_MS);
+    const kc = calm ? 1 : world === 'map' ? seg(tl.floor + 160, tl.orb) : world === 'eye' ? seg(tl.floor + 200, tl.orb + 100) * (1 - seg(tl.orb + 200, tl.orb + 500)) : 0;
+    const fkey = Math.round(fk * 400) + kc;
+    if (fctx && floorHas && fkey !== floorAt) {
+      floorAt = fkey;
+      drawFloor(fctx, world, fk, vw, vh, dpr, floorTok, { x: cx, y: cy, r: 0.9 * 0.74 * (side / 2) + 5 }, { x1: gutter, x2: vw - gutter, y: topY + 24 }, kc);
+      // Glass: the blur over the ground clearing as the floor's moment passes
+      if (world === 'glass') {
+        const blur = 18 * (1 - fk);
+        glass.style.opacity = (1 - fk).toFixed(3);
+        const f = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : '';
+        glass.style.backdropFilter = f;
+        glass.style.setProperty('-webkit-backdrop-filter', f);
+      }
+    }
+    // 3. the orb: his library's points gather and the sphere resolves (the full cut); whole, fading in (the rest)
+    const G = tl.orb;
+    const S = tl.orb + 560;
+    const N = tl.feeds;
+    const push = kind === 'full' ? 1 + 0.45 * (1 - easeInOut(seg(G, N))) : 1;
+    const orbState: MindState = T >= tl.greeting ? 'speaking' : T >= tl.recognise ? 'attending' : 'idle';
     if (mindIn && mind) {
       let look: BootLook = BOOT_DONE;
       let fade = 1;
       if (kind === 'full') {
         look = {
-          gather: seg(tl.gather, tl.sphere),
-          links: seg(tl.gather + 600, tl.sphere + 50),
+          gather: seg(G, S),
+          links: seg(G + 320, S + 50),
           // from the inside out: the haze, the meridians one after another, the latitudes and the tilted ring, the rim
-          haze: easeOut(seg(tl.sphere - 150, tl.sphere + 250)),
-          mer: seg(tl.sphere + 80, tl.sphere + 640),
-          sphere: easeInOut(seg(tl.sphere + 250, tl.sphere + 650)),
-          rim: easeInOut(seg(tl.sphere + 420, tl.sphere + 820)),
-          scale: seg(tl.sphere + 300, tl.name),
+          haze: easeOut(seg(S - 150, S + 250)),
+          mer: seg(S + 80, S + 640),
+          sphere: easeInOut(seg(S + 250, S + 650)),
+          rim: easeInOut(seg(S + 420, S + 820)),
+          scale: seg(S + 300, N),
           core: 1,
-          turn: -0.35 * (1 - easeInOut(seg(tl.sphere, tl.name))),
+          turn: -0.35 * (1 - easeInOut(seg(S, N))),
           push,
           // the sweep: down through the gathering constellation once, crossing the equator half-way
-          sweep: T >= tl.gather + 450 && T <= tl.gather + 1000 ? 1.1 - 2.2 * seg(tl.gather + 450, tl.gather + 1000) : NaN,
+          sweep: T >= G + 240 && T <= G + 540 ? 1.1 - 2.2 * seg(G + 240, G + 540) : NaN,
           trails: lean ? 0 : 1,
           refract: lean ? 0 : 1,
         };
-        fade = seg(tl.gather, tl.gather + 120);
-      } else fade = easeOut(seg(tl.sphere, tl.sphere + (kind === 'still' ? 300 : 450)));
+        fade = seg(G, G + 120);
+      } else fade = easeOut(seg(G, G + (kind === 'still' ? 300 : 450)));
       const c = mind.canvas;
-      // 6. the flight: from the stage up into the hero's box (the same canvas; it is Home's from the landing on)
+      // 8. the flight: from the stage up into the hero's box (the same canvas; it is Home's from the landing on)
       const hr = T >= tl.land ? heroRect() : null;
       if (hr && kind !== 'still') {
         const k = easeInOut(seg(tl.land, tl.end));
@@ -729,55 +863,45 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       } else if (kind === 'still') fade *= 1 - seg(tl.land, tl.end);
       c.style.opacity = fade.toFixed(3);
       // (stepped by hand, a check's photographs follow the cut's own clock, not the time the photographs take)
-      mind.bootFrame((flags().__ghostyBootManual ? T : e) / 1000, look);
+      mind.bootFrame((flags().__ghostyBootManual ? T : e) / 1000, look, orbState);
     }
-    // 4. the name: particles fly from the sphere into the letters, a little wide of them; the letters come up crisp; one
-    // last tightening draws them all in; the particles go; the line draws itself under it from the middle out
-    const N = tl.name;
-    if (T >= N && !parts.length && !calm) parts = sample();
-    const tight = calm || !parts.length ? 1 : 1 + 0.09 * (1 - easeInOut(seg(N + 420, N + 580)));
-    letters.forEach((s, i) => (s.style.transform = tight === 1 ? '' : `translateX(${((offs[i] ?? 0) * (tight - 1)).toFixed(2)}px)`));
-    const wordOn = calm ? seg(N, N + 300) : seg(N + 350, N + 600);
-    const textsOut = (1 - seg(tl.land, tl.land + 150)) * (quietHold ? 0 : 1);
-    word.style.opacity = (wordOn * textsOut).toFixed(3);
-    const drawn = calm ? 1 : easeInOut(seg(N + 500, N + 650));
-    line.style.transform = `translateX(-50%) scaleX(${drawn.toFixed(4)})`;
-    line.style.opacity = ((calm ? seg(N + 150, N + 450) : drawn > 0 ? 1 : 0) * textsOut).toFixed(3);
-    stops.style.opacity = (calm ? 1 : seg(N + 620, N + 720)).toFixed(3);
-    if (dctx) {
-      dctx.setTransform(1, 0, 0, 1, 0, 0);
-      dctx.clearRect(0, 0, dust.width, dust.height);
-      dctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      dctx.globalCompositeOperation = 'lighter';
-      if (kind === 'full' && !lean && mindIn) depths(dctx, push, seg);
-      const fadeDust = 1 - seg(N + 450, N + 700);
-      if (parts.length && fadeDust > 0 && T >= N) {
-        dctx.fillStyle = accent;
-        for (const p of parts) {
-          const k = easeOut((T - N - p.d) / 330);
-          if (k <= 0) continue;
-          // a slight curve on the way, as if drawn out of the sphere
-          const bend = Math.sin(k * Math.PI) * (p.c - 0.5) * 30;
-          const x1 = wcx + (p.x1 - wcx) * tight;
-          const x = p.x0 + (x1 - p.x0) * k + bend;
-          const y = p.y0 + (p.y1 - p.y0) * k;
-          dctx.globalAlpha = Math.min(1, 0.35 + k) * fadeDust * (0.55 + 0.45 * p.c);
-          const sz = k > 0.98 ? 1.6 : 1.2 + p.c;
-          dctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
-        }
-        dctx.globalAlpha = 1;
-      }
+    // no 3-D: the point of light where the 2-D fallback lives, breathing once, gone as Home takes over
+    const dotOn = kind === 'flat' ? easeOut(seg(G, G + 300)) * (1 - seg(tl.land, tl.land + 150)) : 0;
+    dot.style.opacity = dotOn.toFixed(3);
+    dot.style.transform = `translate(-50%, -50%) scale(${(calm || kind !== 'flat' ? 1 : 1 + 0.25 * Math.sin(Math.PI * seg(G, G + 600))).toFixed(3)})`;
+    // 4. the stamp line types itself: the day, the time, his saved place, the feeds' state (whole at once when nothing moves)
+    const words = stampNow();
+    const chars = calm ? Infinity : (T - tl.stamp) / TYPE_MS;
+    if (T >= tl.stamp) {
+      stampTyped(stamp, words, chars);
+      bootState.stamp = words;
     }
-    // 5. the greeting, with a breath of bloom (in, then most of it out again)
-    const G = tl.greeting;
-    const gOn = seg(G, G + 300);
-    greet.style.opacity = (gOn * textsOut).toFixed(3);
-    greet.style.transform = `translate(-50%, ${calm ? 0 : ((1 - easeOut(gOn)) * 8).toFixed(2)}px)`;
-    const breath = calm ? 0 : easeOut(seg(G, G + 170)) * (1 - 0.8 * easeInOut(seg(G + 170, G + 560)));
-    bloom.style.opacity = (breath * textsOut).toFixed(3);
-    greet.style.textShadow = breath > 0 && glowK > 0 ? `0 0 ${((6 + 20 * breath) * glowK).toFixed(1)}px rgba(${cr}, ${(0.2 + 0.55 * breath).toFixed(3)})` : '';
-    // 6. the black goes and Home is there
-    veil.style.opacity = (1 - easeInOut(seg(tl.land, tl.end))).toFixed(3);
+    stamp.style.opacity = ((T >= tl.stamp ? 1 : 0) * textsOut).toFixed(3);
+    // 5. the feeds answer, one line each as they connect (only the ones that did), a lock apart; gone at the recognition
+    refreshLines();
+    const gone = T >= tl.recognise ? 1 - seg(tl.recognise, tl.recognise + LOCK) : 1;
+    lines.forEach((l, i) => {
+      const at = tl.feeds + i * LOCK;
+      const on = calm ? (T >= tl.feeds ? 1 : 0) : seg(at, at + LOCK);
+      l.el.style.opacity = (on * gone * textsOut).toFixed(3);
+    });
+    feeds.hidden = gone <= 0;
+    // 6. the recognition: the box snaps onto the orb with the tone, G H O S T Y under it
+    // (on a phone whose frame jumped past it to the landing, the recognition still happens on the cut's clock: the box is gone with the words)
+    if (T >= tl.recognise && !bootState.skipped) recogniseOrb(push);
+    lock.style.opacity = textsOut.toFixed(3);
+    if (T >= tl.land && locked) letGo();
+    name.style.opacity = ((calm ? seg(tl.recognise, tl.recognise + 200) : seg(tl.recognise + LOCK, tl.recognise + LOCK + 120)) * textsOut).toFixed(3);
+    // 7. the greeting, his line, under the stamp
+    const Gr = tl.greeting;
+    greet.hidden = T < Gr;
+    greet.style.opacity = ((calm ? seg(Gr, Gr + 200) : seg(Gr, Gr + 160)) * textsOut).toFixed(3);
+    greet.style.transform = `translateY(${calm ? 0 : ((1 - easeOut(seg(Gr, Gr + 160))) * 6).toFixed(2)}px)`;
+    // TAP TO SKIP, small, from the orb's first light to the recognition (not on the two still frames: the orb is whole there)
+    const skipOn = calm ? (T >= G && T < tl.recognise ? 1 : 0) : seg(G + FIRST_LIGHT, G + FIRST_LIGHT + 200) * (1 - seg(tl.recognise - 120, tl.recognise));
+    skip.style.opacity = (skipOn * (bootState.skipped ? 0 : 1)).toFixed(3);
+    // 8. the ground goes and Home is there
+    ground.style.opacity = (1 - easeInOut(seg(tl.land, tl.end))).toFixed(3);
   };
 
   /** Each frame against the budget: the gap since the last one (long: over 12 ms at 120 Hz, over 20 at 60). */
@@ -793,10 +917,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     recent.push(gap > B.ms ? 1 : 0);
     if (recent.length > WINDOW) recent.shift();
   };
-  /** Mid-flight, the full cut on a phone that cannot keep up: it leans (no depths, trails or refraction) and quickens. */
-  const strain = (now: number) => {
-    if (lean || kind !== 'full' || !decided || steady() || bootState.skipped || T < tl.gather || T >= tl.land) return;
-    if (recent.reduce((a, b) => a + b, 0) < LEAN_AT) return;
+  /** Mid-flight, the full cut on a phone that cannot keep up: it leans (no trails or refraction) and quickens. */
+  const strain = (now: number, gap: number) => {
+    if (lean || kind !== 'full' || !decided || steady() || bootState.skipped || T < tl.orb || T >= tl.land) return;
+    // (a phone whose frames come a tenth of a second apart shows its quarter in eight frames: it need not wait for twenty-four;
+    // one stalled frame says it alone)
+    const n = recent.length;
+    if (gap < STALL && (n < LEAN_MIN || recent.reduce((a, b) => a + b, 0) < Math.min(LEAN_AT, Math.max(3, Math.ceil(n / 4))))) return;
     lean = true;
     B.lean = bootState.phase as Phase;
     paceE = elapsed(now);
@@ -805,8 +932,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     bootState.pace = Math.round(rate * 1000) / 1000;
   };
 
-  /** A frame that throws (a driver quirk, a shader that will not compile) must never keep the app behind the black
-   *  (it plays on every cold open now): the cinematic bails straight to Home, Mind handed to the hero if it can be. */
+  /** A frame that throws (a driver quirk, a shader that will not compile) must never keep the app behind the ground (it
+   *  plays on every cold open now): the cinematic bails straight to Home, Mind handed to the hero if it can be. */
   const bail = (err: unknown) => {
     if (done) return;
     done = true;
@@ -817,6 +944,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       /* the sound is already gone */
     }
     try {
+      letGo();
       if (mindIn && mind) mind.bootEnd();
     } catch {
       /* Home wakes its own Mind */
@@ -843,7 +971,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       started = performance.now();
       bootState.firstFrame = Math.round(performance.now());
       if (appIsReady && bootState.appReady < 0) bootState.appReady = 0;
-      enter('point', 0);
+      enter('ground', 0);
     }
     // a long gap is not made up in one jump (no stutter), but the end still comes on time (the rate after a hold)
     const gap = now - last;
@@ -851,7 +979,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (now > last) {
       bootState.worstGap = Math.max(bootState.worstGap, Math.round(now - last));
       budget(gap);
-      if (T < tl.gather) {
+      if (T < tl.orb) {
         gaps++;
         gapSum += now - last;
       }
@@ -859,7 +987,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     last = now;
     bootState.frames++;
     if (!flags().__ghostyBootManual) {
-      strain(now);
+      strain(now, gap);
       advance(now, dt, gap);
     }
     render(now);
@@ -874,9 +1002,9 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const advance = (now: number, dt: number, gap: number) => {
     const e = elapsed(now);
     let next = Math.max(T + dt * rate, paceT + (e - paceE) * rate);
-    // the point of light holds until Mind is drawing (or it is clear it won't be in time)
-    if (!decided && next >= tl.gather && !decide(now)) next = tl.gather - 1;
-    // the landing waits for the app underneath and for Home's hero; after 3.9 s the words go and Mind turns quietly
+    // the ground holds until Mind is drawing (or it is clear it won't be in time)
+    if (!decided && next >= tl.orb && !decide(now)) next = tl.orb - 1;
+    // the landing waits for the app underneath and for Home's hero; after 2,880 ms the words go and the orb turns quietly
     if (next >= tl.land && T < tl.land + 1) {
       const ready = appIsReady && (!mindIn || !!heroRect() || heroWait > 1500);
       if (!ready) {

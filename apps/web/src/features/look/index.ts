@@ -3,12 +3,13 @@
  * the first screen drawn in it. Five sections, each a pill: TOKENS (every token with its name, value and job, read from
  * tokens.css itself, the inks and lines with their contrast measured live), TYPE (the scale set in its own sizes), MARKS (the
  * Machine's marks working: a reticle to tap, a typed-out line typing, the recognition tone on a key, the search, the line of
- * sight), MIND (the eye, breathing while it listens) and THEMES (the twelve as live swatches with their measured contrast).
+ * sight), MIND (the orb itself, borrowed from Home the way the boot borrows it, with its five states as stills and live) and
+ * THEMES (the twelve as live swatches with their measured contrast).
  * Two taps from Settings (the Appearance pill, then its row). The stamp line at the top says what the Machine is looking at
  * as he moves between sections.
  *
- * States, each said in a sentence: Reduce Motion on (marks land where they land, the eye holds still), sound off (the tone
- * stays quiet, and where to turn it on), a browser with no 3-D (the eye drawn flat), offline (the stamp says so), first open
+ * States, each said in a sentence: Reduce Motion on (marks land where they land, the orb holds still), sound off (the tone
+ * stays quiet, and where to turn it on), a browser with no 3-D (the orb cannot be drawn here), offline (the stamp says so), first open
  * (it opens on MARKS, where "tap a mark" is). SPEED: the section in view is built at once and the others just after the first
  * paint, so the screen opens in under 300 ms on the preview (tests/look.spec.mjs holds it).
  */
@@ -18,14 +19,14 @@ import { parseColour, contrast, ratioWords, FLOOR, type RGB } from '../../design
 import tokensCss from '../../design/tokens.css';
 import { ACCENT_BLOCK, GROUND_BLOCK, parseAttrBlocks, parseTokens, typeParts, WORLD_BLOCK, type Token } from '../../design/tokens';
 import type { TabDef } from '../../shell/tabs';
-import { home, settings } from '../../state/app';
+import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { PRESETS, recipe, recipeEvents, recipeNow, themeEvents } from '../../state/theme';
 import { COLOUR_LABELS, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
 import { lookDials } from '../../ui/dials';
 import { panel, type Panel } from '../../ui/components';
-import { machineEye, type Eye, type EyeInfo } from '../../ui/eye';
-import { eyeGlyph, index, key, lineOfSight, lockBox, MARKS, marksState, plate, recognise, reticle, search, stampLine, tag, toneHeard, truthLine, typedLine, type Reticle, type StampFacts } from '../../ui/machine';
+import { heroState, mindFor, STATES, webglWorks, type Mind, type MindState } from '../core/mind';
+import { eyeGlyph, index, key, lineOfSight, lockBox, MARKS, marksState, plate, recognise, release, reticle, search, stampLine, tag, toneHeard, truthLine, typedLine, type Reticle, type StampFacts } from '../../ui/machine';
 import { sections } from '../../ui/sections';
 import { themeSwatches } from '../../ui/swatches';
 
@@ -42,7 +43,9 @@ export const lookState = {
   /** The sections built so far, in the order they were built. */
   built: [] as string[],
   section: '',
-  eye: null as EyeInfo | null,
+  /** The orb on this screen: drawn by the one Mind (gl) or not drawable here (flat), its state, whether it holds still, the
+   *  frames drawn while it is here, the stills drawn (five), and whether Home's Mind is borrowed now. */
+  mind: { mode: '' as '' | 'gl' | 'flat', state: 'idle' as MindState, still: false, frames: 0, stills: 0, lent: false, accent: '' },
   marks: marksState,
   /** The newest open of this screen, as the phone's stopwatch timed it. */
   opened: () => stopwatch.lastTab('look'),
@@ -58,7 +61,7 @@ function feedsWatched(): number | null {
   return (['flood', 'weather', 'crime'] as const).filter((f) => info.checked[f] && !info.failed[f]).length;
 }
 
-const SECTION_WORDS: Record<string, string> = { tokens: 'the tokens', type: 'the type', marks: 'the marks', mind: 'my eye', themes: 'the themes' };
+const SECTION_WORDS: Record<string, string> = { tokens: 'the tokens', type: 'the type', marks: 'the marks', mind: 'my orb', themes: 'the themes' };
 /** A token's job as a sentence on screen (the file writes it as a note: "the page: …" reads "The page: …"). */
 const sentence = (job: string) => job.charAt(0).toUpperCase() + job.slice(1);
 
@@ -108,11 +111,11 @@ export const lookTab: TabDef = {
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
     const paintStates = () => {
       const said: [string, string][] = [];
-      if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands, the typed line shows whole and my eye holds still.']);
-      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands, the typed line shows whole and my eye holds still. Themes › Switches › Motion brings it back.']);
+      if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands, the typed line shows whole and my orb holds still.']);
+      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands, the typed line shows whole and my orb holds still. Themes › Switches › Motion brings it back.']);
       if (!settings.get().sounds) said.push(['Sound off', 'Interface sounds are off, so the recognition tone stays quiet. Settings › Voice & home turns them on.']);
       else if (!toneHeard()) said.push(['Tap once', 'I can play the recognition tone once you have tapped the screen.']);
-      if (eye?.info.mode === 'flat') said.push(['Drawn flat', 'This browser has no 3-D, so I draw my eye flat here.']);
+      if (lookState.mind.mode === 'flat') said.push(['No 3-D', 'This browser has no 3-D, so I can’t draw my orb here; Home draws it flat too.']);
       lookState.states = said.map(([k]) => k);
       states.replaceChildren(...said.map(([k, v]) => h('p.glook-state', { dataset: { case: 'keep' } }, h('b', k), v)));
     };
@@ -122,7 +125,7 @@ export const lookTab: TabDef = {
       tokens: panel('TOKENS', { grow: false, status: `${tokens.length} tokens` }),
       type: panel('TYPE', { grow: false, status: 'Floor 12 pt' }),
       marks: panel('MARKS', { grow: false, status: `${MARKS.length} marks` }),
-      mind: panel('MIND', { grow: false, status: 'My eye' }),
+      mind: panel('MIND', { grow: false, status: 'My orb' }),
       themes: panel('THEMES', { grow: false, status: `${PRESETS.length} presets` }),
     };
     for (const p of Object.values(P)) {
@@ -339,28 +342,120 @@ export const lookTab: TabDef = {
       if (secs.current() === 'marks') void typed.type((said = narration()));
     };
 
-    // ---------------------------------------------------------------- MIND
-    let eye: Eye | null = null;
-    const fillMind = (b: HTMLElement) => {
-      eye = machineEye(240, { label: 'My eye' });
-      lookState.eye = eye.info;
-      const said = truthLine('Idle · turning slowly');
-      const idle = key('Idle', () => setEye('idle'), { label: 'My eye idle' });
-      const listen = key('Listening', () => setEye('listening'), { label: 'My eye listening' });
-      const setEye = (s: 'idle' | 'listening') => {
-        eye!.set(s);
-        idle.setAttribute('aria-pressed', String(s === 'idle'));
-        listen.setAttribute('aria-pressed', String(s === 'listening'));
-        const still = motion.matches || document.documentElement.dataset.motion === 'calm';
-        // (drawn flat, it neither turns nor breathes, and says so)
-        const flat = eye!.info.mode === 'flat';
-        said.replaceChildren(...truthLine(s === 'idle' ? (flat ? ['Idle', 'drawn flat, still'] : still ? ['Idle', 'held still'] : ['Idle', 'turning slowly']) : [{ text: 'Listening', tone: 'on' }, flat ? 'drawn flat, still' : still ? 'held still: Reduce Motion' : 'breathing']).childNodes);
+    // ---------------------------------------------------------------- MIND: the orb itself, borrowed from Home, and its five states
+    /** The one Mind (features/core/mind.ts), lent to this screen the way the boot borrows it: never a copy, one WebGL context. */
+    let orb: Mind | null = null;
+    let orbState: MindState = 'idle';
+    let orbLoop = 0;
+    let orbLast = 0;
+    const M = lookState.mind;
+    const orbHost = h('div.g-orb.gorblive', { role: 'img', 'aria-label': 'My orb: idle' });
+    const orbWrap = h('div.gorbwrap', orbHost);
+    const orbStage = h('div.gstage.gorbstage', orbWrap);
+    const orbLock = lockBox(orbStage);
+    const orbSaid = truthLine('Idle · turning slowly');
+    const stillCanvases = new Map<string, HTMLCanvasElement>();
+    const stillWanted = () => motion.matches || document.documentElement.dataset.motion === 'calm';
+    /** The five stills from the one orb: its context drawn five times, each into a plain canvas (one WebGL context stays the
+     *  rule), one a frame after the screen has painted, so the open never waits for them (the speed budget). */
+    let stillJob = 0;
+    const drawStills = () => {
+      cancelAnimationFrame(stillJob);
+      const queue = [...STATES];
+      const one = () => {
+        stillJob = 0;
+        const st = queue.shift();
+        if (!st || !orb?.active) return;
+        const c = stillCanvases.get(st.key);
+        if (c && orb.still(st.state, c)) M.stills = Math.max(M.stills, STATES.indexOf(st) + 1);
+        if (queue.length) stillJob = requestAnimationFrame(one);
       };
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Mind, drawn as my eye: a sphere of points with what I know inside it, my core in your colour, no glow. I breathe while I listen.'),
-        h('div.gstage', h('div.gorbwrap', eye.el), tag('Mind · my eye', { tone: 'on' }), said, h('div.gkeys', idle, listen)),
-        h('p.glook-state', { dataset: { case: 'keep' }, style: 'margin-top: var(--g-s-2)' }, h('b', 'In the works'), 'My eye lives here for now. Home keeps today’s Mind until the new shell takes this one.'));
-      setEye('idle');
+      stillJob = requestAnimationFrame(() => (stillJob = requestAnimationFrame(() => (stillJob = requestAnimationFrame(one)))));
+    };
+    const sayState = (keyName: string) => {
+      const st = STATES.find((x) => x.key === keyName)!;
+      const flat = M.mode === 'flat';
+      const held = stillWanted();
+      orbHost.setAttribute('aria-label', `My orb: ${st.key}${flat ? ', not drawn here' : held ? ', held still' : ''}`);
+      orbSaid.replaceChildren(...truthLine([{ text: st.name, tone: st.key === 'idle' ? 'strong' : 'on' }, flat ? 'no 3-D here' : held ? 'held still' : st.key === 'idle' ? 'turning slowly' : st.key === 'listening' ? 'breathing' : st.key === 'attending' ? 'the box on it' : st.key === 'thinking' ? 'pulses racing' : 'keeping time']).childNodes);
+      for (const [k, b] of stateKeys) b.setAttribute('aria-pressed', String(k === keyName));
+    };
+    const stateKeys = new Map<string, HTMLButtonElement>();
+    const setState = (keyName: string) => {
+      const st = STATES.find((x) => x.key === keyName)!;
+      orbState = st.state;
+      M.state = st.state;
+      // attending: the reticle lands on the orb itself (the moment of recognition); any other state lets it go
+      if (st.key === 'attending') void recognise(orbLock, orbHost, { name: 'My orb' });
+      else release(orbLock);
+      sayState(keyName);
+    };
+    for (const st of STATES) stateKeys.set(st.key, key(st.name, () => setState(st.key), { label: `My orb ${st.key}` }));
+    /** Draw the live orb while this screen shows it: Mind's own pace (30 fps idle, 60 after a change; a still per change with Reduce Motion or calm). */
+    const tick = (now: number) => {
+      orbLoop = 0;
+      if (!orb?.lentOut) return;
+      const dt = orbLast ? Math.min(0.25, (now - orbLast) / 1000) : 0.016;
+      orbLast = now;
+      if (orbHost.offsetParent !== null) {
+        const before = heroState.frames;
+        orb.lentFrame(dt, orbState, orbState === 'listening' ? 0.5 : 0);
+        if (heroState.frames !== before) M.frames++;
+      }
+      M.still = !heroState.loop;
+      M.accent = heroState.accent;
+      orbLoop = requestAnimationFrame(tick);
+    };
+    /** Borrow Home's Mind for this screen (when it is here to borrow: not while the boot holds it), draw the stills, start the loop. */
+    const borrow = async () => {
+      if (orb?.lentOut || !lookState.built.includes('mind')) return;
+      if (!webglWorks()) {
+        M.mode = 'flat';
+        sayState(STATES.find((x) => x.state === orbState)!.key);
+        paintStates();
+        return;
+      }
+      const m = mindFor(null);
+      const ok = await m.start();
+      if (!ok) {
+        M.mode = 'flat';
+        sayState(STATES.find((x) => x.state === orbState)!.key);
+        paintStates();
+        return;
+      }
+      if (ui.get().tab !== 'look' || orb?.lentOut) return;
+      const size = Math.round(orbHost.clientWidth || Math.min(240, innerWidth * 0.62));
+      if (!m.lend(orbHost, size, size)) return;
+      orb = m;
+      M.mode = 'gl';
+      M.lent = true;
+      M.stills = 0;
+      drawStills();
+      orbLast = 0;
+      // (the first live frame after the screen has painted: the open never waits for a draw of the orb)
+      if (!orbLoop) orbLoop = requestAnimationFrame(() => setTimeout(() => (orbLoop = requestAnimationFrame(tick)), 0));
+      sayState(STATES.find((x) => x.state === orbState)!.key);
       paintStates();
+    };
+    /** Give it back to Home's hero (the screen is left). */
+    const giveBack = () => {
+      cancelAnimationFrame(orbLoop);
+      orbLoop = 0;
+      release(orbLock);
+      if (orb?.lentOut) orb.giveBack();
+      M.lent = false;
+    };
+    const fillMind = (b: HTMLElement) => {
+      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'My orb: the hologram of what I know, a sphere of light holding the constellation of my library, lit in your colour from the tokens, its glow following the world. The same one Home shows, borrowed while you look. Five states, each one visible change.'),
+        h('div.gstates', ...STATES.map((st) => {
+          const c = h('canvas.gstill', { width: 400, height: 400, 'aria-label': `My orb ${st.key}: ${st.line}`, role: 'img' });
+          stillCanvases.set(st.key, c);
+          return h('figure.gstate', { dataset: { state: st.key } }, h('div.gstillwrap', c, st.key === 'attending' ? h('span.g-lock.gstilllock', { 'aria-hidden': 'true', dataset: { state: 'attend' } }, h('span.g-ret-frame')) : null), h('figcaption', tag(st.name, { tone: st.key === 'attending' ? 'on' : undefined }), h('p.gstate-line', { dataset: { case: 'keep' } }, st.line)));
+        })),
+        orbStage,
+        tag('Mind · my orb', { tone: 'on' }), orbSaid, h('div.gkeys.gstatekeys', ...[...stateKeys.values()]));
+      sayState('idle');
+      void borrow();
     };
 
     // ---------------------------------------------------------------- THEMES
@@ -395,6 +490,7 @@ export const lookTab: TabDef = {
       ensure(id);
       looking = SECTION_WORDS[id] ?? 'the look';
       stamp.refresh();
+      if (id === 'mind') void borrow();
     };
     secs.el.addEventListener('click', () => requestAnimationFrame(showing));
     // (a pill's own handler runs first; this builds the section it chose before the next frame is drawn)
@@ -432,6 +528,8 @@ export const lookTab: TabDef = {
     });
     // the accent block's live values and the measured contrast follow the theme (once it settles: a mood eases over a second)
     themeEvents.on('change', () => {
+      // the stills take the new colour (the live orb recolours itself)
+      if (orb?.lentOut) drawStills();
       clearTimeout(retoken);
       retoken = window.setTimeout(() => {
         if (!lookState.built.includes('tokens')) return;
@@ -456,6 +554,12 @@ export const lookTab: TabDef = {
         restamp();
         paintStates();
         showing();
+        // the orb is borrowed a frame after the screen has painted (moving and sizing the one WebGL canvas is the costly
+        // part of this open): the open stays under its budget, and the spec waits for the orb's first frame, not the paint
+        requestAnimationFrame(() => setTimeout(() => { if (ui.get().tab === 'look') void borrow(); }, 0));
+      },
+      leave() {
+        giveBack();
       },
       describe: () => `THE LOOK: how I draw everything (${SECTION_WORDS[secs.current()] ?? 'the marks'} showing); theme ${settings.get().theme}`,
     };

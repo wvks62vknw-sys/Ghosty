@@ -137,6 +137,17 @@ folder that no longer exists; ignore those paths).
   branch (two additive conflicts: the Appearance footer keeps the Reading sentence, the look test keeps the reader test before
   the themes tests). Locally: brain suite 1,779/1,779, typecheck, build, look/settings/deck/reader/tabs specs clean.
   OWNER-ISSUES 147, STARS 170's gaps, STATUS 1(d) and section 2 written; PR #62 opened and subscribed.
+  09:30 UK: the boot storyboard (run one of BRIEF-ORB-AND-BOOT) sent to him as two pictures, OWNER-ISSUES 148 with six
+  questions with context; run two (the build) launched on the top tier in worktree orb-and-boot (port 8803, results to
+  scratchpad/orb-build.md). 09:35 UK: PR #62 green on every job and MERGED (main 7e837c7); unsubscribed, branch restarted
+  from main carrying the storyboard docs commit, a check-in set for main's own run.
+  11:15 UK: ORB-AND-BOOT run two reported (seven commits, 9fa044d). Reviewed (guard, check.yml untouched; no forbidden
+  files, model names, GPS or network; nothing skipped in the specs; the real boot's shots looked at per world). A plain
+  merge hit history-shape conflicts (PR #62 was squashed, the builder branched before it), so the builder's diff
+  ea5596e..9fa044d was applied as one patch (clean; the tree equals the builder's outside the docs). Locally: typecheck,
+  build, bundle, look tests, then the full brain suite and the boot/hero/look/routec/deck/tabs specs. OWNER-ISSUES 149,
+  STATUS 1(e) and section 2; PR #63 opened and subscribed. The orb worktree stays until the PR merges.
+  11:37 UK: main's own run 340 (7e837c7) green on every job: item 1(d), themes that mean something, FINISHED.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

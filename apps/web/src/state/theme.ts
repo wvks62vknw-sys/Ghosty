@@ -189,6 +189,42 @@ function readGlow(): void {
 /** How much my orb's halo glows in this recipe (Mind reads it: the world governs its glow, never its draw). */
 export const glowNow = (): number => roomGlow;
 
+/** A probe standing on the night ground in the theme's colour: what the orb's tokens are under Paper. */
+let orbProbe: HTMLElement | null = null;
+/**
+ * The orb's light, from the tokens (BRIEF-ORB-AND-BOOT, "lit in his colour from the tokens"): --g-accent-rgb, --g-accent-pale-rgb and
+ * the colour's own glow --g-accent-glow (Mono's .25) as they stand on <html>, his mood's written over them while one lasts.
+ * Under Paper the orb lives on a room still drawn on the night ground (Home, the boot), so its tokens are read from the theme's
+ * block standing on that ground (a probe), not the ink <html> carries; a mood under Paper keeps the mood's own light.
+ */
+export function orbTokens(): Light {
+  try {
+    const el = document.documentElement;
+    const light = !!groundOf(el.dataset.ground ?? '')?.light;
+    if (light && shown && moodKind !== 'calm') return shown;
+    let cs: CSSStyleDeclaration;
+    if (light) {
+      if (!orbProbe) {
+        orbProbe = document.createElement('i');
+        orbProbe.hidden = true;
+        orbProbe.setAttribute('aria-hidden', 'true');
+        orbProbe.className = 'themeprobe';
+      }
+      if (!orbProbe.isConnected) (document.body ?? el).append(orbProbe);
+      orbProbe.dataset.accent = themeKey(current.colour);
+      orbProbe.dataset.ground = el.dataset.night || 'graphite';
+      cs = getComputedStyle(orbProbe);
+    } else cs = getComputedStyle(el);
+    const c = parseColour(cs.getPropertyValue('--g-accent-rgb'));
+    const pale = parseColour(cs.getPropertyValue('--g-accent-pale-rgb'));
+    const glow = parseFloat(cs.getPropertyValue('--g-accent-glow'));
+    if (c && pale) return { c: toHex(c), pale: toHex(pale), glow: Number.isFinite(glow) ? glow : 1 };
+  } catch {
+    /* no document (a test bundle): what is shown, or Reactor's */
+  }
+  return shown ?? FALLBACK;
+}
+
 let dayTimer = 0;
 /** Following the day: the ground changes by itself at sunrise and at sunset (a second after, so the clock is past it). */
 function scheduleDay(): void {
