@@ -480,11 +480,18 @@ if (!isWebKit) {
   for (let y = 0; y < 6; y++) {
     await p5.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 700; }, y);
     await p5.waitForTimeout(150);
-    const r = await readable(p5, '#pg-settings .pn.themepn.pushed, #top');
+    const r = await readable(p5, '#pg-settings .pn.themepn.pushed, #top, #dock');
     worst = Math.min(worst, r.min);
     check(!r.low.length, `[paper] the Theme page has text under 4.5:1 on screen: ${r.low.join(' | ')}`);
   }
   await p5.screenshot({ path: `${out}/look-${engine}-440-paper-theme.png` });
+  // the bar on a Paper page is paper too: its fade and its capsule in the canvas, its words in the ground's ink (no dark smudge)
+  const bar = await p5.evaluate(() => ({
+    fade: getComputedStyle(document.querySelector('#dock .tabblur') ?? document.body).backgroundImage,
+    cap: getComputedStyle(document.querySelector('#dock .tabcap') ?? document.body).backgroundColor,
+    ink: getComputedStyle(document.querySelector('#dock .tabcap button:not(.on)') ?? document.body).color,
+  }));
+  check(/243, 239, 230/.test(bar.fade) && !/5, 6, 7/.test(bar.fade) && /243, 239, 230/.test(bar.cap) && hexOf(bar.ink) === '#383733', `[paper] the tab bar on the Paper Theme page is not paper: ${JSON.stringify(bar)}`);
   await p5.evaluate(() => (location.hash = 'look'));
   await p5.waitForSelector('#pg-look.on .glook', { timeout: 10000 });
   for (const id of SECTIONS) {
@@ -492,7 +499,7 @@ if (!isWebKit) {
     for (let y = 0; y < 4; y++) {
       await p5.evaluate((y) => { const h = document.querySelector('#pg-look .hud.glook'); if (h) h.scrollTop = y * 800; }, y);
       await p5.waitForTimeout(120);
-      const r = await readable(p5, '#pg-look, #top');
+      const r = await readable(p5, '#pg-look, #top, #dock');
       worst = Math.min(worst, r.min);
       check(!r.low.length, `[paper] THE LOOK (${id}) has text under 4.5:1 on screen: ${r.low.join(' | ')}`);
     }
@@ -670,6 +677,14 @@ if (!isWebKit) {
     await part(`the Theme page at ${vp.width}`, async () => {
     await themePage(p8);
     await p8.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+    const fl = await p8.evaluate(() => {
+      const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
+      const f = getComputedStyle(pn, '::before');
+      const list = pn.closest('.two.stack, .hub');
+      const lm = list ? getComputedStyle(list) : null;
+      return { h: parseFloat(f.height) || 0, pn: pn.getBoundingClientRect().height, mask: f.webkitMaskImage || f.maskImage || 'none', fade: lm ? lm.webkitMaskImage || lm.maskImage || 'none' : 'none' };
+    });
+    check(fl.h >= fl.pn - 1 && /circle/.test(fl.mask) && fl.fade === 'none', `[${vp.width}] the Theme page's floor covers ${Math.round(fl.h)} of its ${Math.round(fl.pn)} px (${fl.mask.slice(0, 30)}); the list's fade under it: ${fl.fade.slice(0, 50)}`);
     for (let y = 0; y < 6; y++) {
       await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
       await p8.waitForTimeout(150);

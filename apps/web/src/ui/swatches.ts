@@ -36,7 +36,7 @@ export function themeSwatches(o: { measure?: boolean; label?: string } = {}): { 
     const custom = cur
       ? null
       : h('div.swcustom', { role: 'status', dataset: { case: 'keep', g: 'custom' } },
-        h('span.swcustom-k', 'Custom'), h('span.swcustom-v', recipeNow(r)), h('span.swstate', 'In use'));
+        h('span.swcustom-k', 'Custom'), h('span.swcustom-v', ...recipeNow(r).split(' · ').flatMap((part, i) => (i ? [' · ', h('span', part)] : [h('span', part)]))), h('span.swstate', 'In use'));
     clear(el, custom, ...PRESETS.map((p) => {
       const on = cur === p.key;
       const reads = o.measure ? h('span.swread', { dataset: { case: 'keep' } }) : null;
