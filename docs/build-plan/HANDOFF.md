@@ -215,6 +215,13 @@ folder that no longer exists; ignore those paths).
   applied as one commit on hotfix/lens FROM MAIN (so it carries nothing else), PR #67 opened, its preview link sent to him
   for the phone check; the merge waits for his word. The lensfix worktree stays until then. PR #66 (voice) stays held.
   22:35 UK: main's own run 349 (6c02cd0, ONE LENS) green on every job; by his verdict it is finished only with PR #67 on main.
+  23:30–00:30 UK: PR #66 red on three things from the voice build (the Settings group drawn twice; a page error from an
+  unanswered voice-store read; offline enrolment reaching the speech service on a slow runner); fixed at cause (the first by
+  the orchestrator, the two others by the voice builder), the voice spec clean here, pushed as 460a88f and 077846c; #66 stays
+  held. SHELL PASS 1 reported built on builder/shell1 (its OWNER-ISSUES entry is numbered 154 there and becomes 155 when
+  applied, 154 being the hotfix's); scanned clean (no protected file, no model names in files, no GPS or network, nothing
+  skipped); WAITING ITS TURN per 153. Worktrees now: lensfix (done, PR #67), voiceknown (done, PR #66), shell1 (done, waiting).
+  NOTHING NEW LAUNCHES until his phone check on the Lens hotfix and his word on the themes.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
