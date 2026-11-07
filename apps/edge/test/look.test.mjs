@@ -508,7 +508,7 @@ test('THEMES-2: today\'s corners and canvas follow the world and the night groun
     assert.equal(n.values['--g-room-glow'], grounds[n.key]['--g-glow-floor'], `${n.key}: its glow`);
   }
   // the marks and plates are drawn from the world's tokens (so every world reaches them, and a tile shows its own world)
-  for (const t of ['var(--g-ret-arm) var(--g-ret-weight)', 'border: var(--g-hair) var(--g-ret-edge) var(--g-line-faint)', 'background: var(--g-plate-fill)', 'var(--g-plate-edge)', 'calc(var(--g-hair) * var(--g-plate-side))', 'stroke-dasharray: var(--g-sight-dash)', 'width: var(--g-ret-sight)', 'box-shadow: 0 0 var(--g-mark-glow)', 'backdrop-filter: blur(var(--g-blur))', 'font-family: var(--g-face-say)']) assert.ok(section.includes(t), `the system's CSS does not draw with ${t}`);
+  for (const t of ['var(--g-ret-arm) var(--g-ret-weight)', 'border: var(--g-hair) var(--g-ret-edge) var(--g-line-faint)', 'background: var(--g-plate-fill)', 'var(--g-plate-edge)', 'calc(var(--g-hair) * var(--g-plate-side))', 'stroke-dasharray: var(--g-sight-dash)', 'width: var(--g-ret-sight)', 'box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor))', 'backdrop-filter: blur(var(--g-blur))', 'font-family: var(--g-face-say)']) assert.ok(section.includes(t), `the system's CSS does not draw with ${t}`);
   // the pages drawn in the system stand on the ground in force, their bar too
   assert.match(section, /html body:is\(\[data-tab="look"\], \.g-themepage\) #top \{ background: var\(--g-canvas\); \}/);
   assert.match(section, /html #pg-settings \.pn\.themepn\.pushed \{ background: var\(--g-canvas\); color: var\(--g-ink-1\); \}/);
