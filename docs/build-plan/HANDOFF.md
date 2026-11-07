@@ -148,6 +148,34 @@ folder that no longer exists; ignore those paths).
   build, bundle, look tests, then the full brain suite and the boot/hero/look/routec/deck/tabs specs. OWNER-ISSUES 149,
   STATUS 1(e) and section 2; PR #63 opened and subscribed. The orb worktree stays until the PR merges.
   11:37 UK: main's own run 340 (7e837c7) green on every job: item 1(d), themes that mean something, FINISHED.
+  12:15 UK: PR #63 red on smoke shard 3 (the look spec's speed budget: the second open 649/660 ms on the runner); measured
+  with a throttled reproduction and the profiler, not reasoned: the WebGL probe made a new context on every open of THE
+  LOOK's MIND (about 200 ms in software; a leaked context on a phone); cached once per page life (980f52e), the second open
+  37 ms in the spec, 79–166 ms throttled four times; look, hero and boot specs green locally; pushed, the rerun in CI.
+  HIS USAGE 13:20 UK: all models weekly 24%, top tier weekly 24% (03:00: 11% and 7%). The top tier climbed 17 points in
+  ten hours: three top-tier builders (the themes-2 finish, the boot storyboard, the orb build) and the orchestrator's own
+  turns. At this pace the week's top tier runs out by Thursday, so from here: the awareness builder (item 3) on the mid
+  tier (logic, not design); the top tier kept for the shell's design work (item 4) and the owner's reviews; builders'
+  validation stages on the cheap tier where a relaunch only reads logs; the orchestrator's turns short, batched, no
+  re-reading of logs it can delegate.
+  14:20 UK: PR #63 green on every job and MERGED (main 96bcbc7); unsubscribed, branch restarted from main carrying the
+  usage note, the orb worktree and both builder branches removed, a check-in set for main's own run. NEXT: item 3,
+  awareness (STARS 153 with 151–152 and 154–155): write BRIEF-AWARENESS from STATUS section 4 item 3, launch on the mid tier.
+  14:40 UK: a mid-tier explorer wrote the facts sheet for awareness (FACTS-AWARENESS.md: the system prompt already carries
+  "Open tab" and "On screen", no Context or Show type exists, the shed is DESIGN A BUILD inside STUDIO, no voiceprint code);
+  BRIEF-AWARENESS written as PR A (the protocol, the five screens, the brain's side without agent.ts; B the Lens and C his
+  voice after); builder launched on the mid tier in worktree awareness, branch builder/awareness, port 8805, results to
+  scratchpad/awareness-build.md. 15:23 UK: main's own run 343 (96bcbc7) green on every job: item 1(e), the orb and the
+  boot, FINISHED. Item 1 is complete on main; item 2 complete on main; item 3 building.
+  17:30 UK: AWARENESS PR A reported (14 commits + 1). The brain's side needs two lines in the protected agent.ts (import
+  withScreen; call it after the user turn is appended), which only his word unlocks (131); as first built the PR would have
+  regressed (the screen lines out of the prompt, nothing pasting them), so the builder restored the prompt lines with a dated
+  comment and a drift test, OWNER-ISSUES 150 (a) asks him with the diff, and the follow-up is one small PR when he says yes.
+  A pre-existing fact surfaced: a real 400-char screen puts the plain prompt at 5,781 against the guard's 5,500, which never
+  measured a screen; the ceiling is untouched. Reviewed (one word in check.yml, no protected file, no model names, no GPS or
+  network, nothing skipped), merged (0aa83a8), both typechecks, build, bundle, 84 brain tests green; awareness/deck/space/talk
+  specs run; PR #64 opened and subscribed. The awareness worktree stays until it merges. NEXT after A is on main: BRIEF for
+  PR B ONE LENS (STARS 151–152; the facts sheet's section 5) on the mid tier, then PR C HIS VOICE KNOWN (154–155).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

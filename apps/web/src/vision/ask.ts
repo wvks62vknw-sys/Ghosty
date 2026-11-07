@@ -10,8 +10,8 @@ import { offlineContext } from '../api/offline';
 import { chat, type Entry } from '../assistant/session';
 import { run } from '../commands/registry';
 import { passagesFor } from '../library/local';
-import { currentTab } from '../shell/tabs';
-import { home, settings, timeZone, ui } from '../state/app';
+import { clientContext } from '../shell/awareness';
+import { ui } from '../state/app';
 
 export interface AskResult {
   /** The reply (every text event joined), '' when none came. */
@@ -39,17 +39,7 @@ export interface AskExtras {
 
 const pushAll = (e: Entry) => chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 
-function context(): Record<string, unknown> {
-  const now = new Date();
-  return {
-    now: now.toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    tz: timeZone,
-    tab: ui.get().tab,
-    name: settings.get().name,
-    location: home(),
-    screen: currentTab()?.inst.describe?.() ?? '',
-  };
-}
+const context = () => clientContext();
 
 /**
  * Ask with a picture (a JPEG data URL, ≤ 1024 px) or, with null, in text only. `onEvent` sees

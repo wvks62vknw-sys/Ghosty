@@ -14,6 +14,7 @@
  * owner's own tap (the START button, a tap that brought the tab up), never on its own: not on a
  * reload that lands on #lens, and not because the brain called open_lens.
  */
+import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
@@ -611,6 +612,13 @@ export const lensTab: TabDef = {
         if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, 200)}`);
         return `${bits.join('; ')}.`;
       },
+      // what the Lens says about itself (BRIEF-AWARENESS): counts, never who. PEOPLE: only that it is open, as describe() above.
+      context: (): ScreenContext => ({
+        screen: 'lens',
+        title: 'The Lens',
+        line: S.mode === 'people' ? 'the Lens on PEOPLE' : `the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}${S.counts ? `, in view: ${S.counts}` : ''}${sceneLine(S.scene) ? `, scene: ${sceneLine(S.scene)}` : ''}`,
+        at: Date.now(),
+      }),
     };
   },
 };

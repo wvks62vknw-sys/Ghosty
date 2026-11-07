@@ -4389,6 +4389,9 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
 #deck .dklive { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 7px; min-width: 0; font: 400 11px/14px var(--dkf); font-feature-settings: 'tnum', 'cv05'; color: var(--dk3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #deck .dklive i { flex: none; width: 5px; height: 5px; border-radius: 3px; background: var(--dk3); }
 #deck .dklive.hot { color: var(--dkacc); }
+/* the Core card's second line (BRIEF-AWARENESS): what I am looking at, two lines at most; the mark's words in the warm colour when my last turn went without the screen */
+#deck .dklook { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 4px; min-width: 0; font: 400 12px/15px var(--dkf); letter-spacing: -.04px; color: var(--dk2); overflow-wrap: anywhere; }
+#deck .dklook.warn { color: var(--dkacc); }
 #deck .dklive.hot i { background: var(--dkacc); box-shadow: 0 0 6px var(--dkacc); animation: dkpulse 2.4s ease-in-out infinite; }
 @keyframes dkpulse { 50% { opacity: .35; } }
 #deck .dkcard:is(.here, .hot) .dkhd .dkg .ic { stroke: var(--dkacc); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--dkacc) 45%, transparent)); }

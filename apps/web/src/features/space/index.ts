@@ -26,6 +26,8 @@ import { roomToPlan, planToRoom } from '../../space/roomjson';
 import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutOf, makeSpace, readPlan, roomsOf, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
 import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom, shapeOf, slideOpening, updateOpening } from '../../space/rooms';
 import { space } from '../../space/store';
+import { spaceContext, spaceSelected } from '../../space/awareness';
+import { pieceFor, spaceHooks } from '../../space/hooks';
 import { wallRuns } from '../../studio/room';
 import { createFromPhotoPanel, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
 import { createHomePanel, type HomeState } from './home';
@@ -848,10 +850,13 @@ export const spaceTab: TabDef = {
       const after = view === 'after' && review?.options[chosen];
       drawPlan(g, shownPlan(), scale, PAD, { selected: after ? '' : selected, preview: after ? null : preview, title: after ? `AFTER · ${after.title}` : undefined });
     };
+    /** The chosen wall's length box (for "make that wall longer": spaceHooks.lengthSheet). */
+    let lastLenIn: HTMLInputElement | null = null;
     /** The row under the plan for a chosen wall, door or window. */
     const paintSel = () => {
       const plan = space.get().plan;
       const lay = layoutOf(plan);
+      lastLenIn = null;
       clear(archRow);
       archRow.hidden = true;
       if (view === 'after') return;
@@ -879,6 +884,7 @@ export const spaceTab: TabDef = {
           toast(`Everything rescaled ×${k.toFixed(3)} · UNDO in FROM PHOTO`, 'ok');
         };
         lenIn.addEventListener('keydown', (ev) => ev.key === 'Enter' && setLen());
+        lastLenIn = lenIn;
         archRow.append(h('span.spacesel', `${r.name} · wall ${Number(wi) + 1} · ${Math.round(e.len)} cm`), button('ADD DOOR', () => add('door'), 'on'), button('ADD WINDOW', () => add('window'), 'on'), h('span.keyrow.spacelen', lenIn, button('SET LENGTH', () => setLen())));
         archRow.hidden = false;
         return;
@@ -1144,6 +1150,78 @@ export const spaceTab: TabDef = {
       if (it) putBackLater(`Removed: ${it.label}`, before);
     };
 
+    // "make that wall longer", "add a wardrobe there", "a door in that wall" (assistant/thatone.ts): the chat's words act on the
+    // selection through the plan's own actions, with no model
+    const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+    spaceHooks.lengthSheet = () => {
+      const sel = spaceSelected(space.get().plan, selected);
+      if (!sel || sel.kind !== 'wall' || !lastLenIn || !lastLenIn.isConnected) return null;
+      lastLenIn.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      lastLenIn.focus({ preventScroll: true });
+      return `${cap(sel.label)}: ${sel.detail}, how long?`;
+    };
+    spaceHooks.openingOn = (type) => {
+      if (!selected.startsWith('wall:')) return null;
+      const [, rid, wi] = selected.split(':');
+      const plan = space.get().plan;
+      const lay = layoutOf(plan);
+      const sel = spaceSelected(plan, selected);
+      if (!lay.rooms.some((r) => r.id === rid) || !sel) return null;
+      try {
+        const got = addOpening(plan, rid!, Number(wi), type);
+        selected = `op:${got.id}`;
+        space.setPlan(got.plan);
+        const op = got.plan.openings?.find((o) => o.id === got.id);
+        return `A ${type} in ${sel.label}${op ? `, ${op.w} cm wide` : ''}. Tap it to change its size.`;
+      } catch (err) {
+        return String((err as Error)?.message ?? err);
+      }
+    };
+    spaceHooks.addAt = (word) => {
+      const plan = space.get().plan;
+      const sel = spaceSelected(plan, selected);
+      if (!sel) return null;
+      const piece = pieceFor(word, CATALOGUE);
+      const cat = piece ? CATALOGUE.find((c) => c.kind === piece.kind) : undefined;
+      if (!cat) return `I haven't got a ${word.trim()} in my list: ${CATALOGUE.map((c) => c.label.split(',')[0]!.toLowerCase()).filter((x, i, a) => a.indexOf(x) === i).join(', ')}.`;
+      const lay = layoutOf(plan);
+      let spot: { x: number; y: number; rot: 0 | 1 | 2 | 3 } | null = null;
+      let where = '';
+      // against the chosen wall, in the middle of it (a straight wall; the item's long side along it), when that is clear floor
+      if (selected.startsWith('wall:')) {
+        const [, rid, wi] = selected.split(':');
+        const r = lay.rooms.find((x) => x.id === rid);
+        if (r) {
+          const e = edgeOf(r.poly, Number(wi));
+          const vertical = Math.abs(e.nx) > Math.abs(e.ny);
+          const rot = (vertical ? 1 : 0) as 0 | 1;
+          const f = footprint({ x: 0, y: 0, w: cat.w, d: cat.d, rot });
+          const mx = (e.a[0] + e.b[0]) / 2;
+          const my = (e.a[1] + e.b[1]) / 2;
+          const x = vertical ? (e.nx < 0 ? mx : mx - f.w) : mx - f.w / 2;
+          const y = vertical ? my - f.h / 2 : e.ny < 0 ? my : my - f.h;
+          const trial: Item = { id: 'trial', kind: cat.kind, label: cat.label, w: cat.w, d: cat.d, x, y, rot };
+          const at = snapItem(plan.room, trial, plan.items);
+          const placed = { ...trial, ...at };
+          if (!clashes(plan.room, [...plan.items, placed], roomsOf(plan)).length) {
+            spot = { ...at, rot };
+            where = ` against ${sel.label}`;
+          }
+        }
+      }
+      const before = plan.items.length;
+      if (spot) {
+        const it: Item = { id: `${cat.kind}${Date.now().toString(36).slice(-5)}`, kind: cat.kind, label: cat.label, w: cat.w, d: cat.d, ...spot };
+        space.setItems([...plan.items, it]);
+        selected = it.id;
+        preview = null;
+        paint();
+      } else addItem(cat.kind, cat.label, cat.w, cat.d);
+      const now = space.get().plan.items;
+      if (now.length === before) return `${cap(cat.label.split(',')[0]!.toLowerCase())} does not fit anywhere as things stand. Try MAKE SPACE.`;
+      return `${cap(cat.label.split(',')[0]!.toLowerCase())} ${cat.w} × ${cat.d} cm${where || ', where it fits'}. Drag it to move it.`;
+    };
+
     space.subscribe(paint);
     new ResizeObserver(() => fit()).observe(wrap);
     expose();
@@ -1158,6 +1236,8 @@ export const spaceTab: TabDef = {
         const m = measures.length ? ` Measured with the Lens: ${describeMeasurements(measures.slice(-6)).replace(/\n/g, '; ')}.` : '';
         return `Space planner: ${describePlan(plan)}.${m}`;
       },
+      // what is open and what is picked (BRIEF-AWARENESS): the plan in a line, the wall or item or door he tapped in his words
+      context: () => spaceContext(space.get().plan, selected, view === 'after'),
     };
   },
 };

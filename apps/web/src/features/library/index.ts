@@ -14,6 +14,7 @@
  * (features/library/reader.ts, a screen of its own: his place kept, read to him with LISTEN). FRESH TODAY is the day's
  * digest (the news, papers and events Ghosty gathered this morning — DIGEST NOW gathers again).
  */
+import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
@@ -786,6 +787,19 @@ export const libraryTab: TabDef = {
         secs?.select(arg);
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,
+      // (BRIEF-AWARENESS) the shelf in a line; when what he typed in FIND leaves one of his books, that book is "that one"
+      context: (): ScreenContext => {
+        const mine = docs.filter((d) => !leaving.has(d.id) && whose(d) === 0);
+        const words = find.value.trim().toLowerCase();
+        const one = words ? mine.filter((d) => `${d.title} ${d.author ?? ''} ${d.source} ${KIND[d.kind] ?? d.kind}`.toLowerCase().includes(words)) : [];
+        return {
+          screen: 'library',
+          title: 'Library',
+          line: `the library, ${mine.length} of his books${words ? `, finding “${find.value.trim().slice(0, 40)}”` : ''}${secs ? `, the ${secs.current()} section` : ''}`,
+          ...(one.length === 1 ? { selected: { kind: 'book', id: one[0]!.id, label: `“${one[0]!.title}”` } } : {}),
+          at: Date.now(),
+        };
+      },
     };
   },
 };

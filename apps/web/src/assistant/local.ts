@@ -186,6 +186,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // the car (car/ask.ts): its views open in the Studio; what is wrong with it lands on its CAR card
   carview: (text, opts) => carViewTurn(text, opts, answer),
   carfault: (text, opts) => carFaultTurn(text, opts),
+  // [awareness] "that one" (assistant/thatone.ts): the selection on the screen acted on, here, with no model
+  thatone: (text, opts) => import('./thatone').then((m) => m.thatOneTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),

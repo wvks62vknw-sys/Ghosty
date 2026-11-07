@@ -1000,6 +1000,17 @@ export const studioTab: TabDef = {
         V.parts.length
           ? `3D Studio: ${V.info.title}, ${V.parts.length} parts, ${Math.round(V.explode * 100)}% taken apart${V.selected !== null ? `, "${V.parts[V.selected]?.name}" selected` : ''}${V.section ? `, cut along ${V.section.axis.toUpperCase()}` : ''}${V.measureText() ? `, measured ${V.measureText()}` : ''}.`
           : '3D Studio: no model open.',
+      // what is open and picked (BRIEF-AWARENESS): whichever pane is showing speaks (the car, the build) and the other is not
+      // mentioned; the lab bench's own model and its picked part otherwise
+      context: () =>
+        car.context() ??
+        bld.context() ?? {
+          screen: 'studio',
+          title: '3D Studio',
+          line: V.parts.length ? `the 3D studio, ${V.info.title}, ${V.parts.length} parts${V.explode > 0.02 ? `, ${Math.round(V.explode * 100)}% taken apart` : ''}${V.section ? `, cut along ${V.section.axis.toUpperCase()}` : ''}` : 'the 3D studio, no model open',
+          ...(V.selected !== null && V.parts[V.selected] ? { selected: { kind: 'part', id: String(V.selected), label: `the ${V.parts[V.selected]!.name.toLowerCase()}` } } : {}),
+          at: Date.now(),
+        },
     };
   },
 };

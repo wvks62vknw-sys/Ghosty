@@ -6,6 +6,7 @@
  */
 import { localDay } from '../../../../packages/shared/src/cadence';
 import type { Card } from '../../../../packages/shared/src/cards';
+import type { ClientCommand } from '../../../../packages/shared/src/protocol';
 import type { PackOut } from '../../../../packages/shared/src/packs';
 import { zoneOf } from '../guardstate';
 import { arg, type Tool } from '../tools/types';
@@ -80,7 +81,7 @@ export function packTool(o: { name: string; description: string; actions: Record
       if (ctx.unattended && !o.reads.includes(action)) throw new Error(`${o.name} ${action} changes what he keeps, so it waits for him: not from a scheduled task`);
       const out = await fn(a, { storage: ctx.storage, fetch: (u, i) => fetch(u, i), now: () => Date.now(), tz: await zoneOf(ctx.storage) });
       for (const c of out.cards ?? []) ctx.emit({ t: 'client', name: 'pack_card', args: { card: c } });
-      if (out.open) ctx.emit({ t: 'client', name: out.open.name, args: out.open.args });
+      if (out.open) ctx.emit({ t: 'client', name: out.open.name as ClientCommand, args: out.open.args });
       return out.text;
     },
   };
