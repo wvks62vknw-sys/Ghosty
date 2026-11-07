@@ -190,6 +190,16 @@ folder that no longer exists; ignore those paths).
   from the phone's own audio features; the confirm tap the gate; the real speaker model a STARS gap) and the PR C builder
   launched on the mid tier (worktree voiceknown, port 8809, its own bundle script). 20:08 UK: main's own run 346 (fe76ce3)
   green on every job: awareness PR A FINISHED. PR #65: eight of nine checks green, shard 4 running.
+  20:25 UK: PR #65 red on smoke shard 4 (hubcards: the See hub's Lens card read 12 modes, the one view counted as a mode);
+  fixed in hubcards.ts (the modes under MORE, eleven), hubcards and abilities specs green, pushed (c94e41a); lesson in 151:
+  a change to any list a hub card counts runs the hubcards spec. 21:00 UK: HIS VOICE KNOWN reported (13 commits + 2 after
+  the orchestrator's one call: one-word commands never held); reviewed (no protected file, no model names in files, no
+  GPS or network, nothing skipped; the guard kept by a six-character trim of one instruction line, worst case 5,496).
+  21:31 UK: PR #65 green and MERGED (main 6c02cd0); branch restarted from main; the lens worktree and branch removed;
+  HIS VOICE KNOWN applied as one commit (03be70c, 152 appended by hand), both typechecks, build, bundle, 104 brain tests
+  green; the voice/settings/awareness/deck/tabs/talk specs run; PR #66 opened and subscribed once green. NEXT: item 4, THE
+  SHELL (STARS 160–161; PLAN-STARS 3b): a facts sheet from a mid-tier explorer, then BRIEF-SHELL, the top tier for its
+  design work (the one place the top tier is spent from here), after his phone checks and 150 (a) if he answers.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
