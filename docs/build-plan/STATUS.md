@@ -196,6 +196,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- PR #62 OPEN 7 Nov 08:45 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
+  THEMES THAT MEAN SOMETHING (OWNER-ISSUES 147; BRIEF-THEMES-2; STARS 170): five grounds, the twelve colours, five worlds,
+  eight switches, seventeen presets, by words with no model, the sixty-pair floor held by the look test, check.yml and the
+  guard untouched. Locally on the merged tree: brain suite 1,779 of 1,779, web typecheck and build, the look, settings, deck,
+  reader and tabs specs clean. His seven-step phone check and five questions with their context are in 147.
 - PR #61 MERGED 7 Nov 07:02 UK (main b03bf93, every check green on its own run after the manuals-spec fix of OWNER-ISSUES 146;
   main's own run 337 green on every job, 07:57 UK: FINISHED): THE LIBRARY READER (OWNER-ISSUES 145; BRIEF-LIBRARY-READER with its addendum; STARS 169): the
   reader screen, his place on every device, LISTEN under the talking rules, the Shelf as a shelf, reading by words with no
