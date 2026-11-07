@@ -6089,7 +6089,7 @@ html body:is([data-tab="look"], .g-themepage) #top .cmd::before { background: va
 html body:is([data-tab="look"], .g-themepage) #top .you .av { color: var(--g-ink-1); background: var(--g-plate-strong); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
 /* the Theme page covers the whole list: the list's own fade under the title would show the 3-D scene through the page (a dark band on Paper) */
 html body.g-themepage :is(.two.stack, .hub) { -webkit-mask-image: none; mask-image: none; }
-/* the tab bar on a light page: paper too, in its inks, the one in use in the accent's ink with a plain ring (nothing glows on Paper) */
+/* the tab bar on a light page: paper too, in its inks, the one in use in the accent’s ink with a plain ring (nothing glows on Paper), a count ringed in amber (needs a look) */
 html[data-ground="paper"] body.tabbar:is([data-tab="look"], .g-themepage) #dock .tabblur { background: linear-gradient(to top, rgba(var(--g-canvas-rgb), .96), rgba(var(--g-canvas-rgb), .82) 45%, rgba(var(--g-canvas-rgb), 0)); }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap { background: rgba(var(--g-canvas-rgb), .9); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint), var(--g-lift-front); }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap::before { display: none; }
@@ -6100,7 +6100,7 @@ html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap :is(button.on, button:active, button.held) .gi .halo { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button.on .gi::before { background: var(--g-accent); box-shadow: none; }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap .gi .live { box-shadow: 0 0 0 2.5px var(--g-canvas); }
-html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button[data-badge]:not([data-badge=""])::after { color: var(--g-ink-1); background: var(--g-plate-strong); box-shadow: inset 0 0 0 1.5px var(--g-red); }
+html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap button[data-badge]:not([data-badge=""])::after { color: var(--g-ink-1); background: var(--g-plate-strong); box-shadow: inset 0 0 0 1.5px var(--g-amber); }
 /* the Theme page's own words and its TV MODE row, in the ground's inks */
 html #pg-settings .pn.themepn.pushed .gpage-lede { margin: 0 0 var(--g-s-2); font: var(--g-t-body); font-family: var(--g-face-say); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
 html #pg-settings .pn.themepn.pushed .note { margin-top: var(--g-s-3); font: var(--g-t-caption); color: var(--g-ink-3); }
