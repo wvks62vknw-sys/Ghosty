@@ -6084,7 +6084,7 @@ html .gdial-line, html .gdial-note { margin: 0; font: var(--g-t-caption); color:
 html .gdial-note { color: var(--g-ink-3); }
 html .gchoices { display: grid; gap: var(--g-s-1); }
 html .gchoices.grounds, html .gchoices.worlds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-html .gchoices.colours { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html .gchoices.colours { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 html #app button.gchoice { position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: var(--g-s-half); min-width: var(--g-target); min-height: var(--g-target); height: auto; margin: 0; padding: var(--g-s-half); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); font: inherit; text-align: center; text-transform: none; letter-spacing: normal; white-space: normal; box-shadow: none; transform: none; cursor: pointer; }
 /* a ground's tile is a plate of that ground */
 html #app button.gchoice[data-ground]:not([data-world]) { background: var(--g-plate); border-style: solid; }
@@ -6092,7 +6092,9 @@ html #app button.gchoice.on { border: var(--g-stroke) solid var(--g-accent); box
 html #app button.gchoice:active { transform: none; }
 html .gchoice-face { position: relative; display: grid; place-items: center; height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-canvas); }
 html .gchoices.colours .gchoice-face { height: 32px; background: none; }
-html .gchoice-name { display: block; min-width: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .gchoices.colours button.gchoice { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--g-s-1); padding: var(--g-s-half) var(--g-s-1); text-align: left; }
+html .gchoices.colours .gchoice-face { flex: none; width: 32px; }
+html .gchoice-name { display: block; min-width: 0; font: var(--g-t-fine); font-family: var(--g-font-text); letter-spacing: 0; color: var(--g-ink-1); overflow-wrap: normal; }
 /* a ground's face: its canvas, the floor in its points, its ink and a dot of the accent as it reads there */
 html .gface-ink { position: relative; z-index: 1; font: var(--g-t-head); color: var(--g-ink-1); }
 html .gface-dot { position: absolute; z-index: 1; right: var(--g-s-half); top: var(--g-s-half); width: 6px; height: 6px; border-radius: var(--g-radius-orb); background: var(--g-accent); }

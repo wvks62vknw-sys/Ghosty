@@ -221,6 +221,15 @@ export const DIRECTION_PRESETS: Preset[] = [
   { key: 'glass', label: 'Glass', tag: 'Today’s look: glass, round corners, the glow', ground: 'graphite', colour: 'reactor', world: 'glass', switches: {}, from: 'route C' },
 ];
 
+/**
+ * The six directions seen along the way (OWNER-ISSUES 141), in the catalogue's order: five are presets; Orbit (D1) was a
+ * navigation, not a look, and is said so wherever it is found (it comes with the shell).
+ */
+export const DIRECTIONS: { key: string; label: string; from: string; preset: boolean }[] = [
+  ...DIRECTION_PRESETS.map((p) => ({ key: p.key, label: p.label, from: p.from ?? '', preset: true })),
+  { key: 'orbit', label: 'Orbit', from: 'D1', preset: false },
+];
+
 /** Every preset: the twelve (Graphite + the colour + The Scan + the default switches), then the five directions. */
 export function presets(tags: Partial<Record<ColourKey, string>> = {}): Preset[] {
   return [

@@ -7,6 +7,8 @@
  *    asked). A table that matches but has nothing to say (no open question for "you were right") lets the next one try.
  *    The car's two come first (BRIEF-CAR): what is wrong with a car (car/faults.ts, the fault table), and the words that
  *    open its views ("open the bonnet", "show me the engine": before the Workbench's engine panel, which has them too).
+ *    Then the look (BRIEF-THEMES-2: "black background", "lighter", "paper", "the map", "calm", "bigger text", "follow the
+ *    day"; packages/shared/src/themes.ts lookAsked), before anything that could hear "calm" or "paper" its own way.
  *  - FIRST_ASKS: what assistant/session.ts `send` reads before anything else, with the same matchers it uses: the walk home
  *    (assistant/guard.ts), a stop by intent, "reboot".
  * The panic phrase is his own words, checked by their hash only (Settings → GUARDIAN), so it has no table here; PEOPLE's
@@ -32,6 +34,7 @@ import { ratingAsked } from '../gym/chessrate';
 import { coachAsked } from '../coach/ask';
 import { shapesAsked } from '../hands/words';
 import { tvAsked } from '../tv/detect';
+import { lookAsked } from '../../../../packages/shared/src/themes';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { buildAsked } from '../build/words';
 import { houseAsked } from '../../../../packages/shared/src/house';
@@ -49,6 +52,8 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [themes2] the look by words, applied at once with no model (state/theme.ts)
+  { id: 'look', test: (t: string) => lookAsked(t) !== null },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)

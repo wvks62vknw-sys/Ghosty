@@ -242,9 +242,10 @@ export const DECK: Record<string, DeckScreen> = {
   },
   settings: {
     name: 'Settings',
-    promise: 'Make him yours: colour, voice, manner',
+    promise: 'Make him yours: his look, voice, manner',
     can: [
-      { text: 'Pick his colour: twelve themes', act: { open: 'settings', panel: 'THEME' } },
+      // [themes2] the count follows: seventeen presets, then the dials (a ground, a colour, a world, the switches: BRIEF-THEMES-2)
+      { text: 'Pick his look: seventeen presets and the dials', act: { open: 'settings', panel: 'THEME' } },
       // THE LOOK (BRIEF-DESIGN-SYSTEM 5): the design system shown by itself, a row of Settings
       { text: 'The look: how he draws everything', act: { open: 'look' } },
       { text: 'Three dials: how dry, how brief, how warm', act: { open: 'settings', panel: 'CHARACTER' } },
