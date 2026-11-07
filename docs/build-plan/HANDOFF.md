@@ -117,6 +117,7 @@ folder that no longer exists; ignore those paths).
   main after the merge (same name). Usage percentage, given 7 Nov ~03:00 UK after PR #60 and two builders launched:
   all models weekly 11%, top tier weekly 7%. Plenty of week left; the method stays (cheap workers for logs, one builder
   per shared-file area, top tier only for design-heavy work).
+  Main's own push run after the merge (run 334 on 37a79d2) finished green on every job at 02:50 UK: item 1(b)(c) is finished.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

@@ -196,7 +196,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
-- PR #60 MERGED 7 Nov 02:02 UK (main 37a79d2, every check green on its own run after the deck fix of OWNER-ISSUES 144; main's own run read after): THE DESIGN SYSTEM from W1 The Scan (OWNER-ISSUES 140): the tokens with the lit graphite canvas and the readability floor held by a test, the Machine's marks as components, Mind as the eye on THE LOOK, Settings → Appearance → THE LOOK, the twelve themes as token sets with live swatches, look.test.mjs and look.spec.mjs; both rounds of directions ride with it. His five-minute phone check is in OWNER-ISSUES 140.
+- PR #60 MERGED 7 Nov 02:02 UK (main 37a79d2, every check green on its own run after the deck fix of OWNER-ISSUES 144; main's own run 334 green on every job, 02:50 UK): THE DESIGN SYSTEM from W1 The Scan (OWNER-ISSUES 140): the tokens with the lit graphite canvas and the readability floor held by a test, the Machine's marks as components, Mind as the eye on THE LOOK, Settings → Appearance → THE LOOK, the twelve themes as token sets with live swatches, look.test.mjs and look.spec.mjs; both rounds of directions ride with it. His five-minute phone check is in OWNER-ISSUES 140.
 - PR #51 (section 3).
 
 ## 3. Happening right now
