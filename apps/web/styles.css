@@ -6140,8 +6140,9 @@ html .gdial-head + .gswitch { border-top: 0; }
 html .gswitch-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html .gswitch-name { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
 html .gswitch-line { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
-html .gswitch-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
-html #app .gswitch-keys > button.g-key { flex: 1 1 0; min-width: var(--g-target); padding: 0 var(--g-s-1); }
+/* the keys share the row equally, and a longer word takes the room it needs (THE WORLD'S at BODY 21 on a 390 phone was cut) */
+html .gswitch-keys { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: var(--g-s-1); }
+html #app .gswitch-keys > button.g-key { min-width: var(--g-target); padding: 0 var(--g-s-1); }
 
 /* ---- the boot plays on the ground the room it lands in stands on, its light glowing as much as the world glows */
 html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background: var(--g-room-canvas); }

@@ -702,6 +702,17 @@ if (!isWebKit) {
       check(!m.small.length, `[${vp.width}] the Theme page has a control under 44 pt: ${m.small.join(' | ')}`);
     }
     await p8.screenshot({ path: `${out}/look-${engine}-${vp.width}-theme-page.png` });
+    // BODY at its biggest: every key, tile and row still says its words whole at this width, and nothing sticks out sideways
+    await tapSwitch(p8, '#pg-settings .pn.themepn.pushed', 'body', '21');
+    for (let y = 0; y < 6; y++) {
+      await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
+      await p8.waitForTimeout(150);
+      const cut = await p8.evaluate((W) => [...document.querySelectorAll('#pg-settings .pn.themepn.pushed :is(button, .gswitch-name, .swcustom)')].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && (el.scrollWidth > el.clientWidth + 1 || r.right > W + 0.5 || r.left < -0.5);
+      }).map((el) => `"${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 28)}" ${el.scrollWidth}/${el.clientWidth}`).slice(0, 5), vp.width);
+      check(!cut.length, `[${vp.width}] at BODY 21 the Theme page cuts words or sticks out: ${cut.join(' | ')}`);
+    }
     });
     await c8.close();
   }
