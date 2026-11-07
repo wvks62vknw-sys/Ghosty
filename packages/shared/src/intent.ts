@@ -310,3 +310,135 @@ export function raising(text: string, last = ''): Raising | null {
   const weight = (discipline ? Math.min(3, discipline + (swore ? 1 : 0)) : reward) as 1 | 2 | 3;
   return { ...(kind ? { kind, weight } : {}), ...(rule ? { rule: rule.slice(0, 160), length } : {}), rest: rest.join(' ').trim() };
 }
+
+// ---------------------------------------------------------------- reading a book to him (BRIEF-LIBRARY-READER 4)
+
+/**
+ * What he asks of a book, by words, with no model (the phone knows the shelf and his place in each book):
+ *  - `book`: "read me The Hobbit", "can you read the lighthouse keeper to me", "read chapter 3 of the hobbit": `words` is the
+ *    title as he said it (matched loosely against the shelf by `titleMatch`), with a chapter or page where he named one, and
+ *    `plain` when the words could only be a book (not "the news", "my emails", "this page": those stay the brain's);
+ *  - `resume`: "carry on reading", "where were we", "keep reading", "back to the book", "read me something";
+ *  - `chapter` / `page`: "read chapter 3", "read from page 40" (the book open now, or the last one he read);
+ *  - `only`: "just this chapter" (read to the chapter's end, then stop and say where);
+ *  - `stop`: "stop reading", "close the book" (stop and say the page).
+ * `only` on a chapter: "just chapter 3", "read chapter 3 only".
+ */
+export type ReadingAsk =
+  | { kind: 'book'; words: string; plain: boolean; chapter?: number; page?: number; only?: boolean }
+  | { kind: 'resume' }
+  | { kind: 'chapter'; n: number; only?: boolean }
+  | { kind: 'page'; n: number }
+  | { kind: 'only' }
+  | { kind: 'stop' };
+
+const NUMBER_WORDS = 'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty'.split(' ');
+const ORDINALS = 'zeroth first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth'.split(' ');
+/** "3", "three", "third", "3rd" → 3; null when it is not a number he would say. */
+function numberOf(w: string): number | null {
+  const t = w.toLowerCase().replace(/(?<=\d)(?:st|nd|rd|th)$/, '');
+  if (/^\d{1,4}$/.test(t)) return Number(t);
+  const i = NUMBER_WORDS.indexOf(t);
+  if (i >= 0) return i;
+  const j = ORDINALS.indexOf(t);
+  return j >= 0 ? j : null;
+}
+const NUM = `(\\d{1,4}(?:st|nd|rd|th)?|${[...NUMBER_WORDS, ...ORDINALS].join('|')})`;
+
+/** The message as the reading families read it: lower case, plain apostrophes, his name and politeness gone at either end. */
+function readingWords(text: string): string {
+  return String(text ?? '')
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”"]/g, '')
+    .replace(/[.!?,;:]+$/g, '')
+    .replace(/^(?:hey |ok |okay |oi |right |so )?(?:ghosty|ghost)[, ]+/, '')
+    .replace(/^(?:please |can you |could you |will you |would you |can u |pls )+/, '')
+    .replace(/(?:,? (?:please|pls|ghosty|mate|thanks|thank you))+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Words after "read me" that are anything but a book: the brain's, as ever (news, his messages, what is on the screen…). */
+const NOT_BOOK = /^(?:the |my |this |that |your |a |an |some |today'?s |tonight'?s |latest |last |new )*(?:news|headlines?|weather|forecast|e-?mails?|mail|messages?|texts?|notifications?|inbox|agenda|calendar|diary|schedule|reminders?|to-?do(?: list)?|lists?|shopping list|label|sign|menu|receipt|screen|page|paragraph|sentence|line|word|words|reply|answer|summary|results?|score|scores|lyrics|horoscope|stars|time|joke|jokes|poem|poems|riddle|recipe|instructions|article|post|tweet|link|website|site|notes?|letter|card|clue|question|this|that|it|everything|all of it|what (?:you|it|they|he|she) (?:said|says|wrote|write)|what'?s (?:on|written)(?: .*)?)(?: (?:out|again|back|aloud|out loud|to me|for me))*$/;
+/** Words that ask for whatever book he is in: "read me something", "read me a story", "read me more". */
+const ANY_BOOK = /^(?:something|anything|a book|my book|the book|my story|a story|a bit|a little|some more|more|on|it again|the rest|the next bit)$/;
+
+/** What he asks of a book, by words; null when it is not about reading a book to him (the brain answers it as ever). */
+export function readingIntent(text: string): ReadingAsk | null {
+  if (String(text ?? '').length > 140) return null;
+  const t = readingWords(text);
+  if (!t) return null;
+  // stop: "stop reading", "stop the book", "close the book", "that's enough reading", "no more reading"
+  if (/^(?:(?:ok |okay |right )?(?:stop|pause|quit|end|finish) (?:reading|the book|the story)(?: now| for now| there| here)?|close the book|put the book down|(?:that'?s |that is )?enough reading(?: for (?:now|today|tonight))?|no more reading(?: for (?:now|today|tonight))?|(?:let'?s )?stop there)$/.test(t)) return { kind: 'stop' };
+  // just this chapter: read to the chapter's end, then stop
+  if (/^(?:(?:read )?(?:just|only) (?:this|the|to the end of (?:this|the)) chapter|(?:read )?(?:to|till|until) the end of (?:this|the) chapter(?: then stop)?|stop at the end of (?:this|the) chapter|(?:just )?finish (?:this|the) chapter)$/.test(t)) return { kind: 'only' };
+  // carry on: "carry on reading", "keep reading", "where were we", "back to the book", "continue the book"
+  if (/^(?:(?:carry on|keep|go on|continue|resume|start|get back to|go back to) (?:reading|with the book|with the story|the book|the story)(?: (?:to me|for me|then|again|now))*|read on|(?:back|let'?s get back) to (?:the|my) book|where were we|where did we (?:get to|stop|leave off|leave it)|where was i in the book|where did i (?:get to|stop|leave off) in the book|pick up (?:the book )?where we (?:left off|stopped))$/.test(t)) return { kind: 'resume' };
+  // a chapter or a page of the book in hand: "read chapter 3", "read me the third chapter", "read from page 40", "go to page 40"
+  const only = /\b(?:just|only)\b/.test(t);
+  const plainT = t.replace(/\b(?:just|only)\b ?/g, '').replace(/\s+/g, ' ').trim();
+  const ch = new RegExp(`^(?:read|start|play|go to|jump to|skip to|turn to)(?: me| to me)?(?: from)?(?: (?:chapter|ch) ${NUM}| the ${NUM} chapter)(?: (?:of|from|in) (.+?))?(?: (?:to me|for me|aloud|out loud))*$`).exec(plainT);
+  if (ch) {
+    const n = numberOf(ch[1] ?? ch[2] ?? '');
+    if (n !== null && n > 0) return ch[3] ? { kind: 'book', words: ch[3].trim(), plain: true, chapter: n, ...(only ? { only: true } : {}) } : { kind: 'chapter', n, ...(only ? { only: true } : {}) };
+  }
+  const pg = new RegExp(`^(?:read|start|start reading|carry on|go to|jump to|skip to|turn to)(?: me| to me)?(?: (?:from|at|on))? page ${NUM}(?: (?:of|from|in) (.+?))?(?: (?:to me|for me|aloud|out loud))*$`).exec(t);
+  if (pg) {
+    const n = numberOf(pg[1] ?? '');
+    if (n !== null && n > 0) return pg[2] ? { kind: 'book', words: pg[2].trim(), plain: true, page: n } : { kind: 'page', n };
+  }
+  // a book by its name: "read me The Hobbit", "read the lighthouse keeper to me", "read aloud night walks", "start reading X"
+  const bk = /^(?:read|reed|start reading|begin reading|read aloud|read out|carry on reading|continue reading|keep reading)(?: me| to me| us| aloud| out loud| out)?(?: (?:the book|my book|the novel|my novel|the story)(?: called| named))? (.+?)(?: (?:to me|for me|to us|aloud|out loud|again|tonight|now))*$/.exec(t);
+  if (!bk) return null;
+  const words = bk[1]!.trim();
+  // "read about black holes", "read up on it", "read through this": a look-up, not a book
+  if (!words || /^(?:about|up|up on|up about|into|through|over|between|around) /.test(words)) return null;
+  if (ANY_BOOK.test(words)) return { kind: 'resume' };
+  return { kind: 'book', words, plain: !NOT_BOOK.test(words) };
+}
+
+/** A title as the shelf's matching reads it: lower case, no punctuation, no "the", "a" or "an" in front. */
+const titleKey = (s: string): string =>
+  String(s ?? '')
+    .toLowerCase()
+    .replace(/[’‘']/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/^(?:the|a|an) /, '');
+
+/**
+ * The book on his shelf his words name, matched loosely as the jump bar matches (commands/registry.ts): the whole title, its
+ * start, a part of it, every word he said starting a word of it, or (five letters or more) its letters in order, so a word
+ * misheard by a letter still finds it. The best match wins; null when nothing is close enough. `score` 5 is the title exactly.
+ */
+export function titleMatch<T extends { title: string }>(words: string, books: T[]): { book: T; score: number } | null {
+  const q = titleKey(words);
+  if (q.length < 2) return null;
+  const qWords = q.split(' ').filter((w) => w.length >= 2);
+  const flat = q.replace(/ /g, '');
+  let best: { book: T; score: number } | null = null;
+  let ties = 0;
+  for (const b of books) {
+    const k = titleKey(b.title);
+    if (!k) continue;
+    let s = 0;
+    if (k === q) s = 5;
+    else if ((k.startsWith(q) && q.length >= 4) || (q.startsWith(k) && k.length >= 4)) s = 4;
+    else if ((k.includes(q) && q.length >= 4) || (q.includes(k) && k.length >= 4)) s = 3;
+    else if (qWords.length && qWords.every((w) => k.split(' ').some((kw) => kw.startsWith(w) || (w.length >= 5 && kw.startsWith(w.slice(0, -1)))))) s = 2;
+    else if (flat.length >= 5) {
+      let i = 0;
+      for (const c of k.replace(/ /g, '')) if (c === flat[i]) i++;
+      if (i === flat.length) s = 1;
+    }
+    if (!s) continue;
+    if (!best || s > best.score) {
+      best = { book: b, score: s };
+      ties = 0;
+    } else if (s === best.score) ties++;
+  }
+  // a loose match only counts when nothing else on the shelf is as close (two "letters in order" matches: ask, never guess)
+  if (!best || (best.score <= 1 && ties > 0)) return null;
+  return best;
+}

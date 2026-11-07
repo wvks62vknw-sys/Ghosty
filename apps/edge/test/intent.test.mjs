@@ -237,3 +237,55 @@ test('ending a conversation: "that\'s all", "bye", "see you", "good night", "sto
   assert.equal(I.endIntent('stop it'), false);
   assert.ok(I.stopIntent('stop it'));
 });
+
+// BRIEF-LIBRARY-READER 4: reading a book to him by words, with no model (the phone knows the shelf and his place).
+test('reading by words: "read me <book>", "carry on reading", "where were we", a chapter, a page, "just this chapter", "stop reading"', () => {
+  const cases = [
+    ['read me The Lighthouse Keeper', { kind: 'book', words: 'the lighthouse keeper', plain: true }],
+    ['Ghosty, can you read the lighthouse keeper to me please', { kind: 'book', words: 'the lighthouse keeper', plain: true }],
+    ['start reading night walks', { kind: 'book', words: 'night walks', plain: true }],
+    ['read me the book called Night Walks', { kind: 'book', words: 'night walks', plain: true }],
+    ['read me chapter three of the lighthouse keeper', { kind: 'book', words: 'the lighthouse keeper', plain: true, chapter: 3 }],
+    ['read from page 40 of night walks', { kind: 'book', words: 'night walks', plain: true, page: 40 }],
+    ['carry on reading', { kind: 'resume' }],
+    ['keep reading', { kind: 'resume' }],
+    ['Where were we?', { kind: 'resume' }],
+    ['back to the book', { kind: 'resume' }],
+    ['read me something', { kind: 'resume' }],
+    ['read chapter 3', { kind: 'chapter', n: 3 }],
+    ['read me the second chapter', { kind: 'chapter', n: 2 }],
+    ['read just chapter four', { kind: 'chapter', n: 4, only: true }],
+    ['read from page 40', { kind: 'page', n: 40 }],
+    ['go to page twelve', { kind: 'page', n: 12 }],
+    ['just this chapter', { kind: 'only' }],
+    ['only to the end of this chapter', { kind: 'only' }],
+    ['stop reading', { kind: 'stop' }],
+    ['close the book', { kind: 'stop' }],
+    ["that's enough reading for tonight", { kind: 'stop' }],
+  ];
+  for (const [t, want] of cases) assert.deepEqual(I.readingIntent(t), want, t);
+  // "read me" with what is not a book: the brain's, as ever (plain false); and nothing else is a reading at all
+  for (const t of ['read me the news', 'read me my emails', 'read this', 'read me a poem', 'read me the headlines', 'read the label', 'read me what it says']) assert.equal(I.readingIntent(t)?.plain, false, t);
+  for (const t of ['stop', 'go on', 'can you read?', 'what are you reading', 'I read a good book yesterday', 'chapter 3 was boring', 'the page is blank', 'where were you going?', 'read about black holes', 'read up on the Romans', '']) assert.equal(I.readingIntent(t), null, t);
+  // carrying on a reply and ending a conversation keep their own words
+  assert.equal(I.continueIntent('carry on reading'), false);
+  assert.equal(I.endIntent('stop reading'), false);
+});
+
+test('the shelf\'s titles matched loosely, as the jump bar matches: exactly, the start, a part, each word, letters in order; never a guess between two', () => {
+  const shelf = [{ id: 'a', title: 'The Lighthouse Keeper' }, { id: 'b', title: 'Night Walks' }, { id: 'c', title: 'A Field Guide to Night Birds' }, { id: 'd', title: 'Volcano Field Notes' }];
+  const at = (w, list = shelf) => I.titleMatch(w, list)?.book.id ?? null;
+  assert.equal(at('the lighthouse keeper'), 'a');
+  assert.equal(I.titleMatch('The Lighthouse Keeper', shelf).score, 5, 'the title exactly');
+  assert.equal(at('lighthouse keeper'), 'a', 'no "the" needed');
+  assert.equal(at('lighthouse'), 'a', 'the start of it');
+  assert.equal(at('keeper'), 'a', 'a part of it');
+  assert.equal(at('night walks'), 'b');
+  assert.equal(at('night birds'), 'c', 'every word he said is in it');
+  assert.equal(at('birds of the night'), null, 'words it does not have are not a match');
+  assert.equal(at('lighthose keper'), 'a', 'misheard by a letter: its letters in order');
+  assert.equal(at('harry potter'), null, 'a book he has not got');
+  // two books as loosely matched as each other: neither is guessed
+  assert.equal(at('ngtwks', [{ id: 'x', title: 'Night Walks' }, { id: 'y', title: 'Nightly Walkers' }]), null);
+  assert.equal(at('ngtwks', [{ id: 'x', title: 'Night Walks' }]), 'x', 'with one such book, it is that one');
+});
