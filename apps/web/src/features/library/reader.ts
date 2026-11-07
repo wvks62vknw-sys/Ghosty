@@ -401,6 +401,13 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   let auto = 0; // a scroll the reader made itself (opening, following the voice): not his
   let landing = false; // a book is opening: every scroll until it lands at the place is the reader's own
   let touched = 0; // when he last scrolled or turned by hand
+  // when his finger dragged, a wheel turned or a scrolling key was pressed: a scroll just after it is his, even right after one of
+  // mine (a tap is not: a tap on a chapter or a search result scrolls the page itself)
+  let hand = 0;
+  const handNow = () => (hand = performance.now());
+  hud.addEventListener('touchmove', handNow, { passive: true });
+  hud.addEventListener('wheel', handNow, { passive: true });
+  hud.addEventListener('keydown', (e) => /^(?:PageUp|PageDown|ArrowUp|ArrowDown|Home|End| )$/.test(e.key) && handNow());
   const mode = () => readingPrefs.get().mode;
 
   /** Scroll mode: the page scrolled so the place sits under the pills (the book's very start: the head shown above it). */
@@ -502,7 +509,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     ticking = true;
     requestAnimationFrame(() => {
       ticking = false;
-      if (performance.now() - auto < 600 || landing || ui.get().tab !== 'reader' || reading.get().state === 'reading') return;
+      const now = performance.now();
+      if ((now - auto < 600 && now - hand > 800) || landing || ui.get().tab !== 'reader' || reading.get().state === 'reading') return;
       touched = performance.now();
       const y = pillsBottom() + 4;
       const x = page.getBoundingClientRect().left + 24;

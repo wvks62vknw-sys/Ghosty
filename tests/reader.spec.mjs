@@ -477,13 +477,16 @@ if (part('place')) {
   await page.waitForTimeout(600);
   const marked = await page.evaluate(() => ({ pill: document.querySelector('#pg-reader .secpill.on')?.dataset.sec, found: document.querySelector('#pg-reader .grd-p.found')?.dataset.n ?? null, marks: [...document.querySelectorAll('#pg-reader .grd-p.found mark')].map((m) => m.textContent), inView: (() => { const m = document.querySelector('#pg-reader .grd-p.found mark'); const r = m?.getBoundingClientRect(); return !!r && r.top > 0 && r.bottom < innerHeight; })(), box: !document.querySelector('#pg-reader .g-lock')?.hidden }));
   check(marked.pill === 'read' && marked.found === '4' && marked.marks.includes('storm') && marked.inView && marked.box, `[${name}] the search result did not open marked: ${JSON.stringify(marked)}`);
-  // scrolled on by hand to page 6: the place follows; then the brain has it (another device would open there)
-  await page.evaluate(() => {
+  // scrolled on by hand to page 6 (a real wheel over the page, as a finger is): the place follows; then the brain has it (another
+  // device would open there)
+  const by = await page.evaluate(() => {
     const el = document.querySelector('#pg-reader .grd-p[data-n="5"]');
-    const hud = document.querySelector('#pg-reader .hud');
     const pills = document.querySelector('#pg-reader .secpills').getBoundingClientRect();
-    hud.scrollTop += el.getBoundingClientRect().top - pills.bottom - 8 + 40;
+    const pg = document.querySelector('#pg-reader .grd-page').getBoundingClientRect();
+    return { dy: el.getBoundingClientRect().top - pills.bottom - 8 + 40, x: pg.left + pg.width / 2, y: pills.bottom + 120 };
   });
+  await page.mouse.move(by.x, by.y);
+  await page.mouse.wheel(0, by.dy);
   await page.waitForTimeout(2200);
   const kept = await page.evaluate(() => window.__ghosty.reader.place(window.__ghosty.reader.doc));
   check(kept?.n === 5 && kept?.page === 6, `[${name}] scrolling to page 6 did not move the place: ${JSON.stringify(kept)}`);
