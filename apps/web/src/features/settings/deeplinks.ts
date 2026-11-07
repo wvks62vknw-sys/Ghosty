@@ -32,7 +32,7 @@ export type Link =
   | { kind: 'unknown'; text: string };
 
 /** The Lens's modes (features/lens/tiles.ts). */
-export const LENS_MODES = ['see', 'read', 'hands', 'ask', 'name', 'people', 'scan', 'aim', 'measure', 'sound'];
+export const LENS_MODES = ['lens', 'see', 'read', 'hands', 'ask', 'name', 'people', 'scan', 'aim', 'measure', 'sound', 'shapes'];
 
 /** Words that start something (a reminder, a message, a change, a purchase, a standing rule) or praise: those wait in the box. */
 const STARTS =
@@ -73,7 +73,7 @@ export function parseDo(raw: string, tabs: string[]): DoCmd | null {
     case 'open':
       return tabs.includes(arg.toLowerCase()) ? { cmd: 'open', tab: arg.toLowerCase() } : null;
     case 'lens':
-      return !arg || LENS_MODES.includes(arg.toLowerCase()) ? { cmd: 'lens', mode: arg.toLowerCase() || 'see' } : null;
+      return !arg || LENS_MODES.includes(arg.toLowerCase()) ? { cmd: 'lens', mode: arg.toLowerCase() || 'lens' } : null;
     case 'arcade':
       return { cmd: 'arcade' };
     case 'sit':

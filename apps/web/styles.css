@@ -6317,3 +6317,33 @@ html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background
 /* ---- calm (the MOTION switch): the breathing glow behind Home's hero holds still, as under Reduce Motion */
 html[data-motion="calm"] .rcglow { animation: none; }
 /* ==== end THE SYSTEM ==== */
+
+/* ---------------------------------------------------------------------------------------------------------------------------
+   THE ONE LENS (BRIEF-LENS): the Machine's marks laid over the camera. A tag is a thin reticle round the thing (the box from the
+   detection), its tag above in mono capitals, one true line under it and its act as a key; everything sits on a plate so it
+   reads on any picture, and every control is 44 pt at least. Nothing here names a colour: the tokens do (tokens.css).
+   --------------------------------------------------------------------------------------------------------------------------- */
+html .lenstags { position: absolute; inset: 0; z-index: 3; overflow: hidden; pointer-events: none; }
+html .lenstags[hidden] { display: none; }
+html .lenstag { position: absolute; min-width: var(--g-target); min-height: var(--g-target); pointer-events: none; transition: opacity var(--g-dur-lock) linear; }
+html #app .lenstag > button.g-ret { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; pointer-events: auto; }
+html .lenstag .g-ret-box { position: absolute; inset: 0; padding: 0; min-width: 0; min-height: 0; }
+html .lenstag .lt-body { display: block; width: 100%; height: 100%; }
+html .lenstag .lt-tag { position: absolute; left: 0; bottom: 100%; margin-bottom: 2px; max-width: 100%; pointer-events: none; }
+html .lenstagunder { position: absolute; max-width: 320px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); pointer-events: none; transition: opacity var(--g-dur-lock) linear; }
+html .lenstagunder[hidden] { display: none; }
+html .lenstagunder .lt-truth:empty { display: none; }
+html .lenstagunder .lt-truth > .g-truth { display: inline-block; padding: 1px 6px; background: var(--g-plate-fill); border-radius: var(--g-radius-mark); }
+html .lenstagunder .lt-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-half); pointer-events: auto; }
+html .lenstagunder .lt-keys:empty { display: none; }
+html .lenstagunder .lt-keys > .g-key { flex: 0 0 auto; }
+html .lenmarkrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-2); flex: 1 0 100%; order: -1; min-height: var(--g-target); }
+html .lensmark { display: inline-flex; align-items: center; min-height: var(--g-target); }
+html #app .lensbar .lensmarkrow button.g-key { flex: 0 1 auto; height: auto !important; min-height: var(--g-target) !important; border-radius: var(--g-radius-key) !important; padding: 0 var(--g-s-2); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase !important; color: var(--g-ink-1) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; }
+html #app .lensbar .lensmarkrow button.g-key:disabled { color: var(--g-ink-4) !important; }
+html #app .lensbar .lensmarkrow button.g-key[hidden] { display: none; }
+html .lensstatus.quiet { display: none; }
+html .lensbar .lensback { flex: 0 0 auto; order: -2; }
+html .lenssay { margin: 0; font: var(--g-t-body, 400 15px/20px var(--sf)); color: var(--g-ink-1, var(--ink)); }
+html .lenssay[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { html :is(.lenstag, .lenstagunder) { transition: none; } }

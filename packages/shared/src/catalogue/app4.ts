@@ -93,55 +93,60 @@ export const APP_4: Record<string, CatValue> = {
   'deck:abilities:tap-any-one-it-explains-itself': { same: 'screen:abilities' },
   'deck:abilities:what-he-is-learning-for-you': { same: 'panel:abilities:LEARNING' },
   'deck:abilities:anything-he-still-needs-a-key': { same: 'panel:system:KEYS' },
-  // ---- the Lens's modes
+  // ---- the Lens: one view, its acts and its tools (BRIEF-LENS: nothing here was lost, each old mode is an act under a tag or a tool under MORE)
+  'lens:lens': {
+    name: 'Point it and I tag things', line: 'I tag what I see through the camera: text, codes, faces you know and things I can name, each with the one thing you can do.',
+    more: 'Tap START and point it. Every tag is a thin box with one true line under it, like “I see text — tap to read it”, and a key for the act. It runs on this phone; nothing leaves it until you tap ASK or TRANSLATE.',
+    say: ['What is that?', 'Read that', 'Translate it'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
+  },
   'lens:see': {
     name: 'See what is in view', line: 'I can see what is in front of the camera and box each thing live, on your phone.',
-    more: 'Tap a box to ask about it, search it, read it or save it. It runs on this phone; nothing is sent to see it.',
+    more: 'Under MORE: every thing the detector knows, boxed and counted, with ASK, SEARCH, READ and SAVE on a tap. The Lens’s own view tags the same things for you.',
     say: ['What can you see?'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
   },
   'lens:read': {
     name: 'Read text in a picture', line: 'I can read the text in a photo or in front of the camera, to save, copy or send.',
-    more: 'Read on this phone. A UK number plate in it offers its MOT history; a page of your work offers MARK MY WORK.',
-    say: ['Read this page'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
+    more: 'The act under a text tag: READ. Read on this phone, into your library. A UK number plate in it offers its MOT history; a page of your work offers MARK MY WORK.',
+    say: ['Read this page', 'Read that'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
   },
   'lens:hands': {
     name: 'Drive the Lens by hand', line: 'You can drive the Lens with hand gestures in front of the camera, no touching.',
-    more: 'Your hands are tracked on this phone only.',
-    say: ['(open the Lens on HANDS)'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
+    more: 'A tool under MORE, or say “hands”. Your hands are tracked on this phone only.',
+    say: ['Hands', '(open the Lens on HANDS)'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
   },
   'lens:ask': {
     name: 'Ask about a photo', line: 'You can take a photo and ask me anything about it.',
-    more: 'The photo and your question go to my brain together; I answer about what I see.',
+    more: 'The ASK key on every tag, or MORE. The photo and your question go to my brain together when you tap; I answer about what I see. Never a face.',
     say: ['What is this?', 'Is this plant poisonous?'], scene: ['camera', 'talking'], cat: 'see', needs: ['camera'],
   },
   'lens:name': {
     name: 'Name anything you see', line: 'I can name what you point the camera at, from everyday things to plants.',
-    more: 'Everyday names on the phone itself; a plant’s name from a free plant service with a free key. I say how sure I am.',
-    say: ['What is this called?'], scene: ['camera', 'out'], cat: 'see', needs: ['camera', 'key:plantnet'],
+    more: 'The act under an object tag: NAME IT. Everyday names on the phone itself, said as “looks like a …”; a plant’s name from a free plant service with a free key. I say how sure I am.',
+    say: ['What is this called?', 'Name it'], scene: ['camera', 'out'], cat: 'see', needs: ['camera', 'key:plantnet'],
   },
   'lens:people': {
     name: 'Know you and your people', line: 'I can know your face, and the people you introduce: "this is Sam".',
-    more: 'ENROL ME takes five looks, kept on this phone only. A stranger gets no name and no guess. Never on God’s eye, a photo or a screenshot; Settings → PRIVACY deletes any face in one tap.',
+    more: 'A face I know shows only the name you gave it. MORE, then PEOPLE, is where ENROL ME takes five looks, kept on this phone only. A stranger is “someone I don’t know”, no name, no guess. Never a photo or a screenshot; Settings → PRIVACY deletes any face in one tap.',
     say: ['This is Sam', 'Who’s this?', 'Who am I?'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
   },
   'lens:scan': {
     name: 'Scan codes and documents', line: 'I can scan barcodes and QR codes, warn you about a fake link, turn pages into a PDF and translate.',
-    more: 'A QR code’s link is checked for look-alikes and tricks before you open it. A barcode tells you the product or the book.',
-    say: ['Scan this QR code'], scene: ['camera', 'money'], cat: 'see', needs: ['camera'],
+    more: 'A code in view gets its own tag and a LOOK key, no need to hold still. A QR code’s link is checked for look-alikes before you open it; a barcode tells you the product or the book. Documents and TRANSLATE are under MORE.',
+    say: ['Scan this QR code', 'Look at that'], scene: ['camera', 'money'], cat: 'see', needs: ['camera'],
   },
   'lens:aim': {
     name: 'Label the sky and the view', line: 'You can point the phone at the sky or the skyline and I label the planes, ships and places you see.',
-    more: 'From your phone’s position and compass, with the live flight and ship data. Ships need a free key.',
+    more: 'A tool under MORE. From your phone’s position and compass, with the live flight and ship data. Ships need a free key.',
     say: ['What plane is that?'], scene: ['camera', 'out'], cat: 'see', needs: ['camera', 'location'],
   },
   'lens:measure': {
     name: 'Measure from a photo', line: 'I can measure a wall, a door or a sofa from one photo, with a bank card or an A4 sheet for scale.',
-    more: 'Indoors, half a metre to ten metres. Honest accuracy: usually within about 13%, but about one in ten is far off, so check before you buy.',
-    say: ['Measure this sofa'], scene: ['camera', 'making'], cat: 'see', needs: ['camera'],
+    more: 'The MEASURE key on an object tag, MORE, or say “measure it”. Indoors, half a metre to ten metres. Honest accuracy: usually within about 13%, but about one in ten is far off, so check before you buy.',
+    say: ['Measure this sofa', 'Measure it'], scene: ['camera', 'making'], cat: 'see', needs: ['camera'],
   },
   'lens:sound': {
     name: 'Is your speaker distorting?', line: 'I can listen to your speaker play a test tone and tell you whether it is distorting.',
-    more: 'Five or ten seconds from the microphone, worked out on this phone.',
+    more: 'A tool under MORE, or say “is it distorting”. Five or ten seconds from the microphone, worked out on this phone.',
     say: ['Is my speaker distorting?'], scene: ['camera', 'making'], cat: 'see', needs: ['mic'],
   },
   // ---- the GYM's games

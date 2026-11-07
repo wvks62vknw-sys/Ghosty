@@ -777,6 +777,9 @@ export function createScanMode(L: LensContext): Mode {
         if (sub === 'code') void scanPhoto(opts.still);
         else if (sub === 'document') void openEditor(opts.still);
         else void translatePhoto(opts.still);
+      } else if (opts?.code && sub === 'code') {
+        // the act under a code tag in the one view: this code, shown as if SCAN had just read it (held until SCAN AGAIN)
+        found([{ text: opts.code.text, format: opts.code.format, points: [] }], 1);
       } else if (still) L.showStill(still);
     },
     leave() {

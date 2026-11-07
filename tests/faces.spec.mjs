@@ -11,6 +11,9 @@
 //  4. Settings → PRIVACY → FACES: the count, × each with UNDO, DELETE for his own;
 //  5. a face never leaves the phone, by the marker method (onphone.spec's): every request leaving the page is held at the
 //     door and written down — the introduced name and the face numbers are in none of them.
+//  6. THE ONE LENS (BRIEF-LENS): with the face models on the phone the Lens's one view tags a face he knows by the name he gave it and
+//     nothing else (no key under it), a stranger "someone I don't know" with no act, and the context line the brain gets says "someone
+//     I know" and never the name.
 //   BASE=http://localhost:8788 node tests/faces.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -95,6 +98,9 @@ const ask = async (text) => {
 
 // ---- 1. the Lens, PEOPLE, the camera (a tap)
 await page.evaluate(() => (location.hash = 'lens'));
+// the Lens opens on its one view (BRIEF-LENS): the old modes, PEOPLE among them, are the row behind MORE
+await page.waitForSelector('#pg-lens .lensbar', { timeout: 15000 });
+await page.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
 await page.waitForSelector('#pg-lens .lensmodes', { timeout: 15000 });
 await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
 await until(() => window.__ghosty?.lens?.mode === 'people', null, 5000, 'the PEOPLE tile did not open PEOPLE');
@@ -186,6 +192,32 @@ await ask("who's this?");
 await until(() => window.__ghosty.people?.said === 'I don’t know them: introduce us.', null, 8000, `a stranger → "${await said()}"`);
 const strangerBoxes = (await people()).faces;
 check(strangerBoxes.length >= 1 && strangerBoxes.every((f) => f.label === ''), `a stranger got a label: ${JSON.stringify(strangerBoxes)}`);
+
+// ---- 3b. THE ONE LENS: back from PEOPLE to the one view, the same faces tagged in the Machine's marks
+await page.evaluate(() => window.__ghosty.lens.setMode('lens'));
+await until(() => window.__ghosty.lens.mode === 'lens', null, 5000, 'the one view did not open from PEOPLE');
+const tagsNow = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__ghosty.one?.tags ?? [])));
+await page.evaluate(() => (window.__scene = 'other'));
+await until((n) => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'face' && t.label === n), NAME, 30000, `the one view did not tag the face he knows by name: ${JSON.stringify(await tagsNow())}`);
+const known = (await tagsNow()).find((t) => t.kind === 'face');
+check(known && known.tag === NAME && known.acts.length === 0 && known.truth === '', `a known face is its name and nothing else: ${JSON.stringify(known)}`);
+check(await page.evaluate((n) => [...document.querySelectorAll('#pg-lens .lenstag[data-kind="face"] .g-tag')].some((e) => e.textContent.trim() === n), NAME), 'the name is not drawn on the face tag');
+check((await page.locator('#pg-lens .lenstagunder[data-kind="face"] button').count()) === 0, 'a face he knows has a key under it: a face has no act');
+const knownLine = await page.evaluate(() => window.__ghosty.awareness.wordsNow());
+check(/^On screen: the Lens, camera on: \d tags?: .*someone I know/.test(knownLine) && !knownLine.includes(NAME) && !/Quorrin|Vexmoor/i.test(knownLine), `the context line carries a name or misses the kind: "${knownLine}"`);
+await page.screenshot({ path: `${out}/faces-one-known.png` });
+// a stranger: "someone I don't know", no name, no key
+await page.evaluate(() => (window.__scene = 'stranger'));
+await until(() => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'stranger'), null, 30000, `the one view did not tag a stranger: ${JSON.stringify(await tagsNow())}`);
+const stranger = (await tagsNow()).find((t) => t.kind === 'stranger');
+check(stranger && stranger.truth === 'someone I don’t know' && stranger.acts.length === 0 && stranger.label === '', `a stranger is "someone I don’t know" and nothing else: ${JSON.stringify(stranger)}`);
+check((await page.locator('#pg-lens .lenstagunder[data-kind="stranger"] button').count()) === 0, 'a stranger has a key under the tag');
+const strangerLine = await page.evaluate(() => window.__ghosty.awareness.wordsNow());
+check(/someone I don’t know/.test(strangerLine) && !strangerLine.includes(NAME), `the stranger's context line: "${strangerLine}"`);
+await page.screenshot({ path: `${out}/faces-one-stranger.png` });
+// him: ADMIN
+await page.evaluate(() => (window.__scene = 'admin'));
+await until(() => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'face' && t.label === 'ADMIN'), null, 30000, `the one view did not tag him as ADMIN: ${JSON.stringify(await tagsNow())}`);
 
 // ---- 4. Settings → PRIVACY → FACES
 await page.evaluate(() => (location.hash = 'settings'));
