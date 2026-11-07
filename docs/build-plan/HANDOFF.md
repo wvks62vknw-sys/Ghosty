@@ -148,6 +148,16 @@ folder that no longer exists; ignore those paths).
   build, bundle, look tests, then the full brain suite and the boot/hero/look/routec/deck/tabs specs. OWNER-ISSUES 149,
   STATUS 1(e) and section 2; PR #63 opened and subscribed. The orb worktree stays until the PR merges.
   11:37 UK: main's own run 340 (7e837c7) green on every job: item 1(d), themes that mean something, FINISHED.
+  12:15 UK: PR #63 red on smoke shard 3 (the look spec's speed budget: the second open 649/660 ms on the runner); measured
+  with a throttled reproduction and the profiler, not reasoned: the WebGL probe made a new context on every open of THE
+  LOOK's MIND (about 200 ms in software; a leaked context on a phone); cached once per page life (980f52e), the second open
+  37 ms in the spec, 79–166 ms throttled four times; look, hero and boot specs green locally; pushed, the rerun in CI.
+  HIS USAGE 13:20 UK: all models weekly 24%, top tier weekly 24% (03:00: 11% and 7%). The top tier climbed 17 points in
+  ten hours: three top-tier builders (the themes-2 finish, the boot storyboard, the orb build) and the orchestrator's own
+  turns. At this pace the week's top tier runs out by Thursday, so from here: the awareness builder (item 3) on the mid
+  tier (logic, not design); the top tier kept for the shell's design work (item 4) and the owner's reviews; builders'
+  validation stages on the cheap tier where a relaunch only reads logs; the orchestrator's turns short, batched, no
+  re-reading of logs it can delegate.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
