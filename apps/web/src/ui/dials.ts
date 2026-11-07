@@ -101,7 +101,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
       const rows = SWITCHES.map((def) => {
         const keys = def.options.map((opt) => {
           const on = r.switches[def.key] === opt.value;
-          const b = h('button.g-key.gsw', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-pressed': String(on), 'aria-label': `${def.label}: ${opt.label}${on ? ', chosen' : ''}`, dataset: { case: 'keep', g: 'key', sw: def.key, val: String(opt.value) } }, h('span', opt.label));
+          const b = h('button.g-key.gsw', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-label': `${def.label}: ${opt.label}${on ? ', chosen' : ''}`, dataset: { case: 'keep', g: 'key', sw: def.key, val: String(opt.value) } }, h('span', opt.label));
           b.addEventListener('click', () => {
             if (r.switches[def.key] === opt.value) return;
             const switches = { ...r.switches, [def.key]: opt.value } as Switches;

@@ -220,7 +220,6 @@ export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
   d.motion = s.motion;
   d.sound = s.sound;
   d.day = s.day;
-  el.style.colorScheme = groundOf(ground)?.light ? 'light' : 'dark';
   // the ground may have changed: the surfaces a mood's text variant is worked out on are read again
   surfaces = null;
   readGlow();
