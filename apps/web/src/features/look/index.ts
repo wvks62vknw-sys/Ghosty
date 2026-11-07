@@ -554,7 +554,9 @@ export const lookTab: TabDef = {
         restamp();
         paintStates();
         showing();
-        void borrow();
+        // the orb is borrowed a frame after the screen has painted (moving and sizing the one WebGL canvas is the costly
+        // part of this open): the open stays under its budget, and the spec waits for the orb's first frame, not the paint
+        requestAnimationFrame(() => setTimeout(() => { if (ui.get().tab === 'look') void borrow(); }, 0));
       },
       leave() {
         giveBack();
