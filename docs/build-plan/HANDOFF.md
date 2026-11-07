@@ -200,6 +200,16 @@ folder that no longer exists; ignore those paths).
   green; the voice/settings/awareness/deck/tabs/talk specs run; PR #66 opened and subscribed once green. NEXT: item 4, THE
   SHELL (STARS 160–161; PLAN-STARS 3b): a facts sheet from a mid-tier explorer, then BRIEF-SHELL, the top tier for its
   design work (the one place the top tier is spent from here), after his phone checks and 150 (a) if he answers.
+  22:40 UK: HIS VERDICT (OWNER-ISSUES 153): the themes went past his ask ("10% understood"), the Lens on his iPhone fails
+  GET THE EYES ("no available backend found": the namer's runtime cannot get its memory, the case faces.ts handles and the
+  one view did not) and repeats READ · TRANSLATE · ASK per text region; he offered ultracode. Answered: no more effort, the
+  fault was Chromium-only testing and building past the ask; the Lens hotfix first (worktree lensfix, mid tier: one tag per
+  kind with one key row; the object finder alone, the namer optional and honest), checked on HIS PHONE from the PR's preview
+  before the merge; the themes cut back after his answer (keep a Ground choice and the colours; the worlds and switches off
+  the page: recommended); nothing new launches until both are done; the shell's pass 1 (running) waits its turn. FACTS-SHELL
+  and BRIEF-SHELL (three passes) were written before his message. PR #66 (voice) opened with its merge held. The voice
+  specs: voice, settings, awareness, deck, tabs, talk all green. FROM HERE: only what was asked; his phone before merging
+  anything that loads a model, the camera or the microphone; smaller PRs.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
