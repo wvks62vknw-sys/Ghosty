@@ -810,6 +810,10 @@ if (part('offline')) {
   await page.evaluate(() => { window.__talk.tts.length = 0; });
   const open = await openFromShelf(page, NW);
   check(open && (await page.evaluate(() => /moon sat in the water/.test(document.querySelector('#pg-reader .grd-flow')?.textContent ?? ''))), `[${name}] offline, the kept book does not read`);
+  // how it is now (STANDARD, the second habit): reading works from this phone's copy, his place waits on this phone for the brain
+  await pickSection(page, 'about');
+  const marksOff = await page.$$eval('#pg-reader .grd-marks > .g-truth', (ls) => ls.map((l) => `${l.dataset.mark}: ${l.textContent}`));
+  check(marksOff.length === 3 && /^working: Reading/.test(marksOff[0] ?? '') && /^offline: Your place/.test(marksOff[2] ?? ''), `[${name}] offline, ABOUT does not say how things are: ${JSON.stringify(marksOff)}`);
   // (from its first chapter, The Canal: the checks before left his place anywhere in it)
   await pickSection(page, 'chapters');
   await page.click('#pg-reader .grd-chrow[data-i="0"]');
@@ -858,6 +862,9 @@ if (part('voice')) {
   const bar = await page.evaluate(() => document.querySelector('#pg-reader .grd-barline')?.textContent ?? '');
   check(/phone/i.test(bar), `[${name}] the bar does not say the phone's voice reads from here: "${bar}"`);
   await page.screenshot({ path: `${out}/reader-voice-440.png` });
+  // ABOUT says LISTEN is degraded now (my own voice used up for today, the phone's reading), while I go on reading
+  const listenMark = await page.$eval('#pg-reader .grd-marks > .g-truth:nth-child(2)', (l) => `${l.dataset.mark}: ${l.textContent}`).catch(() => '');
+  check(/^degraded: Listen/.test(listenMark) && /phone/.test(listenMark), `[${name}] ABOUT does not say LISTEN is degraded after the switch: "${listenMark}"`);
   await page.click('#pg-reader .grd-bar .g-key.fill').catch(() => undefined);
   await page.evaluate(() => localStorage.setItem('ghosty.reading', JSON.stringify({ mode: 'scroll', size: 17, bookVoice: false })));
   console.log(`[${name}] ${played.length} clips of my own voice, then "My own voice from here." ${ms(measured.voiceSwitchGap)} after the last ended, and on`);

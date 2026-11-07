@@ -464,6 +464,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   const turn = (d: number) => {
     if (mode() !== 'pages') return;
     touched = performance.now();
+    // (the box held on his place, or on a search's words, stays with those words: it goes when he turns the page)
+    release(box);
     showScreen(screen + d);
   };
   const pagesTo = (n: number, off: number) => {
@@ -743,6 +745,22 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   };
 
   // ---------------------------------------------------------------- ABOUT
+  /**
+   * How each thing the reader does is working now (STANDARD, the second habit: a WORKING / DEGRADED / OFFLINE mark on every new
+   * ability, where it is found), from what is true on this phone this moment. Nothing here needs a key, so NEEDS KEY never shows.
+   */
+  const marksNow = (d: LibraryDoc, whole: boolean): { name: string; mark: 'Working' | 'Degraded' | 'Offline'; why: string }[] => {
+    const online = typeof navigator === 'undefined' || navigator.onLine !== false;
+    const s = reading.get();
+    const mine = readingPrefs.get().bookVoice;
+    const left = bookVoiceLeft();
+    const usedUp = mine && (left <= 0 || (s.doc === d.id && !!s.switched));
+    return [
+      { name: 'Reading', ...(book ? { mark: 'Working' as const, why: whole ? 'all of it on this phone' : 'from my brain, a passage at a time' } : online ? { mark: 'Degraded' as const, why: 'it did not open: try again in a moment' } : { mark: 'Offline' as const, why: 'not on this phone yet' }) },
+      { name: 'Listen', ...(typeof speechSynthesis === 'undefined' ? { mark: 'Offline' as const, why: 'this browser has no voice of its own' } : usedUp ? { mark: 'Degraded' as const, why: 'my own voice is used up for today: the phone’s voice reads' } : { mark: 'Working' as const, why: mine && online ? `my own voice, ${Math.max(0, Math.round(left / 60))} minutes left today` : 'the phone’s own voice' }) },
+      { name: 'Your place', ...(d.id.startsWith('local-') ? { mark: 'Working' as const, why: 'kept on this phone; on my brain once the book is' } : !online || placeStats.failedAt > placeStats.sentAt ? { mark: 'Offline' as const, why: 'kept on this phone, sent to my brain when I can be reached' } : { mark: 'Working' as const, why: 'on this phone and on my brain, for your other devices' }) },
+    ];
+  };
   let keeping: AbortController | null = null;
   const paintAbout = async () => {
     if (!doc) {
@@ -780,6 +798,13 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
         truthLine([{ text: 'On this phone', tone: 'strong' }, whole ? 'all of it · reads with no signal' : here ? `${here} of ${d.passages} passages` : d.id.startsWith('local-') ? 'only here so far' : 'not yet']))),
       h('div.grd-keys.about', keep, remove),
       h('p.grd-cap', { dataset: { case: 'keep' } }, whole ? 'It is all on this phone, so it opens and reads aloud with no signal.' : `Keeping it here is a download of ${sizeWords(size)}: I fetch it on Wi-Fi, and wait for Wi-Fi if you are on mobile data.`),
+      tag('How it is now'),
+      h('div.grd-marks', { role: 'list', 'aria-label': 'How it is now' }, ...marksNow(d, whole).map((m) => {
+        const line = truthLine([{ text: m.name, tone: 'strong' }, { text: m.mark, tone: m.mark === 'Working' ? 'on' : 'warn' }, m.why]);
+        line.setAttribute('role', 'listitem');
+        line.dataset.mark = m.mark.toLowerCase();
+        return line;
+      })),
       tag('Who reads it'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, readingPrefs.get().bookVoice ? `My own voice, about an hour a day (${Math.max(0, Math.round(bookVoiceLeft() / 60))} minutes left today); then the phone’s voice carries on, and I say so.` : 'The phone’s own voice. Settings › Reading › His voice for books lets my own voice read about an hour a day.'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, lock));
@@ -947,13 +972,16 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     if (doc?.id === id) void paintAbout();
   });
   guardian.subscribe(() => stamp.refresh());
-  addEventListener('online', () => stamp.refresh());
-  addEventListener('offline', () => stamp.refresh());
+  addEventListener('online', () => (stamp.refresh(), doc && void paintAbout()));
+  addEventListener('offline', () => (stamp.refresh(), doc && void paintAbout()));
+  reading.subscribe((s, prev) => s.switched !== prev.switched && doc && void paintAbout());
   // a section changed: the page moves under the pills, which is not his reading (a change of section never moves his place)
   secs.el.addEventListener('click', () => (auto = performance.now()), true);
   secs.el.addEventListener('click', () => requestAnimationFrame(() => {
     readerState.section = secs.current();
     auto = performance.now();
+    // ABOUT says how things are now: looked at afresh each time he opens it
+    if (secs.current() === 'about') void paintAbout();
     // pages mode holds the page still under the pills: the other sections scroll as usual
     if (secs.current() === 'read' && mode() === 'pages') fitPages();
     else hud.style.overflowY = '';

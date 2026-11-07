@@ -17,7 +17,7 @@ export type Place = Omit<BookPlace, 'doc'>;
 export const places = createStore<{ map: Record<string, Place> }>({ map: {} }, { persist: 'ghosty.places' });
 
 /** What the checks read (window.__ghosty.reader.places): places set, sent, and taken from the brain. */
-export const placeStats = { set: 0, sent: 0, adopted: 0, failed: 0, lastSent: null as BookPlace | null };
+export const placeStats = { set: 0, sent: 0, adopted: 0, failed: 0, lastSent: null as BookPlace | null, sentAt: 0, failedAt: 0 };
 
 const isLocal = (doc: string) => doc.startsWith('local-');
 const SEND_MS = 1500;
@@ -74,9 +74,11 @@ export async function sendPlaces(): Promise<void> {
       const r = await brain.placePut(body);
       placeStats.sent++;
       placeStats.lastSent = body;
+      placeStats.sentAt = Date.now();
       if (r.newer) adopt(doc, r.place);
     } catch (e) {
       placeStats.failed++;
+      placeStats.failedAt = Date.now();
       // no signal, or the brain's database resting: kept here, and sent with the next change
       if (unreachable(e)) waiting.add(doc);
     }

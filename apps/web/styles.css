@@ -6111,6 +6111,8 @@ html #pg-reader .grd-keys.about { margin: 0 0 var(--g-s-1); }
 html #pg-reader .grd-keys.about > .g-key { flex: 1 1 auto; white-space: normal; }
 html #app #pg-reader button.g-key.grd-remove { color: var(--g-amber); border-color: var(--g-amber); }
 html #pg-reader .grd-about > .g-tag { margin-top: var(--g-s-3); }
+html #pg-reader .grd-marks { display: flex; flex-direction: column; gap: var(--g-s-half); margin-top: var(--g-s-1); }
+html #pg-reader .grd-marks > .g-truth { margin: 0; }
 html #pg-reader .grd-about > .grd-cap + .grd-cap { margin-top: var(--g-s-1); }
 @media (max-width: 400px) { html #pg-reader .grd-aboutrow { grid-template-columns: 96px minmax(0, 1fr); } html #pg-reader .grd-aboutrow .grd-cover.big { width: 96px; height: 144px; } }
 /* a book's cover: its own first picture, or one drawn from its title (the plate, the tag, the title; the corners in his colour) */
