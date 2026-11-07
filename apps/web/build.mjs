@@ -32,6 +32,8 @@ const common = { bundle: true, format: 'esm', target: 'es2022', minify: !watch, 
 const jobs = [
   { ...common, entryPoints: ['src/main.ts'], outfile: 'dist/app.js' },
   { ...common, entryPoints: ['src/workers/textures.worker.ts'], outfile: 'dist/textures.worker.js', format: 'iife' },
+  // the one Lens's cheap pass (frame read, steadiness, the text check), off the main thread
+  { ...common, entryPoints: ['src/workers/lens.worker.ts'], outfile: 'dist/lens.worker.js', format: 'iife' },
 ];
 
 if (watch) {

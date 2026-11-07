@@ -176,6 +176,20 @@ folder that no longer exists; ignore those paths).
   network, nothing skipped), merged (0aa83a8), both typechecks, build, bundle, 84 brain tests green; awareness/deck/space/talk
   specs run; PR #64 opened and subscribed. The awareness worktree stays until it merges. NEXT after A is on main: BRIEF for
   PR B ONE LENS (STARS 151–152; the facts sheet's section 5) on the mid tier, then PR C HIS VOICE KNOWN (154–155).
+  18:00–19:05 UK: PR #64 red on smoke shard 4 (the name spec: the Lens's new context line had dropped NAME's names, the
+  gesture and the card that describe() carried; fixed in the Lens through one shared bits builder, the spec reading the new
+  shape; lesson in 150: grep every spec for a name whose SHAPE you change). BRIEF-LENS written from the facts sheet and the
+  ONE LENS builder launched on the mid tier (worktree lens, port 8807) while #64 ran; it reported at 18:30 (13 commits,
+  OWNER-ISSUES 151). 19:02 UK: PR #64 green and MERGED (main fe76ce3); branch restarted from main; the awareness worktree
+  and branch removed; ONE LENS applied as one commit (b6ead8b: the diff against the new branch over the builder's files, 151
+  appended by hand since main's OWNER-ISSUES had moved on). A trap found: a builder had repointed the shared scratchpad
+  bundle script at its own worktree, so this checkout's brain test build was stale and nine new tests failed until the
+  script was regenerated here (bundle-main.sh; builders get their own copies from now on). PR #65 opened and subscribed
+  once the specs pass. NEXT: BRIEF-VOICE-KNOWN (PR C, STARS 154–155) on the mid tier after #65 is up; then item 4, the shell.
+  19:20 UK: PR #65 (ONE LENS) opened on 1f26c7d and subscribed; BRIEF-VOICE-KNOWN written (no new model: a courtesy signal
+  from the phone's own audio features; the confirm tap the gate; the real speaker model a STARS gap) and the PR C builder
+  launched on the mid tier (worktree voiceknown, port 8809, its own bundle script). 20:08 UK: main's own run 346 (fe76ce3)
+  green on every job: awareness PR A FINISHED. PR #65: eight of nine checks green, shard 4 running.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

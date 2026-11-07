@@ -126,7 +126,15 @@ export function createPeopleMode(L: LensContext): Mode {
   const models = (): Promise<boolean> =>
     (loadingModels ??= faces
       .load((t) => L.status(t, 'mid'))
-      .then(() => true)
+      .then(() => {
+        // the face models are on this phone now: the one view looks for a face he knows from here on (features/lens/one.ts)
+        try {
+          localStorage.setItem('ghosty.lens.faces', '1');
+        } catch {
+          /* private mode: this visit only */
+        }
+        return true;
+      })
       .catch((e: unknown) => {
         loadingModels = null;
         L.status(String((e as Error)?.message ?? e), 'off');

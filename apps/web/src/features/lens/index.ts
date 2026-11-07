@@ -21,6 +21,7 @@ import { onFrame } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { ui } from '../../state/app';
 import { button, toast, type Light } from '../../ui/components';
+import { contextWords as tagsWords } from '../../vision/frame';
 import { askWithImage, type AskResult } from '../../vision/ask';
 import { coverTransform, sceneLine, toFrame, toView, type Box, type Category, type Detection, type Size, type Transform } from '../../vision/boxes';
 import { Camera, cameraMessage, cameraSupported, drawScaled, type Facing } from '../../vision/camera';
@@ -35,6 +36,7 @@ import { createHandsMode } from './hands';
 import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
+import { createOneMode, oneSelected, oneState } from './one';
 import { createPeopleMode, peopleState } from './people'; // [guardian] PEOPLE: his face and the people he introduces (OWNER-ISSUES 55, 56)
 import { createShapesMode, shapesState } from '../../hands/mode'; // [restc] SHAPES: hand shapes to blueprints
 import { faces } from '../../vision/faces';
@@ -92,6 +94,8 @@ export interface ModeOpts {
   send?: boolean;
   /** SCAN's part to open on: CODE, DOCUMENT or TRANSLATE (the deck's "Translate a sign or a menu"). */
   sub?: 'code' | 'document' | 'translate';
+  /** A code the one view tagged: SCAN shows its card as if it had just read it (the act under a code tag). */
+  code?: { text: string; format: string };
 }
 
 export interface Mode {
@@ -106,6 +110,8 @@ export interface Mode {
   froze?(still: HTMLCanvasElement): void;
   /** The held frame was let go of. */
   unfroze?(): void;
+  /** The camera was switched off while this mode was showing. */
+  cameraOff?(): void;
 }
 
 /** What every mode gets to work with. */
@@ -116,6 +122,10 @@ export interface LensContext {
   reader: Reader;
   /** The mode's own area under the tiles (cleared when the mode changes). */
   panel: HTMLElement;
+  /** The viewfinder itself: the one view lays its tags over it. */
+  host: HTMLElement;
+  /** The bottom bar: the one view puts its mark there. */
+  bar: HTMLElement;
   status(text: string, light?: Light): void;
   /** The small lines over the viewfinder: the scene (left) and the counts (right). */
   lines(scene: string, counts: string): void;
@@ -147,7 +157,7 @@ export interface LensContext {
 }
 
 export const lensState: LensState = {
-  mode: 'see',
+  mode: 'lens',
   status: '',
   camera: 'off',
   facing: 'environment',
@@ -174,6 +184,8 @@ function expose(): void {
   const attach = () => {
     if (!w.__ghosty) return false;
     w.__ghosty.lens = lensState;
+    // the one view's tags, its budgets and its mark, for the specs
+    w.__ghosty.one = oneState;
     // PEOPLE's state and the face engine (whose only way in is the live camera), for the specs
     w.__ghosty.people = peopleState;
     w.__ghosty.shapes = shapesState;
@@ -206,7 +218,7 @@ export function openLens(mode?: string, question?: string, start = false): void 
   const want = String(mode ?? '').toLowerCase();
   // SCAN's three parts may be named on their own ("translate" opens SCAN on TRANSLATE).
   const sub = want === 'translate' || want === 'document' || want === 'code' ? want : undefined;
-  const m = sub ? 'scan' : LENS_MODES.find((x) => x === want) ?? (question ? 'ask' : 'see');
+  const m = sub ? 'scan' : LENS_MODES.find((x) => x === want) ?? (question ? 'ask' : 'lens');
   const opts: ModeOpts | undefined = question ? { question } : sub ? { sub } : undefined;
   wanted = { mode: m, opts, start };
   go('lens');
@@ -222,7 +234,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'camera · see · read · hands · ask · name · scan · aim · measure · sound',
+  blurb: 'point it and I tag what I see · read · scan · name · ask · measure · hands · sound',
   mount(root) {
     const S = lensState;
     /** What the Lens can say about the picture, in order of worth: NAME's closest names for the thing (never a person), what is
@@ -235,6 +247,11 @@ export const lensTab: TabDef = {
       if (S.gesture) bits.push(`gesture: ${S.gesture}`);
       if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, cardMax)}`);
       return bits;
+    };
+    /** The one view's line: what it tags (kinds) and what the namer says the things look like; a face is only ever "someone I know". */
+    const oneLine = (): string => {
+      const things = oneState.tags.filter((t) => t.kind === 'object' && t.truth.startsWith('looks like')).map((t) => t.truth);
+      return `the Lens, camera ${S.camera}${S.frozen ? ', frozen' : ''}: ${tagsWords(oneState.tags)}${things.length ? `; ${things.join(', ')}` : ''}`;
     };
     const camera = new Camera(h('video.lensvideo'));
     const video = camera.video;
@@ -252,7 +269,7 @@ export const lensTab: TabDef = {
     const empty = h('div.lensempty', emptyTitle, emptyText);
     const view = h('div.lensview', video, still, ov, empty, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
-    const privacy = h('div.lensprivacy', 'Runs on your phone. Faces only in PEOPLE: you, and people you introduce here — kept on this phone, never anyone else. A number plate is looked up only when you tap CHECK, never who owns the car.');
+    const privacy = h('div.lensprivacy', 'Runs on your phone. A face is only ever you, or someone you introduced — kept on this phone, never anyone else. A number plate is looked up only when you tap CHECK, never who owns the car.');
     const reader = new Reader();
 
     // ---- the viewfinder's size, the overlay's pixels and the frame → view mapping
@@ -281,10 +298,16 @@ export const lensTab: TabDef = {
       video,
       reader,
       panel,
+      host: view,
+      get bar() {
+        return bar;
+      },
       status(text, lightKind) {
         S.status = text;
         statusText.textContent = text;
         light.className = lightKind ?? '';
+        // the one view says what it sees in its tags: the pill keeps quiet unless there is something to tell (loading, an error, held)
+        statusEl.classList.toggle('quiet', S.mode === 'lens' && /^(live|looking…)$/.test(text));
       },
       lines(scene, counts) {
         sceneEl.textContent = scene;
@@ -462,6 +485,7 @@ export const lensTab: TabDef = {
         torchBtn.classList.remove('on');
         L.clearOverlay();
         L.lines('', '');
+        mode?.cameraOff?.();
         L.status('camera off · START to open it', undefined);
       },
       async flip() {
@@ -475,8 +499,9 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L), shapes: createShapesMode(L) };
+    const modes: Record<LensMode, Mode> = { lens: createOneMode(L), see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L), shapes: createShapesMode(L) };
     let mode: Mode | null = null;
+    let moreOpen = false;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
     for (const t of TILES) {
@@ -499,6 +524,7 @@ export const lensTab: TabDef = {
         bar.hidden = m === 'sound';
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
+        syncMore();
         syncEmpty();
         // the last mode's line ("8 words · 95% sure", "LISTEN: …") does not belong here: the camera's own, until this mode says more
         cameraLine();
@@ -548,7 +574,7 @@ export const lensTab: TabDef = {
       if (!blank) return;
       const photo = ['read', 'name', 'scan', 'measure'].includes(S.mode) ? ' Or PICK PHOTO below to use one from your phone.' : '';
       emptyTitle.textContent = S.camera === 'starting' ? 'Opening the camera…' : S.camera === 'error' ? 'The camera did not open' : 'Camera off';
-      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : `Tap START to look through it.${photo}`;
+      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : S.mode === 'lens' ? 'Tap START, then point it: I tag the text, codes and things I see.' : `Tap START to look through it.${photo}`;
     };
     syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {
@@ -558,7 +584,25 @@ export const lensTab: TabDef = {
     }, 'on');
     photoBtn.hidden = true;
     photoBtn.classList.add('lensphoto');
-    const bar = h('div.lensbar', startBtn, flipBtn, freezeBtn, torchBtn, photoBtn);
+    // BRIEF-LENS 3: the old modes are acts under a tag and tools under MORE; MORE opens the row of them, and in a tool a key takes him back to the one view
+    const moreBtn = button('MORE', () => {
+      moreOpen = !moreOpen;
+      syncMore();
+    }, 'lensmore');
+    moreBtn.setAttribute('aria-label', 'More: the tools, hands, aim, measure, sound, shapes, people, and the acts, read, ask, name, scan, see');
+    const backBtn = button('‹ LENS', () => setMode('lens'), 'on');
+    backBtn.setAttribute('aria-label', 'Back to the Lens: the camera with my marks');
+    backBtn.classList.add('lensback');
+    backBtn.hidden = true;
+    const syncMore = () => {
+      const one = S.mode === 'lens';
+      tiles.hidden = one && !moreOpen;
+      moreBtn.classList.toggle('on', !tiles.hidden);
+      moreBtn.setAttribute('aria-expanded', String(!tiles.hidden));
+      backBtn.hidden = one;
+    };
+    // (the back key is last in the tree and first on screen: the camera's START stays the bar's first button for everything that looks for it)
+    const bar = h('div.lensbar', startBtn, flipBtn, freezeBtn, torchBtn, moreBtn, backBtn, photoBtn);
 
     // ---- a tap on the viewfinder (not a drag)
     let down: { x: number; y: number } | null = null;
@@ -588,8 +632,9 @@ export const lensTab: TabDef = {
 
     controller = { setMode };
     // The first mode is chosen now; it starts working when the tab is entered.
-    mode = modes.see;
-    tileBtns.get('see')?.classList.add('on');
+    mode = modes.lens;
+    tileBtns.get('lens')?.classList.add('on');
+    syncMore();
     return {
       enter() {
         expose();
@@ -613,6 +658,8 @@ export const lensTab: TabDef = {
         closeAll();
       },
       describe: () => {
+        // the one view: counts and kinds of what it tags, never who (BRIEF-LENS 4)
+        if (S.mode === 'lens') return `Lens tab, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}; ${tagsWords(oneState.tags)}.`;
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         // PEOPLE: only that it is open — never who is in the picture (a face, a name, a count: none of it leaves the phone)
         if (S.mode === 'people') return `${bits[0]}.`;
@@ -624,7 +671,9 @@ export const lensTab: TabDef = {
       context: (): ScreenContext => ({
         screen: 'lens',
         title: 'The Lens',
-        line: S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
+        // the one view: the tags' kinds and the names of the things ("looks like a lemon"), never who; a tapped tag is selected by its kind
+        ...(S.mode === 'lens' ? { selected: oneSelected() } : {}),
+        line: S.mode === 'lens' ? oneLine() : S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
         at: Date.now(),
       }),
     };

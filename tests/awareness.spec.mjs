@@ -387,6 +387,8 @@ if (part('deck') || part('core') || part('lens') || part('fit')) {
     if (size === PHONE && part('lens')) {
       await page.evaluate(() => (location.hash = 'lens'));
       await until(page, () => window.__ghosty.lens?.mode, null, 15000, '[lens] the Lens did not open');
+      // the Lens opens on its one view (BRIEF-LENS): the old modes are the row behind MORE
+      await page.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
       await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
       await until(page, () => window.__ghosty.lens.mode === 'people', null, 8000, '[lens] PEOPLE did not open');
       await page.waitForTimeout(600);
@@ -399,7 +401,7 @@ if (part('deck') || part('core') || part('lens') || part('fit')) {
       check(body?.context?.screenLine === 'On screen: the Lens on PEOPLE.' && body.context.screen?.line === 'the Lens on PEOPLE', `[lens] the turn carried: ${JSON.stringify(body?.context?.screenLine)}`);
       // the other modes say counts, never who
       await closeLog(page);
-      await page.locator('#pg-lens .lensmodes button', { hasText: 'SEE' }).click();
+      await page.locator('#pg-lens .lensmodes button', { hasText: /^SEE/ }).click();
       await page.waitForTimeout(600);
       a = await aware(page);
       check(a?.screen === 'lens' && /^the Lens in SEE mode/.test(a.line) && !/name|who|face/i.test(a.line), `[lens] SEE says: ${JSON.stringify(a)}`);

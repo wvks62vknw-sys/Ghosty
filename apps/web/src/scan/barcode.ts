@@ -102,6 +102,23 @@ export async function readCodes(c: HTMLCanvasElement, hard = false): Promise<Fou
     .map((r) => ({ text: r.text, format: r.format, points: r.position ? [r.position.topLeft, r.position.topRight, r.position.bottomRight, r.position.bottomLeft].map((p) => ({ x: p.x, y: p.y })) : [] }));
 }
 
+/**
+ * The same on pixels already read (an ImageData, from a worker or a canvas): the live view's look at the frame reads its pixels
+ * off the main thread and hands them here, so the reader never waits for the graphics process.
+ */
+export async function readCodesIn(img: ImageData, hard = false): Promise<FoundCode[]> {
+  const nat = await nativeDetector();
+  if (nat) {
+    const found = await nat.detect(img);
+    return found.map((f) => ({ text: f.rawValue, format: f.format, points: (f.cornerPoints ?? []).map((p) => ({ x: p.x, y: p.y })) }));
+  }
+  const mod = await zxing();
+  const results = await mod.readBarcodes(img, { formats: ZX_FORMATS, tryHarder: hard, tryRotate: true, tryInvert: hard, maxNumberOfSymbols: 4 });
+  return results
+    .filter((r) => r.isValid && r.text)
+    .map((r) => ({ text: r.text, format: r.format, points: r.position ? [r.position.topLeft, r.position.topRight, r.position.bottomRight, r.position.bottomLeft].map((p) => ({ x: p.x, y: p.y })) : [] }));
+}
+
 /** Let go of the WebAssembly reader (its memory) until the next scan. */
 export function freeBarcodes(): void {
   const z = zx;

@@ -29,7 +29,20 @@ const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 export async function thatOneTurn(text: string, opts: Opts, answer: Answer): Promise<boolean> {
   const that = thatOne(text);
   if (!that) return false;
+  // a tool of the Lens by its word: it opens as it does from MORE, the camera stays off until he taps START
+  if (that.act === 'tool') {
+    const { openLens } = await import('../features/lens/index');
+    openLens(that.mode);
+    return answer(text, `Opening ${that.mode.toUpperCase()}.`, { kind: 'pack' }, opts);
+  }
   const { screen, sel } = selectionNow();
+  // the one Lens: "read that", "what is that", "translate it", "measure it" act on the tag he tapped (else the one that fits), with no model
+  if (screen === 'lens' && (that.act === 'lens' || that.act === 'read')) {
+    const { oneHooks } = await import('../features/lens/one');
+    const said = oneHooks.act?.(that.act === 'read' ? 'read' : that.word);
+    return said ? answer(text, said, { kind: 'pack' }, opts) : false;
+  }
+  if (that.act === 'lens') return false;
   if (!sel) return false;
   if (that.act === 'longer' && screen === 'space' && sel.kind === 'wall') {
     const said = spaceHooks.lengthSheet?.();

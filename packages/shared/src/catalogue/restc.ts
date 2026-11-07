@@ -16,7 +16,7 @@ export const RESTC_WORDS: Record<string, CatValue> = {
   },
   'lens:shapes': {
     name: 'Draw a room in the air', line: 'You can draw a room in the air with one finger and I make it a blueprint with sizes, and the same room in 3-D.',
-    more: 'Point to draw, pinch to finish, two fingers on a wall for a door. Say one real length, like “that wall is four metres”, and every size follows, to 5 cm. A sketch to measurements you gave, not a survey.',
+    more: 'A tool under MORE, or say “draw a room”. Point to draw, pinch to finish, two fingers on a wall for a door. Say one real length, like “that wall is four metres”, and every size follows, to 5 cm. A sketch to measurements you gave, not a survey.',
     say: ['Draw a room with my hands', 'That wall is four metres', 'A bed here', 'North is left'], scene: ['camera', 'making'], cat: 'build', needs: ['camera'],
     since: '2026-11-01',
   },

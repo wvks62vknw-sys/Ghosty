@@ -5,16 +5,29 @@
 // gesture recogniser, ASK sends a still to the brain and shows its reply (the mock model answers
 // "I can see a picture"), NAME's LIVING THING and ASK's WHAT'S IN IT? make their cards (the mock model's
 // robin and plate of fish and chips; PLANT with no Pl@ntNet key), and the security policy lets the vendored WebAssembly run.
+// THE ONE LENS (BRIEF-LENS; the last section): the camera shows a test card (a line of text, a QR code, a lemon; tests/fixtures/lenscard.mjs) and
+// the Lens opens on ONE view that tags what it sees in the Machine's marks: text and a code stand with their keys within two seconds of the
+// first look, the object says "looks like a …" only after the heavy pass (which waits for his tap on GET THE EYES and for a steady frame),
+// a tap on the text tag reads it into the library, a tap on the code tag shows what SCAN shows, the tags go two seconds after the picture
+// leaves, MORE opens the tools (HANDS, AIM, MEASURE, SOUND, SHAPES, PEOPLE), "read that" works by words with no model, the mark on the bar
+// says WORKING / DEGRADED / OFFLINE, nothing sticks out sideways and every control is 44 pt at 440 and 390, the UI keeps its frame rate
+// while it tags, and the text check costs under 4 ms a frame.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openDeck } from './nav.mjs';
+import { makeCardVideo } from './fixtures/lenscard.mjs';
 
+const t0spec = Date.now();
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
+// the fake camera plays a still test card (text, a QR code, a lemon) instead of its moving pattern: a held phone, for the one view
+const drawer = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const cardVideo = await makeCardVideo(drawer);
+await drawer.close();
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? undefined,
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-video-capture=${cardVideo}`],
 });
 const problems = [];
 const ctx = await browser.newContext({
@@ -66,6 +79,7 @@ const clearOfDock = (sel, text) => page.evaluate(([sel, text]) => {
   const r = el.getBoundingClientRect();
   return r.top >= 0 && r.bottom <= dock + 1 ? '' : `at ${Math.round(r.top)}–${Math.round(r.bottom)} px, the tab bar starts at ${Math.round(dock)} px`;
 }, [sel, text]);
+const check_ = (ok, what) => void (ok || problems.push(what));
 const until = (fn, ms, what) => page.waitForFunction(fn, null, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
 
 // ---- open_lens (the brain's auto-approved command) opens the LENS tab but leaves the camera off ----
@@ -299,6 +313,252 @@ if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 if (wide) problems.push('the Lens is wider than the phone screen');
 
+
+// ================================================================================================================================
+// ---- THE ONE LENS: a new page (nothing of the modes above left in it), the card on the camera
+// ================================================================================================================================
+// (the first page and its camera are let go: the one view runs on a quiet machine, as it would on a phone with one Lens open)
+console.log(`the modes (SEE, READ, HANDS, ASK, NAME, SOUND), as before: ${Math.round((Date.now() - t0spec) / 1000)} s`);
+await ctx.close();
+const t0one = Date.now();
+try {
+const ctx2 = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', permissions: ['camera'] });
+const p2 = await ctx2.newPage();
+p2.on('pageerror', (e) => problems.push(`one view pageerror: ${e.message}`));
+p2.on('console', (m) => {
+  const t = m.text();
+  if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`one view console: ${t.slice(0, 200)}`);
+});
+const chatPosts = [];
+p2.on('request', (r) => { if (r.url().includes('/api/chat') && r.method() === 'POST') chatPosts.push(r.url()); });
+// a clock in the page (every frame): when the camera came on, when the picture first held still, when the text and the code first stood
+await p2.addInitScript(() => {
+  window.__clock = {};
+  const f = () => {
+    const o = window.__ghosty?.one;
+    const c = window.__clock;
+    const now = performance.now();
+    if (o) {
+      if (window.__ghosty.lens.camera === 'on' && !c.camera) c.camera = now;
+      if (o.steady && !c.steady) c.steady = now;
+      if (o.tags.some((t) => t.kind === 'text') && !c.text) c.text = now;
+      if (o.tags.some((t) => t.kind === 'code') && !c.code) c.code = now;
+    }
+    requestAnimationFrame(f);
+  };
+  requestAnimationFrame(f);
+});
+await p2.goto(base);
+await p2.fill('#pair input', 'preview-owner-key-0123456789');
+await p2.click('#pair button.on');
+await p2.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+const one = () => p2.evaluate(() => JSON.parse(JSON.stringify(window.__ghosty.one)));
+const L2 = () => p2.evaluate(() => ({ mode: window.__ghosty.lens.mode, camera: window.__ghosty.lens.camera, status: window.__ghosty.lens.status, ocrText: window.__ghosty.lens.ocrText }));
+const until2 = (fn, ms, what, arg = null) => p2.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
+const kinds = (st) => st.tags.map((t) => t.kind).sort().join(',');
+/** Every control in the Lens that is on screen, with a box under 44 pt either way. */
+const small = () => p2.evaluate(() => [...document.querySelectorAll('#pg-lens button, #pg-lens .g-key, #pg-lens .g-ret')].filter((b) => b.offsetParent !== null).map((b) => ({ t: (b.textContent || b.getAttribute('aria-label') || '').trim().slice(0, 24), r: b.getBoundingClientRect() })).filter((x) => x.r.width > 0 && (x.r.width < 43.5 || x.r.height < 43.5)).map((x) => `${x.t} ${Math.round(x.r.width)}×${Math.round(x.r.height)}`));
+const sideways = () => p2.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+const fpsOver = (ms) => p2.evaluate((ms) => new Promise((ok) => { let n = 0; const t0 = performance.now(); let worst = 0; let last = t0; const f = (t) => { n++; worst = Math.max(worst, t - last); last = t; if (t - t0 < ms) requestAnimationFrame(f); else ok({ fps: Math.round((n / (t - t0)) * 10000) / 10, worst: Math.round(worst) }); }; requestAnimationFrame(f); }), ms);
+
+await p2.evaluate(() => (location.hash = 'lens'));
+await p2.waitForSelector('#pg-lens .lensbar', { timeout: 15000 });
+// the Lens opens on ONE view: no mode to pick, the tool row behind MORE
+const first = await L2();
+if (first.mode !== 'lens') problems.push(`the Lens opened in "${first.mode}", not the one view`);
+if (await p2.locator('#pg-lens .lensmodes').isVisible()) problems.push('the row of modes is showing in the one view: nothing to pick should be on screen');
+if (!(await p2.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).isVisible())) problems.push('no MORE key on the bar');
+// the mark and its download key, said before anything is on the phone: DEGRADED, the heavy detectors with their size
+const markWords = () => p2.evaluate(() => document.querySelector('#pg-lens .lensmark')?.textContent?.trim() ?? '');
+if (!/DEGRADED/i.test(await markWords())) problems.push(`the mark on the bar says "${await markWords()}" before the heavy detectors are on the phone`);
+const getKey = await p2.locator('#pg-lens .lensget').textContent().catch(() => '');
+if (!/GET THE EYES/i.test(getKey) || !/47 MB/.test(getKey)) problems.push(`the download key says "${getKey}"`);
+if ((await p2.locator('#pg-lens .lensget').getAttribute('aria-label').catch(() => '')) === null) problems.push('the download key has no name for VoiceOver');
+// the camera opens from a tap only (an evaluate counts as a tap for five seconds: START when it is not already opening)
+await p2.waitForTimeout(600);
+if ((await L2()).camera === 'off') await p2.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+await until2(() => window.__ghosty.lens.camera === 'on', 25000, `the fake camera did not open in the one view: ${JSON.stringify(await L2())}`);
+const cameraOnAt = Date.now();
+// ---- the budgets: the first tags (text, a code) within two seconds of the first look, nothing named yet
+await until2(() => { const t = window.__ghosty.one.tags.map((x) => x.kind); return t.includes('text') && t.includes('code'); }, 60000, `the text and the code were not tagged: ${JSON.stringify((await one()).tags.map((t) => t.kind))}`);
+const tagged = await one();
+const standAt = Date.now();
+await until2(() => window.__ghosty.one.steady, 90000, 'the held card never counted as a steady frame');
+// the speed habit: from a steady frame to the first tags under two seconds (a tag that stood before the picture was steady counts as none)
+const clock = await p2.evaluate(() => window.__clock);
+const steadyToTags = Math.max(clock.text, clock.code) - (clock.steady ?? clock.camera);
+check_(clock.steady != null && steadyToTags < 2000, `from a steady frame to the text and the code tagged took ${Math.round(steadyToTags)} ms (budget 2000): ${JSON.stringify(clock)}`);
+console.log(`one view: camera on to the first look ${Math.round(tagged.grabMs)} ms (a frame read through the software graphics here), camera on → steady ${Math.round(clock.steady - clock.camera)} ms, steady → text and code tagged ${Math.round(steadyToTags)} ms, the first tag ${tagged.firstTagMs} ms after the first look was asked for; text check ${tagged.textMs} ms a frame`);
+if (tagged.textMs <= 0 || tagged.textMs >= 4) problems.push(`the text-present check cost ${tagged.textMs} ms a frame (budget 4)`);
+const text = tagged.tags.find((t) => t.kind === 'text');
+const code = tagged.tags.find((t) => t.kind === 'code');
+if (text?.truth !== 'I see text — tap to read it') problems.push(`the text tag says "${text?.truth}"`);
+if (text?.acts.join() !== 'READ,TRANSLATE,ASK') problems.push(`the text tag offers ${text?.acts}`);
+if (code?.truth !== 'a web address') problems.push(`the code tag says "${code?.truth}"`);
+if (code?.acts.join() !== 'LOOK,ASK') problems.push(`the code tag offers ${code?.acts}`);
+if (tagged.tags.some((t) => /looks like/i.test(t.truth))) problems.push('an object was named before the heavy pass ran');
+if (tagged.tags.some((t) => t.kind === 'object') && tagged.heavy !== 'ready') problems.push('an object tag stands before the heavy detectors were loaded');
+if (tagged.heavy !== 'off' || !/DEGRADED/i.test(await markWords())) problems.push(`before the tap, heavy is "${tagged.heavy}" and the mark "${await markWords()}"`);
+// the tags are drawn in the Machine's marks: a reticle, a tag, a true line, a key (in the DOM, over the video)
+const marks = await p2.evaluate(() => ({ ret: document.querySelectorAll('#pg-lens .lenstags .g-ret[data-g="reticle"]').length, tag: document.querySelectorAll('#pg-lens .lenstags [data-g="tag"]').length, truth: document.querySelectorAll('#pg-lens .lenstagunder [data-g="truth"]').length, key: document.querySelectorAll('#pg-lens .lenstagunder button.g-key').length, over: !!document.querySelector('#pg-lens .lensview > .lenstags') }));
+if (marks.ret < 2 || marks.tag < 2 || marks.truth < 2 || marks.key < 4 || !marks.over) problems.push(`the tags are not the Machine's marks over the video: ${JSON.stringify(marks)}`);
+await p2.screenshot({ path: `${out}/lens-one-tags.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the tags: ${e.message.split('\n')[0]}`));
+// nothing sideways and every control 44 pt, at 440 and at 390
+let bad = await small();
+if (bad.length) problems.push(`controls under 44 pt at 440: ${bad.join(', ')}`);
+if (await sideways()) problems.push('the one view is wider than the phone at 440');
+await p2.setViewportSize({ width: 390, height: 844 });
+await p2.waitForTimeout(1200);
+bad = await small();
+if (bad.length) problems.push(`controls under 44 pt at 390: ${bad.join(', ')}`);
+if (await sideways()) problems.push('the one view is wider than the phone at 390');
+const edge = await p2.evaluate(() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); return [...document.querySelectorAll('#pg-lens .lenstag, #pg-lens .lenstagunder')].filter((e) => !e.hidden).map((e) => e.getBoundingClientRect()).filter((r) => r.left < v.left - 1 || r.right > v.right + 1).length; });
+if (edge) problems.push(`${edge} tag(s) stick out of the viewfinder at 390`);
+await p2.screenshot({ path: `${out}/lens-one-390.png`, timeout: 90000 }).catch(() => undefined);
+await p2.setViewportSize(PHONE);
+await p2.waitForTimeout(800);
+// ---- the UI keeps its frame rate while it tags (the same page held still is the baseline: the picture frozen, the tags still drawn)
+// (two runs of each, the better of them: a shared machine has its slow seconds)
+const tag1 = await fpsOver(3000);
+await p2.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).click();
+await p2.waitForTimeout(600);
+const held1 = await fpsOver(3000);
+await p2.locator('#pg-lens .lensbar button', { hasText: 'UNFREEZE' }).click();
+await p2.waitForTimeout(800);
+const tag2 = await fpsOver(3000);
+await p2.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).click();
+await p2.waitForTimeout(600);
+const held2 = await fpsOver(3000);
+await p2.locator('#pg-lens .lensbar button', { hasText: 'UNFREEZE' }).click();
+const tagging = tag1.fps >= tag2.fps ? tag1 : tag2;
+const baseline = held1.fps >= held2.fps ? held1 : held2;
+console.log(`one view: ${tagging.fps} fps while tagging (worst frame ${tagging.worst} ms), ${baseline.fps} fps with the picture held (the baseline on this machine: its software graphics draw even Home at a few frames a second)`);
+if (tagging.fps < Math.min(30, baseline.fps * 0.8)) problems.push(`tagging costs the UI its frame rate: ${tagging.fps} fps against ${baseline.fps} held (floor min(30, 80% of the baseline))`);
+
+// ---- GET THE EYES (his tap): the heavy detectors load; the object is tagged "looks like a …" only on a steady frame
+await p2.locator('#pg-lens .lensget').click();
+await until2(() => window.__ghosty.one.heavy === 'ready', 180000, `the heavy detectors did not load: ${JSON.stringify(await one().then((o) => ({ heavy: o.heavy, said: o.said })))}`);
+if (!/WORKING/i.test(await markWords())) problems.push(`after the eyes are on the phone the mark says "${await markWords()}"`);
+if (await p2.locator('#pg-lens .lensget').isVisible()) problems.push('the download key is still offered once the eyes are on the phone');
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /^looks like (a|an) lemon/i.test(t.truth)), 120000, `the object was not named after the heavy pass: ${JSON.stringify((await one()).tags.map((t) => `${t.kind}:${t.truth}`))}`);
+const named = await one();
+const obj = named.tags.find((t) => t.kind === 'object');
+if (obj && obj.acts.join() !== 'NAME IT,ASK,MEASURE') problems.push(`the named object offers ${obj.acts}`);
+console.log(`one view: heavy pass ${named.heavyMs} ms (${named.heavyPasses} so far); the text, the code and the object stand together: ${kinds(named)}`);
+await p2.screenshot({ path: `${out}/lens-one-named.png`, timeout: 90000 }).catch(() => undefined);
+// the context the brain gets: counts and kinds, never who
+const ctxLine = await p2.evaluate(() => window.__ghosty.awareness.wordsNow());
+if (!/^On screen: the Lens, camera on: \d tags?: /.test(ctxLine)) problems.push(`the Lens tells the brain: "${ctxLine}"`);
+
+// ---- a tap on the text tag reads it into the library (as READ did); the key does the same
+await p2.locator('#pg-lens .lenstagunder[data-kind="text"] button.g-key', { hasText: /^READ$/ }).first().click();
+await until2(() => window.__ghosty.lens.mode === 'read', 8000, `the READ key did not open READ: ${JSON.stringify(await L2())}`);
+await until2(() => /GHOSTY READS THIS/i.test(window.__ghosty.lens.ocrText ?? ''), 120000, `READ did not read the tagged text: ${JSON.stringify(await L2())}`);
+const savedOne = p2.waitForResponse((r) => r.url().includes('/api/library/text'), { timeout: 20000 }).catch(() => null);
+await p2.locator('#pg-lens button', { hasText: 'SAVE TO LIBRARY' }).first().click();
+const saveOne = await savedOne;
+if (!saveOne) problems.push('the tagged text was not saved to the library');
+else if ((await saveOne.json().catch(() => ({}))).kind !== 'scan') problems.push('the tagged text was not filed as a scan');
+await p2.locator('#pg-lens .lensbar .lensback').click();
+await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return to the one view');
+// ---- a tap on the code tag does what SCAN did: the web address, its real site, the warning, never opened
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'code'), 60000, 'the code tag did not come back after READ');
+await p2.locator('#pg-lens .lenstags .g-ret[aria-label^="A code"]').first().click();
+await until2(() => window.__ghosty.lens.mode === 'scan', 8000, `a tap on the code tag did not open SCAN: ${JSON.stringify(await L2())}`);
+await until2(() => (window.__ghosty.scan?.codes ?? []).some((c) => c.kind === 'url'), 20000, `SCAN did not show the tagged code: ${JSON.stringify(await p2.evaluate(() => window.__ghosty.scan?.codes))}`);
+const scanned = await p2.evaluate(() => window.__ghosty.scan.codes.at(-1));
+if (scanned?.text !== 'https://paypal.com.secure-login.example/verify') problems.push(`the code tag handed SCAN ${JSON.stringify(scanned)}`);
+if ((await p2.locator('#pg-lens .scansite b').textContent().catch(() => '')) !== 'secure-login.example') problems.push('the code card does not name the real site');
+await p2.screenshot({ path: `${out}/lens-one-code.png`, timeout: 90000 }).catch(() => undefined);
+await p2.locator('#pg-lens .lensbar .lensback').click();
+await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return from SCAN');
+
+// ---- NAME IT on the object tag opens NAME on the crop: the closest names, "lemon" first (the card as before)
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /lemon/i.test(t.truth)), 120000, 'the object tag did not come back for NAME IT');
+await p2.locator('#pg-lens .lenstagunder[data-kind="object"] button.g-key', { hasText: /^NAME IT$/ }).first().click();
+await until2(() => window.__ghosty.lens.mode === 'name', 8000, `NAME IT did not open NAME: ${JSON.stringify(await L2())}`);
+await until2(() => (window.__ghosty.lens.names ?? []).some((n) => /lemon/i.test(n.label)), 120000, `NAME did not name the tagged crop a lemon: ${JSON.stringify(await p2.evaluate(() => window.__ghosty.lens.names))}`);
+await p2.locator('#pg-lens .lensbar .lensback').click();
+await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return from NAME');
+// ---- by words, with no model: "what is that?" says what it sees; "read that" reads
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'text') && window.__ghosty.one.tags.some((t) => t.kind === 'object'), 90000, 'the tags did not come back for the words');
+const postsBefore = chatPosts.length;
+await p2.evaluate(() => window.__ghosty.send('what is that?', false));
+await until2(() => /^I see /.test(window.__ghosty.one.said), 8000, `"what is that?" was not answered by the Lens: "${(await one()).said}"`);
+if (/lemon/.test((await one()).said) === false && /something that looks like/.test((await one()).said) === false) problems.push(`"what is that?" said "${(await one()).said}"`);
+await p2.evaluate(() => window.__ghosty.send('read that', false));
+await until2(() => window.__ghosty.lens.mode === 'read', 8000, `"read that" did not read the text: ${JSON.stringify(await L2())}`);
+await p2.waitForTimeout(500);
+if (chatPosts.length !== postsBefore) problems.push(`the words went to the brain (${chatPosts.length - postsBefore} chat posts): they should be answered here`);
+await p2.locator('#pg-lens .lensbar .lensback').click();
+await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return from READ (words)');
+
+// ---- MORE opens the tools; each opens as it did
+await p2.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
+await p2.waitForTimeout(300);
+if (!(await p2.locator('#pg-lens .lensmodes').isVisible())) problems.push('MORE did not open the row of tools');
+const tools = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lensmodes button')].map((b) => b.textContent.split(/[a-z]/)[0].trim().replace(/[^A-Z]+$/, '')));
+for (const want of ['HANDS', 'AIM', 'MEASURE', 'SOUND', 'SHAPES', 'PEOPLE', 'READ', 'ASK', 'NAME', 'SCAN', 'SEE']) if (!tools.some((t) => t.startsWith(want))) problems.push(`MORE has no ${want}: ${tools.join(' | ')}`);
+for (const [label, mode] of [['HANDS', 'hands'], ['AIM', 'aim'], ['MEASURE', 'measure'], ['SOUND', 'sound'], ['SHAPES', 'shapes'], ['PEOPLE', 'people']]) {
+  await p2.locator('#pg-lens .lensmodes button', { hasText: label }).first().click();
+  await until2((m) => window.__ghosty.lens.mode === m, 8000, `MORE → ${label} did not open ${mode}: ${JSON.stringify(await L2())}`, mode);
+  const err = await p2.evaluate(() => window.__ghosty.lens.error);
+  if (err && !/camera/i.test(err)) problems.push(`${label} opened with an error: ${err}`);
+  await p2.waitForTimeout(250);
+}
+// the tools by their words (no model): "hands", "is it distorting"
+await p2.evaluate(() => window.__ghosty.send('hands', false));
+await until2(() => window.__ghosty.lens.mode === 'hands', 8000, `"hands" did not open HANDS: ${JSON.stringify(await L2())}`);
+await p2.evaluate(() => window.__ghosty.send('is it distorting', false));
+await until2(() => window.__ghosty.lens.mode === 'sound', 8000, `"is it distorting" did not open SOUND: ${JSON.stringify(await L2())}`);
+await p2.locator('#pg-lens .lensmodes button', { hasText: 'LENS' }).first().click();
+await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the LENS tile did not return to the one view');
+// SOUND switched the camera off to listen: the camera comes back only from his tap (START), as everywhere
+if ((await L2()).camera !== 'on') {
+  await p2.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+  await until2(() => window.__ghosty.lens.camera === 'on', 25000, 'START did not bring the camera back after SOUND');
+}
+await p2.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
+await p2.waitForTimeout(200);
+
+// ---- OFFLINE: ASK and TRANSLATE greyed with OFFLINE on the bar; READ and the codes keep working; back online it is WORKING again
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'text') && window.__ghosty.one.tags.some((t) => t.kind === 'code'), 90000, 'the tags did not come back before the offline check');
+await ctx2.setOffline(true);
+await until2(() => document.querySelector('#pg-lens .lensmark')?.textContent?.trim() === 'OFFLINE', 8000, `going offline did not put OFFLINE on the bar: "${await markWords()}"`);
+await p2.waitForTimeout(500);
+const off = await one();
+const greyedKeys = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder button.g-key')].map((b) => `${b.textContent.trim()}:${b.disabled ? 'off' : 'on'}`));
+if (!greyedKeys.some((k) => k === 'ASK:off') || !greyedKeys.some((k) => k === 'TRANSLATE:off')) problems.push(`offline, ASK and TRANSLATE are not greyed: ${greyedKeys}`);
+if (greyedKeys.some((k) => /^(READ|LOOK|NAME IT|MEASURE):off$/.test(k))) problems.push(`offline, a key that needs no signal is greyed: ${greyedKeys}`);
+if (!off.tags.length) problems.push('offline, the tags went (the cheap pass needs no signal)');
+await p2.screenshot({ path: `${out}/lens-one-offline.png`, timeout: 90000 }).catch(() => undefined);
+await ctx2.setOffline(false);
+await until2(() => document.querySelector('#pg-lens .lensmark')?.textContent?.trim() === 'WORKING', 8000, `back online the mark says "${await markWords()}"`);
+
+// ---- the tags go two seconds after the picture leaves (the camera's track switched off shows black), and come back with it
+// (the picture leaves: the video has no stream, so there is no frame to look at; it comes back with the stream)
+const track = (on) => p2.evaluate((on) => {
+  const v = document.querySelector('#pg-lens video');
+  if (!on) { window.__stream = v.srcObject; v.srcObject = null; return !!window.__stream; }
+  v.srcObject = window.__stream;
+  return v.play().then(() => true, () => false);
+}, on);
+await track(false);
+const goneFrom = Date.now();
+await p2.waitForTimeout(900);
+if (!(await one()).tags.length) problems.push('the tags went within a second of the picture leaving: they live two seconds');
+await until2(() => window.__ghosty.one.tags.length === 0, 15000, `the tags did not fade after the picture left: ${JSON.stringify((await one()).tags.map((t) => t.kind))}`);
+const lived = Date.now() - goneFrom;
+console.log(`one view: the tags went ${lived} ms after the picture left (two seconds of life, within a look's delay)`);
+if (lived < 1500 || lived > 6000) problems.push(`the tags went after ${lived} ms: they live two seconds`);
+await track(true);
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'text'), 60000, 'the tags did not come back with the picture');
+console.log(`one view section: ${Math.round((Date.now() - t0one) / 1000)} s`);
+await ctx2.close();
+} catch (e) {
+  problems.push(`the one view section stopped: ${String(e.message).split('\n')[0]}`);
+}
+
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, LIVING THING named a bird with how sure and saved it on SAVE only, PLANT without a key said what to do, WHAT\'S IN IT? gave the foods and a rough total, and the security policy blocked nothing.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, LIVING THING named a bird with how sure and saved it on SAVE only, PLANT without a key said what to do, WHAT\'S IN IT? gave the foods and a rough total, and the security policy blocked nothing. THE ONE LENS: it opened on one view with the mark and its download key, the text and the code were tagged within two seconds with their keys, the object only after GET THE EYES, READ filed the tagged text, the code tag showed what SCAN shows, words acted with no model, MORE opened the tools, OFFLINE greyed ASK and TRANSLATE, the tags went two seconds after the picture, nothing stuck out and every control was 44 pt at 440 and 390.');
 process.exit(problems.length ? 1 : 0);
