@@ -1152,12 +1152,20 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
     }
     return reply('I’m not reading anything just now. Say “read me” and a book’s name.');
   }
-  const docs = await shelfNow();
+  // the news, his emails, this page: the brain's, as ever (asked before the shelf is looked at, so it waits on nothing)
+  if (ask.kind === 'book' && !ask.plain && !ask.bare) return false;
+  // (a bare "read <words>" looks at the shelf this phone already has, when it has one: nothing to wait for if it is not a book)
+  const docs = ask.kind === 'book' && ask.bare && shelfDocs.get().docs.length ? shelfDocs.get().docs : await shelfNow();
   // the book: named, else the one in hand, else the last he read
   let d: LibraryDoc | null = null;
   if (ask.kind === 'book') {
     const mine = hisBooks(docs);
-    const m = titleMatch(ask.words, mine) ?? titleMatch(ask.words, docs);
+    // a bare "read <words>" is a book only when one of his is called that, closely (the title, its start or a part of it);
+    // read to him ("read me …"), his books first, then mine and the built-in ones, matched loosely
+    const m = ask.bare ? (() => {
+      const x = titleMatch(ask.words, mine);
+      return x && x.score >= 3 ? x : null;
+    })() : titleMatch(ask.words, mine) ?? titleMatch(ask.words, docs);
     if (!m) {
       if (!ask.plain) return false;
       return reply('I don’t have that one. ADD it to the library and I’ll read it.', { kind: 'pack', go: [{ id: 'library_add', ask: -1, label: 'ADD', run: 'library_add' }] });

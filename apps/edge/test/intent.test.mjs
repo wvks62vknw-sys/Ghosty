@@ -267,6 +267,11 @@ test('reading by words: "read me <book>", "carry on reading", "where were we", a
   // "read me" with what is not a book: the brain's, as ever (plain false); and nothing else is a reading at all
   for (const t of ['read me the news', 'read me my emails', 'read this', 'read me a poem', 'read me the headlines', 'read the label', 'read me what it says']) assert.equal(I.readingIntent(t)?.plain, false, t);
   for (const t of ['stop', 'go on', 'can you read?', 'what are you reading', 'I read a good book yesterday', 'chapter 3 was boring', 'the page is blank', 'where were you going?', 'read about black holes', 'read up on the Romans', '']) assert.equal(I.readingIntent(t), null, t);
+  // a bare "read <words>" is a book only if his shelf has it by name (the reader matches it); read TO him, it is a book either way
+  assert.deepEqual(I.readingIntent('read the lighthouse keeper'), { kind: 'book', words: 'the lighthouse keeper', plain: false, bare: true });
+  assert.deepEqual(I.readingIntent('read the bbc website'), { kind: 'book', words: 'the bbc website', plain: false, bare: true });
+  // a web address is a page for the brain to read, never a book (the talk spec's slow turn: "read <link> and <link> together")
+  for (const t of ['read http://127.0.0.1:8080/a1 and http://127.0.0.1:8080/b1 together', 'read me https://example.com/story', 'read www.bbc.co.uk for me', 'read news.ycombinator.com']) assert.equal(I.readingIntent(t), null, t);
   // carrying on a reply and ending a conversation keep their own words
   assert.equal(I.continueIntent('carry on reading'), false);
   assert.equal(I.endIntent('stop reading'), false);

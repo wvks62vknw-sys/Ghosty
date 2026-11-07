@@ -323,9 +323,12 @@ export function raising(text: string, last = ''): Raising | null {
  *  - `only`: "just this chapter" (read to the chapter's end, then stop and say where);
  *  - `stop`: "stop reading", "close the book" (stop and say the page).
  * `only` on a chapter: "just chapter 3", "read chapter 3 only".
+ * A bare "read <words>" (no "me", "to me", "aloud", "start reading"…) is `bare`: a book only if his shelf has one by that name
+ * ("read The Hobbit"); otherwise it is the brain's, as ever ("read this link", "read the BBC's page"). Words that are a web
+ * address are never a book.
  */
 export type ReadingAsk =
-  | { kind: 'book'; words: string; plain: boolean; chapter?: number; page?: number; only?: boolean }
+  | { kind: 'book'; words: string; plain: boolean; chapter?: number; page?: number; only?: boolean; bare?: boolean }
   | { kind: 'resume' }
   | { kind: 'chapter'; n: number; only?: boolean }
   | { kind: 'page'; n: number }
@@ -389,13 +392,19 @@ export function readingIntent(text: string): ReadingAsk | null {
     if (n !== null && n > 0) return pg[2] ? { kind: 'book', words: pg[2].trim(), plain: true, page: n } : { kind: 'page', n };
   }
   // a book by its name: "read me The Hobbit", "read the lighthouse keeper to me", "read aloud night walks", "start reading X"
-  const bk = /^(?:read|reed|start reading|begin reading|read aloud|read out|carry on reading|continue reading|keep reading)(?: me| to me| us| aloud| out loud| out)?(?: (?:the book|my book|the novel|my novel|the story)(?: called| named))? (.+?)(?: (?:to me|for me|to us|aloud|out loud|again|tonight|now))*$/.exec(t);
+  const bk = /^(read|reed|start reading|begin reading|read aloud|read out|carry on reading|continue reading|keep reading)( me| to me| us| aloud| out loud| out)?( (?:the book|my book|the novel|my novel|the story)(?: called| named))? (.+?)((?: (?:to me|for me|to us|aloud|out loud|again|tonight|now))*)$/.exec(t);
   if (!bk) return null;
-  const words = bk[1]!.trim();
+  const words = bk[4]!.trim();
   // "read about black holes", "read up on it", "read through this": a look-up, not a book
   if (!words || /^(?:about|up|up on|up about|into|through|over|between|around) /.test(words)) return null;
+  // a web address (or two): a page for the brain to read, never a book
+  if (/https?:\/\/|\bwww\.|\b(?:\d{1,3}\.){3}\d{1,3}\b|\b[a-z0-9-]+\.(?:com|org|net|co|uk|io|gov|edu|info|dev|app)(?:\/|\b)/.test(words)) return null;
   if (ANY_BOOK.test(words)) return { kind: 'resume' };
-  return { kind: 'book', words, plain: !NOT_BOOK.test(words) };
+  if (NOT_BOOK.test(words)) return { kind: 'book', words, plain: false };
+  // read TO him ("read me", "to me", "aloud", "start reading", "the book called"): a book, on his shelf or not; a bare "read" is a
+  // book only when his shelf has it by name
+  const toHim = !/^re[ae]d$/.test(bk[1]!) || !!bk[2] || !!bk[3] || /\b(?:to me|for me|to us|aloud|out loud)\b/.test(bk[5] ?? '');
+  return toHim ? { kind: 'book', words, plain: true } : { kind: 'book', words, plain: false, bare: true };
 }
 
 /** A title as the shelf's matching reads it: lower case, no punctuation, no "the", "a" or "an" in front. */
