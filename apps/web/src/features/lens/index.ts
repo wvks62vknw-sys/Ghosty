@@ -225,6 +225,17 @@ export const lensTab: TabDef = {
   blurb: 'camera · see · read · hands · ask · name · scan · aim · measure · sound',
   mount(root) {
     const S = lensState;
+    /** What the Lens can say about the picture, in order of worth: NAME's closest names for the thing (never a person), what is
+     *  in view, the scene, the gesture, the card (cut to `cardMax`). Shared by describe() and context() so the two never drift. */
+    const saidBits = (cardMax: number): string[] => {
+      const bits: string[] = [];
+      if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
+      if (S.counts) bits.push(`in view: ${S.counts}`);
+      if (sceneLine(S.scene)) bits.push(`scene: ${sceneLine(S.scene)}`);
+      if (S.gesture) bits.push(`gesture: ${S.gesture}`);
+      if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, cardMax)}`);
+      return bits;
+    };
     const camera = new Camera(h('video.lensvideo'));
     const video = camera.video;
     const still = h('canvas.lensstill');
@@ -605,18 +616,15 @@ export const lensTab: TabDef = {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         // PEOPLE: only that it is open — never who is in the picture (a face, a name, a count: none of it leaves the phone)
         if (S.mode === 'people') return `${bits[0]}.`;
-        if (S.counts) bits.push(`in view: ${S.counts}`);
-        if (sceneLine(S.scene)) bits.push(`scene: ${sceneLine(S.scene)}`);
-        if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
-        if (S.gesture) bits.push(`gesture: ${S.gesture}`);
-        if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, 200)}`);
-        return `${bits.join('; ')}.`;
+        return `${bits.concat(saidBits(200)).join('; ')}.`;
       },
-      // what the Lens says about itself (BRIEF-AWARENESS): counts, never who. PEOPLE: only that it is open, as describe() above.
+      // what the Lens says about itself (BRIEF-AWARENESS): the same things describe() says (what is in view, the scene, NAME's
+      // closest names for the THING in the picture, the gesture, the card), never who. PEOPLE: only that it is open, as above.
+      // (7 Nov, fixed at review: the first cut said counts and the scene alone, and the brain lost NAME's names: tests/name.spec.)
       context: (): ScreenContext => ({
         screen: 'lens',
         title: 'The Lens',
-        line: S.mode === 'people' ? 'the Lens on PEOPLE' : `the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}${S.counts ? `, in view: ${S.counts}` : ''}${sceneLine(S.scene) ? `, scene: ${sceneLine(S.scene)}` : ''}`,
+        line: S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
         at: Date.now(),
       }),
     };

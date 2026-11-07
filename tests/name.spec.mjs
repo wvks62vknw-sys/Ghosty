@@ -112,7 +112,9 @@ else {
   if (body.images) problems.push('SEARCH THE WEB sent a picture');
   if (!/Search the web for "lemon"/.test(body.message ?? '')) problems.push(`SEARCH THE WEB asked: ${body.message}`);
   // the screen description Ghosty gets carries the names while NAME is showing
-  if (!/closest names \(phone guesses\): lemon/.test(body.context?.screen ?? '')) problems.push(`the screen description has no names: ${String(body.context?.screen).slice(0, 200)}`);
+  // (BRIEF-AWARENESS: `screen` is a ScreenContext now; its `line` says what describe() said, the names first)
+  const screenSaid = typeof body.context?.screen === 'string' ? body.context.screen : body.context?.screen?.line ?? '';
+  if (!/closest names \(phone guesses\): lemon/.test(screenSaid)) problems.push(`the screen description has no names: ${screenSaid.slice(0, 200)}`);
 }
 await until(() => (window.__ghosty?.lens?.reply ?? '').length > 0, 30000, `SEARCH THE WEB got no reply: ${JSON.stringify(await lens())}`);
 
