@@ -118,7 +118,8 @@ await page.locator('#pg-library .gadgets').scrollIntoViewIfNeeded();
 await sideways('the GADGETS shelf');
 await page.screenshot({ path: `${out}/manuals-library.png` });
 await page.locator('#pg-library .gadgets .gadgetrow').first().click();
-await page.waitForFunction(() => /Page 12/.test(document.querySelector('.reader')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the manual did not open at its pages'));
+// (BRIEF-LIBRARY-READER: the pop-up reader is gone; the manual opens in THE READER, a screen of its own, with its page marks in the flow)
+await page.waitForFunction(() => document.body.dataset.tab === 'reader' && /SMS24AW01G/.test(document.querySelector('#pg-reader .grd-title')?.textContent ?? '') && !!document.querySelector('#pg-reader .grd-flow .grd-pg[data-page="12"]'), null, { timeout: 15000 }).catch(() => problems.push('the manual did not open at its pages'));
 await page.screenshot({ path: `${out}/manuals-reader.png` });
 
 const csp = await page.evaluate(() => window.__csp);

@@ -284,3 +284,19 @@ test('THE LOOK has its five sections in the order the brief names, and its top l
   assert.match(read('../../web/src/features/index.ts'), /settingsTab, lookTab,/, 'THE LOOK is a tab, after Settings');
   assert.match(read('../../web/src/features/settings/index.ts'), /goRow\('THE LOOK', 'look'/, 'Settings has the row that opens it');
 });
+
+// BRIEF-LIBRARY-READER, the 7 Nov addendum: the reader is drawn in the system, so the look test's floor applies to it too: its
+// code and the Shelf's name no colour of their own, its CSS is THE READER inside THE SYSTEM's section (tokens only), and its
+// text starts at 17 pt with nothing under 12.
+test('THE READER is drawn from the tokens alone: no colour of its own in its code or its CSS, body text 17 pt, nothing under 12', () => {
+  for (const f of ['features/library/reader.ts', 'features/reader/index.ts', 'library/book.ts', 'library/listen.ts', 'library/place.ts', 'library/covers.ts']) assert.deepEqual(rawIn(read(`../../web/src/${f}`)), [], `${f} names a colour of its own`);
+  const from = styles.indexOf('THE SYSTEM (BRIEF-DESIGN-SYSTEM');
+  const to = styles.indexOf('/* ==== end THE SYSTEM ==== */');
+  const reader = styles.indexOf('/* ---- THE READER');
+  assert.ok(reader > from && reader < to, 'THE READER is a part of THE SYSTEM\'s section');
+  for (const cls of ['#pg-reader .grd-page', '.grd-litframe', '.grd-flow', '.grd-cover', '.grd-bar', '#pg-library .pn.shelf .rw.link.bookrow']) assert.ok(styles.slice(reader, to).includes(cls), `THE READER draws ${cls}`);
+  const place = read('../../web/src/library/place.ts');
+  assert.match(place, /SIZES = \[12, 14, 15, 17, 19, 21, 24, 28\]/, 'the sizes: never under 12');
+  assert.match(place, /DEFAULT_SIZE = 17\b/, 'the book\'s words start at 17 pt');
+  assert.match(styles.slice(reader, to), /--rd-size: 17px/, 'and the page draws them at 17 until he picks');
+});

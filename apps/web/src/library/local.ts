@@ -39,6 +39,8 @@ export interface LocalDoc {
   /** Copied from the brain: the brain's row id of the last passage here, so a notebook that grew is read on from there. */
   lastRid?: number;
   builtin?: boolean;
+  /** [reader] Who wrote it, where the file says so. */
+  author?: string;
 }
 interface StoredPassage extends LocalPassage {
   doc: string;
@@ -288,7 +290,7 @@ async function eachBatch(fn: (batch: (StoredPassage & { v?: KeptVector })[]) => 
 // ---------------------------------------------------------------------------------------
 
 /** Keep a document here; returns this device's copy. */
-export async function keepDoc(meta: { title: string; source: string; kind: string; pages: number }, passages: LocalPassage[]): Promise<LocalDoc> {
+export async function keepDoc(meta: { title: string; source: string; kind: string; pages: number; author?: string }, passages: LocalPassage[]): Promise<LocalDoc> {
   const d: LocalDoc = { id: `local-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ...meta, count: 0, chars: 0, at: Date.now() };
   await put(d, passages);
   return (await all()).get(d.id)!;
@@ -303,7 +305,7 @@ export async function markSynced(id: string, brainId: string): Promise<void> {
 export async function pendingDocs(): Promise<LibraryDoc[]> {
   return [...(await all()).values()]
     .filter((d) => !d.brainId && !d.removed)
-    .map((d) => ({ id: d.id, title: d.title, source: `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: false, at: d.at }));
+    .map((d) => ({ id: d.id, title: d.title, source: `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: false, at: d.at, ...(d.author ? { author: d.author } : {}) }));
 }
 
 /**
@@ -698,7 +700,7 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
         if (page.next === null || !page.passages.length) break;
         after = page.next;
       }
-      const meta: LocalDoc = { id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: prev?.count ?? 0, chars: prev?.chars ?? 0, at: d.at, sig: `${d.passages}:${d.chars}`, lastRid, ...(d.builtin ? { builtin: true } : {}) };
+      const meta: LocalDoc = { id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: prev?.count ?? 0, chars: prev?.chars ?? 0, at: d.at, sig: `${d.passages}:${d.chars}`, lastRid, ...(d.builtin ? { builtin: true } : {}), ...(d.author ? { author: d.author } : {}) };
       if (grown) await append(meta, prev.count, passages);
       else await put({ ...meta, count: 0, chars: 0 }, passages);
       spent += passages.length;
@@ -710,11 +712,32 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
   }
 }
 
+/**
+ * [reader] How much of a book this phone holds (KEEP ON THIS PHONE in the reader's ABOUT): its passages here, or 0 when it is
+ * not here at all; by the brain's id or this phone's own.
+ */
+export async function keptHere(id: string): Promise<number> {
+  const d = [...(await all()).values()].find((x) => !x.removed && (x.id === id || x.brainId === id));
+  return d ? d.count : 0;
+}
+
+/**
+ * [reader] KEEP ON THIS PHONE: one of the brain's books copied here whole, now (his tap; on Wi-Fi, its size said first), exactly
+ * as the mirror copies it, so it reads with no signal. The browser is asked to keep the library when space runs low.
+ */
+export async function keepBookHere(d: LibraryDoc, passages: { rid: number; text: string; heading: string; page: number | null }[]): Promise<void> {
+  const prev = [...(await all()).values()].find((x) => x.brainId === d.id && !x.removed);
+  const list: LocalPassage[] = passages.map((p) => ({ text: p.text, ...(p.heading ? { heading: p.heading } : {}), ...(p.page ? { page: p.page } : {}) }));
+  const lastRid = passages.reduce((m, p) => Math.max(m, p.rid), 0);
+  await put({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: 0, chars: 0, at: d.at, sig: `${d.passages}:${d.chars}`, lastRid, ...(d.builtin ? { builtin: true } : {}), ...(d.author ? { author: d.author } : {}) }, list);
+  keepForever(true);
+}
+
 /** The shelf from this device's copy (used when the brain can't be reached). */
 export async function shelf(): Promise<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number } }> {
   const docs = [...(await all()).values()]
     .filter((d) => !d.removed && d.title)
-    .map((d): LibraryDoc => ({ id: d.brainId ?? d.id, title: d.title, source: d.brainId ? d.source : `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: !!d.builtin, at: d.at }))
+    .map((d): LibraryDoc => ({ id: d.brainId ?? d.id, title: d.title, source: d.brainId ? d.source : `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: !!d.builtin, at: d.at, ...(d.author ? { author: d.author } : {}) }))
     .sort((a, b) => Number(a.builtin) - Number(b.builtin) || b.at - a.at);
   const passages = docs.reduce((n, d) => n + d.passages, 0);
   const chars = docs.reduce((n, d) => n + d.chars, 0);

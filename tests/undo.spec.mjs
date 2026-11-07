@@ -145,9 +145,12 @@ const libHas = async () => (await api('GET', '/library')).docs?.some((d) => d.id
 await go('library');
 const shelfRow = () => page.locator('#pg-library .pn.shelf .rw', { hasText: 'Undo test notebook' });
 await until(() => [...document.querySelectorAll('#pg-library .pn.shelf .rw')].some((r) => /Undo test notebook/.test(r.textContent ?? '')), 10000, 'library: the document is not on the shelf');
+// (BRIEF-LIBRARY-READER: a book on the Shelf opens in THE READER, and REMOVE FROM LIBRARY is in its ABOUT)
 const removeDoc = async () => {
   await clickJs(shelfRow().first());
-  await page.locator('.modal button', { hasText: 'REMOVE FROM LIBRARY' }).click();
+  await until(() => document.body.dataset.tab === 'reader' && /Undo test notebook/.test(document.querySelector('#pg-reader .grd-title')?.textContent ?? ''), 10000, 'library: the document did not open in the reader');
+  await page.locator('#pg-reader .secpill[data-sec="about"]').click();
+  await page.locator('#pg-reader .grd-about button', { hasText: /^Remove from library$/i }).click();
 };
 if (await shelfRow().count()) {
   await removeDoc();

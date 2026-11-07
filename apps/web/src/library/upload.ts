@@ -11,6 +11,7 @@ import { extractFile, type Extracted } from './extract';
 import { Reader } from '../vision/ocr';
 import { loadImageFile } from '../vision/camera';
 import { cleanOcr, titleFrom } from '../vision/ocrtext';
+import { coverFromFile, keepCover } from './covers';
 
 export type Progress = (text: string, frac: number) => void;
 
@@ -19,7 +20,7 @@ const BATCH = 30;
 export async function addExtracted(x: Extracted, source: string, progress: Progress): Promise<LibraryDoc> {
   const passages = chunkText(x.pages, { code: x.code, heading: x.code ? x.title : undefined });
   if (!passages.length) throw new Error('no readable text found');
-  const meta = { title: x.title, source, kind: x.kind, pages: x.pages.length > 1 ? x.pages.length : 0 };
+  const meta = { title: x.title, source, kind: x.kind, pages: x.pages.length > 1 ? x.pages.length : 0, ...(x.author ? { author: x.author } : {}) };
   // A copy stays on this device: searchable while the brain's database is paused, and sent later if it is.
   const local = await keepDoc(meta, passages);
   uploading.add(local.id); // the background sync must not send it too
@@ -40,7 +41,7 @@ export async function addExtracted(x: Extracted, source: string, progress: Progr
 }
 
 /** Send a document to the brain in small batches (removed again if that fails half way). */
-export async function uploadPassages(meta: { title: string; source: string; kind: string; pages: number }, passages: LocalPassage[], progress: Progress = () => undefined): Promise<LibraryDoc> {
+export async function uploadPassages(meta: { title: string; source: string; kind: string; pages: number; author?: string }, passages: LocalPassage[], progress: Progress = () => undefined): Promise<LibraryDoc> {
   const { doc } = await brain.libraryCreate(meta);
   try {
     for (let i = 0; i < passages.length; i += BATCH) {
@@ -55,8 +56,16 @@ export async function uploadPassages(meta: { title: string; source: string; kind
   return (await brain.libraryDone(doc.id)).doc;
 }
 
+/** [reader] The file's own cover (its first page's picture, made small), kept for the book once it is on the shelf. */
+async function withCover(doc: LibraryDoc, cover: Promise<string | null>): Promise<LibraryDoc> {
+  const url = await cover.catch(() => null);
+  if (url) await keepCover(doc.id, url);
+  return doc;
+}
+
 export async function addFile(file: File, progress: Progress): Promise<{ doc: LibraryDoc; warning?: string }> {
   progress('reading…', 0);
+  const cover = coverFromFile(file);
   let x: Extracted;
   let failed: Error | null = null;
   try {
@@ -80,7 +89,7 @@ export async function addFile(file: File, progress: Progress): Promise<{ doc: Li
       // keep the little text we found
     }
   }
-  return { doc: await addExtracted(x, file.name, progress), warning };
+  return { doc: await withCover(await addExtracted(x, file.name, progress), cover), warning };
 }
 
 /** A photo (of a page): a picture type, or a picture's name (iPhone photos can come with no type). */
@@ -114,7 +123,7 @@ export async function addPhotos(files: File[], progress: Progress): Promise<{ do
   const one = files.length === 1;
   if (!pages.length) throw new Error(`no words found in ${one ? 'this photo' : 'these photos'}: try closer, flatter and with more light`);
   const said = [unsure ? `read from ${one ? 'a photo' : 'photos'}: some words may be wrong, open it to check` : '', blank ? `${blank} photo${blank === 1 ? '' : 's'} had no words and ${blank === 1 ? 'was' : 'were'} left out` : ''].filter(Boolean).join('; ');
-  const doc = await addExtracted({ title: titleFrom(pages[0]!, 'Photo of a page'), pages, kind: 'scan' }, one ? files[0]!.name : `${pages.length} photos of pages`, progress);
+  const doc = await withCover(await addExtracted({ title: titleFrom(pages[0]!, 'Photo of a page'), pages, kind: 'scan' }, one ? files[0]!.name : `${pages.length} photos of pages`, progress), coverFromFile(files[0]!));
   return { doc, ...(said ? { warning: said } : {}) };
 }
 

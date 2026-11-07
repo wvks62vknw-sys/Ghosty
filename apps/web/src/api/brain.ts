@@ -31,7 +31,7 @@ export interface SpeakInfo {
   stopped: boolean;
   today: Spoken[];
 }
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BookPlace, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
 export interface SiteDraft {
@@ -397,7 +397,12 @@ export const brain = {
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
   library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean; offline?: boolean }>('GET', '/library'),
   librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow; unindexed?: number }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
-  libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
+  libraryCreate: (doc: { title: string; source: string; kind: string; pages: number; author?: string }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
+  /** [reader] his place in every book (the Shelf's progress), or in one (library/place.ts; the brain's library/place.ts). */
+  placesGet: () => send<{ places: Record<string, BookPlace> }>('GET', '/library/place'),
+  placeGet: (doc: string) => send<{ place: BookPlace | null }>('GET', `/library/place?doc=${encodeURIComponent(doc)}`),
+  /** `newer`: another device had moved on since: its place comes back, and this phone moves there. */
+  placePut: (p: BookPlace) => send<{ place: BookPlace; newer?: boolean }>('PUT', '/library/place', p),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
   studyStatus: () => req<StudyInfo>('GET', '/library/study'),
@@ -809,7 +814,7 @@ export async function sendQueued(): Promise<number> {
   const sent = offline.get().outbox.length ? await flushOutbox(raw, keepForLater) : 0;
   const docs = await syncLocalDocs({
     upload: async (d, passages) => {
-      const { doc } = await brain.libraryCreate({ title: d.title, source: d.source, kind: d.kind, pages: d.pages });
+      const { doc } = await brain.libraryCreate({ title: d.title, source: d.source, kind: d.kind, pages: d.pages, ...(d.author ? { author: d.author } : {}) });
       try {
         for (let i = 0; i < passages.length; i += 30) await brain.libraryAdd(doc.id, passages.slice(i, i + 30));
       } catch (e) {

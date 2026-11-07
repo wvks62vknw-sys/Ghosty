@@ -178,6 +178,14 @@ const BRIDGE = /^…as I was saying,\s*/i;
 const headOf = (parts: string[]): string => (parts[0] ?? '').split(/\s+/).slice(0, 8).join(' ');
 /** The latest reply in the chat, if any. */
 const latestReply = (): Extract<Entry, { kind: 'assistant' }> | undefined => [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'assistant' }> => e.kind === 'assistant');
+/**
+ * [reader] He cut a reply off after `t` and "go on" would still carry it on (BRIEF-LIBRARY-READER 3): a book stopped at `t` waits
+ * while the reply he asked for mid-read is carried on first; the next "go on" goes back to the book.
+ */
+export function replyCutSince(t: number): boolean {
+  const c = lastCut;
+  return !!c && c.when > t && Date.now() - c.when <= CARRY_MS && latestReply()?.at === c.tag;
+}
 /** Words a sentence can start with that are lower-cased after the bridge ("…as I was saying, it changes"); a name keeps its capital. */
 const COMMON = /^(?:the|a|an|it|it's|its|there|there's|that|that's|this|these|those|then|so|and|but|or|if|when|while|you|your|you're|we|our|they|their|he|she|his|her|my|on|in|at|for|from|to|with|after|before|once|also|just|both|each|every|most|some|all|no|not|one|two|three|here|here's|what|which|who|how|why|where|as|by|of|up|out|over|more|less|only|even|still|now|today|tomorrow|tonight|yes|sure|right|well|first|next|last)$/i;
 const lowerFirst = (s: string): string => (COMMON.test(s.split(/\s+/)[0]!.replace(/[^\p{L}']/gu, '')) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
@@ -786,6 +794,10 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // answered there, on the phone — the stop and the raising readings never see them, and the brain never does.
   if (await guardTurn(t, { voice: opts.voice })) return;
   if (await faceTurn(t, opts.voice)) return;
+  // [reader] a book read to him, by words, with no model (BRIEF-LIBRARY-READER 4): "go on" just after the book was cut (from the
+  // sentence he was in), a plain "stop" while it is read (the page said; a harsh one stays the silent stop below), "read me …",
+  // "carry on reading", "where were we", a chapter, a page, "just this chapter", "stop reading"
+  if (await import('../features/library/reader').then((r) => r.readingTurn(t, { voice: opts.voice, speak: opts.speak })).catch(() => false)) return;
   // A stop by intent, not a keyword (OWNER-ISSUES 70a: "shut the fuck up", "enough", "leave it", typos and all; intent.ts):
   // absolute and at once, whatever he was saying or arguing, and never answered.
   const stop = stopIntent(t);

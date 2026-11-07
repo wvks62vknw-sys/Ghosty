@@ -39,6 +39,8 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
   learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', house: 'do',
+  // [reader] THE READER (BRIEF-LIBRARY-READER): his books, read here or to him
+  reader: 'learn',
 };
 
 /** The chat's own controls (features/core/index.ts and the reply's buttons), by the element each is. */

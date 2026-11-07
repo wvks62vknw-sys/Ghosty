@@ -61,7 +61,6 @@ export const APP_4: Record<string, CatValue> = {
   'deck:library:add-books-and-pdfs-for-him': { same: 'panel:library:ADD KNOWLEDGE' },
   'deck:library:search-it-by-meaning-or-by': { same: 'panel:library:ASK THE LIBRARY' },
   'deck:library:fresh-today-the-news-and-papers': { same: 'job:digest' },
-  'deck:library:see-what-he-is-studying-by': { same: 'job:study' },
   'deck:agenda:your-reminders-and-his-scheduled-jobs': { same: 'panel:agenda:REMINDERS & TASKS' },
   'deck:agenda:connect-your-calendars': { same: 'tool:add_calendar_feed' },
   'deck:agenda:whats-on-this-week': { same: 'tool:list_agenda' },
