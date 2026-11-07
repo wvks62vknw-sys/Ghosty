@@ -118,6 +118,10 @@ folder that no longer exists; ignore those paths).
   all models weekly 11%, top tier weekly 7%. Plenty of week left; the method stays (cheap workers for logs, one builder
   per shared-file area, top tier only for design-heavy work).
   Main's own push run after the merge (run 334 on 37a79d2) finished green on every job at 02:50 UK: item 1(b)(c) is finished.
+  04:00 UK: the reader builder reported (21 commits on builder/library-reader, every brief line built, seven real bugs found and
+  fixed, every check green on its tree); reviewed (guard untouched, one word in check.yml, no model names, no GPS, screenshots
+  looked at), merged with one trivial conflict in tabs.ts (two doc comments on neighbouring fields), checks rerun on the merged
+  tree, OWNER-ISSUES 145 written with his phone check (126 folded in) and three questions; its PR going up. THEMES-2 still running.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

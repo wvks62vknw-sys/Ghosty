@@ -196,6 +196,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 2. Done, going up next
 
+- THE LIBRARY READER (OWNER-ISSUES 145; BRIEF-LIBRARY-READER with its addendum; STARS 169): built, merged into the session branch,
+  every touched check green locally, its PR going up 7 Nov 04:00 UK; his seven-step phone check and three questions in 145.
 - PR #60 MERGED 7 Nov 02:02 UK (main 37a79d2, every check green on its own run after the deck fix of OWNER-ISSUES 144; main's own run 334 green on every job, 02:50 UK): THE DESIGN SYSTEM from W1 The Scan (OWNER-ISSUES 140): the tokens with the lit graphite canvas and the readability floor held by a test, the Machine's marks as components, Mind as the eye on THE LOOK, Settings → Appearance → THE LOOK, the twelve themes as token sets with live swatches, look.test.mjs and look.spec.mjs; both rounds of directions ride with it. His five-minute phone check is in OWNER-ISSUES 140.
 - PR #51 (section 3).
 
@@ -259,7 +261,10 @@ built in the old look after day one, so no screen is built twice.
 2. THE LIBRARY AS A LIBRARY (OWNER-ISSUES 125; BRIEF-LIBRARY-READER; STARS 169 for the Shelf), the first screen built in the new
    system: the reader, his place kept, the Shelf as a shelf (covers, authors, sort by recent and by progress, progress on every
    row), LISTEN under the talking rules with the phone's own voice as the default for books and the brain's voice an option for
-   about an hour a day, the switch said aloud. 5–7 h.
+   about an hour a day, the switch said aloud. 5–7 h. BUILT 7 Nov 04:00 UK (OWNER-ISSUES 145: every line of the brief and its
+   addendum, seven real bugs fixed on the way, the reader spec in the smoke list after talk, the guard untouched); merged into
+   the session branch, every touched check green locally, ITS PR GOING UP NOW; finished only when merged and green on main.
+   His phone check (seven steps, 126 folded in) and three small questions are in 145.
 3. AWARENESS (STARS 153, with ONE LENS 151–152 and HIS VOICE KNOWN 154–155; IDEAS-ROUND-1 item 3 folds in): the context line rides
    in his message to the brain, never in the system prompt (the guard untouched, nothing trimmed); the Lens runs its cheap
    detectors on every frame and the heavy ones on a steady frame, two seconds per tag; his voice known as a courtesy signal, the
