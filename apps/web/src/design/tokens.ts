@@ -23,8 +23,39 @@ export interface ThemeBlock {
   values: Record<string, string>;
 }
 
-/** The tokens a theme swaps, and nothing else (the accent block). */
-export const ACCENT_BLOCK = ['--g-accent', '--g-accent-rgb', '--g-accent-pale', '--g-accent-pale-rgb', '--g-accent-text', '--g-accent-glow'] as const;
+/** The tokens a theme swaps, and nothing else (the accent block; its ink is the accent on a light ground). */
+export const ACCENT_BLOCK = ['--g-accent', '--g-accent-rgb', '--g-accent-pale', '--g-accent-pale-rgb', '--g-accent-text', '--g-accent-glow', '--g-accent-ink', '--g-accent-ink-rgb'] as const;
+
+/** The tokens a GROUND swaps (BRIEF-THEMES-2 1): the surfaces, the inks, the lines, the points, the meaning colours, the lifts, the glow floor. */
+export const GROUND_BLOCK = [
+  '--g-canvas', '--g-canvas-rgb', '--g-plate', '--g-plate-strong', '--g-scrim', '--g-bone-rgb', '--g-ink-1', '--g-ink-2', '--g-ink-3', '--g-ink-4',
+  '--g-line', '--g-line-faint', '--g-amber', '--g-amber-rgb', '--g-red', '--g-ok', '--g-lift-plate', '--g-lift-front', '--g-glow-floor',
+] as const;
+
+/** The tokens a WORLD swaps (BRIEF-THEMES-2 3): the floor, the corners, the glow, how a mark and a plate are drawn, the face I talk in. */
+export const WORLD_BLOCK = [
+  '--g-floor-mask', '--g-floor-size', '--g-floor-a', '--g-glow', '--g-mark-glow', '--g-face-say',
+  '--g-radius-key', '--g-radius-mark', '--g-radius-cell', '--g-radius-chip', '--g-radius-capsule',
+  '--g-plate-fill', '--g-plate-edge', '--g-plate-side', '--g-blur', '--g-ret-arm', '--g-ret-weight', '--g-ret-edge', '--g-ret-side', '--g-sight-dash',
+] as const;
+
+/** Every `:root[data-<attr>="<key>"] { … }` block of the file (the grounds, the worlds, the switches, the night grounds), with its comment above it. */
+export function parseAttrBlocks(css: string, attr: string): (ThemeBlock & { note: string })[] {
+  const out: (ThemeBlock & { note: string })[] = [];
+  const re = new RegExp(`^(:root\\[data-${attr}="([a-z0-9]+)"\\][^{]*)\\{([^}]*)\\}`, 'gm');
+  for (const m of css.matchAll(re)) {
+    const values: Record<string, string> = {};
+    for (const d of m[3]!.replace(/\/\*[\s\S]*?\*\//g, '').split(/;(?![^(]*\))/)) {
+      const kv = /^\s*(--g-[a-z0-9-]+)\s*:\s*([\s\S]+?)\s*$/.exec(d);
+      if (kv) values[kv[1]!] = kv[2]!;
+    }
+    // the sentence over the block (its comment), when it has one
+    const before = css.slice(0, m.index).trimEnd();
+    const note = before.endsWith('*/') ? /\/\*\s*([\s\S]*?)\s*\*\/$/.exec(before.slice(before.lastIndexOf('/*')))?.[1]?.replace(/\s+/g, ' ') ?? '' : '';
+    out.push({ key: m[2]!, selector: m[1]!.trim(), values, note: /^-{3,}/.test(note) ? '' : note });
+  }
+  return out;
+}
 
 /** The first `:root { … }` block of the file: every token, its job and its group, in the file's order. */
 export function parseTokens(css: string): Token[] {
