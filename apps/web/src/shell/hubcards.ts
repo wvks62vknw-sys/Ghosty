@@ -365,7 +365,8 @@ export const CARDS: Record<string, HubCard> = {
     instrument: () => h('span.lensvf', viewfinderInst(), h('span.vfcap', 'Camera off')),
     readouts: () => [
       { label: 'Names', value: '4,624' },
-      { label: 'Modes', value: String(LENS_MODES.length) },
+      // (BRIEF-LENS, 7 Nov: the one view is the Lens itself, not a mode; the modes are what sits under its MORE key)
+      { label: 'Modes', value: String(LENS_MODES.filter((m) => m !== 'lens').length) },
     ],
   },
   studio: {
