@@ -75,11 +75,6 @@ export const heroState = {
   frameMs: 0,
   /** The accent it is drawn in: the theme's --c (state/theme.ts). */
   accent: '',
-  /**
-   * THE SCAN's stage (BRIEF-HUD-SCAN-1; features/core/scan): the one context drawn full-screen behind Home (the world, then the
-   * orb into its own viewport, never a second context). `rect`: where the orb is drawn on it, [x, y, w, h] in CSS px.
-   */
-  stage: { on: false, rect: null as number[] | null, frames: 0 },
 };
 
 /** Share out the nodes: about one per 20 passages, split across the fields by their topics, lit by what is read. */
@@ -295,14 +290,6 @@ export class Mind {
   private ownGlow = 1;
   /** THE LOOK holds the scene (lend()): the host its canvas is in, drawn by THE LOOK's own loop (lentFrame()). */
   private lent: HTMLElement | null = null;
-  /**
-   * THE SCAN's stage (features/core/scan/home.ts, the boot's film): the host the canvas fills, and what draws the world into this
-   * renderer before the orb each frame (`draw(T, renderer, t, W, H, dpr)`). The orb then goes into `stageRect` (CSS px from the
-   * stage's top-left; null: the orb is drawn nowhere, as before the eye opens).
-   */
-  private stageHost: HTMLElement | null = null;
-  private stageDraw: ((T: Any, renderer: Any, t: number, W: number, H: number, dpr: number) => void) | null = null;
-  stageRect: { x: number; y: number; w: number; h: number } | null = null;
   active = false;
 
   constructor(private anchor: HTMLCanvasElement | null) {
@@ -447,28 +434,6 @@ export class Mind {
     for (const o of extras) o.visible = false;
   }
 
-  /**
-   * THE SCAN's film (shell/boot.ts, features/core/scan/film.ts): the boot takes the scene on the stage instead of in a box: the
-   * canvas fills the boot's layer, the world is drawn by `draw` and the orb into `stageRect` (the film places it each frame).
-   */
-  bootBeginStaged(host: HTMLElement, draw: (T: Any, renderer: Any, t: number, W: number, H: number, dpr: number) => void): boolean {
-    if (!this.active) return false;
-    this.boot = { ...BOOT_DONE };
-    if (!this.dataKey) this.setData(savedData() ?? FIRST_LIGHT);
-    this.stageRect = null;
-    const ok = this.stage(host, draw);
-    const P = this.parts;
-    const extras = ['trails', 'sweep', 'sweep2', 'flare'].map((k) => P[k]).filter(Boolean);
-    for (const o of extras) o.visible = true;
-    try {
-      this.renderer.compile(this.scene, this.camera);
-    } catch {
-      /* made on first use instead */
-    }
-    for (const o of extras) o.visible = false;
-    return ok;
-  }
-
   /** One frame of the cinematic, `t` seconds into it, in `state` (attending while the reticle is on it, saying with the greeting). */
   bootFrame(t: number, look: BootLook, state: MindState = 'idle'): void {
     if (!this.active || !this.boot) return;
@@ -501,7 +466,6 @@ export class Mind {
    */
   lend(host: HTMLElement, w: number, h: number): boolean {
     if (!this.active || this.boot) return false;
-    if (this.stageHost) this.unstage();
     this.lent = host;
     host.append(this.canvas);
     this.canvas.style.display = '';
@@ -567,75 +531,6 @@ export class Mind {
     return !!this.lent;
   }
 
-  // ---------------------------------------------------------------- THE SCAN's stage (features/core/scan)
-  /**
-   * The canvas fills `host` and every frame draws the world (`draw`) and then the orb into `stageRect`, in this one context.
-   * Home's own loop (frame) and the boot's (bootFrame) both draw through it. False while THE LOOK holds the scene or it is not
-   * running. Staging again moves the canvas to a new host (the boot's layer to Home's stage) and keeps everything else.
-   */
-  stage(host: HTMLElement, draw: (T: Any, renderer: Any, t: number, W: number, H: number, dpr: number) => void): boolean {
-    if (!this.active || this.lent) return false;
-    this.stageHost = host;
-    this.stageDraw = draw;
-    heroState.stage.on = true;
-    if (this.canvas.parentElement !== host) host.append(this.canvas);
-    for (const k of ['transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
-    Object.assign(this.canvas.style, { display: '', position: 'absolute', left: '0', top: '0' });
-    this.canvas.classList.add('staged');
-    this.sizeStage();
-    this.dirty = true;
-    return true;
-  }
-
-  /** The stage's size follows its host (the screen): read each frame, set only when it changed. */
-  private sizeStage(): void {
-    const host = this.stageHost;
-    if (!host) return;
-    const w = host.clientWidth || innerWidth;
-    const h = host.clientHeight || innerHeight;
-    if (w === this.w && h === this.h) return;
-    this.size(w, h);
-  }
-
-  /** The stage is let go: the canvas goes back over Home's hero (the scan Home stages it again when it is on screen). */
-  unstage(): void {
-    if (!this.stageHost) return;
-    this.stageHost = null;
-    this.stageDraw = null;
-    this.stageRect = null;
-    heroState.stage.on = false;
-    heroState.stage.rect = null;
-    this.canvas.classList.remove('staged');
-    for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
-    this.w = this.h = 0;
-    this.dirty = true;
-    if (!this.boot && !this.lent) {
-      if (this.anchor?.isConnected) this.place();
-      else this.canvas.remove();
-    }
-  }
-
-  /** Whether the stage holds the scene. */
-  get staged(): boolean {
-    return !!this.stageHost;
-  }
-
-  /** Whether the stage is `host` and still on the page (the boot's layer is gone after the landing: Home stages it again). */
-  stagedIn(host: HTMLElement): boolean {
-    return this.stageHost === host && host.isConnected;
-  }
-
-  /** The three.js namespace and the renderer, for the stage's own scene (one context: the world is built in it, never another). */
-  get three(): { T: Any; renderer: Any } | null {
-    return this.T && this.renderer ? { T: this.T, renderer: this.renderer } : null;
-  }
-
-  /** Something moved (the camera crossing the room): draw at 60 fps for the next second, and at once if a frame is due. */
-  nudge(): void {
-    this.changedAt = this.t;
-    this.dirty = true;
-  }
-
   /** The cinematic has landed on Home's hero: the canvas goes back over it, drawn at once at the hero's size. */
   bootEnd(): void {
     if (!this.boot) return;
@@ -644,11 +539,8 @@ export class Mind {
     const P = this.parts;
     P.tickGeo?.setDrawRange(0, Infinity);
     for (const k of ['sweep', 'sweep2', 'flare', 'trails']) if (P[k]) P[k].visible = false;
-    // (on the stage the canvas stays where it is: the scan Home takes the stage over at its first frame)
-    if (!this.stageHost) {
-      for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
-      this.w = this.h = 0;
-    }
+    for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
+    this.w = this.h = 0;
     if (this.pending) {
       const d = this.pending;
       this.pending = null;
@@ -656,7 +548,7 @@ export class Mind {
     }
     // the first ask may have gone before this phone was signed in: ask again now
     void this.refresh();
-    if (this.anchor?.isConnected && !this.stageHost) {
+    if (this.anchor?.isConnected) {
       this.place();
       this.draw(reduced() ? 12.5 : this.t);
     }
@@ -760,12 +652,6 @@ export class Mind {
   private place(): void {
     const a = this.anchor;
     if (!a?.isConnected || this.boot || this.lent) return;
-    if (this.stageHost) {
-      // the stage holds the canvas (full-screen behind Home); the 2-D canvas under it stays clear
-      a.classList.add('mindon');
-      this.sizeStage();
-      return;
-    }
     if (this.canvas.parentElement !== a.parentElement) a.after(this.canvas);
     this.canvas.style.display = '';
     a.classList.add('mindon');
@@ -1230,38 +1116,7 @@ export class Mind {
       q.s.material.color.copy(tint(C.pale));
     });
     const t0 = performance.now();
-    if (this.stageHost && this.stageDraw) {
-      // THE SCAN's stage: the world first, full-screen, then the orb into its own square viewport (one context, one orb)
-      const r = this.renderer;
-      const W = this.w;
-      const H = this.h;
-      const dpr = Math.min(2, devicePixelRatio || 1);
-      r.autoClear = false;
-      r.setScissorTest(false);
-      r.setViewport(0, 0, W, H);
-      r.clear();
-      try {
-        this.stageDraw(T, r, t, W, H, dpr);
-      } catch (e) {
-        console.warn('stage', e);
-      }
-      const q = this.stageRect;
-      heroState.stage.rect = q ? [Math.round(q.x), Math.round(q.y), Math.round(q.w), Math.round(q.h)] : null;
-      if (q && q.w > 1 && q.h > 1) {
-        const aspect = q.w / q.h;
-        this.camera.aspect = aspect;
-        this.camera.position.z = (1 / (Math.tan((15 * Math.PI) / 180) * 0.74 * Math.min(1, aspect))) * b.push;
-        this.camera.updateProjectionMatrix();
-        r.setViewport(q.x, H - (q.y + q.h), q.w, q.h);
-        r.setScissor(q.x, H - (q.y + q.h), q.w, q.h);
-        r.setScissorTest(true);
-        r.render(this.scene, this.camera);
-        r.setScissorTest(false);
-      }
-      r.setViewport(0, 0, W, H);
-      r.autoClear = true;
-      heroState.stage.frames++;
-    } else this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
     const ms = performance.now() - t0;
     heroState.frames++;
     heroState.frameMs = heroState.frameMs ? heroState.frameMs * 0.9 + ms * 0.1 : ms;
@@ -1270,9 +1125,6 @@ export class Mind {
   dispose(): void {
     this.active = false;
     this.lent = null;
-    this.stageHost = null;
-    this.stageDraw = null;
-    heroState.stage.on = false;
     this.io?.disconnect();
     this.canvas.remove();
     this.anchor?.classList.remove('mindon');

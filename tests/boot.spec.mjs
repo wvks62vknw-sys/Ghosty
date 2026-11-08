@@ -24,12 +24,6 @@
 //      7. automated checks (no flag) see no cinematic at all.
 // It also photographs each moment (the cinematic stepped by hand), checks what those moments draw (the floor forming, the
 // stamp typing with its cursor, the feeds' lines, the box on the orb, the name, the greeting), and prints the timings.
-// THE FILM (BRIEF-HUD-SCAN-1 6, 8 Nov): with THE LOOK's world The Scan (the default) the picture is round two's film with the descent
-// (features/core/scan/film.ts): the same phases at the film's cut (the scan at 500, the orb at 2,000, the stamp 3,100, the feeds
-// 4,000, the recognition 4,900, the greeting 5,400, the landing 6,500, Home usable at 7,000; the short cut about 4,800), the world
-// drawn in Home's one context on Mind's stage with the orb in its viewport (where Home's hero then sits, to the pixel), the things
-// the world frame marks locking in as the sampling front reaches them, no 2-D floor (the world is the floor forming). Every check
-// below reads `__bootState.film` and expects the film's numbers when it played, today's when it did not (another world).
 //   BASE=http://localhost:8875 node tests/boot.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
@@ -130,10 +124,6 @@ const state = (page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__b
 const seen = (page) => page.evaluate(() => ({ texts: [...window.__seen.texts], digits: window.__seen.digits.slice(0, 3), moved: window.__seen.moved.slice(0, 5), old: window.__seen.old.slice(0, 2), hudInFlight: window.__seen.hudInFlight }));
 const until = (page, fn, ms, what, arg = null) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
 const ORDER = ['ground', 'floor', 'orb', 'stamp', 'feeds', 'recognise', 'greeting', 'land', 'done'];
-/** The storyboard's cut (2,880 ms to a usable Home) and the film's (7,000), by what played. */
-const CUT_OF = (s) => (s?.film ? { ground: 0, floor: 500, orb: 2000, stamp: 3100, feeds: 4000, recognise: 4900, greeting: 5400, land: 6500, end: 7000 } : { ground: 0, floor: 240, orb: 560, stamp: 1240, feeds: 1700, recognise: 2180, greeting: 2460, land: 2640, end: 2880 });
-/** The film's own words on the layer: the tags of the things the world frame marks as they lock in. */
-const FILM_WORDS = /^(GOD’S EYE|LIBRARY|THE STATION|AGENDA|BRIEF|YOU|YOUR HOUSE)$/;
 /** The stamp line's facts as the page would say them now (ui/machine.ts stampWords): the day and the time in his format. */
 const stampNow = (page) => page.evaluate(() => {
   const now = new Date();
@@ -148,22 +138,18 @@ const FEED_WORD = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 /** The words that may be on the cinematic: the stamp, the feeds' lines, TAP TO SKIP, the name, his greeting. */
 const STAMP = /^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/;
 /** (`stamps`: the whole stamp lines seen, so a line caught mid-typing counts as the stamp too) */
-const allowed = (t, greeting, stamps, film = false) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t));
+const allowed = (t, greeting, stamps) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t);
 const greetingFor = (page) => page.evaluate(() => {
   const hr = new Date().getHours();
   return `${hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}, Tony.`;
 });
-/** Mind on Home: one canvas, over the hero's reactor box, drawn by three.js (on The Scan's stage: the one full-screen canvas, the orb's viewport on the hero's box). */
+/** Mind on Home: one canvas, over the hero's reactor box, drawn by three.js. */
 const onHero = (page) => page.evaluate(() => {
   const gl = [...document.querySelectorAll('canvas.mindhero')];
   const r2 = document.querySelector('.hud.core canvas.reactor');
-  const st = window.__ghosty?.hero?.stage;
-  const a0 = gl[0]?.getBoundingClientRect();
+  const a = gl[0]?.getBoundingClientRect();
   const b = r2?.getBoundingClientRect();
-  const a = st?.on && st.rect ? st.rect : a0 && [a0.x, a0.y, a0.width, a0.height].map((v) => Math.round(v));
-  const bb = b && [b.x, b.y, b.width, b.height].map((v) => Math.round(v));
-  const inHero = !!gl[0] && (st?.on ? !!gl[0].closest('.scanstage') && JSON.stringify(a) === JSON.stringify(bb) : gl[0].parentElement === r2?.parentElement);
-  return { count: gl.length, inHero, a, b: bb, mode: window.__ghosty?.hero?.mode, staged: !!st?.on };
+  return { count: gl.length, inHero: !!gl[0] && gl[0].parentElement === r2?.parentElement, a: a && [a.x, a.y, a.width, a.height].map((v) => Math.round(v)), b: b && [b.x, b.y, b.width, b.height].map((v) => Math.round(v)), mode: window.__ghosty?.hero?.mode };
 });
 /** The HUD back after a landing: the ribbon and the tab bar fully there, nothing waiting out of sight. */
 // (its slide is a CSS animation, which software WebGL's slow frames on Home can hold back: waited for, up to 6 s)
@@ -183,18 +169,10 @@ function checkCut(s, what) {
   const tl = s.timeline;
   const marks = ORDER.map((p) => s.marks?.[p]);
   if (s.kind !== 'full') problems.push(`${what}: it played "${s.kind}", not the full cinematic`);
-  // the cut: the storyboard's 2,880 ms to a usable Home (under three seconds), or the film's 7,000 (round two's cut, his "longer, richer": 156, 158)
-  const want = CUT_OF(s);
-  if (!tl || tl.end !== want.end) problems.push(`${what}: the cut is ${tl?.end} ms long (${s.film ? "the film's is 7,000" : "the storyboard's is 2,880"})`);
-  if (tl && tl.end > (s.film ? 7000 : 3000)) problems.push(`${what}: a usable Home takes ${tl.end} ms (want ${s.film ? 'seven seconds, the film' : 'under three seconds'})`);
-  for (const [p, at] of Object.entries(want)) if (p !== 'end' && tl && tl[p] !== at) problems.push(`${what}: the cut has ${p} at ${tl[p]} ms (${s.film ? 'the film' : 'the storyboard'}: ${at})`);
-  // the film: Mind drew the world on its stage, the sampling front ran its course, the things locked in, the orb's viewport is where Home's hero sits
-  if (s.film) {
-    const f = s.scan;
-    if (!f || !(f.build >= 0.99) || !(f.edge >= 0.99) || !(f.descent >= 0.99)) problems.push(`${what}: the film did not run its course: ${JSON.stringify(f && { build: f.build, edge: f.edge, descent: f.descent })}`);
-    if (!f || Object.keys(f.things).length < 4 || !(f.frames > 0)) problems.push(`${what}: the film found ${f ? Object.keys(f.things).length : 0} things and drew ${f?.frames} frames`);
-    if (f && !['full', 'lean'].includes(f.world)) problems.push(`${what}: the film's world is "${f.world}"`);
-  }
+  // the storyboard's cut: 2,880 ms to a usable Home, under three seconds
+  if (!tl || tl.end !== 2880) problems.push(`${what}: the cut is ${tl?.end} ms long (the storyboard's is 2,880)`);
+  if (tl && tl.end > 3000) problems.push(`${what}: a usable Home takes ${tl.end} ms (want under three seconds)`);
+  for (const [p, at] of Object.entries({ ground: 0, floor: 240, orb: 560, stamp: 1240, feeds: 1700, recognise: 2180, greeting: 2460, land: 2640 })) if (tl && tl[p] !== at) problems.push(`${what}: the cut has ${p} at ${tl[p]} ms (the storyboard: ${at})`);
   if (marks.some((m) => typeof m !== 'number')) problems.push(`${what}: a frame never came: ${JSON.stringify(s.marks)}`);
   for (let i = 1; i < marks.length; i++) if (!(marks[i] >= marks[i - 1])) problems.push(`${what}: ${ORDER[i]} (${marks[i]} ms) came before ${ORDER[i - 1]} (${marks[i - 1]} ms)`);
   // each phase at its time from the gathering on (at the pace it ran), within the slowest frame gap (a phase can only
@@ -289,15 +267,14 @@ async function checkWords(page, s, what, { tapped }) {
   // every line on it is one of its own (the stamp, the feeds' lines, the skip, the name, his greeting): no status line, no decoration
   const lines = v.texts.flatMap((t) => joinWrapped(t.split('\n').map((x) => x.trim()).filter(Boolean)));
   const stamps = lines.filter((t) => STAMP.test(t));
-  const extra = lines.filter((t) => !allowed(t, want, stamps, !!s?.film));
+  const extra = lines.filter((t) => !allowed(t, want, stamps));
   if (extra.length) problems.push(`full: something else was written on it (a status line?): ${extra.join(' / ')}`);
   await checkWords(page, s, 'full', { tapped: false });
   // it lands on Home's real MIND: the canvas that flew is the one in the hero, to the pixel
   if (!s?.mind) problems.push('full: MIND did not draw the cinematic');
   const hp = await onHero(page);
   if (hp.count !== 1) problems.push(`full: ${hp.count} Mind canvases after the landing (want the one)`);
-  if (!hp.inHero || JSON.stringify(hp.a) !== JSON.stringify(hp.b)) problems.push(`full: Mind is not in the hero's box after the landing: ${hp.a} vs ${hp.b} (staged ${hp.staged})`);
-  if (s?.film && !hp.staged) problems.push('full: the film played but Home did not take the stage (the one context drawing the world behind Home)');
+  if (!hp.inHero || JSON.stringify(hp.a) !== JSON.stringify(hp.b)) problems.push(`full: Mind is not in the hero's box after the landing: ${hp.a} vs ${hp.b}`);
   if (hp.mode !== 'mind') problems.push(`full: Home's hero is "${hp.mode}", not MIND`);
   const hud = await hudBack(page);
   if (hud.wait || hud.dock < 0.99 || hud.top < 0.99) problems.push(`full: the HUD did not come back after the landing (${JSON.stringify(hud)})`);
@@ -456,7 +433,7 @@ async function checkWords(page, s, what, { tapped }) {
   // a tap at each stage of a replay lands cleanly: on the hero to the pixel, the HUD back, nothing said after the tap
   // (software WebGL draws a frame in up to a second here, so a phase of a few hundred ms can pass between two frames:
   // the replay is held at the moment by hand, tapped there, then let run on its own clock to the landing)
-  const AT = s?.film ? { ground: 100, floor: 700, orb: 2200, stamp: 3300, feeds: 4300, recognise: 5100, greeting: 5600, land: 6700 } : { ground: 100, floor: 300, orb: 700, stamp: 1300, feeds: 1800, recognise: 2250, greeting: 2500, land: 2700 };
+  const AT = { ground: 100, floor: 300, orb: 700, stamp: 1300, feeds: 1800, recognise: 2250, greeting: 2500, land: 2700 };
   for (const stage of Object.keys(AT)) {
     const n = (await state(page))?.plays ?? 0;
     await page.evaluate(() => {
@@ -497,7 +474,7 @@ async function checkWords(page, s, what, { tapped }) {
   const B = s?.budget;
   if (!B || !(B.long > 0)) problems.push(`slow phone: no long frames counted (${JSON.stringify(B && { hz: B.hz, long: B.long })})`);
   if (s?.kind === 'full' && !B?.lean) problems.push('slow phone: the full cut played on, with every frame long');
-  if (s && !(s.ended - s.held <= CUT_OF(s).end + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want shorter than the full cut, ${CUT_OF(s).end})`);
+  if (s && !(s.ended - s.held <= 2880 + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want shorter than the full cut)`);
   if (s) timings.push(`slow phone, its own choice: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; budget ${B?.hz} Hz / ${B?.ms} ms: ${B?.long} of ${B?.gaps?.length} frames long; ended ${s.ended} ms`);
   await ctx.close();
   // the full cut, then the phone falling behind mid-flight: it leans (no depths, trails or refraction) and quickens
@@ -551,23 +528,14 @@ async function checkWords(page, s, what, { tapped }) {
   await stubLibrary(p2);
   await p2.goto(base);
   const ready = await until(p2, () => window.__ghosty?.hero?.mode === 'mind' && !!document.querySelector('canvas.reactor.mindon') && window.__bootState?.appReady >= 0, 60000, 'strip: MIND and Home never got ready under the cinematic');
-  // (stepped by hand the cut is decided at the first seek: the film plays when the world is The Scan and MIND is drawing)
-  const filmNow = await p2.evaluate(() => document.documentElement.dataset.world === 'scan' && window.__ghosty?.hero?.mode === 'mind');
-  const frames = filmNow
-    ? [[160, 'ground'], [700, 'floor'], [2200, 'orb'], [3300, 'stamp'], [4300, 'feeds'], [5200, 'recognise'], [5600, 'greeting'], [6700, 'land'], [7000, 'home']]
-    : [[160, 'ground'], [420, 'floor'], [900, 'orb'], [1560, 'stamp'], [2060, 'feeds'], [2440, 'recognise'], [2600, 'greeting'], [2800, 'land'], [2880, 'home']];
-  const END = filmNow ? 7000 : 2880;
+  const frames = [[160, 'ground'], [420, 'floor'], [900, 'orb'], [1560, 'stamp'], [2060, 'feeds'], [2440, 'recognise'], [2600, 'greeting'], [2800, 'land'], [2880, 'home']];
   /** What the moment draws: the floor's lit pixels outside the orb's box, the stamp as typed (and whether its cursor is still
    *  writing), the feeds' lines showing, the box on the orb (where it is against the orb's canvas), the name, the greeting, the skip. */
   const probe = () => p2.evaluate(() => {
     const f = document.querySelector('#boot canvas.bfloor');
-    const stg = window.__ghosty?.hero?.stage;
-    const m0 = document.querySelector('#boot canvas.mindhero')?.getBoundingClientRect();
-    // (the film: the orb's viewport on the stage is the orb's box; the world forming is the sampling front, not a 2-D floor)
-    const m = stg?.on && stg.rect ? { left: stg.rect[0], top: stg.rect[1], right: stg.rect[0] + stg.rect[2], bottom: stg.rect[1] + stg.rect[3], width: stg.rect[2] } : m0;
-    const film = window.__bootState?.scan ?? null;
-    let lit = film ? Math.round(film.build * 10000) : 0;
-    if (f && m && !film) {
+    const m = document.querySelector('#boot canvas.mindhero')?.getBoundingClientRect();
+    let lit = 0;
+    if (f && m) {
       const g = f.getContext('2d');
       const k = f.width / innerWidth;
       const img = g.getImageData(0, 0, f.width, f.height).data;
@@ -585,7 +553,6 @@ async function checkWords(page, s, what, { tapped }) {
     const op = (sel) => Number(document.querySelector(sel)?.style.opacity ?? 0);
     return {
       lit,
-      film: film && { build: film.build, locked: film.locked.length, descent: film.descent },
       stamp: st ? { text: st.innerText.replace(/\s+/g, ' ').trim(), writing: st.classList.contains('writing'), cursor: !!st.querySelector('.g-cursor') && getComputedStyle(st.querySelector('.g-cursor')).display !== 'none', opacity: Number(st.style.opacity) } : null,
       feeds: [...document.querySelectorAll('#boot .bfeeds .g-truth')].map((p) => ({ text: p.innerText.replace(/\s+/g, ' ').trim(), opacity: Number(p.style.opacity) })),
       lock: lr && m ? { state: lock.dataset.state, opacity: Number(lock.style.opacity || 1), dx: Math.round(lr.left + lr.width / 2 - (m.left + m.width / 2)), dy: Math.round(lr.top + lr.height / 2 - (m.top + m.height / 2)), size: Math.round(lr.width), orb: Math.round(m.width) } : null,
@@ -598,44 +565,41 @@ async function checkWords(page, s, what, { tapped }) {
   const seenAt = {};
   for (const [ms, name] of ready ? frames : []) {
     await p2.evaluate((t) => window.__bootSeek(t), ms);
-    await p2.waitForTimeout(ms >= END ? 900 : 350);
-    if (ms < END) seenAt[name] = await probe();
+    await p2.waitForTimeout(ms >= 2880 ? 900 : 350);
+    if (ms < 2880) seenAt[name] = await probe();
     await p2.screenshot({ path: `${out}/boot-frame-${String(ms).padStart(4, '0')}-${name}.png` });
   }
   if (ready) {
     // 1. the ground, nothing else: the room's light coming in, no floor yet, no words
     if (!(seenAt.ground?.room > 0.3) || seenAt.ground?.lit > 0 || seenAt.ground?.stamp?.opacity > 0) problems.push(`strip: the ground frame is not the ground alone (${JSON.stringify({ room: seenAt.ground?.room, lit: seenAt.ground?.lit })})`);
-    const [tFloor, tStamp, tFeeds, tRec] = filmNow ? [700, 3300, 4300, 5200] : [420, 1560, 2060, 2440];
-    // 2. the floor forming: part of the field of points drawn by the floor's frame, the whole of it by the orb's moment (the film: the
-    //    sampling front, in ten-thousandths, and the things it has found so far)
-    if (!(seenAt.floor?.lit > 200)) problems.push(`strip: the floor was not forming at ${tFloor} ms (${seenAt.floor?.lit} ${filmNow ? 'of the front' : 'lit pixels'})`);
-    if (!(seenAt.orb?.lit > seenAt.floor?.lit)) problems.push(`strip: the floor did not go on forming (${seenAt.floor?.lit} then ${seenAt.orb?.lit})`);
-    if (filmNow && !(seenAt.orb?.film?.locked >= 1 && seenAt.recognise?.film?.locked >= 4 && seenAt.recognise?.film?.descent >= 0.99)) problems.push(`strip: the film's things did not lock in as the front reached them, or the descent did not land: ${JSON.stringify({ orb: seenAt.orb?.film, recognise: seenAt.recognise?.film })}`);
-    // 4. the stamp typing itself: part of the line at the stamp's frame with the cursor writing, whole (no cursor) by the feeds
+    // 2. the floor forming: part of the field of points drawn by 420 ms, the whole of it by the orb's moment
+    if (!(seenAt.floor?.lit > 200)) problems.push(`strip: the floor was not forming at 420 ms (${seenAt.floor?.lit} lit pixels)`);
+    if (!(seenAt.orb?.lit > seenAt.floor?.lit)) problems.push(`strip: the floor did not go on forming (${seenAt.floor?.lit} then ${seenAt.orb?.lit} lit pixels)`);
+    // 4. the stamp typing itself: part of the line at 1,560 ms with the cursor writing, whole (no cursor) by the feeds
     const st = seenAt.stamp?.stamp;
-    if (!st || !st.writing || !st.cursor || !st.text || st.text.length >= 'SAT 7 NOV · 21:08 · BIRMINGHAM · CHECKING FEEDS'.length) problems.push(`strip: the stamp was not typing at ${tStamp} ms (${JSON.stringify(st)})`);
+    if (!st || !st.writing || !st.cursor || !st.text || st.text.length >= 'SAT 7 NOV · 21:08 · BIRMINGHAM · CHECKING FEEDS'.length) problems.push(`strip: the stamp was not typing at 1,560 ms (${JSON.stringify(st)})`);
     const st2 = seenAt.feeds?.stamp;
-    if (!st2 || st2.writing || !/^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/.test(st2.text)) problems.push(`strip: the stamp was not whole by ${tFeeds} ms (${JSON.stringify(st2)})`);
-    if (seenAt.stamp?.skip < 0.99) problems.push(`strip: TAP TO SKIP was not showing at ${tStamp} ms (opacity ${seenAt.stamp?.skip})`);
-    // 5. the feeds' lines showing at the feeds' frame (the first two whole, the third arriving), gone by the recognition
+    if (!st2 || st2.writing || !/^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/.test(st2.text)) problems.push(`strip: the stamp was not whole by 2,060 ms (${JSON.stringify(st2)})`);
+    if (seenAt.stamp?.skip < 0.99) problems.push(`strip: TAP TO SKIP was not showing at 1,560 ms (opacity ${seenAt.stamp?.skip})`);
+    // 5. the feeds' lines showing at 2,060 ms (the first two whole, the third arriving), gone by the recognition
     const fl = seenAt.feeds?.feeds ?? [];
-    if (!fl.length || !(fl[0].opacity > 0.99) || !fl.every((l) => /^(FLOOD|WEATHER|CRIME) · /.test(l.text))) problems.push(`strip: the feeds' lines at ${tFeeds} ms: ${JSON.stringify(fl)}`);
+    if (!fl.length || !(fl[0].opacity > 0.99) || !fl.every((l) => /^(FLOOD|WEATHER|CRIME) · /.test(l.text))) problems.push(`strip: the feeds' lines at 2,060 ms: ${JSON.stringify(fl)}`);
     if ((seenAt.recognise?.feeds ?? []).some((l) => l.opacity > 0)) problems.push(`strip: the feeds' lines were still there at the recognition (${JSON.stringify(seenAt.recognise?.feeds)})`);
-    // 6. the recognition: the box in the attend state, centred on the orb (its canvas, or its viewport on the stage), G H O S T Y under it, the skip gone
+    // 6. the recognition: the box in the attend state, centred on the orb's canvas, G H O S T Y under it, the skip gone
     const lk = seenAt.recognise?.lock;
-    if (!lk || lk.state !== 'attend' || Math.abs(lk.dx) > 3 || Math.abs(lk.dy) > 3 || !(lk.size > 0.6 * lk.orb && lk.size < lk.orb)) problems.push(`strip: the box is not on the orb at ${tRec} ms (${JSON.stringify(lk)})`);
-    if (!(seenAt.recognise?.name > 0.5)) problems.push(`strip: the name was not under the box at ${tRec} ms (opacity ${seenAt.recognise?.name})`);
+    if (!lk || lk.state !== 'attend' || Math.abs(lk.dx) > 3 || Math.abs(lk.dy) > 3 || !(lk.size > 0.6 * lk.orb && lk.size < lk.orb)) problems.push(`strip: the box is not on the orb at 2,440 ms (${JSON.stringify(lk)})`);
+    if (!(seenAt.recognise?.name > 0.5)) problems.push(`strip: the name was not under the box at 2,440 ms (opacity ${seenAt.recognise?.name})`);
     if (seenAt.recognise?.skip > 0.01) problems.push(`strip: TAP TO SKIP was still showing at the recognition (opacity ${seenAt.recognise?.skip})`);
     // 7. the greeting, with the box and the name still on the orb
     if (!(seenAt.greeting?.greeting > 0.8) || !seenAt.greeting?.lock || !(seenAt.greeting?.name > 0.9)) problems.push(`strip: the greeting frame (${JSON.stringify({ greeting: seenAt.greeting?.greeting, lock: !!seenAt.greeting?.lock, name: seenAt.greeting?.name })})`);
     // 8. the landing: the words going
     if (!(seenAt.land?.greeting < 0.1) || !(seenAt.land?.name < 0.1)) problems.push(`strip: the words had not gone as it landed (${JSON.stringify({ greeting: seenAt.land?.greeting, name: seenAt.land?.name })})`);
-    timings.push(`strip: floor ${seenAt.floor?.lit} then ${seenAt.orb?.lit} ${filmNow ? 'of the front' : 'lit pixels'}; stamp at ${tStamp} ms "${st?.text}"; feeds at ${tFeeds} ms ${JSON.stringify(fl.map((l) => `${l.text} @${l.opacity}`))}; box at ${tRec} ms ${JSON.stringify(lk)}`);
+    timings.push(`strip: floor ${seenAt.floor?.lit} then ${seenAt.orb?.lit} lit pixels; stamp at 1560 ms "${st?.text}"; feeds at 2060 ms ${JSON.stringify(fl.map((l) => `${l.text} @${l.opacity}`))}; box at 2440 ms ${JSON.stringify(lk)}`);
   }
   await c2.close();
 }
 
 await browser.close();
 console.log(timings.map((t) => `TIMING ${t}`).join('\n'));
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'BOOT run clean at 440 × 956: the cut (the storyboard\'s 2,880 ms to a usable Home, or the film\'s 7,000 with the descent when the world is The Scan) came in order and on time (ground, floor, orb, stamp, feeds, recognise, greeting, land) with the app booting underneath and its frame budget honest in __bootState, the stamp line\'s words true (the day, the clock, his place, the feeds\' state), the feeds\' lines only for feeds that answered, no other number and no status line on it, the box landed on the orb with G H O S T Y under it and no tone before a tap, his greeting spoken once on the first tap of a cold open, landed on Home\'s real MIND to the pixel with three.js loaded once and the HUD a beat after; a tap skipped it on a cold open and at every stage of a replay; a second cold open played it again, while a resume, a page back from the back-forward cache and a deep link only breathed; Reduce Motion played its two frames with nothing moving; "reboot" played it again over Home, said the greeting at once, once, and the tone was heard; a phone that could not keep up counted its long frames and got a shorter cut; the floor forming, the stamp typing, the feeds\' lines, the box, the name and the greeting were drawn; automated checks saw none of it.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'BOOT run clean at 440 × 956: the storyboard\'s cut (2,880 ms to a usable Home) came in order and on time (ground, floor, orb, stamp, feeds, recognise, greeting, land) with the app booting underneath and its frame budget honest in __bootState, the stamp line\'s words true (the day, the clock, his place, the feeds\' state), the feeds\' lines only for feeds that answered, no other number and no status line on it, the box landed on the orb with G H O S T Y under it and no tone before a tap, his greeting spoken once on the first tap of a cold open, landed on Home\'s real MIND to the pixel with three.js loaded once and the HUD a beat after; a tap skipped it on a cold open and at every stage of a replay; a second cold open played it again, while a resume, a page back from the back-forward cache and a deep link only breathed; Reduce Motion played its two frames with nothing moving; "reboot" played it again over Home, said the greeting at once, once, and the tone was heard; a phone that could not keep up counted its long frames and got a shorter cut; the floor forming, the stamp typing, the feeds\' lines, the box, the name and the greeting were drawn; automated checks saw none of it.');
 process.exit(problems.length ? 1 : 0);

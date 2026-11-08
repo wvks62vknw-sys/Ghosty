@@ -195,8 +195,6 @@ await page.evaluate(() => (location.hash = 'core'));
 await page.waitForTimeout(600);
 if (await page.evaluate(() => document.querySelector('#pg-core .hud.core')?.classList.contains('logopen'))) await page.click('#top .logbtn').catch(() => undefined);
 await page.click('#ccap').catch(() => undefined);
-// (in THE SCAN the wall's cards are one key away: NOW on the wall's head opens them over the world; the head and ALL SCREENS are always there)
-if (await page.evaluate(() => document.body.classList.contains('scanhome'))) await page.click('#pg-core section.wall .wallhead b').catch(() => undefined);
 await until(() => !!document.querySelector('#pg-core .wall .walllist .ccard') && getComputedStyle(document.querySelector('#pg-core section.wall')).display !== 'none', null, 30000, 'Home shows no wall');
 const wall = await page.evaluate(() => ({ ...window.__ghosty?.wall, shown: [...document.querySelectorAll('#pg-core .wall .walllist .ccard')].map((c) => ({ id: c.dataset.id, h: Math.round(c.getBoundingClientRect().height), right: Math.round(c.getBoundingClientRect().right) })), more: !document.querySelector('#pg-core section.wall .wallmore')?.hidden }));
 const ranks = wall.ranks ?? [];

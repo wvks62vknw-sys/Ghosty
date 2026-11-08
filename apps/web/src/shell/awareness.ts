@@ -15,7 +15,6 @@ import { cleanScreen, contextWords, oneLineOf, type ClientContext, type ScreenCo
 import type { FeedId, GuardianInfo } from '../../../../packages/shared/src/guardian';
 import { home, settings, timeZone, ui } from '../state/app';
 import { guardian } from '../state/guardian';
-import { placeWord } from '../features/core/scan/place';
 import type { StampFacts } from '../ui/machine';
 import { currentTab } from './tabs';
 
@@ -140,8 +139,6 @@ export function clientContext(spoken = false, who?: 'owner' | 'unknown' | { name
     // Said into the microphone: the brain answers in its spoken style (persona.ts SPOKEN). `who`: the voice, as a label, when the
     // phone knew voices and scored this one (assistant/voiceknown.ts: owner, unknown, or the name of a person he introduced).
     ...(spoken ? { voice: who ?? true } : {}),
-    // where he is, as the phone decided it: a word and a saved place's name, with his question only (never a coordinate)
-    ...(placeWord() ? { place: placeWord()! } : {}),
   };
 }
 

@@ -41,27 +41,15 @@
  * The greeting is spoken in his voice with the voice setting on: at once if the phone allows it, else on the first tap
  * (iOS keeps a cold open silent until a tap); once.
  * Automated checks see none of it (it would slow every check that opens the app) unless one asks: tests/boot.spec.mjs.
- *
- * THE FILM (BRIEF-HUD-SCAN-1 6; features/core/scan/film.ts): when THE LOOK's world is The Scan the picture is round two's film with
- * the descent: the eye first, the scan a sphere of light growing out of it over his desk and sampling the world as the camera comes
- * down from the sky over the city to rest on THE WHOLE OF IT, each thing locking into its reticle as the front reaches it, the orb
- * forming from his library's points, the feeds answering, the recognition's wave, the greeting, the search locking on tonight's
- * thing, the landing. Home usable at 7,000 ms (the short cut about 4,800); the same six kinds, the same budget, the same skip (a tap
- * plays the landing), the same greeting rules, `__bootSeek` for the check. The world is drawn in Home's one context (mind.ts, staged
- * full-screen) and Home takes the stage at the landing, so the landing is no cut: the film's last frame is Home's first.
  */
 import { h } from '../core/dom';
 import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind, type MindState } from '../features/core/mind';
 import { home, settings, ui } from '../state/app';
 import { guardian, loadGuardian } from '../state/guardian';
 import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
-import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
+import { lockBox, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
-import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
-import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
-import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
-import { worldDesc, ORB_FILL } from '../features/core/scan/world';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
@@ -77,12 +65,9 @@ const STILL: Timeline = { ground: 0, floor: 0, orb: 200, stamp: 200, feeds: 200,
 /** No 3-D here: the ground, the floor, the stamp, the feeds, the box on the point of light, the greeting, then Home's own hero. */
 const FLAT: Timeline = { ground: 0, floor: 160, orb: 400, stamp: 520, feeds: 900, recognise: 1200, greeting: 1360, land: 1500, end: 1700 };
 const LINES: Record<'full' | 'short' | 'still' | 'flat', Timeline> = { full: FULL, short: SHORT, still: STILL, flat: FLAT };
-/** THE FILM's cuts as timelines (features/core/scan/film.ts): the full film, Home usable at 7,000; the short cut about 4,800. */
-const asTimeline = (c: FilmCut): Timeline => ({ ground: c.ground, floor: c.scan, orb: c.orb, stamp: c.stamp, feeds: c.feeds, recognise: c.recognise, greeting: c.greeting, land: c.land, end: c.end });
-const FILM_LINES: Record<'full' | 'short' | 'still' | 'flat', Timeline> = { full: asTimeline(FILM), short: asTimeline(FILM_SHORT), still: STILL, flat: FLAT };
 const PHASES: Exclude<Phase, 'done'>[] = ['ground', 'floor', 'orb', 'stamp', 'feeds', 'recognise', 'greeting', 'land'];
-/** The cinematic's own part is over this long after its first frame, whatever happens (the cut's own end: 2,880, or the film's 7,000). */
-const capOf = (lines: Record<'full', Timeline>) => lines.full.end;
+/** The cinematic's own part is over this long after its first frame, whatever happens. */
+const CAP = FULL.end;
 /** A beat between Mind landing in the hero and the HUD sliding in round it, ms. */
 const BEAT = 110;
 /** The lock's length (the tokens' --g-dur-lock): the feeds' lines come one of these apart. */
@@ -173,11 +158,6 @@ export const bootState = {
   warm: 0,
   /** How many times it has played since the page opened (a reboot adds one). */
   plays: 0,
-  /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
-  film: false,
-  scan: null as FilmState | null,
-  /** THE SCORE (B) under the film: whether it sounded and which cues came (score.ts); A (the one tone) when he chose it or the phone allows no sound yet. */
-  score: scoreState,
 };
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -320,7 +300,7 @@ function breatheWhenReady(): void {
 }
 
 // ---------------------------------------------------------------- sound: a low hum under the orb's waking, gone at the recognition
-function hum(tl: Timeline = FULL): (() => void) | null {
+function hum(): (() => void) | null {
   if (!settings.get().speak) return null;
   const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
   // a cold open has had no tap: the phone would refuse (and Safari says so); nothing is queued for later
@@ -338,7 +318,7 @@ function hum(tl: Timeline = FULL): (() => void) | null {
   const lp = a.createBiquadFilter();
   lp.type = 'lowpass';
   lp.frequency.setValueAtTime(260, t);
-  lp.frequency.linearRampToValueAtTime(900, t + tl.recognise / 1000);
+  lp.frequency.linearRampToValueAtTime(900, t + FULL.recognise / 1000);
   lp.connect(out).connect(a.destination);
   // the hum: two low tones a hair apart (a slow beat between them), rising a little as the orb wakes, gone as the box lands
   // (the recognition's own tone, ui/machine.ts, is the sound of that moment)
@@ -347,17 +327,17 @@ function hum(tl: Timeline = FULL): (() => void) | null {
     const g = a.createGain();
     o.type = 'triangle';
     o.frequency.setValueAtTime(f, t);
-    o.frequency.exponentialRampToValueAtTime(f * 1.19, t + tl.recognise / 1000);
+    o.frequency.exponentialRampToValueAtTime(f * 1.19, t + FULL.recognise / 1000);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(v, t + (tl.orb + 560) / 1000);
-    g.gain.setValueAtTime(v, t + tl.feeds / 1000);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + tl.recognise / 1000);
+    g.gain.exponentialRampToValueAtTime(v, t + (FULL.orb + 560) / 1000);
+    g.gain.setValueAtTime(v, t + FULL.feeds / 1000);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + FULL.recognise / 1000);
     o.connect(g).connect(lp);
     o.start(t);
-    o.stop(t + tl.recognise / 1000 + 0.1);
+    o.stop(t + FULL.recognise / 1000 + 0.1);
   }
   bootState.sound = true;
-  setTimeout(() => void a.close().catch(() => undefined), tl.end + 1000);
+  setTimeout(() => void a.close().catch(() => undefined), FULL.end + 1000);
   // skipped: the sound goes with it
   return () => {
     try {
@@ -539,20 +519,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.feedLines = [];
   bootState.floorDrawn = '';
   bootState.budget = { hz: 0, ms: LONG_60, long: 0, gaps: [], work: 0, avg: 0, lean: '' };
-  bootState.film = false;
-  bootState.scan = null;
   const B = bootState.budget;
   if (rebooting) appIsReady = true;
   let kind = first as 'full' | 'short' | 'still' | 'flat';
-  const dd = document.documentElement.dataset;
-  // THE FILM: The Scan's world gets round two's film with the descent (features/core/scan/film.ts); the other worlds today's picture
-  const filmWanted = dd.world === 'scan' && kind !== 'flat' && webglWorks();
-  const L = filmWanted ? FILM_LINES : LINES;
-  const CAP = capOf(L);
-  let tl = L[kind];
+  let tl = LINES[kind];
   bootState.timeline = tl;
   const vw = innerWidth;
   const vh = innerHeight;
+  const dd = document.documentElement.dataset;
   // under Paper the boot plays on his night ground in his colour: the layer carries the night ground's tokens and the theme's
   // accent block (as a swatch does), so its marks are the night ground's and the orb keeps the theme's own light
   if (dd.ground === 'paper') {
@@ -599,37 +573,24 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const topY = Math.round(top.getBoundingClientRect().top);
   const fctx = floor.getContext('2d');
   let floorAt = -1;
-  // (the film draws the world itself: the floor forming is the scan's points, so the 2-D floor stays out of its way)
-  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass';
-  if (floorHas || filmWanted) bootState.floorDrawn = world;
+  const floorHas = world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass';
+  if (floorHas) bootState.floorDrawn = world;
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)
   let mind: Mind | null = null;
   let mindState: 'wait' | 'ready' | 'none' = 'none';
-  // the film's world: built once Mind is in (the scene is Home's too: the same buffers at every altitude), lean on a phone that cannot keep up
-  const lit = litByHour();
-  let film: Film | null = null;
-  let worldBuilt: '' | 'full' | 'lean' = '';
-  const buildWorld = (lean: boolean) => {
-    const want = lean ? 'lean' : 'full';
-    if (worldBuilt === want) return;
-    scanScene().build(worldDesc(lit === 'r-alice' ? 'alice' : 'brief', lean));
-    worldBuilt = want;
-  };
   if (kind !== 'flat' && webglWorks()) {
     mind = mindFor(null);
     mindState = mind.active ? 'ready' : 'wait';
-    if (filmWanted && mind.active) buildWorld(kind === 'short');
     if (!mind.active)
       void mind.start().then((ok) => {
         if (mindState === 'wait') mindState = ok ? 'ready' : 'none';
-        if (ok && filmWanted && !worldBuilt) buildWorld(kind === 'short');
       });
   }
   if (!mind && kind !== 'flat') {
     // no 3-D at all: the flat cut from the first frame (its own timeline, not the full one's)
     kind = 'flat';
-    tl = L[kind];
+    tl = LINES[kind];
     bootState.timeline = tl;
     bootState.kind = kind;
     el.classList.remove('full', 'short', 'still');
@@ -640,31 +601,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (!mind || mindIn) return;
     mindIn = true;
     bootState.mind = true;
-    if (filmWanted) {
-      // the film: the one context staged full-screen in the boot's layer; the world first, the orb into its viewport
-      buildWorld(kind === 'short');
-      film = new Film(el, kind === 'short' ? FILM_SHORT : FILM, mind, lit, worldBuilt === 'lean');
-      bootState.film = true;
-      bootState.scan = film.state;
-      mind.bootBeginStaged(el, film.draw);
-      return;
-    }
     mind.bootBegin(el, side, side);
     const c = mind.canvas;
     Object.assign(c.style, { position: 'fixed', left: `${box.x}px`, top: `${box.y}px`, transformOrigin: '0 0', opacity: '0', zIndex: '1' });
   };
 
-  // THE SOUND: under the film, B, the short score (his Sounds setting and the platform's cold-open rule honoured by score.ts, said nowhere);
-  // A, the one tone, when he chose it; today's hum under the other worlds' picture
-  resetScoreState();
-  const score: Score | null = filmWanted && settings.get().bootScore !== false ? startScore() : null;
-  if (score?.on) bootState.sound = true;
-  const stopSound = score ? () => score.stop() : hum(tl);
+  const stopSound = hum();
   let said = false;
-  let heardThings = 0;
-  let heardFeeds = 0;
-  let heardChars = 0;
-  let sphereCued = false;
 
   // ---- the stamp's facts and the feeds' answers: asked now (the guardian's own first look comes later than the boot)
   void loadGuardian();
@@ -705,14 +648,6 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   let done = false;
   let locked = false;
   let released = false;
-  /** THE FILM's search (shot 8): its own box, and whether it has locked on tonight's thing. */
-  const searchBox = lockBox(el);
-  searchBox.classList.add('bsearch');
-  let searchLocked = false;
-  const marksLocked = () => {
-    // the lock on the thing found: the box lands in the accent (the tone is the recognition's, once, on the orb)
-    marksState.searches++;
-  };
   /** The frame budget: gaps quicker than a 60 Hz frame (two say the display runs at 120), the last WINDOW frames' long
    *  ones (counted from the moment Mind takes the stage), the work each frame took. */
   let quick = 0;
@@ -731,9 +666,6 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (bootState.skipped && p !== 'land' && p !== 'done' && p !== 'ground') return;
     bootState.marks[p] = Math.round(at);
     bootState.phase = p;
-    // the score's cues at the phases: the scan begins (the pad rises), the voice has the floor at the greeting
-    if (p === 'floor') score?.scan();
-    if (p === 'greeting') score?.voice();
     // the HUD waits out of sight while Mind flies; it slides in a beat after Mind lands (finish)
     if (p === 'land') document.body.classList.add('bootwait');
     if (p === 'greeting' && !said) {
@@ -769,14 +701,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       }
     } else if (mindState === 'none' || (e > SHORT_BY && !forced())) kind = 'flat';
     else return false;
-    tl = L[kind];
+    tl = LINES[kind];
     bootState.timeline = tl;
     bootState.kind = kind;
     el.classList.remove('full', 'short', 'still', 'flat');
     el.classList.add(kind);
     if (kind !== 'flat') takeMind();
-    // (the short cut chosen after the film began: its shots move closer together)
-    if (film && kind === 'short') film.setCut(FILM_SHORT);
     // whatever was waited, its own part still ends by 2,880 ms
     const left = tl.end - tl.orb;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
@@ -810,18 +740,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     stopSound?.();
     letGo();
     if (mindIn && mind) {
-      // (the film: the orb's viewport is where it flew to; Home's hero sits on the same place, so the landing is no cut)
-      const q = film ? film.orbRect() : null;
-      const flight = q ? { x: q.x, y: q.y, width: q.w, height: q.h } : mind.canvas.getBoundingClientRect();
+      const flight = mind.canvas.getBoundingClientRect();
       const hr = heroRect();
       bootState.landed = { flight: [flight.x, flight.y, flight.width, flight.height].map((v) => Math.round(v * 10) / 10), hero: hr ? [hr.x, hr.y, hr.width, hr.height].map((v) => Math.round(v * 10) / 10) : [] };
       mind.bootEnd();
-      if (film) {
-        film.end();
-        // Home takes the stage (the phone's frame); where it does not (a desk's three-column Home), the canvas goes back over the hero
-        if (!scanHooks.landed()) mind.unstage();
-      }
-      if (kind === 'still' && mind.canvas.isConnected && !film) mind.canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+      if (kind === 'still' && mind.canvas.isConnected) mind.canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
     }
     el.classList.add('out');
     setTimeout(() => {
@@ -862,15 +785,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const recogniseOrb = (push: number) => {
     if (locked) return;
     locked = true;
-    const q = film?.orbRect();
-    const ox = q ? q.x + q.w / 2 : cx;
-    const oy = q ? q.y + q.h / 2 : cy;
-    const R = kind === 'flat' ? 22 : q ? (ORB_FILL * q.w) / 2 + 5 : (0.9 * 0.74 * (side / 2)) / push + 5;
-    Object.assign(orbBox.style, { left: `${ox - R}px`, top: `${oy - R}px`, width: `${2 * R}px`, height: `${2 * R}px` });
-    name.style.top = `${oy + R + 14}px`;
+    const R = kind === 'flat' ? 22 : (0.9 * 0.74 * (side / 2)) / push + 5;
+    Object.assign(orbBox.style, { left: `${cx - R}px`, top: `${cy - R}px`, width: `${2 * R}px`, height: `${2 * R}px` });
+    name.style.top = `${cy + R + 14}px`;
     bootState.tone = sfxAllowed() ? ((document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off') : 'quiet';
-    // the chord stops dead with the tone; the wave follows it out
-    score?.lock();
     void recognise(lock, orbBox, { name: 'Ghosty' });
   };
 
@@ -904,44 +822,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const G = tl.orb;
     const S = tl.orb + 560;
     const N = tl.feeds;
-    // (the film: the camera stays where the descent puts it; the orb's push-in is the sphere's own, not the camera's)
-    const push = kind === 'full' && !film ? 1 + 0.45 * (1 - easeInOut(seg(G, N))) : 1;
-    // THE FILM's own frame: the descent, the things locking in as the front reaches them, the orb's viewport, the search's line of sight
-    if (film) {
-      const C = kind === 'short' ? FILM_SHORT : FILM;
-      const nowLocked = T >= C.now + 320 && !bootState.skipped;
-      film.frame(T, { calm, nowLocked, textsOut, lean });
-      // one soft tick per thing found, each a semitone lower; the pad opens to the chord as the sphere resolves
-      while (heardThings < film.state.locked.length) {
-        heardThings++;
-        score?.thing();
-      }
-      if (!sphereCued && T >= S + 250) {
-        sphereCued = true;
-        score?.sphere();
-      }
-      // the search (shot 8): the box checks the shelf, then the station, then locks on tonight's thing (this morning's Brief by the hour)
-      const stops: [string, number][] = [['r-shelf', C.now], ['r-station', C.now + 160], [lit, C.now + 320]];
-      let at: [string, number] | null = null;
-      for (const st of stops) if (T >= st[1]) at = st;
-      const searching = !!at && T < tl.land && !bootState.skipped;
-      searchBox.hidden = !searching;
-      if (searching && at) {
-        const target = film.markEl(at[0]);
-        const rr = target?.getBoundingClientRect();
-        const hb = el.getBoundingClientRect();
-        if (rr && rr.width) {
-          const pad = 6;
-          const landedNow = at[0] === lit;
-          searchBox.dataset.state = landedNow ? 'attend' : 'watch';
-          Object.assign(searchBox.style, { left: `${rr.left - hb.left - pad}px`, top: `${rr.top - hb.top - pad}px`, width: `${rr.width + 2 * pad}px`, height: `${rr.height + 2 * pad}px`, opacity: textsOut.toFixed(3) });
-          if (landedNow && !searchLocked) {
-            searchLocked = true;
-            marksLocked();
-          }
-        }
-      }
-    }
+    const push = kind === 'full' ? 1 + 0.45 * (1 - easeInOut(seg(G, N))) : 1;
     const orbState: MindState = T >= tl.greeting ? 'speaking' : T >= tl.recognise ? 'attending' : 'idle';
     if (mindIn && mind) {
       let look: BootLook = BOOT_DONE;
@@ -968,14 +849,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       } else fade = easeOut(seg(G, G + (kind === 'still' ? 300 : 450)));
       const c = mind.canvas;
       // 8. the flight: from the stage up into the hero's box (the same canvas; it is Home's from the landing on)
-      const hr = T >= tl.land && !film ? heroRect() : null;
+      const hr = T >= tl.land ? heroRect() : null;
       if (hr && kind !== 'still') {
         const k = easeInOut(seg(tl.land, tl.end));
         const s = 1 + (hr.width / side - 1) * k;
         c.style.transform = `translate(${((hr.left - box.x) * k).toFixed(2)}px, ${((hr.top - box.y) * k).toFixed(2)}px) scale(${s.toFixed(4)})`;
-      } else if (kind === 'still' && !film) fade *= 1 - seg(tl.land, tl.end);
-      // (the film's canvas holds the world too: it never fades; the orb's own light is the film's to bring up)
-      c.style.opacity = film ? '1' : fade.toFixed(3);
+      } else if (kind === 'still') fade *= 1 - seg(tl.land, tl.end);
+      c.style.opacity = fade.toFixed(3);
       // (stepped by hand, a check's photographs follow the cut's own clock, not the time the photographs take)
       mind.bootFrame((flags().__ghostyBootManual ? T : e) / 1000, look, orbState);
     }
@@ -989,12 +869,6 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (T >= tl.stamp) {
       stampTyped(stamp, words, chars);
       bootState.stamp = words;
-      // a faint typing tick under the cursor
-      const n = Math.min(words.join(' · ').length, Math.floor(chars));
-      while (heardChars < n) {
-        heardChars++;
-        score?.typing();
-      }
     }
     stamp.style.opacity = ((T >= tl.stamp ? 1 : 0) * textsOut).toFixed(3);
     // 5. the feeds answer, one line each as they connect (only the ones that did), a lock apart; gone at the recognition
@@ -1004,11 +878,6 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       const at = tl.feeds + i * LOCK;
       const on = calm ? (T >= tl.feeds ? 1 : 0) : seg(at, at + LOCK);
       l.el.style.opacity = (on * gone * textsOut).toFixed(3);
-      // a soft tick per feed as its line lands, rising
-      if (on > 0 && heardFeeds <= i) {
-        heardFeeds = i + 1;
-        score?.feed();
-      }
     });
     feeds.hidden = gone <= 0;
     // 6. the recognition: the box snaps onto the orb with the tone, G H O S T Y under it
