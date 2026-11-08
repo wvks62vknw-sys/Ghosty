@@ -354,6 +354,43 @@ folder that no longer exists; ignore those paths).
   the themes check leaves the live marks out and holds one mark's type and spacing instead. Nothing loosened. Faces, thescan,
   routec and lens clean here on the fixed build. LESSON: a world that breathes redraws for ever; the idle cadence is a budget
   of its own, and the jump bar's 300 ms on two cores is where it shows first.
+  22:08 UK: PR #73 GREEN on every job (run 398 on 9b57472), SQUASH-MERGED, main aa92328: THE LENS THAT JUST KNOWS is on main
+  with the Scan's half-rate breath, the reader's quiet stop and the themes check's re-cut; main's own run read at the
+  23:20 UK check-in. His phone checks open: 152 (voice), 154 (the Lens stopgap, now superseded by 163), 161 (shell pass 1),
+  162 (The Scan's Home), 163 (the Lens that just knows). Next: the Theme gallery of seven looks (colour the only choice;
+  mocks first for each look as 157 says, THE SCAN live), then ONE INK.
+  HIS USAGE 8 Nov 22:11 UK: all models weekly 58%, top tier weekly 81% (10:20 UK: 45% and 58%; 7 Nov 13:20 UK: 24% and 24%).
+  The top tier climbed 23 points in twelve hours of orchestration: the day's CI fixing across PRs #71, #72 and #73 (eleven
+  runs, four of them red, each read and fixed), the two guard episodes, and the pull-request subscription waking the
+  orchestrator on every bot notice (the preview deploy edits its comment three or four times a push). The plan ends 14 Nov,
+  the week resets Friday 19:00 UK: nineteen points of the top tier for five days. METHOD FROM HERE: no pull-request
+  subscription (one check-in timed to the run's end instead of six wakes); pushes batched (a docs commit rides the next code
+  push); cheap workers read every log and do the first pass of every review (protected files, model names, the boundary,
+  removed checks); the orchestrator's own turns one line; builders mid tier; THE GALLERY (in flight) is the last build of the
+  week unless his phone checks (152, 154, 161, 162, 163) call for fixes; ONE INK's mocks and build wait for the reset.
+  22:40 UK, HIS WORD (OWNER-ISSUES 164): after the audit (AUDIT-8-NOV.md) he said "all of this needs to be built with the 40%
+  we have left, it has to happen", and no more numbers in his messages, context only. So the week's end is a queue of small
+  mid-tier builds in 164's order, two builders at a time, the orchestrator one line a turn: the gallery (worktree gallery,
+  running), THE SHELL IN THE SCAN (BRIEF-SHELL-2; worktree shell2, launched 22:45 UK), then ONE INK, the speed offenders,
+  SHOW ME's first slice, offline maps, the games he named, the working engine, no cap on skill, the speaker model, THE MAP and
+  THE EYE, the weekly training for real, the phone-hardware items blind with fallbacks. The editors are said plainly to be a
+  programme of weeks each and come last. Builders' briefs name the ports: gallery 8798, shell2 8799; the orchestrator 8797.
+  23:25 UK: THE THEME GALLERY reported by the mid-tier builder (worktree gallery, eight commits on builder/gallery from 4e7fa66):
+  ui/gallery.ts and shared/looks.ts (pure: the seven looks, their lines, the words), the Theme page re-cut to the mock (seven
+  cards, the twelve colours between the rows, COMING on the five not built, YOU'RE IN IT on the one he is in), seven webp
+  stills (63 KB together), look.spec section 7 and routec [themes]/[themes2] re-cut (every removed check replaced by its new
+  form or its opposite: a cheap reviewer listed each), the recipe's state and the words' tables untouched. Clean in its
+  worktree: look (the page in 18/97 ms), settings, character, boot, routec part one (the themes block). Two reds it saw are
+  its sandbox's: routec's part two crashed Chromium there on untouched main too, and thescan's "[sent] a coordinate left the
+  phone" showed the same numbers on untouched main there, while thescan is clean on the orchestrator's build and on every CI
+  run (noted; not chased). Applied as one commit on the session branch after PR #74; PR #75; OWNER-ISSUES 165 (his
+  seven-step check, seven calls).
+  23:30 UK: THE SHELL IN THE SCAN reported by its builder (five commits on builder/shell2): rooms.ts (the one list of rooms and
+  numbered things), house.ts (the house, the plan), jump.ts (the ask line as the jump bar: 79/71 ms to open), a hub as a room,
+  Every screen as the inventory, Settings as the plate, the ratchet test (2,004 to 1,992). NOT DONE: the pinned specs were not
+  re-cut (only tabs was run, red on the deck's opening), no Glass pixel diff. Sent back to the same builder with the list:
+  re-cut the specs in place, fix the tabs failure at its cause, the Glass diff against a base worktree, "open two" by voice,
+  Home's THE HOUSE key at 44 pt, every spec run one at a time. It lands only when they hold.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
