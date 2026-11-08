@@ -322,6 +322,15 @@ folder that no longer exists; ignore those paths).
   own run read at the 17:40 UK check-in. The Scan is the default world: his phone opens in it. The session branch carries
   main merged in (a forced restart was refused by the sandbox; the tree equals main's). Next: the Lens that just knows
   (mid tier, no key rows, 156), then the gallery of seven looks, then ONE INK.
+  17:45 UK: MAIN'S OWN RUN (391) ON 8350f26 RED ON ONE SHARD, THE GUARD RESTORED MAIN TO 3ea2c4b (50b15f4): the boot spec,
+  twice: (a) "reboot: Mind did not end up in the hero" (count 0) on the first attempt only, the hand-over from the
+  cinematic's stage to Home's canvas slower than the spec's fixed 400 ms on the runner (the same flake showed once on PR
+  #71's run 386 and passed on the retry); (b) on both attempts a console line counted as the app's: Chromium refusing the
+  harness's own init script in the article's script-free frame (`sandbox="allow-same-origin"`). Fixed forward on the
+  session branch: the spec waits up to 6 s for Mind in the hero (the same checks on the same reading, as it waits for the
+  HUD's slide) and that one harness line is not the app's. The Scan stands again on the branch (main's restore merged with
+  the branch's tree kept, as PR #66's lesson); a new PR re-lands it with the fix. LESSON: a spec with a fixed pause after a
+  landing is a flake waiting for a slow runner; every landing check waits on its condition.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
