@@ -122,6 +122,7 @@ export class Reader {
       // waiting on it any more (the one Lens leaves while a scene is being read): that failure is swallowed here, never a page error
       const reading = w.recognize(src, {}, { text: true, blocks: true });
       reading.catch(() => undefined);
+      this.inflight = reading;
       const { data } = await Promise.race([reading, stopped]);
       const { lines, words } = flattenRaw(data);
       return { text: String(data.text ?? ''), confidence: Number(data.confidence) || 0, lines, words };
@@ -131,6 +132,9 @@ export class Reader {
       this.busy = false;
     }
   }
+
+  /** The read in flight, if any: the worker underneath is put away only once it has settled (see terminate). */
+  private inflight: Promise<unknown> | null = null;
 
   get warmed(): boolean {
     return !!this.worker;
@@ -142,6 +146,12 @@ export class Reader {
     this.busy = false;
     this.stop?.(new Error('reader stopped'));
     this.stop = null;
-    if (w) void w.then((x) => x.terminate()).catch(() => undefined);
+    // The library posts a job to its worker only after it has prepared the picture (an await of its own): a worker put away in
+    // that gap makes the library's own post fail with no one listening, which the page counts as an error. So the worker is
+    // put away once the read in flight has settled, never under it; the reader itself is free again at once (busy is false,
+    // the next read starts a fresh worker).
+    const settled = this.inflight ? this.inflight.then(() => undefined, () => undefined) : Promise.resolve();
+    this.inflight = null;
+    if (w) void settled.then(() => w).then((x) => x.terminate()).catch(() => undefined);
   }
 }
