@@ -63,8 +63,11 @@ const fakeVoice = () => {
 async function open(size = PHONE, name = 'main') {
   const ctx = await browser.newContext({ viewport: size, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'], userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
   await ctx.addInitScript(([k]) => {
-    localStorage.setItem('ghosty.ownerKey', k);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));
+    // this runs in every frame, the sandboxed widget frames included (no same-origin: their storage throws): only Ghosty's own page is seeded
+    try {
+      localStorage.setItem('ghosty.ownerKey', k);
+      if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));
+    } catch { /* a sandboxed frame */ }
   }, [KEY]);
   await ctx.addInitScript(fakeVoice);
   const page = await ctx.newPage();
