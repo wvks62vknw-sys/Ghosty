@@ -27,7 +27,6 @@ import { memoryTab } from './memory';
 import { systemTab } from './system';
 import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
-import { abilitiesTab } from './abilities';
 import { workbenchTab } from './workbench';
 import { arcadeTab } from './arcade';
 // [tabs] the fourteen sheets as screens of their own (BRIEF-TABS 2): LIFE's eight packs, LEARN's learning and coach, MAKE's
@@ -48,4 +47,4 @@ import { docsTab } from './docs';
 import { houseTab } from './house';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, abilitiesTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];

@@ -7,6 +7,7 @@ import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts } from './day';
 import { briefForesight } from './foresight';
 import { briefIndependence } from '../system/independence';
@@ -278,6 +279,15 @@ export const briefTab: TabDef = {
         news.start();
       },
       describe,
+      // (BRIEF-SHELL pass 1) what is open: the day's reading and the headlines section he is on
+      context: () => {
+        const feed = NEWS_FEEDS[currentNewsFeed()]?.[0] ?? '';
+        const wx = [P.big.textContent, P.sub.textContent].filter(Boolean).join(' ');
+        return screenSays('brief', 'Brief', `the brief${wx ? `, ${wx}` : ''}${feed ? `, on the ${feed.toLowerCase()} headlines` : ''}`, {
+          looking: 'the brief',
+          ...(feed ? { selected: { kind: 'group', id: `news:${currentNewsFeed()}`, label: `${feed} headlines` } } : {}),
+        });
+      },
     };
   },
 };

@@ -6,10 +6,11 @@ import { GEO } from '../../engine/geo';
 import { air } from '../../engine/layers/air';
 import { sats } from '../../engine/layers/sats';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { home, settings } from '../../state/app';
 import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 import { reconPanel } from './recon';
 import { nearHomePanel } from './nearhome'; // [guardian]
 
@@ -95,6 +96,15 @@ export const threatsTab: TabDef = {
         for (const f of [quakes, events, launches, kp]) f.start();
         paint();
         nearHome.refresh();
+      },
+      // (BRIEF-SHELL pass 1) the level, the section open and the worst alert
+      context: () => {
+        const top = signals()[0];
+        const sec = sectionNow('threats').toLowerCase() || 'signals';
+        return screenSays('threats', 'Threats', `threats, level ${(P.big.textContent || 'unknown').toLowerCase()}, on ${sec}`, {
+          looking: 'threats',
+          ...(top ? { selected: { kind: 'item', id: `signal:${top.kind}`, label: top.text, detail: `worst alert, ${top.kind.toLowerCase()}` } } : {}),
+        });
       },
       describe: () => `Threats: level ${P.big.textContent}; ${P.sub.textContent}`,
     };

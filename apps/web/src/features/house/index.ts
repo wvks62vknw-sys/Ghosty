@@ -22,6 +22,11 @@ export const houseTab: TabDef = {
       sub: 'Your house as Home Assistant has it, room by room. Locks, alarms, gates and garage doors ask your confirm every time.',
       big: () => cardBig('house'),
       load: () => cardLoad('house'),
+      // the rooms on screen (Home Assistant's areas, by their own names): how many, and the first few
+      also: () => {
+        const rooms = [...document.querySelectorAll<HTMLElement>('#pg-house .houseroom')].map((r) => r.getAttribute('aria-label') ?? '').filter(Boolean);
+        return rooms.length ? `${rooms.length} ${rooms.length === 1 ? 'room' : 'rooms'}: ${rooms.slice(0, 3).join(', ')}` : 'no rooms yet';
+      },
       sections: async () => {
         const m = await import('../../house/sheet');
         return [{ id: 'house', label: 'House', parts: [{ title: m.HOUSE_TITLE, build: m.houseScreen }] }];

@@ -23,6 +23,7 @@ import { settings, ui } from '../state/app';
 import { niceCase, toast } from '../ui/components';
 import { revealPanel } from '../ui/sections';
 import { navTo } from './areas';
+import { isFavourite, pinOnHold } from './favourites';
 import { DECK, DECK_GROUPS, picksFor, type DeckAct, type DeckLine, type DeckScreen, type TryPick } from './deckcopy';
 import { tabs, type TabDef } from './tabs';
 import { askFromHere, awarenessMark, screenActs, setOverlay } from './awareness';
@@ -44,7 +45,7 @@ export interface Launcher {
 }
 
 /** What the deck shows, for specs and the console (window.__ghosty.deck). */
-export const deckState = { open: false, expanded: '', query: '', shown: [] as string[], picks: [] as string[] };
+export const deckState = { open: false, expanded: '', query: '', shown: [] as string[], picks: [] as string[], group: '' };
 
 /**
  * What the deck says while it is open (BRIEF-AWARENESS): it sits over the tab underneath, so for as long as it is up it speaks
@@ -116,6 +117,9 @@ export function perform(a: DeckAct): void {
   }
 }
 
+/** The deck's group a screen is in ('' for one that has none). */
+const groupOfScreen = (id: string): string => DECK_GROUPS.find(([, ids]) => ids.includes(id.split('?')[0]!))?.[0] ?? '';
+
 const actKind = (a: DeckAct) => ('ask' in a ? 'ask' : 'chat' in a ? 'chat' : 'open');
 
 export function buildLauncher(): Launcher {
@@ -149,7 +153,8 @@ export function buildLauncher(): Launcher {
   // (a screen inside another — THE LOOK, the reader — has no card of its own: its parent's card leads to it)
   const defs = () => new Map(tabs().filter((t) => !t.hub && !t.inside).map((t) => [t.id, t]));
   const choose = (a: DeckAct) => {
-    close(true);
+    // (where he went from is where it opens next time: the group of the screen he picked)
+    close(true, 'open' in a ? groupOfScreen(a.open) : undefined);
     perform(a);
   };
   // "open that one" while a card is open (assistant/thatone.ts): the same as its OPEN button
@@ -190,7 +195,11 @@ export function buildLauncher(): Launcher {
       live ? h(`span.dklive${live.hot ? '.hot' : ''}` as 'span', h('i'), live.text) : null,
       // the Core card says what I am looking at (BRIEF-AWARENESS), with the mark: WORKING while my last turn carried the screen
       t.id === 'core' ? lookRow() : null,
+      isFavourite(t.id) ? h('i.pinmark', 'PINNED') : null,
     );
+    // a long press pins it (FAVOURITES, BRIEF-SHELL); the deck repaints each time it opens, so the mark follows
+    pinOnHold(b, t.id);
+    if (isFavourite(t.id)) b.dataset.pinned = 'true';
     return b;
   };
   const canRow = (l: DeckLine) =>
@@ -277,6 +286,19 @@ export function buildLauncher(): Launcher {
     }));
   };
 
+  // a pin made while the deck is up shows at once (the cards are drawn again each time it opens)
+  const paintPins = () => {
+    for (const c of groups.querySelectorAll<HTMLElement>('.dkcard')) {
+      const on = isFavourite(c.dataset.id ?? '');
+      c.querySelector('.pinmark')?.remove();
+      if (on) {
+        c.dataset.pinned = 'true';
+        c.append(h('i.pinmark', 'PINNED'));
+      } else delete c.dataset.pinned;
+    }
+  };
+  settings.subscribe(paintPins);
+
   // ---------- the pill: filter, return, dictate
   type Hit = { t: TabDef; line: DeckLine };
   let found: { cards: TabDef[]; lines: Hit[] } = { cards: [], lines: [] };
@@ -357,13 +379,25 @@ export function buildLauncher(): Launcher {
     deckState.open = true;
     addEventListener('keydown', esc);
     sfx('open');
-    scroller.scrollTop = 0;
+    // it opens on the group he left (STARS 163: "the deck remembers where he was"), the first when he has never left one
+    const left = settings.get().deckGroup;
+    const sec = left ? groups.querySelector<HTMLElement>(`.dkgroup[data-group="${CSS.escape(left)}"]`) : null;
+    scroller.scrollTop = sec ? Math.max(0, sec.offsetTop - scroller.offsetTop - 8) : 0;
+    deckState.group = sec ? left : DECK_GROUPS[0]![0];
     scroller.focus({ preventScroll: true });
   };
   /** quiet: a screen was chosen, so the tab change makes the sound instead. */
-  const close = (quiet = false) => {
+  const close = (quiet = false, picked?: string) => {
     if (!deck.classList.contains('on')) return;
     if (listening) stopListening();
+    // the group he left it on: the screen he picked, else the card open, else the group at the top of what he was reading
+    const leftOn = picked || (expanded ? groupOfScreen(expanded) : '') || (() => {
+      const top = scroller.scrollTop + scroller.offsetTop + 24;
+      let g = '';
+      for (const s of groups.querySelectorAll<HTMLElement>('.dkgroup')) if (!s.hidden && s.offsetTop <= top) g = s.dataset.group ?? g;
+      return g;
+    })();
+    if (leftOn && leftOn !== 'More') settings.set({ deckGroup: leftOn });
     deck.classList.remove('on');
     document.body.classList.remove('decked');
     deckState.open = false;

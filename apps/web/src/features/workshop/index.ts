@@ -15,9 +15,10 @@ import { brain, isPaused, lastSeen } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { bar, button, confirmSheet, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, undo, type Light } from '../../ui/components';
 import { page } from '../../ui/page';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 import { forgetWidget, keepWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
@@ -740,6 +741,16 @@ export const workshopTab: TabDef = {
       leave() {
         clearInterval(timer);
         clearInterval(ptimer);
+      },
+      // (BRIEF-SHELL pass 1) the page open and the project running
+      context: () => {
+        const sec = sectionNow('workshop').toLowerCase() || 'projects';
+        const p = projects.find((x) => x.status === 'active') ?? projects[0];
+        const done = p ? p.steps.filter((x) => x.status === 'done').length : 0;
+        return screenSays('workshop', 'Workshop', `the workshop, on ${sec}${p ? `, project ${p.title}` : ''}`, {
+          looking: 'the workshop',
+          ...(p ? { selected: { kind: 'item', id: `project:${p.id}`, label: p.title, detail: `${p.status}, ${done} of ${p.steps.length} steps` } } : {}),
+        });
       },
       describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${projects.length ? `projects: ${projects.slice(0, 4).map((p) => `"${p.title}" ${p.status} ${p.steps.filter((s) => s.status === 'done').length}/${p.steps.length}`).join('; ')}; ` : ''}${ideas.length} upgrade ideas${ideas.length ? ` (${ideas.slice(0, 3).map((i) => i.title).join('; ')})` : ''}, ${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
     };

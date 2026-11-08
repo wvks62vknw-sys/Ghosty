@@ -21,6 +21,8 @@ import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
 import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
+import { favourites, isFavourite, pinOnHold } from './favourites';
+import { screenSays } from './awareness';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
 import { offlineBrain } from '../offline/brain';
@@ -130,13 +132,27 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   });
   // [tabs] IN THE WORKS: a small label and its one line, on a card whose screen still holds a stand-in or a table written in
   const works = c?.works ? h('span.works', h('b', 'In the works'), h('span', c.works)) : null;
+  const pinned = h('i.pinmark', { hidden: true }, 'PINNED');
   const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
     h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, works, reads, why, line,
+    title, works, reads, why, line, pinned,
   );
+  // a long press pins the screen (FAVOURITES, BRIEF-SHELL): the card of a screen only (Voice is not one)
+  const paintPin = () => {
+    const on = isFavourite(id);
+    pinned.hidden = !on;
+    if (on) el.dataset.pinned = 'true';
+    else delete el.dataset.pinned;
+  };
+  if (t) {
+    pinOnHold(el, id);
+    paintPin();
+    settings.subscribe(paintPin);
+  }
   let insKey: Element | null = null;
   const paint = () => {
+    if (t) paintPin();
     if (!c) return;
     const st = t?.status?.() ?? c.status();
     el.dataset.status = st.toLowerCase();
@@ -214,7 +230,13 @@ function hubTab(a: Area): TabDef {
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
-      return { enter: paint, leave: () => clearInterval(timer), describe: () => `${a.title}: ${a.tabs.join(', ')}` };
+      return {
+        enter: paint,
+        leave: () => clearInterval(timer),
+        describe: () => `${a.title}: ${a.tabs.join(', ')}`,
+        // (BRIEF-SHELL pass 1) a hub says which area it is and how much is in it
+        context: () => screenSays(hubId(a), a.title, `the ${a.title.toLowerCase()} hub, ${areaTools(a).length} things to open`, { looking: `the ${a.title.toLowerCase()} hub` }),
+      };
     },
   };
 }
@@ -229,8 +251,14 @@ addPaletteDecor({
     const t = /^(tab|open)_/.test(c.id) ? def(id) : undefined;
     return t ? { tint: tintOf(t.id), glyph: t.icon } : { tint: GROUP_TINT[c.group ?? ''] ?? '#8e8e93', glyph: null };
   },
-  recents: () =>
-    recents.slice(0, 4).map(def).filter((t): t is TabDef => !!t && !t.hub).map((t) => ({ id: `tab_${t.id}`, title: toolName(t), group: 'RECENT', run: () => void navTo(t.id, 'push') })),
+  // FAVOURITES first (up to six, his order), then the last screens opened that are not already pinned: tap the search, tap the row
+  recents: () => {
+    const row = (t: TabDef, group: string) => ({ id: `tab_${t.id}`, title: toolName(t), group, run: () => void navTo(t.id, 'push') });
+    const pinned = favourites().map(def).filter((t): t is TabDef => !!t && !t.hub);
+    const lately = recents.map(def).filter((t): t is TabDef => !!t && !t.hub && !pinned.includes(t)).slice(0, 4);
+    return [...pinned.map((t) => row(t, 'FAVOURITES')), ...lately.map((t) => row(t, 'RECENT'))];
+  },
+  hold: (c, el) => pinOnHold(el, c.id.replace(/^tab_/, '')),
 });
 
 // ---------- the "Me" sheet: the avatar's menu (iOS's account sheet); route C (mockups/c/settings.png):
@@ -540,8 +568,8 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
-  // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like ABILITIES: Me's screens are the Me sheet's rows)
-  if (tab === 'memory' || tab === 'settings' || tab === 'abilities' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
+  // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like Settings: Me's screens are the Me sheet's rows)
+  if (tab === 'memory' || tab === 'settings' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
   // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
   if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   // (THE READER is a book from the Library's Shelf: back is the Library, two taps from Learn: BRIEF-LIBRARY-READER)

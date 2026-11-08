@@ -3,6 +3,7 @@ import { send } from '../../assistant/session';
 import { clear, h, svgEl } from '../../core/dom';
 import { biggestMove, clock, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, money, moved, ounce, pct, rate, rates, type Coin } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { settings } from '../../state/app';
 import { button, modal, panel, row, spark } from '../../ui/components';
 import { sparkInst } from '../../ui/instruments';
@@ -35,7 +36,10 @@ function weekChart(c: Coin): HTMLElement {
  * MOVED, which asks the chat for what happened, never whether to buy or sell (it used to leave the tab at once
  * with "Give me a quick take on…").
  */
+/** The coin open in its sheet now (for this screen's own sentence). */
+let coinOpen: Coin | null = null;
 function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string }): void {
+  coinOpen = c;
   const v = c.spark;
   const week = v.length > 1 ? ((v[v.length - 1]! - v[0]!) / v[0]!) * 100 : null;
   const tone = c.change >= 0 ? 'up' : 'dn';
@@ -49,7 +53,7 @@ function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string }): voi
     h('p.mkasof', `${s.live ? '' : `${s.why || 'Not updated since'} · `}As of ${s.asOf} · from CoinGecko`),
     weekChart(c),
     h('p.mknote', [week != null ? `Over 7 days: ${moved(week)}.` : '', c.low != null && c.high != null ? `Last 24 hours: ${money(c.low, c.cur)} to ${money(c.high, c.cur)}.` : ''].filter(Boolean).join(' ')),
-    ask));
+    ask), () => (coinOpen = null));
 }
 
 /** The day in a word, from the last 24 hours of the coins: a description, never advice. */
@@ -206,6 +210,14 @@ export const marketsTab: TabDef = {
         void coins.refresh();
         void rates.refresh();
         paint();
+      },
+      // (BRIEF-SHELL pass 1) the coin open, else the one that moved most
+      context: () => {
+        const c = coinOpen ?? biggestMove(coins.data ?? []);
+        return screenSays('markets', 'Markets', `the markets, ${(P.big.textContent || 'loading').toLowerCase()}${c ? `, on ${c.name}` : ''}`, {
+          looking: 'the markets',
+          ...(c ? { selected: { kind: 'item', id: `coin:${c.sym}`, label: c.name, detail: `${money(c.price, c.cur)}, ${moved(c.change)}${coinOpen ? '' : ', moved most'}` } } : {}),
+        });
       },
       describe: () => `Markets: ${P.big.textContent}. ${P.sub.textContent}. ${say.textContent}`,
     };

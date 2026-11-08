@@ -31,6 +31,7 @@ import { addStar } from '../../offline/starbox';
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, niceCase, panel, toast, undo } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
@@ -1425,6 +1426,14 @@ export const gymTab: TabDef = {
         openOnLast();
         void ready.then(greetNow);
       }),
+      // (BRIEF-SHELL pass 1) the game open and how it is going
+      context: () => {
+        const r = recs.get(open.id);
+        return screenSays('gym', 'Gym', `the gym, on ${open.title.toLowerCase()}`, {
+          looking: 'the gym',
+          selected: { kind: 'item', id: `game:${open.id}`, label: open.title, detail: statusLine(r ?? null, open, training === open.id) },
+        });
+      },
       describe() {
         const r = recs.get(open.id);
         return `GYM tab: ${open.title} open (${statusLine(r ?? null, open, training === open.id)}). ${allOn ? `${allStatus.textContent}.` : `${GAMES.filter((g) => recs.get(g.id)?.mastered).length} of ${GAMES.length} games mastered.`}`;

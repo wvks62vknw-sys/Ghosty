@@ -33,6 +33,11 @@ export interface Sections {
   current(): string;
 }
 
+/** The sections of each screen as it is now (for the screens' own `context()`: what is open, said by the pill's label). */
+const live = new Map<string, () => string>();
+/** The label of the section a screen is on ("Diary", "Near you"), or '' when it has no sections or is not built yet. */
+export const sectionNow = (screen: string): string => live.get(screen)?.() ?? '';
+
 /** At most six pills: more would not fit one row on the phone, and would be the clutter this is here to remove. */
 export const MAX_SECTIONS = 6;
 const PHONE = '(max-width: 899px)';
@@ -173,6 +178,7 @@ export function sections(root: HTMLElement, screen: string, list: SectionDef[]):
   phone.addEventListener('change', apply);
   new ResizeObserver(fit).observe(el);
   apply();
+  live.set(screen, () => defs.find((d) => d.id === cur)?.label ?? '');
   return { el, select, current: () => cur };
 }
 

@@ -129,7 +129,6 @@ export function tourPage(origin: string): string {
     .map((s) => `<li><b>${esc(s.label.toLowerCase())}</b> — ${s.count} thing${s.count === 1 ? '' : 's'}: ${s.examples.map((e) => `“${esc(e.name)}”`).join(', ')}${s.count > s.examples.length ? ' and more' : ''}</li>`)
     .join('\n');
   const tryLinks: [string, string][] = [
-    ['abilities', 'the Everything tab: all of it in one list, each with a way to try it'],
     ['gym', 'the GYM: games I teach myself, and rated chess against a real engine on the phone'],
     ['eye', 'the Eye: a live globe of public feeds (aircraft, ships, buses, satellites)'],
     ['lens', 'the Lens: the camera that reads, names and measures (it asks your phone for the camera; nothing leaves it)'],
@@ -175,7 +174,7 @@ button { min-height: 44px; padding: 0 18px; font: inherit; font-weight: 600; col
 <ul>
 ${scenes}
 </ul>
-<p>The Everything tab in the demo lists every one, with a plain explanation, an example and a way to try it.</p>
+<p>Ask “can you …?” in the demo chat and I say yes or not yet, and take you straight to it.</p>
 
 <h2>The lines that hold</h2>
 <ul>

@@ -93,7 +93,7 @@ export function brainAbilities(has: (name: string) => boolean, groups: ToolGroup
       cat: 'learn',
       line: 'I can learn anything you teach me.',
       asks: ['Can you learn to …?', 'Teach me how you …'],
-      go: { open: 'abilities', panel: 'CAN YOU' },
+      go: { ask: 'Can you learn to …?' },
       words: 'learn teach new ability upgrade myself goal',
       from: 'brain',
       tools: evolve.tools.map((t) => t.name),

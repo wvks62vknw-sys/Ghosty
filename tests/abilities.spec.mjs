@@ -1,21 +1,15 @@
-// ABILITIES — THE EVERYTHING TAB (BRIEF-EVERYTHING; OWNER-ISSUES 92 ①, 68, 67b, 67d, 68c) on the owner's phone (440 × 956)
-// and a smaller one (390 × 844):
-//  - the tab opens from the Me sheet and from the Every screen deck; the count is at least 250 and is the registries' own
-//    (every registry item has its words: none missing; every entry is reachable under its chip, once); every TRY IT lands
-//    somewhere this build has; the chat's own controls and what works everywhere are where the registry says;
-//  - the scenes in order, each a panel of cards; a card is the plain name then its line (VoiceOver reads them in that
-//    order); NEW on exactly the entries that arrived within two weeks; the eight chips narrow the list to their own;
-//  - search: "train" finds the live departures; a card opens its sheet (the line, the explanation, SAY IT LIKE THIS,
-//    TRY IT, WHERE IT LIVES, SINCE, and for a brain tool WHY I MIGHT USE IT MYSELF); TRY IT does what its button says on
-//    six entries: a screen and its panel (System → BACKUP), a key still needed (changing my own code → SYSTEM → KEYS), a
-//    command (the Gym on chess; the Lens on SCAN → TRANSLATE), an ask sent to the chat (the next train), words left in the
-//    chat box (a reminder);
-//  - nothing sideways at 440 or 390; every row and target 44 pt or more.
-// Kept from before (they still apply): "Can you …?" in the box — a yes, a near miss ("Not quite"), or "Not yet. Want me to
-// learn it?" → YES keeps it as a learning goal (LEARNING, the brain, the Workshop first); the same question in the chat with
-// no model, a request ("…at 5") still to the brain; WHY (a reply's trail in a sheet, from WHY or a long press, and "why did
-// you do that?" typed); "what did you do today?" with no model; the first run's three things, once; one offer in context,
-// one a day; the day's one "did you know".
+// ABILITIES (BRIEF-EVERYTHING; OWNER-ISSUES 92, 68, 67b, 67d, 68c; re-pointed by BRIEF-SHELL pass 1, OWNER-ISSUES 130 and 143) on the
+// owner's phone (440 × 956) and a smaller one (390 × 844). The page that listed everything is withdrawn as a way in ("get rid of the
+// abilities page for every ability": no bar button, no Me row, no hub card, no deck card, no address); what answers a question stays:
+//  - the page is gone: the Me sheet, the deck, the Me hub and #abilities no longer open it;
+//  - the catalogue is still made (for the brain and the checks): at least 250 things, every registry item with its words, every way in
+//    lands on a screen, a command or words this build has, what the brain serves is what the phone holds, FAVOURITES said in it;
+//  - "can you …?" by words, in the chat, answered on this phone with no model: a yes with a way to it (GO), a near miss ("Not quite")
+//    with YES and NO, "Not yet. Want me to learn it?" and YES keeps it as a learning goal (the brain, the Workshop first); a yes
+//    comes with chips ("can you translate signs?") and one opens where it says (backing up the phone opens System); a request ("…at 5") still goes
+//    to the brain; the chat's own controls are where the registry says;
+//  - WHY (a reply's trail in a sheet, from WHY or a long press, and "why did you do that?" typed); "what did you do today?" with no
+//    model; the first run's three things, once; one offer in context, one a day; the day's one "did you know".
 //   BASE=http://localhost:8877 node tests/abilities.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
@@ -56,219 +50,105 @@ async function phone(viewport, init) {
   return { ctx, page };
 }
 
-/** Open ABILITIES from the Me sheet's row, and wait for the brain's items to be on it. */
-async function openFromMe(page, W) {
-  if (!(await page.locator('#top .you').isVisible().catch(() => false))) {
-    await page.evaluate(() => (location.hash = 'core'));
-    await page.waitForTimeout(500);
-  }
-  await page.click('#top .you');
-  await page.waitForSelector('#mesheet .merow[data-id="abilities"]', { timeout: 5000 }).catch(() => problems.push(`[${W}] no Abilities row on the Me sheet`));
-  await page.waitForTimeout(400);
-  await page.click('#mesheet .merow[data-id="abilities"]');
-  await until(page, () => document.body.dataset.tab === 'abilities' && !document.querySelector('#mesheet'), null, 6000, `[${W}] the Me sheet's Abilities row did not open ABILITIES`);
-  await until(page, () => (window.__ghosty?.abilities?.brain ?? 0) > 100, null, 15000, `[${W}] the brain's items never arrived`);
-  await settle(page);
+/** Home with the chat's box open (the box is on Home; on a phone it sits behind LOG). */
+async function chatOpen(page) {
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(600);
+  if (!(await page.evaluate(() => document.querySelector('#pg-core .hud.core')?.classList.contains('logopen')))) await page.click('.logbtn').catch(() => undefined);
+  await page.waitForTimeout(300);
 }
-/** Every animation done (the push transition, the panels' rise): measured only once nothing is moving. */
-const settle = (page) => page.waitForTimeout(150).then(() => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))))).catch(() => undefined);
-/** Back to ABILITIES with its search cleared and no chip on. */
-async function back(page) {
-  await page.evaluate(() => (location.hash = 'abilities'));
-  await until(page, () => document.body.dataset.tab === 'abilities', null, 5000, 'ABILITIES did not come back');
-  await page.evaluate(() => {
-    const i = document.querySelector('#pg-abilities .canin');
-    if (i && i.value) { i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); }
-    if (window.__ghosty.abilities.cat) document.querySelector(`#pg-abilities .catchip[data-cat="${window.__ghosty.abilities.cat}"]`)?.click();
+/** Ask "can you …?" as he would, and wait for the answer made on the phone, with no model; its words and its buttons. */
+async function canYou(page, words, asked) {
+  await chatOpen(page);
+  const had = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length);
+  await page.fill('#cin', words);
+  await page.press('#cin', 'Enter');
+  await until(page, (n) => document.querySelectorAll('#pg-core .msg:not(.me)').length > n && /^(Yes\.|Not quite\.|Not yet\.)/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].at(-1)?.querySelector(':scope > span')?.textContent ?? ''), had, 10000, `"${words}" was not answered on the phone`);
+  await page.waitForTimeout(300);
+  if (asked.some((b) => b.includes(words.slice(0, 20)))) problems.push(`"${words}" went to the model`);
+  return page.evaluate(() => {
+    const m = [...document.querySelectorAll('#pg-core .msg:not(.me)')].at(-1);
+    return { text: m?.querySelector(':scope > span')?.textContent ?? '', go: [...(m?.querySelectorAll('.localacts button.localgo') ?? [])].map((b) => b.textContent), yes: !!m?.querySelector('.learnyes'), no: !!m?.querySelector('.learnno') };
   });
-  await page.waitForTimeout(250);
-  await settle(page);
-}
-/** Search the box (Enter, as he would) and read what it found. */
-async function search(page, words) {
-  await back(page);
-  await page.locator('#pg-abilities .canin').fill(words);
-  await page.locator('#pg-abilities .canin').press('Enter');
-  await page.waitForTimeout(350);
-  return state(page);
-}
-/** Open an entry's sheet from its card (searching for it first by its own name when it is not on screen). */
-async function sheetOf(page, id, words) {
-  const s = await search(page, words);
-  if (!s.found.includes(id)) problems.push(`searching "${words}" did not find ${id}: ${s.found.join(', ')}`);
-  await page.locator(`#pg-abilities .canans .catcard[data-id="${id}"]`).first().click().catch((e) => problems.push(`could not tap ${id}: ${e.message.split('\n')[0]}`));
-  await page.waitForSelector(`.modal .catbody[data-id="${id}"]`, { timeout: 5000 }).catch(() => problems.push(`${id}: its card did not open its sheet`));
-  await settle(page);
-}
-/** TRY IT on an open sheet: its words, and a tap. */
-async function tryIt(page, id, label) {
-  const b = page.locator(`.modal .catbody[data-id="${id}"] button.cattry`);
-  const said = (await b.textContent().catch(() => '')) ?? '';
-  if (!label.test(said)) problems.push(`${id}: TRY IT says "${said}" (want ${label})`);
-  await b.click().catch((e) => problems.push(`${id}: could not tap TRY IT: ${e.message.split('\n')[0]}`));
-  return said;
 }
 
 for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   const W = viewport.width;
   const { ctx, page } = await phone(viewport);
-  await openFromMe(page, W);
-  const s = await state(page);
-  const look = await page.evaluate(() => ({
-    title: document.querySelector('#top .navtitle')?.textContent ?? '',
-    big: document.querySelector('#pg-abilities .bigv')?.textContent ?? '',
-    sub: document.querySelector('#pg-abilities .hero .sub')?.textContent ?? '',
-    scenes: [...document.querySelectorAll('#pg-abilities .pn.catscene:not([hidden]) .ptitle')].map((t) => t.textContent.trim().toUpperCase()),
-    chips: [...document.querySelectorAll('#pg-abilities .catchip')].map((c) => c.dataset.cat),
-    cards: [...document.querySelectorAll('#pg-abilities .pn.catscene:not([hidden]) .catcard')].map((c) => ({ id: c.dataset.id, aria: c.getAttribute('aria-label') ?? '', name: c.querySelector('.catname')?.textContent ?? '', line: c.querySelector('.catline')?.textContent ?? '', isNew: !!c.querySelector('.catnew') })),
-    learn: document.querySelector('#pg-abilities .ablearn .ablead')?.textContent ?? '',
-  }));
-  // the count: the registries' own, at least 250, every item with its words
-  if (s.count < 250) problems.push(`[${W}] only ${s.count} things listed`);
+  const asked = [];
+  page.on('request', (r) => r.url().includes('/api/chat') && r.method() === 'POST' && asked.push(r.postData() ?? ''));
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(500);
+
+  // ---- the page is withdrawn as a way in (OWNER-ISSUES 130, 143): the Me sheet, the deck, the Me hub and the address no longer open it
+  await page.click('#top .you');
+  await page.waitForSelector('#mesheet .merow', { timeout: 5000 });
+  const meRows = await page.$$eval('#mesheet .merow', (r) => r.map((x) => x.dataset.id));
+  if (meRows.includes('abilities')) problems.push(`[${W}] the Me sheet still has an Abilities row: ${meRows.join(', ')}`);
+  for (const id of ['memory', 'settings', 'system', 'links', 'social', 'area-me', 'deck']) if (!meRows.includes(id)) problems.push(`[${W}] the Me sheet lost its ${id} row: ${meRows.join(', ')}`);
+  await page.click('#mesheet .merow[data-id="deck"]');
+  await until(page, () => !!document.querySelector('#deck.on'), null, 5000, `[${W}] the deck did not open`);
+  if (await page.locator('#deck .dkcard[data-id="abilities"]').count()) problems.push(`[${W}] the deck still has an Abilities card`);
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => (location.hash = 'area-me'));
+  await until(page, () => document.body.dataset.tab === 'area-me', null, 5000, `[${W}] the Me hub did not open`);
+  if (await page.locator('#pg-area-me .hubtile[data-id="abilities"]').count()) problems.push(`[${W}] the Me hub still has an Abilities card`);
+  await page.evaluate(() => (location.hash = 'abilities'));
+  await page.waitForTimeout(500);
+  if (await page.evaluate(() => document.body.dataset.tab === 'abilities' || !!document.getElementById('pg-abilities'))) problems.push(`[${W}] #abilities still opens a page`);
+
+  // ---- the catalogue is still made (for the brain and the checks), with no page to show it: the count is the registries' own (at
+  // least 250, every item with its words), every way in lands somewhere this build has, and what the brain serves is what the phone holds
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.evaluate(() => window.__ghosty.abilities.load());
+  await until(page, () => window.__ghosty?.abilities?.health, null, 10000, `[${W}] no catalogue health on this build`);
+  const brainWait = await until(page, async () => (await window.__ghosty.abilities.health()).brain > 100, null, 15000, `[${W}] the brain's items never arrived`);
+  const s = await page.evaluate(() => window.__ghosty.abilities.health());
+  if (s.count < 250) problems.push(`[${W}] only ${s.count} things in the catalogue`);
   if (s.missing.length) problems.push(`[${W}] registry items with no words: ${s.missing.slice(0, 6).join(', ')}`);
   if (s.items < s.count) problems.push(`[${W}] ${s.items} registry items for ${s.count} entries`);
-  if (look.big !== `${s.count} things`) problems.push(`[${W}] the hero reads "${look.big}" (count ${s.count})`);
-  if (!new RegExp(`^I can do ${s.count} things(, ${s.fresh} of them new in the last two weeks)?\\.`).test(look.sub)) problems.push(`[${W}] the count line reads "${look.sub}"`);
-  // the scenes, in order; the chips: All and the eight
-  const SCENES = ['IN THE MORNING', 'WHEN YOU’RE OUT', 'WITH THE CAMERA', 'MAKING THINGS', 'WATCHING OVER YOU', 'LEARNING AND SCHOOL', 'PLAYING', 'YOUR MONEY AND ADMIN', 'TALKING TO ME', 'ON THIS PHONE ONLY', 'BEHIND THE SCENES'];
-  if (look.scenes.join('|') !== SCENES.join('|')) problems.push(`[${W}] the scenes are ${look.scenes.join(', ')}`);
-  if (look.chips.join(',') !== ',see,know,build,watch,play,learn,do,talk') problems.push(`[${W}] the chips are ${look.chips.join(',')}`);
-  // a card: the name, then the line, read in that order; NEW on exactly the new ones
-  for (const c of look.cards) {
-    if (!c.aria.startsWith(`${c.name}. ${c.line}`)) problems.push(`[${W}] ${c.id}: VoiceOver reads "${c.aria.slice(0, 80)}"`);
-    if (c.isNew !== s.newIds.includes(c.id)) problems.push(`[${W}] ${c.id}: NEW is ${c.isNew ? 'shown on an old one' : 'missing on a new one'}`);
-    if (/\b[a-z]+_[a-z0-9_]+\b/.test(`${c.name} ${c.line}`)) problems.push(`[${W}] ${c.id}: a code word in "${c.name} ${c.line}"`);
-  }
-  if (!look.cards.length) problems.push(`[${W}] no cards`);
-  if (!/^I can learn anything you teach me/.test(look.learn)) problems.push(`[${W}] LEARNING opens with "${look.learn}"`);
-  // every TRY IT lands somewhere this build has (a screen, a command it registered, words)
-  if (s.broken.length) problems.push(`[${W}] TRY IT goes nowhere: ${s.broken.slice(0, 4).join(' | ')}`);
-  // what the brain serves is what the tab counts as the brain's
+  if (s.broken.length) problems.push(`[${W}] a way in goes nowhere: ${s.broken.slice(0, 4).join(' | ')}`);
   const info = await api('/abilities');
-  if (!info?.catalogue || info.catalogue.length !== s.brain) problems.push(`[${W}] the brain serves ${info?.catalogue?.length} items, the tab has ${s.brain}`);
-  for (const x of await sideways(page, '#pg-abilities *')) problems.push(`[${W}] sticks out sideways: ${x}`);
-  if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`[${W}] the page scrolls sideways`);
-  await page.screenshot({ path: `${out}/abilities-${W}.png` });
-  for (const t of await small(page, '#pg-abilities :is(button.catcard, button.catchip, button.catmore, .canform button, .canin, .ablearn button)')) problems.push(`[${W}] under 44 pt: ${t}`);
+  if (!info?.catalogue || info.catalogue.length !== s.brain) problems.push(`[${W}] the brain serves ${info?.catalogue?.length} items, the phone holds ${s.brain}`);
+  if (brainWait && !s.controls.some((c) => c.id === 'favourites')) problems.push(`[${W}] the catalogue does not say FAVOURITES`);
 
-  // ---- the eight chips: each narrows the list to its own, and together they hold every entry once
-  const seen = new Set();
-  for (const cat of ['see', 'know', 'build', 'watch', 'play', 'learn', 'do', 'talk']) {
-    await page.click(`#pg-abilities .catchip[data-cat="${cat}"]`);
-    await page.waitForTimeout(200);
-    const got = await page.evaluate(() => [...document.querySelectorAll('#pg-abilities .pn.catscene:not([hidden]) .catcard')].map((c) => ({ id: c.dataset.id, cat: c.dataset.cat })));
-    const others = got.filter((c) => c.cat !== cat);
-    if (others.length) problems.push(`[${W}] the ${cat} chip shows ${others.length} of other chips: ${others.slice(0, 3).map((c) => c.id).join(', ')}`);
-    const ids = new Set(got.map((c) => c.id));
-    if (ids.size !== s.perCat[cat]) problems.push(`[${W}] the ${cat} chip shows ${ids.size} things, it has ${s.perCat[cat]}`);
-    for (const id of ids) seen.add(id);
-    if (cat === 'play') await page.screenshot({ path: `${out}/abilities-${W}-play.png` });
-    await page.click(`#pg-abilities .catchip[data-cat="${cat}"]`);
-    await page.waitForTimeout(150);
-  }
-  if (seen.size !== s.count) problems.push(`[${W}] the chips hold ${seen.size} things between them, the count is ${s.count}`);
-  for (const t of await small(page, '#pg-abilities button.catchip')) problems.push(`[${W}] a chip under 44 pt: ${t}`);
-
-  // ---- search: "train" finds the live departures; a card opens its sheet
-  let st = await search(page, 'train');
-  if (st.answer !== 'hit' || !st.found.includes('tool:next_departures')) problems.push(`[${W}] "train" → ${st.answer}: ${st.found.join(', ')} (want the live departures)`);
-  await page.screenshot({ path: `${out}/abilities-${W}-train.png` });
-  await sheetOf(page, 'tool:next_departures', 'train');
-  const sh = await page.evaluate(() => {
-    const b = document.querySelector('.modal .catbody');
-    return {
-      title: document.querySelector('.modal .mhead b')?.textContent ?? '',
-      lead: b?.querySelector('.catlead')?.textContent ?? '',
-      more: b?.querySelector('.catmore')?.textContent ?? '',
-      heads: [...(b?.querySelectorAll('.catk') ?? [])].map((k) => k.textContent),
-      say: [...(b?.querySelectorAll('.catsay li') ?? [])].map((l) => l.textContent),
-      text: b?.textContent ?? '',
-    };
-  });
-  if (sh.title !== 'Live train and bus times') problems.push(`[${W}] the sheet's title is "${sh.title}"`);
-  if (!/^I can look up the next trains/.test(sh.lead) || sh.more.length < 40) problems.push(`[${W}] the sheet does not explain itself: ${JSON.stringify([sh.lead, sh.more])}`);
-  for (const k of ['SAY IT LIKE THIS', 'TRY IT', 'WHERE IT LIVES', 'SINCE', 'WHY I MIGHT USE IT MYSELF']) if (!sh.heads.includes(k)) problems.push(`[${W}] the sheet has no ${k}: ${sh.heads.join(', ')}`);
-  if (sh.say.length < 2) problems.push(`[${W}] the sheet says ${sh.say.length} ways to say it`);
-  if (/\b[a-z]+_[a-z0-9_]+\b/.test(sh.text)) problems.push(`[${W}] a code word on the sheet: ${sh.text.slice(0, 120)}`);
-  for (const x of await sideways(page, '.modal *')) problems.push(`[${W}] the sheet sticks out sideways: ${x}`);
-  for (const t of await small(page, '.modal :is(button.cattry, button.catset, .mhead button)')) problems.push(`[${W}] under 44 pt on the sheet: ${t}`);
-  await page.screenshot({ path: `${out}/abilities-${W}-sheet.png` });
-  await page.click('.modal .mhead button');
-  await page.waitForTimeout(250);
-
+  // ---- "can you …?" by words, in the chat, answered on the phone with no model (what the page's search proved, proved where it lives now)
+  let a = await canYou(page, "can you check my car's MOT", asked);
+  if (!/^Yes\./.test(a.text) || !a.go.length) problems.push(`[${W}] "can you check my car's MOT" → ${JSON.stringify(a)} (want a yes and a way to it)`);
+  a = await canYou(page, 'can you fly a plane?', asked);
+  if (!/^Not quite\. The nearest I’ve got:/.test(a.text) || !a.yes || !a.no) problems.push(`[${W}] "can you fly a plane?" → ${JSON.stringify(a)} (want a near miss with YES and NO)`);
+  await page.locator('#pg-core .msg:not(.me)').last().locator('button.learnno').click().catch(() => problems.push(`[${W}] no NO under a near miss`));
+  await page.waitForTimeout(200);
+  if (await page.locator('#pg-core .msg:not(.me)').last().locator('button.learnyes').count()) problems.push(`[${W}] NO did not just close the offer`);
   if (W === PHONE.width) {
-    // ---- TRY IT does what its button says, on six entries
-    const sentBefore = await page.evaluate(() => document.querySelectorAll('#pg-core .msg.me').length);
-    // 1. a screen and its panel: System → BACKUP
-    await sheetOf(page, 'panel:system:BACKUP & RESTORE', 'back up this phone');
-    await tryIt(page, 'panel:system:BACKUP & RESTORE', /^Opens System on Backup & restore$/);
-    await until(page, () => document.body.dataset.tab === 'system' && [...document.querySelectorAll('#pg-system .pn')].some((p) => /^BACKUP/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length), null, 8000, 'TRY IT on BACKUP did not open System on BACKUP');
-    // 2. a key still needed: changing my own code (this preview brain has no GitHub token) → SYSTEM → KEYS
-    await sheetOf(page, 'tool:propose_change', 'change my own code');
-    if (!(await page.locator('.modal .catbody .catoff', { hasText: 'GitHub token' }).count())) problems.push('changing my own code does not say it needs the GitHub token');
-    await tryIt(page, 'tool:propose_change', /^Set it up: needs a key: SYSTEM → KEYS → GitHub token$/);
-    await until(page, () => document.body.dataset.tab === 'system' && [...document.querySelectorAll('#pg-system .pn')].some((p) => /^KEYS/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length), null, 8000, 'TRY IT on changing my own code did not land on SYSTEM → KEYS');
-    // 3. a command: the Gym on chess
-    await sheetOf(page, 'game:chess', 'chess');
-    await tryIt(page, 'game:chess', /^Opens the Gym on Chess$/);
-    await until(page, () => document.body.dataset.tab === 'gym', null, 8000, 'TRY IT on chess did not open the Gym');
-    // 4. a command: the Lens on SCAN → TRANSLATE ("can you translate signs?" finds it first)
-    st = await search(page, 'can you translate signs?');
-    if (st.answer !== 'hit' || st.found[0] !== 'deck:lens:translate-a-sign-or-a-menu') problems.push(`"can you translate signs?" → ${st.answer} ${st.found.join(', ')} (want the Lens's translate first)`);
-    await sheetOf(page, 'deck:lens:translate-a-sign-or-a-menu', 'can you translate signs?');
-    await tryIt(page, 'deck:lens:translate-a-sign-or-a-menu', /^Opens the Lens on SCAN → TRANSLATE$/);
-    await until(page, () => document.body.dataset.tab === 'lens' && window.__ghosty?.lens?.mode === 'scan' && window.__ghosty?.scan?.sub === 'translate', null, 15000, 'TRY IT on translating a sign did not open the Lens on SCAN → TRANSLATE');
-    // 5. an ask sent to the chat: the next train
-    await sheetOf(page, 'tool:next_departures', 'train');
-    const said = await tryIt(page, 'tool:next_departures', /^Asks me: “When’s the next train from New Street\?”$/);
-    await until(page, () => document.body.dataset.tab === 'core' && [...document.querySelectorAll('#pg-core .msg.me')].some((m) => (m.textContent ?? '').includes('When’s the next train from New Street?')), null, 10000, `TRY IT ("${said}") did not send the words to the chat`);
-    // 6. words left in the chat box for him to finish: a reminder (never one he did not ask for)
-    await sheetOf(page, 'tool:set_reminder', 'birthday');
-    await tryIt(page, 'tool:set_reminder', /^Starts “Remind me…” in the chat box for you$/);
-    await until(page, () => document.body.dataset.tab === 'core' && document.querySelector('#cin')?.value === 'Remind me ', null, 6000, 'TRY IT on a reminder did not put "Remind me" in the chat box');
-    const sentAfter = await page.evaluate(() => document.querySelectorAll('#pg-core .msg.me').length);
-    if (sentAfter !== sentBefore + 1) problems.push(`TRY IT sent ${sentAfter - sentBefore} messages (want only the train's)`);
-    await page.evaluate(() => { const b = document.querySelector('#cin'); if (b) b.value = ''; });
-    // the chat's own controls are where the registry says (the reply ones once a reply is there; ASK MY PHONE shows only while
-    // every model is cooling down with the phone's brain awake, and tests/talk.spec.mjs finds and taps it there)
-    const missingControls = await page.evaluate(() => (window.__ghosty.abilities.controls ?? []).filter((c) => c.sel && !['undo', 'harder', 'bigbrain', 'askcloud', 'askphone'].includes(c.id) && !document.querySelector(c.sel)).map((c) => c.id));
-    if (missingControls.length) problems.push(`the chat's controls not found where the registry says: ${missingControls.join(', ')}`);
-
-    // ---- from the deck: the Me group's Abilities card opens it
-    await page.evaluate(() => (location.hash = 'core'));
-    await page.waitForTimeout(500);
-    await page.click('#top .you');
-    await page.click('#mesheet .merow[data-id="deck"]');
-    await until(page, () => !!document.querySelector('#deck.on'), null, 5000, 'the deck did not open');
-    await page.click('#deck .dkcard[data-id="abilities"]').catch(() => problems.push('no Abilities card in the deck'));
-    await page.click('#deck .dkx[data-id="abilities"] .dkopen').catch(() => problems.push('the deck card has no OPEN'));
-    await until(page, () => document.body.dataset.tab === 'abilities', null, 6000, 'the deck did not open ABILITIES');
-
-    // ---- "Can you …?" (kept): a yes, a near miss, or "Not yet. Want me to learn it?"
-    st = await search(page, "can you check my car's MOT");
-    if (st.answer !== 'hit' || st.found[0] !== 'tool:vehicle_check') problems.push(`"can you check my car's MOT" → ${st.answer} ${st.found.join(', ')} (want the vehicle check)`);
-    st = await search(page, 'can you fly a plane?');
-    if (st.answer !== 'near') problems.push(`"can you fly a plane?" → ${st.answer} (want a near miss)`);
-    if (!(await page.locator('#pg-abilities .canans', { hasText: 'Not quite. The nearest I’ve got:' }).count())) problems.push('a near miss does not say "Not quite"');
-    await page.locator('#pg-abilities .canans button.learnno').click().catch(() => problems.push('no NO under a near miss'));
-    if ((await page.locator('#pg-abilities .canans *').count()) || (await page.inputValue('#pg-abilities .canin')) !== '') problems.push('NO did not just close the offer');
-    // (two made-up words, so this run's goal is never the same goal as an earlier run's: the brain keeps one of each)
+    // a yes comes with its way in: "can you translate signs?" says yes and offers the chips (the brain's scan, the app's own screens)
+    a = await canYou(page, 'can you translate signs?', asked);
+    if (!/^Yes\. /.test(a.text) || a.go.length < 2) problems.push(`"can you translate signs?" → ${JSON.stringify(a)} (want a yes and two ways to it)`);
+    // a made-up one is "Not yet", and YES puts it on my learning list (the brain keeps it; the Workshop lists it first)
     const nonce = () => Array.from({ length: 4 }, () => 'bcdfghjklmnpqrstvwxz'[Math.floor(Math.random() * 20)]).join('');
-    const want = `make me a ${nonce()} ${nonce()} sandwich`;
-    st = await search(page, `can you ${want}?`);
-    if (st.answer !== 'none' || !(await page.locator('#pg-abilities .canans', { hasText: 'Not yet. Want me to learn it?' }).count())) problems.push(`"can you ${want}?" → ${st.answer} (want "Not yet. Want me to learn it?")`);
+    const want = `${nonce()} ${nonce()}`;
+    a = await canYou(page, `are you able to ${want}`, asked);
+    if (!/^Not yet\. Want me to learn it\?/.test(a.text) || !a.yes) problems.push(`"are you able to ${want}" → ${JSON.stringify(a)} (want "Not yet. Want me to learn it?")`);
     await page.screenshot({ path: `${out}/abilities-notyet.png` });
-    await page.locator('#pg-abilities .canans button.learnyes').click().catch(() => problems.push('no YES under "Not yet"'));
-    await until(page, () => window.__ghosty?.abilities?.answer === 'learned', null, 8000, 'YES did not record the learning goal');
-    await until(page, (w) => [...document.querySelectorAll('#pg-abilities .ablearn .abgoal b')].some((b) => b.textContent.includes(w)), want, 8000, 'the goal is not shown under LEARNING');
+    await page.locator('#pg-core .msg:not(.me)').last().locator('button.learnyes').click().catch(() => problems.push('no YES under "Not yet"'));
+    await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me) .learned')].some((n) => /On my learning list/.test(n.textContent ?? '')), null, 8000, 'YES did not record the learning goal');
     const goals = (await api('/abilities'))?.goals ?? [];
     if (!goals.some((g) => g.ask.includes(want))) problems.push(`the brain did not keep the goal: ${JSON.stringify(goals.slice(0, 3))}`);
     await page.evaluate(() => (location.hash = 'workshop'));
     await until(page, (w) => { const first = document.querySelector('#pg-workshop .idea'); return !!first && first.classList.contains('mine') && first.textContent.includes(w); }, want, 10000, 'the Workshop does not list his goal first, marked as his');
+    // the chat's own controls are where the registry says (the reply ones once a reply is there; ASK MY PHONE shows only while every
+    // model is cooling down with the phone's brain awake, and tests/talk.spec.mjs finds and taps it there)
+    await chatOpen(page);
+    const missingControls = await page.evaluate(() => window.__ghosty.abilities.health().then((h) => h.controls.filter((c) => c.sel && !['undo', 'harder', 'bigbrain', 'askcloud', 'askphone'].includes(c.id) && !document.querySelector(c.sel)).map((c) => c.id)));
+    if (missingControls.length) problems.push(`the chat's controls not found where the registry says: ${missingControls.join(', ')}`);
+    // a yes goes where it says: "are you able to back up this phone" offers System, and its chip opens it (what TRY IT on that entry did)
+    a = await canYou(page, 'are you able to back up this phone', asked);
+    if (!/^Yes\./.test(a.text) || !a.go.length) problems.push(`"are you able to back up this phone" → ${JSON.stringify(a)}`);
+    await page.locator('#pg-core .msg:not(.me)').last().locator('button.localgo').first().click().catch(() => problems.push('no GO under the backup answer'));
+    await until(page, () => document.body.dataset.tab === 'system', null, 8000, 'GO on the backup answer did not open System');
 
+    // ---- the first card of the first run, the chat, the offers: unchanged below
     // ---- the chat answers the same kind of question with no model (kept)
-    const asked = [];
-    page.on('request', (r) => r.url().includes('/api/chat') && r.method() === 'POST' && asked.push(r.postData() ?? ''));
     await page.evaluate(() => (location.hash = 'core'));
     await page.waitForTimeout(600);
     if (!(await page.evaluate(() => document.querySelector('#pg-core .hud.core')?.classList.contains('logopen')))) await page.click('.logbtn').catch(() => undefined);
@@ -279,7 +159,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     await page.waitForTimeout(800);
     if (asked.some((b) => /beat me at chess/.test(b))) problems.push('"can you beat me at chess?" went to the model');
     await page.screenshot({ path: `${out}/abilities-chat.png` });
-    await page.locator('#pg-core .localacts button.localgo').first().click().catch(() => problems.push('no GO under the chat answer'));
+    await page.locator('#pg-core .msg:not(.me)').last().locator('button.localgo').first().click().catch(() => problems.push('no GO under the chat answer'));
     await until(page, () => document.body.dataset.tab === 'gym', null, 8000, 'GO under the chat answer did not open the GYM');
     // a request is not a question about him: it goes to the brain as always
     await page.evaluate(() => (location.hash = 'core'));
@@ -315,7 +195,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     };
     const reply = page.locator('#pg-core .msg:not(.me)', { has: page.locator('.whybtn') }).last();
     // the reply's own controls are where the registry says, now that a reply is there
-    const replyControls = await page.evaluate(() => ['listen', 'copy', 'why', 'rate'].filter((id) => { const c = (window.__ghosty.abilities.controls ?? []).find((x) => x.id === id); return !c || !document.querySelector(c.sel); }));
+    const replyControls = await page.evaluate(async () => { const controls = (await window.__ghosty.abilities.health()).controls; return ['listen', 'copy', 'why', 'rate'].filter((id) => { const c = controls.find((x) => x.id === id); return !c || !document.querySelector(c.sel); }); });
     if (replyControls.length) problems.push(`a reply's controls not found where the registry says: ${replyControls.join(', ')}`);
     await reply.locator('.whybtn').click().catch(() => problems.push('could not tap WHY'));
     await whySheet('WHY');
@@ -357,7 +237,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     return { lines: (m?.querySelector(':scope > span')?.textContent ?? '').split('\n').filter((l) => l.startsWith('• ')).length, chips: [...(m?.querySelectorAll('.localacts button') ?? [])].map((b) => b.textContent), caption: document.querySelector('#ccap')?.textContent ?? '' };
   });
   if (said.lines !== 3) problems.push(`[first run] ${said.lines} things said (want three)`);
-  if (said.chips.join('|') !== 'God’s eye|Brief|Gym|Everything I can do') problems.push(`[first run] its buttons are ${said.chips.join(', ')}`);
+  if (said.chips.join('|') !== 'God’s eye|Brief|Gym') problems.push(`[first run] its buttons are ${said.chips.join(', ')}`);
   if (!said.caption.includes('Three things I can do for you')) problems.push(`[first run] Home's line does not say it: "${said.caption.slice(0, 60)}"`);
   await page.screenshot({ path: `${out}/abilities-firstrun.png` });
   if ((await first()) !== 1) problems.push(`[first run] said ${await first()} times`);
@@ -430,4 +310,4 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('Abilities run clean: the everything tab opens from the Me sheet and the deck; the count is the registries’ own (at least 250, none missing), every TRY IT lands somewhere real, the chat’s controls are where the registry says; the scenes in order, cards read name then line, NEW on exactly the new ones, the eight chips narrow to their own and hold every entry between them; "train" finds the live departures and its sheet explains itself; TRY IT on System → BACKUP, a key still needed (→ KEYS), the Gym on chess, the Lens on SCAN → TRANSLATE, the next train asked in the chat, and a reminder left in the chat box; nothing sideways at 440 or 390, 44 pt targets; "can you…?": the MOT → the vehicle check, a near miss, NO closes, YES keeps the goal (LEARNING, the brain, the Workshop first); the chat answers with no model, GO opens the GYM, a request still goes to the brain; WHY from a reply’s WHY and a long press, and typed; "what did you do today?" with no model; a fresh phone hears three things once; one offer in context, once; the day’s one “did you know”.');
+console.log('Abilities run clean: the page is gone as a way in (no Me row, deck card, hub card or address); the catalogue is the registries’ own (at least 250, none missing, every way in lands, the brain’s and the phone’s agree, FAVOURITES said); "can you …?" answers on the phone with a way to it, a near miss, "Not yet" and YES to the learning goal; the chat’s controls are where the registry says; WHY, today, the first run, the offers.');

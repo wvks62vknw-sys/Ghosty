@@ -47,7 +47,7 @@ export const DECK_GROUPS: [string, string[]][] = [
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
-  ['Me', ['memory', 'settings', 'system', 'links', 'abilities', 'social']],
+  ['Me', ['memory', 'settings', 'system', 'links', 'social']],
 ];
 
 const lens = (mode: string): DeckAct => ({ run: 'open_lens', args: { mode } });
@@ -273,18 +273,6 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Live traffic from TomTom', act: { open: 'links', panel: 'LIVE TRAFFIC' } },
     ],
     dyk: 'Every key you give him goes into an encrypted vault and is never shown again.',
-  },
-  // ABILITIES (OWNER-ISSUES 68): made from what he really has (abilities/registry.ts), so it is always true
-  abilities: {
-    name: 'Abilities',
-    promise: 'Everything he can do, and what he learns',
-    can: [
-      { text: 'Search it all: “train”, “scam”, “birthday”', act: { open: 'abilities', panel: 'CAN YOU' } },
-      { text: 'Tap any one: it explains itself, then try it', act: { open: 'abilities' } },
-      { text: 'What he is learning for you', act: { open: 'abilities', panel: 'LEARNING' } },
-      { text: 'Anything he still needs a key for', act: { open: 'system', panel: 'KEYS' } },
-    ],
-    dyk: 'The list is made from what he really has, so a new ability shows up there by itself.',
   },
   // ---------------------------------------------------------------- [tabs] the fourteen sheets as screens (BRIEF-TABS 4):
   // what each does for him, a tap into its main page and two things to ask, and a true DID YOU KNOW

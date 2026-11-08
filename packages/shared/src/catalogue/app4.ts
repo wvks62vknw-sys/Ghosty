@@ -89,10 +89,6 @@ export const APP_4: Record<string, CatValue> = {
   'deck:links:message-him-on-telegram-voice-notes': { same: 'panel:links:TELEGRAM' },
   'deck:links:notifications-on-this-phone': { same: 'panel:links:PHONE · APP & NOTIFICATIONS' },
   'deck:links:live-traffic-from-tomtom': { same: 'panel:links:LIVE TRAFFIC · TOMTOM' },
-  'deck:abilities:search-it-all-train-scam-birthday': { same: 'panel:abilities:CAN YOU…?' },
-  'deck:abilities:tap-any-one-it-explains-itself': { same: 'screen:abilities' },
-  'deck:abilities:what-he-is-learning-for-you': { same: 'panel:abilities:LEARNING' },
-  'deck:abilities:anything-he-still-needs-a-key': { same: 'panel:system:KEYS' },
   // ---- the Lens: one view, its acts and its tools (BRIEF-LENS: nothing here was lost, each old mode is an act under a tag or a tool under MORE)
   'lens:lens': {
     name: 'Point it and I tag things', line: 'I tag what I see through the camera: text, codes, faces you know and things I can name, each with the one thing you can do.',

@@ -14,7 +14,7 @@
  * paint, so the screen opens in under 300 ms on the preview (tests/look.spec.mjs holds it).
  */
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
-import { lookingAt } from '../../shell/awareness';
+import { feedsWatched, lookingAt, stampFacts } from '../../shell/awareness';
 import { h, icon } from '../../core/dom';
 import { stopwatch } from '../../core/stopwatch';
 import { parseColour, contrast, ratioWords, FLOOR, type RGB } from '../../design/contrast';
@@ -56,13 +56,6 @@ export const lookState = {
   states: [] as string[],
 };
 
-/** The feeds the guardian reads (flood, weather, crime) that answered last time; null while it is still finding out. */
-function feedsWatched(): number | null {
-  const info = guardian.get().info;
-  if (!info) return null;
-  return (['flood', 'weather', 'crime'] as const).filter((f) => info.checked[f] && !info.failed[f]).length;
-}
-
 const SECTION_WORDS: Record<string, string> = { tokens: 'the tokens', type: 'the type', marks: 'the marks', mind: 'my orb', themes: 'the themes' };
 /** A token's job as a sentence on screen (the file writes it as a note: "the page: …" reads "The page: …"). */
 const sentence = (job: string) => job.charAt(0).toUpperCase() + job.slice(1);
@@ -98,7 +91,7 @@ export const lookTab: TabDef = {
     let looking = 'the marks';
     // what this screen says it is (BRIEF-AWARENESS), and the stamp line says the same: one source
     const context = (): ScreenContext => ({ screen: 'look', title: 'The look', line: `the look, ${looking}`, looking, at: Date.now() });
-    const facts = (): StampFacts => ({ place: home().name, watching: feedsWatched(), looking: lookingAt(context()), offline: typeof navigator !== 'undefined' && navigator.onLine === false });
+    const facts = (): StampFacts => stampFacts(lookingAt(context()));
     const stamp = stampLine(facts);
     const states = h('div.glook-states', { role: 'status', 'aria-live': 'polite' });
     // (the screen's name is the navigation bar's large title, "The look": the head starts with the stamp under it)

@@ -3,6 +3,7 @@ import { fetchJson } from '../../api/feed';
 import { canSetVolume, favourites, lastPlayed, pauseAudio, player, playStation, resumeAudio, setVolume, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
@@ -242,6 +243,15 @@ export const radioTab: TabDef = {
         paintFavs();
         paintNow();
         if (!results.length) void go({ tag: 'news', countrycode: 'GB' }, 'UK news');
+      },
+      // (BRIEF-SHELL pass 1) the station
+      context: () => {
+        const p = player.get();
+        const n = p.now;
+        return screenSays('radio', 'Radio', n ? `the radio, ${p.state === 'paused' ? 'paused on' : 'playing'} ${n.name}` : 'the radio, nothing playing', {
+          looking: 'the radio',
+          ...(n ? { selected: { kind: 'item', id: 'station', label: n.name, detail: p.state === 'paused' ? 'paused' : 'playing' } } : {}),
+        });
       },
       describe: () => `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites.`,
     };

@@ -21,6 +21,10 @@ import { stopwatch } from '../../core/stopwatch';
 import { run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
 import { navTo } from '../../shell/areas';
+import { lookingAt, stampFacts } from '../../shell/awareness';
+import { guardian } from '../../state/guardian';
+import { stampLine } from '../../ui/machine';
+import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
@@ -473,6 +477,12 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
   }
 }
 
+/** What Home says it is (BRIEF-AWARENESS): the screen and my last words, so "that" has something to mean here; the stamp says "Looking at Home". */
+function homeContext(): ScreenContext {
+  const live = chat.get().live.replace(/\s+/g, ' ').trim();
+  return { screen: 'core', title: 'Home', line: `the home screen${live ? `, my last words: “${live.slice(0, 90)}${live.length > 90 ? '…' : ''}”` : ', the chat with me'}`, looking: 'Home', at: Date.now() };
+}
+
 export const coreTab: TabDef = {
   id: 'core',
   title: 'CORE',
@@ -684,7 +694,13 @@ export const coreTab: TabDef = {
     // [cards] HOME AS HIS WALL (wall.ts): the live cards in order of what matters now, above Home's own cards
     const wall = wallView();
     rc.below.prepend(wall.el);
-    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
+    // THE STAMP LINE (BRIEF-SHELL pass 1; OWNER-ISSUES 149): Home's own, at the top, in the Machine's marks: the day, the time, his saved
+    // place, the feeds watched (the one source, shell/awareness.ts stampFacts) and what is on screen (LOOKING AT HOME), the same
+    // component the reader and THE LOOK use. The boot's own line becomes it at the landing (shell/boot.ts, styles.css `bootwait`).
+    const stamp = stampLine(() => stampFacts(lookingAt(homeContext())));
+    stamp.el.classList.add('hstamp');
+    guardian.subscribe(() => stamp.refresh());
+    const center = h('div.ccenter', stamp.el, stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
@@ -978,10 +994,7 @@ export const coreTab: TabDef = {
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here
-      context: () => {
-        const live = chat.get().live.replace(/\s+/g, ' ').trim();
-        return { screen: 'core', title: 'Home', line: `the home screen${live ? `, my last words: “${live.slice(0, 90)}${live.length > 90 ? '…' : ''}”` : ', the chat with me'}`, at: Date.now() };
-      },
+      context: homeContext,
     };
   },
 };

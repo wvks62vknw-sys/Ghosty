@@ -832,7 +832,7 @@ test('the demo’s chat is a script, not a model: it says this is the demo to an
   const week = (await say("what's on tomorrow?"))[0].text;
   assert.match(week, /Sam's sample week/);
   assert.match(week, /Library shift|Guitar practice|Spanish/);
-  assert.match((await say('what can you do?'))[0].text, /Everything tab/);
+  assert.match((await say('what can you do?'))[0].text, /Ask me “can you …\?”/); // (the Everything tab is withdrawn as a way in: BRIEF-SHELL pass 1; the demo points at "can you …?")
   assert.match((await say('quantum chromodynamics'))[0].text, /This is the demo/);
   assert.equal((await (await asDemo('/api/history')).json()).turns.length, turnsBefore, 'the conversation is not kept');
   await settle();
@@ -924,7 +924,7 @@ test('the tour: in his voice, every fact in the HTML, what he can do counted fro
   assert.match(html, /Only lessons and music of our own/);
   assert.match(html, /What each part of Ghosty is for, in plain words/, 'VISION.md’s first line');
   assert.match(html, /a real model answering|the demo's chat is a script/);
-  assert.match(html, /<a href="https:\/\/ghosty\.test\/demo#abilities">/);
+  assert.match(html, /<a href="https:\/\/ghosty\.test\/demo#gym">/); // (the first screen it says to try: the Abilities page is withdrawn)
   // notes: copied, never sent
   assert.doesNotMatch(html, /<form/i, 'no form');
   assert.match(html, /<textarea id="notes"/);

@@ -4589,12 +4589,12 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 /* the landing: while Mind flies the HUD waits out of sight; a beat after it lands, the ribbon comes down, the tab bar
    and Home's cards slide up into place, the rest fades in (the individual translate property, so each part's own
    transform is left alone) */
-body.bootwait :is(#top, #dock, .rcbelow .rccard), body.bootwait .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { opacity: 0; }
+body.bootwait :is(#top, #dock, .rcbelow .rccard), body.bootwait .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate, .hstamp) { opacity: 0; }
 body.bootland #top { animation: bootin-down .34s cubic-bezier(.2, .8, .2, 1) both; }
 body.bootland #dock { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) .04s both; }
 body.bootland .rcbelow .rccard { animation: bootin-up .36s cubic-bezier(.2, .8, .2, 1) both; }
 body.bootland .rcbelow .rcpair .rccard { animation-delay: .06s; }
-body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate) { animation: bootin-fade .34s ease-out both; }
+body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate, .hstamp) { animation: bootin-fade .34s ease-out both; }
 @keyframes bootin-down { from { opacity: 0; translate: 0 -14px; } }
 @keyframes bootin-up { from { opacity: 0; translate: 0 22px; } }
 @keyframes bootin-fade { from { opacity: 0; } }
@@ -5876,6 +5876,8 @@ html :is(.g-truth, .g-stamp) .g-sep { color: var(--g-ink-4); }
 /* a segment stays whole where it fits (it moves down a line rather than breaking inside), its dot at its end: a wrapped line
    ends on the dot and never starts with one; a segment longer than the line still wraps inside itself */
 html :is(.g-truth, .g-stamp) .g-seg { display: inline-block; max-width: 100%; }
+/* Home's own stamp line (BRIEF-SHELL pass 1): at the top of the column, under the bar, the same line the reader and THE LOOK carry */
+html .hud.core .hstamp { flex: none; padding: 6px 2px 0; }
 
 /* ---- the plate: one step up from the canvas (two for a page brought to the front) */
 html .g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate-fill); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); box-shadow: var(--g-plate-shadow); -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
@@ -6312,10 +6314,19 @@ html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background
 @media (hover: none) {
   html #app :is(button.g-key, button.g-ret, button.gchoice, button.gthing) { min-height: var(--g-target) !important; }
   html #app button.swatch[data-g="swatch"] { min-height: 64px !important; }
+  html #pinsheet button.g-key { min-height: var(--g-target) !important; }
 }
 
 /* ---- calm (the MOTION switch): the breathing glow behind Home's hero holds still, as under Reduce Motion */
 html[data-motion="calm"] .rcglow { animation: none; }
+/* ---- FAVOURITES (BRIEF-SHELL pass 1; STARS 163): the PINNED mark on a pinned screen's card, and the sheet a long press opens */
+html :is(.hubtile, #deck .dkcard):has(> .pinmark) { position: relative; }
+html .pinmark { position: absolute; top: var(--g-s-half); right: var(--g-s-1); padding: 0 var(--g-s-half); font: var(--g-t-tag); font-style: normal; letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); background: var(--g-plate-fill); border-radius: var(--g-radius-mark); pointer-events: none; }
+html .pinmark[hidden] { display: none; }
+html #pinsheet { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: var(--g-s-2) var(--g-s-2) max(var(--g-s-2), env(safe-area-inset-bottom)); background: var(--g-scrim); }
+html #pinsheet .g-plate { width: min(420px, 100%); }
+html #pinsheet .pinsay { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }
+html #pinsheet .pinkeys { display: flex; justify-content: flex-end; gap: var(--g-s-1); margin-top: var(--g-s-2); }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

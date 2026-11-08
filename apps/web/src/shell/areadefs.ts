@@ -26,7 +26,7 @@ export const AREAS: Area[] = [
   // [tabs] LIFE (BRIEF-TABS 1; OWNER-ISSUES 119, his words: "can't we add tabs for everything we have"): the eight everyday packs,
   // each a screen of its own now (they were sheets reached only by the chat), between Plan and Me on the tab bar
   { id: 'life', title: 'Life', sub: 'Money, body, kitchen, people, work, creative, outside and home: the everyday, kept.', icon: '<circle cx="12" cy="12" r="3.6"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/>', tabs: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], tint: '#bf5af2' },
-  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links', 'abilities', 'social'], tint: '#8e8e93' },
+  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links', 'social'], tint: '#8e8e93' },
 ];
 
 /** The Me sheet's rows, in their two groups: the screens (`group` 'screens') and the rest ('more'); `deck` opens Every screen. */
@@ -35,12 +35,13 @@ export const ME_ROWS: { id: string; label: string; sub: string; group: 'screens'
   { id: 'settings', label: 'Settings', sub: 'Look, voice, home and about', group: 'screens' },
   { id: 'system', label: 'System', sub: 'Keys, models, storage and backups', group: 'screens' },
   { id: 'links', label: 'Links', sub: 'Email, Spotify and your phone', group: 'more' },
-  // ABILITIES (OWNER-ISSUES 68): everything I can do, so he never has to remember it
-  { id: 'abilities', label: 'Abilities', sub: 'Everything I can do for you', group: 'more' },
+  // (the Abilities page is not a way in: BRIEF-SHELL pass 1, OWNER-ISSUES 130, 143. "can you …?", WHY and the offers answer a question instead)
   // [tabs] SOCIAL (BRIEF-TABS 2): his own accounts, the posts waiting for his APPROVE and the origin, as a screen (features/social)
   { id: 'social', label: 'Social', sub: 'Your accounts and the posts waiting', group: 'more' },
   // FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): who made me, when, of what, and my promises (features/me/origin.ts)
   { id: 'origin', label: 'Father and the origin', sub: 'Who made me, and when', group: 'more' },
+  // (the Me area's hub is not on the bar, which has six areas and your initial: its way in is this row, found by the finding test)
+  { id: 'area-me', label: 'All of Me', sub: 'Everything under Me, as cards', group: 'more' },
   { id: 'deck', label: 'Every screen', sub: 'All of Ghosty at once', group: 'more' },
 ];
 

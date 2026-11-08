@@ -49,6 +49,13 @@ export interface Settings {
   cited: boolean;
   /** How Ghosty talks (SETTINGS → CHARACTER): the brain's copy rules; this one is for the offline brain. */
   persona: PersonaSettings;
+  /**
+   * FAVOURITES (BRIEF-SHELL pass 1; STARS 163): the screens he pinned (a long press on a recent, a hub card or a deck card: PIN),
+   * first row of the jump bar, up to six, his order. Kept here so the daily backup carries them to another phone.
+   */
+  favourites: string[];
+  /** The group of Every screen he left it on (the deck opens on it: STARS 163, "the deck remembers where he was"). */
+  deckGroup: string;
 }
 
 const tz = (() => {
@@ -76,6 +83,8 @@ export const settings = createStore<Settings>(
     offlineBrain: 'auto',
     cited: false,
     persona: DEFAULT_PERSONA,
+    favourites: [],
+    deckGroup: '',
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

@@ -95,7 +95,7 @@ export const APP_3: Record<string, CatValue> = {
   },
   'panel:settings:HELP': {
     name: 'Four quick tips', line: 'You can read four quick tips: how to ask, search, see every screen, and make me remember.',
-    more: 'Short and plain. This list has everything else.',
+    more: 'Short and plain. Ask me “can you …?” for everything else.',
     say: ['How do I use you?'], scene: ['talking'], cat: 'talk',
   },
   'panel:settings:OFFLINE BRAIN': {

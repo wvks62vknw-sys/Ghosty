@@ -4,6 +4,7 @@ import { brain, lastSeen, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { BUILD } from '../../state/build';
 import { button, confirmSheet, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -18,7 +19,7 @@ import { trainingPanel } from './training';
 import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
 import { speedCard } from './speed';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -369,6 +370,11 @@ export const systemTab: TabDef = {
         lp.refresh();
         lg.refresh();
         fsp.refresh();
+      },
+      // (BRIEF-SHELL pass 1) the section open; never a key
+      context: () => {
+        const sec = sectionNow('system') || 'System';
+        return screenSays('system', 'System', `system, on ${sec.toLowerCase()}`, { looking: 'system', selected: { kind: 'group', id: `system:${sec}`, label: sec } });
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };

@@ -35,11 +35,10 @@ export function firstRun(): boolean {
   const text = [
     'Three things I can do for you, to start:',
     ...three.map((a) => `• ${a.line}`),
-    'There’s a lot more. Ask me “can you …?” any time, or see everything in Abilities.',
+    'There’s a lot more. Ask me “can you …?” any time.',
   ].join('\n');
   const go = [
     ...three.map((a) => ({ id: a.id, ask: -1, label: DECK[a.id.slice(2)]?.name ?? 'Go there' })),
-    { id: '', ask: -1, label: 'Everything I can do', open: 'abilities' },
   ];
   chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text, at: Date.now(), model: DIRECT, local: { kind: 'first' as const, go } }].slice(-120) }));
   // said where he lands: Home's line under the reactor, as a reply is

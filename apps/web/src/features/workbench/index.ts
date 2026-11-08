@@ -13,10 +13,11 @@
 import { estimateSpoken, fromSI, num, parseQuantity, solve, type Estimate, type Panel, type Problem, type UnitSystem } from '../../../../../packages/shared/src/workbench';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { home, settings } from '../../state/app';
 import { panel as mkPanel } from '../../ui/components';
 import { page } from '../../ui/page';
-import { revealPanel, sections } from '../../ui/sections';
+import { revealPanel, sectionNow, sections } from '../../ui/sections';
 import { estimateCard } from './card';
 import { tunnelPanel, tunnelState } from './tunnel';
 import { modeFor, PANELS, type Field, type Mode, type PanelSpec, type Values } from './panels';
@@ -384,6 +385,15 @@ export const workbenchTab: TabDef = {
       },
       open(arg) {
         if (arg === 'tunnel' || PANELS.some((p) => p.id === arg)) show(arg);
+      },
+      // (BRIEF-SHELL pass 1) the page open and the estimate on it
+      context: () => {
+        const e = workbenchState.estimates[workbenchState.panel];
+        const sec = sectionNow('workbench').toLowerCase();
+        return screenSays('workbench', 'Workbench', `the workbench${sec ? `, on ${sec}` : ''}${e ? `, ${e.title.toLowerCase()}` : ''}`, {
+          looking: 'the workbench',
+          ...(e ? { selected: { kind: 'item', id: `panel:${workbenchState.panel}`, label: e.title, detail: 'first estimate' } } : {}),
+        });
       },
       describe: () => {
         if (secs.current() === 'tunnel' && tunnelState.running) return `Workbench, wind tunnel: ${tunnelState.shapeName}, Cl ${tunnelState.cl.toFixed(2)}, Cd ${tunnelState.cd.toFixed(2)} at the lattice's Reynolds number ${Math.round(tunnelState.re)} (a 2-D first estimate, not certified)`;

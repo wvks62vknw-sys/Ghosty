@@ -172,8 +172,3 @@ export function linksInst(on: (boolean | null)[]): SVGSVGElement {
   );
 }
 
-/** ABILITIES: everything I can do as a grid of cells, as many lit as the share of them that can work now. */
-export function abilitiesInst(ready: number | null, all: number | null): SVGSVGElement {
-  const lit = all ? Math.max(ready ? 1 : 0, Math.round(((ready ?? 0) / all) * 24)) : 0;
-  return art(...Array.from({ length: 24 }, (_, i) => box(i < lit ? 'lit' : 'ln2', 26 + (i % 8) * 14.5, 18 + Math.floor(i / 8) * 20, 9, 9, 2)));
-}

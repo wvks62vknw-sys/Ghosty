@@ -286,3 +286,6 @@ test('the counts (printed for the report): tools, screens, panels, phrases, game
   assert.ok(counts.entries >= 250, `${counts.entries} entries (the tab promises every single thing)`);
   assert.ok(counts.entries <= counts['registry items']);
 });
+
+// THE FINDING RULE (BRIEF-SHELL pass 1): every screen within three taps or one typed word, held by its own test file
+await import('./finding.test.mjs');

@@ -19,7 +19,9 @@
 //  8. THE CORE CARD in Every screen says "Looking at: …" for the screen under it, WORKING (and DEGRADED when no turn carried one).
 //  9. THE SPEED BUDGET: reading a context costs under 2 ms a time over 200 selections.
 // 10. Nothing sticks out sideways at 440 and 390 (the deck with its Core card, the reader's stamp line), every deck card 44 pt.
-//   BASE=http://localhost:8788 node tests/awareness.spec.mjs [outDir]   (ONLY=plan,car,shed,reader,deck,lens,turn,core,speed,fit)
+// 11. EVERY SCREEN'S OWN SENTENCE (BRIEF-SHELL pass 1, OWNER-ISSUES 150 d): 37 screens opened and read, each with a sentence of its own
+//     (not the fallback), 160 characters at most, no key; eight held to their exact words, a sheet screen follows its pill.
+//   BASE=http://localhost:8788 node tests/awareness.spec.mjs [outDir]   (ONLY=plan,car,shed,reader,deck,lens,turn,core,speed,fit,screens)
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openDeck, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
@@ -431,6 +433,58 @@ if (part('turn') || part('deck')) {
   await page.waitForTimeout(300);
   const home = await aware(page);
   check(home?.screen === 'core', `[look] on Home afterwards, Home says: ${JSON.stringify(home?.screen)}`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 11. EVERY SCREEN'S OWN SENTENCE (BRIEF-SHELL pass 1; OWNER-ISSUES 150 d)
+// The screens that used to say their name and their older description now say what is open and, where they have one, what is picked:
+// plain and short, never a key, never a person seen by a camera, never a plate. Every screen of the bar, the hubs and the Me sheet is
+// opened and read; eight are held to their exact words.
+if (part('screens')) {
+  const { ctx, page } = await open(PHONE, 'screens');
+  const SCREENS = ['brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'workshop', 'learn', 'gym', 'school', 'reverse', 'workbench', 'links', 'settings', 'system', 'arcade',
+    'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house',
+    'area-ask', 'area-see', 'area-make', 'area-learn', 'area-plan', 'area-life', 'area-me'];
+  const said = {};
+  for (const id of SCREENS) {
+    await page.evaluate((t) => (location.hash = t), id);
+    await until(page, (t) => document.body.dataset.tab === t, id, 8000, `[screens] ${id} did not open`);
+    await page.waitForTimeout(id === 'learn' || id === 'school' || id === 'arcade' ? 900 : 450);
+    const c = await aware(page);
+    said[id] = c;
+    check(!!c?.looking, `[screens] ${id} has no sentence of its own (the fallback said: "${c?.line}")`);
+    check(c && c.line.length > 0 && c.line.length <= 160, `[screens] ${id}: the sentence is ${c?.line?.length} characters`);
+    check(c && c.words.length <= 220 && !/[A-Za-z0-9_\-+/=]{32,}/.test(c.words), `[screens] ${id}: the words ride too long or carry a key: ${c?.words}`);
+    check(c && !/\b(?:undefined|null|NaN|\[object)/.test(c.words), `[screens] ${id}: a broken word in "${c?.words}"`);
+  }
+  const L = (id) => said[id]?.line ?? '';
+  check(/^the agenda, on [a-z ]+, (next: .+, (today|tomorrow|[a-z0-9 ]+) \d\d:\d\d|nothing coming up)$/i.test(L('agenda')), `[screens] the agenda says "${L('agenda')}"`);
+  check(/^the markets, /.test(L('markets')) && said.markets?.looking === 'the markets', `[screens] the markets say "${L('markets')}"`);
+  check(/^memory, on [a-z ]+, \d+ things I remember$/.test(L('memory')), `[screens] memory says "${L('memory')}"`);
+  check(/^the gym, on .+/.test(L('gym')) && said.gym?.selected?.kind === 'item', `[screens] the gym says "${L('gym')}" ${JSON.stringify(said.gym?.selected)}`);
+  check(/^settings, on appearance$/.test(L('settings')) && said.settings?.selected?.label === 'Appearance', `[screens] settings say "${L('settings')}"`);
+  check(/^links, on accounts$/.test(L('links')), `[screens] links say "${L('links')}"`);
+  check(/^the money screen, open on statement$/.test(L('money')) && said.money?.selected?.kind === 'group', `[screens] money says "${L('money')}"`);
+  check(/^the make hub, 8 things to open$/.test(L('area-make')) && /^the learn hub, 7 things to open$/.test(L('area-learn')), `[screens] the hubs say "${L('area-make')}" and "${L('area-learn')}"`);
+  check(/^the body screen, open on reps/.test(L('body')), `[screens] body says "${L('body')}"`);
+  // a sheet screen follows its pill, and says which one
+  await page.evaluate(() => (location.hash = 'body'));
+  await page.waitForTimeout(500);
+  await openSection(page, 'body', 'Water');
+  const water = await aware(page);
+  check(/^the body screen, open on water/.test(water?.line ?? '') && water.selected?.label === 'Water', `[screens] body on its Water pill says "${water?.line}"`);
+  // the people screen never says a name, the Lens never says who: counts and the open page only
+  await page.evaluate(() => (location.hash = 'people'));
+  await page.waitForTimeout(500);
+  const ppl = await aware(page);
+  check(/^the people screen, open on your people$/.test(ppl?.line ?? ''), `[screens] people says "${ppl?.line}"`);
+  // Home says what it is looking at, in the one place the stamp line reads
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(500);
+  const hc = await aware(page);
+  check(hc?.looking === 'Home' && /^the home screen/.test(hc.line), `[screens] Home says ${JSON.stringify([hc?.looking, hc?.line])}`);
+  await page.screenshot({ path: `${out}/awareness-screens.png` });
+  measured.screens = Object.fromEntries(Object.entries(said).map(([k, v]) => [k, v?.line]));
   await ctx.close();
 }
 

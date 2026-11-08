@@ -52,7 +52,7 @@ import { allScores } from '../arcade/scores';
 // [tabs] what the new screens' cards read (BRIEF-TABS 3)
 import { ACCOUNTS } from '../../../../packages/shared/src/social';
 import { mmss } from '../../../../packages/shared/src/kitchen';
-import { abilitiesInst, bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
+import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
 import { checkStorage, storageState } from '../features/system/storage';
 import { bodyState } from '../features/body/sheet';
 import { CREATIVE_TITLES } from '../features/creative/sheet';
@@ -144,8 +144,6 @@ export const hubFacts = {
   learning: null as { streak: number; today: boolean; skills: number } | null,
   coach: null as { streak: number; today: boolean; passed: number } | null,
   social: null as { waiting: number; linked: boolean[] } | null,
-  /** ABILITIES (the Me hub): everything I can do, and how many of them cannot work yet (each says why: a key, a link). */
-  abilities: null as { all: number; off: number } | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
 const loadArcade = every(3_000, async () => {
@@ -177,15 +175,9 @@ const loadKept = every(30_000, async () => {
 const loadProjects = every(120_000, async () => (hubFacts.projects = (await brain.projects()).projects));
 const loadStatus = every(120_000, () => brain.status());
 // [tabs] the Me hub's cards: the facts as the Memory screen reads them (kept on this phone as it does), this phone's storage
-// as SYSTEM measures it (never asking to keep it), and the abilities as the ABILITIES screen counts them
+// as SYSTEM measures it (never asking to keep it)
 const loadMemory = every(120_000, () => brain.memory());
 const loadStorage = every(60_000, () => checkStorage(false));
-const loadAbilities = every(300_000, async () => {
-  const m = await import('../abilities/registry');
-  await m.loadBrainSide();
-  const all = m.allAbilities();
-  hubFacts.abilities = { all: all.length, off: all.filter((a) => a.off).length };
-});
 /** [tabs] The brain's keys as it last told this phone (null: not heard yet), and whether one of them is set. */
 const keysNow = () => lastSeen.get().status?.keys ?? null;
 const keySet = (name: string) => keysNow()?.find((k) => k.name === name)?.set ?? null;
@@ -953,20 +945,6 @@ export const CARDS: Record<string, HubCard> = {
     },
     why: () => 'Email, Spotify and Telegram, linked once',
     load: loadStatus,
-  },
-  abilities: {
-    title: 'All I can do',
-    status: () => 'READY',
-    instrument: () => abilitiesInst(hubFacts.abilities ? hubFacts.abilities.all - hubFacts.abilities.off : null, hubFacts.abilities?.all ?? null),
-    readouts: () => {
-      const a = hubFacts.abilities;
-      return [
-        { label: 'Abilities', value: a ? fmt.n(a.all) : null },
-        { label: 'Not ready', value: a?.off ? fmt.n(a.off) : null, none: a ? 'None' : 'Not yet' },
-      ];
-    },
-    why: () => 'Tap any one, and it explains itself',
-    load: loadAbilities,
   },
 };
 

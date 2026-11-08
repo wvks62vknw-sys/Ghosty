@@ -101,7 +101,7 @@ export function advance(s: FirstRun, e: Event): { state: FirstRun; error?: strin
 /** The three things to try, in his voice (the wizard's last screen). */
 export const THREE_THINGS: string[] = [
   'Say or type “what can you do?” — I answer that on your phone, with nothing to set up.',
-  'Open the Everything tab and tap anything in it: each has a plain explanation and a TRY IT.',
+  'Ask me “can you …?” about anything: I say yes, and take you straight to it.',
   'Tell me one thing to remember about you, like “I take the 8:15 bus”: I keep it, and you can read or delete it in Memory.',
 ];
 

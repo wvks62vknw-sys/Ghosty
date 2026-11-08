@@ -38,9 +38,10 @@ import { brainLine, getForSit, notDownloaded, resumeNow, runPaper, school, sitGe
 import { brain, headers } from '../../api/brain';
 import { loadOffline, withModel } from '../../offline/brain';
 import type { TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { goToPanel, revealSection, sections } from '../../ui/sections';
+import { goToPanel, revealSection, sectionNow, sections } from '../../ui/sections';
 
 const LOCK = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>';
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -897,6 +898,15 @@ export const schoolTab: TabDef = {
         shown = false;
         stopWork();
         ensurePoll();
+      },
+      // (BRIEF-SHELL pass 1) the page open and the stage I am at
+      context: () => {
+        const sec = sectionNow('school').toLowerCase();
+        const stage = view?.current.label ?? '';
+        return screenSays('school', 'School', `school${sec ? `, on ${sec}` : ''}${stage ? `, at ${stage}` : ''}`, {
+          looking: 'school',
+          ...(stage ? { selected: { kind: 'item', id: 'stage', label: stage, detail: 'my stage' } } : {}),
+        });
       },
       describe() {
         return view ? `School: the offline brain is at ${view.current.label}; ${view.current.subjects.map((s) => `${s.label} ${s.latest ? s.latest.grade : 'not sat'}`).join(', ')}.` : 'School.';

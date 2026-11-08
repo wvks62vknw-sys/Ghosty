@@ -158,7 +158,7 @@ export const SINCE_GROUP: Record<string, string> = {
 /** The phone's screens, by the batch they came in. */
 export const SINCE_SCREEN: Record<string, string> = {
   lens: '2026-10-16', reverse: '2026-10-16', settings: '2026-10-16', learn: '2026-10-17', space: '2026-10-17', studio: '2026-10-17', gym: '2026-10-18',
-  school: '2026-10-23', abilities: '2026-10-31', workbench: '2026-10-31',
+  school: '2026-10-23', workbench: '2026-10-31',
   'area-ask': '2026-10-28', 'area-see': '2026-10-28', 'area-make': '2026-10-28', 'area-learn': '2026-10-28', 'area-plan': '2026-10-28', 'area-me': '2026-10-28',
   'area-life': '2026-11-01',
 };

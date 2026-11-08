@@ -136,11 +136,6 @@ export const APP_1: Record<string, CatValue> = {
     more: 'What is ready, what is waiting on a key, how much free AI is left today, and how I am improving.',
     say: ['Open System'], scene: ['behind'], cat: 'do',
   },
-  'screen:abilities': {
-    name: 'This list of everything', line: 'You can find everything I can do right here: search it, tap any one and try it.',
-    more: 'Made from my own code, so nothing is missing and nothing is made up. New things are marked NEW for two weeks.',
-    say: ['What can you do?', 'Can you translate signs?'], scene: ['talking'], cat: 'talk',
-  },
   'screen:area-ask': {
     name: 'The ASK area', line: 'You can tap ASK at the bottom to talk to me, or get the day in one look.',
     more: 'The chat, the Brief and talking out loud, together.',
@@ -168,7 +163,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   'screen:area-me': {
     name: 'The ME area', line: 'You can tap ME for what I know, how I look and what I am linked to.',
-    more: 'Memory, Settings, System, Links and this list.',
+    more: 'Memory, Settings, System, Links and Social.',
     say: ['(tap your initial)'], scene: ['talking'], cat: 'talk',
   },
   // ---- the hub cards (each opens its screen; talking out loud is its own)
@@ -181,7 +176,7 @@ export const APP_1: Record<string, CatValue> = {
   'hub:arcade': { same: 'screen:arcade' },
   // ---- the Me sheet
   'me:memory': { same: 'screen:memory' }, 'me:settings': { same: 'screen:settings' }, 'me:system': { same: 'screen:system' },
-  'me:links': { same: 'screen:links' }, 'me:abilities': { same: 'screen:abilities' },
+  'me:links': { same: 'screen:links' }, 'me:area-me': { same: 'screen:area-me' },
   'me:deck': {
     name: 'Every screen at once', line: 'You can see every screen at once, each with what it can do and three things to try today.',
     more: 'Tap your initial, then Every screen; a long press on your initial opens it straight away.',
@@ -257,10 +252,15 @@ export const APP_1: Record<string, CatValue> = {
     more: 'The ones that have something live come first.',
     say: ['(long press a tab)'], scene: ['talking'], cat: 'do', go: { open: 'core' }, tryText: 'Opens Home: long press any tab',
   },
+  'app:favourites': {
+    name: 'Pin a screen', line: 'You can press and hold a screen to pin it, and it is first when you tap the search.',
+    more: 'Hold a recent in the search, a card on a hub or a card in Every screen, then tap PIN. Up to six, in your order, kept in your settings and in the backup.',
+    say: ['(press and hold a screen)'], scene: ['talking'], cat: 'do', go: { open: 'core' }, tryText: 'Opens Home: tap the search, then hold a row',
+  },
   'app:offers': {
     name: 'One tip a day, at most', line: 'I offer one thing you have never tried, at most once a day, when the moment fits.',
     more: 'A plate typed, a YouTube link, a worry, a receipt: one line, once, never mid-task. Each tip is offered once ever.',
-    say: ['(it comes by itself)'], scene: ['talking'], cat: 'talk', go: { open: 'abilities' }, tryText: 'Opens this list',
+    say: ['(it comes by itself)'], scene: ['talking'], cat: 'talk', go: { open: 'core' }, tryText: 'Opens Home, where I say it',
   },
   // ---- the chat's own controls
   'chat:mic': {
@@ -389,7 +389,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   'phrase:canyou': {
     name: 'Ask me “can you…?”', line: 'You can ask "can you…?" about anything and I say yes with the way to do it, or "not yet" and offer to learn it.',
-    more: 'The same search as this list. Say yes to "want me to learn it?" and it goes on my learning list. "Can you remind me at 5…" is a request, and I just do it.',
+    more: 'Ask me “can you …?” in the chat. Say yes to "want me to learn it?" and it goes on my learning list. "Can you remind me at 5…" is a request, and I just do it.',
     say: ['Can you translate signs?', 'Can you check my car’s MOT?'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
