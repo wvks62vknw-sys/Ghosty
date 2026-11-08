@@ -217,6 +217,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   02:55 UK: ROUND TWO DONE (docs/build-plan/mockups/hud/2026-11-08-2/: boot.mp4 8.2 s with Home usable at 7.0, home.mp4, the
   nine shots, Home at home / out / on the way, the gallery of seven looks, ONE INK's Home beside The Scan's, the cue sheet,
   the production rubric, eight questions); SENT to him with the six that change the build. Nothing builds until he picks.
+  03:00 UK HIS PICKS (OWNER-ISSUES 158): seven seconds or a touch more with a flourish; where-he-is on; the map provisionally;
+  the score; ONE INK second; the camera move; THE ROOM RECONSIDERED: a short concept round (BRIEF-HUD-MOCKS-3, the top tier)
+  LAUNCHED 03:10 UK in worktree hudmocks3: three Homes (ROOM+, SIDEWAYS, UPWARDS) for his pick; then The Scan HUD is built.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I
