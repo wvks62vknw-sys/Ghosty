@@ -594,11 +594,12 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     if (!scanState.on) return;
     // a sheet over the world (the deck, the jump bar, the chat log) gets the whole frame: the world is not drawn under it (the jump bar's
     // 300 ms budget on a two-core runner, and the battery on his phone), and it picks up where it was when the sheet goes
-    // (the house's height is read first, so the ask line follows the house even while the world waits: with the chat open or
-    // the keyboard up the house is gone and the ask line sits just above the home indicator, as on today's Home)
+    // (the house's height is read first, so the ask line follows the house even while the world waits; a hidden house (the
+    // chat open, the keyboard up) keeps the last height, since the stylesheet drops the floor to the home indicator in the
+    // same frame the house goes, and the ask line never sits a frame under the house coming back)
     const dock = document.getElementById('dock');
     const dh = dock ? dock.offsetHeight : 64;
-    if (dh !== dockH) {
+    if (dh > 0 && dh !== dockH) {
       dockH = dh;
       (el.closest<HTMLElement>('.hud') ?? el).style.setProperty('--scan-dock', `${dh}px`);
     }

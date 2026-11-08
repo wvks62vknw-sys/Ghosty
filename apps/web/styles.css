@@ -6334,7 +6334,9 @@ html #pinsheet .pinkeys { display: flex; justify-content: flex-end; gap: var(--g
    --------------------------------------------------------------------------------------------------------------------- */
 html .scanframe { display: none; position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; background: var(--g-room-canvas); color: var(--g-ink-1); isolation: isolate; }
 /* the floor the ask line stands on: 28 px above the house; with the house gone (the chat open, the keyboard up) just above the home indicator */
-html body.scanhome .hud.core { --scan-floor: max(calc(var(--scan-dock, 64px) + 28px), calc(env(safe-area-inset-bottom, 0px) + 10px)); }
+html body.scanhome .hud.core { --scan-floor: max(calc(var(--scan-dock, 64px) + 28px), 14px, env(safe-area-inset-bottom, 0px)); }
+/* the house is gone the same frame the chat opens or the keyboard rises (body.ownback, body.kb hide it): the floor follows it in that frame, no measured lag */
+html body.scanhome:is(.ownback, .kb) .hud.core { --scan-floor: max(14px, env(safe-area-inset-bottom, 0px)); }
 /* (the frame is the phone's: at a desk today's three-column Home stays as it is) */
 @media (max-width: 899px) {
 html body.scanhome .hud.core .scanframe { display: block; }
