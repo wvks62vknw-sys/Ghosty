@@ -30,6 +30,29 @@ export const NAMER_SIZE = '42 MB';
 /** The extra names (28,223 of them) as an int8 bank. */
 export const EXTENDED_SIZE = '15 MB';
 
+/** The runtime's WebAssembly memory cap in 64 KB pages, as faces.ts holds it: 1 GB first, 256 MB if the phone refuses that (the encoder needs well under). */
+const MAX_PAGES = [16384, 4096] as const;
+/** The runtime could not get its memory (an iPhone refusing the reservation): worth one try with a smaller cap. */
+export const memoryTrouble = (e: unknown): boolean => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(String((e as Error)?.message ?? e));
+
+/** The namer could not start for want of memory, even at the smaller cap: plain words, never the runtime's own text. */
+export class NamerMemoryError extends Error {
+  constructor() {
+    super('The namer needs more memory than this phone can give it right now. Close other tabs, or close and reopen Ghosty, and try again.');
+    this.name = 'NamerMemoryError';
+  }
+}
+
+/**
+ * The specs' stand-in for an iPhone that refuses the runtime its memory (WebKit cannot run where the specs do): only ever under a
+ * test runner, the page sets `__ghostyNamerFail` to 'memory' (the worker throws the iPhone's own error at every cap) or 'memory-1gb'
+ * (only at the 1 GB cap, so the retry at 256 MB is what saves it); `__ghostyNamerTries` lists the caps the worker was started with.
+ */
+function testFail(): string {
+  const w = window as unknown as { __ghostyNamerFail?: string };
+  return navigator.webdriver && w.__ghostyNamerFail ? String(w.__ghostyNamerFail) : '';
+}
+
 /** What the namer's worker answers (see public/vendor/clip/worker.mjs). */
 type WorkerReply = { id: number; t: 'done' | 'error'; message?: string; data?: Float32Array };
 
@@ -39,8 +62,11 @@ class NamerWorker {
   private seq = 0;
   private calls = new Map<number, { resolve: (r: WorkerReply) => void; reject: (e: Error) => void }>();
 
-  constructor() {
-    this.w = new Worker(CLIP_FILES.worker, { type: 'module' });
+  constructor(maxPages: number) {
+    const fail = testFail();
+    if (fail) ((window as unknown as { __ghostyNamerTries?: number[] }).__ghostyNamerTries ??= []).push(maxPages);
+    // the memory cap goes in the worker's address (as faces.ts does), and a test's stand-in failure with it
+    this.w = new Worker(`${CLIP_FILES.worker}?maxPages=${maxPages}${fail ? `&fail=${fail}` : ''}`, { type: 'module' });
     this.w.onmessage = (ev: MessageEvent<WorkerReply>) => {
       const c = this.calls.get(ev.data.id);
       if (!c) return;
@@ -167,14 +193,26 @@ export class Namer {
       ]);
       if (gen !== this.gen) throw new Error('The namer was put away while it loaded');
       progress('starting the namer…');
-      const worker = new NamerWorker();
-      try {
-        // the encoder's bytes move to the worker: none stay in this page
-        await worker.call('load', { model: model.buffer }, [model.buffer]);
-      } catch (e) {
-        worker.terminate();
-        throw e;
+      // The runtime's memory cap, 1 GB then 256 MB: an iPhone refuses the stock 4 GB shared reservation once the vision runtime
+      // holds memory too ("no available backend found … RangeError: Out of memory"); a smaller cap is tried once (faces.ts does the same).
+      let worker: NamerWorker | null = null;
+      let failed: unknown = null;
+      for (const [i, pages] of MAX_PAGES.entries()) {
+        const w = new NamerWorker(pages);
+        try {
+          // the encoder's bytes go to the worker: a copy for the first try (the second still needs them), the bytes themselves for the last
+          const last = i === MAX_PAGES.length - 1;
+          await w.call('load', { model: last ? model.buffer : model.buffer.slice(0) }, last ? [model.buffer] : []);
+          worker = w;
+          failed = null;
+          break;
+        } catch (e) {
+          failed = e;
+          w.terminate();
+          if (!memoryTrouble(e)) break;
+        }
       }
+      if (!worker) throw memoryTrouble(failed) ? new NamerMemoryError() : failed;
       if (gen !== this.gen) {
         worker.terminate();
         throw new Error('The namer was put away while it loaded');
