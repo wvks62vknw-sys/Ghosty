@@ -6362,7 +6362,8 @@ html .scanorb { position: absolute; z-index: 3; pointer-events: auto; cursor: po
 html .scanorb .rwrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; transform: none; filter: none; opacity: 1; }
 html .scanorb canvas.reactor { width: 100%; height: 100%; max-width: none; }
 /* the marks: a reticle he can press round each thing (44 pt at least), its tag above (or beside, or below), lit for the thing of the hour */
-html .scanmarks { position: absolute; inset: 0; z-index: 2; pointer-events: auto; touch-action: none; }
+html .scanmarks { position: absolute; inset: 0; z-index: 4; pointer-events: none; touch-action: none; } /* (above the orb's square: a key is always the thing under the finger; the orb takes the tap everywhere else) */
+html .scanmarks > * { pointer-events: auto; }
 html #app button.scanret { position: absolute; z-index: 2; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-transform: none; letter-spacing: normal; white-space: nowrap; cursor: pointer; transform: none; transition: none; }
 html .scanret[hidden] { display: none; }
 html .scanret > .g-ret-frame { inset: 0; }

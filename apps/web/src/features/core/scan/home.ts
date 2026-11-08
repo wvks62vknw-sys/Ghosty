@@ -392,7 +392,11 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     cam.set(pose, W, H);
     const out: typeof scanState.marks = [];
     // (the thing of the hour is marked in every frame: tonight's book, or this morning's Brief where the book would be)
-    const topBottom = top.getBoundingClientRect().bottom - (el.getBoundingClientRect().top || 0);
+    const frameTop = el.getBoundingClientRect().top || 0;
+    const topBottom = top.getBoundingClientRect().bottom - frameTop;
+    // the band at the bottom (the altitude keys, the ask line, the house) takes the tap too: a key stays above it
+    const altsTop = alts.getBoundingClientRect().top;
+    const bottomTop = (altsTop > 0 ? altsTop : H) - frameTop;
     const list = marksAt(alt).concat(MARKS.filter((m) => m.id === scanState.lit && !m.where.includes(alt) && alt !== 'line' && alt !== 'out'));
     // what the eye looks at: the thing of the hour at home; out and on the way, the place locked (the station)
     const lookId = alt === 'line' || alt === 'out' ? 'r-station' : scanState.lit;
@@ -402,6 +406,24 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       if (!list.includes(m)) continue;
       const box = cam.box(m.box, m.pad, 44);
       if (!box || box.right < 0 || box.left > W || box.bottom < 0 || box.top > H) {
+        b.hidden = true;
+        continue;
+      }
+      // a key never sits under the words at the top (the stamp, the where-line, the greeting take the tap): a box that would
+      // start inside them is moved down to just below them, the way a box at the frame's edge stays on the screen; one that
+      // would then leave the frame is not shown at this altitude (the safari spec found God's eye and the station under the
+      // greeting on a short screen)
+      if (box.top < topBottom + 4) {
+        const dy = topBottom + 4 - box.top;
+        box.top += dy;
+        box.bottom += dy;
+      }
+      if (box.bottom > bottomTop - 4) {
+        const dy = box.bottom - (bottomTop - 4);
+        box.top -= dy;
+        box.bottom -= dy;
+      }
+      if (box.top < topBottom + 4 || box.bottom > H - 2) {
         b.hidden = true;
         continue;
       }
@@ -437,10 +459,22 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       sightDot.setAttribute('cy', ty.toFixed(1));
       sight.style.opacity = '1';
       sightDot.style.opacity = '1';
-      // the callout: its box, then the leader from its nearest edge to the thing's nearest edge
-      const cr = callout.getBoundingClientRect();
+      // the callout: its box, then the leader from its nearest edge to the thing's nearest edge. A callout never sits on the
+      // thing it points at (its leader would have no length and the thing's own key would be under it): where its resting
+      // place overlaps the thing's box it steps above the box, or below it when there is no room above the words
+      callout.style.top = '';
+      let cr = callout.getBoundingClientRect();
       const er = el.getBoundingClientRect();
-      const cb = { left: cr.left - er.left, top: cr.top - er.top, right: cr.right - er.left, bottom: cr.bottom - er.top };
+      let cb = { left: cr.left - er.left, top: cr.top - er.top, right: cr.right - er.left, bottom: cr.bottom - er.top };
+      if (cb.left < nb.right && cb.right > nb.left && cb.top < nb.bottom && cb.bottom > nb.top) {
+        const ch = cb.bottom - cb.top;
+        const above = nb.top - 12 - ch;
+        const below = nb.bottom + 12;
+        const y = above > topBottom + 8 ? above : below + ch < bottomTop - 8 ? below : above;
+        callout.style.top = `${Math.round(y)}px`;
+        cr = callout.getBoundingClientRect();
+        cb = { left: cr.left - er.left, top: cr.top - er.top, right: cr.right - er.left, bottom: cr.bottom - er.top };
+      }
       const ax = Math.max(cb.left, Math.min(cb.right, (nb.left + nb.right) / 2));
       const ay = Math.max(cb.top, Math.min(cb.bottom, (nb.top + nb.bottom) / 2));
       const bx = Math.max(nb.left, Math.min(nb.right, ax));

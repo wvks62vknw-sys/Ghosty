@@ -301,12 +301,16 @@ const whereLine = (page) => page.evaluate(() => document.querySelector('.scanwhe
   await page.evaluate(() => window.__ghosty.run('reboot'));
   await until(page, () => window.__bootState.plays === 2, 8000, '[score] the reboot did not play');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 }).catch(() => problems.push('[score] the reboot never ended'));
-  const heard = await page.evaluate(() => ({ score: window.__bootState.score, sound: window.__bootState.sound, tone: window.__bootState.tone, sfx: window.__sfx.filter((k) => k === 'lock' || k === 'click') }));
+  const heard = await page.evaluate(() => ({ score: window.__bootState.score, sound: window.__bootState.sound, tone: window.__bootState.tone, sfx: window.__sfx.filter((k) => k === 'lock' || k === 'click'), feedLines: window.__bootState.feedLines }));
   check(heard.score.on === false && heard.sound && heard.tone === 'tone' && heard.sfx.length === 1, `[score] after a tap the reboot: ${JSON.stringify(heard)} (want the score played and stopped, the tone once)`);
-  for (const cue of ['scan', 'thing', 'sphere', 'feed', 'lock', 'voice', 'stop']) check(heard.score.cues.includes(cue), `[score] the cue "${cue}" never came: ${heard.score.cues.join(', ')}`);
+  for (const cue of ['scan', 'thing', 'sphere', 'lock', 'voice', 'stop']) check(heard.score.cues.includes(cue), `[score] the cue "${cue}" never came: ${heard.score.cues.join(', ')}`);
   // (the runner's frames can be a second apart, so phases arrive together; the pad still rises before the chord stops dead with the lock)
   const cues = heard.score.cues;
   check(cues.indexOf('scan') < cues.indexOf('lock') && cues.indexOf('thing') < cues.indexOf('lock') && cues.filter((c) => c === 'thing').length >= 4 && cues.filter((c) => c === 'feed').length <= 3, `[score] the cues: ${cues.join(', ')}`);
+  // one tick per feed that answered during the film, and none for a feed that did not (the feeds' lines are only the ones that
+  // connected: a guardian still loading when the film plays gives no line and no tick)
+  const fed = cues.filter((c) => c === 'feed').length;
+  check(fed === heard.feedLines.length, `[score] ${fed} feed tick(s) for ${heard.feedLines.length} feed line(s): ${JSON.stringify(heard.feedLines)}`);
   // A: the row off, the one tone alone
   await page.evaluate(() => window.__ghosty.settings.set({ bootScore: false }));
   await page.evaluate(() => window.__ghosty.run('reboot'));
