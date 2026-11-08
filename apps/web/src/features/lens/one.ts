@@ -1,8 +1,13 @@
 /**
  * THE ONE LENS (BRIEF-LENS; STARS 151 and 152; the owner's budgets in OWNER-ISSUES 131, his three rules in 139, "everything stays
- * findable" in 143). He points the camera and Ghosty TAGS what is there, in the Machine's marks: a thin reticle round each thing
- * (ui/machine.ts `reticle`), its tag above ("TEXT"), one true line under it ("I see text — tap to read it"), and the act it
- * offers as a key ("READ"). Drawn in the DOM over the video from each detection's box (vision/boxes.ts), not on the overlay canvas.
+ * findable" in 143), made THE LENS THAT JUST KNOWS (BRIEF-LENS-KNOWS; OWNER-ISSUES 156: "it shouldn't have an overlay saying
+ * translate etc, it should just know"). He points the camera and Ghosty KNOWS what is there and does the right thing: a thin
+ * reticle round each thing (ui/machine.ts `reticle`) with its plate above it ("A LETTER · 61 WORDS", "A SIGN · FRENCH", "MUM",
+ * "A LINK · MENU", "A MUG"), ONE true line under the viewfinder (what it is · one fact · the one act in his colour) and the
+ * stamp line's LOOKING AT. No key sits on the picture: a tap on a thing is its act, the rest is his words. Text in his language is
+ * read there and then (the OCR READ has, once for each steady scene) and its words stand in the WHAT IT SAYS plate, a tap on a
+ * word reads from it aloud; text in another language is translated there and then (the WORDS go to the brain, never the picture)
+ * and drawn over the sign. Drawn in the DOM over the video from each detection's box (vision/boxes.ts), not on the overlay canvas.
  *
  * THE BUDGETS (vision/tags.ts holds the rules, pure; this file does the camera and the drawing):
  *   every frame the budget allows (vision/frame.ts FrameBudget, 2 to 10 a second): the "text present" check on a 160-pixel grey
@@ -21,6 +26,9 @@
 import { clear, h } from '../../core/dom';
 import { toast } from '../../ui/components';
 import { key, reticle, tag as tagMark, truthLine, type Reticle } from '../../ui/machine';
+import { askWithImage } from '../../vision/ask';
+import { cleanOcr, titleFrom } from '../../vision/ocrtext';
+import { sayIn, hush } from '../learning/voices';
 import { classifyCode } from '../../scan/codes';
 import { freeBarcodes, readCodesIn, warmBarcodes } from '../../scan/barcode';
 import { cropRect, fromMediaPipe, type Box } from '../../vision/boxes';
@@ -29,7 +37,7 @@ import { memoryTrouble, namer, NAMER_SIZE, NamerMemoryError } from '../../vision
 import { bestMatch, iou, type KnownFace } from '../../vision/facemath';
 import { faces, type FaceSeen } from '../../vision/faces';
 import { knownFaces } from '../../vision/facestore';
-import { FrameBudget, Steady, Tags, HeavyGate, FLOOR, KIND_WORD, TEXT_TRUTH, actsFor, codeTruth, contextWords, finderTruth, greyOf, isPartName, limitTags, looksEnglish, markOf, MARK_WORDS, objectTruth, textTiles, withArticle, type ActId, type TextBlock, type LensMark, type LensWord, type Sighting, type Tag, type TagKind } from '../../vision/frame';
+import { FrameBudget, Steady, Tags, HeavyGate, FLOOR, KIND_WORD, TEXT_TRUTH, codeTruth, dominantColour, eyesLine, firstSentence, languageOf, linkWord, lookingWords, needsTranslation, plateWords, truthParts, wordList, textKind, UNKNOWN_LANG, type Known, type Lang, contextWords, finderTruth, greyOf, isPartName, limitTags, looksEnglish, markOf, MARK_WORDS, objectTruth, textTiles, withArticle, type ActId, type TextBlock, type LensMark, type LensWord, type Sighting, type Tag, type TagKind } from '../../vision/frame';
 import { detector, nextStamp, type ObjectDetectorLike } from '../../vision/models';
 import { go } from '../../shell/tabs';
 import type { LensAsk, LensReply } from '../../workers/lens.worker';
@@ -44,6 +52,8 @@ const CODE_MS = 380;
 /** A look for faces, at most this often (ms), as PEOPLE does. */
 const FACE_MS = 350;
 const FRESH_MS = 1500;
+/** The one toast about the words that are sent by themselves is said once in a session. */
+let toldWords = false;
 /** With nothing found by the object finder, the namer speaks about the middle of the picture only at this share or more. */
 const MIDDLE_FLOOR = 0.5;
 
@@ -132,6 +142,19 @@ export const oneState = {
   markWords: '',
   faces: 'off' as 'off' | 'loading' | 'on',
   said: '',
+  /** What the stamp says it is looking at ("a letter", "two people", "nothing yet"), changed at most once a second. */
+  looking: 'nothing yet',
+  /** The one line under the viewfinder, as words, and whether it is the honest line that is also the one key (no eyes, nothing tagged). */
+  line: '',
+  honest: false,
+  /** The words of a read text: how the OCR READ has done (runs: once for each steady scene), the language decided on the phone, what is shown. */
+  ocr: { state: 'idle' as 'idle' | 'reading' | 'read' | 'none', runs: 0, lang: 'UNKNOWN', words: 0 },
+  /** The translation of a sign in another language: the words go to the brain (never the picture), once for each text read. */
+  translate: { state: 'none' as 'none' | 'sending' | 'done' | 'failed' | 'offline', runs: 0, sent: false, text: '' },
+  /** The WHAT IT SAYS plate and the translation over a sign: what is drawn. */
+  plate: { shown: false, text: '', lit: '', inPlace: false, scrolls: false },
+  /** The last words said aloud (a tap on a word), for the checks. */
+  spoke: '',
 };
 
 /** The tag he tapped, as the screen's selection (BRIEF-AWARENESS "that one"): its kind, never who. */
@@ -198,7 +221,16 @@ export function createOneMode(L: LensContext): Mode {
   };
   const setGet = (t: string): void => setKey(getBtn, t);
   const setNamerKey = (t: string): void => setKey(namerBtn, t);
-  const markRow = h('div.lensmarkrow', markEl, namerOffEl, getBtn, namerBtn, whyEl);
+  // WORDS SENT: the privacy mark, shown while the words of a sign are with the brain to be translated (the one thing the Lens sends unasked)
+  const sentEl = h('span.lensmark.lenssent', tagMark('WORDS SENT', { tone: 'warn' }));
+  sentEl.hidden = true;
+  const markRow = h('div.lensmarkrow', markEl, sentEl, namerOffEl, whyEl);
+  // the download keys and the one true line sit UNDER the viewfinder: never on the picture, never in the camera's bar
+  const truthEl = h('div.lenstruth');
+  const knowRow = h('div.lensknow', truthEl, getBtn, namerBtn);
+  /** Nothing tagged and the eyes not on the phone: the one true line is the key (his tap, the size said). Set by paint. */
+  let honest = true;
+  const getWords = (): string => (oneState.finder === 'failed' ? `TRY AGAIN · ${FINDER_SIZE}` : honest ? eyesLine(FINDER_SIZE) : `GET THE EYES · ${FINDER_SIZE}, ON WI-FI`);
   const markAll = (): void => {
     const finderOn = oneState.finder === 'ready';
     const m = markOf({ cheap: !codeBroken, heavy: finderOn, online });
@@ -222,9 +254,11 @@ export function createOneMode(L: LensContext): Mode {
     // the first key (GET THE EYES): only while the object finder is not on the phone, and it needs a signal
     const needFinder = oneState.finder === 'off' || oneState.finder === 'failed';
     getBtn.hidden = !needFinder && oneState.finder !== 'loading';
+    truthEl.hidden = honest && !getBtn.hidden && oneState.finder !== 'ready';
     if (oneState.finder === 'loading') getBtn.disabled = true;
     else {
-      setGet(oneState.finder === 'failed' ? `TRY AGAIN · ${FINDER_SIZE}` : `GET THE EYES · ${FINDER_SIZE}`);
+      setGet(getWords());
+      getBtn.classList.toggle('honest', honest);
       getBtn.disabled = !online;
       getBtn.setAttribute('aria-label', online ? `Get the eyes: the object finder, ${FINDER_SIZE} once, kept on this phone` : `Get the eyes, ${FINDER_SIZE}: needs a signal`);
       getBtn.title = online ? `Downloads the object finder (${FINDER_SIZE}, once). Nothing of what I see is sent.` : 'I need a signal to download it.';
@@ -303,52 +337,42 @@ export function createOneMode(L: LensContext): Mode {
     }
   };
 
-  // ---------------------------------------------------------------- what is under a tag
+  // ---------------------------------------------------------------- what the Lens knows of the text in view
+  /** The text of the steady scene, read on the phone: its words, the language decided from them, and what became of the translation. */
+  const ocr = { state: 'idle' as 'idle' | 'reading' | 'read' | 'none', epoch: 0, text: '', tokens: [] as string[], lang: UNKNOWN_LANG as Lang, tr: 'none' as 'none' | 'sending' | 'done' | 'failed' | 'offline', translation: '' };
+  /** Words already translated this visit: the same words are not sent twice. */
+  const translated = new Map<string, string>();
   interface Node {
     id: number;
     box: HTMLElement;
     ret: Reticle;
     body: HTMLElement;
     tag: HTMLElement;
-    under: HTMLElement;
-    truth: HTMLElement;
-    keys: HTMLElement;
-    sig: string;
-    truthText: string;
     geo: string;
-    ugeo: string;
     aria: string;
-    uw: number;
-    uh: number;
-    msig: string;
-    mt: number;
+    word: string;
   }
   const nodes = new Map<number, Node>();
-  const nameOf = (t: Tag): string => {
-    if (t.kind === 'text') return 'Text in the picture';
-    if (t.kind === 'code') return 'A code';
-    if (t.kind === 'object') return t.data?.named && t.data.label ? withArticle(t.data.label) : 'An object';
-    if (t.kind === 'face') return t.data?.label ? `${t.data.label}'s face` : 'Someone I know';
-    return 'Someone I don’t know';
-  };
-  const acts = (t: Tag) => actsFor(t.kind, { part: t.data?.part, named: !!t.data?.named, still: S.camera === 'on' });
-  const greyed = (a: { brain?: boolean }): boolean => !!a.brain && !online;
 
-  /** The crop round a tag, from a still of the live frame (frame pixels → the still's), for READ, NAME and ASK. */
+  /** The crop round a tag, from a still (the text check's box covers only the tiles it was sure of, often less than the words: the crop for text is generous) of the live frame (frame pixels → the still's), for READ, NAME and ASK. */
   const cropOf = (t: Tag): HTMLCanvasElement | null => {
     const still = L.still(1600);
     if (!still) return null;
     const { frame } = L.view();
     if (!frame.w) return null;
     const k = still.width / frame.w;
-    const r = cropRect(t.box, frame, t.kind === 'text' ? 0.25 : 0.08);
+    const r = cropRect(t.box, frame, t.kind === 'text' ? 0.6 : 0.08);
     return cropCanvas(still, { x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k });
   };
 
+  let sayTimer = 0;
   const say = (words: string): void => {
     oneState.said = words;
     sayLine.textContent = words;
     sayLine.hidden = !words;
+    // what I said to his words stays long enough to read, then goes (the one true line is the screen's only standing words)
+    window.clearTimeout(sayTimer);
+    if (words) sayTimer = window.setTimeout(() => { sayLine.hidden = true; sayLine.textContent = ''; }, 8000);
     if (words) L.status(words, 'ok');
   };
 
@@ -359,7 +383,7 @@ export function createOneMode(L: LensContext): Mode {
   };
 
   /** Do an act on a tag: the old mode's code, its card kept (BRIEF-LENS 1). */
-  const doAct = async (t: Tag, act: ActId): Promise<void> => {
+  const doAct = async (t: Tag, act: ActId, send = false): Promise<void> => {
     selectedId = t.id;
     S.lastAction = `${act} the ${KIND_WORD[t.kind]} tag`;
     switch (act) {
@@ -409,7 +433,7 @@ export function createOneMode(L: LensContext): Mode {
         const c = cropOf(t);
         if (!c) return void toast('Open the camera first', 'warn');
         // his tap on ASK GHOSTY sends it; opening the question sends nothing
-        L.setMode('ask', { still: c, question: t.kind === 'object' && t.data?.label ? `What is this ${t.data.label}? Tell me about it.` : t.kind === 'code' ? 'I scanned this code. What is it, and is there anything I should know?' : 'What is this?' });
+        L.setMode('ask', { still: c, question: t.kind === 'object' && t.data?.label ? `What is this ${t.data.label}? Tell me about it.` : t.kind === 'code' ? 'I scanned this code. What is it, and is there anything I should know?' : 'What is this?', ...(send ? { send: true } : {}) });
         return;
       }
       case 'measure': {
@@ -419,38 +443,266 @@ export function createOneMode(L: LensContext): Mode {
     }
   };
 
-  // ---------------------------------------------------------------- drawing the tags
+  // ---------------------------------------------------------------- the words on a thing: read there and then, translated there and then
+  const plate = h('div.lensplate', { role: 'group', 'aria-label': 'What it says' });
+  const inplace = h('div.lensinplace', { role: 'button', tabindex: '0', 'aria-label': 'The English of this sign: tap to hear it' });
+  plate.hidden = true;
+  inplace.hidden = true;
+  layer.append(plate, inplace);
+  let plateSig = '';
+  let plateH = 0;
+  let plateAt = 0;
+
+  /** The phone's own voice says `text` (in the language's own tag): nothing is sent anywhere to do it. */
+  const speak = (text: string, tag: string): void => {
+    if (typeof speechSynthesis === 'undefined') return void toast('This phone has no voice of its own', 'warn');
+    oneState.spoke = text;
+    S.lastAction = 'read aloud from a word';
+    sayIn(text, tag || 'en-GB', 0.95);
+  };
+
+  /** One word of the plate: a tap on it reads aloud from it (a 44 pt target: the box is taller and wider than the word, the layout is not). */
+  const wordEl = (tokens: string[], i: number, lit: number, tag: string): HTMLElement => {
+    const el = h(`span.lw${i < lit ? '.lit' : ''}` as 'span', { role: 'button', tabindex: '0', 'aria-label': `Read aloud from ${tokens[i]}` }, tokens[i]!);
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      speak(tokens.slice(i).join(' '), tag);
+    });
+    return el;
+  };
+  const wordsOf = (text: string, tag: string): { nodes: (HTMLElement | string)[]; lit: number; tokens: string[] } => {
+    const tokens = text.match(/\S+/g) ?? [];
+    const lit = firstSentence(text);
+    const kids: (HTMLElement | string)[] = [];
+    tokens.forEach((_, i) => kids.push(wordEl(tokens, i, lit, tag), ' '));
+    return { nodes: kids, lit, tokens };
+  };
+
+  /** Draw the plate (the words) or the English over the sign, whichever the state says; only when the words or the state changed. */
+  const drawPlates = (): void => {
+    const sig = `${ocr.state}|${ocr.text}|${ocr.tr}|${ocr.translation}`;
+    if (sig === plateSig) return;
+    plateSig = sig;
+    const read = ocr.state === 'read';
+    const swapped = read && ocr.tr === 'done' && !!ocr.translation;
+    const sign = read && textKind(wordList(ocr.text).length) === 'sign';
+    const over = swapped && sign;
+    inplace.hidden = !over;
+    plate.hidden = !read || over;
+    oneState.plate = { shown: read, text: '', lit: '', inPlace: over, scrolls: false };
+    plateH = 0;
+    if (!read) return;
+    const en = swapped ? wordsOf(ocr.translation, 'en-GB') : null;
+    const own = wordsOf(ocr.text, ocr.lang.tag);
+    const shown = en ?? own;
+    oneState.plate.text = shown.tokens.join(' ');
+    oneState.plate.lit = shown.tokens.slice(0, shown.lit).join(' ');
+    if (over) {
+      inplace.replaceChildren(h('p.lp-big', ocr.translation), h('p.lp-small', `${ocr.text.replace(/\s+/g, ' ')} · ${ocr.lang.name}`));
+      return;
+    }
+    plate.replaceChildren(
+      h('p.lp-label', swapped ? 'IN ENGLISH' : 'WHAT IT SAYS'),
+      h('p.lp-text', ...shown.nodes),
+      ...(swapped ? [h('p.lp-small', `${ocr.text.replace(/\s+/g, ' ').slice(0, 160)} · ${ocr.lang.name}`)] : []),
+    );
+    plate.scrollTop = 0;
+  };
+  inplace.addEventListener('click', () => speak(ocr.translation, 'en-GB'));
+  inplace.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') speak(ocr.translation, 'en-GB');
+  });
+
+  /** Forget the words (the text left the picture, or the Lens was left). */
+  const forgetText = (): void => {
+    ocr.state = 'idle';
+    ocr.text = '';
+    ocr.tokens = [];
+    ocr.tr = 'none';
+    ocr.translation = '';
+    ocr.epoch = 0;
+    oneState.ocr = { state: 'idle', runs: oneState.ocr.runs, lang: 'UNKNOWN', words: 0 };
+    oneState.translate = { ...oneState.translate, state: 'none', sent: false, text: '' };
+    sentEl.hidden = true;
+    drawPlates();
+  };
+
+  const textTagNow = (now: number): Tag | undefined => tags.alive(now).find((t) => t.kind === 'text');
+
+  /** May the OCR READ run now: a steady scene it has not read, text in it, one heavy pass at a time, the reader free. */
+  const wantsRead = (now: number): boolean => !heavyInFlight && !gate.busy && mirror.steady && mirror.epoch !== ocr.epoch && !L.reader.busy && !!textTagNow(now);
+
+  /** The words of a sign go to the brain, by themselves, to be put into English: never the picture, nothing of where he is (BRIEF-LENS-KNOWS 4). */
+  const sendWords = async (v: number, text: string): Promise<void> => {
+    const kept = translated.get(text);
+    if (kept) {
+      ocr.tr = 'done';
+      ocr.translation = kept;
+      oneState.translate = { state: 'done', runs: oneState.translate.runs, sent: false, text: kept };
+      return;
+    }
+    if (!online) {
+      ocr.tr = 'offline';
+      oneState.translate.state = 'offline';
+      return;
+    }
+    ocr.tr = 'sending';
+    oneState.translate = { state: 'sending', runs: oneState.translate.runs + 1, sent: true, text: '' };
+    S.translations = oneState.translate.runs;
+    sentEl.hidden = false;
+    if (!toldWords) {
+      toldWords = true;
+      toast('I sent the words, not the picture', 'ok');
+    }
+    const ctl = new AbortController();
+    const timer = window.setTimeout(() => ctl.abort(), 20000);
+    try {
+      const r = await askWithImage('Translate this into English. Reply with the English words only.', null, undefined, { scan: text, quiet: true, bare: true, signal: ctl.signal });
+      if (v !== visit) return;
+      const got = r.text.trim();
+      if (got && !r.error) {
+        translated.set(text, got);
+        if (translated.size > 8) translated.delete(translated.keys().next().value as string);
+        ocr.tr = 'done';
+        ocr.translation = got;
+        oneState.translate.state = 'done';
+        oneState.translate.text = got;
+      } else {
+        ocr.tr = 'failed';
+        oneState.translate.state = 'failed';
+      }
+    } catch {
+      if (v !== visit) return;
+      ocr.tr = 'failed';
+      oneState.translate.state = 'failed';
+    } finally {
+      window.clearTimeout(timer);
+      sentEl.hidden = true;
+      oneState.translate.sent = false;
+    }
+  };
+
+  /** The heavy pass for text: the OCR READ already has, on the steady frame, once for each steady scene; the language decided here; a sign in another language translated. */
+  const textPass = async (t: Tag): Promise<void> => {
+    const v = visit;
+    heavyInFlight = true;
+    ocr.epoch = mirror.epoch;
+    ocr.state = 'reading';
+    oneState.ocr.state = 'reading';
+    const t0 = performance.now();
+    try {
+      const c = cropOf(t);
+      if (!c) {
+        ocr.state = 'idle';
+        ocr.epoch = 0;
+        oneState.ocr.state = 'idle';
+        return;
+      }
+      const r = await L.reader.read(c);
+      if (v !== visit) return;
+      const text = cleanOcr(r).replace(/[ \t]+\n/g, '\n');
+      const words = wordList(text);
+      S.ocrRuns++;
+      oneState.ocr.runs++;
+      oneState.heavyMs = Math.round(performance.now() - t0);
+      if (words.length < 2 || r.confidence < 35) {
+        ocr.state = 'none';
+        ocr.text = '';
+        oneState.ocr = { ...oneState.ocr, state: 'none', words: 0, lang: 'UNKNOWN' };
+        return;
+      }
+      const same = text === ocr.text;
+      ocr.text = text;
+      ocr.tokens = text.match(/\S+/g) ?? [];
+      ocr.lang = languageOf(text);
+      ocr.state = 'read';
+      if (!same || ocr.tr === 'none') {
+        ocr.tr = 'none';
+        ocr.translation = '';
+      }
+      oneState.ocr = { ...oneState.ocr, state: 'read', words: words.length, lang: ocr.lang.name };
+      if (needsTranslation(ocr.lang) && ocr.tr === 'none') await sendWords(v, text);
+    } catch {
+      if (v !== visit) return;
+      ocr.state = 'none';
+      oneState.ocr.state = 'none';
+    } finally {
+      heavyInFlight = false;
+    }
+  };
+
+  /** The text itself is kept in the library on his word ("keep it") or his tap on the tag (READ), never by itself. */
+  const keepText = (): string => {
+    if (ocr.state !== 'read' || !ocr.text) return 'There is nothing read yet to keep: hold the phone still on some text.';
+    void L.saveNote(titleFrom(ocr.text), ocr.text, 'scan');
+    return 'Keeping what it says in the library.';
+  };
+
+  // ---------------------------------------------------------------- drawing the tags: a reticle and its plate, nothing else on the picture
   const select = (id: number): void => {
     selectedId = id;
     oneState.selected = id;
     paint(performance.now());
   };
 
+  /** A tap on a thing is its act (the keys are gone): text is read into READ (and so into the library on his save), a code is opened as what it is, a thing is asked about with its picture (his tap is the consent); a face does nothing but say where it stays. */
+  const tapped = (t: Tag): void => {
+    select(t.id);
+    if (t.kind === 'face' || t.kind === 'stranger') return void toast('Faces stay on this phone', 'ok');
+    if (t.kind === 'text') return void doAct(t, 'read');
+    if (t.kind === 'code') return void doAct(t, 'look');
+    void doAct(t, 'ask', true);
+  };
+
   const makeNode = (t: Tag): Node => {
     const body = h('span.lt-body');
     const ret = reticle({
-      name: nameOf(t),
+      name: t.kind,
       body,
       onTap: () => {
         const cur = tags.byId(t.id);
-        if (!cur) return;
-        select(t.id);
-        const a = acts(cur)[0];
-        if (a && !greyed(a)) void doAct(cur, a.id);
+        if (cur) tapped(cur);
       },
     });
     const tagEl = h('span.lt-tag');
     const box = h('div.lenstag', { dataset: { kind: t.kind } }, ret.el, tagEl);
-    const truth = h('span.lt-truth');
-    const keys = h('div.lt-keys');
-    const under = h('div.lenstagunder', { dataset: { kind: t.kind } }, truth, keys);
-    layer.append(box, under);
-    return { id: t.id, box, ret, body, tag: tagEl, under, truth, keys, sig: '', truthText: '', geo: '', ugeo: '', aria: '', uw: 0, uh: 0, msig: '', mt: 0 };
+    layer.append(box);
+    return { id: t.id, box, ret, body, tag: tagEl, geo: '', aria: '', word: '' };
   };
 
-  const tagWord = (t: Tag): string => (t.kind === 'face' ? (t.data?.label ?? 'FACE') : KIND_WORD[t.kind]);
+  /** What one tag is, for the words (the text's state is the scene's: one text tag stands). Never a known face's name beyond the plate. */
+  const knownOf = (t: Tag, frame: { w: number; h: number }): Known => {
+    const cx = (t.box.x + t.box.w / 2) / (frame.w || 640) - 0.5;
+    const cy = (t.box.y + t.box.h / 2) / (frame.h || 480) - 0.5;
+    const away = Math.min(1, Math.hypot(cx, cy) * 1.4);
+    switch (t.kind) {
+      case 'text': {
+        if (ocr.state === 'reading') return { kind: 'text', reading: true, away };
+        if (ocr.state !== 'read') return { kind: 'text', away };
+        const words = wordList(ocr.text).length;
+        return { kind: 'text', words, lang: ocr.lang, away, translating: ocr.tr === 'sending', translated: ocr.tr === 'done', untranslated: ocr.tr === 'failed' || ocr.tr === 'offline' };
+      }
+      case 'code':
+        return { kind: 'code', codeKind: t.data?.codeKind, linkWord: t.data?.word, away };
+      case 'face':
+        return { kind: 'face', name: t.data?.label, away };
+      case 'stranger':
+        return { kind: 'stranger', away };
+      default:
+        return { kind: 'object', label: t.data?.label, named: !!t.data?.named, colour: t.data?.colour, away };
+    }
+  };
 
-  /** Put every tag where its box is, with its words and keys; the ones that are gone leave. */
+  /** The stamp's words: at most once a second. */
+  let lookedAt = 0;
+  const looked = (words: string, now: number): void => {
+    if (words === oneState.looking || now - lookedAt < 1000) return;
+    lookedAt = now;
+    oneState.looking = words;
+    L.looked(words);
+  };
+
+  /** Put every tag where its box is, with its plate; the ones that are gone leave; then the one line, the stamp and the words. */
   const paint = (now: number): void => {
     // at most three tags on screen (limitTags); the rest, if any, wait unseen
     const list = limitTags(tags.alive(now));
@@ -458,25 +710,28 @@ export function createOneMode(L: LensContext): Mode {
     for (const [id, n] of nodes) {
       if (live.has(id)) continue;
       n.box.remove();
-      n.under.remove();
       nodes.delete(id);
     }
     if (selectedId && !live.has(selectedId)) selectedId = 0;
+    // the words of a text that has left the picture go with it
+    if (!list.some((t) => t.kind === 'text') && ocr.state !== 'idle' && ocr.state !== 'reading') forgetText();
     const vw = layer.clientWidth || 360;
     const vh = layer.clientHeight || 400;
-    const used: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    const frame = L.camera.size;
     const sorted = [...list].sort((a, b) => a.box.y - b.box.y);
-    // ONE KEY ROW FOR A KIND: where two tags of a kind stand (two codes far apart), the keys sit under one of them, the one he tapped or else the higher
-    const keyed = new Map<TagKind, number>();
-    for (const t of sorted) if (!keyed.has(t.kind) || t.id === selectedId) keyed.set(t.kind, t.id);
     oneState.tags = [];
+    const rects = new Map<number, { x0: number; y0: number; x1: number; y1: number }>();
+    const knowns: Known[] = [];
     for (const t of sorted) {
       const n = nodes.get(t.id) ?? (nodes.set(t.id, makeNode(t)), nodes.get(t.id)!);
+      const k = knownOf(t, frame);
+      knowns.push(k);
       const b = L.viewBox(t.box);
       const w = Math.max(44, Math.min(vw - 8, b.w));
       const hh = Math.max(44, Math.min(vh - 8, b.h));
       const x = Math.max(4, Math.min(vw - w - 4, b.x));
-      const y = Math.max(22, Math.min(vh - hh - 4, b.y));
+      const y = Math.max(STAMP_ROOM, Math.min(vh - hh - 4, b.y));
+      rects.set(t.id, { x0: x, y0: y, x1: x + w, y1: y + hh });
       const fade = tags.fade(t, now);
       // (only what changed is written: a layout for nothing on every frame is a frame the UI does not have)
       const op = (1 - fade * 0.85).toFixed(2);
@@ -487,85 +742,83 @@ export function createOneMode(L: LensContext): Mode {
       }
       const want = selectedId === t.id ? 'attend' : 'watch';
       if (n.ret.state() !== want) n.ret.set(want);
-      const aria = `${nameOf(t)}: ${t.truth}${selectedId === t.id ? ', selected' : ''}`;
+      const word = plateWords(k);
+      const aria = `${word.toLowerCase()}${selectedId === t.id ? ', selected' : ''}${t.kind === 'face' || t.kind === 'stranger' ? ': faces stay on this phone' : ''}`;
       if (n.aria !== aria) {
         n.aria = aria;
         n.ret.el.setAttribute('aria-label', aria);
       }
-      const word = tagWord(t);
-      if (n.tag.textContent !== word) n.tag.replaceChildren(tagMark(word, { tone: t.kind === 'stranger' ? 'off' : selectedId === t.id ? 'on' : undefined }));
-      // the true line under the thing; a face he knows says nothing more than its name
-      if (n.truthText !== t.truth) {
-        n.truthText = t.truth;
-        n.truth.replaceChildren(t.truth ? truthLine(t.truth) : '');
+      if (n.word !== word) {
+        n.word = word;
+        n.tag.replaceChildren(tagMark(word, { tone: t.kind === 'stranger' ? 'off' : selectedId === t.id ? 'on' : undefined }));
       }
-      // the keys, rebuilt only when the acts or the signal change (a rebuild would swallow a tap that lands mid-update)
-      const list2 = keyed.get(t.kind) === t.id ? acts(t) : [];
-      const sig = `${list2.map((a) => a.id + (greyed(a) ? '!' : '')).join(',')}`;
-      if (sig !== n.sig) {
-        n.sig = sig;
-        n.keys.replaceChildren(
-          ...list2.map((a) => {
-            const k = key(a.word, () => {
-              select(t.id);
-              const cur = tags.byId(t.id);
-              if (cur && !greyed(a)) void doAct(cur, a.id);
-            }, { label: greyed(a) ? `${a.name}: needs a signal` : a.name });
-            if (greyed(a)) {
-              k.disabled = true;
-              k.title = 'I’m offline: this needs a signal';
-            }
-            return k;
-          }),
-        );
-      }
-      n.under.hidden = list2.length === 0 && !t.truth;
-      // under the box when there is room; else beside it, in its foot or under its tag, wherever it covers no other tag's words
-      // (measured when its keys change and twice a second after: a font that arrives late makes the words wider)
-      if (!n.uw || n.sig !== n.msig || now - n.mt > 500) {
-        n.msig = n.sig;
-        n.mt = now;
-        n.uw = Math.ceil(n.under.offsetWidth) || 120;
-        n.uh = Math.ceil(n.under.offsetHeight) || 50;
-      }
-      const uw = Math.min(n.uw, vw - 8);
-      const uh = n.uh;
-      const fits = (cx: number, cy: number): boolean => cx >= 2 && cy >= 2 && cx + uw <= vw - 2 && cy + uh <= vh - 2 && !used.some((r) => cx < r.x1 && cx + uw > r.x0 && cy < r.y1 && cy + uh > r.y0);
-      const tries: [number, number][] = [[x, y + hh + 2], [x + w - uw, y + hh + 2], [x, y + hh - uh], [x + w - uw, y + hh - uh], [x, y + 2], [x + w - uw, y + 2]];
-      let at = tries.find(([cx, cy]) => fits(cx, cy));
-      if (!at) {
-        // nothing clear beside its box: the nearest clear place anywhere in the viewfinder, down from under the box or up from it, never on another tag's keys
-        for (let dy = 8; !at && dy < vh; dy += 8) {
-          for (const cy of [y + hh + 2 + dy, y + hh + 2 - dy]) {
-            at = [x, cy] as [number, number];
-            if (fits(x, cy)) break;
-            at = [x + w - uw, cy] as [number, number];
-            if (fits(x + w - uw, cy)) break;
-            at = [vw - uw - 2, cy] as [number, number];
-            if (fits(vw - uw - 2, cy)) break;
-            at = undefined;
-          }
-        }
-        // no room at all (a view full of keys): under the box, over the others, as the least bad
-        at ??= [x, Math.min(y + hh + 2, vh - uh - 2)];
-      }
-      const ux = Math.max(2, Math.min(vw - uw - 2, at[0]));
-      const uy = Math.max(2, at[1]);
-      used.push({ x0: ux, y0: uy, x1: ux + uw, y1: uy + uh });
-      const ugeo = `${Math.round(ux)},${Math.round(uy)},${op}`;
-      if (n.ugeo !== ugeo) {
-        n.ugeo = ugeo;
-        Object.assign(n.under.style, { left: `${ux}px`, top: `${uy}px`, opacity: op });
-      }
-      oneState.tags.push({ id: t.id, kind: t.kind, tag: word, truth: t.truth, acts: list2.map((a) => a.word), box: t.box, fade, selected: selectedId === t.id, label: t.data?.label ?? '', greyed: list2.filter(greyed).map((a) => a.word) });
+      oneState.tags.push({ id: t.id, kind: t.kind, tag: word, truth: t.truth, acts: [], box: t.box, fade, selected: selectedId === t.id, label: t.data?.label ?? '', greyed: [] });
     }
     oneState.selected = selectedId;
+    drawPlates();
+    placePlates(list, rects, vw, vh);
+    // the one true line under the viewfinder, and the stamp's LOOKING AT
+    const parts = truthParts(knowns);
+    const text = parts.map((p) => (typeof p === 'string' ? p : p.text)).join(' · ');
+    const flat = !knowns.length && oneState.finder !== 'ready';
+    if (flat !== honest) {
+      honest = flat;
+      markAll();
+    }
+    oneState.honest = honest;
+    if (text !== oneState.line) {
+      oneState.line = text;
+      truthEl.replaceChildren(truthLine(parts));
+    }
+    looked(lookingWords(knowns), now);
     const counts = list.length ? contextWords(list) : '';
     if (S.counts !== counts) {
       S.counts = counts;
-      L.lines('', list.length ? `${list.length} ${list.length === 1 ? 'tag' : 'tags'}` : '');
+      L.lines('', '');
     }
   };
+
+  /** The room the stamp line takes at the top of the viewfinder: a tag never sits under it. */
+  const STAMP_ROOM = 54;
+
+  /** Where the plate (under the text, or over the sign) goes: clear of the other tags, inside the viewfinder, never past it. */
+  const placePlates = (list: Tag[], rects: Map<number, { x0: number; y0: number; x1: number; y1: number }>, vw: number, vh: number): void => {
+    const t = list.find((x) => x.kind === 'text');
+    const r = t ? rects.get(t.id) : undefined;
+    const showing = !!t && !!r && (!plate.hidden || !inplace.hidden);
+    if (!showing || !r) return;
+    const others = list.filter((x) => x.id !== t!.id).map((x) => rects.get(x.id)!).filter(Boolean);
+    const stale = !mirror.steady ? 'stale' : '';
+    plate.classList.toggle('stale', !!stale);
+    inplace.classList.toggle('stale', !!stale);
+    if (!inplace.hidden) {
+      // the English in the sign's own place, a little larger than the sign so its edges are covered
+      const x = Math.max(4, r.x0 - 6);
+      const y = Math.max(STAMP_ROOM - 8, r.y0 - 6);
+      const w = Math.min(vw - x - 4, Math.max(120, r.x1 - r.x0 + 12));
+      const hh = Math.min(vh - y - 4, Math.max(64, r.y1 - r.y0 + 12));
+      Object.assign(inplace.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, minHeight: `${hh}px`, fontSize: `${Math.max(18, Math.min(30, Math.round(hh * 0.34)))}px` });
+      return;
+    }
+    const cap = Math.max(96, Math.round((vh - STAMP_ROOM) * 0.5));
+    if (plateAt !== cap) {
+      plateAt = cap;
+      plate.style.maxHeight = `${cap}px`;
+    }
+    if (!plateH || now0() - plateMeasured > 500) {
+      plateH = Math.ceil(plate.offsetHeight) || 120;
+      plateMeasured = now0();
+    }
+    const ph = Math.min(plateH, cap);
+    const w = vw - 16;
+    const clear = (y: number): boolean => y >= STAMP_ROOM && y + ph <= vh - 4 && !others.some((o) => 8 < o.x1 && 8 + w > o.x0 && y < o.y1 && y + ph > o.y0);
+    const tries = [r.y1 + 6, r.y0 - ph - 6, vh - ph - 4, STAMP_ROOM];
+    const y = tries.find(clear) ?? Math.max(STAMP_ROOM, Math.min(vh - ph - 4, r.y1 + 6));
+    Object.assign(plate.style, { left: '8px', width: `${w}px`, top: `${Math.round(y)}px` });
+    oneState.plate.scrolls = plate.scrollHeight > plate.clientHeight + 1;
+  };
+  const now0 = (): number => performance.now();
+  let plateMeasured = 0;
 
   // ---------------------------------------------------------------- the cheap pass
   /**
@@ -754,7 +1007,7 @@ export function createOneMode(L: LensContext): Mode {
           const box: Box = f.points.length
             ? { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }
             : { x: frame.w * 0.3, y: frame.h * 0.3, w: frame.w * 0.4, h: frame.h * 0.4 };
-          return { kind: 'code' as const, score: 1, truth: codeTruth(info.kind), box, data: { text: f.text, format: f.format, codeKind: info.kind } };
+          return { kind: 'code' as const, score: 1, truth: codeTruth(info.kind), box, data: { text: f.text, format: f.format, codeKind: info.kind, ...(info.kind === 'url' && info.url ? { word: linkWord(info.url.href, info.url.host) } : {}) } };
         });
         const now2 = performance.now();
         for (const c of sightings) tags.drop((t) => t.kind === 'text' && overlap(grow(c.box, 0.3), t.box) > 0.4);
@@ -801,10 +1054,10 @@ export function createOneMode(L: LensContext): Mode {
       const sightings: Sighting[] = tracks.map((tr, i) => {
         const score = look.faces[i]?.score ?? 0.9;
         const m = tr.match;
-        // the one numbers-less question "who": only a person he knows is named, on the phone; a stranger is "someone I don't know"
-        if (!m) return { kind: 'stranger' as const, score, box: tr.box, truth: 'someone I don’t know' };
-        const label = m.me ? 'ADMIN' : m.name;
-        return { kind: 'face' as const, score, box: tr.box, truth: m.sure ? '' : 'I think so', data: { label: m.sure ? label : `${label}?` } };
+        // the one numbers-less question "who": only a person he knows, and only when it is sure, is named (ME, or the name he gave), on
+        // the phone; everyone else, a likeness that is not sure included, is "someone I don't know": a stranger is never put a name to
+        if (!m || !m.sure) return { kind: 'stranger' as const, score, box: tr.box, truth: 'someone I don’t know' };
+        return { kind: 'face' as const, score, box: tr.box, truth: '', data: { label: m.me ? 'ME' : m.name } };
       });
       const now2 = performance.now();
       note(tags.see(sightings, now2, L.camera.size), now2);
@@ -816,10 +1069,23 @@ export function createOneMode(L: LensContext): Mode {
       .finally(() => (faceBusy = false));
   };
 
-  // ---------------------------------------------------------------- the heavy pass: a steady frame, one at a time
+  // ---------------------------------------------------------------- the heavy pass: a steady frame, one at a time (the OCR READ and the translation are heavy passes too)
   let heavyInFlight = false;
+  /** The dominant colour of a thing, named from its own pixels (a twelve-colour table, pure and tested): a small copy of the live frame, read once. */
+  const colourOf = (box: Box, frame: { w: number; h: number }): string | undefined => {
+    try {
+      const c = L.camera.capture(200);
+      const g = c?.getContext('2d', { willReadFrequently: true });
+      if (!c || !g || !frame.w) return undefined;
+      const k = c.width / frame.w;
+      const px = g.getImageData(0, 0, c.width, c.height);
+      return dominantColour(px.data, c.width, c.height, { x: box.x * k, y: box.y * k, w: box.w * k, h: box.h * k }) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
   const heavyPass = async (now: number): Promise<void> => {
-    if (!det || oneState.finder !== 'ready') return;
+    if (!det || oneState.finder !== 'ready' || heavyInFlight) return;
     gate.start(mirror);
     heavyInFlight = true;
     const v = visit;
@@ -832,7 +1098,8 @@ export function createOneMode(L: LensContext): Mode {
         .slice(0, 1);
       if (v !== visit) return;
       // with the namer on, "something here · hold still" until it has looked; with it off, the finder's own call is all there will be
-      const first: Sighting[] = objs.map((d) => ({ kind: 'object' as const, score: d.score, box: d.box, truth: namer.ready ? objectTruth(null, false) : finderTruth(d.label), hold: mirror.epoch, data: { label: d.label, named: false } }));
+      const colour = objs[0] ? colourOf(objs[0].box, frame) : undefined;
+      const first: Sighting[] = objs.map((d) => ({ kind: 'object' as const, score: d.score, box: d.box, truth: namer.ready ? objectTruth(null, false) : finderTruth(d.label), hold: mirror.epoch, data: { label: d.label, named: false, ...(colour ? { colour } : {}) } }));
       const t1 = performance.now();
       note(tags.see(first, t1, frame), t1);
       // the object finder knows 80 everyday things; a plant, a part or a lemon is not one of them. With nothing found, the namer looks
@@ -847,7 +1114,8 @@ export function createOneMode(L: LensContext): Mode {
           const best = r.names[0];
           if (best && best.p >= MIDDLE_FLOOR) {
             const t2 = performance.now();
-            tags.see([{ kind: 'object', score: Math.max(FLOOR.object, best.p), box: mid, truth: objectTruth(best, true), hold: mirror.epoch, data: { label: best.label, named: true, part: isPartName(best.label) } }], t2, frame);
+            const colour = colourOf(mid, frame);
+            tags.see([{ kind: 'object', score: Math.max(FLOOR.object, best.p), box: mid, truth: objectTruth(best, true), hold: mirror.epoch, data: { label: best.label, named: true, part: isPartName(best.label), ...(colour ? { colour } : {}) } }], t2, frame);
           }
         }
       }
@@ -860,7 +1128,8 @@ export function createOneMode(L: LensContext): Mode {
         const named = !!best && best.p >= 0.2;
         const label = named ? best!.label : top.label;
         const t2 = performance.now();
-        tags.see([{ kind: 'object', score: top.score, box: top.box, truth: objectTruth(best, true), hold: mirror.epoch, data: { label, named, part: named && isPartName(label) } }], t2, frame);
+        const colour = colourOf(top.box, frame);
+        tags.see([{ kind: 'object', score: top.score, box: top.box, truth: objectTruth(best, true), hold: mirror.epoch, data: { label, named, part: named && isPartName(label), ...(colour ? { colour } : {}) } }], t2, frame);
       }
       oneState.heavyPasses++;
       oneState.heavyMs = Math.round(performance.now() - t0);
@@ -888,8 +1157,42 @@ export function createOneMode(L: LensContext): Mode {
   };
   const said = (list: Tag[]): string => {
     if (!list.length) return 'I don’t see anything I can name yet. Hold the phone still for a moment.';
-    const bits = list.map((t) => (t.kind === 'text' ? 'some text' : t.kind === 'code' ? 'a code' : t.kind === 'object' ? (t.data?.named && t.data.label ? `something that looks like ${withArticle(t.data.label)}` : 'something there') : t.kind === 'face' ? 'someone I know' : 'someone I don’t know'));
+    const frame = L.camera.size;
+    const bits = list.map((t) => {
+      if (t.kind === 'face') return 'someone I know';
+      if (t.kind === 'stranger') return 'someone I don’t know';
+      const k = knownOf(t, frame);
+      if (t.kind === 'object') return t.data?.named && t.data.label ? `something that looks like ${withArticle(t.data.label)}` : 'something there';
+      return plateWords(k).toLowerCase().replace(/ · /g, ', ');
+    });
     return `I see ${bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits[bits.length - 1]}` : bits[0]}.`;
+  };
+  /** "translate it": the English of the sign read aloud; the words sent again if the first try failed; English already said so. */
+  const translateWord = (): string => {
+    if (ocr.state !== 'read') {
+      const line = ocr.state === 'reading' ? 'I’m still reading it: a moment.' : 'I don’t see any text to translate yet: hold the phone still on it.';
+      say(line);
+      return line;
+    }
+    if (!needsTranslation(ocr.lang)) {
+      const line = ocr.lang.id === 'en' ? 'That reads as English already, so there is nothing to translate.' : 'I can’t tell which language that is, so I haven’t translated it.';
+      say(line);
+      return line;
+    }
+    if (ocr.tr === 'done') {
+      speak(ocr.translation, 'en-GB');
+      return 'Reading the English aloud.';
+    }
+    if (!online) {
+      const line = 'I’m offline: I can’t translate it without a signal.';
+      say(line);
+      return line;
+    }
+    if (ocr.tr !== 'sending') {
+      const v = visit;
+      void sendWords(v, ocr.text);
+    }
+    return 'Translating it.';
   };
   const byWord = (w: LensWord): string | null => {
     const now = performance.now();
@@ -899,11 +1202,25 @@ export function createOneMode(L: LensContext): Mode {
       say(line);
       return line;
     }
-    const map: Record<Exclude<LensWord, 'what'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    if (w === 'who') {
+      // the tag's own words and nothing more: a name he gave, or someone he doesn't know; with no face models on the phone there are no face tags
+      const people = tags.alive(now).filter((t) => t.kind === 'face' || t.kind === 'stranger');
+      const names = people.map((t) => (t.kind === 'face' ? (t.data?.label ?? 'someone I know') : 'someone I don’t know'));
+      const line = names.length ? `I see ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]}.` : 'I don’t see anyone yet.';
+      say(line);
+      return line;
+    }
+    if (w === 'keep') {
+      const line = keepText();
+      say(line);
+      return line;
+    }
+    if (w === 'translate') return translateWord();
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
-      translate: { kinds: ['text'], act: 'translate', none: 'I don’t see any text to translate yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },
+      part: { kinds: ['object'], act: 'findpart', none: 'I don’t see a part to find yet. Getting the eyes helps.' },
       measure: { kinds: ['object', 'text', 'code'], act: 'measure', none: 'I don’t see anything to measure yet.' },
       ask: { kinds: ['text', 'code', 'object'], act: 'ask', none: 'I don’t see anything to ask about yet.' },
     };
@@ -918,21 +1235,14 @@ export function createOneMode(L: LensContext): Mode {
       say(line);
       return line;
     }
-    const a = acts(t).find((x) => x.id === m.act);
-    if (!a) return null;
-    if (greyed(a)) {
-      const line = `I’m offline: ${a.word.toLowerCase()} needs a signal.`;
-      say(line);
-      return line;
-    }
     select(t.id);
     void doAct(t, m.act);
-    return { read: 'Reading the text.', translate: 'Reading it to translate it.', look: 'Looking at the code.', name: 'Opening its name.', measure: 'Opening MEASURE on it.', ask: 'Opening the question with the picture.' }[w];
+    return { read: 'Reading the text.', look: 'Looking at the code.', name: 'Opening its name.', part: 'Looking for the part in UK shops.', measure: 'Opening MEASURE on it.', ask: 'Opening the question with the picture.' }[w];
   };
 
   // ---------------------------------------------------------------- the mode
-  const panelNote = h('div.note', 'Point the camera: I tag what I see. Tap a tag, or its key, and I do the act. A face I know shows only its name; a stranger is just “someone I don’t know”. Faces never leave this phone.');
-  const root = h('div.stackf', sayLine, panelNote);
+  // under the viewfinder: the one true line (or, with nothing in view and no eyes, the one key that is that line), and what I said to his words
+  const root = h('div.stackf.lensone', knowRow, sayLine);
 
   return {
     id: 'lens',
@@ -962,11 +1272,11 @@ export function createOneMode(L: LensContext): Mode {
       visit++;
       layer.remove();
       markRow.remove();
-      for (const n of nodes.values()) {
-        n.box.remove();
-        n.under.remove();
-      }
+      for (const n of nodes.values()) n.box.remove();
       nodes.clear();
+      forgetText();
+      translated.clear();
+      hush();
       tags.clear();
       tracks = [];
       steady.reset();
@@ -1001,6 +1311,7 @@ export function createOneMode(L: LensContext): Mode {
       L.lines('', '');
     },
     cameraOff() {
+      forgetText();
       tags.clear();
       tracks = [];
       steady.reset();
@@ -1017,7 +1328,14 @@ export function createOneMode(L: LensContext): Mode {
       if (!S.frozen) {
         if (!grabBusy && budget.due(now)) void pass(now);
         faceStep(now);
-        if (gate.allow(mirror)) void heavyPass(now);
+        if (!heavyInFlight) {
+          // the OCR READ on a steady scene with text in it, else the object finder and the namer: one heavy pass at a time
+          const textNow = wantsRead(now) ? textTagNow(now) : undefined;
+          if (textNow) void textPass(textNow);
+          else if (gate.allow(mirror)) void heavyPass(now);
+        }
+        // the reader (vendored, on the phone) is started when text is first in view, so the first read is quick
+        if (!L.reader.warmed && textTagNow(now)) void L.reader.warm(() => undefined).catch(() => undefined);
       }
       paint(now);
     },

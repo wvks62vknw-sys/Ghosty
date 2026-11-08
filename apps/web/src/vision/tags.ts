@@ -76,7 +76,7 @@ export interface Sighting {
   /** The words under the tag ("I see text — tap to read it", "looks like a mug"). */
   truth: string;
   /** Kind-specific: a code's text and format, a face's label (never sent anywhere), an object's name. */
-  data?: { text?: string; format?: string; codeKind?: string; label?: string; part?: boolean; named?: boolean };
+  data?: { text?: string; format?: string; codeKind?: string; label?: string; part?: boolean; named?: boolean; colour?: string; word?: string };
   /** The heavy passes see a thing once and it stays while the frame stays as steady as it was then: the steady epoch they saw it in. */
   hold?: number;
 }
@@ -551,7 +551,7 @@ export function codeTruth(kind: string, readable = true): string {
 }
 
 /** Common English words: a text with few of them is "not in his language" and offers TRANSLATE a real reason. */
-const ENGLISH = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were has had been am did does'.split(' '));
+export const ENGLISH = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were has had been am did does'.split(' '));
 
 /**
  * Does this text read as English? (His language: the owner's is English.) Latin script with a fair share of the common words,
@@ -571,7 +571,7 @@ export function looksEnglish(text: string): boolean {
 }
 
 /** The words that ask the Lens to act on its tag ("read that", "what is that", "translate it", "measure it", "name it"). */
-export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look';
+export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who';
 
 export function lensWord(text: string): LensWord | null {
   if (String(text ?? '').length > 60) return null;
@@ -584,5 +584,9 @@ export function lensWord(text: string): LensWord | null {
   if (new RegExp(`^(?:name|identify) ${it}$`).test(t)) return 'name';
   if (new RegExp(`^ask (?:about|ghosty about) ${it}$`).test(t)) return 'ask';
   if (new RegExp(`^(?:look at|check|scan) ${it}$`).test(t)) return 'look';
+  // (BRIEF-LENS-KNOWS 8) the rest of what the one view does, by its words: keep the text, find the part, say who it is (the tag's words only)
+  if (new RegExp(`^(?:keep|save|file) ${it}$`).test(t)) return 'keep';
+  if (/^find (?:this|that) part$/.test(t)) return 'part';
+  if (/^who(?:'s| is) (?:that|this|it)(?: person)?$/.test(t) || /^who am i (?:looking|pointing) at$/.test(t)) return 'who';
   return null;
 }

@@ -35,6 +35,13 @@ export interface AskExtras {
   scan?: string;
   /** Not shown in the chat on screen (the Lens's NAME IT and WHAT'S IN IT: their answer is JSON, made into a card). */
   quiet?: boolean;
+  /**
+   * Words and nothing else (the Lens's own translation of a sign, BRIEF-LENS-KNOWS 4): no place, no name, no screen, no chat
+   * history and none of his library goes with it, only the question and the words as `scan`.
+   */
+  bare?: boolean;
+  /** Ends the wait (a translation that takes too long is given up). */
+  signal?: AbortSignal;
 }
 
 const pushAll = (e: Entry) => chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
@@ -55,7 +62,7 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
   const push = (e: Entry) => {
     if (!extras.quiet) pushAll(e);
   };
-  const recent = chat
+  const recent = extras.bare ? [] : chat
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
     .slice(-12)
@@ -91,8 +98,8 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
     }
   };
   try {
-    const library = await passagesFor(question).catch(() => []);
-    await streamEvents('/chat', { message: question, context: context(), recent, images: dataUrl ? [dataUrl] : undefined, offline: { ...offlineContext(), library }, ...(seen ? { seen } : {}), ...(scan ? { scan } : {}) }, handle);
+    const library = extras.bare ? [] : await passagesFor(question).catch(() => []);
+    await streamEvents('/chat', { message: question, context: extras.bare ? {} : context(), recent, images: dataUrl ? [dataUrl] : undefined, offline: extras.bare ? { facts: [], agenda: [], library: [] } : { ...offlineContext(), library }, ...(seen ? { seen } : {}), ...(scan ? { scan } : {}) }, handle, extras.signal);
   } catch (e) {
     out.error = String((e as Error)?.message ?? e);
     push({ kind: 'error', text: out.error });
