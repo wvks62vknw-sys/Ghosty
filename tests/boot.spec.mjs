@@ -170,8 +170,8 @@ const onHero = (page) => page.evaluate(() => {
  *  canvas is a frame or two of software WebGL on a two-core runner, so it is waited for (up to 6 s), as the HUD's slide is;
  *  the reading returned is the last one, and the checks on it are unchanged. */
 const heroBack = async (page) => {
-  let hp = await heroBack(page);
-  for (let t = Date.now(); Date.now() - t < 6000 && !(hp.count === 1 && hp.inHero); await page.waitForTimeout(150)) hp = await heroBack(page);
+  let hp = await onHero(page);
+  for (let t = Date.now(); Date.now() - t < 6000 && !(hp.count === 1 && hp.inHero); await page.waitForTimeout(150)) hp = await onHero(page);
   return hp;
 };
 /** The HUD back after a landing: the ribbon and the tab bar fully there, nothing waiting out of sight. */
