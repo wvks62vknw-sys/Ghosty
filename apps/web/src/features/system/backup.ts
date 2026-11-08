@@ -13,7 +13,8 @@
  * offline brain's model, map tiles, the vendored libraries, the copy of the brain's library, the last
  * answers kept for offline reading), the owner key itself — and the faces this phone knows (the Lens's
  * PEOPLE: his own and the people he introduced, vision/facestore.ts), which never leave the phone at all,
- * not even sealed: only the keys listed below and the library's own documents are ever read here.
+ * not even sealed (and the voices it knows, assistant/voicestore.ts: his own and the people he introduced, a few hundred numbers
+ * each, the same): only the keys listed below and the library's own documents are ever read here.
  */
 import { brain, ownerKey, type BackupInfo, type SealedBackup } from '../../api/brain';
 import { onFlushed } from '../../api/offline';

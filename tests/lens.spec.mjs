@@ -368,11 +368,11 @@ const first = await L2();
 if (first.mode !== 'lens') problems.push(`the Lens opened in "${first.mode}", not the one view`);
 if (await p2.locator('#pg-lens .lensmodes').isVisible()) problems.push('the row of modes is showing in the one view: nothing to pick should be on screen');
 if (!(await p2.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).isVisible())) problems.push('no MORE key on the bar');
-// the mark and its download key, said before anything is on the phone: DEGRADED, the heavy detectors with their size
+// the mark and its download key, said before anything is on the phone: DEGRADED, the object finder with its size (the namer's key comes after it)
 const markWords = () => p2.evaluate(() => document.querySelector('#pg-lens .lensmark')?.textContent?.trim() ?? '');
 if (!/DEGRADED/i.test(await markWords())) problems.push(`the mark on the bar says "${await markWords()}" before the heavy detectors are on the phone`);
 const getKey = await p2.locator('#pg-lens .lensget').textContent().catch(() => '');
-if (!/GET THE EYES/i.test(getKey) || !/47 MB/.test(getKey)) problems.push(`the download key says "${getKey}"`);
+if (!/GET THE EYES/i.test(getKey) || !/18 MB/.test(getKey)) problems.push(`the download key says "${getKey}"`);
 if ((await p2.locator('#pg-lens .lensget').getAttribute('aria-label').catch(() => '')) === null) problems.push('the download key has no name for VoiceOver');
 // the camera opens from a tap only (an evaluate counts as a tap for five seconds: START when it is not already opening)
 await p2.waitForTimeout(600);
@@ -401,8 +401,12 @@ if (text?.acts.join() !== 'READ,TRANSLATE,ASK') problems.push(`the text tag offe
 if (code?.truth !== 'a web address') problems.push(`the code tag says "${code?.truth}"`);
 if (code?.acts.join() !== 'LOOK,ASK') problems.push(`the code tag offers ${code?.acts}`);
 if (tagged.tags.some((t) => /looks like/i.test(t.truth))) problems.push('an object was named before the heavy pass ran');
-if (tagged.tags.some((t) => t.kind === 'object') && tagged.heavy !== 'ready') problems.push('an object tag stands before the heavy detectors were loaded');
-if (tagged.heavy !== 'off' || !/DEGRADED/i.test(await markWords())) problems.push(`before the tap, heavy is "${tagged.heavy}" and the mark "${await markWords()}"`);
+if (tagged.tags.some((t) => t.kind === 'object') && tagged.finder !== 'ready') problems.push('an object tag stands before the object finder was loaded');
+if (tagged.finder !== 'off' || tagged.namer !== 'off' || !/DEGRADED/i.test(await markWords())) problems.push(`before the tap, the finder is "${tagged.finder}", the namer "${tagged.namer}" and the mark "${await markWords()}"`);
+// ONE TAG FOR EACH KIND, ONE ROW OF KEYS (THE LENS HOTFIX): the text once with READ · TRANSLATE · ASK, the code once with LOOK · ASK, at most three tags
+if (tagged.tags.filter((t) => t.kind === 'text').length !== 1 || tagged.tags.filter((t) => t.kind === 'code').length !== 1 || tagged.tags.length > 3) problems.push(`not one tag for each kind: ${JSON.stringify(tagged.tags.map((t) => t.kind))}`);
+const rows = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder[data-kind]')].filter((e) => !e.hidden).map((e) => `${e.dataset.kind}:${[...e.querySelectorAll('button.g-key')].map((b) => b.textContent.trim()).join('·')}`));
+if (rows.length !== 2 || rows.filter((r) => r.startsWith('text:')).length !== 1) problems.push(`the key rows on screen: ${JSON.stringify(rows)}`);
 // the tags are drawn in the Machine's marks: a reticle, a tag, a true line, a key (in the DOM, over the video)
 const marks = await p2.evaluate(() => ({ ret: document.querySelectorAll('#pg-lens .lenstags .g-ret[data-g="reticle"]').length, tag: document.querySelectorAll('#pg-lens .lenstags [data-g="tag"]').length, truth: document.querySelectorAll('#pg-lens .lenstagunder [data-g="truth"]').length, key: document.querySelectorAll('#pg-lens .lenstagunder button.g-key').length, over: !!document.querySelector('#pg-lens .lensview > .lenstags') }));
 if (marks.ret < 2 || marks.tag < 2 || marks.truth < 2 || marks.key < 4 || !marks.over) problems.push(`the tags are not the Machine's marks over the video: ${JSON.stringify(marks)}`);
@@ -439,16 +443,60 @@ const baseline = held1.fps >= held2.fps ? held1 : held2;
 console.log(`one view: ${tagging.fps} fps while tagging (worst frame ${tagging.worst} ms), ${baseline.fps} fps with the picture held (the baseline on this machine: its software graphics draw even Home at a few frames a second)`);
 if (tagging.fps < Math.min(30, baseline.fps * 0.8)) problems.push(`tagging costs the UI its frame rate: ${tagging.fps} fps against ${baseline.fps} held (floor min(30, 80% of the baseline))`);
 
-// ---- GET THE EYES (his tap): the heavy detectors load; the object is tagged "looks like a …" only on a steady frame
+// ---- GET THE EYES (his tap): the object finder loads ALONE; objects are tagged without the namer, and the namer is a second step with its own key
 await p2.locator('#pg-lens .lensget').click();
-await until2(() => window.__ghosty.one.heavy === 'ready', 180000, `the heavy detectors did not load: ${JSON.stringify(await one().then((o) => ({ heavy: o.heavy, said: o.said })))}`);
-if (!/WORKING/i.test(await markWords())) problems.push(`after the eyes are on the phone the mark says "${await markWords()}"`);
-if (await p2.locator('#pg-lens .lensget').isVisible()) problems.push('the download key is still offered once the eyes are on the phone');
-await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /^looks like (a|an) lemon/i.test(t.truth)), 120000, `the object was not named after the heavy pass: ${JSON.stringify((await one()).tags.map((t) => `${t.kind}:${t.truth}`))}`);
+await until2(() => window.__ghosty.one.finder === 'ready', 180000, `the object finder did not load: ${JSON.stringify(await one().then((o) => ({ finder: o.finder, namer: o.namer, said: o.stepSaid })))}`);
+if (!/WORKING/i.test(await markWords())) problems.push(`after the object finder is on the phone the mark says "${await markWords()}"`);
+if (await p2.locator('#pg-lens .lensget').isVisible()) problems.push('the download key is still offered once the object finder is on the phone');
+const nameroff = await p2.locator('#pg-lens .lensnameroff').textContent().catch(() => '');
+if (!/NAMER OFF/i.test(nameroff) || !(await p2.locator('#pg-lens .lensnameroff').isVisible())) problems.push(`the namer is not on the phone but the bar says "${nameroff}" beside the mark`);
+const namerKey = await p2.locator('#pg-lens .lensgetnamer').textContent().catch(() => '');
+if (!/GET THE NAMER/i.test(namerKey) || !/42 MB/.test(namerKey)) problems.push(`the namer's key says "${namerKey}"`);
+if ((await one()).namer !== 'off') problems.push(`the namer is "${(await one()).namer}" before its own tap`);
+// the finder runs alone on a steady frame (it knows 80 everyday things and a lemon is not one of them, so it tags nothing here: the namer is what
+// names a lemon; a thing the finder does know is tagged "something here · <its word>", proved on frames in apps/edge/test/lens-one.test.mjs)
+await until2(() => window.__ghosty.one.heavyPasses >= 1, 120000, `the object finder did not run alone on the steady frame: ${JSON.stringify(await one().then((o) => ({ finder: o.finder, passes: o.heavyPasses })))}`);
+const alone = await one();
+if (alone.tags.some((t) => /looks like/i.test(t.truth))) problems.push(`"looks like" with the namer off: ${JSON.stringify(alone.tags.map((t) => t.truth))}`);
+if (alone.tags.find((t) => t.kind === 'object')?.acts.includes('NAME IT')) problems.push('NAME IT is offered with the namer off');
+await p2.screenshot({ path: `${out}/lens-one-finder.png`, timeout: 90000 }).catch(() => undefined);
+
+// ---- the namer cannot start (the iPhone's failure, made by the namer's worker: WebKit is not here, his phone is the real check): words, TRY AGAIN, no loop
+await p2.evaluate(() => { window.__ghostyNamerFail = 'memory'; });
+await p2.locator('#pg-lens .lensgetnamer').click();
+await until2(() => window.__ghosty.one.namer === 'failed', 180000, `the namer's failure was not seen: ${JSON.stringify(await one().then((o) => ({ namer: o.namer, said: o.stepSaid })))}`);
+const OWNER_WORDS = 'The namer needs more memory than this phone can give it right now; the object finder works without it. Close other tabs, or close and reopen Ghosty, and try again.';
+const failedState = await one();
+if (failedState.stepSaid !== OWNER_WORDS) problems.push(`the namer's failure says "${failedState.stepSaid}"`);
+const shownWhy = await p2.locator('#pg-lens .lensmarkwhy').textContent().catch(() => '');
+if (shownWhy !== OWNER_WORDS || !(await p2.locator('#pg-lens .lensmarkwhy').isVisible())) problems.push(`the words are not on the mark row: "${shownWhy}"`);
+const pageText = await p2.evaluate(() => document.body.innerText + ' ' + (window.__ghosty.lens.error ?? '') + ' ' + (window.__ghosty.lens.status ?? ''));
+if (/no available backend|Out of memory|RangeError|ERR: \[wasm\]/i.test(pageText)) problems.push(`the runtime's own error text is on screen: ${pageText.match(/.{0,40}(no available backend|Out of memory|RangeError).{0,40}/i)?.[0]}`);
+if (!/TRY AGAIN/i.test(await p2.locator('#pg-lens .lensgetnamer').textContent().catch(() => ''))) problems.push('no TRY AGAIN on the namer\'s key after it failed');
+if (!/WORKING/i.test(await markWords()) || !/NAMER OFF/i.test(await p2.locator('#pg-lens .lensnameroff').textContent())) problems.push('with the namer failed the bar does not say WORKING with NAMER OFF beside it');
+// the worker was asked twice, at 1 GB and then at 256 MB (faces.ts's way), and then left alone: not a loop
+await p2.waitForTimeout(3000);
+const tries = await p2.evaluate(() => window.__ghostyNamerTries);
+if (JSON.stringify(tries) !== '[16384,4096]') problems.push(`the namer's worker was started with caps ${JSON.stringify(tries)}, not 1 GB then 256 MB once`);
+if ((await one()).namer !== 'failed') problems.push('the namer left its failed state by itself');
+// the finder carries on without it: the text and the code are still tagged
+if (!(await one()).tags.some((t) => t.kind === 'text')) problems.push('the text tag went when the namer failed');
+await p2.screenshot({ path: `${out}/lens-one-namer-failed.png`, timeout: 90000 }).catch(() => undefined);
+// TRY AGAIN, the phone now refusing only the 1 GB reservation: the second try (256 MB) is what starts it, and the words go
+await p2.evaluate(() => { window.__ghostyNamerFail = 'memory-1gb'; });
+await p2.locator('#pg-lens .lensgetnamer').click();
+await until2(() => window.__ghosty.one.namer === 'ready', 180000, `TRY AGAIN did not start the namer at 256 MB: ${JSON.stringify(await one().then((o) => ({ namer: o.namer, said: o.stepSaid })))}`);
+if ((await one()).stepSaid) problems.push(`the words stay after the namer started: "${(await one()).stepSaid}"`);
+if (JSON.stringify(await p2.evaluate(() => window.__ghostyNamerTries)) !== '[16384,4096,16384,4096]') problems.push(`the second try's caps: ${JSON.stringify(await p2.evaluate(() => window.__ghostyNamerTries))}`);
+if (await p2.locator('#pg-lens .lensnameroff').isVisible() || await p2.locator('#pg-lens .lensgetnamer').isVisible()) problems.push('NAMER OFF or the namer key is still showing once the namer is on');
+await p2.evaluate(() => { window.__ghostyNamerFail = ''; });
+// the namer's words for the object, only now
+await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /^looks like (a|an) lemon/i.test(t.truth)), 120000, `the object was not named after the namer started: ${JSON.stringify((await one()).tags.map((t) => `${t.kind}:${t.truth}`))}`);
 const named = await one();
 const obj = named.tags.find((t) => t.kind === 'object');
 if (obj && obj.acts.join() !== 'NAME IT,ASK,MEASURE') problems.push(`the named object offers ${obj.acts}`);
 console.log(`one view: heavy pass ${named.heavyMs} ms (${named.heavyPasses} so far); the text, the code and the object stand together: ${kinds(named)}`);
+if (named.tags.length > 3 || kinds(named) !== 'code,object,text') problems.push(`the tags standing together: ${kinds(named)}`);
 await p2.screenshot({ path: `${out}/lens-one-named.png`, timeout: 90000 }).catch(() => undefined);
 // the context the brain gets: counts and kinds, never who
 const ctxLine = await p2.evaluate(() => window.__ghosty.awareness.wordsNow());
@@ -561,6 +609,67 @@ console.log(`one view section: ${Math.round((Date.now() - t0one) / 1000)} s`);
 await ctx2.close();
 } catch (e) {
   problems.push(`the one view section stopped: ${String(e.message).split('\n')[0]}`);
+}
+
+// ================================================================================================================================
+// ---- THE LENS HOTFIX: a page of print with a code in its corner is ONE text tag with ONE row of keys and ONE code tag (a second camera card)
+// ================================================================================================================================
+try {
+  const drawer2 = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+  const pageVideo = await makeCardVideo(drawer2, ['page', 'code'], 'lenspage');
+  await drawer2.close();
+  const browser3 = await chromium.launch({
+    executablePath: process.env.CHROMIUM ?? undefined,
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-video-capture=${pageVideo}`],
+  });
+  const ctx3 = await browser3.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', permissions: ['camera'] });
+  const p3 = await ctx3.newPage();
+  p3.on('pageerror', (e) => problems.push(`page-of-print pageerror: ${e.message}`));
+  await p3.goto(base);
+  await p3.fill('#pair input', 'preview-owner-key-0123456789');
+  await p3.click('#pair button.on');
+  await p3.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await p3.evaluate(() => (location.hash = 'lens'));
+  await p3.waitForSelector('#pg-lens .lensbar', { timeout: 15000 });
+  await p3.waitForTimeout(600);
+  if ((await p3.evaluate(() => window.__ghosty.lens.camera)) === 'off') await p3.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+  const ok3 = await p3.waitForFunction(() => { const k = window.__ghosty.one.tags.map((t) => t.kind); return window.__ghosty.lens.camera === 'on' && k.includes('text') && k.includes('code'); }, null, { timeout: 90000 }).then(() => true).catch(() => false);
+  if (!ok3) problems.push(`the page of print and its code were not tagged: ${JSON.stringify(await p3.evaluate(() => window.__ghosty.one.tags.map((t) => t.kind)))}`);
+  // for four seconds, every look at the page: never two text tags, never more than three tags, never two rows of keys for text
+  const worst = await p3.evaluate(() => new Promise((ok) => {
+    const w = { text: 0, code: 0, all: 0, textRows: 0, codeRows: 0 };
+    const t0 = performance.now();
+    const f = () => {
+      const o = window.__ghosty.one;
+      w.text = Math.max(w.text, o.tags.filter((t) => t.kind === 'text').length);
+      w.code = Math.max(w.code, o.tags.filter((t) => t.kind === 'code').length);
+      w.all = Math.max(w.all, o.tags.length);
+      const rows = (k) => [...document.querySelectorAll(`#pg-lens .lenstagunder[data-kind="${k}"]`)].filter((e) => !e.hidden && e.querySelector('button.g-key')).length;
+      w.textRows = Math.max(w.textRows, rows('text'));
+      w.codeRows = Math.max(w.codeRows, rows('code'));
+      if (performance.now() - t0 < 4000) requestAnimationFrame(f); else ok(w);
+    };
+    requestAnimationFrame(f);
+  }));
+  if (worst.text !== 1 || worst.code !== 1 || worst.all > 3 || worst.textRows !== 1 || worst.codeRows !== 1) problems.push(`on a page of print: the most at once were ${JSON.stringify(worst)} (want one text tag, one code tag, one row each, three at most)`);
+  const rows3 = await p3.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder[data-kind]')].filter((e) => !e.hidden).map((e) => `${e.dataset.kind}:${[...e.querySelectorAll('button.g-key')].map((b) => b.textContent.trim()).join('·')}`));
+  if (rows3.sort().join('|') !== 'code:LOOK·ASK|text:READ·TRANSLATE·ASK') problems.push(`the key rows on the page of print: ${JSON.stringify(rows3)}`);
+  // the keys sit inside the viewfinder and no key row covers another
+  const geo = await p3.evaluate(() => {
+    const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect();
+    const r = [...document.querySelectorAll('#pg-lens .lenstagunder')].filter((e) => !e.hidden && e.querySelector('button.g-key')).map((e) => e.getBoundingClientRect());
+    const out = r.filter((b) => b.left < v.left - 1 || b.right > v.right + 1 || b.top < v.top - 1 || b.bottom > v.bottom + 1).length;
+    let over = 0;
+    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) if (r[i].left < r[j].right && r[j].left < r[i].right && r[i].top < r[j].bottom && r[j].top < r[i].bottom) over++;
+    return { out, over };
+  });
+  if (geo.out || geo.over) problems.push(`on the page of print the keys stick out of the viewfinder (${geo.out}) or cover each other (${geo.over})`);
+  console.log(`page of print: at most ${worst.text} text tag, ${worst.code} code tag, ${worst.all} tags in all over four seconds; rows ${JSON.stringify(rows3)}`);
+  await p3.screenshot({ path: `${out}/lens-one-page.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the page of print: ${e.message.split('\n')[0]}`));
+  await ctx3.close();
+  await browser3.close();
+} catch (e) {
+  problems.push(`the page-of-print section stopped: ${String(e.message).split('\n')[0]}`);
 }
 
 await browser.close();

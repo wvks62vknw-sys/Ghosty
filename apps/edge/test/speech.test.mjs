@@ -468,3 +468,6 @@ test('narration: each step said as he would say it, short enough to say aloud, n
   for (const b of ['thinking…', 'thinking about the results…', 'Thinking...', 'processing…']) assert.ok(NR.BARE.test(b), b);
   for (const k of ['waiting for free AI room · 12 s', 'Let me check the trains.', 'that model would not engage: asking another…']) assert.ok(!NR.BARE.test(k), k);
 });
+
+// HIS VOICE KNOWN (BRIEF-VOICE-KNOWN): the voiceprint with no model, the label that reaches the brain, and the lines that do not move
+await import('./voiceknown.test.mjs');

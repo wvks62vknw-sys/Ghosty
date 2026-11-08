@@ -21,10 +21,11 @@ import { stopwatch } from '../core/stopwatch';
 import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
+import { clearTag, graceOn, hear, hold, labelOf, type Label } from './voiceknown';
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
-import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
+import { onCutOff, speak, stopListening, stopSpeaking, takeSound } from './voice';
 import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
@@ -248,11 +249,13 @@ function settle(ids?: Set<string>): void {
 }
 
 /** What goes with every turn (shell/awareness.ts: one function for the chat and the Lens: his time, name and saved place, and what is on screen). */
-const context = () => clientContext(spokenTurn);
+const context = () => clientContext(spokenTurn, turnVoice);
 
 let speakReplies = true;
 /** This message was spoken, not typed. */
 let spokenTurn = false;
+/** Whose voice it was, when the phone knew voices and scored it (assistant/voiceknown.ts): the label the brain is told. */
+let turnVoice: Label | undefined;
 
 function handle(ev: ChatEvent): void {
   switch (ev.t) {
@@ -775,9 +778,11 @@ export async function askCloud(at: number): Promise<void> {
  * here from what Ghosty knows of himself (DO IT under such an answer sends his words on, as a request). `again`: ASK THE
  * CLOUD (the question is on screen already, above the phone's answer).
  */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean; again?: boolean } = {}): Promise<void> {
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean; again?: boolean; as?: Label } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
+  // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
+  const snd = opts.voice ? takeSound() : null;
   // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
   // chat or the model), then the walk home's words; with PEOPLE open in the Lens, an introduction or "who's this?" is
   // answered there, on the phone — the stop and the raising readings never see them, and the brain never does.
@@ -802,6 +807,19 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     const kept = settings.get().offlineBrain === 'always';
     if (ui.get().busy || !kept) await brain.stop(kept ? undefined : stop.harsh).catch(() => undefined);
     return;
+  }
+  // [voiceknown] WHOSE VOICE (BRIEF-VOICE-KNOWN 3): scored on the phone and shown on the talk bar; a voice I don't know holds the
+  // turn for a tap (GO ON sends it, still as unknown) unless the hour's grace is on. Never a lock: the stop above and the panic
+  // phrase before it are never held, and nothing the confirm tap guards is opened or closed by it. Typed turns clear the tag.
+  let who: Label | undefined = opts.as;
+  if (!opts.voice) clearTag();
+  else if (!who) {
+    const h = await hear(snd);
+    who = labelOf(h);
+    if (h && h.label === 'unknown' && !graceOn()) {
+      hold(t, () => void send(t, { ...opts, as: 'unknown' }));
+      return;
+    }
   }
   // The phone's library passages for the brain (api/brain.ts chat) are looked up from now, while the rest of this is decided,
   // so they never hold the message back (BRIEF-TALK-1A 1).
@@ -828,6 +846,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   }
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
+  turnVoice = spokenTurn ? who : undefined;
   const mode = settings.get().offlineBrain;
   // Kept on the phone (OWNER-ISSUES 72: it fails CLOSED): "always", or ON THIS PHONE for this message. Only ASK THE BIG
   // BRAIN, which he taps, ever sends such a message to the brain.

@@ -311,6 +311,36 @@ test('the prompt budget holds for every dial setting on every channel: app, spok
   }
 });
 
+test('the voice line (BRIEF-VOICE-KNOWN 4): every label on every channel and every dial stays within 5,500; the worst case is printed; the line is a word, never a number', async () => {
+  const band = 'He writes at length: a paragraph is fine.';
+  const MOOD = await import('./.build/mood.mjs');
+  const mood = MOOD.moodLine(MOOD.moodAfter(MOOD.CALM, { kind: 'discipline', weight: 3 }, 0), 59 * 60_000);
+  const labels = { owner: 'owner', unknown: 'unknown', 'a person with the longest name': { name: 'Bartholomew-Anne Fitzgerald' }, 'a name that is not a name': { name: '' } };
+  const channels = { spoken: { ...client }, telegramVoice: { ...client, tab: 'telegram', screen: TG_SCREEN } };
+  const worstOf = {};
+  for (const [cn, base] of Object.entries(channels)) {
+    for (const [ln, label] of Object.entries(labels)) {
+      let worst = { n: 0, dials: null };
+      for (const dials of ALL_DIALS) {
+        const sys = P.systemPrompt({ ...base, voice: label }, [], true, [], { groups: hello(), profile: withDials(dials), band, mood });
+        if (sys.length > worst.n) worst = { n: sys.length, dials };
+      }
+      worstOf[`${cn} / ${ln}`] = worst.n;
+      assert.ok(worst.n <= 5500, `${cn} with ${ln}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
+    }
+  }
+  const worst = Math.max(...Object.values(worstOf));
+  console.log(`MEASURED prompt worst case with the voice line, per channel and label: ${Object.entries(worstOf).map(([k, v]) => `${k} ${v}`).join(' | ')} (the guard: 5,500; worst ${worst})`);
+  // exactly one line, in the CONTEXT block, and a plain spoken turn (not scored) carries none
+  const sys = P.systemPrompt({ ...client, voice: 'unknown' }, [], true, [], { groups: hello() });
+  assert.equal(sys.split('\nVoice: ').length, 2, 'once');
+  assert.ok(sys.includes(`\nCONTEXT:\n${sys.split('\nCONTEXT:\n')[1].split('\n')[0]}`) && /\nCONTEXT:\nVoice: one you don't know: say nothing private, ask who it is\n/.test(sys), 'in the CONTEXT block');
+  assert.ok(!P.systemPrompt({ ...client, voice: true }, [], true, [], { groups: hello() }).includes('Voice:'), 'a spoken turn not scored says nothing');
+  assert.ok(!P.systemPrompt({ ...client, tab: 'telegram', screen: TG_SCREEN, voice: 'owner' }, [], true, [], { groups: hello() }).includes('Voice:'), 'Telegram never scores a voice, so its turn carries no such line');
+  assert.ok(!P.systemPrompt(client, [], true, [], { groups: hello() }).includes('Voice:'), 'a typed turn says nothing');
+  assert.ok(!/\d/.test(P.voiceLine('unknown') + P.voiceLine('owner')), 'no number in the line');
+});
+
 test('the workbench group (OWNER-ISSUES 61b): named on a plain turn as "workbench: estimate", described only by his words, paid for by HEARING and TODAY', () => {
   const plain = P.systemPrompt(client, [], true, [], { groups: hello() });
   assert.match(plain, /^workbench: estimate$/m, 'the plain turn names the tool');

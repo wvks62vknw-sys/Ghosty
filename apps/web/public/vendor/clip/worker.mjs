@@ -9,8 +9,15 @@ import * as ort from './ort.wasm.min.mjs';
 
 // The shared memory's maximum: 1 GB, not the stock 4 GB, which WebKit must reserve up front and refuses on an iPhone when
 // another runtime holds memory too ("no available backend found … RangeError: Out of memory"); the encoder needs well
-// under 1 GB. ./ort-wasm-simd-threaded.mjs reads this (our one-line change there, see README.md).
+// under 1 GB. The page passes the cap in this worker's address (?maxPages=, 64 KB pages: 16384 = 1 GB first, 4096 = 256 MB on
+// the retry, as faces.ts does). ./ort-wasm-simd-threaded.mjs reads GHOSTY_WASM_MAX_PAGES (our one-line change there, see README.md).
 globalThis.GHOSTY_WASM_MAX_PAGES = 16384;
+const ARGS = new URL(self.location.href).searchParams;
+const PAGES = Number(ARGS.get('maxPages')) || 16384;
+globalThis.GHOSTY_WASM_MAX_PAGES = PAGES;
+// (the specs only: the page asks this worker to fail the way an iPhone does, to prove what the Lens says then. 'memory' at every
+// cap, 'memory-1gb' only at the 1 GB cap.)
+const FAIL = ARGS.get('fail') || '';
 
 // one thread: iOS has no shared memory for a page that is not cross-origin isolated
 ort.env.wasm.numThreads = 1;
@@ -28,6 +35,7 @@ self.onmessage = async (ev) => {
   const m = ev.data || {};
   try {
     if (m.op === 'load') {
+      if (FAIL === 'memory' || (FAIL === 'memory-1gb' && PAGES > 4096)) throw new Error('no available backend found. ERR: [wasm] RangeError: Out of memory');
       if (!session) session = await ort.InferenceSession.create(new Uint8Array(m.model), { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
       post({ id: m.id, t: 'done' });
     } else if (m.op === 'run') {

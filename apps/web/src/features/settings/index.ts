@@ -17,6 +17,7 @@ import { offlinePanel } from './offline';
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
+import { myVoicePanel, peoplePanel } from './voiceknown'; // [voiceknown] MY VOICE and PEOPLE I'VE INTRODUCED
 import { tvNow, tvSetting } from '../../tv/setting'; // [restc] TV MODE
 import { readingControls } from '../library/reader'; // [reader] READING: pages or scroll, the size, his voice for books
 import { readingPrefs } from '../../library/place';
@@ -54,7 +55,10 @@ export const settingsTab: TabDef = {
     readingPrefs.subscribe(paintReading);
     rp.body.append(readingControls());
     P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), rp.el, np.el, cp.el, gp.el);
-    P.right.append(vp.el);
+    // [voiceknown] his voice known, and the people he introduced: under VOICE & HOME, in the same section (BRIEF-VOICE-KNOWN 2, 5)
+    const mv = myVoicePanel();
+    const pv = peoplePanel();
+    P.right.append(vp.el, mv.el, pv.el);
     const op = offlinePanel();
     P.right.append(op.el);
     const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
@@ -84,7 +88,7 @@ export const settingsTab: TabDef = {
     sections(root, 'settings', [
       { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK|READING)/ },
       { id: 'you', label: 'You', match: /^NAME/ },
-      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE)/ },
+      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
       { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
@@ -192,6 +196,8 @@ export const settingsTab: TabDef = {
         gp.refresh();
         void fb.refresh();
         vc.refresh();
+        void mv.refresh();
+        void pv.refresh();
         paintThemes();
         paintHead();
       },

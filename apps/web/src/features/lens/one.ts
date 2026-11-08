@@ -25,11 +25,11 @@ import { classifyCode } from '../../scan/codes';
 import { freeBarcodes, readCodesIn, warmBarcodes } from '../../scan/barcode';
 import { cropRect, fromMediaPipe, type Box } from '../../vision/boxes';
 import { cropCanvas } from '../../vision/camera';
-import { namer, NAMER_SIZE } from '../../vision/clip';
+import { memoryTrouble, namer, NAMER_SIZE, NamerMemoryError } from '../../vision/clip';
 import { bestMatch, iou, type KnownFace } from '../../vision/facemath';
 import { faces, type FaceSeen } from '../../vision/faces';
 import { knownFaces } from '../../vision/facestore';
-import { FrameBudget, Steady, Tags, HeavyGate, FLOOR, KIND_WORD, TEXT_TRUTH, actsFor, codeTruth, contextWords, greyOf, isPartName, looksEnglish, markOf, MARK_WORDS, objectTruth, textTiles, withArticle, type ActId, type TextBlock, type LensMark, type LensWord, type Sighting, type Tag, type TagKind } from '../../vision/frame';
+import { FrameBudget, Steady, Tags, HeavyGate, FLOOR, KIND_WORD, TEXT_TRUTH, actsFor, codeTruth, contextWords, finderTruth, greyOf, isPartName, limitTags, looksEnglish, markOf, MARK_WORDS, objectTruth, textTiles, withArticle, type ActId, type TextBlock, type LensMark, type LensWord, type Sighting, type Tag, type TagKind } from '../../vision/frame';
 import { detector, nextStamp, type ObjectDetectorLike } from '../../vision/models';
 import { go } from '../../shell/tabs';
 import type { LensAsk, LensReply } from '../../workers/lens.worker';
@@ -57,14 +57,29 @@ const overlap = (a: Box, b: Box): number => {
   return w > 0 && hh > 0 ? (w * hh) / (b.w * b.h) : 0;
 };
 
+/** The object finder is on this phone once he has tapped GET THE EYES; from then on it loads by itself (the files are kept). */
 /** The text check's cost on the last dozen frames, for the median `oneState.textMs` reports (a starved frame is not the cost). */
 const tileTimes: number[] = [];
-/** The heavy detectors are on this phone once he has tapped GET THE EYES; from then on they load by themselves (the files are kept). */
 const HEAVY_KEY = 'ghosty.lens.heavy';
+/** The namer started on this phone once, on his tap (GET THE NAMER): from then on it loads by itself after the finder. A phone it never started on never tries by itself. */
+const NAMER_KEY = 'ghosty.lens.namer';
 /** PEOPLE's face models were loaded on this phone: from then on the one view looks for a face he knows. */
 export const FACES_KEY = 'ghosty.lens.faces';
-/** What the heavy detectors cost to fetch once, in words: the object finder (4.4 MB) and the namer (42 MB). */
-export const HEAVY_SIZE = '47 MB';
+/**
+ * What each step costs to fetch once, in words. The object finder is its model (4.4 MB) and the vision runtime it runs on (13.8 MB:
+ * the old key said 47 MB for both steps and left that runtime out); the namer is its runtime, encoder and names (42 MB, clip.ts).
+ */
+export const FINDER_SIZE = '18 MB';
+export const HEAVY_SIZE = FINDER_SIZE;
+/** What the mark row says, once, when the namer cannot start for memory (the owner's words, OWNER-ISSUES 153). */
+export const NAMER_MEMORY_WORDS = 'The namer needs more memory than this phone can give it right now; the object finder works without it. Close other tabs, or close and reopen Ghosty, and try again.';
+/** And when it cannot start for another reason (never the runtime's own text). */
+export const NAMER_OTHER_WORDS = 'The namer could not start on this phone; the object finder works without it. Try again, and if it still will not start, close and reopen Ghosty.';
+/** The object finder's own failure for memory. */
+export const FINDER_MEMORY_WORDS = 'The object finder needs more memory than this phone can give it right now. Close other tabs, or close and reopen Ghosty, and try again.';
+
+/** One step of the eyes: not asked for yet, loading, on the phone, or failed (and said). */
+export type Step = 'off' | 'loading' | 'ready' | 'failed';
 
 const flag = (k: string): boolean => {
   try {
@@ -97,7 +112,12 @@ export const oneState = {
   firstTagMs: -1,
   /** ms from the first steady frame to the first tag (negative: the tag stood before the frame was steady), null until both. */
   steadyToTag: null as number | null,
-  heavy: 'off' as 'off' | 'loading' | 'ready' | 'failed',
+  /** The object finder (the first step of GET THE EYES): it alone makes the objects tagged. */
+  finder: 'off' as Step,
+  /** The namer (the second step, GET THE NAMER): it alone makes "looks like a …". */
+  namer: 'off' as Step,
+  /** The words on the mark row about a step that could not start, said once (empty when nothing is wrong). */
+  stepSaid: '',
   heavyPasses: 0,
   heavyMs: 0,
   codeMs: 0,
@@ -159,36 +179,68 @@ export function createOneMode(L: LensContext): Mode {
   let maxAt = 0;
   let online = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
 
-  // ---------------------------------------------------------------- the mark on the bar, and its download key
+  // ---------------------------------------------------------------- the mark on the bar, and its two download keys
   const markEl = h('span.lensmark', { role: 'status' });
-  const getBtn = key('GET THE EYES', () => void loadHeavy());
+  // NAMER OFF, said beside the mark while the namer is not on the phone (the object finder works without it)
+  const namerOffEl = h('span.lensmark.lensnameroff', tagMark('NAMER OFF', { tone: 'warn' }));
+  namerOffEl.hidden = true;
+  const getBtn = key('GET THE EYES', () => void loadFinder());
   getBtn.classList.add('lensget');
-  const setGet = (t: string): void => {
-    const sp = getBtn.querySelector('span');
+  const namerBtn = key('GET THE NAMER', () => void loadNamer());
+  namerBtn.classList.add('lensgetnamer');
+  namerBtn.hidden = true;
+  // what could not start, in words, once (a step's own words; never the runtime's text)
+  const whyEl = h('p.lensmarkwhy', { role: 'status', 'aria-live': 'polite' });
+  whyEl.hidden = true;
+  const setKey = (btn: HTMLButtonElement, t: string): void => {
+    const sp = btn.querySelector('span');
     if (sp) sp.textContent = t;
   };
-  const markRow = h('div.lensmarkrow', markEl, getBtn);
+  const setGet = (t: string): void => setKey(getBtn, t);
+  const setNamerKey = (t: string): void => setKey(namerBtn, t);
+  const markRow = h('div.lensmarkrow', markEl, namerOffEl, getBtn, namerBtn, whyEl);
   const markAll = (): void => {
-    const heavy = oneState.heavy === 'ready';
-    const m = markOf({ cheap: !codeBroken, heavy, online });
+    const finderOn = oneState.finder === 'ready';
+    const m = markOf({ cheap: !codeBroken, heavy: finderOn, online });
     oneState.mark = m;
     oneState.markWords = MARK_WORDS[m];
     markEl.dataset.mark = m;
     markEl.replaceChildren(tagMark(MARK_WORDS[m], { tone: m === 'working' ? 'on' : m === 'offline' ? 'off' : 'warn' }));
-    const why = m === 'offline' ? 'No signal: ASK and TRANSLATE are greyed, reading and the codes still work.' : m === 'degraded' ? (oneState.heavy === 'loading' ? 'Getting the eyes…' : 'I can see text, codes and faces. Getting the eyes lets me name objects too.') : 'Everything is working.';
+    const why =
+      m === 'offline'
+        ? 'No signal: ASK and TRANSLATE are greyed, reading and the codes still work.'
+        : m === 'degraded'
+          ? oneState.finder === 'loading'
+            ? 'Getting the eyes…'
+            : 'I can see text, codes and faces. Getting the eyes lets me find objects too.'
+          : oneState.namer === 'ready'
+            ? 'Everything is working.'
+            : 'The object finder is on. The namer is off, so I can say something is there but not what it looks like.';
     markEl.title = why;
-    markEl.setAttribute('aria-label', `${MARK_WORDS[m].toLowerCase()}: ${why}`);
-    // the download key: only while the heavy detectors are not on the phone, and it needs a signal
-    const need = oneState.heavy === 'off' || oneState.heavy === 'failed';
-    getBtn.hidden = !need && oneState.heavy !== 'loading';
-    if (oneState.heavy === 'loading') {
-      getBtn.disabled = true;
-      return;
+    markEl.setAttribute('aria-label', `${MARK_WORDS[m].toLowerCase()}${finderOn && oneState.namer !== 'ready' ? ', namer off' : ''}: ${why}`);
+    namerOffEl.hidden = !(finderOn && oneState.namer !== 'ready');
+    // the first key (GET THE EYES): only while the object finder is not on the phone, and it needs a signal
+    const needFinder = oneState.finder === 'off' || oneState.finder === 'failed';
+    getBtn.hidden = !needFinder && oneState.finder !== 'loading';
+    if (oneState.finder === 'loading') getBtn.disabled = true;
+    else {
+      setGet(oneState.finder === 'failed' ? `TRY AGAIN · ${FINDER_SIZE}` : `GET THE EYES · ${FINDER_SIZE}`);
+      getBtn.disabled = !online;
+      getBtn.setAttribute('aria-label', online ? `Get the eyes: the object finder, ${FINDER_SIZE} once, kept on this phone` : `Get the eyes, ${FINDER_SIZE}: needs a signal`);
+      getBtn.title = online ? `Downloads the object finder (${FINDER_SIZE}, once). Nothing of what I see is sent.` : 'I need a signal to download it.';
     }
-    setGet(oneState.heavy === 'failed' ? `TRY AGAIN · ${HEAVY_SIZE}` : `GET THE EYES · ${HEAVY_SIZE}`);
-    getBtn.disabled = !online;
-    getBtn.setAttribute('aria-label', online ? `Get the eyes: the object finder and the namer, ${HEAVY_SIZE} once, kept on this phone` : `Get the eyes, ${HEAVY_SIZE}: needs a signal`);
-    getBtn.title = online ? `Downloads the object finder and the namer (${HEAVY_SIZE}, once). Nothing of what I see is sent.` : 'I need a signal to download them.';
+    // the second key (GET THE NAMER): only once the finder works, and only while the namer is not on the phone; his tap, with its size said
+    const needNamer = finderOn && (oneState.namer === 'off' || oneState.namer === 'failed');
+    namerBtn.hidden = !needNamer && !(finderOn && oneState.namer === 'loading');
+    if (oneState.namer === 'loading') namerBtn.disabled = true;
+    else {
+      setNamerKey(oneState.namer === 'failed' ? `TRY AGAIN · ${NAMER_SIZE}` : `GET THE NAMER · ${NAMER_SIZE}`);
+      namerBtn.disabled = !online;
+      namerBtn.setAttribute('aria-label', online ? `${oneState.namer === 'failed' ? 'Try the namer again' : 'Get the namer'}: ${NAMER_SIZE} once, best on Wi-Fi, kept on this phone` : `Get the namer, ${NAMER_SIZE}: needs a signal`);
+      namerBtn.title = online ? `Downloads the namer (${NAMER_SIZE}, once; best on Wi-Fi). It lets me say what things look like. Nothing of what I see is sent.` : 'I need a signal to download it.';
+    }
+    whyEl.textContent = oneState.stepSaid;
+    whyEl.hidden = !oneState.stepSaid;
   };
   const netChanged = () => {
     online = navigator.onLine !== false;
@@ -196,34 +248,58 @@ export function createOneMode(L: LensContext): Mode {
     paint(performance.now());
   };
 
-  // ---------------------------------------------------------------- the heavy detectors, on his tap (or from the cache once he has tapped)
-  const progress = (s: string, f?: number) => {
+  // ---------------------------------------------------------------- the eyes, in two steps, each on his tap (or from the cache once it has started on this phone)
+  const progressFor = (setter: (t: string) => void, word: string) => (s: string, f?: number) => {
     if (S.mode !== 'lens') return;
     L.status(s, 'mid');
-    if (f != null) setGet(`GETTING THE EYES · ${Math.round(f * 100)}%`);
+    if (f != null) setter(`GETTING THE ${word} · ${Math.round(f * 100)}%`);
   };
-  const loadHeavy = async (): Promise<void> => {
-    if (oneState.heavy === 'loading' || oneState.heavy === 'ready') return;
+  /** Step 1: the object finder, alone. Objects are tagged from here on, without the namer. */
+  const loadFinder = async (): Promise<void> => {
+    if (oneState.finder === 'loading' || oneState.finder === 'ready') return;
     const v = visit;
-    oneState.heavy = 'loading';
+    oneState.finder = 'loading';
+    oneState.stepSaid = '';
     setGet('GETTING THE EYES…');
     markAll();
     try {
-      const d = await detector.get(progress);
-      await namer.load(progress, false);
-      if (v !== visit) return;
+      const d = await detector.get(progressFor(setGet, 'EYES'));
+      if (v !== visit) return d.close();
       det = d;
-      oneState.heavy = 'ready';
+      oneState.finder = 'ready';
       setFlag(HEAVY_KEY);
       gate.reset();
       markAll();
       if (S.mode === 'lens') L.status(S.camera === 'on' ? 'looking…' : 'ready · START the camera', 'ok');
+      // a phone the namer has started on before loads it too, by itself, from the kept files
+      if (flag(NAMER_KEY)) void loadNamer();
     } catch (e) {
       if (v !== visit) return;
-      oneState.heavy = 'failed';
-      S.error = String((e as Error)?.message ?? e);
+      oneState.finder = 'failed';
+      oneState.stepSaid = memoryTrouble(e) ? FINDER_MEMORY_WORDS : `I couldn’t get the object finder: ${String((e as Error)?.message ?? e).slice(0, 160)}`;
       markAll();
-      if (S.mode === 'lens') L.status(`I couldn’t get the eyes: ${S.error}`, 'off');
+    }
+  };
+  /** Step 2: the namer, its own key. A phone that cannot hold it says so, once, in words, and never tries again by itself. */
+  const loadNamer = async (): Promise<void> => {
+    if (oneState.finder !== 'ready' || oneState.namer === 'loading' || oneState.namer === 'ready') return;
+    const v = visit;
+    oneState.namer = 'loading';
+    oneState.stepSaid = '';
+    setNamerKey('GETTING THE NAMER…');
+    markAll();
+    try {
+      await namer.load(progressFor(setNamerKey, 'NAMER'), false);
+      if (v !== visit) return;
+      oneState.namer = 'ready';
+      setFlag(NAMER_KEY);
+      gate.reset();
+      markAll();
+    } catch (e) {
+      if (v !== visit) return;
+      oneState.namer = 'failed';
+      oneState.stepSaid = e instanceof NamerMemoryError || memoryTrouble(e) ? NAMER_MEMORY_WORDS : NAMER_OTHER_WORDS;
+      markAll();
     }
   };
 
@@ -376,7 +452,8 @@ export function createOneMode(L: LensContext): Mode {
 
   /** Put every tag where its box is, with its words and keys; the ones that are gone leave. */
   const paint = (now: number): void => {
-    const list = tags.alive(now);
+    // at most three tags on screen (limitTags); the rest, if any, wait unseen
+    const list = limitTags(tags.alive(now));
     const live = new Set(list.map((t) => t.id));
     for (const [id, n] of nodes) {
       if (live.has(id)) continue;
@@ -389,6 +466,9 @@ export function createOneMode(L: LensContext): Mode {
     const vh = layer.clientHeight || 400;
     const used: { x0: number; y0: number; x1: number; y1: number }[] = [];
     const sorted = [...list].sort((a, b) => a.box.y - b.box.y);
+    // ONE KEY ROW FOR A KIND: where two tags of a kind stand (two codes far apart), the keys sit under one of them, the one he tapped or else the higher
+    const keyed = new Map<TagKind, number>();
+    for (const t of sorted) if (!keyed.has(t.kind) || t.id === selectedId) keyed.set(t.kind, t.id);
     oneState.tags = [];
     for (const t of sorted) {
       const n = nodes.get(t.id) ?? (nodes.set(t.id, makeNode(t)), nodes.get(t.id)!);
@@ -420,7 +500,7 @@ export function createOneMode(L: LensContext): Mode {
         n.truth.replaceChildren(t.truth ? truthLine(t.truth) : '');
       }
       // the keys, rebuilt only when the acts or the signal change (a rebuild would swallow a tap that lands mid-update)
-      const list2 = acts(t);
+      const list2 = keyed.get(t.kind) === t.id ? acts(t) : [];
       const sig = `${list2.map((a) => a.id + (greyed(a) ? '!' : '')).join(',')}`;
       if (sig !== n.sig) {
         n.sig = sig;
@@ -454,10 +534,20 @@ export function createOneMode(L: LensContext): Mode {
       const tries: [number, number][] = [[x, y + hh + 2], [x + w - uw, y + hh + 2], [x, y + hh - uh], [x + w - uw, y + hh - uh], [x, y + 2], [x + w - uw, y + 2]];
       let at = tries.find(([cx, cy]) => fits(cx, cy));
       if (!at) {
-        // nothing clear: slide down from under the box to the first free row, else the foot of the view
-        let cy = y + hh + 2;
-        while (cy + uh <= vh - 2 && !fits(x, cy)) cy += 8;
-        at = [x, Math.min(cy, vh - uh - 2)];
+        // nothing clear beside its box: the nearest clear place anywhere in the viewfinder, down from under the box or up from it, never on another tag's keys
+        for (let dy = 8; !at && dy < vh; dy += 8) {
+          for (const cy of [y + hh + 2 + dy, y + hh + 2 - dy]) {
+            at = [x, cy] as [number, number];
+            if (fits(x, cy)) break;
+            at = [x + w - uw, cy] as [number, number];
+            if (fits(x + w - uw, cy)) break;
+            at = [vw - uw - 2, cy] as [number, number];
+            if (fits(vw - uw - 2, cy)) break;
+            at = undefined;
+          }
+        }
+        // no room at all (a view full of keys): under the box, over the others, as the least bad
+        at ??= [x, Math.min(y + hh + 2, vh - uh - 2)];
       }
       const ux = Math.max(2, Math.min(vw - uw - 2, at[0]));
       const uy = Math.max(2, at[1]);
@@ -550,7 +640,7 @@ export function createOneMode(L: LensContext): Mode {
     // a code's squares look like print to the check: where a code is standing, it is the code, not text
     const codesNow = tags.alive(at).filter((t) => t.kind === 'code');
     const plain = sightings.filter((x) => !codesNow.some((c) => overlap(grow(c.box, 0.3), x.box) > 0.4));
-    note(tags.see(plain, at), at);
+    note(tags.see(plain, at, frame), at);
     tags.keep(mirror.epoch, mirror.steady, at);
     budget.record(ms, now);
     if (now - maxAt > 1000) {
@@ -668,7 +758,7 @@ export function createOneMode(L: LensContext): Mode {
         });
         const now2 = performance.now();
         for (const c of sightings) tags.drop((t) => t.kind === 'text' && overlap(grow(c.box, 0.3), t.box) > 0.4);
-        note(tags.see(sightings, now2), now2);
+        note(tags.see(sightings, now2, frame), now2);
       })
       .catch((e: unknown) => {
         // the reader could not load (offline with no copy): the cheap pass says so on the bar, nothing else
@@ -717,7 +807,7 @@ export function createOneMode(L: LensContext): Mode {
         return { kind: 'face' as const, score, box: tr.box, truth: m.sure ? '' : 'I think so', data: { label: m.sure ? label : `${label}?` } };
       });
       const now2 = performance.now();
-      note(tags.see(sightings, now2), now2);
+      note(tags.see(sightings, now2, L.camera.size), now2);
     })()
       .catch(() => {
         // the models would not start or the camera is not live: no face tags, and nothing to say about it
@@ -729,7 +819,7 @@ export function createOneMode(L: LensContext): Mode {
   // ---------------------------------------------------------------- the heavy pass: a steady frame, one at a time
   let heavyInFlight = false;
   const heavyPass = async (now: number): Promise<void> => {
-    if (!det || oneState.heavy !== 'ready') return;
+    if (!det || oneState.finder !== 'ready') return;
     gate.start(mirror);
     heavyInFlight = true;
     const v = visit;
@@ -739,11 +829,12 @@ export function createOneMode(L: LensContext): Mode {
       const objs = fromMediaPipe(det.detectForVideo(L.video, nextStamp(now)))
         .filter((d) => d.label !== 'person' && d.score >= FLOOR.object)
         .sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h)
-        .slice(0, 2);
+        .slice(0, 1);
       if (v !== visit) return;
-      const first: Sighting[] = objs.map((d) => ({ kind: 'object' as const, score: d.score, box: d.box, truth: objectTruth(null, false), hold: mirror.epoch, data: { label: d.label, named: false } }));
+      // with the namer on, "something here · hold still" until it has looked; with it off, the finder's own call is all there will be
+      const first: Sighting[] = objs.map((d) => ({ kind: 'object' as const, score: d.score, box: d.box, truth: namer.ready ? objectTruth(null, false) : finderTruth(d.label), hold: mirror.epoch, data: { label: d.label, named: false } }));
       const t1 = performance.now();
-      note(tags.see(first, t1), t1);
+      note(tags.see(first, t1, frame), t1);
       // the object finder knows 80 everyday things; a plant, a part or a lemon is not one of them. With nothing found, the namer looks
       // at the middle of the picture (what NAME names) and speaks only when it is quite sure; a tag there says "looks like", never more
       if (!objs.length && namer.ready) {
@@ -756,7 +847,7 @@ export function createOneMode(L: LensContext): Mode {
           const best = r.names[0];
           if (best && best.p >= MIDDLE_FLOOR) {
             const t2 = performance.now();
-            tags.see([{ kind: 'object', score: Math.max(FLOOR.object, best.p), box: mid, truth: objectTruth(best, true), hold: mirror.epoch, data: { label: best.label, named: true, part: isPartName(best.label) } }], t2);
+            tags.see([{ kind: 'object', score: Math.max(FLOOR.object, best.p), box: mid, truth: objectTruth(best, true), hold: mirror.epoch, data: { label: best.label, named: true, part: isPartName(best.label) } }], t2, frame);
           }
         }
       }
@@ -769,7 +860,7 @@ export function createOneMode(L: LensContext): Mode {
         const named = !!best && best.p >= 0.2;
         const label = named ? best!.label : top.label;
         const t2 = performance.now();
-        tags.see([{ kind: 'object', score: top.score, box: top.box, truth: objectTruth(best, true), hold: mirror.epoch, data: { label, named, part: named && isPartName(label) } }], t2);
+        tags.see([{ kind: 'object', score: top.score, box: top.box, truth: objectTruth(best, true), hold: mirror.epoch, data: { label, named, part: named && isPartName(label) } }], t2, frame);
       }
       oneState.heavyPasses++;
       oneState.heavyMs = Math.round(performance.now() - t0);
@@ -778,8 +869,8 @@ export function createOneMode(L: LensContext): Mode {
       // one slip is nothing; a few in a row means the detector cannot run here: it is not asked again this visit
       if (++heavyFailures >= 3 && v === visit) {
         det = null;
-        oneState.heavy = 'failed';
-        S.error = `The object finder keeps failing: ${String((e as Error)?.message ?? e)}`;
+        oneState.finder = 'failed';
+        oneState.stepSaid = 'The object finder keeps failing on this phone; reading and the codes still work. Try again, or close and reopen Ghosty.';
         markAll();
       }
     } finally {
@@ -857,11 +948,13 @@ export function createOneMode(L: LensContext): Mode {
       oneState.faces = 'off';
       tileTimes.length = 0;
       oneState.textFrames = 0;
-      oneState.heavy = oneState.heavy === 'ready' ? 'off' : oneState.heavy;
+      // what was on the phone when he left is gone from memory (leave() freed it): ready/loading start again; a failure stays said
+      if (oneState.finder !== 'failed') oneState.finder = 'off';
+      if (oneState.namer !== 'failed') oneState.namer = 'off';
       void warmBarcodes().catch(() => undefined);
       void knownFaces().then((k) => (known = k)).catch(() => undefined);
       // the heavy detectors are on the phone once he has tapped for them: from then on they load by themselves, from the kept files
-      if (flag(HEAVY_KEY)) void loadHeavy();
+      if (flag(HEAVY_KEY)) void loadFinder();
       markAll();
       L.status(S.camera === 'on' ? 'looking…' : 'camera off · START to open it', S.camera === 'on' ? 'ok' : undefined);
     },
@@ -895,7 +988,8 @@ export function createOneMode(L: LensContext): Mode {
       oneState.tags = [];
       oneState.steady = false;
       det = null;
-      if (oneState.heavy !== 'failed') oneState.heavy = 'off';
+      if (oneState.finder !== 'failed') oneState.finder = 'off';
+      if (oneState.namer !== 'failed') oneState.namer = 'off';
       oneHooks.act = undefined;
       window.removeEventListener('online', netChanged);
       window.removeEventListener('offline', netChanged);

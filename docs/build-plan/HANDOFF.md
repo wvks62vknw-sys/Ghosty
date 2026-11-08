@@ -190,6 +190,98 @@ folder that no longer exists; ignore those paths).
   from the phone's own audio features; the confirm tap the gate; the real speaker model a STARS gap) and the PR C builder
   launched on the mid tier (worktree voiceknown, port 8809, its own bundle script). 20:08 UK: main's own run 346 (fe76ce3)
   green on every job: awareness PR A FINISHED. PR #65: eight of nine checks green, shard 4 running.
+  20:25 UK: PR #65 red on smoke shard 4 (hubcards: the See hub's Lens card read 12 modes, the one view counted as a mode);
+  fixed in hubcards.ts (the modes under MORE, eleven), hubcards and abilities specs green, pushed (c94e41a); lesson in 151:
+  a change to any list a hub card counts runs the hubcards spec. 21:00 UK: HIS VOICE KNOWN reported (13 commits + 2 after
+  the orchestrator's one call: one-word commands never held); reviewed (no protected file, no model names in files, no
+  GPS or network, nothing skipped; the guard kept by a six-character trim of one instruction line, worst case 5,496).
+  21:31 UK: PR #65 green and MERGED (main 6c02cd0); branch restarted from main; the lens worktree and branch removed;
+  HIS VOICE KNOWN applied as one commit (03be70c, 152 appended by hand), both typechecks, build, bundle, 104 brain tests
+  green; the voice/settings/awareness/deck/tabs/talk specs run; PR #66 opened and subscribed once green. NEXT: item 4, THE
+  SHELL (STARS 160–161; PLAN-STARS 3b): a facts sheet from a mid-tier explorer, then BRIEF-SHELL, the top tier for its
+  design work (the one place the top tier is spent from here), after his phone checks and 150 (a) if he answers.
+  22:40 UK: HIS VERDICT (OWNER-ISSUES 153): the themes went past his ask ("10% understood"), the Lens on his iPhone fails
+  GET THE EYES ("no available backend found": the namer's runtime cannot get its memory, the case faces.ts handles and the
+  one view did not) and repeats READ · TRANSLATE · ASK per text region; he offered ultracode. Answered: no more effort, the
+  fault was Chromium-only testing and building past the ask; the Lens hotfix first (worktree lensfix, mid tier: one tag per
+  kind with one key row; the object finder alone, the namer optional and honest), checked on HIS PHONE from the PR's preview
+  before the merge; the themes cut back after his answer (keep a Ground choice and the colours; the worlds and switches off
+  the page: recommended); nothing new launches until both are done; the shell's pass 1 (running) waits its turn. FACTS-SHELL
+  and BRIEF-SHELL (three passes) were written before his message. PR #66 (voice) opened with its merge held. The voice
+  specs: voice, settings, awareness, deck, tabs, talk all green. FROM HERE: only what was asked; his phone before merging
+  anything that loads a model, the camera or the microphone; smaller PRs.
+  23:30 UK: the Lens hotfix built (five commits; one tag per kind, the finder alone first at an honest 18 MB, the namer a
+  second step with the face model's memory retry and plain words; the iPhone failure reproduced by a test-only switch);
+  applied as one commit on hotfix/lens FROM MAIN (so it carries nothing else), PR #67 opened, its preview link sent to him
+  for the phone check; the merge waits for his word. The lensfix worktree stays until then. PR #66 (voice) stays held.
+  22:35 UK: main's own run 349 (6c02cd0, ONE LENS) green on every job; by his verdict it is finished only with PR #67 on main.
+  23:30–00:30 UK: PR #66 red on three things from the voice build (the Settings group drawn twice; a page error from an
+  unanswered voice-store read; offline enrolment reaching the speech service on a slow runner); fixed at cause (the first by
+  the orchestrator, the two others by the voice builder), the voice spec clean here, pushed as 460a88f and 077846c; #66 stays
+  held. SHELL PASS 1 reported built on builder/shell1 (its OWNER-ISSUES entry is numbered 154 there and becomes 155 when
+  applied, 154 being the hotfix's); scanned clean (no protected file, no model names in files, no GPS or network, nothing
+  skipped); WAITING ITS TURN per 153. Worktrees now: lensfix (done, PR #67), voiceknown (done, PR #66), shell1 (done, waiting).
+  NOTHING NEW LAUNCHES until his phone check on the Lens hotfix and his word on the themes.
+  00:45–01:05 UK: HIS WORDS (155, 156): a theme is a whole different HUD, tabs included; The Scan first; a way round that
+  belongs to the world with the finding rule held; the cinematic longer, richer, polished; the Lens that just knows with NO
+  key rows (the hotfix a stopgap); his input before code every time. BRIEF-HUD-MOCKS written and the mock round launched on
+  the top tier (worktree hudmocks, branch builder/hudmocks; a liveness check-in at 03:07 UTC). Then "do whatever is best with
+  the two PRs": PR #67 merged as the stopgap (main ce2626b), main merged into the session branch (OWNER-ISSUES conflict:
+  154 inserted after 153), PR #66 merges when its run on that head is green. Worktrees: voiceknown (done), shell1 (waiting),
+  hudmocks (done 01:45 UK: the W1 HUD mock round, 7 commits, applied to the session branch as one commit and the worktree
+  removed; the sheet and four frames sent to him with six decisions; the README carries 18 questions and 16 gaps; NOTHING
+  BUILDS from it until he says "build it"). NEXT when he answers: BRIEF-HUD-SCAN from the mocks and his picks (the top tier,
+  one PR, his phone check from the preview before the merge), then the other rooms one per PR.
+  01:50 UK HIS WORDS (157): entirely different looks prebuilt (the seven directions), colour the only choice; Home knows
+  where he is (on the phone, never sent); the boot a Hollywood film; "billions poured in" the bar. Round two launched on the
+  top tier and done by 02:55 (videos; applied to the session branch, worktree removed); the videos and sheet sent with six
+  questions. PR #66 red on shard 2 (the Lens text-check budget on the two-core runner: a smoothed wall-clock read during the
+  heavy pass; main's own run passed it): fixed at the measurement (the median of the last dozen frames, the 4 ms budget
+  unchanged), under the lens spec alone and under load before the push. Main's run 359 (ce2626b, the stopgap): shards 1, 2, 4
+  green, shard 3 running at 02:55.
+  03:25 UK: MAIN WAS RESTORED BY THE GUARD (8b62a96 = 6c02cd0 again): run 359's shard 3 killed the reader spec at the loop's
+  480 s limit on both attempts ("Target page closed" at its line 964, in the last part), a spec that already ran 499 s here
+  before the stopgap; so the stopgap is off main again and his phone is back on the broken Lens until this is fixed forward.
+  FIX AT THE CAUSE: the reader spec split into two of half the length (reader: shelf, place, listen, talk, words, card;
+  reader2: voice, find, chapter), every assertion kept, one word `reader2` in the loop's list; a mid-tier builder in worktree
+  readerfix from main; PR #68 from that branch; then PR #66 (which carries the stopgap and the Lens measurement fix) re-lands
+  the stopgap. His picks on round two are in 158; round three (three worlds) is drawing.
+  03:15 UK: PR #66's run 362 (e9d0149, before the measurement fix) FAILED on shard 2 as expected: the Lens text check read
+  8.2 then 7.7 ms a frame against the 4 ms budget, both attempts, the one view section 108 and 113 s; every other spec on
+  the shard clean, shards 1, 3, 4 green. The pushes of 883d01c (the median read) and 1a7764c (docs) at 02:52 and 02:54 UK
+  had made NO check run twenty minutes later (Cloudflare's preview did deploy both): this docs commit is the next real
+  change on the branch and starts the run that proves or disproves the median read on the two-core runner. Reader split in
+  progress: first clean run of the halves 402 s and 100 s (the first half still near the limit: judged on the report).
+  03:30 UK: THE CAUSE OF THE MISSING RUNS: GitHub runs no pull_request workflow on a pull request that conflicts with its
+  base, and the guard's restore of main (8b62a96, the Lens hotfix files put back) put PR #66 in conflict (one.ts and
+  OWNER-ISSUES). Lesson: after any guard restore, merge main into the open PR branch at once. Main merged into the
+  branch with the branch's tree kept whole (the stopgap and the median read stay; PR #66 re-lands them); the run starts
+  with this push. The reader split rebalanced by the builder: 202 s and 291 s alone (both halves well under 480).
+  03:40 UK: PR #68 OPEN (hotfix/readersplit 0dc4e3d from main: the split applied as one commit; reviewed: the one word in
+  check.yml, no app code, 102 assertions before and after, no model names; the builder's worktree and branch removed).
+  PR #66's run 363 on 3a853be started 03:25 UK. Nothing pushed to the session branch until 363 ends (a push cancels it).
+  04:25 UK: PR #68's first run red on shard 2: the lens spec's text-check budget (5.1 then 7.5 ms against 4) on Lens code
+  main ran green twice; not this PR's. The median read (883d01c) ported onto the hotfix branch (02fde70), lens spec clean
+  here (1.4 ms), one comment on the PR says so. Round three of the mocks applied to the session branch (OWNER-ISSUES 159)
+  and sent to him with the three questions; his pick decides The Scan's Home. Lesson: the Lens budget's old smoothed read
+  was flaky on the two-core runner on its own, before any of this week's Lens work.
+  05:25 UK: PR #66's run 368 (bec9fa6, the median read on the hotfix code) GREEN on every job: the measurement fix holds on
+  the two-core runner. #66 waits for #68 (run 367 on 02fde70 running since 04:26 UK) so the stopgap lands on a main whose
+  reader spec fits; then main is merged into #66 (one.ts: keep the branch's), its run read, merged, main's run read.
+  05:30 UK: PR #68 MERGED (main c42d1f4): run 367 green on every job (the split on shards, the median read on shard 2).
+  Main merged into the session branch (one.ts kept as the branch's: the hotfix plus the median read); PR #66's run on the
+  merge is what merges it; main's own push run for c42d1f4 is read first (the guard must not restore).
+  06:35 UK: MAIN'S RUN 370 (c42d1f4) RED on shard 2, the Lens text-check budget again (4.6 then 6.4 ms against 4); the guard
+  left main as it was (the commit before it was the restore, never green itself), so main is red, not restored. Found at
+  the cause this time: the spec read the cost at the first tags, the first frames of a visit, with the camera starting and
+  the first look drawn through the runner's software graphics on two cores (here: 1.3 ms on the first frames, 0.2 ms
+  steady). Fixed: `textFrames` counts the frames timed since the view was entered, frames under the heavy pass left out,
+  the spec reads the budget once a dozen are in; the 4 ms budget unchanged. PR #69 (hotfix/lensbudget 33c0be5 from main),
+  the same change on the session branch (e4d52e1) so PR #66 measures the same way. Lens spec clean on both trees.
+  07:40 UK: PR #69 MERGED (main b0afbce, run 372 green on every job). Main merged into the session branch at once (one.ts
+  conflicted, the branch's kept: a conflicting PR runs no checks). PR #66's run on the merge decides it; main's own push
+  run for b0afbce read first (the guard must stay quiet; the commit before it, c42d1f4, was red, so the guard would leave
+  main as it is either way).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

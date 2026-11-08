@@ -955,6 +955,44 @@ function holdSpeech(on: boolean): void {
  */
 const END_SILENCE_MS = 700;
 
+/**
+ * [voiceknown] THE SOUND OF THE LAST LISTEN, for the voiceprint (assistant/voiceknown.ts; BRIEF-VOICE-KNOWN 3): the recording
+ * decoded to 16 kHz mono numbers, started the moment the recording stops (beside the writing down, not after it), kept in memory
+ * only until `takeSound` takes it, and never sent anywhere (the recording that goes to /api/stt for its words is the one it
+ * always was). Made only while a voice is enrolled (`sound.wanted`, set by voiceknown), so nothing changes without one.
+ * null: no sound to judge (the room alone, a recording that would not decode, an ear that gives none).
+ */
+export const sound = { wanted: false, /** a voice is being enrolled: no listen of any kind sends a recording to be written down meanwhile */ noWords: false };
+let lastSound: { at: number; pcm: Promise<Float32Array | null> } | null = null;
+/** The sound of the listen that just ended, once (and when its recording stopped, for the speed check). */
+export function takeSound(): { at: number; pcm: Promise<Float32Array | null> } | null {
+  const s = lastSound;
+  lastSound = null;
+  return s;
+}
+async function decodeSound(blob: Blob, skip: number): Promise<Float32Array | null> {
+  try {
+    if (blob.size < 4000) return null;
+    const O: typeof OfflineAudioContext | undefined = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+    if (!O) return null;
+    const decoded = await new O(1, 16_000, 16_000).decodeAudioData(await blob.arrayBuffer());
+    const from = Math.max(0, Math.min(decoded.length - 1, Math.floor(skip * decoded.sampleRate)));
+    return toMono16k(Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i).subarray(from)), decoded.sampleRate);
+  } catch {
+    return null;
+  }
+}
+/** `after`: the recording is still stopping (its last pieces are not in yet). */
+const keepSound = (r: { chunks: Blob[]; rec: MediaRecorder; mime: string }, skip: number, after: Promise<void> = Promise.resolve()): void => {
+  if (!sound.wanted) return;
+  const mine = { at: performance.now(), pcm: after.then(() => decodeSound(new Blob(r.chunks, { type: r.rec.mimeType || r.mime }), skip)) };
+  lastSound = mine;
+  // a sound nobody took (a listen of another feature: the coach, the Lens's hands) is let go after a minute, not kept
+  setTimeout(() => {
+    if (lastSound === mine) lastSound = null;
+  }, 60_000);
+};
+
 /** The recording as 16 kHz mono WAV, which every recogniser reads (iPhones record AAC, which not all of them do); `skip` seconds off the start. */
 async function toWav(ctx: AudioContext, blob: Blob, skip = 0): Promise<Blob> {
   const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
@@ -963,7 +1001,7 @@ async function toWav(ctx: AudioContext, blob: Blob, skip = 0): Promise<Blob> {
   return new Blob([encodeWav(toMono16k(channels, decoded.sampleRate))], { type: 'audio/wav' });
 }
 
-async function listenWhisper(onReady: () => void = () => undefined): Promise<string> {
+async function listenWhisper(onReady: () => void = () => undefined, soundOnly = false): Promise<string> {
   const m = await openMic();
   // After a barge-in the recording is already running and the owner already talking.
   const c = carry;
@@ -1017,7 +1055,7 @@ async function listenWhisper(onReady: () => void = () => undefined): Promise<str
           if (now - speechAt > 110) speech = true;
         }
       } else if (!speech) speechAt = 0;
-      if (speech && !early && !stopped && now - lastLoud > EARLY_MS) early = { from: lastLoud, text: writeDownSoFar(m, r, skip) };
+      if (speech && !early && !stopped && !soundOnly && now - lastLoud > EARLY_MS) early = { from: lastLoud, text: writeDownSoFar(m, r, skip) };
       const silence = speech && now - lastLoud > END_SILENCE_MS;
       const tooLong = now - t0 > (speech ? 30000 : 12000);
       if (stopped || silence || tooLong || mic !== m) {
@@ -1043,6 +1081,7 @@ async function listenWhisper(onReady: () => void = () => undefined): Promise<str
     ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
     const said = await earlyText;
     if (said !== null) {
+      keepSound(r, skip, stopped);
       void stopped.then(() => {
         afterRecording(m);
         if (mic !== m) void m.ctx.close().catch(() => undefined);
@@ -1052,6 +1091,7 @@ async function listenWhisper(onReady: () => void = () => undefined): Promise<str
   }
   await stopped;
   afterRecording(m);
+  lastSound = null;
   // Let go of by the caller (stopListening(true): Ghosty began to speak while this listened): what the microphone caught is his
   // own voice and the room, so nothing goes to the brain, and the screen keeps saying what it said.
   if (dropped) {
@@ -1064,6 +1104,12 @@ async function listenWhisper(onReady: () => void = () => undefined): Promise<str
     return '';
   }
   const blob = new Blob(r.chunks, { type: r.rec.mimeType || r.mime }); // iPhones record audio/mp4, others webm
+  keepSound(r, skip);
+  // [voiceknown] enrolling a voice listens for the sound alone: nothing goes to be written down, so not even the words leave
+  if (soundOnly) {
+    if (mic !== m) void m.ctx.close().catch(() => undefined);
+    return '';
+  }
   // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats).
   const wav = blob.size >= 4000 ? await toWav(m.ctx, blob, skip).catch(() => null) : null;
   if (mic !== m) void m.ctx.close().catch(() => undefined);
@@ -1071,6 +1117,8 @@ async function listenWhisper(onReady: () => void = () => undefined): Promise<str
   // The recording is done: the screen stops saying LISTENING while the words are worked out.
   writing = true;
   ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
+  // [voiceknown] a listen winding down while a voice is enrolled is let go: nothing of this phone's microphone is sent meanwhile
+  if (sound.noWords) return '';
   const text = await brain.stt(wav ?? blob).catch((e: unknown) => {
     throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
   });
@@ -1095,6 +1143,7 @@ async function writeDownSoFar(m: Mic, r: { rec: MediaRecorder; chunks: Blob[]; m
         r.rec.requestData();
       });
     }
+    if (sound.noWords) return null;
     const blob = new Blob(r.chunks.slice(), { type: r.rec.mimeType || r.mime });
     if (blob.size < 4000) return null;
     const wav = await toWav(m.ctx, blob, skip).catch(() => null);
@@ -1131,17 +1180,45 @@ let writing = false;
  * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
  * instead when there is one, else the owner is told so before saying a word.
  */
-export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined, onReady: () => void = () => undefined): Promise<string> {
+export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined, onReady: () => void = () => undefined, soundOnly = false): Promise<string> {
   stopSpeaking();
   const offline = navigator.onLine === false;
-  if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
+  if (offline && useWhisper && !SRClass && !soundOnly) throw new Error(NO_SIGNAL);
+  if (soundOnly && !(voiceSupport.mic && typeof MediaRecorder !== 'undefined')) throw new Error(MIC_BLOCKED);
   const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {
     // `onReady`: the ear can hear him now (BRIEF-TALK-1A 4: the "your turn" tone) — the brain's ear once it knows the room,
     // the phone's own recogniser as it starts.
-    if (useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined') return await listenWhisper(onReady);
+    // [voiceknown] `soundOnly`: for enrolling a voice (settings/voiceknown.ts): the sound is kept for the voiceprint and nothing is
+    // sent to be written down, with or without a signal
+    if (soundOnly || (useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined')) return await listenWhisper(onReady, soundOnly);
     onReady();
+    // [voiceknown] the phone's own recogniser hears the words and gives no sound, so with a voice enrolled the microphone is
+    // recorded beside it (best effort: where the phone will not share the microphone, no sound is kept and no voice is judged)
+    if (sound.wanted && voiceSupport.mic && typeof MediaRecorder !== 'undefined') {
+      const m = await openMic().catch(() => null);
+      let r: ReturnType<typeof record> | null = null;
+      try {
+        r = m ? record(m) : null;
+      } catch {
+        r = null;
+      }
+      try {
+        return await listenBrowser(onInterim);
+      } finally {
+        if (r && m) {
+          const rec = r;
+          const stopped = new Promise<void>((res) => {
+            if (rec.rec.state === 'inactive') return res();
+            rec.rec.onstop = () => res();
+            rec.rec.stop();
+          });
+          keepSound(rec, 0, stopped);
+          void stopped.then(() => afterRecording(m));
+        }
+      }
+    }
     return await listenBrowser(onInterim);
   } finally {
     abortListen = null;

@@ -73,6 +73,16 @@ export const APP_3: Record<string, CatValue> = {
     more: 'My own natural British voices or your phone’s. Talking over me to interrupt can be switched here too.',
     say: ['Change your voice'], scene: ['talking'], cat: 'talk',
   },
+  'panel:settings:MY VOICE': {
+    name: 'Know my voice', line: 'You can have me learn your voice, so I show YOU on the bar and ask before I answer a voice I don’t know.',
+    more: 'You read three short sentences; I keep a few hundred numbers on this phone, never a recording, and never in a backup. It is a courtesy, not a lock: the confirm tap still opens everything that matters. It needs no signal.',
+    say: ['Learn my voice'], scene: ['talking', 'phone'], cat: 'talk', since: '2026-11-07',
+  },
+  'panel:settings:PEOPLE I’VE INTRODUCED': {
+    name: 'Voices I know', line: 'You can introduce someone to me with them there: they say yes aloud and read three sentences, and I know their voice by name.',
+    more: 'Up to ten people, each gone by name with UNDO. I never guess a name: a voice that matches none of them is just a voice I don’t know.',
+    say: ['Learn Sam’s voice'], scene: ['talking', 'phone'], cat: 'talk', since: '2026-11-07',
+  },
   'panel:settings:ABOUT': {
     name: 'Which version I am', line: 'You can see which version of me this is and when it was built.',
     more: 'The Me sheet says whether a newer version is ready.',

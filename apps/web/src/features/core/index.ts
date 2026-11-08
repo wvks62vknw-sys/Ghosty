@@ -1,6 +1,7 @@
 /**
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
+import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk bar
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
@@ -683,7 +684,7 @@ export const coreTab: TabDef = {
     // [cards] HOME AS HIS WALL (wall.ts): the live cards in order of what matters now, above Home's own cards
     const wall = wallView();
     rc.below.prepend(wall.el);
-    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
+    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
