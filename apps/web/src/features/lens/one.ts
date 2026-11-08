@@ -217,7 +217,10 @@ export function createOneMode(L: LensContext): Mode {
   whyEl.hidden = true;
   const setKey = (btn: HTMLButtonElement, t: string): void => {
     const sp = btn.querySelector('span');
-    if (sp) sp.textContent = t;
+    if (!sp) return;
+    // (the honest line wraps on a phone; WI-FI stays one word across the break, its text unchanged)
+    const parts = t.split('WI-FI');
+    sp.replaceChildren(...parts.flatMap((p, i) => (i ? [h('span', { style: 'white-space: nowrap' }, 'WI-FI'), p] : [p])));
   };
   const setGet = (t: string): void => setKey(getBtn, t);
   const setNamerKey = (t: string): void => setKey(namerBtn, t);
