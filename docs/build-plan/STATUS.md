@@ -210,6 +210,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   the tab bar; how light; the plan's 40 pt rows as the one exception; the boot at 4.3 s; the tone by default; Life's Home
   renamed Household); the first HUD is built as one PR only on his "build it". Meanwhile PR #66 (voice) merges when green and
   the shell's pass 1 goes up after it; the voice panels and pass 1 are redrawn by the HUD when it lands.
+  01:50 UK HIS WORDS (OWNER-ISSUES 157): the themes are the looks he was shown, prebuilt, each an entirely different whole
+  HUD, colour the only choice; Home knows where he is (on the phone, never sent); the boot a Hollywood film; "billions poured
+  in" the bar for everything. ROUND TWO (BRIEF-HUD-MOCKS-2, the top tier) LAUNCHED 02:05 UK in worktree hudmocks2: the boot as
+  a VIDEO he can watch, Home raised and by place, the Theme gallery of seven looks, a second look's Home beside The Scan's.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I
