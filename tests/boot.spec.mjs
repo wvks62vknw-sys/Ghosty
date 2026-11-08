@@ -59,7 +59,8 @@ async function open({ reducedMotion = 'no-preference', flag = true, kind = '', l
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     const t = m.text();
-    if (m.type() === 'error' && !/favicon|net::ERR|40[134]|Failed to load resource|^[WI]\d{4} |^INFO:|GPU stall|WebGL/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
+    // (the harness's own init script is refused in a frame the app keeps script-free, the article's `sandbox="allow-same-origin"`: Chromium's line about it is the harness's, not the app's)
+    if (m.type() === 'error' && !/favicon|net::ERR|40[134]|Failed to load resource|^[WI]\d{4} |^INFO:|GPU stall|WebGL|Blocked script execution in 'about:blank' because the document's frame is sandboxed/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
   });
   await page.addInitScript(({ key, flag, kind, lean, manual, hero }) => {
     if (!localStorage.getItem('ghosty.ownerKey')) localStorage.setItem('ghosty.ownerKey', key);
@@ -165,6 +166,14 @@ const onHero = (page) => page.evaluate(() => {
   const inHero = !!gl[0] && (st?.on ? !!gl[0].closest('.scanstage') && JSON.stringify(a) === JSON.stringify(bb) : gl[0].parentElement === r2?.parentElement);
   return { count: gl.length, inHero, a, b: bb, mode: window.__ghosty?.hero?.mode, staged: !!st?.on };
 });
+/** Mind back in the hero after a landing: the one canvas, in the hero's box. The hand-over from the cinematic's stage to Home's
+ *  canvas is a frame or two of software WebGL on a two-core runner, so it is waited for (up to 6 s), as the HUD's slide is;
+ *  the reading returned is the last one, and the checks on it are unchanged. */
+const heroBack = async (page) => {
+  let hp = await heroBack(page);
+  for (let t = Date.now(); Date.now() - t < 6000 && !(hp.count === 1 && hp.inHero); await page.waitForTimeout(150)) hp = await heroBack(page);
+  return hp;
+};
 /** The HUD back after a landing: the ribbon and the tab bar fully there, nothing waiting out of sight. */
 // (its slide is a CSS animation, which software WebGL's slow frames on Home can hold back: waited for, up to 6 s)
 const hudBack = async (page) => {
@@ -294,7 +303,7 @@ async function checkWords(page, s, what, { tapped }) {
   await checkWords(page, s, 'full', { tapped: false });
   // it lands on Home's real MIND: the canvas that flew is the one in the hero, to the pixel
   if (!s?.mind) problems.push('full: MIND did not draw the cinematic');
-  const hp = await onHero(page);
+  const hp = await heroBack(page);
   if (hp.count !== 1) problems.push(`full: ${hp.count} Mind canvases after the landing (want the one)`);
   if (!hp.inHero || JSON.stringify(hp.a) !== JSON.stringify(hp.b)) problems.push(`full: Mind is not in the hero's box after the landing: ${hp.a} vs ${hp.b} (staged ${hp.staged})`);
   if (s?.film && !hp.staged) problems.push('full: the film played but Home did not take the stage (the one context drawing the world behind Home)');
@@ -349,7 +358,7 @@ async function checkWords(page, s, what, { tapped }) {
   if (!s?.skipped) problems.push('skip: the tap was not taken as a skip');
   if (s && (s.marks.recognise !== undefined || s.marks.greeting !== undefined)) problems.push(`skip: it played on to the recognition or the greeting after the tap (${JSON.stringify(s.marks)})`);
   if (s?.spoken === 'now' || s?.spoken === 'tap' || s?.said) problems.push(`skip: the greeting was spoken after a skip (${s.spoken}, ${s.said})`);
-  const hp = await onHero(page);
+  const hp = await heroBack(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`skip: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   const hud = await hudBack(page);
   if (hud.wait || hud.dock < 0.99) problems.push(`skip: the HUD did not come back (${JSON.stringify(hud)})`);
@@ -364,7 +373,7 @@ async function checkWords(page, s, what, { tapped }) {
   if (w?.skipped) problems.push('second open: it was skipped with no tap');
   const line = checkCut(w, 'second open');
   if (w) timings.push(`second cold open: ${w.kind}; ${line}`);
-  const hp2 = await onHero(page);
+  const hp2 = await heroBack(page);
   if (hp2.count !== 1 || !hp2.inHero) problems.push(`second open: Mind did not end up in the hero (${JSON.stringify(hp2)})`);
   // a resume (coming back to the app after more than a few seconds away, the page still alive): a breath, no cinematic
   const before = (await state(page))?.warm ?? 0;
@@ -423,7 +432,7 @@ async function checkWords(page, s, what, { tapped }) {
   if (s?.kind === 'still' && own > 800 + 2 * s.worstGap) problems.push(`reduce motion: ${own} ms from the orb to the landing (want 800, worst frame gap ${s.worstGap} ms)`);
   await checkWords(page, s, 'reduce motion', { tapped: false });
   if (s) timings.push(`reduce motion: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms (the ground holds until MIND is drawing: ${s.marks.orb} ms here; then held ${s.held} ms for the app and Home's hero; app ready at ${s.appReady} ms; worst frame gap ${s.worstGap} ms)`);
-  const hp = await onHero(page);
+  const hp = await heroBack(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`reduce motion: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   await ctx.close();
 }
@@ -445,7 +454,7 @@ async function checkWords(page, s, what, { tapped }) {
   const s = await state(page);
   if (!s?.mind) problems.push('reboot: MIND did not draw it');
   const line = checkCut(s, 'reboot');
-  const hp = await onHero(page);
+  const hp = await heroBack(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`reboot: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   // a reboot comes from a tap: the greeting is spoken at once (the voice is on), once
   if (s?.spoken !== 'now') problems.push(`reboot: the greeting was "${s?.spoken}" (want spoken at once after a tap)`);
@@ -474,7 +483,7 @@ async function checkWords(page, s, what, { tapped }) {
     await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 }).catch(() => problems.push(`skip at ${stage}: the tap did not end it`));
     await page.waitForTimeout(450);
     const k = await state(page);
-    const hp3 = await onHero(page);
+    const hp3 = await heroBack(page);
     const hud = await hudBack(page);
     if (stage !== 'land' && !k?.skipped) problems.push(`skip at ${stage}: the tap was not taken as a skip`);
     if (!landedOk(k?.landed)) problems.push(`skip at ${stage}: it did not land on the hero (${JSON.stringify(k?.landed)})`);
