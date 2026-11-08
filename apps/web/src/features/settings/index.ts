@@ -144,6 +144,9 @@ export const settingsTab: TabDef = {
     const vc = voiceControls();
     // On/off settings are switches (switch.ts), not drop-downs.
     const sfx = switchRow('Interface sounds', 'Soft clicks when you tap', () => settings.get().sounds, (on) => settings.set({ sounds: on }));
+    // THE SCORE (BRIEF-HUD-SCAN-1 7): B, the short score under the boot (a pad, a tick per thing found, the tone on the lock); off, A: the one tone alone
+    const score = switchRow('The boot’s score', 'A short score under the boot, made on this phone: a low pad, a tick for each thing I find, the tone when I lock on. Off, the one tone alone.', () => settings.get().bootScore !== false, (on) => settings.set({ bootScore: on }));
+    score.el.dataset.id = 'bootscore';
     const motion = switchRow('Tilt phone to look around', 'The 3D scenes follow the phone', () => settings.get().motion, (on) => settings.set({ motion: on }));
     // HOME: where home is now, said in full (it was only in the box's placeholder, cut off at "Home city (now Lonc").
     const homeNow = h('div.note.homenow');
@@ -178,7 +181,10 @@ export const settingsTab: TabDef = {
       );
     });
     paintHome();
-    vp.body.append(...vc.nodes, sfx.el, motion.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps));
+    // HOME KNOWS WHERE HE IS (BRIEF-HUD-SCAN-1 5; OWNER-ISSUES 158: on): the one switch; off, Home says SAVED PLACE ONLY
+    const sense = switchRow('Home knows where you are', 'Decided on this phone from the hour, your saved place and the phone’s own sense where you have allowed it. Never sent anywhere: my brain gets a word at most, with your question.', () => settings.get().placeSense !== false, (on) => settings.set({ placeSense: on }));
+    sense.el.dataset.id = 'placesense';
+    vp.body.append(...vc.nodes, sfx.el, score.el, motion.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el);
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
@@ -189,6 +195,8 @@ export const settingsTab: TabDef = {
       if (s.home !== p.home) paintHome();
       if (s.sounds !== p.sounds) sfx.paint();
       if (s.motion !== p.motion) motion.paint();
+      if (s.bootScore !== p.bootScore) score.paint();
+      if (s.placeSense !== p.placeSense) sense.paint();
     });
     return {
       enter() {

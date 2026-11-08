@@ -364,6 +364,9 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme,
       c: cs.getPropertyValue('--c').trim(), acc: cs.getPropertyValue('--acc').trim(), c2: cs.getPropertyValue('--c2').trim(),
       tab: tab ? getComputedStyle(tab).color : '', dot: pill ? getComputedStyle(pill, '::before').backgroundColor : '',
+      // in The Scan the lit tab wears the accent's text tone (the system's rule: the accent itself where it clears 5:1, else its text variant)
+      tabWant: document.body.classList.contains('scanhome') ? cs.getPropertyValue('--g-accent-text').trim() : '',
+      gacc: cs.getPropertyValue('--g-accent').trim(),
       look: document.documentElement.hasAttribute('data-look'), finish: document.documentElement.hasAttribute('data-finish'),
     };
   });
@@ -449,11 +452,21 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   // eased over about a second: wait on the token itself, never a fixed pause
   await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--c').trim() === '#ff453a', null, { timeout: 8000 }).catch(() => undefined);
   // (the lit tab has a colour transition of its own: wait on its colour too)
-  await page.waitForFunction(() => /^rgba?\(255, 69, 58(, 1)?\)$/.test(getComputedStyle(document.querySelector('#dock .tabcap button.on') ?? document.body).color), null, { timeout: 4000 }).catch(() => undefined);
+  await page.waitForFunction(() => {
+    const want = document.body.classList.contains('scanhome') ? getComputedStyle(document.documentElement).getPropertyValue('--g-accent-text').trim() : '#ff453a';
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(want);
+    if (!m) return false;
+    const re = new RegExp(`^rgba?\\(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}(, 1)?\\)$`);
+    return re.test(getComputedStyle(document.querySelector('#dock .tabcap button.on') ?? document.body).color);
+  }, null, { timeout: 4000 }).catch(() => undefined);
   const dark = await look();
   if (dark.c !== '#ff453a' || dark.acc !== '#ff453a') problems.push(`[mood] cross did not turn the accent red: ${JSON.stringify(dark)}`);
   if (dark.theme !== 'graphite' || dark.saved !== 'graphite') problems.push(`[mood] the mood touched the saved theme: ${JSON.stringify(dark)}`);
-  if (solid(dark.tab) !== rgb('#ff453a')) problems.push(`[mood] the lit tab is ${dark.tab}, not his red`);
+  if (dark.tabWant) {
+    // The Scan: the system's accent is his red and the lit tab wears that red's text tone, the one token, nothing else
+    if (dark.gacc !== '#ff453a') problems.push(`[mood] the system's accent is ${dark.gacc}, not his red`);
+    if (solid(dark.tab) !== rgb(dark.tabWant)) problems.push(`[mood] the lit tab is ${dark.tab}, not the red's text tone ${dark.tabWant}`);
+  } else if (solid(dark.tab) !== rgb('#ff453a')) problems.push(`[mood] the lit tab is ${dark.tab}, not his red`);
   await page.screenshot({ path: `${out}/routec-mood-cross.png` });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.fill('#cin', 'stand down');
