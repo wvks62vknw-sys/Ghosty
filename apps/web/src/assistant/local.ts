@@ -42,6 +42,7 @@ import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
+import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
@@ -176,7 +177,11 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",
   // "follow the day", a switch or a colour by name: applied at once, said in a sentence (what changed, what stayed), no model
   async look(text, opts) {
-    const ask = lookAsked(text);
+    // THE GALLERY'S WORDS (BRIEF-THEME-GALLERY 5): a look that is not built yet says its one line and changes nothing; "show me the looks" says what there is
+    const looks = looksAsked(text);
+    if (looks?.kind === 'coming') return answer(text, comingLine(looks.look), { kind: 'look' }, opts);
+    if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
+    const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
     const theme = await import('../state/theme');
     const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });

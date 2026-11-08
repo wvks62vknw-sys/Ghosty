@@ -6213,7 +6213,7 @@ html #app #pg-library button.shelffold { width: 100%; min-height: var(--g-target
 /* Reduce Motion: nothing travels (the durations are already nothing); the cursor holds still, lit */
 @media (prefers-reduced-motion: reduce) {
   html :is(.g-typed, .g-stamp).writing .g-cursor { animation: none; }
-  html :is(.g-ret-frame, .g-sight, .g-key, .swatch) { transition: none; }
+  html :is(.g-ret-frame, .g-sight, .g-key, .swatch, .gg-sw > i) { transition: none; }
   html #pg-reader .grd-flow { transition: none; }
 }
 
@@ -6306,13 +6306,41 @@ html .gswitch-line { font: var(--g-t-caption); color: var(--g-ink-2); overflow-w
 html .gswitch-keys { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: var(--g-s-1); }
 html #app .gswitch-keys > button.g-key { min-width: var(--g-target); padding: 0 var(--g-s-1); }
 
+/* ---- THE LOOKS GALLERY (ui/gallery.ts; BRIEF-THEME-GALLERY): the Theme page is seven stills of Home and a row of twelve colours */
+html .gg { position: relative; display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-settings .pn.themepn.pushed > .bd .g-stamp { margin: 0 0 var(--g-s-2); }
+html .gg-sec { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--g-s-half) var(--g-s-1); padding: var(--g-s-half) 0 0; }
+html .gg-sec small { margin-left: auto; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .gg :is(.gg-sec, .gg-kick, .gg-cap) > .g-tag { padding: 0; background: none; }
+html .gg-looks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-1); }
+html #app button.gg-look { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; min-width: 0; min-height: var(--g-target); height: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; transform: none; color: var(--g-ink-1); font: inherit; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; cursor: pointer; }
+html #app button.gg-look:active { transform: none; }
+html .gg-thumb { position: relative; display: block; aspect-ratio: 264 / 240; overflow: hidden; border-radius: var(--g-radius-mark); background: var(--g-canvas); }
+html .gg-thumb > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+html .gg-thumb > .g-ret-frame { inset: 0; --rc: transparent; border: var(--g-hair) solid var(--g-line-faint); }
+html .gg-look.on .gg-thumb > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+html .gg-coming { position: absolute; z-index: 1; top: 0; right: 0; padding: 1px 4px; font: var(--g-t-fine); letter-spacing: .02em; text-transform: uppercase; color: var(--g-ink-3); background: var(--g-plate-strong); }
+html .gg-cap { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+html .gg-name { display: block; min-width: 0; }
+html .gg-cap small { font: var(--g-t-fine); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .gg-look.on .gg-cap small { color: var(--g-accent-text); text-transform: uppercase; letter-spacing: var(--g-tr-tag); }
+html .gg-colour { margin: var(--g-s-half) 0; padding: var(--g-s-1) var(--g-s-1) var(--g-s-half); border-top: var(--g-hair) solid var(--g-line-faint); border-bottom: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate-fill); }
+html .gg-kick { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: var(--g-s-half) var(--g-s-1); margin-bottom: var(--g-s-half); }
+html .gg-kick .g-truth { margin: 0 0 0 auto; white-space: nowrap; }
+html .gg-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+html #app button.gg-sw { display: grid; place-items: center; width: 100%; min-width: var(--g-target); height: var(--g-target); min-height: var(--g-target); margin: 0; padding: 0; border: 0; background: none; box-shadow: none; transform: none; cursor: pointer; }
+html .gg-sw > i { display: block; width: 18px; height: 18px; border-radius: var(--g-radius-orb); background: var(--g-accent); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .55); }
+html .gg-sw.on > i { width: 12px; height: 12px; box-shadow: 0 0 0 4px var(--g-canvas), 0 0 0 5.5px var(--g-accent); }
+html #app button.gg-ask { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); width: 100%; min-height: 56px; height: auto; margin: var(--g-s-1) 0 0; padding: 0 var(--g-s-2); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; transform: none; color: var(--g-ink-2); font: var(--g-t-body); text-align: left; text-transform: none; letter-spacing: normal; cursor: pointer; }
+html .gg-mic { flex: none; width: 24px; height: 24px; fill: none; stroke: var(--g-ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ---- the boot plays on the ground the room it lands in stands on (the night ground under Paper: the layer carries its tokens too) */
 html[data-world] #boot:not(.playing), html[data-world] #boot .bveil { background: var(--g-room-canvas); }
 
 /* ---- the 44 pt target on a touch phone: today's look holds every button to 40 there (an !important rule under hover: none), which
    took the system's keys under the target on his iPhone; the system's own controls keep their 44 (64 for a preset's row) */
 @media (hover: none) {
-  html #app :is(button.g-key, button.g-ret, button.gchoice, button.gthing) { min-height: var(--g-target) !important; }
+  html #app :is(button.g-key, button.g-ret, button.gchoice, button.gthing, button.gg-look, button.gg-sw, button.gg-ask) { min-height: var(--g-target) !important; }
   html #app button.swatch[data-g="swatch"] { min-height: 64px !important; }
   html #pinsheet button.g-key { min-height: var(--g-target) !important; }
 }
