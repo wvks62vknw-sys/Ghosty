@@ -57,6 +57,8 @@ const overlap = (a: Box, b: Box): number => {
   return w > 0 && hh > 0 ? (w * hh) / (b.w * b.h) : 0;
 };
 
+/** The text check's cost on the last dozen frames, for the median `oneState.textMs` reports (a starved frame is not the cost). */
+const tileTimes: number[] = [];
 /** The heavy detectors are on this phone once he has tapped GET THE EYES; from then on they load by themselves (the files are kept). */
 const HEAVY_KEY = 'ghosty.lens.heavy';
 /** PEOPLE's face models were loaded on this phone: from then on the one view looks for a face he knows. */
@@ -585,7 +587,13 @@ export function createOneMode(L: LensContext): Mode {
           mirror.epoch = r.epoch;
           mirror.diff = r.diff;
           oneState.stages = { draw: 0, read: Math.round(r.ms * 10) / 10, grey: 0, tiles: Math.round(r.tiles * 100) / 100 };
-          oneState.textMs = Math.round((oneState.textMs ? oneState.textMs * 0.7 + r.tiles * 0.3 : r.tiles) * 100) / 100;
+          // what the check costs on THIS phone: the median of the last dozen frames, so a frame the heavy pass starved (the worker
+          // waits for a core while the object finder runs) does not stand for the check's cost (8 Nov: the budget's spec read a
+          // smoothed value at exactly such a moment on a two-core runner and called a 1.5 ms check 8 ms)
+          tileTimes.push(r.tiles);
+          if (tileTimes.length > 12) tileTimes.shift();
+          const sorted = [...tileTimes].sort((a, b) => a - b);
+          oneState.textMs = Math.round(sorted[Math.floor(sorted.length / 2)]! * 100) / 100;
           took(r.blocks, r.w, r.ms, now, performance.now(), tg);
           if (r.px && r.pw && r.ph) codes(new ImageData(new Uint8ClampedArray(r.px), r.pw, r.ph), now);
           return;
