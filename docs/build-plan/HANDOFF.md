@@ -359,6 +359,15 @@ folder that no longer exists; ignore those paths).
   23:20 UK check-in. His phone checks open: 152 (voice), 154 (the Lens stopgap, now superseded by 163), 161 (shell pass 1),
   162 (The Scan's Home), 163 (the Lens that just knows). Next: the Theme gallery of seven looks (colour the only choice;
   mocks first for each look as 157 says, THE SCAN live), then ONE INK.
+  HIS USAGE 8 Nov 22:11 UK: all models weekly 58%, top tier weekly 81% (10:20 UK: 45% and 58%; 7 Nov 13:20 UK: 24% and 24%).
+  The top tier climbed 23 points in twelve hours of orchestration: the day's CI fixing across PRs #71, #72 and #73 (eleven
+  runs, four of them red, each read and fixed), the two guard episodes, and the pull-request subscription waking the
+  orchestrator on every bot notice (the preview deploy edits its comment three or four times a push). The plan ends 14 Nov,
+  the week resets Friday 19:00 UK: nineteen points of the top tier for five days. METHOD FROM HERE: no pull-request
+  subscription (one check-in timed to the run's end instead of six wakes); pushes batched (a docs commit rides the next code
+  push); cheap workers read every log and do the first pass of every review (protected files, model names, the boundary,
+  removed checks); the orchestrator's own turns one line; builders mid tier; THE GALLERY (in flight) is the last build of the
+  week unless his phone checks (152, 154, 161, 162, 163) call for fixes; ONE INK's mocks and build wait for the reset.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
