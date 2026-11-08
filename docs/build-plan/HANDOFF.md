@@ -246,6 +246,12 @@ folder that no longer exists; ignore those paths).
   reader2: voice, find, chapter), every assertion kept, one word `reader2` in the loop's list; a mid-tier builder in worktree
   readerfix from main; PR #68 from that branch; then PR #66 (which carries the stopgap and the Lens measurement fix) re-lands
   the stopgap. His picks on round two are in 158; round three (three worlds) is drawing.
+  03:15 UK: PR #66's run 362 (e9d0149, before the measurement fix) FAILED on shard 2 as expected: the Lens text check read
+  8.2 then 7.7 ms a frame against the 4 ms budget, both attempts, the one view section 108 and 113 s; every other spec on
+  the shard clean, shards 1, 3, 4 green. The pushes of 883d01c (the median read) and 1a7764c (docs) at 02:52 and 02:54 UK
+  had made NO check run twenty minutes later (Cloudflare's preview did deploy both): this docs commit is the next real
+  change on the branch and starts the run that proves or disproves the median read on the two-core runner. Reader split in
+  progress: first clean run of the halves 402 s and 100 s (the first half still near the limit: judged on the report).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
