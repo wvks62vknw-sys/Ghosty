@@ -282,6 +282,12 @@ folder that no longer exists; ignore those paths).
   conflicted, the branch's kept: a conflicting PR runs no checks). PR #66's run on the merge decides it; main's own push
   run for b0afbce read first (the guard must stay quiet; the commit before it, c42d1f4, was red, so the guard would leave
   main as it is either way).
+  08:00 UK: MAIN'S RUN 374 (b0afbce) GREEN on every job, the guard skipped. PR #66 MERGED (main c00192e): HIS VOICE KNOWN,
+  the Lens stopgap re-landed with the budget read, the three mock rounds, OWNER-ISSUES 153 to 159; on his word of 8 Nov.
+  The session branch restarted from main (every commit merged; the voiceknown worktree and branch removed). Main's own
+  run for c00192e is read next (the guard must stay quiet). Open to him: the Lens on his phone (154), the voice check
+  (152), the round-three pick (159), the kernel's two lines (150 a). Shell pass 1 (builder/shell1, worktree shell1) is
+  the next PR once his pick is in; nothing else is started before it.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
