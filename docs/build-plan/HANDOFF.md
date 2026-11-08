@@ -290,6 +290,11 @@ folder that no longer exists; ignore those paths).
   the next PR once his pick is in; nothing else is started before it.
   10:20 UK: MAIN'S RUN 377 (c00192e) GREEN on every job, the guard skipped: the voice, the stopgap and the budget read are
   FINISHED on main; his phone checks (152, 154) are what remain on them.
+  10:40 UK: shell pass 1 rebased onto main by a mid-tier builder (f771299: the voice files main's whole, the Home stamp
+  line merged into core/index.ts beside the voice tag, the docs main's whole), applied as one commit (287c1bf), PR #70
+  OPEN from the session branch; the ui spec's God's Eye screenshot times out in this sandbox on main too (CI judges it).
+  THE SCAN'S HOME launched on the top tier (worktree scan1, branch builder/scan1, from the session branch tip, so it
+  carries shell pass 1; BRIEF-HUD-SCAN-1); its PR follows #70. His word 160 recorded; his usage recorded above.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
