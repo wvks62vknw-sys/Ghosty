@@ -389,8 +389,13 @@ if (part('deck') || part('core') || part('lens') || part('fit')) {
     if (size === PHONE && part('lens')) {
       await page.evaluate(() => (location.hash = 'lens'));
       await until(page, () => window.__ghosty.lens?.mode, null, 15000, '[lens] the Lens did not open');
-      // the Lens opens on its one view (BRIEF-LENS): the old modes are the row behind MORE
+      // the Lens opens on its one view (BRIEF-LENS): the old modes are the row behind MORE. The one view's enter() prepends its
+      // mark row to the bar, so MORE is tapped only once that row is in place and the bar has settled (on a slow runner a tap
+      // placed before the shift landed on the key beside it and the row never opened: PR #70's run).
+      await until(page, () => window.__ghosty.lens.mode === 'lens' && !!document.querySelector('#pg-lens .lensmark'), null, 15000, '[lens] the one view did not settle');
+      await page.waitForTimeout(400);
       await page.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
+      await until(page, () => !document.querySelector('#pg-lens .lensmodes')?.hidden, null, 5000, '[lens] MORE did not open the row of tools');
       await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
       await until(page, () => window.__ghosty.lens.mode === 'people', null, 8000, '[lens] PEOPLE did not open');
       await page.waitForTimeout(600);
