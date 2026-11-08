@@ -260,6 +260,11 @@ folder that no longer exists; ignore those paths).
   03:40 UK: PR #68 OPEN (hotfix/readersplit 0dc4e3d from main: the split applied as one commit; reviewed: the one word in
   check.yml, no app code, 102 assertions before and after, no model names; the builder's worktree and branch removed).
   PR #66's run 363 on 3a853be started 03:25 UK. Nothing pushed to the session branch until 363 ends (a push cancels it).
+  04:25 UK: PR #68's first run red on shard 2: the lens spec's text-check budget (5.1 then 7.5 ms against 4) on Lens code
+  main ran green twice; not this PR's. The median read (883d01c) ported onto the hotfix branch (02fde70), lens spec clean
+  here (1.4 ms), one comment on the PR says so. Round three of the mocks applied to the session branch (OWNER-ISSUES 159)
+  and sent to him with the three questions; his pick decides The Scan's Home. Lesson: the Lens budget's old smoothed read
+  was flaky on the two-core runner on its own, before any of this week's Lens work.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
