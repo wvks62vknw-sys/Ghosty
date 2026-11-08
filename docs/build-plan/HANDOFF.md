@@ -343,6 +343,17 @@ folder that no longer exists; ignore those paths).
   of him (held by the spec), nothing loosened. One defect seen in its screenshots: the honest line's key runs off both
   sides at 440 (one long line that does not wrap): fixed on applying (the key wraps). Applied as one commit on the session
   branch restarted from main after PR #72; PR #73; OWNER-ISSUES 163 (his six-step check, six calls), STARS 173 (the gaps).
+  20:00 UK: MAIN'S OWN RUN (394) ON 90623ad RED on one shard, the tabs spec: the jump bar 321 and 354 ms against its 300 ms
+  budget (median of five, both attempts); THE GUARD LEFT MAIN AS IT IS (the version before, 50b15f4, had no green run of its
+  own), so the Scan stays on main, red on that one check. PR #73's first run red on two: the themes layout check (the Scan's
+  live marks come and go with the altitude, which differs by design between two visits) and the faces spec (a page error from
+  the reader when the Lens is left mid-read: the read's own promise failed with no one waiting). All three fixed at the cause
+  in 1eb7811 on PR #73: the Scan's breath (a six-millimetre drift over twelve seconds) is drawn on every other frame when
+  nothing moves (the world was redrawn sixty times a second at rest: half the GPU work on the runner and on his phone; the
+  jump bar's median here fell from 264/255 to 202/103 ms); the reader swallows the failure of a read that stopped waiting;
+  the themes check leaves the live marks out and holds one mark's type and spacing instead. Nothing loosened. Faces, thescan,
+  routec and lens clean here on the fixed build. LESSON: a world that breathes redraws for ever; the idle cadence is a budget
+  of its own, and the jump bar's 300 ms on two cores is where it shows first.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
