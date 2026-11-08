@@ -201,6 +201,10 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   themes are one thing; his input before code every time. The Theme page is cut to pick a HUD, a colour, a ground; the first HUD
   is W1 THE SCAN as a full shell, mocked first for his pick; the cinematic re-cut after his answers. Nothing new builds until he has
   seen the first HUD mock and the Lens hotfix is right on his phone; the voice PR and the shell's pass 1 wait behind those.
+  8 Nov 00:50 UK HIS ANSWERS (OWNER-ISSUES 156): The Scan first; a way round that belongs to the world with the finding rule
+  held; the cinematic longer, richer, polished; THE LENS THAT JUST KNOWS with no key rows (the hotfix a stopgap). THE MOCK
+  ROUND (BRIEF-HUD-MOCKS, the top tier) LAUNCHED 01:00 UK in worktree hudmocks: W1 as a whole HUD, the Lens, the boot, the
+  questions and the gaps; pictures to him before any code.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I
