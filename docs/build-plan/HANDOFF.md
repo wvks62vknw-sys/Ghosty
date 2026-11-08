@@ -265,6 +265,9 @@ folder that no longer exists; ignore those paths).
   here (1.4 ms), one comment on the PR says so. Round three of the mocks applied to the session branch (OWNER-ISSUES 159)
   and sent to him with the three questions; his pick decides The Scan's Home. Lesson: the Lens budget's old smoothed read
   was flaky on the two-core runner on its own, before any of this week's Lens work.
+  05:25 UK: PR #66's run 368 (bec9fa6, the median read on the hotfix code) GREEN on every job: the measurement fix holds on
+  the two-core runner. #66 waits for #68 (run 367 on 02fde70 running since 04:26 UK) so the stopgap lands on a main whose
+  reader spec fits; then main is merged into #66 (one.ts: keep the branch's), its run read, merged, main's run read.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
