@@ -271,6 +271,13 @@ folder that no longer exists; ignore those paths).
   05:30 UK: PR #68 MERGED (main c42d1f4): run 367 green on every job (the split on shards, the median read on shard 2).
   Main merged into the session branch (one.ts kept as the branch's: the hotfix plus the median read); PR #66's run on the
   merge is what merges it; main's own push run for c42d1f4 is read first (the guard must not restore).
+  06:35 UK: MAIN'S RUN 370 (c42d1f4) RED on shard 2, the Lens text-check budget again (4.6 then 6.4 ms against 4); the guard
+  left main as it was (the commit before it was the restore, never green itself), so main is red, not restored. Found at
+  the cause this time: the spec read the cost at the first tags, the first frames of a visit, with the camera starting and
+  the first look drawn through the runner's software graphics on two cores (here: 1.3 ms on the first frames, 0.2 ms
+  steady). Fixed: `textFrames` counts the frames timed since the view was entered, frames under the heavy pass left out,
+  the spec reads the budget once a dozen are in; the 4 ms budget unchanged. PR #69 (hotfix/lensbudget 33c0be5 from main),
+  the same change on the session branch (e4d52e1) so PR #66 measures the same way. Lens spec clean on both trees.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
