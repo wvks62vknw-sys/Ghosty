@@ -288,6 +288,11 @@ folder that no longer exists; ignore those paths).
   run for c00192e is read next (the guard must stay quiet). Open to him: the Lens on his phone (154), the voice check
   (152), the round-three pick (159), the kernel's two lines (150 a). Shell pass 1 (builder/shell1, worktree shell1) is
   the next PR once his pick is in; nothing else is started before it.
+  HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
+  points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
+  turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
+  design-heavy build); the shell rebase is on the mid tier; the Lens that just knows, the gallery and ONE INK are briefed for
+  the mid tier with the top tier only for a review pass; the orchestrator's own turns stay short (one notification, one line).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
