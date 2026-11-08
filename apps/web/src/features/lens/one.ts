@@ -103,8 +103,10 @@ export const oneState = {
   codeMs: 0,
   /** Where one cheap pass spends its time, ms: the frame drawn small, the pixels read, the grey and the steadiness, the text check. */
   grabMs: 0,
-  /** The "text present" check alone, ms a frame (smoothed): the budget is under 4. */
+  /** The "text present" check alone, ms a frame (the median of the last dozen frames the check ran alone): the budget is under 4. */
   textMs: 0,
+  /** How many frames the check has been timed on since the view was entered, the heavy pass's frames left out: the budget is read once there are a dozen (the first frames of a visit are warm-up, not the cost). */
+  textFrames: 0,
   stages: { draw: 0, read: 0, grey: 0, tiles: 0 },
   mark: 'degraded' as LensMark,
   markWords: '',
@@ -587,13 +589,17 @@ export function createOneMode(L: LensContext): Mode {
           mirror.epoch = r.epoch;
           mirror.diff = r.diff;
           oneState.stages = { draw: 0, read: Math.round(r.ms * 10) / 10, grey: 0, tiles: Math.round(r.tiles * 100) / 100 };
-          // what the check costs on THIS phone: the median of the last dozen frames, so a frame the heavy pass starved (the worker
-          // waits for a core while the object finder runs) does not stand for the check's cost (8 Nov: the budget's spec read a
-          // smoothed value at exactly such a moment on a two-core runner and called a 1.5 ms check 8 ms)
-          tileTimes.push(r.tiles);
-          if (tileTimes.length > 12) tileTimes.shift();
+          // what the check costs on THIS phone: the median of the last dozen frames it ran alone. A frame under the heavy pass
+          // is left out (the worker waits for a core while the object finder runs), and the budget's spec reads the value only
+          // once a dozen frames are in (8 Nov: on a two-core runner the first frames of a visit, with the camera starting and
+          // the first look drawn through software graphics, read a 1.5 ms check as 4.6 to 8 ms; main went red on it twice)
+          if (!heavyInFlight) {
+            tileTimes.push(r.tiles);
+            if (tileTimes.length > 12) tileTimes.shift();
+            oneState.textFrames++;
+          }
           const sorted = [...tileTimes].sort((a, b) => a - b);
-          oneState.textMs = Math.round(sorted[Math.floor(sorted.length / 2)]! * 100) / 100;
+          if (sorted.length) oneState.textMs = Math.round(sorted[Math.floor(sorted.length / 2)]! * 100) / 100;
           took(r.blocks, r.w, r.ms, now, performance.now(), tg);
           if (r.px && r.pw && r.ph) codes(new ImageData(new Uint8ClampedArray(r.px), r.pw, r.ph), now);
           return;
@@ -721,9 +727,11 @@ export function createOneMode(L: LensContext): Mode {
   };
 
   // ---------------------------------------------------------------- the heavy pass: a steady frame, one at a time
+  let heavyInFlight = false;
   const heavyPass = async (now: number): Promise<void> => {
     if (!det || oneState.heavy !== 'ready') return;
     gate.start(mirror);
+    heavyInFlight = true;
     const v = visit;
     const t0 = performance.now();
     try {
@@ -775,6 +783,7 @@ export function createOneMode(L: LensContext): Mode {
         markAll();
       }
     } finally {
+      heavyInFlight = false;
       gate.finish();
     }
   };
@@ -846,6 +855,8 @@ export function createOneMode(L: LensContext): Mode {
       window.addEventListener('offline', netChanged);
       oneHooks.act = byWord;
       oneState.faces = 'off';
+      tileTimes.length = 0;
+      oneState.textFrames = 0;
       oneState.heavy = oneState.heavy === 'ready' ? 'off' : oneState.heavy;
       void warmBarcodes().catch(() => undefined);
       void knownFaces().then((k) => (known = k)).catch(() => undefined);

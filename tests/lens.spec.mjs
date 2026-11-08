@@ -388,8 +388,12 @@ await until2(() => window.__ghosty.one.steady, 90000, 'the held card never count
 const clock = await p2.evaluate(() => window.__clock);
 const steadyToTags = Math.max(clock.text, clock.code) - (clock.steady ?? clock.camera);
 check_(clock.steady != null && steadyToTags < 2000, `from a steady frame to the text and the code tagged took ${Math.round(steadyToTags)} ms (budget 2000): ${JSON.stringify(clock)}`);
-console.log(`one view: camera on to the first look ${Math.round(tagged.grabMs)} ms (a frame read through the software graphics here), camera on → steady ${Math.round(clock.steady - clock.camera)} ms, steady → text and code tagged ${Math.round(steadyToTags)} ms, the first tag ${tagged.firstTagMs} ms after the first look was asked for; text check ${tagged.textMs} ms a frame`);
-if (tagged.textMs <= 0 || tagged.textMs >= 4) problems.push(`the text-present check cost ${tagged.textMs} ms a frame (budget 4)`);
+// the text check's cost is read once a dozen frames have been timed with nothing else running (the first frames of a visit, with
+// the camera starting and the first look drawn through software graphics, are warm-up, not the cost: main went red on them twice)
+await until2(() => window.__ghosty.one.textFrames >= 12, 30000, `the text check was not timed on a dozen frames: ${JSON.stringify(await one().then((o) => ({ frames: o.textFrames, ms: o.textMs })))}`);
+const warm = await one();
+console.log(`one view: camera on to the first look ${Math.round(tagged.grabMs)} ms (a frame read through the software graphics here), camera on → steady ${Math.round(clock.steady - clock.camera)} ms, steady → text and code tagged ${Math.round(steadyToTags)} ms, the first tag ${tagged.firstTagMs} ms after the first look was asked for; text check ${warm.textMs} ms a frame (${tagged.textMs} on the first frames)`);
+if (warm.textMs <= 0 || warm.textMs >= 4) problems.push(`the text-present check cost ${warm.textMs} ms a frame (budget 4)`);
 const text = tagged.tags.find((t) => t.kind === 'text');
 const code = tagged.tags.find((t) => t.kind === 'code');
 if (text?.truth !== 'I see text — tap to read it') problems.push(`the text tag says "${text?.truth}"`);
