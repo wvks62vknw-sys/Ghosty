@@ -6327,6 +6327,129 @@ html #pinsheet { position: fixed; inset: 0; z-index: 200; display: flex; align-i
 html #pinsheet .g-plate { width: min(420px, 100%); }
 html #pinsheet .pinsay { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }
 html #pinsheet .pinkeys { display: flex; justify-content: flex-end; gap: var(--g-s-1); margin-top: var(--g-s-2); }
+/* ---------------------------------------------------------------------------------------------------------------------
+   THE SCAN'S HOME (BRIEF-HUD-SCAN-1; features/core/scan): the whole of it with the room inside, drawn in Home's one context
+   behind the Machine's marks. Every colour, size and duration is a token; the marks are THE SYSTEM's own. On while THE LOOK's
+   world is The Scan and Home is on screen (body.scanhome); the other looks keep today's Home untouched.
+   --------------------------------------------------------------------------------------------------------------------- */
+html .scanframe { display: none; position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; background: var(--g-room-canvas); color: var(--g-ink-1); isolation: isolate; }
+/* (the frame is the phone's: at a desk today's three-column Home stays as it is) */
+@media (max-width: 899px) {
+html body.scanhome .hud.core .scanframe { display: block; }
+html body.scanhome .hud.core { display: block; padding: 0; }
+html body.scanhome .hud.core > :is(.rcglowbox, .cside.r) { display: none; }
+html body.scanhome .hud.core > .ccenter { position: absolute; inset: 0; z-index: 0; gap: 0; padding: 0; pointer-events: none; overflow: hidden; }
+html body.scanhome .hud.core > .ccenter > :is(.hudlayer, #lock, .rcwx, .rchero, #lockline, #cstate, #glance, .rcbelow, #suggest, #voicetag) { display: none; }
+/* the top bar lies over the frame: the frame runs from the sky; your initial and the jump stay at the top right */
+html body.scanhome #top { position: absolute; z-index: 12; left: 0; right: 0; top: env(safe-area-inset-top, 0px); min-height: 0; padding: 8px 16px 0; background: none; pointer-events: none; }
+html body.scanhome #top > * { pointer-events: auto; }
+html body.scanhome #top :is(.logo, .clock, .conn, .tstatus, .navtitle, .navback, .sp, .rcdate) { display: none !important; }
+html body.scanhome #top .cmd { margin-left: auto; }
+/* the stage: Mind's canvas full-screen (the scan is light, laid on the graphite as light), the sky at the top of the frame, the lamp's air, the orb's room light */
+html .scanstage { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+html .scanstage canvas.mindhero.staged { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; mix-blend-mode: screen; }
+html .scanstage .scansky { position: absolute; inset: 0; display: block; pointer-events: none; background: linear-gradient(180deg, rgba(var(--g-accent-pale-rgb), .13) 0%, rgba(var(--g-accent-pale-rgb), .07) 22%, rgba(var(--g-bone-rgb), .04) 34%, transparent 46%), radial-gradient(ellipse 70% 20% at 50% 36%, rgba(var(--g-bone-rgb), .06), transparent 70%); }
+html .scanstage[data-hour="day"] .scansky, html .scanstage[data-place="out"] .scansky { background: linear-gradient(180deg, rgba(var(--g-accent-pale-rgb), .22) 0%, rgba(var(--g-accent-pale-rgb), .1) 32%, transparent 60%); }
+html .scanstage[data-place="way"] .scansky { background: linear-gradient(180deg, rgba(var(--g-accent-pale-rgb), .16) 0%, rgba(var(--g-accent-pale-rgb), .07) 30%, transparent 55%), radial-gradient(ellipse 70% 30% at 85% 28%, rgba(var(--g-amber-rgb), .09), transparent 70%); }
+html .scanstage .scanlamp { position: absolute; inset: 0; display: block; pointer-events: none; background: radial-gradient(ellipse 30% 22% at 62% 58%, rgba(var(--g-amber-rgb), calc(.12 * var(--g-glow))), transparent 70%); opacity: 0; }
+html .scanstage[data-place="home"] .scanlamp { opacity: 1; }
+html .scanstage .scanroomlight { position: absolute; inset: 0; display: block; pointer-events: none; background: radial-gradient(ellipse 60% 42% at 50% 42%, rgba(var(--g-accent-rgb), calc(.09 * var(--g-accent-glow) * var(--g-glow) * var(--g-room-glow))), transparent 70%); }
+/* Reduce Motion: an altitude is a still; a move dips the frame to the ground and comes back on the new one (an opacity, not a travel) */
+html .scanframe.scanfade .scanstage { animation: scanfade .26s linear both; }
+@keyframes scanfade { from { opacity: 1; } 50% { opacity: .2; } to { opacity: 1; } }
+/* the orb where the camera puts it: the hero's wrap, placed each frame; the one WebGL canvas is drawn behind into this very box */
+html .scanorb { position: absolute; z-index: 3; pointer-events: auto; cursor: pointer; }
+html .scanorb .rwrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; transform: none; filter: none; opacity: 1; }
+html .scanorb canvas.reactor { width: 100%; height: 100%; max-width: none; }
+/* the marks: a reticle he can press round each thing (44 pt at least), its tag above (or beside, or below), lit for the thing of the hour */
+html .scanmarks { position: absolute; inset: 0; z-index: 2; pointer-events: auto; touch-action: none; }
+html #app button.scanret { position: absolute; z-index: 2; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-transform: none; letter-spacing: normal; white-space: nowrap; cursor: pointer; transform: none; transition: none; }
+html .scanret[hidden] { display: none; }
+html .scanret > .g-ret-frame { inset: 0; }
+html .scanret > .g-tag { position: absolute; left: calc(-1 * var(--g-stroke)); bottom: calc(100% + 4px); max-width: none; pointer-events: none; }
+html .scanret[data-side~="r"] > .g-tag { left: auto; right: calc(-1 * var(--g-stroke)); }
+html .scanret[data-side~="below"] > .g-tag { bottom: auto; top: calc(100% + 4px); }
+html .scanret.on > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+html .scanret[data-id="r-house"] > .g-ret-frame { border-color: transparent; --rc: transparent; }
+/* the leads: the orb's line of sight to the thing it looks at; the callout's leader to the thing */
+html .scanleads { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; pointer-events: none; }
+html .scansight { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); stroke-dasharray: var(--g-sight-dash); transition: opacity var(--g-dur-turn) linear; }
+html .scansightdot { fill: var(--g-accent); transition: opacity var(--g-dur-turn) linear; }
+html .scanlead { fill: none; stroke: var(--g-accent); stroke-width: 1; transition: opacity var(--g-dur-turn) linear; }
+html .scanleaddot { fill: var(--g-accent); transition: opacity var(--g-dur-turn) linear; }
+/* NOW: the thing of the hour at the screen's right edge: its tag, its name, one true line */
+html #app button.scanco { position: absolute; z-index: 4; right: var(--g-gutter); top: 52%; display: flex; flex-direction: column; align-items: flex-end; gap: var(--g-s-half); max-width: min(300px, 62%); min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-align: right; text-transform: none; letter-spacing: normal; white-space: normal; pointer-events: auto; cursor: pointer; transform: none; }
+html .scanco .coTag { display: block; }
+html #app .scanframe[data-alt="room"] button.scanco { top: 66%; }
+html .scanco .big { display: block; padding: 3px 6px 4px; font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-plate-fill); }
+html .scanco .cotruth .g-truth { display: inline-block; padding: 1px 6px 2px; background: var(--g-plate-fill); text-align: right; }
+/* the top of the screen: the stamp line, the where-line (how the phone knows), what I say first, the second line, the latest reply */
+html .scantop { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); top: calc(env(safe-area-inset-top, 0px) + 54px + 8px); pointer-events: none; }
+html .scantop > * { pointer-events: auto; }
+html .scantop .hstamp { opacity: 1; }
+html .scantop .scanwhere { margin-top: var(--g-s-half); }
+html .scantop .scanwhere .g-seg:first-child { color: var(--g-ink-2); }
+html .scansay { margin: var(--g-s-1) 0 0; font: var(--g-t-say); letter-spacing: var(--g-tr-say); font-family: var(--g-face-say); color: var(--g-ink-1); }
+html .scansay2 { margin: var(--g-s-half) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html .scantop #ccap { position: relative; margin: var(--g-s-1) 0 0; max-height: 28vh; padding: 6px 8px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-plate-fill); border-radius: var(--g-radius-key); box-shadow: none; }
+html .scantop #ccap:empty { display: none; }
+/* the altitudes: the Machine's own list, one line each, the one he is on lit; a tap goes there */
+html .scanalts { position: absolute; z-index: 5; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 28px + 48px + 10px); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 6px; pointer-events: auto; }
+html #app button.scanalt { display: flex; align-items: center; justify-content: flex-start; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-transform: none; letter-spacing: normal; transform: none; }
+html .scanalt .g-truth { display: inline-block; padding: 1px 6px 2px; background: var(--g-plate-fill); white-space: nowrap; }
+@media (max-width: 400px) { html .scanalt .g-truth .the { display: none; } }
+html .scanalt.on .g-truth { color: var(--g-accent-text); }
+/* the ask line above the house, the kicker between them */
+html .scanask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 28px); pointer-events: auto; }
+html body.scanhome .hud.core #cbar { position: relative; display: grid; align-items: center; flex: none; margin: 0; padding: 0; width: 100%; grid-template-columns: 44px minmax(0, 1fr) 48px; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body.scanhome .hud.core #cbar #cin { order: 0; flex: none; width: auto; height: 44px; min-height: 44px; padding: 0 12px 0 6px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: none; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body.scanhome .hud.core #cbar #cin::placeholder { color: var(--g-ink-3); }
+html body.scanhome .hud.core #cbar #cin:focus { box-shadow: none; }
+html body.scanhome .hud.core #cbar :is(.plusbtn, .sendbtn, .citedbtn, .herebtn, .plusmenu) { display: none; }
+html body.scanhome .hud.core #cbar .logbtn { grid-column: 1; justify-self: center; margin: 0; width: 44px; height: 44px; min-height: 44px !important; border-radius: 0; background: none; }
+html body.scanhome .hud.core #cbar #mic { grid-column: 3; margin: 0; width: 48px; height: 44px; min-height: 44px !important; border-radius: 0; border-left: var(--g-stroke) solid var(--g-line); background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--g-ink-1); }
+html body.scanhome .hud.core #cbar #mic .ic { stroke: var(--g-ink-1); }
+html body.scanhome .hud.core #cbar #mic.on { background: none; color: var(--g-accent-text); }
+html body.scanhome .hud.core #cbar #mic.on .ic { stroke: var(--g-accent-text); }
+html .scankick { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 6px); display: flex; justify-content: space-between; gap: var(--g-s-2); pointer-events: none; }
+html .scankick .g-truth { white-space: nowrap; }
+/* the house along the bottom: the tab bar drawn as the Machine draws a building (a plan with door gaps, the room he is in lit), ME its seventh room */
+html body.scanhome #dock.areas { gap: 0; padding: 0 var(--g-gutter) max(8px, env(safe-area-inset-bottom, 0px)); }
+html body.scanhome #dock .tabcap { flex: 1; height: 56px; padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body.scanhome #dock .tabcap button { position: relative; flex: 1 1 0; flex-direction: row; align-items: flex-end; justify-content: flex-start; gap: 0; min-width: 0; min-height: 54px !important; padding: 0 0 6px 6px; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; font: var(--g-t-tag) !important; letter-spacing: var(--g-tr-tag) !important; color: var(--g-ink-2); transition: none; }
+html body.scanhome #dock .tabcap button:first-child { border-left: 0; }
+html body.scanhome #dock .tabcap button[data-area="ask"], html body.scanhome #dock .tabcap button[data-area="learn"] { flex-grow: 1.5; }
+html body.scanhome #dock .tabcap button .gi { display: none; }
+html body.scanhome #dock .tabcap button span { display: block; text-transform: uppercase; }
+html body.scanhome #dock .tabcap button::after { content: ''; position: absolute; left: -2px; top: 16px; width: 3px; height: 14px; background: var(--g-plate-fill); } /* a door in the wall */
+html body.scanhome #dock .tabcap button:first-child::after { display: none; }
+html body.scanhome #dock .tabcap button.on { color: var(--g-accent-text); background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html body.scanhome #dock .tabcap button.on::before { display: block; content: ''; position: absolute; left: auto; right: 7px; top: 7px; width: 6px; height: 6px; margin: 0; border-radius: 50%; background: var(--g-accent); box-shadow: none; }
+html body.scanhome #dock .tabcap button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); left: auto; right: 6px; top: 6px; width: auto; height: 16px; min-width: 16px; border-radius: 8px; background: var(--g-amber); color: var(--g-canvas); font: var(--g-t-fine); line-height: 16px; }
+/* the chat over the frame: the conversation's panel stays readable on the room */
+html body.scanhome .hud.core.logopen > .ccenter { z-index: 7; pointer-events: none; }
+html body.scanhome .hud.core.logopen .cside.l { z-index: 8; }
+html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .scanleads, .scanco, .scantop, .scanalts, .scankick) { visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .scansight, html .scansightdot, html .scanlead, html .scanleaddot { transition: none; }
+}
+/* THE FILM's layer in the boot (features/core/scan/film.ts; shell/boot.ts): the one context full-screen behind the words, the
+   things' reticles locking in as the front reaches them, the line of sight, the recognition's lift. At any width (the film plays
+   wherever the world is The Scan); the marks are THE SYSTEM's own. */
+#boot canvas.mindhero.staged { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; opacity: 1; mix-blend-mode: screen; transform: none; }
+#boot .bfilm { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+#boot .bret { position: absolute; display: block; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target); transform-origin: 50% 50%; will-change: transform, opacity; }
+#boot .bret > .g-ret-frame { inset: 0; }
+#boot .bret > .g-tag { position: absolute; left: calc(-1 * var(--g-stroke)); bottom: calc(100% + 4px); max-width: none; transform-origin: 0 100%; }
+#boot .bret[data-side~="r"] > .g-tag { left: auto; right: calc(-1 * var(--g-stroke)); transform-origin: 100% 100%; }
+#boot .bret[data-side~="below"] > .g-tag { bottom: auto; top: calc(100% + 4px); transform-origin: 0 0; }
+#boot .bret.on > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+#boot .bsight { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; pointer-events: none; }
+#boot .bsight .scansight { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); stroke-dasharray: var(--g-sight-dash); }
+#boot .bsight .scansightdot { fill: var(--g-accent); }
+#boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
+#boot .g-lock.bsearch { z-index: 3; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

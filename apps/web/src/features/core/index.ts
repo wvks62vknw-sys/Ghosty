@@ -24,6 +24,8 @@ import { navTo } from '../../shell/areas';
 import { lookingAt, stampFacts } from '../../shell/awareness';
 import { guardian } from '../../state/guardian';
 import { stampLine } from '../../ui/machine';
+import { recipe, recipeEvents } from '../../state/theme';
+import { scanHome, type ScanHome } from './scan/home';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
@@ -478,9 +480,12 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
 }
 
 /** What Home says it is (BRIEF-AWARENESS): the screen and my last words, so "that" has something to mean here; the stamp says "Looking at Home". */
+let scanHud: ScanHome | null = null;
 function homeContext(): ScreenContext {
   const live = chat.get().live.replace(/\s+/g, ' ').trim();
-  return { screen: 'core', title: 'Home', line: `the home screen${live ? `, my last words: “${live.slice(0, 90)}${live.length > 90 ? '…' : ''}”` : ', the chat with me'}`, looking: 'Home', at: Date.now() };
+  // THE SCAN's Home says where he is (a word and a saved place's name, decided on the phone: scan/place.ts), never a coordinate
+  const where = scanHud && document.body.classList.contains('scanhome') ? scanHud.placeWords() : '';
+  return { screen: 'core', title: 'Home', line: `the home screen${where ? `, ${where}` : ''}${live ? `, my last words: “${live.slice(0, 90)}${live.length > 90 ? '…' : ''}”` : ', the chat with me'}`, looking: 'Home', at: Date.now() };
 }
 
 export const coreTab: TabDef = {
@@ -700,13 +705,13 @@ export const coreTab: TabDef = {
     const stamp = stampLine(() => stampFacts(lookingAt(homeContext())));
     stamp.el.classList.add('hstamp');
     guardian.subscribe(() => stamp.refresh());
-    const center = h('div.ccenter', stamp.el, stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic));
+    const cbar = h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic);
+    const center = h('div.ccenter', stamp.el, stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), cbar);
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
     // Where the conversation button is (one at a time): "‹ Ask" in the navigation bar while the conversation is open,
     // "Continue in chat" on a reply, else the ask bar's chat button.
-    const cbar = center.querySelector('#cbar')!;
     const placeChat = () => {
       const top = document.querySelector('#top');
       const replying = !!chat.get().live && !caption.classList.contains('fade');
@@ -727,6 +732,19 @@ export const coreTab: TabDef = {
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => reactor.poke(e));
     hud.append(rc.glowBox, left, center, right);
+    // THE SCAN's Home (BRIEF-HUD-SCAN-1; scan/home.ts): the whole of it with the room inside, drawn when THE LOOK's world is The Scan.
+    // Its frame takes the stamp line, the latest reply's line, the orb's wrap and the ask line as they are (one of each on Home).
+    scanHud = scanHome({ orbWrap: rwrap, stamp: stamp.el, caption, ask: cbar, onBack: () => reactor.poke() });
+    hud.append(scanHud.el);
+    const scanWanted = () => recipe().world === 'scan';
+    hud.classList.toggle('scan', scanWanted());
+    recipeEvents.on('change', () => {
+      const on = scanWanted();
+      hud.classList.toggle('scan', on);
+      if (ui.get().tab !== 'core') return;
+      if (on) scanHud?.enter();
+      else scanHud?.leave();
+    });
     root.append(hud);
     // [reste] A file dropped on the chat goes to the converter (convert/sheet.ts), on this phone; nothing is sent.
     root.addEventListener('dragover', (e) => {
@@ -971,6 +989,7 @@ export const coreTab: TabDef = {
     paintSide();
     return {
       enter() {
+        if (scanWanted()) scanHud?.enter();
         // back on the reactor with the conversation still open: the bar says so again
         if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
@@ -991,6 +1010,7 @@ export const coreTab: TabDef = {
       },
       leave() {
         clearInterval(calloutTimer);
+        scanHud?.leave();
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here

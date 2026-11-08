@@ -295,6 +295,14 @@ folder that no longer exists; ignore those paths).
   OPEN from the session branch; the ui spec's God's Eye screenshot times out in this sandbox on main too (CI judges it).
   THE SCAN'S HOME launched on the top tier (worktree scan1, branch builder/scan1, from the session branch tip, so it
   carries shell pass 1; BRIEF-HUD-SCAN-1); its PR follows #70. His word 160 recorded; his usage recorded above.
+  13:35 UK: PR #70 MERGED (main 3ea2c4b, run 381 green on every job) after two spec fixes on its runs, neither the shell's:
+  the awareness spec's Lens step tapped MORE before the one view had settled (its mark row shifts the bar), and its seed
+  script ran in the sandboxed widget frames where storage throws (the new screens part opens the Workshop). THE SCAN'S
+  HOME reported 13:00 UK (four commits on builder/scan1; reviewed: the one word `thescan` in check.yml, no protected file,
+  no model name, the place never sent) and applied as one commit on the session branch restarted from main; PR #71;
+  OWNER-ISSUES 162 (his six-step check), STARS 172 (the gaps). The Scan is the default world, so his phone opens in it once
+  this is on main: he is asked to open the preview cold and say if the film and the pinch run smooth; the merge is held
+  only on his word that they do not. The scan1 worktree removed.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
