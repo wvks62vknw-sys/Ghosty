@@ -57,6 +57,11 @@ export interface ClientContext {
    * `{ name }` of a person he introduced; never a number. Any of them is true where `voice` was `true`.
    */
   voice?: boolean | 'owner' | 'unknown' | { name: string };
+  /**
+   * Where he is, as the phone decided it (BRIEF-HUD-SCAN-1 5; features/core/scan/place.ts): at most a word and a saved place's
+   * NAME, only with his question, never a coordinate, never live GPS; absent when his switch is off.
+   */
+  place?: { word: 'home' | 'out' | 'on the way'; name: string };
 }
 
 export const LINE_MAX = 160;

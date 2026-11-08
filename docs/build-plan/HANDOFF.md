@@ -295,6 +295,23 @@ folder that no longer exists; ignore those paths).
   OPEN from the session branch; the ui spec's God's Eye screenshot times out in this sandbox on main too (CI judges it).
   THE SCAN'S HOME launched on the top tier (worktree scan1, branch builder/scan1, from the session branch tip, so it
   carries shell pass 1; BRIEF-HUD-SCAN-1); its PR follows #70. His word 160 recorded; his usage recorded above.
+  13:35 UK: PR #70 MERGED (main 3ea2c4b, run 381 green on every job) after two spec fixes on its runs, neither the shell's:
+  the awareness spec's Lens step tapped MORE before the one view had settled (its mark row shifts the bar), and its seed
+  script ran in the sandboxed widget frames where storage throws (the new screens part opens the Workshop). THE SCAN'S
+  HOME reported 13:00 UK (four commits on builder/scan1; reviewed: the one word `thescan` in check.yml, no protected file,
+  no model name, the place never sent) and applied as one commit on the session branch restarted from main; PR #71;
+  OWNER-ISSUES 162 (his six-step check), STARS 172 (the gaps). The Scan is the default world, so his phone opens in it once
+  this is on main: he is asked to open the preview cold and say if the film and the pinch run smooth; the merge is held
+  only on his word that they do not. The scan1 worktree removed.
+  14:00 to 16:00 UK: PR #71's first runs red on seven points, none the Scan's idea and every one fixed at the cause, nothing
+  loosened: keys under the words at Safari's height (a key's box is clamped between the words and the altitude keys, or
+  not shown); the hero spec read the whole canvas where the orb is now a viewport (it reads the orb's square); the Scan
+  spec's feed tick tied to the feeds that answered; the field's 'Talk to me' kept (the character spec, his principle); the
+  world not drawn under a sheet (the jump bar's 300 ms on two cores); Home's content (the wall, CITED, replies) hidden by
+  the Scan's frame, restored by a mid-tier builder (scan2) as a column of plates with THE DAY and the wall's cards one key
+  away, plus the plate rule (no mark or callout over a plate) and the ask line layered above the open log. The cover check
+  (Chromium at Safari's height, every altitude) is clear; cards, cited, talk and the Scan specs clean here. Head dc03bff,
+  run 387; merge when green. Main's own run for 3ea2c4b (PR #70) GREEN, the guard quiet. The calls are in 162 for his word.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

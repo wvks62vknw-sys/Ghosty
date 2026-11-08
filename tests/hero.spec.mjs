@@ -98,9 +98,13 @@ const diff = (a, b) => a !== b;
   const dom = await page.evaluate(() => {
     const gl = document.querySelectorAll('canvas.mindhero');
     const r2 = document.querySelector('canvas.reactor');
-    const a = gl[0]?.getBoundingClientRect();
+    // in THE SCAN Mind's canvas is the whole stage (the world, then the orb into its own viewport): the orb's viewport is what
+    // must lie over the reactor's box; in the other looks the canvas itself does
+    const sc = window.__ghosty?.scan;
+    const fr = sc?.on && sc.orb && gl[0] ? gl[0].getBoundingClientRect() : null;
+    const a = fr ? { x: fr.x + sc.orb[0], y: fr.y + sc.orb[1], width: sc.orb[2], height: sc.orb[3] } : gl[0]?.getBoundingClientRect();
     const b = r2?.getBoundingClientRect();
-    return { count: gl.length, hidden2d: r2 ? getComputedStyle(r2).opacity : null, a: a && [a.x, a.y, a.width, a.height].map(Math.round), b: b && [b.x, b.y, b.width, b.height].map(Math.round), csp: window.__csp };
+    return { count: gl.length, scan: !!sc?.on, hidden2d: r2 ? getComputedStyle(r2).opacity : null, a: a && [a.x, a.y, a.width, a.height].map(Math.round), b: b && [b.x, b.y, b.width, b.height].map(Math.round), csp: window.__csp };
   });
   if (dom.count !== 1) problems.push(`${dom.count} Mind canvases on Home (want exactly 1)`);
   if (dom.hidden2d !== '0') problems.push(`the 2-D reactor still shows under Mind (opacity ${dom.hidden2d})`);

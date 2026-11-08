@@ -56,6 +56,14 @@ export interface Settings {
   favourites: string[];
   /** The group of Every screen he left it on (the deck opens on it: STARS 163, "the deck remembers where he was"). */
   deckGroup: string;
+  /**
+   * HOME KNOWS WHERE HE IS (BRIEF-HUD-SCAN-1 5; OWNER-ISSUES 158: on): the one switch in Settings → Voice & home. On, Home is decided
+   * on the phone from the hour, his saved place and the phone's own sense where the browser gives it; off, the line says SAVED
+   * PLACE ONLY and Home is the home world at every hour. Nothing of it is sent either way (features/core/scan/place.ts).
+   */
+  placeSense: boolean;
+  /** THE SCORE (BRIEF-HUD-SCAN-1 7; OWNER-ISSUES 158): B, the short score under the boot's film (on); off, A: the one tone alone, as today. */
+  bootScore: boolean;
 }
 
 const tz = (() => {
@@ -85,6 +93,8 @@ export const settings = createStore<Settings>(
     persona: DEFAULT_PERSONA,
     favourites: [],
     deckGroup: '',
+    placeSense: true,
+    bootScore: true,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },
