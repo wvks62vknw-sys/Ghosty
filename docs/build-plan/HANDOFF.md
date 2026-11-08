@@ -368,6 +368,13 @@ folder that no longer exists; ignore those paths).
   push); cheap workers read every log and do the first pass of every review (protected files, model names, the boundary,
   removed checks); the orchestrator's own turns one line; builders mid tier; THE GALLERY (in flight) is the last build of the
   week unless his phone checks (152, 154, 161, 162, 163) call for fixes; ONE INK's mocks and build wait for the reset.
+  22:40 UK, HIS WORD (OWNER-ISSUES 164): after the audit (AUDIT-8-NOV.md) he said "all of this needs to be built with the 40%
+  we have left, it has to happen", and no more numbers in his messages, context only. So the week's end is a queue of small
+  mid-tier builds in 164's order, two builders at a time, the orchestrator one line a turn: the gallery (worktree gallery,
+  running), THE SHELL IN THE SCAN (BRIEF-SHELL-2; worktree shell2, launched 22:45 UK), then ONE INK, the speed offenders,
+  SHOW ME's first slice, offline maps, the games he named, the working engine, no cap on skill, the speaker model, THE MAP and
+  THE EYE, the weekly training for real, the phone-hardware items blind with fallbacks. The editors are said plainly to be a
+  programme of weeks each and come last. Builders' briefs name the ports: gallery 8798, shell2 8799; the orchestrator 8797.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
