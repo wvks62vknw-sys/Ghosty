@@ -206,7 +206,10 @@ const before = { mode: await page.evaluate(() => window.__ghosty.lens.mode), sen
 await page.locator('#pg-lens .lenstag[data-kind="face"] .g-ret').first().click();
 await page.waitForTimeout(600);
 check(/Faces stay on this phone/.test(await page.evaluate(() => document.body.innerText)), 'a tap on a face did not say that faces stay on this phone');
-check((await page.evaluate(() => window.__ghosty.lens.mode)) === before.mode && sent.length === before.sent, 'a tap on a face did something besides the toast');
+// (what a tap could leak is a question or a picture to the brain: those are the requests counted, not a module, a feed or a model file
+// the page happened to fetch in the same moment)
+const asked = sent.slice(before.sent).filter((r) => /\/api\//.test(r.url) && /"(message|images|image|scan|seen)"/.test(r.body));
+check((await page.evaluate(() => window.__ghosty.lens.mode)) === before.mode && asked.length === 0, `a tap on a face did something besides the toast: ${JSON.stringify(asked.map((r) => r.url))}`);
 check(await page.evaluate((n) => [...document.querySelectorAll('#pg-lens .lenstag[data-kind="face"] .g-tag')].some((e) => e.textContent.trim() === n), NAME), 'the name is not drawn on the face tag');
 check((await page.locator('#pg-lens .lenstagunder, #pg-lens .lensview button.g-key').count()) === 0, 'a face he knows has a key under it: a face has no act');
 const knownLine = await page.evaluate(() => window.__ghosty.awareness.wordsNow());
