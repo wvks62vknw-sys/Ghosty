@@ -239,6 +239,13 @@ folder that no longer exists; ignore those paths).
   heavy pass; main's own run passed it): fixed at the measurement (the median of the last dozen frames, the 4 ms budget
   unchanged), under the lens spec alone and under load before the push. Main's run 359 (ce2626b, the stopgap): shards 1, 2, 4
   green, shard 3 running at 02:55.
+  03:25 UK: MAIN WAS RESTORED BY THE GUARD (8b62a96 = 6c02cd0 again): run 359's shard 3 killed the reader spec at the loop's
+  480 s limit on both attempts ("Target page closed" at its line 964, in the last part), a spec that already ran 499 s here
+  before the stopgap; so the stopgap is off main again and his phone is back on the broken Lens until this is fixed forward.
+  FIX AT THE CAUSE: the reader spec split into two of half the length (reader: shelf, place, listen, talk, words, card;
+  reader2: voice, find, chapter), every assertion kept, one word `reader2` in the loop's list; a mid-tier builder in worktree
+  readerfix from main; PR #68 from that branch; then PR #66 (which carries the stopgap and the Lens measurement fix) re-lands
+  the stopgap. His picks on round two are in 158; round three (three worlds) is drawing.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
