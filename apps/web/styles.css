@@ -6342,11 +6342,6 @@ html .lensmark { display: inline-flex; align-items: center; min-height: var(--g-
 html #app .lensbar .lensmarkrow button.g-key { flex: 0 1 auto; height: auto !important; min-height: var(--g-target) !important; border-radius: var(--g-radius-key) !important; padding: 0 var(--g-s-2); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase !important; color: var(--g-ink-1) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; }
 html #app .lensbar .lensmarkrow button.g-key:disabled { color: var(--g-ink-4) !important; }
 html #app .lensbar .lensmarkrow button.g-key[hidden] { display: none; }
-html .lensmarkrow { flex-wrap: wrap; justify-content: flex-start; }
-html .lensmarkrow .lensget, html .lensmarkrow .lensgetnamer { margin-left: auto; }
-html .lensmark[hidden] { display: none; }
-html .lensmarkwhy { flex: 1 0 100%; margin: 0; font: var(--g-t-truth, 400 13px/1.35 system-ui); color: var(--g-ink-2, inherit); }
-html .lensmarkwhy[hidden] { display: none; }
 html .lensstatus.quiet { display: none; }
 html .lensbar .lensback { flex: 0 0 auto; order: -2; }
 html .lenssay { margin: 0; font: var(--g-t-body, 400 15px/20px var(--sf)); color: var(--g-ink-1, var(--ink)); }

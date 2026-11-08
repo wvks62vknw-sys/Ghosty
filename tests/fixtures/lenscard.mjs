@@ -9,7 +9,7 @@ import { join } from 'node:path';
 const fixture = (name) => readFileSync(new URL(`./${name}`, import.meta.url));
 export const CARD = { w: 640, h: 480 };
 
-/** Draw the card in a page of `browser` and return its RGBA pixels. `parts`: which of 'text', 'page' (a page of print), 'code', 'object' to draw. */
+/** Draw the card in a page of `browser` and return its RGBA pixels. `parts`: which of 'text', 'code', 'object' to draw. */
 async function pixels(browser, parts) {
   const page = await browser.newPage();
   const data = await page.evaluate(async ({ w, h, parts, qr, lemon }) => {
@@ -26,17 +26,6 @@ async function pixels(browser, parts) {
       g.fillText('GHOSTY READS THIS', 92, 78);
       g.font = '34px sans-serif';
       g.fillText('Second line of the note', 92, 128);
-    }
-    if (parts.includes('page')) {
-      // a page of print (THE LENS HOTFIX): a headline, two columns of paragraphs and a caption, as the text check finds many regions in it
-      g.fillStyle = '#000';
-      g.font = 'bold 30px sans-serif';
-      g.fillText('THE WEEK AT THE HARBOUR', 40, 52);
-      g.font = '19px sans-serif';
-      const words = ['Boats came in early with the tide', 'and the market was busy by seven', 'Fish was sold from the open stalls', 'while the gulls waited on the wall', 'Nobody minded the cold that morning', 'because the coffee was hot and cheap'];
-      for (let col = 0; col < 2; col++) for (let para = 0; para < 2; para++) for (let i = 0; i < words.length; i++) g.fillText(words[(i + col * 2 + para) % words.length], 40 + col * 300, 100 + para * 150 + i * 22);
-      g.font = '15px sans-serif';
-      g.fillText('Photograph and words from the harbour office', 40, 440);
     }
     if (parts.includes('code')) {
       g.imageSmoothingEnabled = false;

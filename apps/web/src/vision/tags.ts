@@ -95,86 +95,6 @@ export const FLOOR: Record<TagKind, number> = { text: 0.35, code: 0.5, face: 0.6
 /** Does this sighting reach its detector's floor? */
 export const sure = (s: Sighting): boolean => s.score >= FLOOR[s.kind] && s.box.w > 0 && s.box.h > 0;
 
-// ---------------------------------------------------------------- one tag for each kind
-
-/** The most tags on screen at once (OWNER-ISSUES 153): text, a code, an object. */
-export const MAX_TAGS = 3;
-/** Two boxes further apart than this share of the picture's shorter side are two different things, not one. */
-export const FAR_SHARE = 0.2;
-export interface FrameSize {
-  w: number;
-  h: number;
-}
-const DEFAULT_FRAME: FrameSize = { w: 640, h: 480 };
-
-const area = (b: Box): number => b.w * b.h;
-/** The distance between two boxes' nearest edges (0 when they touch or overlap). */
-function gap(a: Box, b: Box): number {
-  const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
-  const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
-  return Math.hypot(dx, dy);
-}
-function unionOf(bs: Box[]): Box {
-  const x0 = Math.min(...bs.map((b) => b.x));
-  const y0 = Math.min(...bs.map((b) => b.y));
-  const x1 = Math.max(...bs.map((b) => b.x + b.w));
-  const y1 = Math.max(...bs.map((b) => b.y + b.h));
-  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-}
-
-/**
- * What one look saw, as ONE sighting for each kind (OWNER-ISSUES 153: a page of print gave a tag with READ · TRANSLATE · ASK for
- * every region the text check found). Sightings under their floor are dropped first.
- *   text    every region near another is one (the union of their boxes); regions far apart are different clusters and the biggest
- *           cluster is the tag;
- *   code    the largest code (the nearest one to the camera); a second only when it is another code and far from the first (two
- *           at most);
- *   object  the largest;
- *   faces   as they came (a face he knows, or a stranger, is a person each).
- * The result is in the order text, code, object, then faces.
- */
-export function mergeSightings(list: Sighting[], frame: FrameSize = DEFAULT_FRAME): Sighting[] {
-  const far = FAR_SHARE * Math.min(frame.w || DEFAULT_FRAME.w, frame.h || DEFAULT_FRAME.h);
-  const ok = list.filter(sure);
-  const out: Sighting[] = [];
-
-  const text = ok.filter((s) => s.kind === 'text');
-  if (text.length) {
-    // clusters of regions that are near each other (a chain of near ones is one cluster)
-    const parent = text.map((_, i) => i);
-    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
-    for (let i = 0; i < text.length; i++) for (let j = i + 1; j < text.length; j++) if (gap(text[i]!.box, text[j]!.box) <= far) parent[find(i)] = find(j);
-    const clusters = new Map<number, Sighting[]>();
-    text.forEach((s, i) => clusters.set(find(i), [...(clusters.get(find(i)) ?? []), s]));
-    const best = [...clusters.values()].sort((a, b) => b.reduce((n, s) => n + area(s.box), 0) - a.reduce((n, s) => n + area(s.box), 0))[0]!;
-    const lead = [...best].sort((a, b) => b.score - a.score)[0]!;
-    out.push({ ...lead, box: unionOf(best.map((s) => s.box)), score: Math.max(...best.map((s) => s.score)) });
-  }
-
-  const codes = ok.filter((s) => s.kind === 'code').sort((a, b) => area(b.box) - area(a.box));
-  const kept: Sighting[] = [];
-  for (const c of codes) {
-    if (kept.length >= 2) break;
-    if (kept.every((k) => (c.data?.text ? k.data?.text !== c.data.text : true) && gap(k.box, c.box) > far)) kept.push(c);
-  }
-  out.push(...kept);
-
-  const objects = ok.filter((s) => s.kind === 'object').sort((a, b) => area(b.box) - area(a.box) || b.score - a.score);
-  if (objects[0]) out.push(objects[0]);
-
-  out.push(...ok.filter((s) => s.kind === 'face' || s.kind === 'stranger'));
-  return out;
-}
-
-/** Which kind is shown first when more than MAX_TAGS stand: a person, a code, text, an object, a stranger. */
-const SHOWN_FIRST: TagKind[] = ['face', 'code', 'text', 'object', 'stranger'];
-
-/** At most `max` tags on screen: the first by kind (a person, a code, text, an object), then the most recently seen. */
-export function limitTags<T extends { kind: TagKind; seen: number }>(tags: T[], max = MAX_TAGS): T[] {
-  if (tags.length <= max) return tags;
-  return [...tags].sort((a, b) => SHOWN_FIRST.indexOf(a.kind) - SHOWN_FIRST.indexOf(b.kind) || b.seen - a.seen).slice(0, max);
-}
-
 export class Tags {
   private list: Tag[] = [];
   private next = 1;
@@ -185,18 +105,14 @@ export class Tags {
    * Take the sightings of one pass at `now`: each one refreshes the tag of its kind it overlaps (so a tag stays one tag while
    * the phone shakes) or makes a new one; none under its floor does anything. Returns the tags that were born in this call.
    */
-  see(sightings: Sighting[], now: number, frame?: FrameSize): Tag[] {
+  see(sightings: Sighting[], now: number): Tag[] {
     const born: Tag[] = [];
-    // ONE TAG PER KIND (OWNER-ISSUES 153): what a pass saw is merged first (mergeSightings), and print and an object each have one slot
-    for (const s of mergeSightings(sightings, frame)) {
+    for (const s of sightings) {
       if (!sure(s)) continue;
-      const one = s.kind === 'text' || s.kind === 'object';
-      const same = one
-        ? this.list.find((t) => t.kind === s.kind)
-        : this.list.find((t) => t.kind === s.kind && (s.kind === 'code' && s.data?.text ? t.data?.text === s.data.text : iou(t.box, s.box) > 0.25));
+      const same = this.list.find((t) => t.kind === s.kind && (s.kind === 'code' && s.data?.text ? t.data?.text === s.data.text : iou(t.box, s.box) > 0.25));
       if (same) {
-        // the box follows the thing, a little smoothed (a thing that has moved on altogether is not smoothed: the tag goes to it); the words are the newest
-        same.box = one && iou(same.box, s.box) > 0.25 ? smooth(same.box, s.box) : s.box;
+        // the box follows the thing, a little smoothed; the words are the newest
+        same.box = same.kind === 'text' || same.kind === 'object' ? smooth(same.box, s.box) : s.box;
         same.score = Math.max(s.score, same.score * 0.9);
         same.truth = s.truth;
         same.data = { ...same.data, ...s.data };
@@ -529,15 +445,6 @@ export function objectTruth(name?: { label: string; p: number } | null, looked =
   if (!looked) return 'something here · hold still';
   if (!name || name.p < NAME_FLOOR) return 'something I can’t name yet';
   return `looks like ${withArticle(name.label)}`;
-}
-
-/**
- * The words under an object tag while the namer is not on the phone: the finder's own call, and that it is the finder's ("something
- * here · cup"), never "looks like". With nothing to say about it, only that something is there.
- */
-export function finderTruth(label?: string | null): string {
-  const l = String(label ?? '').trim();
-  return l ? `something here · ${l}` : 'something here';
 }
 
 /** The words under a text tag: never the text. */

@@ -14,7 +14,7 @@ worker after the first use. Nothing here talks to the network on its own.
 Our one change to the runtime (31 Oct 2026): in `ort-wasm-simd-threaded.mjs` the shared memory's maximum reads
 `globalThis.GHOSTY_WASM_MAX_PAGES` (pages of 64 KB) before the stock 65536 (4 GB). WebKit reserves a shared memory's whole
 maximum up front, and an iPhone refuses 4 GB once another runtime (MediaPipe's, in the page) holds memory too: "no
-available backend found … RangeError: Out of memory". `worker.mjs` sets 16384 (1 GB) unless the page asks for a smaller cap in its address (`?maxPages=`, 4096 = 256 MB on the retry, as the face worker does); the face worker (`../faces/worker.mjs`)
+available backend found … RangeError: Out of memory". `worker.mjs` sets 16384 (1 GB); the face worker (`../faces/worker.mjs`)
 takes it from its address (1 GB, then 256 MB on one retry). Both workers ask for the glue as `ort-wasm-simd-threaded.mjs?v=2`
 (the `mjs` / `wasm` form of `wasmPaths`): the service worker serves vendored files cache-first, so a phone that held the
 stock glue would otherwise keep using it; the .wasm is unchanged and keeps its address. Re-vendoring the runtime must keep the change
