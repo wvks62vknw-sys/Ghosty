@@ -232,6 +232,13 @@ folder that no longer exists; ignore those paths).
   removed; the sheet and four frames sent to him with six decisions; the README carries 18 questions and 16 gaps; NOTHING
   BUILDS from it until he says "build it"). NEXT when he answers: BRIEF-HUD-SCAN from the mocks and his picks (the top tier,
   one PR, his phone check from the preview before the merge), then the other rooms one per PR.
+  01:50 UK HIS WORDS (157): entirely different looks prebuilt (the seven directions), colour the only choice; Home knows
+  where he is (on the phone, never sent); the boot a Hollywood film; "billions poured in" the bar. Round two launched on the
+  top tier and done by 02:55 (videos; applied to the session branch, worktree removed); the videos and sheet sent with six
+  questions. PR #66 red on shard 2 (the Lens text-check budget on the two-core runner: a smoothed wall-clock read during the
+  heavy pass; main's own run passed it): fixed at the measurement (the median of the last dozen frames, the 4 ms budget
+  unchanged), under the lens spec alone and under load before the push. Main's run 359 (ce2626b, the stopgap): shards 1, 2, 4
+  green, shard 3 running at 02:55.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

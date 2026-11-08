@@ -214,6 +214,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   HUD, colour the only choice; Home knows where he is (on the phone, never sent); the boot a Hollywood film; "billions poured
   in" the bar for everything. ROUND TWO (BRIEF-HUD-MOCKS-2, the top tier) LAUNCHED 02:05 UK in worktree hudmocks2: the boot as
   a VIDEO he can watch, Home raised and by place, the Theme gallery of seven looks, a second look's Home beside The Scan's.
+  02:55 UK: ROUND TWO DONE (docs/build-plan/mockups/hud/2026-11-08-2/: boot.mp4 8.2 s with Home usable at 7.0, home.mp4, the
+  nine shots, Home at home / out / on the way, the gallery of seven looks, ONE INK's Home beside The Scan's, the cue sheet,
+  the production rubric, eight questions); SENT to him with the six that change the build. Nothing builds until he picks.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I
