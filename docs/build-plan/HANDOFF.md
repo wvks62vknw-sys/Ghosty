@@ -268,6 +268,9 @@ folder that no longer exists; ignore those paths).
   05:25 UK: PR #66's run 368 (bec9fa6, the median read on the hotfix code) GREEN on every job: the measurement fix holds on
   the two-core runner. #66 waits for #68 (run 367 on 02fde70 running since 04:26 UK) so the stopgap lands on a main whose
   reader spec fits; then main is merged into #66 (one.ts: keep the branch's), its run read, merged, main's run read.
+  05:30 UK: PR #68 MERGED (main c42d1f4): run 367 green on every job (the split on shards, the median read on shard 2).
+  Main merged into the session branch (one.ts kept as the branch's: the hotfix plus the median read); PR #66's run on the
+  merge is what merges it; main's own push run for c42d1f4 is read first (the guard must not restore).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
