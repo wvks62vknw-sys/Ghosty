@@ -278,6 +278,10 @@ folder that no longer exists; ignore those paths).
   steady). Fixed: `textFrames` counts the frames timed since the view was entered, frames under the heavy pass left out,
   the spec reads the budget once a dozen are in; the 4 ms budget unchanged. PR #69 (hotfix/lensbudget 33c0be5 from main),
   the same change on the session branch (e4d52e1) so PR #66 measures the same way. Lens spec clean on both trees.
+  07:40 UK: PR #69 MERGED (main b0afbce, run 372 green on every job). Main merged into the session branch at once (one.ts
+  conflicted, the branch's kept: a conflicting PR runs no checks). PR #66's run on the merge decides it; main's own push
+  run for b0afbce read first (the guard must stay quiet; the commit before it, c42d1f4, was red, so the guard would leave
+  main as it is either way).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
