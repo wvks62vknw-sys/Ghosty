@@ -114,7 +114,8 @@ const whereLine = (page) => page.evaluate(() => document.querySelector('.scanwhe
   const rooms = await houseRooms(page);
   check(rooms.length === 7 && /^home$/i.test(rooms[0]) && /^me$/i.test(rooms[6]), `[land] the house has ${rooms.length} rooms: ${rooms.join(', ')}`);
   const ask = await page.evaluate(() => ({ ph: document.querySelector('#cin')?.placeholder, inFrame: !!document.querySelector('.scanask #cbar'), kick: document.querySelector('.scankick')?.innerText.replace(/\s+/g, ' ').trim() }));
-  check(ask.inFrame && ask.ph === 'Ask, or say where to go', `[land] the ask line: ${JSON.stringify(ask)}`);
+  // (the field keeps 'Talk to me': his principle that it invites talk, not a query (OWNER-ISSUES 63, 64), held by the character spec)
+  check(ask.inFrame && ask.ph === 'Talk to me', `[land] the ask line: ${JSON.stringify(ask)}`);
   check(/THE HOUSE · 7 ROOMS/.test(ask.kick ?? '') && /YOU ARE HOME/.test(ask.kick ?? ''), `[land] the house's kicker reads "${ask.kick}"`);
   // the stamp and the where-line: mono, whole segments, the dot at each segment's end
   const top = await page.evaluate(() => ({ stamp: document.querySelector('.scantop .hstamp')?.innerText.replace(/\s+/g, ' ').trim() ?? '', where: document.querySelector('.scanwhere')?.innerText.replace(/\s+/g, ' ').trim() ?? '', mono: /mono|Menlo|Plex/i.test(getComputedStyle(document.querySelector('.scanwhere')).fontFamily), say: document.querySelector('.scansay')?.textContent, count: document.querySelectorAll('#pg-core .g-stamp').length }));
