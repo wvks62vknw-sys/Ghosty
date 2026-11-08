@@ -222,6 +222,13 @@ folder that no longer exists; ignore those paths).
   applied, 154 being the hotfix's); scanned clean (no protected file, no model names in files, no GPS or network, nothing
   skipped); WAITING ITS TURN per 153. Worktrees now: lensfix (done, PR #67), voiceknown (done, PR #66), shell1 (done, waiting).
   NOTHING NEW LAUNCHES until his phone check on the Lens hotfix and his word on the themes.
+  00:45–01:05 UK: HIS WORDS (155, 156): a theme is a whole different HUD, tabs included; The Scan first; a way round that
+  belongs to the world with the finding rule held; the cinematic longer, richer, polished; the Lens that just knows with NO
+  key rows (the hotfix a stopgap); his input before code every time. BRIEF-HUD-MOCKS written and the mock round launched on
+  the top tier (worktree hudmocks, branch builder/hudmocks; a liveness check-in at 03:07 UTC). Then "do whatever is best with
+  the two PRs": PR #67 merged as the stopgap (main ce2626b), main merged into the session branch (OWNER-ISSUES conflict:
+  154 inserted after 153), PR #66 merges when its run on that head is green. Worktrees: voiceknown (done), shell1 (waiting),
+  hudmocks (running).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
