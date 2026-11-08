@@ -524,6 +524,12 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const frame = (t: number) => {
     loop = 0;
     if (!scanState.on) return;
+    // a sheet over the world (the deck, the chat log) gets the whole frame: the world is not drawn under it (the jump bar's
+    // 300 ms budget on a two-core runner, and the battery on his phone), and it picks up where it was when the sheet goes
+    if (document.getElementById('deck')?.classList.contains('on') || el.closest('.hud')?.classList.contains('logopen')) {
+      loop = requestAnimationFrame(frame);
+      return;
+    }
     const w0 = performance.now();
     const r = el.getBoundingClientRect();
     W = Math.max(1, Math.round(r.width || innerWidth));
@@ -644,8 +650,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       document.body.classList.add('scanhome');
       take();
       house(true);
-      const field = o.ask.querySelector('input');
-      if (field && field.placeholder === 'Talk to me') field.placeholder = 'Ask, or say where to go';
+      // (the field keeps 'Talk to me': his principle that it invites talk, not a query (OWNER-ISSUES 63, 64; the character spec); the mock's words were the designer's)
       startSense();
       paintWords();
       const [a, why] = landing();
@@ -673,8 +678,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       document.body.classList.remove('scanhome');
       giveBack();
       house(false);
-      const field = o.ask.querySelector('input');
-      if (field && field.placeholder === 'Ask, or say where to go') field.placeholder = 'Talk to me';
       markLeft();
       clearInterval(minute);
       cancelAnimationFrame(loop);
