@@ -288,6 +288,8 @@ folder that no longer exists; ignore those paths).
   run for c00192e is read next (the guard must stay quiet). Open to him: the Lens on his phone (154), the voice check
   (152), the round-three pick (159), the kernel's two lines (150 a). Shell pass 1 (builder/shell1, worktree shell1) is
   the next PR once his pick is in; nothing else is started before it.
+  10:20 UK: MAIN'S RUN 377 (c00192e) GREEN on every job, the guard skipped: the voice, the stopgap and the budget read are
+  FINISHED on main; his phone checks (152, 154) are what remain on them.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
