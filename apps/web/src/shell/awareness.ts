@@ -11,8 +11,11 @@
  * The boundary: nothing goes in a context that was not already on the screen, plus the selection's label and detail. The Lens
  * says counts and never who (features/lens/index.ts). Never live GPS: the saved place is the brain's Location line already.
  */
-import { cleanScreen, contextWords, oneLineOf, type ClientContext, type ScreenContext } from '../../../../packages/shared/src/awareness';
+import { cleanScreen, contextWords, oneLineOf, type ClientContext, type ScreenContext, type Selected } from '../../../../packages/shared/src/awareness';
+import type { FeedId, GuardianInfo } from '../../../../packages/shared/src/guardian';
 import { home, settings, timeZone, ui } from '../state/app';
+import { guardian } from '../state/guardian';
+import type { StampFacts } from '../ui/machine';
 import { currentTab } from './tabs';
 
 /**
@@ -27,6 +30,15 @@ export function setOverlay(name: string, fn: Overlay): void {
 
 /** What an overlay can do on "that one" (assistant/thatone.ts): the deck opens the card he has open. */
 export const screenActs: { openCard?: (id: string) => boolean } = {};
+
+/**
+ * A screen's own sentence (BRIEF-SHELL pass 1; OWNER-ISSUES 150 d): what is open and, where it has one, what is picked, in my voice
+ * ("the agenda, on its diary, next Dentist today 09:15"), at most 160 characters. Never a person seen by a camera, a plate, a key
+ * or a password: a screen says counts and names of its own parts, and what its own screen already shows.
+ */
+export function screenSays(screen: string, title: string, line: string, more: { looking?: string; selected?: Selected } = {}): ScreenContext {
+  return { screen, title, line: oneLineOf(line, 160), ...more, at: Date.now() };
+}
 
 /** A tab's title as he says it: "SPACE" → "Space". */
 const nice = (t: string) => (t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase() : t);
@@ -87,6 +99,22 @@ function askedScreen(): ScreenContext | null {
 /** What a stamp line says it is looking at, from the same context: its short form when the screen gave one, else its line, short enough for the stamp. */
 export const STAMP_LOOK_MAX = 80;
 export const lookingAt = (c: ScreenContext): string => oneLineOf(c.looking || c.line, STAMP_LOOK_MAX);
+
+/**
+ * ONE SOURCE for the stamp line's facts (BRIEF-SHELL pass 1; OWNER-ISSUES 149): the feeds it is watching are the three the
+ * guardian reads that answered last time (checked and not failed); the boot, Home, the reader and THE LOOK all say them from here,
+ * so the same moment says the same number everywhere. null while the phone has not heard from the guardian yet.
+ */
+export const WATCHED_FEEDS: readonly FeedId[] = ['flood', 'weather', 'crime'];
+export function feedsAnswered(info: GuardianInfo | null = guardian.get().info): FeedId[] | null {
+  if (!info) return null;
+  return WATCHED_FEEDS.filter((f) => info.checked[f] && !info.failed[f]);
+}
+export const feedsWatched = (): number | null => feedsAnswered()?.length ?? null;
+/** The stamp's facts now: his saved place (never live GPS), the feeds' count, no signal said, and the thing in focus. */
+export function stampFacts(looking: string): StampFacts {
+  return { place: home().name, watching: feedsWatched(), looking, offline: typeof navigator !== 'undefined' && navigator.onLine === false };
+}
 
 /** The last turn's context: what went with it ('' when it carried none), and the screen it left. The Core card's mark reads it. */
 const lastTurn: { at: number; line: string; screen: string; had: boolean } = { at: 0, line: '', screen: '', had: false };

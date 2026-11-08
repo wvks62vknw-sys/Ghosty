@@ -9,6 +9,7 @@ import { brain, headers, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, panel, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 
@@ -352,6 +353,15 @@ export const reverseTab: TabDef = {
         clearInterval(timer);
         removeEventListener('online', back);
         removeEventListener('offline', back);
+      },
+      // (BRIEF-SHELL pass 1) the report open, else how many there are
+      context: () => {
+        const j = jobs.find((x) => x.id === open);
+        const name = j?.target.replace(/^https?:\/\//, '').replace(/\/$/, '') ?? '';
+        return screenSays('reverse', 'Reverse', j ? `the reverse screen, reading the report on ${name}` : `the reverse screen, ${jobs.length} ${jobs.length === 1 ? 'report' : 'reports'}`, {
+          looking: 'reverse',
+          ...(j ? { selected: { kind: 'item', id: `report:${j.id}`, label: name, detail: j.status } } : {}),
+        });
       },
       describe: () => `Reverse tab: ${jobs.length} jobs (${jobs.filter((j) => j.status === 'done').length} reports)${open ? `, viewing ${open}` : ''}.`,
     };

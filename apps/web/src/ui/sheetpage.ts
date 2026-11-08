@@ -13,6 +13,7 @@
  * `#<screen>?<section>` opens it on that section (or on the section holding that sheet page: `#body?run`).
  */
 import { clear, h } from '../core/dom';
+import { screenSays } from '../shell/awareness';
 import type { TabInstance } from '../shell/tabs';
 import { button, panel, type Panel } from './components';
 import { page } from './page';
@@ -58,6 +59,10 @@ export interface SheetPageOptions {
   big?(): string;
   /** The few reads that reading needs, made when the screen comes on. */
   load?(): Promise<unknown>;
+  /** How I say the screen's name in my sentence about it, when its tag's last word is not it ("Home" is the home admin, not Home). */
+  name?: string;
+  /** More for the screen's own sentence (BRIEF-AWARENESS): what its open page holds, said by its own counts (a count, never a person). */
+  also?(): string;
 }
 
 /** What the screens show, for specs (window.__ghosty.sheetpages): each one's built pages, by panel title. */
@@ -205,6 +210,18 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
         pick(arg);
         sync();
       }
+    },
+    /** What I say this screen is (BRIEF-SHELL pass 1): its name, the page open, and what that page holds. Never what is typed in it. */
+    context: () => {
+      const name = (o.name ?? o.tag.split('//').pop() ?? o.screen).trim();
+      const nice = name.charAt(0) + name.slice(1).toLowerCase();
+      const open = list.find((x) => x.id === pills?.current());
+      const shown = slots.filter((x) => !x.pn.el.hidden).map((x) => x.part.title);
+      const extra = o.also?.() ?? '';
+      return screenSays(o.screen, nice, `the ${nice.toLowerCase()} screen${open ? `, open on ${open.label.toLowerCase()}` : ''}${extra ? `, ${extra}` : ''}`, {
+        looking: open ? `${nice.toLowerCase()}, ${open.label.toLowerCase()}` : nice.toLowerCase(),
+        ...(open ? { selected: { kind: 'group', id: `${o.screen}:${open.id}`, label: open.label, ...(shown.length ? { detail: shown.join(', ').toLowerCase() } : {}) } } : {}),
+      });
     },
     describe: () => `${o.tag}: ${o.sub} Showing ${slots.filter((x) => !x.pn.el.hidden).map((x) => x.part.title).join(', ') || 'nothing yet'}.`,
   };

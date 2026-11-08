@@ -64,7 +64,7 @@ if (look.kick !== 'Every screen' || look.title !== 'At your service, Boss' || lo
 if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Life,Me') problems.push(`the deck's groups are ${look.groups.join(', ')}`);
 // (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
 // (the fourteen sheets became screens on 1 Nov, night, BRIEF-TABS: LIFE's eight, LEARN's two, MAKE's three and ME's one)
-const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'abilities', 'arcade',
+const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'arcade',
   'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house'];
 // and each sits in its area's group, never in a More row
 const GROUP = { Make: ['convert', 'docs', 'house'], 'Learn and plan': ['learning', 'coach'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
@@ -177,9 +177,9 @@ await me();
 for (const f of await filled('#mesheet :is(.rctile, .sq, .rowic)')) problems.push(`a Me sheet glyph has a filled background: ${f}`);
 const rows = await page.$$eval('#mesheet .merow', (rs) => rs.map((r) => r.dataset.id));
 // (SOCIAL, his own accounts and the posts waiting for his APPROVE, has its row since 1 Nov, night: BRIEF-TABS)
-if (rows.join(',') !== 'memory,settings,system,links,abilities,social,origin,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
+if (rows.join(',') !== 'memory,settings,system,links,social,origin,area-me,deck') problems.push(`the Me sheet's rows are ${rows.join(', ')}`);
 await page.screenshot({ path: `${out}/deck-440-me.png` });
-for (const id of ['memory', 'settings', 'links', 'abilities', 'social']) {
+for (const id of ['memory', 'settings', 'links', 'social', 'area-me']) {
   if (id !== 'memory') await me();
   await page.click(`#mesheet .merow[data-id="${id}"]`);
   await until((want) => document.body.dataset.tab === want && !document.querySelector('#mesheet'), id, 6000, `the Me sheet's ${id} row did not open ${id}`);
@@ -213,4 +213,4 @@ if (problems.length) {
   console.error(`FAIL deck\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('deck: OK (37 cards in five groups and More, the fourteen new screens in their areas\' groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');
+console.log('deck: OK (36 cards in five groups and More, the fourteen new screens in their areas\' groups, Lens opens in place with its picture, Translate deep link, an Ask pick and no-match return reach the chat, "ag" leaves Agenda, bare glyphs on the deck, the Me sheet, Settings, Search and the hubs; Me rows navigate)');

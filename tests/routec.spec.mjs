@@ -155,6 +155,24 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   if (!/of \d+ games/.test(gym ?? '') || !gym?.includes(`of ${games} games`)) problems.push(`[${W}] the Gym tile reads "${gym}" with ${games} segments`);
   const chips = await page.$$eval('#suggest > button', (bs) => bs.map((b) => b.textContent.trim()));
   if (chips.join('|') !== 'Brief me|What’s on today|God’s eye') problems.push(`[${W}] the quick chips are ${chips.join(', ')}`);
+  // HOME'S OWN STAMP LINE (BRIEF-SHELL pass 1, OWNER-ISSUES 149): at the top, the day, the time, his saved place, the feeds, and LOOKING AT HOME,
+  // the same component the reader and THE LOOK carry; true of the moment, whole on the phone, never cut
+  const stampHome = await page.evaluate(() => {
+    const e = document.querySelector('#pg-core .hstamp');
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    const now = new Date();
+    const day = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '').toUpperCase();
+    return { text: e.innerText.replace(/\s+/g, ' ').trim(), day, opacity: Number(getComputedStyle(e).opacity), top: r.top, right: r.right, w: innerWidth, kind: e.dataset.g };
+  });
+  if (!stampHome) problems.push(`[${W}] Home has no stamp line of its own`);
+  else {
+    if (stampHome.kind !== 'stamp') problems.push(`[${W}] Home's stamp is not the Machine's stamp line (${stampHome.kind})`);
+    if (!stampHome.text.startsWith(stampHome.day)) problems.push(`[${W}] Home's stamp line starts "${stampHome.text}" (today is ${stampHome.day})`);
+    if (!/^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED) · LOOKING AT HOME$/.test(stampHome.text)) problems.push(`[${W}] Home's stamp line reads "${stampHome.text}"`);
+    if (stampHome.opacity < 0.99) problems.push(`[${W}] Home's stamp line is not showing (opacity ${stampHome.opacity})`);
+    if (stampHome.top > 220 || stampHome.right > stampHome.w + 1) problems.push(`[${W}] Home's stamp line sits at ${Math.round(stampHome.top)} and ends at ${Math.round(stampHome.right)} of ${stampHome.w}`);
+  }
   for (const s of await sideways(page, '#pg-core *')) problems.push(`[${W} home] sticks out sideways: ${s}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} home] the page scrolls sideways`);
   // (on a shorter phone the column scrolls and the chips sit under the sticky ask bar until scrolled to: measure them where they are tapped)
@@ -296,7 +314,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   if (!/All good|Needs a look|Brain offline/.test(me.ok ?? '')) problems.push(`[${W} me] the Status line reads "${me.ok}"`);
   // (restated 1 Nov 2026, night, OWNER-ISSUES 119, BRIEF-TABS: SOCIAL, his own accounts and the posts waiting for his APPROVE,
   // became a screen of Me with its row after Abilities; it was "memory, settings, system, links, abilities, origin, deck")
-  if (me.rows.join(',') !== 'memory,settings,system,links,abilities,social,origin,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  if (me.rows.join(',') !== 'memory,settings,system,links,social,origin,area-me,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
   // his mood (OWNER-ISSUES 70b, 63): a shape and a word, never colour alone (whatever this preview brain feels now)
   if (!me.mood?.shape || !/^(?:Calm|Focused|Protective|Pleased|Cross|Subdued)$/.test(me.mood.word ?? '') || me.mood.word.toLowerCase() !== me.mood.kind) problems.push(`[${W} me] the mood reads ${JSON.stringify(me.mood)}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);

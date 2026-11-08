@@ -9,11 +9,12 @@ import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, 
 import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { ui } from '../../state/app';
 import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
-import { goToPanel, sections } from '../../ui/sections';
+import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
@@ -505,6 +506,11 @@ export const linksTab: TabDef = {
       },
       leave() {
         clearInterval(codeTimer);
+      },
+      // (BRIEF-SHELL pass 1) the page open
+      context: () => {
+        const sec = sectionNow('links') || 'Accounts';
+        return screenSays('links', 'Links', `links, on ${sec.toLowerCase()}`, { looking: 'links', selected: { kind: 'group', id: `links:${sec}`, label: sec } });
       },
       describe: () => `Links: ${Object.entries(online).map(([k, v]) => `${k} ${v ? 'on' : 'off'}`).join(', ')}.`,
     };

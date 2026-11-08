@@ -35,7 +35,7 @@ import { DIRECTIONS, GROUNDS, SWITCHES, WORLDS } from '../../../../packages/shar
 export const SCREEN_CAT: Record<string, AbilityCat> = {
   core: 'talk', brief: 'know', eye: 'see', lens: 'see', studio: 'build', workshop: 'build', reverse: 'build', space: 'build', workbench: 'build', learn: 'learn',
   gym: 'play', school: 'learn', library: 'learn', agenda: 'watch', markets: 'know', threats: 'watch', radio: 'play', memory: 'know',
-  settings: 'talk', system: 'do', links: 'talk', abilities: 'talk',
+  settings: 'talk', system: 'do', links: 'talk',
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
@@ -68,6 +68,8 @@ export const APP_WIDE = [
   { id: 'undo', sel: '.undo' },
   { id: 'search', sel: '#top .cmd' },
   { id: 'switcher', sel: '#dock button[data-area]' },
+  // [shell] FAVOURITES: a long press pins a screen; the jump bar lists them first (shell/favourites.ts)
+  { id: 'favourites', sel: '' },
   { id: 'offers', sel: '' },
   // [restc] CHECK IT'S LIVE: the face check before a face is saved (features/lens/liveness.ts)
   { id: 'livecheck', sel: '' },

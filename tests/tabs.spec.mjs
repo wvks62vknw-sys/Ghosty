@@ -39,7 +39,7 @@ const AREA_TOOLS = {
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
-  me: ['memory', 'settings', 'system', 'links', 'abilities', 'social'],
+  me: ['memory', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1)
 };
 /** The pages that hold a table typed in by hand, and what their one plain line says (ui/sheetpage.ts SheetPart.line). */
 const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AID': /NHS.*999/ }, coach: { WORDS: /starter set, typed in by hand/ } };
@@ -196,7 +196,7 @@ for (const viewport of [PHONE, SMALL]) {
   await page.click('#top .you');
   await page.waitForSelector('#mesheet .merow', { timeout: 5000 }).catch(() => problems.push(`[${W}] the Me sheet did not open`));
   const rows = await page.$$eval('#mesheet .merow', (rs) => rs.map((r) => r.dataset.id));
-  for (const id of ['memory', 'settings', 'system', 'links', 'abilities', 'social']) if (!rows.includes(id)) problems.push(`[${W}] the Me sheet has no ${id} row: ${rows.join(', ')}`);
+  for (const id of ['memory', 'settings', 'system', 'links', 'social', 'area-me']) if (!rows.includes(id)) problems.push(`[${W}] the Me sheet has no ${id} row: ${rows.join(', ')}`);
   await page.keyboard.press('Escape');
   await ctx.close();
 }
@@ -428,6 +428,168 @@ for (const viewport of [PHONE, SMALL]) {
   if (fit.spill) problems.push(`[tv] ${fit.spill} of the bar's buttons spill out of its capsule`);
   if (fit.cardLeft < fit.capRight) problems.push(`[tv] the hub's first card runs under the bar (card at ${Math.round(fit.cardLeft)}, the bar ends at ${Math.round(fit.capRight)})`);
   await page.screenshot({ path: `${out}/tabs-tv-life.png` });
+  await ctx.close();
+}
+
+// ======================================================================== THE FINDING RULE, ON A PHONE (BRIEF-SHELL pass 1; OWNER-ISSUES 143)
+// "recents and favourites in two taps, everything else in three taps or one typed word": eight screens walked from Home by real
+// taps and counted (apps/edge/test/finding.test.mjs holds the rule for every screen), the jump bar's open time with FAVOURITES in it,
+// and FAVOURITES themselves: a long press pins from a hub card, a jump-bar row and a deck card, the pin is the first row, two taps from
+// Home, the deck opens on the group he left.
+{
+  const { ctx, page } = await open(PHONE);
+  let taps = 0;
+  const tap = async (sel, wait = 700) => {
+    taps++;
+    // (a card with a meter that is always drawing is never "stable" for Playwright's wait: after three seconds the finger goes down on it anyway, as a person's would)
+    await page.click(sel, { timeout: 3000 }).catch(() => page.click(sel, { timeout: 5000, force: true })).catch((e) => problems.push(`[finding] could not tap ${sel}: ${e.message.split('\n').filter((l) => /intercepts|not visible|outside/.test(l)).join(' ').slice(0, 200) || e.message.split('\n')[0]}`));
+    await page.waitForTimeout(wait);
+  };
+  const bar = (a) => `#dock .tabcap button[data-area="${a}"]`;
+  const card = (a, id) => `#pg-area-${a} .hubtile[data-id="${id}"]`;
+  const WALK = {
+    brief: { want: 'brief', taps: [bar('ask'), card('ask', 'brief')] },
+    eye: { want: 'eye', taps: [bar('see'), card('see', 'eye')] },
+    gym: { want: 'gym', taps: [bar('learn'), card('learn', 'gym')] },
+    agenda: { want: 'agenda', taps: [bar('plan'), card('plan', 'agenda')] },
+    money: { want: 'money', taps: [bar('life'), card('life', 'money')] },
+    house: { want: 'house', taps: [bar('make'), card('make', 'house')] },
+    memory: { want: 'memory', taps: ['#top .you', '#mesheet .merow[data-id="memory"]'] },
+    // THE LOOK: the Me sheet, Settings (which opens on Appearance, where its row is), the row: three taps
+    look: { want: 'look', taps: ['#top .you', '#mesheet .merow[data-id="settings"]', '#pg-settings .pn[data-row][data-go="look"] > h3'] },
+  };
+  for (const [id, w] of Object.entries(WALK)) {
+    await go(page, 'core', 700);
+    taps = 0;
+    for (let i = 0; i < w.taps.length; i++) {
+      if (id === 'look' && i === 2) await page.waitForSelector(w.taps[2], { state: 'visible', timeout: 8000 }).catch(() => problems.push('[finding] THE LOOK has no row on Settings as it opens'));
+      await tap(w.taps[i], i === w.taps.length - 1 ? 900 : 700);
+    }
+    const at = await tabNow(page);
+    if (at !== w.want) problems.push(`[finding] ${id}: ${w.taps.length} taps from Home landed on ${at}`);
+    if (taps > 3) problems.push(`[finding] ${id} took ${taps} taps (the rule is three)`);
+    console.log(`finding: ${id} in ${taps} taps from Home`);
+  }
+  // one typed word: the search, the word, the row
+  for (const [word, want] of [['money', 'money'], ['workbench', 'workbench'], ['threats', 'threats']]) {
+    await go(page, 'core', 600);
+    await page.click('#top .cmd');
+    await page.fill('#palette input', word);
+    await page.waitForTimeout(250);
+    const rowAt = await page.$$eval('#palette .it', (rs, w) => rs.findIndex((r) => r.querySelector('small')?.textContent === 'GO' && r.textContent.toLowerCase().includes(w)), word);
+    if (rowAt < 0 || rowAt > 5) problems.push(`[finding] "${word}" typed puts its row at ${rowAt} (the first screenful is six)`);
+    else await page.locator('#palette .it').nth(rowAt).click();
+    await page.waitForTimeout(700);
+    if ((await tabNow(page)) !== want) problems.push(`[finding] the typed word "${word}" did not open ${want}`);
+  }
+
+  // ---- FAVOURITES: a long press on a hub card pins it
+  await go(page, 'area-learn', 800);
+  const hold = async (sel, ms = 700) => {
+    await page.locator(sel).first().scrollIntoViewIfNeeded().catch(() => undefined);
+    const b = await page.locator(sel).first().boundingBox();
+    if (!b) return problems.push(`[pins] nothing to press at ${sel}`);
+    await page.mouse.move(b.x + b.width / 2, b.y + 24);
+    await page.mouse.down();
+    await page.waitForTimeout(ms);
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+  };
+  await hold(card('learn', 'gym'));
+  if (!(await page.locator('#pinsheet').count())) problems.push('[pins] a long press on a hub card opened no pin sheet');
+  if ((await tabNow(page)) !== 'area-learn') problems.push(`[pins] the long press opened a screen (${await tabNow(page)}) under the sheet`);
+  const key = await page.evaluate(() => { const b = document.querySelector('#pinsheet .g-key.fill'); const r = b?.getBoundingClientRect(); return { word: b?.textContent ?? '', w: r?.width ?? 0, h: r?.height ?? 0 }; });
+  if (key.word !== 'PIN' || key.w < 43.5 || key.h < 43.5) problems.push(`[pins] the sheet's key reads "${key.word}" at ${Math.round(key.w)}×${Math.round(key.h)} (want PIN, 44 pt)`);
+  await page.screenshot({ path: `${out}/tabs-pinsheet.png` });
+  await page.click('#pinsheet .g-key.fill');
+  await page.waitForTimeout(400);
+  if (await page.locator('#pinsheet').count()) problems.push('[pins] PIN left the sheet open');
+  if ((await page.evaluate(() => window.__ghosty.pins.favourites().join(','))) !== 'gym') problems.push('[pins] gym was not pinned');
+  if (!(await page.locator(`${card('learn', 'gym')}[data-pinned="true"] .pinmark`).count())) problems.push('[pins] the pinned card carries no PINNED mark');
+  await page.screenshot({ path: `${out}/tabs-pinned-card.png` });
+  // the jump bar: open time with FAVOURITES in it (the speed habit: under 300 ms), the pin first, two taps from Home
+  await go(page, 'core', 700);
+  taps = 0;
+  taps++;
+  // (five opens, the median: this runs with software WebGL drawing Home behind it, which one frame can stall for a long time)
+  const times = [];
+  for (let i = 0; i < 5; i++) {
+    times.push(await page.evaluate(() => new Promise((r) => {
+      const t = performance.now();
+      document.querySelector('#top .cmd').click();
+      requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t)));
+    })));
+    if (i < 4) {
+      await page.click('#palette .pcancel');
+      await page.waitForTimeout(400);
+    }
+  }
+  const openMs = [...times].sort((x, y) => x - y)[2];
+  console.log(`finding: the jump bar opens with FAVOURITES in ${Math.round(openMs)} ms (median of five: ${times.map((x) => Math.round(x)).join(', ')})`);
+  if (openMs > 300) problems.push(`[speed] the jump bar took ${Math.round(openMs)} ms to open with FAVOURITES, median of five (the budget is 300)`);
+  const rows = await page.$$eval('#palette .it, #palette .grp', (els) => els.map((e) => (e.classList.contains('grp') ? `#${e.textContent}` : `${e.querySelector('small')?.textContent}:${e.textContent.replace(/^\s*(FAVOURITES|RECENT|GO)/, '')}`)));
+  if (rows[0] !== '#Favourites' || !/^FAVOURITES:.*Gym/i.test(rows[1] ?? '')) problems.push(`[pins] the jump bar's first rows are ${JSON.stringify(rows.slice(0, 3))} (want Favourites, then Gym)`);
+  await page.screenshot({ path: `${out}/tabs-jumpbar-favourites.png` });
+  await page.locator('#palette .it').first().click();
+  taps++;
+  await page.waitForTimeout(800);
+  if ((await tabNow(page)) !== 'gym' || taps !== 2) problems.push(`[pins] the pin did not open Gym in two taps (on ${await tabNow(page)}, ${taps} taps)`);
+  // a long press on a recent pins it too, in his order; a long press on a pin unpins it
+  for (const t of ['agenda', 'money']) await go(page, t, 500);
+  await go(page, 'core', 600);
+  await page.click('#top .cmd');
+  await page.waitForTimeout(300);
+  const recent = page.locator('#palette .it', { has: page.locator('small', { hasText: 'RECENT' }) }).first();
+  await hold('#palette .it:has(small:text("RECENT"))');
+  if (!(await page.locator('#pinsheet').count())) problems.push('[pins] a long press on a jump-bar recent opened no pin sheet');
+  else {
+    await page.click('#pinsheet .g-key.fill');
+    await page.waitForTimeout(400);
+  }
+  void recent;
+  const two = await page.evaluate(() => window.__ghosty.pins.favourites());
+  if (two.length !== 2 || two[0] !== 'gym') problems.push(`[pins] the pins are ${two.join(', ')} (want gym, then the recent, in his order)`);
+  await hold('#palette .it:has(small:text("FAVOURITES"))');
+  const un = await page.evaluate(() => document.querySelector('#pinsheet .g-key.fill')?.textContent ?? '');
+  if (un !== 'UNPIN') problems.push(`[pins] a long press on a pin offers "${un}" (want UNPIN)`);
+  await page.click('#pinsheet .g-key.fill').catch(() => undefined);
+  await page.waitForTimeout(400);
+  if ((await page.evaluate(() => window.__ghosty.pins.favourites().length)) !== 1) problems.push('[pins] UNPIN did not take the pin away');
+  // six at most
+  const six = await page.evaluate(() => { const p = window.__ghosty.pins; return ['agenda', 'money', 'body', 'kitchen', 'work', 'eye'].map((x) => p.setFavourite(x, true)).concat(p.setFavourite('radio', true)); });
+  if (six.slice(0, 5).includes(false) || six.at(-1) !== false) problems.push(`[pins] six at most: ${JSON.stringify(six)}`);
+  // kept in ghosty.settings (the daily backup carries it)
+  await page.waitForTimeout(700);
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.settings') ?? '{}').favourites ?? []);
+  if (kept.length !== 6) problems.push(`[pins] ghosty.settings keeps ${kept.length} pins (want 6)`);
+  await page.click('#palette .pcancel').catch(() => undefined);
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { for (const x of window.__ghosty.pins.favourites()) window.__ghosty.pins.setFavourite(x, false); });
+
+  // ---- the deck: a long press pins a card; it opens on the group he left
+  await go(page, 'core', 600);
+  await openDeck(page);
+  await hold('#deck .dkcard[data-id="agenda"]');
+  if (!(await page.locator('#pinsheet').count())) problems.push('[pins] a long press on a deck card opened no pin sheet');
+  else {
+    await page.click('#pinsheet .g-key.fill');
+    await page.waitForTimeout(400);
+    if (!(await page.locator('#deck .dkcard[data-id="agenda"][data-pinned="true"]').count())) problems.push('[pins] the deck card did not show its pin after PIN');
+  }
+  await page.locator('#deck .dkcard[data-id="money"]').click();
+  await page.waitForTimeout(400);
+  await page.click('#deck .dkx[data-id="money"] .dkopen');
+  await until(page, () => document.body.dataset.tab === 'money', null, 6000, '[deck] Open on the Money card did not open it');
+  await openDeck(page);
+  await page.waitForTimeout(500);
+  const left = await page.evaluate(() => {
+    const sec = document.querySelector('#deck .dkgroup[data-group="Life"]');
+    const sc = document.querySelector('#deck .dk');
+    return { group: window.__ghosty.deck.group, off: sec && sc ? Math.round(sec.getBoundingClientRect().top - sc.getBoundingClientRect().top) : null };
+  });
+  if (left.group !== 'Life' || left.off == null || Math.abs(left.off) > 60) problems.push(`[deck] the deck did not open on the group he left (Life): ${JSON.stringify(left)}`);
+  await page.screenshot({ path: `${out}/tabs-deck-remembers.png` });
+  await page.keyboard.press('Escape');
   await ctx.close();
 }
 

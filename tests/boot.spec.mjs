@@ -278,6 +278,21 @@ async function checkWords(page, s, what, { tapped }) {
   if (hp.mode !== 'mind') problems.push(`full: Home's hero is "${hp.mode}", not MIND`);
   const hud = await hudBack(page);
   if (hud.wait || hud.dock < 0.99 || hud.top < 0.99) problems.push(`full: the HUD did not come back after the landing (${JSON.stringify(hud)})`);
+  // THE STAMP BECOMES HOME'S (BRIEF-SHELL pass 1, OWNER-ISSUES 149; was: the stamp leaves with the layer): the boot's line does not go with
+  // the cinematic, Home has its own at the landing: the same day, the same place, the feeds as they are now, and the fifth segment, LOOKING AT
+  // HOME, which the cinematic could not say. Whole, showing, and the only stamp line on Home.
+  await page.waitForTimeout(900);
+  const handed = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('#pg-core .g-stamp')];
+    const e = document.querySelector('#pg-core .hstamp');
+    return { count: all.length, text: e?.innerText.replace(/\s+/g, ' ').trim() ?? '', opacity: e ? Number(getComputedStyle(e).opacity) : -1, boot: !!document.querySelector('#boot .bstamp') };
+  });
+  const bootSaid = (s?.stamp ?? []).map((x) => x.toUpperCase());
+  if (handed.count !== 1 || handed.boot) problems.push(`full: after the landing there are ${handed.count} stamp lines on Home (the boot's still there: ${handed.boot}); want Home's one`);
+  if (handed.opacity < 0.99) problems.push(`full: Home's stamp line is not showing after the landing (opacity ${handed.opacity})`);
+  if (bootSaid.length === 4 && !(handed.text.startsWith(`${bootSaid[0]} · `) && handed.text.includes(` · ${bootSaid[2]} · `))) problems.push(`full: Home's stamp "${handed.text}" is not the boot's day and place ("${bootSaid.join(' · ')}")`);
+  if (!/ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED) · LOOKING AT HOME$/.test(handed.text)) problems.push(`full: Home's stamp line reads "${handed.text}" (want the feeds, then LOOKING AT HOME)`);
+  if (bootSaid.length === 4 && /WATCHING (\d+)/.exec(bootSaid[3])?.[1] && !handed.text.includes(bootSaid[3]) && /WATCHING/.test(handed.text)) timings.push(`stamp hand-over: the boot said ${bootSaid[3]}, Home says ${handed.text.split(' · ')[3]} (the feeds moved after the cut)`);
   if (three.length !== 1) problems.push(`full: three.js was requested ${three.length} times (want once, shared by the boot and Home)`);
   // the voice: a cold open has had no tap, so nothing was spoken (and no hum) until the first tap; then once
   if (s?.spoken !== 'waiting') problems.push(`full: the greeting was "${s?.spoken}" before any tap (want: waiting for the first tap)`);

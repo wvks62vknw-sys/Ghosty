@@ -25,6 +25,7 @@ import { allScores, recordScore, recordSitting, type Score, sittingKey } from '.
 import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
 import type { TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 
@@ -501,6 +502,15 @@ export const arcadeTab: TabDef = {
     return {
       enter() {
         paintAll();
+      },
+      // (BRIEF-SHELL pass 1) the game being played, else the shelf
+      context: () => {
+        const g = games.find((x) => x.id === arcadeState.playing);
+        const title = g?.title ?? (arcadeState.playing ? playingTitle : '');
+        return screenSays('arcade', 'Arcade', title ? `the arcade, playing ${title}` : `the arcade, ${games.length} free games on the shelf`, {
+          looking: 'the arcade',
+          ...(title ? { selected: { kind: 'item', id: `game:${arcadeState.playing}`, label: title, detail: 'playing' } } : {}),
+        });
       },
       describe() {
         const g = games.find((x) => x.id === arcadeState.playing);

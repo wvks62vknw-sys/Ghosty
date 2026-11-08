@@ -13,9 +13,10 @@ import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 import { placesBlock } from './places';
 import { principlesEditor } from '../settings/principles';
 import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
@@ -326,6 +327,11 @@ export const memoryTab: TabDef = {
         void refreshLessons();
         void refreshProfile();
         void pl.refresh();
+      },
+      // (BRIEF-SHELL pass 1) the page open; what he writes is never in it
+      context: () => {
+        const sec = sectionNow('memory').toLowerCase() || 'me';
+        return screenSays('memory', 'Memory', `memory, on ${sec}${sheet ? ', adding a memory' : ''}, ${facts.length} things I remember`, { looking: 'memory' });
       },
       describe: () => `Memory: ${facts.length} facts stored, ${lessons.length} lessons learned${profile ? `, a profile of ${PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0)} lines` : ''}, ${diary.length} diary entries.`,
     };

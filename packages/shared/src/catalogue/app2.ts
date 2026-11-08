@@ -6,17 +6,6 @@
 import type { CatValue } from '../catalogue';
 
 export const APP_2: Record<string, CatValue> = {
-  // ---- ABILITIES (this list)
-  'panel:abilities:CAN YOU…?': {
-    name: 'Search everything I can do', line: 'You can search everything I can do by a word or a question, and try any of it from there.',
-    more: 'It finds things by their names, their lines and the ways to say them. Ask "can you…?" and it is a yes, a nearest thing, or "not yet", with an offer to learn it.',
-    say: ['Can you translate signs?', '(a word, like a place or a thing)'], scene: ['talking'], cat: 'talk',
-  },
-  'panel:abilities:LEARNING': {
-    name: 'What you asked me to learn', line: 'You can see what you asked me to learn, and the steps of my upgrade plan.',
-    more: 'Say yes to "want me to learn it?" and it lands here, first in my upgrade ideas, never pushed out.',
-    say: ['(tap YES under “not yet”)'], scene: ['talking', 'behind'], cat: 'learn',
-  },
   // ---- AGENDA
   'panel:agenda:DIARY · NEXT 14 DAYS': {
     name: 'Your next two weeks', line: 'You can see your next two weeks day by day: your events and your calendars together.',

@@ -49,6 +49,7 @@ import { guardian, loadGuardian } from '../state/guardian';
 import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
 import { lockBox, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
+import { feedsAnswered, stampFacts } from './awareness';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
@@ -91,7 +92,6 @@ const STALL = 250;
 const FULL_BY = 900;
 const SHORT_BY = 1700;
 /** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
-const FEEDS: FeedId[] = ['flood', 'weather', 'crime'];
 const FEED_WORD: Record<FeedId, string> = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 
 /** What happened, for tests/boot.spec.mjs and the console (window.__bootState; __ghosty.boot once that exists). */
@@ -177,12 +177,6 @@ export function greetingLine(d = new Date()): string {
   const hr = d.getHours();
   const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
   return `${part}, ${settings.get().name.trim() || 'Boss'}.`;
-}
-
-/** The feeds that answered last time (checked and not failed), in their order; null while nothing has been heard yet. */
-function feedsAnswered(info: GuardianInfo | null): FeedId[] | null {
-  if (!info) return null;
-  return FEEDS.filter((f) => info.checked[f] && !info.failed[f]);
 }
 
 /** "2026-08" → "Aug". */
@@ -617,7 +611,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
 
   // ---- the stamp's facts and the feeds' answers: asked now (the guardian's own first look comes later than the boot)
   void loadGuardian();
-  const facts = () => ({ place: home().name, watching: feedsAnswered(guardian.get().info)?.length ?? null, looking: 'Home', offline: navigator.onLine === false });
+  const facts = () => stampFacts('Home');
   /** The stamp's four segments at this moment (the fifth, LOOKING AT, is Home's own once it lands). */
   const stampNow = () => stampWords(facts()).slice(0, 4);
   let lines: { id: FeedId; parts: TruthPart[]; el: HTMLElement }[] = [];

@@ -22,6 +22,7 @@ import { dayKey, nextText, streakOf, type Rating } from '../../../../../packages
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h, svgEl } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import * as L from './store';
@@ -819,6 +820,22 @@ export const learnTab: TabDef = {
         clearInterval(tick);
         stopSpeaking();
         void L.flush();
+      },
+      // (BRIEF-SHELL pass 1) what is open: an exam, a course, a lesson, a quiz or the cards
+      context: () => {
+        const s = L.learn.get();
+        const said =
+          view === 'exam' && s.exam ? `an exam, question ${s.exam.i + 1} of ${s.exam.exam.questions.length}`
+          : view === 'course' && current ? `the map of ${current.title}`
+          : view === 'lesson' && current ? `lesson ${learnState.lesson} of ${current.title}`
+          : view === 'quiz' && quizNow ? `a quiz, question ${learnState.quiz.i + 1} of ${learnState.quiz.n}`
+          : view === 'revise' ? 'the flashcards'
+          : `${s.courses.length} ${s.courses.length === 1 ? 'course' : 'courses'}`;
+        const label = view === 'exam' && s.exam ? s.exam.exam.title : current && (view === 'course' || view === 'lesson') ? current.title : '';
+        return screenSays('learn', 'Courses', `the courses, ${said}`, {
+          looking: 'the courses',
+          ...(label ? { selected: { kind: 'item', id: `course:${label}`, label, detail: view } } : {}),
+        });
       },
       describe() {
         const s = L.learn.get();

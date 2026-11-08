@@ -17,6 +17,7 @@ export const homeadminTab: TabDef = {
   mount: (root) =>
     sheetPage(root, {
       screen: 'homeadmin',
+      name: 'Home admin',
       tag: 'LIFE // HOME',
       sub: 'What is due at home, the bin days, the bills, the meter and each room’s things, kept in my brain.',
       big: () => cardBig('homeadmin'),

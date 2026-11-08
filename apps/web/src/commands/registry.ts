@@ -6,45 +6,34 @@
  */
 import { h, clear, icon } from '../core/dom';
 import { niceCase } from '../ui/components';
+import { GROUP_NAMES, matchText, rankRows, score, type Command } from './rank';
 
 /** Each group of results has a heading and a glyph (SF Symbols-like line icons). */
-const GROUPS: Record<string, { name: string; icon: string }> = {
-  ASK: { name: 'Ask Ghosty', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/>' },
-  FLY: { name: 'Places', icon: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>' },
-  GO: { name: 'Screens', icon: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>' },
-  THEME: { name: 'Looks', icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M12 3.5a8.5 8.5 0 010 17"/>' },
-  SYSTEM: { name: 'System', icon: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>' },
-  EYE: { name: 'God’s eye', icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>' },
-  MEDIA: { name: 'Media', icon: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>' },
-  TOOLS: { name: 'Tools', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/>' },
+const GROUPS: Record<string, { icon: string }> = {
+  ASK: { icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/>' },
+  FLY: { icon: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>' },
+  GO: { icon: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>' },
+  THEME: { icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M12 3.5a8.5 8.5 0 010 17"/>' },
+  SYSTEM: { icon: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>' },
+  EYE: { icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>' },
+  MEDIA: { icon: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>' },
+  TOOLS: { icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/>' },
 };
-const GROUP_NAMES: Record<string, string> = { RECENT: 'Recent' };
-const groupOf = (g?: string) => GROUPS[g ?? ''] ?? { name: GROUP_NAMES[g ?? ''] ?? (g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More'), icon: GROUPS.TOOLS!.icon };
+const groupOf = (g?: string) => ({ name: GROUP_NAMES[g ?? ''] ?? (g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More'), icon: (GROUPS[g ?? ''] ?? GROUPS.TOOLS!).icon });
 
 /** How a result is dressed (shell/areas.ts): its colour and glyph, and the recent screens shown before anything is typed. */
 interface Decor {
   look(c: Command): { tint: string; glyph: string | null };
+  /** What is listed before anything is typed: his FAVOURITES (BRIEF-SHELL), then the screens opened last. */
   recents(): Command[];
+  /** A long press on one of those rows (a pinned screen or a recent) opens its pin sheet (shell/favourites.ts). */
+  hold?(c: Command, el: HTMLElement): void;
 }
 let decor: Decor | null = null;
 export function addPaletteDecor(d: Decor): void {
   decor = d;
 }
-/** What a query is matched against: the title without its "Theme: " style prefix, and the group's name. */
-const matchText = (c: Command) => `${c.title.replace(/^[A-Z][a-z]+: /, '')} ${groupOf(c.group).name}`;
-
-export interface Command {
-  id: string;
-  title: string;
-  /** More plain words it is found by (a screen's: its deck line and its YOU CAN lines, so "bins" finds HOME). */
-  words?: string;
-  group?: string;
-  /** Single-key hotkey (ignored while typing) or 'mod+k' style. */
-  keys?: string;
-  /** Hidden commands still run, but are not listed in the palette. */
-  hidden?: boolean;
-  run: (args?: Record<string, unknown>) => void | Promise<void>;
-}
+export type { Command };
 
 const commands = new Map<string, Command>();
 
@@ -94,23 +83,6 @@ addEventListener('keydown', (e) => {
 let pal: HTMLElement | null = null;
 const paletteOpen = () => !!pal?.classList.contains('on');
 
-/** How well a command matches: its title and group first; failing those, its plain words (found, but after the titles). */
-function score(q: string, c: Command): number {
-  const s = fuzzy(q, matchText(c));
-  if (s >= 2 || !q || !c.words) return s;
-  return c.words.toLowerCase().includes(q.toLowerCase()) ? 1.5 : s;
-}
-
-function fuzzy(q: string, s: string): number {
-  q = q.toLowerCase();
-  s = s.toLowerCase();
-  if (!q) return 1;
-  if (s.includes(q)) return 2 + (s.startsWith(q) ? 1 : 0);
-  let i = 0;
-  for (const ch of s) if (ch === q[i]) i++;
-  return i === q.length ? 0.5 : 0;
-}
-
 /** Extra palette rows computed from the query (e.g. "Fly to …", "Ask Ghosty …"). */
 const providers: ((q: string) => Command[])[] = [];
 export function addPaletteProvider(fn: (q: string) => Command[]): void {
@@ -135,30 +107,9 @@ export function togglePalette(): void {
     let sel = 0;
     const render = () => {
       const q = input.value.trim();
-      items = allCommands()
-        .filter((c) => !c.hidden)
-        .map((c) => ({ c, s: score(q, c) }))
-        .filter((o) => o.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .map((o) => o.c)
-        .slice(0, 12);
-      // Typed words: asking Ghosty comes first, then places, then the rest.
-      if (q.length > 1) {
-        const extra = providers.flatMap((p) => p(q));
-        items = [...extra.filter((c) => c.group === 'ASK'), ...extra.filter((c) => c.group !== 'ASK'), ...items];
-      }
-      // Nothing typed yet: the screens opened last come first (Spotlight's recents).
+      // Nothing typed yet: his FAVOURITES and the screens opened last come first (commands/rank.ts holds the order: the finding test reads it)
       const rec = !q && decor ? decor.recents() : [];
-      if (rec.length) items = [...rec, ...items.filter((c) => !rec.some((r) => r.id === c.id))];
-      // Grouped under headings, at most three of each.
-      const seen = new Map<string, number>();
-      items = items.filter((c) => {
-        const n = seen.get(c.group ?? '') ?? 0;
-        seen.set(c.group ?? '', n + 1);
-        return n < 3;
-      });
-      const order = [...new Set(items.map((c) => c.group ?? ''))];
-      items = order.flatMap((g) => items.filter((c) => (c.group ?? '') === g)).slice(0, 12);
+      items = rankRows(allCommands(), q, { extra: q.length > 1 ? providers.flatMap((p) => p(q)) : [], rec });
       sel = Math.min(sel, Math.max(0, items.length - 1));
       clear(list);
       let last: string | null = null;
@@ -171,6 +122,7 @@ export function togglePalette(): void {
         const look = decor?.look(c);
         const it = h(`div.it${i === sel ? '.sel' : ''}` as 'div', h('i.gic', { style: look ? `--tint:${look.tint}` : '' }, icon(look?.glyph ?? groupOf(c.group).icon)), h('small', c.group ?? ''), h('span', c.group === 'GO' && c.title === c.title.toUpperCase() ? niceCase(c.title) : c.title.replace(/^Theme: /, '')), c.keys ? h('em', c.keys) : null);
         it.addEventListener('click', () => pick(i));
+        if (c.group === 'FAVOURITES' || c.group === 'RECENT') decor?.hold?.(c, it);
         list.append(it);
       });
     };

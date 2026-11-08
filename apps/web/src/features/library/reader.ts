@@ -19,7 +19,7 @@
  */
 import type { LibraryDoc } from '../../../../../packages/shared/src/protocol';
 import type { ScreenContext, Selected } from '../../../../../packages/shared/src/awareness';
-import { lookingAt } from '../../shell/awareness';
+import { lookingAt, stampFacts } from '../../shell/awareness';
 import { selectionNow } from '../../assistant/thatone';
 import { thatOne } from '../../assistant/thatwords';
 import { continueIntent, readingIntent, stopIntent, titleMatch, type ReadingAsk } from '../../../../../packages/shared/src/intent';
@@ -255,13 +255,6 @@ export function readerNow(): string {
   return p ? `${shortTitle(d.title)} · ${progressOf(d, p).words}` : shortTitle(d.title);
 }
 
-/** The feeds the guardian reads that answered last time (the stamp line's "watching"), as THE LOOK counts them. */
-function feedsWatched(): number | null {
-  const info = guardian.get().info;
-  if (!info) return null;
-  return (['flood', 'weather', 'crime'] as const).filter((f) => info.checked[f] && !info.failed[f]).length;
-}
-
 /** The hud, its head and its column, with the four panels in it (features/reader/index.ts names them for the catalogue). */
 export function readerShell(root: HTMLElement, P: Record<'read' | 'chapters' | 'search' | 'about', Panel>): { hud: HTMLElement; hero: HTMLElement; col: HTMLElement } {
   const hero = h('div.hero.grd-head');
@@ -307,7 +300,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     return { screen: 'reader', title: 'The reader', line, looking: shortTitle(doc.title), selected, at: Date.now() };
   };
   let looking = 'your shelf';
-  const facts = (): StampFacts => ({ place: home().name, watching: feedsWatched(), looking, offline: typeof navigator !== 'undefined' && navigator.onLine === false });
+  const facts = (): StampFacts => stampFacts(looking);
   const stamp = stampLine(facts);
   const title = h('h2.grd-title', { dataset: { case: 'keep' } }, 'Your books');
   const by = h('p.grd-by', { dataset: { case: 'keep' } });

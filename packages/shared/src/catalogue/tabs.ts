@@ -92,7 +92,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' },
   // (the Me hub's own: its screens were there with nothing on their cards)
   'hub:memory': { same: 'screen:memory' }, 'hub:settings': { same: 'screen:settings' }, 'hub:system': { same: 'screen:system' },
-  'hub:links': { same: 'screen:links' }, 'hub:abilities': { same: 'screen:abilities' },
+  'hub:links': { same: 'screen:links' },
 
   // ---- the deck's lines for them (Every screen's YOU CAN): each is what an entry already says
   'deck:money:paste-a-statement-the-month-in': { same: 'phrase:statement' },

@@ -235,7 +235,7 @@ export function demoReply(text: string, next: { title: string; start: number; lo
     return `Sam's sample week, next up: ${next.slice(0, 4).map((e) => `${e.title} (${when(e.start)}${e.location ? `, ${e.location}` : ''})`).join('; ')}. It is made-up data, put back every twenty minutes.`;
   }
   if (/\b(who are you|what are you|what can you do|help|abilities|what do you do)\b/.test(t)) {
-    return 'I am Ghosty: a personal assistant that lives in a phone and a small brain of its own. The Everything tab lists everything I can do, with a way to try each; the tour at /demo/tour says what is real here and what is not. In this demo my chat is a script, so ask me about the sample week, or try the screens: the GYM, the Coach (say "tune my guitar"), the Eye, the Lens.';
+    return 'I am Ghosty: a personal assistant that lives in a phone and a small brain of its own. Ask me “can you …?” and I say what I can do; the tour at /demo/tour says what is real here and what is not. In this demo my chat is a script, so ask me about the sample week, or try the screens: the GYM, the Coach (say "tune my guitar"), the Eye, the Lens.';
   }
   if (/\b(weather|news|traffic|train|bus|flight|stock|price|score)\b/.test(t)) {
     return 'Live information comes from public feeds through my brain, and this demo has no keys and no model, so I will not guess. Open the Eye (the globe) to see what the phone itself can read from public feeds.';

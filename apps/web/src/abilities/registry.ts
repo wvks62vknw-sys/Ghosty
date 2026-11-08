@@ -9,7 +9,7 @@
  * `go(a, ask?)`: GO — the screen (and its panel) through the deck's own deep links, a command of the app, or the example
  * put into the chat box for him to finish and send.
  *
- * THE EVERYTHING TAB (BRIEF-EVERYTHING) reads its entries here too: `catalogue()` joins every registry item (the brain's as
+ * THE CATALOGUE (BRIEF-EVERYTHING; the page that listed it is withdrawn as a way in, BRIEF-SHELL pass 1, OWNER-ISSUES 130, 143) is still made here, for the brain and the checks: `catalogue()` joins every registry item (the brain's as
  * it last told this phone, `catalogueItems`; the phone's from abilities/sources.ts) with the catalogue's words
  * (packages/shared/src/catalogue.ts); `tryIt` does what an entry's TRY IT says, `runLabel` says it for a command.
  */
@@ -24,9 +24,8 @@ import { SAMPLES } from '../features/studio/samples';
 import { META as GAMES } from '../gym/meta';
 import { DECK, type DeckAct } from '../shell/deckcopy';
 import { openChat, perform } from '../shell/launcher';
-import { navTo } from '../shell/areas';
 import { tabs } from '../shell/tabs';
-import { appItems, SCREEN_CAT } from './sources';
+import { APP_WIDE, appItems, CHAT_CONTROLS, SCREEN_CAT } from './sources';
 
 export { SCREEN_CAT };
 
@@ -58,8 +57,7 @@ export function appAbilities(): AppAbility[] {
   const have = new Set(tabs().map((t) => t.id));
   // every screen in the deck that this build really has: its promise, its YOU CAN lines as the asks, each with its link
   for (const [id, d] of Object.entries(DECK)) {
-    // (this screen is the list itself, not one of the things on it)
-    if (id === 'abilities' || (have.size && !have.has(id))) continue;
+    if (have.size && !have.has(id)) continue;
     out.push({
       id: `s:${id}`,
       cat: SCREEN_CAT[id] ?? 'do',
@@ -225,18 +223,6 @@ export function tryKey(g: CatGo): string {
   return 'ask' in g ? (g.send === false ? 'fill' : 'ask') : 'run' in g ? `run:${g.run}` : `open:${g.open}${g.panel ? `/${g.panel}` : ''}`;
 }
 
-/** TRY IT: the real thing — a screen and its panel, a command, or words for the chat (sent, or left in the box). */
-export function tryIt(g: CatGo): void {
-  if ('ask' in g) return g.send === false ? intoChat(g.ask) : perform({ ask: g.ask });
-  if ('run' in g) return perform({ run: g.run, args: g.args ?? {} });
-  if (g.open === 'abilities' && g.panel?.startsWith('CAN YOU')) {
-    navTo('abilities', 'push');
-    setTimeout(() => document.querySelector<HTMLInputElement>('#pg-abilities .canin')?.focus(), 350);
-    return;
-  }
-  perform({ open: g.open, ...(g.panel ? { panel: g.panel } : {}) });
-}
-
 /** GO: the ability's own place, or (`ask` ≥ 0) where that example of it goes. */
 export function go(a: Ability, ask = -1): void {
   const act = ask >= 0 ? (a as AppAbility).acts?.[ask] : undefined;
@@ -245,10 +231,29 @@ export function go(a: Ability, ask = -1): void {
   const g = a.go;
   if ('ask' in g) return intoChat(g.ask);
   if ('run' in g) return perform({ run: g.run, args: g.args ?? {} });
-  if (g.open === 'abilities' && g.panel === 'CAN YOU') {
-    navTo('abilities', 'push');
-    setTimeout(() => document.querySelector<HTMLInputElement>('#pg-abilities .canin')?.focus(), 350);
-    return;
-  }
   perform({ open: g.open, ...(g.panel ? { panel: g.panel } : {}) });
+}
+
+/** Where a TRY IT lands, checked against what this build really has (a screen, a command, words for the chat). */
+function lands(e: CatEntry): boolean {
+  const g = e.go;
+  if ('ask' in g) return !!g.ask.trim();
+  if ('run' in g) return allCommands().some((c) => c.id === g.run);
+  return tabs().some((t) => t.id === g.open.split('?')[0]);
+}
+
+/**
+ * The catalogue as this build has it, for the checks (window.__ghosty.abilities.health()): how many things, how many registry
+ * items, any with no words, any whose way in lands nowhere, and the chat's own controls where the registry says. No page shows it.
+ */
+export function catalogueHealth(hubs: string[]) {
+  const c = catalogue(hubs);
+  return {
+    count: c.entries.length,
+    items: c.items,
+    missing: c.missing,
+    brain: brainSide.get().info.catalogue?.length ?? 0,
+    broken: c.entries.filter((e) => !lands(e)).map((e) => `${e.id} → ${tryKey(e.go)}`),
+    controls: [...CHAT_CONTROLS, ...APP_WIDE].map((x) => ({ id: x.id, sel: x.sel })),
+  };
 }

@@ -6,11 +6,12 @@ import { inbox, pollInbox } from '../../assistant/notices';
 import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
+import { screenSays } from '../../shell/awareness';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/components';
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -373,6 +374,17 @@ export const agendaTab: TabDef = {
       },
       leave() {
         clearInterval(timer);
+      },
+      // (BRIEF-SHELL pass 1) what is open and what is first in it: the diary's next event
+      context: () => {
+        const now = Date.now();
+        const next = events.find((e) => !e.allDay && (e.end ?? e.start) > now);
+        const sec = sectionNow('agenda').toLowerCase() || 'diary';
+        const when = next ? `${dayLabel(next.start).toLowerCase()} ${hm(next.start)}` : '';
+        return screenSays('agenda', 'Agenda', `the agenda, on ${sec}, ${next ? `next: ${next.title}, ${when}` : 'nothing coming up'}`, {
+          looking: 'the agenda',
+          ...(next ? { selected: { kind: 'item', id: `event:${next.id}`, label: next.title, detail: when } } : {}),
+        });
       },
       describe: () => `Agenda: ${events.length} events in the next 14 days, ${jobs.length} reminders/tasks, ${feeds.length} calendars connected.`,
     };

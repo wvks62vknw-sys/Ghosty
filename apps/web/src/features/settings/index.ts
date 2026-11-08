@@ -3,13 +3,14 @@ import { fmt, h } from '../../core/dom';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
+import { screenSays } from '../../shell/awareness';
 import { home, settings } from '../../state/app';
 import { presetNow, recipeEvents, recipeNow, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { themeSwatches } from '../../ui/swatches';
 import { lookDials } from '../../ui/dials';
 import { page } from '../../ui/page';
-import { sections } from '../../ui/sections';
+import { sectionNow, sections } from '../../ui/sections';
 import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
@@ -200,6 +201,11 @@ export const settingsTab: TabDef = {
         void pv.refresh();
         paintThemes();
         paintHead();
+      },
+      // (BRIEF-SHELL pass 1) the section open
+      context: () => {
+        const sec = sectionNow('settings') || 'Settings';
+        return screenSays('settings', 'Settings', `settings, on ${sec.toLowerCase()}`, { looking: 'settings', selected: { kind: 'group', id: `settings:${sec}`, label: sec } });
       },
       describe: () => `Settings: theme ${settings.get().theme}, name ${settings.get().name}`,
     };
