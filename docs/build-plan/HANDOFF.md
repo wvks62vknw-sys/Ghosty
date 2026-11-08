@@ -310,8 +310,18 @@ folder that no longer exists; ignore those paths).
   world not drawn under a sheet (the jump bar's 300 ms on two cores); Home's content (the wall, CITED, replies) hidden by
   the Scan's frame, restored by a mid-tier builder (scan2) as a column of plates with THE DAY and the wall's cards one key
   away, plus the plate rule (no mark or callout over a plate) and the ask line layered above the open log. The cover check
-  (Chromium at Safari's height, every altitude) is clear; cards, cited, talk and the Scan specs clean here. Head dc03bff,
-  run 387; merge when green. Main's own run for 3ea2c4b (PR #70) GREEN, the guard quiet. The calls are in 162 for his word.
+  (Chromium at Safari's height, every altitude) is clear; cards, cited, talk and the Scan specs clean here. Main's own run
+  for 3ea2c4b (PR #70) GREEN, the guard quiet. The calls are in 162 for his word.
+  16:30 UK: run 386 (the head before the plates) showed six more reds, every one fixed at the cause: the ask line sat 118 px
+  up with the chat open (the house hides, the line did not follow: the floor is now the stylesheet's, keyed on the house's
+  own hiding, so it drops to the home indicator in the same frame and climbs back the frame the house returns; a hidden
+  house keeps its last measured height); the jump bar 303–313 ms against 300 (the world is not drawn under the jump bar
+  either); the mood check read the lit tab as the exact red where The Scan's system gives the accent's text tone (re-cut:
+  the system's accent must be his red and the tab that one token); voice, onphone and packs3 red on controls the plates
+  commit had already restored. Run 390 on 4e06a1e GREEN on every job. PR #71 SQUASH-MERGED 16:29 UK, main 8350f26; its
+  own run read at the 17:40 UK check-in. The Scan is the default world: his phone opens in it. The session branch carries
+  main merged in (a forced restart was refused by the sandbox; the tree equals main's). Next: the Lens that just knows
+  (mid tier, no key rows, 156), then the gallery of seven looks, then ONE INK.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
