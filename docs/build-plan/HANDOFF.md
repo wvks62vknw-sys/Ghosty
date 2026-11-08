@@ -354,6 +354,11 @@ folder that no longer exists; ignore those paths).
   the themes check leaves the live marks out and holds one mark's type and spacing instead. Nothing loosened. Faces, thescan,
   routec and lens clean here on the fixed build. LESSON: a world that breathes redraws for ever; the idle cadence is a budget
   of its own, and the jump bar's 300 ms on two cores is where it shows first.
+  22:08 UK: PR #73 GREEN on every job (run 398 on 9b57472), SQUASH-MERGED, main aa92328: THE LENS THAT JUST KNOWS is on main
+  with the Scan's half-rate breath, the reader's quiet stop and the themes check's re-cut; main's own run read at the
+  23:20 UK check-in. His phone checks open: 152 (voice), 154 (the Lens stopgap, now superseded by 163), 161 (shell pass 1),
+  162 (The Scan's Home), 163 (the Lens that just knows). Next: the Theme gallery of seven looks (colour the only choice;
+  mocks first for each look as 157 says, THE SCAN live), then ONE INK.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
