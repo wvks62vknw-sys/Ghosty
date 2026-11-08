@@ -252,6 +252,11 @@ folder that no longer exists; ignore those paths).
   had made NO check run twenty minutes later (Cloudflare's preview did deploy both): this docs commit is the next real
   change on the branch and starts the run that proves or disproves the median read on the two-core runner. Reader split in
   progress: first clean run of the halves 402 s and 100 s (the first half still near the limit: judged on the report).
+  03:30 UK: THE CAUSE OF THE MISSING RUNS: GitHub runs no pull_request workflow on a pull request that conflicts with its
+  base, and the guard's restore of main (8b62a96, the Lens hotfix files put back) put PR #66 in conflict (one.ts and
+  OWNER-ISSUES). Lesson: after any guard restore, merge main into the open PR branch at once. Main merged into the
+  branch with the branch's tree kept whole (the stopgap and the median read stay; PR #66 re-lands them); the run starts
+  with this push. The reader split rebalanced by the builder: 202 s and 291 s alone (both halves well under 480).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
