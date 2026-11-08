@@ -151,7 +151,10 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const where = h('p.g-truth.where.scanwhere', { dataset: { g: 'truth', case: 'keep' }, role: 'status' });
   const say = h('p.scansay', { dataset: { case: 'keep' } });
   const say2 = h('p.scansay2', { dataset: { case: 'keep' } });
-  const top = h('div.scantop', where, say, say2);
+  // THE DAY's key (the weather, Today, Roads, the Gym, the readings, the chips: Home's standing cards) sits in the top block, above the marks
+  const dayKey = h('button.g-key.scandaykey', { type: 'button', 'aria-expanded': 'false', dataset: { case: 'keep' } }, 'The day');
+  const dayRow = h('div.scanday', dayKey);
+  const top = h('div.scantop', where, say, say2, dayRow);
   // the altitudes as the Machine's own keys: one line each, the one he is on lit; a tap goes there (a way up and down without a pinch)
   // (at 390 the four keys drop their "The" so they stay one row: styles.css)
   const altKeys = ALTITUDES.map((a) => h('button.scanalt', { type: 'button', dataset: { alt: a, case: 'keep' }, 'aria-label': `Go to the ${a === 'whole' ? 'whole of it' : a}` }, h('span.g-truth', h('span.the', 'The '), a)));
@@ -165,20 +168,60 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const kickR = h('span.g-truth', 'You are home');
   const kick = h('div.scankick', { dataset: { case: 'keep' } }, kickL, kickR);
   const askHost = h('div.scanask');
-  const el = h('div.scanframe', stage, orbHost, marks, leads, callout, top, alts, askHost, kick);
+  // the column over the world, under the greeting: what today's Home shows besides the world (the wall, the task at work, whose
+  // voice, the readings), taken as they are; empty, it is nothing and the world is clear. Home's standing cards are one key away
+  const col = h('div.scancol', { role: 'region', 'aria-label': 'On Home', dataset: { day: 'shut' } });
+  dayKey.addEventListener('click', () => {
+    const open = col.dataset.day !== 'open';
+    col.dataset.day = open ? 'open' : 'shut';
+    dayKey.setAttribute('aria-expanded', String(open));
+  });
+  const el = h('div.scanframe', stage, orbHost, col, marks, leads, callout, top, alts, askHost, kick);
   // the parts of today's Home this frame takes (and gives back when the look is another): where each came from
-  const taken: { el: HTMLElement; into: HTMLElement; first: boolean; parent: HTMLElement | null; next: Node | null }[] = [
+  const taken: { el: HTMLElement; into: HTMLElement; first: boolean; before?: HTMLElement; parent: HTMLElement | null; next: Node | null }[] = [
     { el: o.stamp, into: top, first: true, parent: null, next: null },
-    { el: o.caption, into: top, first: false, parent: null, next: null },
+    { el: o.caption, into: top, first: false, before: dayRow, parent: null, next: null },
     { el: o.orbWrap, into: orbHost, first: false, parent: null, next: null },
     { el: o.ask, into: askHost, first: false, parent: null, next: null },
   ];
+  // Home's own centre column: its parts go into the column in this order (the news, then the standing cards, the voice last)
+  const centre = o.ask.parentElement;
+  const pick = (sel: string): HTMLElement | null => centre?.querySelector<HTMLElement>(sel) ?? null;
+  for (const sel of ['#cstate', '.hudlayer .hudtask', '.rcbelow > section.wall', '#suggest', '.rcwx', '.rcbelow', '.rchero', '#voicetag']) {
+    const e = pick(sel);
+    if (e) taken.push({ el: e, into: col, first: false, parent: null, next: null });
+  }
+  const wallHead = pick('.rcbelow > section.wall .wallhead');
+  // In The Scan the wall's cards are one key away, like THE DAY's: the head (NOW · ALL SCREENS) stays on Home and a tap on NOW
+  // opens the cards over the world; shut, the world and its marks are clear (the finding rule holds at two taps)
+  col.dataset.wall = 'shut';
+  const nowKey = wallHead?.querySelector('b');
+  if (wallHead && nowKey) {
+    nowKey.setAttribute('role', 'button');
+    nowKey.setAttribute('tabindex', '0');
+    nowKey.setAttribute('aria-expanded', 'false');
+    nowKey.classList.add('scannowkey');
+    const toggle = () => {
+      const open = col.dataset.wall !== 'open';
+      col.dataset.wall = open ? 'open' : 'shut';
+      nowKey.setAttribute('aria-expanded', String(open));
+    };
+    nowKey.addEventListener('click', toggle);
+    nowKey.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle();
+      }
+    });
+  }
+  const voiceEl = pick('#voicetag');
   const take = () => {
     for (const t of taken) {
       if (t.el.parentElement === t.into) continue;
       t.parent = t.el.parentElement;
       t.next = t.el.nextSibling;
       if (t.first) t.into.prepend(t.el);
+      else if (t.before) t.into.insertBefore(t.el, t.before);
       else t.into.append(t.el);
     }
   };
@@ -393,10 +436,24 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     const out: typeof scanState.marks = [];
     // (the thing of the hour is marked in every frame: tonight's book, or this morning's Brief where the book would be)
     const frameTop = el.getBoundingClientRect().top || 0;
-    const topBottom = top.getBoundingClientRect().bottom - frameTop;
+    // (the wall's head and the voice's keys, when they show, are above the marks too: the marks step off them)
+    const headRect = wallHead && wallHead.offsetParent ? wallHead.getBoundingClientRect() : null;
+    const topBottom = Math.max(top.getBoundingClientRect().bottom, headRect ? headRect.bottom + 4 : 0) - frameTop;
     // the band at the bottom (the altitude keys, the ask line, the house) takes the tap too: a key stays above it
     const altsTop = alts.getBoundingClientRect().top;
-    const bottomTop = (altsTop > 0 ? altsTop : H) - frameTop;
+    const voiceRect = voiceEl && !voiceEl.hidden && voiceEl.offsetParent ? voiceEl.getBoundingClientRect() : null;
+    const bottomTop = Math.min(altsTop > 0 ? altsTop : H, voiceRect ? voiceRect.top - 4 : H) - frameTop;
+    // the plates on Home (the wall, a reply, whose voice, the task at work): a mark or a callout never crosses one. While a
+    // plate is there the world is the ground under it and the marks it covers wait; they come back when the column empties.
+    const frameLeft = el.getBoundingClientRect().left || 0;
+    const plates: { left: number; top: number; right: number; bottom: number }[] = [];
+    for (const n of col.querySelectorAll<HTMLElement>(':scope > *')) {
+      if (n.hidden || !n.offsetHeight) continue;
+      const pr = n.getBoundingClientRect();
+      if (pr.width < 2 || pr.height < 2) continue;
+      plates.push({ left: pr.left - frameLeft, top: pr.top - frameTop, right: pr.right - frameLeft, bottom: pr.bottom - frameTop });
+    }
+    const onPlate = (bx: { left: number; top: number; right: number; bottom: number }) => plates.some((pl) => bx.left < pl.right && bx.right > pl.left && bx.top < pl.bottom && bx.bottom > pl.top);
     const list = marksAt(alt).concat(MARKS.filter((m) => m.id === scanState.lit && !m.where.includes(alt) && alt !== 'line' && alt !== 'out'));
     // what the eye looks at: the thing of the hour at home; out and on the way, the place locked (the station)
     const lookId = alt === 'line' || alt === 'out' ? 'r-station' : scanState.lit;
@@ -423,7 +480,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
         box.top -= dy;
         box.bottom -= dy;
       }
-      if (box.top < topBottom + 4 || box.bottom > H - 2) {
+      if (box.top < topBottom + 4 || box.bottom > H - 2 || onPlate(box)) {
         b.hidden = true;
         continue;
       }
@@ -463,9 +520,18 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       // thing it points at (its leader would have no length and the thing's own key would be under it): where its resting
       // place overlaps the thing's box it steps above the box, or below it when there is no room above the words
       callout.style.top = '';
+      callout.style.visibility = '';
       let cr = callout.getBoundingClientRect();
       const er = el.getBoundingClientRect();
       let cb = { left: cr.left - er.left, top: cr.top - er.top, right: cr.right - er.left, bottom: cr.bottom - er.top };
+      if (onPlate(cb)) {
+        const above = nb.top - 12 - (cb.bottom - cb.top);
+        callout.style.top = `${Math.round(above)}px`;
+        cr = callout.getBoundingClientRect();
+        cb = { left: cr.left - er.left, top: cr.top - er.top, right: cr.right - er.left, bottom: cr.bottom - er.top };
+        // no clear place: the plates say what is now; the callout waits until the column empties
+        if (onPlate(cb) || cb.top < topBottom + 4) callout.style.visibility = 'hidden';
+      }
       if (cb.left < nb.right && cb.right > nb.left && cb.top < nb.bottom && cb.bottom > nb.top) {
         const ch = cb.bottom - cb.top;
         const above = nb.top - 12 - ch;
@@ -521,6 +587,8 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   let fpsN = 0;
   let fpsAt = 0;
   let dockH = 0;
+  let colTop = -1;
+  let colBot = -1;
   const frame = (t: number) => {
     loop = 0;
     if (!scanState.on) return;
@@ -539,6 +607,16 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     if (dh !== dockH) {
       dockH = dh;
       el.style.setProperty('--scan-dock', `${dh}px`);
+    }
+    // the column's room: from under the greeting to above the altitude keys (it never covers the keys, the ask line or the house)
+    const fr = r.top || 0;
+    const colT = Math.round(Math.max(0, top.getBoundingClientRect().bottom - fr) + 8);
+    const colB = Math.round(Math.max(0, H - (alts.getBoundingClientRect().top - fr)) + 8);
+    if (colT !== colTop || colB !== colBot) {
+      colTop = colT;
+      colBot = colB;
+      el.style.setProperty('--scan-colt', `${colT}px`);
+      el.style.setProperty('--scan-colb', `${colB}px`);
     }
     const m = currentMind();
     // the stage: Mind's one context draws the world here (taken from the boot's film, or staged now); the scene built once
