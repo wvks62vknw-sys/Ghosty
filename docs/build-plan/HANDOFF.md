@@ -375,6 +375,22 @@ folder that no longer exists; ignore those paths).
   SHOW ME's first slice, offline maps, the games he named, the working engine, no cap on skill, the speaker model, THE MAP and
   THE EYE, the weekly training for real, the phone-hardware items blind with fallbacks. The editors are said plainly to be a
   programme of weeks each and come last. Builders' briefs name the ports: gallery 8798, shell2 8799; the orchestrator 8797.
+  23:25 UK: THE THEME GALLERY reported by the mid-tier builder (worktree gallery, eight commits on builder/gallery from 4e7fa66):
+  ui/gallery.ts and shared/looks.ts (pure: the seven looks, their lines, the words), the Theme page re-cut to the mock (seven
+  cards, the twelve colours between the rows, COMING on the five not built, YOU'RE IN IT on the one he is in), seven webp
+  stills (63 KB together), look.spec section 7 and routec [themes]/[themes2] re-cut (every removed check replaced by its new
+  form or its opposite: a cheap reviewer listed each), the recipe's state and the words' tables untouched. Clean in its
+  worktree: look (the page in 18/97 ms), settings, character, boot, routec part one (the themes block). Two reds it saw are
+  its sandbox's: routec's part two crashed Chromium there on untouched main too, and thescan's "[sent] a coordinate left the
+  phone" showed the same numbers on untouched main there, while thescan is clean on the orchestrator's build and on every CI
+  run (noted; not chased). Applied as one commit on the session branch after PR #74; PR #75; OWNER-ISSUES 165 (his
+  seven-step check, seven calls).
+  23:30 UK: THE SHELL IN THE SCAN reported by its builder (five commits on builder/shell2): rooms.ts (the one list of rooms and
+  numbered things), house.ts (the house, the plan), jump.ts (the ask line as the jump bar: 79/71 ms to open), a hub as a room,
+  Every screen as the inventory, Settings as the plate, the ratchet test (2,004 to 1,992). NOT DONE: the pinned specs were not
+  re-cut (only tabs was run, red on the deck's opening), no Glass pixel diff. Sent back to the same builder with the list:
+  re-cut the specs in place, fix the tabs failure at its cause, the Glass diff against a base worktree, "open two" by voice,
+  Home's THE HOUSE key at 44 pt, every spec run one at a time. It lands only when they hold.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
