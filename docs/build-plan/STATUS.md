@@ -205,6 +205,11 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
   held; the cinematic longer, richer, polished; THE LENS THAT JUST KNOWS with no key rows (the hotfix a stopgap). THE MOCK
   ROUND (BRIEF-HUD-MOCKS, the top tier) LAUNCHED 01:00 UK in worktree hudmocks: W1 as a whole HUD, the Lens, the boot, the
   questions and the gaps; pictures to him before any code.
+  01:45 UK: THE MOCK ROUND DONE (docs/build-plan/mockups/hud/2026-11-08/: the sheet, 26 frames, a README with 18 questions
+  and 16 gaps in his terms); the sheet and four frames SENT to him with the six decisions that change the build (the house as
+  the tab bar; how light; the plan's 40 pt rows as the one exception; the boot at 4.3 s; the tone by default; Life's Home
+  renamed Household); the first HUD is built as one PR only on his "build it". Meanwhile PR #66 (voice) merges when green and
+  the shell's pass 1 goes up after it; the voice panels and pass 1 are redrawn by the HUD when it lands.
 - PR #66 OPEN 7 Nov 21:50 UK (merged by the orchestrator when every check is green; finished when main's own run is green):
   HIS VOICE KNOWN, awareness PR C (OWNER-ISSUES 152; BRIEF-VOICE-KNOWN; STARS 154–155, 171 the gap): a courtesy signal from
   the phone's own audio features, never a lock; enrolment in Settings → Voice & home → MY VOICE; YOU, a name or A VOICE I

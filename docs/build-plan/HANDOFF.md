@@ -228,7 +228,10 @@ folder that no longer exists; ignore those paths).
   the top tier (worktree hudmocks, branch builder/hudmocks; a liveness check-in at 03:07 UTC). Then "do whatever is best with
   the two PRs": PR #67 merged as the stopgap (main ce2626b), main merged into the session branch (OWNER-ISSUES conflict:
   154 inserted after 153), PR #66 merges when its run on that head is green. Worktrees: voiceknown (done), shell1 (waiting),
-  hudmocks (running).
+  hudmocks (done 01:45 UK: the W1 HUD mock round, 7 commits, applied to the session branch as one commit and the worktree
+  removed; the sheet and four frames sent to him with six decisions; the README carries 18 questions and 16 gaps; NOTHING
+  BUILDS from it until he says "build it"). NEXT when he answers: BRIEF-HUD-SCAN from the mocks and his picks (the top tier,
+  one PR, his phone check from the preview before the merge), then the other rooms one per PR.
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local

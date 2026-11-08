@@ -1,0 +1,283 @@
+/* THE HUD MOCKS' PAGE (BRIEF-HUD-MOCKS): W1 THE SCAN as a whole HUD at 440 × 956. Every colour, size and duration is a token
+   of apps/web/src/design/tokens.css (loaded first); the marks are the `.g-*` rules of apps/web/styles.css THE SYSTEM section,
+   copied as they stand (the stamp line, the truth line, the tag, the index, the plate, the key, the reticle, the lock box,
+   the typed-out line's cursor), so a frame shows the real marks and not a drawing of them. The phone's own faces are stood in
+   for by the mock-ups' fonts (../../fonts.css: Inter for SF Pro; the mono stack falls to DejaVu Sans Mono here). */
+:root { --g-font-text: 'Inter Mock', system-ui, sans-serif; --g-font-display: 'Inter Mock', system-ui, sans-serif; --g-font-serif: 'Source Serif Mock', Georgia, serif;
+  /* what the scan's canvas reads (lib/gl.js reads --accent-rgb, --accent-pale-rgb and --bone-rgb): the system's own values */
+  --accent-rgb: var(--g-accent-rgb); --accent-pale-rgb: var(--g-accent-pale-rgb); --bone-rgb: var(--g-bone-rgb); --gutter: var(--g-gutter); }
+html, body { margin: 0; padding: 0; }
+body { width: 440px; height: 956px; overflow: hidden; background: var(--g-canvas); color: var(--g-ink-1); font: var(--g-t-body); letter-spacing: var(--g-tr-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* a button in the HUD is the mark it draws, never the browser's own */
+.screen :where(button:not(.g-key)) { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.screen { position: relative; width: 440px; height: 956px; overflow: hidden; background: var(--g-canvas); color: var(--g-ink-1); isolation: isolate; }
+/* the scan is light, so it is laid on the graphite as light (W1's lift.css): the points keep their brightness, the empty room is the lit graphite */
+canvas.gl { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; display: block; mix-blend-mode: screen; }
+/* on Paper the scan is ink: the same light inverted and multiplied onto the bone */
+.paper canvas.gl { mix-blend-mode: multiply; filter: invert(1); }
+/* the room's light (state/theme.ts --room): the accent at .09 × the colour's glow × the world's glow, where the orb is */
+.roomlight { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 60% 42% at var(--lx, 50%) var(--ly, 44%), rgba(var(--g-accent-rgb), calc(.09 * var(--g-accent-glow) * var(--g-glow) * var(--g-glow-floor))), transparent 70%); }
+/* the world's floor under a page drawn flat (the deck, Settings): the field of points every screen stands on */
+.floor { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+/* the room behind a page brought to the front: dimmed, never blacked out */
+.scrim { position: absolute; inset: 0; z-index: 5; pointer-events: none; background: var(--g-scrim); }
+
+/* the phone: status bar (time in the left ear, signal / Wi-Fi / battery in the right, the Island between) and the home indicator */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; display: grid; grid-template-columns: 1fr 126px 1fr; pointer-events: none; color: var(--g-ink-1); }
+.sb .time { align-self: start; margin-top: 18px; text-align: center; padding-left: 14px; font: 600 17px/22px var(--g-font-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.sb .island { margin-top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb .right { align-self: start; margin-top: 22px; padding-right: 12px; display: flex; gap: 6px; justify-content: center; align-items: center; }
+.sb .right svg { display: block; fill: currentColor; }
+.hi { position: absolute; z-index: 60; left: 50%; bottom: 8px; width: 139px; height: 5px; margin-left: -69.5px; border-radius: 3px; background: var(--g-ink-1); opacity: .92; pointer-events: none; }
+
+/* ---- the marks, as styles.css THE SYSTEM draws them */
+.g-tag { display: inline-flex; align-items: center; gap: var(--g-s-half); max-width: 100%; padding: 2px 6px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-1); background: var(--g-plate-fill); white-space: nowrap; border-radius: var(--g-radius-mark); }
+.g-tag .g-count { flex: none; color: var(--g-ink-3); }
+.g-tag.on { color: var(--g-accent-text); }
+.g-tag.warn { color: var(--g-amber); }
+.g-tag.off { color: var(--g-ink-4); }
+.g-glyph { width: var(--g-icon-small); height: var(--g-icon-small); flex: none; fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+.g-index { flex: none; min-width: 2.4ch; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); font-variant-numeric: var(--g-num); color: var(--g-ink-3); }
+.g-index.on { color: var(--g-accent-text); }
+.g-truth, .g-stamp { margin: 0; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; font-variant-numeric: var(--g-num); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.g-truth .strong { color: var(--g-ink-2); font-weight: 600; }
+:is(.g-truth, .g-stamp) .on { color: var(--g-accent-text); }
+.g-truth .warn { color: var(--g-amber); }
+:is(.g-truth, .g-stamp) .g-sep { color: var(--g-ink-4); }
+:is(.g-truth, .g-stamp) .g-seg { display: inline-block; max-width: 100%; }
+.g-cursor { display: none; width: .62em; height: 1.05em; margin-left: 2px; vertical-align: -.16em; background: var(--g-accent); }
+.writing .g-cursor { display: inline-block; }
+.g-typed { margin: 0; font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.g-ret-frame { --rc: var(--g-line); position: absolute; inset: 0; display: block; pointer-events: none; border: var(--g-hair) var(--g-ret-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-ret-side)); border-right-width: calc(var(--g-hair) * var(--g-ret-side)); border-radius: var(--g-radius-mark);
+  background:
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) top right / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom left / var(--g-ret-weight) var(--g-ret-arm) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-arm) var(--g-ret-weight) no-repeat,
+    linear-gradient(var(--rc), var(--rc)) bottom right / var(--g-ret-weight) var(--g-ret-arm) no-repeat; }
+.g-lock { position: absolute; left: 0; top: 0; z-index: 5; display: block; pointer-events: none; }
+.g-lock[hidden] { display: none; }
+.g-lock[data-state="watch"] > .g-ret-frame { --rc: var(--g-ink-2); }
+.g-lock[data-state="attend"] > .g-ret-frame { --rc: var(--g-accent); border-style: solid; border-color: var(--g-accent); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-ret-side)); box-shadow: 0 0 calc(var(--g-mark-glow) * var(--g-glow-floor)) rgba(var(--g-accent-rgb), .45); }
+.g-lock[data-state="warn"] > .g-ret-frame { --rc: var(--g-amber); border-style: solid; border-color: var(--g-amber); border-width: var(--g-stroke) calc(var(--g-stroke) * var(--g-ret-side)); }
+.g-plate { display: block; padding: var(--g-s-2); background: var(--g-plate-fill); border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-left-width: calc(var(--g-hair) * var(--g-plate-side)); border-right-width: calc(var(--g-hair) * var(--g-plate-side)); border-radius: var(--g-radius-key); box-shadow: var(--g-plate-shadow); }
+.g-plate.strong { background: var(--g-plate-strong-fill); box-shadow: var(--g-front-shadow); }
+.g-plate > .g-tag { padding-left: 0; padding-right: 0; background: none; }
+.g-key { display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-width: var(--g-target); min-height: var(--g-target); padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); white-space: nowrap; }
+.g-key.fill { background: var(--g-ink-1); border-color: var(--g-ink-1); color: var(--g-canvas); }
+.g-key.ghost { background: transparent; }
+.g-key.on { border-color: var(--g-accent); color: var(--g-accent-text); background: var(--g-plate-strong-fill); }
+.g-key svg { width: var(--g-icon-small); height: var(--g-icon-small); fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+.g-sight { position: absolute; left: 0; top: 0; z-index: 2; overflow: visible; pointer-events: none; }
+.g-sight-line { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); stroke-dasharray: var(--g-sight-dash); }
+.g-sight-dot { fill: var(--g-accent); }
+
+/* ---- the top of a screen: the stamp line (its point of view), then what I say */
+.top { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); top: 62px; }
+.top > * + * { margin-top: var(--g-s-half); }
+.top .say { margin-top: var(--g-s-1); font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); font-family: var(--g-face-say); }
+.top .say2 { margin-top: var(--g-s-half); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+.top .title { margin-top: var(--g-s-1); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); }
+.top .back { position: absolute; right: 0; top: 40px; }
+
+/* ---- the orb in the middle (131): the real hologram's canvas, placed by the scan's camera (data-at) */
+.orb { position: absolute; z-index: 3; pointer-events: none; }
+.orb canvas { display: block; width: 100%; height: 100%; }
+
+/* ---- a thing in the room as the Machine marks it: a reticle he can press (placed by data-box), its tag above, one true line below */
+.ret { position: absolute; z-index: 2; box-sizing: border-box; padding: 0; margin: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ret > .g-ret-frame { inset: 0; }
+.ret > .g-tag { max-width: none; position: absolute; left: calc(-1 * var(--g-stroke)); bottom: calc(100% + 4px); }
+.ret > .g-truth { position: absolute; left: calc(-1 * var(--g-stroke)); top: calc(100% + 4px); background: var(--g-plate-fill); padding: 1px 6px 2px; white-space: nowrap; }
+.ret.r > .g-tag, .ret.r > .g-truth { left: auto; right: calc(-1 * var(--g-stroke)); }
+.ret.below > .g-tag { bottom: auto; top: calc(100% + 4px); }
+.ret.below > .g-truth { top: calc(100% + 26px); }
+.ret.on > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+.ret.warn > .g-ret-frame { --rc: var(--g-amber); border: var(--g-stroke) solid var(--g-amber); }
+.ret.full:not(.on):not(.warn) > .g-ret-frame { border: var(--g-stroke) solid var(--g-line); }
+.ret .g-tag { pointer-events: none; }
+/* a leader from a callout at the screen's edge to its thing in the room */
+.lead { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible; }
+.lead path { fill: none; stroke: var(--g-line-faint); stroke-width: 1; }
+.lead circle { fill: var(--g-line); }
+.lead.on path { stroke: var(--g-accent); }
+.lead.on circle { fill: var(--g-accent); }
+/* a callout: NOW, the thing of the hour: its tag, the thing's name, one true line, and the one key */
+.co { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); max-width: 300px; }
+.co.r { align-items: flex-end; text-align: right; }
+.co .big { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-plate-fill); padding: 3px 6px 4px; }
+.co .g-truth { background: var(--g-plate-fill); padding: 1px 6px 2px; }
+.co .g-key { margin-top: var(--g-s-half); }
+
+/* ---- the plan of the house: the tab bar of this HUD, drawn as the Machine draws a building (a plan with door gaps, the room he is in lit) */
+.plan { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(8px + 48px + 16px + 16px); }
+.plan .kick { display: flex; justify-content: space-between; margin-bottom: var(--g-s-1); }
+.plan .rooms { display: flex; height: 56px; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-fill); border-radius: var(--g-radius-key); }
+.plan .rooms button { position: relative; flex: 1 1 0; min-width: var(--g-target); min-height: var(--g-target); margin: 0; padding: 0 0 6px 6px; border: 0; border-left: var(--g-stroke) solid var(--g-line); background: none; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); display: flex; align-items: flex-end; justify-content: flex-start; }
+.plan .rooms button:first-child { border-left: 0; }
+.plan .rooms button::after { content: ''; position: absolute; left: -2px; top: 16px; width: 3px; height: 14px; background: var(--g-plate-fill); } /* a door in the wall */
+.plan .rooms button:first-child::after { display: none; }
+.plan .rooms button.w2 { flex-grow: 1.5; }
+.plan .rooms button.here { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.plan .rooms button.here i { position: absolute; right: 7px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--g-accent); }
+.plan .rooms button b { position: absolute; right: 6px; top: 6px; font: var(--g-t-fine); color: var(--g-ink-4); font-weight: 500; }
+
+/* ---- the ask line: where a typed word goes; the mic at its end */
+.ask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(8px + 16px); height: 48px; display: flex; align-items: stretch; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-strong-fill); border-radius: var(--g-radius-key); }
+.ask .field { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 14px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-3); white-space: nowrap; overflow: hidden; }
+.ask .field.typed { color: var(--g-ink-1); }
+.ask .field .caret { display: inline-block; width: 2px; height: 20px; margin-left: 2px; background: var(--g-accent); }
+.ask .mic { width: 48px; flex: none; display: grid; place-items: center; border-left: var(--g-stroke) solid var(--g-line); color: var(--g-ink-1); }
+.ask .mic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ask.up { bottom: 300px; }
+
+/* ---- the house unfolded (one tap on THE HOUSE): every room with its things numbered, the room he is in lit: the visible list */
+.house { position: absolute; z-index: 7; left: var(--g-gutter); right: var(--g-gutter); top: 104px; bottom: calc(8px + 48px + 24px); display: grid; grid-template-columns: 1fr 1fr 1fr; grid-auto-rows: auto; gap: 0; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-fill); border-radius: var(--g-radius-key); box-shadow: var(--g-front-shadow); }
+.house .room { position: relative; padding: 6px 6px 8px; border-left: var(--g-stroke) solid var(--g-line); border-top: var(--g-stroke) solid var(--g-line); min-width: 0; }
+.house .room.hall { grid-column: 1 / -1; border-top: 0; display: flex; align-items: center; gap: var(--g-s-3); padding: 4px 10px; }
+.house .room.hall .rn { margin: 0; flex: none; gap: 8px; }
+.house .room:nth-child(2), .house .room.hall { border-left: 0; }
+.house .room:nth-child(5) { border-left: 0; }
+.house .room::before { content: ''; position: absolute; left: 24px; top: -2px; width: 22px; height: 3px; background: var(--g-plate-fill); } /* the door from the hall */
+.house .room.hall::before { display: none; }
+.house .room.here { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.house .room .rn { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.house .room .rn .g-tag { padding: 0; background: none; }
+.house .room.here .rn .g-tag { color: var(--g-accent-text); }
+.house .room .rn small { font: var(--g-t-fine); color: var(--g-ink-4); }
+.house .thing { width: 100%; display: flex; align-items: center; gap: 4px; min-height: 40px; font: 500 13px/16px var(--g-font-mono); letter-spacing: var(--g-tr-mono); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; }
+.house .thing .g-index { min-width: 2ch; }
+.house .thing svg { width: 12px; height: 12px; flex: none; fill: none; stroke: var(--g-ink-3); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.house .thing.now { color: var(--g-accent-text); }
+.house .thing i.w { width: 6px; height: 6px; border-radius: 50%; background: var(--g-amber); flex: none; }
+.house .hall .thing { width: auto; min-height: 40px; }
+
+/* ---- the jump bar (one tap on the ask line): FAVOURITES and RECENT above the keyboard; then the search and the lock */
+.jump { position: absolute; z-index: 7; left: var(--g-gutter); right: var(--g-gutter); bottom: 364px; }
+.jump .kick { display: flex; justify-content: space-between; margin: 0 0 var(--g-s-1); }
+.jump .row { display: flex; flex-wrap: wrap; gap: var(--g-s-1); margin-bottom: var(--g-s-2); }
+.jump .row .g-key { padding: 0 12px; }
+.jump .row .g-key .g-index { color: var(--g-ink-4); }
+.jump .found { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: var(--g-s-2); min-height: 64px; padding: 10px 12px; margin: 0 0 var(--g-s-1); background: var(--g-plate-strong-fill); }
+.jump .found .n { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jump .found .n b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+.jump .found .n span { font: var(--g-t-caption); color: var(--g-ink-2); }
+.jump .dim { background: var(--g-plate-fill); display: flex; align-items: center; gap: var(--g-s-2); min-height: 44px; padding: 0 12px; color: var(--g-ink-3); font: var(--g-t-caption); }
+.jump .dim b { font: var(--g-t-reading); color: var(--g-ink-2); font-weight: 500; }
+/* the keyboard (iOS's, stood in for): drawn in the tokens' plates, as the phone draws it over any app */
+.kb { position: absolute; z-index: 8; left: 0; right: 0; bottom: 0; height: 300px; background: var(--g-plate); border-top: var(--g-hair) solid var(--g-line-faint); padding: 8px 4px 0; }
+.kb .r { display: flex; justify-content: center; gap: 6px; margin-bottom: 11px; }
+.kb .k { width: 36px; height: 42px; border-radius: 5px; background: var(--g-plate-strong); color: var(--g-ink-1); display: grid; place-items: center; font: 400 22px/1 var(--g-font-text); box-shadow: 0 1px 0 rgba(0, 0, 0, .35); }
+.kb .k.w { width: 46px; font: 500 15px/1 var(--g-font-text); background: var(--g-canvas); }
+.kb .k.sp { width: 188px; }
+.kb .k.go { width: 92px; font: 500 15px/1 var(--g-font-text); background: var(--g-accent); color: var(--g-canvas); }
+.kb .k.go.off { background: var(--g-canvas); color: var(--g-ink-1); }
+
+/* ---- a hub: the room as a band, then the Machine's inventory of it: at hand (recent and starred), then the rest, numbered */
+.inv { position: absolute; z-index: 4; left: var(--g-gutter); right: var(--g-gutter); }
+.inv .kick { display: flex; justify-content: space-between; margin: 0 0 var(--g-s-half); }
+.inv-row { width: 100%; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; column-gap: var(--g-s-1); min-height: 60px; padding: 6px 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+.inv-row .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-row .body .g-tag { background: none; padding: 0; }
+.inv-row .ttl { font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+.inv-row .reads { display: flex; gap: 16px; }
+.rd { display: flex; flex-direction: column; gap: 2px; }
+.rd .l { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+.rd .v { font: var(--g-t-reading); color: var(--g-ink-1); font-variant-numeric: var(--g-num); white-space: nowrap; }
+.rd .v small { font: var(--g-t-fine); color: var(--g-ok); margin-left: 4px; }
+.inv-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: var(--g-hair) solid var(--g-line-faint); }
+.inv-mini { width: 100%; display: grid; grid-template-columns: 28px 1fr; column-gap: var(--g-s-half); min-height: 56px; padding: 6px 0; border-bottom: var(--g-hair) solid var(--g-line-faint); }
+.inv-mini:nth-child(odd) { border-right: var(--g-hair) solid var(--g-line-faint); }
+.inv-mini:nth-child(even) { padding-left: 10px; }
+.inv-mini .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-mini .body .g-tag { background: none; padding: 0; }
+.inv-mini .body .g-truth { text-transform: none; letter-spacing: var(--g-tr-mono); font: var(--g-t-reading); color: var(--g-ink-2); }
+.inv-mini .works { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-amber); }
+
+/* ---- a page brought to the front of the room (Settings, Theme, Every screen): a strong plate with the list on it */
+.page { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); top: 150px; bottom: calc(8px + 48px + 16px + 16px + 56px + 32px + 16px); background: var(--g-plate-strong-fill); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); box-shadow: var(--g-front-shadow); overflow: hidden; }
+.page.tall { bottom: calc(8px + 48px + 16px + 16px); }
+.page .sec { padding: 10px 14px 4px; display: flex; justify-content: space-between; align-items: baseline; border-top: var(--g-hair) solid var(--g-line-faint); }
+.page .sec:first-child { border-top: 0; }
+.page .sec .g-tag { padding: 0; background: none; }
+.page .sec small { font: var(--g-t-fine); color: var(--g-ink-4); }
+.page .row { width: 100%; display: grid; grid-template-columns: 28px 1fr auto 12px; align-items: center; column-gap: var(--g-s-1); min-height: 52px; padding: 4px 14px; border-top: var(--g-hair) solid var(--g-line-faint); }
+.page .row:first-of-type, .page .sec + .row { border-top: 0; }
+.page .row .n { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.page .row .n b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+.page .row .n span { font: var(--g-t-caption); color: var(--g-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page .row .st { font: var(--g-t-reading); color: var(--g-ink-2); white-space: nowrap; }
+.page .row .st.on { color: var(--g-accent-text); }
+.page .row .chev { width: 12px; height: 12px; fill: none; stroke: var(--g-ink-4); stroke-width: 1.6; stroke-linecap: round; }
+.page .row.now { box-shadow: inset var(--g-stroke) 0 0 var(--g-accent); }
+.page .row .g-index { align-self: center; }
+/* the Theme page: three choices only (155): the HUD, the colour, the ground */
+.theme .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-s-1); padding: 6px 14px 14px; }
+.theme .tile { width: 100%; position: relative; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; min-height: 80px; padding: 8px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); overflow: hidden; }
+.theme .tile.on { border: var(--g-stroke) solid var(--g-accent); background: var(--g-plate-strong-fill); }
+.theme .tile b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
+.theme .tile.on b { color: var(--g-accent-text); }
+.theme .tile small { font: var(--g-t-fine); color: var(--g-ink-3); text-transform: uppercase; letter-spacing: var(--g-tr-tag); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme .tile .pv { position: absolute; left: 8px; right: 8px; top: 8px; height: 22px; pointer-events: none; }
+.theme .tile .pv.scan { background-color: rgba(var(--g-bone-rgb), .5); -webkit-mask: var(--g-floor-mask) 0 0 / 8px 8px repeat; mask: var(--g-floor-mask) 0 0 / 8px 8px repeat; }
+.theme .tile .pv.map { background: repeating-linear-gradient(90deg, rgba(var(--g-bone-rgb), .5) 0 1px, transparent 1px 8px), repeating-linear-gradient(0deg, rgba(var(--g-bone-rgb), .5) 0 1px, transparent 1px 8px); }
+.theme .tile .pv.eye { background: radial-gradient(circle at 50% 50%, rgba(var(--g-bone-rgb), .9) 0 2px, transparent 3px), repeating-linear-gradient(45deg, rgba(var(--g-bone-rgb), .2) 0 1px, transparent 1px 3px); }
+.theme .tile .pv.ink { border-top: 1px solid rgba(var(--g-bone-rgb), .8); border-bottom: 1px solid rgba(var(--g-bone-rgb), .8); }
+.theme .tile .pv.glass { border-radius: 10px; background: rgba(var(--g-bone-rgb), .08); box-shadow: inset 0 0 0 1px rgba(var(--g-bone-rgb), .25); }
+.theme .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-s-1); padding: 6px 14px 14px; }
+.theme .sw { width: 100%; min-width: 0; overflow: hidden; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+.theme .sw i { width: 14px; height: 14px; border-radius: 50%; background: var(--g-accent); flex: none; box-shadow: 0 0 10px rgba(var(--g-accent-rgb), .6); }
+.theme .sw b { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme .sw.on { border: var(--g-stroke) solid var(--g-accent); }
+.theme .sw.on b { color: var(--g-ink-1); }
+.theme .grounds { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-s-1); padding: 6px 14px 14px; }
+.theme .gr { width: 100%; position: relative; min-height: 72px; padding: 8px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-canvas); color: var(--g-ink-1); display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.theme .gr::before { content: ''; position: absolute; inset: 0; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / 8px 8px repeat; mask: var(--g-floor-mask) 0 0 / 8px 8px repeat; }
+.theme .gr b { position: relative; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; }
+.theme .gr small { position: relative; font: var(--g-t-fine); color: var(--g-ink-3); }
+.theme .gr.on { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.theme .gr i { position: relative; display: block; width: 22px; height: 22px; border-radius: 50%; margin-bottom: 6px; background: radial-gradient(circle at 50% 50%, var(--g-accent) 0 3px, transparent 4px), radial-gradient(circle, transparent 7px, rgba(var(--g-accent-rgb), .9) 8px, transparent 9px); }
+
+/* ---- the Lens that just knows: the viewfinder is the whole screen; one line under it at most */
+.lens-line { position: absolute; z-index: 5; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(8px + 48px + 16px + 12px); }
+.lens-line .g-truth { display: inline-block; background: var(--g-plate-fill); padding: 3px 6px 4px; }
+.lens .top { top: 60px; }
+.lens .g-stamp { display: inline; padding: 2px 6px; background: var(--g-plate-fill); -webkit-box-decoration-break: clone; box-decoration-break: clone; line-height: 20px; }
+/* the words of a page, shown beside it as the Lens read them (the act in place): a strong plate, the reading face */
+.read { position: absolute; z-index: 4; background: var(--g-plate-strong-fill); border: var(--g-stroke) solid var(--g-accent); border-radius: var(--g-radius-key); padding: 10px 12px; box-shadow: var(--g-front-shadow); }
+.read .g-tag { padding: 0; background: none; margin-bottom: 4px; }
+.read p { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+.read p .on { color: var(--g-accent-text); text-decoration: underline; text-decoration-color: var(--g-accent); text-underline-offset: 3px; }
+/* a translation drawn in the sign's own place: the words replaced, the box in the accent */
+.inplace { position: absolute; z-index: 4; display: grid; place-items: center; background: var(--g-plate-strong-fill); border: var(--g-stroke) solid var(--g-accent); font: 700 26px/30px var(--g-font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--g-ink-1); text-align: center; padding: 6px 10px; }
+.inplace small { display: block; font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); margin-top: 2px; }
+
+/* ---- the boot: the name under the box, TAP TO SKIP, the feeds' lines */
+.name { position: absolute; z-index: 4; left: 0; right: 0; margin: 0; padding-left: .5em; text-align: center; font: var(--g-t-value); letter-spacing: .5em; color: var(--g-ink-1); white-space: nowrap; }
+.skip { position: absolute; z-index: 4; left: 0; right: 0; bottom: 56px; margin: 0; text-align: center; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-4); }
+.feeds { margin-top: var(--g-s-1); }
+.feeds > * + * { margin-top: var(--g-s-half); }
+.hud { position: absolute; z-index: 6; left: 0; right: 0; bottom: 0; height: 200px; }
+
+/* ---- the contact sheet: the frames with their captions, in the system's type on the canvas */
+html:has(.sheet) { overflow: visible; }
+.sheet { width: auto; height: auto; overflow: visible; padding: 32px 36px 40px; }
+.sheet h1 { margin: 0 0 4px; font: var(--g-t-display); letter-spacing: var(--g-tr-display); }
+.sheet h2 { margin: 36px 0 12px; font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); }
+.sheet h2 .g-tag { margin-right: 10px; vertical-align: middle; }
+.sheet .lede { margin: 0 0 8px; font: var(--g-t-body); color: var(--g-ink-2); max-width: 1180px; }
+.sheet .row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.sheet figure { margin: 0; width: 264px; flex: none; }
+.sheet figure img { display: block; width: 264px; height: auto; border: var(--g-hair) solid var(--g-line-faint); }
+.sheet figcaption { margin-top: 10px; }
+.sheet figcaption .g-tag { margin-bottom: 4px; }
+.sheet figcaption .what { margin: 4px 0 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+.sheet .bar { display: flex; height: 6px; margin: 0 0 20px; border: var(--g-hair) solid var(--g-line-faint); }
+.sheet .bar i { display: block; height: 100%; border-left: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate-strong); }
+.sheet .bar i:first-child { border-left: 0; }
+.sheet .ticks { position: relative; height: 20px; margin: 0 0 8px; }
+.sheet .ticks u { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; text-decoration: none; font: var(--g-t-fine); color: var(--g-ink-3); }
+.sheet .ticks u:last-child { transform: translateX(-100%); }
