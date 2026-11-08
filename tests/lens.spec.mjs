@@ -5,7 +5,8 @@
 // gesture recogniser, ASK sends a still to the brain and shows its reply (the mock model answers
 // "I can see a picture"), NAME's LIVING THING and ASK's WHAT'S IN IT? make their cards (the mock model's
 // robin and plate of fish and chips; PLANT with no Pl@ntNet key), and the security policy lets the vendored WebAssembly run.
-// THE ONE LENS (BRIEF-LENS; the last section): the camera shows a test card (a line of text, a QR code, a lemon; tests/fixtures/lenscard.mjs) and
+// THE LENS THAT JUST KNOWS (BRIEF-LENS-KNOWS, the last section): no key on the picture; the words of print by themselves in the WHAT IT SAYS plate, a French sign translated by itself (words only) and drawn over it, a code as a LINK, the honest line as the one key.
+// THE ONE LENS (BRIEF-LENS; the section before it): the camera shows a test card (a line of text, a QR code, a lemon; tests/fixtures/lenscard.mjs) and
 // the Lens opens on ONE view that tags what it sees in the Machine's marks: text and a code stand with their keys within two seconds of the
 // first look, the object says "looks like a …" only after the heavy pass (which waits for his tap on GET THE EYES and for a steady frame),
 // a tap on the text tag reads it into the library, a tap on the code tag shows what SCAN shows, the tags go two seconds after the picture
@@ -16,6 +17,7 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openDeck } from './nav.mjs';
 import { makeCardVideo } from './fixtures/lenscard.mjs';
+import { cardCamera, qrPng } from './fixtures/lenscards.mjs';
 
 const t0spec = Date.now();
 const out = process.argv[2] ?? 'tests/.shots';
@@ -397,19 +399,19 @@ if (warm.textMs <= 0 || warm.textMs >= 4) problems.push(`the text-present check 
 const text = tagged.tags.find((t) => t.kind === 'text');
 const code = tagged.tags.find((t) => t.kind === 'code');
 if (text?.truth !== 'I see text — tap to read it') problems.push(`the text tag says "${text?.truth}"`);
-if (text?.acts.join() !== 'READ,TRANSLATE,ASK') problems.push(`the text tag offers ${text?.acts}`);
+if (text?.acts.length) problems.push(`the text tag offers keys on the picture: ${text?.acts}`);
 if (code?.truth !== 'a web address') problems.push(`the code tag says "${code?.truth}"`);
-if (code?.acts.join() !== 'LOOK,ASK') problems.push(`the code tag offers ${code?.acts}`);
+if (code?.acts.length) problems.push(`the code tag offers keys on the picture: ${code?.acts}`);
 if (tagged.tags.some((t) => /looks like/i.test(t.truth))) problems.push('an object was named before the heavy pass ran');
 if (tagged.tags.some((t) => t.kind === 'object') && tagged.finder !== 'ready') problems.push('an object tag stands before the object finder was loaded');
 if (tagged.finder !== 'off' || tagged.namer !== 'off' || !/DEGRADED/i.test(await markWords())) problems.push(`before the tap, the finder is "${tagged.finder}", the namer "${tagged.namer}" and the mark "${await markWords()}"`);
 // ONE TAG FOR EACH KIND, ONE ROW OF KEYS (THE LENS HOTFIX): the text once with READ · TRANSLATE · ASK, the code once with LOOK · ASK, at most three tags
 if (tagged.tags.filter((t) => t.kind === 'text').length !== 1 || tagged.tags.filter((t) => t.kind === 'code').length !== 1 || tagged.tags.length > 3) problems.push(`not one tag for each kind: ${JSON.stringify(tagged.tags.map((t) => t.kind))}`);
-const rows = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder[data-kind]')].filter((e) => !e.hidden).map((e) => `${e.dataset.kind}:${[...e.querySelectorAll('button.g-key')].map((b) => b.textContent.trim()).join('·')}`));
-if (rows.length !== 2 || rows.filter((r) => r.startsWith('text:')).length !== 1) problems.push(`the key rows on screen: ${JSON.stringify(rows)}`);
+const keysOnPicture = await p2.evaluate(() => document.querySelectorAll('#pg-lens .lenstagunder, #pg-lens .lenstags button.g-key, #pg-lens .lensview button.g-key').length);
+if (keysOnPicture) problems.push(`${keysOnPicture} key(s) or key rows on the picture: there are none in the one view that just knows`);
 // the tags are drawn in the Machine's marks: a reticle, a tag, a true line, a key (in the DOM, over the video)
-const marks = await p2.evaluate(() => ({ ret: document.querySelectorAll('#pg-lens .lenstags .g-ret[data-g="reticle"]').length, tag: document.querySelectorAll('#pg-lens .lenstags [data-g="tag"]').length, truth: document.querySelectorAll('#pg-lens .lenstagunder [data-g="truth"]').length, key: document.querySelectorAll('#pg-lens .lenstagunder button.g-key').length, over: !!document.querySelector('#pg-lens .lensview > .lenstags') }));
-if (marks.ret < 2 || marks.tag < 2 || marks.truth < 2 || marks.key < 4 || !marks.over) problems.push(`the tags are not the Machine's marks over the video: ${JSON.stringify(marks)}`);
+const marks = await p2.evaluate(() => ({ ret: document.querySelectorAll('#pg-lens .lenstags .g-ret[data-g="reticle"]').length, tag: document.querySelectorAll('#pg-lens .lenstags [data-g="tag"]').length, truth: document.querySelectorAll('#pg-lens .lensknow [data-g="truth"]').length, over: !!document.querySelector('#pg-lens .lensview > .lenstags') }));
+if (marks.ret < 2 || marks.tag < 2 || marks.truth !== 1 || !marks.over) problems.push(`the tags are not the Machine's marks over the video, with the one true line under it: ${JSON.stringify(marks)}`);
 await p2.screenshot({ path: `${out}/lens-one-tags.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the tags: ${e.message.split('\n')[0]}`));
 // nothing sideways and every control 44 pt, at 440 and at 390
 let bad = await small();
@@ -420,7 +422,7 @@ await p2.waitForTimeout(1200);
 bad = await small();
 if (bad.length) problems.push(`controls under 44 pt at 390: ${bad.join(', ')}`);
 if (await sideways()) problems.push('the one view is wider than the phone at 390');
-const edge = await p2.evaluate(() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); return [...document.querySelectorAll('#pg-lens .lenstag, #pg-lens .lenstagunder')].filter((e) => !e.hidden).map((e) => e.getBoundingClientRect()).filter((r) => r.left < v.left - 1 || r.right > v.right + 1).length; });
+const edge = await p2.evaluate(() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); return [...document.querySelectorAll('#pg-lens .lenstag, #pg-lens .lensplate:not([hidden]), #pg-lens .lensinplace:not([hidden])')].map((e) => e.getBoundingClientRect()).filter((r) => r.left < v.left - 1 || r.right > v.right + 1).length; });
 if (edge) problems.push(`${edge} tag(s) stick out of the viewfinder at 390`);
 await p2.screenshot({ path: `${out}/lens-one-390.png`, timeout: 90000 }).catch(() => undefined);
 await p2.setViewportSize(PHONE);
@@ -458,7 +460,7 @@ if ((await one()).namer !== 'off') problems.push(`the namer is "${(await one()).
 await until2(() => window.__ghosty.one.heavyPasses >= 1, 120000, `the object finder did not run alone on the steady frame: ${JSON.stringify(await one().then((o) => ({ finder: o.finder, passes: o.heavyPasses })))}`);
 const alone = await one();
 if (alone.tags.some((t) => /looks like/i.test(t.truth))) problems.push(`"looks like" with the namer off: ${JSON.stringify(alone.tags.map((t) => t.truth))}`);
-if (alone.tags.find((t) => t.kind === 'object')?.acts.includes('NAME IT')) problems.push('NAME IT is offered with the namer off');
+if (alone.tags.find((t) => t.kind === 'object')?.tag.startsWith('A ')) problems.push('an object is named (A …) with the namer off');
 await p2.screenshot({ path: `${out}/lens-one-finder.png`, timeout: 90000 }).catch(() => undefined);
 
 // ---- the namer cannot start (the iPhone's failure, made by the namer's worker: WebKit is not here, his phone is the real check): words, TRY AGAIN, no loop
@@ -494,7 +496,7 @@ await p2.evaluate(() => { window.__ghostyNamerFail = ''; });
 await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /^looks like (a|an) lemon/i.test(t.truth)), 120000, `the object was not named after the namer started: ${JSON.stringify((await one()).tags.map((t) => `${t.kind}:${t.truth}`))}`);
 const named = await one();
 const obj = named.tags.find((t) => t.kind === 'object');
-if (obj && obj.acts.join() !== 'NAME IT,ASK,MEASURE') problems.push(`the named object offers ${obj.acts}`);
+if (obj && (obj.acts.length || !/^A (LEMON|LIME|BANANA|ORANGE|APPLE|FRUIT)/i.test(obj.tag))) problems.push(`the named object is tagged "${obj.tag}" with ${obj.acts.length} keys: want a plate like A LEMON and no key`);
 console.log(`one view: heavy pass ${named.heavyMs} ms (${named.heavyPasses} so far); the text, the code and the object stand together: ${kinds(named)}`);
 if (named.tags.length > 3 || kinds(named) !== 'code,object,text') problems.push(`the tags standing together: ${kinds(named)}`);
 await p2.screenshot({ path: `${out}/lens-one-named.png`, timeout: 90000 }).catch(() => undefined);
@@ -503,7 +505,7 @@ const ctxLine = await p2.evaluate(() => window.__ghosty.awareness.wordsNow());
 if (!/^On screen: the Lens, camera on: \d tags?: /.test(ctxLine)) problems.push(`the Lens tells the brain: "${ctxLine}"`);
 
 // ---- a tap on the text tag reads it into the library (as READ did); the key does the same
-await p2.locator('#pg-lens .lenstagunder[data-kind="text"] button.g-key', { hasText: /^READ$/ }).first().click();
+await p2.locator('#pg-lens .lenstag[data-kind="text"] .g-ret').first().click();
 await until2(() => window.__ghosty.lens.mode === 'read', 8000, `the READ key did not open READ: ${JSON.stringify(await L2())}`);
 await until2(() => /GHOSTY READS THIS/i.test(window.__ghosty.lens.ocrText ?? ''), 120000, `READ did not read the tagged text: ${JSON.stringify(await L2())}`);
 const savedOne = p2.waitForResponse((r) => r.url().includes('/api/library/text'), { timeout: 20000 }).catch(() => null);
@@ -515,7 +517,7 @@ await p2.locator('#pg-lens .lensbar .lensback').click();
 await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return to the one view');
 // ---- a tap on the code tag does what SCAN did: the web address, its real site, the warning, never opened
 await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'code'), 60000, 'the code tag did not come back after READ');
-await p2.locator('#pg-lens .lenstags .g-ret[aria-label^="A code"]').first().click();
+await p2.locator('#pg-lens .lenstag[data-kind="code"] .g-ret').first().click();
 await until2(() => window.__ghosty.lens.mode === 'scan', 8000, `a tap on the code tag did not open SCAN: ${JSON.stringify(await L2())}`);
 await until2(() => (window.__ghosty.scan?.codes ?? []).some((c) => c.kind === 'url'), 20000, `SCAN did not show the tagged code: ${JSON.stringify(await p2.evaluate(() => window.__ghosty.scan?.codes))}`);
 const scanned = await p2.evaluate(() => window.__ghosty.scan.codes.at(-1));
@@ -527,7 +529,7 @@ await until2(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did
 
 // ---- NAME IT on the object tag opens NAME on the crop: the closest names, "lemon" first (the card as before)
 await until2(() => window.__ghosty.one.tags.some((t) => t.kind === 'object' && /lemon/i.test(t.truth)), 120000, 'the object tag did not come back for NAME IT');
-await p2.locator('#pg-lens .lenstagunder[data-kind="object"] button.g-key', { hasText: /^NAME IT$/ }).first().click();
+await p2.evaluate(() => window.__ghosty.send('name it', false));
 await until2(() => window.__ghosty.lens.mode === 'name', 8000, `NAME IT did not open NAME: ${JSON.stringify(await L2())}`);
 await until2(() => (window.__ghosty.lens.names ?? []).some((n) => /lemon/i.test(n.label)), 120000, `NAME did not name the tagged crop a lemon: ${JSON.stringify(await p2.evaluate(() => window.__ghosty.lens.names))}`);
 await p2.locator('#pg-lens .lensbar .lensback').click();
@@ -579,9 +581,10 @@ await ctx2.setOffline(true);
 await until2(() => document.querySelector('#pg-lens .lensmark')?.textContent?.trim() === 'OFFLINE', 8000, `going offline did not put OFFLINE on the bar: "${await markWords()}"`);
 await p2.waitForTimeout(500);
 const off = await one();
-const greyedKeys = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder button.g-key')].map((b) => `${b.textContent.trim()}:${b.disabled ? 'off' : 'on'}`));
-if (!greyedKeys.some((k) => k === 'ASK:off') || !greyedKeys.some((k) => k === 'TRANSLATE:off')) problems.push(`offline, ASK and TRANSLATE are not greyed: ${greyedKeys}`);
-if (greyedKeys.some((k) => /^(READ|LOOK|NAME IT|MEASURE):off$/.test(k))) problems.push(`offline, a key that needs no signal is greyed: ${greyedKeys}`);
+// (the click is sent to the thing's own reticle: the words plate may stand over part of it)
+await p2.locator('#pg-lens .lenstag[data-kind="object"] .g-ret').first().dispatchEvent('click');
+await until2(() => /offline/i.test(window.__ghosty.one.said), 5000, `offline, a tap on the thing did not say it needs a signal: "${(await one()).said}"`);
+if ((await p2.evaluate(() => document.querySelectorAll('#pg-lens .lenstagunder, #pg-lens .lenstags button.g-key').length))) problems.push('offline, a key stands on the picture');
 if (!off.tags.length) problems.push('offline, the tags went (the cheap pass needs no signal)');
 await p2.screenshot({ path: `${out}/lens-one-offline.png`, timeout: 90000 }).catch(() => undefined);
 await ctx2.setOffline(false);
@@ -644,27 +647,29 @@ try {
       w.text = Math.max(w.text, o.tags.filter((t) => t.kind === 'text').length);
       w.code = Math.max(w.code, o.tags.filter((t) => t.kind === 'code').length);
       w.all = Math.max(w.all, o.tags.length);
-      const rows = (k) => [...document.querySelectorAll(`#pg-lens .lenstagunder[data-kind="${k}"]`)].filter((e) => !e.hidden && e.querySelector('button.g-key')).length;
-      w.textRows = Math.max(w.textRows, rows('text'));
-      w.codeRows = Math.max(w.codeRows, rows('code'));
+      const rows = () => document.querySelectorAll('#pg-lens .lenstagunder, #pg-lens .lensview button.g-key').length;
+      w.textRows = Math.max(w.textRows, rows());
+      w.codeRows = 0;
       if (performance.now() - t0 < 4000) requestAnimationFrame(f); else ok(w);
     };
     requestAnimationFrame(f);
   }));
-  if (worst.text !== 1 || worst.code !== 1 || worst.all > 3 || worst.textRows !== 1 || worst.codeRows !== 1) problems.push(`on a page of print: the most at once were ${JSON.stringify(worst)} (want one text tag, one code tag, one row each, three at most)`);
-  const rows3 = await p3.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstagunder[data-kind]')].filter((e) => !e.hidden).map((e) => `${e.dataset.kind}:${[...e.querySelectorAll('button.g-key')].map((b) => b.textContent.trim()).join('·')}`));
-  if (rows3.sort().join('|') !== 'code:LOOK·ASK|text:READ·TRANSLATE·ASK') problems.push(`the key rows on the page of print: ${JSON.stringify(rows3)}`);
+  if (worst.text !== 1 || worst.code !== 1 || worst.all > 3 || worst.textRows !== 0) problems.push(`on a page of print: the most at once were ${JSON.stringify(worst)} (want one text tag, one code tag, three at most, no key on the picture)`);
+  const rows3 = await p3.evaluate(() => [...document.querySelectorAll('#pg-lens .lenstag[data-kind]')].map((e) => `${e.dataset.kind}:${e.querySelector('[data-g="tag"]')?.textContent.trim()}`));
+  if (rows3.length !== 2 || !rows3.some((r) => r.startsWith('code:A LINK')) || !rows3.some((r) => r.startsWith('text:'))) problems.push(`the plates on the page of print: ${JSON.stringify(rows3)}`);
   // the keys sit inside the viewfinder and no key row covers another
   const geo = await p3.evaluate(() => {
     const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect();
-    const r = [...document.querySelectorAll('#pg-lens .lenstagunder')].filter((e) => !e.hidden && e.querySelector('button.g-key')).map((e) => e.getBoundingClientRect());
+    const r = [...document.querySelectorAll('#pg-lens .lenstag, #pg-lens .lensplate:not([hidden]), #pg-lens .lensinplace:not([hidden])')].map((e) => e.getBoundingClientRect());
     const out = r.filter((b) => b.left < v.left - 1 || b.right > v.right + 1 || b.top < v.top - 1 || b.bottom > v.bottom + 1).length;
-    let over = 0;
-    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) if (r[i].left < r[j].right && r[j].left < r[i].right && r[i].top < r[j].bottom && r[j].top < r[i].bottom) over++;
+    // the plate never covers the code's reticle (a tap on the code must still reach it)
+    const code = document.querySelector('#pg-lens .lenstag[data-kind="code"] .g-ret')?.getBoundingClientRect();
+    const pl = document.querySelector('#pg-lens .lensplate:not([hidden])')?.getBoundingClientRect();
+    const over = code && pl && code.left < pl.right && pl.left < code.right && code.top < pl.bottom && pl.top < code.bottom ? 1 : 0;
     return { out, over };
   });
-  if (geo.out || geo.over) problems.push(`on the page of print the keys stick out of the viewfinder (${geo.out}) or cover each other (${geo.over})`);
-  console.log(`page of print: at most ${worst.text} text tag, ${worst.code} code tag, ${worst.all} tags in all over four seconds; rows ${JSON.stringify(rows3)}`);
+  if (geo.out || geo.over) problems.push(`on the page of print the plates stick out of the viewfinder (${geo.out}) or cover the code (${geo.over})`);
+  console.log(`page of print: at most ${worst.text} text tag, ${worst.code} code tag, ${worst.all} tags in all over four seconds; plates ${JSON.stringify(rows3)}`);
   await p3.screenshot({ path: `${out}/lens-one-page.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the page of print: ${e.message.split('\n')[0]}`));
   await ctx3.close();
   await browser3.close();
@@ -672,6 +677,221 @@ try {
   problems.push(`the page-of-print section stopped: ${String(e.message).split('\n')[0]}`);
 }
 
+// ================================================================================================================================
+// ---- THE LENS THAT JUST KNOWS (BRIEF-LENS-KNOWS): the camera is the page's own (tests/fixtures/lenscards.mjs), so one visit can move from
+// a letter to a sign to a code to a mug. No key on the picture; the words of print stand in the WHAT IT SAYS plate by themselves (the OCR
+// READ already has, once for each steady scene), a tap on a word reads from it; a sign in French is translated by itself (the WORDS go to
+// the brain, never the picture) and drawn over the sign; a code is opened as what it is; with no eyes on the phone the one true line is the key.
+// ================================================================================================================================
+try {
+  const t0k = Date.now();
+  const ctx4 = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mobile/15E148 Safari/604.1', permissions: ['camera'] });
+  const p4 = await ctx4.newPage();
+  p4.on('pageerror', (e) => problems.push(`knows pageerror: ${e.message}`));
+  p4.on('console', (m) => {
+    const t = m.text();
+    if (m.type() === 'error' && !/favicon|net::ERR|404|500|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`knows console: ${t.slice(0, 200)}`);
+  });
+  await p4.addInitScript(cardCamera, { qr: qrPng() });
+  // what goes to the brain: every chat request, whole (the translation is the only one the Lens sends by itself)
+  const chats = [];
+  let chatMode = 'ok';
+  let chatDelay = 1800;
+  await p4.route('**/api/chat', async (route) => {
+    const req = route.request();
+    chats.push({ body: req.postDataJSON(), at: Date.now() });
+    await new Promise((r) => setTimeout(r, chatDelay));
+    if (chatMode === 'fail') return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'the brain is down' }) });
+    const words = /SALIDA|emergencia/i.test(JSON.stringify(req.postDataJSON())) ? 'EMERGENCY EXIT' : 'EMERGENCY EXIT';
+    return route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: words }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
+  });
+  await p4.goto(base);
+  await p4.fill('#pair input', 'preview-owner-key-0123456789');
+  await p4.click('#pair button.on');
+  await p4.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  // (a tap keeps the camera's door open for five seconds: the Lens is entered after, so nothing but START opens it)
+  // (an evaluate counts as a tap for five seconds, so the page moves itself from a timer, as the brain's own command would)
+  await p4.evaluate(() => setTimeout(() => (location.hash = 'lens'), 5500));
+  await p4.waitForTimeout(7000);
+  if ((await p4.evaluate(() => window.__ghosty.lens.camera)) !== 'off') problems.push('the camera opened by itself on entering the Lens');
+  const one4 = () => p4.evaluate(() => JSON.parse(JSON.stringify(window.__ghosty.one)));
+  const until4 = (fn, ms, what, arg = null) => p4.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
+  const truthText = () => p4.evaluate(() => [...document.querySelectorAll('#pg-lens .lensknow [data-g="truth"]')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()).join(' | '));
+  const stampText = () => p4.evaluate(() => document.querySelector('#pg-lens .lensstamp')?.textContent.replace(/\s+/g, ' ').trim() ?? '');
+  // (the stamp changes at most once a second: the checks wait for it)
+  const stampIs = async (re, what) => { const ok = await p4.waitForFunction((src) => new RegExp(src, 'i').test((document.querySelector('#pg-lens .lensstamp')?.textContent ?? '').replace(/\s+/g, ' ').split('·').pop().trim()), re.source, { timeout: 6000 }).then(() => true).catch(() => false); if (!ok) problems.push(`the stamp says "${await stampText()}", want ${what}`); };
+  const barButtons = () => p4.evaluate(() => [...document.querySelectorAll('#pg-lens .lensbar button')].filter((b) => !b.hidden && b.offsetParent !== null).map((b) => b.textContent.trim()));
+  const setCard = (name) => p4.evaluate((n) => window.__setCard(n), name);
+  // TEST 1: the one view before anything: no mode tiles, no key inside a tag, no plate in the middle, the camera's own bar and nothing else
+  const bar0 = await barButtons();
+  if (bar0.join(',') !== 'START,FLIP,FREEZE,MORE') problems.push(`the camera bar before START is ${JSON.stringify(bar0)}: want START, FLIP, FREEZE, MORE and nothing else`);
+  if (await p4.locator('#pg-lens .lensmodes').isVisible()) problems.push('the mode tiles are showing in the one view');
+  // (no eyes, nothing in view: the one true line IS the key, with its size and Wi-Fi said)
+  const honestKey = await p4.locator('#pg-lens .lensknow .lensget').textContent().catch(() => '');
+  if (!/^I CAN SEE TEXT, CODES AND THE PEOPLE I KNOW · GET THE EYES \(18 MB, ON WI-FI\)$/i.test((honestKey ?? '').trim())) problems.push(`the honest line says "${honestKey}"`);
+  if ((await p4.locator('#pg-lens .lensknow button.g-key:visible').count()) !== 1) problems.push('with no eyes and nothing in view there is not exactly one key under the viewfinder');
+  if (await p4.locator('#pg-lens .lensknow .lenstruth').isVisible()) problems.push('the honest line is drawn twice (as the line and as the key)');
+  if (!/NOTHING YET/i.test(await stampText())) problems.push(`the stamp before anything is seen: "${await stampText()}"`);
+  await p4.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+  await until4(() => window.__ghosty.lens.camera === 'on', 25000, 'the page camera did not open');
+  const bar1 = await barButtons();
+  if (bar1.join(',') !== 'STOP,FLIP,FREEZE,MORE') problems.push(`the camera bar with the camera on is ${JSON.stringify(bar1)}`);
+  // nothing to see yet: a grey card
+  await setCard('blank');
+  await p4.waitForTimeout(1500);
+  if ((await one4()).tags.length) problems.push(`a grey card was tagged: ${JSON.stringify((await one4()).tags.map((t) => t.tag))}`);
+  const mid = await p4.evaluate(() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); const el = document.elementFromPoint(v.left + v.width / 2, v.top + v.height / 2); return el ? `${el.tagName}.${String(el.className).slice(0, 40)}` : ''; });
+  if (/lensempty|g-plate|lensplate/.test(mid)) problems.push(`a plate stands in the middle of the picture: ${mid}`);
+
+  // TEST 2: a letter. The words by themselves, the first sentence lit, the stamp and the line, a tap on the fourth word, the OCR once.
+  await setCard('letter');
+  await until4(() => window.__ghosty.one.plate.shown, 90000, `the words of the letter never appeared: ${JSON.stringify(await one4().then((o) => ({ ocr: o.ocr, plate: o.plate, tags: o.tags.map((t) => t.tag) })))}`);
+  await p4.waitForTimeout(250);
+  const clk = await p4.evaluate(() => window.__clock);
+  const toWords = clk.plate - (clk.steady ?? clk.set);
+  console.log(`knows: letter: set → steady ${Math.round((clk.steady ?? NaN) - clk.set)} ms, steady → the words on screen ${Math.round(toWords)} ms, the stamp ${Math.round((clk.looking ?? NaN) - clk.set)} ms after the card was set`);
+  check_(clk.steady != null && toWords < 3000, `from the picture holding still to the words on screen took ${Math.round(toWords)} ms (budget 3000): ${JSON.stringify(clk)}`);
+  const letter = await one4();
+  const lt = letter.tags.find((t) => t.kind === 'text');
+  if (!/^A LETTER · \d+ WORDS$/.test(lt?.tag ?? '')) problems.push(`the letter's plate says "${lt?.tag}"`);
+  await stampIs(/^LOOKING AT A LETTER$/, 'LOOKING AT A LETTER');
+  if (!/^A LETTER · ENGLISH · TAP A WORD TO HEAR IT$/.test(await truthText())) problems.push(`the truth line says "${await truthText()}"`);
+  if (!/TAP A WORD TO HEAR IT$/.test(await truthText()) || (await p4.locator('#pg-lens .lensknow [data-g="truth"]').count()) !== 1) problems.push('the truth line is not one line');
+  const accent = await p4.evaluate(() => { const lit = document.querySelector('#pg-lens .lensplate .lw.lit'); const rest = [...document.querySelectorAll('#pg-lens .lensplate .lw:not(.lit)')].pop(); return lit && rest ? { lit: getComputedStyle(lit).color, rest: getComputedStyle(rest).color, litText: [...document.querySelectorAll('#pg-lens .lensplate .lw.lit')].map((e) => e.textContent).join(' ') } : null; });
+  if (!accent || accent.lit === accent.rest) problems.push(`the first sentence is not lit in his colour: ${JSON.stringify(accent)}`);
+  if (accent && !/[.!?]$/.test(accent.litText)) problems.push(`the lit part does not end at a sentence: "${accent.litText}"`);
+  const plateWords = letter.plate.text.split(' ');
+  if (!/bins|changing|your/i.test(plateWords.slice(0, 4).join(' '))) problems.push(`the plate does not start with the letter's words: "${letter.plate.text.slice(0, 60)}"`);
+  // every tappable word is a 44 pt target; the plate scrolls when long and never covers the truth line (it is inside the viewfinder)
+  const wordBoxes = await p4.evaluate(() => [...document.querySelectorAll('#pg-lens .lensplate .lw')].map((e) => e.getBoundingClientRect()).filter((r) => r.height < 43.5 || r.width < 43.5).length);
+  if (wordBoxes) problems.push(`${wordBoxes} tappable words are under 44 pt`);
+  const inside = await p4.evaluate(() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); const pl = document.querySelector('#pg-lens .lensplate').getBoundingClientRect(); const t = document.querySelector('#pg-lens .lensknow').getBoundingClientRect(); return { in: pl.left >= v.left - 1 && pl.right <= v.right + 1 && pl.top >= v.top - 1 && pl.bottom <= v.bottom + 1, clear: pl.bottom <= t.top + 1 }; });
+  if (!inside.in || !inside.clear) problems.push(`the plate leaves the viewfinder or covers the line under it: ${JSON.stringify(inside)}`);
+  await p4.screenshot({ path: `${out}/lens-letter-440.png`, timeout: 90000 }).catch(() => undefined);
+  // a tap on the fourth word reads aloud from that word
+  const fourth = plateWords[3];
+  await p4.locator('#pg-lens .lensplate .lw').nth(3).click();
+  const spoke = await p4.evaluate(() => window.__spoke.at(-1) ?? '');
+  if (!spoke.startsWith(fourth) || !spoke.endsWith(plateWords.at(-1))) problems.push(`a tap on the fourth word ("${fourth}") said "${spoke.slice(0, 50)}…": want the speech to start at that word and run to the end`);
+  // the OCR ran once for the scene, and not again for four more seconds of the same page held still
+  const runs1 = await p4.evaluate(() => window.__ghosty.lens.ocrRuns);
+  await p4.waitForTimeout(4000);
+  const runs2 = await p4.evaluate(() => window.__ghosty.lens.ocrRuns);
+  if (runs2 !== runs1) problems.push(`the OCR ran ${runs2 - runs1} more time(s) on a page held still (it runs once for a steady scene)`);
+  if (chats.length) problems.push(`English words went to the brain by themselves (${chats.length} chat posts)`);
+  // the text goes into the library only on his word: nothing was filed by itself
+  // (a tap on the tag, or "keep it", does; checked with the saved-note request)
+  const filed = [];
+  p4.on('request', (r) => { if (r.url().includes('/api/library/text')) filed.push(r.url()); });
+  await p4.waitForTimeout(500);
+  if (filed.length) problems.push('the text was filed in the library without his word');
+  await p4.evaluate(() => window.__ghosty.send('keep it', false));
+  await until4(() => /^Keeping/.test(window.__ghosty.one.said), 5000, `"keep it" said "${(await one4()).said}"`);
+  await p4.waitForTimeout(800);
+  if (filed.length !== 1) problems.push(`"keep it" filed ${filed.length} notes in the library, not one`);
+
+  // TEST 3: a sign in French. The language from the table, the words (never the picture) to the brain, the English drawn in the sign's place.
+  chats.length = 0;
+  chatMode = 'ok';
+  await p4.evaluate(() => (window.__spoke.length = 0));
+  await setCard('sign-fr');
+  await until4(() => window.__ghosty.one.ocr.state === 'read' && window.__ghosty.one.ocr.lang === 'FRENCH', 90000, `the sign was not read as French: ${JSON.stringify((await one4()).ocr)}`);
+  // WORDS SENT while it is in flight, then gone
+  const sentSeen = await p4.waitForFunction(() => { const e = document.querySelector('#pg-lens .lenssent'); return !!e && !e.hidden && e.offsetParent !== null && /WORDS SENT/.test(e.textContent); }, null, { timeout: 8000 }).then(() => true).catch(() => false);
+  check_(sentSeen, 'the WORDS SENT mark was not on the bar while the words were with the brain');
+  await until4(() => window.__ghosty.one.translate.state === 'done', 30000, `the sign was not translated: ${JSON.stringify((await one4()).translate)}`);
+  if (await p4.locator('#pg-lens .lenssent').isVisible()) problems.push('WORDS SENT stays on the bar after the answer came');
+  if (chats.length !== 1) problems.push(`the sign made ${chats.length} chat requests, not one`);
+  const body = chats[0]?.body ?? {};
+  if ('images' in body || /data:image|base64/.test(JSON.stringify(body))) problems.push(`the translate request carries a picture: keys ${Object.keys(body)}`);
+  if (!/SORTIE/i.test(body.scan ?? '') || !/translate this into english/i.test(body.message ?? '')) problems.push(`the translate request is ${JSON.stringify(body).slice(0, 200)}`);
+  if (JSON.stringify(body.context) !== '{}' || body.recent?.length || body.offline?.facts?.length || body.offline?.library?.length || /Birmingham|lat|lon|location/i.test(JSON.stringify(body.context ?? {}))) problems.push(`the translate request carries more than the words: context ${JSON.stringify(body.context).slice(0, 120)}`);
+  const toast1 = await p4.evaluate(() => document.body.innerText.match(/I sent the words, not the picture/g)?.length ?? 0);
+  if (toast1 !== 1) problems.push(`the toast about the words was on screen ${toast1} times at the first translation (want once)`);
+  const sign = await one4();
+  if (sign.translate.runs !== 1) problems.push(`translations so far: ${sign.translate.runs}`);
+  if (!/^A SIGN · FRENCH$/.test(sign.tags.find((t) => t.kind === 'text')?.tag ?? '')) problems.push(`the sign's plate says "${sign.tags.find((t) => t.kind === 'text')?.tag}"`);
+  if (!/^A SIGN · FRENCH · TRANSLATED · TAP TO HEAR IT$/.test(await truthText())) problems.push(`the truth line says "${await truthText()}"`);
+  await stampIs(/^LOOKING AT A SIGN$/, 'LOOKING AT A SIGN');
+  const over = await p4.evaluate(() => { const e = document.querySelector('#pg-lens .lensinplace'); const r = e?.getBoundingClientRect(); return e && !e.hidden && r.width > 0 ? { text: e.textContent.replace(/\s+/g, ' '), w: Math.round(r.width) } : null; });
+  if (!over || !/EMERGENCY EXIT/i.test(over.text) || !/SORTIE DE SECOURS/i.test(over.text) || !/FRENCH/.test(over.text)) problems.push(`the English is not drawn over the sign with the original and the language small under it: ${JSON.stringify(over)}`);
+  if (!sign.plate.inPlace) problems.push('the translation is not drawn in the sign\'s place');
+  await p4.screenshot({ path: `${out}/lens-sign-440.png`, timeout: 90000 }).catch(() => undefined);
+  await p4.locator('#pg-lens .lensinplace').click();
+  if (!/EMERGENCY EXIT/.test(await p4.evaluate(() => window.__spoke.at(-1) ?? ''))) problems.push(`a tap on the sign said "${await p4.evaluate(() => window.__spoke.at(-1))}": want the English aloud`);
+  // the toast about the words was said once: a second French sign says nothing more
+  await setCard('blank');
+  await p4.waitForTimeout(2500);
+  await setCard('sign-es');
+  await until4(() => window.__ghosty.one.ocr.lang === 'SPANISH' && window.__ghosty.one.translate.state !== 'sending', 90000, `the second sign was not read as Spanish: ${JSON.stringify((await one4()).ocr)}`);
+  await p4.waitForTimeout(500);
+  const toasts = await p4.evaluate(() => document.body.innerText.match(/I sent the words, not the picture/g)?.length ?? 0);
+  if (toasts > 1) problems.push(`the toast about the words was said ${toasts} times in a session`);
+  console.log(`knows: the signs: ${chats.length} translate requests for two signs, the toast seen ${toast1} time(s) at the first`);
+  // the brain made to fail: FRENCH · I CAN'T TRANSLATE OFFLINE, the original words, nothing else
+  chatMode = 'fail';
+  chatDelay = 100;
+  await setCard('blank');
+  await p4.waitForTimeout(2500);
+  await setCard('sign-fr2');
+  await until4(() => window.__ghosty.one.ocr.state === 'read' && window.__ghosty.one.translate.state === 'failed', 90000, `with the brain failing the translation did not end failed: ${JSON.stringify(await one4().then((o) => ({ ocr: o.ocr, tr: o.translate })))}`);
+  await p4.waitForTimeout(500);
+  const failedLine = await truthText();
+  if (!/^A SIGN · FRENCH · I CAN’T TRANSLATE OFFLINE$/.test(failedLine)) problems.push(`with the brain failing the line says "${failedLine}"`);
+  const orig = await p4.evaluate(() => document.querySelector('#pg-lens .lensplate:not([hidden])')?.textContent ?? '');
+  if (!/FUMER/i.test(orig) || (await p4.locator('#pg-lens .lensinplace').isVisible())) problems.push(`with the brain failing the original words are not shown alone: "${orig}"`);
+
+  // TEST 4: a code with a path: the plate says A LINK · its word; the act on the line; a tap opens what SCAN opens (its card, never opened by itself)
+  chatMode = 'ok';
+  await setCard('qr');
+  await until4(() => window.__ghosty.one.tags.some((t) => t.kind === 'code'), 60000, `the code was not tagged: ${JSON.stringify((await one4()).tags.map((t) => t.tag))}`);
+  const qr = (await one4()).tags.find((t) => t.kind === 'code');
+  if (!/^A LINK · VERIFY$/.test(qr?.tag ?? '')) problems.push(`the code's plate says "${qr?.tag}"`);
+  if (!/A LINK: TAP IT$/.test(await truthText())) problems.push(`the truth line for the code says "${await truthText()}"`);
+  await stampIs(/^LOOKING AT A LINK$/, 'LOOKING AT A LINK');
+  await p4.screenshot({ path: `${out}/lens-code-440.png`, timeout: 90000 }).catch(() => undefined);
+  await p4.locator('#pg-lens .lenstag[data-kind="code"] .g-ret').first().click();
+  await until4(() => window.__ghosty.lens.mode === 'scan', 8000, 'a tap on the code did not open SCAN');
+  await until4(() => (window.__ghosty.scan?.codes ?? []).some((c) => c.kind === 'url'), 20000, `SCAN did not show the tagged code: ${JSON.stringify(await p4.evaluate(() => window.__ghosty.scan?.codes))}`);
+  if ((await p4.locator('#pg-lens .scansite b').textContent().catch(() => '')) !== 'secure-login.example') problems.push('the code card does not name the real site');
+  await p4.locator('#pg-lens .lensbar .lensback').click();
+  await until4(() => window.__ghosty.lens.mode === 'lens', 5000, 'the back key did not return from SCAN');
+
+  // TEST 5: without the eyes a drawn mug makes no thing tag, the honest line is the one key; a tap starts the download
+  await setCard('mug');
+  await p4.waitForTimeout(4000);
+  const mugs = (await one4()).tags;
+  if (mugs.some((t) => t.kind === 'object')) problems.push(`a thing was tagged without the eyes: ${JSON.stringify(mugs.map((t) => t.tag))}`);
+  if (!/^I CAN SEE TEXT, CODES AND THE PEOPLE I KNOW · GET THE EYES \(18 MB, ON WI-FI\)$/i.test(((await p4.locator('#pg-lens .lensknow .lensget').textContent()) ?? '').trim()) || !(await p4.locator('#pg-lens .lensknow .lensget').isVisible())) problems.push('without the eyes and with nothing tagged the honest line is not the key');
+  if ((await p4.locator('#pg-lens .lensknow button.g-key:visible').count()) !== 1) problems.push('the honest line is not the one key');
+  if (/faces?\b/i.test(await truthText())) problems.push('the truth line mentions faces without the face models');
+  await p4.screenshot({ path: `${out}/lens-mug-440.png`, timeout: 90000 }).catch(() => undefined);
+  await p4.locator('#pg-lens .lensknow .lensget').click();
+  await until4(() => ['loading', 'ready'].includes(window.__ghosty.one.finder), 15000, `the tap on the honest line did not start the download: ${JSON.stringify((await one4()).finder)}`);
+  // the camera never opened by itself: it was ours
+  // the layout at 390: nothing sideways, every control 44 pt
+  await setCard('letter');
+  await until4(() => window.__ghosty.one.plate.shown, 90000, 'the letter did not come back at 390');
+  for (const [w, hgt] of [[440, 956], [390, 844]]) {
+    await p4.setViewportSize({ width: w, height: hgt });
+    await p4.waitForTimeout(1500);
+    const bad = await p4.evaluate(() => [...document.querySelectorAll('#pg-lens button, #pg-lens .g-key, #pg-lens .g-ret, #pg-lens .lensplate .lw')].filter((b) => b.offsetParent !== null).map((b) => ({ t: (b.textContent || b.getAttribute('aria-label') || '').trim().slice(0, 24), r: b.getBoundingClientRect() })).filter((x) => x.r.width > 0 && (x.r.width < 43.5 || x.r.height < 43.5)).map((x) => `${x.t} ${Math.round(x.r.width)}×${Math.round(x.r.height)}`));
+    if (bad.length) problems.push(`controls under 44 pt at ${w}: ${bad.join(', ')}`);
+    if (await p4.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push(`the one view is wider than the phone at ${w}`);
+    await p4.screenshot({ path: `${out}/lens-letter-${w}.png`, timeout: 90000 }).catch(() => undefined);
+  }
+  await p4.setViewportSize({ width: 390, height: 844 });
+  for (const card of ['sign-fr', 'qr', 'mug']) {
+    await setCard(card);
+    await p4.waitForTimeout(card === 'sign-fr' ? 6000 : 3500);
+    await p4.screenshot({ path: `${out}/lens-${card === 'sign-fr' ? 'sign' : card === 'qr' ? 'code' : 'mug'}-390.png`, timeout: 90000 }).catch(() => undefined);
+  }
+  console.log(`knows section: ${Math.round((Date.now() - t0k) / 1000)} s`);
+  await ctx4.close();
+} catch (e) {
+  problems.push(`the knows section stopped: ${String(e.message).split('\n')[0]}`);
+}
+
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, LIVING THING named a bird with how sure and saved it on SAVE only, PLANT without a key said what to do, WHAT\'S IN IT? gave the foods and a rough total, and the security policy blocked nothing. THE ONE LENS: it opened on one view with the mark and its download key, the text and the code were tagged within two seconds with their keys, the object only after GET THE EYES, READ filed the tagged text, the code tag showed what SCAN shows, words acted with no model, MORE opened the tools, OFFLINE greyed ASK and TRANSLATE, the tags went two seconds after the picture, nothing stuck out and every control was 44 pt at 440 and 390.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, LIVING THING named a bird with how sure and saved it on SAVE only, PLANT without a key said what to do, WHAT\'S IN IT? gave the foods and a rough total, and the security policy blocked nothing. THE LENS THAT JUST KNOWS: it opened on one view with no key on the picture, the camera bar of START, FLIP, FREEZE and MORE, and the honest line with GET THE EYES as its one key; a letter was read there and then once for the scene (its first sentence lit, a tap on a word read from it, the stamp and the one line saying so), a French sign was translated by itself with the words only and drawn over the sign (WORDS SENT while it was out, the toast once, the failing brain said so), a code was a LINK with its word and a tap opened SCAN, the faces and the namer and the tools by MORE and by words worked as before, the budgets held, nothing stuck out and every control was 44 pt at 440 and 390.');
 process.exit(problems.length ? 1 : 0);

@@ -64,3 +64,4 @@ export function fpsText(hz: number): string {
   return `${hz >= 3 ? Math.round(hz) : hz.toFixed(1)} fps`;
 }
 export * from './tags';
+export * from './knows';

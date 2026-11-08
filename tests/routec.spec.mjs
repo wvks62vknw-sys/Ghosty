@@ -381,11 +381,17 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   // the parts that do not change with the live numbers (the hero, the cards, the chips, the ask bar, the tabs)
   const homeBoxes = {};
   const boxes = () => page.evaluate(() => {
-    const els = [...document.querySelectorAll('#pg-core *, #top *, #dock *')].filter((e) => e.getClientRects().length);
+    // (THE SCAN's live layers, the marks, the leads and the callout over the world, come and go with the altitude and the flight,
+    // which differ by design between two visits (160: the world frame on a cold open, the room when just there): they are not
+    // part of a theme's layout. One mark's type and spacing stands for them all below.)
+    const live = (e) => !!e.closest('.scanmarks, .scanleads, .scanco, .scanstage');
+    const els = [...document.querySelectorAll('#pg-core *, #top *, #dock *')].filter((e) => e.getClientRects().length && !live(e));
     const P = ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'padding', 'margin', 'gap', 'border-radius', 'display', 'position'];
     const type = els.map((e) => { const cs = getComputedStyle(e); return `${e.tagName}.${e.className.baseVal ?? e.className}:${P.map((p) => cs.getPropertyValue(p)).join('|')}`; });
     const box = [...document.querySelectorAll('.rchero, .rwrap, .rctoday, .rcroad, .rcgym, #suggest > button, #cbar, #dock .tabcap button, #top .you, #top .cmd')].map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${e.className}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`; });
-    return [...type, ...box];
+    const mark = document.querySelector('#pg-core button.scanret:not([hidden])');
+    const markType = mark ? [`MARK:${P.map((p) => getComputedStyle(mark).getPropertyValue(p)).join('|')}`] : [];
+    return [...type, ...markType, ...box];
   });
   for (const [name, hex] of Object.entries(THEMES).reverse()) {
     await page.evaluate(() => (location.hash = 'settings'));

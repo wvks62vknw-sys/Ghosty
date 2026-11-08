@@ -362,3 +362,72 @@ test('without the namer the object says what the finder said and that it is the 
   assert.equal(F.finderTruth(null), 'something here');
   assert.ok(!/looks like/.test(F.finderTruth('cup')));
 });
+
+// ---- THE LENS THAT JUST KNOWS (BRIEF-LENS-KNOWS), pure: the language of some words, the name of a colour, the words of the stamp and the one line
+test('the language table names English, French, German, Spanish, Italian, Portuguese and Dutch from a few words, and says UNKNOWN for nonsense (no model)', () => {
+  const cases = [
+    ['Your bins are changing. From Monday your general waste bin moves to Thursdays.', 'ENGLISH'],
+    ['Please put the box by the door and keep it dry', 'ENGLISH'],
+    ['SORTIE DE SECOURS', 'FRENCH'],
+    ['Nous sommes ouverts du lundi au samedi pour vous servir', 'FRENCH'],
+    ['Der Ausgang ist auf der linken Seite des Gebäudes', 'GERMAN'],
+    ['NOTAUSGANG', 'GERMAN'],
+    ['La salida de emergencia está al final del pasillo', 'SPANISH'],
+    ['SALIDA DE EMERGENCIA', 'SPANISH'],
+    ['Il biglietto è valido per tutti i giorni della settimana', 'ITALIAN'],
+    ['USCITA DI SICUREZZA', 'ITALIAN'],
+    ['A saída de emergência fica no fim do corredor', 'PORTUGUESE'],
+    ['Os bilhetes são válidos para todos os dias', 'PORTUGUESE'],
+    ['De uitgang is aan het einde van de gang', 'DUTCH'],
+    ['NOODUITGANG', 'DUTCH'],
+    ['xqzv plmk trfd wqs', 'UNKNOWN'],
+    ['7734 AB 99', 'UNKNOWN'],
+  ];
+  for (const [text, want] of cases) assert.equal(F.languageOf(text).name, want, text);
+  assert.equal(F.needsTranslation(F.languageOf('SORTIE DE SECOURS')), true);
+  assert.equal(F.needsTranslation(F.languageOf('xqzv plmk trfd wqs')), false, 'nothing is sent on a guess');
+  assert.equal(F.needsTranslation(F.languageOf('Please put the box by the door and keep it dry')), false);
+});
+
+test('the colour table names six flat colours (and the other six of its twelve)', () => {
+  const flat = [[250, 250, 250, 'WHITE'], [10, 10, 10, 'BLACK'], [220, 30, 30, 'RED'], [30, 70, 220, 'BLUE'], [30, 160, 60, 'GREEN'], [240, 220, 30, 'YELLOW'], [128, 128, 128, 'GREY'], [240, 140, 20, 'ORANGE'], [130, 40, 170, 'PURPLE'], [250, 160, 190, 'PINK'], [120, 70, 30, 'BROWN'], [225, 205, 170, 'BEIGE']];
+  for (const [r, g, b, want] of flat) assert.equal(F.colourName(r, g, b), want, `${r},${g},${b}`);
+  // the dominant colour of a picture is the colour of most of it (the box's edge does not vote)
+  const px = new Uint8ClampedArray(20 * 20 * 4);
+  for (let i = 0; i < 400; i++) px.set(i % 20 < 2 ? [30, 70, 220, 255] : [250, 250, 250, 255], i * 4);
+  assert.equal(F.dominantColour(px, 20, 20), 'WHITE');
+});
+
+test('the stamp says what it looks at, the plate says what a thing is, the one line ends with the act of the nearest thing; a known name never reaches the stamp', () => {
+  const letter = { kind: 'text', words: 61, lang: F.languageOf('Your bins are changing. From Monday your general waste bin moves to Thursdays.'), away: 0.2 };
+  assert.equal(F.lookingWords([]), 'nothing yet');
+  assert.equal(F.lookingWords([letter]), 'a letter');
+  assert.equal(F.lookingWords([{ kind: 'text', words: 3, away: 0 }]), 'a sign');
+  assert.equal(F.lookingWords([{ kind: 'object', label: 'mug', named: true, away: 0 }]), 'a mug');
+  const two = [{ kind: 'face', name: 'Mum', away: 0.3 }, { kind: 'stranger', away: 0.5 }, { kind: 'code', codeKind: 'url', linkWord: 'MENU', away: 0.8 }];
+  assert.equal(F.lookingWords(two), 'two people');
+  assert.ok(!/mum/i.test(F.lookingWords(two)), 'a name is not in the stamp');
+  assert.equal(F.plateWords(letter), 'A LETTER · 61 WORDS');
+  assert.equal(F.plateWords({ kind: 'text', words: 3, lang: F.languageOf('SORTIE DE SECOURS'), away: 0 }), 'A SIGN · FRENCH');
+  assert.equal(F.plateWords(two[0]), 'Mum');
+  assert.equal(F.plateWords(two[1]), 'SOMEONE I DON’T KNOW');
+  assert.equal(F.plateWords(two[2]), 'A LINK · MENU');
+  assert.equal(F.plateWords({ kind: 'object', label: 'mug', named: true, away: 0 }), 'A MUG');
+  const flat = (parts) => parts.map((p) => (typeof p === 'string' ? p : p.text)).join(' · ');
+  assert.equal(flat(F.truthParts([letter])), 'A LETTER · ENGLISH · TAP A WORD TO HEAR IT');
+  assert.equal(flat(F.truthParts([{ kind: 'text', words: 3, lang: F.languageOf('SORTIE DE SECOURS'), translated: true, away: 0 }])), 'A SIGN · FRENCH · TRANSLATED · TAP TO HEAR IT');
+  assert.equal(flat(F.truthParts([{ kind: 'text', words: 3, lang: F.languageOf('SORTIE DE SECOURS'), untranslated: true, away: 0 }])), 'A SIGN · FRENCH · I CAN’T TRANSLATE OFFLINE');
+  assert.equal(flat(F.truthParts(two)), 'Mum · SOMEONE I DON’T KNOW · A LINK: TAP IT');
+  assert.equal(flat(F.truthParts([{ kind: 'object', label: 'mug', named: true, colour: 'WHITE', away: 0 }])), 'A MUG · WHITE · TAP TO ASK ABOUT IT');
+  const last = F.truthParts(two).at(-1);
+  assert.equal(last.tone, 'on', 'the act is in his colour');
+  assert.equal(F.linkWord('https://example.com/the-menu.html'), 'THE MENU');
+  assert.equal(F.linkWord('https://www.example.com/'), 'EXAMPLE.COM');
+  assert.equal(F.firstSentence('Your bins are changing. From Monday x.'), 4);
+});
+
+test('the Lens takes "keep it", "find this part" and "who is that" by their words', () => {
+  assert.equal(F.lensWord('keep it'), 'keep');
+  assert.equal(F.lensWord('find this part'), 'part');
+  assert.equal(F.lensWord('who is that'), 'who');
+});

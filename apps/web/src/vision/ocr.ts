@@ -102,6 +102,8 @@ export class Reader {
       this.worker = null;
       throw e;
     });
+    // (a read that stopped waiting (terminate() first) leaves this promise to settle alone: its failure is not a page error)
+    this.worker.catch(() => undefined);
     return this.worker;
   }
 
@@ -116,7 +118,11 @@ export class Reader {
     try {
       const w = await Promise.race([this.get(progress), stopped]);
       progress('reading…', 0);
-      const { data } = await Promise.race([w.recognize(src, {}, { text: true, blocks: true }), stopped]);
+      // the read itself; when terminate() comes first the worker underneath is gone and this promise fails on its own, with no one
+      // waiting on it any more (the one Lens leaves while a scene is being read): that failure is swallowed here, never a page error
+      const reading = w.recognize(src, {}, { text: true, blocks: true });
+      reading.catch(() => undefined);
+      const { data } = await Promise.race([reading, stopped]);
       const { lines, words } = flattenRaw(data);
       return { text: String(data.text ?? ''), confidence: Number(data.confidence) || 0, lines, words };
     } finally {

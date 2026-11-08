@@ -639,13 +639,18 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       }
       m?.nudge();
     }
-    const shown = breath(t);
-    scan.cam.set(shown, W, H);
-    const kept = pose;
-    pose = shown;
-    paintMarks();
-    pose = kept;
-    if (!still()) m?.nudge();
+    // the breath alone (six millimetres over twelve seconds) is drawn on every other frame: a move draws every frame, and so does a
+    // calm screen's first frame; the world at rest costs half as much (a two-core runner's software WebGL, and his battery)
+    const breathing = !scanState.moving && !still();
+    if (!breathing || fpsN % 2 === 0) {
+      const shown = breath(t);
+      scan.cam.set(shown, W, H);
+      const kept = pose;
+      pose = shown;
+      paintMarks();
+      pose = kept;
+      if (!still()) m?.nudge();
+    }
     fpsN++;
     if (t - fpsAt > 1000) {
       scanState.fps = fpsN;

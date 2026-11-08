@@ -201,8 +201,14 @@ await page.evaluate(() => (window.__scene = 'other'));
 await until((n) => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'face' && t.label === n), NAME, 30000, `the one view did not tag the face he knows by name: ${JSON.stringify(await tagsNow())}`);
 const known = (await tagsNow()).find((t) => t.kind === 'face');
 check(known && known.tag === NAME && known.acts.length === 0 && known.truth === '', `a known face is its name and nothing else: ${JSON.stringify(known)}`);
+// a tap on a face does nothing but the toast (faces stay on this phone): no mode change, no request
+const before = { mode: await page.evaluate(() => window.__ghosty.lens.mode), sent: sent.length };
+await page.locator('#pg-lens .lenstag[data-kind="face"] .g-ret').first().click();
+await page.waitForTimeout(600);
+check(/Faces stay on this phone/.test(await page.evaluate(() => document.body.innerText)), 'a tap on a face did not say that faces stay on this phone');
+check((await page.evaluate(() => window.__ghosty.lens.mode)) === before.mode && sent.length === before.sent, 'a tap on a face did something besides the toast');
 check(await page.evaluate((n) => [...document.querySelectorAll('#pg-lens .lenstag[data-kind="face"] .g-tag')].some((e) => e.textContent.trim() === n), NAME), 'the name is not drawn on the face tag');
-check((await page.locator('#pg-lens .lenstagunder[data-kind="face"] button').count()) === 0, 'a face he knows has a key under it: a face has no act');
+check((await page.locator('#pg-lens .lenstagunder, #pg-lens .lensview button.g-key').count()) === 0, 'a face he knows has a key under it: a face has no act');
 const knownLine = await page.evaluate(() => window.__ghosty.awareness.wordsNow());
 check(/^On screen: the Lens, camera on: \d tags?: .*someone I know/.test(knownLine) && !knownLine.includes(NAME) && !/Quorrin|Vexmoor/i.test(knownLine), `the context line carries a name or misses the kind: "${knownLine}"`);
 await page.screenshot({ path: `${out}/faces-one-known.png` });
@@ -210,14 +216,16 @@ await page.screenshot({ path: `${out}/faces-one-known.png` });
 await page.evaluate(() => (window.__scene = 'stranger'));
 await until(() => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'stranger'), null, 30000, `the one view did not tag a stranger: ${JSON.stringify(await tagsNow())}`);
 const stranger = (await tagsNow()).find((t) => t.kind === 'stranger');
-check(stranger && stranger.truth === 'someone I don’t know' && stranger.acts.length === 0 && stranger.label === '', `a stranger is "someone I don’t know" and nothing else: ${JSON.stringify(stranger)}`);
-check((await page.locator('#pg-lens .lenstagunder[data-kind="stranger"] button').count()) === 0, 'a stranger has a key under the tag');
+check(stranger && stranger.tag === 'SOMEONE I DON’T KNOW' && stranger.truth === 'someone I don’t know' && stranger.acts.length === 0 && stranger.label === '', `a stranger is "someone I don’t know" and nothing else: ${JSON.stringify(stranger)}`);
+check((await page.locator('#pg-lens .lenstagunder, #pg-lens .lensview button.g-key').count()) === 0, 'a stranger has a key under the tag');
+// every face tag in the one view is the name he gave, ME, or exactly SOMEONE I DON’T KNOW: nothing else
+check((await tagsNow()).filter((t) => t.kind === 'face' || t.kind === 'stranger').every((t) => t.tag === 'SOMEONE I DON’T KNOW' || t.tag === 'ME' || t.tag === NAME), `a face tag says something else: ${JSON.stringify((await tagsNow()).map((t) => t.tag))}`);
 const strangerLine = await page.evaluate(() => window.__ghosty.awareness.wordsNow());
 check(/someone I don’t know/.test(strangerLine) && !strangerLine.includes(NAME), `the stranger's context line: "${strangerLine}"`);
 await page.screenshot({ path: `${out}/faces-one-stranger.png` });
 // him: ADMIN
 await page.evaluate(() => (window.__scene = 'admin'));
-await until(() => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'face' && t.label === 'ADMIN'), null, 30000, `the one view did not tag him as ADMIN: ${JSON.stringify(await tagsNow())}`);
+await until(() => (window.__ghosty.one?.tags ?? []).some((t) => t.kind === 'face' && t.label === 'ME' && t.tag === 'ME'), null, 30000, `the one view did not tag him as ME: ${JSON.stringify(await tagsNow())}`);
 
 // ---- 4. Settings → PRIVACY → FACES
 await page.evaluate(() => (location.hash = 'settings'));

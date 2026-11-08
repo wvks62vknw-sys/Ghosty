@@ -6579,6 +6579,35 @@ html #app .lensbar .lensmarkrow button.g-key[hidden] { display: none; }
 html .lensmarkrow { flex-wrap: wrap; justify-content: flex-start; }
 html .lensmarkrow .lensget, html .lensmarkrow .lensgetnamer { margin-left: auto; }
 html .lensmark[hidden] { display: none; }
+/* ---- THE LENS THAT JUST KNOWS (BRIEF-LENS-KNOWS): no key sits on the picture. The stamp at the top, a plate above each thing, the words of a
+   text in the WHAT IT SAYS plate (the first sentence lit, a tap on a word reads from it), the English over a sign in the sign's place,
+   and ONE true line under the viewfinder (or, with nothing in view and no eyes, the one key that is that line). Every colour and size is a token. */
+html .lensstamp { position: absolute; z-index: 4; left: var(--g-s-1); top: var(--g-s-1); width: fit-content; max-width: calc(100% - 2 * var(--g-s-1)); padding: 2px 6px; background: var(--g-plate-fill); border-radius: var(--g-radius-mark); pointer-events: none; }
+html .lensstamp[hidden] { display: none; }
+html .hud.onelens .lensview video { filter: grayscale(.8) brightness(.86); }
+html .hud.onelens .lensview::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background-image: radial-gradient(circle, rgba(255, 255, 255, .26) 1px, transparent 1.5px); background-size: 26px 26px; opacity: .55; }
+html .lensplate, html .lensinplace { position: absolute; z-index: 5; box-sizing: border-box; background: var(--g-plate-strong-fill); border: var(--g-stroke) solid var(--g-accent); transition: opacity var(--g-dur-lock) linear; }
+html .lensplate { padding: var(--g-s-1) var(--g-s-2); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; pointer-events: auto; }
+html .lensplate[hidden], html .lensinplace[hidden] { display: none; }
+html .lensplate.stale, html .lensinplace.stale { opacity: .6; }
+html .lensplate .lp-label { margin: 0 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+html .lensplate .lp-text { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .lensplate .lp-small, html .lensinplace .lp-small { margin: var(--g-s-half) 0 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); overflow-wrap: anywhere; }
+/* a word is a 44 pt target and the lines stand 44 pt apart, so no word's box lies over another's (a tap lands on the word it is on) */
+html .lensplate .lp-text { line-height: var(--g-target); }
+html .lensplate .lw { display: inline-block; box-sizing: border-box; min-width: var(--g-target); height: var(--g-target); line-height: var(--g-target); padding: 0 2px; text-align: center; vertical-align: top; cursor: pointer; }
+html .lensplate .lw.lit { color: var(--g-accent-text); text-decoration: underline; text-underline-offset: 3px; }
+html .lensinplace { pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--g-s-1) var(--g-s-2); cursor: pointer; }
+html .lensinplace .lp-big { margin: 0; font: 700 1em/1.15 var(--g-font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .lensknow { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-1); }
+html .lensknow .lenstruth { display: block; padding: 1px 6px; background: var(--g-plate-fill); border-radius: var(--g-radius-mark); }
+html .lensknow .lenstruth[hidden] { display: none; }
+html #app .lensknow button.g-key { flex: 0 1 auto; height: auto !important; min-height: var(--g-target) !important; border-radius: var(--g-radius-key) !important; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase !important; text-align: left; color: var(--g-ink-1) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; }
+html #app .lensknow button.g-key.honest { width: 100%; color: var(--g-accent-text) !important; white-space: normal; text-align: left; line-height: 1.35; }
+html #app .lensknow button.g-key:disabled { color: var(--g-ink-4) !important; }
+html #app .lensknow button.g-key[hidden] { display: none; }
+html .lensone { gap: var(--g-s-1); }
+@media (prefers-reduced-motion: reduce) { html :is(.lensplate, .lensinplace) { transition: none; } }
 html .lensmarkwhy { flex: 1 0 100%; margin: 0; font: var(--g-t-truth, 400 13px/1.35 system-ui); color: var(--g-ink-2, inherit); }
 html .lensmarkwhy[hidden] { display: none; }
 html .lensstatus.quiet { display: none; }

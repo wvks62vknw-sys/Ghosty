@@ -331,6 +331,29 @@ folder that no longer exists; ignore those paths).
   HUD's slide) and that one harness line is not the app's. The Scan stands again on the branch (main's restore merged with
   the branch's tree kept, as PR #66's lesson); a new PR re-lands it with the fix. LESSON: a spec with a fixed pause after a
   landing is a flake waiting for a slow runner; every landing check waits on its condition.
+  18:50 UK: PR #72 (the Scan re-landed with the boot spec's hero wait) GREEN on every job (run 393), SQUASH-MERGED, main
+  90623ad; its own run read at the 21:00 UK check-in.
+  18:00 UK: THE LENS THAT JUST KNOWS reported by the mid-tier builder (worktree lens-knows, eight commits on builder/lens-knows
+  from dc675b0): vision/knows.ts (the language table, the colour table, the stamp's, the plate's and the truth line's words,
+  pure, 19 tests), the one view re-cut (no key on the picture, OCR on a steady scene into WHAT IT SAYS, tap-a-word speech,
+  the foreign sign translated by a bare request and drawn in its place, ME / the name / SOMEONE I DON'T KNOW, a thing's
+  colour), lens.spec and faces.spec re-cut (a page-made camera moving over four cards; every old check's opposite kept:
+  no key on the picture), nine other specs clean in its worktree; aim.spec red there and on the untouched baseline alike
+  (the sandbox's compass). Reviewed: no protected file, no model name, the translate request carries the words and nothing
+  of him (held by the spec), nothing loosened. One defect seen in its screenshots: the honest line's key runs off both
+  sides at 440 (one long line that does not wrap): fixed on applying (the key wraps). Applied as one commit on the session
+  branch restarted from main after PR #72; PR #73; OWNER-ISSUES 163 (his six-step check, six calls), STARS 173 (the gaps).
+  20:00 UK: MAIN'S OWN RUN (394) ON 90623ad RED on one shard, the tabs spec: the jump bar 321 and 354 ms against its 300 ms
+  budget (median of five, both attempts); THE GUARD LEFT MAIN AS IT IS (the version before, 50b15f4, had no green run of its
+  own), so the Scan stays on main, red on that one check. PR #73's first run red on two: the themes layout check (the Scan's
+  live marks come and go with the altitude, which differs by design between two visits) and the faces spec (a page error from
+  the reader when the Lens is left mid-read: the read's own promise failed with no one waiting). All three fixed at the cause
+  in 1eb7811 on PR #73: the Scan's breath (a six-millimetre drift over twelve seconds) is drawn on every other frame when
+  nothing moves (the world was redrawn sixty times a second at rest: half the GPU work on the runner and on his phone; the
+  jump bar's median here fell from 264/255 to 202/103 ms); the reader swallows the failure of a read that stopped waiting;
+  the themes check leaves the live marks out and holds one mark's type and spacing instead. Nothing loosened. Faces, thescan,
+  routec and lens clean here on the fixed build. LESSON: a world that breathes redraws for ever; the idle cadence is a budget
+  of its own, and the jump bar's 300 ms on two cores is where it shows first.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

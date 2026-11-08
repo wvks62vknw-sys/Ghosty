@@ -21,6 +21,8 @@ import { onFrame } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { ui } from '../../state/app';
 import { button, toast, type Light } from '../../ui/components';
+import { stampLine } from '../../ui/machine';
+import { lookingAt, stampFacts } from '../../shell/awareness';
 import { contextWords as tagsWords } from '../../vision/frame';
 import { askWithImage, type AskResult } from '../../vision/ask';
 import { coverTransform, sceneLine, toFrame, toView, type Box, type Category, type Detection, type Size, type Transform } from '../../vision/boxes';
@@ -79,6 +81,10 @@ export interface LensState {
   error: string;
   /** MARK MY WORK (READ's MARK chip): what it is doing and the last result (mark.ts). */
   mark?: MarkState;
+  /** How many times the one view has read the text in a steady scene (the OCR READ: once for each scene, never again for a page held still). */
+  ocrRuns: number;
+  /** How many times the one view sent the words of a sign to be translated (words only, never the picture). */
+  translations: number;
   setMode?: (m: LensMode) => void;
 }
 
@@ -129,6 +135,8 @@ export interface LensContext {
   status(text: string, light?: Light): void;
   /** The small lines over the viewfinder: the scene (left) and the counts (right). */
   lines(scene: string, counts: string): void;
+  /** The one view knows what it is looking at: the stamp line at the top of the viewfinder says it (the stamp's own source). */
+  looked(words: string): void;
   /** The picture on screen (a still, or the live frame) and how it maps onto the viewfinder. */
   view(): { frame: Size; size: Size; t: Transform; mirror: boolean };
   /** The overlay's drawing context in CSS pixels, cleared first. */
@@ -176,6 +184,8 @@ export const lensState: LensState = {
   reply: '',
   card: { what: '', text: '' },
   error: '',
+  ocrRuns: 0,
+  translations: 0,
 };
 
 /** The state object sits on the console/test handle (window.__ghosty.lens); main.ts makes __ghosty after the first tab opens, so this retries. */
@@ -253,6 +263,18 @@ export const lensTab: TabDef = {
       const things = oneState.tags.filter((t) => t.kind === 'object' && t.truth.startsWith('looks like')).map((t) => t.truth);
       return `the Lens, camera ${S.camera}${S.frozen ? ', frozen' : ''}: ${tagsWords(oneState.tags)}${things.length ? `; ${things.join(', ')}` : ''}`;
     };
+    const context = (): ScreenContext => ({
+      screen: 'lens',
+      title: 'The Lens',
+      // the one view: the tags' kinds and the names of the things ("looks like a lemon"), never who; a tapped tag is selected by its kind
+      ...(S.mode === 'lens' ? { selected: oneSelected() } : {}),
+      // what the stamp line says it is looking at (the one source: a letter, two people, nothing yet), kinds and never who
+      ...(S.mode === 'lens' ? { looking: oneState.looking } : {}),
+      line: S.mode === 'lens' ? oneLine() : S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
+      at: Date.now(),
+    });
+    const stamp = stampLine(() => stampFacts(lookingAt(context())));
+    stamp.el.classList.add('lensstamp');
     const camera = new Camera(h('video.lensvideo'));
     const video = camera.video;
     const still = h('canvas.lensstill');
@@ -267,7 +289,7 @@ export const lensTab: TabDef = {
     const emptyTitle = h('b');
     const emptyText = h('span');
     const empty = h('div.lensempty', emptyTitle, emptyText);
-    const view = h('div.lensview', video, still, ov, empty, statusEl, sceneEl, countEl);
+    const view = h('div.lensview', video, still, ov, empty, stamp.el, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
     const privacy = h('div.lensprivacy', 'Runs on your phone. A face is only ever you, or someone you introduced — kept on this phone, never anyone else. A number plate is looked up only when you tap CHECK, never who owns the car.');
     const reader = new Reader();
@@ -312,6 +334,9 @@ export const lensTab: TabDef = {
       lines(scene, counts) {
         sceneEl.textContent = scene;
         countEl.textContent = counts;
+      },
+      looked() {
+        stamp.refresh();
       },
       view() {
         if (!viewSize.w) fit();
@@ -502,6 +527,8 @@ export const lensTab: TabDef = {
     const modes: Record<LensMode, Mode> = { lens: createOneMode(L), see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), people: createPeopleMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L), shapes: createShapesMode(L) };
     let mode: Mode | null = null;
     let moreOpen = false;
+    let hudRef: HTMLElement | null = null;
+    const hudEl = () => hudRef;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
     for (const t of TILES) {
@@ -522,6 +549,8 @@ export const lensTab: TabDef = {
         S.selected = -1;
         // SOUND switches the camera off and listens: the camera's START / FLIP / FREEZE mean nothing there (START reopened it)
         bar.hidden = m === 'sound';
+        stamp.el.hidden = m !== 'lens';
+        hudEl()?.classList.toggle('onelens', m === 'lens');
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
         syncMore();
@@ -626,7 +655,8 @@ export const lensTab: TabDef = {
       mode?.tick?.(now);
     });
 
-    const hud = h('div.hud.lens', view, tiles, panel, bar, privacy);
+    const hud = h('div.hud.lens.onelens', view, tiles, panel, bar, privacy);
+    hudRef = hud;
     root.append(hud);
     expose();
 
@@ -668,14 +698,7 @@ export const lensTab: TabDef = {
       // what the Lens says about itself (BRIEF-AWARENESS): the same things describe() says (what is in view, the scene, NAME's
       // closest names for the THING in the picture, the gesture, the card), never who. PEOPLE: only that it is open, as above.
       // (7 Nov, fixed at review: the first cut said counts and the scene alone, and the brain lost NAME's names: tests/name.spec.)
-      context: (): ScreenContext => ({
-        screen: 'lens',
-        title: 'The Lens',
-        // the one view: the tags' kinds and the names of the things ("looks like a lemon"), never who; a tapped tag is selected by its kind
-        ...(S.mode === 'lens' ? { selected: oneSelected() } : {}),
-        line: S.mode === 'lens' ? oneLine() : S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
-        at: Date.now(),
-      }),
+      context,
     };
   },
 };
