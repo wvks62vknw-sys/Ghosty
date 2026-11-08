@@ -592,9 +592,17 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const frame = (t: number) => {
     loop = 0;
     if (!scanState.on) return;
-    // a sheet over the world (the deck, the chat log) gets the whole frame: the world is not drawn under it (the jump bar's
+    // a sheet over the world (the deck, the jump bar, the chat log) gets the whole frame: the world is not drawn under it (the jump bar's
     // 300 ms budget on a two-core runner, and the battery on his phone), and it picks up where it was when the sheet goes
-    if (document.getElementById('deck')?.classList.contains('on') || el.closest('.hud')?.classList.contains('logopen')) {
+    // (the house's height is read first, so the ask line follows the house even while the world waits: with the chat open or
+    // the keyboard up the house is gone and the ask line sits just above the home indicator, as on today's Home)
+    const dock = document.getElementById('dock');
+    const dh = dock ? dock.offsetHeight : 64;
+    if (dh !== dockH) {
+      dockH = dh;
+      (el.closest<HTMLElement>('.hud') ?? el).style.setProperty('--scan-dock', `${dh}px`);
+    }
+    if (document.getElementById('deck')?.classList.contains('on') || document.getElementById('palette')?.classList.contains('on') || el.closest('.hud')?.classList.contains('logopen')) {
       loop = requestAnimationFrame(frame);
       return;
     }
@@ -602,12 +610,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     const r = el.getBoundingClientRect();
     W = Math.max(1, Math.round(r.width || innerWidth));
     H = Math.max(1, Math.round(r.height || innerHeight));
-    const dock = document.getElementById('dock');
-    const dh = dock ? dock.offsetHeight : 64;
-    if (dh !== dockH) {
-      dockH = dh;
-      el.style.setProperty('--scan-dock', `${dh}px`);
-    }
     // the column's room: from under the greeting to above the altitude keys (it never covers the keys, the ask line or the house)
     const fr = r.top || 0;
     const colT = Math.round(Math.max(0, top.getBoundingClientRect().bottom - fr) + 8);

@@ -6333,6 +6333,8 @@ html #pinsheet .pinkeys { display: flex; justify-content: flex-end; gap: var(--g
    world is The Scan and Home is on screen (body.scanhome); the other looks keep today's Home untouched.
    --------------------------------------------------------------------------------------------------------------------- */
 html .scanframe { display: none; position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; background: var(--g-room-canvas); color: var(--g-ink-1); isolation: isolate; }
+/* the floor the ask line stands on: 28 px above the house; with the house gone (the chat open, the keyboard up) just above the home indicator */
+html body.scanhome .hud.core { --scan-floor: max(calc(var(--scan-dock, 64px) + 28px), calc(env(safe-area-inset-bottom, 0px) + 10px)); }
 /* (the frame is the phone's: at a desk today's three-column Home stays as it is) */
 @media (max-width: 899px) {
 html body.scanhome .hud.core .scanframe { display: block; }
@@ -6396,13 +6398,13 @@ html .scansay2 { margin: var(--g-s-half) 0 0; font: var(--g-t-body); letter-spac
 html .scantop #ccap { position: relative; margin: var(--g-s-1) 0 0; max-height: 28vh; padding: 6px 8px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: var(--g-plate-fill); border-radius: var(--g-radius-key); box-shadow: none; }
 html .scantop #ccap:empty { display: none; }
 /* the altitudes: the Machine's own list, one line each, the one he is on lit; a tap goes there */
-html .scanalts { position: absolute; z-index: 5; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 28px + 48px + 10px); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 6px; pointer-events: auto; }
+html .scanalts { position: absolute; z-index: 5; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-floor) + 48px + 10px); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 6px; pointer-events: auto; }
 html #app button.scanalt { display: flex; align-items: center; justify-content: flex-start; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; text-transform: none; letter-spacing: normal; transform: none; }
 html .scanalt .g-truth { display: inline-block; padding: 1px 6px 2px; background: var(--g-plate-fill); white-space: nowrap; }
 @media (max-width: 400px) { html .scanalt .g-truth .the { display: none; } }
 html .scanalt.on .g-truth { color: var(--g-accent-text); }
 /* the ask line above the house, the kicker between them */
-html .scanask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 28px); pointer-events: auto; }
+html .scanask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: var(--scan-floor); pointer-events: auto; }
 /* the ask line's plate carries every control the bar has: the chat key, the on-this-phone key, the field, CITED, the microphone (SEND where
    he has typed), and the plus (voice replies, the camera) with the chat open; 44 pt at least each, nothing sideways at 390 or 440 */
 html body.scanhome .hud.core #cbar { position: relative; display: flex; align-items: stretch; flex: none; margin: 0; padding: 0; width: 100%; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -6522,7 +6524,7 @@ html body.scanhome #dock .tabcap button.on::before { display: block; content: ''
 html body.scanhome #dock .tabcap button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); left: auto; right: 6px; top: 6px; width: auto; height: 16px; min-width: 16px; border-radius: 8px; background: var(--g-amber); color: var(--g-canvas); font: var(--g-t-fine); line-height: 16px; }
 /* the chat over the frame: the conversation's panel stays readable on the room */
 html body.scanhome .hud.core.logopen > .ccenter { z-index: 7; pointer-events: none; }
-html body.scanhome .hud.core.logopen .cside.l { z-index: 8; bottom: calc(var(--scan-dock, 64px) + 28px + 56px); }
+html body.scanhome .hud.core.logopen .cside.l { z-index: 8; bottom: calc(var(--scan-floor) + 56px); }
 /* the ask line stays on top of the open log (the log's last line scrolls up from under it, as on iOS): its keys take the tap */
 html body.scanhome .hud.core.logopen .scanframe > .scanask { z-index: 9; visibility: visible; }
 html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .scanleads, .scanco, .scantop, .scanalts, .scankick, .scancol) { visibility: hidden; }
