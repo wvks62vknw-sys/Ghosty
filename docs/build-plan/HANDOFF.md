@@ -257,6 +257,9 @@ folder that no longer exists; ignore those paths).
   OWNER-ISSUES). Lesson: after any guard restore, merge main into the open PR branch at once. Main merged into the
   branch with the branch's tree kept whole (the stopgap and the median read stay; PR #66 re-lands them); the run starts
   with this push. The reader split rebalanced by the builder: 202 s and 291 s alone (both halves well under 480).
+  03:40 UK: PR #68 OPEN (hotfix/readersplit 0dc4e3d from main: the split applied as one commit; reviewed: the one word in
+  check.yml, no app code, 102 assertions before and after, no model names; the builder's worktree and branch removed).
+  PR #66's run 363 on 3a853be started 03:25 UK. Nothing pushed to the session branch until 363 ends (a push cancels it).
 
 ## 23 Oct (Friday): this session, so far
 - Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
