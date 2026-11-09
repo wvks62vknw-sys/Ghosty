@@ -455,6 +455,10 @@ folder that no longer exists; ignore those paths).
   21:05 UK: MAIN'S OWN RUN on b4bd929 GREEN on every job (brain, interface, deploy-build, the four smoke shards; the guard skipped
   as it should). The shell in The Scan is FINISHED on the code side, pending his phone check (OWNER-ISSUES 166). Worktree shell3
   and branch builder/shell3 removed. The ONE INK builder still running.
+  HIS USAGE 9 Nov 21:10 UK: all models weekly 68%, top tier weekly 95% (8 Nov 22:11 UK: 58% and 81%). The top tier is the
+  orchestrator's own turns: 14 points in 23 hours for the shell's six runner fixes and the ONE INK brief. METHOD FROM HERE: the
+  orchestrator takes one turn per landing (review, apply, OWNER-ISSUES, push, PR in one go) and one per run read; the cheap
+  and mid tiers do the reading, reviewing and writing; no more builds briefed by the top tier this week unless he says so.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
