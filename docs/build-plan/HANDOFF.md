@@ -446,6 +446,8 @@ folder that no longer exists; ignore those paths).
   scales from .985 for half a second and the runner measured inside it; readerlib's measure now waits for the root's
   animations, up to 2 s, before reading sizes: the sizes checked are the settled ones, nothing loosened). map, reader2 green
   locally.
+  19:52 UK: run 416 GREEN on every job; PR #76 SQUASH-MERGED, main b4bd929; the session branch carries main (3df5b51). Main's
+  own run read at the 21:05 UK check-in; the worktree shell3 goes once it is green. ONE INK briefed next (164's order).
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
