@@ -431,6 +431,15 @@ folder that no longer exists; ignore those paths).
   jump bar's plate, machine checks the MACHINE VIEW line in Glass and adds a Scan check (the SEE room's row opens God's Eye);
   no check removed, no budget raised. The builder's sweep: every spec in the list run; red only where the sandbox is (WebKit
   absent, God's Eye screenshots hang, direct/aim/radio red on the base commit too, voice green alone). CI decides.
+  15:05 UK: run 413 never reached the browser: two brain tests read the shell's source (the finding test's house line, the
+  knowledge self-check's "comment beginning with dots"); re-cut. 16:25 UK: run 414 red on ONE spec, machine, twice: the HOME
+  box, the bus box and the amber ring "undefined" (the builder had called them screenshot checks; they are DOM checks). Cause,
+  reproduced on the preview: in the Scan the page ends above the house but the globe's canvas (#gl, fixed, full height) did
+  not, so the camera's centre (y 478 of 956) fell under the sheet (the open sky between the chips and the sheet was 278–460)
+  and the Machine view hid the boxes as "under the bar". Fix: the canvas ends where the house begins too (height
+  calc(100% - --dockh); a canvas is a replaced element, so `height: auto` took its own ratio and did nothing). machine green
+  locally. DESIGN NOTE for the owner (166 i): God's Eye in the Scan has about a fifth of a phone's screen as open globe
+  (header 128, chips 142, sheet 328, house 164 of 956); recommended a folded sheet in a later pass, with his word.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
