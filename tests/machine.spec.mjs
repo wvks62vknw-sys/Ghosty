@@ -265,6 +265,10 @@ await until(() => document.body.dataset.tab === 'eye' && window.__ghosty.machine
 await page.click('#pg-eye .eyebot .btns .machinebtn');
 await land();
 // the SEE hub: God's Eye's card has the status line MACHINE VIEW; a tap on it opens the mode (a tap elsewhere opens the globe)
+// (the status line is the card's in GLASS, the world that draws the cards as tiles: the world is set for it, then handed back)
+const world0 = await page.evaluate(() => document.documentElement.dataset.world);
+await page.evaluate(() => window.__ghosty.run('world_glass'));
+await until(() => document.documentElement.dataset.world === 'glass', null, 5000, 'the Glass world did not come for the Eye card');
 await page.evaluate(() => (location.hash = 'area-see'));
 const hline = '#pg-area-see .hubtile[data-id="eye"] .hline';
 await page.waitForSelector(hline, { state: 'visible', timeout: 10000 }).catch(() => problems.push('the Eye card has no status line'));
@@ -272,6 +276,18 @@ const hl = await page.$eval(hline, (e) => ({ t: e.textContent, h: e.getBoundingC
 check(hl?.t === 'MACHINE VIEW' && hl.h >= 44, `the Eye card's status line: ${JSON.stringify(hl)}`);
 await page.click(hline);
 await until(() => document.body.dataset.tab === 'eye' && window.__ghosty.machine?.on, null, 10000, 'the status line did not open the Machine view');
+await page.click('#pg-eye .eyebot .btns .machinebtn');
+await land();
+// ... and in THE SCAN (the world he has by default) the SEE room has God's Eye as a row of its own: one tap opens the globe
+await page.evaluate((w) => window.__ghosty.run(`world_${w}`), world0 === 'glass' ? 'glass' : 'scan');
+await until(() => document.documentElement.dataset.world === 'scan', null, 5000, 'the Scan did not come back after the Eye card');
+await page.evaluate(() => (location.hash = 'area-see'));
+const row = '#pg-area-see .hubtile[data-id="eye"]';
+await page.waitForSelector(row, { state: 'visible', timeout: 10000 }).catch(() => problems.push("the SEE room has no God's Eye row"));
+await page.click(row).catch(() => undefined);
+await until(() => document.body.dataset.tab === 'eye', null, 10000, "a tap on God's Eye in the SEE room did not open God's Eye");
+await page.evaluate(() => (location.hash = 'eye?machine'));
+await until(() => document.body.dataset.tab === 'eye' && window.__ghosty.machine?.on, null, 10000, '#eye?machine did not land in the Machine view after the room');
 await page.click('#pg-eye .eyebot .btns .machinebtn');
 await land();
 

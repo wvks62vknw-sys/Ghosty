@@ -172,12 +172,21 @@ export interface StampFacts {
   offline?: boolean;
 }
 
+// (the date and the time are said once for each minute: `toLocale…String` builds a formatter on every call, and every screen's stamp
+// is asked on every screen he enters)
+let said = { minute: -1, day: '', time: '' };
 /** "Fri 6 Nov · 21:08 · Birmingham · Watching 3 feeds · Looking at the look" (shown in mono capitals). */
 export function stampWords(f: StampFacts, now = new Date()): string[] {
-  const day = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '');
-  const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const minute = Math.floor(now.getTime() / 60000);
+  if (said.minute !== minute) {
+    said = {
+      minute,
+      day: now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, ''),
+      time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    };
+  }
   const w = f.offline ? 'Offline, feeds paused' : f.watching == null ? 'Checking feeds' : f.watching === 0 ? 'No feeds yet' : `Watching ${f.watching} ${f.watching === 1 ? 'feed' : 'feeds'}`;
-  return [day, time, f.place || 'Here', w, `Looking at ${f.looking}`];
+  return [said.day, said.time, f.place || 'Here', w, `Looking at ${f.looking}`];
 }
 
 /**
@@ -212,9 +221,14 @@ export function stampLine(facts: () => StampFacts): { el: HTMLElement; refresh()
   const el = h('p.g-stamp', { dataset: { g: 'stamp', case: 'keep' } });
   let focus = '';
   let timer = 0;
+  let drawn = '';
   const paint = () => {
     const f = facts();
     const words = stampWords(focus ? { ...f, looking: focus } : f);
+    // (the same words again: nothing is written, nothing is laid out)
+    const sig = words.join('\u0000');
+    if (sig === drawn && el.firstChild) return;
+    drawn = sig;
     el.replaceChildren();
     // (what it is looking at, last, in the accent: the thing in focus)
     segments(el, words.map((w, i) => ({ text: w, tone: i === words.length - 1 ? 'on' : undefined })));

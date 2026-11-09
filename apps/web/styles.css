@@ -6570,7 +6570,20 @@ html body:not(.housed) #dock .tabcap .scanme { display: none; }
 html #top .headstamp { display: none; }
 @media (max-width: 899px) {
   /* the dock: the house, and the ask line under it (Home draws its own ask line and words: scan/home.ts) */
-  html body.housed:not(.scanhome) { --tabh: 176px; }
+  /* the page ends where the house begins (--dockh: the house's own height, measured by shell/house.ts): a screen's scrolling content
+     never runs under the house's label row, its keys or its ask line, so the house never lies over a page's own controls; the stage
+     itself still runs to the foot of the screen. The old bar's padding (--tabh) is now only the breathing room above the house: 20 px
+     in all, the safe area already counted in the house's own height */
+  html body.housed:not(.scanhome) { --tabh: calc(16px - env(safe-area-inset-bottom, 0px)); --dockh: 164px; }
+  html body.housed:not(.scanhome) #stage > .pg { bottom: var(--dockh); }
+  /* toasts and the undo pill stack from above the ask line: above the whole house on a room's screen; on Home (its ask line is its
+     own, over a house of 44 pt keys) 22 px higher than the old bar's floor */
+  html body.housed:not(.scanhome) #toasts { bottom: calc(var(--dockh) + var(--g-s-1)); }
+  html body.housed:not(.scanhome) .rcundo.undofloat { bottom: calc(var(--dockh) + var(--g-s-1)); }
+  html body.housed:not(.scanhome):has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--dockh) + 62px + var(--g-s-1)); }
+  html body.housed.scanhome #toasts { bottom: calc(var(--tabh) + 96px + env(safe-area-inset-bottom, 0px)); }
+  html body.housed.scanhome .rcundo.undofloat { bottom: calc(var(--tabh) + 96px + env(safe-area-inset-bottom, 0px)); }
+  html body.housed.scanhome:has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--tabh) + 158px + env(safe-area-inset-bottom, 0px)); }
   html body.housed:not(.scanhome) #dock.areas { flex-direction: column; align-items: stretch; gap: var(--g-s-half); background: linear-gradient(to top, var(--g-room-canvas) 0, var(--g-room-canvas) 66%, rgba(var(--g-room-canvas-rgb), 0)); }
   html body.housed:not(.scanhome) #dock .tabblur { display: none; }
   html body.housed:not(.scanhome) #dock .tabcap { flex: none; pointer-events: auto; }
@@ -6610,6 +6623,20 @@ html #top .headstamp { display: none; }
   html body.housed[data-tab="eye"]:not(.scanhome) #top .you { display: grid !important; }
   html body.housed[data-depth="inner"] .hud.eye .eyetop { padding-left: 0; }
   html body.housed .eyechips { margin-left: 0; }
+  html body.housed .eyetop .myplaces { margin-left: 54px; } /* (as Glass's: the layers button stands at the left of the row above, not over the first place) */
+  /* the zoom rail stands in the gap between the chips and the sheet: centred when the gap is tall, hung from the chips' foot when a
+     short screen leaves less than the rail's height (it never rises under the chips) */
+  /* a tapped spot's card is taller than the gap the house and the page's name leave between the chips and the sheet: it may lie over the
+     top of the sheet (above it, with its own close) so its buttons stay in reach, the rest scrolling inside it as before */
+  html body.housed .hud.eye .eyeinfo { z-index: 8; max-height: min(420px, calc(100% + 140px)); }
+  html body.housed #pg-eye .hud.eye { padding-bottom: var(--g-s-half); } /* (the sheet is the globe's own bottom bar: it stands straight on the house's edge) */
+  html body.housed .hud.eye .zoomrail { top: max(0px, calc(50% - 61px)); transform: none; }
+  /* the viewfinders are drawn in the screen's height (vh); the house and the page's name take about 100 px more than the old bar and
+     title did: in SOUND (the camera is off, the picture is only the listening banner) the picture gives it back, so RECORD stays above
+     the house without a scroll; STUDIO's view likewise */
+  html body.housed .hud.lens.hearing .lensview { max-height: calc(44vh - 100px); }
+  html body.housed .studioview { max-height: calc(46vh - 100px); }
+  @media (max-height: 820px) { html body.housed .hud.eye .zoomrail small { display: none; } } /* (the altitude is in the stamp and the readout under it) */
   /* with the LOOK menu open (it rises from the bar to the search) the layer chips step aside, and the menu has their room (the house takes a third of a short screen) */
   html body.housed .hud.eye:has(.lookmenu:not([hidden])) .eyechips { display: none; }
   /* THE PLAN: the house unfolded, every room with its things numbered, on one surface above the ask line */

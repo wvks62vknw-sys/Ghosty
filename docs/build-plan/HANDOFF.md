@@ -420,6 +420,17 @@ folder that no longer exists; ignore those paths).
   (worktree shell3, branch builder/shell3) makes every spec in the workflow's list green: defects fixed in code, Glass readers
   re-cut with the helpers, budgets met by cost not by raising. PR #76 stays open until every job is green; main is green at
   93edf93. LESSON: a shell change runs EVERY spec before it is reported, not the pinned ones; the brief now says so.
+  13:00 UK: shell3 landed as one commit on PR #76 (eleven builder commits, the stray screenshot left out). In code: every
+  room's page ends where the house begins (the house's height measured live as --dockh; the stage still runs to the foot), the
+  SOUND picture and the Studio view give back the room the house takes, toasts and the undo pill stack above the house (22 px
+  higher on Home), God's Eye's spot card lies over the sheet's top with its buttons in reach, the place chips step clear of the
+  LAYERS button (the pin's fly-home was that overlap, not a lost tap), the zoom rail hangs from the chips on a short phone; the
+  shell's per-screen cost cut (the width read on resize not every entry, the stamp says the minute once and writes only
+  changes, Glass draws no stamp and focuses its palette as before): a screen entry at 4× throttle 99 → 38 ms. Specs: app,
+  school, lens open from the deck on both drawings (nav.mjs chooseInDeck/deckNames), reader reads the Learn room's tile and the
+  jump bar's plate, machine checks the MACHINE VIEW line in Glass and adds a Scan check (the SEE room's row opens God's Eye);
+  no check removed, no budget raised. The builder's sweep: every spec in the list run; red only where the sandbox is (WebKit
+  absent, God's Eye screenshots hang, direct/aim/radio red on the base commit too, voice green alone). CI decides.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

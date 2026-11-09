@@ -28,7 +28,11 @@ const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 
 export const houseState = { planOpen: false, room: '', says: '' };
 
 /** The house is drawn: the Scan's world, on a phone. */
-export const houseOn = (): boolean => document.documentElement.dataset.world === 'scan' && innerWidth < 900;
+// (the width is read on a resize, not at every call: `innerWidth` makes the page lay itself out first, and the house asks on every screen
+// it enters, straight after the screen's own classes changed)
+let narrow = innerWidth < 900;
+addEventListener('resize', () => (narrow = innerWidth < 900));
+export const houseOn = (): boolean => narrow && document.documentElement.dataset.world === 'scan';
 
 /** The room he is in: the house's key lit and the words at the right ("LEARN"). Every screen has one; Every screen is under ME. */
 export function roomNow(): Room {
@@ -164,11 +168,14 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     const r = roomNow();
     houseState.room = r.key;
     houseState.says = `You are in ${r.title}`;
-    where.textContent = houseState.says;
-    words.textContent = fieldWords();
+    // (words are written only when they changed: a write makes the dock lay itself out again)
+    if (where.textContent !== houseState.says) where.textContent = houseState.says;
+    const fw = fieldWords();
+    if (words.textContent !== fw) words.textContent = fw;
     // the Ask key reads HOME in the house (Home is the room it opens)
     const askKey = cap?.querySelector<HTMLElement>('button[data-area="ask"] span');
-    if (askKey) askKey.textContent = on ? 'Home' : 'Ask';
+    const askWord = on ? 'Home' : 'Ask';
+    if (askKey && askKey.textContent !== askWord) askKey.textContent = askWord;
     if (!on) close();
     // the key of the room he is in (the tab bar lights the area; Every screen is under ME)
     if (on && deckState.open) for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
@@ -179,6 +186,15 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   };
   recipeEvents.on('change', paint);
   addEventListener('resize', paint);
+  // the page ends where the house begins: its measured height is --dockh (the keys, the ask line and the home indicator's room)
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const bs = document.body.style;
+      const h = Math.round(dock.getBoundingClientRect().height);
+      if (houseOn() && h > 0) bs.setProperty('--dockh', `${h}px`);
+      else bs.removeProperty('--dockh');
+    }).observe(dock);
+  }
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = (n = 0) => (w.__ghosty ? (w.__ghosty.house = houseState) : n < 150 && setTimeout(() => attach(n + 1), 100));
   attach();

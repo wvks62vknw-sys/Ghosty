@@ -128,7 +128,9 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   // (shell/awareness.ts); drawn in The Scan (Home has its own, the same line); the page's title under it is the large title below
   const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
   stamp.el.classList.add('headstamp');
-  guardian.subscribe(() => stamp.refresh());
+  // (drawn only in The Scan: Glass keeps its line hidden and pays nothing for it)
+  const stampOn = () => document.body.classList.contains('housed');
+  guardian.subscribe(() => stampOn() && stamp.refresh());
   const top = h('header#top', stamp.el, back, h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot, navTitle);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
@@ -152,9 +154,10 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     paintNav();
     paintTabBar?.();
     house?.paint();
+    if (!stampOn()) return;
     stamp.refresh();
     // (a screen says what it is looking at once it has entered)
-    setTimeout(() => stamp.refresh(), 450);
+    setTimeout(() => stampOn() && stamp.refresh(), 450);
   };
   addEventListener('ghosty:deck', () => paintDock());
   recipeEvents.on('change', () => paintDock());

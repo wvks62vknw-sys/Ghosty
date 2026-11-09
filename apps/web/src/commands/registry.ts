@@ -130,12 +130,15 @@ export function togglePalette(): void {
       const rec = !q && decor ? decor.recents() : [];
       items = rankRows(allCommands(), q, { extra: q.length > 1 ? providers.flatMap((p) => p(q)) : [], rec });
       sel = Math.min(sel, Math.max(0, items.length - 1));
-      clearBtn.hidden = !input.value;
-      // The Scan: the same rows, ranked as they are, drawn as the mock draws them (shell/jump.ts)
+      // The Scan: the same rows, ranked as they are, drawn as the mock draws them (shell/jump.ts). Glass touches nothing here (its
+      // palette costs what it always cost): the class and the words are written only when the bar changes world.
       const jump = decor?.jump?.on() ? decor.jump : null;
-      pal!.classList.toggle('scanjump', !!jump);
-      input.placeholder = jump ? 'Ask, or say where to go' : 'Ask, or jump to a screen or place';
+      if (jump || pal!.classList.contains('scanjump')) {
+        pal!.classList.toggle('scanjump', !!jump);
+        input.placeholder = jump ? 'Ask, or say where to go' : 'Ask, or jump to a screen or place';
+      }
       if (jump) {
+        clearBtn.hidden = !input.value;
         sel = jump.draw({ pal: pal!, list, input, q, items, pick, hold: (c, el) => decor?.hold?.(c, el) });
         return;
       }
@@ -193,7 +196,7 @@ export function togglePalette(): void {
   const input = pal.querySelector('input')!;
   input.value = '';
   (pal as HTMLElement & { render?: () => void }).render?.();
-  // (focused inside the tap itself, so the phone's keyboard comes up with the plates; the timer is the older way for a key press)
-  input.focus({ preventScroll: true });
-  setTimeout(() => input.focus({ preventScroll: true }), 20);
+  // The Scan: focused inside the tap itself, so the phone's keyboard comes up with the plates. Glass: the timer alone, as it always was.
+  if (decor?.jump?.on()) input.focus({ preventScroll: true });
+  setTimeout(() => (decor?.jump?.on() ? input.focus({ preventScroll: true }) : input.focus()), 20);
 }

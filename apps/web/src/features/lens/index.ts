@@ -551,6 +551,7 @@ export const lensTab: TabDef = {
         bar.hidden = m === 'sound';
         stamp.el.hidden = m !== 'lens';
         hudEl()?.classList.toggle('onelens', m === 'lens');
+        hudEl()?.classList.toggle('hearing', m === 'sound'); // (the camera is off in SOUND: the picture gives room to its controls under the house)
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
         syncMore();

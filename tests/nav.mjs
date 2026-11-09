@@ -23,16 +23,30 @@ export async function openDeck(page) {
   await page.click('#mesheet .merow[data-id="deck"]');
 }
 
-// The Every screen deck (shell/launcher.ts) opens a card in place; its OPEN button goes to the screen.
-export async function openScreen(page, id) {
-  await openDeck(page);
-  // THE SCAN (BRIEF-SHELL-2): Every screen is the inventory, a row opens its screen at one tap; Glass keeps the cards and OPEN
+// The Every screen deck (shell/launcher.ts) is open already: choose the screen `id` in it. THE SCAN (BRIEF-SHELL-2): Every screen is
+// the inventory, a row opens its screen at one tap; Glass keeps the cards, and OPEN on the card.
+export async function chooseInDeck(page, id) {
   if (await page.evaluate(() => document.body.classList.contains('housed'))) {
     await page.click(`#deck .invrow[data-group]:not([data-group="favourites"]):not([data-group="recent"])[data-id="${id}"], #deck .invrow[data-id="${id}"]`);
     return;
   }
   await page.click(`#deck .dkcard[data-id="${id}"]`);
   await page.click(`#deck .dkx[data-id="${id}"] .dkopen`);
+}
+
+// The Every screen deck opens from the Me sheet; this opens it and chooses the screen.
+export async function openScreen(page, id) {
+  await openDeck(page);
+  await chooseInDeck(page, id);
+}
+
+/** The names of the screens the deck lists: the cards' names in Glass, the inventory's rows in The Scan (each screen once, not its favourite or recent copy). */
+export async function deckNames(page) {
+  return page.evaluate(() =>
+    document.body.classList.contains('housed')
+      ? [...document.querySelectorAll('#deck .invrow')].filter((r) => r.dataset.group !== 'favourites' && r.dataset.group !== 'recent').map((r) => r.querySelector('.invname')?.textContent ?? '')
+      : [...document.querySelectorAll('#deck .dkcard .dkhd b')].map((x) => x.textContent),
+  );
 }
 
 // Settings, System and Links are grouped lists: a panel shows its contents once its row is tapped (it is
