@@ -406,6 +406,12 @@ folder that no longer exists; ignore those paths).
   undone on applying: the builder had made God's Eye's screenshots in the ui spec never fail; they fail again anywhere but a
   machine that says NO_GL_SHOTS=1 (this sandbox). Applied as one commit; PR #76; OWNER-ISSUES 166 (his seven-step check,
   seven calls). Next in 164's order: ONE INK.
+  05:55 UK: MAIN'S OWN RUN (408) ON 93edf93 GREEN ON EVERY JOB, the guard quiet: main carries THE SCAN's Home, the Lens that
+  just knows and the Theme gallery, green for the first time since the Scan landed (the fixes that got it there, each at a
+  cause on the two-core runner: the boot spec's hero wait, the Scan's breath at half rate then adaptive, the reader's quiet
+  stop, the themes check without live marks, the caption standing with the voice). PR #76 (the shell) runs on dfa3a1b after
+  the look spec's re-cut for the Settings plate and a Paper fix the re-cut found (the house's words dark on the night floor
+  on THE LOOK and the Theme page); read at the 06:30 UK check-in.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
