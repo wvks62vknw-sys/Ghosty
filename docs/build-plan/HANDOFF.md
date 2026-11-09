@@ -452,6 +452,9 @@ folder that no longer exists; ignore those paths).
   round-two mock, the foot as the tab bar on every screen with the shell's pieces drawn by the ink tokens, the Glass boot landing
   on the page, a new `ink` spec, every spec run before the report); a mid-tier builder launched in worktree ink (branch
   builder/ink from 3df5b51, port 8798), report to scratchpad/ink-report.md.
+  21:05 UK: MAIN'S OWN RUN on b4bd929 GREEN on every job (brain, interface, deploy-build, the four smoke shards; the guard skipped
+  as it should). The shell in The Scan is FINISHED on the code side, pending his phone check (OWNER-ISSUES 166). Worktree shell3
+  and branch builder/shell3 removed. The ONE INK builder still running.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

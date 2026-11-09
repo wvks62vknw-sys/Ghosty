@@ -337,8 +337,8 @@ built in the old look after day one, so no screen is built twice.
    PASS 2 MERGED 9 Nov 19:52 UK as PR #76 (main b4bd929; its run 416 green on every job after six fixes on the runner: pages
    ending above the house, toasts, God's Eye's card, chips, canvas and crosshair, the reader measured settled, the two brain
    tests reading the shell's source): in The Scan the house is the tab bar on every screen, the plan one tap away, the ask
-   line the jump bar, the hubs rooms, Every screen the inventory, Settings a plate; Glass pixel-equal. FINISHED when main's
-   own run is green and his phone check (OWNER-ISSUES 166) is in.
+   line the jump bar, the hubs rooms, Every screen the inventory, Settings a plate; Glass pixel-equal. MAIN'S OWN RUN GREEN
+   9 Nov 21:05 UK: FINISHED on the code side, pending his phone check (OWNER-ISSUES 166).
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,
