@@ -448,6 +448,10 @@ folder that no longer exists; ignore those paths).
   locally.
   19:52 UK: run 416 GREEN on every job; PR #76 SQUASH-MERGED, main b4bd929; the session branch carries main (3df5b51). Main's
   own run read at the 21:05 UK check-in; the worktree shell3 goes once it is green. ONE INK briefed next (164's order).
+  20:20 UK: BRIEF-ONE-INK written (the second whole HUD: ONE INK as a world in the gallery, Home as the printed page from the
+  round-two mock, the foot as the tab bar on every screen with the shell's pieces drawn by the ink tokens, the Glass boot landing
+  on the page, a new `ink` spec, every spec run before the report); a mid-tier builder launched in worktree ink (branch
+  builder/ink from 3df5b51, port 8798), report to scratchpad/ink-report.md.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
