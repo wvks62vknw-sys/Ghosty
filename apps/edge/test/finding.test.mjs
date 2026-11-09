@@ -218,7 +218,9 @@ test('a number said or typed: "two", "open two", "02", "the second one" and "lea
 test('the house is drawn from that one list on every screen: the plan, the jump bar, a room and Every screen read it, and Glass keeps its own', () => {
   const house = read('shell/house.ts');
   assert.match(house, /import \{ ROOMS, roomOf/, 'the plan reads the rooms');
-  assert.match(house, /document\.documentElement\.dataset\.world === 'scan' && innerWidth < 900/, 'the house is the Scan on a phone, and only that');
+  // (the width is read on a resize, not at every call: `innerWidth` forces a layout and the house asks on every screen it enters)
+  assert.match(house, /narrow && document\.documentElement\.dataset\.world === 'scan'/, 'the house is the Scan on a phone, and only that');
+  assert.match(house, /narrow = innerWidth < 900/, 'a phone is under 900 px, read when the window resizes');
   assert.match(house, /The house · 7 rooms/);
   assert.match(read('shell/launcher.ts'), /for \(const r of ROOMS\)/, 'Every screen lists the rooms');
   assert.match(read('shell/areas.ts'), /const room = ROOMS\.find\(\(r\) => r\.area === a\.id\)/, 'a hub draws its room from the same list');

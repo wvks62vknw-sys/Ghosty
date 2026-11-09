@@ -278,7 +278,7 @@ await page.click(hline);
 await until(() => document.body.dataset.tab === 'eye' && window.__ghosty.machine?.on, null, 10000, 'the status line did not open the Machine view');
 await page.click('#pg-eye .eyebot .btns .machinebtn');
 await land();
-// ... and in THE SCAN (the world he has by default) the SEE room has God's Eye as a row of its own: one tap opens the globe
+// and in THE SCAN (the world he has by default) the SEE room has God's Eye as a row of its own: one tap opens the globe
 await page.evaluate((w) => window.__ghosty.run(`world_${w}`), world0 === 'glass' ? 'glass' : 'scan');
 await until(() => document.documentElement.dataset.world === 'scan', null, 5000, 'the Scan did not come back after the Eye card');
 await page.evaluate(() => (location.hash = 'area-see'));
