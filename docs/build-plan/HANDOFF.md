@@ -412,6 +412,14 @@ folder that no longer exists; ignore those paths).
   stop, the themes check without live marks, the caption standing with the voice). PR #76 (the shell) runs on dfa3a1b after
   the look spec's re-cut for the Settings plate and a Paper fix the re-cut found (the house's words dark on the night floor
   on THE LOOK and the Theme page); read at the 06:30 UK check-in.
+  07:15 UK: PR #76's run 411 RED on twelve specs the shell builder never ran (it ran the pinned list only): the house covering
+  page content on God's Eye, the Library, the Studio and the sound's RECORD key (real defects: a page's scrolling content must
+  end above the house), toasts over the raised ask line, aurora's spot card unreachable, the Street View pin's fly-home, five
+  specs reading Glass's deck cards and hub tiles (app, school, lens, reader, machine), and two budgets on the runner (THE
+  LOOK's second open 354–371 ms, the Glass jump bar 303–316 ms: the shell's per-screen cost). A fresh mid-tier builder
+  (worktree shell3, branch builder/shell3) makes every spec in the workflow's list green: defects fixed in code, Glass readers
+  re-cut with the helpers, budgets met by cost not by raising. PR #76 stays open until every job is green; main is green at
+  93edf93. LESSON: a shell change runs EVERY spec before it is reported, not the pinned ones; the brief now says so.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
