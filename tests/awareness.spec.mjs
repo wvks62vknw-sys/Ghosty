@@ -23,7 +23,7 @@
 //     (not the fallback), 160 characters at most, no key; eight held to their exact words, a sheet screen follows its pill.
 //   BASE=http://localhost:8788 node tests/awareness.spec.mjs [outDir]   (ONLY=plan,car,shed,reader,deck,lens,turn,core,speed,fit,screens)
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openSection } from './nav.mjs';
+import { GLASS, PHONE, UK, openDeck, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -60,15 +60,16 @@ const fakeVoice = () => {
   Object.defineProperty(synth, 'speaking', { configurable: true, get: () => !!cur });
 };
 
-async function open(size = PHONE, name = 'main') {
+// (`world` 'glass': the deck's cards and their Core line are Glass's, held to their own checks unchanged; the default is The Scan)
+async function open(size = PHONE, name = 'main', world = 'scan') {
   const ctx = await browser.newContext({ viewport: size, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'], userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
-  await ctx.addInitScript(([k]) => {
+  await ctx.addInitScript(([k, look]) => {
     // this runs in every frame, the sandboxed widget frames included (no same-origin: their storage throws): only Ghosty's own page is seeded
     try {
       localStorage.setItem('ghosty.ownerKey', k);
-      if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));
+      if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', ...(look ? { look } : {}) }));
     } catch { /* a sandboxed frame */ }
-  }, [KEY]);
+  }, [KEY, world === 'glass' ? GLASS.look : null]);
   await ctx.addInitScript(fakeVoice);
   const page = await ctx.newPage();
   const bodies = [];
@@ -350,7 +351,7 @@ if (part('fit') || part('reader')) {
 if (part('deck') || part('core') || part('lens') || part('fit')) {
   for (const size of [PHONE, SMALL]) {
     const tag = `${size.width}`;
-    const { ctx, page, bodies } = await open(size, `deck${tag}`);
+    const { ctx, page, bodies } = await open(size, `deck${tag}`, 'glass');
     // a screen with nothing of its own to say: Settings is described from its TabDef
     await page.evaluate(() => (location.hash = 'settings'));
     await until(page, () => window.__ghosty.ui.get().tab === 'settings', null, 10000, `[deck ${tag}] Settings did not open`);
@@ -418,6 +419,36 @@ if (part('deck') || part('core') || part('lens') || part('fit')) {
     }
     await ctx.close();
   }
+}
+
+// ---------------------------------------------------------------- 5b. EVERY SCREEN IN THE SCAN (BRIEF-SHELL-2): the inventory speaks, a number opens with no model
+if (part('deck') || part('core')) {
+  const { ctx, page, bodies } = await open(PHONE, 'scandeck');
+  await page.evaluate(() => (location.hash = 'settings'));
+  await until(page, () => window.__ghosty.ui.get().tab === 'settings', null, 10000, '[scan deck] Settings did not open');
+  await page.waitForTimeout(500);
+  const st = await aware(page);
+  await openDeck(page);
+  await until(page, () => window.__ghosty.deck?.open && document.querySelector('#deck .invrow'), null, 5000, '[scan deck] Every screen did not open as the inventory');
+  await page.waitForTimeout(600);
+  let a = await aware(page);
+  check(a?.screen === 'deck' && a.line === 'the deck of every screen' && a.looking === 'every screen' && !a.selected, `[scan deck] open, Every screen says: ${JSON.stringify(a)}`);
+  const stampSaid = await page.evaluate(() => document.querySelector('#deck .headstamp, #deck .g-stamp')?.textContent ?? '');
+  check(/Looking at every screen$/i.test(stampSaid), `[scan deck] its stamp line says "${stampSaid}"`);
+  check(!!st?.line, `[scan deck] Settings said nothing of itself under it: ${JSON.stringify(st)}`);
+  await page.fill('#deck .dkin', 'rad');
+  await page.waitForTimeout(300);
+  a = await aware(page);
+  check(a?.line === "the deck of every screen, searching for 'rad'", `[scan deck] typing says: ${JSON.stringify(a?.line)}`);
+  // a number said in the field opens that screen with no model: "plan 4" is Radio
+  const calls0 = chatCalls(bodies);
+  await page.fill('#deck .dkin', 'plan 4');
+  await page.press('#deck .dkin', 'Enter');
+  await until(page, () => window.__ghosty.ui.get().tab === 'radio' && !window.__ghosty.deck.open, null, 8000, `[scan deck] "plan 4" did not open Radio (${await page.evaluate(() => window.__ghosty.ui.get().tab)})`);
+  check(chatCalls(bodies) === calls0, '[scan deck] "plan 4" went to the brain');
+  a = await aware(page);
+  check(a?.screen !== 'deck', `[scan deck] the deck's context stayed after it closed: ${JSON.stringify(a)}`);
+  await ctx.close();
 }
 
 // ---------------------------------------------------------------- 7b. THE LOOK's stamp

@@ -11,6 +11,9 @@ import { clear, fmt, h, icon } from '../../core/dom';
 import { events, launches, quakes, type Launch, type NaturalEvent, type Quake } from '../../data/hazards';
 import { GEO } from '../../engine/geo';
 import { gfx } from '../../engine/gfx';
+
+/** The crosshair: the centre of the globe's own picture (in The Scan the canvas ends where the house begins, so it is not the screen's centre). */
+const crosshair = (): [number, number] => [gfx.cv.clientWidth / 2, gfx.cv.clientHeight / 2];
 import { globe, SENSOR_MODES, type LayerVisibility, type Pickable } from '../../engine/globe';
 import { air, type Aircraft } from '../../engine/layers/air';
 import { eventLayer, quakeLayer } from '../../engine/layers/hazards';
@@ -736,7 +739,7 @@ export const eyeTab: TabDef = {
         const H = home();
         return { lat: H.lat, lon: H.lon, name: H.name, heading: 0 };
       }
-      const g = c.pick(innerWidth / 2, innerHeight / 2) ?? { lat: c.lat, lon: c.lon };
+      const g = c.pick(...crosshair()) ?? { lat: c.lat, lon: c.lon };
       const near = World.near(g.lat, g.lon, 2e5);
       return { lat: g.lat, lon: g.lon, name: near && near.km < 400 ? near.city.name : undefined, heading: c.hd };
     };
@@ -791,7 +794,7 @@ export const eyeTab: TabDef = {
         paintTiles();
         // it grows upwards from the bar: never past the search bar (with Safari's bars it ran off the top), it scrolls
         const under = root.querySelector('.eyetop')?.getBoundingClientRect().bottom ?? 0;
-        look.style.maxHeight = `${Math.max(160, Math.floor(look.getBoundingClientRect().bottom - under - 8))}px`;
+        look.style.maxHeight = `${Math.max(96, Math.floor(look.getBoundingClientRect().bottom - under - 8))}px`;
       }
     });
     const closeLook = () => {
@@ -1089,11 +1092,12 @@ export const eyeTab: TabDef = {
       }
       if (globe.vis.air && alt < 900) {
         const now = Date.now();
+        const [cx, cy] = crosshair();
         const near = [...air.list.values()]
           .map((a) => ({ a, w: air.world(a, now) }))
           .map((o) => ({ ...o, p: c.project(o.w) }))
           .filter((o) => o.p)
-          .sort((u, v) => Math.hypot(u.p![0] - innerWidth / 2, u.p![1] - innerHeight / 2) - Math.hypot(v.p![0] - innerWidth / 2, v.p![1] - innerHeight / 2))
+          .sort((u, v) => Math.hypot(u.p![0] - cx, u.p![1] - cy) - Math.hypot(v.p![0] - cx, v.p![1] - cy))
           .slice(0, alt < 200 ? 30 : 16);
         for (const o of near) add(o.w, `${o.a.call || o.a.hex}${o.a.gnd ? '' : ` ${Math.round(o.a.altft / 100)}`}`, o.a.mil ? '#ff8a8a' : '#bff');
       }
@@ -1148,7 +1152,7 @@ export const eyeTab: TabDef = {
     };
     onFrame((dt) => {
       if (!active()) return;
-      if (hold) globe.cam.zoom(Math.exp(hold * 1.7 * dt), innerWidth / 2, innerHeight / 2);
+      if (hold) globe.cam.zoom(Math.exp(hold * 1.7 * dt), ...crosshair());
       if (!globe.cam.dragging && (Math.abs(vel.x) > 0.05 || Math.abs(vel.y) > 0.05) && !globe.cam.fly) {
         pan(vel.x, vel.y);
         vel.x *= 0.92;
@@ -1163,7 +1167,7 @@ export const eyeTab: TabDef = {
     onFrame(() => {
       if (!active()) return;
       const c = globe.cam;
-      const g = c.pick(innerWidth / 2, innerHeight / 2) ?? { lat: c.lat, lon: c.lon };
+      const g = c.pick(...crosshair()) ?? { lat: c.lat, lon: c.lon };
       const near = World.near(g.lat, g.lon, 2e5);
       const alt = c.cs?.alt ?? c.range;
       const mk = (n: number) => (n < 1 ? `${(n * 1000).toFixed(0)} m` : n < 100 ? `${n.toFixed(1)} km` : `${fmt.n(n)} km`);

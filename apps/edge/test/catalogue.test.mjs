@@ -289,3 +289,6 @@ test('the counts (printed for the report): tools, screens, panels, phrases, game
 
 // THE FINDING RULE (BRIEF-SHELL pass 1): every screen within three taps or one typed word, held by its own test file
 await import('./finding.test.mjs');
+
+// THE RATCHET (BRIEF-SHELL-2): the old look only goes down
+await import('./ratchet.test.mjs');

@@ -101,6 +101,13 @@ async function measure(page, W) {
     return { side: side.slice(0, 6), unnamed: unnamed.slice(0, 6), small: small.slice(0, 6), controls: controls.length, scroll: document.documentElement.scrollWidth };
   }, W);
 }
+/** Settings drawn as THE SCAN's plate (`.scanset`) or as the Glass list: the two drawings reach THE LOOK and the Theme page by their own taps. */
+const onPlate = (p) => p.evaluate(() => { const e = document.querySelector('#pg-settings .scanset'); return !!e && !!(e.offsetWidth || e.offsetHeight || e.getClientRects().length); });
+const plateRow = (p, name) => p.locator('#pg-settings .scanset button.srow').filter({ has: p.locator('.srname', { hasText: new RegExp(`^${name}$`, 'i') }) }).first();
+/** The Theme row's words: the plate row's whole value in the Scan, the list row's label in Glass. */
+const themeRowWords = async (p) => (await onPlate(p))
+  ? ((await plateRow(p, 'Theme').locator('.srvalue').evaluate((e) => e.textContent ?? '').catch(() => '')) ?? '').trim()
+  : ((await p.locator('#pg-settings .pn.themepn > h3 small').getAttribute('data-label').catch(() => '')) ?? '');
 async function sweep(page, W, tagname) {
   for (const id of SECTIONS) {
     await openLookSection(page, id);
@@ -116,22 +123,32 @@ async function sweep(page, W, tagname) {
 // ======================================================================== 1. two taps from Settings, the speed budget
 const { ctx, page } = await phone(PHONE);
 await page.evaluate(() => (location.hash = 'settings'));
-await page.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => problems.push('[settings] the list never drew'));
-// Settings on another section (the worst case: the row is not on screen yet), then the two taps
-await openSection(page, 'settings', 'About');
-const row = '#pg-settings .pn[data-row][data-go="look"] > h3';
-check(!(await page.locator(row).isVisible().catch(() => false)), '[settings] THE LOOK\'s row shows under About (it belongs under Appearance)');
+await page.waitForSelector('#pg-settings.listmode .scanset button.srow, #pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => problems.push('[settings] the list never drew'));
+await page.waitForTimeout(500);
+const plate = await onPlate(page);
+notes.push(`Settings is drawn as ${plate ? "THE SCAN's plate" : "Glass's list"}`);
+// Settings on another section (the worst case: the row is not on screen yet), then the taps (two in Glass, one on the plate)
+if (!plate) await openSection(page, 'settings', 'About');
+const row = plate ? '#pg-settings .scanset button.srow[data-title="THE LOOK"]' : '#pg-settings .pn[data-row][data-go="look"] > h3';
+if (plate) check(!(await page.locator('#pg-settings .scanset .setgroup[data-group="about"] button.srow[data-title="THE LOOK"]').count()), '[settings] THE LOOK\'s row sits under ABOUT on the plate (it belongs under THE LOOK)');
+else check(!(await page.locator(row).isVisible().catch(() => false)), '[settings] THE LOOK\'s row shows under About (it belongs under Appearance)');
 /** The page at rest (Settings draws its panels for a moment after it shows): a person reads the list before tapping. */
 const idle = (p) => p.evaluate(() => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 3000 }) : setTimeout(r, 300))));
 await page.waitForTimeout(800);
 await idle(page);
-await openSection(page, 'settings', 'Appearance'); // tap 1
-check(await page.locator(row).isVisible().catch(() => false), '[settings] THE LOOK has no row under Appearance');
-const rowName = (await page.locator('#pg-settings .pn[data-go="look"] .ptitle').textContent().catch(() => '')) ?? '';
-check(/the look/i.test(rowName), `[settings] the row is called "${rowName}"`);
+if (!plate) await openSection(page, 'settings', 'Appearance'); // tap 1 (Glass)
+if (plate) {
+  check(await page.locator('#pg-settings .scanset .setgroup[data-group="the look"] button.srow[data-title="THE LOOK"]').isVisible().catch(() => false), '[settings] THE LOOK has no row on the plate under THE LOOK');
+  const rn = (await plateRow(page, 'The look').locator('.srname').textContent().catch(() => '')) ?? '';
+  check(/^the look$/i.test(rn), `[settings] the plate row is called "${rn}"`);
+} else {
+  check(await page.locator(row).isVisible().catch(() => false), '[settings] THE LOOK has no row under Appearance');
+  const rowName = (await page.locator('#pg-settings .pn[data-go="look"] .ptitle').textContent().catch(() => '')) ?? '';
+  check(/the look/i.test(rowName), `[settings] the row is called "${rowName}"`);
+}
 await idle(page);
-await page.click(row); // tap 2
-await until(page, () => window.__ghosty.ui.get().tab === 'look' && document.getElementById('pg-look')?.classList.contains('on'), null, 8000, '[look] two taps from Settings did not open THE LOOK');
+await page.click(row); // tap 2 in Glass; the one tap on the plate
+await until(page, () => window.__ghosty.ui.get().tab === 'look' && document.getElementById('pg-look')?.classList.contains('on'), null, 8000, plate ? '[look] one tap on the plate (Glass: two taps from Settings) did not open THE LOOK' : '[look] two taps from Settings did not open THE LOOK');
 await until(page, () => !!window.__ghosty.look?.opened(), null, 3000, '[speed] the stopwatch has no open of THE LOOK');
 const first = await look(page);
 check(first.opened?.first === true, `[speed] the first open was not timed as the first: ${JSON.stringify(first.opened)}`);
@@ -394,9 +411,10 @@ if (!isWebKit) {
   /** Settings → Appearance → Theme: two taps (the Appearance pill, the Theme row). */
   async function themePage(p) {
     await p.evaluate(() => (location.hash = 'settings'));
-    await p.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
+    await p.waitForSelector('#pg-settings.listmode .scanset button.srow, #pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
     await p.waitForTimeout(500);
-    await openSection(p, 'settings', 'Appearance');
+    const plate = await onPlate(p);
+    if (!plate) await openSection(p, 'settings', 'Appearance');
     // the phone's own stopwatch (as THE LOOK's): from the tap to the first frame with the gallery on screen
     await p.evaluate(() => {
       window.__themeOpen = null;
@@ -410,8 +428,9 @@ if (!isWebKit) {
         tick();
       }, { capture: true, once: true });
     });
-    await p.click('#pg-settings .pn[data-row].themepn > h3', { timeout: 8000 });
-    await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, '[recipe] two taps did not open the Theme page');
+    if (plate) await plateRow(p, 'Theme').click({ timeout: 8000 });
+    else await p.click('#pg-settings .pn[data-row].themepn > h3', { timeout: 8000 });
+    await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, plate ? '[recipe] the one tap on the plate (Glass: two taps) did not open the Theme page' : '[recipe] two taps did not open the Theme page');
     await p.waitForTimeout(450);
     return p.evaluate(() => window.__themeOpen);
   }
@@ -500,9 +519,9 @@ if (!isWebKit) {
   const { c: c5, p: p5 } = await recipePhone(PHONE);
   await part('the Theme page, each ground and Paper', async () => {
   await p5.evaluate(() => (location.hash = 'settings'));
-  await p5.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
-  await openSection(p5, 'settings', 'Appearance');
-  const rowSaid = (await p5.locator('#pg-settings .pn.themepn > h3 small').getAttribute('data-label').catch(() => '')) ?? '';
+  await p5.waitForSelector('#pg-settings.listmode .scanset button.srow, #pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
+  if (!(await onPlate(p5))) await openSection(p5, 'settings', 'Appearance');
+  const rowSaid = await themeRowWords(p5);
   check(rowSaid === 'Reactor · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Reactor · Graphite · The Scan"`);
   await themePage(p5);
   const gal = await p5.evaluate((GONE) => {
@@ -550,13 +569,14 @@ if (!isWebKit) {
       page: getComputedStyle(document.querySelector('#pg-settings .pn.themepn.pushed')).backgroundColor,
       body: getComputedStyle(document.body).backgroundColor,
       row: document.querySelector('#pg-settings .pn.themepn > h3 small')?.getAttribute('data-label') ?? '',
+      plateRow: [...document.querySelectorAll('#pg-settings .scanset button.srow')].find((r) => /^theme$/i.test(r.querySelector('.srname')?.textContent ?? ''))?.querySelector('.srvalue')?.textContent?.trim() ?? '',
     }));
     const s = await state(p5);
     const night = g === 'paper' ? lastDark : g;
     if (g !== 'paper') lastDark = g;
     check(s.ground === g && s.saved?.ground === g && now.canvas === GROUND_CANVAS[g] && hexOf(now.page) === GROUND_CANVAS[g], `[ground] ${g} did not apply at once: ${JSON.stringify({ ground: s.ground, saved: s.saved?.ground, canvas: now.canvas, page: hexOf(now.page) })}`);
     check(hexOf(now.body) === GROUND_CANVAS[night] && s.night === night, `[ground] ${g}: today's rooms stand on ${hexOf(now.body)} (night ${s.night}), not ${night}'s ${GROUND_CANVAS[night]}`);
-    check(now.row.includes(LABEL[g]), `[ground] ${g}: the Theme row says "${now.row}"`);
+    check((now.plateRow || now.row).includes(LABEL[g]), `[ground] ${g}: the Theme row says "${now.plateRow || now.row}"`);
     await clearToasts(p5);
     await p5.screenshot({ path: `${out}/look-${engine}-440-ground-${g}.png` });
     await p5.reload({ waitUntil: 'domcontentloaded' });

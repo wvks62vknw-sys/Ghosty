@@ -348,6 +348,12 @@ async function pickSection(page, label) {
 
 /** Anything sticking out sideways, a control with no name, a control under 44 pt, text under 12 pt (the visible ones, in `sel`). */
 async function measure(page, sel, W) {
+  // (the page's entry still moving: a screen's arrival scales it from .985 for half a second, which a slow runner can catch as 43 px
+  // keys; the sizes are the settled ones, so every animation under the root is waited for first, up to two seconds)
+  await page.evaluate((sel) => Promise.race([
+    Promise.all(document.getAnimations().filter((a) => { const t = a.effect?.target; return t && (t === document.querySelector(sel) || document.querySelector(sel)?.contains(t)); }).map((a) => a.finished.catch(() => undefined))),
+    new Promise((r) => setTimeout(r, 2000)),
+  ]), sel).catch(() => undefined);
   return page.evaluate(({ sel, W }) => {
     const root = document.querySelector(sel);
     if (!root) return { missing: true };

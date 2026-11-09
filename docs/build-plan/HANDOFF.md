@@ -396,6 +396,56 @@ folder that no longer exists; ignore those paths).
   OWNER-ISSUES 165. The shell: the first builder kept handing back mid-run (its background spec loop), so it was stopped and a
   fresh mid-tier builder owns builder/shell2 with one job: every pinned spec run in the foreground, fixed at the cause, the
   Glass pixel diff, then the report.
+  04:40 UK (9 Nov): PR #75 GREEN (run 407) after two more fixes at the cause (the brain's look test accepting the gallery's
+  words; the caption standing at once while his voice reads, for the talk spec's first-phone check on the runner), SQUASH-
+  MERGED, main 93edf93; its own run read at the 05:55 UK check-in. THE SHELL IN THE SCAN finished by the fresh builder: every
+  pinned spec re-cut and green in its worktree (tabs and routec split into tabs2 and routec2 at the 480 s limit: the two
+  words added to the workflow's list, the guard untouched), four real bugs fixed (God's Eye's header over its search, long
+  titles cut, a hidden seventh key in Glass, a number shown twice), the Glass pixel diff equal but for live readings, the
+  ratchet 2,004 to 1,992. Reviewed by a cheap worker: no protected file, no model name, every moved check present. One thing
+  undone on applying: the builder had made God's Eye's screenshots in the ui spec never fail; they fail again anywhere but a
+  machine that says NO_GL_SHOTS=1 (this sandbox). Applied as one commit; PR #76; OWNER-ISSUES 166 (his seven-step check,
+  seven calls). Next in 164's order: ONE INK.
+  05:55 UK: MAIN'S OWN RUN (408) ON 93edf93 GREEN ON EVERY JOB, the guard quiet: main carries THE SCAN's Home, the Lens that
+  just knows and the Theme gallery, green for the first time since the Scan landed (the fixes that got it there, each at a
+  cause on the two-core runner: the boot spec's hero wait, the Scan's breath at half rate then adaptive, the reader's quiet
+  stop, the themes check without live marks, the caption standing with the voice). PR #76 (the shell) runs on dfa3a1b after
+  the look spec's re-cut for the Settings plate and a Paper fix the re-cut found (the house's words dark on the night floor
+  on THE LOOK and the Theme page); read at the 06:30 UK check-in.
+  07:15 UK: PR #76's run 411 RED on twelve specs the shell builder never ran (it ran the pinned list only): the house covering
+  page content on God's Eye, the Library, the Studio and the sound's RECORD key (real defects: a page's scrolling content must
+  end above the house), toasts over the raised ask line, aurora's spot card unreachable, the Street View pin's fly-home, five
+  specs reading Glass's deck cards and hub tiles (app, school, lens, reader, machine), and two budgets on the runner (THE
+  LOOK's second open 354–371 ms, the Glass jump bar 303–316 ms: the shell's per-screen cost). A fresh mid-tier builder
+  (worktree shell3, branch builder/shell3) makes every spec in the workflow's list green: defects fixed in code, Glass readers
+  re-cut with the helpers, budgets met by cost not by raising. PR #76 stays open until every job is green; main is green at
+  93edf93. LESSON: a shell change runs EVERY spec before it is reported, not the pinned ones; the brief now says so.
+  13:00 UK: shell3 landed as one commit on PR #76 (eleven builder commits, the stray screenshot left out). In code: every
+  room's page ends where the house begins (the house's height measured live as --dockh; the stage still runs to the foot), the
+  SOUND picture and the Studio view give back the room the house takes, toasts and the undo pill stack above the house (22 px
+  higher on Home), God's Eye's spot card lies over the sheet's top with its buttons in reach, the place chips step clear of the
+  LAYERS button (the pin's fly-home was that overlap, not a lost tap), the zoom rail hangs from the chips on a short phone; the
+  shell's per-screen cost cut (the width read on resize not every entry, the stamp says the minute once and writes only
+  changes, Glass draws no stamp and focuses its palette as before): a screen entry at 4× throttle 99 → 38 ms. Specs: app,
+  school, lens open from the deck on both drawings (nav.mjs chooseInDeck/deckNames), reader reads the Learn room's tile and the
+  jump bar's plate, machine checks the MACHINE VIEW line in Glass and adds a Scan check (the SEE room's row opens God's Eye);
+  no check removed, no budget raised. The builder's sweep: every spec in the list run; red only where the sandbox is (WebKit
+  absent, God's Eye screenshots hang, direct/aim/radio red on the base commit too, voice green alone). CI decides.
+  15:05 UK: run 413 never reached the browser: two brain tests read the shell's source (the finding test's house line, the
+  knowledge self-check's "comment beginning with dots"); re-cut. 16:25 UK: run 414 red on ONE spec, machine, twice: the HOME
+  box, the bus box and the amber ring "undefined" (the builder had called them screenshot checks; they are DOM checks). Cause,
+  reproduced on the preview: in the Scan the page ends above the house but the globe's canvas (#gl, fixed, full height) did
+  not, so the camera's centre (y 478 of 956) fell under the sheet (the open sky between the chips and the sheet was 278–460)
+  and the Machine view hid the boxes as "under the bar". Fix: the canvas ends where the house begins too (height
+  calc(100% - --dockh); a canvas is a replaced element, so `height: auto` took its own ratio and did nothing). machine green
+  locally. DESIGN NOTE for the owner (166 i): God's Eye in the Scan has about a fifth of a phone's screen as open globe
+  (header 128, chips 142, sheet 328, house 164 of 956); recommended a folded sheet in a later pass, with his word.
+  18:20 UK: run 415 red on two: map (God's Eye's THIS SPOT read "Kano": the crosshair was the screen's centre, which with the
+  canvas ending at the house is no longer the picture's centre; the crosshair, the nearest-aircraft sort, the held zoom and the
+  camera's km-per-pixel now use the canvas's own size) and reader2 ([fit-440 read] keys 43 px: the page's entry animation
+  scales from .985 for half a second and the runner measured inside it; readerlib's measure now waits for the root's
+  animations, up to 2 s, before reading sizes: the sizes checked are the settled ones, nothing loosened). map, reader2 green
+  locally.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

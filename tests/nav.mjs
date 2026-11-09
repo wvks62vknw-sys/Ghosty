@@ -9,6 +9,11 @@ export const DESKTOP = { width: 1440, height: 900 };
 
 // The systems deck (every screen) opens from the avatar's "Me" sheet, row "Every screen".
 export async function openDeck(page) {
+  // (a deck left open by an earlier step hides the bar under it: close it, so the avatar is there to tap)
+  if (await page.locator('#deck.on').count()) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  }
   // the avatar sits on the roots' navigation bar: go to the reactor screen if this one has none
   if (!(await page.locator('#top .you').isVisible().catch(() => false))) {
     await page.evaluate(() => (location.hash = 'core'));
@@ -18,11 +23,30 @@ export async function openDeck(page) {
   await page.click('#mesheet .merow[data-id="deck"]');
 }
 
-// The Every screen deck (shell/launcher.ts) opens a card in place; its OPEN button goes to the screen.
-export async function openScreen(page, id) {
-  await openDeck(page);
+// The Every screen deck (shell/launcher.ts) is open already: choose the screen `id` in it. THE SCAN (BRIEF-SHELL-2): Every screen is
+// the inventory, a row opens its screen at one tap; Glass keeps the cards, and OPEN on the card.
+export async function chooseInDeck(page, id) {
+  if (await page.evaluate(() => document.body.classList.contains('housed'))) {
+    await page.click(`#deck .invrow[data-group]:not([data-group="favourites"]):not([data-group="recent"])[data-id="${id}"], #deck .invrow[data-id="${id}"]`);
+    return;
+  }
   await page.click(`#deck .dkcard[data-id="${id}"]`);
   await page.click(`#deck .dkx[data-id="${id}"] .dkopen`);
+}
+
+// The Every screen deck opens from the Me sheet; this opens it and chooses the screen.
+export async function openScreen(page, id) {
+  await openDeck(page);
+  await chooseInDeck(page, id);
+}
+
+/** The names of the screens the deck lists: the cards' names in Glass, the inventory's rows in The Scan (each screen once, not its favourite or recent copy). */
+export async function deckNames(page) {
+  return page.evaluate(() =>
+    document.body.classList.contains('housed')
+      ? [...document.querySelectorAll('#deck .invrow')].filter((r) => r.dataset.group !== 'favourites' && r.dataset.group !== 'recent').map((r) => r.querySelector('.invname')?.textContent ?? '')
+      : [...document.querySelectorAll('#deck .dkcard .dkhd b')].map((x) => x.textContent),
+  );
 }
 
 // Settings, System and Links are grouped lists: a panel shows its contents once its row is tapped (it is
@@ -32,6 +56,7 @@ export async function openPanel(page, tab, title) {
   await page.waitForSelector(`#pg-${tab} .pn`, { state: 'attached', timeout: 15000 }).catch(() => undefined);
   // wait until the page has become a list and the row is there (a slow machine draws it late)
   await page.waitForFunction(({ tab, src }) => [...(document.getElementById(`pg-${tab}`)?.querySelectorAll('.pn[data-row]') ?? [])].some((p) => new RegExp(src).test(p.querySelector('.ptitle')?.textContent ?? '')), { tab, src: `^${title}` }, { timeout: 10000 }).catch(() => undefined);
+  // (the Scan's Settings draws its rows as the plate: the row of the panel is pressed through the DOM, so the plate may stay in front)
   const done = await page.evaluate(({ tab, src }) => {
     const re = new RegExp(src);
     const root = document.getElementById(`pg-${tab}`);
@@ -46,7 +71,9 @@ export async function openPanel(page, tab, title) {
     await page.click('#top .navback');
     await page.waitForTimeout(300);
   }
-  await page.locator(`#pg-${tab} .pn[data-row] > h3`).filter({ has: page.locator('.ptitle', { hasText: new RegExp(`^${title}`) }) }).first().click();
+  const h3 = page.locator(`#pg-${tab} .pn[data-row] > h3`).filter({ has: page.locator('.ptitle', { hasText: new RegExp(`^${title}`) }) }).first();
+  if (await h3.isVisible().catch(() => false)) await h3.click();
+  else await h3.evaluate((el) => el.click());
   await page.waitForTimeout(400);
 }
 
@@ -74,3 +101,10 @@ export async function openSection(page, tab, label) {
 export async function standDown(base, key = 'preview-owner-key-0123456789') {
   await fetch(`${base}/api/stop`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': key, 'content-type': 'application/json' }, body: '{}' }).catch(() => undefined);
 }
+
+/**
+ * THE GLASS WORLD for the checks that belong to Glass (BRIEF-SHELL-2): spread into a spec's first ghosty.settings so the phone opens in
+ * the Glass look (recipe.world 'glass': today's bar, cards, deck and Settings list, as look.spec sets a world); the Scan's own checks
+ * run in the default world, The Scan.
+ */
+export const GLASS = { look: { ground: 'graphite', world: 'glass', night: 'graphite', switches: {} } };

@@ -364,9 +364,9 @@ if (part('card')) {
   await page.click('#pg-reader .grd-chrow[data-i="1"]');
   await page.waitForTimeout(600);
   await page.evaluate(() => (location.hash = 'area-learn'));
-  await until(page, () => document.querySelector('#pg-area-learn .hubgrid > [data-id="library"] .reads'), null, 10000, `[${name}] no library card on Learn`);
+  await until(page, () => document.querySelector('#pg-area-learn .hubtile[data-id="library"] .reads'), null, 10000, `[${name}] no library card on Learn`);
   await page.waitForTimeout(1200);
-  const reads = await page.$$eval('#pg-area-learn .hubgrid > [data-id="library"] .reads .rd', (ds) => ds.map((d) => `${d.querySelector('em')?.textContent?.trim()} · ${d.querySelector('b')?.textContent?.trim()}`));
+  const reads = await page.$$eval('#pg-area-learn .hubtile[data-id="library"] .reads .rd', (ds) => ds.map((d) => `${d.querySelector('em')?.textContent?.trim()} · ${d.querySelector('b')?.textContent?.trim()}`));
   const want = [`Reading · ${LH.split(' ').slice(0, 8).join(' ')}`, 'Page · 4 of 9'];
   check(reads.join(' | ') === want.join(' | '), `[${name}] the library card reads ${JSON.stringify(reads)}, want ${JSON.stringify(want)}`);
   await page.screenshot({ path: `${out}/reader-card-440.png` });
@@ -470,9 +470,9 @@ if (part('find')) {
   await page.evaluate(() => (location.hash = 'library'));
   await openSection(page, 'library', 'Ask');
   await page.evaluate(() => (location.hash = 'area-learn'));
-  await until(page, () => !!document.querySelector('#pg-area-learn .hubgrid > [data-id="library"]'), null, 10000, `[${name}] no library card on Learn`);
+  await until(page, () => !!document.querySelector('#pg-area-learn .hubtile[data-id="library"]'), null, 10000, `[${name}] no library card on Learn`);
   await page.waitForTimeout(600);
-  const card = page.locator('#pg-area-learn .hubgrid > [data-id="library"]');
+  const card = page.locator('#pg-area-learn .hubtile[data-id="library"]');
   await card.scrollIntoViewIfNeeded().catch(() => undefined);
   await card.click(); // tap 1
   await until(page, () => document.body.dataset.tab === 'library' && document.querySelector('#pg-library .secpill.on')?.dataset.sec === 'shelf', null, 8000, `[${name}] the Library's card on Learn did not open the Shelf (${await page.evaluate(() => `${document.body.dataset.tab} / ${document.querySelector('#pg-library .secpill.on')?.dataset.sec}`)})`);
@@ -493,9 +493,11 @@ if (part('find')) {
     await page.waitForSelector('#palette.on input', { timeout: 5000 }).catch(() => problems.push(`[${name}] the jump bar did not open`));
     await page.fill('#palette input', words);
     await page.waitForTimeout(300);
-    const hit = page.locator('#palette .it', { has: page.locator('span', { hasText: want }) }).first();
+    // (THE SCAN's jump bar locks on its find in a plate whose OPEN takes it, the name set as a tag in capitals; Glass's palette lists the row)
+    const found = page.locator('#palette .jplate', { has: page.locator('.jname', { hasText: new RegExp(want.source, 'i') }) }).first();
+    const hit = (await found.count()) ? found.locator('[data-act="open"]') : page.locator('#palette .it', { has: page.locator('span', { hasText: want }) }).first();
     if (!(await hit.count())) {
-      problems.push(`[${name}] "${words}" in the jump bar does not find ${want}: ${(await page.$$eval('#palette .it span', (x) => x.map((e) => e.textContent))).join(' | ')}`);
+      problems.push(`[${name}] "${words}" in the jump bar does not find ${want}: ${(await page.$$eval('#palette .it span, #palette .jplate .jname', (x) => x.map((e) => e.textContent))).join(' | ')}`);
       await page.keyboard.press('Escape');
       return null;
     }

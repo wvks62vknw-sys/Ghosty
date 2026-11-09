@@ -17,7 +17,7 @@
 // Fails on the old hubs (glyph tiles with a name and a blurb: no instrument cards, no readouts).
 //   BASE=http://localhost:8788 node tests/hubcards.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, standDown } from './nav.mjs';
+import { GLASS, PHONE, UK, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -36,14 +36,15 @@ async function brainGet(path) {
   return r?.ok ? r.json() : null;
 }
 
-async function open(theme) {
+async function open(theme, world = 'glass') {
   const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(([k, home, theme]) => {
+  await ctx.addInitScript(([k, home, theme, glass]) => {
     localStorage.setItem('ghosty.ownerKey', k);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', ...(theme ? { theme } : {}) }));
+    // (the cards below are Glass's instrument cards: that world is set for them; the Scan's room is checked at the end, in its own world)
+    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', ...(theme ? { theme } : {}), ...(glass ? { look: glass } : {}) }));
     // (a theme chosen on this phone: the one-look migration has run, so Graphite is kept)
     if (theme) localStorage.setItem('ghosty.themes1', '1');
-  }, [KEY, HOME, theme]);
+  }, [KEY, HOME, theme, world === 'glass' ? GLASS.look : null]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -224,6 +225,56 @@ const gr = await g.page.$eval('#pg-area-see .hubtile[data-id="eye"]', (e) => ({ 
 if (gr?.theme !== 'graphite' || gr.svg !== reactorShape || !/157, 183, 204/.test(gr.rim ?? '')) problems.push(`Graphite's God's eye card: ${JSON.stringify(gr)} (want the same instrument in steel, rgb(157, 183, 204))`);
 await g.page.screenshot({ path: `${out}/hubcards-see-graphite.png` });
 await g.ctx.close();
+
+
+// ---- THE SCAN's room (BRIEF-SHELL-2; learn.png): the same cards drawn as a band, AT HAND and THE REST, in the Scan's own world
+{
+  const sc = await open(undefined, 'scan');
+  const p = sc.page;
+  await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('ghosty.settings') || '{}'); s.favourites = ['gym', 'learn']; localStorage.setItem('ghosty.settings', JSON.stringify(s)); });
+  await p.reload();
+  await p.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  for (const [a, ids] of Object.entries(TOOLS)) {
+    await p.evaluate((h) => (location.hash = h), `area-${a}`);
+    await p.waitForTimeout(1300);
+    const room = await p.evaluate((a) => {
+      const r = document.querySelector(`#pg-area-${a}`);
+      const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+      return {
+        band: [...r.querySelectorAll('.roomband .bandret')].map((b) => ({ id: b.dataset.id, n: b.dataset.n, frame: !!b.querySelector('.g-ret-frame'), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width })),
+        hand: [...r.querySelectorAll('.athand .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, why: c.dataset.why, reads: [...c.querySelectorAll('.reads .rd')].filter((x) => vis(x)).length })),
+        rest: [...r.querySelectorAll('.therest .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, one: c.querySelector('.one')?.textContent?.trim() ?? '', works: c.dataset.works === 'true', worksShown: vis(c.querySelector('.works b')) })),
+        glassCards: [...r.querySelectorAll('.hubgrid > .hubtile')].filter(vis).length, sub: r.querySelector('.hubsub')?.textContent?.trim() ?? '', side: document.documentElement.scrollWidth > innerWidth + 1,
+      };
+    }, a);
+    const at = `[scan ${a}]`;
+    const everything = [...room.hand.map((c) => c.id), ...room.rest.map((c) => c.id)].sort().join();
+    if (everything !== ids.slice().sort().join()) problems.push(`${at} the room holds "${everything}", want every tool of the area: "${ids.slice().sort().join()}" (nothing left out)`);
+    const numbered = ids.filter((i) => i !== 'voice' && i !== 'core');
+    if (a !== 'ask' && room.band.length !== numbered.length) problems.push(`${at} the band has ${room.band.length} reticles for ${numbered.length} things`);
+    if (room.band.some((b, i) => b.n !== String(i + 1).padStart(2, '0') || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered 01, 02 … in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
+    if (room.band.length > 8) problems.push(`${at} the band has more than eight (${room.band.length})`);
+    if (room.glassCards) problems.push(`${at} Glass's card grid is still drawn (${room.glassCards})`);
+    if (!room.sub) problems.push(`${at} the hub's one sentence is gone`);
+    if (room.side) problems.push(`${at} the room scrolls sideways`);
+    for (const c of room.rest) if (!c.one) problems.push(`${at} ${c.id} has no one true line in THE REST`);
+    for (const c of room.hand) if (c.reads !== 2) problems.push(`${at} ${c.id} at hand shows ${c.reads} readings (want two)`);
+    for (const c of room.rest) if (c.works && !c.worksShown) problems.push(`${at} ${c.id} is in the works but does not say so`);
+    if (a === 'learn') {
+      if (room.hand.map((c) => c.id).join() !== 'gym,learn' && room.hand.map((c) => c.id).join() !== 'learn,gym') problems.push(`${at} AT HAND lists "${room.hand.map((c) => c.id)}" (starred gym and courses)`);
+      if (room.rest.filter((c) => c.works).map((c) => c.id).join() !== 'learning,coach') problems.push(`${at} IN THE WORKS on "${room.rest.filter((c) => c.works).map((c) => c.id)}" (only learning and coach)`);
+    }
+    await p.screenshot({ path: `${out}/hubcards-scan-${a}.png` });
+  }
+  // "open two" by words opens the second thing of the room (typed in the jump bar)
+  await p.evaluate(() => (location.hash = 'area-learn'));
+  await p.waitForTimeout(900);
+  await p.click('#dock .housefield');
+  await p.keyboard.type('open two');
+  await p.keyboard.press('Enter');
+  await until(p, () => document.body.dataset.tab === 'arcade', null, 5000, '"open two" in the Learn room did not open its second thing (Arcade)');
+  await sc.ctx.close();
+}
 
 await browser.close();
 if (problems.length) {

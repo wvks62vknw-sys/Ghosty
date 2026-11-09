@@ -26,7 +26,12 @@ import { navTo } from './areas';
 import { isFavourite, pinOnHold } from './favourites';
 import { DECK, DECK_GROUPS, picksFor, type DeckAct, type DeckLine, type DeckScreen, type TryPick } from './deckcopy';
 import { tabs, type TabDef } from './tabs';
-import { askFromHere, awarenessMark, screenActs, setOverlay } from './awareness';
+import { askFromHere, awarenessMark, lookingAt, screenActs, screenContext, setOverlay, stampFacts } from './awareness';
+import { houseOn } from './house';
+import { guardian } from '../state/guardian';
+import { ROOMS, roomOf, thingOf, type Room } from './rooms';
+import { atHand, recentIds, starredIds, thingForNumber, thingLine, worksLine } from './inventory';
+import { index, stampLine, tag } from '../ui/machine';
 import type { ScreenContext } from '../../../../packages/shared/src/awareness';
 
 const SEARCH = '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>';
@@ -60,6 +65,7 @@ export function deckContext(): ScreenContext | null {
     screen: 'deck',
     title: 'Every screen',
     line: `the deck of every screen${q ? `, searching for '${q.replace(/'/g, '’')}'` : ''}`,
+    looking: 'every screen',
     ...(t && c ? { selected: { kind: 'card', id: t.id, label: c.name, ...(c.promise ? { detail: c.promise } : {}) } } : {}),
     at: Date.now(),
   };
@@ -118,7 +124,7 @@ export function perform(a: DeckAct): void {
 }
 
 /** The deck's group a screen is in ('' for one that has none). */
-const groupOfScreen = (id: string): string => DECK_GROUPS.find(([, ids]) => ids.includes(id.split('?')[0]!))?.[0] ?? '';
+const groupOfScreen = (id: string): string => (houseOn() ? roomOf(id.split('?')[0]!)?.key ?? '' : DECK_GROUPS.find(([, ids]) => ids.includes(id.split('?')[0]!))?.[0] ?? '');
 
 const actKind = (a: DeckAct) => ('ask' in a ? 'ask' : 'chat' in a ? 'chat' : 'open');
 
@@ -133,7 +139,16 @@ export function buildLauncher(): Launcher {
   const hits = h('section.dkhits');
   const groups = h('div.dkgroups');
   const none = h('p.dknone', 'Nothing here by that name. Press return and Ghosty will answer it.');
+  // EVERY SCREEN as the Machine's inventory (BRIEF-SHELL-2; deck.png), in The Scan: the stamp line, the name and its way back, then FAVOURITES,
+  // RECENT and each room's things with their numbers and one true line; the cards above are Glass's (the CSS shows one set)
+  const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
+  guardian.subscribe(() => stamp.refresh());
+  const backKey = h('button.dkback', { type: 'button', 'aria-label': 'Back to Me' }, icon('<path d="M15 5l-7 7 7 7"/>'), h('span', 'Me'));
+  const head2 = h('header.dkhead2', stamp.el, h('div.dkt2', h('h2.dktitle2', { dataset: { case: 'keep' } }, 'Every screen'), backKey));
+  const inv = h('div.dkinv', { dataset: { case: 'keep' } });
   const scroller = h('div.dk', { tabindex: '-1' },
+    head2,
+    inv,
     h('header.dkhead',
       h('div.dkht', h('small.dkk', 'Every screen'), h('h2.dktitle', { dataset: { case: 'keep' } }, 'At your service, ', name), h('p.dksub', 'Tap any screen to find out what it can do.')),
       closeBtn,
@@ -146,7 +161,7 @@ export function buildLauncher(): Launcher {
   const input = h('input.dkin', { type: 'search', placeholder: 'Go to, or ask…', 'aria-label': 'Go to a screen, or ask Ghosty', enterkeyhint: 'go', autocomplete: 'off', autocapitalize: 'sentences' });
   const mic = h('button.dkmic', { type: 'button', 'aria-label': 'Say it' }, icon(MIC));
   const pill = h('form.dkgo', { role: 'search' }, icon(SEARCH, 'ic dksearch'), input, mic);
-  const deck = h('div#deck', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Every screen' }, scroller, pill);
+  const deck = h('div#deck', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Every screen' }, scroller, h('div.dkhouse', { 'aria-hidden': 'true' }), pill);
   deck.addEventListener('click', (e) => e.target === deck && close());
   document.body.append(deck);
 
@@ -258,6 +273,46 @@ export function buildLauncher(): Launcher {
     deckState.expanded = '';
   };
 
+
+  // ---------- EVERY SCREEN, the inventory (The Scan)
+  const CHEV = '<path d="M9.5 6l6 6-6 6"/>';
+  const invRow = (id: string, n: number, name: string, group: string) => {
+    const t = tabs().find((x) => x.id === id);
+    const works = !!worksLine(id);
+    const hot = !!t && DUE.test((() => { try { return t.now?.() ?? ''; } catch { return ''; } })());
+    const b = h(`button.invrow${t && t.id === ui.get().tab ? '.here' : ''}${hot ? '.hot' : ''}` as 'button', {
+      type: 'button',
+      dataset: { id, n: String(n).padStart(2, '0'), group, case: 'keep', ...(isFavourite(id) ? { pinned: 'true' } : {}), ...(works ? { works: 'true' } : {}) },
+      'aria-label': `${String(n).padStart(2, '0')} ${name}`,
+    }, index(n), h('span.invwords', h('b.invname', name), h('span.invline', thingLine(id))), works ? h('i.invdot', { 'aria-hidden': 'true' }) : null, icon(CHEV, 'ic invchev'));
+    b.addEventListener('click', () => {
+      if (id === 'origin') return void (close(true), void import('../features/me/origin').then((m) => m.openOrigin()));
+      choose({ open: t?.cardTo ?? id });
+    });
+    if (t) pinOnHold(b, id);
+    return b;
+  };
+  const invSection = (title: string, right: string, rows: HTMLElement[], key: string, count = rows.length) =>
+    h('section.invgroup', { dataset: { group: key } }, h('div.invhead', tag(title, { count }), h('span.invsmall', right)), h('div.invrows', ...rows));
+  const paintInventory = () => {
+    const stars = starredIds();
+    const lately = recentIds().slice(0, 4);
+    const name = (id: string) => thingOf(id)?.name ?? id;
+    const out: HTMLElement[] = [];
+    out.push(invSection('Favourites', 'Hold a thing to pin it', stars.length ? stars.map((id, i) => invRow(id, i + 1, name(id), 'favourites')) : [h('p.invnone', 'Nothing pinned yet. Hold any thing to pin it.')], 'favourites', stars.length));
+    out.push(invSection('Recent', 'Newest first', lately.length ? lately.map((id, i) => invRow(id, i + 1, name(id), 'recent')) : [h('p.invnone', 'Nothing opened yet. The last ones you open wait here.')], 'recent', lately.length));
+    for (const r of ROOMS) {
+      const rows = r.things.filter((t) => t.id !== 'deck').map((t) => invRow(t.id, t.n, t.name, r.key));
+      out.push(invSection(r.title, r.key === 'home' ? 'The hall' : 'A room', rows, r.key));
+    }
+    clear(inv, ...out);
+    stamp.refresh();
+  };
+  backKey.addEventListener('click', () => {
+    close(true);
+    if (ui.get().tab !== 'area-me') navTo('area-me', 'switch');
+  });
+
   // ---------- TRY THIS NOW
   const pick = (p: TryPick, all: Map<string, TabDef>) => {
     const t = all.get(p.id);
@@ -284,6 +339,8 @@ export function buildLauncher(): Launcher {
       const ts = ids.map((id) => all.get(id)).filter((t): t is TabDef => !!t);
       return ts.length ? h('section.dkgroup', { dataset: { group: g } }, h('h4.dksec', g), h('div.dkgrid', ...ts.map((t) => card(t, cur)))) : null;
     }));
+    // (both are drawn; the stylesheet shows the inventory in The Scan and the cards in Glass)
+    paintInventory();
   };
 
   // a pin made while the deck is up shows at once (the cards are drawn again each time it opens)
@@ -326,7 +383,17 @@ export function buildLauncher(): Launcher {
     clear(hits, ...(found.lines.length ? [h('small.dkk', 'You can'), h('div.dkhitrows', ...found.lines.map(({ t, line }) =>
       h('button.dkrow.dkhit', { type: 'button', dataset: { act: actKind(line.act), id: t.id, case: 'keep' }, onclick: () => choose(line.act) },
         glyph(t), h('span', line.text, h('small', copyOf(t).name)), 'ask' in line.act ? h('small.dkask', 'Ask') : icon(RIGHT, 'ic dkchev'))))] : []));
-    none.hidden = !q.length || found.cards.length > 0 || found.lines.length > 0;
+    // The Scan's inventory: a number is the thing it means ("5", "learn 5"); words are the cards the deck found
+    const num = houseOn() ? thingForNumber(input.value, 'deck') : null;
+    // (a number shows the one thing it means, once, in the first list that holds it)
+    let seen = false;
+    for (const r of inv.querySelectorAll<HTMLElement>('.invrow')) {
+      const mine = num ? r.dataset.id === num.id && !seen : show.has(r.dataset.id!);
+      if (num && mine) seen = true;
+      r.hidden = q.length > 0 && !mine;
+    }
+    for (const g of inv.querySelectorAll<HTMLElement>('.invgroup')) g.hidden = q.length > 0 && !g.querySelector('.invrow:not([hidden])');
+    none.hidden = !q.length || found.cards.length > 0 || found.lines.length > 0 || !!num;
     deckState.shown = [...show];
   };
   input.addEventListener('input', filter);
@@ -340,6 +407,9 @@ export function buildLauncher(): Launcher {
       void send(text);
       return;
     }
+    // (a number said or typed opens that screen: "5" is the fifth of his starred and recent, "learn 5" the fifth thing in Learn)
+    const num = houseOn() ? thingForNumber(text, 'deck') : null;
+    if (num) return num.screen ? choose({ open: defs().get(num.screen)?.cardTo ?? num.screen }) : (close(true), void import('../features/me/origin').then((m) => m.openOrigin()));
     const top = found.cards[0];
     if (top) choose({ open: top.id });
     else if (found.lines[0]) choose(found.lines[0].line.act);
@@ -371,17 +441,21 @@ export function buildLauncher(): Launcher {
   const open = () => {
     if (deck.classList.contains('on')) return;
     input.value = '';
+    input.placeholder = houseOn() ? 'A number, a word, or a question' : 'Go to, or ask…';
     expanded = '';
     paint();
     filter();
     deck.classList.add('on');
     document.body.classList.add('decked');
     deckState.open = true;
+    stamp.refresh();
+    dispatchEvent(new Event('ghosty:deck'));
     addEventListener('keydown', esc);
     sfx('open');
     // it opens on the group he left (STARS 163: "the deck remembers where he was"), the first when he has never left one
     const left = settings.get().deckGroup;
-    const sec = left ? groups.querySelector<HTMLElement>(`.dkgroup[data-group="${CSS.escape(left)}"]`) : null;
+    // (in The Scan the groups are the rooms: it opens on the room he left)
+    const sec = left ? (houseOn() ? inv : groups).querySelector<HTMLElement>(`.${houseOn() ? 'invgroup' : 'dkgroup'}[data-group="${CSS.escape(left)}"]`) : null;
     scroller.scrollTop = sec ? Math.max(0, sec.offsetTop - scroller.offsetTop - 8) : 0;
     deckState.group = sec ? left : DECK_GROUPS[0]![0];
     scroller.focus({ preventScroll: true });
@@ -394,13 +468,14 @@ export function buildLauncher(): Launcher {
     const leftOn = picked || (expanded ? groupOfScreen(expanded) : '') || (() => {
       const top = scroller.scrollTop + scroller.offsetTop + 24;
       let g = '';
-      for (const s of groups.querySelectorAll<HTMLElement>('.dkgroup')) if (!s.hidden && s.offsetTop <= top) g = s.dataset.group ?? g;
+      for (const s of (houseOn() ? inv : groups).querySelectorAll<HTMLElement>(houseOn() ? '.invgroup' : '.dkgroup')) if (!s.hidden && s.offsetTop <= top) g = s.dataset.group ?? g;
       return g;
     })();
-    if (leftOn && leftOn !== 'More') settings.set({ deckGroup: leftOn });
+    if (leftOn && leftOn !== 'More' && leftOn !== 'favourites' && leftOn !== 'recent') settings.set({ deckGroup: leftOn });
     deck.classList.remove('on');
     document.body.classList.remove('decked');
     deckState.open = false;
+    dispatchEvent(new Event('ghosty:deck'));
     removeEventListener('keydown', esc);
     input.blur();
     if (!quiet) sfx('close');

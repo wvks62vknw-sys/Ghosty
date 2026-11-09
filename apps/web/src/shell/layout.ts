@@ -8,6 +8,12 @@ import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
 import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
+import { buildHouse, type House } from './house';
+import { scanList } from './scanlist';
+import { screenContext, lookingAt, stampFacts } from './awareness';
+import { stampLine } from '../ui/machine';
+import { guardian } from '../state/guardian';
+import { recipeEvents } from '../state/theme';
 import { niceCase } from '../ui/components';
 import { listMode, type ListGroup } from '../ui/listmode';
 import { startTv } from '../tv'; // [restc] TV MODE: big targets, the focus ring, the d-pad; the no-3-D fallbacks
@@ -106,6 +112,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     const n = navInfo(tab);
     const pg = document.getElementById(`pg-${tab}`);
     if (pg && LISTED[tab]) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null, GROUPS[tab]);
+    // Settings as the plate brought to the front (shell/scanlist.ts): built with the list, shown in The Scan
+    if (pg && tab === 'settings') scanList(pg);
     document.body.dataset.depth = !n || tab === 'core' ? 'home' : n.back ? 'inner' : 'hub';
     (back.lastChild as HTMLElement).textContent = n?.back ?? '';
     back.hidden = !n?.back;
@@ -116,7 +124,14 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);
-  const top = h('header#top', back, h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot, navTitle);
+  // THE STAMP LINE on every screen (BRIEF-SHELL-2): the day, the time, his place, the feeds watched and what I am looking at, from the one source
+  // (shell/awareness.ts); drawn in The Scan (Home has its own, the same line); the page's title under it is the large title below
+  const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
+  stamp.el.classList.add('headstamp');
+  // (drawn only in The Scan: Glass keeps its line hidden and pays nothing for it)
+  const stampOn = () => document.body.classList.contains('housed');
+  guardian.subscribe(() => stampOn() && stamp.refresh());
+  const top = h('header#top', stamp.el, back, h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot, navTitle);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();
@@ -130,13 +145,23 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     dock.classList.add('areas');
     document.querySelector('#top .you')?.remove();
     paintTabBar = buildTabBar(dock, () => deck.open());
+    house = buildHouse(dock, () => deck.open());
     document.body.classList.add('tabbar');
     paintNav();
   };
+  let house: House | null = null;
   const paintDock = () => {
     paintNav();
     paintTabBar?.();
+    house?.paint();
+    if (!stampOn()) return;
+    stamp.refresh();
+    // (a screen says what it is looking at once it has entered)
+    setTimeout(() => stampOn() && stamp.refresh(), 450);
   };
+  addEventListener('ghosty:deck', () => paintDock());
+  recipeEvents.on('change', () => paintDock());
+  addEventListener('resize', () => paintDock());
   ui.subscribe((s, p) => {
     if (s.tab !== p.tab) paintDock();
     status.textContent = s.busy ? (s.status || 'thinking…') : '';

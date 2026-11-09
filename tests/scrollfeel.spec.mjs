@@ -4,7 +4,7 @@
 //   BASE=http://localhost:8788 node tests/scrollfeel.spec.mjs [outDir]
 // Not a stand-in for the phone: Safari's momentum, rubber-banding and keyboard are only proven on the iPhone itself.
 import { chromium } from 'playwright';
-import { PHONE, UK } from './nav.mjs';
+import { GLASS, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -14,9 +14,11 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? 
 const problems = [];
 let checks = 0;
 
-async function phone({ safe = false } = {}) {
+async function phone({ safe = false, glass = false } = {}) {
   // (reduced motion: the columns' parallax drift follows the finger and would move where a page ends between runs)
   const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  // (Glass's bar is held to its own checks unchanged: that world is set for them; the default world is The Scan, its house along the bottom)
+  if (glass) await ctx.addInitScript((look) => localStorage.setItem('ghosty.settings', JSON.stringify({ units: 'metric', look })), GLASS.look);
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
   // the Home Screen app: env(safe-area-inset-*) as the iPhone reports them
@@ -44,9 +46,11 @@ const show = async (page, tab, wait = 1500) => {
   await page.waitForTimeout(wait);
   await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
 };
+// The top of what stands over the foot of a page: Glass's tab bar, or in The Scan the house (its label row, its keys and the ask line under them).
+const BAR_TOP = `(() => Math.min(...[...document.querySelectorAll('#dock .housekick, .scankick, #dock .tabcap')].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none').map((e) => e.getBoundingClientRect().top)))()`;
 // The lowest thing drawn in a page scrolled to its end, and the top of the floating tab bar.
 const pageEnd = (page, tab) =>
-  page.evaluate((t) => {
+  page.evaluate(([t, barSrc]) => {
     const root = document.getElementById(`pg-${t}`);
     const scrollers = [root, ...root.querySelectorAll('*')].filter((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 2 && e.getBoundingClientRect().height > 160);
     const sc = scrollers.find((e) => !scrollers.some((o) => o !== e && o.contains(e))) ?? root;
@@ -63,9 +67,9 @@ const pageEnd = (page, tab) =>
       for (let a = el.parentElement; a && a !== sc; a = a.parentElement) if (getComputedStyle(a).overflowY !== 'visible') b = Math.min(b, a.getBoundingClientRect().bottom);
       low = Math.max(low, b);
     }
-    const bar = document.querySelector('#dock .tabcap').getBoundingClientRect().top;
+    const bar = eval(barSrc);
     return { scrolls: sc !== root, lowest: Math.round(low), bar: Math.round(bar), stageBottom: Math.round(document.getElementById('stage').getBoundingClientRect().bottom), screen: innerHeight };
-  }, tab);
+  }, [tab, BAR_TOP]);
 
 // 1. A finger on a tall card (System's STATUS) moves the page, not the card (the card took 160 px of it and the page 0).
 {
@@ -87,24 +91,25 @@ const pageEnd = (page, tab) =>
 //    (#app pads by it and every page added it again): pages ended 78 px above the tab bar (26 in Safari), Home's ask bar
 //    sat 56 px above it (22), the chat's composer 64 px above the screen's bottom, and the content stopped in a hard
 //    line 34 px above the bottom instead of running on under the floating bar.
-{
-  const { ctx, page } = await phone({ safe: true });
+for (const glass of [false, true]) {
+  const { ctx, page } = await phone({ safe: true, glass });
   for (const tab of ['brief', 'markets', 'library', 'gym', 'settings', 'system', 'threats']) {
     await show(page, tab);
     const e = await pageEnd(page, tab);
-    if (e.stageBottom < e.screen - 1) problems.push(`[safe area · ${tab}] the page stops ${e.screen - e.stageBottom} px above the bottom of the screen instead of running on under the tab bar`);
+    if (e.stageBottom < e.screen - 1) problems.push(`[safe area ${glass ? 'glass' : 'scan'} · ${tab}] the page stops ${e.screen - e.stageBottom} px above the bottom of the screen instead of running on under the tab bar`);
     // (a page shorter than the screen just ends where it ends)
-    if (e.scrolls && e.bar - e.lowest > 50) problems.push(`[safe area · ${tab}] the page ends ${e.bar - e.lowest} px above the tab bar (the safe area counted twice)`);
-    if (e.bar - e.lowest < 16) problems.push(`[safe area · ${tab}] the end of the page is ${e.bar - e.lowest} px from the tab bar, under it`);
+    if (e.scrolls && e.bar - e.lowest > 50) problems.push(`[safe area ${glass ? 'glass' : 'scan'} · ${tab}] the page ends ${e.bar - e.lowest} px above the tab bar (the safe area counted twice)`);
+    if (e.bar - e.lowest < 16) problems.push(`[safe area ${glass ? 'glass' : 'scan'} · ${tab}] the end of the page is ${e.bar - e.lowest} px from the tab bar, under it`);
     if (tab === 'brief') await page.screenshot({ path: `${out}/scrollfeel-safe-brief-end.png` });
   }
   await show(page, 'core');
-  const ask = await page.evaluate(() => Math.round(document.querySelector('#dock .tabcap').getBoundingClientRect().top - document.querySelector('#cbar').getBoundingClientRect().bottom));
-  if (ask > 30 || ask < 8) problems.push(`[safe area · Home] the ask bar sits ${ask} px above the tab bar (it should sit just above it, 8–30 px)`);
+  const ask = await page.evaluate((src) => Math.round(eval(src) - document.querySelector('#cbar').getBoundingClientRect().bottom), BAR_TOP);
+  // (in The Scan the ask line stands straight on the house's label key, 44 pt tall with its words at the foot: 0 is its place; Glass keeps 8)
+  if (ask > 30 || ask < (glass ? 8 : 0)) problems.push(`[safe area ${glass ? 'glass' : 'scan'} · Home] the ask bar sits ${ask} px above the tab bar (it should sit just above it, 8–30 px)`);
   await page.locator('.logbtn').first().click();
   await page.waitForTimeout(600);
   const comp = await page.evaluate(() => Math.round(innerHeight - document.querySelector('#cbar').getBoundingClientRect().bottom));
-  if (comp > 44) problems.push(`[safe area · Chat] the composer sits ${comp} px above the bottom of the screen (just above the home indicator is 34)`);
+  if (comp > 44) problems.push(`[safe area ${glass ? 'glass' : 'scan'} · Chat] the composer sits ${comp} px above the bottom of the screen (just above the home indicator is 34)`);
   await page.screenshot({ path: `${out}/scrollfeel-safe-chat.png` });
   checks++;
   await ctx.close();

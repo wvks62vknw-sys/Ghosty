@@ -28,6 +28,23 @@ interface Decor {
   recents(): Command[];
   /** A long press on one of those rows (a pinned screen or a recent) opens its pin sheet (shell/favourites.ts). */
   hold?(c: Command, el: HTMLElement): void;
+  /**
+   * The Scan's jump bar (BRIEF-SHELL-2; shell/jump.ts): draws the rows as plates above the keyboard instead of the list, and says which
+   * row Enter takes. Absent or `on()` false (Glass, a wide screen): the palette is drawn as it always was.
+   */
+  jump?: { on(): boolean; draw(c: JumpCtx): number };
+  /** Words typed that are not a search: a number ("two", "learn 5") opens what it means here. True: handled. */
+  typed?(text: string): boolean;
+}
+/** What the jump bar is handed each time it is drawn. */
+export interface JumpCtx {
+  pal: HTMLElement;
+  list: HTMLElement;
+  input: HTMLInputElement;
+  q: string;
+  items: Command[];
+  pick(i: number): void;
+  hold(c: Command, el: HTMLElement): void;
 }
 let decor: Decor | null = null;
 export function addPaletteDecor(d: Decor): void {
@@ -82,6 +99,8 @@ addEventListener('keydown', (e) => {
 // ---------- palette ----------
 let pal: HTMLElement | null = null;
 const paletteOpen = () => !!pal?.classList.contains('on');
+/** Whether the jump bar is open now (shell/jump.ts reads it). */
+export const jumpOpen = paletteOpen;
 
 /** Extra palette rows computed from the query (e.g. "Fly to …", "Ask Ghosty …"). */
 const providers: ((q: string) => Command[])[] = [];
@@ -111,6 +130,18 @@ export function togglePalette(): void {
       const rec = !q && decor ? decor.recents() : [];
       items = rankRows(allCommands(), q, { extra: q.length > 1 ? providers.flatMap((p) => p(q)) : [], rec });
       sel = Math.min(sel, Math.max(0, items.length - 1));
+      // The Scan: the same rows, ranked as they are, drawn as the mock draws them (shell/jump.ts). Glass touches nothing here (its
+      // palette costs what it always cost): the class and the words are written only when the bar changes world.
+      const jump = decor?.jump?.on() ? decor.jump : null;
+      if (jump || pal!.classList.contains('scanjump')) {
+        pal!.classList.toggle('scanjump', !!jump);
+        input.placeholder = jump ? 'Ask, or say where to go' : 'Ask, or jump to a screen or place';
+      }
+      if (jump) {
+        clearBtn.hidden = !input.value;
+        sel = jump.draw({ pal: pal!, list, input, q, items, pick, hold: (c, el) => decor?.hold?.(c, el) });
+        return;
+      }
       clear(list);
       let last: string | null = null;
       clearBtn.hidden = !input.value;
@@ -145,7 +176,11 @@ export function togglePalette(): void {
         sel = Math.max(0, sel - 1);
         render();
         e.preventDefault();
-      } else if (e.key === 'Enter') pick(sel);
+      } else if (e.key === 'Enter') {
+        // (a number said or typed where he is: "two" in a room opens its second thing)
+        if (decor?.jump?.on() && decor.typed?.(input.value)) return void close();
+        pick(sel);
+      }
       else if (e.key === 'Escape') close();
     });
     pal.addEventListener('click', (e) => {
@@ -161,5 +196,7 @@ export function togglePalette(): void {
   const input = pal.querySelector('input')!;
   input.value = '';
   (pal as HTMLElement & { render?: () => void }).render?.();
-  setTimeout(() => input.focus(), 20);
+  // The Scan: focused inside the tap itself, so the phone's keyboard comes up with the plates. Glass: the timer alone, as it always was.
+  if (decor?.jump?.on()) input.focus({ preventScroll: true });
+  setTimeout(() => (decor?.jump?.on() ? input.focus({ preventScroll: true }) : input.focus()), 20);
 }

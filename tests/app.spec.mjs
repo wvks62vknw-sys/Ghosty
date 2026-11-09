@@ -2,7 +2,7 @@
 // browser's own push pipeline (Chrome DevTools Protocol) becomes a notification.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
-import { PHONE, UK, openDeck, openSection } from './nav.mjs';
+import { PHONE, UK, chooseInDeck, deckNames, openDeck, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -60,12 +60,11 @@ if (!isWebKit) {
 // The systems deck (from the avatar's Me sheet) lists every screen; LINKS holds email, Spotify and notifications.
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open'));
-const tiles = await page.$$eval('#deck .dkcard .dkhd b', (n) => n.map((x) => x.textContent));
+const tiles = await deckNames(page); // (the cards' names in Glass, the inventory's rows in The Scan)
 if (tiles.length < 12 || !tiles.includes('Links') || !tiles.includes('Library')) problems.push(`systems deck tiles: ${tiles.join(', ')}`);
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/phone-deck.png` });
-await page.click('#deck .dkcard[data-id="links"]');
-await page.click('#deck .dkx[data-id="links"] .dkopen');
+await chooseInDeck(page, 'links');
 await page.waitForTimeout(1500);
 if (await page.$('#deck.on')) problems.push('systems deck did not close after choosing a screen');
 const panelText = await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn')].map((p) => p.textContent).join(' '));

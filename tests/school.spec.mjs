@@ -33,7 +33,7 @@ function makePdf(lines) {
 }
 const GPS_QUESTIONS = makePdf(['KEY STAGE 2 ENGLISH GRAMMAR, PUNCTUATION AND SPELLING PAPER 1', '1 What is 12 + 30? [1 mark]', '2 What is 7 + 8? [1 mark]', '3 Use the diagram to find angle x [2 marks]', '4 Explain why 9 is not a prime number [2 marks]']);
 const GPS_MARKS = makePdf(['MARK SCHEMES', '1 Answer: 42', '2 Answer: 15', '3 Answer: 40', '4 Answer: it has the factor 3']);
-import { PHONE, UK, openDeck, openSection } from './nav.mjs';
+import { PHONE, UK, chooseInDeck, openDeck, openSection } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -104,12 +104,11 @@ async function signIn(ready) {
 const { ctx, page } = await signIn(true);
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open'));
-if (!(await page.locator('#deck .dkcard[data-id="school"]').count())) {
+if (!(await page.locator('#deck .dkcard[data-id="school"], #deck .invrow[data-id="school"]').count())) { // (a card in Glass's deck, a row of The Scan's inventory)
   problems.push('SCHOOL is not in the systems deck');
   await bail();
 }
-await page.click('#deck .dkcard[data-id="school"]');
-await page.click('#deck .dkx[data-id="school"] .dkopen');
+await chooseInDeck(page, 'school');
 if (!(await page.waitForFunction(() => document.querySelectorAll('#pg-school .schrung').length === 9, null, { timeout: 15000 }).then(() => true, () => false))) {
   problems.push('the ladder did not show nine stages');
   await bail();

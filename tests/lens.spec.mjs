@@ -15,7 +15,7 @@
 // while it tags, and the text check costs under 4 ms a frame.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { PHONE, UK, chooseInDeck, openDeck } from './nav.mjs';
 import { makeCardVideo } from './fixtures/lenscard.mjs';
 import { cardCamera, qrPng } from './fixtures/lenscards.mjs';
 
@@ -185,8 +185,7 @@ const away = await lens();
 if (away?.camera !== 'off') problems.push(`leaving the Lens did not stop the camera: ${JSON.stringify(away)}`);
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open'));
-await page.click('#deck .dkcard[data-id="lens"]');
-await page.click('#deck .dkx[data-id="lens"] .dkopen');
+await chooseInDeck(page, 'lens');
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `a tap on the Lens tile did not open the camera again: ${JSON.stringify(await lens())}`);
 if ((await lens())?.mode !== 'read') problems.push(`the Lens came back in ${(await lens())?.mode}, not READ`);
 await page.evaluate(() => (window.__ghosty.lens.ocrText = ''));
