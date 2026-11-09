@@ -789,6 +789,12 @@ export const coreTab: TabDef = {
         return;
       }
       const from = text.startsWith(shownLive) ? shownLive.length : 0;
+      // with his voice reading the reply, the words are on screen the moment they are his to hear: the voice is the pace, and
+      // the caption is never behind it (the typing-in is for a reply read in silence; a frame-starved screen would make it late)
+      if (settings.get().speak) {
+        span.textContent = shownLive = text;
+        return;
+      }
       const ms = Math.min(1400, Math.max(200, (text.length - from) * 9));
       const t0 = performance.now();
       const step = (now: number) => {

@@ -1,14 +1,14 @@
-/** SETTINGS tab: theme (the twelve), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
+/** SETTINGS tab: theme (seven looks and the twelve colours), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { fmt, h } from '../../core/dom';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
-import { screenSays } from '../../shell/awareness';
+import { lookingAt, screenSays, stampFacts } from '../../shell/awareness';
 import { home, settings } from '../../state/app';
 import { presetNow, recipeEvents, recipeNow, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
-import { themeSwatches } from '../../ui/swatches';
-import { lookDials } from '../../ui/dials';
+import { looksGallery } from '../../ui/gallery';
+import { stampLine } from '../../ui/machine';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { characterPanel } from './character';
@@ -28,7 +28,7 @@ export const settingsTab: TabDef = {
   title: 'SETTINGS',
   icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
-  blurb: 'theme · ground · world · switches · the look · name · character · units · voice · sounds · tilt · home · offline brain',
+  blurb: 'theme · the looks · colour · the look · name · character · units · voice · sounds · tilt · home · offline brain',
   mount(root) {
     const P = page(root, { tag: 'SETTINGS', leftLabel: 'THEME', rightLabel: 'VOICE & HOME', stack: true });
     // THEME: his recipe (state/theme.ts; BRIEF-THEMES-2): the presets first, the dials under them; the row says the recipe.
@@ -95,11 +95,11 @@ export const settingsTab: TabDef = {
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 
-    // Theme: the seventeen presets as live swatches (ui/swatches.ts), each drawn by the design system on its own ground, in its
-    // colour and world; the dials under them (ui/dials.ts: GROUND, COLOUR, WORLD, the switches). A tap applies at once,
-    // everywhere, and this phone remembers it; a dial changed under a preset makes Custom, kept exactly as set.
-    const themes = themeSwatches();
-    const dials = lookDials({ label: 'Theme dials' });
+    // Theme (BRIEF-THEME-GALLERY): seven looks as pictures and a row of twelve colours (ui/gallery.ts), under the stamp line that says
+    // what the Machine is looking at. The ground, the dials, the switches and the presets are not on this page: they stay in the recipe
+    // (state/theme.ts) and answer to his words ("paper", "black background", "glow off", "calm"). THE LOOK keeps its THEMES section.
+    const gallery = looksGallery();
+    const themeStamp = stampLine(() => stampFacts(lookingAt({ screen: 'settings', title: 'Theme', line: 'the theme', looking: 'the theme', at: Date.now() })));
     const paintHead = () => {
       const t = THEMES[themeKey(settings.get().theme)]!;
       const units = settings.get().units === 'metric' ? '°C · km' : '°F · miles';
@@ -113,19 +113,14 @@ export const settingsTab: TabDef = {
       lp.el.dataset.preset = presetNow()?.key ?? 'custom';
       np.setStatus(settings.get().name);
     };
-    const paintThemes = () => themes.paint();
+    const paintThemes = () => gallery.paint();
     paintThemes();
     const name = h('input', { value: settings.get().name, placeholder: 'What should I call you?', 'aria-label': 'Your name' });
     name.addEventListener('change', () => settings.set({ name: name.value.trim() || 'Boss' }));
     const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
-    lp.body.append(
-      h('p.gpage-lede', { dataset: { case: 'keep' } }, 'Pick a whole look, or turn the dials under it. I keep what you set, and wake up in it.'),
-      themes.el,
-      dials.el,
-      h('p.note.swnote', 'A preset is a whole recipe: its ground, its colour, its world and its switches. Change any dial and I keep it as Custom. Settings › The look shows how I draw everything.'),
-    );
+    lp.body.append(themeStamp.el, gallery.el);
     // the Theme page is drawn in the system (its floor, its bar), as THE LOOK is: a class on the page while it is open
     new MutationObserver(() => document.body.classList.toggle('g-themepage', lp.el.classList.contains('pushed'))).observe(lp.el, { attributes: true, attributeFilter: ['class'] });
     // the recipe changing by itself (the day turning at sunrise or sunset) or from another screen: the row and the presets follow

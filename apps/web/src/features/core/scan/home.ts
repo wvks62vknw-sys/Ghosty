@@ -641,8 +641,13 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     }
     // the breath alone (six millimetres over twelve seconds) is drawn on every other frame: a move draws every frame, and so does a
     // calm screen's first frame; the world at rest costs half as much (a two-core runner's software WebGL, and his battery)
+    // (and a screen that cannot keep up (under 24 frames a second measured over the last second: a two-core runner's software
+    // WebGL, an old phone) draws the breath on every fourth frame and a move on every other, so the rest of the page keeps its
+    // budgets: the jump bar's 300 ms, the first word of a reply)
     const breathing = !scanState.moving && !still();
-    if (!breathing || fpsN % 2 === 0) {
+    const slow = scanState.fps > 0 && scanState.fps < 24;
+    const every = breathing ? (slow ? 4 : 2) : slow ? 2 : 1;
+    if (fpsN % every === 0) {
       const shown = breath(t);
       scan.cam.set(shown, W, H);
       const kept = pose;

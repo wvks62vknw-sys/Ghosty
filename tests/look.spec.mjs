@@ -18,15 +18,20 @@
 //  5. nothing sideways and every control named and 44 pt or more, in every section, at 440 and at 390;
 //  6. the states said in a sentence: Reduce Motion on (the orb holds still, the typed line shows whole), sound off, no 3-D (the orb
 //     cannot be drawn here, said; Chromium only).
-//  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2; every check fails on the code before it — run against it once): the Theme page two
-//     taps from Settings with the seventeen presets first and the dials under them, the row saying the recipe; EACH GROUND applies
-//     at once, is kept across a reload and the boot plays on it; PAPER IS READABLE (every text on the Theme page and THE LOOK
-//     measured against what it sits on); EACH WORLD changes the floor behind every screen, Home's corners and the reticle (computed
-//     styles, measured); EACH SWITCH changes its one thing (glow, floor, corners, readings, body, motion, the sound); a changed dial
-//     is Custom and kept; THE SCAN and GLASS whole; "black background" by words with no model (the brain never asked); GROUND
-//     FOLLOWS THE DAY flips at sunset on a stand-in clock; the Theme page named, 44 pt and nothing sideways at 390 and 440.
+//  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2) AND THE GALLERY (BRIEF-THEME-GALLERY; every check fails on the code before it — run
+//     against it once): the Theme page two taps from Settings is SEVEN LOOKS as stills (THE SCAN marked YOU'RE IN IT, five COMING) and
+//     the twelve colours, and nothing else (no dial, switch, ground row or preset on it: the selectors are asserted absent), the row
+//     saying the recipe; a tap on GLASS and on THE SCAN (the world at once, Home's frame, kept across a reload), a tap on THE MAP (one
+//     toast, nothing changed); the stills (img, width, height, alt, loaded, each under 60 KB); the twelve colours apply at once, are
+//     kept and the boot plays in them; the page opens in under 300 ms; EACH GROUND is reached by words now ("black background",
+//     "paper"), applies at once, is kept across a reload and the boot plays on it; PAPER IS READABLE (every text on the Theme page and
+//     THE LOOK measured against what it sits on); the looks by words; EACH WORLD changes the floor behind every screen, Home's
+//     corners and the reticle (computed styles, measured, on THE LOOK's dials, which stay); EACH SWITCH changes its one thing; a
+//     changed dial is Custom and kept; THE SCAN and GLASS whole; "black background" by words with no model (the brain never asked);
+//     GROUND FOLLOWS THE DAY flips at sunset on a stand-in clock; the Theme page named, 44 pt and nothing sideways at 390 and 440,
+//     and at BODY 21 (reached by "bigger text").
 //   BASE=http://localhost:8795 node tests/look.spec.mjs [outDir]
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { PHONE, UK, openSection, standDown } from './nav.mjs';
 import { engine, isWebKit, launch, webkitNoise } from './browser.mjs';
 
@@ -392,12 +397,39 @@ if (!isWebKit) {
     await p.waitForSelector('#pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
     await p.waitForTimeout(500);
     await openSection(p, 'settings', 'Appearance');
+    // the phone's own stopwatch (as THE LOOK's): from the tap to the first frame with the gallery on screen
+    await p.evaluate(() => {
+      window.__themeOpen = null;
+      document.addEventListener('click', () => {
+        const t0 = performance.now();
+        const tick = () => {
+          const r = document.querySelector('#pg-settings .pn.themepn.pushed .gg-look')?.getBoundingClientRect();
+          if (r && r.width > 0 && r.height > 0) window.__themeOpen = Math.round(performance.now() - t0);
+          else if (performance.now() - t0 < 5000) requestAnimationFrame(tick);
+        };
+        tick();
+      }, { capture: true, once: true });
+    });
     await p.click('#pg-settings .pn[data-row].themepn > h3', { timeout: 8000 });
     await until(p, () => document.querySelector('#pg-settings .pn.themepn')?.classList.contains('pushed') && document.body.classList.contains('g-themepage'), null, 6000, '[recipe] two taps did not open the Theme page');
     await p.waitForTimeout(450);
+    return p.evaluate(() => window.__themeOpen);
   }
   // (a tap's toast is read where it is checked, then cleared, so it never sits over the section pills for the next tap)
   const clearToasts = (p) => p.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+  /** His words, typed into the chat (the no-model tables answer on the phone, the brain is never asked); the caller waits on what they change. */
+  async function say(p, text) {
+    await p.evaluate(() => (location.hash = 'core'));
+    await p.waitForTimeout(600);
+    if (!(await p.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await p.locator('.logbtn:visible').first().click().catch(() => undefined);
+    await p.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+    await p.fill('#cin', text);
+    await p.press('#cin', 'Enter');
+  }
+  const lastReply = (p, re) => p.evaluate((src) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => new RegExp(src).test(t)).pop() ?? '', re.source);
+  /** The seven looks, in the mock's order, with the words the mock gives them (names in the system's capitals; lines as written). */
+  const LOOKS7 = [['scan', 'THE SCAN', 'The world, sampled as points'], ['map', 'THE MAP', 'The field, from above'], ['eye', 'THE EYE', 'Attention is the material'], ['orbit', 'ORBIT', 'Mind is the way in'], ['ink', 'ONE INK', 'A printed page'], ['grown', 'GROWN UP', 'Today, with less on it'], ['glass', 'GLASS', 'Today’s look']];
+  const GONE = ['.swatch', '.swatch[data-theme]', '.swatches', '.gdials', '.gdial', '.gchoice', '.gchoices', '.gswitch', '.gswitch-keys', '.gsw', '.swcustom', '[data-dial]', '[data-switch]', '[data-ground]', '[data-preset]'];
   const tapDial = async (p, root, dial, choice) => {
     const b = p.locator(`${root} .gdial[data-dial="${dial}"] .gchoice[data-choice="${choice}"]`);
     await b.scrollIntoViewIfNeeded({ timeout: 4000 }).catch(() => undefined);
@@ -473,33 +505,58 @@ if (!isWebKit) {
   const rowSaid = (await p5.locator('#pg-settings .pn.themepn > h3 small').getAttribute('data-label').catch(() => '')) ?? '';
   check(rowSaid === 'Reactor · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Reactor · Graphite · The Scan"`);
   await themePage(p5);
-  const order = await p5.evaluate(() => {
+  const gal = await p5.evaluate((GONE) => {
     const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
-    const sw = pn?.querySelector('.swatches .swatch');
-    const dial = pn?.querySelector('.gdials .gdial');
-    return { presets: [...(pn?.querySelectorAll('.swatch') ?? [])].map((b) => b.dataset.preset), first: !!sw && !!dial && sw.getBoundingClientRect().top < dial.getBoundingClientRect().top && !!(sw.compareDocumentPosition(dial) & Node.DOCUMENT_POSITION_FOLLOWING), dials: [...(pn?.querySelectorAll('.gdial') ?? [])].map((d) => d.dataset.dial) };
-  });
-  check(order.presets.join() === PRESETS17.join(), `[recipe] the Theme page's presets: ${order.presets.join()}`);
-  check(order.first, '[recipe] the presets do not come first, the dials under them');
-  check(order.dials.join() === 'ground,colour,world,switches', `[recipe] the dials: ${order.dials.join()}`);
-  // ---- 7b. each ground applies at once, is kept across a reload, and the boot plays on it
+    const q = (sel) => [...(pn?.querySelectorAll(sel) ?? [])];
+    const top = (el) => Math.round(el.getBoundingClientRect().top);
+    const cards = q('.gg-look');
+    const colour = pn?.querySelector('.gg-colour');
+    return {
+      looks: cards.map((b) => ({ key: b.dataset.look, name: b.querySelector('.g-tag')?.textContent?.trim(), line: b.querySelector('.gg-cap small')?.textContent?.trim(), on: b.getAttribute('aria-checked'), coming: !!b.querySelector('.gg-coming'), img: !!b.querySelector('img') })),
+      head: pn?.querySelector('.gg-sec')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      kick: pn?.querySelector('.gg-kick')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      swatches: q('.gg-sw').map((b) => b.dataset.colour),
+      absent: GONE.map((sel) => [sel, q(sel).length]).filter(([, n]) => n).map(([sel, n]) => `${sel} x${n}`),
+      ask: pn?.querySelector('.gg-ask')?.textContent?.trim() ?? '',
+      stamp: pn?.querySelector('.g-stamp')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      rows: [top(cards[0]), top(cards[1]), top(cards[2]), top(cards[3]), top(cards[4]), top(cards[5]), top(cards[6])],
+      colourTop: colour ? top(colour) : -1,
+      lefts: [Math.round(cards[3].getBoundingClientRect().left), Math.round(cards[6].getBoundingClientRect().left)],
+    };
+  }, GONE);
+  const norm = (t) => String(t ?? '').replace(/[’']/g, "'").toUpperCase();
+  check(gal.looks.length === 7 && gal.looks.map((l) => l.key).join() === LOOKS7.map((l) => l[0]).join(), `[gallery] the Theme page's looks: ${gal.looks.map((l) => l.key).join()}`);
+  check(gal.looks.map((l) => norm(l.name)).join() === LOOKS7.map((l) => l[1]).join(), `[gallery] the names are ${gal.looks.map((l) => l.name).join(' | ')}`);
+  check(gal.looks.every((l, i) => (i === 0 ? norm(l.line) === "YOU'RE IN IT" : norm(l.line) === norm(LOOKS7[i][2]))), `[gallery] the lines are ${gal.looks.map((l) => l.line).join(' | ')}`);
+  check(gal.looks[0].on === 'true' && gal.looks.slice(1).every((l) => l.on === 'false'), `[gallery] the chosen look on a fresh open is not THE SCAN alone: ${gal.looks.map((l) => l.on).join()}`);
+  check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === 'map,eye,orbit,ink,grown' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want the five that are not built, and a still on every card)`);
+  check(/THE LOOK/i.test(gal.head) && /THE SCAN/i.test(gal.head) && /7 · each a whole HUD/.test(gal.head), `[gallery] the plate reads "${gal.head}"`);
+  check(/THE COLOUR/i.test(gal.kick) && /REACTOR/i.test(gal.kick) && /12 · YOURS TO CHANGE/i.test(gal.kick), `[gallery] the colour plate reads "${gal.kick}"`);
+  check(gal.swatches.join() === TWELVE.join(), `[gallery] the colours: ${gal.swatches.join()}`);
+  check(gal.absent.length === 0, `[gallery] the Theme page still has controls that left it (155, 157): ${gal.absent.join(', ')}`);
+  check(gal.ask === 'Say a look, or a colour', `[gallery] the ask line reads "${gal.ask}"`);
+  check(/LOOKING AT THE THEME/i.test(gal.stamp), `[gallery] the stamp line reads "${gal.stamp}"`);
+  check(gal.rows[0] === gal.rows[1] && gal.rows[1] === gal.rows[2] && gal.rows[3] === gal.rows[4] && gal.rows[4] === gal.rows[5] && gal.rows[6] > gal.rows[3] && gal.rows[3] > gal.colourTop && gal.colourTop > gal.rows[0] && gal.lefts[0] === gal.lefts[1], `[gallery] the cards are not two rows of three and one (the colour between the rows, as the mock draws it): ${JSON.stringify({ rows: gal.rows, colour: gal.colourTop, lefts: gal.lefts })}`);
+  notes.push(`the Theme page: seven looks in the mock's order, ${gal.looks.filter((l) => l.coming).length} COMING, ${gal.swatches.length} colours, no dial, switch, ground row or preset on it`);
+  // ---- 7b. each ground is reached by WORDS now, not from the page (155, 157): it applies at once, is kept across a reload, the boot plays on it
+  const GROUND_WORDS = { black: 'black background', slate: 'slate background', warm: 'warm background', paper: 'paper', graphite: 'graphite background' };
   let lastDark = 'graphite';
   for (const g of ['black', 'slate', 'warm', 'paper', 'graphite']) {
-    if (!(await p5.evaluate(() => document.body.classList.contains('g-themepage')))) await themePage(p5);
-    await tapDial(p5, '#pg-settings .pn.themepn.pushed', 'ground', g);
+    await say(p5, GROUND_WORDS[g]);
+    await until(p5, (g) => document.documentElement.dataset.ground === g, g, 8000, `[ground] "${GROUND_WORDS[g]}" did not make the ground ${g}`);
+    await themePage(p5);
     const now = await p5.evaluate(() => ({
       canvas: getComputedStyle(document.documentElement).getPropertyValue('--g-canvas').trim().toLowerCase(),
       page: getComputedStyle(document.querySelector('#pg-settings .pn.themepn.pushed')).backgroundColor,
       body: getComputedStyle(document.body).backgroundColor,
       row: document.querySelector('#pg-settings .pn.themepn > h3 small')?.getAttribute('data-label') ?? '',
-      toasts: document.querySelector('#toasts')?.textContent ?? '',
     }));
     const s = await state(p5);
     const night = g === 'paper' ? lastDark : g;
     if (g !== 'paper') lastDark = g;
     check(s.ground === g && s.saved?.ground === g && now.canvas === GROUND_CANVAS[g] && hexOf(now.page) === GROUND_CANVAS[g], `[ground] ${g} did not apply at once: ${JSON.stringify({ ground: s.ground, saved: s.saved?.ground, canvas: now.canvas, page: hexOf(now.page) })}`);
     check(hexOf(now.body) === GROUND_CANVAS[night] && s.night === night, `[ground] ${g}: today's rooms stand on ${hexOf(now.body)} (night ${s.night}), not ${night}'s ${GROUND_CANVAS[night]}`);
-    check(now.row.includes(LABEL[g]) && now.toasts.includes(`Ground: ${LABEL[g]}`), `[ground] ${g}: the row says "${now.row}", the toast "${now.toasts}"`);
+    check(now.row.includes(LABEL[g]), `[ground] ${g}: the Theme row says "${now.row}"`);
     await clearToasts(p5);
     await p5.screenshot({ path: `${out}/look-${engine}-440-ground-${g}.png` });
     await p5.reload({ waitUntil: 'domcontentloaded' });
@@ -515,10 +572,11 @@ if (!isWebKit) {
     }
     await boot.close();
   }
-  notes.push('each ground applied at once, kept across a reload, and the boot played on it (Paper\'s boot on the night ground, said)');
+  notes.push('each ground, asked for by words, applied at once, was kept across a reload, and the boot played on it (Paper\'s boot on the night ground, said)');
   // ---- 7c. Paper is readable: every text on THE LOOK and the Theme page measured against what it sits on
+  await say(p5, 'paper');
+  await until(p5, () => document.documentElement.dataset.ground === 'paper', null, 8000, '[paper] "paper" by words did not make the ground paper');
   await themePage(p5);
-  await tapDial(p5, '#pg-settings .pn.themepn.pushed', 'ground', 'paper');
   let worst = 99;
   for (let y = 0; y < 6; y++) {
     await p5.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 700; }, y);
@@ -552,6 +610,119 @@ if (!isWebKit) {
   notes.push(`Paper, measured on screen: every text on the Theme page and THE LOOK at ${worst}:1 or more`);
   });
   await c5.close();
+
+  // ---- 7i. the gallery works: GLASS, THE SCAN, THE MAP; the words for the looks; the stills; the twelve colours
+  const { c: c9, p: p9 } = await recipePhone(PHONE);
+  await part('the gallery: a tap on GLASS, THE SCAN, THE MAP, the words, the stills', async () => {
+    const card = (k) => `#pg-settings .pn.themepn.pushed .gg-look[data-look="${k}"]`;
+    const said = (k) => p9.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
+    const opened = await themePage(p9);
+    check(opened != null && opened < BUDGET, `[gallery] the Theme page took ${opened} ms to open (the budget is ${BUDGET} ms)`);
+    // a tap on GLASS: the world at once, the card says so, Home on the way back is today's Home, kept across a reload
+    await p9.click(card('glass'));
+    await until(p9, () => document.documentElement.dataset.world === 'glass', null, 5000, '[gallery] a tap on GLASS did not make the world glass');
+    const g = await said('glass');
+    check(g.on === 'true' && /you.re in it/i.test(g.line) && /GLASS/i.test(g.head), `[gallery] GLASS after its tap: ${JSON.stringify(g)}`);
+    check((await state(p9)).saved?.world === 'glass', '[gallery] GLASS was not kept in his settings');
+    await p9.screenshot({ path: `${out}/look-${engine}-440-gallery-glass.png` });
+    await p9.evaluate(() => (location.hash = 'core'));
+    await p9.waitForTimeout(1500);
+    check(!(await p9.evaluate(() => document.body.classList.contains('scanhome'))), '[gallery] with GLASS chosen Home still wears The Scan\'s frame (body.scanhome)');
+    await p9.reload({ waitUntil: 'domcontentloaded' });
+    await p9.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    await p9.waitForTimeout(1200);
+    check((await state(p9)).world === 'glass' && !(await p9.evaluate(() => document.body.classList.contains('scanhome'))), '[gallery] GLASS was not kept across a reload');
+    // a tap on THE SCAN brings the world back
+    await themePage(p9);
+    await p9.click(card('scan'));
+    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 5000, '[gallery] a tap on THE SCAN did not make the world scan');
+    const sc = await said('scan');
+    check(sc.on === 'true' && /you.re in it/i.test(sc.line) && /THE SCAN/i.test(sc.head), `[gallery] THE SCAN after its tap: ${JSON.stringify(sc)}`);
+    await p9.evaluate(() => (location.hash = 'core'));
+    await until(p9, () => document.body.classList.contains('scanhome'), null, 10000, '[gallery] with THE SCAN chosen Home did not wear its frame (body.scanhome)');
+    // a tap on THE MAP: one toast with its line, the world unchanged, no navigation
+    await themePage(p9);
+    await clearToasts(p9);
+    const before = await p9.evaluate(() => ({ hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab }));
+    await p9.click(card('map'));
+    await p9.waitForTimeout(400);
+    const map = await p9.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent ?? ''), hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab, still: !!document.querySelector('#pg-settings .pn.themepn.pushed'), saved: window.__ghosty.settings.get().look?.world }));
+    check(map.toasts.length === 1 && map.toasts[0].includes('The Map is coming: The field, from above'), `[gallery] a tap on THE MAP says ${JSON.stringify(map.toasts)}`);
+    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'map', `[gallery] a tap on THE MAP changed something: ${JSON.stringify({ before, map })}`);
+    // the stills: each an <img> under looks/ with width, height and alt, loaded; each file under 60 KB, the seven under 350 KB
+    const imgs = await p9.evaluate(async () => {
+      const list = [...document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-look img')];
+      for (const i of list) i.scrollIntoView({ block: 'center' });
+      await Promise.all(list.map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; setTimeout(r, 5000); }))));
+      return list.map((i) => ({ src: new URL(i.src).pathname, w: i.getAttribute('width'), h: i.getAttribute('height'), alt: i.alt, loading: i.loading, nat: i.naturalWidth }));
+    });
+    check(imgs.length === 7 && imgs.every((i, k) => i.src === `/looks/${LOOKS7[k][0]}.webp` && +i.w > 0 && +i.h > 0 && i.alt.toUpperCase() === LOOKS7[k][1] && i.loading === 'lazy' && i.nat > 0), `[gallery] the stills: ${JSON.stringify(imgs.filter((i, k) => !(i.src === `/looks/${LOOKS7[k][0]}.webp` && +i.w > 0 && +i.h > 0 && i.alt.toUpperCase() === LOOKS7[k][1] && i.loading === 'lazy' && i.nat > 0)))}`);
+    let total = 0;
+    for (const [k] of LOOKS7) {
+      const size = statSync(new URL(`../apps/web/public/looks/${k}.webp`, import.meta.url)).size;
+      total += size;
+      check(size < 60 * 1024, `[gallery] the still ${k}.webp is ${size} bytes (under 60 KB)`);
+    }
+    check(total < 350 * 1024, `[gallery] the seven stills are ${total} bytes (under 350 KB)`);
+    notes.push(`the stills: seven <img> under /looks/, ${total} bytes together`);
+    // the words: the looks that are not built say their one line and change nothing; "show me the looks"; the built ones and a colour still apply
+    const asked = [];
+    p9.on('request', (r) => /\/api\/chat\b/.test(r.url()) && asked.push(r.url()));
+    const world0 = (await state(p9)).world;
+    for (const [w, line] of [['the map', 'The Map is coming: The field, from above'], ['the eye', 'The Eye is coming: Attention is the material'], ['one ink', 'One Ink is coming: A printed page'], ['orbit', 'Orbit is coming: Mind is the way in'], ['grown up', 'Grown Up is coming: Today, with less on it']]) {
+      await say(p9, w);
+      await p9.waitForFunction((l) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes(l)), line, { timeout: 8000 }).catch(() => problems.push(`[words] "${w}" did not answer "${line}"`));
+      check((await state(p9)).world === world0, `[words] "${w}" changed the world to ${(await state(p9)).world}`);
+    }
+    await say(p9, 'show me the looks');
+    await p9.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Seven looks, each a whole HUD/.test(m.textContent ?? '')), null, { timeout: 8000 }).catch(() => problems.push('[words] "show me the looks" did not answer'));
+    await say(p9, 'glass');
+    await until(p9, () => document.documentElement.dataset.world === 'glass', null, 8000, '[words] "glass" did not make the world glass');
+    await say(p9, 'the scan');
+    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 8000, '[words] "the scan" did not make the world scan');
+    await say(p9, 'ember'); // the bare name: the page asks "Say a look, or a colour"
+    await until(p9, () => document.documentElement.dataset.theme === 'ember', null, 8000, '[words] "ember" did not make the colour ember');
+    check(!asked.length, `[words] the brain was asked ${asked.length} times for the looks' words`);
+    notes.push('the looks by words (the map, the eye, one ink, orbit, grown up: one line, nothing changed; show me the looks; glass, the scan, ember applied) with no model');
+  });
+  await c9.close();
+
+  // ---- 7j. the twelve colours on the Theme page: each applies at once (the accent token), is kept across a reload, the next boot plays in it
+  const { c: c10, p: p10 } = await recipePhone(PHONE);
+  await part('the twelve colours on the Theme page', async () => {
+    await themePage(p10);
+    const order = [...TWELVE.slice(1).filter((k) => k !== 'ember'), 'reactor', 'ember'];
+    for (const k of order) {
+      const sw = `#pg-settings .pn.themepn.pushed .gg-sw[data-colour="${k}"]`;
+      const want = await p10.locator(sw).evaluate((el) => getComputedStyle(el).getPropertyValue('--g-accent').trim());
+      await p10.locator(sw).scrollIntoViewIfNeeded().catch(() => undefined);
+      await p10.click(sw);
+      await p10.waitForTimeout(250);
+      const now = await p10.evaluate((sw) => ({ theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, c: getComputedStyle(document.documentElement).getPropertyValue('--c').trim(), g: getComputedStyle(document.documentElement).getPropertyValue('--g-accent').trim(), on: document.querySelector(sw)?.getAttribute('aria-checked'), ring: document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-sw.on').length, kick: document.querySelector('#pg-settings .pn.themepn.pushed .gg-kick')?.textContent ?? '' }), sw);
+      check(now.theme === k && now.saved === k && now.c === want && now.g === want && now.on === 'true' && now.ring === 1 && now.kick.toLowerCase().includes(k), `[colours] ${k} did not apply at once: ${JSON.stringify({ want, ...now })}`);
+      await clearToasts(p10);
+    }
+    await p10.screenshot({ path: `${out}/look-${engine}-440-gallery-ember.png` });
+    // Home wears it: the lit tab is the accent
+    await p10.evaluate(() => (location.hash = 'core'));
+    await p10.waitForTimeout(900);
+    const tab = await p10.evaluate(() => ({ tab: getComputedStyle(document.querySelector('#dock .tabcap button.on') ?? document.body).color, want: getComputedStyle(document.documentElement).getPropertyValue(document.body.classList.contains('scanhome') ? '--g-accent-text' : '--c').trim() }));
+    check(tab.tab.match(/\d+/g)?.slice(0, 3).map(Number).join() === [1, 3, 5].map((i) => parseInt(tab.want.slice(i, i + 2), 16)).join(), `[colours] the lit tab is ${tab.tab}, not ${tab.want}`);
+    await p10.reload({ waitUntil: 'domcontentloaded' });
+    await p10.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    const kept = await p10.evaluate(() => ({ theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, c: getComputedStyle(document.documentElement).getPropertyValue('--c').trim() }));
+    check(kept.theme === 'ember' && kept.saved === 'ember' && kept.c === '#ff7a3d', `[colours] the pick did not survive a reload: ${JSON.stringify(kept)}`);
+    const bootPage = await c10.newPage();
+    await bootPage.addInitScript(() => { window.__ghostyBoot = true; });
+    await bootPage.goto(base, { waitUntil: 'domcontentloaded' });
+    if (await until(bootPage, () => !!window.__bootState?.accent, null, 20000, '[colours] the boot never started')) {
+      const accent = await bootPage.evaluate(() => window.__bootState.accent);
+      check(accent === '#ff7a3d', `[colours] the boot played in "${accent}", not Ember's #ff7a3d`);
+    }
+    await bootPage.close();
+    notes.push('the twelve colours applied at once from the Theme page, the pick kept across a reload and the next boot in it');
+  });
+  await c10.close();
 
   // ---- 7d. each world changes the floor, the corners and the marks (computed styles, measured)
   const { c: c6, p: p6 } = await recipePhone(PHONE);
@@ -720,7 +891,9 @@ if (!isWebKit) {
   for (const vp of [SMALL, PHONE]) {
     const { c: c8, p: p8 } = await recipePhone(vp);
     await part(`the Theme page at ${vp.width}`, async () => {
-    await themePage(p8);
+    const opened = await themePage(p8);
+    check(opened != null && opened < BUDGET, `[${vp.width}] the Theme page took ${opened} ms to open the first time (the budget is ${BUDGET} ms)`);
+    notes.push(`the Theme page opened in ${opened} ms at ${vp.width} (budget ${BUDGET})`);
     await p8.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     const fl = await p8.evaluate(() => {
       const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
@@ -748,11 +921,13 @@ if (!isWebKit) {
     }
     await p8.screenshot({ path: `${out}/look-${engine}-${vp.width}-theme-page.png` });
     // BODY at its biggest: every key, tile and row still says its words whole at this width, and nothing sticks out sideways
-    await tapSwitch(p8, '#pg-settings .pn.themepn.pushed', 'body', '21');
+    for (let k = 0; k < 2; k++) await say(p8, 'bigger text');
+    await until(p8, () => document.documentElement.dataset.body === '21', null, 8000, `[${vp.width}] "bigger text" twice did not make BODY 21`);
+    await themePage(p8);
     for (let y = 0; y < 6; y++) {
       await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
       await p8.waitForTimeout(150);
-      const cut = await p8.evaluate((W) => [...document.querySelectorAll('#pg-settings .pn.themepn.pushed :is(button, .gswitch-name, .swcustom)')].filter((el) => {
+      const cut = await p8.evaluate((W) => [...document.querySelectorAll('#pg-settings .pn.themepn.pushed :is(button, .gg-cap small, .gg-sec small, .gg-kick *, .gg-sec *)')].filter((el) => {
         const r = el.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && (el.scrollWidth > el.clientWidth + 1 || r.right > W + 0.5 || r.left < -0.5);
       }).map((el) => `"${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 28)}" ${el.scrollWidth}/${el.clientWidth}`).slice(0, 5), vp.width);
@@ -769,4 +944,4 @@ if (problems.length) {
   console.error(`FAIL look (${engine}):\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`ok (${engine}): THE LOOK — two taps from Settings, under ${BUDGET} ms to open, the five sections, the marks working and the tone once (none with sounds off), the twelve applied and kept after a reload, the boot in the picked colour, nothing sideways and every control named and 44 pt at 440 and 390, Reduce Motion and no 3-D said; THE RECIPE — the presets first and the dials under them, each ground at once, kept and under the boot, Paper readable on screen, each world's floor, corners and marks measured, each switch's one change, Custom kept, "black background" with no model, the day flipping at sunset on a stand-in clock`);
+console.log(`ok (${engine}): THE LOOK — two taps from Settings, under ${BUDGET} ms to open, the five sections, the marks working and the tone once (none with sounds off), the twelve applied and kept after a reload, the boot in the picked colour, nothing sideways and every control named and 44 pt at 440 and 390, Reduce Motion and no 3-D said; THE GALLERY — seven looks and twelve colours and nothing else on the Theme page, GLASS and THE SCAN by a tap, THE MAP only a toast, the stills, the looks by words; THE RECIPE — each ground by words at once, kept and under the boot, Paper readable on screen, each world's floor, corners and marks measured, each switch's one change, Custom kept, "black background" with no model, the day flipping at sunset on a stand-in clock`);

@@ -612,7 +612,8 @@ test('THEMES-2: the look by words, with no model — his asks taken and said in 
   assert.equal(TH.applyAsk(r, { body: 'smaller' }).said, 'Body text is at 17 points already: I never go under it.');
   assert.match(TH.applyAsk(r, A('follow the day'), { now: Date.UTC(2026, 10, 7, 12), home: { lat: 52.4862, lon: -1.8904 } }).said, /^Ground follows the day: Paper till \d\d:\d\d, then Graphite\. From your home’s sun times, never your live location\.$/);
   // the phone answers them before the brain hears them (no model); the brain's set_theme takes the same words
-  assert.match(read('../../web/src/assistant/phrases.ts'), /\{ id: 'look', test: \(t: string\) => lookAsked\(t\) !== null \}/);
+  // (the gallery's words, BRIEF-THEME-GALLERY: the same table also hears the looks and the bare colours: looksAsked)
+  assert.match(read('../../web/src/assistant/phrases.ts'), /\{ id: 'look', test: \(t: string\) => lookAsked\(t\) !== null(?: \|\| looksAsked\(t\) !== null)? \}/);
   assert.match(read('../../web/src/assistant/local.ts'), /async look\(text, opts\) \{[\s\S]*?applyAsk\(theme\.recipe\(\), ask/);
   assert.match(read('../../web/src/commands/builtin.ts'), /lookAsked\(raw\) \?\? lookAsked\(`\$\{raw\} background`\)/);
   const desc = /client\('set_theme', '([^']+)'/.exec(read('../src/tools/ui.ts'))?.[1] ?? '';

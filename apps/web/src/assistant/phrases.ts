@@ -35,6 +35,7 @@ import { coachAsked } from '../coach/ask';
 import { shapesAsked } from '../hands/words';
 import { tvAsked } from '../tv/detect';
 import { lookAsked } from '../../../../packages/shared/src/themes';
+import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
@@ -57,7 +58,7 @@ export const LOCAL_ASKS = [
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
   // [themes2] the look by words, applied at once with no model (state/theme.ts)
-  { id: 'look', test: (t: string) => lookAsked(t) !== null },
+  { id: 'look', test: (t: string) => lookAsked(t) !== null || looksAsked(t) !== null },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)

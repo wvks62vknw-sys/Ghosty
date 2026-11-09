@@ -391,6 +391,11 @@ folder that no longer exists; ignore those paths).
   re-cut (only tabs was run, red on the deck's opening), no Glass pixel diff. Sent back to the same builder with the list:
   re-cut the specs in place, fix the tabs failure at its cause, the Glass diff against a base worktree, "open two" by voice,
   Home's THE HOUSE key at 44 pt, every spec run one at a time. It lands only when they hold.
+  00:42 UK (9 Nov): PR #74 GREEN (run 402), SQUASH-MERGED, main 53d3fa5; its own run read at the 01:55 UK check-in. THE GALLERY
+  applied as one commit on the branch (from the saved patch; the builder's worktree already removed) and up as PR #75 with
+  OWNER-ISSUES 165. The shell: the first builder kept handing back mid-run (its background spec loop), so it was stopped and a
+  fresh mid-tier builder owns builder/shell2 with one job: every pinned spec run in the foreground, fixed at the cause, the
+  Glass pixel diff, then the report.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

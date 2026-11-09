@@ -397,24 +397,25 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await page.evaluate(() => (location.hash = 'settings'));
     await page.waitForTimeout(1000);
     await openPanel(page, 'settings', 'THEME');
-    // [design system] the twelve (BRIEF-DESIGN-SYSTEM 4: Reactor and Graphite, then BRIEF-THEMES' ten), each swatch drawn in its
-    // own theme's accent block (data-accent, tokens.css): the one being tried carries exactly its accent; then the directions
-    const sw = await page.$$eval('#pg-settings .swatch', (bs) => bs.map((b) => ({ id: b.dataset.theme, name: b.querySelector('b')?.textContent, on: b.getAttribute('aria-checked'), accent: b.dataset.accent, c: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
-    // [themes2] the presets in their order (BRIEF-THEMES-2 5): the twelve, then the directions seen along the way, each drawn in
-    // its own colour (The Scan, The Map, The Eye and Glass in Reactor, One Ink in Gold)
-    const PRESETS = 'Reactor,Graphite,Ember,Gold,Crimson,Violet,Emerald,Ice,Rose,Lime,Sunset,Mono,The Scan,The Map,The Eye,One Ink,Glass';
-    const COLOUR = { scan: 'reactor', map: 'reactor', eye: 'reactor', oneink: 'gold', glass: 'reactor' };
-    if (sw.map((x) => x.name).join(',') !== PRESETS || sw.some((x) => x.accent !== (COLOUR[x.id] ?? x.id) || !/^#[0-9a-f]{6}$/i.test(x.c)) || sw.find((x) => x.id === name)?.c !== hex) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
-    // every swatch a 44 pt target where it is tapped: the list is longer than the screen now, so each is brought to the middle
-    // first (a row half under the floating tab bar is scrolled to, not tapped there)
-    for (const x of sw) {
-      await page.$eval(`#pg-settings .swatch[data-theme="${x.id}"]`, (b) => b.scrollIntoView({ block: 'center' }));
-      for (const t of await target44(page, `#pg-settings .swatch[data-theme="${x.id}"]`)) problems.push(`[themes] a swatch is under a 44 pt target: ${t}`);
+    // [gallery] the Theme page is seven looks and the twelve colours (BRIEF-THEME-GALLERY; OWNER-ISSUES 155, 157): each colour
+    // swatch drawn in its own theme's accent block (data-accent, tokens.css); no preset row, no dial, no switch, no ground row
+    const sw = await page.$$eval('#pg-settings .gg-sw', (bs) => bs.map((b) => ({ id: b.dataset.colour, name: b.getAttribute('aria-label')?.replace(/, chosen$/, ''), on: b.getAttribute('aria-checked'), accent: b.dataset.accent, c: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
+    const COLOURS = 'Reactor,Graphite,Ember,Gold,Crimson,Violet,Emerald,Ice,Rose,Lime,Sunset,Mono';
+    if (sw.map((x) => x.name).join(',') !== COLOURS || sw.some((x) => x.accent !== x.id || !/^#[0-9a-f]{6}$/i.test(x.c)) || sw.find((x) => x.id === name)?.c !== hex) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
+    const gone = await page.$$eval('#pg-settings .pn.themepn.pushed :is(.swatch, .swatch[data-theme], .swatches, .gdials, .gdial, .gchoice, .gswitch, .gsw, .swcustom)', (els) => els.length);
+    if (gone) problems.push(`[themes] the Theme page still has ${gone} preset, dial, switch or ground controls (they left the page: 155, 157)`);
+    const looks = await page.$$eval('#pg-settings .gg-look', (bs) => ({ n: bs.length, coming: bs.filter((b) => b.querySelector('.gg-coming')).length }));
+    if (looks.n !== 7 || looks.coming !== 5) problems.push(`[themes] the Theme page shows ${looks.n} looks, ${looks.coming} marked COMING (want 7 and 5)`);
+    // every swatch and card a 44 pt target where it is tapped: each is brought to the middle first
+    for (const sel of [...sw.map((x) => `#pg-settings .gg-sw[data-colour="${x.id}"]`), ...(await page.$$eval('#pg-settings .gg-look', (bs) => bs.map((b) => `#pg-settings .gg-look[data-look="${b.dataset.look}"]`)))]) {
+      await page.$eval(sel, (b) => b.scrollIntoView({ block: 'center' }));
+      for (const t of await target44(page, sel)) problems.push(`[themes] a swatch or card is under a 44 pt target: ${t}`);
     }
-    for (const x of await sideways(page, '#pg-settings .swatch, #pg-settings .swatch *')) problems.push(`[themes] sticks out sideways: ${x}`);
-    await page.click(`#pg-settings .swatch[data-theme="${name}"]`);
+    for (const x of await sideways(page, '#pg-settings .gg, #pg-settings .gg *')) problems.push(`[themes] sticks out sideways: ${x}`);
+    await page.$eval(`#pg-settings .gg-sw[data-colour="${name}"]`, (b) => b.scrollIntoView({ block: 'center' }));
+    await page.click(`#pg-settings .gg-sw[data-colour="${name}"]`);
     await page.waitForTimeout(400);
-    const on = await page.$eval(`#pg-settings .swatch[data-theme="${name}"]`, (b) => b.getAttribute('aria-checked'));
+    const on = await page.$eval(`#pg-settings .gg-sw[data-colour="${name}"]`, (b) => b.getAttribute('aria-checked'));
     const now = await look();
     // applied at once: the accent token, the derived one, and what the screen draws with them
     if (on !== 'true' || now.theme !== name || now.saved !== name || now.c !== hex || now.acc !== hex) problems.push(`[themes] ${name} did not apply at once: ${JSON.stringify({ on, ...now })}`);
