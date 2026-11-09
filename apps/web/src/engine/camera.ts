@@ -90,7 +90,8 @@ export class GeoCam {
   }
 
   kmPerPx(): number {
-    return (2 * this.range * Math.tan((this.fov * RAD) / 2)) / Math.max(300, innerHeight);
+    // (the picture's own height: in The Scan the canvas ends where the house begins)
+    return (2 * this.range * Math.tan((this.fov * RAD) / 2)) / Math.max(300, gfx.cv?.clientHeight || innerHeight);
   }
 
   update(dt: number): void {

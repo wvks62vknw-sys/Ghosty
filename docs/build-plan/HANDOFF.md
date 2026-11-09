@@ -440,6 +440,12 @@ folder that no longer exists; ignore those paths).
   calc(100% - --dockh); a canvas is a replaced element, so `height: auto` took its own ratio and did nothing). machine green
   locally. DESIGN NOTE for the owner (166 i): God's Eye in the Scan has about a fifth of a phone's screen as open globe
   (header 128, chips 142, sheet 328, house 164 of 956); recommended a folded sheet in a later pass, with his word.
+  18:20 UK: run 415 red on two: map (God's Eye's THIS SPOT read "Kano": the crosshair was the screen's centre, which with the
+  canvas ending at the house is no longer the picture's centre; the crosshair, the nearest-aircraft sort, the held zoom and the
+  camera's km-per-pixel now use the canvas's own size) and reader2 ([fit-440 read] keys 43 px: the page's entry animation
+  scales from .985 for half a second and the runner measured inside it; readerlib's measure now waits for the root's
+  animations, up to 2 s, before reading sizes: the sizes checked are the settled ones, nothing loosened). map, reader2 green
+  locally.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one
