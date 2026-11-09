@@ -15,7 +15,7 @@
 //    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openPanel, openSection, standDown } from './nav.mjs';
+import { GLASS, PHONE, UK, openDeck, openPanel, openScreen, openSection, standDown } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -38,12 +38,14 @@ const at = Date.now() + 7 * 60_000;
 const made = await fetch(`${base}/api/agenda/events`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Call Mum', start: at, tz: 'UTC' }) }).then((r) => r.json()).catch(() => null);
 if (!made?.event?.id) problems.push(`could not add the diary event: ${JSON.stringify(made)}`);
 
-async function open(viewport, opts = {}) {
+// (Route C's Home, its glass pill, its cards and its themes are Glass's, held to their own checks unchanged: that world is set for them;
+// part 2, every screen through Every screen, runs in The Scan, the default world, where Every screen is the inventory: BRIEF-SHELL-2)
+async function open(viewport, opts = {}, world = 'glass') {
   const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 2, hasTouch: true, isMobile: true, ...opts });
-  await ctx.addInitScript(([k, home]) => {
+  await ctx.addInitScript(([k, home, look]) => {
     localStorage.setItem('ghosty.ownerKey', k);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric' }));
-  }, [KEY, HOME]);
+    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', ...(look ? { look } : {}) }));
+  }, [KEY, HOME, world === 'glass' ? GLASS.look : null]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
   await page.route('**/api/highways/events', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(INCIDENT) }));
@@ -340,15 +342,15 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   // a computed colour as "rgb(r, g, b)" (a colour that has just been transitioned reads "rgba(r, g, b, 1)")
   const solid = (c) => { const n = String(c).match(/[\d.]+/g) ?? []; return n.length === 3 || (n.length === 4 && Number(n[3]) === 1) ? `rgb(${n.slice(0, 3).join(', ')})` : String(c); };
   const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
-  await ctx.addInitScript(([k, home]) => {
+  await ctx.addInitScript(([k, home, look]) => {
     localStorage.setItem('ghosty.ownerKey', k);
     if (!sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1');
       // a phone from before the one look: on the old default (Graphite, which was cyan), never settled
-      localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', theme: 'graphite' }));
+      localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', theme: 'graphite', look }));
       localStorage.removeItem('ghosty.themes1');
     }
-  }, [KEY, HOME]);
+  }, [KEY, HOME, GLASS.look]);
   // a theme's own colours are measured here: he starts calm (a mood is a live overlay on the accent)
   await standDown(base, KEY);
   const page = await ctx.newPage();
@@ -387,7 +389,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const live = (e) => !!e.closest('.scanmarks, .scanleads, .scanco, .scanstage');
     const els = [...document.querySelectorAll('#pg-core *, #top *, #dock *')].filter((e) => e.getClientRects().length && !live(e));
     const P = ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'padding', 'margin', 'gap', 'border-radius', 'display', 'position'];
-    const type = els.map((e) => { const cs = getComputedStyle(e); return `${e.tagName}.${e.className.baseVal ?? e.className}:${P.map((p) => cs.getPropertyValue(p)).join('|')}`; });
+    const type = els.map((e) => { const cs = getComputedStyle(e); // (which altitude key is lit is the world's state, as the altitude differs between two visits: its class `on` is not its layout)
+      const cls = String(e.className.baseVal ?? e.className); return `${e.tagName}.${e.matches('.scanalt') ? cls.replace(/\bon\b/, '').trim() : cls}:${P.map((p) => cs.getPropertyValue(p)).join('|')}`; });
     const box = [...document.querySelectorAll('.rchero, .rwrap, .rctoday, .rcroad, .rcgym, #suggest > button, #cbar, #dock .tabcap button, #top .you, #top .cmd')].map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${e.className}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`; });
     const mark = document.querySelector('#pg-core button.scanret:not([hidden])');
     const markType = mark ? [`MARK:${P.map((p) => getComputedStyle(mark).getPropertyValue(p)).join('|')}`] : [];
@@ -505,90 +508,6 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const st = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, toasts: document.querySelector('#toasts')?.textContent ?? '' }));
   if (st.theme !== 'reactor' || st.saved !== 'reactor') problems.push(`[themes] a classic look's name did not start on Reactor: ${JSON.stringify(st)}`);
   if (/look/i.test(st.toasts)) problems.push(`[themes] a toast still talks about looks: "${st.toasts}"`);
-  await ctx.close();
-}
-
-// ---- part 2: every other screen through the deck; nothing sideways; every empty list says what to do next
-const EMPTY = {
-  '**/api/changes': { ready: true, changes: [], versions: [] },
-  '**/api/projects': { projects: [] },
-  '**/api/upgrades': { ideas: [], next: null, last: null },
-  '**/api/widgets': { widgets: [] },
-  '**/api/sites': { sites: [], origin: '' },
-  '**/api/profile/timeline': { items: [], patterns: [], forgotten: [] },
-  '**/api/lessons': { lessons: [] },
-  '**/api/memory': { facts: [] },
-  '**/api/agenda?**': { tz: 'UTC', events: [], errors: [], jobs: [], feeds: [] },
-};
-// the screens, and the empty sentence each must show when its lists are empty (null: whatever is there must be worded)
-const SCREENS = [
-  ['library', null], ['memory', /Nothing remembered yet[\s\S]*Tell me about yourself/], ['workshop', /No open changes[\s\S]*Ask Ghosty to build something/],
-  ['agenda', /Nothing in the next two weeks[\s\S]*Add an event above/], ['brief', null], ['markets', null], ['radio', /No favourites yet[\s\S]*Tap ☆/],
-  ['threats', null], ['lens', null], ['learn', null], ['studio', null], ['space', null], ['reverse', null], ['school', null],
-  ['gym', /No levels yet · Train all starts with \S/],
-];
-for (const vp of [PHONE, { width: 390, height: 844 }]) {
-  const W = vp.width;
-  const { ctx, page } = await open(vp);
-  for (const [url, body] of Object.entries(EMPTY)) await page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));
-  for (const [tab, want] of SCREENS) {
-    await openDeck(page);
-    await page.click(`#deck .dkcard[data-id="${tab}"]`);
-    await page.click(`#deck .dkx[data-id="${tab}"] .dkopen`);
-    await page.waitForTimeout(tab === 'studio' || tab === 'lens' ? 2500 : 1600);
-    const now = await page.evaluate(() => document.body.dataset.tab);
-    if (now !== tab) { problems.push(`[${W}] the deck's ${tab} tile opened "${now}"`); continue; }
-    for (const s of await sideways(page, `#pg-${tab} :is(button, .pn, .rw, .chip, input, select, .empty, .rccard), #top :is(button, h1)`)) problems.push(`[${W} ${tab}] sticks out sideways: ${s}`);
-    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} ${tab}] the page scrolls sideways`);
-    // every empty state on the screen is worded: what it is, and a sentence (the route C words are its data-labels)
-    // (a screen in sections, ui/sections.ts, draws one part at a time: every part is looked at)
-    const parts = ['library', 'memory', 'workshop', 'threats', 'school'].includes(tab) ? await page.$$eval(`#pg-${tab} .secpills:not([hidden]) .secpill`, (b) => b.map((x) => x.textContent ?? '')).catch(() => []) : [];
-    const empties = [];
-    for (const part of parts.length ? parts : ['']) {
-      if (part) {
-        await openSection(page, tab, part);
-        await page.waitForTimeout(250);
-      }
-      empties.push(...(await page.$$eval(`#pg-${tab} .empty`, (els) => els.filter((e) => e.getClientRects().length).map((e) => { const w = (x) => (x?.dataset.label ?? x?.textContent ?? '').trim(); return `${w(e.querySelector('b'))} | ${w(e.querySelector('span'))}`; }))));
-    }
-    for (const e of empties) if (!/\S \| .{12,}[.!”]$/.test(e)) problems.push(`[${W} ${tab}] an empty state is not worded: "${e}"`);
-    if (want) {
-      const words = await page.evaluate((t) => {
-        const root = document.getElementById(`pg-${t}`);
-        const own = [...root.querySelectorAll('.empty')].map((e) => [e.querySelector('b'), e.querySelector('span')].map((x) => x?.dataset.label ?? x?.textContent ?? '').join(' ')).join(' / ');
-        return `${own} / ${root.querySelector('.gymlvnone')?.textContent ?? ''}`;
-      }, tab);
-      if (!want.test(words)) problems.push(`[${W} ${tab}] the empty state does not say what to do next: "${words.slice(0, 160)}"`);
-    }
-    if (W === 440) await page.screenshot({ path: `${out}/routec-${W}-p2-${tab}.png` });
-  }
-  // System and Links: their inner panels, as pushed screens
-  for (const [tab, title] of [['system', 'KEYS'], ['system', 'AI ROOM'], ['links', 'EMAIL'], ['links', 'PHONE']]) {
-    await page.evaluate((t) => (location.hash = t), tab);
-    await page.waitForTimeout(900);
-    await openPanel(page, tab, title);
-    const pushed = await page.evaluate((t) => !!document.querySelector(`#pg-${t} .pn.pushed`), tab);
-    if (!pushed) problems.push(`[${W}] ${tab} → ${title} did not open`);
-    const head = await page.evaluate((t) => { const h = document.querySelector(`#pg-${t} .pn.pushed > h3`); return h ? getComputedStyle(h).display : 'none'; }, tab);
-    if (head !== 'none') problems.push(`[${W}] ${tab} → ${title} repeats its own row under the title`);
-    const tw = await page.evaluate(() => { const t = document.querySelector('#top .navtitle'); return t.scrollWidth - t.clientWidth; });
-    if (tw > 1) problems.push(`[${W}] ${tab} → ${title}: the large title is cut (${tw}px)`);
-    for (const s of await sideways(page, `#pg-${tab} .pn.pushed :is(button, input, select, .rw, .keyblock), #top :is(button, h1)`)) problems.push(`[${W} ${tab} ${title}] sticks out sideways: ${s}`);
-    if (W === 440) await page.screenshot({ path: `${out}/routec-${W}-p2-${tab}-${title.split(' ')[0].toLowerCase()}.png` });
-    await page.click('#top .navback');
-    await page.waitForTimeout(500);
-  }
-  // offline: one quiet line, not on Home
-  await page.evaluate(() => { location.hash = 'library'; });
-  await page.waitForTimeout(800);
-  await page.evaluate(() => window.__ghosty.ui.set({ connected: false }));
-  await page.waitForTimeout(400);
-  const off = await page.evaluate(() => { const e = document.getElementById('rcoffline'); const r = e.getBoundingClientRect(); return { shown: getComputedStyle(e).display !== 'none', text: e.textContent, left: r.left, right: r.right }; });
-  if (!off.shown || !/^Offline · /.test(off.text) || off.left < 0 || off.right > W) problems.push(`[${W}] offline line: ${JSON.stringify(off)}`);
-  await page.evaluate(() => { location.hash = 'core'; });
-  await page.waitForTimeout(600);
-  if (await page.evaluate(() => getComputedStyle(document.getElementById('rcoffline')).display !== 'none')) problems.push(`[${W}] the offline line shows on Home (its own pill says so)`);
-  await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
   await ctx.close();
 }
 

@@ -21,7 +21,7 @@ const web = at('../../web/src');
 const read = (f) => readFileSync(join(web, f), 'utf8');
 
 await build({
-  entryPoints: [at('../../web/src/commands/rank.ts'), at('../../web/src/shell/areadefs.ts'), at('../../web/src/shell/deckcopy.ts'), at('../../web/src/abilities/sources.ts'), at('../../../packages/shared/src/catalogue.ts')],
+  entryPoints: [at('../../web/src/commands/rank.ts'), at('../../web/src/shell/areadefs.ts'), at('../../web/src/shell/deckcopy.ts'), at('../../web/src/shell/rooms.ts'), at('../../web/src/abilities/sources.ts'), at('../../../packages/shared/src/catalogue.ts')],
   bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/finding'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 }).catch((e) => { throw new Error(`the finding test's bundle did not build (the jump bar's ranking must be a pure module, commands/rank.ts): ${e.message}`); });
 const load = (f) => import(`./.build/finding/${f}.mjs`);
@@ -29,6 +29,7 @@ const R = await load('apps/web/src/commands/rank');
 const D = await load('apps/web/src/shell/areadefs');
 const K = await load('apps/web/src/shell/deckcopy');
 const S = await load('apps/web/src/abilities/sources');
+const RM = await load('apps/web/src/shell/rooms');
 
 // ---------------------------------------------------------------- the screens, from the code
 /** Every tab of features/index.ts TABS, with the fields that place it. */
@@ -55,7 +56,8 @@ const hubCards = (() => {
 const areaOfTab = (id) => D.AREAS.find((a) => a.tabs.includes(id));
 const nice = (t) => t.title.charAt(0) + t.title.slice(1).toLowerCase();
 const rowOf = (id) => D.ME_ROWS.find((r) => r.id === id);
-const deckOf = (id) => K.DECK_GROUPS.find(([, ids]) => ids.includes(id))?.[0];
+// (Every screen's groups are the house's rooms since BRIEF-SHELL-2: shell/rooms.ts, the one list the plan, a room and the deck all read)
+const deckOf = (id) => RM.roomOf(id)?.key;
 
 /**
  * The shortest path from Home by taps on visible things. A tap is one finger on one thing that is on screen when it is tapped.
@@ -67,7 +69,7 @@ function pathOf(id) {
   if (t.hub) {
     // (the Me area is not on the bar: its hub is reached by its row on the Me sheet, which must be there)
     if (id === 'area-me') return rowOf('area-me') ? ['tap your initial (top right)', `tap "${rowOf('area-me').label}" on the Me sheet`] : null;
-    return [`tap ${D.AREAS.find((a) => `area-${a.id}` === id).title} in the bar`];
+    return [`tap ${D.AREAS.find((a) => `area-${a.id}` === id).title} in the house (the bar in Glass)`];
   }
   if (t.inside) {
     const parent = byId.get(t.inside);
@@ -78,7 +80,7 @@ function pathOf(id) {
   if (!a) return null;
   // the Me sheet's row: your initial, then the row (two taps, the same as the bar and a card)
   if (a.id === 'me' && rowOf(id)) return ['tap your initial (top right)', `tap ${rowOf(id).label} on the Me sheet`];
-  return [`tap ${a.title} in the bar`, `tap its card${t.cardTo ? ` (opens ${t.cardTo.replace('?', ' on its ')})` : ''}`];
+  return [`tap ${a.title} in the house (the bar in Glass)`, `tap its card${t.cardTo ? ` (opens ${t.cardTo.replace('?', ' on its ')})` : ''}`];
 }
 
 const SCREENS = S.appItems({ tabs: tabs.map((t) => ({ id: t.id })), hubs: [...hubCards] }).filter((i) => i.kind === 'screen').map((i) => i.screen);
@@ -177,4 +179,51 @@ test('the Abilities page is not a way in: no tab, no row, no card, no deck card,
   assert.ok(!K.DECK_GROUPS.some(([, ids]) => ids.includes('abilities')), 'Every screen has its card');
   assert.ok(!hubCards.has('abilities'), 'a hub card');
   assert.ok(!SCREENS.includes('abilities'), "the catalogue's screen:abilities");
+});
+
+// ---------------------------------------------------------------- THE HOUSE AND ITS PLAN (BRIEF-SHELL-2): one list for the plan, a room, Every screen and this test
+test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 45 screens are on it or inside it', () => {
+  assert.deepEqual(RM.ROOMS.map((r) => r.title), ['HOME', 'SEE', 'MAKE', 'LEARN', 'PLAN', 'LIFE', 'ME']);
+  const counts = Object.fromEntries(RM.ROOMS.map((r) => [r.key, r.things.length]));
+  assert.deepEqual(counts, { home: 1, see: 2, make: 8, learn: 7, plan: 4, life: 8, me: 7 });
+  for (const r of RM.ROOMS) assert.deepEqual(r.things.map((t) => t.n), r.things.map((_, i) => i + 1), `${r.key} is numbered 01, 02, 03 in order`);
+  // the things are the screens of the areas (hub order), plus the two things under ME that are not screens of their own
+  for (const a of D.AREAS) {
+    const room = RM.ROOMS.find((r) => r.area === a.id);
+    const screens = room.things.filter((t) => t.screen).map((t) => t.screen);
+    assert.deepEqual(screens, a.tabs.filter((t) => t !== 'core'), `${a.id}'s room lists its area's screens in the hub's order`);
+  }
+  assert.deepEqual(RM.ROOMS.find((r) => r.key === 'me').things.filter((t) => !t.screen).map((t) => t.id), ['origin', 'deck']);
+  // every screen of the catalogue is on the plan: a thing (35), a room's own key (Home, and the six hubs), or inside another screen (THE LOOK, the reader)
+  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, reader: 1 })]);
+  const missing = SCREENS.filter((id) => !onPlan.has(id) && !byId.get(id)?.hub);
+  assert.deepEqual(missing, [], `screens on no plan: ${missing.join(', ')}`);
+  assert.equal(SCREENS.length, 45, 'the 45 screens');
+  assert.equal(RM.THINGS.length, 37, 'thirty-seven numbered things: the 35 screens of the rooms, the origin and Every screen');
+  console.log(`plan: 7 rooms, ${RM.THINGS.length} numbered things (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}); with the 7 room keys, THE LOOK and the reader all ${SCREENS.length} screens are on it`);
+  // each thing has one name, said as in the mock
+  assert.deepEqual(RM.ROOMS.find((r) => r.key === 'learn').things.map((t) => t.name), ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach']);
+  assert.equal(RM.thingName('homeadmin'), 'Household');
+});
+
+test('a number said or typed: "two", "open two", "02", "the second one" and "learn 5" are numbers; a word is not', () => {
+  for (const [t, n] of [['2', 2], ['02', 2], ['two', 2], ['open two', 2], ['Open Two.', 2], ['number 3', 3], ['the second one', 2], ['go to seven', 7], ['ten', 10]]) assert.equal(RM.numberIn(t), n, `"${t}"`);
+  for (const t of ['radio', 'open the radio', 'two hundred', 'play two songs', '', 'open']) assert.equal(RM.numberIn(t), null, `"${t}" is not a number`);
+  assert.deepEqual([RM.roomNumberIn('learn 5')?.room.key, RM.roomNumberIn('learn 5')?.n], ['learn', 5]);
+  assert.equal(RM.roomNumberIn('open plan four')?.n, 4);
+  assert.equal(RM.roomNumberIn('learn 5')?.room.things[4].id, 'library');
+  assert.equal(RM.roomNumberIn('radio'), null);
+});
+
+test('the house is drawn from that one list on every screen: the plan, the jump bar, a room and Every screen read it, and Glass keeps its own', () => {
+  const house = read('shell/house.ts');
+  assert.match(house, /import \{ ROOMS, roomOf/, 'the plan reads the rooms');
+  assert.match(house, /document\.documentElement\.dataset\.world === 'scan' && innerWidth < 900/, 'the house is the Scan on a phone, and only that');
+  assert.match(house, /The house · 7 rooms/);
+  assert.match(read('shell/launcher.ts'), /for \(const r of ROOMS\)/, 'Every screen lists the rooms');
+  assert.match(read('shell/areas.ts'), /const room = ROOMS\.find\(\(r\) => r\.area === a\.id\)/, 'a hub draws its room from the same list');
+  assert.match(read('shell/areas.ts'), /^ {2}jump,$/m, 'the palette hands the jump bar its drawing');
+  assert.match(read('commands/registry.ts'), /decor\?\.jump\?\.on\(\)/, 'and draws it only when the Scan is on');
+  // Settings: every panel keeps its row (a panel no group names goes in a last group)
+  assert.match(read('shell/scanlist.ts'), /title: 'More'/);
 });

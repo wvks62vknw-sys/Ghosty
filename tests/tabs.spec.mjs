@@ -21,7 +21,7 @@
 // reply to what this spec said, and nothing is left made.
 //   BASE=http://localhost:8788 node tests/tabs.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck } from './nav.mjs';
+import { GLASS, PHONE, UK, openDeck } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -64,11 +64,13 @@ const NEW = {
 };
 
 /** A phone (or a television) with his settings, paired; every ask for the camera, the microphone or the position counted. */
-async function open(viewport, { tv = false, path = '' } = {}) {
+async function open(viewport, { tv = false, path = '', world = 'glass' } = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, ...UK, ...(tv ? {} : { deviceScaleFactor: 2, hasTouch: true, isMobile: true }), serviceWorkers: 'block' });
-  await ctx.addInitScript(([k, tv]) => {
+  await ctx.addInitScript(([k, tv, glass]) => {
     localStorage.setItem('ghosty.ownerKey', k);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));
+    // (the bar, the cards, the deck's cards and the search below are GLASS's, held to their own checks unchanged: that world is set for them;
+    // The Scan's house, plan, jump bar and rooms are checked in their own world at the end: BRIEF-SHELL-2)
+    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', ...(glass ? { look: glass } : {}) }));
     if (tv) localStorage.setItem('ghosty.tv', JSON.stringify({ mode: 'on' }));
     window.__asked = [];
     const md = navigator.mediaDevices;
@@ -81,7 +83,7 @@ async function open(viewport, { tv = false, path = '' } = {}) {
       const f = geo[k].bind(geo);
       geo[k] = (...a) => (window.__asked.push(k), f(...a));
     }
-  }, [KEY, tv]);
+  }, [KEY, tv, world === 'glass' ? GLASS.look : null]);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
   await page.goto(`${base}/${path}`, { waitUntil: 'domcontentloaded' });
@@ -589,6 +591,31 @@ for (const viewport of [PHONE, SMALL]) {
   });
   if (left.group !== 'Life' || left.off == null || Math.abs(left.off) > 60) problems.push(`[deck] the deck did not open on the group he left (Life): ${JSON.stringify(left)}`);
   await page.screenshot({ path: `${out}/tabs-deck-remembers.png` });
+  await page.keyboard.press('Escape');
+  await ctx.close();
+}
+
+
+// ======================================================================== GLASS IS UNCHANGED (BRIEF-SHELL-2): its shell as it was, its DOM shape held
+{
+  const { ctx, page } = await open(PHONE);
+  await go(page, 'area-learn', 1400);
+  const g = await page.evaluate(() => ({
+    housed: document.body.classList.contains('housed'), world: document.documentElement.dataset.world,
+    keys: [...document.querySelectorAll('#dock .tabcap button')].filter((b) => getComputedStyle(b).display !== 'none').map((b) => b.querySelector('span')?.textContent),
+    kick: getComputedStyle(document.querySelector('#dock .housekick')).display, ask: getComputedStyle(document.querySelector('#dock .houseask')).display,
+    cards: [...document.querySelectorAll('#pg-area-learn .hubgrid > .hubtile')].filter((e) => e.getClientRects().length).length, room: getComputedStyle(document.querySelector('#pg-area-learn .scanroom')).display,
+    plan: !!document.querySelector('#plan'), headstamp: getComputedStyle(document.querySelector('#top .headstamp')).display, you: !!document.querySelector('#top .you'),
+  }));
+  if (g.world !== 'glass' || g.housed) problems.push(`[glass] the world is ${g.world}, housed ${g.housed}`);
+  if (g.keys.join(',') !== 'Ask,See,Make,Learn,Plan,Life') problems.push(`[glass] the bar's words are ${g.keys.join(',')} (want Ask, See, Make, Learn, Plan, Life: six keys, no Me)`);
+  if (g.kick !== 'none' || g.ask !== 'none' || g.headstamp !== 'none' || g.plan) problems.push(`[glass] the house's parts are drawn: ${JSON.stringify(g)}`);
+  if (g.cards !== 7 || g.room !== 'none') problems.push(`[glass] the Learn hub shows ${g.cards} cards (want its 7), the room is ${g.room}`);
+  await go(page, 'settings', 900);
+  if ((await page.evaluate(() => getComputedStyle(document.querySelector('#pg-settings .scanset')).display)) !== 'none' || !(await page.locator('#pg-settings .secpills .secpill').first().isVisible())) problems.push('[glass] Settings is not today\'s list with its pills');
+  await go(page, 'core', 800);
+  await page.click('#top .cmd');
+  if (!(await page.locator('#palette.on:not(.scanjump) .bx .prow').count())) problems.push('[glass] the palette is not today\'s');
   await page.keyboard.press('Escape');
   await ctx.close();
 }

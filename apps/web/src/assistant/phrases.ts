@@ -39,6 +39,7 @@ import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
+import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
@@ -57,6 +58,8 @@ export const LOCAL_ASKS = [
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
+  // [shell2] "open two", "go to number three", "open learn 5": a number said where he is opens that thing (shell/rooms.ts numbers, assistant/roomnumber.ts); only with a verb, so a bare "2" in a conversation is not taken
+  { id: 'roomnumber', test: (t: string) => /^(?:ok(?:ay)?[, ]+|please[, ]+)?(?:open|go to|show|take me to)\b/i.test(t.trim()) && (numberIn(t) !== null || roomNumberIn(t) !== null) },
   // [themes2] the look by words, applied at once with no model (state/theme.ts)
   { id: 'look', test: (t: string) => lookAsked(t) !== null || looksAsked(t) !== null },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)

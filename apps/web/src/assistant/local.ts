@@ -193,6 +193,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   carfault: (text, opts) => carFaultTurn(text, opts),
   // [awareness] "that one" (assistant/thatone.ts): the selection on the screen acted on, here, with no model
   thatone: (text, opts) => import('./thatone').then((m) => m.thatOneTurn(text, opts, answer)).catch(() => false),
+  // [shell2] a number said where he is ("open two"): that thing of the room he is in, or his starred and recent; nothing there, the next table, then the brain
+  roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),

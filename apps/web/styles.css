@@ -4619,20 +4619,6 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate, .hstamp) { a
 /* ABILITIES — THE EVERYTHING TAB (features/abilities/index.ts; BRIEF-EVERYTHING): every single thing he can do, in scenes.
    A card is a 44 pt+ row: the plain name, its one line under it, NEW when it is, a chevron; a tap opens its sheet. The
    eight chips narrow the list; nothing scrolls sideways (chips wrap) at 390 or 440. */
-#pg-abilities .catchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; min-width: 0; }
-#pg-abilities button.catchip { min-height: 44px !important; padding: 0 14px; border: 0; border-radius: 22px; font: 500 14px/18px var(--sf); letter-spacing: -.1px; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair); text-transform: none; }
-#pg-abilities button.catchip.on { color: var(--c2, var(--c)); background: rgba(var(--cr), .14) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .5); }
-#pg-abilities .catlist { display: flex; flex-direction: column; min-width: 0; }
-#pg-abilities button.catcard { display: flex; align-items: center; gap: 10px; width: 100%; white-space: normal; height: auto; min-width: 0; min-height: 56px !important; margin: 0; padding: 10px 6px 10px 2px; border: 0; border-radius: 0; background: none !important; box-shadow: inset 0 -1px 0 var(--hair) !important; text-align: left; text-transform: none; color: var(--ink); }
-#pg-abilities .catlist > button.catcard:last-child { box-shadow: none !important; }
-#pg-abilities button.catcard:active { background: rgba(255,255,255,.05) !important; }
-#pg-abilities .cattxt { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-#pg-abilities .catname { font: 600 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); overflow-wrap: anywhere; }
-#pg-abilities .catline { font: 400 14px/19px var(--sf); letter-spacing: -.1px; color: var(--ink2); overflow-wrap: anywhere; }
-#pg-abilities button.catcard[data-off] .catname { color: var(--ink2); }
-#pg-abilities .catnew { flex: none; padding: 3px 7px; border-radius: 9px; font: 700 10px/12px var(--sf); font-style: normal; letter-spacing: .08em; color: var(--c); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); }
-#pg-abilities button.catcard .ic { flex: none; width: 16px; height: 16px; color: var(--ink3); }
-#pg-abilities button.catmore { width: 100%; min-height: 44px !important; margin-top: 4px; border: 0; border-radius: 14px; font: 600 15px/20px var(--sf); color: var(--c); background: rgba(var(--cr), .08) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .22); text-transform: none; }
 /* the sheet: what it does, how to say it, TRY IT, what it needs, where it lives, since when, and why */
 .catbody { padding: 4px 18px 18px; min-width: 0; }
 .catbody p { margin: 0; font: 400 16px/22px var(--sf); color: var(--ink); white-space: normal; overflow-wrap: anywhere; text-transform: none; }
@@ -4649,22 +4635,7 @@ body.bootland .hud.core :is(.rcwx, .rcco, #suggest, #cbar, #cstate, .hstamp) { a
 .catbody .catneed span { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .catbody button.catset { flex: none; min-height: 44px !important; padding: 0 14px; border-radius: 22px; text-transform: none; }
 .modal:has(.catbody) .mhead button { min-height: 44px !important; }
-#pg-abilities .ablead { margin: 0 0 10px; font: 400 15px/20px var(--sf); color: var(--ink2); }
-#pg-abilities .abk { display: block; margin: 12px 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
-#pg-abilities .abgoal { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-height: 44px; padding: 10px 0; box-shadow: inset 0 -1px 0 var(--hair); }
-#pg-abilities .abgoal b { font: 400 16px/22px var(--sf); color: var(--ink); overflow-wrap: anywhere; min-width: 0; }
-#pg-abilities .abgoal small { flex: none; color: var(--ink3); font-size: 13px; }
-#pg-abilities ol.absteps { margin: 0; padding-left: 20px; font: 400 15px/20px var(--sf); color: var(--ink2); }
-#pg-abilities ol.absteps li { padding: 4px 0; }
-#pg-abilities .ablearn .row { margin-top: 12px; }
-#pg-abilities .ablearn .row button { min-height: 44px !important; }
 /* "Can you…?" (OWNER-ISSUES 68): the search over everything, the answer under it; the same answer in the chat (localcard.ts). */
-#pg-abilities .canform { display: flex; gap: 8px; align-items: center; min-width: 0; }
-#pg-abilities .canform .canin { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 14px; border-radius: 22px; font: 400 17px/22px var(--sf); }
-#pg-abilities .canform button.canask { flex: none; min-height: 44px !important; min-width: 64px; border-radius: 22px; }
-#pg-abilities .canans:not(:empty) { margin-top: 12px; }
-#pg-abilities .canline { margin: 0 0 10px; font: 600 17px/22px var(--sf); color: var(--ink); }
-#pg-abilities .canoffer { gap: 8px; margin: 10px 0 4px; }
 #pg-abilities .canoffer button, .localacts button { min-height: 44px !important; padding: 0 18px; border-radius: 22px; text-transform: none; }
 .localacts { gap: 8px; margin-top: 10px; min-width: 0; }
 .localacts button { max-width: 100%; white-space: normal; text-align: left; text-transform: none; overflow-wrap: anywhere; line-height: 20px; }
@@ -6362,7 +6333,7 @@ html #pinsheet .pinkeys { display: flex; justify-content: flex-end; gap: var(--g
    --------------------------------------------------------------------------------------------------------------------- */
 html .scanframe { display: none; position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; background: var(--g-room-canvas); color: var(--g-ink-1); isolation: isolate; }
 /* the floor the ask line stands on: 28 px above the house; with the house gone (the chat open, the keyboard up) just above the home indicator */
-html body.scanhome .hud.core { --scan-floor: max(calc(var(--scan-dock, 64px) + 28px), 14px, env(safe-area-inset-bottom, 0px)); }
+html body.scanhome .hud.core { --scan-floor: max(calc(var(--scan-dock, 64px) + 50px), 14px, env(safe-area-inset-bottom, 0px)); } /* (THE HOUSE's key above the house is 44 pt tall: BRIEF-SHELL-2) */
 /* the house is gone the same frame the chat opens or the keyboard rises (body.ownback, body.kb hide it): the floor follows it in that frame, no measured lag */
 html body.scanhome:is(.ownback, .kb) .hud.core { --scan-floor: max(14px, env(safe-area-inset-bottom, 0px)); }
 /* (the frame is the phone's: at a desk today's three-column Home stays as it is) */
@@ -6539,19 +6510,22 @@ html body.scanhome .scancol > #voicetag { position: sticky; bottom: 0; z-index: 
 html body.scanhome .scancol > #voicetag[hidden] { display: none; }
 html .scankick { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: calc(var(--scan-dock, 64px) + 6px); display: flex; justify-content: space-between; gap: var(--g-s-2); pointer-events: none; }
 html .scankick .g-truth { white-space: nowrap; }
-/* the house along the bottom: the tab bar drawn as the Machine draws a building (a plan with door gaps, the room he is in lit), ME its seventh room */
-html body.scanhome #dock.areas { gap: 0; padding: 0 var(--g-gutter) max(8px, env(safe-area-inset-bottom, 0px)); }
-html body.scanhome #dock .tabcap { flex: 1; height: 56px; padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html body.scanhome #dock .tabcap button { position: relative; flex: 1 1 0; flex-direction: row; align-items: flex-end; justify-content: flex-start; gap: 0; min-width: 0; min-height: 54px !important; padding: 0 0 6px 6px; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; font: var(--g-t-tag) !important; letter-spacing: var(--g-tr-tag) !important; color: var(--g-ink-2); transition: none; }
-html body.scanhome #dock .tabcap button:first-child { border-left: 0; }
-html body.scanhome #dock .tabcap button[data-area="ask"], html body.scanhome #dock .tabcap button[data-area="learn"] { flex-grow: 1.5; }
-html body.scanhome #dock .tabcap button .gi { display: none; }
-html body.scanhome #dock .tabcap button span { display: block; text-transform: uppercase; }
-html body.scanhome #dock .tabcap button::after { content: ''; position: absolute; left: -2px; top: 16px; width: 3px; height: 14px; background: var(--g-plate-fill); } /* a door in the wall */
-html body.scanhome #dock .tabcap button:first-child::after { display: none; }
-html body.scanhome #dock .tabcap button.on { color: var(--g-accent-text); background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
-html body.scanhome #dock .tabcap button.on::before { display: block; content: ''; position: absolute; left: auto; right: 7px; top: 7px; width: 6px; height: 6px; margin: 0; border-radius: 50%; background: var(--g-accent); box-shadow: none; }
-html body.scanhome #dock .tabcap button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); left: auto; right: 6px; top: 6px; width: auto; height: 16px; min-width: 16px; border-radius: 8px; background: var(--g-amber); color: var(--g-canvas); font: var(--g-t-fine); line-height: 16px; }
+/* THE HOUSE's words on Home are its key too (a tap unfolds the plan, shell/house.ts); under the ask line's own keys (z 6), so it never takes a tap from them */
+html .scankick { z-index: 5; align-items: flex-end; }
+html #app .scankick .scankickkey { display: flex; align-items: flex-end; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; pointer-events: auto; }
+/* the house along the bottom: the tab bar drawn as the Machine draws a building (a plan with door gaps, the room he is in lit), ME its seventh room; on EVERY screen of The Scan (body.housed: shell/house.ts), not Home alone */
+html body.housed #dock.areas { gap: 0; padding: 0 var(--g-gutter) max(8px, env(safe-area-inset-bottom, 0px)); }
+html body.housed #dock .tabcap { flex: 1; height: 56px; padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body.housed #dock .tabcap button { position: relative; flex: 1 1 0; flex-direction: row; align-items: flex-end; justify-content: flex-start; gap: 0; min-width: 0; min-height: 54px !important; padding: 0 0 6px 6px; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; font: var(--g-t-tag) !important; letter-spacing: var(--g-tr-tag) !important; color: var(--g-ink-2); transition: none; }
+html body.housed #dock .tabcap button:first-child { border-left: 0; }
+html body.housed #dock .tabcap button[data-area="ask"], html body.housed #dock .tabcap button[data-area="learn"] { flex-grow: 1.5; }
+html body.housed #dock .tabcap button .gi { display: none; }
+html body.housed #dock .tabcap button span { display: block; text-transform: uppercase; }
+html body.housed #dock .tabcap button::after { content: ''; position: absolute; left: -2px; top: 16px; width: 3px; height: 14px; background: var(--g-plate-fill); } /* a door in the wall */
+html body.housed #dock .tabcap button:first-child::after { display: none; }
+html body.housed #dock .tabcap button.on { color: var(--g-accent-text); background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html body.housed #dock .tabcap button.on::before { display: block; content: ''; position: absolute; left: auto; right: 7px; top: 7px; width: 6px; height: 6px; margin: 0; border-radius: 50%; background: var(--g-accent); box-shadow: none; }
+html body.housed #dock .tabcap button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); left: auto; right: 6px; top: 6px; width: auto; height: 16px; min-width: 16px; border-radius: 8px; background: var(--g-amber); color: var(--g-canvas); font: var(--g-t-fine); line-height: 16px; }
 /* the chat over the frame: the conversation's panel stays readable on the room */
 html body.scanhome .hud.core.logopen > .ccenter { z-index: 7; pointer-events: none; }
 html body.scanhome .hud.core.logopen .cside.l { z-index: 8; bottom: calc(var(--scan-floor) + 56px); }
@@ -6578,6 +6552,250 @@ html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .sca
 #boot .bsight .scansightdot { fill: var(--g-accent); }
 #boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
 #boot .g-lock.bsearch { z-index: 3; }
+
+/* =====================================================================================================================
+   THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
+   jump bar, the stamp and the page's name, a room, Every screen and Settings, drawn in THE SCAN's language. On while the world is The
+   Scan on a phone (body.housed); the Glass world keeps today's bar, palette, hubs, deck and Settings untouched. Every value is a token.
+   ===================================================================================================================== */
+html #dock :is(.housekick, .houseask) { display: none; }
+/* (ME is a room of the house only: Glass's bar keeps its six areas and the avatar at the top) */
+html body:not(.housed) #dock .tabcap .scanme { display: none; }
+html #top .headstamp { display: none; }
+@media (max-width: 899px) {
+  /* the dock: the house, and the ask line under it (Home draws its own ask line and words: scan/home.ts) */
+  html body.housed:not(.scanhome) { --tabh: 176px; }
+  html body.housed:not(.scanhome) #dock.areas { flex-direction: column; align-items: stretch; gap: var(--g-s-half); background: linear-gradient(to top, var(--g-room-canvas) 0, var(--g-room-canvas) 66%, rgba(var(--g-room-canvas-rgb), 0)); }
+  html body.housed:not(.scanhome) #dock .tabblur { display: none; }
+  html body.housed:not(.scanhome) #dock .tabcap { flex: none; pointer-events: auto; }
+  html body.housed:not(.scanhome) #dock .housekick { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); pointer-events: none; }
+  html #app #dock .housebtn { display: flex; align-items: flex-end; min-height: var(--g-target) !important; margin: 0; padding: 0 0 var(--g-s-half); border: 0; border-radius: 0; background: none; box-shadow: none; pointer-events: auto; text-align: left; }
+  html #app #dock .housebtn[aria-expanded="true"] .g-truth { color: var(--g-accent-text); }
+  html #dock .housewhere { padding-bottom: var(--g-s-half); white-space: nowrap; }
+  html body.housed:not(.scanhome) #dock .houseask { display: flex; align-items: stretch; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); pointer-events: auto; }
+  html #app #dock .housefield { display: flex; align-items: center; flex: 1 1 0; min-width: 0; height: 100%; min-height: 48px !important; margin: 0; padding: 0 var(--g-s-2); border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-3); }
+  html #app #dock .housefield .housewords { display: block; position: static; text-transform: none; font: inherit; letter-spacing: inherit; color: inherit; opacity: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html #app #dock .housemic { flex: none; display: grid; place-items: center; width: 48px; height: 100%; min-height: 48px !important; margin: 0; padding: 0; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; }
+  html #dock .housemic .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
+  /* the top: the stamp line, then the page's name in the system's display type, with its way back and the keys at the right */
+  html body.housed:not(.scanhome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
+  html body.housed:not(.scanhome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
+  html body.housed:not(.scanhome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body.housed:not(.scanhome) #top .navtitle[data-len="l"] { font-size: 28px; }
+  /* a long title (a panel's "Phone · App & Notifications") is said whole on two lines, never cut with dots */
+  html body.housed:not(.scanhome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  html body.housed:not(.scanhome) #top .navtitle[data-len="l"] { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
+  html body.housed:not(.scanhome) #top .navback { order: 5; display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-half); width: auto !important; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html body.housed:not(.scanhome) #top .navback[hidden] { display: none; }
+  html body.housed:not(.scanhome) #top .navback .ic { width: 16px; height: 16px; stroke: var(--g-ink-1); stroke-width: 2.2; }
+  html body.housed:not(.scanhome) #top .navback span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; text-transform: uppercase; white-space: nowrap; }
+  html body.housed:not(.scanhome) #top .sp { display: none; }
+  html body.housed:not(.scanhome) #top :is(.cmd, .you) { order: 6; flex: none; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html body.housed:not(.scanhome) #top .cmd::before { background: var(--g-ink-1); }
+  html body.housed:not(.scanhome) #top .you .av { width: 100%; height: 100%; border-radius: var(--g-radius-key); background: none; color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); box-shadow: none; }
+  html body.housed:not(.scanhome) #top .you.on { border-color: var(--g-accent); }
+  html body.housed:not(.scanhome) #top .you.on .av { box-shadow: none; color: var(--g-accent-text); }
+  html body.housed:not(.scanhome) #top :is(.clock, .conn, .tstatus, .logo) { display: none !important; }
+  html body.housed:not(.scanhome) #top .pausedtag { order: 7; }
+  /* God's Eye in the house: its header stands in the flow with the stamp, the title and the keys as every screen has them (it floated over the globe, and the stamp sat on the search and the layer chips); the globe fills what is under it */
+  html body.housed[data-tab="eye"]:not(.scanhome) #top { position: relative; z-index: auto; left: auto; top: auto; }
+  html body.housed[data-tab="eye"]:not(.scanhome) #top .navtitle { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome) #top .cmd { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome) #top .you { display: grid !important; }
+  html body.housed[data-depth="inner"] .hud.eye .eyetop { padding-left: 0; }
+  html body.housed .eyechips { margin-left: 0; }
+  /* with the LOOK menu open (it rises from the bar to the search) the layer chips step aside, and the menu has their room (the house takes a third of a short screen) */
+  html body.housed .hud.eye:has(.lookmenu:not([hidden])) .eyechips { display: none; }
+  /* THE PLAN: the house unfolded, every room with its things numbered, on one surface above the ask line */
+  html #plan { position: fixed; z-index: 8; left: 0; right: 0; top: var(--plan-top, 0px); bottom: var(--plan-bottom, 0px); display: flex; flex-direction: column; padding: var(--g-s-1) var(--g-gutter) 0; box-sizing: border-box; background: var(--g-room-canvas); }
+  html body.planned #dock.areas { background: none; }
+  html body.planned #dock :is(.tabcap, .housekick) { visibility: hidden; }
+  html #plan .planhead { flex: none; display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: 0 0 var(--g-s-half); border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; }
+  html #plan .planhead .g-truth:last-child { color: var(--g-accent-text); }
+  html #plan .plangrid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: min-content; align-content: start; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-fill); }
+  html #plan .planroom { position: relative; min-width: 0; display: flex; flex-direction: column; border-left: var(--g-hair) solid var(--g-line-faint); border-top: var(--g-hair) solid var(--g-line-faint); }
+  html #plan .planroom:nth-child(3n + 2) { border-left: 0; }
+  html #plan .planroom.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; flex-wrap: wrap; border-left: 0; border-top: 0; }
+  html #plan .planroom.lit { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); z-index: 1; }
+  html #app #plan button { margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); }
+  html #plan .planroomhead { display: flex; justify-content: space-between; align-items: center; gap: var(--g-s-1); min-height: var(--g-target) !important; padding: 0 var(--g-s-1); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
+  html #plan .planroom.wide .planroomhead { gap: var(--g-s-2); }
+  html #plan .planroom.lit .planroomhead .rtitle { color: var(--g-accent-text); }
+  html #plan .planroomhead .rcount { color: var(--g-ink-3); }
+  html #plan .planroom.wide .planroomhead .rcount { order: 0; }
+  html #plan .planthing { text-transform: none; display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target) !important; padding: 0 var(--g-s-1); font: var(--g-t-truth); letter-spacing: var(--g-tr-mono); color: var(--g-ink-1); }
+  html #plan .planthing .ptname { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  html #plan .planthing .ptmark { flex: none; width: var(--g-icon-small); height: var(--g-icon-small); fill: none; stroke: var(--g-ink-2); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html #plan .planthing[data-starred="true"] .ptmark { stroke: var(--g-accent-text); }
+  html #plan .planthing .ptdot { flex: none; width: var(--g-s-1); height: var(--g-s-1); border-radius: var(--g-radius-orb); background: var(--g-amber); }
+  /* THE JUMP BAR: the palette drawn as plates above the keyboard, the ask line at the foot */
+  html #palette.scanjump { inset: auto; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); padding: 0; align-items: flex-end; background: rgba(var(--g-canvas-rgb), .86); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html #palette.scanjump .bx { width: 100%; max-width: none; max-height: 100%; padding: 0 var(--g-gutter) max(var(--g-s-1), var(--g-safe-bottom)); gap: var(--g-s-1); border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; justify-content: flex-end; }
+  html #palette.scanjump .ls { order: 1; flex: 0 1 auto; min-height: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+  html #palette.scanjump .jroot { display: flex; flex-direction: column; gap: var(--g-s-1); }
+  html #palette.scanjump .prow { order: 2; flex: none; display: flex; align-items: stretch; gap: 0; height: 48px; padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); }
+  html #palette.scanjump .pglass { display: none; }
+  html #palette.scanjump input, html #palette.scanjump input:focus { -webkit-appearance: none; appearance: none; flex: 1 1 0; min-width: 0; height: 100%; padding: 0 var(--g-s-2); border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html #palette.scanjump input::placeholder { color: var(--g-ink-3); }
+  html #palette.scanjump input::-webkit-search-cancel-button, html #palette.scanjump input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+  html #palette.scanjump :is(.pclear, .pcancel, .jmic) { flex: none; display: grid; place-items: center; min-width: var(--g-target); height: 100%; min-height: 0 !important; margin: 0; padding: 0 var(--g-s-1); border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html #palette.scanjump .pclear { border-left: 0; font-size: 18px !important; }
+  html #palette.scanjump .pclear[hidden] { display: none; }
+  html #palette.scanjump .jmic .ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  html #palette.scanjump .jmic.on { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+  html #palette.scanjump .hint { display: none; }
+  html #palette .jgroup { display: flex; flex-direction: column; gap: var(--g-s-1); }
+  html #palette .jhead { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); }
+  html #palette .jhead .g-tag { background: var(--g-plate-fill); }
+  html #palette .jhead .g-truth { text-align: right; }
+  html #palette .jchips { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+  html #palette button.jchip { display: inline-flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html #palette button.jchip .jmark { width: var(--g-icon-small); height: var(--g-icon-small); fill: none; stroke: var(--g-ink-3); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html #palette .jempty .g-plate { max-width: 100%; }
+  html #palette .jsay { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+  html #palette .jchecked { align-self: flex-start; padding: var(--g-s-half) var(--g-s-1); background: var(--g-plate-fill); }
+  html #palette .jfind { position: relative; }
+  html #palette .jplate { display: flex; align-items: center; gap: var(--g-s-2); padding: var(--g-s-2); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); cursor: pointer; }
+  html #palette .jwords { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+  html #palette .jname { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html #palette .jsub { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html #palette .jworks { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-amber); }
+  html #palette .jplate .g-key { flex: none; }
+  html #palette .jrows { display: flex; flex-direction: column; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); }
+  html #palette button.jrow { display: flex; align-items: center; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2); border: 0; border-top: var(--g-hair) solid var(--g-line-faint); border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html #palette button.jrow span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html #palette button.jrow:first-child { border-top: 0; }
+  html #palette button.jrow small { min-width: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+  html #palette button.jrow.sel { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+  html #palette button.jask { text-transform: none; display: flex; align-items: center; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: var(--g-s-1) var(--g-s-2); border: 0; border-radius: 0; background: var(--g-plate-fill); box-shadow: none; text-align: left; color: var(--g-ink-1); }
+  html #palette button.jask b { flex: none; font: var(--g-t-reading); }
+  html #palette button.jask span { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html #palette button.jask.only { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+}
+
+@media (max-width: 899px) {
+  /* A ROOM (learn.png): the band, AT HAND, THE REST. Today's hub drawn in the house: the cards are the same, set as rows and cells */
+  html .hubtile .one, html .hubtile .hmark { display: none; }
+  html .hub:not(.roomed) .scanroom { display: none; }
+  html body.housed .hub.roomed > :is(.cmdbar, .hubgrid) { display: none; }
+  html body.housed .hub.roomed { display: flex; flex-direction: column; gap: var(--g-s-2); padding: 0 var(--g-gutter) calc(var(--tabh) + var(--g-s-3) + var(--g-safe-bottom)) !important; -webkit-mask-image: none !important; mask-image: none !important; }
+  html body.housed .hub.roomed .hubsub { order: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html .scanroom { display: flex; flex-direction: column; gap: var(--g-s-2); min-width: 0; }
+  html .roomband { display: flex; align-items: stretch; height: 96px; min-width: 0; }
+  html #app .roomband button.bandret { position: relative; flex: 1 1 0; min-width: var(--g-target); height: 100%; min-height: var(--g-target) !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--g-ink-2); }
+  html .roomband .bandret > .g-ret-frame { inset: var(--g-s-half) 2px; }
+  html .roomband .bandret .bandglyph { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html .roomband .bandret .g-index { position: absolute; right: var(--g-s-half); top: var(--g-s-half); min-width: 0; padding: 0 2px; background: var(--g-plate-fill); color: var(--g-ink-1); }
+  html .roomband .bandret.on { color: var(--g-accent-text); }
+  html .roomband .bandret.on > .g-ret-frame { --rc: var(--g-accent); border: var(--g-stroke) solid var(--g-accent); }
+  html .roomband .bandret.on .g-index { color: var(--g-accent-text); }
+  html .scanroom .rhead { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); }
+  html .scanroom .rhead .g-tag { background: var(--g-plate-fill); }
+  html .scanroom .rhead .g-truth { text-align: right; }
+  html .scanroom .rnone { margin: 0; padding: var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-2); border-top: var(--g-hair) solid var(--g-line-faint); }
+  html .scanroom .rnone[hidden], html .scanroom .handlist[hidden], html .scanroom .therest[hidden] { display: none; }
+  html .scanroom .handlist { display: flex; flex-direction: column; border-top: var(--g-hair) solid var(--g-line); }
+  html .scanroom .restgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: var(--g-hair) solid var(--g-line); }
+  /* one card, drawn as a row (AT HAND) or a cell (THE REST): the instrument, the status and the why are for Glass's card */
+  html #app .scanroom button.hubtile { position: relative; display: grid; align-items: start; width: 100%; height: auto; min-height: var(--g-target) !important; margin: 0; padding: var(--g-s-2) var(--g-s-1); border: 0; border-bottom: var(--g-hair) solid var(--g-line-faint) !important; border-top: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; text-align: left; color: var(--g-ink-1); overflow: visible; }
+  html .scanroom button.hubtile::before, html .scanroom button.hubtile::after { content: none; }
+  html .scanroom .hubtile :is(.ins, .why, .hline, .pinmark, .kick .st, .kick > em) { display: none !important; }
+  html .scanroom .hubtile .kick { display: flex; align-items: center; gap: var(--g-s-1); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
+  html .scanroom .hubtile .kick .ic { width: var(--g-icon-small); height: var(--g-icon-small); stroke: currentColor; }
+  html .scanroom .hubtile .kick .nm { color: var(--g-ink-1); }
+  html .scanroom .hubtile .hmark { display: inline-flex; color: var(--g-accent-text); }
+  html .scanroom .hubtile .hmark[hidden] { display: none; }
+  html .scanroom .hubtile .hmark .ic { width: var(--g-icon-small); height: var(--g-icon-small); fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); }
+  html .scanroom .hubtile .works { display: flex; flex-direction: column; gap: 0; margin: var(--g-s-half) 0 0; padding: 0; border: 0; }
+  html .scanroom .hubtile .works b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-amber); }
+  html .scanroom .hubtile .works span { display: none; }
+  /* AT HAND: its number, its name and its words, its two readings at the right */
+  html .scanroom .handlist .hubtile { grid-template-columns: 2.4ch minmax(0, 1fr) auto; column-gap: var(--g-s-2); padding-left: var(--g-s-half); }
+  html .scanroom .handlist .hubtile::before { content: attr(data-n); display: block; grid-row: 1 / span 3; grid-column: 1; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-accent-text); padding-top: var(--g-s-half); }
+  html .scanroom .handlist .hubtile .kick { grid-column: 2; grid-row: 1; color: var(--g-accent-text); }
+  html .scanroom .handlist .hubtile .kick .nm { color: var(--g-accent-text); }
+  html .scanroom .handlist .hubtile .t { grid-column: 2; grid-row: 2; margin: 0; font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html .scanroom .handlist .hubtile .works { grid-column: 2; grid-row: 3; }
+  html .scanroom .handlist .hubtile .reads { grid-column: 3; grid-row: 1 / span 3; display: flex; gap: var(--g-s-2); align-self: center; margin: 0; padding: 0; border: 0; }
+  html .scanroom .handlist .hubtile .rd { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; max-width: 9.5em; text-align: left; }
+  html .scanroom .handlist .hubtile .rd em { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; font-style: normal; color: var(--g-ink-3); white-space: normal; }
+  html .scanroom .handlist .hubtile .rd b { font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); color: var(--g-ink-1); overflow-wrap: anywhere; }
+  html .scanroom .handlist .hubtile .rd small { font: var(--g-t-fine); color: var(--g-ink-3); }
+  html .scanroom .handlist .hubtile .one { display: none; }
+  /* THE REST: a cell with its number, its name and one true line; IN THE WORKS in amber */
+  html .scanroom .restgrid .hubtile { grid-template-columns: 2.4ch minmax(0, 1fr); column-gap: var(--g-s-1); border-left: var(--g-hair) solid var(--g-line-faint) !important; }
+  html .scanroom .restgrid .hubtile:nth-child(odd) { border-left: 0 !important; }
+  html .scanroom .restgrid .hubtile::before { content: attr(data-n); display: block; grid-column: 1; grid-row: 1; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
+  html .scanroom .restgrid .hubtile .kick { grid-column: 2; grid-row: 1; }
+  html .scanroom .restgrid .hubtile .one { display: block; grid-column: 2; grid-row: 2; margin: var(--g-s-half) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+  html .scanroom .restgrid .hubtile :is(.t, .reads) { display: none !important; }
+  html .scanroom .restgrid .hubtile .works { grid-column: 2; grid-row: 3; }
+}
+
+html #deck :is(.dkhead2, .dkinv, .dkhouse) { display: none; }
+@media (max-width: 899px) {
+  /* EVERY SCREEN (deck.png): the machine's inventory as one plate: FAVOURITES, RECENT, then each room's things, numbered, with one true line each */
+  html body.housed #deck::before, html body.housed #deck::after { content: none; }
+  html body.housed #deck.on { display: flex; }
+  /* (under #app, whose house stays on top of it: the stage and the bar step aside while it is up) */
+  html body.decked.housed :is(#stage, #top) { visibility: hidden; }
+  html body.housed #deck { z-index: 4; flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; background: var(--g-room-canvas); -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
+  html body.housed #deck :is(.dkhead, .dktry, .dkhits, .dkgroups) { display: none !important; }
+  html body.housed #deck .dk { position: static; inset: auto; flex: 1 1 auto; min-height: 0; padding: var(--g-s-2) var(--g-gutter) 0; scroll-padding: 0; }
+  html body.housed #deck .dkhead2 { display: block; }
+  html body.housed #deck .dkhead2 .g-stamp { padding: 0 var(--g-s-half); }
+  html #deck .dkt2 { display: flex; align-items: center; gap: var(--g-s-1); margin: var(--g-s-half) 0 var(--g-s-1); }
+  html #deck .dktitle2 { flex: 1 1 0; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html #deck button.dkback span { text-transform: uppercase !important; }
+  html #deck button.dkback { display: inline-flex; align-items: center; gap: var(--g-s-half); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html #deck .dkback .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  html body.housed #deck .dkinv { display: block; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-strong-fill); }
+  html #deck .invgroup { display: block; }
+  html #deck .invgroup[hidden] { display: none; }
+  html #deck .invhead { display: flex; justify-content: space-between; align-items: center; gap: var(--g-s-2); min-height: var(--g-target); padding: 0 var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); }
+  html #deck .invgroup:first-child .invhead { border-top: 0; }
+  html #deck .invhead .g-tag { padding-left: 0; background: none; color: var(--g-ink-1); }
+  html #deck .invsmall { font: var(--g-t-caption); color: var(--g-ink-3); text-align: right; }
+  html #deck .invnone { margin: 0; padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-2); }
+  html #deck button.invrow { display: flex !important; align-items: center; gap: var(--g-s-2); width: 100%; min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: var(--g-s-1) var(--g-s-2); border: 0; border-top: var(--g-hair) solid var(--g-line-faint); border-radius: 0 !important; background: none !important; box-shadow: none !important; text-align: left; text-transform: none; color: var(--g-ink-1); }
+  html #deck .invrow[hidden] { display: none; }
+  html #deck .invrow .g-index { align-self: center; }
+  html #deck .invrow .invwords { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+  html #deck .invrow .invname { font: var(--g-t-head); letter-spacing: var(--g-tr-body); text-transform: none; color: var(--g-ink-1); }
+  html #deck .invrow .invline { font: var(--g-t-caption); text-transform: none; color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html #deck .invrow.hot .invline, html #deck .invrow.here .invline { color: var(--g-accent-text); }
+  html #deck .invrow .invdot { flex: none; width: var(--g-s-1); height: var(--g-s-1); border-radius: var(--g-radius-orb); background: var(--g-amber); }
+  html #deck .invrow .invchev { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--g-ink-2); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html #deck .invrow[data-pinned="true"] .g-index { color: var(--g-accent-text); }
+  html body.housed #deck .dkhouse { display: block; flex: none; height: calc(var(--g-target) + 56px + var(--g-s-1)); }
+  html body.housed #deck .dknone { margin: var(--g-s-2) var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-2); }
+  html body.housed #deck .dkgo { position: relative; left: auto; right: auto; bottom: auto; flex: none; display: flex; align-items: stretch; height: 48px; margin: 0 var(--g-gutter) max(var(--g-s-1), var(--g-safe-bottom)); padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html body.housed #deck .dkgo .dksearch { display: none; }
+  html body.housed #deck .dkin { padding: 0 var(--g-s-2); height: 100%; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html body.housed #deck .dkin::placeholder { color: var(--g-ink-3); }
+  html body.housed #deck .dkmic { flex: none; width: 48px; height: 100%; min-height: 48px !important; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; }
+  html body.decked.housed #dock.areas { background: none; }
+  html body.decked.housed #dock .houseask { visibility: hidden; }
+}
+
+html .scanset { display: none; }
+@media (max-width: 899px) {
+  /* SETTINGS (settings.png): the rows numbered and grouped on one plate, the value at the right; today's list (shell/scanlist.ts keeps every row of it) steps aside */
+  html body.housed #pg-settings.scanned:not(.haspush) .hud > :not(.scanset) { display: none !important; }
+  html body.housed #pg-settings.scanned:not(.haspush) .hud { display: block; padding: var(--g-s-1) var(--g-gutter) calc(var(--tabh) + var(--g-s-3) + var(--g-safe-bottom)) !important; }
+  html body.housed #pg-settings.scanned .scanset { display: block; border: var(--g-stroke) solid var(--g-line); background: var(--g-plate-strong-fill); }
+  html body.housed #pg-settings.scanned.haspush .scanset { display: none; }
+  html .scanset .sethead { display: flex; justify-content: space-between; align-items: center; gap: var(--g-s-2); min-height: var(--g-target); padding: 0 var(--g-s-2); border-top: var(--g-hair) solid var(--g-line-faint); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-1); }
+  html .scanset .setgroup:first-child .sethead { border-top: 0; }
+  html .scanset .setcount { color: var(--g-ink-3); }
+  html #pg-settings button.srow { display: flex !important; align-items: center; gap: var(--g-s-2); width: 100%; min-height: var(--g-target) !important; height: auto !important; margin: 0; padding: var(--g-s-1) var(--g-s-2); border: 0; border-top: var(--g-hair) solid var(--g-line-faint); border-radius: 0 !important; background: none !important; box-shadow: none !important; text-align: left; text-transform: none; color: var(--g-ink-1); }
+  html .scanset .srow .g-index { align-self: center; }
+  html .scanset .srwords { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+  html .scanset .srname { font: var(--g-t-head); letter-spacing: var(--g-tr-body); text-transform: none; color: var(--g-ink-1); }
+  html .scanset .srline { font: var(--g-t-caption); text-transform: none; color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html .scanset .srvalue { flex: 0 1 auto; max-width: 46%; font: var(--g-t-reading); letter-spacing: var(--g-tr-mono); text-transform: none; color: var(--g-accent-text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html .scanset .srchev { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--g-ink-2); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+}
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

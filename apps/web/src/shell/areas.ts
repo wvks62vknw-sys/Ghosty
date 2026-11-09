@@ -22,6 +22,12 @@ import { ensureDefs } from '../ui/instruments';
 import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { favourites, isFavourite, pinOnHold } from './favourites';
+import { jump } from './jump';
+import { houseOn, openThing } from './house';
+import { atHand, thingForNumber, thingLine } from './inventory';
+import { ROOMS } from './rooms';
+import { recipeEvents } from '../state/theme';
+import { tag } from '../ui/machine';
 import { screenSays } from './awareness';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
@@ -116,7 +122,16 @@ const voiceTap = () => {
 /** [tabs] A reading that is a figure ("21", "0.4", "£1,240", "+0.7%", "8°C", "12:30"), set in the mono; anything else is words. */
 const isFigure = (v: string) => /^[-+−]?[£$€]?\d[\d.,:/]*(%|°[CF]?)?$/.test(v.trim());
 
-function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
+interface ToolCard {
+  el: HTMLElement;
+  id: string;
+  paint(): void;
+  load(): Promise<unknown>;
+  /** A room's drawing of it (The Scan): its number, why it is at hand, and where it sits. */
+  place(o: { n?: number; why?: 'recent' | 'starred' | ''; at: 'hand' | 'rest' }): void;
+}
+
+function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): ToolCard {
   const c = CARDS[id];
   const word = h('em.st');
   const ins = h('span.ins');
@@ -133,10 +148,13 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   // [tabs] IN THE WORKS: a small label and its one line, on a card whose screen still holds a stand-in or a table written in
   const works = c?.works ? h('span.works', h('b', 'In the works'), h('span', c.works)) : null;
   const pinned = h('i.pinmark', { hidden: true }, 'PINNED');
+  // (a room's drawing, in The Scan: the clock or the star beside its name, and its one true line for the rest of the room)
+  const mark = h('i.hmark', { hidden: true, 'aria-hidden': 'true' });
+  const one = h('span.one', { dataset: { case: 'keep' } });
   const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
-    h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, works, reads, why, line, pinned,
+    h('span.kick', icon(glyph), h('span.nm', name), mark, word),
+    title, works, one, reads, why, line, pinned,
   );
   // a long press pins the screen (FAVOURITES, BRIEF-SHELL): the card of a screen only (Voice is not one)
   const paintPin = () => {
@@ -153,6 +171,7 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   let insKey: Element | null = null;
   const paint = () => {
     if (t) paintPin();
+    if (el.dataset.at) one.textContent = thingLine(id);
     if (!c) return;
     const st = t?.status?.() ?? c.status();
     el.dataset.status = st.toLowerCase();
@@ -176,8 +195,20 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
     if (line.textContent !== ln) line.textContent = ln;
     line.hidden = !ln;
   };
-  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
+  const place: ToolCard['place'] = (o) => {
+    if (o.n) el.dataset.n = String(o.n).padStart(2, '0');
+    else delete el.dataset.n;
+    el.dataset.at = o.at;
+    if (o.why) el.dataset.why = o.why;
+    else delete el.dataset.why;
+    clear(mark, ...(o.why === 'recent' ? [icon(CLOCK, 'ic')] : o.why === 'starred' ? [icon(STARM, 'ic')] : []));
+    mark.hidden = !o.why;
+    one.textContent = thingLine(id);
+  };
+  return { el, id, paint, load: () => c?.load?.() ?? Promise.resolve(), place };
 }
+const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
+const STARM = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
 
 type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
 /** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
@@ -202,16 +233,66 @@ function hubTab(a: Area): TabDef {
       ensureDefs();
       const grid = h('div.hubgrid');
       const sub = h('p.hubsub', a.sub);
+      // THE ROOM (The Scan: BRIEF-SHELL-2, learn.png): the band of every thing in it, reticled and numbered, then AT HAND (what is recent and
+      // starred, open, with two readings each) and THE REST folded in a grid with one line each. The cards are the same cards: placed here
+      // when the house is drawn (shell/house.ts houseOn), put back in the grid when it is not (Glass keeps today's hub exactly).
+      const room = ROOMS.find((r) => r.area === a.id)!;
+      const band = h('div.roomband', { role: 'group', 'aria-label': `${a.title}: ${room.things.length} things`, dataset: { room: room.key } });
+      const handHead = h('div.rhead', tag('At hand', { count: 0 }), h('span.g-truth', 'Recent and starred'));
+      const handList = h('div.handlist');
+      const handNone = h('p.rnone', { dataset: { case: 'keep' } }, 'Nothing here yet. Hold any thing to star it; the ones you open last wait here.');
+      const hand = h('section.athand', { dataset: { part: 'athand' } }, handHead, handList, handNone);
+      const restHead = h('div.rhead', tag('The rest', { count: 0 }), h('span.g-truth', { dataset: { case: 'keep' } }, 'Say a number: “open two”'));
+      const restGrid = h('div.restgrid');
+      const rest = h('section.therest', { dataset: { part: 'therest' } }, restHead, restGrid);
+      const roomEl = h('div.scanroom', band, hand, rest);
       const wrap = h('div.hub',
         sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
+        roomEl,
       );
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen. Every
       // tool of the area is an instrument card, two to a row; the hub scrolls when they run past the screen (BRIEF-TABS 3).
       const cards = areaTools(a).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
+      // (ME's room also holds two things that are not screens: the origin and Every screen: cards only in the room's drawing)
+      const extra = a.id === 'me' ? ROOMS.find((r) => r.key === 'me')!.things.filter((t) => !t.screen).map((t) => toolCard(t.id, t.name, t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON, null, () => openThing(t))) : [];
+      const everyCard = [...cards, ...extra];
       clear(grid, ...cards.map((c) => c.el));
+      let drawn = '\0';
+      const arrange = () => {
+        const on = houseOn();
+        wrap.classList.toggle('roomed', on);
+        const mine = atHand(room);
+        const sig = on ? mine.map((m) => `${m.id}:${m.why}`).join(',') : 'glass';
+        if (sig === drawn) return;
+        drawn = sig;
+        if (!on) return void clear(grid, ...cards.map((c) => c.el));
+        const num = new Map(room.things.map((t) => [t.id, t.n]));
+        const byN = (x: ToolCard, y: ToolCard) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99);
+        const inHand = mine.map((m) => ({ c: everyCard.find((x) => x.id === m.id)!, why: m.why })).filter((m) => m.c);
+        const others = everyCard.filter((c) => !inHand.some((m) => m.c === c)).sort(byN);
+        for (const m of inHand) m.c.place({ n: num.get(m.c.id), why: m.why, at: 'hand' });
+        for (const c of others) c.place({ n: num.get(c.id), at: 'rest' });
+        clear(handList, ...inHand.map((m) => m.c.el));
+        clear(restGrid, ...others.map((c) => c.el));
+        clear(handHead, tag('At hand', { count: inHand.length }), h('span.g-truth', 'Recent and starred'));
+        clear(restHead, tag('The rest', { count: others.length }), h('span.g-truth', { dataset: { case: 'keep' } }, 'Say a number: “open two”'));
+        handNone.hidden = inHand.length > 0;
+        handList.hidden = inHand.length === 0;
+        hand.dataset.count = String(inHand.length);
+        rest.hidden = others.length === 0;
+        // the band: every thing, reticled and numbered, left to right in the room's order; the ones at hand lit
+        const lit = new Set(inHand.map((m) => m.c.id));
+        clear(band, ...room.things.map((t) => {
+          const card = everyCard.find((c) => c.id === t.id);
+          const b = h(`button.bandret${lit.has(t.id) ? '.on' : ''}` as 'button', { type: 'button', dataset: { id: t.id, n: String(t.n).padStart(2, '0'), case: 'keep' }, 'aria-label': `${String(t.n).padStart(2, '0')} ${t.name}` },
+            h('span.g-ret-frame', { 'aria-hidden': 'true' }), icon(def(t.id)?.icon ?? (t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON), 'ic bandglyph'), h('span.g-index', String(t.n).padStart(2, '0')));
+          b.addEventListener('click', () => (card ? card.el.click() : openThing(t)));
+          return b;
+        }));
+      };
       // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
       // city, his latest project) where the phone has the reading, else the plain line; never a sample
       const paintSub = () => {
@@ -220,22 +301,25 @@ function hubTab(a: Area): TabDef {
         sub.dataset.personal = String(w !== a.sub);
       };
       const paintAll = () => {
-        for (const c of cards) c.paint();
+        for (const c of everyCard) c.paint();
         paintSub();
+        arrange();
       };
       let timer = 0;
       const paint = () => {
+        drawn = '\0';
         paintAll();
-        void Promise.all([...cards.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
+        void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
+      recipeEvents.on('change', () => ui.get().tab === hubId(a) && paint());
       return {
         enter: paint,
         leave: () => clearInterval(timer),
         describe: () => `${a.title}: ${a.tabs.join(', ')}`,
         // (BRIEF-SHELL pass 1) a hub says which area it is and how much is in it
-        context: () => screenSays(hubId(a), a.title, `the ${a.title.toLowerCase()} hub, ${areaTools(a).length} things to open`, { looking: `the ${a.title.toLowerCase()} hub` }),
+        context: () => screenSays(hubId(a), a.title, `the ${a.title.toLowerCase()} hub, ${areaTools(a).length} things to open`, { looking: a.title.toLowerCase() }),
       };
     },
   };
@@ -259,6 +343,15 @@ addPaletteDecor({
     return [...pinned.map((t) => row(t, 'FAVOURITES')), ...lately.map((t) => row(t, 'RECENT'))];
   },
   hold: (c, el) => pinOnHold(el, c.id.replace(/^tab_/, '')),
+  // The Scan's jump bar (shell/jump.ts) and a number said or typed where he is (shell/inventory.ts): both only in the house
+  jump,
+  typed: (text) => {
+    if (!houseOn()) return false;
+    const t = thingForNumber(text, ui.get().tab);
+    if (!t) return false;
+    openThing({ id: t.id, name: '', screen: t.screen, n: 0 });
+    return true;
+  },
 });
 
 // ---------- the "Me" sheet: the avatar's menu (iOS's account sheet); route C (mockups/c/settings.png):
@@ -569,7 +662,8 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
   // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like Settings: Me's screens are the Me sheet's rows)
-  if (tab === 'memory' || tab === 'settings' || tab === 'social') return { back: '', backTo: '', title: niceCase(t.title) };
+  // (in The Scan the house has ME as a room, and these are things in it: the way back is ‹ ME, to the room)
+  if (tab === 'memory' || tab === 'settings' || tab === 'social') return houseOn() ? { back: 'Me', backTo: 'area-me', title: niceCase(t.title) } : { back: '', backTo: '', title: niceCase(t.title) };
   // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
   if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   // (THE READER is a book from the Library's Shelf: back is the Library, two taps from Learn: BRIEF-LIBRARY-READER)

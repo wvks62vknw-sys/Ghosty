@@ -396,6 +396,16 @@ folder that no longer exists; ignore those paths).
   OWNER-ISSUES 165. The shell: the first builder kept handing back mid-run (its background spec loop), so it was stopped and a
   fresh mid-tier builder owns builder/shell2 with one job: every pinned spec run in the foreground, fixed at the cause, the
   Glass pixel diff, then the report.
+  04:40 UK (9 Nov): PR #75 GREEN (run 407) after two more fixes at the cause (the brain's look test accepting the gallery's
+  words; the caption standing at once while his voice reads, for the talk spec's first-phone check on the runner), SQUASH-
+  MERGED, main 93edf93; its own run read at the 05:55 UK check-in. THE SHELL IN THE SCAN finished by the fresh builder: every
+  pinned spec re-cut and green in its worktree (tabs and routec split into tabs2 and routec2 at the 480 s limit: the two
+  words added to the workflow's list, the guard untouched), four real bugs fixed (God's Eye's header over its search, long
+  titles cut, a hidden seventh key in Glass, a number shown twice), the Glass pixel diff equal but for live readings, the
+  ratchet 2,004 to 1,992. Reviewed by a cheap worker: no protected file, no model name, every moved check present. One thing
+  undone on applying: the builder had made God's Eye's screenshots in the ui spec never fail; they fail again anywhere but a
+  machine that says NO_GL_SHOTS=1 (this sandbox). Applied as one commit; PR #76; OWNER-ISSUES 166 (his seven-step check,
+  seven calls). Next in 164's order: ONE INK.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

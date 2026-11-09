@@ -164,7 +164,9 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const coBig = h('span.big');
   const coTruth = h('span.cotruth');
   const callout = h('button.scanco', { type: 'button', dataset: { case: 'keep' } }, coTag, coBig, coTruth);
-  const kickL = h('span.g-truth', 'The house · 7 rooms');
+  // THE HOUSE's words are its key: a tap unfolds the plan of every room (shell/house.ts), as on every other screen
+  const kickL = h('button.scankickkey', { type: 'button', 'aria-label': 'The house: seven rooms. Open the plan' }, h('span.g-truth', 'The house · 7 rooms'));
+  kickL.addEventListener('click', () => void import('../../../shell/house').then((m) => m.housePlan()?.toggle()));
   const kickR = h('span.g-truth', 'You are home');
   const kick = h('div.scankick', { dataset: { case: 'keep' } }, kickL, kickR);
   const askHost = h('div.scanask');
@@ -228,20 +230,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const giveBack = () => {
     for (const t of taken) if (t.parent && t.el.parentElement === t.into) t.parent.insertBefore(t.el, t.next && t.next.parentElement === t.parent ? t.next : null);
   };
-  // the seventh room along the bottom: ME, in the house while this Home is on (the tab bar has six areas and his initial)
-  const meRoom = h('button.scanme', { type: 'button', role: 'tab', dataset: { area: 'me', case: 'keep' }, title: 'Me' }, h('span', 'Me'));
-  meRoom.addEventListener('click', () => void import('../../../commands/registry').then((r) => r.run('open_me')));
-  const house = (on: boolean) => {
-    const cap = document.querySelector('#dock .tabcap');
-    const ask = cap?.querySelector<HTMLElement>('button[data-area="ask"] span');
-    if (on) {
-      if (cap && meRoom.parentElement !== cap) cap.append(meRoom);
-      if (ask) ask.textContent = 'Home';
-    } else {
-      meRoom.remove();
-      if (ask) ask.textContent = 'Ask';
-    }
-  };
+  // (the house along the bottom is the shared one, shell/house.ts: its seventh room, ME, and THE HOUSE's tap that unfolds the plan, on every screen)
 
   // ---------------------------------------------------------------- the marks
   const retEls = new Map<string, HTMLButtonElement>();
@@ -384,7 +373,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     say.textContent = `${greeting(new Date(now()))}.`;
     say2.textContent = sayTwo(p);
     kickR.textContent = youAre(p);
-    kickL.textContent = 'The house · 7 rooms';
     // NOW: by place, then by the hour
     const lit = litByHour();
     scanState.lit = lit;
@@ -740,7 +728,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       scanState.on = true;
       document.body.classList.add('scanhome');
       take();
-      house(true);
       // (the field keeps 'Talk to me': his principle that it invites talk, not a query (OWNER-ISSUES 63, 64; the character spec); the mock's words were the designer's)
       startSense();
       paintWords();
@@ -768,7 +755,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       scanState.on = false;
       document.body.classList.remove('scanhome');
       giveBack();
-      house(false);
       markLeft();
       clearInterval(minute);
       cancelAnimationFrame(loop);

@@ -791,7 +791,7 @@ export const eyeTab: TabDef = {
         paintTiles();
         // it grows upwards from the bar: never past the search bar (with Safari's bars it ran off the top), it scrolls
         const under = root.querySelector('.eyetop')?.getBoundingClientRect().bottom ?? 0;
-        look.style.maxHeight = `${Math.max(160, Math.floor(look.getBoundingClientRect().bottom - under - 8))}px`;
+        look.style.maxHeight = `${Math.max(96, Math.floor(look.getBoundingClientRect().bottom - under - 8))}px`;
       }
     });
     const closeLook = () => {

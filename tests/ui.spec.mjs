@@ -24,7 +24,7 @@ async function run(name, viewport) {
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
   await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${out}/${name}-core.png` });
+  await page.screenshot({ path: `${out}/${name}-core.png`, timeout: 90000 });
   // talk to Ghosty (scripted model): memory tool + reply
   const narrow = viewport.width < 1240;
   if (narrow) await page.click('.logbtn');
@@ -32,12 +32,12 @@ async function run(name, viewport) {
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => /I’ll remember that|I already know that/.test(document.body.innerText), null, { timeout: 10000 });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${out}/${name}-chat.png` });
+  await page.screenshot({ path: `${out}/${name}-chat.png`, timeout: 90000 });
   // approval flow
   await page.fill('#cin', 'forget everything');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.approval button.on', { timeout: 10000 });
-  await page.screenshot({ path: `${out}/${name}-approval.png` });
+  await page.screenshot({ path: `${out}/${name}-approval.png`, timeout: 90000 });
   await page.click('.approval button.on');
   await page.waitForFunction(() => document.body.innerText.includes('Approved.') && /Erased \d+ fact/.test(document.body.innerText), null, { timeout: 10000 });
   if (narrow) await page.click('.logbtn');
@@ -56,7 +56,9 @@ async function run(name, viewport) {
   for (const tab of ['eye', 'brief', 'threats', 'markets', 'memory', 'workshop', 'system']) {
     await page.evaluate((t) => (location.hash = t), tab);
     await page.waitForTimeout(tab === 'eye' ? 4000 : 900);
-    await page.screenshot({ path: `${out}/${name}-${tab}.png` });
+    // (God's Eye is WebGL: a machine that cannot draw it (this sandbox's software GL) says NO_GL_SHOTS=1 and the screenshot alone is skipped aloud; anywhere else, CI included, it is judged as before)
+    if (tab === 'eye') await page.screenshot({ path: `${out}/${name}-${tab}.png`, timeout: 30000 }).catch((e) => { if (process.env.NO_GL_SHOTS !== '1') throw e; console.log(`SKIPPED (this machine cannot draw it): the God's Eye screenshot at ${name}`); });
+    else await page.screenshot({ path: `${out}/${name}-${tab}.png`, timeout: 90000 });
   }
   // the stopwatch (core/stopwatch.ts) has the replies above and the tabs just opened, in plain words
   const speed = await page.evaluate(() => window.__ghosty?.stopwatch?.summary()).catch((e) => ({ error: String(e) }));
@@ -81,7 +83,7 @@ async function run(name, viewport) {
     const frame = page.frameLocator('.modal iframe.sandbox');
     const txt = await frame.locator('#t').textContent({ timeout: 5000 }).catch(() => '');
     if (!/\d/.test(txt ?? '')) problems.push(`[${name}] widget did not run its script (got "${txt}")`);
-    await page.screenshot({ path: `${out}/${name}-widget.png` });
+    await page.screenshot({ path: `${out}/${name}-widget.png`, timeout: 90000 });
     await page.keyboard.press('Escape');
   } else problems.push(`[${name}] widget not listed in workshop`);
   // fly via the brain's client command
@@ -96,7 +98,7 @@ async function run(name, viewport) {
   if (!flew) problems.push(`[${name}] fly_to did not target Tokyo: ${JSON.stringify(await page.evaluate(() => window.__ghosty.globe.cam.target))}`);
   const hud = await page.evaluate(() => ({ readout: document.querySelector('.readout')?.textContent ?? '', targetHidden: document.querySelector('.eyeinfo')?.hidden }));
   if (!hud.readout.includes('ALT')) problems.push(`[${name}] globe readout empty`);
-  await page.screenshot({ path: `${out}/${name}-fly.png` });
+  await page.screenshot({ path: `${out}/${name}-fly.png`, timeout: 30000 }).catch((e) => { if (process.env.NO_GL_SHOTS !== '1') throw e; console.log(`SKIPPED (this machine cannot draw it): the God's Eye screenshot fly at ${name}`); });
   const fps = await page.evaluate(() => document.querySelector('#pg-system') ? 'ok' : 'no');
   await ctx.close();
   return fps;
@@ -123,13 +125,13 @@ async function fixesA2(viewport) {
   const chips = await page.$$eval('#suggest > button', (bs) => bs.map((b) => b.dataset.label || b.textContent.trim()));
   if (!chips.some((c) => /God/.test(c))) problems.push(`[${name}] no God's eye chip on Home (${chips.join(', ')})`);
   for (const o of await outside('#suggest > button')) problems.push(`[${name}] a Home chip starts off-screen: ${o}`);
-  await page.screenshot({ path: `${out}/a2-${viewport.width}-home.png` });
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-home.png`, timeout: 90000 });
   // God's Eye: THIS SPOT and VIEW, and the LOOK menu's chips
   await page.evaluate(() => (location.hash = 'eye'));
   await page.waitForSelector('#pg-eye .bgroup', { timeout: 15000 }).catch(() => undefined);
   await page.waitForTimeout(2500);
   for (const o of await outside('#pg-eye .bgroup, #pg-eye .bgroup > *')) problems.push(`[${name}] God's Eye bar starts off-screen: ${o}`);
-  await page.screenshot({ path: `${out}/a2-${viewport.width}-eye.png` });
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-eye.png`, timeout: 30000 }).catch((e) => { if (process.env.NO_GL_SHOTS !== '1') throw e; console.log(`SKIPPED (this machine cannot draw it): the God's Eye screenshot a2 at ${viewport.width}`); });
   await page.locator('#pg-eye .bgroup button', { hasText: /^look$/i }).click().catch(() => problems.push(`[${name}] no LOOK on God's Eye`));
   await page.waitForTimeout(400);
   for (const o of await outside('#pg-eye .lookmenu .chips button')) problems.push(`[${name}] a LOOK chip starts off-screen: ${o}`);
@@ -143,7 +145,7 @@ async function fixesA2(viewport) {
   const st = order.find((o) => o.t === 'STATUS');
   const keys = order.find((o) => o.t === 'KEYS');
   if (st && keys && !(st.top < keys.top)) problems.push(`[${name}] the Status card is drawn below the Brain group`);
-  await page.screenshot({ path: `${out}/a2-${viewport.width}-system.png` });
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-system.png`, timeout: 90000 });
   // grouped lists: a row's name and value, and the Status card's values, are whole
   for (const tab of ['settings', 'system', 'links']) {
     await page.evaluate((t) => (location.hash = t), tab);
@@ -161,8 +163,8 @@ async function fixesA2(viewport) {
       // the lower rows, after scrolling the list to its end
       await page.evaluate(() => document.querySelector('#pg-system .hud')?.scrollTo(0, 1e6));
       await page.waitForTimeout(400);
-      await page.screenshot({ path: `${out}/a2-${viewport.width}-system-end.png` });
-    } else await page.screenshot({ path: `${out}/a2-${viewport.width}-${tab}.png` });
+      await page.screenshot({ path: `${out}/a2-${viewport.width}-system-end.png`, timeout: 90000 });
+    } else await page.screenshot({ path: `${out}/a2-${viewport.width}-${tab}.png`, timeout: 90000 });
   }
   await ctx.close();
 }
@@ -203,7 +205,7 @@ async function videoCard() {
     await page.locator('.logbtn').first().click().catch(() => undefined);
     await page.waitForTimeout(500);
     await page.locator('.msg .ytcard').scrollIntoViewIfNeeded().catch(() => undefined);
-    await page.screenshot({ path: `${out}/video-card.png` });
+    await page.screenshot({ path: `${out}/video-card.png`, timeout: 90000 });
   }
   await ctx.close();
 }

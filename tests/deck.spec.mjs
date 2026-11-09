@@ -11,9 +11,12 @@
 //  - no glyph has a filled square behind it (computed background alpha 0, no background image): the deck's card
 //    glyphs, the Me sheet's rows, Settings' list rows, Search's results and the hubs' tiles;
 //  - the Me sheet still opens and its rows still go where they say.
+// The cards above are Glass's deck (the phone opens in the Glass world for them: tests/nav.mjs GLASS); at the end the SCAN's Every screen
+// (BRIEF-SHELL-2, deck.png) is checked in its own world: FAVOURITES, RECENT, then the rooms in order with numbers and one line each, a
+// number typed opens that screen, a row opens its screen at one tap, the house stays under it saying YOU ARE IN ME, 44 pt, nothing sideways.
 //   BASE=http://localhost:8788 node tests/deck.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openDeck, openSection } from './nav.mjs';
+import { GLASS, PHONE, UK, openDeck, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -23,10 +26,10 @@ const KEY = 'preview-owner-key-0123456789';
 const problems = [];
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
 const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
-await ctx.addInitScript(([k]) => {
+await ctx.addInitScript(([k, look]) => {
   localStorage.setItem('ghosty.ownerKey', k);
-  if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));
-}, [KEY]);
+  if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', look }));
+}, [KEY, GLASS.look]);
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -207,6 +210,95 @@ await page.fill('#palette input', 'lens').catch(() => undefined);
 await page.waitForTimeout(500);
 for (const f of await filled('#palette .gic')) problems.push(`a Search result glyph has a filled background: ${f}`);
 await page.keyboard.press('Escape');
+
+
+// ---- THE SCAN's Every screen (BRIEF-SHELL-2): the machine's inventory
+{
+  const sctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  await sctx.addInitScript(([k]) => {
+    localStorage.setItem('ghosty.ownerKey', k);
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric', favourites: ['lens', 'agenda', 'gym', 'learn'] }));
+    localStorage.setItem('ghosty.recents', JSON.stringify(['library', 'eye', 'brief']));
+  }, [KEY]);
+  const p = await sctx.newPage();
+  const until = (fn, arg, ms, why) => p.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => (problems.push(why), false));
+  p.on('pageerror', (e) => webkitNoise(e) || problems.push(`[scan] pageerror: ${e.message}`));
+  await p.goto(base, { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await p.evaluate(() => (location.hash = 'area-plan'));
+  await p.waitForTimeout(1200);
+  await openDeck(p);
+  await p.waitForSelector('#deck.on .invrow', { timeout: 5000 }).catch(() => problems.push('[scan] Every screen did not open as the inventory'));
+  await p.waitForTimeout(600);
+  const inv = await p.evaluate(() => ({
+    title: document.querySelector('#deck .dktitle2')?.textContent,
+    stamp: document.querySelector('#deck .g-stamp')?.textContent ?? '',
+    back: document.querySelector('#deck .dkback')?.textContent?.trim(),
+    groups: [...document.querySelectorAll('#deck .invgroup')].map((g) => g.dataset.group),
+    pins: [...document.querySelectorAll('#deck .invgroup[data-group="favourites"] .invrow')].map((r) => `${r.dataset.n} ${r.dataset.id}`),
+    recent: [...document.querySelectorAll('#deck .invgroup[data-group="recent"] .invrow')].map((r) => `${r.dataset.n} ${r.dataset.id}`),
+    small: { pins: document.querySelector('#deck .invgroup[data-group="favourites"] .invsmall')?.textContent, recent: document.querySelector('#deck .invgroup[data-group="recent"] .invsmall')?.textContent },
+    rooms: Object.fromEntries([...document.querySelectorAll('#deck .invgroup')].filter((g) => !/favourites|recent/.test(g.dataset.group)).map((g) => [g.dataset.group, [...g.querySelectorAll('.invrow')].map((r) => `${r.dataset.n}:${r.dataset.id}`)])),
+    noLine: [...document.querySelectorAll('#deck .invrow')].filter((r) => !r.querySelector('.invline')?.textContent?.trim()).map((r) => r.dataset.id),
+    small44: [...document.querySelectorAll('#deck .invrow, #deck .dkback, #deck .dkmic')].filter((e) => e.getClientRects().length).filter((e) => { const r = e.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).map((e) => e.className),
+    wide: document.documentElement.scrollWidth > innerWidth,
+    where: document.querySelector('#dock .housewhere')?.textContent, field: document.querySelector('#deck .dkin')?.placeholder, glassGroups: !![...document.querySelectorAll('#deck .dksec')].find((e) => e.getClientRects().length),
+    house: [...document.querySelectorAll('#dock .tabcap button')].filter((b) => b.getClientRects().length).length,
+  }));
+  if (inv.title !== 'Every screen' || inv.back !== 'Me' || !/Looking at every screen/i.test(inv.stamp)) problems.push(`[scan] the header reads ${JSON.stringify([inv.title, inv.back, inv.stamp])}`);
+  if (inv.groups.join() !== 'favourites,recent,home,see,make,learn,plan,life,me') problems.push(`[scan] the groups are ${inv.groups.join()} (want favourites, recent, then the rooms in order)`);
+  if (inv.pins.join() !== '01 lens,02 agenda,03 gym,04 learn') problems.push(`[scan] FAVOURITES are ${inv.pins.join()}`);
+  if (inv.recent.join() !== '01 library,02 eye,03 brief') problems.push(`[scan] RECENT is ${inv.recent.join()}`);
+  if (inv.small.pins !== 'Hold a thing to pin it' || inv.small.recent !== 'Newest first') problems.push(`[scan] the groups' small lines: ${JSON.stringify(inv.small)}`);
+  const want = { home: 1, see: 2, make: 8, learn: 7, plan: 4, life: 8, me: 6 };
+  for (const [r, n] of Object.entries(want)) {
+    const got = inv.rooms[r] ?? [];
+    if (got.length !== n || got.some((x, i) => !x.startsWith(String(i + 1).padStart(2, '0') + ':'))) problems.push(`[scan] the ${r} room lists ${got.join()} (want ${n}, numbered 01, 02 …)`);
+  }
+  if (inv.noLine.length) problems.push(`[scan] no one true line for ${inv.noLine.join()}`);
+  if (inv.small44.length) problems.push(`[scan] under 44 pt: ${inv.small44.join()}`);
+  if (inv.wide) problems.push('[scan] Every screen sticks out sideways');
+  if (inv.where !== 'You are in ME' || inv.house !== 7) problems.push(`[scan] the house under it says "${inv.where}" with ${inv.house} keys`);
+  if (inv.field !== 'A number, a word, or a question') problems.push(`[scan] the field says "${inv.field}"`);
+  if (inv.glassGroups) problems.push('[scan] Glass\'s five groups are still drawn');
+  await p.screenshot({ path: `${out}/deck-scan-440.png` });
+  // a number typed opens that screen: "3" is the third of his starred (Gym); "learn 5" the fifth thing in Learn (Library)
+  await p.fill('#deck .dkin', '3');
+  await p.waitForTimeout(300);
+  const one = await p.$$eval('#deck .invrow:not([hidden])', (r) => r.map((x) => x.dataset.id));
+  if (one.join() !== 'gym') problems.push(`[scan] "3" shows ${one.join()} (want the third starred, gym)`);
+  await p.press('#deck .dkin', 'Enter');
+  await until(() => document.body.dataset.tab === 'gym', null, 6000, '[scan] "3" did not open the third starred screen (Gym)');
+  await openDeck(p);
+  await p.waitForSelector('#deck.on .invrow', { timeout: 5000 });
+  await p.fill('#deck .dkin', 'learn 5');
+  await p.press('#deck .dkin', 'Enter');
+  await until(() => document.body.dataset.tab === 'library', null, 6000, '[scan] "learn 5" did not open Library');
+  // a word filters; a row opens its screen at one tap, from its room
+  await openDeck(p);
+  await p.waitForSelector('#deck.on .invrow', { timeout: 5000 });
+  await p.fill('#deck .dkin', 'ag');
+  await p.waitForTimeout(300);
+  const ag2 = await p.$$eval('#deck .invrow:not([hidden])', (r) => r.map((x) => x.dataset.id));
+  if (!ag2.includes('agenda') || ag2.includes('lens')) problems.push(`[scan] "ag" leaves ${ag2.join()}`);
+  await p.fill('#deck .dkin', '');
+  await p.waitForTimeout(200);
+  await p.click('#deck .invgroup[data-group="plan"] .invrow[data-id="radio"]');
+  await until(() => document.body.dataset.tab === 'radio' && !document.querySelector('#deck.on'), null, 6000, '[scan] a row did not open its screen at one tap (Radio)');
+  await p.waitForTimeout(300);
+  // ‹ ME goes to the Me room
+  await openDeck(p);
+  await p.waitForSelector('#deck.on .invrow', { timeout: 5000 });
+  await p.click('#deck .dkback');
+  await until(() => document.body.dataset.tab === 'area-me' && !document.querySelector('#deck.on'), null, 6000, '[scan] ‹ ME did not go to the Me room');
+  // a question goes to Ghosty
+  await openDeck(p);
+  await p.waitForSelector('#deck.on .invrow', { timeout: 5000 });
+  await p.fill('#deck .dkin', 'How far is the Moon from Birmingham');
+  await p.press('#deck .dkin', 'Enter');
+  await until((w) => !document.querySelector('#deck.on') && [...document.querySelectorAll('#pg-core .log .msg.me')].some((m) => m.textContent.includes(w)), 'How far is the Moon', 15000, '[scan] a question typed in the field did not go to Ghosty');
+  await sctx.close();
+}
 
 await browser.close();
 if (problems.length) {

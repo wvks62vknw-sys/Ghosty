@@ -106,6 +106,52 @@ check(hero && hero.height < 160, `the profile card at 1280 × 800 is ${hero ? Ma
 await wp.screenshot({ path: `${out}/settings-${engine}-wide.png` });
 await wide.close();
 
+
+// ---- SETTINGS AS A PLATE BROUGHT TO THE FRONT (BRIEF-SHELL-2; settings.png), in The Scan on the phone
+{
+  const sp = await ctx.newPage();
+  sp.on('pageerror', (e) => webkitNoise(e) || problems.push(`[scan] pageerror: ${e.message}`));
+  await sp.goto(base, { waitUntil: 'domcontentloaded' });
+  await sp.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  await sp.evaluate(() => (location.hash = 'settings'));
+  await sp.waitForSelector('#pg-settings .srow', { timeout: 10000 }).catch(() => problems.push('[scan] Settings drew no plate of rows'));
+  await sp.waitForTimeout(700);
+  // every panel of today's list keeps its row: its name, its number, its group; the value at the right; the keys 44 pt
+  const plate = await sp.evaluate(() => ({
+    panels: [...document.querySelectorAll('#pg-settings .pn[data-row] .ptitle')].map((t) => t.textContent),
+    rows: [...document.querySelectorAll('#pg-settings .srow')].map((r) => ({ title: r.dataset.title, n: r.dataset.n, name: r.querySelector('.srname')?.textContent, line: r.querySelector('.srline')?.textContent ?? '', value: r.querySelector('.srvalue')?.textContent ?? '', right: r.querySelector('.srvalue') ? r.querySelector('.srvalue').getBoundingClientRect().left > r.getBoundingClientRect().width / 2 : null, h: r.getBoundingClientRect().height })),
+    groups: [...document.querySelectorAll('#pg-settings .setgroup')].map((g) => [g.dataset.group, g.querySelectorAll('.srow').length]),
+    title: document.querySelector('#top .navtitle')?.textContent, back: document.querySelector('#top .navback')?.textContent?.trim(), stamp: document.querySelector('#top .headstamp')?.textContent ?? '',
+    field: document.querySelector('#dock .housewords')?.textContent, where: document.querySelector('#dock .housewhere')?.textContent,
+    wide: document.documentElement.scrollWidth > innerWidth, oldList: [...document.querySelectorAll('#pg-settings .lgrp, #pg-settings .secpills')].some((e) => e.getClientRects().length),
+  }));
+  const titles = plate.rows.map((r) => r.title);
+  const missing = plate.panels.filter((t) => !titles.includes(t));
+  check(!missing.length && plate.rows.length === plate.panels.length && plate.rows.length >= 16, `[scan] the plate has ${plate.rows.length} rows for ${plate.panels.length} panels; missing: ${missing.join(', ')}`);
+  check(plate.rows.every((r, i) => r.n === String(i + 1).padStart(2, '0') && r.name), '[scan] the rows are not numbered 01, 02 … in order, each with its name');
+  check(plate.groups.map((g) => g[0]).join() === 'the look,you,the brain,ghosty,about', `[scan] the groups are ${plate.groups.map((g) => g[0])}`);
+  check(plate.rows.filter((r) => r.value).every((r) => r.right) && plate.rows.filter((r) => r.value).length >= 8, '[scan] values are not at the right of their rows');
+  check(plate.rows.filter((r) => !r.line).length === 0, `[scan] a row has no line: ${plate.rows.filter((r) => !r.line).map((r) => r.title)}`);
+  check(plate.rows.every((r) => r.h >= 43.5), '[scan] a row is under 44 pt');
+  check(plate.title === 'Settings' && plate.back === 'Me' && /Looking at settings/i.test(plate.stamp), `[scan] the head reads ${JSON.stringify([plate.title, plate.back, plate.stamp.slice(-30)])}`);
+  check(plate.field === 'Find a setting' && plate.where === 'You are in ME', `[scan] the field says "${plate.field}", the house "${plate.where}"`);
+  check(!plate.wide && !plate.oldList, `[scan] sideways ${plate.wide}, today's list still drawn ${plate.oldList}`);
+  await sp.screenshot({ path: `${out}/settings-scan-440.png` });
+  // a row is its panel's own row: it pushes the panel in, with ‹ SETTINGS to come back; System goes to its screen
+  await sp.click('#pg-settings .srow[data-title="HELP"]');
+  await sp.waitForSelector('#pg-settings .pn.pushed', { timeout: 5000 }).catch(() => problems.push('[scan] a row did not push its panel in'));
+  check(/Settings/i.test((await sp.locator('#top .navback').textContent()) ?? ''), '[scan] a pushed panel has no ‹ SETTINGS to come back');
+  await sp.click('#top .navback');
+  await sp.waitForSelector('#pg-settings .srow', { state: 'visible', timeout: 5000 }).catch(() => problems.push('[scan] the plate did not come back'));
+  await sp.click('#pg-settings .srow[data-title="SYSTEM"]');
+  await sp.waitForFunction(() => document.body.dataset.tab === 'system', null, { timeout: 5000 }).catch(() => problems.push('[scan] the System row did not go to System'));
+  await sp.evaluate(() => (location.hash = 'settings'));
+  await sp.waitForSelector('#pg-settings .srow', { state: 'visible', timeout: 5000 });
+  await sp.click('#top .navback');
+  await sp.waitForFunction(() => document.body.dataset.tab === 'area-me', null, { timeout: 5000 }).catch(() => problems.push('[scan] ‹ ME did not go to the Me room'));
+  await sp.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.error(`FAIL settings (${engine}):\n- ${problems.join('\n- ')}`);

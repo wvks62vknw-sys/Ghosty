@@ -28,7 +28,7 @@
 //   BASE=http://localhost:8788 node tests/nav.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { DESKTOP, PHONE, UK, openDeck, standDown } from './nav.mjs';
+import { DESKTOP, GLASS, PHONE, UK, openDeck, standDown } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -43,13 +43,14 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? 
 const api = (path, init = {}) => fetch(`${base}/api${path}`, { ...init, headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json', ...(init.headers ?? {}) } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
 /** A phone with his settings (his home unless `home: null`), paired, booted (`desktop`: a computer's screen, a mouse). */
-async function phone({ viewport = PHONE, theme = '', home = HOME, reduced = false, routes = null, desktop = false } = {}) {
+async function phone({ viewport = PHONE, theme = '', home = HOME, reduced = false, routes = null, desktop = false, world = 'glass' } = {}) {
   const ctx = await browser.newContext({ viewport, ...UK, ...(desktop ? {} : { deviceScaleFactor: 2, hasTouch: true, isMobile: true }), serviceWorkers: 'block', ...(reduced ? { reducedMotion: 'reduce' } : {}) });
-  await ctx.addInitScript(([k, home, theme]) => {
+  await ctx.addInitScript(([k, home, theme, look]) => {
     localStorage.setItem('ghosty.ownerKey', k);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ ...(home ? { home } : {}), units: 'metric', ...(theme ? { theme } : {}) }));
+    // (the switcher, the bar, the deck's cards and Settings' list below are Glass's, held to their own checks unchanged: that world is set for them; The Scan's own are checked at the end)
+    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ ...(home ? { home } : {}), units: 'metric', ...(theme ? { theme } : {}), ...(look ? { look } : {}) }));
     if (theme) localStorage.setItem('ghosty.themes1', '1');
-  }, [KEY, home, theme]);
+  }, [KEY, home, theme, world === 'glass' ? GLASS.look : null]);
   const page = await ctx.newPage();
   // (a page drawn in a locked frame, like a website's draft in the Workshop that another spec left on this preview, is refused
   // storage and a service worker there: what it then throws is that frame's own content, not an error of Ghosty's page)
