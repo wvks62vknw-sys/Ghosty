@@ -87,6 +87,12 @@
   --g-t-caption: 400 13px/16px var(--g-font-text);      /* a caption under a control, the rule beside a mark */
   --g-t-fine: 500 12px/16px var(--g-font-mono);         /* the least there is: a unit, a change beside a value (nothing is smaller) */
   --g-t-page: 400 19px/28px var(--g-font-serif);        /* a book's own words in the reader */
+  --g-print-say: 400 36px/40px var(--g-font-serif);     /* ONE INK: what I say first, the greeting on the printed page */
+  --g-print-say-tr: -.012em;                               /* ONE INK: the greeting's tracking */
+  --g-print-say2: italic 400 20px/28px var(--g-font-serif); /* ONE INK: my one sentence under the greeting */
+  --g-print-name: 400 26px/32px var(--g-font-serif);    /* ONE INK: the one entry's name on the page */
+  --g-print-ask: italic 400 21px/28px var(--g-font-serif); /* ONE INK: the ask line's words, a rule with a field in it */
+  --g-print-title: 400 34px/40px var(--g-font-serif);   /* ONE INK: a screen's name on every screen, in the serif */
   --g-num: tabular-nums;                                 /* numerals: tabular everywhere, so readings line up */
 
   /* ---------------------------------------------------------------- the grid: 8 points, the gutter, the safe areas */

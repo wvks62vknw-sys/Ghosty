@@ -200,6 +200,11 @@ let orbProbe: HTMLElement | null = null;
 export function orbTokens(): Light {
   try {
     const el = document.documentElement;
+    // ONE INK's Home: the orb is drawn in ink (its wrap given bone as its accent, white for its pale, no glow of its own)
+    if (document.body?.classList.contains('inkhome')) {
+      const bone = parseColour(getComputedStyle(el).getPropertyValue('--g-bone-rgb'));
+      if (bone) return { c: toHex(bone), pale: '#ffffff', glow: 0 };
+    }
     const light = !!groundOf(el.dataset.ground ?? '')?.light;
     if (light && shown && moodKind !== 'calm') return shown;
     let cs: CSSStyleDeclaration;

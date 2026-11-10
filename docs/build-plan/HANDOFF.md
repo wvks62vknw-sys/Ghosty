@@ -446,6 +446,30 @@ folder that no longer exists; ignore those paths).
   scales from .985 for half a second and the runner measured inside it; readerlib's measure now waits for the root's
   animations, up to 2 s, before reading sizes: the sizes checked are the settled ones, nothing loosened). map, reader2 green
   locally.
+  19:52 UK: run 416 GREEN on every job; PR #76 SQUASH-MERGED, main b4bd929; the session branch carries main (3df5b51). Main's
+  own run read at the 21:05 UK check-in; the worktree shell3 goes once it is green. ONE INK briefed next (164's order).
+  20:20 UK: BRIEF-ONE-INK written (the second whole HUD: ONE INK as a world in the gallery, Home as the printed page from the
+  round-two mock, the foot as the tab bar on every screen with the shell's pieces drawn by the ink tokens, the Glass boot landing
+  on the page, a new `ink` spec, every spec run before the report); a mid-tier builder launched in worktree ink (branch
+  builder/ink from 3df5b51, port 8798), report to scratchpad/ink-report.md.
+  21:05 UK: MAIN'S OWN RUN on b4bd929 GREEN on every job (brain, interface, deploy-build, the four smoke shards; the guard skipped
+  as it should). The shell in The Scan is FINISHED on the code side, pending his phone check (OWNER-ISSUES 166). Worktree shell3
+  and branch builder/shell3 removed. The ONE INK builder still running.
+  10 Nov 01:40 UK: ONE INK landed on the session branch as one commit (5f8bd3e) after the container restart killed its builder
+  with no report: the orchestrator wrote ink-report.md from the sweep logs, reran tabs2, ink, look, routec, deck, settings,
+  thescan, hubcards and boot (all green) and the brain (1834 of 1834); the builder's uncommitted late edit (book titles on Home) was
+  not landed (saved as ink-uncommitted-home.patch in the scratchpad). OWNER-ISSUES 168. Push, PR and the run follow.
+  USAGE: no report from the owner since 9 Nov 21:10 UK (all models 68%).
+  02:45 UK: PR #77 run 42736135678: every job green but smoke (2): tabs.spec's jump bar median 336 ms against its 300 budget on a loaded runner
+  (earlier green runs read 303 and 313 on the same line; the code path is untouched by ONE INK). The budget is not loosened; the run is repeated.
+  21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
+  built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
+  method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
+  The top tier takes one turn per hand-back and relays his usage and his words to it.
+  HIS USAGE 9 Nov 21:10 UK: all models weekly 68%, top tier weekly 95% (8 Nov 22:11 UK: 58% and 81%). The top tier is the
+  orchestrator's own turns: 14 points in 23 hours for the shell's six runner fixes and the ONE INK brief. METHOD FROM HERE: the
+  orchestrator takes one turn per landing (review, apply, OWNER-ISSUES, push, PR in one go) and one per run read; the cheap
+  and mid tiers do the reading, reviewing and writing; no more builds briefed by the top tier this week unless he says so.
   HIS USAGE 8 Nov 10:20 UK: all models weekly 45%, top tier weekly 58% (7 Nov 13:20 UK: 24% and 24%). The top tier climbed 34
   points in 21 hours: the three mock rounds (one, two and three were all top tier), PR #63's profiling and the orchestrator's own
   turns through a night of CI fixing. The plan ends 14 Nov. From here the top tier is spent on The Scan's Home alone (the one

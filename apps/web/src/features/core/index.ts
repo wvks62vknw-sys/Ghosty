@@ -26,6 +26,7 @@ import { guardian } from '../../state/guardian';
 import { stampLine } from '../../ui/machine';
 import { recipe, recipeEvents } from '../../state/theme';
 import { scanHome, type ScanHome } from './scan/home';
+import { inkHome, type InkHome } from './ink/home';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
@@ -481,6 +482,7 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
 
 /** What Home says it is (BRIEF-AWARENESS): the screen and my last words, so "that" has something to mean here; the stamp says "Looking at Home". */
 let scanHud: ScanHome | null = null;
+let inkHud: InkHome | null = null;
 function homeContext(): ScreenContext {
   const live = chat.get().live.replace(/\s+/g, ' ').trim();
   // THE SCAN's Home says where he is (a word and a saved place's name, decided on the phone: scan/place.ts), never a coordinate
@@ -736,14 +738,28 @@ export const coreTab: TabDef = {
     // Its frame takes the stamp line, the latest reply's line, the orb's wrap and the ask line as they are (one of each on Home).
     scanHud = scanHome({ orbWrap: rwrap, stamp: stamp.el, caption, ask: cbar, onBack: () => reactor.poke() });
     hud.append(scanHud.el);
+    // ONE INK's Home (BRIEF-ONE-INK; ink/home.ts): the printed page, drawn when THE LOOK's world is One Ink; it takes the stamp line and the
+    // orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
+    inkHud = inkHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, onBack: () => reactor.poke() });
+    hud.append(inkHud.el);
     const scanWanted = () => recipe().world === 'scan';
+    const inkWanted = () => recipe().world === 'ink';
     hud.classList.toggle('scan', scanWanted());
+    hud.classList.toggle('ink', inkWanted());
     recipeEvents.on('change', () => {
       const on = scanWanted();
       hud.classList.toggle('scan', on);
+      hud.classList.toggle('ink', inkWanted());
       if (ui.get().tab !== 'core') return;
-      if (on) scanHud?.enter();
-      else scanHud?.leave();
+      // (one look gives the parts back before the next takes them)
+      if (on) {
+        inkHud?.leave();
+        scanHud?.enter();
+      } else {
+        scanHud?.leave();
+        if (inkWanted()) inkHud?.enter();
+        else inkHud?.leave();
+      }
     });
     root.append(hud);
     // [reste] A file dropped on the chat goes to the converter (convert/sheet.ts), on this phone; nothing is sent.
@@ -963,6 +979,7 @@ export const coreTab: TabDef = {
         const now = Date.now();
         const ev = ag?.events.filter((x) => (x.end ?? x.start) > now).sort((a, b) => a.start - b.start)[0];
         nextUp = ev ? `${ev.title}${ev.allDay ? '' : ` · ${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}` : '';
+        inkHud?.refresh();
       }
     };
     let calloutTimer = 0;
@@ -996,6 +1013,7 @@ export const coreTab: TabDef = {
     return {
       enter() {
         if (scanWanted()) scanHud?.enter();
+        else if (recipe().world === 'ink') inkHud?.enter();
         // back on the reactor with the conversation still open: the bar says so again
         if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
@@ -1017,6 +1035,7 @@ export const coreTab: TabDef = {
       leave() {
         clearInterval(calloutTimer);
         scanHud?.leave();
+        inkHud?.leave();
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here
