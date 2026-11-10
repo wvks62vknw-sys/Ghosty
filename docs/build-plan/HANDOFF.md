@@ -460,6 +460,8 @@ folder that no longer exists; ignore those paths).
   thescan, hubcards and boot (all green) and the brain (1834 of 1834); the builder's uncommitted late edit (book titles on Home) was
   not landed (saved as ink-uncommitted-home.patch in the scratchpad). OWNER-ISSUES 168. Push, PR and the run follow.
   USAGE: no report from the owner since 9 Nov 21:10 UK (all models 68%).
+  02:45 UK: PR #77 run 42736135678: every job green but smoke (2): tabs.spec's jump bar median 336 ms against its 300 budget on a loaded runner
+  (earlier green runs read 303 and 313 on the same line; the code path is untouched by ONE INK). The budget is not loosened; the run is repeated.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
