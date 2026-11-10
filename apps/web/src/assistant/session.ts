@@ -34,6 +34,7 @@ import { REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
+import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -258,6 +259,7 @@ let spokenTurn = false;
 let turnVoice: Label | undefined;
 
 function handle(ev: ChatEvent): void {
+  showNote(ev); // [showme] what this turn brought, for the Stage (nothing is drawn here)
   switch (ev.t) {
     case 'status': {
       // [talk] a bare "thinking…" from the brain: the narration says what he is doing instead (BRIEF-TALK-1A 3)
@@ -781,6 +783,7 @@ export async function askCloud(at: number): Promise<void> {
 export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean; again?: boolean; as?: Label } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
+  showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
   const snd = opts.voice ? takeSound() : null;
   // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
@@ -970,6 +973,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // He brings things up himself (BRIEF-SIDEWAYS 2): the trigger table's cards for what his words called for (assistant/triggers.ts,
   // features/core/cards.ts bringUp); with none, the abilities revealed in context (OWNER-ISSUES 67b: abilities/offer.ts)
   void import('../features/core/cards').then((c) => c.bringUp(t)).catch(() => undefined);
+  // [showme] the thing the answer is about, on the Stage (show/stage.ts): begun after the reply is on screen, never before it
+  showEnd(t);
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }
@@ -1050,9 +1055,11 @@ export function signOff(words: string): Promise<void> {
 }
 
 /** Load recent conversation from the brain on start-up. */
-export async function loadHistory(): Promise<void> {
+export type HistoryReply = Awaited<ReturnType<typeof brain.history>>;
+/** `ahead`: the history already asked for (main.ts asks while the brain's status is still on its way); null when that request failed. */
+export async function loadHistory(ahead?: Promise<HistoryReply | null>): Promise<void> {
   try {
-    const h = await brain.history();
+    const h = (await ahead) ?? (await brain.history());
     const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
       if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
       // A page published in that turn keeps its live-link card under the reply.

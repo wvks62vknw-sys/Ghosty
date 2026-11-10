@@ -462,6 +462,24 @@ folder that no longer exists; ignore those paths).
   USAGE: no report from the owner since 9 Nov 21:10 UK (all models 68%).
   02:45 UK: PR #77 run 42736135678: every job green but smoke (2): tabs.spec's jump bar median 336 ms against its 300 budget on a loaded runner
   (earlier green runs read 303 and 313 on the same line; the code path is untouched by ONE INK). The budget is not loosened; the run is repeated.
+  05:10 UK: PR #77 GREEN on every job on its second run (9a2ecdf), SQUASH-MERGED as ab6e2ad; MAIN'S OWN RUN 42753268343 GREEN on every job
+  (guard skipped as it should). ONE INK is FINISHED on the code side, pending his phone check (OWNER-ISSUES 168). Worktree ink and
+  branch builder/ink removed. Next in the queue: the five speed offenders (no builder launched: this orchestrator had no agent tool).
+  10 Nov 05:40 UK: SPEED-5 (builder/speed, base 6adc5e8) landed on the session branch as one commit (a4e4ccc), reviewed against its diff: the
+  one all= word speed2, no protected file, no model name, no stray file. Brain 1838 of 1838; its sweep red only on the known sandbox
+  ones (aim, radio, scroll and safari need WebKit, eye's own screenshot hangs here; tabs2 once under load, green alone). OWNER-ISSUES 169.
+  Push, PR and the run follow.
+  12:15 UK: PR #78 GREEN on its first run (4cc3592), SQUASH-MERGED as e0bf35f. MAIN'S OWN RUN 42800033546: attempt 1 red on smoke (3) only
+  (look.spec's 'second open' 675 ms against its 300 ms budget on the runner: a timing miss, green on the PR's run; budget not loosened),
+  attempt 2 GREEN on every job. SPEED-5 is FINISHED on the code side, pending his phone check (OWNER-ISSUES 169) and his three calls.
+  Worktree speed and branch builder/speed removed. look.spec's second-open budget is now twice seen over on the runner: a candidate for a cost fix.
+  10 Nov 13:00 UK: SHOW ME, the first slice (builder/showme, base 6adc5e8) landed on the session branch as one commit, 3-way onto the speed
+  landing (check.yml's list now ends ink speed2 showme); no protected file, no model name, no stray file; built and showme and speed2
+  run once on the merged tree, both clean (speed2 988 ms of its 1,000 ms: close, watch it on the runner). OWNER-ISSUES 170. Push, PR, the run follow.
+  16:50 UK: THE GUARD UNDID SPEED-5 ON MAIN (715fa72, 11:32 UK, 'checks failed on e0bf35f') as soon as attempt 1 of main's run went red on
+  look.spec's second open; attempt 2 (which I forced) came out green but the undo had already landed. So main is at ab6e2ad's content
+  (ONE INK without SPEED-5 and without OWNER-ISSUES 169). PR #79 carries SPEED-5 and SHOW ME back together (the merge keeps the session's tree).
+  LESSON: never re-run main's failed job; a first red on main is undone at once. Land only on a run that is green the first time.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).

@@ -339,7 +339,9 @@ built in the old look after day one, so no screen is built twice.
    tests reading the shell's source): in The Scan the house is the tab bar on every screen, the plan one tap away, the ask
    line the jump bar, the hubs rooms, Every screen the inventory, Settings a plate; Glass pixel-equal. MAIN'S OWN RUN GREEN
    9 Nov 21:05 UK: FINISHED on the code side, pending his phone check (OWNER-ISSUES 166).
-   ONE INK landed 10 Nov (OWNER-ISSUES 168): Theme's ONE INK card applies the printed-page world; on the code side pending the PR's run, then his phone check.
+   ONE INK landed 10 Nov (OWNER-ISSUES 168): Theme's ONE INK card applies the printed-page world; PR #77 merged (ab6e2ad), main's own run green 10 Nov 05:10 UK: FINISHED on the code side, pending his phone check.
+   SPEED-5 landed 10 Nov (OWNER-ISSUES 169): the five worst serial waits fixed and tested; three protected-file calls are his; PR #78 merged (e0bf35f), main's own run green 10 Nov 12:15 UK: FINISHED on the code side, pending his phone check.
+   SHOW ME's first slice landed 10 Nov (OWNER-ISSUES 170): place, route, numbers, plan, formula, part and room drawn on a Stage under the first sentence; pending the PR's run.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,

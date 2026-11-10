@@ -363,11 +363,42 @@ interface FeedCache {
   error?: string;
 }
 
-/** Parsed feed events, re-fetched every 15 minutes. */
-async function feedSeries(storage: DurableObjectStorage, vault: Vault, f: Feed, tz: string, force = false): Promise<FeedCache> {
+/** A feed's copy is fresh for this long (then it is fetched again). */
+const FEED_FRESH_MS = 15 * 60_000;
+/** A turn's snapshot (mind.ts) will use a copy this old at once, and refresh it behind the turn. */
+const FEED_STALE_OK_MS = 24 * 3600_000;
+/** The fetches under way, per storage and feed: one refresh at a time, whoever asks. */
+const flights = new WeakMap<object, Map<string, Promise<FeedCache>>>();
+
+/**
+ * Parsed feed events, re-fetched every 15 minutes. `staleOk`: a copy up to that old is answered at once (and, when it is
+ * past 15 minutes, refreshed behind the answer) — for the turn's snapshot, which must never wait on a calendar's network.
+ */
+async function feedSeries(storage: DurableObjectStorage, vault: Vault, f: Feed, tz: string, force = false, staleOk = 0): Promise<FeedCache> {
   const key = `feedcache:${f.id}`;
   const cached = await storage.get<FeedCache>(key);
-  if (cached && !force && Date.now() - cached.at < 15 * 60_000) return cached;
+  const age = cached ? Date.now() - cached.at : Infinity;
+  if (cached && !force && age < FEED_FRESH_MS) return cached;
+  const fetchNow = (): Promise<FeedCache> => {
+    const mine = flights.get(storage) ?? new Map<string, Promise<FeedCache>>();
+    flights.set(storage, mine);
+    let p = mine.get(f.id);
+    if (!p) {
+      p = fetchFeed(storage, vault, f, tz, cached ?? undefined).finally(() => mine.delete(f.id));
+      mine.set(f.id, p);
+    }
+    return p;
+  };
+  if (cached && !force && age < staleOk) {
+    void fetchNow().catch(() => undefined);
+    return cached;
+  }
+  return fetchNow();
+}
+
+/** One fetch of a feed's link, parsed and cached (a failure is cached too). */
+async function fetchFeed(storage: DurableObjectStorage, vault: Vault, f: Feed, tz: string, cached?: FeedCache): Promise<FeedCache> {
+  const key = `feedcache:${f.id}`;
   const url = await vault.get(`cal:${f.id}`);
   if (!url) return { at: Date.now(), series: [], error: 'link missing' };
   try {
@@ -393,22 +424,28 @@ async function feedSeries(storage: DurableObjectStorage, vault: Vault, f: Feed, 
   }
 }
 
-/** All events (own + every calendar feed) overlapping [from, to), sorted. */
+/**
+ * All events (own + every calendar feed) overlapping [from, to), sorted. The feeds are read together (not one after another).
+ * `stale`: the turn's snapshot — a feed's copy of up to a day old is used at once and refreshed behind it.
+ */
 export async function agenda(
   storage: DurableObjectStorage,
   vault: Vault,
   from: number,
   to: number,
   tz: string,
+  o: { stale?: boolean } = {},
 ): Promise<{ events: AgendaEvent[]; errors: string[] }> {
   const mine = (await loadEvents(storage)).filter((e) => (e.end ?? e.start + 1) > from && e.start < to);
   const errors: string[] = [];
   const out = [...mine];
-  for (const f of await loadFeeds(storage)) {
-    const c = await feedSeries(storage, vault, f, tz);
+  const feeds = await loadFeeds(storage);
+  const got = await Promise.all(feeds.map((f) => feedSeries(storage, vault, f, tz, false, o.stale ? FEED_STALE_OK_MS : 0)));
+  feeds.forEach((f, i) => {
+    const c = got[i]!;
     if (c.error) errors.push(`${f.name}: ${c.error}`);
     out.push(...expandSeries(c.series, from, to, f.name));
-  }
+  });
   out.sort((a, b) => a.start - b.start);
   return { events: out.slice(0, 500), errors };
 }
