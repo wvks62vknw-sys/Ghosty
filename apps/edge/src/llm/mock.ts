@@ -133,10 +133,6 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const calls = [call('web_fetch', { url: together[1] }).tool_calls![0]!, ...(together[3] ? [call('remember', { text: `read ${together[1]} and ${together[2]}` }).tool_calls![0]!] : []), call('web_fetch', { url: together[2] }).tool_calls![0]!];
     return { message: { role: 'assistant', content: null, tool_calls: calls }, model };
   }
-  // Two read-only looks in one reply (the SPEED pass's check that they run side by side: the reminders, the calendars).
-  if (/^look at my reminders and my calendars together$/.test(chainAsked) && last.role === 'user') {
-    return { message: { role: 'assistant', content: null, tool_calls: [call('list_scheduled', {}).tool_calls![0]!, call('list_calendar_feeds', {}).tool_calls![0]!] }, model };
-  }
   const steps = chainAsked.match(/^chain (\d+) steps$/);
   // list_memory in the usual loop; while the database is paused only the device's library search is offered.
   const stepTool = offered('list_memory') ? 'list_memory' : offered('library_search') ? 'library_search' : '';

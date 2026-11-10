@@ -11,7 +11,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['../src/mind.ts', '../src/prompt.ts', '../src/schedule.ts'].map(at),
+  entryPoints: ['../src/mind.ts', '../src/prompt.ts'].map(at),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -22,7 +22,6 @@ await build({
 });
 const M = await import('./.build/mind/mind.mjs');
 const P = await import('./.build/mind/prompt.mjs');
-const S = await import('./.build/mind/schedule.mjs');
 
 class Mem {
   m = new Map();
@@ -112,91 +111,6 @@ test('the snapshot from fakes: who he is, when and where (the saved place), what
   assert.deepEqual(late.ahead.map((x) => `${x.when} ${x.title}`), [], 'tomorrow 08:00 is more than six hours off');
   const small = await M.mindSnapshot(s, { client: { tz: TZ }, now: T('2026-10-27T03:00:00Z') });
   assert.deepEqual(small.ahead.map((x) => `${x.when} ${x.title}`), ['08:00 Gym'], 'today has rolled over: the Gym is today now');
-});
-
-// [speed] BRIEF-SPEED-5, offender 2: about forty stores were read one behind another before a turn's model was asked.
-class Slow extends Mem {
-  ms = 0;
-  now = 0;
-  most = 0;
-  async get(k) {
-    this.now++;
-    this.most = Math.max(this.most, this.now);
-    await new Promise((ok) => setTimeout(ok, this.ms));
-    this.now--;
-    return super.get(k);
-  }
-}
-test('[speed] the snapshot reads its stores together: the same snapshot, built in a fraction of the time when each read takes a while', async () => {
-  const fast = await seeded();
-  const want = await M.mindSnapshot(fast, { client: { tz: TZ }, now: NOW, can: ['core'] });
-  const slow = Object.assign(new Slow(), { m: fast.m, ms: 8 });
-  const t0 = Date.now();
-  const got = await M.mindSnapshot(slow, { client: { tz: TZ }, now: NOW, can: ['core'] });
-  const took = Date.now() - t0;
-  assert.deepEqual(got, want, 'the snapshot is the one built without the delay');
-  assert.ok(slow.most >= 10, `${slow.most} reads were in flight at once (one behind another is 1)`);
-  // about forty-five reads at 8 ms: more than 360 ms one by one (measured 400 before this change, about 100 after)
-  assert.ok(took < 250, `built in ${took} ms with 8 ms a read`);
-});
-
-// [speed] BRIEF-SPEED-5, offender 3: three calendars at 300 ms each were fetched one after another on the owner's turn (about 950 ms before
-// the model was asked), and again every 15 minutes.
-test('[speed] calendars: fetched side by side; a stale copy answers the turn at once and is refreshed behind it; the fresh path still waits', async () => {
-  const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
-  const s = new Mem();
-  await s.put('owner:ctx', { tz: TZ });
-  const feeds = ['a', 'b', 'c'].map((id) => ({ id, name: `Cal ${id}`, at: 1 }));
-  await s.put('feeds', feeds);
-  const vault = { get: async (n) => `https://cal.example.test/${n}.ics`, has: async () => true };
-  const soon = new Date(Date.now() + 3600_000).toISOString().replace(/[-:]|\.\d{3}/g, '');
-  const later = new Date(Date.now() + 7200_000).toISOString().replace(/[-:]|\.\d{3}/g, '');
-  const ics = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:1\nDTSTART:${soon}\nDTEND:${later}\nSUMMARY:Dinner\nEND:VEVENT\nEND:VCALENDAR\n`;
-  let fetched = 0;
-  const real = globalThis.fetch;
-  globalThis.fetch = async () => {
-    fetched++;
-    await sleep(300);
-    return new Response(ics, { headers: { 'content-type': 'text/calendar' } });
-  };
-  const age = async (ms) => {
-    for (const f of feeds) {
-      const c = await s.get(`feedcache:${f.id}`);
-      if (c) await s.put(`feedcache:${f.id}`, { ...c, at: c.at - ms });
-    }
-  };
-  const snap = async () => {
-    const t0 = Date.now();
-    const m = await M.mindSnapshot(s, { client: { tz: TZ }, vault, waitMs: 5000 });
-    return { ms: Date.now() - t0, m };
-  };
-  try {
-    // never fetched: the three are fetched together (one after another is 900 ms and more)
-    const cold = await snap();
-    assert.equal(fetched, 3);
-    assert.ok(cold.ms < 650, `three 300 ms calendars took ${cold.ms} ms the first time`);
-    // fresh: nothing is fetched
-    const warm = await snap();
-    assert.equal(fetched, 3, 'a fresh copy is not fetched again');
-    assert.ok(warm.ms < 150, `fresh copies took ${warm.ms} ms`);
-    // past 15 minutes: the turn is answered from the copy, the refresh happens behind it
-    await age(20 * 60_000);
-    const stale = await snap();
-    assert.ok(stale.ms < 150, `a stale copy made the turn wait ${stale.ms} ms`);
-    await sleep(500);
-    assert.equal(fetched, 6, 'each calendar was refreshed behind the turn, once');
-    assert.ok(Date.now() - (await s.get('feedcache:a')).at < 5000, 'the copy is new again');
-    // the agenda's own answer (the tools, the Brief's screens) still waits for the new copy
-    await age(20 * 60_000);
-    const t0 = Date.now();
-    const fresh = await S.agenda(s, vault, Date.now() - 3600_000, Date.now() + 86400_000, TZ);
-    const took = Date.now() - t0;
-    assert.ok(took >= 250 && took < 650, `the fresh path took ${took} ms: it waits for the calendars, all at once`);
-    assert.equal(fetched, 9);
-    assert.deepEqual(fresh.events.map((e) => e.title), ['Dinner', 'Dinner', 'Dinner'], 'each calendar\'s event');
-  } finally {
-    globalThis.fetch = real;
-  }
 });
 
 test("batch 2's rules, principles and mood are read when they are stored (never written here); a mood that is over is not", async () => {

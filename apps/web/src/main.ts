@@ -9,7 +9,7 @@ import { AuthError, brain, mirrorLibraryNow, ownerKey, refreshKeyCopy, sendQueue
 import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
-import { loadHistory, type HistoryReply } from './assistant/session';
+import { loadHistory } from './assistant/session';
 import { syncTrained } from './offline/trained';
 import { startMeaning } from './library/meaning';
 import { finishSpotifyLink } from './assistant/spotify';
@@ -71,9 +71,6 @@ function pair(reason: string): Promise<void> {
   });
 }
 
-/** The conversation's history, asked for while the status is still on its way (boot): used when the status says he is in. */
-let historyAhead: Promise<HistoryReply | null> | null = null;
-
 async function connect(): Promise<void> {
   const health = await brain.health();
   if (!health) {
@@ -95,13 +92,10 @@ async function connect(): Promise<void> {
     return;
   }
   try {
-    // (speed: the status and the history do not depend on each other; a refusal of the history is simply asked again later)
-    historyAhead = brain.history().catch(() => null);
     await brain.status();
     ui.set({ connected: true });
   } catch (e) {
     if (e instanceof AuthError) {
-      historyAhead = null;
       await pair(ownerKey.get() ? 'The saved key was not accepted.' : 'Sign-in needed.');
       try {
         await brain.status();
@@ -136,16 +130,14 @@ async function boot(): Promise<void> {
   const cv = document.getElementById('gl') as HTMLCanvasElement;
   gfx.init(cv);
   addEventListener('resize', () => gfx.resize());
-  // (speed: the Earth data and the brain are asked together, and the conversation with the status: each used to wait for the one before)
-  const earth = World.load();
+  await World.load();
   await connect();
-  await earth;
   const layout = buildLayout();
   registerTabs(TABS, layout.stage);
   registerBuiltins();
   layout.buildDock();
   if (ui.get().connected) {
-    await loadHistory(historyAhead ?? undefined);
+    await loadHistory();
     startNotices();
     void initApp();
     // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking

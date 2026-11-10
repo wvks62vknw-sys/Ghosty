@@ -139,7 +139,6 @@ export const travelTools: Tool[] = [
     description: 'Find places of a kind near the owner or near a named place, e.g. "pharmacy", "petrol station", "coffee", "hospital". Results come from OpenStreetMap.',
     parameters: { type: 'object', properties: { what: { type: 'string' }, near: { type: 'string', description: 'Optional place; default the owner\'s location.' } }, required: ['what'] },
     risk: 'auto',
-    pure: true,
     async run(a, ctx) {
       const home = await ownerPlace(ctx);
       const nearQ = arg.str(a, 'near', false);

@@ -94,7 +94,6 @@ export const agendaTools: Tool[] = [
     description: 'List upcoming reminders and scheduled tasks with their ids.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
-    pure: true,
     async run(_a, ctx) {
       const jobs = await loadJobs(ctx.storage);
       return jobs.length ? jobs.map(describeJob).join('\n') : 'Nothing scheduled.';
@@ -200,7 +199,6 @@ export const agendaTools: Tool[] = [
     description: 'List connected calendars (names and ids only; links stay secret).',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
-    pure: true,
     async run(_a, ctx) {
       const feeds = await loadFeeds(ctx.storage);
       return feeds.length ? feeds.map((f) => `${f.id} · ${f.name}`).join('\n') : 'No calendars connected.';

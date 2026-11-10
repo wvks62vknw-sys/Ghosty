@@ -62,7 +62,6 @@ export const emailTools: Tool[] = [
       },
     },
     risk: 'auto',
-    pure: true,
     async run(a, ctx) {
       const cfg = await account(ctx);
       const unread = arg.bool(a, 'unread', true);
@@ -86,7 +85,6 @@ export const emailTools: Tool[] = [
       },
     },
     risk: 'auto',
-    pure: true,
     async run(a, ctx) {
       const cfg = await account(ctx);
       const query: ListQuery = {
@@ -115,7 +113,6 @@ export const emailTools: Tool[] = [
       required: ['uid'],
     },
     risk: 'auto',
-    pure: (a) => a.mark_read !== true,
     async run(a, ctx) {
       const cfg = await account(ctx);
       const m = await readMessage(cfg, arg.num(a, 'uid'), { markRead: arg.bool(a, 'mark_read', false), folder: arg.str(a, 'folder', false) });

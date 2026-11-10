@@ -184,60 +184,38 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   const tz = m.now.tz;
   m.can = o.can ?? [];
 
-  // (speed: every store below is independent of the others, so they are all asked together — about forty reads one behind another
-  //  was most of the time a turn spent before its model was asked; the snapshot built is the same one)
-  const loc = client.location;
-  const start = startOfDay(now, tz);
-  const end = startOfDay(start + 30 * HOUR, tz);
-  const after = startOfDay(end + 30 * HOUR, tz);
-  const mine = async () => ({ events: (await loadEvents(storage)).filter((e) => (e.end ?? e.start + 1) > start && e.start < after) });
-  const z = zoned(now, tz);
-  const [profile, facts, lessons, principles, mood, places, fed, jobs, school, study, spend, guard, ledger, packs, log] = await Promise.all([
-    tryOr(() => loadProfile(storage), null),
-    tryOr(() => loadMemory(storage), []),
-    // batch 2's state, when it is there (feature-detected: never written here)
-    tryOr(() => loadLessons(storage), []),
-    tryOr(() => storage.get<unknown>(PRINCIPLES_KEY), undefined),
-    tryOr(() => storage.get<{ kind?: unknown; until?: unknown; cause?: unknown }>(MOOD_KEY), undefined),
-    // where he is: which saved place that is
-    loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon) ? tryOr(() => loadPlaces(storage), []) : Promise.resolve([]),
-    // his day: what is left of today, what comes next, the next six hours
-    o.vault ? Promise.race([agenda(storage, o.vault, start, after, tz, { stale: true }), new Promise<null>((ok) => setTimeout(() => ok(null), o.waitMs ?? 1500))]).catch(() => null) : Promise.resolve(null),
-    tryOr(() => loadJobs(storage), []),
-    // what he is in the middle of
-    tryOr(() => loadSchool({ storage }), null),
-    tryOr(() => loadStudy(storage), null),
-    tryOr(() => spendFlag(storage, `${z.y}-${String(z.m).padStart(2, '0')}`), ''),
-    // [guardian] what is active near his places and a walk home under way (guardstate.ts): in what he is doing, and the walk's
-    // "Home?" (or a warning that starts later) in what is ahead
-    tryOr(() => guardianMind(storage, now, tz), { doing: [] as string[], ahead: [] as DayLine[] }),
-    // [foresight] today's open predictions, at most two, for the phone (never rendered into the prompt: its budget)
-    tryOr(() => storage.get<unknown>(FORESIGHT_KEY), undefined),
-    // [packs] the packs' lines for the Brief (packs/index.ts), for the phone too; never rendered into the prompt (its budget)
-    tryOr(() => packLines({ storage, now: () => now }), [] as string[]),
-    // what happened: the day log's last day
-    tryOr(() => loadLog(storage), []),
-  ]);
-
   // who he is
+  const profile = await tryOr(() => loadProfile(storage), null);
   if (profile) {
     m.owner.summary = profile.summary;
     m.owner.lines = profileLines({ ...profile, summary: '' }, 6);
   }
+  const facts = await tryOr(() => loadMemory(storage), []);
   m.owner.facts = [...facts].sort((a, b) => b.at - a.at).slice(0, 8).map((f) => f.text);
+  // batch 2's state, when it is there (feature-detected: never written here)
+  const lessons = await tryOr(() => loadLessons(storage), []);
   m.owner.rules = lessons.filter((l) => (l as { kind?: unknown }).kind === 'conduct').slice(-6).map((l) => l.text);
+  const principles = await tryOr(() => storage.get<unknown>(PRINCIPLES_KEY), undefined);
   const plines = Array.isArray(principles) ? principles : principles && typeof principles === 'object' && Array.isArray((principles as { lines?: unknown }).lines) ? (principles as { lines: unknown[] }).lines : [];
   m.owner.principles = plines.filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 6);
+  const mood = await tryOr(() => storage.get<{ kind?: unknown; until?: unknown; cause?: unknown }>(MOOD_KEY), undefined);
   if (mood && typeof mood.kind === 'string' && mood.kind && !(typeof mood.until === 'number' && mood.until <= now)) m.owner.mood = typeof mood.cause === 'string' && mood.cause ? `${mood.kind} (${mood.cause})` : mood.kind;
 
   // where he is: which saved place that is
+  const loc = client.location;
   if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon)) {
-    const near = places.map((p) => ({ p, d: km(loc, p) })).filter((x) => x.d <= 0.3).sort((a, b) => a.d - b.d)[0];
+    const near = (await tryOr(() => loadPlaces(storage), [])).map((p) => ({ p, d: km(loc, p) })).filter((x) => x.d <= 0.3).sort((a, b) => a.d - b.d)[0];
     if (near) m.now.place = near.p.label;
   }
 
-  // his day
-  const events = (fed ?? (await tryOr(mine, { events: [] }))).events;
+  // his day: what is left of today, what comes next, the next six hours
+  const start = startOfDay(now, tz);
+  const end = startOfDay(start + 30 * HOUR, tz);
+  const after = startOfDay(end + 30 * HOUR, tz);
+  const mine = async () => ({ events: (await loadEvents(storage)).filter((e) => (e.end ?? e.start + 1) > start && e.start < after) });
+  const feeds = o.vault ? Promise.race([agenda(storage, o.vault, start, after, tz), new Promise<null>((ok) => setTimeout(() => ok(null), o.waitMs ?? 1500))]).catch(() => null) : Promise.resolve(null);
+  const events = ((await feeds) ?? (await tryOr(mine, { events: [] }))).events;
+  const jobs = await tryOr(() => loadJobs(storage), []);
   m.today.items = dayLines(events, jobs, now, end, tz);
   if (!m.today.items.length) {
     const next = events.filter((e) => e.start >= end).sort((a, b) => a.start - b.start)[0];
@@ -248,18 +226,28 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   m.ahead = [...m.today.items.filter((x) => x.at < now + AHEAD), ...tomorrow.map((x) => laterDay(x, tz))];
 
   // what he is in the middle of
+  const school = await tryOr(() => loadSchool({ storage }), null);
   const open = school?.open?.[0];
   if (open) m.today.doing.push(`your offline brain is sitting ${stageName(open.stage)} ${(SUBJECT_LABEL[open.subject] ?? open.subject).toLowerCase()}`);
+  const study = await tryOr(() => loadStudy(storage), null);
   if (study && study.day === new Date(now).toISOString().slice(0, 10) && study.today.reads > 0) m.today.doing.push(`your library read ${study.today.reads} topic${study.today.reads === 1 ? '' : 's'} today`);
+  const z = zoned(now, tz);
+  const spend = await tryOr(() => spendFlag(storage, `${z.y}-${String(z.m).padStart(2, '0')}`), '');
   if (spend) m.today.doing.push(spend);
+  // [guardian] what is active near his places and a walk home under way (guardstate.ts): in what he is doing, and the walk's
+  // "Home?" (or a warning that starts later) in what is ahead
+  const guard = await tryOr(() => guardianMind(storage, now, tz), { doing: [] as string[], ahead: [] as DayLine[] });
   m.today.doing.push(...guard.doing);
   if (guard.ahead.length) m.ahead = [...m.ahead, ...guard.ahead.filter((x) => x.at < now + AHEAD)].sort((a, b) => a.at - b.at);
 
-  const expect = expectLines(readLedger(ledger).items, now, tz).slice(0, 2);
+  // [foresight] today's open predictions, at most two, for the phone (never rendered into the prompt: its budget)
+  const expect = expectLines(readLedger(await tryOr(() => storage.get<unknown>(FORESIGHT_KEY), undefined)).items, now, tz).slice(0, 2);
   if (expect.length) m.expect = expect;
+  // [packs] the packs' lines for the Brief (packs/index.ts), for the phone too; never rendered into the prompt (its budget)
+  const packs = await tryOr(() => packLines({ storage, now: () => now }), [] as string[]);
   if (packs.length) m.packs = packs;
 
   // what happened: the day log's last day
-  m.recent = log.filter((e) => e.at > now - DAY && e.at <= now).slice(-8);
+  m.recent = (await tryOr(() => loadLog(storage), [])).filter((e) => e.at > now - DAY && e.at <= now).slice(-8);
   return m;
 }

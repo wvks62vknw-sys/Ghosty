@@ -156,7 +156,6 @@ export const mapTools: Tool[] = [
     description: 'How high a place is above sea level, in metres and feet (Open-Meteo, Copernicus DEM — free, no key). Use for "how high is X", "what\'s the altitude here", "elevation of X".',
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
-    pure: true,
     async run(a, ctx) {
       const p = await where(a, ctx);
       const r = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${p.lat.toFixed(5)}&longitude=${p.lon.toFixed(5)}`, { headers: UA });

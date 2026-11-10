@@ -52,7 +52,6 @@ export const knowledgeTools: Tool[] = [
     description: 'List the lessons you have learned from experience, with ids.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
-    pure: true,
     async run(_a, ctx) {
       const list = await loadLessons(ctx.storage);
       return list.length ? list.map((l) => `${l.id} (×${l.hits}) ${l.text}`).join('\n') : 'No lessons learned yet.';

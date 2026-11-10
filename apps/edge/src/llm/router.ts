@@ -288,8 +288,8 @@ export class Router {
     await this.sput(ORDER_KEY, ids);
   }
 
-  private async models(p: Provider, known?: Record<string, { at: number; ids: string[] }>): Promise<string[]> {
-    const all = known ?? (await this.sget<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
+  private async models(p: Provider): Promise<string[]> {
+    const all = (await this.sget<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
     const found = all[p.id]?.ids ?? [];
     const extra = found
       .filter((id) => !p.seed.includes(id) && !NOT_CHAT.test(id) && (!p.accept || p.accept(id)))
@@ -634,23 +634,19 @@ export class Router {
     let lastErr: LlmError | null = null;
     let anyKey = false;
     let soonest = Infinity;
-    // (speed: the stores are read once and every key is opened together; each used to be read for each provider, one behind another)
-    const [h, found, order] = await Promise.all([this.health(), this.sget<Record<string, { at: number; ids: string[] }>>(M_KEY).then((x) => x ?? {}), this.order()]);
+    const h = await this.health();
     const now = Date.now();
     const candidates: { p: Provider; key: string; model: string }[] = [];
     // A picture in the conversation: only a model that can see it may answer (same order otherwise).
     const vision = hasImage(messages);
     // What this call counts against each allowance before the provider says the real number.
     const est = tokensOf(messages) + tokensOf(tools) + (code ? 3 * REPLY_TOKENS : REPLY_TOKENS);
-    const usable = order.filter((p) => {
-      if (p.codeOnly && !opts.code) return false; // keep small free allowances for writing code
-      // Small-tier-only providers (Gemma) never take the owner's main chat; no-tool ones only tool-less requests.
-      return !((p.smallOnly && !cheap) || (p.noTools && tools.length));
-    });
-    const keys = await Promise.all(usable.map((p) => this.keyFor(p)));
-    for (const [i, p] of usable.entries()) {
-      const key = keys[i]!;
+    for (const p of await this.order()) {
+      const key = await this.keyFor(p);
       if (key === null) continue;
+      if (p.codeOnly && !opts.code) continue; // keep small free allowances for writing code
+      // Small-tier-only providers (Gemma) never take the owner's main chat; no-tool ones only tool-less requests.
+      if ((p.smallOnly && !cheap) || (p.noTools && tools.length)) continue;
       anyKey = true;
       // A picture never goes to an open endpoint (no account, shared cached answers): only the owner's own keys or Cloudflare's binding may see it.
       if (vision && p.keyless && p.transport !== 'workers-ai') continue;
@@ -660,7 +656,7 @@ export class Router {
         soonest = Math.min(soonest, h[`cool|${p.id}`]!.cool! - now);
         continue;
       }
-      for (const model of await this.models(p, found)) if (!vision || visionScore(model) > 0) candidates.push({ p, key, model });
+      for (const model of await this.models(p)) if (!vision || visionScore(model) > 0) candidates.push({ p, key, model });
     }
     // No model that can see, and none merely cooling down: say so. (A cooling one falls through to
     // the usual "back in N seconds" answer below, rather than "add a key" to an owner who has one.)
@@ -739,8 +735,8 @@ export class Router {
           const { message, tokens, out } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane, lap);
           timed(true, out);
           settle(tokens, true);
-          // (speed: the two writes go together)
-          await Promise.all([this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 }), this.sput('llm:last', `${p.name} · ${model}`)]);
+          await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
+          await this.sput('llm:last', `${p.name} · ${model}`);
           if (warm && lane === 'chat' && !cheap && !vision) this.warmNext(p, model, est);
           return { message, model: `${p.name} · ${model}` };
         } catch (err) {
