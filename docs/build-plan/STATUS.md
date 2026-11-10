@@ -340,6 +340,7 @@ built in the old look after day one, so no screen is built twice.
    line the jump bar, the hubs rooms, Every screen the inventory, Settings a plate; Glass pixel-equal. MAIN'S OWN RUN GREEN
    9 Nov 21:05 UK: FINISHED on the code side, pending his phone check (OWNER-ISSUES 166).
    ONE INK landed 10 Nov (OWNER-ISSUES 168): Theme's ONE INK card applies the printed-page world; PR #77 merged (ab6e2ad), main's own run green 10 Nov 05:10 UK: FINISHED on the code side, pending his phone check.
+   SPEED-5 landed 10 Nov (OWNER-ISSUES 169): the five worst serial waits fixed and tested; three protected-file calls are his; pending the PR's run.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,
