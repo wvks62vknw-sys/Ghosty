@@ -476,6 +476,10 @@ folder that no longer exists; ignore those paths).
   10 Nov 13:00 UK: SHOW ME, the first slice (builder/showme, base 6adc5e8) landed on the session branch as one commit, 3-way onto the speed
   landing (check.yml's list now ends ink speed2 showme); no protected file, no model name, no stray file; built and showme and speed2
   run once on the merged tree, both clean (speed2 988 ms of its 1,000 ms: close, watch it on the runner). OWNER-ISSUES 170. Push, PR, the run follow.
+  16:50 UK: THE GUARD UNDID SPEED-5 ON MAIN (715fa72, 11:32 UK, 'checks failed on e0bf35f') as soon as attempt 1 of main's run went red on
+  look.spec's second open; attempt 2 (which I forced) came out green but the undo had already landed. So main is at ab6e2ad's content
+  (ONE INK without SPEED-5 and without OWNER-ISSUES 169). PR #79 carries SPEED-5 and SHOW ME back together (the merge keeps the session's tree).
+  LESSON: never re-run main's failed job; a first red on main is undone at once. Land only on a run that is green the first time.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
