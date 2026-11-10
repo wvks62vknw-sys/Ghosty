@@ -88,6 +88,7 @@ export const evolveTools: Tool[] = [
     description: 'Show the current upgrade roadmap and the next step. Use when the owner says "carry on", "continue the upgrade" or asks how the upgrade is going.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const r = await loadRoadmap(ctx.storage);
       return r ? describeRoadmap(r) : 'No upgrade roadmap. Use self_audit and plan_upgrade to start one.';

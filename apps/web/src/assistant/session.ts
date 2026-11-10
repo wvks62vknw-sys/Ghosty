@@ -1050,9 +1050,11 @@ export function signOff(words: string): Promise<void> {
 }
 
 /** Load recent conversation from the brain on start-up. */
-export async function loadHistory(): Promise<void> {
+export type HistoryReply = Awaited<ReturnType<typeof brain.history>>;
+/** `ahead`: the history already asked for (main.ts asks while the brain's status is still on its way); null when that request failed. */
+export async function loadHistory(ahead?: Promise<HistoryReply | null>): Promise<void> {
   try {
-    const h = await brain.history();
+    const h = (await ahead) ?? (await brain.history());
     const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
       if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
       // A page published in that turn keeps its live-link card under the reply.
