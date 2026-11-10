@@ -473,6 +473,9 @@ folder that no longer exists; ignore those paths).
   (look.spec's 'second open' 675 ms against its 300 ms budget on the runner: a timing miss, green on the PR's run; budget not loosened),
   attempt 2 GREEN on every job. SPEED-5 is FINISHED on the code side, pending his phone check (OWNER-ISSUES 169) and his three calls.
   Worktree speed and branch builder/speed removed. look.spec's second-open budget is now twice seen over on the runner: a candidate for a cost fix.
+  10 Nov 13:00 UK: SHOW ME, the first slice (builder/showme, base 6adc5e8) landed on the session branch as one commit, 3-way onto the speed
+  landing (check.yml's list now ends ink speed2 showme); no protected file, no model name, no stray file; built and showme and speed2
+  run once on the merged tree, both clean (speed2 988 ms of its 1,000 ms: close, watch it on the runner). OWNER-ISSUES 170. Push, PR, the run follow.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
