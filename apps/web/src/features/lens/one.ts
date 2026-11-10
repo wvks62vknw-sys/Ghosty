@@ -34,6 +34,7 @@ import { freeBarcodes, readCodesIn, warmBarcodes } from '../../scan/barcode';
 import { cropRect, fromMediaPipe, type Box } from '../../vision/boxes';
 import { cropCanvas } from '../../vision/camera';
 import { memoryTrouble, namer, NAMER_SIZE, NamerMemoryError } from '../../vision/clip';
+import { EYES_LENS, EYES_NAMER, eyesKept } from '../../offline/eyes';
 import { bestMatch, iou, type KnownFace } from '../../vision/facemath';
 import { faces, type FaceSeen } from '../../vision/faces';
 import { knownFaces } from '../../vision/facestore';
@@ -262,9 +263,11 @@ export function createOneMode(L: LensContext): Mode {
     else {
       setGet(getWords());
       getBtn.classList.toggle('honest', honest);
-      getBtn.disabled = !online;
-      getBtn.setAttribute('aria-label', online ? `Get the eyes: the object finder, ${FINDER_SIZE} once, kept on this phone` : `Get the eyes, ${FINDER_SIZE}: needs a signal`);
-      getBtn.title = online ? `Downloads the object finder (${FINDER_SIZE}, once). Nothing of what I see is sent.` : 'I need a signal to download it.';
+      // (with the Lens's eyes kept on this phone by his tap, Settings → OFFLINE EYES, the key works with no signal: its files are here)
+      const eyesHere = eyesKept(EYES_LENS.id);
+      getBtn.disabled = !online && !eyesHere;
+      getBtn.setAttribute('aria-label', online || eyesHere ? `Get the eyes: the object finder, ${FINDER_SIZE} once, kept on this phone` : `Get the eyes, ${FINDER_SIZE}: needs a signal`);
+      getBtn.title = online ? `Downloads the object finder (${FINDER_SIZE}, once). Nothing of what I see is sent.` : eyesHere ? 'The eyes are kept on this phone: this loads them.' : 'I need a signal to download it.';
     }
     // the second key (GET THE NAMER): only once the finder works, and only while the namer is not on the phone; his tap, with its size said
     const needNamer = finderOn && (oneState.namer === 'off' || oneState.namer === 'failed');
@@ -272,9 +275,10 @@ export function createOneMode(L: LensContext): Mode {
     if (oneState.namer === 'loading') namerBtn.disabled = true;
     else {
       setNamerKey(oneState.namer === 'failed' ? `TRY AGAIN · ${NAMER_SIZE}` : `GET THE NAMER · ${NAMER_SIZE}`);
-      namerBtn.disabled = !online;
-      namerBtn.setAttribute('aria-label', online ? `${oneState.namer === 'failed' ? 'Try the namer again' : 'Get the namer'}: ${NAMER_SIZE} once, best on Wi-Fi, kept on this phone` : `Get the namer, ${NAMER_SIZE}: needs a signal`);
-      namerBtn.title = online ? `Downloads the namer (${NAMER_SIZE}, once; best on Wi-Fi). It lets me say what things look like. Nothing of what I see is sent.` : 'I need a signal to download it.';
+      const namerHere = eyesKept(EYES_NAMER.id);
+      namerBtn.disabled = !online && !namerHere;
+      namerBtn.setAttribute('aria-label', online || namerHere ? `${oneState.namer === 'failed' ? 'Try the namer again' : 'Get the namer'}: ${NAMER_SIZE} once, best on Wi-Fi, kept on this phone` : `Get the namer, ${NAMER_SIZE}: needs a signal`);
+      namerBtn.title = online ? `Downloads the namer (${NAMER_SIZE}, once; best on Wi-Fi). It lets me say what things look like. Nothing of what I see is sent.` : namerHere ? 'The namer is kept on this phone: this loads it.' : 'I need a signal to download it.';
     }
     whyEl.textContent = oneState.stepSaid;
     whyEl.hidden = !oneState.stepSaid;

@@ -31,6 +31,8 @@ const SAID: [RegExp, string, string][] = [
   [/^VOICE/, 'Voice & home', 'My voice, my manner, your saved place'],
   [/^MY VOICE/, 'My voice', 'The voice I know as yours'],
   [/^PEOPLE I/, 'People I’ve introduced', 'Faces you told me by name'],
+  [/^OFFLINE MAPS/, 'Offline maps', 'The map of your area, with no signal'],
+  [/^OFFLINE EYES/, 'Offline eyes', 'What the Lens reads with, with no signal'],
   [/^OFFLINE/, 'Offline brain', 'Answers on this phone with no signal'],
   [/^SYSTEM/, 'System', 'Keys, models, storage and backups'],
   [/^LINKS/, 'Links', 'Email, Spotify and your phone'],

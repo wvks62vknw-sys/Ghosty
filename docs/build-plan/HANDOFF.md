@@ -480,6 +480,12 @@ folder that no longer exists; ignore those paths).
   look.spec's second open; attempt 2 (which I forced) came out green but the undo had already landed. So main is at ab6e2ad's content
   (ONE INK without SPEED-5 and without OWNER-ISSUES 169). PR #79 carries SPEED-5 and SHOW ME back together (the merge keeps the session's tree).
   LESSON: never re-run main's failed job; a first red on main is undone at once. Land only on a run that is green the first time.
+  18:40 UK: PR #79 (SPEED-5 back, with SHOW ME) merged as a2d5567 after a green PR run (one runner shutdown re-run). MAIN'S OWN RUN 42876990310 RED on
+  smoke (3) alone: look.spec's second open 458 and 494 ms (the third time over 300 on main's runner); the guard declined to undo (the version before
+  was not green on every check). The OFFLINE builder had already found the cause (the borrow of Home's canvas ran inside the stopwatch) and fixed it in
+  features/look/index.ts: OFFLINE lands next with that fix, so main goes green on its next run. SHOW ME and SPEED-5 are on main, pending that run.
+  19:50 UK: OFFLINE (builder/offline, base bedc1f2) landed on the session branch as one commit, 3-way onto main (check.yml's list ends ink speed2 showme
+  offlinemaps offlineeyes), built and offlinemaps, offlineeyes, showme and look run once on the merged tree. OWNER-ISSUES 171.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).

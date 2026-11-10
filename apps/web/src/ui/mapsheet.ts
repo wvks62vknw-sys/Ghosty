@@ -15,6 +15,8 @@ import { h } from '../core/dom';
 import { button, modal } from './components';
 import { createFlatMap, type FlatMap, type FlatMapOptions } from './flatmap';
 import { createMap3d, type Map3d, type Map3dOptions } from './map3d';
+import { mapHere, WORDS } from '../offline/maps';
+import { offline } from '../offline/pack';
 import { openStreetView } from './streetview';
 import { satelliteUrl, wazeUrl, type MapSpot } from './mapurls';
 
@@ -97,7 +99,31 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
     flatHost.hidden = v !== 'map';
     host3d.hidden = v !== '3d';
     if (opts.below) opts.below.hidden = v !== 'map';
-    if (v === 'map') {
+    if (v === 'map' && offline()) {
+      // No signal: the flat map's tiles come from servers it cannot reach. The West Midlands map kept on this phone draws instead
+      // (offline/maps.ts), flat, with the pins and the path of a journey; with none kept, the line says where to get it.
+      void mapHere().then((held) => {
+        if (open === null || tabs.querySelector<HTMLElement>('.on')?.dataset.view !== 'map') return;
+        if (!held) {
+          note.textContent = WORDS.none;
+          if (!flat) {
+            flat = createFlatMap(flatHost, hooks);
+            void flat.open(at, opts).then(() => flat?.invalidate());
+          } else flat.invalidate();
+          flatHost.hidden = false;
+          return;
+        }
+        flatHost.hidden = true;
+        host3d.hidden = false;
+        note.textContent = 'The map on this phone: pinch to zoom, drag to move. Pins and the path of a journey are drawn on it.';
+        if (map3d) map3d.invalidate();
+        else {
+          map3d = createMap3d(host3d, hooks);
+          void map3d.open(at, { points: opts.points, line: opts.line, zoom: opts.zoom ?? 13, ...opts.map3d, pitch: 0, buildings: false }).then(() => map3d?.invalidate());
+        }
+      });
+      flatHost.hidden = true;
+    } else if (v === 'map') {
       if (flat) {
         // Back from another view: the owner's view, style, overlays, pins and measurements are
         // still there — only the size needs a refresh.

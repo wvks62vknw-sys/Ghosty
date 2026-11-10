@@ -1,4 +1,4 @@
-/** SETTINGS tab: theme (seven looks and the twelve colours), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
+/** SETTINGS tab: theme (seven looks and the twelve colours), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location, the offline brain and the packs for no signal (offline maps, offline eyes). (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { fmt, h } from '../../core/dom';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
@@ -15,6 +15,7 @@ import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
+import { eyesPanel, mapsPanel } from './packs';
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
@@ -28,7 +29,7 @@ export const settingsTab: TabDef = {
   title: 'SETTINGS',
   icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
-  blurb: 'theme · the looks · colour · the look · name · character · units · voice · sounds · tilt · home · offline brain',
+  blurb: 'theme · the looks · colour · the look · name · character · units · voice · sounds · tilt · home · offline brain · offline maps · offline eyes',
   mount(root) {
     const P = page(root, { tag: 'SETTINGS', leftLabel: 'THEME', rightLabel: 'VOICE & HOME', stack: true });
     // THEME: his recipe (state/theme.ts; BRIEF-THEMES-2): the presets first, the dials under them; the row says the recipe.
@@ -62,6 +63,8 @@ export const settingsTab: TabDef = {
     P.right.append(vp.el, mv.el, pv.el);
     const op = offlinePanel();
     P.right.append(op.el);
+    // [offline] the map of his area and the Lens's eyes, kept on the phone on his tap (BRIEF-OFFLINE-1)
+    P.right.append(mapsPanel().el, eyesPanel().el);
     const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
