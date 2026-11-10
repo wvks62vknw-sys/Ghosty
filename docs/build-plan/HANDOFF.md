@@ -486,7 +486,7 @@ folder that no longer exists; ignore those paths).
   features/look/index.ts: OFFLINE lands next with that fix, so main goes green on its next run. SHOW ME and SPEED-5 are on main, pending that run.
   19:50 UK: OFFLINE (builder/offline, base bedc1f2) landed on the session branch as one commit, 3-way onto main (check.yml's list ends ink speed2 showme
   offlinemaps offlineeyes), built and offlinemaps, offlineeyes, showme and look run once on the merged tree. OWNER-ISSUES 171.
-  21:00 UK: PR #80 (OFFLINE) GREEN on its first run (38513f1), SQUASH-MERGED as c356780; main's own run 42900444775 read below.
+  21:00 UK: PR #80 (OFFLINE) GREEN on its first run (38513f1), SQUASH-MERGED as c356780; MAIN'S OWN RUN 42900444775 GREEN on every job: SPEED-5, SHOW ME and OFFLINE are FINISHED on the code side, pending his phone checks (169, 170, 171); the look second-open cost is fixed.
   22:00 UK: GAMES (builder/games, base bedc1f2) landed on the session branch as one commit, 3-way onto main (check.yml's list ends ... offlineeyes games4); on the
   merged tree built and games4, arcade, games2, games3, ui, deck, nav, speed2, showme, offlinemaps, offlineeyes, tabs run: all green (games4 red once under
   load on 'beat: DUCK ducks', green alone). apps/edge/test/games4.test.mjs is not in the protected package.json's test list: his call. OWNER-ISSUES 172.
