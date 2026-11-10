@@ -7065,3 +7065,26 @@ html .vk-person > span { color: var(--g-ink-3); font-size: 14px; }
 html .vk-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); }
 html .vk-add .vk-label { flex: 1 1 100%; color: var(--g-ink-3); font-size: 12px; letter-spacing: .08em; }
 html .vk-add input { flex: 1 1 10em; min-height: 44px; }
+
+/* ---------------------------------------------------------------- THE GAMES OF PASS 4 (BRIEF-GAMES-4)
+   BLOCKS, BLAST, THE FLAP, THE CLIMB and THE BEAT draw their worlds on a canvas of their own and keep the arcade's frame
+   round it: the kit's menus and Ghosty's line (the g2 pieces), and here the score, the level's pass mark, the pause key and
+   the touch keys, all in the system's tokens. Prefixed g4; nothing here reaches outside them. */
+.g4 .g2title { letter-spacing: .01em; }
+.g4 .g2btn { letter-spacing: 0; }
+.g4 .g4pad { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+.g4 .g4hud { position: absolute; left: var(--g-s-2); top: calc(var(--g-safe-top) + var(--g-s-1)); display: flex; flex-direction: column; gap: var(--g-s-half); pointer-events: none; }
+.g4 .g4score { font: var(--g-t-value); font-size: 32px; line-height: 36px; font-variant-numeric: var(--g-num); color: var(--g-ink-1); }
+.g4 .g4lvl { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+.g4 .g4pass { position: absolute; left: var(--g-s-2); right: calc(var(--g-s-2) + 56px); top: calc(var(--g-safe-top) + 64px); height: 4px; background: color-mix(in srgb, var(--g-ink-1) 18%, transparent); pointer-events: none; }
+.g4 .g4passfill { display: block; height: 100%; background: var(--g-accent); transform-origin: left center; transform: scaleX(0); transition: transform var(--g-dur-bring, .2s); }
+.g4 .g4pass.done .g4passfill { background: var(--g-ok); }
+.g4 .g4pause { position: absolute; top: calc(var(--g-safe-top) + var(--g-s-1) + 4px); right: var(--g-s-1); width: 44px; padding: 0; }
+.g4 .g4ctl { position: absolute; left: 0; right: 0; bottom: calc(var(--g-safe-bottom) + var(--g-s-1)); display: flex; justify-content: center; gap: var(--g-s-1); padding: 0 var(--g-s-1); pointer-events: none; }
+.g4 .g4btn { flex: 1 1 0; min-width: 44px; max-width: 84px; min-height: 56px !important; padding: 0 var(--g-s-half); border-radius: var(--g-radius-key); font-size: 20px; letter-spacing: 0; pointer-events: auto; }
+.g4 .g4btn.on { background: var(--g-accent); color: var(--g-canvas); }
+.g4 .g4small { font: var(--g-t-key); letter-spacing: var(--g-tr-key); }
+.g4 .g4wide { max-width: 140px; }
+.g4:not([data-mode="play"]) :is(.g4hud, .g4pass, .g4pause, .g4ctl) { display: none; }
+.g4:not([data-mode="play"]) .g4pad { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .g4 .g4passfill { transition: none; } }

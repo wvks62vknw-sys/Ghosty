@@ -21,6 +21,7 @@ import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/
 import { saveStore } from '../../arcade/engines/saves';
 import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
 import { LEVELS, LEVELS_BASE, type LevelPack, needsDeh, packArgs, packReads, packWads } from '../../arcade/levels';
+import { bookOf, levelOf } from '../../arcade/games/two/skill';
 import { allScores, recordScore, recordSitting, type Score, sittingKey } from '../../arcade/scores';
 import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
@@ -83,10 +84,20 @@ const TOP: Partial<Record<EngineId, number>> = { doom: 300, quake: 200 };
 const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefined): string => {
   const n = (v: number) => v.toLocaleString('en-GB');
   if (engine === 'voxel') return sc ? `Most blocks changed in a visit ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
+  const mine: Partial<Record<EngineId, string>> = { blocks: 'Best duel', blast: 'Best grid', flap: 'Best flight', climb: 'Best climb', beat: 'Best song', kart: 'Best race', hopper: 'Best run', arena: 'Best round' };
+  if (mine[engine]) return sc ? `${mine[engine]} ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'runner') return sc ? `Best run ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'dos') return sc ? `Longest sitting ${timeWords(sc.best)} · last ${timeWords(sc.last)}` : 'Not played yet';
   const parts = [...(sc ? [`Best ${sc.best} of ${TOP[engine]} · last ${sc.last}`] : []), ...(sit ? [`${sc ? 'longest' : 'Longest'} sitting ${timeWords(sit.best)}`] : [])];
   return parts.length ? parts.join(' · ') : 'Not played yet';
+};
+
+/** The five games with a level (games/two/skill.ts, no top one): yours and Ghosty's, on the card. */
+const LEVELLED = new Set<string>(['blocks', 'blast', 'flap', 'climb', 'beat']);
+const levelTail = (e: ShelfEntry): string => {
+  if (!LEVELLED.has(e.engine)) return '';
+  const b = bookOf(e.id);
+  return ` · You: Level ${levelOf(b.you.r)} · Ghosty: Level ${levelOf(b.ghosty.r)}`;
 };
 
 /** The engine's own menu, by name. */
@@ -246,7 +257,7 @@ export const arcadeTab: TabDef = {
         el.classList.toggle('kept', kept);
         el.classList.toggle('getting', getting);
         const all = allScores();
-        score.textContent = scoreWords(e.engine, all[e.id], all[sittingKey(e.id)]);
+        score.textContent = scoreWords(e.engine, all[e.id], all[sittingKey(e.id)]) + levelTail(e);
         stat.textContent = status.get(e.id) ?? '';
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${e.title}`, 'stop');

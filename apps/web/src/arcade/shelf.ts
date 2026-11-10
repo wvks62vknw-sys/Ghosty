@@ -13,10 +13,11 @@
 import type { DosButton, DosSetup } from './dos';
 import { GAMES2 } from './games/shelf';
 import { GAMES3 } from './games/shelf3';
+import { GAMES4 } from './games/two/shelf4';
 
 /** The engines: DOOM and Quake natively, DOSBox for the DOS classics, and the two games made by us (games/), each its
  *  own engine: the block world ('voxel') and the runner. */
-export type EngineId = 'doom' | 'quake' | 'dos' | 'voxel' | 'runner' | 'kart' | 'hopper' | 'arena';
+export type EngineId = 'doom' | 'quake' | 'dos' | 'voxel' | 'runner' | 'kart' | 'hopper' | 'arena' | 'blocks' | 'blast' | 'flap' | 'climb' | 'beat';
 
 /** What a game is played with (the touch layer draws only these; the gamepad layer maps the standard pad to them). */
 export type Control = 'move' | 'look' | 'fire' | 'use' | 'weapon' | 'jump' | 'map';
@@ -540,4 +541,5 @@ export const SHELF: ShelfEntry[] = [
   // ---------- THE GAMES MADE BY US (games/shelf.ts): the block world and the runner, each its own engine, nothing to fetch
   ...GAMES2,
   ...GAMES3,
+  ...GAMES4,
 ];

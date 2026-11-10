@@ -6,6 +6,7 @@
 // pad.ts first: games/shelf.ts reads BTN (through this module) while it loads, so BTN must be loaded before it
 import { BTN } from './pad';
 import { GAMES3_PAD } from './games/pad3';
+import { GAMES4_PAD } from './games/two/pad4';
 import { GAMES2_PAD } from './games/shelf';
 import type { Control, EngineId, ShelfEntry } from './shelf';
 
@@ -98,6 +99,21 @@ export const PAD_BUTTONS: Record<EngineId, Partial<Record<number, Action>>> = {
   },
   get arena() {
     return GAMES3_PAD.arena;
+  },
+  get blocks() {
+    return GAMES4_PAD.blocks;
+  },
+  get blast() {
+    return GAMES4_PAD.blast;
+  },
+  get flap() {
+    return GAMES4_PAD.flap;
+  },
+  get climb() {
+    return GAMES4_PAD.climb;
+  },
+  get beat() {
+    return GAMES4_PAD.beat;
   },
   doom: { [BTN.RT]: 'fire', [BTN.A]: 'use', [BTN.X]: 'use', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.Y]: 'map', [BTN.SELECT]: 'map', [BTN.LT]: 'run', [BTN.START]: 'pause' },
   quake: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.LT]: 'jump', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.X]: 'run', [BTN.START]: 'pause' },
