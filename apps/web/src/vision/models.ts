@@ -107,12 +107,23 @@ export function visionRuntime(progress: Progress = () => undefined): Promise<{ n
 
 const modelBytes = new Map<string, Promise<Uint8Array>>();
 
+/** The pack's copy of a model file, when the Lens's eyes are kept on this phone. */
+async function keptModel(url: string): Promise<Response | undefined> {
+  try {
+    return await (await import('../offline/eyes')).kept(url);
+  } catch {
+    return undefined;
+  }
+}
+
 /** A model file from this site, with real download progress (kept in memory afterwards). */
 export function fetchModel(url: string, progress: Progress, label = 'model'): Promise<Uint8Array> {
   let p = modelBytes.get(url);
   if (p) return p;
   p = (async () => {
-    const r = await fetch(url);
+    // kept on this phone by his tap (offline/eyes.ts): the copy in the pack first, so a model loads with no signal
+    const here = await keptModel(url);
+    const r = here ?? (await fetch(url));
     if (!r.ok) throw new Error(`Could not load the ${label} (HTTP ${r.status})`);
     const total = Number(r.headers.get('content-length')) || 0;
     if (!r.body) return new Uint8Array(await r.arrayBuffer());

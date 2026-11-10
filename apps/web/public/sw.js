@@ -13,7 +13,8 @@ self.addEventListener('install', (e) => {
 
 // A new version of this worker clears only its own older caches (another ghosty-shell-… or ghosty-vendor-…). Every
 // other cache belongs to someone else and stays: the mini-apps' offline copies (ghosty-app:…), and the offline brain's
-// downloads in WebLLM's stores (webllm/model, webllm/config, webllm/wasm) and its parts (ghosty-brain-parts) — clearing
+// downloads in WebLLM's stores (webllm/model, webllm/config, webllm/wasm) and its parts (ghosty-brain-parts), and the packs he keeps
+// on the phone (ghosty-maps-v1: the map of his area; ghosty-eyes-v1: the Lens's eyes) — clearing
 // those made every new version of Ghosty throw away the brains the owner had downloaded (25 Oct).
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -27,16 +28,25 @@ self.addEventListener('fetch', (e) => {
   // Never touch the brain's API, published pages (/s/…), shared pictures (/i/…) or anything off-site.
   if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) return;
   if (url.pathname.startsWith('/vendor/') || url.pathname.startsWith('/models/')) {
+    // A fetch that says it is a pack's GET (offline/pack.ts sends `x-ghosty-pack`) is left alone, so a pack's files are kept once, in the
+    // pack's own cache, and not again here.
+    if (req.headers.has('x-ghosty-pack')) return;
+    // The packs the owner keeps on the phone (the Lens's eyes: ghosty-eyes-v1) are read first, from any cache, then the vendor cache,
+    // then the network: with no signal the Lens loads from what he kept.
     e.respondWith(
-      caches.open(VENDOR).then((c) =>
-        c.match(req).then(
-          (hit) =>
-            hit ||
-            fetch(req).then((res) => {
-              if (res.ok) c.put(req, res.clone()).catch(() => undefined);
-              return res;
-            }),
-        ),
+      caches.match(req).then(
+        (kept) =>
+          kept ||
+          caches.open(VENDOR).then((c) =>
+            c.match(req).then(
+              (hit) =>
+                hit ||
+                fetch(req).then((res) => {
+                  if (res.ok) c.put(req, res.clone()).catch(() => undefined);
+                  return res;
+                }),
+            ),
+          ),
       ),
     );
     return;

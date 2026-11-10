@@ -43,6 +43,7 @@ const MAP: [RegExp, keyof typeof G, string][] = [
   [/^VOICE/, 'wave', '#ff375f'],
   [/^CHARACTER/, 'spark', '#ff9f0a'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],
+  [/^OFFLINE (MAPS|EYES)/, 'chip', '#5e5ce6'],
   [/^LOOPS/, 'restore', '#30d158'],
   [/^WHAT I LEARNED/, 'spark', '#ffd60a'],
   [/^KEYS/, 'key', '#ffb340'],

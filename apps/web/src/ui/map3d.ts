@@ -14,6 +14,7 @@ import { fetchJson } from '../api/feed';
 import { clear, h } from '../core/dom';
 import { reverseAddress, shortName, whatIs } from '../data/places';
 import { globe } from '../engine/globe';
+import { drawsFromPack, inArea, OFFLINE_STYLE, registerMapProtocol, WORDS } from '../offline/maps';
 import { RAD } from '../engine/math';
 import { settings } from '../state/app';
 import { button, toast } from './components';
@@ -29,6 +30,8 @@ export interface Map3dOptions {
   points?: MapPoint[];
   /** Join the points with a line. */
   line?: boolean;
+  /** A path to draw as the line instead of joining the points (the journey's own path, with no signal). */
+  route?: MapPoint[];
   zoom?: number;
   /** Tilt in degrees (0 flat, up to 70). */
   pitch?: number;
@@ -120,11 +123,14 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
   let map: MLMap | null = null;
   let token = '';
   let styleId: Style3dId = 'dark';
+  /** With no signal and the West Midlands map kept on this phone (offline/maps.ts): drawn from it, and said so. */
+  let fromPack = false;
+  let netListen: (() => void) | null = null;
   let buildings = true;
   let current: MapSpot = { lat: 0, lon: 0 };
   const overlays = new Set<Overlay3dId>();
   let rainPath: string | null = null;
-  let pinned: { points: MapPoint[]; line: boolean } = { points: [], line: false };
+  let pinned: { points: MapPoint[]; line: boolean; route: MapPoint[] } = { points: [], line: false, route: [] };
   let markers: MLMarker[] = [];
   let pin: MLMarker | null = null;
 
@@ -137,7 +143,13 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
   const mark = (row: HTMLElement, on: (b: HTMLButtonElement) => boolean) => {
     for (const b of row.querySelectorAll('button')) b.classList.toggle('on', on(b));
   };
-  const styleFor = (id: Style3dId) => STYLES3D.find((s) => s.id === id)!.style(token);
+  const styleFor = (id: Style3dId) => (fromPack ? OFFLINE_STYLE : STYLES3D.find((s) => s.id === id)!.style(token));
+  /** The one quiet line of the map from the pack: that it is, or that the view has left the area it holds. */
+  const packLine = () => {
+    if (!fromPack) return;
+    const c = map?.getCenter();
+    info.textContent = c && !inArea(c.lat, c.lng) ? WORDS.outside : styleId !== 'dark' ? WORDS.style : WORDS.drawn;
+  };
 
   // ---------- what every style gets: buildings, overlays, the line between pins ----------
   const firstLabel = () => map?.getStyle().layers.find((l) => l.type === 'symbol')?.id;
@@ -146,7 +158,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     // Liberty draws its own 3D buildings; ours replace them so the switch works the same everywhere.
     if (map.getLayer('building-3d')) map.setLayoutProperty('building-3d', 'visibility', 'none');
     if (buildings && !map.getLayer('ghosty-buildings')) map.addLayer(buildingsLayer(), firstLabel());
-    for (const o of overlays) addOverlay(o);
+    if (!fromPack) for (const o of overlays) addOverlay(o);
     paintLine();
   };
   const addOverlay = (o: Overlay3dId) => {
@@ -181,8 +193,8 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
   };
   const paintLine = () => {
     if (!map) return;
-    const pts = pinned.points;
-    const data = { type: 'Feature', geometry: { type: 'LineString', coordinates: pinned.line && pts.length > 1 ? pts.map((p) => [p.lon, p.lat]) : [] }, properties: {} };
+    const pts = pinned.route.length > 1 ? pinned.route : pinned.line ? pinned.points : [];
+    const data = { type: 'Feature', geometry: { type: 'LineString', coordinates: pts.length > 1 ? pts.map((p) => [p.lon, p.lat]) : [] }, properties: {} };
     const src = map.getSource('ghosty-line');
     if (src) src.setData(data);
     else {
@@ -225,12 +237,13 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     pin = new ML.Marker({ element: h('div.m3pin.me', h('i')), anchor: 'bottom' }).setLngLat([lon, lat]).setPopup(popup).addTo(map);
     pin.togglePopup();
     try {
+      if (fromPack) throw new Error(WORDS.address);
       const r = await reverseAddress(lat, lon);
       if (!name && r.name) title.textContent = r.name;
       status.textContent = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
       here.name = shortName(r) || here.name;
     } catch {
-      status.textContent = 'The address service is not reachable right now.';
+      status.textContent = fromPack ? WORDS.address : 'The address service is not reachable right now.';
     }
   };
 
@@ -239,6 +252,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     const c = map.getCenter();
     current = { lat: c.lat, lon: c.lng, name: current.name };
     host.dispatchEvent(new CustomEvent('map3d:move', { detail: { lat: c.lat, lon: c.lng } }));
+    packLine();
   };
 
   // ---------- the chips ----------
@@ -310,11 +324,13 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
       info.textContent = 'The 3D map could not load (its library is missing from this site).';
       return;
     }
+    registerMapProtocol(ML);
+    fromPack = await drawsFromPack();
     token = (await brain.publicKeys()).mapbox ?? '';
     if (opts.style && STYLES3D.some((s) => s.id === opts.style && (!s.mapbox || token))) styleId = opts.style;
     if (opts.buildings !== undefined) buildings = opts.buildings;
     for (const o of opts.overlays ?? []) overlays.add(o);
-    pinned = { points: (opts.points ?? []).filter(valid), line: !!opts.line };
+    pinned = { points: (opts.points ?? []).filter(valid), line: !!opts.line, route: (opts.route ?? []).filter(valid) };
     const zoom = opts.zoom ?? 15.5;
     const pitch = opts.pitch ?? (zoom >= 13 ? 50 : 0);
     if (!map) {
@@ -324,6 +340,8 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
         info.textContent = `This browser can't draw the 3D map: ${(e as Error).message}`;
         return;
       }
+      // the specs' handle on the map (only ever under a test runner)
+      if (navigator.webdriver) (window as unknown as { __ghostyMap?: unknown }).__ghostyMap = map;
       map.addControl(new ML.NavigationControl({ visualizePitch: true, showZoom: false }), 'top-right');
       map.addControl(new ML.ScaleControl({ maxWidth: 90, unit: settings.get().units === 'imperial' ? 'imperial' : 'metric' }), 'bottom-left');
       map.on('style.load', decorate);
@@ -331,10 +349,27 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
       map.on('moveend', onMove);
       map.on('error', (e) => {
         const m = e.error?.message ?? '';
-        if (/style|fetch|network|load/i.test(m)) info.textContent = 'Map tiles are not reachable right now.';
+        if (!fromPack && /style|fetch|network|load/i.test(m)) info.textContent = 'Map tiles are not reachable right now.';
       });
-      map.once('load', () => (info.textContent = ''));
+      map.once('load', () => {
+        info.textContent = '';
+        packLine();
+      });
       info.textContent = 'Loading the map…';
+      // the signal goes (or comes back) while the map is open: the pack's map takes over, or the live one does
+      const resync = () => void drawsFromPack().then((now) => {
+        if (!map || now === fromPack) return;
+        fromPack = now;
+        map.setStyle(styleFor(styleId));
+        info.textContent = '';
+        packLine();
+      });
+      addEventListener('offline', resync);
+      addEventListener('online', resync);
+      netListen = () => {
+        removeEventListener('offline', resync);
+        removeEventListener('online', resync);
+      };
     } else {
       map.setStyle(styleFor(styleId));
       map.jumpTo({ center: [spot.lon, spot.lat], zoom: opts.zoom ?? map.getZoom(), pitch: opts.pitch ?? map.getPitch() });
@@ -355,6 +390,8 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     spot: () => ({ ...current }),
     invalidate: () => map?.resize(),
     destroy: () => {
+      netListen?.();
+      netListen = null;
       map?.remove();
       map = null;
       markers = [];

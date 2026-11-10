@@ -551,9 +551,12 @@ export const lookTab: TabDef = {
         restamp();
         paintStates();
         showing();
-        // the orb is borrowed a frame after the screen has painted (moving and sizing the one WebGL canvas is the costly
-        // part of this open): the open stays under its budget, and the spec waits for the orb's first frame, not the paint
-        requestAnimationFrame(() => setTimeout(() => { if (ui.get().tab === 'look') void borrow(); }, 0));
+        // The orb is borrowed two frames after the screen has painted, never one: moving and sizing the one WebGL canvas is the costly
+        // part of this open. One frame was not enough on the SECOND open: Home's Mind is already started then, so the borrow ran its
+        // lend (a canvas resize) and the stills in the same task that the stopwatch's own timer waits behind, and the open was timed
+        // 675 and 783 ms on the two-core runner against a budget of 300. The stopwatch's timer fires after the first paint; this
+        // runs in the frame after that. The spec waits for the orb's first frame, not the paint.
+        requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { if (ui.get().tab === 'look') void borrow(); }, 0)));
       },
       leave() {
         giveBack();

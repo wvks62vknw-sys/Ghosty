@@ -1,0 +1,146 @@
+/**
+ * SETTINGS → OFFLINE MAPS and OFFLINE EYES (BRIEF-OFFLINE-1): the packs he keeps on the phone so the map of his area and the Lens's
+ * own reading work with no signal. Each pack is a row in the Wikipedia pack's own words (wiki/view.ts): its name, what is in it,
+ * its size said before the tap (`Get · about 70 MB`), its licence, GET (which waits for Wi-Fi where the browser says it is on mobile
+ * data, shows "piece 3 of 1,200 · 24 MB of about 70 MB" with STOP, and carries on from where it stopped), and once it is here "<name>,
+ * <month>, <size> on your phone" with DELETE (the UNDO bar holds the delete back). One download at a time. The files and the rule are
+ * offline/pack.ts; the map's are offline/maps.ts, the Lens's are offline/eyes.ts.
+ */
+import { clear, h } from '../../core/dom';
+import { CANNOT, EYES_PACKS, markLens } from '../../offline/eyes';
+import { mapPack } from '../../offline/maps';
+import { deletePack, getPack, gettingWords, goneFiles, isHere, keptAll, keptWords, mobileWords, offMobileData, onMobileData, progressLine, readLog, sizeSaid, sizeWords, type GetProgress, type PackDef } from '../../offline/pack';
+import { button, panel, toast, undo, type Panel } from '../../ui/components';
+
+/** One download at a time across both panels; every panel repaints when it moves. */
+let getting: { id: string; ctl: AbortController; line: string; frac: number } | null = null;
+let failed: { id: string; text: string } | null = null;
+const painters = new Set<() => void>();
+const repaintAll = (): void => painters.forEach((f) => f());
+/** Packs hidden while the UNDO bar is up (their files go when the bar does). */
+const leaving = new Set<string>();
+
+async function fetchPack(p: PackDef): Promise<void> {
+  if (getting) return;
+  failed = null;
+  const ctl = new AbortController();
+  getting = { id: p.id, ctl, line: '', frac: 0 };
+  const show = (line: string, frac = getting?.frac ?? 0) => {
+    if (!getting) return;
+    getting.line = line;
+    getting.frac = frac;
+    repaintAll();
+  };
+  try {
+    if (onMobileData()) {
+      show(mobileWords(p));
+      await offMobileData(ctl.signal);
+      if (ctl.signal.aborted) throw Object.assign(new Error('stopped'), { name: 'AbortError' });
+    }
+    show(gettingWords(p));
+    await getPack(p, (x: GetProgress) => show(progressLine(x.piece, x.of, x.got, x.total), x.total ? Math.min(1, x.got / x.total) : 0), ctl.signal);
+    markLens(p.id);
+    getting = null;
+    repaintAll();
+    toast(`${p.name} is on your phone: it works with or without a signal.`, 'ok');
+  } catch (e) {
+    const stopped = (e as Error)?.name === 'AbortError';
+    getting = null;
+    failed = { id: p.id, text: stopped ? 'Stopped. What came so far stays: GET carries on from there.' : String((e as Error)?.message ?? e) };
+    repaintAll();
+  }
+}
+
+function remove(p: PackDef): void {
+  leaving.add(p.id);
+  repaintAll();
+  const size = sizeWords(keptAll()[p.id]?.bytes ?? p.bytes);
+  undo(
+    `${p.name} (${size}) deleted from this phone.`,
+    () => {
+      leaving.delete(p.id);
+      repaintAll();
+    },
+    async () => {
+      await deletePack(p);
+      leaving.delete(p.id);
+      repaintAll();
+    },
+  );
+}
+
+/** A panel of packs: the rows, and under them whatever the pack set has to say (what cannot run on the phone, the licences). */
+function packsPanel(title: string, cls: string, lead: string, packs: () => PackDef[], foot: string[]): Panel & { refresh(): void } {
+  const p = panel(title, { grow: false, cls, status: 'Checking this phone…' });
+  const rows = h('div.wikioffers');
+  p.body.append(h('p.note', lead), rows, ...foot.map((t) => h('p.note', t)));
+  const paint = async (): Promise<void> => {
+    const list = packs();
+    const here = new Set<string>();
+    for (const d of list) if (!leaving.has(d.id) && (await isHere(d))) here.add(d.id);
+    const was = readLog();
+    clear(
+      rows,
+      ...list.map((d) => {
+        const size = sizeSaid(d);
+        const mine = getting?.id === d.id;
+        const kept = keptAll()[d.id];
+        const gone = goneFiles.has(d.id);
+        const note =
+          was?.id === d.id && !mine
+            ? `GET stopped at piece ${was.piece} of ${was.of} when Ghosty closed: GET carries on from there.`
+            : gone
+              ? `${d.name} was on this phone, and iPhone has cleared some of it to make room (Ghosty did not). GET fetches only what is missing.`
+              : '';
+        const on = here.has(d.id) && kept;
+        const get = button(`Get · ${size}`, () => void fetchPack(d), 'on');
+        get.dataset.case = 'keep';
+        get.dataset.act = 'get';
+        get.setAttribute('aria-label', `Get ${d.name}, ${size}, on Wi-Fi`);
+        get.disabled = !!getting;
+        const stop = button('STOP', () => getting?.ctl.abort());
+        stop.dataset.act = 'stop';
+        const del = button('DELETE', () => remove(d), 'warn');
+        del.dataset.act = 'delete';
+        del.setAttribute('aria-label', `Delete ${d.name} from the phone`);
+        return h(
+          'div.wikioffer',
+          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : 'offered' } },
+          h('b', d.name),
+          h('span', d.what),
+          on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`),
+          h('small.packlic', d.licence),
+          d.note ? h('small.note', d.note) : null,
+          note ? h('small.note', note) : null,
+          failed?.id === d.id ? h('small.wikierr', { role: 'alert' }, failed.text) : null,
+          mine ? h('div.wikiprog', { role: 'status' }, h('div.gauge', h('i', { style: { width: `${Math.round((getting!.frac || 0) * 100)}%` } })), h('small.packline', getting!.line)) : null,
+          h('div.row', on ? del : mine ? stop : get),
+        );
+      }),
+    );
+    p.setStatus(here.size ? `${here.size} of ${list.length} here` : 'Not on this phone');
+  };
+  painters.add(() => void paint());
+  void paint();
+  return Object.assign(p, { refresh: () => void paint() });
+}
+
+/** SETTINGS → OFFLINE MAPS: the map of his area. */
+export const mapsPanel = (): Panel & { refresh(): void } =>
+  packsPanel(
+    'OFFLINE MAPS',
+    'offmaps',
+    'The map for your area, kept on this phone for when there is no signal: the 3D map and the journey draw from it, and say so. Fetched only when you tap, on Wi-Fi.',
+    () => [mapPack()],
+    ['Works with no signal: the map, its labels, the journey’s pins and path. Needs a signal, and says so: an address, a route, live traffic, rain and railways, the flat map’s other styles.'],
+  );
+
+/** SETTINGS → OFFLINE EYES: the Lens's own reading. */
+export const eyesPanel = (): Panel & { refresh(): void } =>
+  packsPanel(
+    'OFFLINE EYES',
+    'offeyes',
+    'What the Lens reads with, kept on this phone so it works with no signal. Nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
+    () => EYES_PACKS,
+    [CANNOT],
+  );

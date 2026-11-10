@@ -132,5 +132,7 @@ export interface MapLibreNS {
   ScaleControl: new (o?: { maxWidth?: number; unit?: 'metric' | 'imperial' | 'nautical' }) => MLControl;
   AttributionControl: new (o?: { compact?: boolean; customAttribution?: string }) => MLControl;
   setWorkerUrl(url: string): void;
+  /** A scheme of our own (offline/maps.ts draws the map from the phone's pack through one). */
+  addProtocol?(scheme: string, load: (params: { url: string; type?: string }, abort: AbortController) => Promise<{ data: unknown }>): void;
   version: string;
 }

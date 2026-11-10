@@ -8,7 +8,7 @@
  */
 import { brain } from '../api/brain';
 import { clear, h, icon } from '../core/dom';
-import { changesText, delayOf, hhmm, legColor, metres, mins, modeWord, ridesOf, standWord, stopsText, textOn, type Journey, type JourneyAnswer, type JourneyLeg, type JourneyMode } from '../data/journey';
+import { changesText, delayOf, hhmm, legColor, legPath, metres, mins, modeWord, ridesOf, standWord, stopsText, textOn, type Journey, type JourneyAnswer, type JourneyLeg, type JourneyMode } from '../data/journey';
 import { home } from '../state/app';
 import { button, modal } from './components';
 import type { FlatMap } from './flatmap';
@@ -107,7 +107,11 @@ export function showJourney(raw: JourneyAnswer, pick = 0): void {
   };
   its.forEach((j, i) => tabs.append(button(h('span', h('b', String(i + 1)), h('small', `${hhmm(j.start, tz)} → ${hhmm(j.end, tz)}`), h('small', `${mins(j.duration)} · ${changesText(j)}`)), () => draw(i), 'jtab')));
   const at = its[pick]!.legs[0]!.from;
-  flat = openMapSheet('map', { lat: at.lat, lon: at.lon, name: `JOURNEY · ${answer.to.name}` }, { below: sheet }).flat();
+  // With no signal the sheet draws the picked option on the West Midlands map kept on this phone (offline/maps.ts): its stops as
+  // pins and its path as the line (the live flat map draws the journey itself, leg by leg in its colours).
+  const path = its[pick]!.legs.flatMap((l) => legPath(l).map(([lat, lon]) => ({ lat, lon })));
+  const stops = [at, ...its[pick]!.legs.map((l) => l.to)].map((p, i) => ({ lat: p.lat, lon: p.lon, label: i === 0 ? 'START' : undefined }));
+  flat = openMapSheet('map', { lat: at.lat, lon: at.lon, name: `JOURNEY · ${answer.to.name}` }, { below: sheet, map3d: { points: stops, line: false, route: path } }).flat();
   draw(pick);
 }
 
