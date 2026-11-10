@@ -758,3 +758,36 @@ test('the owner’s chat waits for its best model two seconds at most, then the 
 
 // The stopwatch's tests (speed.ts and the phone's core/stopwatch.ts) run with these.
 await import('./speed.test.mjs');
+
+// [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
+// each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings
+// before the answer left). Now: the stores once, the keys together, the writes together.
+test('[speed] a completion reads its stores once and opens the keys together: the same model, a fraction of the wait', async () => {
+  const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  let reads = 0;
+  class SlowStorage extends MemStorage {
+    async get(k) {
+      reads++;
+      await wait(5);
+      return super.get(k);
+    }
+    async put(k, v) {
+      await wait(5);
+      return super.put(k, v);
+    }
+  }
+  const keys = { gemini: 'g', groq: 'q', cerebras: 'c', openrouter: 'o', mistral: 'm', nvidia: 'n', sambanova: 's', cohere: 'h', gemma: 'x' };
+  const slowVault = { get: async (n) => (await wait(10), keys[n] ?? null), has: async (n) => !!keys[n] };
+  globalThis.fetch = fakeFetch([]);
+  const msgs = [{ role: 'system', content: 'sys' }, { role: 'user', content: 'hello' }];
+  const plain = await new R.Router(new MemStorage(), vaultWith(keys), {}).complete(msgs, [tool('weather')]);
+  const r = new R.Router(new SlowStorage(), slowVault, {});
+  await r.complete(msgs, [tool('weather')]); // the first call also writes the quota and lists
+  reads = 0;
+  const t0 = Date.now();
+  const out = await r.complete(msgs, [tool('weather')]);
+  const took = Date.now() - t0;
+  assert.equal(out.model, plain.model, 'the model chosen is the one chosen with no delay');
+  assert.ok(reads <= 6, `${reads} storage reads for one completion (12 before)`);
+  assert.ok(took < 100, `a completion took ${took} ms with 5 ms a storage call and 10 ms a key (about 170 before)`);
+});

@@ -79,6 +79,7 @@ export const widgetTools: Tool[] = [
     description: 'List installed widgets.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const list = await loadWidgets(ctx.storage);
       return list.length ? list.map((w) => `${w.name}: ${w.title}`).join('\n') : 'No widgets installed.';

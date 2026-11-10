@@ -169,6 +169,7 @@ export const reverseTools: Tool[] = [
     description: 'List reverse-engineering jobs and their status.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const jobs = await loadReverseJobs(ctx.env, ctx.storage);
       return jobs.length ? jobs.slice(-15).reverse().map(describe).join('\n') : 'No reverse-engineering jobs yet.';
