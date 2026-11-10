@@ -23,7 +23,7 @@ import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { favourites, isFavourite, pinOnHold } from './favourites';
 import { jump } from './jump';
-import { houseOn, openThing } from './house';
+import { footOn, houseOn, housePlan, openThing } from './house';
 import { atHand, thingForNumber, thingLine } from './inventory';
 import { ROOMS } from './rooms';
 import { recipeEvents } from '../state/theme';
@@ -327,6 +327,13 @@ function hubTab(a: Area): TabDef {
 
 export const HUB_TABS: TabDef[] = AREAS.map(hubTab);
 
+/** His FAVOURITES and his RECENT screens as the jump bar lists them (pins first; a recent that is pinned is not listed twice): ONE INK's Home reads the same. */
+export function pinnedAndRecent(): { pinned: TabDef[]; lately: TabDef[] } {
+  const pinned = favourites().map(def).filter((t): t is TabDef => !!t && !t.hub);
+  const lately = recents.map(def).filter((t): t is TabDef => !!t && !t.hub && !pinned.includes(t)).slice(0, 4);
+  return { pinned, lately };
+}
+
 // ---------- Search wears the same icons: a coloured square per result, recent screens when nothing is typed
 const GROUP_TINT: Record<string, string> = { ASK: '#64d2ff', FLY: '#0a84ff', THEME: '#bf5af2', SYSTEM: '#8e8e93', EYE: '#0a84ff', MEDIA: '#ff375f', TOOLS: '#ff9f0a', GO: '#8e8e93' };
 addPaletteDecor({
@@ -338,8 +345,7 @@ addPaletteDecor({
   // FAVOURITES first (up to six, his order), then the last screens opened that are not already pinned: tap the search, tap the row
   recents: () => {
     const row = (t: TabDef, group: string) => ({ id: `tab_${t.id}`, title: toolName(t), group, run: () => void navTo(t.id, 'push') });
-    const pinned = favourites().map(def).filter((t): t is TabDef => !!t && !t.hub);
-    const lately = recents.map(def).filter((t): t is TabDef => !!t && !t.hub && !pinned.includes(t)).slice(0, 4);
+    const { pinned, lately } = pinnedAndRecent();
     return [...pinned.map((t) => row(t, 'FAVOURITES')), ...lately.map((t) => row(t, 'RECENT'))];
   },
   hold: (c, el) => pinOnHold(el, c.id.replace(/^tab_/, '')),
@@ -347,6 +353,11 @@ addPaletteDecor({
   jump,
   typed: (text) => {
     if (!houseOn()) return false;
+    // "the plan" typed: the house unfolds (ONE INK has no label row to tap; the words are the way, as on every screen)
+    if (/^(?:open |show |show me )?the (?:plan|house)$/i.test(text.trim())) {
+      setTimeout(() => housePlan()?.open(), 0);
+      return true;
+    }
     const t = thingForNumber(text, ui.get().tab);
     if (!t) return false;
     openThing({ id: t.id, name: '', screen: t.screen, n: 0 });
@@ -514,6 +525,8 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
     hold = window.setTimeout(() => {
       hold = 0;
       held = true;
+      // ONE INK's foot: the eye (the Home key) held unfolds the plan (BRIEF-ONE-INK); the other keys fan their tools out as ever
+      if (footOn() && a.id === 'ask') return void housePlan()?.open();
       sw.open(b, a.title, switchItems(a));
     }, HOLD_MS);
   };

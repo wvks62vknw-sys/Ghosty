@@ -1,10 +1,13 @@
 /**
- * THE HOUSE ON EVERY SCREEN (BRIEF-SHELL-2; OWNER-ISSUES 143, 155): when the world is The Scan (a phone), the tab bar is the house
+ * THE HOUSE ON EVERY SCREEN (BRIEF-SHELL-2; OWNER-ISSUES 143, 155): when the world is The Scan or ONE INK (a phone), the tab bar is the house
  * the Scan's Home draws, on every screen: `THE HOUSE · 7 ROOMS` at the left, `YOU ARE IN <ROOM>` at the right, the seven rooms
  * HOME SEE MAKE LEARN PLAN LIFE ME as one plate of keys with the one he is in lit, and the ask line under it (a tap into it raises
  * the jump bar: shell/jump.ts). One tap on THE HOUSE unfolds THE PLAN: every room with its things numbered, the room he is in lit,
  * his favourites starred, his recents clocked, what is IN THE WORKS dotted amber, all from shell/rooms.ts (the deck's list and the
- * finding test's list: one source). Glass keeps today's bar: nothing here is drawn there (the CSS needs data-world="scan").
+ * finding test's list: one source). Glass keeps today's bar: nothing here is drawn there (`body.housed` is the house's own class).
+ * In ONE INK the house is the FOOT (BRIEF-ONE-INK): the same seven keys and the same YOU ARE IN state in another drawing, with no
+ * label row and no second ask line (the field is the jump bar, reached from Home's ask line, ⌘K and /); the plan opens from a long
+ * press on the foot's eye (the Home key) and from the jump bar's words "the plan".
  * Home draws its own house (features/core/scan/home.ts) with the same words; this piece gives it THE HOUSE's tap.
  */
 import { h, icon } from '../core/dom';
@@ -27,12 +30,14 @@ const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 
 /** What the house and the plan show, for specs and the console (window.__ghosty.house). */
 export const houseState = { planOpen: false, room: '', says: '' };
 
-/** The house is drawn: the Scan's world, on a phone. */
+/** The house is drawn: the Scan's world or ONE INK's, on a phone. */
 // (the width is read on a resize, not at every call: `innerWidth` makes the page lay itself out first, and the house asks on every screen
 // it enters, straight after the screen's own classes changed)
 let narrow = innerWidth < 900;
 addEventListener('resize', () => (narrow = innerWidth < 900));
-export const houseOn = (): boolean => narrow && document.documentElement.dataset.world === 'scan';
+export const houseOn = (): boolean => narrow && (document.documentElement.dataset.world === 'scan' || document.documentElement.dataset.world === 'ink');
+/** The house is drawn as ONE INK's foot (the same house in another drawing: no label row, no ask line). */
+export const footOn = (): boolean => narrow && document.documentElement.dataset.world === 'ink';
 
 /** The room he is in: the house's key lit and the words at the right ("LEARN"). Every screen has one; Every screen is under ME. */
 export function roomNow(): Room {
@@ -126,8 +131,8 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     if (el || !houseOn()) return;
     el = draw();
     const topEl = document.getElementById('top');
-    // (Home's ask line is its own, the talk line: scan/home.ts)
-    const askEl = document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK the plan stands on the foot's keys)
+    const askEl = footOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
     el.style.setProperty('--plan-bottom', `${Math.round(askEl ? innerHeight - askEl.getBoundingClientRect().top : 0) + 8}px`);
     document.getElementById('app')!.append(el);
@@ -173,6 +178,12 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     const fw = fieldWords();
     if (words.textContent !== fw) words.textContent = fw;
     // the Ask key reads HOME in the house (Home is the room it opens)
+    // (named Home for VoiceOver while the house is drawn: in ONE INK its word is not drawn, the eye is)
+    const askBtn = cap?.querySelector<HTMLElement>('button[data-area="ask"]');
+    if (askBtn) {
+      if (on && askBtn.getAttribute('aria-label') !== 'Home') askBtn.setAttribute('aria-label', 'Home');
+      else if (!on && askBtn.hasAttribute('aria-label')) askBtn.removeAttribute('aria-label');
+    }
     const askKey = cap?.querySelector<HTMLElement>('button[data-area="ask"] span');
     const askWord = on ? 'Home' : 'Ask';
     if (askKey && askKey.textContent !== askWord) askKey.textContent = askWord;

@@ -707,6 +707,13 @@ export class Mind {
     tpos.needsUpdate = true;
   }
 
+  /** The light is read again (ONE INK's Home draws the orb in bone with no glow while its page is on: state/theme.ts orbTokens). */
+  recolour(): void {
+    if (!this.T) return;
+    this.colours();
+    this.dirty = true;
+  }
+
   /** How bright the core is (0..1.5): Home tints its glass with it (--glow). */
   light(): number {
     return (0.55 + 0.35 * this.p.bright + 0.3 * this.kick) * (1 - 0.4 * this.p.grey);

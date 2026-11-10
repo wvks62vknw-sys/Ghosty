@@ -180,6 +180,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     // THE GALLERY'S WORDS (BRIEF-THEME-GALLERY 5): a look that is not built yet says its one line and changes nothing; "show me the looks" says what there is
     const looks = looksAsked(text);
     if (looks?.kind === 'coming') return answer(text, comingLine(looks.look), { kind: 'look' }, opts);
+    // ONE INK is built: its words switch to it at once, the colour staying his (a tap on its card does the same)
+    if (looks?.kind === 'world' && looks.look.world) {
+      const theme = await import('../state/theme');
+      const was = theme.recipe();
+      if (was.world !== looks.look.world) theme.applyRecipe({ ...was, world: looks.look.world });
+      return answer(text, was.world === looks.look.world ? `${looks.look.name} is already on. Your colour stays.` : `${looks.look.name}: on. ${looks.look.line}, in your colour.`, { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
+    }
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;

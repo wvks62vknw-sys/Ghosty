@@ -106,18 +106,27 @@ const now = () => scanState.clock?.() ?? Date.now();
 /** The lit thing by the hour: tonight's book from five in the afternoon, this morning's Brief before it. */
 export const litByHour = (d = new Date(now())) => (d.getHours() >= 17 || d.getHours() < 5 ? 'r-alice' : 'r-brief');
 
+/** Home's second line, in my voice (what Now is): THE SCAN's and ONE INK's, one source. */
+export function sayTwo(p: PlaceNow, hr = new Date(now()).getHours()): string {
+  if (p.kind === 'out') return 'Shall I plan the way back?';
+  if (p.kind === 'way') return 'Shall we read till you get there?';
+  if (hr >= 17 || hr < 5) return bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
+  if (hr < 12) return 'Shall I brief you?';
+  return 'Nothing needs you right now.';
+}
+
 /** The book he is in (his reading places, newest first): its name, how far, when; null when none is on the go. */
-function bookNow(): { doc: string; pct: number; at: number } | null {
+export function bookNow(): { doc: string; pct: number; at: number; page: number | null } | null {
   const all = Object.entries(places.get().map).filter(([, p]) => !p.done);
   if (!all.length) return null;
   const [doc, p] = all.sort((a, b) => b[1].at - a[1].at)[0]!;
-  return { doc, pct: p.pct, at: p.at };
+  return { doc, pct: p.pct, at: p.at, page: p.page ?? null };
 }
-const whenWord = (at: number): string => {
+export const whenWord = (at: number): string => {
   const d = (now() - at) / 86_400_000;
   return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.round(d)} days ago`;
 };
-const bookName = (doc: string) => doc.replace(/[-_]+/g, ' ').replace(/\.(pdf|epub|txt|md)$/i, '').replace(/^\w/, (c) => c.toUpperCase());
+export const bookName = (doc: string) => doc.replace(/[-_]+/g, ' ').replace(/\.(pdf|epub|txt|md)$/i, '').replace(/^\w/, (c) => c.toUpperCase());
 
 export interface ScanHome {
   el: HTMLElement;
@@ -399,14 +408,6 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     const stageEl = stage;
     stageEl.dataset.place = p.kind;
     stageEl.dataset.hour = new Date(now()).getHours() >= 17 || new Date(now()).getHours() < 6 ? 'night' : 'day';
-  };
-  const sayTwo = (p: PlaceNow): string => {
-    const hr = new Date(now()).getHours();
-    if (p.kind === 'out') return 'Shall I plan the way back?';
-    if (p.kind === 'way') return 'Shall we read till you get there?';
-    if (hr >= 17 || hr < 5) return bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
-    if (hr < 12) return 'Shall I brief you?';
-    return 'Nothing needs you right now.';
   };
 
   // ---------------------------------------------------------------- each frame: the camera, the orb, the marks, the leads
