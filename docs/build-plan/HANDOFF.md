@@ -455,6 +455,11 @@ folder that no longer exists; ignore those paths).
   21:05 UK: MAIN'S OWN RUN on b4bd929 GREEN on every job (brain, interface, deploy-build, the four smoke shards; the guard skipped
   as it should). The shell in The Scan is FINISHED on the code side, pending his phone check (OWNER-ISSUES 166). Worktree shell3
   and branch builder/shell3 removed. The ONE INK builder still running.
+  10 Nov 01:40 UK: ONE INK landed on the session branch as one commit (5f8bd3e) after the container restart killed its builder
+  with no report: the orchestrator wrote ink-report.md from the sweep logs, reran tabs2, ink, look, routec, deck, settings,
+  thescan, hubcards and boot (all green) and the brain (1834 of 1834); the builder's uncommitted late edit (book titles on Home) was
+  not landed (saved as ink-uncommitted-home.patch in the scratchpad). OWNER-ISSUES 168. Push, PR and the run follow.
+  USAGE: no report from the owner since 9 Nov 21:10 UK (all models 68%).
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
