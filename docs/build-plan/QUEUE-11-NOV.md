@@ -8,6 +8,13 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [ ] ENGINE 3D (landing) · THE MAP (landing) · SPEAKER (landing) · TRAINING FOR REAL (landing) · THIS PHONE (landing)
 - [ ] THE EYE HUD (building) · SMALL FIXES 1 (building) · DOCUMENTS editor (building) · OCTOBER IDEAS 1, the HUD alive (building)
 
+## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
+Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
+one-handed); every word his, one sentence a screen; every wait over half a second says what for in his voice; every number honest with its
+word (estimate, measured, first estimate · not certified); every control 44 pt; 120 Hz where the phone gives it; a speed budget in every spec;
+the top tier reads the whole diff as a critic before landing and sends back what is merely fine. The old surfaces get the same bar through the
+QUALITY PASSES below, one room each, each with a ratchet test so the old shape cannot return.
+
 ## Next, in order
 1. OCTOBER IDEAS 2, life easier: "Hey Siri, ask Ghosty…" and a share-to-library Shortcut; the Brief read aloud on the first open and "leave by"
    times; "What did I miss?"; money nudges from the statements; "teach me what you learned this week"; a photographed letter becomes a reminder
@@ -31,7 +38,12 @@ a run green first time; main's own run read after. The top tier reviews every di
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
-13. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
+13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
+    house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
+    arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
+    System, Links, Social) · the chat itself (the log, the Stage, WHY, the ask line) · Telegram · the boot and the orb. Each pass: every state,
+    every word, every wait, every number, every tap; before-and-after stills in the report; nothing new added, everything there made right.
+14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 
 ## His hands only (not builds; asked once, here)
 The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; the 0.5B SIT result; the voice blind check; his principles in his

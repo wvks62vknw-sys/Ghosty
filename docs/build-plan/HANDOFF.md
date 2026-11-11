@@ -4,6 +4,7 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+- 11 Nov, evening (UK): usage all models 7%, top tier not given. His word: "go crazy… insane quality even things in the past": the quality rule and the QUALITY PASSES are in QUEUE-11-NOV; OWNER-ISSUES has his words.
 ## START HERE (written 4 Nov for the next session; everything below is history and detail)
 
 - **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (the strong tier for
