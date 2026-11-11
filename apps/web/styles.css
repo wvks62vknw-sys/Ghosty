@@ -6974,6 +6974,65 @@ html #thestage .stgpage .stgh { font: var(--g-t-head); letter-spacing: var(--g-t
 html #thestage .stgpage .stgp, html #thestage .stgpage .stgli { font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
 /* ONE INK: the printed page has rules, not a box (the world's plate tokens draw the rules); the Stage is solid paper over it */
 html[data-world="ink"] #thestage { box-shadow: none; }
+/* ==========================================================================================================================
+   THE 3-D ENGINE (BRIEF-ENGINE-3D-1; engine3d/pane.ts): a pane of the 3D studio. The stage clears to the world's canvas and draws in
+   the accent and bone it reads from these tokens; every key, field and row is a token, 44 pt, square-cornered in The Scan and
+   ONE INK and glass in Glass by the plate tokens. No colour of its own.
+   ========================================================================================================================== */
+html .studioseg button[data-pane="engine"] { grid-column: 1 / -1; }
+html .hud.studio[data-pane="engine"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
+html .hud.studio[data-pane="engine"] .studioview, html body.housed .hud.studio[data-pane="engine"] .studioview { aspect-ratio: auto; height: min(48vh, 460px); max-height: none; position: sticky; top: 0; z-index: 6; }
+html :is(#pg-studio:has(.hud.studio[data-pane="engine"]), .hud.studio[data-pane="engine"]) { scroll-padding-top: calc(min(48vh, 460px) + var(--g-s-1)); }
+html .e3stage { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: rgb(var(--g-canvas-rgb)); touch-action: none; user-select: none; -webkit-user-select: none; border-radius: inherit; }
+html .e3stage[hidden] { display: none; }
+html .e3stage canvas.e3canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+html .e3hud { position: absolute; left: var(--g-s-1); right: var(--g-s-1); top: var(--g-s-1); z-index: 4; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--g-s-1); pointer-events: none; }
+html .e3title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); color: var(--g-ink-1); background: var(--g-plate-fill); border-radius: var(--g-radius-mark); }
+html .e3chips { display: flex; flex: none; gap: var(--g-s-half); pointer-events: auto; }
+html .e3tools { position: absolute; left: var(--g-s-1); bottom: var(--g-s-1); z-index: 4; display: flex; gap: var(--g-s-half); }
+html .e3tools[hidden], html .e3hint[hidden], html .e3things[hidden], html .e3inspector[hidden] { display: none; }
+html .e3hint { position: absolute; left: var(--g-s-1); right: var(--g-s-1); top: calc(var(--g-s-1) + var(--g-target) + var(--g-s-half)); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half) var(--g-s-1); padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); color: var(--g-ink-1); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .e3hint span { flex: 1 1 140px; min-width: 0; }
+html button:is(.e3chip, .e3tool, .e3card, .e3pill, .e3thing, .e3act, .e3get, .e3swatch, .e3open):not(#e3) { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0 var(--g-s-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); box-shadow: none; -webkit-tap-highlight-color: transparent; }
+html :is(.e3chip, .e3tool, .e3card, .e3pill, .e3thing, .e3act, .e3get, .e3swatch, .e3open)[disabled] { color: var(--g-ink-4); }
+html :is(.e3tool, .e3card, .e3pill, .e3thing, .e3act, .e3swatch, .e3open).on, html :is(.e3card, .e3pill, .e3tool)[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .e3pane { display: flex; flex-direction: column; gap: var(--g-s-2); min-width: 0; overflow-wrap: anywhere; }
+html .e3est { margin: 0; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html .e3say { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html .e3say:empty { display: none; }
+html .e3h { margin: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .e3note { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .e3pills { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html .e3cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: var(--g-s-1); }
+html .e3card { justify-content: flex-start; text-align: left; text-transform: none; padding: var(--g-s-half) var(--g-s-1); }
+html .e3cardin { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .e3cardin b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); }
+html .e3cardin small, html .e3rowin small, html .e3freetx small { font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); }
+html .e3things { display: flex; gap: var(--g-s-half); overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--g-s-2) * -1); padding: 0 var(--g-s-2); }
+html .e3things::-webkit-scrollbar { display: none; }
+html .e3thing { flex: none; text-transform: none; }
+html .e3inspector, html .e3library, html .e3scene { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .e3fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+html .e3field { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l l" "i u"; align-items: center; column-gap: var(--g-s-1); min-width: 0; box-sizing: border-box; padding: var(--g-s-half) var(--g-s-1) 0; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .e3field span { grid-area: l; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html .e3field small { grid-area: u; font: var(--g-t-fine); color: var(--g-ink-3); }
+html :is(.e3num, .e3name, .e3q) { box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--g-target); margin: 0; padding: 0 var(--g-s-1); font: var(--g-t-reading); color: var(--g-ink-1); background: none; border: 0; border-radius: 0; box-shadow: none; outline-offset: 2px; }
+html .e3field .e3num { grid-area: i; padding: 0; text-align: right; font-feature-settings: "tnum"; }
+html :is(.e3name, .e3q) { background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); font: var(--g-t-body); letter-spacing: var(--g-tr-body); }
+html .e3mats, html .e3acts { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html .e3swatch { padding: 0; }
+html .e3sw { display: block; width: calc(var(--g-icon) + var(--g-s-half)); height: calc(var(--g-icon) + var(--g-s-half)); background: var(--sw); border: var(--g-hair) solid var(--g-line); border-radius: 0; }
+html .e3free { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); padding: var(--g-s-half) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .e3freetx { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .e3freetx b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .e3freeacts { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: var(--g-s-half); }
+html .e3get { flex: none; text-transform: none; }
+html .e3saved { display: flex; align-items: stretch; gap: var(--g-s-half); }
+html .e3open { flex: 1; justify-content: flex-start; text-align: left; text-transform: none; min-width: 0; }
+html .e3rowin { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .e3rowin b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); }
+html .e3savedlist { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html[data-world="ink"] .e3stage { border: 0; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

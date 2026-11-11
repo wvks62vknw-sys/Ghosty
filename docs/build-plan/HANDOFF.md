@@ -4,6 +4,7 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+- 11 Nov, evening (UK): usage all models 7%, top tier not given. His word: "go crazy… insane quality even things in the past": the quality rule and the QUALITY PASSES are in QUEUE-11-NOV; OWNER-ISSUES has his words.
 ## START HERE (written 4 Nov for the next session; everything below is history and detail)
 
 - **What you are.** The orchestrator of Ghosty for one owner. You plan, write briefs, run builders in git worktrees (the strong tier for
@@ -498,6 +499,10 @@ folder that no longer exists; ignore those paths).
   11 Nov (kernel): KERNEL batch (builder/kernel, base cf84288) landed on the session branch as one commit on 743edcb: among protected files only agent.ts and one
   line of apps/edge/package.json; build, brain (1876: two timing fails under load 25, green alone), showme and settings green; speed2 red under load on this tree AND
   on the head before it (1062 to 1588 ms at load 16 to 21, both): load, not the batch. OWNER-ISSUES 175. Push, PR, the run follow. PR #82 run 1 (f161cfd): every job green but smoke (2): lens.spec 'READ did not read the tagged text: Still reading the last picture' (OCR timing, nothing the batch touches); repeated on a new commit so the run that merges is green the first time. Run 2 (ebacf27): red on games4.spec 'beat: JUMP jumps (null)' (a press the game took no notice of while the last move recovered; also seen locally as DUCK/DASH): the spec now repeats a press the game took none of (up to four times, 3 s each) and reads the move at the frame it starts; the move must still be the one the button means; 5 of 5 local runs clean (was 1 of 5 to 2 of 5). Nothing loosened.
+  11 Nov 10:40 UK: PR #82 (KERNEL) GREEN on its third run (0ad43e7; run 1 a lens timing miss, run 2 a games4 press race, fixed in the spec) and SQUASH-MERGED as 65cb295;
+  MAIN'S OWN RUN 42996108619 GREEN on every job: KERNEL FINISHED on the code side, pending his phone check (OWNER-ISSUES 175). Worktree kernel and branch builder/kernel removed.
+  11 Nov: ENGINE 3D (builder/engine3d, base 32d717e) landed on the session branch as one commit, 3-way (check.yml's list ends ... games4 engine3d); built, engine3d and showme
+  clean, nav clean on rerun, studio red on its WebGL picture line and look red at BODY 21 on load only (the head before it passed look): the PR's run decides. OWNER-ISSUES 177.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
   The top tier takes one turn per hand-back and relays his usage and his words to it.

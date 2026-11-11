@@ -324,16 +324,6 @@ function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: strin
 
 // ---------------------------------------------------------------- the Stage
 
-/** The room Studio's JSON for a part alone: a room a little bigger than it, with it standing in the middle. */
-function studioRoomOf(show: Show): unknown {
-  if (show.kind === 'room' && show.room) return roomPlanFor(show.room);
-  if (show.kind === 'part' && show.part) {
-    const { w, d, h: hh } = show.part.dims;
-    return { room: { w: w + 120, d: d + 120, h: Math.max(240, hh + 40) }, items: [{ name: show.part.name, w, d, h: hh, x: 60, y: 60, rot: 0 }] };
-  }
-  return null;
-}
-
 /** OPEN: the full screen for what the Stage shows (the map sheet, God's Eye, the document editor, the Workbench, the Studio). */
 async function open(show: Show, facts: ShowFacts): Promise<void> {
   const { run } = await import('../commands/registry');
@@ -353,8 +343,10 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
     if (p) openWorkbench(PANEL_OF[p.kind], p);
     return;
   }
-  const room = studioRoomOf(show);
-  if (room) await run('open_studio', { room, title: show.title });
+  // a room or a part opens in the 3-D engine, as a scene he can build on (BRIEF-ENGINE-3D-1)
+  const { sceneFromPart, sceneFromRoom } = await import('../engine3d/ask');
+  if (show.kind === 'room' && show.room) await run('open_studio', { engine: sceneFromRoom(show.room), title: show.title });
+  else if (show.kind === 'part' && show.part) await run('open_studio', { engine: sceneFromPart(show.part.kind, show.part.dims, show.part.name), title: show.title });
 }
 
 /** Where the Stage sits: above the ask line (or the dock), with the conversation shrunk above it. */

@@ -379,7 +379,7 @@ export function registerBuiltins(): void {
       },
     },
     {
-      // The 3D STUDIO: a sample, a model made from a picture (make_3d), words to make (catalogue first), a catalogue model, a room in cm, or a Spline link.
+      // The 3D STUDIO: a sample, a model made from a picture (make_3d), words to make (catalogue first), a catalogue model, a room in cm, a Spline link, or a scene for the 3-D engine.
       id: 'open_studio',
       title: 'Open the 3D Studio',
       hidden: true,
@@ -393,6 +393,7 @@ export function registerBuiltins(): void {
           title: typeof a?.title === 'string' ? a.title.slice(0, 80) : undefined,
           room: a?.room && typeof a.room === 'object' ? a.room : undefined,
           spline: typeof a?.spline === 'string' ? a.spline : undefined,
+          engine: a?.engine && typeof a.engine === 'object' ? a.engine : undefined,
         });
       },
     },
