@@ -505,7 +505,7 @@ folder that no longer exists; ignore those paths).
   11 Nov 19:40 UK: main's own run 43071148951 (PR #83, ENGINE 3D, 5741b12) GREEN on every job: ENGINE 3D FINISHED on the code side, pending his phone check (OWNER-ISSUES 177). PR #83's smoke (2)
   was rerun three times (one tabs jump-bar 306 ms wobble, two runner failures before any test: the package mirror down) and went green on attempt 4. Worktree engine3d and branch removed.
   THE MAP (builder/huds, base 32d717e) landed on the session branch as one commit (check.yml's list ends ... engine3d maphud); maphud made order-independent (reads the agenda as the app does);
-  routec then maphud on one server: only the speed line over under load 20; layout, library, ink, thescan clean; look red at BODY 21 on load only. OWNER-ISSUES 180.
+  routec then maphud on one server: only the speed line over under load 20; layout, library, ink, thescan clean; look red at BODY 21 on load only. OWNER-ISSUES 180. PR #84 run 1 (da8bd0c) red in smoke (1): streetview 'TRAFFIC opened null' twice: a REAL regression, THE MAP's Home frame class .mapframe collided with the map sheet's iframe.mapframe (the Waze live map was hidden); renamed .maphudframe (map/home.ts, styles.css, maphud.spec); streetview, map, maphud green locally, base streetview green; fixed forward, new run.
   clean, nav clean on rerun, studio red on its WebGL picture line and look red at BODY 21 on load only (the head before it passed look): the PR's run decides. OWNER-ISSUES 177.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).

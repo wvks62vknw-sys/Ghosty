@@ -6937,16 +6937,16 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
    keys as ticks on a ruler with a marker on the one he is in. Nothing of The Scan's room, ONE INK's page or Glass's blur.
    Every value is a token (the plane's own are --g-map-* in tokens.css).
    ===================================================================================================================== */
-html .mapframe { display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 1; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + var(--g-s-1)) var(--g-gutter) calc(var(--dockh, 0px) + var(--g-s-1)); background: var(--g-canvas); color: var(--g-ink-1); }
+html .maphudframe { display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 1; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + var(--g-s-1)) var(--g-gutter) calc(var(--dockh, 0px) + var(--g-s-1)); background: var(--g-canvas); color: var(--g-ink-1); }
 @media (max-width: 899px) {
   html body.maphome .hud.core { display: block; padding: 0; }
-  html body.maphome .hud.core .mapframe { display: flex; flex-direction: column; }
-  html body.maphome .hud.core:not(.logopen) > :not(.mapframe) { display: none !important; }
+  html body.maphome .hud.core .maphudframe { display: flex; flex-direction: column; }
+  html body.maphome .hud.core:not(.logopen) > :not(.maphudframe) { display: none !important; }
   html body.maphome #top { display: none; }
   /* (the flat grid that stands over every other screen is the plane's on Home) */
   html body.maphome::before { display: none; }
-  html body.maphome .hud.core.logopen > :not(.mapframe, .ccenter) { display: none !important; }
-  html body.maphome .hud.core.logopen .mapframe { visibility: hidden; }
+  html body.maphome .hud.core.logopen > :not(.maphudframe, .ccenter) { display: none !important; }
+  html body.maphome .hud.core.logopen .maphudframe { visibility: hidden; }
   html body.maphome .hud.core.logopen > .ccenter { position: absolute; inset: 0; z-index: 7; gap: 0; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + 56px) var(--g-gutter) max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); overflow: hidden; background: var(--g-canvas); }
   html body.maphome.ownback #top { display: flex; position: absolute; z-index: 12; left: 0; right: 0; top: env(safe-area-inset-top, 0px); min-height: 0; padding: var(--g-s-1) var(--g-gutter) 0; background: none; }
   html body.maphome.ownback #top .logbtn { width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; border: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: 0 !important; background: none; box-shadow: none; }
@@ -6958,13 +6958,13 @@ html .mapframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .mapgrid { position: absolute; left: 0; right: 0; top: calc(-1 * var(--g-map-cell)); bottom: 0; background-color: rgba(var(--g-bone-rgb), calc(var(--g-floor-a) * 1.7)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; animation: mapdrift var(--g-map-drift) steps(120) infinite; }
   @keyframes mapdrift { to { transform: translateY(var(--g-map-cell)); } }
   html[data-motion="calm"] .mapgrid { animation: none; }
-  html .mapframe > :not(.mapplane) { position: relative; z-index: 1; }
+  html .maphudframe > :not(.mapplane) { position: relative; z-index: 1; }
   html .mapmast { flex: none; padding: var(--g-s-1) 0; border-bottom: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); }
   html .mapmast .hstamp { padding: 0; opacity: 1; }
   html .mapmast .g-stamp .on { color: var(--g-accent-text); }
   html .mapsay { flex: none; margin: var(--g-s-2) 0 0; font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); }
   html .mapsay2 { flex: none; margin: 4px 0 0; min-height: 26px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
-  html .mapframe[data-reply="true"] .mapsay2 { cursor: pointer; color: var(--g-ink-1); }
+  html .maphudframe[data-reply="true"] .mapsay2 { cursor: pointer; color: var(--g-ink-1); }
   /* the districts: the rooms as places on the plane, two to a row, each a dashed border with its name, its count and a pin for each thing in it */
   html .mapdistricts { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); margin-top: var(--g-s-2); }
   html #app button.mapdistrict { position: relative; display: grid; grid-template-columns: 1fr auto; align-content: center; align-items: baseline; gap: 2px var(--g-s-1); min-height: 56px !important; height: auto; margin: 0; padding: var(--g-s-1) var(--g-s-1) var(--g-s-1) var(--g-s-2); border: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: var(--g-radius-cell); background: rgba(var(--g-canvas-rgb), .72); box-shadow: none; text-align: left; font: var(--g-t-key) !important; letter-spacing: .24em !important; text-transform: uppercase; color: var(--g-ink-1); }
@@ -7000,7 +7000,7 @@ html .mapframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html #app button.mapspeak { flex: none; display: grid; place-items: center; width: 48px; min-height: 48px !important; height: 100%; margin: 0; padding: 0; border: 0; border-left: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: 0; background: none; box-shadow: none; }
   html .mapspeak .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
   html #app button.mapspeak.on .ic { stroke: var(--g-accent); }
-  html body.maphome:is(.kb, .ownback) .mapframe { padding-bottom: var(--g-s-1); }
+  html body.maphome:is(.kb, .ownback) .maphudframe { padding-bottom: var(--g-s-1); }
 }
 /* a short phone (390 × 844): the same page a little closer together, so the ask line still ends above the scale's words */
 @media (max-width: 899px) and (max-height: 880px) {

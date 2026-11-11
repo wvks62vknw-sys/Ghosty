@@ -64,7 +64,7 @@ export function mapHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
   const speak = h('button.mapspeak', { type: 'button', 'aria-label': 'Talk to me' }, icon(MIC));
   const ask = h('div.mapask', field, speak);
   const plane = h('div.mapplane', { 'aria-hidden': 'true' }, h('i.mapgrid'));
-  const el = h('div.mapframe', plane, mast, say, say2, districts, handTag, nine, ask);
+  const el = h('div.maphudframe', plane, mast, say, say2, districts, handTag, nine, ask);
 
   field.addEventListener('click', () => togglePalette());
   speak.addEventListener('click', () => o.mic());

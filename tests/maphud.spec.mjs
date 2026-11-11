@@ -54,7 +54,7 @@ async function open({ viewport = PHONE, look = MAP, book = false, pins = ['lens'
     window.__ghostyPlace = { none: true };
     // the stopwatch's tests (timed() below): the printed page drawn, the room's band drawn, the jump bar open with its first rows
     window.__mapTests = {
-      home: () => { const f = document.querySelector('.mapframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('maphome') && !!r && r.width > 0 && !!document.querySelector('.mapask')?.getBoundingClientRect().width; },
+      home: () => { const f = document.querySelector('.maphudframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('maphome') && !!r && r.width > 0 && !!document.querySelector('.mapask')?.getBoundingClientRect().width; },
       see: () => document.body.dataset.tab === 'area-see' && !!document.querySelector('#pg-area-see .roomband')?.getBoundingClientRect().width,
       jump: () => { const p = document.querySelector('#palette.on'); const r = p?.querySelector('input')?.getBoundingClientRect(); return !!r && r.width > 0 && !!p.querySelector('.jgroup, .jempty'); },
     };
@@ -106,7 +106,7 @@ async function timed(page, click, name) {
   await page.waitForFunction(() => window.__map_t != null, null, { timeout: 6000 }).catch(() => undefined);
   return page.evaluate(() => window.__map_t);
 }
-const HOME_READY = () => { const f = document.querySelector('.mapframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('maphome') && !!r && r.width > 0 && !!document.querySelector('.mapask')?.getBoundingClientRect().width; };
+const HOME_READY = () => { const f = document.querySelector('.maphudframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('maphome') && !!r && r.width > 0 && !!document.querySelector('.mapask')?.getBoundingClientRect().width; };
 
 
 // ---- a. the gallery: THE MAP's card, a tap, a reload, THE SCAN back, the words
@@ -174,7 +174,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
     const css = (e, p) => (e ? getComputedStyle(e).getPropertyValue(p).trim() : '');
     const text = (s) => (q(s)?.innerText ?? '').replace(/\s+/g, ' ').trim();
     const box = (s) => { const r = q(s)?.getBoundingClientRect(); return r && [r.x, r.y, r.width, r.height].map(Math.round); };
-    const fr = q('.mapframe').getBoundingClientRect();
+    const fr = q('.maphudframe').getBoundingClientRect();
     const cells = [...document.querySelectorAll('.mapnine .mapcell')].map((c) => ({ slot: c.dataset.slot, kind: c.dataset.kind, lit: c.classList.contains('lit'), id: c.dataset.id ?? '', name: c.querySelector('.mcname')?.textContent ?? '', tag: c.querySelector('.mctag')?.textContent ?? '', w: Math.round(c.getBoundingClientRect().width), h: Math.round(c.getBoundingClientRect().height) }));
     return {
       stamp: text('.mapmast .g-stamp'), say: text('.mapsay'), say2: text('.mapsay2'), state: window.__ghosty?.map ? { on: window.__ghosty.map.on, line: window.__ghosty.map.line, tonight: window.__ghosty.map.tonight, cells: window.__ghosty.map.cells, districts: window.__ghosty.map.districts } : null,
@@ -184,7 +184,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
       plane: css(q('.mapplane'), 'transform'), flat: css(document.body, 'display') && getComputedStyle(document.body, '::before').display,
       scale: [...document.querySelectorAll('#dock .tabcap button')].map((b) => ({ area: b.dataset.area, label: b.getAttribute('aria-label') || b.textContent.trim(), lit: b.classList.contains('on'), w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) })),
       kick: text('#dock .housekick'), houseask: css(q('#dock .houseask'), 'display'), footTop: Math.round(q('#dock .tabcap').getBoundingClientRect().top),
-      frameBottom: Math.round(fr.bottom), frameTop: Math.round(fr.top), askBox: box('.mapask'), scroll: [q('.mapframe').scrollHeight, q('.mapframe').clientHeight, css(q('.mapframe'), 'padding-bottom')],
+      frameBottom: Math.round(fr.bottom), frameTop: Math.round(fr.top), askBox: box('.mapask'), scroll: [q('.maphudframe').scrollHeight, q('.maphudframe').clientHeight, css(q('.maphudframe'), 'padding-bottom')],
       scanmarks: [...document.querySelectorAll('.scanmarks, .scanleads')].filter((e) => e.getClientRects().length).length, ink: document.querySelectorAll('.inkframe').length ? [...document.querySelectorAll('.inkframe')].filter((e) => getComputedStyle(e).display !== 'none').length : 0,
       topShown: q('#top') ? getComputedStyle(q('#top')).display : 'none', glow: css(document.documentElement, '--g-glow'), world: document.documentElement.dataset.world, edge: css(document.documentElement, '--g-plate-edge'),
     };
@@ -204,7 +204,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   check(/THE MAP · 7 DISTRICTS/i.test(h.kick) && /YOU ARE IN HOME/i.test(h.kick) && h.houseask === 'none', `[home ${tag}] the scale's words: "${h.kick}", second ask line ${h.houseask}`);
   check(h.frameBottom <= innerHeightOf(vp) && h.scroll[2] !== '0px', `[home ${tag}] the frame's foot padding is ${h.scroll[2]}`);
   check(h.scanmarks === 0 && h.ink === 0 && h.topShown === 'none' && h.glow === '1' && h.world === 'map', `[home ${tag}] Scan marks ${h.scanmarks}, ink ${h.ink}, top ${h.topShown}, glow ${h.glow}, world ${h.world}`);
-  const bad = await floor(page, vp.width, '.mapframe');
+  const bad = await floor(page, vp.width, '.maphudframe');
   check(!bad.length, `[home ${tag}] the floor: ${bad.slice(0, 6).join('; ')}`);
   // the content of Home ends above the scale (the plane may run under it: it is the ground)
   const ends = await page.evaluate(() => { const a = document.querySelector('.mapask').getBoundingClientRect(); const k = document.querySelector('#dock .housekick').getBoundingClientRect(); return [Math.round(a.bottom), Math.round(k.top)]; });
@@ -349,7 +349,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   }
   timings.push(`home: map opens ${times.join(', ')} ms from the Home tick (median ${median(times)})`);
   check(median(times) < BUDGET, `[speed] Home in the map opened in ${median(times)} ms (median of five: ${times.join(', ')}; the budget is ${BUDGET} ms)`);
-  const anims = await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.target && !!a.effect.target.closest?.('.mapframe')).map((a) => `${a.effect.target.className}:${a.animationName ?? ''}`));
+  const anims = await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.target && !!a.effect.target.closest?.('.maphudframe')).map((a) => `${a.effect.target.className}:${a.animationName ?? ''}`));
   check(anims.length <= 1 && anims.every((a) => /mapgrid/.test(a)), `[ground] the page runs more than the plane's drift: ${anims}`);
   const stepped = await page.evaluate(() => getComputedStyle(document.querySelector('.mapgrid')).animationTimingFunction);
   check(/steps/.test(stepped), `[ground] the drift is not stepped (${stepped}): it would redraw at the screen's rate`);
@@ -367,7 +367,7 @@ for (const [look, name] of [[SCAN, 'scan'], [INK, 'ink'], [GLASS, 'glass']]) {
   const { ctx, page } = await open({ look, book: true });
   await go(page, 'core');
   await page.waitForTimeout(1500);
-  const own = await page.evaluate(() => ({ maphome: document.body.classList.contains('maphome'), frame: !!document.querySelector('.mapframe') && getComputedStyle(document.querySelector('.mapframe')).display !== 'none', kick: document.querySelector('#dock .housekick')?.textContent.replace(/\s+/g, ' ').trim() ?? '', world: document.documentElement.dataset.world, ticks: getComputedStyle(document.querySelector('#dock .tabcap'), '::before').borderTopWidth }));
+  const own = await page.evaluate(() => ({ maphome: document.body.classList.contains('maphome'), frame: !!document.querySelector('.maphudframe') && getComputedStyle(document.querySelector('.maphudframe')).display !== 'none', kick: document.querySelector('#dock .housekick')?.textContent.replace(/\s+/g, ' ').trim() ?? '', world: document.documentElement.dataset.world, ticks: getComputedStyle(document.querySelector('#dock .tabcap'), '::before').borderTopWidth }));
   check(!own.maphome && !own.frame && !/THE MAP/i.test(own.kick) && own.world === name, `[world] ${name} wears the map: ${JSON.stringify(own)}`);
   await go(page, 'area-learn');
   await page.waitForTimeout(900);
