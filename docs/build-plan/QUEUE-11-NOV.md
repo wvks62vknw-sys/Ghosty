@@ -41,6 +41,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
+   Handed back 11 Nov night (reviewed clean; routes under /guardian/wall; the wall starts from ?wall=1 or THIS IS THE WALL so TV MODE is
+   unchanged); in the landing queue after ORBIT.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
    Brief written 11 Nov: BRIEF-RELIABILITY (worktree health, port 8823, spec health; the brain's health route in its own file mounted
@@ -54,6 +56,7 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
     Brief written 11 Nov: BRIEF-WORKING-ENGINE (worktree workingengine, port 8824, spec workingengine; the car's own geometry over the
     three.js the Studio loads, kinematic, no package; physics stays at KERNEL 2). ENGINE 3D and THE CAR are on main: waits on no landing.
+    Started 11 Nov night in worktree workingengine when THE WALL handed back.
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
     arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
