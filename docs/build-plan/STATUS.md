@@ -344,6 +344,7 @@ built in the old look after day one, so no screen is built twice.
    SHOW ME's first slice landed 10 Nov (OWNER-ISSUES 170): place, route, numbers, plan, formula, part and room drawn on a Stage under the first sentence; pending the PR's run.
    OFFLINE MAPS AND EYES landed 10 Nov (OWNER-ISSUES 171): the West Midlands map (about 78 MB) and four eye packs on his tap on Wi-Fi; the Theme page's second-open cost fixed; pending the PR's run.
    GAMES landed 10 Nov (OWNER-ISSUES 172): BLOCKS, BLAST, THE FLAP, THE CLIMB, THE BEAT with a level that has no ceiling, each played by him and by Ghosty; PR #81 merged (c4172f5), main's own run green 11 Nov 00:05 UK: FINISHED on the code side, pending his phone check.
+   THE SIX KERNEL CHANGES landed 11 Nov (OWNER-ISSUES 175): turn reads side by side, streaming, key cache, the brain's own picture, the SHOW ME switch; pending the PR's run.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,

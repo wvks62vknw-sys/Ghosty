@@ -182,7 +182,10 @@ export const settingsTab: TabDef = {
     // HOME KNOWS WHERE HE IS (BRIEF-HUD-SCAN-1 5; OWNER-ISSUES 158: on): the one switch; off, Home says SAVED PLACE ONLY
     const sense = switchRow('Home knows where you are', 'Decided on this phone from the hour, your saved place and the phone’s own sense where you have allowed it. Never sent anywhere: my brain gets a word at most, with your question.', () => settings.get().placeSense !== false, (on) => settings.set({ placeSense: on }));
     sense.el.dataset.id = 'placesense';
-    vp.body.append(...vc.nodes, sfx.el, score.el, motion.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el);
+    // SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply, on by default; off, no picture under any reply
+    const showMe = switchRow('Show me', 'A picture under the answer when there is one to show (a map, bars, a page, a part). Off, never.', () => settings.get().showMe !== false, (on) => settings.set({ showMe: on }));
+    showMe.el.dataset.id = 'showme';
+    vp.body.append(...vc.nodes, sfx.el, score.el, motion.el, showMe.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el);
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
@@ -195,6 +198,7 @@ export const settingsTab: TabDef = {
       if (s.motion !== p.motion) motion.paint();
       if (s.bootScore !== p.bootScore) score.paint();
       if (s.placeSense !== p.placeSense) sense.paint();
+      if (s.showMe !== p.showMe) showMe.paint();
     });
     return {
       enter() {

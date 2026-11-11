@@ -18,7 +18,13 @@ export type ChatEvent =
   /** The brain asks the phone to run a command, or to show cards: the typed `Show` (awareness.ts). */
   | Extract<Show, { t: 'client' }>
   | { t: 'approval'; id: string; name: string; args: Record<string, unknown>; reason: string }
-  | { t: 'text'; text: string }
+  /**
+   * The reply's words. With `part`: the next piece of it, drawn as it arrives (a sentence at a time, polished; BRIEF-KERNEL-YES 2).
+   * Without: the whole reply, which replaces whatever pieces were drawn (an empty one takes them back).
+   */
+  | { t: 'text'; text: string; part?: boolean }
+  /** The brain's own pick of the picture for this reply (BRIEF-KERNEL-YES 4); sent once, after the text and before `done`, when the kind is plain. */
+  | BrainShow
   | { t: 'done'; model: string }
   | { t: 'error'; message: string }
   /** A cited answer (CITED on, or "with sources"): its numbered sources and each claim checked against them; sent after its `text`. */
@@ -27,6 +33,14 @@ export type ChatEvent =
   | { t: 'mood'; mood: Mood }
   /** Live cards a tool's result made, by code (packages/shared/src/cards.ts cardsFromTool): sent after its `tool_result`. */
   | Extract<Show, { t: 'cards' }>;
+
+/**
+ * The kind of picture the brain chose and what it names for it: `place` {label, lat, lon, screen?, globe?, zoom?} (a map a tool opened,
+ * or a city to light on the globe), `route` {screen} (a journey drawn on its own screen), `numbers` {points, line, unit, before}
+ * (figures the reply wrote), `document` {letter} (the reply laid out as a page), `formula` {problem} (a problem the shared solver reads),
+ * `part` {room, things} (a part or a room built from sizes). The phone draws it when it can and falls back to its own reading when not.
+ */
+export type BrainShow = { t: 'show'; kind: 'place' | 'route' | 'numbers' | 'document' | 'formula' | 'part'; data: Record<string, unknown> };
 
 /** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
 export interface Citation {

@@ -3,10 +3,12 @@
  * phone saw of this turn (the tools the brain ran, the screen commands and cards it sent, the reply's words) and, when the stream
  * has ended, hands them to the Stage in a dynamic import that never holds the reply. A new word clears the Stage.
  *
+ * SHOW ME's switch (Settings, `showMe`, on by default) is read by `mayShow`: off, no Stage ever.
  * Under a test runner the Stage waits for `window.__ghostyShow = true` (as the cards wait for `__ghostyCards`).
  */
 import type { ChatEvent } from '../../../../packages/shared/src/protocol';
 import type { Card } from '../../../../packages/shared/src/cards';
+import { settings } from '../state/app';
 
 interface Turn {
   ask: string;
@@ -14,6 +16,8 @@ interface Turn {
   tools: { name: string; args: Record<string, unknown> }[];
   clients: { name: string; args: Record<string, unknown> }[];
   cards: Card[];
+  /** The brain's own pick of the picture, when it sent one. */
+  brain?: { kind: string; data: Record<string, unknown> };
 }
 
 let turn: Turn = { ask: '', reply: [], tools: [], clients: [], cards: [] };
@@ -21,7 +25,7 @@ let turn: Turn = { ask: '', reply: [], tools: [], clients: [], cards: [] };
 /** What the checks read: what happened this turn and in what order ('sentence' when the reply's words landed, 'stage' when the Stage did). */
 export const showTrace = { order: [] as string[], turns: 0 };
 
-export const mayShow = (): boolean => typeof window !== 'undefined' && (!navigator.webdriver || (window as unknown as { __ghostyShow?: boolean }).__ghostyShow === true);
+export const mayShow = (): boolean => typeof window !== 'undefined' && settings.get().showMe !== false && (!navigator.webdriver || (window as unknown as { __ghostyShow?: boolean }).__ghostyShow === true);
 
 /** A new word from him: the Stage goes, and the turn starts empty. */
 export function showBegin(ask: string): void {
@@ -36,16 +40,23 @@ export function showNote(ev: ChatEvent): void {
   if (ev.t === 'tool') turn.tools.push({ name: ev.name, args: ev.args as Record<string, unknown> });
   else if (ev.t === 'client') turn.clients.push({ name: ev.name, args: (ev.args ?? {}) as Record<string, unknown> });
   else if (ev.t === 'cards') turn.cards.push(...ev.cards);
+  else if (ev.t === 'show') turn.brain = { kind: ev.kind, data: ev.data };
   else if (ev.t === 'text') {
+    // (the pieces of a reply drawn as it is spoken are not kept: the whole reply that follows is; the sentence is noted once)
+    if (ev.part) {
+      if (!showTrace.order.includes('sentence')) showTrace.order.push('sentence');
+      return;
+    }
+    if (!ev.text) return; // pieces taken back
     turn.reply.push(ev.text);
-    showTrace.order.push('sentence');
+    if (!showTrace.order.includes('sentence') || turn.reply.length > 1) showTrace.order.push('sentence');
   }
 }
 
 /** The stream has ended and the reply is on screen: the Stage is begun now, off to the side of it. */
 export function showEnd(ask: string): void {
   if (!mayShow() || ask !== turn.ask) return;
-  const facts = { ask, reply: turn.reply.join('\n\n'), tools: turn.tools, clients: turn.clients, cards: turn.cards };
+  const facts = { ask, reply: turn.reply.join('\n\n'), tools: turn.tools, clients: turn.clients, cards: turn.cards, ...(turn.brain ? { brain: turn.brain } : {}) };
   void import('./stage').then((s) => s.present(facts)).catch(() => undefined);
 }
 

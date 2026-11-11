@@ -453,8 +453,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): vo
  * The reply is on screen: decide the thing and put it on the Stage. Everything the phone needs that is not at hand (the world pack,
  * his saved places) is fetched here, after the sentence, so the sentence never waits.
  */
-export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards'>): Promise<Show | null> {
-  stageState.presented++;
+export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
   const delay = (window as unknown as { __ghostyShowDelay?: number }).__ghostyShowDelay;
   if (delay) await new Promise((r) => setTimeout(r, delay));
   const { known } = await import('../features/core/cards');
@@ -471,6 +470,7 @@ export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'cl
   const show = decideShow(facts);
   stageState.last = show ? { kind: show.kind, id: show.id, ...('via' in show && show.via ? { via: show.via } : {}), title: show.title } : null;
   stageState.why = show ? ('via' in show && show.via ? 'its own screen drew it' : '') : 'nothing in the answer to show';
+  stageState.presented++; // (counted once its verdict and its reason are both in place: a reader never sees the count moved with the last turn's reason)
   if (!show) return null;
   if ('via' in show && show.via) return show;
   mount(show as Exclude<Show, { via: 'its screen' }>, facts);

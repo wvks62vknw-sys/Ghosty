@@ -258,6 +258,9 @@ let spokenTurn = false;
 /** Whose voice it was, when the phone knew voices and scored it (assistant/voiceknown.ts): the label the brain is told. */
 let turnVoice: Label | undefined;
 
+/** The entry (by its tag) a reply is being drawn in, a sentence at a time (BRIEF-KERNEL-YES 2); null when none is. */
+let drawing: number | null = null;
+
 function handle(ev: ChatEvent): void {
   showNote(ev); // [showme] what this turn brought, for the Stage (nothing is drawn here)
   switch (ev.t) {
@@ -307,12 +310,32 @@ function handle(ev: ChatEvent): void {
       break;
     case 'text': {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)
-      const at = stamp();
+      // [kernel-yes] The reply arrives a sentence at a time (`part`): drawn as it comes, one entry that grows; the whole reply, when it
+      // lands, sets that entry's words (and is the one spoken); an empty whole takes the pieces back (the brain turned to a tool).
+      if (ev.part) {
+        if (drawing === null) {
+          drawing = stamp();
+          chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at: drawing!, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: ev.text }));
+        } else {
+          const at = drawing;
+          let grown = ev.text;
+          chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === at ? ((grown = e.text + ev.text), { ...e, text: grown }) : e)), live: grown }));
+        }
+        break;
+      }
+      const drawn = drawing;
+      drawing = null;
+      if (drawn !== null && !ev.text) {
+        chat.set((s) => ({ entries: s.entries.filter((e) => !(e.kind === 'assistant' && e.at === drawn)), live: '' }));
+        break;
+      }
+      const at = drawn ?? stamp();
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
       if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
-      chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
+      if (drawn !== null) chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === drawn ? { ...e, text: ev.text } : e)), live: cited ? citedBody(ev.text) : ev.text }));
+      else chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
       break;
     }
     case 'mood':

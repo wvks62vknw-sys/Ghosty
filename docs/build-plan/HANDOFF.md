@@ -495,6 +495,9 @@ folder that no longer exists; ignore those paths).
   HIS USAGE 10 Nov evening UK: all models weekly 77%, top tier weekly 97% (9 Nov 21:10 UK: 68% and 95%). 90% rule: launch nothing at or past it.
   In flight: builders engine3d (the working 3-D engine) and huds (THE MAP and THE EYE HUDs), both from the session head; landings follow in that order.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
+  11 Nov (kernel): KERNEL batch (builder/kernel, base cf84288) landed on the session branch as one commit on 743edcb: among protected files only agent.ts and one
+  line of apps/edge/package.json; build, brain (1876: two timing fails under load 25, green alone), showme and settings green; speed2 red under load on this tree AND
+  on the head before it (1062 to 1588 ms at load 16 to 21, both): load, not the batch. OWNER-ISSUES 175. Push, PR, the run follow.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
   The top tier takes one turn per hand-back and relays his usage and his words to it.

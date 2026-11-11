@@ -34,6 +34,8 @@ export interface ShowFacts {
   replyAt?: number;
   /** His name, for a letter. */
   me?: { name?: string };
+  /** The brain's own pick of the picture (a `show` event, BRIEF-KERNEL-YES 4): preferred over this file's own reading when it holds. */
+  brain?: { kind: string; data: Record<string, unknown> };
 }
 
 export type ShowKind = 'map' | 'eye' | 'journey' | 'chart' | 'document' | 'simulation' | 'room' | 'part';
@@ -80,11 +82,69 @@ function paragraphsOf(reply: string, ask: string, name?: string): { title: strin
 
 const liney = (reply: string) => reply.split('\n').filter((l) => /^\s*(?:[-*•]|\d+[.)])\s+\S/.test(l)).length;
 
+const simShow = (sim: Sim): Show => ({ kind: 'simulation', id: `sim:${sim.kind}:${sim.title}`, tag: 'SIMULATION', title: sim.title, truth: ['FIRST ESTIMATE', 'NOT CERTIFIED', sim.kind === 'orbit' ? 'TWO-BODY ORBIT' : 'STILL AIR, ONE POINT MASS'], sim });
+const roomShow = (room: RoomAsk): Show => ({ kind: 'room', id: `room:${room.w}x${room.d}:${room.things.map((t) => t.kind + t.n).join('')}`, tag: 'ROOM', title: `Room ${room.w / 100} × ${room.d / 100} m`, truth: [room.sized ? 'YOUR SIZE' : 'SIZE ASSUMED 4 × 3 m', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], room });
+const partShow = (part: PartAsk): Show => ({ kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part });
+const chartShow = (ask: string, series: Series): Show => ({ kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: ask.length > 44 ? `${ask.slice(0, 41).replace(/\s+\S*$/, '')}…` : ask.replace(/[?.!]+$/, ''), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series });
+function docShow(f: ShowFacts, letter: boolean): Show | null {
+  const { title, list: paragraphs } = paragraphsOf(f.reply.trim(), f.ask.trim(), f.me?.name);
+  return paragraphs.length >= 2 ? { kind: 'document', id: `doc:${f.replyAt ?? f.ask.trim().slice(0, 20)}`, tag: letter ? 'LETTER' : 'DOCUMENT', title: title.slice(0, 60), truth: ['YOUR WORDS, LAID OUT', 'EDIT AND SAVE AS PDF OR WORD'], paragraphs, ask: f.ask.trim(), replyAt: f.replyAt } : null;
+}
+
+/**
+ * The brain's own pick (a `show` event): the kind it named, drawn from what it sent where that is the data (a place, the figures) and
+ * from the reply and his words where the data is the reply's own (a letter, a problem, a part). null when what it sent cannot be
+ * drawn here (a bad number, a part not in the table): the phone's own reading then decides, as it always did.
+ */
+export function brainPick(f: ShowFacts): Show | null {
+  const b = f.brain;
+  if (!b || !f.ask.trim()) return null;
+  const d = b.data ?? {};
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  switch (b.kind) {
+    case 'route':
+      return { kind: 'journey', id: 'journey:brain', tag: 'JOURNEY', title: 'The journey', truth: ['DRAWN ON ITS OWN SCREEN'], via: 'its screen' };
+    case 'place': {
+      const lat = num(d.lat);
+      const lon = num(d.lon);
+      if (lat === null || lon === null || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+      const label = String(d.label ?? '').trim().slice(0, 80) || 'The place';
+      if (d.screen === true) return { kind: 'map', id: `map:${label}`, tag: 'MAP', title: label, truth: ['ON ITS OWN SCREEN'], lat, lon, label, zoom: 15, via: 'its screen' };
+      if (d.globe === true) return { kind: 'eye', id: `eye:${label}`, tag: "GOD'S EYE", title: label, truth: ['CHOSEN BY THE BRAIN', 'LAND AND CITIES'], lat, lon, label };
+      return { kind: 'map', id: `map:${label}`, tag: 'MAP', title: label, truth: ['CHOSEN BY THE BRAIN', 'OPENSTREETMAP'], lat, lon, label, zoom: num(d.zoom) ?? 11 };
+    }
+    case 'numbers': {
+      const pts = Array.isArray(d.points) ? (d.points as unknown[]).map((p) => p as { label?: unknown; value?: unknown }).filter((p) => typeof p.label === 'string' && num(p.value) !== null).slice(0, 12) : [];
+      if (pts.length < 3) return null;
+      const unit = typeof d.unit === 'string' ? d.unit.slice(0, 6) : '';
+      return chartShow(f.ask.trim(), { kind: d.line === true ? 'line' : 'bars', points: pts.map((p) => ({ label: String(p.label).slice(0, 24), value: p.value as number })), unit, before: d.before === true });
+    }
+    case 'document':
+      return docShow(f, d.letter === true);
+    case 'formula': {
+      const sim = simFrom(f.ask.trim());
+      return sim ? simShow(sim) : null;
+    }
+    case 'part': {
+      if (d.room === true) {
+        const room = roomAsked(f.ask.trim());
+        return room ? roomShow(room) : null;
+      }
+      const part = partAsked(f.ask.trim());
+      return part ? partShow(part) : null;
+    }
+  }
+  return null;
+}
+
 /** The one thing to put on the Stage for this turn, or null. */
 export function decideShow(f: ShowFacts): Show | null {
   const ask = f.ask.trim();
   const reply = f.reply.trim();
   if (!ask) return null;
+  // the brain's own pick comes first; the phone's own reading below is the fallback
+  const picked = brainPick(f);
+  if (picked) return picked;
   // a thing the brain's own tools already put on its own screen: the screen is the picture (show_route and show_journey take
   // it, as they always have); the Stage does not draw it a second time
   const route = f.clients.find((c) => c.name === 'show_journey' || c.name === 'show_route');
@@ -95,19 +155,19 @@ export function decideShow(f: ShowFacts): Show | null {
 
   // a formula: the problem is in his words and the solver has an answer
   const sim = simFrom(ask);
-  if (sim) return { kind: 'simulation', id: `sim:${sim.kind}:${sim.title}`, tag: 'SIMULATION', title: sim.title, truth: ['FIRST ESTIMATE', 'NOT CERTIFIED', sim.kind === 'orbit' ? 'TWO-BODY ORBIT' : 'STILL AIR, ONE POINT MASS'], sim };
+  if (sim) return simShow(sim);
 
   // a room or a part, built from parameters
   const room = roomAsked(ask);
-  if (room) return { kind: 'room', id: `room:${room.w}x${room.d}:${room.things.map((t) => t.kind + t.n).join('')}`, tag: 'ROOM', title: `Room ${room.w / 100} × ${room.d / 100} m`, truth: [room.sized ? 'YOUR SIZE' : 'SIZE ASSUMED 4 × 3 m', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], room };
+  if (room) return roomShow(room);
   const part = partAsked(ask);
-  if (part) return { kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part };
+  if (part) return partShow(part);
 
   // a plan or a letter: the reply laid out as a page
   const write = writeAsked(ask);
   if (reply.length > 60 && (write || (PLAN_ASK.test(ask) && PLAN_VERB.test(ask) && (liney(reply) >= 3 || reply.length > 400)))) {
-    const { title, list: paragraphs } = paragraphsOf(reply, ask, f.me?.name);
-    if (paragraphs.length >= 2) return { kind: 'document', id: `doc:${f.replyAt ?? ask.slice(0, 20)}`, tag: write && /letter|email|e-mail|complaint|appeal|application|reference/.test(write) ? 'LETTER' : 'DOCUMENT', title: title.slice(0, 60), truth: ['YOUR WORDS, LAID OUT', 'EDIT AND SAVE AS PDF OR WORD'], paragraphs, ask, replyAt: f.replyAt };
+    const doc = docShow(f, !!write && /letter|email|e-mail|complaint|appeal|application|reference/.test(write));
+    if (doc) return doc;
   }
 
   // a place: a saved place named in passing, by its name, or a city of the world pack
@@ -125,6 +185,6 @@ export function decideShow(f: ShowFacts): Show | null {
 
   // numbers: three label-and-number pairs the reply itself wrote
   const series = reply ? seriesFrom(reply) : null;
-  if (series) return { kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: ask.length > 44 ? `${ask.slice(0, 41).replace(/\s+\S*$/, '')}…` : ask.replace(/[?.!]+$/, ''), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series };
+  if (series) return chartShow(ask, series);
   return null;
 }

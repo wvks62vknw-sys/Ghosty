@@ -327,7 +327,7 @@ export const brain = {
     // device, so Ghosty still knows them if its database is paused. A slow look-up never holds the message: after
     // LIBRARY_WAIT_MS it goes without them (they matter only on the rare day the database is paused).
     Promise.race([(library ?? passagesFor(message)).catch(() => []), new Promise<unknown[]>((r) => setTimeout(() => r([]), LIBRARY_WAIT_MS))]).then((lib) =>
-      streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library: lib }, ...(cited ? { cited: true } : {}), ...(heard ? { heard } : {}) }, onEvent, signal),
+      streamEvents('/chat', { message, context, recent, stream: true, offline: { ...offlineContext(), library: lib }, ...(cited ? { cited: true } : {}), ...(heard ? { heard } : {}) }, onEvent, signal),
     ),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   /** `harsh`: a stop by intent that stung (intent.ts) — he goes subdued; any other stop puts him back to calm (mood.ts). */

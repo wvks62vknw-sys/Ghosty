@@ -64,6 +64,8 @@ export interface Settings {
   placeSense: boolean;
   /** THE SCORE (BRIEF-HUD-SCAN-1 7; OWNER-ISSUES 158): B, the short score under the boot's film (on); off, A: the one tone alone, as today. */
   bootScore: boolean;
+  /** SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply (show/turn.ts `mayShow`); off, no Stage ever. On by default. */
+  showMe: boolean;
 }
 
 const tz = (() => {
@@ -95,6 +97,7 @@ export const settings = createStore<Settings>(
     deckGroup: '',
     placeSense: true,
     bootScore: true,
+    showMe: true,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

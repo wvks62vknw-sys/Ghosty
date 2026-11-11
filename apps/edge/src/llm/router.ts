@@ -197,6 +197,13 @@ export interface CallOptions {
    * again, and the answer says it would not engage.
    */
   avoid?: string;
+  /**
+   * [kernel-yes] The reply's words as the provider writes them, for a chat reply drawn as it is spoken (BRIEF-KERNEL-YES 2): called with
+   * each new piece of the reply (the model's own words, not yet polished; its thinking removed; never after the model has begun a
+   * tool call), and with `('', true)` when what was sent is to be thrown away because another model is asked instead. Only the
+   * chat-completions transports stream; the binding answers whole and calls it never. The returned message is the whole, as ever.
+   */
+  onDelta?: (text: string, restart?: boolean) => void;
 }
 
 /** A reply leaves this many tokens counted before the provider says the real number. */
@@ -413,9 +420,20 @@ export class Router {
     // The stopwatch: this completion's waits and model time, and the turn it belongs to (its signal).
     const clock: Clock = { wait: 0, model: 0 };
     this.speed.callStart(signal);
+    // What was streamed this call: a restart is passed on only when something was sent.
+    let sent = false;
+    const onDelta = opts.onDelta
+      ? (text: string, restart?: boolean) => {
+          if (restart) {
+            if (!sent) return;
+            sent = false;
+          } else if (text) sent = true;
+          opts.onDelta!(text, restart);
+        }
+      : undefined;
     try {
       for (let freeNow = 0; ; ) {
-        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, lane === 'chat' ? CHAT_SHORT_WAIT_MS : SHORT_WAIT_MS), lane, clock, opts.avoid, !!opts.warm);
+        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, lane === 'chat' ? CHAT_SHORT_WAIT_MS : SHORT_WAIT_MS), lane, clock, opts.avoid, !!opts.warm, onDelta);
         if ('message' in r) {
           this.speed.callEnd(signal, { ...clock, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
           return inCharacter(messages, r);
@@ -629,7 +647,7 @@ export class Router {
    * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
    * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
    */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }, avoid?: string, warm = false): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }, avoid?: string, warm = false, onDelta?: (text: string, restart?: boolean) => void): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -736,7 +754,8 @@ export class Router {
           this.speed.model({ provider: p.name, model, first: lap.first || ms, ms, wait: clock.wait, tokens: out, ok, chat: lane === 'chat' });
         };
         try {
-          const { message, tokens, out } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane, lap);
+          onDelta?.('', true); // (a model that failed after speaking: what it said is taken back)
+          const { message, tokens, out } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane, lap, onDelta);
           timed(true, out);
           settle(tokens, true);
           // (speed: the two writes go together)
@@ -822,7 +841,7 @@ export class Router {
    * One request to one model: its reply, the tokens the provider says it used (for the counters) and
    * how many it wrote (`out`, for the stopwatch). `lap.first`: when the reply started to arrive.
    */
-  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat', lap: { first: number } = { first: 0 }): Promise<{ message: Msg; tokens?: number; out?: number }> {
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat', lap: { first: number } = { first: 0 }, onDelta?: (text: string) => void): Promise<{ message: Msg; tokens?: number; out?: number }> {
     const t0 = Date.now();
     let messages = messagesIn;
     let tools = toolsIn;
@@ -837,8 +856,8 @@ export class Router {
       lap.first = Date.now() - t0; // the binding answers all at once
       return { message: r.message, ...(r.out ? { out: r.out } : {}) };
     }
-    const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
-    const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
+    const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}), ...(onDelta ? { stream: true } : {}) };
+    const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4, ...(onDelta ? { stream_options: { include_usage: true } } : {}) };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
     const out = code ? (p.maxOut ?? 8192) : 4096;
     if (/gpt-oss/.test(model)) Object.assign(tuned, { reasoning_effort: code ? 'medium' : 'low', max_completion_tokens: out + 2000 });
@@ -876,7 +895,8 @@ export class Router {
         if (r.status === 400 && body === tuned && !/(not found|does not exist|decommission|tool)/i.test(text)) continue;
         throw { code: r.status, message: text.slice(0, 400), retryAfter: r.headers.get('retry-after') } satisfies LlmError;
       }
-      const j = (await r.json()) as { choices?: { message?: Msg }[]; error?: { message?: string }; usage?: { total_tokens?: number; completion_tokens?: number } };
+      // A provider that streams answers in server-sent chunks; one that does not (or a test's plain JSON) answers whole, as ever.
+      const j = onDelta && /text\/event-stream/i.test(r.headers.get('content-type') ?? '') ? await readStream(r, onDelta, () => (lap.first = Date.now() - t0)) : ((await r.json()) as StreamedReply);
       const msg = j.choices?.[0]?.message;
       if (!msg) throw { code: 500, message: j.error?.message ?? 'empty reply' } satisfies LlmError;
       const content = typeof msg.content === 'string' ? msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim() : null;
@@ -931,6 +951,98 @@ export class Router {
     const out = (res as { usage?: { completion_tokens?: unknown } } | null)?.usage?.completion_tokens;
     return { message: msg, ...(typeof out === 'number' && out > 0 ? { out } : {}) };
   }
+}
+
+/** What a chat-completions reply holds, whole or assembled from its chunks. */
+type StreamedReply = { choices?: { message?: Msg }[]; error?: { message?: string }; usage?: { total_tokens?: number; completion_tokens?: number } };
+
+/**
+ * Read a streamed chat-completions reply (server-sent events) into the same shape a whole reply has, handing the visible words to
+ * `onDelta` as they come: the model's thinking (<think>…</think>) is never sent, and once a tool call has begun nothing more is.
+ * `first` is told when the first words went out (the stopwatch's first word).
+ */
+export async function readStream(r: Response, onDelta: (text: string) => void, first: () => void): Promise<StreamedReply> {
+  const reader = r.body?.getReader();
+  if (!reader) throw { net: true, message: 'no reply body' } satisfies LlmError;
+  const dec = new TextDecoder();
+  let buf = '';
+  let raw = '';
+  let said = 0;
+  let began = false;
+  let calling = false;
+  let usage: StreamedReply['usage'];
+  const calls: { id?: string; name: string; args: string }[] = [];
+  const visible = (): string => {
+    // thinking out; a tag or its start still arriving at the end is held back
+    let t = raw.replace(/<think>[\s\S]*?<\/think>/g, '');
+    const open = t.indexOf('<think>');
+    if (open >= 0) t = t.slice(0, open);
+    const part = /<(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$/.exec(t);
+    if (part) t = t.slice(0, part.index);
+    return t;
+  };
+  const speak = () => {
+    if (calling) return;
+    const now = visible();
+    if (!began) {
+      // leading space is skipped: the words are counted from the first visible letter
+      const lead = now.length - now.replace(/^\s+/, '').length;
+      if (lead === now.length) return;
+      said = lead;
+      began = true;
+      first();
+    }
+    if (now.length > said) {
+      onDelta(now.slice(said));
+      said = now.length;
+    }
+  };
+  const take = (line: string) => {
+    if (!line.startsWith('data:')) return;
+    const data = line.slice(5).trim();
+    if (!data || data === '[DONE]') return;
+    let j: { choices?: { delta?: { content?: string | null; tool_calls?: { index?: number; id?: string; function?: { name?: string; arguments?: string } }[] } }[]; usage?: StreamedReply['usage']; error?: { message?: string } };
+    try {
+      j = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (j.error?.message) throw { code: 500, message: j.error.message } satisfies LlmError;
+    if (j.usage) usage = j.usage;
+    const d = j.choices?.[0]?.delta;
+    if (!d) return;
+    for (const c of d.tool_calls ?? []) {
+      calling = true;
+      const i = c.index ?? Math.max(0, calls.length - 1);
+      const k = calls[i] ?? (calls[i] = { name: '', args: '' });
+      if (c.id) k.id = c.id;
+      if (c.function?.name) k.name += c.function.name;
+      if (c.function?.arguments) k.args += c.function.arguments;
+    }
+    if (typeof d.content === 'string' && d.content) {
+      raw += d.content;
+      speak();
+    }
+  };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        take(buf.slice(0, nl).trim());
+        buf = buf.slice(nl + 1);
+      }
+    }
+    take(buf.trim());
+  } catch (e) {
+    if ((e as LlmError)?.code !== undefined) throw e;
+    if ((e as Error)?.name === 'AbortError') throw e;
+    throw { net: true, message: String((e as Error)?.message ?? e) } satisfies LlmError;
+  }
+  const tool_calls = calls.filter((c) => c?.name).map((c, i) => ({ id: c.id ?? '', type: 'function' as const, function: { name: c.name, arguments: c.args } }));
+  return { choices: [{ message: { role: 'assistant', content: raw || null, ...(tool_calls.length ? { tool_calls } : {}) } }], ...(usage ? { usage } : {}) };
 }
 
 /** For a model with no system instructions (Gemma): the system text goes in front of the first owner message. */

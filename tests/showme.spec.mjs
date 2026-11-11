@@ -11,6 +11,9 @@
 //  d. THE THREE WORLDS AND THE PHONE: The Scan, Glass and ONE INK at 440 × 956 (and The Scan at 390 × 844): the Stage sits in the
 //     world's own plate, every key 44 pt, nothing sideways, the ask line still under it; Reduce Motion lands it with nothing moving.
 //  e. THE WALL: with no `__ghostyShow` under a test runner nothing appears.
+//  f. THE BRAIN CHOOSES (kernel batch 4): a scripted `show` event is drawn as the kind it names, ahead of the phone's own reading; one
+//     that cannot be drawn falls back to the phone's own reading.
+//  g. THE SWITCH (kernel batch 5): Settings → Show me, on by default; off, no Stage ever (the brain's own pick too); on again, it returns.
 // Everything it adds is taken away again (the saved place). Screenshots go to the output directory.
 //   BASE=http://localhost:8788 node tests/showme.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -294,7 +297,12 @@ for (const [name, look, viewport] of WORLDS) {
   const { ctx, page } = await open({ look, viewport });
   await say(page, 'show me a room 4 by 3 with a sofa and a bed', 'A room of 4 by 3 metres with a sofa and a bed.');
   if (await waitStage(page, 'room', `[${name}] the Stage did not come`)) {
-    await page.waitForTimeout(900);
+    // (measured settled: the Stage's entrance slides it up over 900 ms, longer under load; its animations are awaited, up to 3 s)
+    await page.evaluate(() => Promise.race([
+      Promise.all(document.getAnimations().filter((a) => { const t = a.effect?.target; const st = document.getElementById('thestage'); return t && st && (t === st || st.contains(t)); }).map((a) => a.finished.catch(() => undefined))),
+      new Promise((r) => setTimeout(r, 3000)),
+    ])).catch(() => undefined);
+    await page.waitForTimeout(100);
     const m = await page.evaluate(() => {
       const st = document.getElementById('thestage');
       const cs = getComputedStyle(st);
@@ -326,6 +334,69 @@ for (const [name, look, viewport] of WORLDS) {
       }
     }
   }
+  await ctx.close();
+}
+
+// ================================================================ f. THE BRAIN CHOOSES THE PICTURE (BRIEF-KERNEL-YES 4): a `show` event from the scripted brain
+// is drawn as the kind it names, ahead of the phone's own reading; bad data from it falls back to the phone's own reading.
+{
+  const { ctx, page } = await open();
+  const brain = (kind, data) => ({ t: 'show', kind, data });
+  // pure: the pick wins over the phone's own guess, and a pick that cannot be drawn is ignored
+  const pick = (f) => page.evaluate(async (x) => { const s = await window.__ghosty.show.decide({ tools: [], clients: [], cards: [], places: [], reply: 'Sure.', ...x }); return s ? { kind: s.kind, bars: s.series?.points.length, title: s.title } : null; }, f);
+  const own = await pick({ ask: 'tell me about my trip', reply: 'It was a lovely day out.' });
+  check(own === null, `[brain] the phone's own reading of a plain sentence should show nothing, got ${JSON.stringify(own)}`);
+  const viaBrain = await pick({ ask: 'tell me about my trip', reply: 'It was a lovely day out.', brain: { kind: 'place', data: { label: 'Lisbon', lat: 38.72, lon: -9.14, globe: true } } });
+  check(viaBrain?.kind === 'eye' && viaBrain.title === 'Lisbon', `[brain] a place from the brain: ${JSON.stringify(viaBrain)}`);
+  const bad = await pick({ ask: 'tell me about my trip', reply: 'It was a lovely day out.', brain: { kind: 'place', data: { label: 'Nowhere', lat: 999, lon: 0 } } });
+  check(bad === null, `[brain] a place that cannot be drawn is ignored: ${JSON.stringify(bad)}`);
+
+  // through a real turn: the Stage draws what the brain named
+  await say(page, 'tell me about my trip', 'It was a lovely day out.', [brain('place', { label: 'Lisbon', lat: 38.72, lon: -9.14, globe: true })]);
+  if (await waitStage(page, 'eye', "[brain] a `show` place with globe did not draw God's Eye")) check(await page.evaluate(() => /Lisbon/.test(document.querySelector('#thestage .stgtitle')?.textContent ?? '')), '[brain] the brain-chosen globe is not on Lisbon');
+  // ahead of the phone's own guess: asked "where is Lisbon?" (own: God's Eye), the brain says a map
+  await say(page, 'where is Lisbon?', 'Lisbon is the capital of Portugal.', [brain('place', { label: 'Lisbon', lat: 38.72, lon: -9.14, zoom: 11 })]);
+  await waitStage(page, 'map', "[brain] the brain's map did not beat the phone's own God's Eye");
+  // numbers: three bars the brain named, not the four the reply's own list would give
+  await say(page, 'how are my shops doing', 'Prices today:\n- Tesco: £120\n- Asda: £95\n- Lidl: £140\n- Aldi: £80', [brain('numbers', { points: [{ label: 'Tesco', value: 120 }, { label: 'Asda', value: 95 }, { label: 'Lidl', value: 140 }], line: false, unit: '£', before: true })]);
+  if (await waitStage(page, 'chart', '[brain] numbers from the brain did not draw a chart')) check((await page.evaluate(() => document.querySelectorAll('#thestage .stg-bar').length)) === 3, "[brain] the chart is the phone's own four bars, not the brain's three");
+  // a pick that cannot be drawn: the phone's own reading takes over
+  await say(page, 'where is Lisbon?', 'Lisbon is the capital of Portugal.', [brain('place', { label: 'x', lat: 999, lon: 0 })]);
+  await waitStage(page, 'eye', "[brain] a bad pick did not fall back to the phone's own God's Eye");
+  await ctx.close();
+}
+
+// ================================================================ g. THE SWITCH (BRIEF-KERNEL-YES 5): Settings → SHOW ME; off, no Stage ever; on by default
+{
+  const { ctx, page } = await open();
+  const row = () => page.evaluate(() => { const b = document.querySelector('#pg-settings .setsw[data-id="showme"]'); return b ? { on: b.getAttribute('aria-checked'), words: b.textContent ?? '', h: Math.round(b.getBoundingClientRect().height) } : null; });
+  const stored = () => page.evaluate(() => window.__ghosty.settings.get().showMe);
+  check((await stored()) !== false, '[switch] SHOW ME is not on by default');
+  await page.evaluate(() => (location.hash = 'settings'));
+  await until(page, () => document.body.dataset.tab === 'settings' && !!document.querySelector('#pg-settings .setsw[data-id="showme"]'), null, 15000, '[switch] no SHOW ME row in Settings');
+  const r0 = await row();
+  check(r0?.on === 'true' && /Show me/i.test(r0.words), `[switch] the row: ${JSON.stringify(r0)} (want on, named Show me)`);
+  // on: a desk brings its Stage
+  await page.evaluate(() => (location.hash = 'core'));
+  await say(page, 'show me a desk 140 by 70', 'Here is a desk.');
+  await waitStage(page, 'part', '[switch] with SHOW ME on a desk brought no Stage');
+  // off, from the row in Settings: no Stage ever, and the one up goes with his next word as ever
+  await page.evaluate(() => (location.hash = 'settings'));
+  await until(page, () => document.body.dataset.tab === 'settings', null, 15000, '[switch] Settings did not open again');
+  await page.evaluate(() => document.querySelector('#pg-settings .setsw[data-id="showme"]').click());
+  check((await stored()) === false && (await row())?.on === 'false', `[switch] tapped off: stored ${await stored()}, row ${JSON.stringify(await row())}`);
+  await page.evaluate(() => (location.hash = 'core'));
+  await say(page, 'show me a desk 140 by 70', 'Here is a desk, then.');
+  await until(page, () => /desk, then/.test(document.querySelector('.convo')?.textContent ?? ''), null, 15000, '[switch] the reply never landed with SHOW ME off');
+  await page.waitForTimeout(1500);
+  check((await stageKind(page)) === null, '[switch] a Stage appeared with SHOW ME off');
+  await say(page, 'where is Lisbon?', 'Lisbon is the capital of Portugal.', [{ t: 'show', kind: 'place', data: { label: 'Lisbon', lat: 38.72, lon: -9.14, globe: true } }]);
+  await page.waitForTimeout(1500);
+  check((await stageKind(page)) === null, "[switch] a Stage appeared with SHOW ME off, even for the brain's own pick");
+  // on again: it comes back
+  await page.evaluate(() => window.__ghosty.settings.set({ showMe: true }));
+  await say(page, 'show me a desk 140 by 70', 'Here is a desk again.');
+  await waitStage(page, 'part', '[switch] with SHOW ME on again the Stage did not return');
   await ctx.close();
 }
 
