@@ -30,10 +30,12 @@ import { forgetVehicleChecks, forgetVehicleTurns, vehicleRoute } from './integra
 import { search as webSearch } from './tools/web';
 import { notInfrastructure, recon, renderReport } from './integrations/recon';
 import { Router, type Msg, type ToolCall } from './llm/router';
+import { CHARACTER_MARK, polish } from '../../../packages/shared/src/persona';
 import { imagesIn, markPhotos, ownerWords, stripImages, textOf, withImages } from './llm/content';
 import { forgetImage, LensError, MAX_IMAGE_BYTES, shareImage } from './lens';
 import { sttRoute, ttsRoute } from './speech';
 import { telegramHook, telegramKey, telegramNotify, telegramRoute, type TelegramHost } from './telegram';
+import { brainShow } from './showme';
 import { chunkText } from '../../../packages/shared/src/chunk';
 import { addLesson, findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { raising, type Raising } from '../../../packages/shared/src/intent';
@@ -115,6 +117,64 @@ interface Pending {
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+
+/**
+ * [kernel-yes] A tool-less reply drawn as it is spoken (BRIEF-KERNEL-YES 2). The router hands over the model's words as they are
+ * written; each sentence is polished (persona.ts `polish`, as `inCharacter` does the whole reply) when its end punctuation arrives and
+ * sent then as a `part` of the reply. The first piece waits for a sentence with some words in it, so a lead-in the polish removes
+ * ("Certainly!") goes with the sentence after it. Code, lists and anything the polish reads across lines are not streamed: the whole
+ * reply, polished whole, always follows as the one `text` without `part`, which is what is kept and spoken. If the model then turns
+ * to a tool, or another model is asked, what was sent is taken back by an empty whole `text`.
+ */
+class SentenceStream {
+  private raw = '';
+  private at = 0;
+  private stopped = false;
+  private sent = false;
+  private readonly character: boolean;
+  private readonly ask: string;
+  constructor(
+    system: string,
+    ask: string,
+    private emit: (ev: ChatEvent) => void,
+  ) {
+    this.character = system.includes(CHARACTER_MARK);
+    this.ask = ownerWords(ask);
+  }
+  delta(text: string, restart?: boolean): void {
+    if (restart) {
+      this.retract();
+      return;
+    }
+    this.raw += text;
+    if (this.stopped) return;
+    if (/```|(?:^|\n)[ \t]*(?:[-*•]|\d+[.)])[ \t]/.test(this.raw)) {
+      this.stopped = true;
+      return;
+    }
+    const end = /[.!?…]+["')\]]?(?=\s)/g;
+    end.lastIndex = this.at;
+    for (let m = end.exec(this.raw); m; m = end.exec(this.raw)) {
+      const piece = this.raw.slice(this.at, m.index + m[0].length).trim();
+      const out = this.character ? polish(piece, this.ask) : piece;
+      // a lead-in with no words of its own is held for the sentence after it
+      if (!this.sent && (out.match(/\p{L}+/gu) ?? []).length < 3) continue;
+      this.at = m.index + m[0].length;
+      if (out.trim()) {
+        this.emit({ t: 'text', text: `${this.sent ? ' ' : ''}${out.trim()}`, part: true });
+        this.sent = true;
+      } else if (!this.sent) this.at = m.index + m[0].length;
+    }
+  }
+  /** Take back what was sent (the whole reply is coming by the other road). */
+  retract(): void {
+    if (this.sent) this.emit({ t: 'text', text: '' });
+    this.raw = '';
+    this.at = 0;
+    this.sent = false;
+    this.stopped = false;
+  }
+}
 
 /** The phone's word that his last reply was cut off as it was read out: what he heard of it and its first words, or nothing. */
 const heardOf = (v: unknown): { said: string; head: string } | undefined => {
@@ -695,7 +755,7 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown; seen?: unknown; scan?: unknown; cited?: unknown; heard?: unknown };
+    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown; seen?: unknown; scan?: unknown; cited?: unknown; heard?: unknown; stream?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     // Pictures from the Lens ride along as parts of the owner's message (never stored: see trimContext).
@@ -713,7 +773,7 @@ export class GhostyAgent {
     this.state.waitUntil(
       (async () => {
         try {
-          await this.runTurn(text, images, client, s.emit, signal, { seen, scan, recent: body.recent, offline: body.offline, cited: body.cited === true, heard: heardOf(body.heard) });
+          await this.runTurn(text, images, client, s.emit, signal, { seen, scan, recent: body.recent, offline: body.offline, cited: body.cited === true, heard: heardOf(body.heard), stream: body.stream === true });
         } finally {
           done();
           await s.close();
@@ -729,7 +789,7 @@ export class GhostyAgent {
    * paused — the paused-mode answer instead. `seen`/`scan`: what the phone's camera saw and
    * read, marked as data; `recent`/`offline`: what the device sends for paused mode.
    */
-  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean; note?: string; heard?: { said: string; head: string } } = {}): Promise<void> {
+  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean; note?: string; heard?: { said: string; head: string }; stream?: boolean } = {}): Promise<void> {
     const seen = extra.seen ?? '';
     this.citedTurn = !!extra.cited || citedAsked(text);
     this.turnRead = [];
@@ -794,7 +854,7 @@ export class GhostyAgent {
         await this.storage.put(CTX_KEY, trimContext([...ctx, { role: 'assistant', content: small }]));
         return;
       }
-      await this.loop(ctx, client, out, signal, seen);
+      await this.loop(ctx, client, out, signal, seen, extra.stream === true);
     } catch (e) {
       // A stop goes quiet: the abort is never said back (on Telegram it would arrive as a message, in the browser's words).
       if (signal.aborted) return;
@@ -1167,17 +1227,28 @@ export class GhostyAgent {
   }
 
   /** `seen`: the phone camera's own note about a picture in this message, for the answer when no model can look at it. */
-  private async loop(ctx: Msg[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, seen = ''): Promise<void> {
-    const repoReady = !!(await this.github());
-    const knowledge = await this.recall(lastUserText(ctx), codingTurn(ctx));
+  private async loop(ctx: Msg[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, seen = '', streaming = false): Promise<void> {
+    // The screen commands this turn sent (a tool's own map or journey): the brain's pick of the picture reads them (showme.ts).
+    const clients: { name: string; args: Record<string, unknown> }[] = [];
+    const emitOut = emit;
+    emit = (ev) => {
+      if (ev.t === 'client') clients.push({ name: ev.name, args: (ev.args ?? {}) as Record<string, unknown> });
+      emitOut(ev);
+    };
+    // The turn's reads are independent of each other, so they go together (OWNER-ISSUES 173; BRIEF-KERNEL-YES 1): the repo, the
+    // library and handbook lookup, his principles (profile.ts; none while the database is paused), every lesson once a turn (his
+    // conduct rules go on every turn, the engineering ones on a coding turn: prompt.ts) and his mood (mood.ts: one line, read once
+    // a turn; a long job makes him focused, once, at the fourth step).
+    const [repoReady, knowledge, principles, known, mood0] = await Promise.all([
+      this.github().then(Boolean),
+      this.recall(lastUserText(ctx), codingTurn(ctx)),
+      loadPrinciples(this.storage).catch(() => [] as string[]),
+      loadLessons(this.storage).catch(() => []),
+      loadMood(this.storage).catch(() => undefined),
+    ]);
+    let mood: Mood | undefined = mood0;
     // His length (persona.ts lengthBand): from his last few messages, one line in the character.
     const band = lengthBand(ctx.filter((m) => m.role === 'user').map((m) => ownerWords(textOf(m.content))));
-    // His principles (profile.ts), read before he acts; while the database is paused there are none to read.
-    const principles = await loadPrinciples(this.storage).catch(() => [] as string[]);
-    // Every lesson once a turn: his conduct rules go on every turn, the engineering ones on a coding turn (prompt.ts).
-    const known = await loadLessons(this.storage).catch(() => []);
-    // His mood (mood.ts): one line, read once a turn; a long job makes him focused (once, at the fourth step).
-    let mood: Mood | undefined = await loadMood(this.storage).catch(() => undefined);
     // The one shared mind, built once for the turn (any channel: the app, Telegram): every step's CONTEXT is rendered from it.
     const can = selectGroups(lastUserText(ctx), usedTools(ctx), codingTurn(ctx)).on.map((g) => g.name);
     const mind = await mindSnapshot(this.storage, { client, vault: this.vault, can }).catch(() => null);
@@ -1187,9 +1258,8 @@ export class GhostyAgent {
       // Stopped between steps (the owner said stop, OWNER-ISSUES 70a): he goes quiet. Nothing is said about it — not
       // "Stopped.", which Telegram would send, and not the step cap's "I have taken 40 steps", which this used to fall into.
       if (signal.aborted) return;
-      const facts = await loadMemory(this.storage);
-      // The owner's profile (nightly reflection) rides along; while the database is paused there is none.
-      const profile = await loadProfile(this.storage).catch(() => null);
+      // His memory, his profile (nightly reflection: none while the database is paused) and the notifications log, read together.
+      const [facts, profile, inboxAll] = await Promise.all([loadMemory(this.storage), loadProfile(this.storage).catch(() => null), loadInbox(this.storage)]);
       const code = codingTurn(ctx);
       const lessons = code ? known : [];
       if (step === 4) {
@@ -1199,7 +1269,7 @@ export class GhostyAgent {
       const groups = selectGroups(lastUserText(ctx), usedTools(ctx), code);
       const specs = toolSpecs(groups.on.flatMap((g) => g.tools));
       emit({ t: 'status', text: step ? 'thinking about the results…' : 'thinking…' });
-      const recent = (await loadInbox(this.storage)).filter((i) => i.at > Date.now() - 12 * 3600_000).slice(-4);
+      const recent = inboxAll.filter((i) => i.at > Date.now() - 12 * 3600_000).slice(-4);
       const sys =
         systemPrompt(client, facts, repoReady, lessons, { code, groups, profile, band, principles, conduct: known, mood: moodLine(mood), mind }) +
         (recent.length
@@ -1208,9 +1278,12 @@ export class GhostyAgent {
         knowledge.prompt +
         (this.citedTurn ? CITED_PROMPT : '');
       let answer: { message: Msg; model: string };
+      // [kernel-yes] The reply is drawn as it is spoken, from the phone's own chat only (a cited turn, Telegram and the Lens get it whole).
+      const stream = streaming && !this.citedTurn ? new SentenceStream(sys, lastUserText(ctx), emit) : null;
       try {
-        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', warm: true, onWait: (text) => emit({ t: 'status', text }), ...(avoid ? { avoid } : {}) });
+        answer = await this.router.complete([{ role: 'system', content: sys }, ...compact(ctx)], specs, signal, { code, priority: 'chat', warm: true, onWait: (text) => emit({ t: 'status', text }), ...(stream ? { onDelta: (t: string, restart?: boolean) => stream.delta(t, restart) } : {}), ...(avoid ? { avoid } : {}) });
       } catch (e) {
+        stream?.retract();
         const why = String((e as Error)?.message ?? e);
         // A photo, but no model that can see it: say so, and pass on what the phone itself saw.
         if (step === 0 && !signal.aborted && /no vision model reachable/.test(why) && imagesIn(ctx[ctx.length - 1]?.content)) {
@@ -1241,6 +1314,8 @@ export class GhostyAgent {
       const { message, model } = answer;
       ctx.push(message);
       const calls = message.tool_calls ?? [];
+      // A reply that turned to tools keeps the whole-reply path: what was drawn of its words is taken back.
+      if (calls.length) stream?.retract();
       if (!calls.length) {
         let text = textOf(message.content).trim() || 'Done.';
         // [refusal] declined on a cited turn: once, the same step again with that model tried last (llm/router.ts avoid)
@@ -1260,6 +1335,9 @@ export class GhostyAgent {
         if (cited) text = cited.text;
         emit({ t: 'text', text });
         if (cited) emit({ t: 'cited', ...cited.info });
+        // [kernel-yes] The kind of picture this reply calls for, said once for the phone's Stage (showme.ts).
+        const pick = brainShow({ ask: lastUserText(ctx), reply: text, clients });
+        if (pick) emit(pick);
         emit({ t: 'done', model });
         await this.addTurn({ role: 'assistant', text, at: Date.now(), model, ...(link ? { link } : {}), ...(cited ? { cited: cited.info } : {}) });
         this.state.waitUntil(this.takeNotes(ctx, text).catch(() => undefined));

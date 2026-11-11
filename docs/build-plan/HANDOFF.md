@@ -490,10 +490,20 @@ folder that no longer exists; ignore those paths).
   22:00 UK: GAMES (builder/games, base bedc1f2) landed on the session branch as one commit, 3-way onto main (check.yml's list ends ... offlineeyes games4); on the
   merged tree built and games4, arcade, games2, games3, ui, deck, nav, speed2, showme, offlinemaps, offlineeyes, tabs run: all green (games4 red once under
   load on 'beat: DUCK ducks', green alone). apps/edge/test/games4.test.mjs is not in the protected package.json's test list: his call. OWNER-ISSUES 172.
+  11 Nov 00:05 UK: PR #81 (GAMES) GREEN on its first run (c0b11d3), SQUASH-MERGED as c4172f5; MAIN'S OWN RUN 42920418280 GREEN on every job. GAMES is FINISHED
+  on the code side, pending his phone check (OWNER-ISSUES 172) and his call on games4.test.mjs. Worktree games and branch builder/games removed.
+  HIS USAGE 10 Nov evening UK: all models weekly 77%, top tier weekly 97% (9 Nov 21:10 UK: 68% and 95%). 90% rule: launch nothing at or past it.
+  In flight: builders engine3d (the working 3-D engine) and huds (THE MAP and THE EYE HUDs), both from the session head; landings follow in that order.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
+  11 Nov (kernel): KERNEL batch (builder/kernel, base cf84288) landed on the session branch as one commit on 743edcb: among protected files only agent.ts and one
+  line of apps/edge/package.json; build, brain (1876: two timing fails under load 25, green alone), showme and settings green; speed2 red under load on this tree AND
+  on the head before it (1062 to 1588 ms at load 16 to 21, both): load, not the batch. OWNER-ISSUES 175. Push, PR, the run follow. PR #82 run 1 (f161cfd): every job green but smoke (2): lens.spec 'READ did not read the tagged text: Still reading the last picture' (OCR timing, nothing the batch touches); repeated on a new commit so the run that merges is green the first time. Run 2 (ebacf27): red on games4.spec 'beat: JUMP jumps (null)' (a press the game took no notice of while the last move recovered; also seen locally as DUCK/DASH): the spec now repeats a press the game took none of (up to four times, 3 s each) and reads the move at the frame it starts; the move must still be the one the button means; 5 of 5 local runs clean (was 1 of 5 to 2 of 5). Nothing loosened.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
   The top tier takes one turn per hand-back and relays his usage and his words to it.
+  HIS USAGE 11 Nov (OWNER-ISSUES 174): all models weekly 0% and the top tier weekly 0%, both reset. METHOD FROM HERE: the
+  mid-tier orchestrator keeps the landings (apply, OWNER-ISSUES, PR, run, merge, main's run); the top tier reviews every builder's
+  diff itself before handing it over, launches builders as the two cores free up (four at a time at most), and keeps its turns short.
   HIS USAGE 9 Nov 21:10 UK: all models weekly 68%, top tier weekly 95% (8 Nov 22:11 UK: 58% and 81%). The top tier is the
   orchestrator's own turns: 14 points in 23 hours for the shell's six runner fixes and the ONE INK brief. METHOD FROM HERE: the
   orchestrator takes one turn per landing (review, apply, OWNER-ISSUES, push, PR in one go) and one per run read; the cheap

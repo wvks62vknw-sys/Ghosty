@@ -310,21 +310,26 @@ if (!only || only === 'beat') {
   await labelled(page, 'beat', 'in play');
   await sideways(page, 'beat');
   const acting = async () => (await st(page)).acting;
-  await page.locator('.g4btn[data-act="a"]').tap();
-  await until(page, () => window.__g4.handle.peek().state.acting !== null, null, 10000);
-  check((await acting()) === 'jump', `beat: JUMP jumps (${await acting()})`);
+  // a press is repeated if the game took none of it (it ignores a press while the last move is still recovering, and a loaded runner can land one there): the move that comes must still be the one that button means
+  const press = async (tap) => {
+    for (let k = 0; k < 4; k++) {
+      await tap();
+      const h = await page.waitForFunction(() => window.__g4.handle.peek().state.acting, null, { polling: 5, timeout: 3000 }).catch(() => null);
+      if (h) return h.jsonValue();
+    }
+    return null;
+  };
+  let seen = await press(() => page.locator('.g4btn[data-act="a"]').tap());
+  check(seen === 'jump', `beat: JUMP jumps (${seen})`);
   await until(page, () => window.__g4.handle.peek().state.acting === null, null, 15000);
-  await page.locator('.g4btn[data-act="b"]').tap();
-  await until(page, () => window.__g4.handle.peek().state.acting !== null, null, 10000);
-  check((await acting()) === 'duck', `beat: DUCK ducks (${await acting()})`);
+  seen = await press(() => page.locator('.g4btn[data-act="b"]').tap());
+  check(seen === 'duck', `beat: DUCK ducks (${seen})`);
   await until(page, () => window.__g4.handle.peek().state.acting === null, null, 15000);
-  await page.locator('.g4btn[data-act="x"]').tap();
-  await until(page, () => window.__g4.handle.peek().state.acting !== null, null, 10000);
-  check((await acting()) === 'dash', `beat: DASH dashes (${await acting()})`);
+  seen = await press(() => page.locator('.g4btn[data-act="x"]').tap());
+  check(seen === 'dash', `beat: DASH dashes (${seen})`);
   await until(page, () => window.__g4.handle.peek().state.acting === null, null, 15000);
-  await page.locator('.g4pad').tap({ position: { x: 150, y: 300 } });
-  await until(page, () => window.__g4.handle.peek().state.acting !== null, null, 10000);
-  check((await acting()) === 'jump', 'beat: a tap anywhere jumps');
+  seen = await press(() => page.locator('.g4pad').tap({ position: { x: 150, y: 300 } }));
+  check(seen === 'jump', 'beat: a tap anywhere jumps');
   await page.screenshot({ path: `${out}/games4-beat-play.png`, timeout: 15000 }).catch(() => undefined);
   await until(page, () => window.__g4.handle.peek().state.acting === null, null, 15000);
   await page.evaluate(() => { window.__g4.intent.held.add('use'); });

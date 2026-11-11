@@ -32,8 +32,23 @@ const REMOVED = '-';
 /** fromMirror(): the mirror has no entry for this name at all. */
 const MISSING = Symbol('missing');
 let cached: { raw: string; key: CryptoKey } | null = null;
-/** Tests only: forget the brain's own vault key, as a restart in a fresh isolate would. */
-export const _testing = { forgetVaultKey: () => void (cached = null) };
+/**
+ * [kernel-yes] The decrypted provider keys, kept for the life of the isolate (BRIEF-KERNEL-YES 3): shared by every Vault over the same
+ * storage, so a key is opened once, not on each call. Cleared for a name whenever it is saved, replaced or removed (`set`).
+ */
+let isolateKeys = new WeakMap<object, Map<string, string | null>>();
+const keysOf = (storage: object): Map<string, string | null> => {
+  let m = isolateKeys.get(storage);
+  if (!m) isolateKeys.set(storage, (m = new Map()));
+  return m;
+};
+/** Tests only: forget the brain's own vault key and every kept key, as a restart in a fresh isolate would. */
+export const _testing = {
+  forgetVaultKey: () => {
+    cached = null;
+    isolateKeys = new WeakMap();
+  },
+};
 
 /** The VAULT KV namespace: what the vault needs of it. */
 export interface VaultKv {
@@ -128,7 +143,7 @@ export async function openBackup(ownerKey: string, sealed: string): Promise<Back
 
 export class Vault {
   /** Decrypted values kept in memory while the brain is awake: each AI call reads keys, and every storage read counts against the free plan's daily limit. */
-  private mem = new Map<string, string | null>();
+  private mem: Map<string, string | null>;
   /** Keys saved while the database was paused (in memory, KV and the device's copy only). */
   private dirty = new Set<string>();
   /** Has the list of waiting names been taken from KV this lifetime? */
@@ -142,7 +157,9 @@ export class Vault {
   constructor(
     private storage: DurableObjectStorage,
     private env: Env,
-  ) {}
+  ) {
+    this.mem = keysOf(storage);
+  }
 
   private get kv(): VaultKv | null {
     return kvOf(this.env);
@@ -150,12 +167,14 @@ export class Vault {
 
   /** Save a key. If the database is paused it is kept in memory, KV and the device's copy, and written later. */
   async set(name: string, value: string): Promise<void> {
-    this.mem.set(name, value || null);
+    // The cached value goes at once; the next read opens the new one. While the database is paused it is kept in memory instead.
+    this.mem.delete(name);
     try {
       await this.write(name, value);
       this.dirty.delete(name);
       await this.rememberDirty();
     } catch {
+      this.mem.set(name, value || null);
       this.dirty.add(name);
       await this.rememberDirty();
     }

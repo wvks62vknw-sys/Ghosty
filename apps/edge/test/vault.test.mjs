@@ -319,3 +319,33 @@ test('backup routes: a phone fetches its own copy by device and day; the older f
   const old = list.find((x) => !x.device);
   assert.equal((await (await call(`/api/backup/${old.day}`)).json()).backup.ct, b64(33));
 });
+
+// BRIEF-KERNEL-YES 3: a provider key is opened once for the life of the isolate (every Vault over the same storage shares it),
+// and opened again after a save.
+test('a key is decrypted once per isolate; a save clears it and the next read opens the new one', async () => {
+  _testing.forgetVaultKey();
+  const storage = new MemStorage();
+  const env = { VAULT_KEY: Buffer.alloc(32, 5).toString('base64') };
+  await new Vault(storage, env).set('groq', 'gsk_one');
+  _testing.forgetVaultKey(); // (a fresh isolate: nothing kept)
+  const real = crypto.subtle.decrypt.bind(crypto.subtle);
+  let opened = 0;
+  crypto.subtle.decrypt = (...a) => (opened++, real(...a));
+  try {
+    const a = new Vault(storage, env);
+    assert.equal(await a.get('groq'), 'gsk_one');
+    assert.equal(await a.get('groq'), 'gsk_one');
+    assert.equal(await new Vault(storage, env).get('groq'), 'gsk_one', 'a second Vault over the same storage shares it');
+    assert.equal(opened, 1, 'two calls (and a third from another Vault), one decrypt');
+    await a.set('groq', 'gsk_two');
+    assert.equal(await a.get('groq'), 'gsk_two');
+    assert.equal(opened, 2, 'after a save, one more decrypt');
+    assert.equal(await a.get('groq'), 'gsk_two');
+    assert.equal(opened, 2);
+    await a.set('groq', ''); // a removal clears it too
+    assert.equal(await a.get('groq'), null);
+    assert.equal(opened, 2);
+  } finally {
+    crypto.subtle.decrypt = real;
+  }
+});
