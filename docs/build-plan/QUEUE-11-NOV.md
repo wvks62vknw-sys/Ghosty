@@ -28,6 +28,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 4. POLISH 2, the picture: the Stage's charts, maps, documents and 3-D rooms made good (labels, zoom, light, the hand-over from the sentence);
    the Lens's tags smoothed; a drawn picture sent to Telegram as an image.
 5. THE TWO LOOKS: ORBIT (Mind is the way in), then GROWN UP (today, with less on it), each a whole HUD like THE MAP and THE EYE.
+   Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
+   8817, spec grownup); GROWN UP starts after ORBIT has landed, since both touch the shell.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
    passes; the boot's hand-over on a slow open.
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
