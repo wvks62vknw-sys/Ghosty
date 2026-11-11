@@ -38,6 +38,9 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
    Brief written 11 Nov for the third: BRIEF-EDITOR-SPREADSHEETS (worktree sheets, port 8821, spec sheets; the app's own formula engine and
    .xlsx over convert/zip.ts, no package); starts after DOCUMENTS is on main.
+   Brief written 11 Nov night for the fourth: BRIEF-EDITOR-PRESENTATIONS (worktree slides, port 8825, spec slides; the app's own .pptx
+   over convert/zip.ts, the documents' blocks reused, a report becomes a deck, PRESENT ON THE WALL where landed); cherry-picks DOCUMENTS
+   if it starts before that lands.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
