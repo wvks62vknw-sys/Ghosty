@@ -497,7 +497,7 @@ folder that no longer exists; ignore those paths).
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   11 Nov (kernel): KERNEL batch (builder/kernel, base cf84288) landed on the session branch as one commit on 743edcb: among protected files only agent.ts and one
   line of apps/edge/package.json; build, brain (1876: two timing fails under load 25, green alone), showme and settings green; speed2 red under load on this tree AND
-  on the head before it (1062 to 1588 ms at load 16 to 21, both): load, not the batch. OWNER-ISSUES 175. Push, PR, the run follow.
+  on the head before it (1062 to 1588 ms at load 16 to 21, both): load, not the batch. OWNER-ISSUES 175. Push, PR, the run follow. PR #82 run 1 (f161cfd): every job green but smoke (2): lens.spec 'READ did not read the tagged text: Still reading the last picture' (OCR timing, nothing the batch touches); repeated on a new commit so the run that merges is green the first time.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
   The top tier takes one turn per hand-back and relays his usage and his words to it.
