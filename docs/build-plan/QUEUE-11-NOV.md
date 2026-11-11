@@ -28,15 +28,26 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 4. POLISH 2, the picture: the Stage's charts, maps, documents and 3-D rooms made good (labels, zoom, light, the hand-over from the sentence);
    the Lens's tags smoothed; a drawn picture sent to Telegram as an image.
 5. THE TWO LOOKS: ORBIT (Mind is the way in), then GROWN UP (today, with less on it), each a whole HUD like THE MAP and THE EYE.
+   Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
+   8817, spec grownup); GROWN UP starts after ORBIT has landed, since both touch the shell.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
-   passes; the boot's hand-over on a slow open.
+   passes; SMALL FIXES 2 ("On it." proven in the phone's own voice and never over DOWNLOAD; the money pack's price watches and WATCHERS one
+   system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
+   after OCTOBER IDEAS 1, LIFE EASIER and POLISH 1 are on main.
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
+   Brief written 11 Nov for the third: BRIEF-EDITOR-SPREADSHEETS (worktree sheets, port 8821, spec sheets; the app's own formula engine and
+   .xlsx over convert/zip.ts, no package); starts after DOCUMENTS is on main.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
+   Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
+   waits on, so it takes the next free slot when the HUD briefs are blocked.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
+    Brief written 11 Nov: BRIEF-GAMES-5 (worktree games5, port 8822, spec games5): THE PLATFORMER and THE CAVE as games of our own, four board
+    games searched on the chip and rated in the GYM's league (learning on the free GPU, per 179 f); Cave Story itself and PICO-8 named as
+    NEEDS HIS WORD, not built. Waits on no landing.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
@@ -44,6 +55,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     System, Links, Social) · the chat itself (the log, the Stage, WHY, the ask line) · Telegram · the boot and the orb. Each pass: every state,
     every word, every wait, every number, every tap; before-and-after stills in the report; nothing new added, everything there made right.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
+15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
+    what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
+    Starts after DOCUMENTS, ENGINE 3D, TRAINING and POLISH 1 are on main. SMALL FIXES 2 rides with POLISH 3: the spoken "On it." in the
+    phone's own voice, not covering DOWNLOAD. Also in SMALL FIXES 2: the money pack's twice-a-day price watch and WATCHERS made one system (lifeeasier's found-not-fixed).
 
 ## His hands only (not builds; asked once, here)
 The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; the 0.5B SIT result; the voice blind check; his principles in his

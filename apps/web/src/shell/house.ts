@@ -35,7 +35,11 @@ export const houseState = { planOpen: false, room: '', says: '' };
 // it enters, straight after the screen's own classes changed)
 let narrow = innerWidth < 900;
 addEventListener('resize', () => (narrow = innerWidth < 900));
-export const houseOn = (): boolean => narrow && (document.documentElement.dataset.world === 'scan' || document.documentElement.dataset.world === 'ink');
+export const houseOn = (): boolean => narrow && ['scan', 'ink', 'map'].includes(document.documentElement.dataset.world ?? '');
+/** The house is drawn as THE MAP's scale: the same seven keys as ticks on a ruler, the plan as its districts (BRIEF-MAP-EYE-HUDS). */
+export const scaleOn = (): boolean => narrow && document.documentElement.dataset.world === 'map';
+/** The house's own name on its kick and the plan's head: the map calls the rooms districts. */
+const houseName = (): string => (scaleOn() ? 'The map · 7 districts' : 'The house · 7 rooms');
 /** The house is drawn as ONE INK's foot (the same house in another drawing: no label row, no ask line). */
 export const footOn = (): boolean => narrow && document.documentElement.dataset.world === 'ink';
 
@@ -73,7 +77,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     if (deckState.open) document.querySelector<HTMLElement>('#deck .dkclose')?.click();
     if (ui.get().tab !== 'area-me') navTo('area-me', areaOf(ui.get().tab)?.id === 'me' ? 'pop' : 'switch');
   });
-  const left = h('button.housebtn', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'The house: seven rooms. Open the plan', dataset: { case: 'keep' } }, h('span.g-truth', 'The house · 7 rooms'));
+  const left = h('button.housebtn', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'The house: seven rooms. Open the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()));
   const where = h('span.g-truth.housewhere', { dataset: { case: 'keep' } });
   const kick = h('div.housekick', { dataset: { case: 'keep' } }, left, where);
   const words = h('span.housewords');
@@ -115,7 +119,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   const draw = () => {
     const starred = new Set(favourites());
     const recent = new Set(recentTabs());
-    const head = h('button.planhead', { type: 'button', 'aria-label': 'Fold the plan', dataset: { case: 'keep' } }, h('span.g-truth', 'The house · 7 rooms'), h('span.g-truth', `You are in ${roomNow().title}`));
+    const head = h('button.planhead', { type: 'button', 'aria-label': 'Fold the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()), h('span.g-truth', `You are in ${roomNow().title}`));
     head.addEventListener('click', () => close());
     const rooms = ROOMS.map((r) => {
       const title = h('button.planroomhead', { type: 'button', dataset: { room: r.key, case: 'keep' }, 'aria-label': `${r.title}: open the room` }, h('span.rtitle', r.title), h('span.rcount', String(r.things.length)));
@@ -131,8 +135,8 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     if (el || !houseOn()) return;
     el = draw();
     const topEl = document.getElementById('top');
-    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK the plan stands on the foot's keys)
-    const askEl = footOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK and THE MAP the plan stands on the foot's or the scale's keys)
+    const askEl = footOn() || scaleOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
     el.style.setProperty('--plan-bottom', `${Math.round(askEl ? innerHeight - askEl.getBoundingClientRect().top : 0) + 8}px`);
     document.getElementById('app')!.append(el);
@@ -175,6 +179,9 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     houseState.says = `You are in ${r.title}`;
     // (words are written only when they changed: a write makes the dock lay itself out again)
     if (where.textContent !== houseState.says) where.textContent = houseState.says;
+    const kw = houseName();
+    const kt = left.firstElementChild;
+    if (kt && kt.textContent !== kw) kt.textContent = kw;
     const fw = fieldWords();
     if (words.textContent !== fw) words.textContent = fw;
     // the Ask key reads HOME in the house (Home is the room it opens)
