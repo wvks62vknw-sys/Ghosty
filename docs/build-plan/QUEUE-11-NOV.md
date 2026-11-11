@@ -45,6 +45,9 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
+    Brief written 11 Nov: BRIEF-GAMES-5 (worktree games5, port 8822, spec games5): THE PLATFORMER and THE CAVE as games of our own, four board
+    games searched on the chip and rated in the GYM's league (learning on the free GPU, per 179 f); Cave Story itself and PICO-8 named as
+    NEEDS HIS WORD, not built. Waits on no landing.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
