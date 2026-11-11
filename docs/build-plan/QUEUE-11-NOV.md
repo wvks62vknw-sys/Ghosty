@@ -29,7 +29,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    the Lens's tags smoothed; a drawn picture sent to Telegram as an image.
 5. THE TWO LOOKS: ORBIT (Mind is the way in), then GROWN UP (today, with less on it), each a whole HUD like THE MAP and THE EYE.
    Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
-   8817, spec grownup); GROWN UP starts after ORBIT has landed, since both touch the shell.
+   8817, spec grownup). ORBIT handed back 11 Nov evening (reviewed clean, in the landing queue after THE EYE); GROWN UP started the
+   same hour in worktree grownup standing on ORBIT's six commits cherry-picked, so it lands as the diff above that tip, the EYE-over-MAP way.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
    passes; SMALL FIXES 2 ("On it." proven in the phone's own voice and never over DOWNLOAD; the money pack's price watches and WATCHERS one
    system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
@@ -42,6 +43,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    waits on, so it takes the next free slot when the HUD briefs are blocked.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
+   Brief written 11 Nov: BRIEF-RELIABILITY (worktree health, port 8823, spec health; the brain's health route in its own file mounted
+   under /guardian); starts after POLISH 1 is on main (its error voice and wait helper).
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
@@ -49,6 +52,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     games searched on the chip and rated in the GYM's league (learning on the free GPU, per 179 f); Cave Story itself and PICO-8 named as
     NEEDS HIS WORD, not built. Waits on no landing.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
+    Brief written 11 Nov: BRIEF-WORKING-ENGINE (worktree workingengine, port 8824, spec workingengine; the car's own geometry over the
+    three.js the Studio loads, kinematic, no package; physics stays at KERNEL 2). ENGINE 3D and THE CAR are on main: waits on no landing.
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
     arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
