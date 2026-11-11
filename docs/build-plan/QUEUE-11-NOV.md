@@ -35,7 +35,11 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
    after OCTOBER IDEAS 1, LIFE EASIER and POLISH 1 are on main.
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
+   Brief written 11 Nov for the third: BRIEF-EDITOR-SPREADSHEETS (worktree sheets, port 8821, spec sheets; the app's own formula engine and
+   .xlsx over convert/zip.ts, no package); starts after DOCUMENTS is on main.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
+   Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
+   waits on, so it takes the next free slot when the HUD briefs are blocked.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
