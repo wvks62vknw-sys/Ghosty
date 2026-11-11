@@ -511,6 +511,6 @@ QUESTIONS (recommendation first): (a) DECIDED BY THE ORCHESTRATOR, WITH YOUR VET
     on/off row in Settings; `games4.test.mjs` added to the brain's test list in apps/edge/package.json. Built as one kernel batch
     (BRIEF-KERNEL-YES.md) by a mid-tier builder with his word as the licence for exactly those files and nothing else protected.
 174. **"all models weekly is back at 0%" (his words, 11 Nov):** the all-models line has reset after all (167 said it would not), so the
-    90% stop no longer binds this week's remaining queue; the top tier's own line is still treated as spent until he says otherwise.
+    90% stop no longer binds this week's remaining queue. Then "fable weekly is back at 0% too": the top tier's line reset as well.
     The rest of 164's order goes ahead: the speaker model for his voice (never a lock on its own), weekly training for real, the
     phone-hardware items blind with fallbacks, the full editors as a programme, and the small fixes he points out once he has looked.

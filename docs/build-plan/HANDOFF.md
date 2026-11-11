@@ -498,8 +498,9 @@ folder that no longer exists; ignore those paths).
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
   The top tier takes one turn per hand-back and relays his usage and his words to it.
-  HIS USAGE 11 Nov (OWNER-ISSUES 174): all models weekly 0%, reset; the top tier's line not given (last 97%). The 90% stop is
-  lifted for the all-models line; the mid-tier orchestrator and mid-tier builders carry on; the top tier still one turn per hand-back.
+  HIS USAGE 11 Nov (OWNER-ISSUES 174): all models weekly 0% and the top tier weekly 0%, both reset. METHOD FROM HERE: the
+  mid-tier orchestrator keeps the landings (apply, OWNER-ISSUES, PR, run, merge, main's run); the top tier reviews every builder's
+  diff itself before handing it over, launches builders as the two cores free up (four at a time at most), and keeps its turns short.
   HIS USAGE 9 Nov 21:10 UK: all models weekly 68%, top tier weekly 95% (8 Nov 22:11 UK: 58% and 81%). The top tier is the
   orchestrator's own turns: 14 points in 23 hours for the shell's six runner fixes and the ONE INK brief. METHOD FROM HERE: the
   orchestrator takes one turn per landing (review, apply, OWNER-ISSUES, push, PR in one go) and one per run read; the cheap
