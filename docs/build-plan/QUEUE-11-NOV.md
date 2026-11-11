@@ -59,6 +59,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
     System, Links, Social) · the chat itself (the log, the Stage, WHY, the ask line) · Telegram · the boot and the orb. Each pass: every state,
     every word, every wait, every number, every tap; before-and-after stills in the report; nothing new added, everything there made right.
+    Seeded 11 Nov from the first critic pass over the twelve unlanded diffs (scratchpad critic-pass-1.md; the top tier's read-only critic):
+    each build's words, missing states and unsaid waits are listed per file and line and go to the pass that owns its room, and each PR's
+    entry names them as found-not-fixed. Rule-level findings were fixed at landing instead (a confirm on the mail send; the ack never over
+    DOWNLOAD; a failed Telegram picture said once; the raw-error sites swept through the one error voice when its lint lands).
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
