@@ -5,8 +5,10 @@ Everything in THE-GUIDE-11-NOV sections 6, 7 and 8, as briefs, in this order. Fo
 a run green first time; main's own run read after. The top tier reviews every diff before it is handed to the orchestrator. Ticked when on main.
 
 ## Running or landing now
-- [ ] ENGINE 3D (landing) · THE MAP (landing) · SPEAKER (landing) · TRAINING FOR REAL (landing) · THIS PHONE (landing)
-- [ ] THE EYE HUD (building) · SMALL FIXES 1 (building) · DOCUMENTS editor (building) · OCTOBER IDEAS 1, the HUD alive (building)
+- [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
+- [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL
+- [ ] Building: GROWN UP HUD · GAMES 5 · SPREADSHEETS · THE WORKING ENGINE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
