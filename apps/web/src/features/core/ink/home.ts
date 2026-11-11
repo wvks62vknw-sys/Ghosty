@@ -56,7 +56,7 @@ export const hourWord = (d = new Date(now())): string => {
   return hr >= 17 || hr < 5 ? 'Tonight' : hr < 12 ? 'This morning' : 'Today';
 };
 
-interface Entry {
+export interface Entry {
   kind: 'book' | 'agenda' | 'brief';
   name: string;
   line: string;
@@ -66,7 +66,7 @@ interface Entry {
 }
 
 /** Open the book he is in at his place, or the Shelf where the reader has nothing to open yet; `aloud` starts it reading. */
-async function carryOn(doc: string, aloud: boolean): Promise<void> {
+export async function carryOn(doc: string, aloud: boolean): Promise<void> {
   try {
     const r = await import('../../library/reader');
     const d = r.shelfDocs.get().docs.find((x) => x.id === doc);
@@ -75,6 +75,41 @@ async function carryOn(doc: string, aloud: boolean): Promise<void> {
     /* the shelf is the way in */
   }
   navTo('library?shelf', 'push');
+}
+
+/** The thing of the hour: the book he is in, else the next thing in his agenda, else the Brief (never invented). ONE INK's page and THE MAP's square share it. */
+export function tonightEntry(nextUp: () => string): Entry {
+  const book = bookNow();
+  if (book) {
+    return {
+      kind: 'book',
+      name: bookName(book.doc),
+      line: [book.page ? `Page ${book.page}` : '', `${Math.round(book.pct * 100)} % read`, whenWord(book.at)].filter(Boolean).join(' · '),
+      right: 'Reading',
+      fill: { word: 'Carry on reading', label: 'Carry on reading', run: () => void carryOn(book.doc, false) },
+      ghost: { word: 'Listen', label: 'Listen: I read it to you from your place', run: () => void carryOn(book.doc, true), glyph: LISTEN },
+    };
+  }
+  const next = nextUp();
+  if (next) {
+    const at = next.lastIndexOf(' · ');
+    return {
+      kind: 'agenda',
+      name: at > 0 ? next.slice(0, at) : next,
+      line: at > 0 ? `Next on your agenda · ${next.slice(at + 3)}` : 'Next on your agenda',
+      right: 'Agenda',
+      fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => navTo('agenda', 'push') },
+      ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
+    };
+  }
+  return {
+    kind: 'brief',
+    name: 'The Brief',
+    line: 'Tap to read it',
+    right: 'Brief',
+    fill: { word: 'Read the brief', label: 'Read the brief', run: () => navTo('brief', 'push') },
+    ghost: { word: 'Ask me', label: 'Ask me anything', run: () => togglePalette() },
+  };
 }
 
 /**
@@ -127,41 +162,8 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     for (const t of taken) if (t.parent && t.el.parentElement === t.into) t.parent.insertBefore(t.el, t.next && t.next.parentElement === t.parent ? t.next : null);
   };
 
-  // ---------------------------------------------------------------- the thing of the hour (the same source as THE SCAN's room)
-  /** The book he is in, else the next thing in his agenda, else the Brief: never invented. */
-  const tonight = (): Entry => {
-    const book = bookNow();
-    if (book) {
-      return {
-        kind: 'book',
-        name: bookName(book.doc),
-        line: [book.page ? `Page ${book.page}` : '', `${Math.round(book.pct * 100)} % read`, whenWord(book.at)].filter(Boolean).join(' · '),
-        right: 'Reading',
-        fill: { word: 'Carry on reading', label: 'Carry on reading', run: () => void carryOn(book.doc, false) },
-        ghost: { word: 'Listen', label: 'Listen: I read it to you from your place', run: () => void carryOn(book.doc, true), glyph: LISTEN },
-      };
-    }
-    const next = o.nextUp();
-    if (next) {
-      const at = next.lastIndexOf(' · ');
-      return {
-        kind: 'agenda',
-        name: at > 0 ? next.slice(0, at) : next,
-        line: at > 0 ? `Next on your agenda · ${next.slice(at + 3)}` : 'Next on your agenda',
-        right: 'Agenda',
-        fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => navTo('agenda', 'push') },
-        ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
-      };
-    }
-    return {
-      kind: 'brief',
-      name: 'The Brief',
-      line: 'Tap to read it',
-      right: 'Brief',
-      fill: { word: 'Read the brief', label: 'Read the brief', run: () => navTo('brief', 'push') },
-      ghost: { word: 'Ask me', label: 'Ask me anything', run: () => togglePalette() },
-    };
-  };
+  // ---------------------------------------------------------------- the thing of the hour (the same source as THE SCAN's room: tonightEntry above)
+  const tonight = (): Entry => tonightEntry(o.nextUp);
 
   let entryKey = '';
   const paintEntry = () => {

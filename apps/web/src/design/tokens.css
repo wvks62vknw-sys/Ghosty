@@ -93,6 +93,10 @@
   --g-print-name: 400 26px/32px var(--g-font-serif);    /* ONE INK: the one entry's name on the page */
   --g-print-ask: italic 400 21px/28px var(--g-font-serif); /* ONE INK: the ask line's words, a rule with a field in it */
   --g-print-title: 400 34px/40px var(--g-font-serif);   /* ONE INK: a screen's name on every screen, in the serif */
+  --g-map-eye: 520px;                                    /* THE MAP: how far the eye stands from the plane on Home */
+  --g-map-tilt: 62deg;                                   /* THE MAP: how far the plane leans away */
+  --g-map-cell: 80px;                                    /* THE MAP: the one cell the plane's drift crosses (the floor's own grid) */
+  --g-map-drift: 24s;                                    /* THE MAP: the drift's period */
   --g-num: tabular-nums;                                 /* numerals: tabular everywhere, so readings line up */
 
   /* ---------------------------------------------------------------- the grid: 8 points, the gutter, the safe areas */
