@@ -49,7 +49,7 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
     Starts after DOCUMENTS, ENGINE 3D, TRAINING and POLISH 1 are on main. SMALL FIXES 2 rides with POLISH 3: the spoken "On it." in the
-    phone's own voice, not covering DOWNLOAD.
+    phone's own voice, not covering DOWNLOAD. Also in SMALL FIXES 2: the money pack's twice-a-day price watch and WATCHERS made one system (lifeeasier's found-not-fixed).
 
 ## His hands only (not builds; asked once, here)
 The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; the 0.5B SIT result; the voice blind check; his principles in his
