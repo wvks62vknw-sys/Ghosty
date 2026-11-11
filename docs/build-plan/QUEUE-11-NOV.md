@@ -31,7 +31,9 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
    8817, spec grownup); GROWN UP starts after ORBIT has landed, since both touch the shell.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
-   passes; the boot's hand-over on a slow open.
+   passes; SMALL FIXES 2 ("On it." proven in the phone's own voice and never over DOWNLOAD; the money pack's price watches and WATCHERS one
+   system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
+   after OCTOBER IDEAS 1, LIFE EASIER and POLISH 1 are on main.
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
