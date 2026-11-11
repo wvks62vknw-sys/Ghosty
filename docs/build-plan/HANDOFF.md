@@ -490,6 +490,10 @@ folder that no longer exists; ignore those paths).
   22:00 UK: GAMES (builder/games, base bedc1f2) landed on the session branch as one commit, 3-way onto main (check.yml's list ends ... offlineeyes games4); on the
   merged tree built and games4, arcade, games2, games3, ui, deck, nav, speed2, showme, offlinemaps, offlineeyes, tabs run: all green (games4 red once under
   load on 'beat: DUCK ducks', green alone). apps/edge/test/games4.test.mjs is not in the protected package.json's test list: his call. OWNER-ISSUES 172.
+  11 Nov 00:05 UK: PR #81 (GAMES) GREEN on its first run (c0b11d3), SQUASH-MERGED as c4172f5; MAIN'S OWN RUN 42920418280 GREEN on every job. GAMES is FINISHED
+  on the code side, pending his phone check (OWNER-ISSUES 172) and his call on games4.test.mjs. Worktree games and branch builder/games removed.
+  HIS USAGE 10 Nov evening UK: all models weekly 77%, top tier weekly 97% (9 Nov 21:10 UK: 68% and 95%). 90% rule: launch nothing at or past it.
+  In flight: builders engine3d (the working 3-D engine) and huds (THE MAP and THE EYE HUDs), both from the session head; landings follow in that order.
   21:20 UK: HIS WORD (OWNER-ISSUES 167): no weekly reset; the last 30% on the most important things; he looks once it is all
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).
