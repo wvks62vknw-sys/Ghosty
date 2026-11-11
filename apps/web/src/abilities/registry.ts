@@ -181,7 +181,7 @@ export function runLabel(g: { run: string; args?: Record<string, unknown> }): st
   switch (g.run) {
     case 'open_lens': return `Opens the Lens on ${LENS_NAME[String(a.mode)] ?? String(a.mode ?? 'SEE').toUpperCase()}`;
     case 'open_gym': return `Opens the Gym on ${niceName(GAMES.find((x) => x.id === a.game)?.title ?? String(a.game ?? 'its games'))}`;
-    case 'open_studio': return a.sample ? `Opens the 3D studio on the ${(SAMPLES.find((s) => s.id === a.sample)?.title ?? String(a.sample)).toLowerCase()}` : a.make ? `Opens the 3D studio and finds “${String(a.make)}”` : 'Opens the 3D studio';
+    case 'open_studio': return a.engine ? 'Opens the 3-D engine on a scene' : a.sample ? `Opens the 3D studio on the ${(SAMPLES.find((s) => s.id === a.sample)?.title ?? String(a.sample)).toLowerCase()}` : a.make ? `Opens the 3D studio and finds “${String(a.make)}”` : 'Opens the 3D studio';
     case 'open_learn': return 'Opens your flashcards';
     case 'open_systems': return 'Opens every screen at once';
     case 'open_me': return 'Opens the Me sheet';

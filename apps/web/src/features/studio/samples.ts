@@ -18,7 +18,7 @@ export const SAMPLES = [
 ] as const;
 export type SampleId = (typeof SAMPLES)[number]['id'];
 
-export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline' | 'car' | 'build';
+export type Pane = 'models' | 'parts' | 'tools' | 'make' | 'room' | 'spline' | 'car' | 'build' | 'engine';
 export const PANES: { id: Pane; label: string }[] = [
   { id: 'models', label: 'MODELS' },
   { id: 'parts', label: 'PARTS' },
@@ -28,4 +28,5 @@ export const PANES: { id: Pane; label: string }[] = [
   { id: 'spline', label: 'SPLINE' },
   { id: 'car', label: 'CAR · FIX IT' },
   { id: 'build', label: 'DESIGN A BUILD' },
+  { id: 'engine', label: '3-D ENGINE' },
 ];

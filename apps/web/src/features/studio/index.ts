@@ -27,6 +27,8 @@ import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio
 import type { WalkState } from '../../studio/walk';
 import { carPane } from '../../car/panel';
 import { buildPane } from '../../build/pane';
+import { enginePane } from '../../engine3d/pane';
+import { readScene } from '../../engine3d/scene';
 
 // (the samples and the panes: a pure list the ABILITIES catalogue reads too)
 import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
@@ -56,6 +58,8 @@ export interface StudioArgs {
   title?: string;
   room?: unknown;
   spline?: string;
+  /** A scene for the 3-D ENGINE pane (SHOW ME's room or part, or a saved scene's JSON). */
+  engine?: unknown;
 }
 
 let wanted: StudioArgs | null = null;
@@ -149,6 +153,8 @@ export const studioTab: TabDef = {
     const car = carPane(view);
     // [restd] DESIGN A BUILD (BRIEF-REST-D 1b): the build in 3-D on a stage of its own, the way the car has one
     const bld = buildPane(view);
+    // [engine3d] THE 3-D ENGINE (BRIEF-ENGINE-3D-1): a scene he builds with his fingers, on a stage of its own
+    const eng = enginePane(view);
     let stickId: number | null = null;
     const stickMove = (e: PointerEvent) => {
       const r = stick.getBoundingClientRect();
@@ -216,6 +222,7 @@ export const studioTab: TabDef = {
     const segBtns = PANES.map((p) => {
       const b = button(p.label, () => show(p.id));
       b.dataset.pane = p.id;
+      if (p.id === 'engine') b.dataset.label = '3-D engine';
       return b;
     });
     seg.append(...segBtns);
@@ -735,6 +742,7 @@ export const studioTab: TabDef = {
       spline: { el: splinePane, paint: paintSpline },
       car: { el: car.el, paint: () => undefined },
       build: { el: bld.el, paint: () => undefined },
+      engine: { el: eng.el, paint: () => undefined },
     };
     function show(p: Pane) {
       const was = pane;
@@ -749,12 +757,20 @@ export const studioTab: TabDef = {
         if (active) void car.enter();
       } else if (was === 'car') {
         car.leave();
-        if (active && p !== 'build') V.start();
+        if (active && p !== 'build' && p !== 'engine') V.start();
       }
       if (p === 'build') {
         V.stop();
         if (active) void bld.enter();
-      } else if (was === 'build' && p !== 'car' && active) V.start();
+      } else if (was === 'build' && p !== 'car' && p !== 'engine' && active) V.start();
+      if (was === 'engine' && p !== 'engine') {
+        eng.leave();
+        if (active && p !== 'car' && p !== 'build') V.start();
+      }
+      if (p === 'engine') {
+        V.stop();
+        if (active) void eng.enter();
+      }
     }
 
     // ---- the viewer's state onto the screen
@@ -791,7 +807,7 @@ export const studioTab: TabDef = {
     const loadAny = async (src: ModelSource, back = false): Promise<boolean> => {
       asked = true;
       // a model asked for while the car is up: back to the bench
-      if (pane === 'car' || pane === 'build') show('models');
+      if (pane === 'car' || pane === 'build' || pane === 'engine') show('models');
       vstat.textContent = 'loading…';
       try {
         await V.load(src);
@@ -879,6 +895,15 @@ export const studioTab: TabDef = {
     };
 
     const apply = (a: StudioArgs) => {
+      if (a.engine) {
+        const sc = readScene(a.engine);
+        asked = true;
+        if (sc) {
+          show('engine');
+          eng.loadScene(sc);
+        } else toast('That scene could not be read.', 'warn');
+        return;
+      }
       if (a.spline) {
         show('spline');
         splineIn.value = a.spline;
@@ -975,9 +1000,13 @@ export const studioTab: TabDef = {
             V.stop();
             void bld.enter();
           }
+          if (pane === 'engine') {
+            V.stop();
+            void eng.enter();
+          }
           const a = wanted;
           wanted = null;
-          if (a && (a.sample || a.catalog || a.make || a.model || a.room || a.spline)) apply(a);
+          if (a && (a.sample || a.catalog || a.make || a.model || a.room || a.spline || a.engine)) apply(a);
           else if (first && !V.model && !asked) void loadSample('reactor');
           first = false;
           void refreshMade();
@@ -995,6 +1024,7 @@ export const studioTab: TabDef = {
         V.setTurntable(false);
         car.leave();
         bld.leave();
+        eng.leave();
       },
       describe: () =>
         V.parts.length
@@ -1004,7 +1034,8 @@ export const studioTab: TabDef = {
       // mentioned; the lab bench's own model and its picked part otherwise
       context: () =>
         car.context() ??
-        bld.context() ?? {
+        bld.context() ??
+        eng.context() ?? {
           screen: 'studio',
           title: '3D Studio',
           line: V.parts.length ? `the 3D studio, ${V.info.title}, ${V.parts.length} parts${V.explode > 0.02 ? `, ${Math.round(V.explode * 100)}% taken apart` : ''}${V.section ? `, cut along ${V.section.axis.toUpperCase()}` : ''}` : 'the 3D studio, no model open',
