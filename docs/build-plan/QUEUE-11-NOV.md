@@ -232,3 +232,6 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
 - 12 Nov, GAMES 6 hand-back: builder/games6 head a2f11908; poker and WORDS, GAMES 5's six loose ends; the word list ENABLE (public domain,
   terms written before the fetch) packed to 361,924 B and fetched only on his tap with the size said; reviewed clean, entry 215; mine next
   216. Decisions under 179: the full list stays a download; "Chips, never money." stays; PICO-8/Cave Story still his word. Slot waits for #92.
+- 12 Nov, BRIEF-DEPTH-MEMORY written (PLAN-STARS pass 1b: RECALL in the prompt within the ceilings, "what did I ask you about X" on the
+  phone by meaning with the model already vendored, a `reply` watcher for a chase, his own things indexed on the phone at idle; spec `recall`;
+  port 8847; the `recall` tool goes in tools/memory.ts, not protected; starts after POLISH 3 and the PLAN AND ME pass are on main).

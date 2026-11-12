@@ -103,6 +103,11 @@ Four lists in the order things happen, then the questions only you can answer. Q
   the still version saying everything the moving one does; a slow start never a frozen frame), the orb's listening, thinking and speaking
   told apart by its light alone and said once in words, the orb going low when the brain is off instead of glowing as if answering, and the
   readout ribbon in one sentence for every state. Starts once Polish 1 and the October ideas are live.
+- **Memory and recall (the depth plan's first pass), written up.** Ghosty remembers the week's conversations and says "like you said on
+  Tuesday" with a tap to that chat; "what did I ask you about trains?" answered on the phone in a second, offline too, across the app and
+  Telegram; "remind me to chase this if they don't reply by Thursday" held for days and raised with a draft for your OK; your documents,
+  sheets, decks, Workspace pages, scanned text and notes searchable by meaning on the phone, nothing leaving it. Starts once Polish 3 and the
+  PLAN and ME fixes are live.
 - **Kernel 3.** Your yes from 12 Nov, written up: the brain gets hands on the new editors from the chat ("make slide three's title shorter",
   "cut the first clip to five seconds", "what did I write about the garden?", "make me a platformer about a fox"), every change shown to you
   first and applied only on your tap, nothing exported or published by the brain itself; and the brain's test list names every test. The
@@ -110,8 +115,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
 
 ## 4. Not started yet (I write these next, in this order)
 1. **Games 7.** Whatever Games 6 leaves: PICO-8 cartridges and Cave Story (both need your word first), more board games on the phone's chip.
-2. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
-   the Lens acting on what it sees (not just naming it), fun, better answers.
+2. **The depth plan**, pass by pass: character (it sounds like one person; your principles in your own words help here), the Lens acting
+   on what it sees (not just naming it), fun, better answers (memory and recall is written up, list 3).
 3. **Training at scale** on the free GPU budget, said honestly if the budget cannot carry it; and the self-edit trial (Ghosty proposing its own
    fixes) measured.
 4. **A tutorial in the app** for showing it to other people, once the editors are in.
