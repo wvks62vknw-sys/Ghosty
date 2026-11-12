@@ -14,8 +14,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
   QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS
-- [ ] Building: THE WORKSPACE · VIDEO · QUALITY PASS: SEE · THE GAME STUDIO
-- [ ] Parked, reviewed clean, waiting for the EDITORS fold: PHOTO (lands after THE WORKSPACE, rebased onto the fold first; OWNER-ISSUES 204)
+- [ ] Building: THE WORKSPACE · QUALITY PASS: SEE · THE GAME STUDIO · PHOTO 2
+- [ ] Parked, reviewed clean, waiting for the EDITORS fold: PHOTO (OWNER-ISSUES 204) then VIDEO (207), each rebased onto the fold before it lands
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -82,6 +82,11 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    quests, rules, sound, save points; one runtime plays any game on the ARCADE shelf; .ghostygame shared; AS AN APP through the sites
    path or said honestly; 3-D, multiplayer and money not in it); starts from GAMES 5's head and lands after GAMES 5 and the fold. THE GAME
    STUDIO started 12 Nov in worktree gamestudio when PHOTO handed back.
+   VIDEO handed back 12 Nov (reviewed clean: fifteen commits, the app's own .mp4 muxer and reader, both export paths, 182 spec checks; the
+   size said before an export made honest by the recorder's own rate and a one-line truth when the file still differs); parked behind
+   WORKSPACE and PHOTO for the fold. Brief written 12 Nov under his yes (185): BRIEF-EDITOR-PHOTO-2 (worktree photo2, port 8836, spec photo2;
+   the cut-out model, the erase model and a RAW reader as packs on his tap with the size said, licences and sizes written before a byte is
+   vendored; starts from PHOTO's head, lands after PHOTO). PHOTO 2 started 12 Nov in worktree photo2 when VIDEO handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
