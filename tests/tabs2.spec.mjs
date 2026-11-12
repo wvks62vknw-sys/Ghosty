@@ -143,8 +143,8 @@ for (const viewport of [PHONE, SMALL]) {
     small: [...document.querySelectorAll('#plan button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5; }).length, expanded: document.querySelector('#dock .housebtn')?.getAttribute('aria-expanded'),
     names: [...document.querySelectorAll('#plan .planroom[data-room="learn"] .ptname')].map((x) => x.textContent).join(),
   }));
-  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 37 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 37 numbered things, Learn lit)`);
-  if (plan.learn !== '1:learn,2:arcade,3:gym,4:school,5:library,6:learning,7:coach' || plan.names !== 'Courses,Arcade,Gym,School,Library,Learning,Coach') problems.push(`[${W}] Learn's things on the plan: ${plan.learn} / ${plan.names}`);
+  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 39 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 39 numbered things, Learn lit)`);
+  if (plan.learn !== '1:learn,2:arcade,3:gym,4:school,5:library,6:learning,7:coach,8:rehearse' || plan.names !== 'Courses,Arcade,Gym,School,Library,Learning,Coach,Rehearse') problems.push(`[${W}] Learn's things on the plan: ${plan.learn} / ${plan.names}`);
   if (plan.starred.join() !== 'learn,gym' && plan.starred.join() !== 'gym,learn') problems.push(`[${W}] the plan stars ${plan.starred} (his favourites: gym, courses)`);
   if (plan.works.sort().join() !== 'coach,learning') problems.push(`[${W}] the plan dots IN THE WORKS on ${plan.works}`);
   if (plan.small) problems.push(`[${W}] ${plan.small} plan keys are under 44 pt`);
