@@ -12,9 +12,10 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run) ·
       TRAINING (on main 12 Nov, PR 87, e977f173, green on main's own run; carries the Home fix for the jump bar's open) ·
-      PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run)
+      PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run) ·
+      POLISH 1 (on main 12 Nov, PR 91, 8762f9b4, green on main's own run)
 - [ ] Landing, in order: OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
+  POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
   QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · QUALITY PASS: MAKE (builder/makepass, base 08a5337a, head 4741dc42, entry 210) · QUALITY PASS: PLAN AND ME (builder/planmepass, base 08a5337a, head 093ba13f, entry 211; union with MAKE's ratchet rows and `all=`) · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO) · VIDEO (on the fold: builder/videofold, base 0aff585c, head 3bcd43b6; its reserved entry; lands right after PHOTO 2; tabs2's 42 count stands on CI's word) · GAME STUDIO (on the fold: builder/gsfold head e2cd3f18; land only 0e605afa..e2cd3f18, the 15 commits under them are GAMES 5 scaffolding; entry 208) · GAMES 6 (builder/games6, base 4511157a, head a2f11908, entry 215; lands last, union with the fold's `all=`)
 - [ ] Building: VIDEO 2 (BRIEF-EDITOR-VIDEO-2; from VIDEO's fold head 3bcd43b6, worktree video2, branch builder/video2, port 8839) · QUALITY PASS: LEARN (from the MAKE pass head 4741dc42, worktree learnpass, port 8840; entry 212) · KERNEL 2 (BRIEF-KERNEL-2; from main 8762f9b4 after POLISH 1, worktree kernel2, branch builder/kernel2, port 8818)
 

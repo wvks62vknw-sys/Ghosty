@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-five; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-four; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
@@ -14,8 +14,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
 5. **Life easier.** "Hey Siri, ask Ghosty…", a Shortcut that files anything you share, the Brief read aloud when you first open the app,
    "What did I miss?", nudges from your bank statements, a photographed letter turned into a reminder and filed, watchers ("tell me when this
    price drops / this page changes / there's a strike on my line"), your email sorted into the Brief with draft replies for your OK.
-6. **Polish 1, the edges.** Every screen says something when it is empty, loading, broken or offline; every error in Ghosty's words, never
-   a browser's; every wait over half a second says what it is doing; the biggest text setting cuts nothing.
+6. ~~Polish 1, the edges~~ LIVE since 12 Nov: every screen says something when it is empty, loading, broken or offline; every error in
+   Ghosty's words, never a browser's; every wait over half a second says what it is doing; the biggest text setting cuts nothing. Steps in
+   TRY-IT-NOW.
 7. **Polish 2, the pictures.** The charts, maps, documents and 3-D rooms Ghosty shows you made good: labels, zoom, light, and a drawn
    picture can be sent to Telegram.
 8. **Further ideas from October.** Interpreter mode (two-way spoken translation, offline), the orb as a map of what Ghosty knows about you,
