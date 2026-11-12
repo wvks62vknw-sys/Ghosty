@@ -219,7 +219,7 @@ test('the house is drawn from that one list on every screen: the plan, the jump 
   const house = read('shell/house.ts');
   assert.match(house, /import \{ ROOMS, roomOf/, 'the plan reads the rooms');
   // (the width is read on a resize, not at every call: `innerWidth` forces a layout and the house asks on every screen it enters)
-  assert.match(house, /narrow && \['scan', 'ink', 'map'\]\.includes\(document\.documentElement\.dataset\.world \?\? ''\)/, 'the house is The Scan, The Map or One Ink on a phone, and only those');
+  assert.match(house, /narrow && \['scan', 'ink', 'map', 'eye'\]\.includes\(document\.documentElement\.dataset\.world \?\? ''\)/, 'the house is The Scan, The Map, The Eye or One Ink on a phone, and only those');
   assert.match(house, /narrow = innerWidth < 900/, 'a phone is under 900 px, read when the window resizes');
   assert.match(house, /The house · 7 rooms/);
   assert.match(read('shell/launcher.ts'), /for \(const r of ROOMS\)/, 'Every screen lists the rooms');
@@ -234,7 +234,7 @@ test('the house is drawn from that one list on every screen: the plan, the jump 
 // The rule is proved above on the lists (the bar's areas, a hub's cards, the Me sheet, the deck, the jump bar's ranking); what each world adds is
 // only HOW the lists are drawn and reached, so the way in is checked per world from the code that draws it: every screen is still on a visible
 // list (a room is a key in the bar, its things are the room's cards: two taps), recents and favourites are two taps, and a typed word finds the rest.
-test('the finding rule holds in all four worlds: The Scan, The Map, One Ink and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
+test('the finding rule holds in all five worlds: The Scan, The Map, The Eye, One Ink and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
   const house = read('shell/house.ts');
   const areas = read('shell/areas.ts');
   const ink = read('features/core/ink/home.ts');
@@ -242,6 +242,7 @@ test('the finding rule holds in all four worlds: The Scan, The Map, One Ink and 
   const worlds = {
     scan: { housed: /'scan'/.test(house), keys: 'the house along the bottom' },
     map: { housed: /'map'/.test(house) && /scaleOn/.test(house), keys: 'the scale' },
+    eye: { housed: /'eye'/.test(house) && /eyeOn/.test(house), keys: 'the instruments' },
     ink: { housed: /=== 'ink'/.test(house), keys: 'the foot' },
     glass: { housed: !/=== 'glass'/.test(house), keys: "today's bar" },
   };
@@ -249,7 +250,7 @@ test('the finding rule holds in all four worlds: The Scan, The Map, One Ink and 
   assert.match(areas, /for \(const a of AREAS\.filter\(\(x\) => x\.id !== 'me'\)\)/, 'the bar is the areas, six keys, in every world');
   assert.match(house, /const meKey = h\('button\.scanme'/, 'the seventh room, ME, joins the bar in the housed worlds');
   assert.match(css, /html body:not\(\.housed\) #dock \.tabcap \.scanme \{ display: none; \}/, 'and Glass has no ME key in its bar');
-  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.ink.housed && worlds.glass.housed, JSON.stringify(worlds));
+  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.eye.housed && worlds.ink.housed && worlds.glass.housed, JSON.stringify(worlds));
   // each room's hub lists its things (the same cards), in all three: a room is one tap from Home, its thing the second
   assert.match(areas, /const room = ROOMS\.find\(\(r\) => r\.area === a\.id\)!/, "a room's hub is drawn from the one list in every world");
   // recents and favourites: THE SCAN's and Glass's jump bar read pinnedAndRecent; ONE INK's Home lists the same two as words (a tap opens: two taps from Home, one from the page)
@@ -273,7 +274,16 @@ test('the finding rule holds in all four worlds: The Scan, The Map, One Ink and 
   assert.match(map, /ROOMS\.filter\(\(r\) => r\.key !== 'home'\)/, "THE MAP's districts are the rooms of the one list");
   assert.match(css, /html\[data-world="map"\] body\.maphome #dock \.houseask \{ display: none; \}/, "THE MAP's Home draws its own ask line");
   assert.ok(!/class .*mapscale|buildScale|mapRooms/.test(map + house), 'one source: the scale is the house, not a copy');
+  // THE EYE: the house is its instruments (the same seven keys as seven small feeds), its Home lists the same two as feeds at the edge of its attention
+  // (a tap opens, a long press pins); the rooms are feeds that reach every room; its ask line is the jump bar; the plan opens from the same kick
+  const eye = read('features/core/eye/home.ts');
+  assert.match(eye, /pinnedAndRecent\(\)/, "THE EYE's wall lists his recents and favourites");
+  assert.match(eye, /pinOnHold\(b, t\.id\)/, 'a long press on one of its feeds pins or unpins it');
+  assert.match(eye, /field\.addEventListener\('click', \(\) => togglePalette\(\)\)/, "THE EYE's ask line is the jump bar, one typed word for anything");
+  assert.match(eye, /ROOMS\.filter\(\(r\) => r\.key !== 'home'\)/, "THE EYE's room feeds are the rooms of the one list");
+  assert.match(css, /html\[data-world="eye"\] body\.eyehome #dock \.houseask \{ display: none; \}/, "THE EYE's Home draws its own ask line");
+  assert.ok(!/class .*eyebar|buildInstruments|eyeRooms/.test(eye + house), 'one source: the instruments are the house, not a copy');
   // every screen is a thing on the plan (the rule's own test above), so in each world a screen is reached by its room's key and its card, or by its word
   const per = Object.keys(worlds).map((w) => `${w}: ${worlds[w].keys}`).join('; ');
-  console.log(`finding in four worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
+  console.log(`finding in five worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
 });
