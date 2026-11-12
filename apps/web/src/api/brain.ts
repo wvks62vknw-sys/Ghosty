@@ -13,6 +13,7 @@ import { interleave, type SearchHow } from '../../../../packages/shared/src/mean
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
+import type { MailLine, WatcherInfo } from '../../../../packages/shared/src/lifeeasier';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { PackName, PackOut } from '../../../../packages/shared/src/packs';
 import type { Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
@@ -168,7 +169,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup/.test(path);
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -370,7 +371,7 @@ export const brain = {
   commute: (from: { lat: number; lon: number }, to: { lat: number; lon: number }) =>
     req<{ minutes: number; km: number; delayMin: number; live: boolean; line: string }>('GET', `/traffic/commute/${from.lat.toFixed(5)},${from.lon.toFixed(5)}/${to.lat.toFixed(5)},${to.lon.toFixed(5)}`),
   /** Agenda → SPENDING (spending.ts): the statements he added, by month; no bank access of any kind. */
-  spending: (month?: string) => req<SpendingSummary>('GET', `/profile/spending${month ? `?month=${encodeURIComponent(month)}` : ''}`),
+  spending: (month?: string, today?: string) => req<SpendingSummary>('GET', `/profile/spending${month || today ? `?${[month ? `month=${encodeURIComponent(month)}` : '', today ? `today=${encodeURIComponent(today)}` : ''].filter(Boolean).join('&')}` : ''}`),
   spendingImport: (csv: string, rulesOnly = false) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv, ...(rulesOnly ? { rulesOnly } : {}) }),
   /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
   packDo: (pack: PackName, action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
@@ -466,6 +467,12 @@ export const brain = {
   resolveForesight: (id: string, right: boolean | null) => req<ForesightInfo & { resolved: string; said: string }>('POST', '/foresight/resolve', { id, right }),
   /** THE GUARDIAN (apps/edge/src/guardian.ts, walk.ts): the watch over his places, the named person, the panic phrase, the walk home. */
   guardian: () => req<GuardianInfo>('GET', '/guardian'),
+  /** [lifeeasier] WATCHERS (apps/edge/src/watchers.ts): public pages he named; and his own email's unread, subject and sender only, and a reply sent on his SEND tap (mailtriage.ts). */
+  watchers: () => req<{ watchers: WatcherInfo[]; max: number }>('GET', '/guardian/watchers'),
+  watchersAdd: (b: { kind: 'price' | 'page' | 'strike'; url: string; label?: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
+  watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
+  mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
+  mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
   guardianPerson: (p: { name: string; telegram?: string; email?: string; sharePos: boolean; ownerName?: string }) => req<GuardianInfo>('POST', '/guardian/person', p),
   guardianPersonRemove: () => req<GuardianInfo>('DELETE', '/guardian/person'),

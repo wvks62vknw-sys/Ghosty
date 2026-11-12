@@ -18,6 +18,8 @@ import { observe } from './mind';
 import { loadPlaces } from './places';
 import { addJob, loadJobs, removeJob } from './schedule';
 import { loadLink } from './telegram';
+import { mailRoute } from './mailtriage';
+import { watchersRoute, watchersTick } from './watchers';
 import { levelWord, loadConfig, loadWalk, loadWatch, nowOf, personRoute, WATCH_KEY, zoneOf, type GuardDeps } from './guardstate';
 
 export { CONFIG_KEY, guardianMind, loadConfig, loadWalk, loadWatch, WALK_KEY, WATCH_KEY } from './guardstate';
@@ -58,7 +60,7 @@ export function warningLine(w: GuardWarning, place: string, zone: string, now = 
  * never told before (told now, once), and one that has gone (its all-clear, once). A feed that could not be read changes
  * nothing for its warnings: a failed look is never an all-clear. `quiet`: the look only (the tool's CHECK).
  */
-export async function watchTick(d: GuardDeps, opts: { quiet?: boolean } = {}): Promise<{ news: string[]; clear: string[] }> {
+export async function watchTick(d: GuardDeps, opts: { quiet?: boolean; force?: boolean } = {}): Promise<{ news: string[]; clear: string[] }> {
   const now = nowOf(d);
   const places = await loadPlaces(d.storage);
   const st = await loadWatch(d.storage);
@@ -156,6 +158,9 @@ export async function watchTick(d: GuardDeps, opts: { quiet?: boolean } = {}): P
     for (const [k, t] of Object.entries(st.told)) if (now - t.at > TOLD_KEEP) delete st.told[k];
   }
   await d.storage.put(WATCH_KEY, st);
+  // [lifeeasier] the same hourly beat reads his WATCHERS (watchers.ts): a price down, a page changed, a strike on a status page; told once.
+  // A look of his own (`quiet`, the tool's CHECK) only looks at his places.
+  if (!opts.quiet) await watchersTick(d, { force: opts.force }).catch(() => undefined);
   if (news.length) {
     await d.notify({ kind: 'error', title: news.length === 1 ? 'Warning near your places' : `${news.length} warnings near your places`, text: news.join('\n'), danger: true });
     for (const n of news) await observe(d.storage, { kind: 'place', text: n, via: 'guardian' }, now).catch(() => null);
@@ -199,8 +204,11 @@ export const json = (data: unknown, status = 200) => new Response(JSON.stringify
 export async function guardianRoute(req: Request, path: string, method: string, d: GuardDeps): Promise<Response> {
   if (path === '/guardian' && method === 'GET') return json(await guardianInfo(d));
   if (path === '/guardian/check' && method === 'POST') {
-    const r = await watchTick(d);
+    const r = await watchTick(d, { force: true });
     return json({ ...(await guardianInfo(d)), news: r.news, clear: r.clear });
   }
+  // [lifeeasier] WATCHERS under PLAN (watchers.ts) and the Brief's email triage (mailtriage.ts), mounted here: agent.ts is not touched
+  if (path === '/guardian/watchers') return await watchersRoute(req, path, method, new URL(req.url), d);
+  if (path.startsWith('/guardian/mail/')) return await mailRoute(req, path, method, d);
   return json({ error: 'not found' }, 404);
 }

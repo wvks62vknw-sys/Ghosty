@@ -7305,6 +7305,89 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 /* an empty page says where to start, an empty cell is a place to type */
 .dcpage > p.dcb:empty:only-child::before { content: 'Start writing here'; color: var(--g-ink-4); pointer-events: none; }
 .dcpage .dctable :is(td, th):empty { min-width: 96px; }
+/* ---------------------------------------------------------------------------------------------------------------------------
+   THE OCTOBER IDEAS, SLICE 1 (BRIEF-OCT-IDEAS-1): the readout ribbon, the tilt and the light on a plate, the orb reacting, the light
+   following the day. Tokens only: the accent, its pale tint, the amber, the canvas, the ink; every mix is two token colours.
+   --------------------------------------------------------------------------------------------------------------------------- */
+:root { --g-day: .5; }
+/* 1. THE READOUT RIBBON: the Scan's one mono line under the stamp (the stamp's own marks); ONE INK's the same line in the serif under the masthead */
+html .ribbon { margin: var(--g-s-half) 0 0; font-variant-numeric: var(--g-num); }
+html .ribbon > .g-truth { display: inline-block; max-width: 100%; }
+html .scantop .ribbon > .g-truth:first-child { color: var(--g-ink-2); }
+html .inkribbon { flex: none; margin: var(--g-s-1) 0 0; }
+html .inkribbon > .g-truth { font: var(--g-t-caption); font-family: var(--g-font-serif); font-style: italic; letter-spacing: 0; text-transform: none; color: var(--g-ink-2); }
+html .inkribbon > .g-truth .g-sep { color: var(--g-ink-3); }
+/* 4. THE LIGHT FOLLOWING THE DAY (--g-day: 0 at night, 1 at noon, set once a minute from the hour alone): the Scan's ground, the plates' glow and
+   the orb's room light read it, bright and cool as it rises, dim and warm as it falls; ONE INK's paper warms as it falls; Glass does not read it */
+html .scanframe { background: color-mix(in srgb, color-mix(in srgb, var(--g-room-canvas), var(--g-amber) calc((1 - var(--g-day, .5)) * 5%)), var(--g-accent-pale) calc(var(--g-day, .5) * 6%)); }
+html[data-ground="paper"] .scanframe { background: var(--g-room-canvas); }
+html body.scanhome .scancol :is(.ccard, .rccard) { box-shadow: 0 0 18px -6px color-mix(in srgb, var(--g-accent) calc(var(--g-day, .5) * var(--g-glow) * 28%), transparent); }
+html .scanstage .scanroomlight { opacity: calc(.6 + .4 * var(--g-day, .5)); }
+html .scanorb canvas.reactor { filter: brightness(calc(.86 + .14 * var(--g-day, .5))); }
+/* (a veil over the paper, not a new paper: the ground stays the token's own colour at every hour; it warms only as the day falls below its afternoon) */
+html body.inkhome .inkframe { background-image: linear-gradient(color-mix(in srgb, var(--g-amber) calc(max(0, .6 - var(--g-day, .5)) * 6%), transparent), color-mix(in srgb, var(--g-amber) calc(max(0, .6 - var(--g-day, .5)) * 6%), transparent)); }
+/* 2. THE LIGHT FOLLOWING THE TOUCH across a plate (only while the tilt is permitted) */
+html .scansweep { position: absolute; z-index: 4; pointer-events: none; opacity: 0; border-radius: var(--g-radius-key); background: radial-gradient(circle 110px at var(--sx, 50%) var(--sy, 50%), color-mix(in srgb, var(--g-accent-pale) calc(26% * var(--g-glow)), transparent), transparent); transition: opacity var(--g-dur-lock) linear; }
+html .scansweep[data-on="true"] { opacity: 1; }
+html .glook-tilt { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-1); padding: var(--g-s-1) 0; }
+html .glook-tilt > b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .glook-tilt > p { margin: 0; }
+/* 3. THE ORB REACTING: a pulse (its glow breathes at 0.8 Hz while I think), a ring of 32 bars while the mic is open, a thread to the room in use while the plan is open */
+html .orbfx { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+html .orbfx .orbglow { position: absolute; inset: -12%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--g-accent) calc(var(--g-orb-breath, 0) * 24% * var(--g-glow) * var(--g-accent-glow)), transparent) 0%, transparent 68%); }
+html .orbfx .orbring { position: absolute; left: 50%; top: 0; width: 0; height: 0; margin-top: 50%; opacity: 0; transition: opacity var(--g-dur-lock) linear; }
+html .orbfx .orbring[data-on="true"] { opacity: 1; }
+html .orbfx .orbring .bar { position: absolute; left: -1px; top: 0; width: 2px; height: 16px; border-radius: 1px; background: var(--g-accent-pale); transform-origin: 50% 0; transform: rotate(calc(var(--i) * 11.25deg)) translateY(var(--ring-r, 60px)) scaleY(var(--v, .12)); }
+html svg.orbthread { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; }
+html svg.orbthread .orbthreadline { fill: none; stroke: var(--g-accent); stroke-width: var(--g-stroke); stroke-linecap: round; }
+html svg.orbthread .orbthreaddot { fill: var(--g-accent); }
+@media (prefers-reduced-motion: reduce) { html .scansweep, html svg.orbthread { display: none; } }
+html[data-motion="calm"] :is(.scansweep, svg.orbthread) { display: none; }
+/* ------------------------------------------------------------------------------------------------------------------------
+   LIFE EASIER (BRIEF-OCT-IDEAS-2): the Brief's email line and its DRAFT, the SPENDING nudges, WHAT DID I MISS? (a card of lines),
+   WATCHERS under Spending, the letter's REMIND and FILE on the Lens plate, the reply and reminder sheets. Tokens only; every key 44.
+   ------------------------------------------------------------------------------------------------------------------------ */
+html .bremail { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .bremail[hidden] { display: none; }
+html .bremrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-half) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .bremtxt { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .bremtxt b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); text-transform: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .bremtxt small { font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .bremrow .bremdraft, html .watchers .wstop { flex: none; min-width: var(--g-target); min-height: var(--g-target) !important; }
+html .spendnudges { display: flex; flex-direction: column; gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
+html .spendnudges .nudge { margin: 0; padding: var(--g-s-1) var(--g-s-2); border-left: var(--g-stroke) solid var(--g-accent); background: var(--g-plate-fill); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); text-transform: none; overflow-wrap: anywhere; }
+html .spendnudges .nudge[data-kind="hot"] { border-left-color: var(--g-amber); }
+html .spendnudges .nudge.quiet { border-left-color: var(--g-line-faint); font: var(--g-t-caption); color: var(--g-ink-3); }
+html .ccard.ccmissed { max-height: none; align-items: flex-start; }
+html .ccard.ccmissed.wall { max-height: none; cursor: default; align-items: flex-start; }
+html .ccard.ccmissed .ccline { -webkit-line-clamp: 3; }
+html .ccmiss { display: flex; flex-direction: column; gap: var(--g-s-half); margin: var(--g-s-half) 0 0; padding: 0; list-style: none; }
+html .ccmiss li { position: relative; padding-left: var(--g-s-2); font: var(--g-t-caption); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); text-transform: none; overflow-wrap: anywhere; }
+html .ccmiss li::before { content: ""; position: absolute; left: 0; top: .55em; width: var(--g-s-1); height: var(--g-hair); background: var(--g-accent); }
+html .ccard.ccmissed .ccacts { margin-top: var(--g-s-1); }
+html .mailsheet .mdsubject { width: 100%; box-sizing: border-box; min-height: var(--g-target); padding: 0 var(--g-s-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .mailsheet .mdto { margin: 0 0 var(--g-s-1); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .mailsheet .mdbody { min-height: calc(var(--g-target) * 3); }
+html .watchers .wlist { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .watchers .wrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-half) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .watchers .wtxt { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .watchers .wtxt b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); text-transform: none; overflow-wrap: anywhere; }
+html .watchers .wtxt small { font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; overflow-wrap: anywhere; }
+html .watchers .wtxt small.wurl { color: var(--g-ink-3); }
+html .watchers .wrow[data-state="told"] .wtxt b { color: var(--g-accent-text); }
+html .watchers .wurlin { width: 100%; box-sizing: border-box; min-height: var(--g-target); padding: 0 var(--g-s-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .watchers .wadd { margin: var(--g-s-1) 0; }
+html .watchers .wadd button { min-height: var(--g-target) !important; }
+html .lensplate .lp-offer { position: sticky; bottom: calc(var(--g-s-1) * -1); z-index: 1; margin: var(--g-s-1) calc(var(--g-s-2) * -1) calc(var(--g-s-1) * -1); padding: var(--g-s-1) var(--g-s-2); background: var(--g-plate-strong); border-top: var(--g-hair) solid var(--g-line-faint); }
+html .lensplate .lp-acts { display: flex; gap: var(--g-s-1); margin-top: var(--g-s-half); }
+html .lensplate .lp-act { flex: 1 1 0; min-width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; }
+html .lpsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .lpsheet .lp-sheetwho { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .lpsheet .lp-date { width: 100%; box-sizing: border-box; min-height: var(--g-target); padding: 0 var(--g-s-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); font: var(--g-t-body); color: var(--g-ink-1); }
+html .localacts .localread { min-height: var(--g-target) !important; }
+html :is(.mailsheet, .lpsheet) .row { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html :is(.mailsheet, .lpsheet) .row button { min-width: var(--g-target); min-height: var(--g-target) !important; }
+html .sirirow .note { margin: var(--g-s-half) 0; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------
