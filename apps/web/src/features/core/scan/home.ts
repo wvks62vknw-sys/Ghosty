@@ -474,13 +474,14 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       if (pr.width < 2 || pr.height < 2) continue;
       plates.push({ left: pr.left - frameLeft, top: pr.top - frameTop, right: pr.right - frameLeft, bottom: pr.bottom - frameTop });
     }
-    // the callout (the thing of the hour, at the right edge) is a plate too: a mark that the readout ribbon pushed down on a short screen would sit
-    // under it, so it waits there (the safari spec: God's eye and the station under "Now · tonight's book" at 440 × 763)
+    // the callout (the thing of the hour, at the right edge) is a plate for a mark that the readout ribbon pushed down on a short screen: it
+    // would sit under it, so it waits there (the safari spec: God's eye and the station under "Now · tonight's book" at 440 x 763)
+    let calloutPlate: { left: number; top: number; right: number; bottom: number } | null = null;
     if (callout.offsetParent) {
       const cr = callout.getBoundingClientRect();
-      if (cr.width > 2 && cr.height > 2) plates.push({ left: cr.left - frameLeft, top: cr.top - frameTop, right: cr.right - frameLeft, bottom: cr.bottom - frameTop });
+      if (cr.width > 2 && cr.height > 2) calloutPlate = { left: cr.left - frameLeft, top: cr.top - frameTop, right: cr.right - frameLeft, bottom: cr.bottom - frameTop };
     }
-    const onPlate = (bx: { left: number; top: number; right: number; bottom: number }) => plates.some((pl) => bx.left < pl.right && bx.right > pl.left && bx.top < pl.bottom && bx.bottom > pl.top);
+    const onPlate = (bx: { left: number; top: number; right: number; bottom: number }, among = plates) => among.some((pl) => bx.left < pl.right && bx.right > pl.left && bx.top < pl.bottom && bx.bottom > pl.top);
     const list = marksAt(alt).concat(MARKS.filter((m) => m.id === scanState.lit && !m.where.includes(alt) && alt !== 'line' && alt !== 'out'));
     // what the eye looks at: the thing of the hour at home; out and on the way, the place locked (the station)
     const lookId = alt === 'line' || alt === 'out' ? 'r-station' : scanState.lit;
@@ -497,7 +498,9 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       // start inside them is moved down to just below them, the way a box at the frame's edge stays on the screen; one that
       // would then leave the frame is not shown at this altitude (the safari spec found God's eye and the station under the
       // greeting on a short screen)
+      let pushed = false;
       if (box.top < topBottom + 4) {
+        pushed = true;
         const dy = topBottom + 4 - box.top;
         box.top += dy;
         box.bottom += dy;
@@ -510,7 +513,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       // a box too tall for the band between the words above and the keys below (the shelf, with the readout ribbon taking its line at the top)
       // is shortened to the band, never dropped, so long as it stays a 44 pt target
       if (box.top < topBottom + 4 && box.bottom - (topBottom + 4) >= 44) box.top = topBottom + 4;
-      if (box.top < topBottom + 4 || box.bottom > H - 2 || onPlate(box)) {
+      if (box.top < topBottom + 4 || box.bottom > H - 2 || onPlate(box) || (pushed && calloutPlate && onPlate(box, [calloutPlate]))) {
         b.hidden = true;
         continue;
       }
