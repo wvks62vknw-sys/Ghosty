@@ -7,8 +7,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 ## Running or landing now
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS
-- [ ] Building: GROWN UP HUD · GAMES 5 · THE WORKING ENGINE · PRESENTATIONS
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5
+- [ ] Building: GROWN UP HUD · THE WORKING ENGINE · PRESENTATIONS · QUALITY PASS: LIFE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -60,6 +60,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     Brief written 11 Nov: BRIEF-GAMES-5 (worktree games5, port 8822, spec games5): THE PLATFORMER and THE CAVE as games of our own, four board
     games searched on the chip and rated in the GYM's league (learning on the free GPU, per 179 f); Cave Story itself and PICO-8 named as
     NEEDS HIS WORD, not built. Waits on no landing.
+    Handed back 12 Nov (reviewed clean; six games, the boards searched in a Worker, Glicko-2 ratings as chess; a cell-0 move bug found by
+    its own spec and fixed); in the landing queue after SPREADSHEETS.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
     Brief written 11 Nov: BRIEF-WORKING-ENGINE (worktree workingengine, port 8824, spec workingengine; the car's own geometry over the
     three.js the Studio loads, kinematic, no package; physics stays at KERNEL 2). ENGINE 3D and THE CAR are on main: waits on no landing.
@@ -75,6 +77,7 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     DOWNLOAD; a failed Telegram picture said once; the raw-error sites swept through the one error voice when its lint lands).
     First pass written 12 Nov: BRIEF-QUALITY-LIFE (worktree lifepass, port 8826, spec lifepass): the eight packs measured and the top ten
     per pack fixed, a STATES RATCHET; made from POLISH 1's head so its error voice is in the tree; lands after POLISH 1.
+    Started 12 Nov in worktree lifepass when GAMES 5 handed back.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
