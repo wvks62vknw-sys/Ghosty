@@ -306,8 +306,11 @@ test('camera: errors come back as plain words with what to do', () => {
   assert.equal(C.cameraMessage(new TypeError('navigator.mediaDevices is undefined')), 'This browser cannot open the camera');
   assert.match(C.cameraMessage(err('SecurityError')), /Camera not allowed/);
   assert.equal(C.cameraMessage(err('SomeError', 'needs a secure context (https)')), 'The camera only works over https');
-  assert.equal(C.cameraMessage('something odd'), 'Camera error: something odd');
-  assert.equal(C.cameraMessage(err('WeirdError', 'boom')), 'Camera error: boom');
+  // one error voice: what the camera said itself never reaches him, the unknown is said in his own words
+  const unknown = 'The camera did not open. Close other apps that use it and try again.';
+  assert.equal(C.cameraMessage('something odd'), unknown);
+  assert.equal(C.cameraMessage(err('WeirdError', 'boom')), unknown);
+  assert.ok(!/boom|odd|WeirdError/.test(C.cameraMessage(err('WeirdError', 'boom'))));
   assert.equal(C.cameraSupported(), false, 'no navigator in Node');
 });
 

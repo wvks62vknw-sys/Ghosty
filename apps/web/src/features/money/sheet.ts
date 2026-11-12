@@ -9,6 +9,7 @@ import { extractPdf } from '../../../../../packages/shared/src/pdf';
 import { h } from '../../core/dom';
 import { button, modal } from '../../ui/components';
 import { statementTurn } from '../../assistant/packs';
+import { sayError } from '../../ui/hisWords';
 
 export const moneyState = { open: false, read: 0, reply: '' };
 /** The sheet's one page, by name (its title, and its panel on the MONEY screen: features/money/index.ts). */
@@ -45,7 +46,7 @@ export function statementScreen(): { el: HTMLElement; stop(): void } {
       box.value = '';
       await read(text);
     } catch (e) {
-      status.textContent = `I couldn’t read that file: ${(e as Error).message}.`;
+      status.textContent = sayError(e, 'read that file');
     }
   });
   const go = button('Read it', () => void read(box.value).then(() => (box.value = '')), 'on');

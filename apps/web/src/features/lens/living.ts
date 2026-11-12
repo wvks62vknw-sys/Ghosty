@@ -42,6 +42,7 @@ import {
 } from '../../../../../packages/shared/src/living';
 import type { LensContext } from './index';
 import { goToPanel } from '../../ui/sections';
+import { sayError } from '../../ui/hisWords';
 
 /** What the card shows now, for a test (window.__ghosty.lens.card) and for describe(). */
 export interface LensCard {
@@ -120,7 +121,7 @@ export function createLiving(L: LensContext) {
           toast(`Saved to Memory: ${text}`, 'ok');
         } catch (e) {
           b.disabled = false;
-          toast(`Could not save it: ${String((e as Error)?.message ?? e)}`, 'bad');
+          toast(sayError(e, 'save it'), 'bad');
         }
       }, 'warn');
       save.setAttribute('aria-label', 'Save to Memory as seen today');
@@ -139,7 +140,7 @@ export function createLiving(L: LensContext) {
       L.status('holding the photo for Pl@ntNet…', 'mid');
       id = (await shareImage(await toJpegBlob(still, 1_400_000, 1024), { fetch: (u, i) => fetch(u, i), headers })).id;
     } catch (e) {
-      return problem(`Could not hand the photo over: ${String((e as Error)?.message ?? e)}`);
+      return problem(sayError(e, 'hand the photo over'));
     }
     let line: PlantLine | null = null;
     try {
@@ -229,7 +230,7 @@ export function createLiving(L: LensContext) {
         if (kind === 'plant' && !viaModel) await plant(still, g);
         else await seeing(kind, still, g);
       } catch (e) {
-        if (g === gen) problem(String((e as Error)?.message ?? e));
+        if (g === gen) problem(sayError(e, 'look at that'));
       } finally {
         busy = false;
       }
@@ -256,7 +257,7 @@ export function createLiving(L: LensContext) {
         if (!res.ok || !Array.isArray(m.items)) return problem(`Could not match the foods: ${m.error ?? `HTTP ${res.status}`}`);
         mealShow(m, seen.said, exact);
       } catch (e) {
-        if (g === gen) problem(String((e as Error)?.message ?? e));
+        if (g === gen) problem(sayError(e, 'look at that'));
       } finally {
         busy = false;
       }

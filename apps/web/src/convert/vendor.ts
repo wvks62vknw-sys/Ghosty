@@ -6,6 +6,7 @@
 import type { Lame } from './audio';
 import type { Deflate } from './pdfwrite';
 import type { SheetJs } from './table';
+import { rawText } from '../ui/hisWords';
 
 const VENDOR = '/vendor';
 
@@ -79,7 +80,7 @@ export async function openPdf(bytes: Uint8Array): Promise<{ doc: PdfJsDoc; done:
   try {
     return { doc: await task.promise, done: () => task.destroy() };
   } catch (e) {
-    if (/password/i.test(String((e as Error)?.message ?? e))) throw new Error('this PDF is locked with a password');
+    if (/password/i.test(rawText(e))) throw new Error('this PDF is locked with a password');
     throw e;
   }
 }

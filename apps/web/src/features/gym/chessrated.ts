@@ -14,6 +14,7 @@ import { cellOf, chessFrame, fromFen, fromPageMove, inCheck, legal, make, mFrom,
 import type { Frame } from '../../gym/core';
 import { hintWords, reviewGame, reviewWords, type Score, standingWords } from '../../gym/chessreview';
 import { LEVELS, levelById, levelWords, loadBook, nextWords, ratingWords, recordGame, saveBook, suggestLevel, trendWords, type RateBook, type Who } from '../../gym/chessrate';
+import { sayError } from '../../ui/hisWords';
 
 /** What the rated chess is doing, for the specs (window.__ghosty.chessRated). */
 export const ratedState = {
@@ -160,8 +161,8 @@ export function ratedSection(io: RatedIO): { el: HTMLElement; line(): string; af
   };
   const failEngine = (e: unknown) => {
     ratedState.engine = 'error';
-    ratedState.error = (e as Error)?.message ?? 'the engine did not start';
-    caption(`The chess engine could not start (${ratedState.error}). Try again in a moment.`);
+    ratedState.error = sayError(e, 'start the chess engine');
+    caption(`${ratedState.error}`);
     closeChessEngine();
     clear(extra, button('TRY AGAIN', () => {
       clear(extra);

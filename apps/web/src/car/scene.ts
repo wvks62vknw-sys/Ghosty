@@ -18,6 +18,7 @@ import { shapeWords, type CarSpec } from './spec';
 import { loadCarThree, type CarLib, type TMaterial, type TMesh, type TObject3D, type TSprite, type TVector3 } from './three';
 import { buildCorner, buildWheel } from './wheel';
 import type { TCamera, TControls, TRenderer, TScene } from '../studio/three';
+import { sayError } from '../ui/hisWords';
 
 type Controls = TControls & { enablePan: boolean; minPolarAngle: number; maxPolarAngle: number; rotateSpeed: number };
 
@@ -128,7 +129,7 @@ export class CarScene {
     try {
       this.lib = await loadCarThree();
     } catch (e) {
-      this.error = `The 3-D engine did not load: ${(e as Error).message}`;
+      this.error = sayError(e, 'draw the 3-D view');
       return false;
     }
     const L = this.lib;

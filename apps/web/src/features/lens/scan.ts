@@ -33,6 +33,7 @@ import { classifyCode, describeCode, type CodeInfo } from '../../scan/codes';
 import { defaultQuad, findPageIn, straighten, type Quad } from '../../scan/page';
 import { makePdf, type PdfPage } from '../../scan/pdf';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { sayError } from '../../ui/hisWords';
 
 type Sub = 'code' | 'document' | 'translate';
 
@@ -69,7 +70,7 @@ function expose(): void {
   if (w.__ghosty) w.__ghosty.scan = scanState;
 }
 
-const errText = (e: unknown) => String((e as Error)?.message ?? e);
+const errText = (e: unknown, what = 'finish that') => sayError(e, what);
 
 /** The beep's sound, made (or woken) by a tap in SCAN: iPhone Safari keeps a context made outside a tap silent,
  *  and a code is found long after the tap that started the scan. One context, reused for every beep. */
@@ -558,7 +559,7 @@ export function createScanMode(L: LensContext): Mode {
     try {
       bytes = makePdf(pages, { title: `Scan ${new Date().toISOString().slice(0, 10)}` });
     } catch (e) {
-      return void toast(`Could not make the PDF: ${errText(e)}`, 'bad');
+      return void toast(errText(e, `make the PDF`), 'bad');
     }
     const name = `Scan ${new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.')}.pdf`;
     const pdf = new File([bytes as Uint8Array<ArrayBuffer>], name, { type: 'application/pdf' });
@@ -567,7 +568,7 @@ export function createScanMode(L: LensContext): Mode {
     if (navigator.canShare?.({ files: [pdf] })) {
       S.pdf = { bytes: bytes.length, head, pages: pages.length, via: 'share' };
       navigator.share({ files: [pdf], title: name }).catch((e: unknown) => {
-        if ((e as Error)?.name !== 'AbortError') toast(`Could not share it: ${errText(e)}`, 'bad');
+        if ((e as Error)?.name !== 'AbortError') toast(errText(e, `share it`), 'bad');
       });
     } else {
       S.pdf = { bytes: bytes.length, head, pages: pages.length, via: 'download' };
@@ -594,7 +595,7 @@ export function createScanMode(L: LensContext): Mode {
       docSave.hidden = false;
       status(docText.value ? 'read · edit, then SAVE TEXT TO LIBRARY' : 'no text found on the pages', docText.value ? 'ok' : 'mid');
     } catch (e) {
-      status(`Could not read the pages: ${errText(e)}`, 'off');
+      status(errText(e, `read the pages`), 'off');
     }
   };
   const clearPages = () => {
@@ -708,7 +709,7 @@ export function createScanMode(L: LensContext): Mode {
       if (!t) return void status('No text found: try closer, flatter, with more light', 'mid');
       await doTranslate();
     } catch (e) {
-      status(`Could not read it: ${errText(e)}`, 'off');
+      status(errText(e, `read it`), 'off');
     }
   };
   const trBody = h('div.stackf',
@@ -735,7 +736,7 @@ export function createScanMode(L: LensContext): Mode {
       clear(body, codeBody);
       void warmBarcodes()
         .then(() => S.sub === 'code' && L.state.mode === 'scan' && !held && status(`ready · ${L.state.camera === 'on' ? 'point at a barcode or QR code' : 'START, or PICK PHOTO'}`, 'ok'))
-        .catch((e: unknown) => status(`The code reader could not load: ${errText(e)}`, 'off'));
+        .catch((e: unknown) => status(errText(e, `load the code reader`), 'off'));
     } else if (s === 'document') {
       clear(body, docBody);
       // the progress bar lives with whichever part reads

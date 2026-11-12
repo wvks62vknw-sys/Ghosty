@@ -6,6 +6,7 @@
 
 import { character, polish, type PersonaSettings } from '../../../../packages/shared/src/persona';
 import { LANGUAGES } from '../../../../packages/shared/src/scan';
+import { rawText } from '../ui/hisWords';
 
 export type OfflineMsg = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -114,7 +115,7 @@ export function shouldFallBack(e: unknown): boolean {
   if (err.name === 'AbortError') return false;
   if (e instanceof TypeError) return true;
   if (typeof err.status === 'number') return err.status >= 500 && err.status !== 503;
-  const msg = String(err.message ?? e);
+  const msg = String(rawText(err) ?? e);
   if (/^HTTP 5\d\d$/.test(msg) && msg !== 'HTTP 503') return true;
   return noModelError(msg);
 }

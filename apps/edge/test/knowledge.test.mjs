@@ -269,3 +269,68 @@ test('self-check: every file already in Ghosty passes, even as if newly written 
   const problems = await selfCheck(staged, [...all.keys()], async (p) => all.get(p) ?? null);
   assert.deepEqual(problems, []);
 });
+
+// ---------- one error voice (BRIEF-POLISH-1): a thrown thing's own words never reach him ----------
+
+test('error voice: no e.message / String(e) / ${e} outside ui/hisWords.ts in apps/web/src (a render, a speak, a toast)', () => {
+  const files = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.ts$/.test(name) && !/\.d\.ts$/.test(name)) files.push(full);
+    }
+  };
+  walk(join(ROOT, 'apps/web/src'));
+  // a caught thing: (e as Error).message, e.message, e?.message, String(e), `${e}`; the raw text is read with rawText(e) only to decide, and shown through sayError(e, what)
+  const names = '(?:e|e2|err|error|ex)';
+  const bad = [
+    new RegExp(`\\(\\w+ as (?:Error|\\{ message\\?)\\)\\??\\.message`),
+    new RegExp(`(?<![.\\w])${names}\\??\\.message\\b`),
+    new RegExp(`\\bString\\(${names}\\)`),
+    new RegExp(`\\$\\{${names}\\}`),
+  ];
+  const found = [];
+  for (const full of files) {
+    const rel = relative(ROOT, full);
+    if (rel.endsWith('ui/hisWords.ts')) continue;
+    const src = readFileSync(full, 'utf8').split('\n');
+    src.forEach((line, i) => {
+      if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+      // scan/codes.ts: `e` is the fifth digit of a barcode there, not a thrown thing
+      if (rel.endsWith('scan/codes.ts')) return;
+      if (bad.some((re) => re.test(line))) found.push(`${rel}:${i + 1}: ${line.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(found, [], 'use sayError(e, what) to show or speak it, rawText(e) only to decide, trail(e, where) for the why');
+});
+
+test('error voice: sayError speaks in his words by the kind of error, never the raw text', async () => {
+  const esbuild = await import('esbuild');
+  const out = esbuild.buildSync({ entryPoints: [join(ROOT, 'apps/web/src/ui/hisWords.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false });
+  const M = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+  const raw = /aborted|fetch failed|undefined|\[object|TypeError|NetworkError|Failed to|Cannot read/i;
+  const cases = [
+    [new DOMException('The operation was aborted.', 'AbortError'), /^Stopped\./],
+    [new TypeError('Failed to fetch'), /lost the signal/],
+    [new TypeError('fetch failed'), /lost the signal/],
+    [new Error('NetworkError when attempting to fetch resource.'), /lost the signal/],
+    [new DOMException('signal timed out', 'TimeoutError'), /took too long/],
+    [new DOMException('Permission denied', 'NotAllowedError'), /would not let me open the camera.*Settings, Ghosty/],
+    [new DOMException('The quota has been exceeded.', 'QuotaExceededError'), /no room left/],
+    [new DOMException('x', 'NotFoundError'), /could not find/],
+    [new TypeError("Cannot read properties of undefined (reading 'x')"), /could not open the camera/],
+    ['undefined', /could not open the camera/],
+    [{ weird: true }, /could not open the camera/],
+    [null, /could not open the camera/],
+    [new Error('That PDF is locked with a password, so I can not open it'), /^That PDF is locked with a password/],
+  ];
+  for (const [e, want] of cases) {
+    const said = M.sayError(e, 'open the camera');
+    assert.match(said, want, String(e));
+    assert.ok(!raw.test(said), `${said} carries raw text`);
+    assert.ok(said.length < 120, `${said} is few words`);
+  }
+  assert.equal(M.rawText(new Error('abc')), 'abc');
+  assert.ok(M.whyTrail().length > 0 && M.whyTrail().at(-1).raw !== undefined, 'the raw text is on the WHY trail');
+});

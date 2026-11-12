@@ -11,6 +11,7 @@ import { settings } from '../../state/app';
 import { button } from '../../ui/components';
 import type { PlaceCandidate } from '../../../../../packages/shared/src/places';
 import { advance, type Event, type FirstRun, HASH_VARIABLE, loadFirstRun, makeKey, newFirstRun, saveFirstRun, sha256Hex, THREE_THINGS, validKey } from './firstrun';
+import { sayError } from '../../ui/hisWords';
 
 export const firstRunState = { step: 'welcome' as string, key: '', hash: '', paired: false, name: '', home: false, message: '', shown: false };
 
@@ -107,7 +108,7 @@ export function firstRun(pair: (reason: string) => Promise<void>): Promise<boole
         await brain.status();
       } catch (e) {
         ownerKey.set('');
-        return say(e instanceof AuthError ? 'That key is not accepted yet: the variable’s value must be exactly the fingerprint above, with no spaces. Fix it, deploy, wait a minute and try again.' : `Your Worker did not answer: ${(e as Error).message}`);
+        return say(e instanceof AuthError ? 'That key is not accepted yet: the variable’s value must be exactly the fingerprint above, with no spaces. Fix it, deploy, wait a minute and try again.' : sayError(e, 'get an answer from my brain'));
       }
       go({ t: 'paired' });
     };
@@ -140,7 +141,7 @@ export function firstRun(pair: (reason: string) => Promise<void>): Promise<boole
           say('Is this it? KEEP IT saves it as your Home, in your own brain only.');
           keep.hidden = false;
         } catch (e) {
-          say(`I couldn’t find that: ${(e as Error).message}`);
+          say(sayError(e, 'find that'));
         }
       };
       const keep = button('KEEP IT', async () => {
@@ -149,7 +150,7 @@ export function firstRun(pair: (reason: string) => Promise<void>): Promise<boole
           await brain.placeKeep(found);
           go({ t: 'homed' });
         } catch (e) {
-          say(`I couldn’t save it: ${(e as Error).message}`);
+          say(sayError(e, 'save it'));
         }
       }, 'on');
       keep.hidden = !found;

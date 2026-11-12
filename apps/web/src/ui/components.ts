@@ -8,6 +8,7 @@
  *   undoBar(), undo(), confirmSheet()  UNDO after a change (12 s), or a one-tap confirm for what cannot come back
  */
 import { clear, h, icon, svgEl } from '../core/dom';
+import { sayError } from './hisWords';
 
 export type Light = 'ok' | 'mid' | 'off';
 
@@ -84,8 +85,9 @@ export function empty(status: string, next?: string, title?: string): HTMLElemen
   const head = off ? 'You’re offline' : bad ? 'Can’t reach this feed' : wait ? 'Loading' : title ?? 'Nothing here yet';
   const line = off ? 'It fills in again when the phone is back online.' : bad ? 'It tries again by itself in a minute.' : wait ? 'One moment, it’s on its way.' : next ?? 'It fills in by itself as things happen.';
   return h(`div.empty${bad || off ? '.bad' : wait ? '.wait' : ''}` as 'div', { dataset: { case: 'keep' } },
-    h('b', { dataset: { label: head } }, bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'),
-    h('span', { dataset: { label: line } }, bad ? 'feed unreachable right now' : wait ? 'establishing link…' : next ?? 'nothing to show yet'));
+    // (the words drawn are the label; the page's own text is the same words, so VoiceOver reads what he reads)
+    h('b', { dataset: { label: head } }, head),
+    h('span', { dataset: { label: line } }, line));
 }
 
 /**
@@ -120,7 +122,7 @@ export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: 
             try {
               await commit();
             } catch (e) {
-              toast(`Could not finish it: ${(e as Error).message}`, 'bad');
+              toast(sayError(e, 'finish it'), 'bad');
             }
           }
         : null;
@@ -142,7 +144,7 @@ export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: 
         try {
           await fn();
         } catch (e) {
-          toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+          toast(sayError(e, 'undo it'), 'bad');
         }
       }, 'on'));
       el.hidden = false;

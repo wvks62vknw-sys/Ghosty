@@ -40,7 +40,7 @@ function gym(m: Record<string, unknown>): Promise<Reply> {
     };
     gw.onerror = (e) => {
       e.preventDefault();
-      for (const f of gwait.values()) f({ gym: 'reply', req: 0, error: e.message || 'the gym worker stopped' });
+      for (const f of gwait.values()) f({ gym: 'reply', req: 0, error: 'The training worker stopped. Try again.' });
       gwait.clear();
       gw?.terminate();
       gw = null;

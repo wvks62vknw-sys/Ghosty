@@ -10,6 +10,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
+import { sayError } from '../../ui/hisWords';
 
 export type KitchenWhat = 'timers' | 'shopping' | 'plan';
 /** Each sheet's name, as its title and as its panel on the KITCHEN screen (features/kitchen/index.ts). */
@@ -114,7 +115,7 @@ function shoppingSheet(): { el: HTMLElement; stop(): void } {
       paint();
       return r.text;
     } catch (e) {
-      status.textContent = `My brain didn’t answer: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'get an answer from my brain');
       return '';
     }
   };
@@ -160,7 +161,7 @@ function planSheet(): { el: HTMLElement; stop(): void } {
       fill((r.data as { plan?: { days?: string[] } } | undefined)?.plan?.days ?? []);
       return r.text;
     } catch (e) {
-      status.textContent = `My brain didn’t answer: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'get an answer from my brain');
       return '';
     }
   };

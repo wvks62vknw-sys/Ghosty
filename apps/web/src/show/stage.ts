@@ -20,6 +20,7 @@ import { faces } from './iso';
 import { partBoxes, roomBoxesOf, roomPlanFor, type PartKind } from './parts';
 import type { Sim } from './sim';
 import { showTrace } from './turn';
+import { waiting } from '../ui/wait';
 
 /** What the Stage has done, for the checks (window.__ghosty.show.state()). */
 export const stageState = {
@@ -446,6 +447,17 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): vo
  * his saved places) is fetched here, after the sentence, so the sentence never waits.
  */
 export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
+  // Drawing it…: said under the sentence while the picture is on its way (the world pack, his places), gone when it lands or there is none
+  const logHost = document.querySelector<HTMLElement>('.hud.core .log') ?? document.querySelector<HTMLElement>('#log') ?? document.body;
+  const drawn = waiting(logHost, 'Drawing it…');
+  try {
+    return await presentNow(f);
+  } finally {
+    drawn();
+  }
+}
+
+async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
   const delay = (window as unknown as { __ghostyShowDelay?: number }).__ghostyShowDelay;
   if (delay) await new Promise((r) => setTimeout(r, delay));
   const { known } = await import('../features/core/cards');

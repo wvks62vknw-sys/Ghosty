@@ -19,6 +19,7 @@ import { zipEntries, zipRead, zipStore } from '../zip';
 import { arcadeAudio } from './audio';
 import type { SaveStore } from './saves';
 import type { Engine, EngineEvents, EngineFiles, EngineHandle } from './types';
+import { sayError, trail } from '../../ui/hisWords';
 
 export const DOS_BASE = '/vendor/dos/';
 /** The backend this phone runs (DOSBox; the faster of the package's two in our measurements, see SOURCE.md). */
@@ -80,7 +81,7 @@ function transport(sessionId: string, port: MessagePort | null, onFail: (e: Erro
     if (handler) handler(d.name, d.props);
     else queue.push([d.name, d.props]);
   };
-  worker.onerror = (e) => onFail(new Error(`the DOS engine stopped: ${e.message || 'worker error'}`));
+  worker.onerror = (e) => { trail(e, 'dos worker'); onFail(new Error('The DOS engine stopped. Try again.')); };
   const t = {
     sessionId,
     net: null,
@@ -163,7 +164,7 @@ export const dosEngine: Engine = {
     ]).catch((e: unknown) => {
       tl.exit();
       out?.node.disconnect();
-      throw e instanceof Error ? e : new Error(String(e));
+      throw e instanceof Error ? e : new Error(sayError(e, 'start the DOS engine'));
     });
     failed = (e) => ev.onError?.(e);
 

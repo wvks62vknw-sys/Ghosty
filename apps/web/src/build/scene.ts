@@ -7,6 +7,7 @@
  */
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TRenderer, type TScene, type TVector3 } from '../studio/three';
 import { BUILDINGS, type Box, type Design } from './kits';
+import { sayError } from '../ui/hisWords';
 
 /** The groups ROOF takes off. */
 const LIDS = new Set(['roof', 'ceiling', 'lid']);
@@ -78,7 +79,7 @@ export class BuildScene {
     try {
       this.lib = await loadThree();
     } catch (e) {
-      this.error = `The 3-D engine did not load: ${(e as Error).message}`;
+      this.error = sayError(e, 'draw the 3-D view');
       return false;
     }
     const T = this.lib.THREE;

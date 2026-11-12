@@ -15,6 +15,7 @@ import { sentSince } from '../../offline/star';
 import { flushStars, starBox } from '../../offline/starbox';
 import { button, niceCase, panel, toast, type Panel } from '../../ui/components';
 import { loadAll } from '../gym/store';
+import { sayError } from '../../ui/hisWords';
 
 const WEEK = 7 * 86_400_000;
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -64,7 +65,7 @@ export function loopsPanel(): Panel & { refresh(): void } {
                 const st = await brain.selftrain.rollback();
                 toast(`The newest brain is gone; back to ${st.models.find((m) => m.commit === st.active)?.label ?? 'the stock Qwen3'}`, 'ok');
               } catch (e) {
-                toast(String((e as Error)?.message ?? e).slice(0, 160), 'warn');
+                toast(sayError(e, 'change that'), 'warn');
               }
               refresh();
             }, 'warn loopback'),

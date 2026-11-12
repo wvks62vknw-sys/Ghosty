@@ -12,6 +12,7 @@ import { run } from '../commands/registry';
 import { passagesFor } from '../library/local';
 import { clientContext } from '../shell/awareness';
 import { ui } from '../state/app';
+import { sayError } from '../ui/hisWords';
 
 export interface AskResult {
   /** The reply (every text event joined), '' when none came. */
@@ -101,7 +102,7 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
     const library = extras.bare ? [] : await passagesFor(question).catch(() => []);
     await streamEvents('/chat', { message: question, context: extras.bare ? {} : context(), recent, images: dataUrl ? [dataUrl] : undefined, offline: extras.bare ? { facts: [], agenda: [], library: [] } : { ...offlineContext(), library }, ...(seen ? { seen } : {}), ...(scan ? { scan } : {}) }, handle, extras.signal);
   } catch (e) {
-    out.error = String((e as Error)?.message ?? e);
+    out.error = sayError(e, 'answer that');
     push({ kind: 'error', text: out.error });
   } finally {
     ui.set({ busy: false, status: '' });

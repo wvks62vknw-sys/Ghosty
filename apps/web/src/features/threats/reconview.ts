@@ -4,6 +4,7 @@
  * runs, the library title and the question ASK GHOSTY sends. Tested from apps/edge/test.
  */
 import type { CertInfo, DnsInfo, HostingInfo, HttpInfo, RdapInfo, ReconReport, ReconSection, SubdomainInfo, WaybackInfo } from '../../../../../packages/shared/src/recon';
+import { rawText, sayError } from '../../ui/hisWords';
 
 export interface ViewRow {
   k: string;
@@ -212,7 +213,7 @@ export function standout(r: ReconReport, now = Date.now()): ViewRow[] {
  */
 export function reconError(e: unknown, status = 0, said = ''): string {
   if ((e as Error | null)?.name === 'AbortError') return 'No answer after a minute. RUN again: the sources that did answer are kept for ten minutes.';
-  if (e) return e instanceof TypeError || /fetch|network|load failed/i.test(String((e as Error).message ?? e)) ? 'Can’t reach Ghosty’s brain right now. Check the connection, then RUN again.' : String((e as Error).message ?? e);
+  if (e) return e instanceof TypeError || /fetch|network|load failed/i.test(rawText(e)) ? 'Can’t reach Ghosty’s brain right now. Check the connection, then RUN again.' : sayError(e, 'run that look-up');
   if (status === 401) return 'Ghosty needs your owner key again: pair this phone in Settings, then RUN again.';
   if (status >= 400 && status < 500 && said) return said;
   if (status && status < 400) return 'Ghosty’s brain sent an answer this card can’t read. Try again in a minute.';

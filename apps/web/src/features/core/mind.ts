@@ -33,6 +33,7 @@ import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
 import { glowNow, orbTokens, themeEvents } from '../../state/theme';
 import { attendingNow } from '../../ui/machine';
+import { sayError } from '../../ui/hisWords';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // three.js is typed by hand for the studio (studio/three.ts) and only for what the studio calls; the hero uses a few
@@ -341,7 +342,7 @@ export class Mind {
     try {
       this.build(lib.THREE as Any);
     } catch (e) {
-      return this.fail(`WebGL refused: ${String((e as Error)?.message ?? e).slice(0, 80)}`);
+      return this.fail(sayError(e, 'draw the mind'));
     }
     this.io = new IntersectionObserver((es) => {
       this.inView = es.some((e) => e.isIntersecting);

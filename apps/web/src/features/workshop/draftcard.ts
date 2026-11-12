@@ -10,6 +10,7 @@ import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, pill, sandboxFrame, toast } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 /** The two screens a draft is shown at: an iPhone and a laptop. */
 const SCREENS = [
@@ -75,7 +76,7 @@ export function draftCard(projectId: string): HTMLElement {
         draft = r.draft;
         paint(r.said);
       } catch (e) {
-        toast(`Could not change it: ${String((e as Error).message)}`, 'bad');
+        toast(sayError(e, 'change it'), 'bad');
         b.disabled = false;
       }
     }, 'on')));

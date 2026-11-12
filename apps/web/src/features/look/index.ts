@@ -31,6 +31,7 @@ import { heroState, mindFor, STATES, webglWorks, type Mind, type MindState } fro
 import { eyeGlyph, index, key, lineOfSight, lockBox, MARKS, marksState, plate, recognise, release, reticle, search, stampLine, tag, toneHeard, truthLine, typedLine, type Reticle, type StampFacts } from '../../ui/machine';
 import { sections } from '../../ui/sections';
 import { themeSwatches } from '../../ui/swatches';
+import { sayError } from '../../ui/hisWords';
 
 const GLYPH = {
   look: '<circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1.2"/><path d="M3.5 7.5v-4h4M16.5 3.5h4v4M20.5 16.5v4h-4M7.5 20.5h-4v-4"/>',
@@ -478,7 +479,7 @@ export const lookTab: TabDef = {
         FILL[id]!(P[id]!.body);
       } catch (e) {
         console.error('look', id, e);
-        P[id]!.body.append(h('p.glook-state', h('b', 'Not drawn'), `This section could not be drawn: ${String((e as Error)?.message ?? e)}`));
+        P[id]!.body.append(h('p.glook-state', h('b', 'Not drawn'), sayError(e, 'draw this section')));
       }
     };
     const showing = () => {

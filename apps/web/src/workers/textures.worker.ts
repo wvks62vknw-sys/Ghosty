@@ -8,6 +8,7 @@ import { WORLD_URL, type WorldPack } from '../engine/world';
 import { gymMessage, type GymIn } from '../gym/worker';
 import { siteMessage, type SiteIn } from '../offline/sitework';
 import { tunnelMessage, type TunnelIn } from '../features/workbench/tunnelwork';
+import { sayError } from '../ui/hisWords';
 
 self.onmessage = async (e: MessageEvent) => {
   if (e.data && typeof e.data === 'object' && 'gym' in e.data) {
@@ -32,6 +33,6 @@ self.onmessage = async (e: MessageEvent) => {
     const lights = (t.lights as OffscreenCanvas).transferToImageBitmap();
     (self as unknown as Worker).postMessage({ ok: true, W: t.W, H: t.H, geo: t.geo, bio, lights }, [t.geo.buffer, bio, lights]);
   } catch (e) {
-    (self as unknown as Worker).postMessage({ ok: false, error: String(e) });
+    (self as unknown as Worker).postMessage({ ok: false, error: sayError(e, 'run that') });
   }
 };

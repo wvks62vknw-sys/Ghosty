@@ -83,7 +83,7 @@ function build(brief: Brief): Promise<SiteOut> {
     };
     w.onerror = (e) => {
       e.preventDefault();
-      done({ site: 'built', req: 0, error: e.message || 'the builder stopped' });
+      done({ site: 'built', req: 0, error: 'The site builder stopped. Try again.' });
     };
     w.postMessage({ site: 'build', req: 1, brief });
   });

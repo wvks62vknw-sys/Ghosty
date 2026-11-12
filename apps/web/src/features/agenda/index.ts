@@ -12,6 +12,7 @@ import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/compon
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { sectionNow, sections } from '../../ui/sections';
+import { sayError } from '../../ui/hisWords';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -101,7 +102,7 @@ export const agendaTab: TabDef = {
         toast(`Added: ${title}`, 'ok');
         void load();
       } catch (e) {
-        toast(String((e as Error).message), 'bad');
+        toast(sayError(e, 'change your plan'), 'bad');
       }
     };
     evTitle.addEventListener('keydown', (e) => e.key === 'Enter' && void addEvent());
@@ -122,7 +123,7 @@ export const agendaTab: TabDef = {
         toast('Reminder set', 'ok');
         void load();
       } catch (e) {
-        toast(String((e as Error).message), 'bad');
+        toast(sayError(e, 'change your plan'), 'bad');
       }
     };
     rText.addEventListener('keydown', (e) => e.key === 'Enter' && void addReminder());
@@ -207,7 +208,7 @@ export const agendaTab: TabDef = {
                 await brain.runJob(j.id);
                 await pollInbox();
               } catch (e) {
-                toast(String((e as Error).message), 'bad');
+                toast(sayError(e, 'change your plan'), 'bad');
               }
               b.disabled = false;
               b.textContent = 'RUN NOW';
@@ -280,7 +281,7 @@ export const agendaTab: TabDef = {
               toast(`Still connected: ${f.name}`, 'ok');
             },
             async () => {
-              await brain.deleteFeed(f.id).catch((e) => toast(`Could not disconnect it: ${(e as Error).message}`, 'bad'));
+              await brain.deleteFeed(f.id).catch((e) => toast(sayError(e, 'disconnect it'), 'bad'));
               feedsGoing.delete(f.id);
               void load();
             },
@@ -299,7 +300,7 @@ export const agendaTab: TabDef = {
             toast('Calendar connected', 'ok');
             void load();
           } catch (e) {
-            toast(String((e as Error).message), 'bad');
+            toast(sayError(e, 'change your plan'), 'bad');
           }
           b.disabled = false;
         })),

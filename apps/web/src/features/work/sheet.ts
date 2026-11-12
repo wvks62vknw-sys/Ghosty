@@ -9,6 +9,7 @@ import { h } from '../../core/dom';
 import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
+import { sayError } from '../../ui/hisWords';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
 /** Each sheet's name, as its title and as its panel on the WORK screen (features/work/index.ts). */
@@ -155,7 +156,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
       workState.interview.answered++;
       status.textContent = '';
     } catch (e) {
-      status.textContent = `My brain didn’t answer: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'get an answer from my brain');
     }
   };
   const ask = button('Ask it aloud', async () => {
@@ -184,7 +185,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
     } catch (e) {
       listening = false;
       stopTimer();
-      status.textContent = `I couldn’t hear you (${(e as Error).message}): type your answer instead.`;
+      status.textContent = `${sayError(e, 'hear you')} Type your answer instead.`;
     }
   });
   voice.setAttribute('aria-label', 'Answer by voice');
@@ -207,7 +208,7 @@ function todoScreen(): Screen {
       paint();
       return r.text;
     } catch (e) {
-      status.textContent = `My brain didn’t answer: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'get an answer from my brain');
       return '';
     }
   };

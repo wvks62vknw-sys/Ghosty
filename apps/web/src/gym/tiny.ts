@@ -1,3 +1,4 @@
+import { sayError } from '../ui/hisWords';
 /**
  * TINY: the little programming language of BUG HUNT, with its own parser and interpreter (no eval — the app's
  * security policy forbids it, and a program must never run real code). One function per program:
@@ -305,7 +306,7 @@ export function run(p: Program, args: Val[], limit = 1500): Outcome {
     return { error: 'it ends without returning anything', lines, steps: env.steps };
   } catch (e) {
     if (e instanceof Return) return { value: e.v, lines, steps: env.steps };
-    if (e instanceof TinyError) return { error: e.message, lines, steps: env.steps };
+    if (e instanceof TinyError) return { error: sayError(e, 'run that'), lines, steps: env.steps };
     throw e;
   }
 }

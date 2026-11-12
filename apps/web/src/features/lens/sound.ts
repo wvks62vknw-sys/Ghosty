@@ -20,6 +20,7 @@ import { button, toast } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
 import { analyseRecording, analyseTestTone, describeListen, describeTone, hz, planSeconds, THD_LIMIT, TONE_PLAN, type Band, type ListenReport, type ToneReport } from '../../sound/analyse';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { sayError } from '../../ui/hisWords';
 
 type Sub = 'listen' | 'tone';
 type Phase = 'idle' | 'starting' | 'recording' | 'playing' | 'analysing' | 'done' | 'error';
@@ -60,7 +61,7 @@ function micMessage(e: unknown): string {
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'The microphone is blocked: allow it for this site (iPhone: Settings → Safari → Microphone, or the aA menu → Website Settings)';
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone found on this device';
   if (name === 'NotReadableError') return 'The microphone is busy (another app is using it)';
-  return `The microphone did not open: ${String((e as Error)?.message ?? e)}`;
+  return sayError(e, 'open that');
 }
 
 /** The theme's colours for drawing (canvas cannot read CSS variables itself). */
@@ -448,7 +449,7 @@ export function createSoundMode(L: LensContext): Mode {
         S.phase = 'done';
       } catch (e) {
         S.phase = 'error';
-        S.error = `Could not work it out: ${String((e as Error)?.message ?? e)}`;
+        S.error = sayError(e, 'work it out');
         status(S.error, 'off');
       }
     };

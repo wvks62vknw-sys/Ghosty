@@ -32,6 +32,8 @@ import { readScene } from '../../engine3d/scene';
 
 // (the samples and the panes: a pure list the ABILITIES catalogue reads too)
 import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
+import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
 export { SAMPLES, type SampleId };
 
 /** A model made from a picture, as the brain lists it (/api/m3d). */
@@ -86,7 +88,7 @@ async function shrinkPhoto(file: File, max = 1024): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('could not read the photo'))), 'image/jpeg', 0.9));
 }
 
-const errText = (e: unknown) => String((e as Error)?.message ?? e).slice(0, 200);
+const errText = (e: unknown, what = 'finish that') => sayError(e, what);
 
 /** The licence's own page for a credit line, linked next to it (CC BY asks for that), or null. */
 export function licenceLink(credit: string): { label: string; href: string } | null {
@@ -137,6 +139,8 @@ export const studioTab: TabDef = {
   blurb: 'take models apart, rooms in 3-D',
   mount(root) {
     const view = h('div.studioview');
+    // the first open: said at once (the lab takes a moment to wake), gone when the first scene lands
+    let opening: (() => void) | null = waiting(view, 'Opening the studio…');
     const vtitle = h('div.studiotitle', '3D STUDIO');
     const vstat = h('div.studiostat', 'loading the lab…');
     const vmeasure = h('div.studiomeasure');
@@ -307,8 +311,8 @@ export const studioTab: TabDef = {
         showCredit(ok ? it : null);
         return ok;
       } catch (e) {
-        vstat.textContent = `Could not open ${it.name}: ${errText(e)}`;
-        toast(`Could not open ${it.name}: ${errText(e)}`, 'bad');
+        vstat.textContent = errText(e, `open ${it.name}`);
+        toast(errText(e, `open ${it.name}`), 'bad');
         return false;
       }
     }
@@ -564,7 +568,7 @@ export const studioTab: TabDef = {
         cutout.hidden = true;
         makeStatus.textContent = 'Ready: press MAKE 3-D.';
       } catch (e) {
-        toast(`Could not read that photo: ${errText(e)}`, 'bad');
+        toast(errText(e, `read that photo`), 'bad');
       }
     };
     photoIn.addEventListener('change', async () => {
@@ -600,7 +604,7 @@ export const studioTab: TabDef = {
         await loadMade(m.id, m.title, m);
         void refreshMade();
       } catch (e) {
-        makeStatus.textContent = `Not made: ${errText(e)}`;
+        makeStatus.textContent = errText(e, `make that`);
         makeStatus.classList.add('bad');
       } finally {
         making = false;
@@ -745,6 +749,11 @@ export const studioTab: TabDef = {
       engine: { el: eng.el, paint: () => undefined },
     };
     function show(p: Pane) {
+      // (another bench than the models': nothing is on its way here, so the line goes)
+      if (p !== 'models') {
+        opening?.();
+        opening = null;
+      }
       const was = pane;
       pane = p;
       for (const b of segBtns) b.classList.toggle('on', b.dataset.pane === p);
@@ -808,7 +817,8 @@ export const studioTab: TabDef = {
       asked = true;
       // a model asked for while the car is up: back to the bench
       if (pane === 'car' || pane === 'build' || pane === 'engine') show('models');
-      vstat.textContent = 'loading…';
+      vstat.textContent = src.kind === 'room' ? 'building the room…' : 'opening the model…';
+      const landed = waiting(view, src.kind === 'room' ? 'Building the room…' : 'Opening the model…');
       try {
         await V.load(src);
         if (active) V.start();
@@ -818,9 +828,13 @@ export const studioTab: TabDef = {
         undo.disabled = !history.length;
         return true;
       } catch (e) {
-        vstat.textContent = `Could not open it: ${errText(e)}`;
-        toast(`Could not open the model: ${errText(e)}`, 'bad');
+        vstat.textContent = errText(e, `open it`);
+        toast(errText(e, `open the model`), 'bad');
         return false;
+      } finally {
+        landed();
+        opening?.();
+        opening = null;
       }
     };
     const undoLoad = async () => {
@@ -850,7 +864,7 @@ export const studioTab: TabDef = {
         // A sample with many parts already is taken apart by its parts; a one-piece one is split.
         await loadAny({ kind: 'glb', data: await r.arrayBuffer(), title: s.title, metres: true, credit: s.credit });
       } catch (e) {
-        vstat.textContent = `Could not fetch the sample: ${errText(e)}`;
+        vstat.textContent = errText(e, `fetch the sample`);
       }
     };
     const loadMade = async (id: string, title = 'From a picture', info?: Partial<MadeModel>) => {
@@ -869,7 +883,7 @@ export const studioTab: TabDef = {
           void refreshKept();
         }
       } catch (e) {
-        vstat.textContent = `Could not open it: ${errText(e)}`;
+        vstat.textContent = errText(e, `open it`);
       }
     };
     const screenshot = async () => {
@@ -882,7 +896,7 @@ export const studioTab: TabDef = {
       S.lastShot = { bytes: blob.size, type: blob.type, credit: shotCredit, burned: blob !== raw };
       if (navigator.canShare?.({ files: [file] })) {
         navigator.share({ files: [file], title: name, ...(shotCredit ? { text: shotCredit } : {}) }).catch((e: unknown) => {
-          if ((e as Error)?.name !== 'AbortError') toast(`Could not share it: ${errText(e)}`, 'bad');
+          if ((e as Error)?.name !== 'AbortError') toast(errText(e, `share it`), 'bad');
         });
       } else {
         const url = URL.createObjectURL(file);

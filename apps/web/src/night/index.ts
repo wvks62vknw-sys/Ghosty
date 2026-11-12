@@ -25,6 +25,7 @@ import { examPrompt, TOKENS, type SitItem } from '../school/sit';
 import { ensureMounted } from '../shell/tabs';
 import { gymControl } from '../features/gym';
 import { niceCase } from '../ui/components';
+import { sayError } from '../ui/hisWords';
 
 /** What NIGHT SCHOOL is doing, for the SYSTEM card and the dimmed screen (and window.__ghosty.night). */
 export const night = createStore(
@@ -168,7 +169,7 @@ async function schoolGo(): Promise<void> {
     );
     schoolHold = '';
   } catch (e) {
-    schoolHold = String((e as Error)?.message ?? e).slice(0, 160);
+    schoolHold = sayError(e, 'do that tonight');
   } finally {
     schoolBusy = false;
     if (schoolStop === ctl) schoolStop = null;

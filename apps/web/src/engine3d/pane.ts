@@ -16,6 +16,7 @@ import { currentScene, forgetScene, restoreScene, saveAs, savedScenes, setCurren
 import { project } from './camera';
 import type { Tool } from './edit';
 import { EngineView } from './view';
+import { sayError } from '../ui/hisWords';
 
 export interface EnginePane {
   el: HTMLElement;
@@ -145,7 +146,7 @@ export function enginePane(view: HTMLElement): EnginePane {
       said(freeNote);
     } catch (e) {
       free.last = 'failed';
-      freeNote = `Could not get ${m.name}: ${(e as Error).message}`;
+      freeNote = sayError(e, `get ${m.name}`);
       said(freeNote);
     } finally {
       getting = '';

@@ -8,6 +8,7 @@
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
+import { sayError } from '../../ui/hisWords';
 
 export type PeopleWhat = 'who' | 'plan';
 interface PersonRow {
@@ -70,7 +71,7 @@ async function say(action: string, args: Record<string, unknown>): Promise<{ tex
     peopleState.said = r.text;
     return r;
   } catch (e) {
-    toast(`My brain didn’t answer: ${(e as Error).message}`, 'warn');
+    toast(sayError(e, 'get an answer from my brain'), 'warn');
     return { text: '' };
   }
 }

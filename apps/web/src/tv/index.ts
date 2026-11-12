@@ -24,6 +24,7 @@ import { nextFocus, PAD, type Box, type Dir } from './detect';
 import { closeKeyboard, keyboardOpen, openKeyboard } from './keyboard';
 import { has3d, hasWasm, hasWebGpu, probeDos } from './probe';
 import { tvNow, tvSetting } from './setting';
+import { sayError } from '../ui/hisWords';
 
 export { tvNow, tvSetting };
 
@@ -204,7 +205,7 @@ async function eyeFallback(page: HTMLElement): Promise<void> {
     await map.open(spot, { zoom: 11 });
     map.invalidate();
   } catch (e) {
-    host.textContent = `The flat map did not load: ${String((e as Error)?.message ?? e).slice(0, 120)}`;
+    host.textContent = sayError(e, 'draw the flat map');
   }
 }
 

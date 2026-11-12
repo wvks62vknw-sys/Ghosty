@@ -42,6 +42,7 @@ import { screenSays } from '../../shell/awareness';
 import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { goToPanel, revealSection, sectionNow, sections } from '../../ui/sections';
+import { sayError } from '../../ui/hisWords';
 
 const LOCK = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>';
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -129,7 +130,7 @@ export const schoolTab: TabDef = {
           if (sitting.get().stopped) toast(rs.length ? 'Stopped: the answers so far were handed in' : 'Stopped', 'warn');
           else if (last) toast(`${stageLabel(stage)} ${subjectName(last.subject).toLowerCase()}: ${last.grade}`, last.top ? 'ok' : '');
         })
-        .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad'))
+        .catch((e) => toast(sayError(e, 'open that'), 'bad'))
         .finally(() => void refresh());
       paint();
     };
@@ -153,10 +154,10 @@ export const schoolTab: TabDef = {
         })
         .catch((e) => {
           getting = null;
-          const msg = String((e as Error)?.message ?? e).slice(0, 220);
+          const msg = sayError(e, 'finish that download');
           const wait = !!(e as { wait?: boolean })?.wait;
           if (wait) waitLine = msg;
-          toast(wait ? msg : `Download stopped: ${msg}`, wait ? 'warn' : 'bad');
+          toast(msg, wait ? 'warn' : 'bad');
           void refresh();
         });
     };
@@ -172,7 +173,7 @@ export const schoolTab: TabDef = {
       if (b) b.disabled = true;
       void writePapers(stage)
         .then(() => toast(`Writing the ${stageLabel(stage)} papers: a little at a time while SCHOOL is open, and a little each night`, 'ok'))
-        .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad'))
+        .catch((e) => toast(sayError(e, 'open that'), 'bad'))
         .finally(() => void refresh());
     };
     /** The banks of a stage as the brain last reported them (the live slices first). */
@@ -233,7 +234,7 @@ export const schoolTab: TabDef = {
           toast(`${stageLabel(stage)} ${subjectName(first).toLowerCase()}: sent to the free GPU · about 10 minutes`, 'ok');
         }
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad');
+        toast(sayError(e, 'open that'), 'bad');
       }
       ensurePoll();
       paint();
@@ -543,7 +544,7 @@ export const schoolTab: TabDef = {
             d.paper.source ? h('div.note', `${d.paper.source}${d.paper.licence ? ` · ${d.paper.licence}` : ''}`) : null,
           );
         },
-        (e) => clear(body, h('div.note', String((e as Error)?.message ?? e))),
+        (e) => clear(body, h('div.note', sayError(e, 'open that'))),
       );
     }
 
@@ -561,7 +562,7 @@ export const schoolTab: TabDef = {
           await fetchOfficial(o);
           toast(`${o.title}: read on this phone; Ghosty is making it into a paper`, 'ok');
         } catch (e) {
-          toast(String((e as Error)?.message ?? e).slice(0, 200), 'bad');
+          toast(sayError(e, 'open that'), 'bad');
         }
         void loadOfficial();
       }), live.status === 'failed' ? 'Fetch again' : 'Fetch');
@@ -601,7 +602,7 @@ export const schoolTab: TabDef = {
         official = (await officialApi.list()).papers;
         officialError = '';
       } catch (e) {
-        officialError = String((e as Error)?.message ?? e).slice(0, 160);
+        officialError = sayError(e, 'open that');
       }
       paintOfficial();
     }
@@ -613,7 +614,7 @@ export const schoolTab: TabDef = {
       try {
         view = { ...(await school.settings(!view.state.nightly)), remote: view.remote, gap: view.gap, practice: view.practice } as WiredView;
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 160), 'bad');
+        toast(sayError(e, 'open that'), 'bad');
       }
       b.disabled = false;
       paint();
@@ -684,7 +685,7 @@ export const schoolTab: TabDef = {
         // Something is being written or read: carry on with it while SCHOOL is on screen.
         if (shown && v.work.busy) startWork();
       } catch (e) {
-        schoolState.error = String((e as Error)?.message ?? e).slice(0, 160);
+        schoolState.error = sayError(e, 'open that');
       }
       paint();
     }
@@ -715,7 +716,7 @@ export const schoolTab: TabDef = {
         reading = await rcall<ReadView>('GET', '');
         readingError = '';
       } catch (e) {
-        readingError = String((e as Error)?.message ?? e).slice(0, 160);
+        readingError = sayError(e, 'open that');
       }
       paintReading();
     }
@@ -744,7 +745,7 @@ export const schoolTab: TabDef = {
           if (!shown) break;
         }
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 200), 'bad');
+        toast(sayError(e, 'open that'), 'bad');
       } finally {
         delete readingNow[r.id];
         void loadReading();
@@ -778,7 +779,7 @@ export const schoolTab: TabDef = {
           toast(res.line ?? 'Marked', res.result?.passed ? 'ok' : 'warn');
         }, { wait: false });
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 220), 'bad');
+        toast(sayError(e, 'open that'), 'bad');
       } finally {
         if (checkCtl === ctl) checkCtl = null;
         checkLive = null;

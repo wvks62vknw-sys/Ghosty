@@ -20,7 +20,7 @@ import { thatOne } from '../assistant/thatwords';
 import { listen, stopListening, voiceSupport } from '../assistant/voice';
 import { speechCaps } from '../api/brain';
 import { settings, ui } from '../state/app';
-import { niceCase, toast } from '../ui/components';
+import { empty, niceCase, toast } from '../ui/components';
 import { revealPanel } from '../ui/sections';
 import { navTo } from './areas';
 import { isFavourite, pinOnHold } from './favourites';
@@ -33,6 +33,7 @@ import { ROOMS, roomOf, thingOf, type Room } from './rooms';
 import { atHand, recentIds, starredIds, thingForNumber, thingLine, worksLine } from './inventory';
 import { index, stampLine, tag } from '../ui/machine';
 import type { ScreenContext } from '../../../../packages/shared/src/awareness';
+import { sayError } from '../ui/hisWords';
 
 const SEARCH = '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>';
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -299,8 +300,8 @@ export function buildLauncher(): Launcher {
     const lately = recentIds().slice(0, 4);
     const name = (id: string) => thingOf(id)?.name ?? id;
     const out: HTMLElement[] = [];
-    out.push(invSection('Favourites', 'Hold a thing to pin it', stars.length ? stars.map((id, i) => invRow(id, i + 1, name(id), 'favourites')) : [h('p.invnone', 'Nothing pinned yet. Hold any thing to pin it.')], 'favourites', stars.length));
-    out.push(invSection('Recent', 'Newest first', lately.length ? lately.map((id, i) => invRow(id, i + 1, name(id), 'recent')) : [h('p.invnone', 'Nothing opened yet. The last ones you open wait here.')], 'recent', lately.length));
+    out.push(invSection('Favourites', 'Hold a thing to pin it', stars.length ? stars.map((id, i) => invRow(id, i + 1, name(id), 'favourites')) : [h('div.invnone', empty('NONE', 'Hold any thing to pin it.', 'Nothing pinned yet'))], 'favourites', stars.length));
+    out.push(invSection('Recent', 'Newest first', lately.length ? lately.map((id, i) => invRow(id, i + 1, name(id), 'recent')) : [h('div.invnone', empty('NONE', 'The last ones you open wait here.', 'Nothing opened yet'))], 'recent', lately.length));
     for (const r of ROOMS) {
       const rows = r.things.filter((t) => t.id !== 'deck').map((t) => invRow(t.id, t.n, t.name, r.key));
       out.push(invSection(r.title, r.key === 'home' ? 'The hall' : 'A room', rows, r.key));
@@ -430,7 +431,7 @@ export function buildLauncher(): Launcher {
         filter();
       }
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'bad');
+      toast(sayError(e, 'run that'), 'bad');
     } finally {
       listening = false;
       mic.classList.remove('on');

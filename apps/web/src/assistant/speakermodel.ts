@@ -9,6 +9,7 @@
  * The specs stand the model in (window.__ghostySpeakerEngine, honoured only under a test runner), the way the faces' specs do: the
  * pack, the filterbank, the judging, the words and the screens are real.
  */
+import { rawText, trail } from '../ui/hisWords';
 import { fromPack, isHere } from '../offline/pack';
 import { EYES_CACHE } from '../offline/eyes';
 import { onSpeakerPack, SPEAKER_PACK } from '../offline/speakerpack';
@@ -19,7 +20,7 @@ import { EMB_LEN, norm } from './speakerjudge';
 /** The runtime's WebAssembly memory cap (64 KB pages): 1 GB, then 256 MB if the phone refuses that. */
 const MAX_PAGES = [16384, 4096] as const;
 const IDLE_MS = 60_000;
-const memoryTrouble = (e: unknown) => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(String((e as Error)?.message ?? e));
+const memoryTrouble = (e: unknown) => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(rawText(e));
 
 interface StandIn {
   embed(pcm: Float32Array): number[] | Promise<number[] | null> | null;
@@ -141,7 +142,10 @@ class Engine {
       return out.length === EMB_LEN && out.every(Number.isFinite) ? norm(out) : null;
     } catch (e) {
       // a model that cannot start on this phone is given up for the session (the features judge); a one-off miss is just a miss
-      if (/not on this phone|no available backend|WebAssembly|SIMD|Worker/i.test(String((e as Error)?.message ?? e))) this.broken = String((e as Error)?.message ?? e).slice(0, 120);
+      if (/not on this phone|no available backend|WebAssembly|SIMD|Worker/i.test(rawText(e))) {
+        trail(e, 'voice model');
+        this.broken = 'The voice model would not start on this phone.';
+      }
       return null;
     }
   }

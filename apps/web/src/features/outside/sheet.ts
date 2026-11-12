@@ -9,6 +9,7 @@
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
+import { sayError } from '../../ui/hisWords';
 
 export type OutsideWhat = 'safewalk' | 'parking' | 'toilets' | 'cash' | 'refill' | 'open' | 'car' | 'lost' | 'split';
 export type OutsideView = 'safewalk' | 'nearby' | 'car' | 'lost' | 'split';
@@ -105,7 +106,7 @@ async function run(action: string, a: Record<string, unknown>): Promise<{ text: 
     outsideState.said = r.text;
     return r;
   } catch (e) {
-    toast(`My brain didn’t answer: ${(e as Error).message}`, 'warn');
+    toast(sayError(e, 'get an answer from my brain'), 'warn');
     return { text: '' };
   }
 }

@@ -11,6 +11,7 @@
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
+import { sayError } from '../../ui/hisWords';
 
 export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
@@ -60,7 +61,7 @@ export async function openBody(what: string, args: Record<string, unknown> = {})
   try {
     s = await bodyScreen(w, args);
   } catch (e) {
-    toast(`That screen didn’t open: ${(e as Error).message}`, 'warn');
+    toast(sayError(e, 'open that'), 'warn');
     return;
   }
   bodyState.open = w;
@@ -92,7 +93,7 @@ function waterScreen(): Screen {
     try {
       paint((await brain.packDo('body', 'water', { words })).text);
     } catch (e) {
-      toast(`My brain didn’t answer: ${(e as Error).message}`, 'warn');
+      toast(sayError(e, 'get an answer from my brain'), 'warn');
     }
   };
   void act('');

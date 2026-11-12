@@ -17,6 +17,7 @@ import { headers } from '../api/brain';
 import { checkStorage } from '../features/system/storage';
 import { sizeWords, WIKI_FILES, type WikiFile } from './files';
 import { openArchive, type Archive, type PieceFile } from './zim';
+import { rawText } from '../ui/hisWords';
 
 export const WIKI_CACHE = 'ghosty-wiki-v1';
 /** About 8 MB a piece: small enough that a slice read stays cheap, big enough that 1.1 GB is 131 requests. */
@@ -308,7 +309,7 @@ export function archiveOf(f: WikiFile): Promise<Archive> {
     a = pieceFiles(f).then((files) =>
       openArchive(files).catch((e: unknown) => {
         // the reader itself (it loads from this site once, then stays on the phone) rather than the file
-        if (/import|module|fetch|WebAssembly|wasm/i.test(String((e as Error)?.message ?? e))) throw new Error('The Wikipedia reader could not start: it loads once with a signal, then works without one. Try again with a signal.');
+        if (/import|module|fetch|WebAssembly|wasm/i.test(rawText(e))) throw new Error('The Wikipedia reader could not start: it loads once with a signal, then works without one. Try again with a signal.');
         throw e;
       }),
     );

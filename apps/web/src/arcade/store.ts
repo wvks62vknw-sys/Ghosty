@@ -10,6 +10,7 @@
  */
 import type { GameData, Take } from './shelf';
 import { concat, findEntry, zipEntries, zipRead, zipStore } from './zip';
+import { rawText, trail } from '../ui/hisWords';
 
 export const ARCADE_CACHE = 'ghosty-arcade-v1';
 
@@ -143,7 +144,9 @@ export async function fetchPackage(data: GameData, onProgress?: (p: Progress) =>
       return bytes;
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') throw e;
-      why.push(`${sameSite ? 'this site' : new URL(url).host}: ${(e as Error)?.message ?? e}`);
+      trail(e, 'mirror');
+      // (the reason stays in the error's own text, for the check and the WHY trail: the screen says it through sayError)
+      why.push(`${sameSite ? 'this site' : new URL(url).host}: ${rawText(e)}`);
     }
   }
   throw new Error(`No mirror gave the right file (${why.join('; ')}).`);

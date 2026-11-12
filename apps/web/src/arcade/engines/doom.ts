@@ -13,6 +13,7 @@
 import type { Action, Intent } from '../input';
 import { monoBuffer, openAudio, pcm8, type EngineAudio } from './audio';
 import { hasArg, takeLook, type Engine, type EngineEvents, type EngineFiles, type EngineHandle, type EngineProbe, type StartOptions } from './types';
+import { sayError } from '../../ui/hisWords';
 
 export const DOOM_VENDOR = '/vendor/doom';
 const W = 320;
@@ -400,7 +401,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   try {
     M._dg_create(words.length, argv); // loads the WAD and sets the game up: the "load"
   } catch (e) {
-    throw new Error((e as { name?: string })?.name === 'ExitStatus' ? failWords() : (e as Error)?.message || String(e));
+    throw new Error((e as { name?: string })?.name === 'ExitStatus' ? failWords() : sayError(e, 'start Doom'));
   }
 
   // ---- the loop ----
@@ -514,7 +515,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   const fail = (e: unknown): void => {
     stop();
     audio?.close();
-    const msg = (e as { name?: string })?.name === 'ExitStatus' ? failWords() : (e as Error)?.message || String(e);
+    const msg = (e as { name?: string })?.name === 'ExitStatus' ? failWords() : sayError(e, 'run Doom');
     ev.onError?.(new Error(msg));
   };
   const loop = (t: number): void => {
