@@ -16,6 +16,7 @@ import { home } from '../../state/app';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
+import { rawText } from '../../ui/hisWords';
 
 export const briefTab: TabDef = {
   id: 'brief',
@@ -176,7 +177,7 @@ export const briefTab: TabDef = {
         commuteWords = '';
         commuteCost = '';
         paintSay();
-        const msg = (e as Error).message;
+        const msg = rawText(e);
         commute.setStatus('CAN’T TIME IT', 'mid');
         clear(commute.body, row('HOME → WORK', /no road route/i.test(msg) ? 'There’s no road route between home and work: check the two places in Memory → Me → Places.' : 'The drive can’t be timed right now. It tries again when you next open the Brief.', null, { wrap: true }));
       }

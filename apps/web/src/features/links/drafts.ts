@@ -12,6 +12,7 @@ import { chat, type Entry } from '../../assistant/session';
 import { register } from '../../commands/registry';
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -42,7 +43,7 @@ async function approve(d: Draft, b: HTMLButtonElement, after?: () => void): Prom
       toast(r.said.replace(/: https?:\/\/\S+$/, ''), 'ok');
     }
   } catch (e) {
-    toast(`Not sent: ${String((e as Error).message ?? e)}`, 'bad');
+    toast(sayError(e, 'send that'), 'bad');
   } finally {
     b.disabled = false;
     after?.();
@@ -55,7 +56,7 @@ async function refuse(d: Draft, after?: () => void): Promise<void> {
     if (r.card) patchCard(r.card);
     toast('Dropped: nothing went out.', 'ok');
   } catch (e) {
-    toast(String((e as Error).message ?? e), 'bad');
+    toast(sayError(e, 'send that'), 'bad');
   }
   after?.();
 }
@@ -89,7 +90,7 @@ function edit(d: Draft, after?: () => void): void {
       toast('Changed: it still waits for your APPROVE.', 'ok');
       after?.();
     } catch (e) {
-      msg.textContent = String((e as Error).message ?? e);
+      msg.textContent = sayError(e, 'send that');
     } finally {
       b.disabled = false;
     }
@@ -150,7 +151,7 @@ register({
       const { postCard } = await import('../core/cards');
       postCard(r.card);
     } catch (e) {
-      toast(String((e as Error).message ?? e), 'bad');
+      toast(sayError(e, 'send that'), 'bad');
     }
   },
 });

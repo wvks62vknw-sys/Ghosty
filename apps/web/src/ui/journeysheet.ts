@@ -13,6 +13,7 @@ import { home } from '../state/app';
 import { button, modal } from './components';
 import type { FlatMap } from './flatmap';
 import { openMapSheet } from './mapsheet';
+import { rawText, sayError } from './hisWords';
 
 /** An icon per kind of leg: inline SVG paths of our own (Material Design icons, Apache 2.0), 24×24. */
 const ICONS: Record<JourneyMode, string> = {
@@ -156,8 +157,8 @@ const localIso = (ms: number): string => {
 
 const plainError = (e: unknown): string => {
   if (e instanceof TypeError) return "I can't reach my brain right now: check the connection and try again.";
-  const m = String((e as Error)?.message ?? e);
-  return /^HTTP \d+/.test(m) ? "The journey planner didn't answer; try again in a minute." : m;
+  const m = rawText(e);
+  return /^HTTP \d+/.test(m) ? "The journey planner didn't answer; try again in a minute." : sayError(e, 'plan that journey');
 };
 
 /** The GO panel. */

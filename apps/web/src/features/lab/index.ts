@@ -74,7 +74,7 @@ export const labTab: TabDef = {
       const card = cards.get(e.id)!;
       const r = store.pages[e.id] ?? null;
       const busy = running.has(e.id);
-      const err = errors.get(e.id) ?? '';
+      const said = errors.get(e.id) ?? '';
       const again = button(busy ? 'READING…' : r ? 'RUN IT AGAIN' : 'RUN IT', () => void runOne(e), r ? '' : 'on');
       again.dataset.act = 'again';
       again.dataset.case = 'keep';
@@ -84,7 +84,7 @@ export const labTab: TabDef = {
       exp.dataset.case = 'keep';
       exp.disabled = !r;
       const date = h('small.labdate', { dataset: { ran: String(r?.ran ?? 0), case: 'keep' } }, r ? `Run ${ranWords(r.ran)}` : 'Not run yet');
-      const showed = busy && !r ? `Reading the source for you…` : r ? r.showed : err || 'Not run yet. RUN IT and I read the source and tell you what it showed.';
+      const showed = busy && !r ? `Reading the source for you…` : r ? r.showed : said || 'Not run yet. RUN IT and I read the source and tell you what it showed.';
       clear(
         card,
         h('b.labq', e.question),
@@ -92,7 +92,7 @@ export const labTab: TabDef = {
         r?.bars?.length ? h('div.labchart', chart(r.bars, r.unit ?? ''), r.unit ? h('small.labunit', r.unit) : null) : null,
         r?.rows.length ? h('div.labtable', ...r.rows.map(([a, b]) => h('div.labrow', h('span', a), h('b', b)))) : null,
         h('p.labshowed', showed),
-        err && r ? h('p.laberr', { role: 'status' }, `${err} This is the last run.`) : busy && r ? h('p.laberr', { role: 'status' }, 'Reading the source again…') : null,
+        said && r ? h('p.laberr', { role: 'status' }, `${said} This is the last run.`) : busy && r ? h('p.laberr', { role: 'status' }, 'Reading the source again…') : null,
         h('small.labcaveat', e.caveat),
         date,
         h('div.row.wrap', again, exp),

@@ -14,6 +14,7 @@ import { mapPack } from '../../offline/maps';
 import { packChanged, SPEAKER_PACK } from '../../offline/speakerpack';
 import { deletePack, getPack, gettingWords, goneFiles, isHere, keptAll, keptWords, mobileWords, offMobileData, onMobileData, progressLine, readLog, sizeSaid, sizeWords, type GetProgress, type PackDef } from '../../offline/pack';
 import { button, panel, toast, undo, type Panel } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 /** One download at a time across both panels; every panel repaints when it moves. */
 let getting: { id: string; ctl: AbortController; line: string; frac: number } | null = null;
@@ -50,7 +51,7 @@ async function fetchPack(p: PackDef): Promise<void> {
   } catch (e) {
     const stopped = (e as Error)?.name === 'AbortError';
     getting = null;
-    failed = { id: p.id, text: stopped ? 'Stopped. What came so far stays: GET carries on from there.' : String((e as Error)?.message ?? e) };
+    failed = { id: p.id, text: stopped ? 'Stopped. What came so far stays: GET carries on from there.' : sayError(e, 'get that pack') };
     repaintAll();
   }
 }

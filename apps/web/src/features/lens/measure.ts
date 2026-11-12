@@ -30,6 +30,7 @@ import { intrinsicsFor, readExif, type Exif, type Intrinsics } from '../../measu
 import { bothText, calibrateDistance, calibrateHeight, calibrateRect, CARD_MM, A4_MM, cmText, confidence, describeMeasurements, DOOR_MM, ftInText, lengthMm, orderCorners, parseLength, rangeText, rectMm, type Calibration, type Measurement, type Pt, type RefKind } from '../../measure/geom';
 import { space } from '../../space/store';
 import type { LensContext, Mode } from './index';
+import { sayError } from '../../ui/hisWords';
 
 type Tool = 'thing' | 'length' | 'rect';
 
@@ -415,7 +416,7 @@ export function createMeasureMode(L: LensContext): Mode {
       } catch (e) {
         window.clearInterval(tick);
         if (gen !== autoGen) return;
-        Object.assign(S.auto, { state: 'failed', error: String((e as Error)?.message ?? e) });
+        Object.assign(S.auto, { state: 'failed', error: sayError(e, 'measure that') });
         paintState();
         if (auto()) status(`AUTO could not run: ${S.auto.error}`, 'off');
       }
@@ -539,7 +540,7 @@ export function createMeasureMode(L: LensContext): Mode {
           status(`scale set from the ${S.ref === 'a4' ? 'A4 sheet' : S.ref === 'card' ? 'card' : 'door'} · ${tool === 'length' ? 'tap two points' : 'tap four corners'}`, 'ok');
         } catch (e) {
           refPts = [];
-          toast(String((e as Error)?.message ?? e), 'warn');
+          toast(sayError(e, 'measure that'), 'warn');
         }
       }
       paintState();
@@ -619,7 +620,7 @@ export function createMeasureMode(L: LensContext): Mode {
       L.showStill(shown);
       usePhoto(shown, { w: c.width, h: c.height }, false, { canvas: c, pad: { x: (shown.width - c.width) / 2, y: (shown.height - c.height) / 2 }, exif: ex });
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'bad');
+      toast(sayError(e, 'measure that'), 'bad');
     }
   });
 

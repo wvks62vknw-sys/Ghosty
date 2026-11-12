@@ -26,7 +26,7 @@ import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
-import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
+import { bar, button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sections, type Sections } from '../../ui/sections';
 import { mountWiki } from '../../wiki/view';
@@ -34,6 +34,7 @@ import { openRights, rightsCount, rightsTopics } from '../../docs/rights';
 import { openBook, readingLine, shelfDocs, shelfHooks, shelfRow, sortShelf, type ShelfSort } from './reader';
 import { places, syncPlaces } from '../../library/place';
 import { key } from '../../ui/machine';
+import { rawText, sayError } from '../../ui/hisWords';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
 const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
@@ -167,8 +168,8 @@ export const libraryTab: TabDef = {
     };
     /** What went wrong, in his words: a scan with no converter says what works instead (photos are read here). */
     const failed = (line: HTMLElement, name: string, e: unknown) => {
-      const m = String((e as Error)?.message ?? e);
-      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : m}`;
+      const m = `${rawText(e)} ${(e as { raw?: string }).raw ?? ''}`;
+      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : sayError(e, 'add that')}`;
       line.className = 'note bad';
     };
     const ingest = async (picked: File[]) => {
@@ -240,7 +241,7 @@ export const libraryTab: TabDef = {
         line.textContent = '✓ my own source code is in the library — it is re-read after every shipped change';
         line.className = 'note ok';
       } catch (e) {
-        line.textContent = `✕ ${(e as Error).message}`;
+        line.textContent = sayError(e, 'add that');
         line.className = 'note bad';
       }
       void refresh();
@@ -361,7 +362,7 @@ export const libraryTab: TabDef = {
         sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}${isOffline() ? ' · on this phone' : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
-        toast(`Library: ${(e as Error).message}`, 'warn');
+        toast(sayError(e, 'open the library'), 'warn');
       }
     };
     q.addEventListener('keydown', (e) => e.key === 'Enter' && void search());
@@ -409,7 +410,7 @@ export const libraryTab: TabDef = {
     let othersOpen = false;
     // his shelf with nothing of his on it yet: what it is for, and the one thing to do (ADD A BOOK: the Add section)
     const shelfEmpty = () => h('div.shelfempty', { dataset: { case: 'keep' } },
-      h('p', { dataset: { case: 'keep' } }, 'No books of yours yet. Add a PDF, an e-book, a Word file or photos of pages, and it is here with its cover, ready to read or for me to read to you.'),
+      empty('NONE', 'Add a PDF, an e-book, a Word file or photos of pages: it is here with its cover, ready to read or for me to read to you.', 'No books of yours yet'),
       key('Add a book', () => secs?.select('add'), { label: 'Add a book: a PDF, an e-book, a Word file or photos of pages' }));
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
@@ -634,7 +635,7 @@ export const libraryTab: TabDef = {
               clear(line, `✓ ${total} notebook${total === 1 ? '' : 's'} on GitHub: `, h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.url.replace(/^https:\/\//, '')));
               line.className = 'note ok';
             } catch (e) {
-              line.textContent = `✕ ${(e as Error).message}`;
+              line.textContent = sayError(e, 'add that');
               line.className = 'note bad';
             } finally {
               b.disabled = false;
@@ -690,7 +691,7 @@ export const libraryTab: TabDef = {
         if (r.skipped) toast(`Not gathered: ${r.skipped}`, 'warn');
         else toast(`Gathered ${r.passages} passages from ${r.sources.length} sources${r.levels ? ', and the day in three levels' : ''}`, 'ok');
       } catch (e) {
-        toast(`Could not gather: ${(e as Error).message}`, 'bad');
+        toast(sayError(e, 'gather'), 'bad');
       }
       b.disabled = false;
       b.textContent = 'DIGEST NOW';
@@ -725,6 +726,8 @@ export const libraryTab: TabDef = {
       digestBtn.disabled = isOffline();
       if (lastStudy) paintStudy(lastStudy);
     };
+    // the first open: said in words until the shelf lands (a cold brain takes a few seconds), never a blank page
+    if (!P.big.textContent) P.big.textContent = 'Opening the library…';
     const refresh = async (): Promise<void> => {
       try {
         const r = await brain.library();
@@ -762,9 +765,10 @@ export const libraryTab: TabDef = {
           unreached = true;
           showReach();
         }
+        if (P.big.textContent === 'Opening the library…') P.big.textContent = 'The library';
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);
-        shelf.body.append(h('div.note', `The library is not reachable: ${(e as Error).message}`));
+        shelf.body.append(h('div.note', sayError(e, 'reach my library')));
       }
     };
 

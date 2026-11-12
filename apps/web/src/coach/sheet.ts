@@ -19,6 +19,7 @@ import { hzOfName, TUNINGS, tunerReading, tuningOf, rangeOf, type Instrument } f
 import { detectPitch } from './pitch';
 import { metronome, micMessage, openMic, playNotes, type Mic } from './mic';
 import { dailyWords, drawPrompt, LANGUAGES, languageOf, pickText, scoreTyping, typingWords, wordMatch } from './skills';
+import { sayError } from '../ui/hisWords';
 
 export type CoachWhat = 'tuner' | 'lessons' | 'typing' | 'draw' | 'words';
 /** The sheet's pages (its row of tabs, and the COACH screen's pills: features/coach/index.ts). */
@@ -112,8 +113,8 @@ export function coachScreen(id: CoachWhat, a: { instrument?: string; language?: 
   try {
     return id === 'tuner' ? tunerScreen((a.instrument as Instrument) ?? 'guitar') : id === 'lessons' ? lessonsScreen((a.instrument as Teach) ?? startInstrument(prog), onStreak) : id === 'typing' ? typingScreen(onStreak) : id === 'draw' ? drawScreen(onStreak) : wordsScreen(a.language ?? 'es', onStreak);
   } catch (e) {
-    coachState.error = (e as Error).message;
-    return { el: h('p.pknote', `That screen did not open: ${(e as Error).message}`), stop: () => undefined };
+    coachState.error = sayError(e, 'open that');
+    return { el: h('p.pknote', sayError(e, 'open that')), stop: () => undefined };
   }
 }
 
@@ -491,7 +492,7 @@ function wordsScreen(first: string, repaintStreak: () => void): Screen {
           repaintStreak();
         } catch (e) {
           mark.textContent = '';
-          score.textContent = (e as Error).message;
+          score.textContent = sayError(e, 'open that');
         } finally {
           b.disabled = false;
         }

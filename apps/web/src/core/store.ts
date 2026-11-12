@@ -1,3 +1,4 @@
+import { rawText } from '../ui/hisWords';
 /**
  * A minimal reactive store: get(), set(partial), subscribe(fn).
  * The render loop reads stores directly with get() (no subscription needed), and UI
@@ -103,7 +104,7 @@ export class Emitter<E extends Record<string, unknown>> {
       try {
         (fn as (d: E[K]) => void)(d);
       } catch (x) {
-        console.error(String(e), x);
+        console.error(rawText(e), x);
       }
     }
   }

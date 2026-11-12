@@ -18,6 +18,7 @@
 import { drawScaled } from './camera';
 import { FACE_SIZE, FACE_TEMPLATE, normalize, rgbaToRgbChw, similarity } from './facemath';
 import { fetchModel, nextStamp, simdSupported, visionRuntime, type Progress } from './models';
+import { rawText, sayError, trail } from '../ui/hisWords';
 
 export const FACE_FILES = {
   detector: '/vendor/faces/blaze_face_short_range.tflite',
@@ -58,7 +59,7 @@ const NOT_LIVE = 'I only look at faces through the live camera, never at a pictu
 /** The runtime's WebAssembly memory cap (64 KB pages): 1 GB, then 256 MB if the phone refuses that (SFace needs ~50 MB). */
 const MAX_PAGES = [16384, 4096] as const;
 /** The runtime could not get its memory (an iPhone refusing the reservation): worth one try with a smaller cap. */
-const memoryTrouble = (e: unknown) => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(String((e as Error)?.message ?? e));
+const memoryTrouble = (e: unknown) => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(rawText(e));
 
 /**
  * Is this the live camera? A MediaStream from the device (not a file playing, not a picture), with a live video track,
@@ -125,8 +126,8 @@ class FaceEngine {
         }
       }
       if (failed) {
-        const why = String((failed as Error)?.message ?? failed);
-        throw new Error(memoryTrouble(failed) ? `The face model could not start: this phone would not give its runtime enough memory (${why.slice(0, 120)}). Close other tabs, or close and reopen Ghosty, then open PEOPLE again.` : why);
+        trail(failed, 'face model');
+        throw new Error(memoryTrouble(failed) ? `The face model could not start: this phone would not give its runtime enough memory. Close other tabs, or close and reopen Ghosty, then open PEOPLE again.` : sayError(failed, 'start the face model'));
       }
       progress('face model ready', 1);
     })().catch((e: unknown) => {

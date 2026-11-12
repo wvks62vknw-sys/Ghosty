@@ -7,6 +7,7 @@
  * Nothing is recorded; nothing of the other person is kept. The lines live on this screen only and go when it is left; only the pair
  * of languages is remembered. Every state is said: the language with no voice on this phone, no microphone, no signal.
  */
+import { sayError } from '../../ui/hisWords';
 import { speakIn, stopSpeaking, voiceIn } from '../../assistant/voice';
 import { clear, h, icon } from '../../core/dom';
 import { screenSays } from '../../shell/awareness';
@@ -114,7 +115,7 @@ export const interpreterTab: TabDef = {
         try {
           said = await e.stop();
         } catch (err) {
-          return half(side).say(String((err as Error).message));
+          return half(side).say(sayError(err, 'translate that'));
         }
         if (!said) return half(side).say('I heard nothing. Hold the key and say it again.');
         void exchange(side, said);
@@ -236,7 +237,7 @@ export const interpreterTab: TabDef = {
         half(to).say(spoke ? (r.how === 'offline' ? 'Said aloud. Translated on this phone, roughly.' : 'Said aloud.') : `No ${langName(toLang)} voice on this phone: it is written here.`);
       } catch (e) {
         line.how = 'failed';
-        line.why = String((e as Error).message);
+        line.why = sayError(e, 'translate that');
         paintLines();
         half(to).say('');
       } finally {

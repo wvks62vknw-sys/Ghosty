@@ -51,6 +51,7 @@ import { createSoundMode } from './sound';
 
 // (the modes and their tiles: a pure list the ABILITIES catalogue reads too)
 import { LENS_MODES, TILES, type LensMode } from './tiles';
+import { sayError } from '../../ui/hisWords';
 export { LENS_MODES, TILES, type LensMode };
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
@@ -448,7 +449,7 @@ export const lensTab: TabDef = {
           toast(`Saved to the library: ${j.title ?? title}`, 'ok');
           return true;
         } catch (e) {
-          toast(`Could not save it: ${String((e as Error)?.message ?? e)}`, 'bad');
+          toast(sayError(e, 'save it'), 'bad');
           return false;
         }
       },

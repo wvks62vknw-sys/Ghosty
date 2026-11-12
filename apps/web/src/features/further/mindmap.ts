@@ -7,6 +7,7 @@
  * No model and nothing sent: it is a view of what the phone already asks of the brain's memory (the timeline and the places). Every
  * state is said: reading it, nothing known yet, no connection.
  */
+import { sayError } from '../../ui/hisWords';
 import type { MemoryItem } from '../../../../../packages/shared/src/protocol';
 import type { SavedPlace } from '../../../../../packages/shared/src/places';
 import { brain } from '../../api/brain';
@@ -206,7 +207,7 @@ export function openMindMap(): void {
           await brain.memoryChange(n.id, n.kind === 'fact' ? 'keep' : 'lock');
           toast(n.kind === 'fact' ? 'Kept: I won’t let it go' : 'Kept: I won’t change or drop it', 'ok');
         } catch (e) {
-          toast(`I couldn’t keep it: ${(e as Error).message}`, 'bad');
+          toast(sayError(e, 'keep it'), 'bad');
         }
         b.disabled = false;
       }, 'on');
@@ -217,7 +218,7 @@ export function openMindMap(): void {
           await brain.memoryChange(n.id, 'forget');
         } catch (e) {
           b.disabled = false;
-          return void toast(`I couldn’t let go of it: ${(e as Error).message}. Try again when you’re back online.`, 'bad');
+          return void toast(sayError(e, 'let go of it'), 'bad');
         }
         items = items.filter((x) => x.id !== n.id);
         paint();
@@ -228,7 +229,7 @@ export function openMindMap(): void {
             toast('Back in my memory', 'ok');
             await load(false);
           } catch (e) {
-            toast(`I couldn’t bring it back: ${(e as Error).message}`, 'bad');
+            toast(sayError(e, 'bring it back'), 'bad');
           }
         });
       }, 'warn');

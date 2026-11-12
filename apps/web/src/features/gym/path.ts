@@ -5,6 +5,7 @@
  * on the processor too, and says both times, so what the chip buys on this phone is measured, not claimed. The line carries
  * data-path ("webgpu" or "cpu") for the checks.
  */
+import { sayError } from '../../ui/hisWords';
 import { h } from '../../core/dom';
 import { chooseBackend, cpuBackend, type Choice } from '../../gym/gpu';
 import { blobs, trainMlp } from '../../gym/gputrain';
@@ -38,7 +39,7 @@ export function trainingPathRow(): HTMLElement {
       say.textContent = c.message;
       row.dataset.path = c.path;
     } catch (e) {
-      timed.textContent = `The timing did not finish: ${String((e as Error)?.message ?? e)}`;
+      timed.textContent = sayError(e, 'finish the timing');
     }
     b.disabled = false;
   });

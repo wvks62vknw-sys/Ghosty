@@ -9,6 +9,7 @@ import { draftEl } from './drafts';
 import { brain, type SocialInfo } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -167,7 +168,7 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
         editing.delete(a.id);
         void paint();
       } catch (e) {
-        msg.textContent = String((e as Error).message ?? e);
+        msg.textContent = sayError(e, 'send that');
         msg.className = 'note bad';
       } finally {
         b.disabled = false;

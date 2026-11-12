@@ -13,6 +13,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { canvasOf, drawPrims, loadFont, measureBody, measureOn, pngOf, saveFile, saved } from './draw';
+import { sayError } from '../../ui/hisWords';
 
 export type CreativeWhat = 'song' | 'poster' | 'birthday' | 'comic' | 'logo' | 'palette' | 'beat';
 /** Each sheet's name, as its title and as its panel on the CREATIVE screen (features/creative/index.ts). */
@@ -50,8 +51,8 @@ export async function openCreative(what: string, args: Record<string, unknown> =
   try {
     s = creativeScreen(w, args);
   } catch (e) {
-    creativeState.error = (e as Error).message;
-    toast(`That screen didn’t open: ${(e as Error).message}`, 'warn');
+    creativeState.error = sayError(e, 'make that');
+    toast(sayError(e, 'open that'), 'warn');
     return;
   }
   creativeState.open = w;
@@ -157,7 +158,7 @@ function songScreen(a: Record<string, unknown>): Screen {
         list.querySelectorAll('li').forEach((li, k) => li.classList.toggle('on', k === i));
       }, 200);
     } catch (e) {
-      creativeState.error = (e as Error).message;
+      creativeState.error = sayError(e, 'make that');
       toast('This phone wouldn’t start the sound: tap Play again.', 'warn');
     }
   };
@@ -363,7 +364,7 @@ function paletteScreen(a: Record<string, unknown>): Screen {
       show(paletteOf(ctx.getImageData(0, 0, 64, 64).data, 5), 'a photo');
       status.textContent = 'These are the main colours of your photo, biggest first.';
     } catch (e) {
-      status.textContent = `I couldn’t read that picture (${(e as Error).message}).`;
+      status.textContent = sayError(e, 'read that picture');
     }
   });
   const pick = button('Pick a photo', () => file.click(), 'on');
@@ -506,7 +507,7 @@ function beatScreen(a: Record<string, unknown>): Screen {
       const r = await brain.packDo('creative', 'beat', { grid: beatGrid(beat), bpm: beat.bpm, name: beat.name || 'my beat' });
       status.textContent = r.text.split('\n')[0] ?? 'Kept.';
     } catch (e) {
-      status.textContent = `My brain didn’t answer: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'get an answer from my brain');
     }
   });
   keep.setAttribute('aria-label', 'Keep this beat in my brain');

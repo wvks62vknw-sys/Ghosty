@@ -22,6 +22,7 @@ import { deviceLabel } from '../../assistant/push';
 import { freezeStorage } from '../../core/store';
 import { deviceOnlyDocs, restoreDoc, type LocalDoc, type LocalPassage } from '../../library/local';
 import { afterTry, backupDue, backupTrusted, markDue, NOT_RESTORED, restoreEntry, type LastBackup, type MergeResult } from './merge';
+import { rawText, sayError } from '../../ui/hisWords';
 
 /** What goes in, and what it is called in plain words. `whole`: kept as one piece (the phone's wins if it has one). */
 export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
@@ -184,10 +185,11 @@ export async function backUpNow(): Promise<string> {
     lastBackup.set(afterTry(lastBackup.get(), Date.now(), { ok: true, size: r.backup.size }));
     return `Backed up (${sizeText(r.backup.size)}, locked with your owner key). The brain keeps this phone's last ${7} days.`;
   } catch (e) {
-    const error = String((e as Error)?.message ?? e);
+    const raw = rawText(e);
+    const error = sayError(e, 'back up');
     // A failure keeps what was known: it never switches off the wiped-phone guard below.
     lastBackup.set(afterTry(lastBackup.get(), Date.now(), { ok: false, error }));
-    throw new Error(/HTTP 404|not found/i.test(error) ? 'The brain cannot keep backups yet: it needs an update first.' : error);
+    throw new Error(/HTTP 404|not found/i.test(raw) ? 'The brain cannot keep backups yet: it needs an update first.' : error);
   }
 }
 

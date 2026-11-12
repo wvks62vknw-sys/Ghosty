@@ -8,6 +8,7 @@
  * Nothing here costs money or needs a key; every source goes through the brain's caching proxy like the Plan's own feeds; nothing about
  * a person is read. A page is kept on this phone (`ghosty.lab`).
  */
+import { trail } from '../ui/hisWords';
 import { fetchJson, fetchText } from '../api/feed';
 import { headers } from '../api/brain';
 import { home, settings } from '../state/app';
@@ -261,7 +262,7 @@ export function saveLab(s: LabStore): void {
 export const labWhy = (e: unknown): string =>
   e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false)
     ? 'I can’t reach the source with no signal. Run it again when you’re back online.'
-    : `The source didn’t answer (${String((e as Error)?.message ?? e).slice(0, 80)}). Run it again in a little while.`;
+    : (trail(e, 'the lab source'), 'The source didn’t answer. Run it again in a little while.');
 
 /** The date a page was run, as he reads it. */
 export const ranWords = (t: number): string => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

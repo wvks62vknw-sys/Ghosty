@@ -10,6 +10,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { thingsFromLabels } from '../../../../../packages/shared/src/homeadmin';
+import { sayError } from '../../ui/hisWords';
 
 export type HomeWhat = 'due' | 'bins' | 'bills' | 'meter' | 'things';
 interface BillRow {
@@ -71,7 +72,7 @@ async function run(action: string, a: Record<string, unknown>): Promise<{ text: 
     homeState.said = r.text;
     return r;
   } catch (e) {
-    toast(`My brain didn’t answer: ${(e as Error).message}`, 'warn');
+    toast(sayError(e, 'get an answer from my brain'), 'warn');
     return { text: '' };
   }
 }
@@ -165,7 +166,7 @@ function billsView(): HTMLElement {
     await load();
   };
   void load();
-  const pick = photo('Photograph a bill', (f) => void readText(f, status).then(async (t) => { if (t) await send(t); else status.textContent = 'I found no words in that photo: try a flatter, brighter one.'; }).catch((e: Error) => { status.textContent = `The reader couldn’t open that: ${e.message}`; }));
+  const pick = photo('Photograph a bill', (f) => void readText(f, status).then(async (t) => { if (t) await send(t); else status.textContent = 'I found no words in that photo: try a flatter, brighter one.'; }).catch((e: Error) => { status.textContent = sayError(e, 'read that photo'); }));
   const go = named(button('Read this text', () => void send(paste.value), 'on'), 'Read the bill text I pasted');
   return h('div.pkcol', status, h('div.pkrow', pick), paste, go, list);
 }
@@ -192,7 +193,7 @@ function meterView(): HTMLElement {
     status.textContent = r.text || 'My brain didn’t answer.';
   };
   void run('meter', {}).then((r) => (status.textContent = r.text || status.textContent));
-  const pick = photo('Photograph the meter', (f) => void readText(f, status).then(async (t) => { if (t) await send(t); else status.textContent = 'I found no digits in that photo: try closer and straighter.'; }).catch((e: Error) => { status.textContent = `The reader couldn’t open that: ${e.message}`; }));
+  const pick = photo('Photograph the meter', (f) => void readText(f, status).then(async (t) => { if (t) await send(t); else status.textContent = 'I found no digits in that photo: try closer and straighter.'; }).catch((e: Error) => { status.textContent = sayError(e, 'read that photo'); }));
   const go = named(button('Keep this reading', () => void send(typed.value), 'on'), 'Keep the reading I typed');
   return h('div.pkcol', status, kinds, h('div.pkrow', pick), typed, go);
 }
@@ -230,7 +231,7 @@ function thingsView(): HTMLElement {
           ...(found.length ? [named(button('Keep the ticked things', () => void keep({ items: [...seen.querySelectorAll<HTMLInputElement>('input:checked')].map((x) => x.dataset.item ?? '') }), 'on'), 'Keep the ticked things')] : []),
         );
       } catch (e) {
-        status.textContent = `The phone couldn’t look at that photo (${(e as Error).message}): type the things instead.`;
+        status.textContent = `${sayError(e, 'look at that photo')} Type the things instead.`;
       }
     })();
   });

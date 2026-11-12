@@ -48,6 +48,7 @@ import { holdOrb } from '../further/mindmap';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
+import { sayError } from '../../ui/hisWords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
@@ -189,7 +190,7 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     if (live()) void voiceTurn(id);
   } catch (e) {
     if (id === convoId) endConversation();
-    toast(String((e as Error)?.message ?? e), 'bad');
+    toast(sayError(e, 'finish that'), 'bad');
   }
 }
 

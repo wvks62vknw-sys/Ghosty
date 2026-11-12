@@ -31,6 +31,7 @@ import { pieceFor, spaceHooks } from '../../space/hooks';
 import { wallRuns } from '../../studio/room';
 import { createFromPhotoPanel, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
 import { createHomePanel, type HomeState } from './home';
+import { sayError } from '../../ui/hisWords';
 
 /** What the planner shows, for tests and the console (window.__ghosty.space). */
 export interface SpaceState {
@@ -394,7 +395,7 @@ export function openSpace(widthCm?: number, depthCm?: number): void {
   try {
     if (w >= 50 && w <= 5000 && d >= 50 && d <= 5000) space.setRoom({ w, d });
   } catch (e) {
-    toast(String((e as Error)?.message ?? e), 'warn');
+    toast(sayError(e, 'do that in the room'), 'warn');
   }
   go('space');
 }
@@ -451,7 +452,7 @@ export const spaceTab: TabDef = {
       try {
         dropNote(space.setRoom({ w: w / 10, d: d / 10 }, selRoomId()));
       } catch (e) {
-        return void toast(String((e as Error)?.message ?? e), 'warn');
+        return void toast(sayError(e, 'do that in the room'), 'warn');
       }
       toast(`${name}${Math.round(w / 10)} × ${Math.round(d / 10)} cm`, 'ok');
     };
@@ -566,7 +567,7 @@ export const spaceTab: TabDef = {
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `the brain answered ${r.status}`);
       } catch (e) {
         reviewBtn.disabled = false;
-        return void toast(`Could not send the plan: ${String((e as Error)?.message ?? e).slice(0, 120)}`, 'bad');
+        return void toast(sayError(e, 'send the plan'), 'bad');
       }
       reviewBtn.disabled = false;
       go('core');
@@ -771,7 +772,7 @@ export const spaceTab: TabDef = {
         // the plan it replaced comes back with UNDO
         putBackLater('Plan imported: it replaced the one you had', before);
       } catch (e) {
-        toast(String((e as Error)?.message ?? e), 'bad');
+        toast(sayError(e, 'do that in the room'), 'bad');
       }
     });
     const exportPng = async () => {
@@ -871,7 +872,7 @@ export const spaceTab: TabDef = {
             selected = `op:${got.id}`;
             space.setPlan(got.plan);
           } catch (err) {
-            toast(String((err as Error)?.message ?? err), 'warn');
+            toast(sayError(err, 'do that in the room'), 'warn');
           }
         };
         // the wall's real length typed: the whole plan rescales to match (a plan from a photo put right)
@@ -899,7 +900,7 @@ export const spaceTab: TabDef = {
           try {
             space.setPlan(updateOpening(space.get().plan, op.id, patch));
           } catch (err) {
-            toast(String((err as Error)?.message ?? err), 'warn');
+            toast(sayError(err, 'do that in the room'), 'warn');
           }
         };
         const setSize = () => {
@@ -1003,7 +1004,7 @@ export const spaceTab: TabDef = {
             try {
               dropNote(space.setRoom(k === 'w' ? { w: m.w / 10, d: r.d } : { w: r.w, d: m.w / 10 }));
             } catch (e) {
-              toast(String((e as Error)?.message ?? e), 'warn');
+              toast(sayError(e, 'do that in the room'), 'warn');
             }
           });
           mList.append(h('div.row.wrap.spacemrow', h('span', h('b', text), h('small', ` ${m.kind === 'rect' ? 'wall' : 'length'} · ${m.confidence}${rangeText(m)} · ${m.via}`)), use('w'), use('d')));
@@ -1174,7 +1175,7 @@ export const spaceTab: TabDef = {
         const op = got.plan.openings?.find((o) => o.id === got.id);
         return `A ${type} in ${sel.label}${op ? `, ${op.w} cm wide` : ''}. Tap it to change its size.`;
       } catch (err) {
-        return String((err as Error)?.message ?? err);
+        return sayError(err, 'do that in the room');
       }
     };
     spaceHooks.addAt = (word) => {

@@ -9,6 +9,7 @@
  * Nothing is recorded and nothing of the other person is kept: no audio is stored, the lines live in memory on this screen and go
  * when it is left. Only the pair of languages is remembered.
  */
+import { trail } from '../ui/hisWords';
 import { headers } from '../api/brain';
 import { offlineReady, translateOffline } from '../offline/brain';
 import { shouldFallBack } from '../offline/prompt';
@@ -149,7 +150,7 @@ export async function translate(text: string, to: string, from = ''): Promise<Tr
     if (!r.ok || typeof j.text !== 'string') throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
     return { text: j.text, how: j.engine === 'same' || j.engine === 'none' ? 'same' : 'brain' };
   } catch (e) {
-    if (!shouldFallBack(e)) throw new Error(`I couldn’t translate that (${String((e as Error).message).replace(/[.\s]+$/, '').slice(0, 90)}). Try again in a moment.`);
+    if (!shouldFallBack(e)) { trail(e, 'the interpreter'); throw new Error('I couldn’t translate that. Try again in a moment.'); }
     if (settings.get().offlineBrain === 'off') throw new Error('I can’t reach my brain to translate, and the offline brain is off. Settings, Offline brain turns it on.');
     if (!(await offlineReady().catch(() => false))) throw new Error('No signal, and the offline brain isn’t on this phone yet. Settings, Offline brain, DOWNLOAD, on Wi-Fi, and I can translate without a signal.');
     const r = await translateOffline(text, to);

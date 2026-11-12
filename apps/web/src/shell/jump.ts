@@ -17,6 +17,7 @@ import { ROOMS, roomOf, thingOf } from './rooms';
 import { roomWord, thingForNumber, worksLine } from './inventory';
 import { ui } from '../state/app';
 import { jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
+import { sayError } from '../ui/hisWords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
@@ -73,7 +74,7 @@ function wireMic(ctx: JumpCtx): void {
       const said = await listen(speechCaps.get().stt, say);
       if (said) say(said);
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'bad');
+      toast(sayError(e, 'jump there'), 'bad');
     } finally {
       jumpState.listening = false;
       mic.classList.remove('on');

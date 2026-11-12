@@ -1,3 +1,4 @@
+import { rawText } from '../ui/hisWords';
 /**
  * A game the GYM may learn to play later. A game that implements this lets a learner see what the player sees
  * (observe), do what the player can do (act, one action a tick) and know how well it is doing (score). Only the
@@ -47,7 +48,7 @@ export function checkLearnable(g: Learnable, steps = 24): string[] {
     try {
       obs = g.observe();
     } catch (e) {
-      problems.push(`observe() threw: ${(e as Error)?.message ?? e}`);
+      problems.push(`observe() threw: ${rawText(e)}`);
       break;
     }
     if (!plain(obs)) problems.push(`observe() at tick ${i} is not plain data`);
@@ -55,7 +56,7 @@ export function checkLearnable(g: Learnable, steps = 24): string[] {
     try {
       g.act(a);
     } catch (e) {
-      problems.push(`act(${a}) threw: ${(e as Error)?.message ?? e}`);
+      problems.push(`act(${a}) threw: ${rawText(e)}`);
     }
     const s = g.score();
     if (!Number.isFinite(s)) problems.push(`score() at tick ${i} is not a finite number`);

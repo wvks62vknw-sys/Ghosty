@@ -17,7 +17,7 @@ import { THEMES } from '../state/theme';
 import { mood, moodShape } from '../state/mood';
 import { moodWords } from '../../../../packages/shared/src/mood';
 import { go, tabs, type TabDef } from './tabs';
-import { listRow, niceCase } from '../ui/components';
+import { empty, listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
 import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
@@ -240,7 +240,7 @@ function hubTab(a: Area): TabDef {
       const band = h('div.roomband', { role: 'group', 'aria-label': `${a.title}: ${room.things.length} things`, dataset: { room: room.key } });
       const handHead = h('div.rhead', tag('At hand', { count: 0 }), h('span.g-truth', 'Recent and starred'));
       const handList = h('div.handlist');
-      const handNone = h('p.rnone', { dataset: { case: 'keep' } }, 'Nothing here yet. Hold any thing to star it; the ones you open last wait here.');
+      const handNone = h('div.rnone', { dataset: { case: 'keep' } }, empty('NONE', 'Hold any thing to star it; the ones you open last wait here.', 'Nothing here yet'));
       const hand = h('section.athand', { dataset: { part: 'athand' } }, handHead, handList, handNone);
       const restHead = h('div.rhead', tag('The rest', { count: 0 }), h('span.g-truth', { dataset: { case: 'keep' } }, 'Say a number: “open two”'));
       const restGrid = h('div.restgrid');

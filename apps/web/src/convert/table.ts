@@ -1,3 +1,4 @@
+import { rawText } from '../ui/hisWords';
 /**
  * TABLES (BRIEF-REST-E part 1): CSV, JSON and Excel each way with the header row kept, JSON made pretty or small, and a
  * table pasted from a web page or a spreadsheet made into a CSV. Pure: Excel goes through SheetJS (vendor/sheetjs,
@@ -103,8 +104,8 @@ export function reformatJson(text: string, pretty: boolean): string {
   try {
     return JSON.stringify(JSON.parse(text), null, pretty ? 2 : undefined) + (pretty ? '\n' : '');
   } catch (e) {
-    const at = /position (\d+)/.exec(String((e as Error).message));
-    if (!at) throw new Error(`that isn’t valid JSON (${(e as Error).message})`);
+    const at = /position (\d+)/.exec(rawText(e));
+    if (!at) throw new Error('that isn’t valid JSON');
     const before = text.slice(0, Number(at[1]));
     const line = before.split('\n').length;
     throw new Error(`that isn’t valid JSON: something is wrong on line ${line}, column ${before.length - before.lastIndexOf('\n')}`);

@@ -18,6 +18,7 @@ import { button, modal, toast } from '../../ui/components';
 import { drawScaled, loadImageFile, toJpegBlob } from '../../vision/camera';
 import { readLines } from '../studio/catalog';
 import { PHOTO_JOB_WORDS, PHOTO_JOBS, photoJobOf, type PhotoJob } from '../../../../../packages/shared/src/photo';
+import { sayError } from '../../ui/hisWords';
 
 /** The longest side sent to the brain: small enough for a free CPU Space, and ×2 still fits the picture store. */
 export const PHOTO_MAX_SIDE = 1024;
@@ -355,7 +356,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     try {
       setPhoto(await loadImageFile(f, PHOTO_MAX_SIDE));
     } catch (e) {
-      toast(`Could not read that photo: ${String((e as Error)?.message ?? e)}`, 'bad');
+      toast(sayError(e, 'read that photo'), 'bad');
     }
   });
 
@@ -410,7 +411,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     } catch (e) {
       S.phase = 'failed';
       S.code = 'failed';
-      setStatus(`Not done: ${String((e as Error)?.message ?? e)} — try again in a minute.`, true);
+      setStatus(sayError(e, 'finish that'), true);
     } finally {
       busy = false;
       paintJob();
@@ -440,7 +441,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
         toast('Link copied', 'ok');
       }
     } catch (e) {
-      if ((e as Error)?.name !== 'AbortError') toast(`Could not share it: ${String((e as Error)?.message ?? e)}`, 'bad');
+      if ((e as Error)?.name !== 'AbortError') toast(sayError(e, 'share it'), 'bad');
     }
   }
 
@@ -478,7 +479,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
       }
       if (work && ownPicture(o.result) && ownPicture(o.picture)) await showResult(ownPicture(o.result), String(o.by ?? ''), 'Done. Slide to compare.');
     } catch (e) {
-      setStatus(`Could not open the picture: ${String((e as Error)?.message ?? e)}`, true);
+      setStatus(sayError(e, 'open the picture'), true);
     }
   })();
 }

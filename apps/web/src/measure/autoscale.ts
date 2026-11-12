@@ -12,6 +12,7 @@ import { cueFromBox, cueFromSheet, findSheets, fuseScale, sheetLooksPlain, SHEET
 import { depthModel } from './depth';
 import { depthAt, dist3, metricDepth, pointAt, rescaleDepth, sceneProblem, type DepthMap } from './depth3d';
 import { intrinsicsFor, type Exif, type Intrinsics } from './exif';
+import { rawText } from '../ui/hisWords';
 
 export interface Scaled {
   /** The depth map in metres, corrected by the cues. */
@@ -75,7 +76,7 @@ export async function scalePhoto(c: HTMLCanvasElement, exif: Exif | null, progre
     check();
     dets = fromMediaPipe(d.detectForVideo(c, nextStamp(performance.now())));
   } catch (e) {
-    if ((e as Error)?.message === 'superseded') throw e;
+    if (rawText(e) === 'superseded') throw e;
     dets = [];
   }
   for (const det of dets) {

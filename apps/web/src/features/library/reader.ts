@@ -43,6 +43,7 @@ import { index, key, lockBox, plate, recognise, release, stampLine, tag, truthLi
 import type { Sections } from '../../ui/sections';
 import { offMobileData, onMobileData } from '../../wiki/store';
 import { sizeWords } from '../../wiki/files';
+import { rawText, sayError } from '../../ui/hisWords';
 
 /** The reader's glyph: an open book. */
 export const READER_ICON = '<path d="M4 5.5c2.6-1 5.2-1 8 .8 2.8-1.8 5.4-1.8 8-.8v13c-2.6-1-5.2-1-8 .8-2.8-1.8-5.4-1.8-8-.8z"/><path d="M12 6.3v13"/>';
@@ -875,7 +876,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       await keepBookHere(d, all);
       toast(`Kept on this phone: ${shortTitle(d.title)} reads with no signal now`, 'ok');
     } catch (e) {
-      toast(`Couldn’t keep it on this phone: ${(e as Error).message}`, 'warn');
+      toast(sayError(e, 'keep it on this phone'), 'warn');
     } finally {
       keeping = null;
       void paintAbout();
@@ -926,8 +927,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       setBook(null);
       flow.replaceChildren();
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-      const m = String((e as Error)?.message ?? e);
-      states([[offline ? 'Not on this phone' : 'Couldn’t open it', offline || /not on this phone/.test(m) ? `“${shortTitle(d.title)}” isn’t on this phone yet, so it opens when I can be reached. Next time you’re on Wi-Fi, Keep on this phone in About and it reads with no signal.` : `I couldn’t open “${shortTitle(d.title)}”: ${m}. Try again in a moment.`]]);
+      const m = rawText(e);
+      states([[offline ? 'Not on this phone' : 'Couldn’t open it', offline || /not on this phone/.test(m) ? `“${shortTitle(d.title)}” isn’t on this phone yet, so it opens when I can be reached. Next time you’re on Wi-Fi, Keep on this phone in About and it reads with no signal.` : sayError(e, `open “${shortTitle(d.title)}”`)]]);
       paintBar();
       return;
     }
@@ -1233,7 +1234,7 @@ export async function readingTurn(text: string, o: { voice?: boolean; speak?: bo
   try {
     b = await loadBook(d);
   } catch (e) {
-    return reply(`I couldn’t open “${shortTitle(d.title)}”: ${(e as Error).message}.`);
+    return reply(sayError(e, 'open that'));
   }
   const chapter = ask.kind === 'chapter' ? ask.n : ask.kind === 'book' ? ask.chapter : undefined;
   const pageNo = ask.kind === 'page' ? ask.n : ask.kind === 'book' ? ask.page : undefined;

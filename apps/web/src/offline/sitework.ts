@@ -8,6 +8,7 @@ import { assemble } from '../../../../packages/shared/src/sitekit/assemble';
 import { runGates } from '../../../../packages/shared/src/sitekit/gates';
 import { planFrom } from '../../../../packages/shared/src/sitekit/templates';
 import type { Brief } from '../../../../packages/shared/src/sitekit/types';
+import { sayError } from '../ui/hisWords';
 
 export interface SiteIn {
   site: 'build';
@@ -33,6 +34,6 @@ export function siteMessage(m: SiteIn, post: (r: SiteOut) => void): void {
     const g = runGates(a.html, plan, brief);
     post({ site: 'built', req: m.req, html: a.html, title: plan.pages[0]?.title || brief.name, pages: plan.pages.map((p) => p.label), score: g.score, problems: g.errors, confirm: plan.confirm });
   } catch (e) {
-    post({ site: 'built', req: m.req, error: String((e as Error)?.message ?? e) });
+    post({ site: 'built', req: m.req, error: sayError(e, 'build that') });
   }
 }

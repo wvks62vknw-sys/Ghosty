@@ -9,6 +9,7 @@
 import { EXAM_SYSTEM } from '../../../../packages/shared/src/school';
 import { baseById, DEFAULT_BASE, weightsBase, type BaseId } from '../../../../packages/shared/src/selftrain';
 import { estimateTokens, type OfflineMsg } from './prompt';
+import { rawText } from '../ui/hisWords';
 
 export interface ModelDef {
   id: string;
@@ -433,7 +434,7 @@ export function trainedModels(list: TrainedModel[], origin = '', weights: string
  * smaller model), or `broken` (the files themselves are wrong or gone: only then is that model's download removed).
  */
 export function downloadFailure(e: unknown): 'network' | 'too-big' | 'broken' {
-  const msg = String((e as Error)?.message ?? e);
+  const msg = rawText(e);
   if (/memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(msg)) return 'too-big';
   if (e instanceof TypeError || /network|failed to fetch|load failed|fetch failed|connection|offline|timed? ?out|timeout|aborted|interrupted|\b50[0234]\b|ERR_/i.test(msg)) return 'network';
   return 'broken';

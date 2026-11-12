@@ -8,6 +8,7 @@
  * Nothing is kept unless he taps KEEP (`ghosty.rehearsals`, on this phone only). The other side is sent to the brain quietly: no chat
  * history, no screen, no place goes with it. Every wait is said; a brain that cannot be reached is said, with TRY AGAIN.
  */
+import { sayError } from '../../ui/hisWords';
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h } from '../../core/dom';
 import { screenSays } from '../../shell/awareness';
@@ -127,7 +128,7 @@ export const rehearseTab: TabDef = {
       } catch (e) {
         S.stage = 'idle';
         state.textContent = '';
-        clear(state, h('span', `${(e as Error).message} `), button('TRY AGAIN', () => void turn()));
+        clear(state, h('span', `${sayError(e, 'do that')} `), button('TRY AGAIN', () => void turn()));
         conv.setStatus('NOT REACHED', 'off');
       }
     };
@@ -209,7 +210,7 @@ export const rehearseTab: TabDef = {
           state.textContent = 'That is what I heard: change anything, then SEND.';
         } else state.textContent = 'I heard nothing. Hold SPEAK and try again, or type.';
       } catch (err) {
-        state.textContent = String((err as Error).message);
+        state.textContent = sayError(err, 'do that');
       }
     };
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) speakKey.addEventListener(ev, () => void letGo());
@@ -250,7 +251,7 @@ export const rehearseTab: TabDef = {
         secsIn.value = String(Math.max(1, Math.round((Date.now() - started) / 1000)));
         tState.textContent = said.value.trim() ? 'That is what I heard. CHECK IT gives your notes.' : 'I heard nothing. Try again, or type it.';
       } catch (err) {
-        tState.textContent = String((err as Error).message);
+        tState.textContent = sayError(err, 'do that');
       }
     }
     const check = button('CHECK IT', () => {

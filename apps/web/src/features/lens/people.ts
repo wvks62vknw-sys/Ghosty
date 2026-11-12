@@ -22,6 +22,7 @@ import { addPerson, knownFaces, saveMe } from '../../vision/facestore';
 import type { LensContext, Mode } from './index';
 // [restc] CHECK IT'S LIVE: a quick challenge before a face is saved (features/lens/liveness.ts)
 import { confirmLive, liveEye, liveState, needsLive } from './liveness';
+import { sayError } from '../../ui/hisWords';
 
 /**
  * [cards] Someone he introduced, recognised for sure: their PERSON card in the chat once a session — only when the guardian
@@ -137,7 +138,7 @@ export function createPeopleMode(L: LensContext): Mode {
       })
       .catch((e: unknown) => {
         loadingModels = null;
-        L.status(String((e as Error)?.message ?? e), 'off');
+        L.status(sayError(e, 'look at that face'), 'off');
         return false;
       }));
 
@@ -273,7 +274,7 @@ export function createPeopleMode(L: LensContext): Mode {
       await refresh();
       speakIt('Done. I know your face now. It stays on this phone, and I only see while I’m open.', false);
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'warn');
+      toast(sayError(e, 'look at that face'), 'warn');
     } finally {
       peopleState.enrolling = false;
     }
@@ -356,7 +357,7 @@ export function createPeopleMode(L: LensContext): Mode {
       const t = await listen(false, (x) => (say.textContent = x));
       if (t && !(await turn(t, true))) speakIt('Say “this is …”, “who’s this?” or “who am I?”.', true);
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'warn');
+      toast(sayError(e, 'look at that face'), 'warn');
     }
   };
 
@@ -391,7 +392,7 @@ export function createPeopleMode(L: LensContext): Mode {
       lastLook = now;
       busy = true;
       void step(now)
-        .catch((e: unknown) => L.status(String((e as Error)?.message ?? e), 'off'))
+        .catch((e: unknown) => L.status(sayError(e, 'look at that face'), 'off'))
         .finally(() => (busy = false));
     },
   };

@@ -7,6 +7,7 @@
  */
 import { lvl } from './core';
 import { GAMES, gameById } from './index';
+import { sayError } from '../ui/hisWords';
 
 /** What the model is asked after the puzzle: think briefly, then the answer alone on the last line (core.ts `finalLine` reads it). */
 export const ANSWER_HINT = 'Think it through briefly, then give only the final answer on the last line.';
@@ -36,6 +37,6 @@ export function checkTask(game: string, level: number, seed: number, answer: str
     const v = g.check(g.generate(lvl(level), seed >>> 0), answer);
     return { correct: !!v.correct, score: Math.max(0, Math.min(1, Number(v.score) || 0)), why: String(v.why ?? '') };
   } catch (e) {
-    return { correct: false, score: 0, why: `the checker failed: ${String((e as Error)?.message ?? e).slice(0, 120)}` };
+    return { correct: false, score: 0, why: sayError(e, 'check that') };
   }
 }

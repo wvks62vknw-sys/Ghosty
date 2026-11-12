@@ -12,6 +12,7 @@ import { formatPlate, isPlate, normalisePlate, OFFICIAL_CHECKS, type MotTest, ty
 import { headers } from '../api/brain';
 import { clear, h } from '../core/dom';
 import { button, modal, spark } from './components';
+import { sayError } from './hisWords';
 
 /** What the sheet shows, readable by a test at window.__ghosty.vehicle (cleared when it closes). */
 export const vehicleState = { open: false, status: '' as '' | 'checking' | 'shown' | 'error', plate: '', verdict: '' };
@@ -131,7 +132,7 @@ export function openVehicleCheck(plate = '', run = false): void {
     } catch (e) {
       if (g !== gen) return;
       vehicleState.status = 'error';
-      clear(out, h('div.vcerr', `Could not reach Ghosty: ${String((e as Error)?.message ?? e).slice(0, 120)}`), linksRow(OFFICIAL_CHECKS));
+      clear(out, h('div.vcerr', sayError(e, 'reach Ghosty')), linksRow(OFFICIAL_CHECKS));
     } finally {
       if (g === gen) btn.disabled = false;
     }

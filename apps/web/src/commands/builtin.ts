@@ -22,6 +22,7 @@ import type { OverlayId, StyleId } from '../ui/flatmap';
 import type { Style3dId } from '../ui/map3d';
 import type { JourneyAnswer } from '../../../../packages/shared/src/protocol';
 import { addPaletteProvider, register, type Command } from './registry';
+import { sayError } from '../ui/hisWords';
 
 const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   air: 'air', aircraft: 'air', planes: 'air', flights: 'air',
@@ -581,7 +582,7 @@ export function registerBuiltins(): void {
             for (const x of r.cards) c.postCard(x);
           }
         } catch (e) {
-          toast(`That didn’t go through: ${(e as Error).message}`, 'warn');
+          toast(sayError(e, 'run that'), 'warn');
         }
       },
     },

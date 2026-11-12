@@ -5,6 +5,7 @@
  * readPlan, so what comes out is always a checked plan (the box round the rooms at 0, 0, furniture
  * kept in it, an opening that no longer fits its wall left out — named in `dropped`).
  */
+import { inHisWords } from '../ui/hisWords';
 import { DEFAULTS, bounds, edgeOf, lPoly, openingProblem, openingSpan, pointInPoly, rectPoly, segmentsCross, type Corner, type Opening, type Pt, type RoomShape } from '../../../../packages/shared/src/design';
 import { GRID, layoutOf, readPlan, type Plan } from './plan';
 
@@ -93,7 +94,7 @@ export function resizeRoom(plan: Plan, roomId: string, w: number, d: number): { 
   if (s.kind === 'other') room.poly = room.poly.map((q): Pt => stretch(q).map(Math.round) as Pt);
   else room.poly = outline({ ...s, w: W, d: D, nw: Math.min(s.nw, W - 30), nd: Math.min(s.nd, D - 30) });
   const hit = p.rooms.find((r) => r !== room && roomsOverlap(r.poly, room.poly));
-  if (hit) throw new Error(`${room.name} at ${W} × ${D} cm would run into ${hit.name}: move or resize ${hit.name} first`);
+  if (hit) throw inHisWords(`${room.name} at ${W} × ${D} cm would run into ${hit.name}: move or resize ${hit.name} first`);
   // `at` is measured from a wall's first corner, and on the bottom and left walls that corner moves:
   // put each opening back where it was across the plan, on its wall's new line.
   p.openings = p.openings.map((o) => {
