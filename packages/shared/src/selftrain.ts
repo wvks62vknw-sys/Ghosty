@@ -378,6 +378,62 @@ export interface TrainStatus {
    * state in a line, whether to ask him (once), the checked samples it added this week and those waiting for the next.
    */
   pool?: { phase: 'off' | 'setup' | 'ready' | 'failed'; note: string; offer: boolean; week: number; waiting: number; space?: string; private?: boolean };
+  /** The weekly training in plain words (apps/edge/src/selftrain/weekly.ts): the last real run, its report card, what became of it, the next due, the pre-flight. */
+  weekly?: WeeklyView;
+}
+
+/** One step of the pre-flight (E0): what was asked, whether it passed, and what it found or what to do, in his words. */
+export interface PreflightStep {
+  id: string;
+  label: string;
+  ok: boolean;
+  say: string;
+}
+/** The pre-flight's result: every step asked up to the first that stopped (`stoppedAt`), and nothing was started. */
+export interface Preflight {
+  at: number;
+  ok: boolean;
+  stoppedAt?: string;
+  steps: PreflightStep[];
+}
+
+/** One line of the brain's log of the weekly training (the last twenty are kept): a run that ended, or a brain rolled back. */
+export interface TrainEvent {
+  at: number;
+  kind: 'run' | 'rollback';
+  week?: number;
+  /** A REAL run: it got as far as the test of the new brain. */
+  real?: boolean;
+  /** The test's average (0 to 1) of the old brain and of the new one, and each area's. */
+  before?: number;
+  after?: number;
+  areas?: { area: ExamArea; before: number; after: number }[];
+  outcome?: 'published' | 'not-kept' | 'stopped';
+  /** The commit published (a run) or dropped (a rollback). */
+  commit?: string;
+  label?: string;
+  why: string;
+  /** A rollback: the new brain was worse, broken (it would not load), or he chose it. */
+  reason?: 'worse' | 'broken' | 'chosen';
+}
+
+/** What RUN NOW will do, said first (the phone's confirm shows it word for word; a test holds it). */
+export const RUN_NOW_WILL: string[] = [
+  "Gather this week's lessons from your own data and public sources, and keep them in your private Hugging Face space.",
+  "Train on Kaggle's free GPU, which takes a few hours. Only free hours: nothing can cost money.",
+  'Test the new brain against the one you use now, on the same questions.',
+  'Offer it to your phone only if it does better. If not, nothing changes.',
+];
+
+export interface WeeklyView {
+  /** The last REAL run (one that reached its test), as the log has it, with what became of it. */
+  last: (Omit<TrainEvent, 'outcome'> & { outcome: 'published' | 'not-kept' | 'stopped' | 'rolled-back'; rolledBack?: { at: number; reason: string } }) | null;
+  /** Four lines for the card, in his words. */
+  lines: { last: string; card: string; happened: string; next: string; preflight: string };
+  /** When the next run is due (ms), or null while one is under way or the keys are missing. */
+  dueAt: number | null;
+  preflight: Preflight | null;
+  willDo: string[];
 }
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */

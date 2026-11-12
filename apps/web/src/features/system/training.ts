@@ -133,6 +133,72 @@ export function trainingPanel(): Panel & { refresh(): void } {
     return box;
   };
 
+  /**
+   * THE WEEKLY TRAINING, in plain words (the brain's own lines: apps/edge/src/selftrain/weekly.ts): when the last REAL run was,
+   * what its report card said, what became of it (published, not kept, stopped, rolled back), when the next is due, and what
+   * the pre-flight last found; CHECK FIRST asks Kaggle and Hugging Face and starts nothing; RUN NOW says what it will do, then
+   * does the real kick-off, only on his tap.
+   */
+  const weeklyCard = (s: TrainStatus, keysOk: boolean) => {
+    const w = s.weekly;
+    if (!w) return null;
+    const box = h('div.trainweekly');
+    box.append(h('div.lab', 'THE WEEKLY TRAINING'));
+    const o = w.last?.outcome;
+    // (the sentence in full under its row: a row clamps long words at three lines)
+    const add = (key: string, k: string, v: string, long: string, tone?: 'up' | 'dn') => {
+      const r = row(k, v, null, { wrap: true, ...(tone ? { tone } : {}) });
+      r.dataset.weekly = key;
+      box.append(r);
+      if (long) box.append(h('div.note.small.trainline', { dataset: { weekly: key } }, long));
+    };
+    add('last', 'LAST REAL RUN', w.last ? `Week ${w.last.week}` : 'None yet', w.lines.last);
+    add('card', 'REPORT CARD', w.last ? `${pct(w.last.before)} → ${pct(w.last.after)}` : '—', w.lines.card);
+    add('happened', 'WHAT HAPPENED', o === 'published' ? 'Published' : o === 'rolled-back' ? 'Rolled back' : o === 'not-kept' ? 'Not kept' : o === 'stopped' ? 'Stopped' : 'Nothing yet', w.lines.happened, o === 'published' ? 'up' : o ? 'dn' : undefined);
+    add('next', 'NEXT DUE', w.dueAt ? when(w.dueAt) : s.phase !== 'idle' ? 'Under way' : 'Waiting', w.lines.next);
+    add('preflight', 'PRE-FLIGHT', w.preflight ? (w.preflight.ok ? 'All clear' : 'Stopped') : 'Not checked', w.lines.preflight, w.preflight ? (w.preflight.ok ? 'up' : 'dn') : undefined);
+    const check = button('CHECK FIRST', async (b) => {
+      if (busy) return;
+      busy = true;
+      b.disabled = true;
+      try {
+        const r = await brain.selftrain.preflight();
+        toast(r.ok ? 'All clear: nothing is in the way of a run.' : `Stopped at "${r.steps.find((x) => x.id === r.stoppedAt)?.label}".`, r.ok ? 'ok' : 'warn');
+        st = await brain.selftrain.status();
+        paint();
+      } catch (e) {
+        toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+      } finally {
+        busy = false;
+        b.disabled = false;
+      }
+    });
+    const go = button('RUN NOW', async (b) => {
+      if (busy) return;
+      if (!(await confirmSheet('Start a real training run now?', `${w.willDo.join(' ')} It checks first, and stops without starting if anything is wrong.`, 'RUN NOW'))) return;
+      busy = true;
+      b.disabled = true;
+      try {
+        st = await brain.selftrain.run();
+        toast('Started: the pre-flight was clear and the first step is under way.', 'ok');
+      } catch (e) {
+        toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+        try {
+          st = await brain.selftrain.status();
+        } catch {
+          /* the old card stays */
+        }
+      } finally {
+        busy = false;
+        b.disabled = false;
+        paint();
+      }
+    }, 'on');
+    go.disabled = !keysOk || s.phase !== 'idle';
+    box.append(h('div.keyrow', check, go));
+    return box;
+  };
+
   function paint(): void {
     clear(p.body);
     if (!st) {
@@ -144,6 +210,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
     const keysOk = s.keys.kaggle && s.keys.hf;
     p.setStatus(!keysOk ? `NEEDS ${Number(!s.keys.kaggle) + Number(!s.keys.hf)} KEY${!s.keys.kaggle && !s.keys.hf ? 'S' : ''}` : PHASE[s.phase], !keysOk ? 'mid' : s.phase === 'idle' ? 'ok' : 'mid');
     p.body.append(h('div.note.trainnote', s.note));
+    const wc = weeklyCard(s, keysOk);
+    if (wc) p.body.append(wc);
     if (!keysOk) p.body.append(keySteps(s));
     if (keysOk && s.phase === 'idle' && s.next) p.body.append(row('NEXT RUN', `${when(s.next)}${s.kind ? ` · ${s.kind.scratch ? 'retrain from scratch' : 'weekly'}` : ''}`, null, { wrap: true }));
     // Kaggle's free hours: left, back when, what the next run needs and which mode (the brain's words)

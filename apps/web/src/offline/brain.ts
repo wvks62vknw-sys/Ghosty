@@ -31,11 +31,12 @@ import { clearLog, fill, filled, markStored, PARTS_STORE, pieceLine, presence, r
 import { settings } from '../state/app';
 import { checkStorage, storageState } from '../features/system/storage';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
+import { memoryShort, timed } from './measure';
 import { BIGGER, brainModels, brainOf, CHAIN, chainPick, closeLine, downloadFailure, FLOOR, goneLine, heldKey, isBigger, limitsProblem, memText, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, rungOf, sizeText, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 import { ITEM_FLOOR, judgedFor, trust, type AskCat, type BrainTrust, type TrustCat } from './trust';
-import { headers } from '../api/brain';
+import { brain as brainApi, headers } from '../api/brain';
 
 export type { OfflineMsg } from './prompt';
 export { modelJob, withModel, type ModelJob } from './lock';
@@ -358,11 +359,13 @@ function load(onProgress?: (frac: number, text: string) => void, retry = true): 
       freeEmbedder();
       if (worker && isBigger(model)) dropWorker();
       await guarded(model, () =>
-        call('load', { model: model.id, appConfig: appConfig() }, (e) => {
-          const frac = Math.max(0, Math.min(1, e.progress ?? 0));
-          offlineBrain.set({ progress: frac, text: e.text ?? '' });
-          onProgress?.(frac, e.text ?? '');
-        }),
+        timed(model, () =>
+          call('load', { model: model.id, appConfig: appConfig() }, (e) => {
+            const frac = Math.max(0, Math.min(1, e.progress ?? 0));
+            offlineBrain.set({ progress: frac, text: e.text ?? '' });
+            onProgress?.(frac, e.text ?? '');
+          }),
+        ),
       );
       offlineBrain.set({ downloaded: true, loaded: true });
       armIdle();
@@ -426,6 +429,12 @@ export async function checkBrain(m: ModelDef): Promise<string> {
   return why;
 }
 
+/** The device's memory in GB when the browser says it (Chrome, at most 8); null for Safari, which does not. */
+const reportedGB = (): number | null => {
+  const v = (globalThis.navigator as unknown as { deviceMemory?: unknown } | undefined)?.deviceMemory;
+  return typeof v === 'number' && v > 0 ? v : null;
+};
+
 /** A failure that sends Ghosty back to the 0.6B, with its own plain words. */
 const refusal = (msg: string) => Object.assign(new Error(msg), { refuse: true });
 
@@ -437,6 +446,11 @@ async function mayLoad(m: ModelDef): Promise<void> {
   const held = heldOf(m);
   if (held?.s === 'closed' && !approved.has(heldKey(m))) throw refusal(closedRefusal(m, held));
   if (!isBigger(m)) return;
+  const short = memoryShort(m, reportedGB());
+  if (short.short) {
+    setHeld(m, 'refused');
+    throw refusal(short.why);
+  }
   const why = await precheck(m);
   if (why) {
     setHeld(m, 'refused');
@@ -516,11 +530,12 @@ async function testLoad(t: TestEngine, retry = true): Promise<void> {
     const m = currentModel();
     await mayLoad(m);
     freeEmbedder();
-    await guarded(m, () => t.load?.(m.id));
+    await guarded(m, () => timed(m, async () => t.load?.(m.id)));
   } catch (e) {
     if (!(await fallBack(e))) throw e;
     if (!retry) throw new Error(offlineBrain.get().fellBack);
-    await t.load?.(currentModel().id);
+    const next = currentModel();
+    await timed(next, async () => t.load?.(next.id));
   }
 }
 
@@ -639,6 +654,8 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
       markStored(storedId(m), 0);
       offlineBrain.set({ model: stock.id, downloaded: false });
       checkedAt = 0;
+      // (tell the brain too, or it would recommend this one again: it is dropped for good and the log says broken)
+      void brainApi.selftrain.broken(m.rev).catch(() => undefined);
       throw new Error(`${m.label} would not download (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
     }
     throw e;

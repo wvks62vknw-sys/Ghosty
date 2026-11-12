@@ -17,7 +17,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', 'src/selftrain/ledger.ts', 'src/selftrain/pool.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
+  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', 'src/selftrain/weekly.ts', 'src/selftrain/ledger.ts', 'src/selftrain/pool.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -39,6 +39,7 @@ const T = await load('packages/shared/src/toolcall');
 const W = await load('apps/edge/src/selftrain/weights');
 const LO = await load('apps/edge/src/selftrain/loops');
 const L = await load('apps/edge/src/selftrain/ledger');
+const WK = await load('apps/edge/src/selftrain/weekly');
 const P = await load('apps/edge/src/selftrain/pool');
 const M = await load('apps/web/src/offline/models');
 const RL = await load('apps/web/src/features/core/ratelist');
@@ -2303,4 +2304,241 @@ test('the capability ledger through the brain: the phone\'s GYM levels (a level 
   assert.deepEqual(await C.sundayNote(d.deps), []);
   assert.equal(d.notes.length, n + 1);
   assert.equal((await s.get('train:ledger')).sent, '2026-11-08');
+});
+
+// ---- THE WEEKLY TRAINING FOR REAL (BRIEF-TRAINING-REAL): the pre-flight, RUN NOW, the gate, the phone, ROLLBACK, the log ----
+
+const DAYMS = 86_400_000;
+const HOUR = 3_600_000;
+const goodReport = (over = {}) => ({
+  week: 1, startedAt: 1, finishedAt: 2, base: 'stock', items: { gym: 96, general: 66, safety: 17 },
+  before: { gym: 0.2, general: 0.4, safety: 0.8 }, after: { gym: 0.4, general: 0.5, safety: 0.8 },
+  gate: { pass: true, why: 'better' }, trained: { star: 120 }, rejected: [], phases: [{ name: 'star', minutes: 40 }],
+  published: { repo: 'owner/ghosty-offline-brain', commit: 'a'.repeat(40) }, scale: 1, ...over,
+});
+const postReport = (d, ticket, report) => hookReq(d, ticket, { method: 'POST', body: JSON.stringify({ report }) }).then((r) => r.json());
+/** A week started (as RUN NOW starts it) and pushed: its ticket, ready for the report. */
+async function runningWeek(d) {
+  await stepUntil(d, 'running');
+  return configOf(d.svc.state.pushes.at(-1)).ticket;
+}
+/** Nothing of his went anywhere: no data uploaded, no notebook pushed, no repo made, no job added. */
+async function assertNothingStarted(d) {
+  assert.equal(d.svc.state.commits.length, 0, 'nothing uploaded');
+  assert.equal(d.svc.state.pushes.length, 0, 'nothing pushed');
+  assert.ok(!d.svc.calls.some((c) => /\/repos\/create$|\/commit\/main$|SaveKernel/.test(c.url)), 'no repo made, no commit, no push');
+  assert.equal((await Sched.loadJobs(d.deps.storage)).filter((j) => j.kind === 'train').length, 0, 'no training job started');
+}
+
+test('E0 the pre-flight: each step stopped in turn by a fake — the step named, what to do in words, and NOTHING gathered, uploaded, pushed or made', async () => {
+  const stops = [
+    ['idle', async (d) => d.deps.storage.put('train:state', { phase: 'running', week: 2, gen: 0, nextRun: 0, startedAt: 0, note: 'Training on Kaggle…', calls: 0, done: {} }), /already under way/],
+    ['keys', null, /Waiting for two keys/, { keys: {} }],
+    ['kaggle', null, /Kaggle says the key is not valid.*kaggle\.com → Settings → API Tokens/, { kaggleKeyBad: true }],
+    ['hours', null, /no GPU time.*verify your phone number/i, { svc: { quota: { gpuQuota: { totalTimeAllowed: '0s' } } } }],
+    ['hours', null, /pay-to-scale.*could be charged/, { svc: { quota: { gpuQuota: { totalTimeAllowed: '108000s', isPayToScaleEnabled: true } } } }],
+    ['hours', null, /Only 2 of Kaggle's 30 free GPU hours/, { svc: { quota: { quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '100800s', totalTimeAllowed: '108000s' } } } }],
+    ['hf', null, /only read/, { svc: { role: 'read' } }],
+    ['repos', null, /cannot make the dataset "owner\/ghosty-training".*PRIVATE dataset/, { svc: { role: 'fineGrained' } }],
+    ['base', async (d) => d.deps.storage.put('train:base', 'qwen3.5-4b'), /too big to train on Kaggle's free GPU/],
+    ['install', async (d) => d.deps.storage.put('train:report', { week: 1, notebook: C.notebookTag(), error: 'x', install: { pin: 'transformers==5.5.4', kind: 'python', why: "it doesn't support Python 3.13", python: '3.13' }, before: {}, after: {}, items: {}, gate: { pass: false, why: '' }, trained: {}, rejected: [], phases: [] }), /RUN NOW tries anyway/],
+    ['origin', null, /does not know its own address/, { origin: '' }],
+  ];
+  for (const [id, prep, say, extra = {}] of stops) {
+    const s = new MemStorage();
+    const d = cycleDeps(s, extra);
+    if (extra.origin === '') d.deps.origin = '';
+    if (extra.kaggleKeyBad) { const f = d.deps.fetch; d.deps.fetch = async (u, i) => (String(u).endsWith('ListKernels') ? new Response('{"code":401,"message":"no"}', { status: 401 }) : f(u, i)); }
+    if (prep) await prep(d);
+    const r = await route(d, '/training/preflight', 'POST', {});
+    assert.equal(r.ok, false, id);
+    assert.equal(r.stoppedAt, id, `stopped at ${id}`);
+    const bad = r.steps.find((x) => !x.ok);
+    assert.equal(r.steps.at(-1), bad, 'asked no further than the step that stopped');
+    assert.match(bad.say, say, id);
+    if (id !== 'idle') await assertNothingStarted(d);
+    assert.equal((await s.get('train:preflight')).stoppedAt, id, 'kept for the card');
+  }
+  // all clear: every step passes, and still nothing is started
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const r = await route(d, '/training/preflight', 'POST', {});
+  assert.deepEqual(r.steps.map((x) => x.id), ['idle', 'keys', 'kaggle', 'hours', 'hf', 'repos', 'base', 'install', 'origin']);
+  assert.ok(r.ok && r.steps.every((x) => x.ok), JSON.stringify(r));
+  assert.match(r.steps.find((x) => x.id === 'hours').say, /28 of 30 free hours left: a full run fits\. Pay-to-scale is off/);
+  assert.match(r.steps.find((x) => x.id === 'hf').say, /belongs to owner and may write/);
+  await assertNothingStarted(d);
+  // a smaller run is still a pass, said in words
+  const e = cycleDeps(new MemStorage(), { svc: { quota: { gpuQuota: { timeUsed: '86400s', totalTimeAllowed: '108000s' } } } });
+  const re = await route(e, '/training/preflight', 'POST', {});
+  assert.ok(re.ok);
+  assert.match(re.steps.find((x) => x.id === 'hours').say, /a smaller run/);
+});
+
+test('RUN NOW: only on his confirm, only after a clear pre-flight; a refused or failed press starts nothing; a clear one starts the week and the phone sees it', async () => {
+  const post = (d, body) => C.trainingRoute(new Request('https://x/api/training/run', { method: 'POST', body: JSON.stringify(body) }), '/training/run', 'POST', d.deps);
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  // no confirm: refused, and not even the pre-flight is asked of Kaggle
+  let r = await post(d, {});
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).error, /needs your confirm/);
+  assert.equal(d.svc.calls.length, 0, 'nothing asked of anyone');
+  await assertNothingStarted(d);
+  // a failed pre-flight: nothing starts, the step is named
+  const bad = cycleDeps(new MemStorage(), { svc: { role: 'read' } });
+  r = await post(bad, { confirm: true });
+  assert.equal(r.status, 409);
+  const j = await r.json();
+  assert.match(j.error, /^Not started\. Stopped at "Hugging Face accepts the token": The token can only read/);
+  assert.equal(j.preflight.stoppedAt, 'hf');
+  await assertNothingStarted(bad);
+  // a clear one: the week starts (past the install hold, as his press always does) and goes the whole way to the notebook
+  r = await post(d, { confirm: true });
+  assert.equal(r.status, 200);
+  const st = await r.json();
+  assert.equal(st.note, 'Starting now.');
+  assert.equal(st.weekly.preflight.ok, true);
+  assert.equal((await s.get('train:state')).tryAnyway, true);
+  assert.equal((await Sched.loadJobs(s)).filter((x) => x.kind === 'train').length, 1);
+  await stepUntil(d, 'running');
+  assert.equal(d.svc.state.pushes.length, 1, 'the notebook is on Kaggle');
+  const live = await C.trainStatus(d.deps);
+  assert.match(live.weekly.lines.next, /^A run is under way: Training on Kaggle/);
+  assert.equal(live.weekly.dueAt, null);
+  // what RUN NOW will do is said first: free hours, private, only if it does better
+  const will = live.weekly.willDo.join(' ');
+  assert.match(will, /your own data and public sources/);
+  assert.match(will, /free GPU/);
+  assert.match(will, /nothing can cost money/i);
+  assert.match(will, /only if it does better/);
+});
+
+test('the whole week for real, with fakes: RUN NOW → pre-flight → data to the private space → the notebook → the report card → the gate → published to the phone → the log says so → ROLLBACK (worse) → the stock brain, the log says rolled back', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  assert.equal((await route(d, '/training/run', 'POST', { confirm: true })).weekly.preflight.ok, true);
+  const ticket = await runningWeek(d);
+  assert.equal(d.svc.state.commits.length, 1, "this week's lessons went to the private dataset first");
+  assert.equal(configOf(d.svc.state.pushes[0]).private, true);
+  assert.equal(d.svc.state.repos.get('owner/ghosty-training'), true, 'the dataset is private');
+  assert.deepEqual(await (await hookReq(d, ticket)).json(), { hf_token: 'hf_writeTOKEN123' });
+  // the card before the run is back: honest
+  let st = await C.trainStatus(d.deps);
+  assert.equal(st.weekly.lines.last, 'No real run has finished yet.');
+  assert.equal(st.weekly.last, null);
+  // the report card is read through the hook; the gate publishes it (it beats the current brain on the card's measures)
+  assert.deepEqual(await postReport(d, ticket, goodReport()), { ok: true, published: true });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.phase, 'idle');
+  assert.equal(st.active, 'a'.repeat(40), 'recommended to the phone');
+  assert.match(st.weights, /^\/api\/w\/[0-9a-f]{48}\/$/, 'served at the weight address');
+  assert.deepEqual(d.svc.state.tags.map((t) => t.tag), ['week-0001'], 'tagged in the private model repo');
+  const w = st.weekly;
+  assert.equal(w.last.outcome, 'published');
+  assert.equal(w.last.week, 1);
+  assert.equal(w.last.real, true);
+  assert.match(w.lines.last, /^Week 1, finished /);
+  assert.match(w.lines.card, /^The old brain scored 47% and the new one 57% on the same questions\. Best: gym puzzles \+20\. Worst: safety ±0\.$/);
+  assert.match(w.lines.happened, /^Published: the new brain beat the old one/);
+  assert.match(w.lines.next, /^The next run is due .*; it starts by itself\.$/);
+  assert.ok(w.dueAt > d.deps.now(), 'the next is due after this one');
+  assert.equal(d.notes.at(-1).title, 'Offline brain training');
+  // he does not like it (or it turns out worse): ROLLBACK drops it for good, the stock brain is in use, the log remembers why
+  const back = await route(d, '/training/rollback', 'POST', { why: 'worse' });
+  assert.equal(back.active, null);
+  assert.deepEqual(back.models, []);
+  assert.equal(back.weekly.last.outcome, 'rolled-back');
+  assert.match(back.weekly.lines.happened, /^Published, then rolled back on .* \(it turned out worse\)\. The brain before it is in use\.$/);
+  assert.equal((await s.get('train:log'))[0].kind, 'rollback');
+  assert.equal((await s.get('train:log'))[0].reason, 'worse');
+  // and it is never offered again
+  assert.equal((await C.trainStatus(d.deps)).models.length, 0);
+});
+
+test('the gate: a worse, equal, broken, wrong-repo, wrong-base or unfinished run is NEVER published — the phone is untouched, the status says why in words, the log keeps it', async () => {
+  const cases = [
+    ['worse', (r) => ({ ...r, before: { gym: 0.4, general: 0.5, safety: 0.8 }, after: { gym: 0.3, general: 0.5, safety: 0.8 } }), 'not-kept', /gym puzzles fell by 10 points|not better/i],
+    ['equal', (r) => ({ ...r, after: r.before }), 'not-kept', /the same score/],
+    ['broken after its exam', (r) => ({ ...r, error: 'RuntimeError: upload cut off' }), 'stopped', /reported a problem after its exam/],
+    ['another repo', (r) => ({ ...r, published: { repo: 'someone/else', commit: 'a'.repeat(40) } }), 'not-kept', null],
+    ['another base', (r) => ({ ...r, baseId: 'qwen3.5-2b' }), 'not-kept', /not Qwen3 0\.6B as this week asked/],
+    ['the notebook did not keep it', (r) => ({ ...r, gate: { pass: false, why: 'the notebook did not keep it' } }), 'not-kept', /did not keep it/],
+  ];
+  for (const [name, make, outcome, why] of cases) {
+    const s = new MemStorage();
+    const d = cycleDeps(s);
+    await route(d, '/training/run', 'POST', { confirm: true });
+    const ticket = await runningWeek(d);
+    assert.equal((await postReport(d, ticket, make(goodReport()))).published, false, name);
+    const st = await C.trainStatus(d.deps);
+    assert.deepEqual(st.models, [], `${name}: nothing kept`);
+    assert.equal(st.active, null, `${name}: the phone is told nothing`);
+    assert.equal(st.report.published, undefined, name);
+    assert.deepEqual(d.svc.state.tags, [], `${name}: nothing tagged`);
+    assert.equal(st.weekly.last?.outcome ?? 'stopped', outcome, name);
+    if (why) assert.match(st.weekly.lines.happened, why, name);
+    assert.match(st.weekly.lines.happened, /Nothing changed on your phone\./, name);
+    assert.equal((await s.get('train:log')).length, 1, `${name}: one line in the log`);
+  }
+  // a run that never reached its test: not a real run; the card says so honestly
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await route(d, '/training/run', 'POST', { confirm: true });
+  const ticket = await runningWeek(d);
+  const install = { pin: 'transformers==5.5.4', kind: 'python', why: "it doesn't support Python 3.13", python: '3.13' };
+  await postReport(d, ticket, { week: 1, startedAt: 1, finishedAt: 2, base: 'stock', items: {}, before: {}, after: {}, gate: { pass: false, why: 'not finished' }, trained: {}, rejected: [], phases: [], error: "I couldn't install transformers 5.5.4.", install });
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.weekly.last, null, 'no REAL run yet');
+  assert.equal(st.weekly.lines.last, 'No real run has finished yet.');
+  assert.match(st.weekly.lines.happened, /^The last try \(week 1, .*\) stopped before its test: .*Nothing changed on your phone\.$/);
+});
+
+test('a brain the phone could not load is dropped for good (the older one takes its place) and the log says broken; one that is not the one in use leaves the one in use alone', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const m = (w) => ({ week: w, label: `Ghosty (week ${w})`, repo: 'owner/ghosty-offline-brain', commit: String(w).repeat(40).slice(0, 40), at: w, scores: {}, chain: [] });
+  await s.put('train:models', [m(3), m(2), m(1)]);
+  await s.put('train:active', m(3).commit);
+  assert.equal((await route(d, '/training/broken', 'POST', { commit: m(1).commit })).active, m(3).commit, 'the one in use stays');
+  const st = await route(d, '/training/broken', 'POST', { commit: m(3).commit });
+  assert.equal(st.active, m(2).commit);
+  assert.deepEqual(st.models.map((x) => x.week), [2]);
+  assert.deepEqual((await s.get('train:log')).map((x) => [x.kind, x.reason, x.week]), [['rollback', 'broken', 3], ['rollback', 'broken', 1]]);
+  assert.equal((await route(d, '/training/broken', 'POST', { commit: 'f'.repeat(40) })).active, m(2).commit, 'an unknown commit changes nothing');
+});
+
+test('the card in his words: no run yet, published, not kept, stopped, rolled back; the next run due, due now, under way, waiting for keys; the pre-flight line', () => {
+  const NOW = Date.UTC(2026, 10, 12, 10);
+  const run = (over = {}) => ({ at: NOW - DAYMS, kind: 'run', week: 4, real: true, before: 0.5, after: 0.55, areas: [{ area: 'gym', before: 0.4, after: 0.5 }, { area: 'safety', before: 0.9, after: 0.85 }], outcome: 'published', commit: 'c'.repeat(40), why: '5 points better on average', ...over });
+  const view = (o = {}) => WK.weeklyView({ log: [], now: NOW, phase: 'idle', nextRun: NOW + 3 * DAYMS, note: '', keysOk: true, preflight: null, ...o });
+  const none = view();
+  assert.equal(none.lines.last, 'No real run has finished yet.');
+  assert.match(none.lines.card, /no report card yet/);
+  assert.equal(none.lines.happened, 'Nothing has been published.');
+  assert.match(none.lines.preflight, /^Not checked yet: CHECK FIRST/);
+  const pub = view({ log: [run()] });
+  assert.equal(pub.last.outcome, 'published');
+  assert.equal(pub.lines.last, 'Week 4, finished Wed 11 Nov, 10:00.');
+  assert.equal(pub.lines.card, 'The old brain scored 50% and the new one 55% on the same questions. Best: gym puzzles +10. Worst: safety -5.');
+  assert.match(pub.lines.happened, /^Published: the new brain beat the old one \(5 points better on average\)/);
+  assert.equal(pub.lines.next, 'The next run is due Sat 15 Nov, 10:00; it starts by itself.'.replace('Sat 15 Nov', 'Sun 15 Nov'));
+  assert.match(view({ log: [run({ outcome: 'not-kept', commit: undefined, why: 'not better than the current brain (the same score)' })] }).lines.happened, /^Not published: not better than the current brain \(the same score\)\. Nothing changed on your phone\.$/);
+  assert.match(view({ log: [run({ outcome: 'stopped', commit: undefined, why: 'the run reported a problem after its exam' })] }).lines.happened, /^Stopped before the end: the run reported a problem after its exam\. Nothing changed/);
+  const rb = view({ log: [{ at: NOW, kind: 'rollback', commit: 'c'.repeat(40), reason: 'broken', why: '' }, run()] });
+  assert.equal(rb.last.outcome, 'rolled-back');
+  assert.match(rb.lines.happened, /^Published, then rolled back on Thu 12 Nov, 10:00 \(it would not load on the phone\)\./);
+  assert.equal(view({ log: [{ at: NOW - 2 * DAYMS, kind: 'rollback', commit: 'c'.repeat(40), reason: 'worse', why: '' }, run()] }).last.outcome, 'published', 'a rollback from before the run is not this run\'s');
+  assert.match(view({ nextRun: NOW - 1 }).lines.next, /^A run is due now: it starts at the next check/);
+  assert.equal(view({ nextRun: NOW - 1 }).dueAt, NOW);
+  assert.equal(view({ phase: 'running', note: 'Training on Kaggle…' }).lines.next, 'A run is under way: Training on Kaggle…');
+  assert.match(view({ keysOk: false }).lines.next, /^Waiting for the Kaggle and Hugging Face keys/);
+  const pf = (over) => ({ at: NOW, ok: true, steps: [], ...over });
+  assert.equal(view({ preflight: pf() }).lines.preflight, 'Checked Thu 12 Nov, 10:00: all clear.');
+  assert.equal(view({ preflight: pf({ ok: false, stoppedAt: 'hours', steps: [{ id: 'hours', label: "Kaggle's free GPU hours", ok: false, say: 'Only 2 are left.' }] }) }).lines.preflight, 'Checked Thu 12 Nov, 10:00: stopped at "Kaggle\'s free GPU hours". Only 2 are left.');
+  // the log keeps twenty, newest first
+  let log = [];
+  for (let i = 0; i < 25; i++) log = WK.addEvent(log, { at: i, kind: 'run', week: i, why: '' });
+  assert.equal(log.length, 20);
+  assert.equal(log[0].week, 24);
 });

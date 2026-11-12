@@ -52,3 +52,15 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 3. PAGE: choose Letter and add a footer line.
 4. Export WORD and open it in Pages or Word (the same page, picture and table); export PDF.
 5. Say "write a letter to my landlord about the damp" and tap OPEN: the same editor. Close the app and reopen Documents: the letter is listed.
+
+## THE WEEKLY TRAINING (SYSTEM)
+1. SYSTEM, then OFFLINE BRAIN TRAINING: the first card says when the last real run was, or "No real run has finished yet".
+2. Tap CHECK FIRST: it reads only, and says all clear or the one step that stopped and what to do (the first time it will ask for the Kaggle and Hugging Face keys in SYSTEM, KEYS).
+3. When it says all clear, tap RUN NOW: read what it will do (Kaggle's free GPU only, nothing can cost money), confirm.
+4. Hours later the card shows the report card (old brain against new on the same questions) and Published or Not kept.
+5. Published and you do not like it: tap ROLLBACK; the card says Rolled back.
+## THIS PHONE (SYSTEM)
+1. SYSTEM, then THIS PHONE: REFRESH reads your screen's rate (120 Hz on a ProMotion iPhone).
+2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.
+3. GYM: the line under TRAIN ALL says whether the chip or the processor is used; tap TIME IT to see both times.
+4. With the offline brain on the phone: SYSTEM, THIS PHONE, MEASURE THE BRAIN: its load time, the memory, and which of the three sizes fits.
