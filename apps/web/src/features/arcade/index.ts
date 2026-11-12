@@ -398,7 +398,7 @@ export const arcadeTab: TabDef = {
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
-        say(stopped ? 'Stopped. Nothing was kept.' : sayError(err, 'get that game'));
+        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${sayError(err, 'get that game')}`);
       } finally {
         busy.delete(of.at);
         paintAll();

@@ -43,7 +43,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     } catch (e) {
       found = null;
       check.hidden = false;
-      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : sayError(e, 'find that place')));
+      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : `Not found: ${sayError(e, 'find that place')}`));
     }
     b.disabled = false;
     b.textContent = 'FIND';

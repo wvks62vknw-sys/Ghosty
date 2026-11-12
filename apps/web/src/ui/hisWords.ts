@@ -71,6 +71,9 @@ function ownWords(e: unknown): string | null {
   return /[.!?…]$/.test(m) ? m : `${m}.`;
 }
 
+/** An error our own code throws in his own words (a refusal, an instruction): sayError says it whole. */
+export const inHisWords = (message: string): Error => Object.assign(new Error(message), { refuse: true });
+
 const trim = (what: string) => what.trim().replace(/[.:]+$/, '') || 'do that';
 
 /**
@@ -80,6 +83,9 @@ const trim = (what: string) => what.trim().replace(/[.:]+$/, '') || 'do that';
 export function sayError(e: unknown, what = 'do that'): string {
   const w = trim(what);
   trail(e, w);
+  // an error our own code wrote in his words on purpose (`inHisWords`) is said whole, whatever its words would be taken for
+  const mark = e as { refuse?: unknown; said?: unknown } | null;
+  if (e instanceof Error && (mark?.refuse === true || mark?.said === true) && e.message.trim()) return e.message.trim();
   switch (kindOf(e)) {
     case 'abort':
       return 'Stopped. Nothing was lost.';
