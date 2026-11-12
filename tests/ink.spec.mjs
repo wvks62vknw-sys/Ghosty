@@ -207,6 +207,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
       scanmarks: document.querySelectorAll('.scanmarks, .scanleads').length ? [...document.querySelectorAll('.scanmarks, .scanleads')].filter((e) => e.getClientRects().length).length : 0,
       feeds: [...document.querySelectorAll('.rcwx, .rcbelow, .rchero, .scancol, #cbar, #ccap')].filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').length,
       glowEls: all.filter((e) => getComputedStyle(e).getPropertyValue('--g-glow').trim() !== '0').length,
+      toastText: [...document.querySelectorAll('#toasts .toast')].map((x) => (x.textContent ?? '').trim().slice(0, 80)).join(' | '),
       blur: [...document.querySelectorAll('body *')].filter((e) => seen(e) && ((getComputedStyle(e).backdropFilter && getComputedStyle(e).backdropFilter !== 'none') || (getComputedStyle(e).webkitBackdropFilter && getComputedStyle(e).webkitBackdropFilter !== 'none'))).map((e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${String(e.className).split(' ')[0]}`),
       shadows: all.filter((e) => seen(e) && /rgba?\([^)]*\) [-\d.]+px [-\d.]+px [1-9]/.test(getComputedStyle(e).boxShadow)).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).split(' ')[0]}`),
       plates: [...document.querySelectorAll('.g-plate, .scanret, .scanco')].filter(seen).length,
@@ -236,7 +237,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   check(h.housekick === 'none' && h.houseask === 'none', `[home ${tag}] the house's label row (${h.housekick}) or a second ask line (${h.houseask}) shows`);
   check(h.frameBottom <= h.footTop + 1, `[home ${tag}] the page (${h.frameBottom}) runs under the foot (${h.footTop})`);
   check(h.scanmarks === 0 && h.feeds === 0 && h.plates === 0 && h.topShown === 'none', `[home ${tag}] Scan marks ${h.scanmarks}, feeds ${h.feeds}, plates ${h.plates}, the top bar ${h.topShown}`);
-  check(h.glowEls === 0 && !h.blur.length && !h.shadows.length, `[home ${tag}] nothing may glow on the page: --g-glow elsewhere ${h.glowEls}, backdrop-filter ${h.blur}, shadows ${h.shadows}`);
+  check(h.glowEls === 0 && !h.blur.length && !h.shadows.length, `[home ${tag}] nothing may glow on the page: --g-glow elsewhere ${h.glowEls}, backdrop-filter ${h.blur}, shadows ${h.shadows}${h.toastText ? `, a toast is up: "${h.toastText}"` : ''}`);
   const bad = await floor(page, vp.width, '.inkframe');
   check(!bad.length, `[home ${tag}] the floor: ${bad.slice(0, 6).join('; ')}`);
   await page.screenshot({ path: `${out}/ink-home-${tag}.png` });
