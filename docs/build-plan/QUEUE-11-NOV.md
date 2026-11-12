@@ -220,3 +220,7 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   one sentence, counts 51/43/14. FOUND ON MAIN: a stray `=======` at apps/web/styles.css:7219 from PR #86 drops the `.eyesizes` rule; the
   landing agent removes it in its next landing with a guard (ratchet.test asserts no marker lines; a brain test sweeps tracked files).
   KERNEL 2 starts from main once POLISH 1 (#91) is green there; POLISH 3 once #92 is too.
+- 12 Nov, BRIEF-EYE-HUD-2 written (the rooms as the wall, the film for the eye, abilities as a feed, the first pass's four leftovers; spec
+  `eyehud2`; port 8845; starts after GAME STUDIO is on main). The landing agent found and removed two more lone `=======` strays of its own in
+  #92 and #93 (runs restarted); every builder branch scanned clean beyond main's inherited one; the guard goes into the first landing after
+  #91–#93 merge.
