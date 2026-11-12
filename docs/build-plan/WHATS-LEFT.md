@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-six; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-seven; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
@@ -80,11 +80,14 @@ Four lists in the order things happen, then the questions only you can answer. Q
     BEST CLIPS picks the sharp, well-lit, varied ones for a cut of the length you choose with the reason for each, ON THE BEAT moves your
     cuts to the music's beat, REVERSE plays a clip backwards and a speed RAMP eases from one speed to another; all the phone's own
     arithmetic, nothing downloaded, nothing exported until you tap EXPORT. Goes up right after Video.
+30. **Kernel 2.** The deeper changes you said yes to: the brain's test list names every test it runs; a `document` tool, so with a document
+    open you can say "make the second paragraph shorter" and the change is shown marked, old words struck, for your ACCEPT or REJECT, never
+    applied on its own; physics in the 3-D engine (off until you turn it on; on Wi-Fi it says "Loading physics, 4.3 MB…" once, on mobile
+    data it waits for Wi-Fi and says the size; DROP IT lets a part fall and land, UNDO lifts it back); and a published brain that fails its
+    own first check rolls itself back once and tells you the two numbers, the brain kept on the list to put back by hand. Goes up last,
+    after Games 6, because it reorders the brain's test list.
 
-## 2. Being built right now (two; two more start the moment the October ideas are live)
-- **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain (it
-  proposes a change to your open document, you accept or reject with one tap), physics for the 3-D engine (a dropped part lands; the physics
-  download only on your tap with its size said), and automatic rollback if a published brain fails its own first check.
+## 2. Being built right now (one; two more start the moment the October ideas are live)
 - **The chat itself made right.** The conversation you use every day: what it says before you have said anything, one plain line under your
   words for every step it takes, an answer cut by the signal kept with RETRY for the rest, the page never jumping while you read, "I'm
   listening." and "Tap to stop me." in words, the Stage's picture with its wait and its close under your thumb, every source openable.
