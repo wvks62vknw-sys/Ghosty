@@ -8,8 +8,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · PRESENTATIONS
-- [ ] Building: RELIABILITY AND HEALTH · PHOTO · QUALITY PASS: HOME · THE WORKSPACE
+  QUALITY PASS: LIFE · RELIABILITY AND HEALTH · PRESENTATIONS
+- [ ] Building: PHOTO · QUALITY PASS: HOME · THE WORKSPACE · VIDEO
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -63,6 +63,12 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    export in tiles; the PHOTO TOOLS' three brain keys kept as they are; RAW and on-phone matting NEEDS HIS WORD); starts from the session
    branch.
    PHOTO started 12 Nov in worktree photoedit when GROWN UP handed back.
+   Brief written 12 Nov for the seventh: BRIEF-EDITOR-VIDEO (worktree video, port 8834, spec video; clips on a timeline with trims, splits,
+   speed, transitions, titles, the PHOTO grade and a .cube LUT, music, a voice-over with ducking, subtitles by his brain's own hearing route,
+   chroma key and overlays; WebCodecs with the app's own flat .mp4 muxer where the phone has it, else the phone's recorder in real time, the
+   path and the size said; scenes and pauses found on the phone; stabilisation, best clips, Director Mode and reverse NEEDS HIS WORD); starts
+   from the session branch and lands after PHOTO, its builder rebasing onto the fold first. VIDEO started 12 Nov in worktree video when
+   RELIABILITY AND HEALTH handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
@@ -74,6 +80,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    under /guardian); starts after POLISH 1 is on main (its error voice and wait helper).
    Started 12 Nov in worktree health, made from POLISH 1's head (72f121c6) so its error voice and wait helper are in the tree; the
    orchestrator lands only the diff above that head, after POLISH 1 is on main.
+   Handed back 12 Nov (reviewed clean: the four marks computed never written, actions verified by read-back, PERMISSIONS, crash records,
+   THAT FELT OFF; health.test on one import line); in the landing queue after the LIFE pass, with which it shares its base.
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
