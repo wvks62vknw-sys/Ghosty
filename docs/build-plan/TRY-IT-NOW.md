@@ -72,3 +72,8 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 3. Leave it closed a day, open it: WHAT DID I MISS; tap GOT IT.
 4. Open SPENDING after a statement: the nudge lines are at the top.
 5. With email linked, DRAFT a reply: nothing goes until you tap SEND.
+## THIS PHONE (SYSTEM)
+1. SYSTEM, then THIS PHONE: REFRESH reads your screen's rate (120 Hz on a ProMotion iPhone).
+2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.
+3. GYM: the line under TRAIN ALL says whether the chip or the processor is used; tap TIME IT to see both times.
+4. With the offline brain on the phone: SYSTEM, THIS PHONE, MEASURE THE BRAIN: its load time, the memory, and which of the three sizes fits.
