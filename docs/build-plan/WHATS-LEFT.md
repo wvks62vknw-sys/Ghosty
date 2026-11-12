@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-three; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-four; each goes up when its checks are green)
 1. **The weekly training, for real.** Every week Ghosty's own small brain trains on what you taught it, on the free Kaggle machine, and the
    new brain reaches your phone only if it beats the old one; the whole path is now proved end to end, you see where it is, and RUN NOW
    runs it on your tap.
@@ -52,10 +52,14 @@ Four lists in the order things happen, then the questions only you can answer. Q
 23. **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel, people
     with dialogue and shops, quests, save points), play it from the ARCADE, share it as a file, save it as a page you can add to your Home
     Screen. Waits for Video, then joins the EDITORS card. "Put it on my sites" is not in it yet (see your answers below).
+24. **Photo 2.** Your yes, built: in the photo editor, SUBJECT can fetch a real cut-out model (4.6 MB), ERASE a real erase model (about
+    70 MB with its runtime) and OPEN RAW a camera-RAW reader (under 1 MB), each only on your tap on Wi-Fi with the size said first, kept on
+    the phone, removable; licences checked and written down before a byte was taken. Goes up right after Photo.
 
 ## 2. Being built right now (four)
-- **Photo 2.** Your yes: a real cut-out model, a real erase model and a RAW reader, each a download on your tap with the size said,
-  licences checked and written down before a byte is fetched.
+- **The PLAN and ME rooms made right.** Spending, the Markets, the Radio, Memory, the Settings pages, the System pages, Links and Social
+  given twenty-five fixes in your words: every price with its time, FORGET with an undo, every switch with one line of what it does, a
+  post never sent without your APPROVE, every number with its unit.
 - **Games 6.** Poker (chips, never money) and a word game of our own, both against Ghosty with a level you can raise without end; and the
   loose ends of Games 5 (backgammon's take-back takes the whole turn, the games play offline from the first open, the cave's level does
   not wobble down, Othello and backgammon think faster).
@@ -73,9 +77,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 
 ## 4. Not started yet (I write these next, in this order)
-1. **Every other room made right, one at a time:** MAKE (the Workshop, Studio and Workbench), LEARN (courses, arcade, GYM, school, library),
-   PLAN (the Brief, Agenda, spending, markets, radio), ME (Memory, Settings, System, Links, Social), the chat itself (the log, the Stage, WHY,
-   the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
+1. **Every other room made right, one at a time:** LEARN (courses, arcade, GYM, school, library; written up, waits for the MAKE pass), the
+   chat itself (the log, the Stage, WHY, the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
    worst, add a test so it cannot come back.
 2. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
 3. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),

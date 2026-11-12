@@ -13,8 +13,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run)
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE)
-- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · PHOTO 2 · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO)
+- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · QUALITY PASS: PLAN AND ME (from 08a5337a, worktree planmepass, port 8841) · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -181,3 +181,16 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   POKER (chips, never money) and A WORD GAME of our own against Ghosty on the board kit, rated in the GYM; GAMES 5's loose ends (whole-turn
   take-back, Workers precached, the cave level floor, the stomp at world 1, faster playouts, the damaged save's line). PICO-8 and Cave Story
   itself stay NEEDS HIS WORD. Started 12 Nov when THE GAME STUDIO handed back.
+
+- PHOTO 2 handed back and reviewed 12 Nov: branch builder/photo2, base 37bdc01a, head d061a0be (12 commits). Vendored with licence and size
+  written before a byte: the cut-out model 4.6 MB (Apache-2.0), the erase model 55.7 MB in three parts (our own int8 weights; a ready-made int8
+  file was rejected as unverifiable and wrong by 121/255), LibRaw 0.22.1 as WebAssembly 0.93 MB (LGPL-2.1/CDDL-1.0, binding MIT; a first
+  library was rejected because it needed a content-security relaxation in _headers, which the builder was refused and did not work around).
+  Nothing fetched before his tap; each pack with its size; offline said. `all=` ends `... photoedit photo2`. Two licence files renamed to
+  LICENSE.txt so no model name stands in a path (182's rule). Spec photo2 green at both widths; the known load reds (lens, speed2, look, ink)
+  not in the diff. Decisions under 179: no extra big-pack warning for the 70 MB erase pack beyond its size said; true 16-bit RAW editing
+  (a float source in photo/gpu.ts) left for a later PHOTO pass; the brain test on one import line. Entry 209.
+- QUALITY PASS: PLAN AND ME brief written 12 Nov: BRIEF-QUALITY-PLAN-ME (worktree planmepass, port 8841, spec planmepass, base 08a5337a, the
+  SEE pass's head, shared with the MAKE pass; lands after the MAKE pass with the ratchet rows and the `all=` word resolved as a union). Owns
+  SPENDING, THE MARKETS, THE RADIO, MEMORY, SETTINGS' pages, SYSTEM's pages, LINKS and SOCIAL (25 fixes); NOT the Agenda's, Settings' and
+  System's fronts (POLISH 3's), THREATS or the packs page (the SEE pass's). Started 12 Nov when PHOTO 2 handed back.
