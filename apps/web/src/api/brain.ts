@@ -15,7 +15,7 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { PackName, PackOut } from '../../../../packages/shared/src/packs';
-import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
@@ -537,7 +537,14 @@ export const brain = {
     now: () => req<TrainStatus>('POST', '/training/now', {}),
     /** TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain from the stock model on every week kept. */
     scratch: () => req<TrainStatus>('POST', '/training/scratch', {}),
-    rollback: () => req<TrainStatus>('POST', '/training/rollback', {}),
+    /** CHECK FIRST: the pre-flight (Kaggle, Hugging Face, the free hours, the spaces, the base) with nothing started. */
+    preflight: () => req<Preflight>('POST', '/training/preflight', {}),
+    /** RUN NOW: the real kick-off, only with his confirm and only when the pre-flight is clear (else it says which step stopped). */
+    run: () => req<TrainStatus>('POST', '/training/run', { confirm: true }),
+    /** `why`: the new brain was worse or broken (else his choice), for the log. */
+    rollback: (why?: 'worse' | 'broken') => req<TrainStatus>('POST', '/training/rollback', why ? { why } : {}),
+    /** This brain's files would not load on the phone: the brain drops it for good (the older one takes its place). */
+    broken: (commit: string) => req<TrainStatus>('POST', '/training/broken', { commit }),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
     /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
     base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),

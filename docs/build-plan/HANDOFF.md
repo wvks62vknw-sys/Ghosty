@@ -2256,3 +2256,4 @@ quota line, and the daily GPU on Hugging Face. What follows needs the owner at a
   fakes, as `Resilience` does now.
 - **Size**: about a week's work for SFT/DPO on the TPU plus two or three supervised real runs to tune; generation on the
   TPU after that, only if the split week leaves the T4 hours short.
+  12 Nov: TRAINING FOR REAL (builder/training, base ebacf27) landed from its own branch claude/new-session-4erjve-land-training (check.yml's list ends ... speaker trainingreal): the weekly path with fakes end to end (eleven-stop pre-flight, RUN NOW on his tap, report card, gate, publish, rollback, log); the real pre-flight stopped at the missing keys (they live in his deployed brain). OWNER-ISSUES 185, TRY-IT-NOW.
