@@ -40,11 +40,13 @@ Four lists in the order things happen, then the questions only you can answer. Q
 18. **Home made right.** Home, THE BRIEF, the house line, the boot and the orb given twenty-three fixes: the brain's silence said once, no
     dashes, every fetch says what it waits for, a failed send says I COULDN'T with RETRY, the jump bar says "Nothing matches that." and
     offers the nearest room, READ IT TO ME stops on one tap.
+19. **Photo.** The sixth editor: a real photo editor (light, colour, curves, crop, masks, heal a spot, presets, batch), the original never
+    touched, full-size export. Waits for the Workspace, whose EDITORS card it joins.
 
 ## 2. Being built right now (four)
+- **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel,
+  people with dialogue and shops, quests, save points), play it from the ARCADE, share it, put it on your Home Screen as an app.
 - **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given twenty-five fixes in your words.
-- **Photo.** The sixth editor: a real photo editor (light, colour, curves, crop, masks, heal a spot, presets, batch), the original never
-  touched, full-size export.
 - **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
   whole in one chat turn.
 - **Video.** The seventh editor: CapCut's core. Clips trimmed, split and ordered, transitions, a grade, music, your voice over it, subtitles,
@@ -57,9 +59,7 @@ Four lists in the order things happen, then the questions only you can answer. Q
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 
 ## 4. Not started yet (I write these next, in this order)
-1. **The game studio.** The eighth editor: make your own 2-D game on the phone (tile maps, characters, quests, inventory, saves) and put it
-   on your Home Screen like an app.
-2. **Every other room made right, one at a time:** MAKE (the Workshop, Studio and Workbench), LEARN (courses, arcade, GYM, school, library),
+1. **Every other room made right, one at a time:** MAKE (the Workshop, Studio and Workbench), LEARN (courses, arcade, GYM, school, library),
    PLAN (the Brief, Agenda, spending, markets, radio), ME (Memory, Settings, System, Links, Social), the chat itself (the log, the Stage, WHY,
    the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
    worst, add a test so it cannot come back.

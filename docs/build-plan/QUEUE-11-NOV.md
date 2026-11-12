@@ -13,7 +13,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
   QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS
-- [ ] Building: PHOTO · THE WORKSPACE · VIDEO · QUALITY PASS: SEE
+- [ ] Building: THE WORKSPACE · VIDEO · QUALITY PASS: SEE · THE GAME STUDIO
+- [ ] Parked, reviewed clean, waiting for the EDITORS fold: PHOTO (lands after THE WORKSPACE, rebased onto the fold first; OWNER-ISSUES 204)
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -73,6 +74,13 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    path and the size said; scenes and pauses found on the phone; stabilisation, best clips, Director Mode and reverse NEEDS HIS WORD); starts
    from the session branch and lands after PHOTO, its builder rebasing onto the fold first. VIDEO started 12 Nov in worktree video when
    RELIABILITY AND HEALTH handed back.
+   PHOTO handed back 12 Nov (reviewed clean: a 12-megapixel export in six tiles, GPU against CPU equal, the original byte-equal; RAW,
+   matting and inpainting to PHOTO 2 under his yes); parked until THE WORKSPACE is on main, then rebased onto the fold and landed.
+   Brief written 12 Nov for the eighth: BRIEF-EDITOR-GAME-STUDIO (worktree gamestudio, port 8835, spec gamestudio; a 2-D game maker on the
+   platformer's and the cave's own engine: rooms painted in tiles, a pixel editor for sprites, characters with dialogue and shops, things,
+   quests, rules, sound, save points; one runtime plays any game on the ARCADE shelf; .ghostygame shared; AS AN APP through the sites
+   path or said honestly; 3-D, multiplayer and money not in it); starts from GAMES 5's head and lands after GAMES 5 and the fold. THE GAME
+   STUDIO started 12 Nov in worktree gamestudio when PHOTO handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
