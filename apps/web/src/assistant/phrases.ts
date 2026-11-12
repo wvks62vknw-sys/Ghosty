@@ -49,6 +49,7 @@ import { homeAsked } from '../../../../packages/shared/src/homeadmin';
 import { learningAsked } from '../../../../packages/shared/src/learning';
 import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
+import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -61,6 +62,10 @@ export const LOCAL_ASKS = [
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
   // [shell2] "open two", "go to number three", "open learn 5": a number said where he is opens that thing (shell/rooms.ts numbers, assistant/roomnumber.ts); only with a verb, so a bare "2" in a conversation is not taken
   { id: 'roomnumber', test: (t: string) => /^(?:ok(?:ay)?[, ]+|please[, ]+)?(?:open|go to|show|take me to)\b/i.test(t.trim()) && (numberIn(t) !== null || roomNumberIn(t) !== null) },
+  // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
+  { id: 'missed', test: (t: string) => missedAsked(t) },
+  { id: 'teach', test: (t: string) => teachAsked(t) },
+  { id: 'watcher', test: (t: string) => watcherAsked(t) !== null },
   // [themes2] the look by words, applied at once with no model (state/theme.ts)
   { id: 'look', test: (t: string) => lookAsked(t) !== null || looksAsked(t) !== null },
   // [further] the interpreter, the map of what I know, a walk through a screen, what changed, REHEARSE (further/ask.ts): the phone's own, no model

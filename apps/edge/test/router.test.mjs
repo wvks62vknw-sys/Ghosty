@@ -760,6 +760,8 @@ test('the owner’s chat waits for its best model two seconds at most, then the 
 await import('./speed.test.mjs');
 await import('./kernel-yes.test.mjs');
 await import('./telegrampic.test.mjs');
+// BRIEF-OCT-IDEAS-2: watchers, money nudges, email triage and the words of LIFE EASIER (package.json is protected: run from here, as kernel-yes is).
+await import('./watchers.test.mjs');
 
 // [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
 // each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings

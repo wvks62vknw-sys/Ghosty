@@ -46,12 +46,14 @@ import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/l
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
    */
-  go?: { id: string; ask: number; label: string; open?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
+  go?: { id: string; ask: number; label: string; open?: string; panel?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
+  /** [lifeeasier] Words to read aloud on a tap of READ IT TO ME ("teach me what you learned this week"). */
+  read?: string;
   /** The offer to learn it, with his words, and what he said to it. */
   learn?: { ask: string; state: 'open' | 'yes' | 'no' };
   /** His words, for DO IT: when he meant it as a request after all, the brain takes it from here. */
@@ -202,6 +204,10 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   carfault: (text, opts) => carFaultTurn(text, opts),
   // [awareness] "that one" (assistant/thatone.ts): the selection on the screen acted on, here, with no model
   thatone: (text, opts) => import('./thatone').then((m) => m.thatOneTurn(text, opts, answer)).catch(() => false),
+  // [lifeeasier] WHAT DID I MISS?, TEACH ME WHAT YOU LEARNED and WATCHERS: from his own records and the pages he names, no model (assistant/life.ts)
+  missed: (text, opts) => import('./life').then((m) => m.missedTurn(text, opts, answer)).catch(() => false),
+  teach: (text, opts) => import('./life').then((m) => m.teachTurn(text, opts, answer)).catch(() => false),
+  watcher: (text, opts) => import('./life').then((m) => m.watcherTurn(text, opts, answer)).catch(() => false),
   // [shell2] a number said where he is ("open two"): that thing of the room he is in, or his starred and recent; nothing there, the next table, then the brain
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model

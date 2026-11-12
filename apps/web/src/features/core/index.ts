@@ -665,6 +665,8 @@ export const coreTab: TabDef = {
       lockNext.hidden = !nextUp;
     };
     let nextUp = '';
+    // (false until the agenda has answered once: the readout ribbon says "—" for it, not "nothing next", till then)
+    let nextKnown = false;
     // Two or three things to ask for, under the reactor.
     const chip = (label: string, tint: string, glyph: string, run: () => void) => {
       const b = h('button.sugg', { type: 'button', style: `--tint:${tint}` }, icon(glyph), h('span', label));
@@ -744,11 +746,11 @@ export const coreTab: TabDef = {
     hud.append(rc.glowBox, left, center, right);
     // THE SCAN's Home (BRIEF-HUD-SCAN-1; scan/home.ts): the whole of it with the room inside, drawn when THE LOOK's world is The Scan.
     // Its frame takes the stamp line, the latest reply's line, the orb's wrap and the ask line as they are (one of each on Home).
-    scanHud = scanHome({ orbWrap: rwrap, stamp: stamp.el, caption, ask: cbar, onBack: () => reactor.poke() });
+    scanHud = scanHome({ orbWrap: rwrap, stamp: stamp.el, caption, ask: cbar, next: () => (nextKnown ? nextUp : null), onBack: () => reactor.poke() });
     hud.append(scanHud.el);
     // ONE INK's Home (BRIEF-ONE-INK; ink/home.ts): the printed page, drawn when THE LOOK's world is One Ink; it takes the stamp line and the
     // orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
-    inkHud = inkHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, onBack: () => reactor.poke() });
+    inkHud = inkHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, next: () => (nextKnown ? nextUp : null), onBack: () => reactor.poke() });
     hud.append(inkHud.el);
     // THE MAP's Home (BRIEF-MAP-EYE-HUDS; map/home.ts): the plane, the districts and the square of nine, drawn when THE LOOK's world is The Map;
     // it takes the stamp line and the orb's wrap as they are and gives them back when the look is another
@@ -824,6 +826,13 @@ export const coreTab: TabDef = {
     const capHear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
     capHear.addEventListener('click', () => listenTap(capHear, () => chat.get().live));
     capActs.append(capCopy, capHear);
+    // [lifeeasier] under "teach me what you learned this week" the speaker is named for what it does there (the chat's own READ IT TO ME is under the answer)
+    chat.subscribe((st) => {
+      const lastReply = st.entries.findLast((x) => x.kind === 'assistant');
+      const named = lastReply?.kind === 'assistant' && !!lastReply.local?.read;
+      capHear.setAttribute('aria-label', named ? 'Read it to me' : 'Read the reply aloud');
+      capHear.title = named ? 'Read it to me' : 'Listen';
+    });
     // Ghosty's words appear as he says them: the caption types itself in (fast — a whole
     // reply within about a second), instead of landing all at once.
     let typing = 0;
@@ -1013,9 +1022,11 @@ export const coreTab: TabDef = {
         const now = Date.now();
         const ev = ag?.events.filter((x) => (x.end ?? x.start) > now).sort((a, b) => a.start - b.start)[0];
         nextUp = ev ? `${ev.title}${ev.allDay ? '' : ` · ${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}` : '';
+        nextKnown = !!ag;
         inkHud?.refresh();
         mapHud?.refresh();
         eyeHud?.refresh();
+        scanHud?.refresh();
       }
     };
     let calloutTimer = 0;
