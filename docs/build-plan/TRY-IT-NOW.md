@@ -46,6 +46,13 @@ Landing one at a time, in this order: TRAINING, THIS PHONE, DOCUMENTS, OCTOBER I
 ORBIT, GROWN UP, THE WALL, SPREADSHEETS, GAMES 5, THE WORKING ENGINE, the LIFE quality pass, HEALTH, PRESENTATIONS. Building: PHOTO, the
 Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it lands.
 
+## DOCUMENTS (MAKE)
+1. MAKE, Documents, NEW: type a few lines; make one a heading, one bold; add a link on a word.
+2. PHOTO: add one of yours and make it LARGER; INSERT TABLE and fill a cell.
+3. PAGE: choose Letter and add a footer line.
+4. Export WORD and open it in Pages or Word (the same page, picture and table); export PDF.
+5. Say "write a letter to my landlord about the damp" and tap OPEN: the same editor. Close the app and reopen Documents: the letter is listed.
+
 ## THIS PHONE (SYSTEM)
 1. SYSTEM, then THIS PHONE: REFRESH reads your screen's rate (120 Hz on a ProMotion iPhone).
 2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.

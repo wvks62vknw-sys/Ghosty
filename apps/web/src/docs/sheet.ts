@@ -5,20 +5,25 @@
  * paragraphs, headings, bold, italic, lists, find and replace, undo — with the brain's edits as SUGGESTIONS accepted or
  * rejected one by one; TRANSLATED paragraph by paragraph (side by side on a wide screen, stacked on the phone); its
  * letters TRANSLITERATED by tables; exported as PDF, Word, Markdown or HTML. All on the phone but the brain's words.
+ * BRIEF-EDITOR-DOCUMENTS made it the core of Word: underline, links, alignment, photos from his own photos, tables, page breaks, the
+ * page's size, margins, header, footer and numbers, a live word and page count, autosave said, a Word file read and written with
+ * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in.
  */
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
 import { MIME, sizeWords } from '../convert/bytes';
 import { saveBlob, shareBlob } from '../convert/run';
-import { readDocBytes, pdfOfDocAnyScript } from './read';
+import { readDocBytes, pdfOfDocAnyScript, readNotes } from './read';
+import { addPhoto, imageBytes, imageNow, loadImages } from './images';
 import { docxFrom } from './docx';
-import { readingWords } from './layout';
-import { myName, replyText, suggestEdits, translateDoc } from './ask';
-import { getDoc, letterDate, listDocs, removeDoc, saveDoc, whenWords } from './store';
+import { pageCount, readingWords } from './layout';
+import { askBrain, myName, replyText, suggestEdits, translateDoc } from './ask';
+import { getDoc, letterDate, listDocs, removeDoc, saveDoc, tidyImages, whenWords } from './store';
 import { fromLatin, scriptOf, SCRIPTS, THE_LINE, toLatin, type Script } from './translit';
 import {
-  accept, block, contents, docFromReply, EDITS, findIn, History, isHeading, langCode, LANGUAGES, newDoc, replaceAll, textOf, tidyRuns, toHtml, toMarkdown, withBlock, wordDiff,
-  type Block, type BlockType, type Doc, type EditKind, type Run, type Suggestion,
+  accept, block, blockId, contents, counts, docFromReply, EDITS, findIn, History, isHeading, langCode, LANGUAGES, newDoc, newTable, pageOf, plainBlock, replaceAll, rewriteMessage, textOf, tidyRuns, toHtml, toMarkdown, withBlock, wordDiff,
+  writeMessage, writtenBlocks,
+  type Align, type Block, type BlockType, type Doc, type EditKind, type PageSetup, type Run, type Suggestion,
 } from './model';
 
 export const docsState = {
@@ -34,6 +39,14 @@ export const docsState = {
   exported: [] as { name: string; size: number; type: string }[],
   pair: { left: '', right: '', rtl: false, lang: '' },
   kept: 0,
+  words: 0,
+  chars: 0,
+  pages: 1,
+  saved: 0,
+  json: '',
+  lost: [] as string[],
+  focus: '',
+  panel: 'write',
 };
 let current: { close(): void } | null = null;
 /** A button that shows its words as written ("In plain English", "HTML"), not in the buttons' sentence case. */
@@ -81,15 +94,24 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const shareOrSave = async (blob: Blob, name: string) => {
     if (!(await shareBlob(blob, name))) saveBlob(blob, name);
   };
+  let blocked = false;
   const keep = (d: Doc) => {
     if (d.kind === 'read' && !getDoc(d.id)) return;
-    if (saveDoc(d)) docsState.kept = listDocs().length;
+    if (saveDoc(d)) {
+      docsState.kept = listDocs().length;
+      docsState.saved = Date.now();
+      blocked = false;
+    } else if (!blocked) {
+      blocked = true;
+      say('This phone is not letting me keep documents (its storage is blocked or full). You can still write and export; nothing will be here when you leave.');
+    }
   };
 
   // ---------------------------------------------------------------- MY DOCUMENTS
   const showList = () => {
     stopReading();
     docsState.view = 'list';
+    tidyImages();
     const docs = listDocs();
     docsState.kept = docs.length;
     clear(view,
@@ -106,11 +128,14 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     stopReading();
     hist = new History(d);
     suggestions = [];
+    focused = '';
     render();
+    void hydrate(d);
   };
   const doc = () => hist!.doc;
+  /** A change: kept at once. A file read (a PDF, a book) becomes his own document the moment he edits it. */
   const change = (next: Doc, repaint = true) => {
-    hist!.push(next);
+    hist!.push(next.kind === 'read' ? { ...next, kind: 'document' } : next);
     keep(doc());
     if (repaint) render();
     else paintState();
@@ -122,6 +147,21 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     docsState.blocks = d.blocks.length;
     docsState.text = d.blocks.map(textOf).join('\n\n').slice(0, 4000);
     docsState.suggestions = suggestions.map((s) => ({ old: s.old, new: s.new }));
+    const c = counts(d);
+    docsState.words = c.words;
+    docsState.chars = c.chars;
+    docsState.pages = pageCount(d);
+    docsState.json = JSON.stringify(d);
+    paintMeta();
+  };
+  const metaEl = h('p.dcmeta');
+  const savedEl = h('small.dcsaved', { 'aria-live': 'polite' });
+  const paintMeta = () => {
+    const d = doc();
+    const pg = pageOf(d);
+    const mins = Math.max(1, Math.round(docsState.words / 200));
+    metaEl.textContent = `${docsState.words.toLocaleString('en-GB')} word${docsState.words === 1 ? '' : 's'} · ${docsState.chars.toLocaleString('en-GB')} characters · ${docsState.pages} page${docsState.pages === 1 ? '' : 's'} (${pg.size === 'a4' ? 'A4' : 'Letter'}${pg.landscape ? ', landscape' : ''}) · about ${mins} min to read`;
+    savedEl.textContent = blocked ? 'NOT KEPT · THIS PHONE’S STORAGE IS BLOCKED' : getDoc(d.id) ? `KEPT ON THIS PHONE · ${new Date(d.at).toLocaleTimeString('en-GB')}` : 'READ FROM A FILE · NOT KEPT UNTIL YOU CHANGE IT';
   };
 
   const page = h('div.dcpage', { role: 'region', 'aria-label': 'The document: tap a paragraph to edit it' });
@@ -131,17 +171,37 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   findBox.hidden = true;
   contentsBox.hidden = true;
 
-  function runsOf(node: Node, b = false, i = false, out: Run[] = []): Run[] {
+  interface Marks {
+    b: boolean;
+    i: boolean;
+    u: boolean;
+    href: string;
+  }
+  const safeLink = (u: string): string => {
+    const t = u.trim();
+    if (!t) return '';
+    if (/^(?:https?:|mailto:|tel:)/i.test(t)) return t;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return '';
+    return /@/.test(t) && !/\s|\//.test(t) ? `mailto:${t}` : `https://${t}`;
+  };
+  function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, href: '' }, out: Run[] = []): Run[] {
+    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.href ? { href: m.href } : {}) });
     node.childNodes.forEach((n) => {
-      if (n.nodeType === Node.TEXT_NODE) out.push({ text: n.textContent ?? '', ...(b ? { b: true } : {}), ...(i ? { i: true } : {}) });
+      if (n.nodeType === Node.TEXT_NODE) out.push(mk(n.textContent ?? '', st));
       else if (n.nodeType === Node.ELEMENT_NODE) {
         const el = n as HTMLElement;
         const tag = el.tagName;
         if (tag === 'BR') out.push({ text: '\n' });
         else if (tag === 'DIV' || tag === 'P') {
           if (out.length && !out[out.length - 1]!.text.endsWith('\n')) out.push({ text: '\n' });
-          runsOf(el, b, i, out);
-        } else runsOf(el, b || tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(el.style.fontWeight), i || tag === 'I' || tag === 'EM' || el.style.fontStyle === 'italic', out);
+          runsOf(el, st, out);
+        } else
+          runsOf(el, {
+            b: st.b || tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(el.style.fontWeight),
+            i: st.i || tag === 'I' || tag === 'EM' || el.style.fontStyle === 'italic',
+            u: st.u || tag === 'U' || /underline/.test(el.style.textDecorationLine || el.style.textDecoration),
+            href: tag === 'A' ? safeLink(el.getAttribute('href') ?? '') : st.href,
+          }, out);
       }
     });
     return out;
@@ -201,34 +261,128 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     return [tidyRuns(a), tidyRuns(z)];
   };
   const elOf = (id: string) => page.querySelector<HTMLElement>(`[data-id="${id}"]`);
+  /** The words of one paragraph kept (a table's cells and a picture are kept by their own). */
   const sync = (el: HTMLElement) => {
-    const id = el.dataset.id!;
+    const tbl = el.closest<HTMLElement>('.dctable');
+    if (tbl) return syncTable(tbl);
+    const id = el.dataset.id;
+    if (!id || !el.isContentEditable) return;
     const runs = readRuns(el);
     const b = doc().blocks.find((x) => x.id === id);
-    if (!b || JSON.stringify(b.runs) === JSON.stringify(runs)) return;
+    if (!b || !plainBlock(b) || JSON.stringify(b.runs) === JSON.stringify(runs)) return;
     change(withBlock(doc(), id, (x) => ({ ...x, runs })), false);
+  };
+  const syncTable = (tbl: HTMLElement) => {
+    const id = tbl.dataset.id!;
+    const b = doc().blocks.find((x) => x.id === id);
+    if (!b?.rows) return;
+    const rows = b.rows.map((r, ri) => r.map((c, ci) => {
+      const cell = tbl.querySelector<HTMLElement>(`[data-r="${ri}"][data-c="${ci}"]`);
+      return cell ? readRuns(cell) : c;
+    }));
+    if (JSON.stringify(rows) === JSON.stringify(b.rows)) return;
+    change(withBlock(doc(), id, (x) => ({ ...x, rows })), false);
+  };
+  /** Whatever he was typing in is kept at once (leaving the screen or the app must not lose the last words). */
+  const flush = () => {
+    clearTimeout(timer);
+    const a = document.activeElement as HTMLElement | null;
+    if (a && page.contains(a) && hist) sync(a);
+  };
+  const onHide = () => {
+    if (document.visibilityState === 'hidden') flush();
+  };
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', flush);
+  const later = (el: HTMLElement) => {
+    clearTimeout(timer);
+    timer = window.setTimeout(() => sync(el), 450);
+  };
+
+  // the words chosen are remembered for the link's own field (a field takes the focus)
+  let lastRange: Range | null = null;
+  document.addEventListener('selectionchange', () => {
+    const sel = getSelection();
+    if (sel?.rangeCount && page.contains(sel.anchorNode)) lastRange = sel.getRangeAt(0).cloneRange();
+  });
+
+  let cell = { id: '', r: 0, c: 0 };
+  const focusOn = (id: string) => {
+    focused = id;
+    docsState.focus = id;
+    paintContext();
+  };
+
+  /** Where new things go: after the block he is in (at the end when he is in none), a paragraph kept after the last. */
+  const insertAfter = (blocks: Block[]) => {
+    const d = doc();
+    const at = d.blocks.findIndex((x) => x.id === focused);
+    const list = at < 0 ? [...d.blocks, ...blocks] : [...d.blocks.slice(0, at + 1), ...blocks, ...d.blocks.slice(at + 1)];
+    const last = list[list.length - 1];
+    if (last && !plainBlock(last)) list.push(block('p', ''));
+    change({ ...d, blocks: list });
+    const target = blocks[blocks.length - 1]!;
+    focusOn(target.id);
   };
 
   const blockEl = (b: Block): HTMLElement => {
-    const tag = b.t === 'h1' ? 'h2' : b.t === 'h2' ? 'h3' : b.t === 'h3' ? 'h4' : b.t === 'quote' ? 'blockquote' : b.t === 'ul' || b.t === 'ol' ? 'li' : 'p';
-    const el = h(`${tag}.dcb` as 'p', { contentEditable: 'true', spellcheck: true, dataset: { id: b.id, t: b.t } });
-    if (b.t === 'right') el.classList.add('right');
-    for (const r of b.runs) {
-      const parts = r.text.split('\n');
-      parts.forEach((p, k) => {
-        if (k) el.append(h('br'));
-        if (!p) return;
-        let node: Node = document.createTextNode(p);
-        if (r.i) node = h('em', node);
-        if (r.b) node = h('strong', node);
-        el.append(node);
-      });
+    if (b.t === 'pb') {
+      const el = h('hr.dcb.dcpb', { tabIndex: 0, role: 'separator', 'aria-label': 'Page break', dataset: { id: b.id, t: 'pb' } });
+      el.addEventListener('focus', () => focusOn(b.id));
+      el.addEventListener('keydown', (e) => (e.key === 'Backspace' || e.key === 'Delete') && removeBlock(b.id));
+      return el;
     }
-    el.addEventListener('focus', () => (focused = b.id));
-    el.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = window.setTimeout(() => sync(el), 450);
-    });
+    if (b.t === 'img') {
+      const src = b.img ? imageNow(b.img) : null;
+      const img = h('img', { alt: b.alt ?? '', draggable: false, ...(src ? { src } : {}) }) as HTMLImageElement;
+      img.style.width = `${b.w ?? 60}%`;
+      const fig = h('figure.dcb.dcimg', { tabIndex: 0, 'aria-label': b.alt ? `Picture: ${b.alt}` : 'Picture (tap to size it or describe it)', dataset: { id: b.id, t: 'img', ...(b.align && b.align !== 'left' ? { align: b.align } : {}) } }, img);
+      if (!src) fig.classList.add('wait');
+      fig.addEventListener('click', () => fig.focus());
+      fig.addEventListener('focus', () => focusOn(b.id));
+      fig.addEventListener('keydown', (e) => (e.key === 'Backspace' || e.key === 'Delete') && removeBlock(b.id));
+      return fig;
+    }
+    if (b.t === 'table') {
+      const rows = b.rows ?? [];
+      const t = h('table');
+      rows.forEach((r, ri) => {
+        const tr = h('tr');
+        r.forEach((runs, ci) => {
+          const head = !!b.head && ri === 0;
+          const td = h(head ? 'th' : 'td', { contentEditable: 'true', spellcheck: true, role: head ? 'columnheader' : 'cell', 'aria-label': `Row ${ri + 1}, column ${ci + 1}`, dataset: { r: String(ri), c: String(ci) } });
+          fillRuns(td, runs);
+          td.addEventListener('focus', () => {
+            cell = { id: b.id, r: ri, c: ci };
+            focusOn(b.id);
+          });
+          td.addEventListener('input', () => later(td));
+          td.addEventListener('blur', () => {
+            clearTimeout(timer);
+            sync(td);
+          });
+          td.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              document.execCommand('insertLineBreak');
+            } else if (e.key === 'Tab') {
+              e.preventDefault();
+              const all = [...(td.closest('table')!.querySelectorAll<HTMLElement>('td,th'))];
+              all[(all.indexOf(td) + (e.shiftKey ? all.length - 1 : 1)) % all.length]?.focus();
+            }
+          });
+          tr.append(td);
+        });
+        t.append(tr);
+      });
+      return h('div.dcb.dctable', { dataset: { id: b.id, t: 'table' } }, t);
+    }
+    const tag = b.t === 'h1' ? 'h2' : b.t === 'h2' ? 'h3' : b.t === 'h3' ? 'h4' : b.t === 'quote' ? 'blockquote' : b.t === 'ul' || b.t === 'ol' ? 'li' : 'p';
+    const el = h(`${tag}.dcb` as 'p', { contentEditable: 'true', spellcheck: true, dataset: { id: b.id, t: b.t, ...(b.align && b.align !== 'left' ? { align: b.align } : {}) } });
+    if (b.t === 'right') el.classList.add('right');
+    fillRuns(el, b.runs);
+    el.addEventListener('focus', () => focusOn(b.id));
+    el.addEventListener('input', () => later(el));
     el.addEventListener('blur', () => {
       clearTimeout(timer);
       sync(el);
@@ -245,7 +399,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         clearTimeout(timer);
         const runs = readRuns(el);
         const [a, z] = splitRuns(runs, caretAt(el));
-        const next: Block = { ...block(b.t === 'ul' || b.t === 'ol' ? b.t : 'p', z) };
+        const next: Block = { ...block(b.t === 'ul' || b.t === 'ol' ? b.t : 'p', z), ...(b.align ? { align: b.align } : {}) };
         const d = doc();
         const k = d.blocks.findIndex((x) => x.id === b.id);
         change({ ...d, blocks: [...d.blocks.slice(0, k), { ...b, runs: a }, next, ...d.blocks.slice(k + 1)] });
@@ -258,9 +412,15 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         const d = doc();
         const k = d.blocks.findIndex((x) => x.id === b.id);
         if (k <= 0) return;
+        const prev = d.blocks[k - 1]!;
         e.preventDefault();
         clearTimeout(timer);
-        const prev = d.blocks[k - 1]!;
+        if (!plainBlock(prev)) {
+          // a picture, a table or a page break before it: the empty paragraph goes, a paragraph with words stays
+          if (!textOf(b).trim()) change({ ...d, blocks: d.blocks.filter((x) => x.id !== b.id) });
+          elOf(prev.id)?.focus();
+          return;
+        }
         const at = textOf(prev).length;
         change({ ...d, blocks: [...d.blocks.slice(0, k - 1), { ...prev, runs: tidyRuns([...prev.runs, ...readRuns(el)]) }, ...d.blocks.slice(k + 1)] });
         const pe = elOf(prev.id);
@@ -270,6 +430,20 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     });
     return el;
   };
+  function fillRuns(el: HTMLElement, runs: Run[]): void {
+    for (const r of runs) {
+      r.text.split('\n').forEach((p, k) => {
+        if (k) el.append(h('br'));
+        if (!p) return;
+        let node: Node = document.createTextNode(p);
+        if (r.i) node = h('em', node);
+        if (r.b) node = h('strong', node);
+        if (r.u) node = h('u', node);
+        if (r.href) node = h('a', { href: r.href, rel: 'noopener', target: '_blank' }, node);
+        el.append(node);
+      });
+    }
+  }
 
   const paintPage = () => {
     const d = doc();
@@ -290,29 +464,269 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       kids.push(blockEl(b));
     }
     clear(page, ...kids);
+    if (focused) {
+      const f = elOf(focused);
+      if (!f) focused = '';
+    }
+  };
+  /** The pictures of the document are read from the phone's database and put on the page (a missing one said). */
+  const hydrate = async (d: Doc) => {
+    const ids = d.blocks.flatMap((b) => (b.img ? [b.img] : []));
+    if (!ids.length) return;
+    const missing = await loadImages(ids);
+    if (hist?.doc.id !== d.id) return;
+    paintImages();
+    if (missing.length) say(`${missing.length} picture${missing.length === 1 ? ' is' : 's are'} not on this phone any more (the Word file or the PDF would leave ${missing.length === 1 ? 'it' : 'them'} out).`);
+  };
+  const paintImages = () => {
+    for (const fig of page.querySelectorAll<HTMLElement>('figure.dcimg')) {
+      const b = doc().blocks.find((x) => x.id === fig.dataset.id);
+      const src = b?.img ? imageNow(b.img) : null;
+      const img = fig.querySelector('img');
+      if (src && img) {
+        img.src = src;
+        fig.classList.remove('wait');
+      }
+    }
   };
 
-  const setType = (t: BlockType) => {
+  const setType = (t: BlockType | 'toggle', kind?: BlockType) => {
     const id = focused;
     const b = doc().blocks.find((x) => x.id === id);
-    if (!b) return say('Tap a paragraph first.');
+    if (!b || !plainBlock(b)) return say('Tap a paragraph first.');
     const el = elOf(id);
     const runs = el ? readRuns(el) : b.runs;
-    change(withBlock(doc(), id, (x) => ({ ...x, runs, t: x.t === t ? 'p' : t })));
+    const to = (kind ?? t) as BlockType;
+    change(withBlock(doc(), id, (x) => ({ ...x, runs, t: x.t === to && to !== 'p' ? 'p' : to })));
     elOf(id)?.focus();
   };
-  const cycleHeading = () => {
-    const b = doc().blocks.find((x) => x.id === focused);
-    if (!b) return say('Tap a paragraph first.');
-    const next: BlockType = b.t === 'h1' ? 'h2' : b.t === 'h2' ? 'h3' : b.t === 'h3' ? 'p' : 'h1';
-    setType(next === 'p' ? b.t : next);
+  const setAlign = (a: Align) => {
+    const id = focused;
+    const b = doc().blocks.find((x) => x.id === id);
+    if (!b || b.t === 'table' || b.t === 'pb') return say('Tap a paragraph or a picture first.');
+    const el = elOf(id);
+    const runs = el && plainBlock(b) ? readRuns(el) : b.runs;
+    change(withBlock(doc(), id, (x) => ({ ...x, runs, ...(a === 'left' ? { align: undefined } : { align: a }) })));
+    elOf(id)?.focus();
   };
-  const mark = (cmd: 'bold' | 'italic') => {
-    const el = elOf(focused);
-    if (!el) return say('Choose the words first.');
+  const mark = (cmd: 'bold' | 'italic' | 'underline') => {
+    const el = elOf(focused) ?? (cell.id === focused ? page.querySelector<HTMLElement>(`[data-id="${focused}"] [data-r="${cell.r}"][data-c="${cell.c}"]`) : null);
+    if (!el || !el.isContentEditable) {
+      const c = document.activeElement as HTMLElement | null;
+      if (c && page.contains(c) && c.isContentEditable) {
+        document.execCommand(cmd);
+        return sync(c);
+      }
+      return say('Choose the words first.');
+    }
     document.execCommand(cmd);
     sync(el);
   };
+  const removeBlock = (id: string) => {
+    const d = doc();
+    const k = d.blocks.findIndex((x) => x.id === id);
+    if (k < 0) return;
+    const rest = d.blocks.filter((x) => x.id !== id);
+    change({ ...d, blocks: rest.length ? rest : [block('p', '')] });
+    focused = '';
+    const near = rest[Math.min(k, rest.length - 1)];
+    if (near) elOf(near.id)?.focus();
+    paintContext();
+  };
+
+  // ---------------------------------------------------------------- the formatting keys: WRITE, INSERT, PAGE, LINK
+  const key = (label: string, run: () => void, cls = '', name = '') => {
+    const b = button(label, run, cls);
+    if (name) b.setAttribute('aria-label', name);
+    return b;
+  };
+  const linkIn = h('input', { type: 'url', placeholder: 'https://… or an email address', 'aria-label': 'The address to link to', autocomplete: 'off', autocapitalize: 'none', enterKeyHint: 'done' }) as HTMLInputElement;
+  const linkBox = h('div.dcrow.dclink');
+  linkBox.hidden = true;
+  const applyLink = () => {
+    const href = safeLink(linkIn.value);
+    if (!href) return say('That is not an address I can link to: use https://…, an email address or tel:.');
+    const sel = getSelection();
+    if (!lastRange || lastRange.collapsed) return say('Choose the words to link first, then LINK.');
+    const host = (lastRange.startContainer.parentElement ?? lastRange.startContainer) as HTMLElement;
+    const el = host.closest<HTMLElement>('[contenteditable="true"]');
+    if (!el) return say('Choose the words to link first.');
+    el.focus();
+    sel?.removeAllRanges();
+    sel?.addRange(lastRange);
+    document.execCommand('createLink', false, href);
+    sync(el);
+    linkBox.hidden = true;
+    linkIn.value = '';
+    say(`Linked to ${href}.`);
+  };
+  const removeLink = () => {
+    const sel = getSelection();
+    if (!lastRange) return say('Tap the linked words first.');
+    const host = (lastRange.startContainer.parentElement ?? lastRange.startContainer) as HTMLElement;
+    const el = host.closest<HTMLElement>('[contenteditable="true"]');
+    if (!el) return say('Tap the linked words first.');
+    el.focus();
+    sel?.removeAllRanges();
+    sel?.addRange(lastRange);
+    if (lastRange.collapsed) {
+      const a = (lastRange.startContainer.parentElement ?? el).closest('a');
+      if (a) {
+        const r = document.createRange();
+        r.selectNodeContents(a);
+        sel?.removeAllRanges();
+        sel?.addRange(r);
+      }
+    }
+    document.execCommand('unlink');
+    sync(el);
+    linkBox.hidden = true;
+    say('The link is taken off the words.');
+  };
+  clear(linkBox, linkIn, key('APPLY', applyLink, 'on'), key('REMOVE LINK', removeLink), key('CANCEL', () => (linkBox.hidden = true)));
+  linkIn.addEventListener('keydown', (e) => e.key === 'Enter' && applyLink());
+
+  const photoIn = h('input', { type: 'file', hidden: true, accept: 'image/*', 'aria-label': 'Choose a photo to put in the document' }) as HTMLInputElement;
+  photoIn.addEventListener('change', async () => {
+    const f = photoIn.files?.[0];
+    photoIn.value = '';
+    if (!f) return;
+    say('Putting the photo in…');
+    try {
+      const p = await addPhoto(f);
+      insertAfter([{ id: blockId(), t: 'img', runs: [], img: p.id, iw: p.iw, ih: p.ih, w: 60, align: 'center' }]);
+      paintImages();
+      say(`Photo added (${p.iw} × ${p.ih}, kept on this phone only). SMALLER and LARGER size it; describe it for people who cannot see it.`);
+    } catch (e) {
+      say(`I couldn’t add it: ${(e as Error).message}.`);
+    }
+  });
+  const grid = { rows: 3, cols: 3 };
+  const gridSaid = h('b.dcnum', { 'aria-live': 'polite' });
+  const paintGrid = () => (gridSaid.textContent = `${grid.rows} × ${grid.cols}`);
+  paintGrid();
+  const step = (k: 'rows' | 'cols', by: number) => {
+    grid[k] = Math.max(1, Math.min(k === 'rows' ? 12 : 8, grid[k] + by));
+    paintGrid();
+  };
+  const tableOp = (op: 'row+' | 'col+' | 'row-' | 'col-' | 'head' | 'drop') => {
+    const d = doc();
+    const b = d.blocks.find((x) => x.id === focused);
+    if (!b || b.t !== 'table' || !b.rows) return say('Tap a cell of the table first.');
+    syncTable(elOf(b.id)!);
+    const t = doc().blocks.find((x) => x.id === b.id)!;
+    let rows = (t.rows ?? []).map((r) => r.map((c) => [...c]));
+    const r0 = cell.id === b.id ? Math.min(cell.r, rows.length - 1) : rows.length - 1;
+    const c0 = cell.id === b.id ? Math.min(cell.c, (rows[0]?.length ?? 1) - 1) : (rows[0]?.length ?? 1) - 1;
+    if (op === 'drop') return removeBlock(b.id);
+    if (op === 'head') return change(withBlock(doc(), b.id, (x) => ({ ...x, head: !x.head })));
+    if (op === 'row+') rows.splice(r0 + 1, 0, Array.from({ length: rows[0]?.length ?? 1 }, () => []));
+    else if (op === 'col+') rows = rows.map((r) => [...r.slice(0, c0 + 1), [], ...r.slice(c0 + 1)]);
+    else if (op === 'row-') {
+      if (rows.length <= 1) return say('A table keeps at least one row: DELETE TABLE takes it away.');
+      rows.splice(r0, 1);
+    } else if (op === 'col-') {
+      if ((rows[0]?.length ?? 1) <= 1) return say('A table keeps at least one column: DELETE TABLE takes it away.');
+      rows = rows.map((r) => r.filter((_, i) => i !== c0));
+    }
+    change(withBlock(doc(), b.id, (x) => ({ ...x, rows })));
+    say(op === 'row+' ? 'A row added below.' : op === 'col+' ? 'A column added to the right.' : op === 'row-' ? 'The row is deleted.' : 'The column is deleted.');
+  };
+  const sizePic = (by: number) => {
+    const b = doc().blocks.find((x) => x.id === focused);
+    if (!b || b.t !== 'img') return say('Tap the picture first.');
+    const w = Math.max(10, Math.min(100, (b.w ?? 60) + by));
+    change(withBlock(doc(), b.id, (x) => ({ ...x, w })));
+    elOf(b.id)?.focus();
+    say(`The picture is ${w}% of the page’s width.`);
+  };
+  const altIn = h('input', { type: 'text', placeholder: 'Describe the picture', 'aria-label': 'Describe the picture', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
+  const setAlt = () => {
+    const b = doc().blocks.find((x) => x.id === focused);
+    if (!b || b.t !== 'img') return say('Tap the picture first.');
+    change(withBlock(doc(), b.id, (x) => ({ ...x, alt: altIn.value.trim() })));
+    say('The picture’s description is kept (Word reads it out to people who cannot see it).');
+  };
+  altIn.addEventListener('keydown', (e) => e.key === 'Enter' && setAlt());
+  const ctxTable = h('div.dcrow.dcctx', key('+ ROW', () => tableOp('row+'), '', 'Add a row below'), key('+ COLUMN', () => tableOp('col+'), '', 'Add a column to the right'), key('− ROW', () => tableOp('row-'), '', 'Delete this row'), key('− COLUMN', () => tableOp('col-'), '', 'Delete this column'), key('HEADER ROW', () => tableOp('head')), key('DELETE TABLE', () => tableOp('drop')));
+  const ctxImg = h('div.dcrow.dcctx', key('SMALLER', () => sizePic(-10)), key('LARGER', () => sizePic(10)), altIn, key('SET', setAlt), key('DELETE PICTURE', () => focused && removeBlock(focused)));
+  const paintContext = () => {
+    const b = hist?.doc.blocks.find((x) => x.id === focused);
+    ctxTable.hidden = b?.t !== 'table';
+    ctxImg.hidden = b?.t !== 'img';
+    if (b?.t === 'img') altIn.value = b.alt ?? '';
+    pbDrop.hidden = b?.t !== 'pb';
+  };
+  const pbDrop = key('DELETE PAGE BREAK', () => focused && removeBlock(focused));
+  pbDrop.hidden = true;
+
+  const pageIn = (patch: Partial<PageSetup>) => {
+    const next: PageSetup = { ...pageOf(doc()), ...patch };
+    change({ ...doc(), page: next }, false);
+    say(`Page set: ${next.size === 'a4' ? 'A4' : 'Letter'}, ${next.margin} margins, ${next.landscape ? 'landscape' : 'portrait'}, page numbers ${next.numbers ? 'on' : 'off'}. ${docsState.pages} page${docsState.pages === 1 ? '' : 's'}.`);
+  };
+  const sizeSel = h('select', { 'aria-label': 'Paper size' }, h('option', { value: 'a4' }, 'A4'), h('option', { value: 'letter' }, 'Letter')) as HTMLSelectElement;
+  const marginSel = h('select', { 'aria-label': 'Margins' }, h('option', { value: 'normal' }, 'Normal margins (2.5 cm)'), h('option', { value: 'narrow' }, 'Narrow margins (1.3 cm)'), h('option', { value: 'wide' }, 'Wide margins (3.8 cm)')) as HTMLSelectElement;
+  sizeSel.addEventListener('change', () => pageIn({ size: sizeSel.value as PageSetup['size'] }));
+  marginSel.addEventListener('change', () => pageIn({ margin: marginSel.value as PageSetup['margin'] }));
+  const headIn = h('input', { type: 'text', placeholder: 'A line at the head of every page', 'aria-label': 'Header line', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
+  const footIn = h('input', { type: 'text', placeholder: 'A line at the foot of every page', 'aria-label': 'Footer line', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
+  headIn.addEventListener('change', () => pageIn({ header: headIn.value.trim() }));
+  footIn.addEventListener('change', () => pageIn({ footer: footIn.value.trim() }));
+  const orient = key('PORTRAIT', () => pageIn({ landscape: !pageOf(doc()).landscape }));
+  const nums = key('PAGE NUMBERS', () => pageIn({ numbers: !pageOf(doc()).numbers }));
+  const paintPageKeys = () => {
+    const pg = pageOf(doc());
+    sizeSel.value = pg.size;
+    marginSel.value = pg.margin;
+    headIn.value = pg.header ?? '';
+    footIn.value = pg.footer ?? '';
+    orient.textContent = pg.landscape ? 'LANDSCAPE' : 'PORTRAIT';
+    orient.setAttribute('aria-pressed', String(!!pg.landscape));
+    nums.setAttribute('aria-pressed', String(pg.numbers));
+  };
+
+  const panels: Record<string, HTMLElement> = {
+    write: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Write' },
+      h('div.dcrow', key('TEXT', () => setType('p'), '', 'Plain paragraph'), key('H1', () => setType('h1'), '', 'Heading 1'), key('H2', () => setType('h2'), '', 'Heading 2'), key('H3', () => setType('h3'), '', 'Heading 3'), key('QUOTE', () => setType('quote'))),
+      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('LINK', () => {
+        linkBox.hidden = !linkBox.hidden;
+        if (!linkBox.hidden) linkIn.focus();
+      })),
+      linkBox,
+      h('div.dcrow', key('• LIST', () => setType('ul')), key('1. LIST', () => setType('ol'))),
+      h('div.dcrow', key('LEFT', () => setAlign('left'), '', 'Align left'), key('CENTRE', () => setAlign('center'), '', 'Centre'), key('RIGHT', () => setAlign('right'), '', 'Align right'), key('JUSTIFY', () => setAlign('justify'))),
+    ),
+    insert: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Insert' },
+      h('div.dcrow', key('PHOTO', () => photoIn.click(), '', 'Add a photo from your photos'), key('PAGE BREAK', () => insertAfter([{ id: blockId(), t: 'pb', runs: [] }])), pbDrop),
+      ctxImg,
+      h('div.dcrow.dcgrid', key('ROWS −', () => step('rows', -1)), key('ROWS +', () => step('rows', 1)), gridSaid, key('COLUMNS −', () => step('cols', -1)), key('COLUMNS +', () => step('cols', 1)), key('INSERT TABLE', () => {
+        insertAfter([newTable(grid.rows, grid.cols)]);
+        say(`A ${grid.rows} × ${grid.cols} table, its first row the header. Tab moves to the next cell.`);
+        (page.querySelector(`[data-id="${focused}"] th, [data-id="${focused}"] td`) as HTMLElement | null)?.focus();
+      }, 'on')),
+      ctxTable,
+    ),
+    page: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Page' },
+      h('div.dcrow', sizeSel, marginSel),
+      h('div.dcrow', orient, nums),
+      h('div.dcrow', headIn),
+      h('div.dcrow', footIn),
+    ),
+  };
+  const showPanel = (id: string) => {
+    docsState.panel = id;
+    for (const [k, el] of Object.entries(panels)) el.hidden = k !== id;
+    for (const b of pills.querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.panel === id));
+    if (id === 'page') paintPageKeys();
+    paintContext();
+  };
+  const pills = h('div.dcpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['write', 'insert', 'page'] as const).map((id) => {
+    const b = button(id.toUpperCase(), () => showPanel(id), 'dcpill');
+    b.dataset.panel = id;
+    b.setAttribute('role', 'tab');
+    return b;
+  }));
 
   // ---------------------------------------------------------------- reading aloud
   let reading = false;
@@ -499,20 +913,67 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       say(`Made on this phone: ${name}, ${sizeWords(blob.size)}.`);
     };
     const file = (ext: string) => `${get().title.replace(/[\\/:*?"<>|]+/g, '').slice(0, 80) || 'Document'}.${ext}`;
+    /** The document's pictures are in memory before a file is made. */
+    const ready = async (): Promise<Doc> => {
+      flush();
+      const d = get();
+      await loadImages(d.blocks.flatMap((b) => (b.img ? [b.img] : [])));
+      return d;
+    };
+    const go = (make: (d: Doc) => Promise<Blob> | Blob, ext: string) => {
+      say(`Making your ${ext === 'docx' ? 'Word file' : ext === 'md' ? 'Markdown file' : ext === 'html' ? 'web page' : 'PDF'} on this phone…`);
+      void ready().then(make).then((blob) => made(blob, file(ext)), (e: Error) => say(`I couldn’t make it: ${e.message}.`));
+    };
     return h('div.dcexport',
       h('small.cvgh', 'EXPORT'),
       h('div.cvbtns',
         button('PDF', () => {
-          say('Laying it out as a PDF…');
-          void pdfOfDocAnyScript(get(), say).then((pdf) => made(new Blob([pdf as BlobPart], { type: 'application/pdf' }), file('pdf')), (e: Error) => say(`I couldn’t: ${e.message}.`));
+          go(async (d) => new Blob([(await pdfOfDocAnyScript(d, say)) as BlobPart], { type: 'application/pdf' }), 'pdf');
         }),
-        button('WORD', () => made(new Blob([docxFrom(get(), myName()) as BlobPart], { type: MIME.docx }), file('docx'))),
-        button('MARKDOWN', () => made(new Blob([toMarkdown(get())], { type: 'text/markdown;charset=utf-8' }), file('md'))),
-        cased(button('HTML', () => made(new Blob([toHtml(get(), true)], { type: 'text/html;charset=utf-8' }), file('html')))),
+        button('WORD', () => go((d) => new Blob([docxFrom(d, myName(), imageBytes) as BlobPart], { type: MIME.docx }), 'docx')),
+        button('MARKDOWN', () => go((d) => new Blob([toMarkdown(d, imageNow)], { type: 'text/markdown;charset=utf-8' }), 'md')),
+        cased(button('HTML', () => go((d) => new Blob([toHtml(d, true, imageNow)], { type: 'text/html;charset=utf-8' }), 'html'))),
       ),
       out,
     );
   };
+
+  // ---------------------------------------------------------------- Ghosty writing into the page
+  const askIn = h('input', { type: 'text', placeholder: 'What should Ghosty write? (“a paragraph asking for a refund”)', 'aria-label': 'What Ghosty should write into the document', autocomplete: 'off', enterKeyHint: 'send' }) as HTMLInputElement;
+  const writeInto = async () => {
+    const what = askIn.value.trim();
+    if (!what) return say('Say what to write first.');
+    flush();
+    const after = doc().blocks.find((x) => x.id === focused);
+    say('Asking my brain to write it. Your document’s words go to it as this message’s data; the new words are laid out after the paragraph you are in.');
+    try {
+      const r = await askBrain(writeMessage(doc(), what, after && plainBlock(after) ? textOf(after) : ''));
+      const blocks = writtenBlocks(r.text);
+      if (!blocks.length) return say('My brain wrote nothing I could lay out.');
+      insertAfter(blocks);
+      askIn.value = '';
+      say(`${blocks.length} paragraph${blocks.length === 1 ? '' : 's'} written into the page by ${r.where === 'phone' ? 'the brain on this phone' : 'my brain'}. UNDO takes them out again.`);
+    } catch (e) {
+      say(`I couldn’t ask: ${(e as Error).message}.`);
+    }
+  };
+  const rewriteHere = async () => {
+    flush();
+    const b = doc().blocks.find((x) => x.id === focused);
+    if (!b || !plainBlock(b) || !textOf(b).trim()) return say('Tap the paragraph to rewrite first.');
+    say('Asking my brain to rewrite this paragraph; nothing changes until you accept.');
+    try {
+      const r = await askBrain(rewriteMessage(textOf(b), askIn.value));
+      const words = writtenBlocks(r.text).map(textOf).join(' ').trim();
+      if (!words || words === textOf(b).trim()) return say('My brain would keep it as it is.');
+      suggestions = [{ id: `r-${b.id}`, blockId: b.id, old: textOf(b), new: words }];
+      paintSuggestions();
+      say('One suggestion: accept or reject it.');
+    } catch (e) {
+      say(`I couldn’t ask: ${(e as Error).message}.`);
+    }
+  };
+  askIn.addEventListener('keydown', (e) => e.key === 'Enter' && void writeInto());
 
   // ---------------------------------------------------------------- the document view
   function render(): void {
@@ -521,7 +982,6 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     paintPage();
     const title = h('input.dctitle', { type: 'text', value: d.title, 'aria-label': 'The document’s title' }) as HTMLInputElement;
     title.addEventListener('change', () => change({ ...doc(), title: title.value.trim() || 'Untitled' }, false));
-    const meta = h('p.dcmeta', `${readingWords(d)} · ${getDoc(d.id) ? `kept on this phone, ${whenWords(doc().at)}` : 'read from a file, not kept'}`);
     const tools = h('div.dctools', { role: 'toolbar', 'aria-label': 'Editing' },
       button('CONTENTS', () => {
         contentsBox.hidden = !contentsBox.hidden;
@@ -533,13 +993,9 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         findBox.hidden = !findBox.hidden;
         if (!findBox.hidden) findIn_.focus();
       }),
-      button('HEADING', cycleHeading),
-      button('B', () => mark('bold'), 'dcbold'),
-      button('I', () => mark('italic'), 'dcital'),
-      button('• LIST', () => setType('ul')),
-      button('1. LIST', () => setType('ol')),
       button('UNDO', () => {
         if (!hist!.canUndo) return say('Nothing to undo.');
+        flush();
         hist!.undo();
         keep(doc());
         render();
@@ -551,23 +1007,29 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         render();
       }),
     );
-    // the toolbar keeps the words chosen (a tap on it does not take the focus off the paragraph)
-    tools.addEventListener('pointerdown', (e) => {
-      if ((e.target as HTMLElement).closest('button')) e.preventDefault();
-    });
-    tools.querySelector('.dcbold')?.setAttribute('aria-label', 'Bold');
-    tools.querySelector('.dcital')?.setAttribute('aria-label', 'Italic');
+    // the keys keep the words chosen (a tap on them does not take the focus off the paragraph)
+    for (const bar of [tools, pills, ...Object.values(panels)]) {
+      bar.addEventListener('pointerdown', (e) => {
+        if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+      });
+    }
     const asks = h('div.dcasks', h('small.cvgh', 'ASK ME TO'), h('div.cvbtns', ...(Object.keys(EDITS) as EditKind[]).map((k) => cased(button(EDITS[k].label, () => void askEdit(k))))));
+    const write = h('div.dcasks.dcwrite', h('small.cvgh', 'GHOSTY WRITES IN IT'), h('div.dcrow', askIn), h('div.cvbtns', button('WRITE INTO IT', () => void writeInto(), 'on'), button('REWRITE THIS PARAGRAPH', () => void rewriteHere())));
     const trans = h('div.dcasks', h('small.cvgh', 'TRANSLATE'), h('div.dcrow', langPick, langOther, button('TRANSLATE', () => void translate(), 'on')));
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
     const lets = h('div.dcasks', h('small.cvgh', 'LETTERS'), h('div.dcrow', scriptPick, cased(button('TO LATIN', () => letters('to')), 'To Latin'), cased(button('FROM LATIN', () => letters('from')), 'From Latin')), h('small.dcnote', THE_LINE));
-    clear(view, title, meta, tools, findBox, contentsBox, sugBox, page, asks, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
+    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
       removeDoc(doc().id);
       say(`Removed “${doc().title}” from this phone.`);
       showList();
     })));
+    showPanel(docsState.panel in panels ? docsState.panel : 'write');
     paintSuggestions();
+    if (focused) {
+      const f = elOf(focused);
+      if (f && document.activeElement !== f && f.matches('figure,hr')) f.focus({ preventScroll: true });
+    }
   }
 
   // ---------------------------------------------------------------- open
@@ -578,8 +1040,11 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     say(`Reading ${f.name} on this phone…`);
     try {
       const d = await readDocBytes(new Uint8Array(await f.arrayBuffer()), f.name);
+      const word = /\.docx$/i.test(f.name);
+      if (word) saveDoc(d);
       showDoc(d);
-      say(`${d.title}: ${readingWords(d)}. Read here; nothing was sent.`);
+      docsState.lost = word ? [...readNotes.lost] : [];
+      say(`${d.title}: ${readingWords(d)}. Read here; nothing was sent.${word ? ' Kept in My documents to edit.' : ''}${docsState.lost.length ? ` Left out of the page: ${docsState.lost.join(', ')}.` : ''}`);
     } catch (e) {
       say(`I couldn’t read it: ${(e as Error).message}.`);
     }
@@ -618,6 +1083,15 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       else letters('to');
     } else showList();
   };
-  return { el: root, start, stop: stopReading };
+  return {
+    el: root,
+    start,
+    stop: () => {
+      flush();
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+      stopReading();
+    },
+  };
 }
 

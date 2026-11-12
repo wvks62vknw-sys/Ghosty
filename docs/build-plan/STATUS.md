@@ -403,3 +403,4 @@ New ideas from today, all free:
 - The Lens's living cards kept in the library as a nature diary ("seen: a robin, 24 Oct") with a map of where.
 - GYM on WebGPU the moment the phone arrives: ten to fifty times faster training, measured.
    THE PHONE-HARDWARE ITEMS landed 12 Nov (OWNER-ISSUES 187): 120 Hz, the eyes' size choice, GYM on the chip, the brain measured; pending the PR's run.
+   DOCUMENTS (the second editor) landed 12 Nov (OWNER-ISSUES 188): a word processor of the app's own with Word in and out; pending the PR's run.

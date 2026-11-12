@@ -7,17 +7,44 @@
  * structure kept. Pure: apps/edge/test/reste.test.mjs.
  */
 
-export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'quote' | 'right';
+export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'quote' | 'right' | 'table' | 'img' | 'pb';
 export interface Run {
   text: string;
   b?: boolean;
   i?: boolean;
+  /** Underlined. */
+  u?: boolean;
+  /** A link: its address (https:, mailto: or tel:). */
+  href?: string;
 }
+export type Align = 'left' | 'center' | 'right' | 'justify';
 export interface Block {
   id: string;
   t: BlockType;
   runs: Run[];
+  align?: Align;
+  /** A table: rows of cells, each cell its runs (a line break inside a cell is kept). */
+  rows?: Run[][][];
+  /** A table whose first row is its header. */
+  head?: boolean;
+  /** A picture: its id in the phone's picture store (docs/images.ts), its description, its width as a share of the page's text (10 to 100) and its own size in pixels. */
+  img?: string;
+  alt?: string;
+  w?: number;
+  iw?: number;
+  ih?: number;
 }
+/** How the page is set (Word's Layout tab): size, margins, direction, the numbers and the lines at its head and foot. */
+export interface PageSetup {
+  size: 'a4' | 'letter';
+  margin: 'normal' | 'narrow' | 'wide';
+  landscape?: boolean;
+  numbers: boolean;
+  header?: string;
+  footer?: string;
+}
+export const DEFAULT_PAGE: PageSetup = { size: 'a4', margin: 'normal', numbers: true };
+export const pageOf = (d: Doc): PageSetup => ({ ...DEFAULT_PAGE, ...(d.page ?? {}) });
 export interface Doc {
   id: string;
   title: string;
@@ -31,6 +58,8 @@ export interface Doc {
   rtl?: boolean;
   /** Where it came from: the file's name, or "written with Ghosty". */
   from?: string;
+  /** The page's setup (left out: A4, normal margins, numbers on). */
+  page?: PageSetup;
 }
 
 let seq = 0;
@@ -38,7 +67,20 @@ export const blockId = (): string => `b${Date.now().toString(36)}${(++seq).toStr
 export const block = (t: BlockType, text: string | Run[]): Block => ({ id: blockId(), t, runs: typeof text === 'string' ? (text ? [{ text }] : []) : text });
 export const newDoc = (title: string, blocks: Block[], kind: Doc['kind'] = 'document', from = ''): Doc => ({ id: `d${Date.now().toString(36)}${(++seq).toString(36)}`, title: title.trim() || 'Untitled', blocks, at: Date.now(), kind, ...(from ? { from } : {}) });
 
-export const textOf = (b: Block): string => b.runs.map((r) => r.text).join('');
+const cellText = (c: Run[]): string => c.map((r) => r.text).join('');
+export const textOf = (b: Block): string => (b.t === 'table' ? (b.rows ?? []).map((r) => r.map(cellText).join('\t')).join('\n') : b.t === 'img' ? b.alt ?? '' : b.runs.map((r) => r.text).join(''));
+const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && (a.href ?? '') === (b.href ?? '');
+const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.href ? { href: r.href } : {}) });
+/** Words, letters and minutes of a document: what the line under its title says. */
+export function counts(d: Doc): { words: number; chars: number } {
+  let words = 0;
+  let chars = 0;
+  for (const t of [d.title, ...d.blocks.map(textOf)]) {
+    words += t.match(/\S+/g)?.length ?? 0;
+    chars += t.replace(/\s/g, '').length;
+  }
+  return { words, chars };
+}
 export const docText = (d: Doc): string => d.blocks.map(textOf).join('\n\n');
 export const isHeading = (t: BlockType): boolean => t === 'h1' || t === 'h2' || t === 'h3';
 
@@ -48,8 +90,8 @@ export function tidyRuns(runs: Run[]): Run[] {
   for (const r of runs) {
     if (!r.text) continue;
     const last = out[out.length - 1];
-    if (last && !!last.b === !!r.b && !!last.i === !!r.i) last.text += r.text;
-    else out.push({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}) });
+    if (last && same(last, r)) last.text += r.text;
+    else out.push(keep(r));
   }
   return out;
 }
@@ -215,51 +257,83 @@ export const htmlTitle = (html: string): string => entities(/<title\b[^>]*>([\s\
 // ---------------------------------------------------------------- out
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const safeHref = (u: string): string => (/^(?:https?:|mailto:|tel:)/i.test(u.trim()) ? u.trim() : '');
 const runHtml = (r: Run) => {
   let s = esc(r.text).replace(/\n/g, '<br>');
   if (r.i) s = `<em>${s}</em>`;
   if (r.b) s = `<strong>${s}</strong>`;
+  if (r.u) s = `<u>${s}</u>`;
+  const href = r.href ? safeHref(r.href) : '';
+  if (href) s = `<a href="${esc(href)}">${s}</a>`;
   return s;
 };
+/** A picture's address in an export: its own bytes as a data address (the editor has them in its store). */
+export type ImageOf = (id: string) => string | null;
 
 /** The document as HTML: its blocks (lists grouped), and with `page` a whole page in the document style. */
-export function toHtml(d: Doc, page = false): string {
+export function toHtml(d: Doc, page = false, imageOf: ImageOf = () => null): string {
   const parts: string[] = [];
   let list: 'ul' | 'ol' | null = null;
   for (const b of d.blocks) {
     const inner = b.runs.map(runHtml).join('');
+    const al = b.align && b.align !== 'left' ? ` style="text-align:${b.align === 'justify' ? 'justify' : b.align}"` : '';
+    if (b.t === 'table' || b.t === 'img' || b.t === 'pb') {
+      if (list) {
+        parts.push(`</${list}>`);
+        list = null;
+      }
+      if (b.t === 'pb') parts.push('<hr class="pagebreak">');
+      else if (b.t === 'img') {
+        const src = b.img ? imageOf(b.img) : null;
+        if (src) parts.push(`<p${al}><img src="${src}" alt="${esc(b.alt ?? '')}" style="max-width:${b.w ?? 100}%"></p>`);
+      } else parts.push(`<table>${(b.rows ?? []).map((r, k) => `<tr>${r.map((c) => `<${k === 0 && b.head ? 'th' : 'td'}>${c.map(runHtml).join('')}</${k === 0 && b.head ? 'th' : 'td'}>`).join('')}</tr>`).join('')}</table>`);
+      continue;
+    }
     if (b.t === 'ul' || b.t === 'ol') {
       if (list !== b.t) {
         if (list) parts.push(`</${list}>`);
         parts.push(`<${b.t}>`);
         list = b.t;
       }
-      parts.push(`<li>${inner}</li>`);
+      parts.push(`<li${al}>${inner}</li>`);
       continue;
     }
     if (list) {
       parts.push(`</${list}>`);
       list = null;
     }
-    parts.push(b.t === 'quote' ? `<blockquote>${inner}</blockquote>` : b.t === 'right' ? '<p class="right">' + inner + '</p>' : isHeading(b.t) ? `<${b.t}>${inner}</${b.t}>` : `<p>${inner}</p>`);
+    parts.push(b.t === 'quote' ? `<blockquote${al}>${inner}</blockquote>` : b.t === 'right' ? '<p class="right">' + inner + '</p>' : isHeading(b.t) ? `<${b.t}${al}>${inner}</${b.t}>` : `<p${al}>${inner}</p>`);
   }
   if (list) parts.push(`</${list}>`);
   const body = parts.join('\n');
   if (!page) return body;
   const dir = d.rtl ? ' dir="rtl"' : '';
-  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:.3em .6em;text-align:left}img{height:auto}hr.pagebreak{border:0;border-top:1px dashed #999;margin:2em 0}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
 }
 
 const runMd = (r: Run) => {
   const t = r.text.replace(/([*_\\])/g, '\\$1').replace(/\n/g, '  \n');
-  return r.b && r.i ? `***${t}***` : r.b ? `**${t}**` : r.i ? `*${t}*` : t;
+  const m = r.b && r.i ? `***${t}***` : r.b ? `**${t}**` : r.i ? `*${t}*` : t;
+  const href = r.href ? safeHref(r.href) : '';
+  return href ? `[${m}](${href})` : m;
 };
 /** The document as Markdown (its title first). */
-export function toMarkdown(d: Doc): string {
+export function toMarkdown(d: Doc, imageOf: ImageOf = () => null): string {
   const lines: string[] = [`# ${d.title}`, ''];
   let n = 0;
   d.blocks.forEach((b, k) => {
     const inner = b.runs.map(runMd).join('');
+    if (b.t === 'table' || b.t === 'img' || b.t === 'pb') {
+      if (k) lines.push('');
+      if (b.t === 'pb') lines.push('---');
+      else if (b.t === 'img') lines.push(`![${(b.alt ?? '').replace(/[\[\]]/g, '')}](${(b.img && imageOf(b.img)) || 'picture'})`);
+      else {
+        const rows = (b.rows ?? []).map((r) => `| ${r.map((c) => c.map(runMd).join('').replace(/\|/g, '\\|').replace(/ {2}\n/g, ' ')).join(' | ')} |`);
+        if (rows.length) rows.splice(1, 0, `| ${(b.rows![0] ?? []).map(() => '---').join(' | ')} |`);
+        lines.push(...rows);
+      }
+      return;
+    }
     const prev = d.blocks[k - 1]?.t;
     n = b.t === 'ol' ? (prev === 'ol' ? n + 1 : 1) : 0;
     const line = b.t === 'h1' ? `## ${inner}` : b.t === 'h2' ? `### ${inner}` : b.t === 'h3' ? `#### ${inner}` : b.t === 'ul' ? `- ${inner}` : b.t === 'ol' ? `${n}. ${inner}` : b.t === 'quote' ? `> ${inner}` : inner;
@@ -406,7 +480,7 @@ function pattern(q: string, matchCase: boolean, whole: boolean): RegExp {
 export function findIn(d: Doc, q: string, matchCase = false, whole = false): { id: string; count: number }[] {
   if (!q) return [];
   const re = pattern(q, matchCase, whole);
-  return d.blocks.map((b) => ({ id: b.id, count: [...textOf(b).matchAll(re)].length })).filter((x) => x.count);
+  return d.blocks.map((b) => ({ id: b.id, count: b.t === 'img' || b.t === 'pb' ? 0 : [...textOf(b).matchAll(re)].length })).filter((x) => x.count);
 }
 
 /**
@@ -419,6 +493,15 @@ export function replaceAll(d: Doc, q: string, by: string, matchCase = false, who
   let count = 0;
   let skipped = 0;
   const blocks = d.blocks.map((b) => {
+    if (b.t === 'table') {
+      let inCells = 0;
+      const rows = (b.rows ?? []).map((r) => r.map((c) => tidyRuns(c.map((x) => ({ ...x, text: x.text.replace(re, () => (inCells++, by)) })))));
+      const all = [...textOf(b).matchAll(re)].length;
+      count += inCells;
+      skipped += Math.max(0, all - inCells);
+      return inCells ? { ...b, rows } : b;
+    }
+    if (b.t === 'img' || b.t === 'pb') return b;
     const total = [...textOf(b).matchAll(re)].length;
     let here = 0;
     const runs = b.runs.map((r) => ({ ...r, text: r.text.replace(re, () => (here++, by)) }));
@@ -440,7 +523,8 @@ export const EDITS = {
 export type EditKind = keyof typeof EDITS;
 
 /** The blocks the brain is asked about, numbered from 1 (those with words). */
-export const numbered = (d: Doc): Block[] => d.blocks.filter((b) => textOf(b).trim());
+export const plainBlock = (b: Block): boolean => b.t !== 'table' && b.t !== 'img' && b.t !== 'pb';
+export const numbered = (d: Doc): Block[] => d.blocks.filter((b) => plainBlock(b) && textOf(b).trim());
 
 /** The words for the brain: what to do, and the document as numbered paragraphs (the turn's data). */
 export function editMessage(d: Doc, kind: EditKind | string): string {
@@ -550,7 +634,7 @@ export function translatedDoc(d: Doc, replies: Map<number, string>, language: st
   let missing = 0;
   let n = 0;
   const blocks = d.blocks.map((b) => {
-    if (!textOf(b).trim()) return { ...b, id: blockId() };
+    if (!plainBlock(b) || !textOf(b).trim()) return { ...b, id: blockId() };
     n++;
     const t = replies.get(n);
     if (!t) missing++;
@@ -559,3 +643,33 @@ export function translatedDoc(d: Doc, replies: Map<number, string>, language: st
   const doc: Doc = { ...newDoc(`${d.title} (${language})`, blocks, 'translation', d.title), lang: language, ...(isRtl(language) ? { rtl: true } : {}) };
   return { doc, missing };
 }
+
+// ---------------------------------------------------------------- Ghosty writing into the page
+
+/** What he asks Ghosty to put into the document: the words come back as Markdown for the page (the ordinary chat, the document as the data). */
+export function writeMessage(d: Doc, instruction: string, after = ''): string {
+  const so = d.blocks
+    .filter(plainBlock)
+    .map(textOf)
+    .filter((t) => t.trim())
+    .join('\n')
+    .slice(-1800);
+  return `DOCUMENT WRITE — ${instruction.trim()}. This goes into my document "${d.title}"${after ? `, after the paragraph "${after.slice(0, 80)}"` : ''}. Reply ONLY with the words to put in, as Markdown (# headings, - lists, **bold**): no greeting, no comment before or after.${so ? `\n\nThe document so far:\n${so}` : ''}`;
+}
+
+/** One paragraph for Ghosty to say again his way: the reply is its new words only. */
+export function rewriteMessage(text: string, instruction: string): string {
+  return `DOCUMENT REWRITE — ${instruction.trim() || 'in clearer, shorter words'}. Reply ONLY with this paragraph rewritten, as one paragraph, keeping names, dates, figures and addresses exactly:\n\n${text.replace(/\n/g, ' / ')}`;
+}
+
+/** The brain's words for the page as blocks: the chatter before and after the writing left out. */
+export function writtenBlocks(reply: string): Block[] {
+  const text = reply.replace(/\r\n?/g, '\n').replace(/^```[a-z]*\n|\n```\s*$/g, '');
+  const paras = text.split(/\n{2,}/);
+  while (paras.length > 1 && CHATTER_START.test(paras[0]!.trim()) && paras[0]!.trim().length < 160) paras.shift();
+  while (paras.length > 1 && CHATTER_END.test(paras[paras.length - 1]!.trim())) paras.pop();
+  return fromMarkdown(paras.join('\n\n'));
+}
+
+/** A table of `rows` by `cols` empty cells, its first row the header. */
+export const newTable = (rows: number, cols: number): Block => ({ id: blockId(), t: 'table', runs: [], head: true, rows: Array.from({ length: rows }, () => Array.from({ length: cols }, () => [] as Run[])) });
