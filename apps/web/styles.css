@@ -6414,40 +6414,40 @@ html .scanalt.on .g-truth { color: var(--g-accent-text); }
 html .scanask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: var(--scan-floor); pointer-events: auto; }
 /* the ask line's plate carries every control the bar has: the chat key, the on-this-phone key, the field, CITED, the microphone (SEND where
    he has typed), and the plus (voice replies, the camera) with the chat open; 44 pt at least each, nothing sideways at 390 or 440 */
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar { position: relative; display: flex; align-items: stretch; flex: none; margin: 0; padding: 0; width: 100%; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar > :not(.plusmenu) { grid-column: auto; grid-row: auto; justify-self: auto; align-self: center; flex: none !important; margin: 0; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #cin { order: 4; flex: 1 1 0 !important; min-width: 0; width: auto; height: 44px; min-height: 44px; padding: 0 8px 0 6px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: none !important; border-radius: 0; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #cin:not(:placeholder-shown) { padding: 0 8px 0 6px; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #cin::placeholder { color: var(--g-ink-3); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #cin:focus { box-shadow: none !important; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar :is(.logbtn, .plusbtn, .herebtn, .citedbtn, .sendbtn), html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #mic { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .logbtn { order: 1; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusbtn { order: 2; display: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core.logopen #cbar .plusbtn, html body:is(.scanhome, .inkhome, .maphome) .hud.core.logopen #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: grid; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusbtn .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .herebtn { order: 3; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .herebtn[hidden] { display: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .logbtn::before, html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .herebtn::before { background: var(--g-ink-2); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar :is(.logbtn, .herebtn).on::before { background: var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .herebtn.on { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .citedbtn { order: 5; display: flex; width: auto; min-width: 44px; padding: 0 10px; border-left: var(--g-stroke) solid var(--g-line); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; color: var(--g-ink-2); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .citedbtn::before { display: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .citedbtn.on { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); background: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .sendbtn { order: 6; display: none; width: 48px; border-left: var(--g-stroke) solid var(--g-line); background: var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .sendbtn::before { background: var(--g-canvas); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .sendbtn { display: grid; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) :is(#mic, .citedbtn, .logbtn) { display: none; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #mic { order: 7; width: 48px; border-left: var(--g-stroke) solid var(--g-line); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusmenu { left: 0; bottom: calc(100% + var(--g-s-1)); min-width: 230px; padding: var(--g-s-half); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); box-shadow: none; -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusmenu button { height: 48px; min-height: 48px !important; border-radius: 0; color: var(--g-ink-1); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusmenu #lensbtn::after { font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusmenu > button:first-child::before { background: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .plusmenu #lensbtn .ic { stroke: var(--g-ink-1); }
-@media (max-width: 400px) { html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar .citedbtn { padding: 0 8px; } }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #mic .ic { stroke: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #mic.on { background: none; color: var(--g-accent-text); }
-html body:is(.scanhome, .inkhome, .maphome) .hud.core #cbar #mic.on .ic { stroke: var(--g-accent-text); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar { position: relative; display: flex; align-items: stretch; flex: none; margin: 0; padding: 0; width: 100%; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar > :not(.plusmenu) { grid-column: auto; grid-row: auto; justify-self: auto; align-self: center; flex: none !important; margin: 0; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin { order: 4; flex: 1 1 0 !important; min-width: 0; width: auto; height: 44px; min-height: 44px; padding: 0 8px 0 6px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: none !important; border-radius: 0; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin:not(:placeholder-shown) { padding: 0 8px 0 6px; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin::placeholder { color: var(--g-ink-3); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin:focus { box-shadow: none !important; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar :is(.logbtn, .plusbtn, .herebtn, .citedbtn, .sendbtn), html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .logbtn { order: 1; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusbtn { order: 2; display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core.logopen #cbar .plusbtn, html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core.logopen #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: grid; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusbtn .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn { order: 3; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn[hidden] { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .logbtn::before, html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn::before { background: var(--g-ink-2); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar :is(.logbtn, .herebtn).on::before { background: var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn.on { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn { order: 5; display: flex; width: auto; min-width: 44px; padding: 0 10px; border-left: var(--g-stroke) solid var(--g-line); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; color: var(--g-ink-2); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn::before { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn.on { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); background: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .sendbtn { order: 6; display: none; width: 48px; border-left: var(--g-stroke) solid var(--g-line); background: var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .sendbtn::before { background: var(--g-canvas); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .sendbtn { display: grid; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) :is(#mic, .citedbtn, .logbtn) { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic { order: 7; width: 48px; border-left: var(--g-stroke) solid var(--g-line); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu { left: 0; bottom: calc(100% + var(--g-s-1)); min-width: 230px; padding: var(--g-s-half); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); box-shadow: none; -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu button { height: 48px; min-height: 48px !important; border-radius: 0; color: var(--g-ink-1); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu #lensbtn::after { font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu > button:first-child::before { background: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu #lensbtn .ic { stroke: var(--g-ink-1); }
+@media (max-width: 400px) { html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn { padding: 0 8px; } }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic .ic { stroke: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic.on { background: none; color: var(--g-accent-text); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic.on .ic { stroke: var(--g-accent-text); }
 /* the column over the world, under the greeting and above the altitude keys, the ask line and the house: the plates of today's Home
    (the wall, the task at work, the chips, whose voice, the readings), scrolling; empty, only the key to THE DAY stays and the world is clear.
    Under the marks (a key is always the thing under the finger); the empty room between the plates lets the world and the orb's tap through */
@@ -6600,30 +6600,30 @@ html #top .headstamp { display: none; }
   html #app #dock .housemic { flex: none; display: grid; place-items: center; width: 48px; height: 100%; min-height: 48px !important; margin: 0; padding: 0; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; }
   html #dock .housemic .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
   /* the top: the stamp line, then the page's name in the system's display type, with its way back and the keys at the right */
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle[data-len="l"] { font-size: 28px; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { font-size: 28px; }
   /* a long title (a panel's "Phone · App & Notifications") is said whole on two lines, never cut with dots */
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle[data-len="l"] { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navback { order: 5; display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-half); width: auto !important; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navback[hidden] { display: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navback .ic { width: 16px; height: 16px; stroke: var(--g-ink-1); stroke-width: 2.2; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .navback span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; text-transform: uppercase; white-space: nowrap; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .sp { display: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top :is(.cmd, .you) { order: 6; flex: none; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .cmd::before { background: var(--g-ink-1); }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .you .av { width: 100%; height: 100%; border-radius: var(--g-radius-key); background: none; color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); box-shadow: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .you.on { border-color: var(--g-accent); }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .you.on .av { box-shadow: none; color: var(--g-accent-text); }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top :is(.clock, .conn, .tstatus, .logo) { display: none !important; }
-  html body.housed:not(.scanhome, .inkhome, .maphome) #top .pausedtag { order: 7; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback { order: 5; display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-half); width: auto !important; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback[hidden] { display: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback .ic { width: 16px; height: 16px; stroke: var(--g-ink-1); stroke-width: 2.2; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; text-transform: uppercase; white-space: nowrap; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .sp { display: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top :is(.cmd, .you) { order: 6; flex: none; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .cmd::before { background: var(--g-ink-1); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you .av { width: 100%; height: 100%; border-radius: var(--g-radius-key); background: none; color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); box-shadow: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you.on { border-color: var(--g-accent); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you.on .av { box-shadow: none; color: var(--g-accent-text); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top :is(.clock, .conn, .tstatus, .logo) { display: none !important; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .pausedtag { order: 7; }
   /* God's Eye in the house: its header stands in the flow with the stamp, the title and the keys as every screen has them (it floated over the globe, and the stamp sat on the search and the layer chips); the globe fills what is under it */
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome) #top { position: relative; z-index: auto; left: auto; top: auto; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome) #top .navtitle { display: block !important; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome) #top .cmd { display: block !important; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome) #top .you { display: grid !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top { position: relative; z-index: auto; left: auto; top: auto; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .cmd { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you { display: grid !important; }
   html body.housed[data-depth="inner"] .hud.eye .eyetop { padding-left: 0; }
   html body.housed .eyechips { margin-left: 0; }
   html body.housed .eyetop .myplaces { margin-left: 54px; } /* (as Glass's: the layers button stands at the left of the row above, not over the first place) */
@@ -6918,10 +6918,10 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="ink"] #plan .planroom.lit .planroomhead { box-shadow: inset 0 calc(-1 * var(--g-stroke)) 0 var(--g-ink-1); }
   html[data-world="ink"] #plan .planthing .g-index { color: var(--g-ink-3); }
   /* the stamp and the page's name on every screen: the title in the serif, a rule under the stamp */
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle[data-len="l"] { font-size: 28px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome) #top .navtitle[data-len="xl"] { font-size: 22px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { font-size: 28px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="xl"] { font-size: 22px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
   /* rules instead of boxes: a plate is a rule above and below, a key keeps its edge */
   html[data-world="ink"] body.housed .g-plate, html[data-world="ink"] body.housed .jplate { border-width: var(--g-hair) 0; }
   html[data-world="ink"] body.housed :is(.scanset, .planroom) { background: none; }
@@ -7037,6 +7037,122 @@ html .maphudframe { display: none; position: absolute; left: 0; right: 0; top: 0
   html[data-world="map"] body.housed :is(.scanset, .jplate, #plan .plangrid) { border-style: var(--g-plate-edge); }
 }
 @media (prefers-reduced-motion: reduce) { html .mapgrid { animation: none; } }
+
+/* =====================================================================================================================
+   THE EYE (BRIEF-EYE-HUD; features/core/eye/home.ts, eye/ground.ts, shell/house.ts eyeOn): attention is the material. Home is the
+   wall of what the Machine watches, every feed in grain but the one it looks at (sharp, in the accent box, the orb's line of sight
+   drawn up to it); God's Eye's globe turns under it, in grain, as the ground (the engine's own canvas, throttled in eye/ground.ts); the
+   house is the INSTRUMENTS on every screen: seven small feeds with the room's word, the one he is in the one sharp feed. A fine
+   grain is the floor, plates are dotted, a favourite carries bracket corners. Nothing of The Scan's room, ONE INK's page, THE MAP's
+   plane or Glass's blur. Every value is a token (styles.css has no raw colour here: the world's own tokens carry the grain).
+   ===================================================================================================================== */
+html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 1; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + var(--g-s-1)) var(--g-gutter) var(--g-s-1); background: none; color: var(--g-ink-1); }
+@media (max-width: 899px) {
+  html body.eyehome .hud.core { display: block; padding: 0; }
+  html body.eyehome .hud.core .eyeframe { display: flex; flex-direction: column; }
+  html body.eyehome .hud.core:not(.logopen) > :not(.eyeframe) { display: none !important; }
+  html body.eyehome #top { display: none; }
+  html body.eyehome::before { display: none; }
+  html body.eyehome .hud.core.logopen > :not(.eyeframe, .ccenter) { display: none !important; }
+  html body.eyehome .hud.core.logopen .eyeframe { visibility: hidden; }
+  html body.eyehome .hud.core.logopen > .ccenter { position: absolute; inset: 0; z-index: 7; gap: 0; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + 56px) var(--g-gutter) max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); overflow: hidden; background: var(--g-canvas); }
+  html body.eyehome.ownback #top { display: flex; position: absolute; z-index: 12; left: 0; right: 0; top: env(safe-area-inset-top, 0px); min-height: 0; padding: var(--g-s-1) var(--g-gutter) 0; background: none; }
+  html body.eyehome.ownback #top .logbtn { width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; border: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: 0 !important; background: none; box-shadow: none; }
+  html body.eyehome .hud.core.logopen > .ccenter > #cbar { margin-top: auto; }
+  html body.eyehome .hud.core.logopen > .ccenter > .log { flex: 1 1 auto; min-height: 0; overflow-y: auto; pointer-events: auto; }
+  html body.eyehome.ownback #top :is(.logo, .clock, .conn, .tstatus, .navtitle, .navback, .sp, .rcdate, .cmd, .you) { display: none !important; }
+  /* the ground: the globe's canvas shows through (eye/ground.ts starts it after the first paint); a veil darkens it where words stand and a fine grain lies over it */
+  html body.eyehome #gl { opacity: .55; }
+  html .eyeveil { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 0; pointer-events: none; will-change: transform; contain: strict; background: linear-gradient(to bottom, rgba(var(--g-canvas-rgb), .9), rgba(var(--g-canvas-rgb), .45) 38%, rgba(var(--g-canvas-rgb), .6) 78%, rgba(var(--g-canvas-rgb), .9)); }
+  html .eyeveil::before { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(var(--g-bone-rgb), calc(var(--g-floor-a) * 1.2)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
+  html .eyeframe > :not(.eyeveil) { position: relative; z-index: 1; }
+  html .eyemast { flex: none; padding: var(--g-s-1) 0; border-bottom: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); }
+  html .eyemast .hstamp { padding: 0; opacity: 1; }
+  html .eyemast .g-stamp .on { color: var(--g-accent-text); }
+  html .eyesay { flex: none; margin: var(--g-s-2) 0 0; font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); }
+  html .eyesay2 { flex: none; margin: 4px 0 0; min-height: 26px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html .eyeframe[data-reply="true"] .eyesay2 { cursor: pointer; color: var(--g-ink-1); }
+  /* the wall: the rooms across the top and the foot, the side feeds down both sides, tonight's the one sharp feed between them over the orb */
+  html .eyewall { flex: 1 0 auto; min-height: 400px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(52px, auto) minmax(112px, 1fr) minmax(112px, 1fr) minmax(112px, 1fr) minmax(52px, auto); grid-template-areas: "r0 r1 r2 r3" "a t t d" "b t t e" "c o o f" "r4 r5 s s"; gap: var(--g-s-half); margin-top: var(--g-s-2); }
+  html .eyefeed { position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; min-width: 0; box-sizing: border-box; margin: 0; padding: 0; border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-radius: var(--g-radius-cell); background: rgba(var(--g-canvas-rgb), .55); box-shadow: none; overflow: hidden; text-align: left; color: var(--g-ink-1); }
+  html #app button.eyefeed { min-height: var(--g-target) !important; height: auto; font: var(--g-t-body) !important; letter-spacing: 0 !important; text-transform: none; }
+  html .eyefeed[data-slot="a"] { grid-area: a; } html .eyefeed[data-slot="b"] { grid-area: b; } html .eyefeed[data-slot="c"] { grid-area: c; }
+  html .eyefeed[data-slot="d"] { grid-area: d; } html .eyefeed[data-slot="e"] { grid-area: e; } html .eyefeed[data-slot="f"] { grid-area: f; }
+  html .eyefeed[data-slot="t"] { grid-area: t; }
+  html .eyefeed[data-room="see"] { grid-area: r0; } html .eyefeed[data-room="make"] { grid-area: r1; } html .eyefeed[data-room="learn"] { grid-area: r2; } html .eyefeed[data-room="plan"] { grid-area: r3; }
+  html .eyefeed[data-room="life"] { grid-area: r4; } html .eyefeed[data-room="me"] { grid-area: r5; } html .eyefeed[data-room="screens"] { grid-area: s; }
+  html .eyepic { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; opacity: 1; pointer-events: none; }
+  html .eyefeed .eyetag { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box; padding: 2px 6px; background: var(--g-canvas); color: var(--g-ink-1); letter-spacing: .02em; text-transform: uppercase; line-height: 1.25; white-space: normal; overflow: hidden; }
+  html .eyefeed .eyetag span { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
+  html:is([data-body="19"], [data-body="21"]) .eyefeed .eyetag { font: var(--g-t-fine); letter-spacing: .02em; }
+  html:is([data-body="19"], [data-body="21"]) .eyefeed .eyeic { display: none; }
+  html .eyefeed .eyeic { flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  html .eyefeed.room .eyeline { letter-spacing: .02em; padding: 1px 4px; white-space: normal; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
+  html .eyefeed .eyeline { position: relative; z-index: 1; max-width: 100%; box-sizing: border-box; padding: 1px 6px; background: var(--g-canvas); color: var(--g-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+  html .eyefeed:not(.room, .sharp) .eyeline { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; overflow-wrap: anywhere; letter-spacing: .02em; line-height: 1.25; }
+  /* the edge of his attention: a favourite carries bracket corners, a recent a clock; neither is sharp */
+  html .eyefeed[data-kind="favourite"]::after { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; background: linear-gradient(var(--g-ink-2), var(--g-ink-2)) right top / 10px var(--g-stroke) no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) right top / var(--g-stroke) 10px no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) left bottom / 10px var(--g-stroke) no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) left bottom / var(--g-stroke) 10px no-repeat; }
+  html .eyefeed.free { border-style: dotted; background: none; }
+  html .eyefeed.free .eyeline { white-space: normal; text-transform: none; }
+  html .eyefeed.free :is(.eyetag, .eyeline) { color: var(--g-ink-4); background: none; }
+  html #app button.eyefeed:active { border-color: var(--g-accent); }
+  /* the one sharp feed: no grain, the accent box, its words at full size */
+  html .eyefeed.sharp { justify-content: flex-start; align-items: stretch; gap: 4px; border: var(--g-stroke) solid var(--g-accent); background: rgba(var(--g-canvas-rgb), .94); padding-bottom: 0; }
+  html .eyefeed.sharp .eyetag { align-self: flex-start; color: var(--g-accent-text); }
+  html .eyefeed.sharp > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  html .eyefeed.sharp .eyename { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; padding: 0 8px; font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow: hidden; overflow-wrap: anywhere; }
+  html .eyefeed.sharp .eyeline { margin-top: auto; background: none; padding: 0 8px 6px; text-transform: none; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  html .eyeorb { grid-area: o; position: relative; min-height: 70px; }
+  html .eyeorbhost { position: absolute; left: 50%; bottom: 0; width: 64px; height: 64px; margin-left: -32px; cursor: pointer; z-index: 1; }
+  html .eyeorbhost .rwrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; transform: none; filter: none; opacity: 1; }
+  html .eyeorbhost canvas.reactor { width: 100%; height: 100%; max-width: none; }
+  /* the line of sight: from the orb up to the sharp feed, dashed, in the accent */
+  html .eyesight { position: absolute; left: 50%; top: calc(-1 * var(--g-s-half)); height: calc(100% - 64px + var(--g-s-half)); width: 0; border-left: var(--g-stroke) dashed var(--g-accent); }
+  html .eyelegend { flex: none; margin: var(--g-s-1) 0 0; text-transform: uppercase; color: var(--g-ink-3); }
+  html .eyelegend b { font-weight: inherit; color: var(--g-accent-text); }
+  html .eyeask { flex: none; display: flex; align-items: stretch; height: 48px; margin-top: var(--g-s-1); border: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); }
+  html #app button.eyefield { flex: 1 1 0; min-width: 0; display: flex; align-items: center; min-height: 48px !important; height: 100%; margin: 0; padding: 0 var(--g-s-2); border: 0; border-radius: 0; background: none; box-shadow: none; font: var(--g-t-body) !important; letter-spacing: var(--g-tr-body) !important; text-transform: none; text-align: left; color: var(--g-ink-3); overflow: hidden; white-space: nowrap; }
+  html #app button.eyespeak { flex: none; display: grid; place-items: center; width: 48px; min-height: 48px !important; height: 100%; margin: 0; padding: 0; border: 0; border-left: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: 0; background: none; box-shadow: none; }
+  html .eyespeak .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
+  html #app button.eyespeak.on .ic { stroke: var(--g-accent); }
+  html body.eyehome:is(.kb, .ownback) .eyeframe { padding-bottom: var(--g-s-1); }
+}
+/* a short phone (390 × 844): the wall a little lower, so the ask line still ends above the instruments' words */
+@media (max-width: 899px) and (max-height: 880px) {
+  html .eyewall { min-height: 346px; grid-template-rows: minmax(48px, auto) minmax(100px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(48px, auto); margin-top: var(--g-s-1); }
+  html .eyesay { margin-top: var(--g-s-1); }
+  html .eyeorb { min-height: 70px; }
+  html .eyeorbhost { width: 56px; height: 56px; margin-left: -28px; }
+  html .eyesight { height: calc(100% - 56px + var(--g-s-half)); }
+}
+
+/* ---- the instruments: the house as seven small feeds on every screen (shell/house.ts eyeOn): a grain picture of its own and the room's word, the one he is in sharp */
+@media (max-width: 899px) {
+  html[data-world="eye"] body.eyehome #dock .houseask { display: none; }
+  html[data-world="eye"] body.housed #dock.areas { background: linear-gradient(to top, var(--g-canvas) 0, var(--g-canvas) 72%, rgba(var(--g-canvas-rgb), 0)); }
+  html[data-world="eye"] body.housed #dock .tabcap { flex: none; display: flex; align-items: stretch; gap: var(--g-s-half); height: auto; padding: var(--g-s-1) 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-world="eye"] body.housed #dock .tabcap::before, html[data-world="eye"] body.housed #dock .tabcap::after { display: none; }
+  html[data-world="eye"] body.housed #dock .tabcap button { position: relative; flex: 1 1 0; display: flex; flex-direction: row; align-items: flex-end; justify-content: center; min-width: 0; min-height: 56px !important; height: 56px; padding: 0 0 5px; border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-radius: var(--g-radius-key); background: rgba(var(--g-canvas-rgb), .6); box-shadow: none; overflow: hidden; font: var(--g-t-key) !important; letter-spacing: .04em !important; text-transform: uppercase; color: var(--g-ink-3); }
+  html[data-world="eye"] body.housed #dock .tabcap button[data-area="ask"], html[data-world="eye"] body.housed #dock .tabcap button[data-area="learn"] { flex-grow: 1; }
+  html[data-world="eye"] body.housed #dock .tabcap button span { position: relative; z-index: 1; padding: 0 3px; background: var(--g-canvas); }
+  /* a key's own grain: the floor's dots, thinned by a slope that leans a different way on each */
+  html[data-world="eye"] body.housed #dock .tabcap button::before { content: ''; display: block; position: absolute; left: 0; right: 0; top: 0; bottom: 20px; width: auto; height: auto; margin: 0; border-radius: 0; background: rgba(var(--g-bone-rgb), .7); box-shadow: none; clip-path: none; -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat, linear-gradient(var(--lean, 160deg), var(--g-ink-1), transparent 85%); -webkit-mask-composite: source-in; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat, linear-gradient(var(--lean, 160deg), var(--g-ink-1), transparent 85%); mask-composite: intersect; opacity: .8; }
+  html[data-world="eye"] body.housed #dock .tabcap button:nth-child(2) { --lean: 200deg; } html[data-world="eye"] body.housed #dock .tabcap button:nth-child(3) { --lean: 120deg; }
+  html[data-world="eye"] body.housed #dock .tabcap button:nth-child(4) { --lean: 250deg; } html[data-world="eye"] body.housed #dock .tabcap button:nth-child(5) { --lean: 90deg; }
+  html[data-world="eye"] body.housed #dock .tabcap button:nth-child(6) { --lean: 300deg; } html[data-world="eye"] body.housed #dock .tabcap button:nth-child(7) { --lean: 60deg; }
+  html[data-world="eye"] body.housed #dock .tabcap button::after { content: ''; position: absolute; left: auto; right: 4px; top: 4px; width: 0; height: 0; margin: 0; border-radius: 0; background: none; }
+  html[data-world="eye"] body.housed #dock .tabcap button:first-child::after { display: block; }
+  html[data-world="eye"] body.housed #dock .tabcap button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); left: auto; right: 3px; top: 3px; width: auto; height: 16px; min-width: 16px; background: var(--g-canvas); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-amber); color: var(--g-ink-1); font: var(--g-t-fine); line-height: 16px; text-align: center; }
+  /* the one sharp feed: no grain, the accent box, its word lit */
+  html[data-world="eye"] body.housed #dock .tabcap button.on { border: var(--g-stroke) solid var(--g-accent); background: rgba(var(--g-canvas-rgb), .94); box-shadow: none; color: var(--g-accent-text); }
+  html[data-world="eye"] body.housed #dock .tabcap button.on::before { display: none; }
+  html[data-world="eye"] body.planned #dock .tabcap { visibility: visible; }
+  /* the plan, as the wall: each room a feed with its things, the room he is looking at boxed */
+  html[data-world="eye"] #plan .planroom { border-style: dotted; border-width: var(--g-hair); }
+  html[data-world="eye"] #plan .planroom.lit { box-shadow: none; border: var(--g-stroke) solid var(--g-accent); }
+  html[data-world="eye"] #plan .planroom.lit .planroomhead { color: var(--g-accent-text); }
+  html[data-world="eye"] body.housed :is(.scanset, .jplate, #plan .plangrid) { border-style: var(--g-plate-edge); }
+}
 
 /* ==========================================================================================================================
    THE STAGE (BRIEF-SHOW-ME-1; show/stage.ts): what the answer is about, brought up and shown. A plate brought to the front, in the

@@ -346,7 +346,8 @@ built in the old look after day one, so no screen is built twice.
    GAMES landed 10 Nov (OWNER-ISSUES 172): BLOCKS, BLAST, THE FLAP, THE CLIMB, THE BEAT with a level that has no ceiling, each played by him and by Ghosty; PR #81 merged (c4172f5), main's own run green 11 Nov 00:05 UK: FINISHED on the code side, pending his phone check.
    THE SIX KERNEL CHANGES landed 11 Nov (OWNER-ISSUES 175): turn reads side by side, streaming, key cache, the brain's own picture, the SHOW ME switch; PR #82 merged (65cb295), main's own run green 11 Nov: FINISHED on the code side, pending his phone check.
    THE 3-D ENGINE, PASS 1 landed 11 Nov (OWNER-ISSUES 177): MAKE's 3-D ENGINE (touch camera, shapes and parts by size, free models on his tap, save, glTF export, SHOW ME's OPEN); PR #83 merged (5741b12), main's own run green 11 Nov: FINISHED on the code side, pending his phone check.
-   THE MAP landed 11 Nov (OWNER-ISSUES 180): the third whole HUD (Home as the plane with districts and the square of nine; the house as a scale on every screen); THE EYE next; pending the PR's run.
+   THE MAP landed 11 Nov (OWNER-ISSUES 180): the third whole HUD (Home as the plane with districts and the square of nine; the house as a scale on every screen); THE EYE next; PR #84 merged (2c65f80), main's own run green 12 Nov: FINISHED on the code side, pending his phone check.
+   THE EYE HUD landed 12 Nov (OWNER-ISSUES 181): the fourth whole HUD (Home as the wall of feeds, the instruments as the tab bar, the globe behind); pending the PR's run.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,
