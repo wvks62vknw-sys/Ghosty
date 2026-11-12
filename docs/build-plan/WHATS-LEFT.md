@@ -65,7 +65,10 @@ Four lists in the order things happen, then the questions only you can answer. Q
     the next one, your memory timeline says "Today" and "Yesterday", every switch says what changes when it is off, a failed link says what to
     check, a post never sent without your APPROVE and a failed one says "Nothing went out. APPROVE sends it once."
 
-## 2. Being built right now (three; two more start the moment Polish 1 and the October ideas are live)
+## 2. Being built right now (four; one more starts the moment the October ideas are live)
+- **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain (it
+  proposes a change to your open document, you accept or reject with one tap), physics for the 3-D engine (a dropped part lands; the physics
+  download only on your tap with its size said), and automatic rollback if a published brain fails its own first check.
 - **Video 2.** Your yes, being built: in the video editor, STEADY takes the shake out of a hand-held clip (the crop it costs said as a
   percentage), BEST CLIPS picks the sharp, well-lit, varied ones for a 15, 30 or 60 second cut with the reason for each, ON THE BEAT moves
   your cuts to the music's beat, REVERSE and a speed RAMP; all the phone's own arithmetic, nothing new downloaded unless the builder proves it
@@ -91,8 +94,6 @@ Four lists in the order things happen, then the questions only you can answer. Q
   answers split at sentence ends and never mid-word, lists and headings as clean plain text, a video said plainly as unwatched before any
   answer, the approval card saying what APPROVE and NOT NOW each do, reminders as "Reminder: …" with the time; and the pairing page on the
   phone in one sentence per state. Starts when the chat's pass hands back.
-- **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain,
-  physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 - **The EYE look finished.** The second pass on THE EYE: every room drawn as the wall of grain feeds too (not just Home), the boot ending as
   the eye, what Ghosty can do as a wall of feeds, the ask line above the instruments at the biggest text, the globe's silent first start
   said, and offline feeds showing their last reading with its age. Starts once the game studio is live.

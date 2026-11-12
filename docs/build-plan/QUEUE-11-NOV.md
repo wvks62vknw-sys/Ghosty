@@ -16,7 +16,7 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [ ] Landing, in order: OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
   QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · QUALITY PASS: MAKE (builder/makepass, base 08a5337a, head 4741dc42, entry 210) · QUALITY PASS: PLAN AND ME (builder/planmepass, base 08a5337a, head 093ba13f, entry 211; union with MAKE's ratchet rows and `all=`) · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO) · VIDEO (on the fold: builder/videofold, base 0aff585c, head 3bcd43b6; its reserved entry; lands right after PHOTO 2; tabs2's 42 count stands on CI's word) · GAME STUDIO (on the fold: builder/gsfold head e2cd3f18; land only 0e605afa..e2cd3f18, the 15 commits under them are GAMES 5 scaffolding; entry 208)
-- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · VIDEO 2 (BRIEF-EDITOR-VIDEO-2; from VIDEO's fold head 3bcd43b6, worktree video2, branch builder/video2, port 8839) · QUALITY PASS: LEARN (from the MAKE pass head 4741dc42, worktree learnpass, port 8840; entry 212)
+- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · VIDEO 2 (BRIEF-EDITOR-VIDEO-2; from VIDEO's fold head 3bcd43b6, worktree video2, branch builder/video2, port 8839) · QUALITY PASS: LEARN (from the MAKE pass head 4741dc42, worktree learnpass, port 8840; entry 212) · KERNEL 2 (BRIEF-KERNEL-2; from main 8762f9b4 after POLISH 1, worktree kernel2, branch builder/kernel2, port 8818)
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -227,3 +227,5 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
 - 12 Nov, BRIEF-QUALITY-BOOT-ORB written (the tenth quality pass: the boot's and the orb's every state, the ribbon; spec `bootpass`; port 8846;
   starts from main once #91 and #92 are green there; the HOME pass's boot words taken as given, union at landing). Every room pass is now
   written: chat, Telegram, EYE 2, boot and orb wait for their starts; KERNEL 2 and POLISH 3 wait for #91/#92.
+- 12 Nov, POLISH 1 merged (#91, 8762f9b); KERNEL 2 started from that main at once (worktree kernel2, port 8818); its entry number is the
+  orchestrator's reserved one. I mark POLISH 1 live when main's own run is green.
