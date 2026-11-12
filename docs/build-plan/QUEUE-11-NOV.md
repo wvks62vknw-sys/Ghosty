@@ -209,3 +209,6 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   CI's shards decide. VIDEO 2 started from 3bcd43b6 (worktree video2, port 8839).
 - 12 Nov, BRIEF-QUALITY-CHAT written (the eighth quality pass: the log, a turn's states, the talk bar, the Stage, the sources, the phone's
   own answers, the guardian's words only; from the LEARN pass head; spec `chatpass`; port 8842; entry 213 when it hands back; mine next 214).
+- 12 Nov, BRIEF-QUALITY-TELEGRAM written (the ninth quality pass: every message Ghosty sends in Telegram and the pairing page; telegram.ts is
+  not protected, agent.ts's two routes untouched; from the chat pass head; spec `telegrampass`; port 8843; entry 214 when it hands back; mine
+  next 215).
