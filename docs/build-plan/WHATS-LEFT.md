@@ -2,12 +2,12 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-three; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-two; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
-2. **Your phone's own hardware used properly.** 120 Hz motion everywhere, bigger "eyes" for the camera and the Lens on a Pro Max, the GYM
-   using the phone's graphics chip, and the offline brain measured honestly for speed on your phone.
+2. ~~Your phone's own hardware used properly~~ LIVE since 12 Nov: 120 Hz motion everywhere, bigger "eyes" for the camera and the Lens on a
+   Pro Max, the GYM using the phone's graphics chip, and the offline brain measured honestly for speed on your phone. Steps in TRY-IT-NOW.
 3. ~~Documents~~ LIVE since 12 Nov: a real Word-like writer in MAKE, Word and PDF out, someone else's Word file in. Steps in TRY-IT-NOW.
 4. **The readout ribbon and the orb that reacts.** A line that shows what Ghosty is doing; tilting the phone moves the light; the light
    follows the time of day; it says "On it." when you ask for something.
