@@ -18,7 +18,7 @@ import { news } from '../../data/news';
 import { air, airBand, WMO, temp, weather } from '../../data/weather';
 import { onFrame } from '../../engine/scheduler';
 import { stopwatch } from '../../core/stopwatch';
-import { run } from '../../commands/registry';
+import { jumpOpen, run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
 import { navTo } from '../../shell/areas';
 import { lookingAt, stampFacts } from '../../shell/awareness';
@@ -949,6 +949,9 @@ export const coreTab: TabDef = {
     let glowTick = 0;
     onFrame((dt) => {
       if (ui.get().tab !== 'core') return;
+      // the jump bar covers the whole screen while it is open: the reactor and its rings are not drawn behind it (two layout reads and two canvases every
+      // frame are the dearest thing the page does while it opens, and its open waits behind them)
+      if (jumpOpen()) return;
       reactor.level = ui.get().voice === 'listening' ? micLevel.level : 0;
       reactor.spectrum = ui.get().voice === 'listening' ? micLevel.spectrum : null;
       reactor.frame(dt);
