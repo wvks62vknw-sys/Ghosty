@@ -51,8 +51,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
     rule's line word for word, every measurement says "a first estimate", every threat says when and from which feed.
 23. **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel, people
     with dialogue and shops, quests, save points), play it from the ARCADE, share it as a file, save it as a page you can add to your Home
-    Screen. Being seated on the EDITORS card right now (list 2); goes up after Video. "Put it on my sites" is not in it yet (see your answers
-    below).
+    Screen. Checked and now the seventh pill of the EDITORS card in MAKE; goes up right after Video. "Put it on my sites" is not in it yet
+    (see your answers below).
 24. **Photo 2.** Your yes, built: in the photo editor, SUBJECT can fetch a real cut-out model (4.6 MB), ERASE a real erase model (about
     70 MB with its runtime) and OPEN RAW a camera-RAW reader (under 1 MB), each only on your tap on Wi-Fi with the size said first, kept on
     the phone, removable; licences checked and written down before a byte was taken. Goes up right after Photo.
@@ -65,7 +65,7 @@ Four lists in the order things happen, then the questions only you can answer. Q
     the next one, your memory timeline says "Today" and "Yesterday", every switch says what changes when it is off, a failed link says what to
     check, a post never sent without your APPROVE and a failed one says "Nothing went out. APPROVE sends it once."
 
-## 2. Being built right now (four)
+## 2. Being built right now (three; two more start the moment Polish 1 and the October ideas are live)
 - **Video 2.** Your yes, being built: in the video editor, STEADY takes the shake out of a hand-held clip (the crop it costs said as a
   percentage), BEST CLIPS picks the sharp, well-lit, varied ones for a 15, 30 or 60 second cut with the reason for each, ON THE BEAT moves
   your cuts to the music's beat, REVERSE and a speed RAMP; all the phone's own arithmetic, nothing new downloaded unless the builder proves it
@@ -73,14 +73,14 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **Games 6.** Poker (chips, never money) and a word game of our own, both against Ghosty with a level you can raise without end; and the
   loose ends of Games 5 (backgammon's take-back takes the whole turn, the games play offline from the first open, the cave's level does
   not wobble down, Othello and backgammon think faster).
-- **The game studio onto the EDITORS card.** The game studio joins MAKE's EDITORS card as its seventh pill, after Video; every count and
-  test in the app follows, and its "Put it on my sites" line is cut to one honest sentence (nothing new to use yet: the editor being seated so
-  it can go live).
 - **The LEARN room made right.** Courses, the Arcade, the GYM, School, the Library and its reader, Learning and the Coach measured and given
   their fixes in your words: every empty shelf says the next thing, every download says its size, every wait is said, every score has its
   meaning, every key under your thumb.
 
 ## 3. Written up, waiting for a free builder or for something above to go live
+- **One small fix on the live site.** A stray line left by a merge sits in the stylesheet (since the second EYE-look landing); it drops one
+  rule, the layout of the "second size" choice on an eyes pack. The landing agent removes it in its next landing and adds a check so it
+  cannot come back.
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
   money price watch and the watchers made one system.
 - **The chat itself made right.** The conversation you use every day: what it says before you have said anything, one plain line under your
