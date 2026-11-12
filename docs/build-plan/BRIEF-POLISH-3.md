@@ -71,6 +71,13 @@ apps/edge/src/watchers.ts are NOT protected.
    workspace; the Settings backup line counts them; backup.test proves the keys and the restore. Also measured here, not assumed: the
    global rule `html button … min-height: 40px !important` (styles.css) against the 44 pt rule: every screen's keys are measured at 390 and
    440 and any under 44 pt that the rule holds at 40 are made right at the rule, not one by one, with tabs.spec's `small` check the proof.
+   ONE INK's God's Eye bar is measured here too (the SEE pass made the bar 44 pt in The Scan only; Glass stays pixel-equal).
+8. **SMALL FIXES 2e: THE JUMP BAR'S OPEN, CUT AT THE CAUSE (the landings' chronic red).** tabs.spec's jump-bar open reads 300 to 310 ms on
+   the runner against its 300 ms budget on branch after branch whose diff never touches it (TRAINING's run, 12 Nov: 304 ms, 1.3% over, rerun
+   once under 179(a)). Measured with the profiler on the preview and the runner, the cost found (the bar's first build, the orb's freeze, a
+   font's load, a layout read) and cut at the cause so the reading sits under 250 ms with the budget unchanged; the number before and after
+   in the report. Also here: learn.spec's and voice.spec's leftover state from a previous spec in the same browser (the TRAINING landing's
+   race): each spec that leaves state behind puts it back, with the check that proves the next spec opens clean.
 
 ## What must not change
 
