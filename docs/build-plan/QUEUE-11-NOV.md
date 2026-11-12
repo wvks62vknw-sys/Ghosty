@@ -45,6 +45,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    if it starts before that lands.
    SPREADSHEETS handed back 12 Nov (reviewed clean; 169 formula results equal; MAKE holds nine on a two-row band, decided under 179); in
    the landing queue after THE WALL. PRESENTATIONS started the same hour in worktree slides, standing on DOCUMENTS cherry-picked.
+   Brief written 12 Nov for the fifth: BRIEF-EDITOR-WORKSPACE (worktree workspace, port 8827, spec workspace; pages on the documents'
+   blocks, databases with relations, rollups and formulas through the spreadsheets' engine, five views, templates, backlinks, history, a
+   project read whole as one chat turn with the size said; the editors fold under one EDITORS card past ten MAKE things); cherry-picks
+   DOCUMENTS and SPREADSHEETS if it starts before they land.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
