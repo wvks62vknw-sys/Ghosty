@@ -7,7 +7,9 @@
  * offline/pack.ts; the map's are offline/maps.ts, the Lens's are offline/eyes.ts.
  */
 import { clear, h } from '../../core/dom';
+import { capsWords, probeCaps, takesLarger } from '../../offline/capability';
 import { CANNOT, EYES_PACKS, markLens } from '../../offline/eyes';
+import { largerList, setSizeChoice, sizeChoice, sizeInUse } from '../../offline/sizes';
 import { mapPack } from '../../offline/maps';
 import { packChanged, SPEAKER_PACK } from '../../offline/speakerpack';
 import { deletePack, getPack, gettingWords, goneFiles, isHere, keptAll, keptWords, mobileWords, offMobileData, onMobileData, progressLine, readLog, sizeSaid, sizeWords, type GetProgress, type PackDef } from '../../offline/pack';
@@ -73,10 +75,11 @@ function remove(p: PackDef): void {
 }
 
 /** A panel of packs: the rows, and under them whatever the pack set has to say (what cannot run on the phone, the licences). */
-function packsPanel(title: string, cls: string, lead: string, packs: () => PackDef[], foot: string[]): Panel & { refresh(): void } {
+function packsPanel(title: string, cls: string, lead: string, packs: () => PackDef[], foot: string[], extra?: (here: Set<string>) => Promise<HTMLElement[]>): Panel & { refresh(): void } {
   const p = panel(title, { grow: false, cls, status: 'Checking this phone…' });
   const rows = h('div.wikioffers');
-  p.body.append(h('p.note', lead), rows, ...foot.map((t) => h('p.note', t)));
+  const more = h('div.eyesizes');
+  p.body.append(h('p.note', lead), rows, more, ...foot.map((t) => h('p.note', t)));
   const paint = async (): Promise<void> => {
     const list = packs();
     const here = new Set<string>();
@@ -106,10 +109,12 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
         const del = button('DELETE', () => remove(d), 'warn');
         del.dataset.act = 'delete';
         del.setAttribute('aria-label', `Delete ${d.name} from the phone`);
+        const second = largerList().some((l) => l.pack.id === d.id);
         return h(
           'div.wikioffer',
-          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : 'offered' } },
+          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : 'offered', size: second ? 'larger' : 'standard' } },
           h('b', d.name),
+          second ? h('small.packsize', `Larger, ${sizeWords(d.bytes)}, for a newer phone`) : null,
           h('span', d.what),
           on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`),
           h('small.packlic', d.licence),
@@ -121,6 +126,7 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
         );
       }),
     );
+    if (extra) clear(more, ...(await extra(here)));
     p.setStatus(here.size ? `${here.size} of ${list.length} here` : 'Not on this phone');
   };
   painters.add(() => void paint());
@@ -144,8 +150,9 @@ export const eyesPanel = (): Panel & { refresh(): void } =>
     'OFFLINE EYES',
     'offeyes',
     'What the Lens reads with, kept on this phone so it works with no signal. Nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
-    () => EYES_PACKS,
+    () => EYES_PACKS.flatMap((d) => [d, ...largerList().filter((l) => l.of === d.id).map((l) => l.pack)]),
     [CANNOT],
+    sizesBlock,
   );
 
 /** SETTINGS → VOICE MODEL: the model that tells voices apart better, kept on this phone on his tap. */
@@ -157,3 +164,31 @@ export const voiceModelPanel = (): Panel & { refresh(): void } =>
     () => [SPEAKER_PACK],
     ['It only ever helps me know it is you, or someone you introduced with them there. It is never a lock: a recording of you can fool it, and everything that matters still needs your tap. Without it, or with no signal, I use what I did before.'],
   );
+/**
+ * OFFLINE EYES' sizes (offline/sizes.ts): what this phone reports, whether a larger size would be chosen for it, and for each pack that
+ * has a larger one the choice (AUTO, STANDARD, LARGER) with the size in use and why. With no larger model on this site it says so, in
+ * the words of what the phone could take, so the owner's phone check reads the phone even then.
+ */
+async function sizesBlock(here: Set<string>): Promise<HTMLElement[]> {
+  const caps = await probeCaps();
+  const t = takesLarger(caps);
+  const list = largerList();
+  const out: HTMLElement[] = [h('p.note', { dataset: { eyes: 'caps' } }, `This phone: ${capsWords(caps)}. ${t.ok ? `A larger size would be chosen for it (${t.why}).` : `A larger size is not chosen for it by itself: ${t.why}.`}`)];
+  if (!list.length) out.push(h('p.note', { dataset: { eyes: 'one' } }, 'One size only for now: no larger free model with a clear licence is on this site yet, so the Lens uses the one above on every phone.'));
+  for (const l of list) {
+    const std = EYES_PACKS.find((d) => d.id === l.of);
+    const cur = sizeChoice(l.of);
+    const use = sizeInUse(l.of, caps, here.has(l.pack.id));
+    const pick = (v: 'auto' | 'standard' | 'larger') => {
+      const b = button(v === 'auto' ? 'AUTO' : v === 'standard' ? 'STANDARD' : 'LARGER', () => {
+        setSizeChoice(l.of, v);
+        repaintAll();
+      }, cur === v ? 'on' : undefined);
+      b.dataset.act = `size-${v}`;
+      b.setAttribute('aria-pressed', String(cur === v));
+      return b;
+    };
+    out.push(h('div.eyesize', { dataset: { of: l.of } }, h('small', `${std?.name ?? l.of}: in use ${use.size === 'larger' ? 'the larger size' : 'the standard size'} (${use.why})`), h('div.row', pick('auto'), pick('standard'), pick('larger'))));
+  }
+  return out;
+}

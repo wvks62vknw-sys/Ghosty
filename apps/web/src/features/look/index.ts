@@ -16,6 +16,7 @@
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { feedsWatched, lookingAt, stampFacts } from '../../shell/awareness';
 import { h, icon } from '../../core/dom';
+import { refresh } from '../../engine/refresh';
 import { stopwatch } from '../../core/stopwatch';
 import { parseColour, contrast, ratioWords, FLOOR, type RGB } from '../../design/contrast';
 import tokensCss from '../../design/tokens.css';
@@ -392,7 +393,7 @@ export const lookTab: TabDef = {
     const tick = (now: number) => {
       orbLoop = 0;
       if (!orb?.lentOut) return;
-      const dt = orbLast ? Math.min(0.25, (now - orbLast) / 1000) : 0.016;
+      const dt = orbLast ? Math.min(0.25, (now - orbLast) / 1000) : refresh.dt();
       orbLast = now;
       if (orbHost.offsetParent !== null) {
         const before = heroState.frames;

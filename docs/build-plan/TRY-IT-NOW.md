@@ -59,3 +59,8 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 3. When it says all clear, tap RUN NOW: read what it will do (Kaggle's free GPU only, nothing can cost money), confirm.
 4. Hours later the card shows the report card (old brain against new on the same questions) and Published or Not kept.
 5. Published and you do not like it: tap ROLLBACK; the card says Rolled back.
+## THIS PHONE (SYSTEM)
+1. SYSTEM, then THIS PHONE: REFRESH reads your screen's rate (120 Hz on a ProMotion iPhone).
+2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.
+3. GYM: the line under TRAIN ALL says whether the chip or the processor is used; tap TIME IT to see both times.
+4. With the offline brain on the phone: SYSTEM, THIS PHONE, MEASURE THE BRAIN: its load time, the memory, and which of the three sizes fits.
