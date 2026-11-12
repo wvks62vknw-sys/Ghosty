@@ -7343,7 +7343,6 @@ html svg.orbthread .orbthreadline { fill: none; stroke: var(--g-accent); stroke-
 html svg.orbthread .orbthreaddot { fill: var(--g-accent); }
 @media (prefers-reduced-motion: reduce) { html .scansweep, html svg.orbthread { display: none; } }
 html[data-motion="calm"] :is(.scansweep, svg.orbthread) { display: none; }
-=======
 /* ------------------------------------------------------------------------------------------------------------------------
    LIFE EASIER (BRIEF-OCT-IDEAS-2): the Brief's email line and its DRAFT, the SPENDING nudges, WHAT DID I MISS? (a card of lines),
    WATCHERS under Spending, the letter's REMIND and FILE on the Lens plate, the reply and reminder sheets. Tokens only; every key 44.
