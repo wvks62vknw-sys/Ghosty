@@ -90,6 +90,12 @@ apps/edge/src/watchers.ts are NOT protected.
    with the check that proves the next spec opens clean (the MAKE pass's Workbench numbers made thescan red once and homepass hung until the
    server was restarted). NOT in this brief: GLASS and ONE INK's 40 pt controls on the studio, Space and the Workbench stay (his "GLASS
    pixel-equal" rule); recorded in WHATS-LEFT.
+10. **SMALL FIXES 2g: THE LEARN PASS'S LEFTOVERS (its NEEDS HIS WORD, decided under OWNER-ISSUES 179, 12 Nov).** (a) SCHOOL speaks to him:
+    every "he" in features/school/* and its words file becomes "you" (school.spec's reads follow the new words; the check is not weaker);
+    the GYM's puzzles line in src/gym/stretch.ts the same. (b) A local phrase opens COURSES, the Arcade and SCHOOL ("open my courses",
+    "the arcade", "open school"), listed in each screen's words file and checked local the way the Workbench's are. (c) The GYM's league
+    rating keeps no human-scale word (it compares Ghosty to its own earlier versions only) but its helper says so in one sentence. NOT in this
+    brief: GLASS and ONE INK's control sizes on the seven LEARN screens stay (his "GLASS pixel-equal" rule).
 
 ## What must not change
 

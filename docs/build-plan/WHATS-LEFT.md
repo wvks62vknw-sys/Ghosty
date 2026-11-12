@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-four; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-six; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
@@ -70,29 +70,31 @@ Four lists in the order things happen, then the questions only you can answer. Q
     size said first; both with a level you can raise without end. And Games 5's six loose ends: backgammon's take-back takes the whole turn,
     the games play offline from the first open, the cave's level holds, the platformer bot stomps, Othello and backgammon think three times
     faster, a damaged save says so.
+28. **The LEARN room made right.** Courses, the Arcade, the GYM, School, the Library and its reader, Learning and the Coach given
+    twenty-five fixes in your words: a course says "Planning your course…" once, a wrong answer says "Not quite. The answer is …", the
+    Arcade on mobile data says it will wait for Wi-Fi and the size, a failed download says nothing was kept and offers RETRY, the GYM says
+    "Starting to train…" at once and a finished game says "You beat me." or "I won this one.", a chess rating carries its meaning
+    ("about 1,350 (club level)"), SCHOOL's exam shows "Question 7 of 20 · about 14 min left", the empty Library shelf is one line with
+    ADD A BOOK, the typing passage is always plain sentences, the tuner says "12 cents, a little flat". Goes up after the PLAN and ME rooms.
+29. **Video 2.** In the video editor, STEADY takes the shake out of a hand-held clip and says what it loses at the edges (UNDO puts it back),
+    BEST CLIPS picks the sharp, well-lit, varied ones for a cut of the length you choose with the reason for each, ON THE BEAT moves your
+    cuts to the music's beat, REVERSE plays a clip backwards and a speed RAMP eases from one speed to another; all the phone's own
+    arithmetic, nothing downloaded, nothing exported until you tap EXPORT. Goes up right after Video.
 
-## 2. Being built right now (three; two more start the moment the October ideas are live)
+## 2. Being built right now (two; two more start the moment the October ideas are live)
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain (it
   proposes a change to your open document, you accept or reject with one tap), physics for the 3-D engine (a dropped part lands; the physics
   download only on your tap with its size said), and automatic rollback if a published brain fails its own first check.
-- **Video 2.** Your yes, being built: in the video editor, STEADY takes the shake out of a hand-held clip (the crop it costs said as a
-  percentage), BEST CLIPS picks the sharp, well-lit, varied ones for a 15, 30 or 60 second cut with the reason for each, ON THE BEAT moves
-  your cuts to the music's beat, REVERSE and a speed RAMP; all the phone's own arithmetic, nothing new downloaded unless the builder proves it
-  must and says the size first.
-- **The LEARN room made right.** Courses, the Arcade, the GYM, School, the Library and its reader, Learning and the Coach measured and given
-  their fixes in your words: every empty shelf says the next thing, every download says its size, every wait is said, every score has its
-  meaning, every key under your thumb.
-
+- **The chat itself made right.** The conversation you use every day: what it says before you have said anything, one plain line under your
+  words for every step it takes, an answer cut by the signal kept with RETRY for the rest, the page never jumping while you read, "I'm
+  listening." and "Tap to stop me." in words, the Stage's picture with its wait and its close under your thumb, every source openable.
+  Being built now, from the LEARN room's pass.
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **One small fix on the live site.** A stray line left by a merge sits in the stylesheet (since the second EYE-look landing); it drops one
   rule, the layout of the "second size" choice on an eyes pack. The landing agent removes it in its next landing and adds a check so it
   cannot come back.
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
   money price watch and the watchers made one system.
-- **The chat itself made right.** The conversation you use every day: what it says before you have said anything, one plain line under your
-  words for every step it takes, an answer cut by the signal kept with RETRY for the rest, the page never jumping while you read, "I'm
-  listening." and "Tap to stop me." in words, the Stage's picture with its wait and its close under your thumb, every source openable.
-  Starts when the LEARN room's pass hands back.
 - **Telegram made right.** Ghosty in the Telegram app: "typing…" while it works, one message of what it is doing that changes in place, long
   answers split at sentence ends and never mid-word, lists and headings as clean plain text, a video said plainly as unwatched before any
   answer, the approval card saying what APPROVE and NOT NOW each do, reminders as "Reminder: …" with the time; and the pairing page on the
