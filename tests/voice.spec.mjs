@@ -114,6 +114,8 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
     return s.startsWith('blob:') && s !== prev;
   }, unlockSrc, { timeout: 8000 }).then(() => true, () => false);
   if (!played) problems.push(`[${name}] the reply did not go through the audio element (tts calls: ${tts})`);
+  // (the Home greeting may be spoken first, a sentence at a time, and the reply's own sentence queues behind it: wait for it to be asked)
+  for (let t0 = Date.now(); !said.some((s) => /hello there/.test(s)) && Date.now() - t0 < 8000;) await page.waitForTimeout(100);
   if (!said.some((s) => /hello there/.test(s))) problems.push(`[${name}] the sentence sent to /api/tts was ${JSON.stringify(said)}`);
   await page.screenshot({ path: `${out}/${name}-voice-ghosty.png` });
 
