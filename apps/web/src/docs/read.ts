@@ -11,9 +11,14 @@ import { unzipSync } from '../convert/zip';
 import { mammoth, openPdf } from '../convert/vendor';
 import { A4 } from '../convert/pdfwrite';
 import { canSetAsText, layoutPages, MARGIN } from './layout';
+import { readDocx } from './docxread';
+import { imageBytes, loadImages } from './images';
 import { block, entities, fromHtml, fromMarkdown, fromText, htmlTitle, newDoc, textOf, titled, type Block, type Doc } from './model';
 
 const stemOf = (name: string) => name.replace(/\.[^./]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Document';
+
+/** What the last Word file read left out (plain words), for the line the editor says. */
+export const readNotes = { lost: [] as string[] };
 
 /** A file's bytes as a document. */
 export async function readDocBytes(bytes: Uint8Array, name: string, kind: Kind = sniff(bytes.subarray(0, 96), name)): Promise<Doc> {
@@ -24,6 +29,12 @@ export async function readDocBytes(bytes: Uint8Array, name: string, kind: Kind =
   };
   if (kind === 'pdf') return pdfDoc(bytes, name);
   if (kind === 'docx') {
+    readNotes.lost = [];
+    const own = await readDocx(bytes, name).catch(() => null);
+    if (own) {
+      readNotes.lost = own.lost;
+      return own.doc;
+    }
     const m = await mammoth();
     const html = (await m.convertToHtml({ arrayBuffer: bytes.slice().buffer })).value;
     const t = titled(fromHtml(html), stem);
@@ -172,7 +183,7 @@ function drawPages(d: Doc): HTMLCanvasElement[] {
   page();
   const serif = 'ui-serif, "New York", Georgia, "Noto Naskh Arabic", "Noto Nastaliq Urdu", serif';
   const sans = '-apple-system, system-ui, "Helvetica Neue", Arial, sans-serif';
-  const items: { t: Block['t'] | 'title'; text: string }[] = [{ t: 'title', text: d.title }, ...d.blocks.map((b) => ({ t: b.t, text: textOf(b) }))];
+  const items: { t: Block['t'] | 'title'; text: string }[] = [{ t: 'title', text: d.title }, ...d.blocks.filter((b) => b.t !== 'img' && b.t !== 'pb').map((b) => ({ t: b.t, text: textOf(b).replace(/\t/g, '  |  ') }))];
   let n = 0;
   items.forEach((it, k) => {
     n = it.t === 'ol' ? (items[k - 1]?.t === 'ol' ? n + 1 : 1) : 0;
@@ -225,7 +236,12 @@ function drawPages(d: Doc): HTMLCanvasElement[] {
 
 /** The document as a PDF, whatever its script: words set in the PDF's own fonts when they can be, else drawn pages. */
 export async function pdfOfDocAnyScript(d: Doc, progress: (w: string, f?: number) => void = () => undefined): Promise<Uint8Array> {
-  if (canSetAsText(d)) return writePdf(layoutPages(d), { title: d.title });
+  await loadImages(d.blocks.flatMap((b) => (b.img ? [b.img] : [])));
+  const pic = (id: string) => {
+    const b = imageBytes(id);
+    return b ? jpegImage(b) : null;
+  };
+  if (canSetAsText(d)) return writePdf(layoutPages(d, pic), { title: d.title });
   progress('drawing its pages with this phone’s own letters…');
   const pages: PdfPage[] = [];
   for (const c of drawPages(d)) {

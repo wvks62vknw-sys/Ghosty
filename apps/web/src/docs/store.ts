@@ -1,13 +1,14 @@
 /**
  * MY DOCUMENTS (BRIEF-REST-E part 2): the documents he wrote, read or translated, kept on this phone with their dates —
- * never sent anywhere. The newest first; forty at most and about two megabytes, the oldest let go first (said by
+ * never sent anywhere (a picture in one is kept in the phone's own database, docs/images.ts). The newest first; a hundred at most and about four megabytes of words, the oldest let go first (said by
  * `room()`). A phone whose storage is blocked still edits; it just keeps nothing.
  */
+import { keepOnly } from './images';
 import type { Doc } from './model';
 
 const KEY = 'ghosty.docs';
-const MAX = 40;
-const BYTES = 2_000_000;
+const MAX = 100;
+const BYTES = 4_000_000;
 
 export function listDocs(): Doc[] {
   try {
@@ -39,6 +40,7 @@ export function saveDoc(d: Doc): boolean {
 export function removeDoc(id: string): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(listDocs().filter((d) => d.id !== id)));
+    tidyImages();
   } catch {
     /* nothing kept to remove */
   }
@@ -49,3 +51,9 @@ export const whenWords = (ms: number): string => new Date(ms).toLocaleString('en
 
 /** Today as a letter has it: "1 November 2026". */
 export const letterDate = (d = new Date()): string => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/** The pictures the kept documents hold. */
+export const imagesInUse = (): Set<string> => new Set(listDocs().flatMap((d) => d.blocks.flatMap((b) => (b.img ? [b.img] : []))));
+
+/** Let go of the pictures no kept document holds any more (after one is removed, and when the list is shown). */
+export const tidyImages = (): void => void keepOnly(imagesInUse()).catch(() => undefined);

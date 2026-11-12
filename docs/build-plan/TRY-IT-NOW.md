@@ -46,6 +46,13 @@ Landing one at a time, in this order: TRAINING, THIS PHONE, DOCUMENTS, OCTOBER I
 ORBIT, GROWN UP, THE WALL, SPREADSHEETS, GAMES 5, THE WORKING ENGINE, the LIFE quality pass, HEALTH, PRESENTATIONS. Building: PHOTO, the
 Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it lands.
 
+## DOCUMENTS (MAKE)
+1. MAKE, Documents, NEW: type a few lines; make one a heading, one bold; add a link on a word.
+2. PHOTO: add one of yours and make it LARGER; INSERT TABLE and fill a cell.
+3. PAGE: choose Letter and add a footer line.
+4. Export WORD and open it in Pages or Word (the same page, picture and table); export PDF.
+5. Say "write a letter to my landlord about the damp" and tap OPEN: the same editor. Close the app and reopen Documents: the letter is listed.
+
 ## THE WEEKLY TRAINING (SYSTEM)
 1. SYSTEM, then OFFLINE BRAIN TRAINING: the first card says when the last real run was, or "No real run has finished yet".
 2. Tap CHECK FIRST: it reads only, and says all clear or the one step that stopped and what to do (the first time it will ask for the Kaggle and Hugging Face keys in SYSTEM, KEYS).
