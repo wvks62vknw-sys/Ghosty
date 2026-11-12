@@ -1,0 +1,9 @@
+voice-model.onnx
+
+Attribution (CC BY 4.0 section 3(a)):
+  Creator:  the WeSpeaker project authors (Hongji Wang, Chengdong Liang, Shuai Wang, Zhengyang Chen, Bei Liu, Xu Xiang, Yanmin Qian,
+            Haizhou Li and others), github.com/wenet-e2e/wespeaker
+  Title:    wespeaker-voxceleb-resnet34-LM (voxceleb_resnet34_LM.onnx), https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM
+  Licence:  Creative Commons Attribution 4.0 International, https://creativecommons.org/licenses/by/4.0/legalcode
+  Changes:  none. The file is the published one, byte for byte (SHA-256 7bb2f06e9df17cdf1ef14ee8a15ab08ed28e8d0ef5054ee135741560df2ec068).
+  No warranty is given by the licensor; the licence is carried here as the published file carries it.

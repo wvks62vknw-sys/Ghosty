@@ -208,7 +208,7 @@ test('too little voice to judge (a one-word yes) is not held and not labelled; a
   const src = readFileSync(new URL('src/assistant/voiceknown.ts', new URL('../../web/', import.meta.url)), 'utf8');
   const hear = src.slice(src.indexOf('export async function hear'), src.indexOf('/** A typed turn'));
   assert.match(hear, /if \(!v\.profile\) \{[\s\S]*?return null;/, 'no profile (under MIN_VOICED): hear returns null, so nothing is shown or held');
-  assert.ok(hear.indexOf('if (!v.profile)') < hear.indexOf('judge('), 'decided before judging');
+  assert.ok(hear.indexOf('if (!v.profile)') < hear.indexOf('judgeBest('), 'decided before judging (the judge is now the model\u2019s or the features\u2019, by judgeBest)');
   const yes = V.features(say('A', 0, { secs: 0.04, seed: 9, lead: 0.3, tail: 0.3 }).subarray(0, Math.round(0.6 * RATE)));
   assert.equal(yes.profile, null, `a 0.2 s yes (${yes.secs.toFixed(2)} s of voice) has no profile`);
   assert.equal(V.judge(known(A, B), later('C', 3)).who.kind, 'unknown', 'a 2 s stranger sentence is still unknown (so held)');

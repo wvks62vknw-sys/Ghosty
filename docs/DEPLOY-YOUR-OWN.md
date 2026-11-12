@@ -144,6 +144,7 @@ folder holding the licence text and a note of where it came from:
 | `vendor/clip` | ONNX Runtime Web (MIT) and MobileCLIP-S0, which names what the camera sees | MIT; the MobileCLIP weights carry Apple's research-model licence: read `LICENSE-mobileclip-weights.txt` before you use your Ghosty for anything but yourself |
 | `vendor/depth` | Depth Anything V2 (the small model), for measuring | Apache-2.0 (see its README about the metric checkpoint, which carries no licence tag) |
 | `vendor/faces` | SFace, from the OpenCV Zoo | see its README and `LICENSE-sface.txt` |
+| `vendor/speaker` | the voice model (kept as two parts, joined on the phone, as the depth model is), a small speaker-verification network that tells voices apart on the phone (a courtesy signal, never a lock; fetched on a tap on Wi-Fi) | CC BY 4.0 (`LICENSE-voice-model.txt`; the source in its `README.md`) |
 | `vendor/webllm` | WebLLM, the offline brain's runtime (the model weights come from Hugging Face on a tap) | Apache-2.0 |
 | `vendor/three`, `vendor/leaflet`, `vendor/maplibre`, `vendor/zxing` | three.js; Leaflet; MapLibre GL; the barcode reader | MIT; BSD-2; BSD-3; MIT and Apache-2.0 |
 | `vendor/facemesh` | MediaPipe's face landmarker model, for CHECK IT'S LIVE (a blink or a turn before a face is saved; judged on the phone) | Apache-2.0 (`LICENSE`; `SOURCE.md`, byte-for-byte as Google publishes it) |

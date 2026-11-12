@@ -509,6 +509,9 @@ folder that no longer exists; ignore those paths).
   12 Nov: PR #84 (THE MAP) GREEN on its fixed commit (8ad18c6), SQUASH-MERGED as 2c65f80; MAIN'S OWN RUN 43114531011 GREEN on every job: THE MAP FINISHED on the code side, pending his phone check (OWNER-ISSUES 180). Worktree huds and branch removed.
   12 Nov: THE EYE HUD (builder/eyehud, over THE MAP's tip 37534e61) landed on the session branch as one commit (check.yml's list ends ... maphud eyehud); eyehud.spec's 'no map frame' guard re-pointed at .maphudframe; eyehud, maphud, cards clean; nav clean on a fresh server;
   memory red on main without the eye too; games4 a load timeout; tabs/look the known load reds. OWNER-ISSUES 181.
+  12 Nov: PR #85 (THE EYE) green on attempt 2 (smoke (2) rerun once for a games2 voxel timing flake on a spec the diff does not touch) and SQUASH-MERGED as 7d0a79a; main's own run 43144275465 read below. Worktree eyehud and branch removed.
+  12 Nov: SPEAKER (builder/speaker, base 98ea938) landed on the session branch as one commit (check.yml's list ends ... eyehud speaker); the builder's model-name guard test removed (it listed vendor names in the test itself); brain 1882 of 1882; speaker, settings, offlineeyes clean (one slow-spring flake);
+  voice's score-ready budget over under load. OWNER-ISSUES 182.
   clean, nav clean on rerun, studio red on its WebGL picture line and look red at BODY 21 on load only (the head before it passed look): the PR's run decides. OWNER-ISSUES 177.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).

@@ -9,6 +9,7 @@
 import { clear, h } from '../../core/dom';
 import { CANNOT, EYES_PACKS, markLens } from '../../offline/eyes';
 import { mapPack } from '../../offline/maps';
+import { packChanged, SPEAKER_PACK } from '../../offline/speakerpack';
 import { deletePack, getPack, gettingWords, goneFiles, isHere, keptAll, keptWords, mobileWords, offMobileData, onMobileData, progressLine, readLog, sizeSaid, sizeWords, type GetProgress, type PackDef } from '../../offline/pack';
 import { button, panel, toast, undo, type Panel } from '../../ui/components';
 
@@ -40,6 +41,7 @@ async function fetchPack(p: PackDef): Promise<void> {
     show(gettingWords(p));
     await getPack(p, (x: GetProgress) => show(progressLine(x.piece, x.of, x.got, x.total), x.total ? Math.min(1, x.got / x.total) : 0), ctl.signal);
     markLens(p.id);
+    packChanged(p.id);
     getting = null;
     repaintAll();
     toast(`${p.name} is on your phone: it works with or without a signal.`, 'ok');
@@ -63,6 +65,7 @@ function remove(p: PackDef): void {
     },
     async () => {
       await deletePack(p);
+      packChanged(p.id);
       leaving.delete(p.id);
       repaintAll();
     },
@@ -143,4 +146,14 @@ export const eyesPanel = (): Panel & { refresh(): void } =>
     'What the Lens reads with, kept on this phone so it works with no signal. Nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
     () => EYES_PACKS,
     [CANNOT],
+  );
+
+/** SETTINGS → VOICE MODEL: the model that tells voices apart better, kept on this phone on his tap. */
+export const voiceModelPanel = (): Panel & { refresh(): void } =>
+  packsPanel(
+    'VOICE MODEL',
+    'offvoice',
+    'A small free model that tells voices apart, kept on this phone. Nothing you say is sent to it or from it. Fetched only when you tap, on Wi-Fi.',
+    () => [SPEAKER_PACK],
+    ['It only ever helps me know it is you, or someone you introduced with them there. It is never a lock: a recording of you can fool it, and everything that matters still needs your tap. Without it, or with no signal, I use what I did before.'],
   );

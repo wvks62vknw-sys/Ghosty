@@ -15,7 +15,7 @@ import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
-import { eyesPanel, mapsPanel } from './packs';
+import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
@@ -60,7 +60,7 @@ export const settingsTab: TabDef = {
     // [voiceknown] his voice known, and the people he introduced: under VOICE & HOME, in the same section (BRIEF-VOICE-KNOWN 2, 5)
     const mv = myVoicePanel();
     const pv = peoplePanel();
-    P.right.append(vp.el, mv.el, pv.el);
+    P.right.append(vp.el, mv.el, pv.el, voiceModelPanel().el);
     const op = offlinePanel();
     P.right.append(op.el);
     // [offline] the map of his area and the Lens's eyes, kept on the phone on his tap (BRIEF-OFFLINE-1)
