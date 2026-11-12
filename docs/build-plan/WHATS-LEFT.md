@@ -8,8 +8,7 @@ Four lists in the order things happen, then the questions only you can answer. Q
    runs it on your tap.
 2. **Your phone's own hardware used properly.** 120 Hz motion everywhere, bigger "eyes" for the camera and the Lens on a Pro Max, the GYM
    using the phone's graphics chip, and the offline brain measured honestly for speed on your phone.
-3. **Documents.** The second editor: a real Word-like writer in MAKE. Pages, bold and lists, pictures, tables, find and replace, Word and
-   PDF out, someone else's Word file in, Ghosty writing into it.
+3. ~~Documents~~ LIVE since 12 Nov: a real Word-like writer in MAKE, Word and PDF out, someone else's Word file in. Steps in TRY-IT-NOW.
 4. **The readout ribbon and the orb that reacts.** A line that shows what Ghosty is doing; tilting the phone moves the light; the light
    follows the time of day; it says "On it." when you ask for something.
 5. **Life easier.** "Hey Siri, ask Ghosty…", a Shortcut that files anything you share, the Brief read aloud when you first open the app,
