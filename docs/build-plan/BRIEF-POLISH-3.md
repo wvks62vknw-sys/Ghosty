@@ -65,6 +65,13 @@ apps/edge/src/watchers.ts are NOT protected.
    fields named; the Shortcuts' `?add=` of LIFE EASIER unchanged. Installed as a Home Screen app, the share sheet lists Ghosty: NEEDS HIS
    PHONE (the phone check has it).
 
+7. **SMALL FIXES 2d: EVERY EDITOR'S WORK RIDES THE DAILY BACKUP (THE WORKSPACE's found-not-fixed).** apps/edge/src/backup.ts's BACKUP_KEYS
+   (not protected) gains `ghosty.docs`, `ghosty.sheets`, `ghosty.slides` (and `ghosty.photo` recipes and `ghosty.video` projects where those have
+   landed: their originals stay on the phone, the recipes and projects are small), so a lost phone keeps his documents as it keeps his
+   workspace; the Settings backup line counts them; backup.test proves the keys and the restore. Also measured here, not assumed: the
+   global rule `html button … min-height: 40px !important` (styles.css) against the 44 pt rule: every screen's keys are measured at 390 and
+   440 and any under 44 pt that the rule holds at 40 are made right at the rule, not one by one, with tabs.spec's `small` check the proof.
+
 ## What must not change
 
 The first-screen budget and every other budget; GLASS pixel-equal; ONE INK's page; every control 44 pt; nothing sideways at 440 × 956 or 390 ×

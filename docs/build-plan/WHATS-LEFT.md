@@ -43,6 +43,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
     touched, full-size export. Waits for the Workspace, whose EDITORS card it joins.
 20. **Video.** The seventh editor: CapCut's core. Clips trimmed, split and ordered, transitions, a grade, music, your voice over it, subtitles,
     an .mp4 out that plays anywhere. Waits for the Workspace and Photo, then joins the EDITORS card.
+21. **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
+    whole in one chat turn. It also folds the editors under one EDITORS card in MAKE once there are more than ten things there.
 
 ## 2. Being built right now (four)
 - **Photo 2.** Your yes: a real cut-out model, a real erase model and a RAW reader, each a download on your tap with the size said,
@@ -50,8 +52,6 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel,
   people with dialogue and shops, quests, save points), play it from the ARCADE, share it, put it on your Home Screen as an app.
 - **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given twenty-five fixes in your words.
-- **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
-  whole in one chat turn.
 
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the

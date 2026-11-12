@@ -13,9 +13,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run)
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS
-- [ ] Building: THE WORKSPACE · QUALITY PASS: SEE · THE GAME STUDIO · PHOTO 2
-- [ ] Parked, reviewed clean, waiting for the EDITORS fold: PHOTO (OWNER-ISSUES 204) then VIDEO (207), each rebased onto the fold before it lands
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE
+- [ ] Building: QUALITY PASS: SEE · THE GAME STUDIO · PHOTO 2 · PHOTO onto the fold (then VIDEO the same way)
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -87,6 +86,11 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    WORKSPACE and PHOTO for the fold. Brief written 12 Nov under his yes (185): BRIEF-EDITOR-PHOTO-2 (worktree photo2, port 8836, spec photo2;
    the cut-out model, the erase model and a RAW reader as packs on his tap with the size said, licences and sizes written before a byte is
    vendored; starts from PHOTO's head, lands after PHOTO). PHOTO 2 started 12 Nov in worktree photo2 when VIDEO handed back.
+   THE WORKSPACE handed back 12 Nov (reviewed clean: pages, databases through the spreadsheets' engine, five views, templates, versions,
+   the EDITORS fold with its pills from one list, MAKE showing 8 cards, 210 edits in a simulated week with none lost); queued after
+   PRESENTATIONS as OWNER-ISSUES 206. Its found-not-fixed routed: the editors' keys in the daily backup and the 40 px button rule to POLISH 3
+   (SMALL FIXES 2d). PHOTO is being cherry-picked onto its head (worktree photofold) so it lands right after without waiting for main; VIDEO
+   follows the same way.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
