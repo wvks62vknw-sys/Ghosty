@@ -2256,4 +2256,5 @@ quota line, and the daily GPU on Hugging Face. What follows needs the owner at a
   fakes, as `Resilience` does now.
 - **Size**: about a week's work for SFT/DPO on the TPU plus two or three supervised real runs to tune; generation on the
   TPU after that, only if the split week leaves the T4 hours short.
+  12 Nov: PHONE HARDWARE (builder/phonehw, base ebacf27) landed from claude/new-session-4erjve-land-phonehw (check.yml's list ends ... speaker phonehw; conflicts with the speaker's pack panel and the styles kept both sides): 120 Hz measured and used, the larger eyes' choice and rule (no larger model vendored: licences), GYM on the chip with the processor fallback, the offline brain measured. OWNER-ISSUES 187.
   12 Nov: DOCUMENTS (builder/editors, base ec54b5b) landed from claude/new-session-4erjve-land-editors (check.yml's list ends ... speaker docs; the styles conflict kept both sides): a real word processor (pictures, tables, the page, Word in and out, PDF, Ghosty writing in). OWNER-ISSUES 188.
