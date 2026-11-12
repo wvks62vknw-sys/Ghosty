@@ -96,20 +96,22 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **The EYE look finished.** The second pass on THE EYE: every room drawn as the wall of grain feeds too (not just Home), the boot ending as
   the eye, what Ghosty can do as a wall of feeds, the ask line above the instruments at the biggest text, the globe's silent first start
   said, and offline feeds showing their last reading with its age. Starts once the game studio is live.
+- **The boot and the orb made right.** The opening film's every word true of its moment (your name or none, never a stand-in; offline said;
+  the still version saying everything the moving one does; a slow start never a frozen frame), the orb's listening, thinking and speaking
+  told apart by its light alone and said once in words, the orb going low when the brain is off instead of glowing as if answering, and the
+  readout ribbon in one sentence for every state. Starts once Polish 1 and the October ideas are live.
 - **Kernel 3.** Your yes from 12 Nov, written up: the brain gets hands on the new editors from the chat ("make slide three's title shorter",
   "cut the first clip to five seconds", "what did I write about the garden?", "make me a platformer about a fox"), every change shown to you
   first and applied only on your tap, nothing exported or published by the brain itself; and the brain's test list names every test. The
   game-on-your-sites part is in it too but only gets built if you answer yes below. Starts once Kernel 2 and the editors are live.
 
 ## 4. Not started yet (I write these next, in this order)
-1. **The boot and the orb made right** (the chat's, Telegram's and THE EYE's passes are written up, list 3). Same method: measure every
-   rough spot, fix the worst, add a test so it cannot come back. Same method each time: measure every rough spot, fix the worst, add a test so it cannot come back.
-2. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
-3. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
+1. **Games 7.** Whatever Games 6 leaves: PICO-8 cartridges and Cave Story (both need your word first), more board games on the phone's chip.
+2. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
    the Lens acting on what it sees (not just naming it), fun, better answers.
-4. **Training at scale** on the free GPU budget, said honestly if the budget cannot carry it; and the self-edit trial (Ghosty proposing its own
+3. **Training at scale** on the free GPU budget, said honestly if the budget cannot carry it; and the self-edit trial (Ghosty proposing its own
    fixes) measured.
-5. **A tutorial in the app** for showing it to other people, once the editors are in.
+4. **A tutorial in the app** for showing it to other people, once the editors are in.
 
 ## Your answers (12 Nov: "yes to all")
 - **Downloads**, each on your tap on Wi-Fi with the size said: physics in the 3-D engine (Kernel 2); RAW photos, cut-outs and object removal on

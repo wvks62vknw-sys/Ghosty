@@ -224,3 +224,6 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   `eyehud2`; port 8845; starts after GAME STUDIO is on main). The landing agent found and removed two more lone `=======` strays of its own in
   #92 and #93 (runs restarted); every builder branch scanned clean beyond main's inherited one; the guard goes into the first landing after
   #91–#93 merge.
+- 12 Nov, BRIEF-QUALITY-BOOT-ORB written (the tenth quality pass: the boot's and the orb's every state, the ribbon; spec `bootpass`; port 8846;
+  starts from main once #91 and #92 are green there; the HOME pass's boot words taken as given, union at landing). Every room pass is now
+  written: chat, Telegram, EYE 2, boot and orb wait for their starts; KERNEL 2 and POLISH 3 wait for #91/#92.
