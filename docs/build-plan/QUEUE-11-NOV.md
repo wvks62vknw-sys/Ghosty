@@ -14,7 +14,7 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
   QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE)
-- [ ] Building: THE GAME STUDIO · PHOTO 2 · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
+- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · PHOTO 2 · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -165,3 +165,19 @@ The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; th
 own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's test list: recommend yes).
 
 - PHOTO onto the fold handed back and reviewed 12 Nov: seven PHOTO commits cherry-picked onto THE WORKSPACE's head 16458d0a plus three fold commits (head 0aff585c). One line in EDITORS (`{ id: 'photo', pill: 'PHOTO' }`); the EDITORS card's line counts kept photos; MAKE still 8 cards, five pills ending PHOTO; counts screens 49, THE PLAN 41 things, MAKE 12 with HOUSE at 12; `all=` ends `... workspace photoedit`. Every spec green except tabs' jump bar under load 19 (not in the diff; its cause cut at Home's per-frame loop by the landing agent on TRAINING's branch, 911bfcbf). Brain tests 822 ok. VIDEO goes onto the fold the same way from 0aff585c (builder/videofold), `all=` to end `... photoedit video`, six pills.
+
+- THE GAME STUDIO handed back and reviewed 12 Nov: branch builder/gamestudio, base 4511157a (GAMES 5's head, before the fold), head 98bcd26d, 11
+  commits, 51 files. Clean on the rules: no protected file but `all=` (ends `... games5 gamestudio`), no model names, nothing downloaded, a game of
+  his stays on the phone. Spec green at 440 and 390 alone; its brain test 12 of 12 by one import line in router.test. Decisions under 179:
+  (a) it lands ONLY on the fold: when VIDEO's fold hands back, the studio is rebased onto that head as the seventh pill GAME STUDIO of the EDITORS
+  card (its own MAKE card goes; hubcards' band cap of nine, the one loosening, goes back to eight; MAKE stays 8 cards); that rebase also makes
+  the exported page carry its icon once (175 of 278 KB were the icon twice) and shortens the PUT IT ON MY SITES line to one sentence in his
+  voice ("I can't put this on your sites yet: that needs a change to my server, which needs your word. The file in the library is yours.");
+  (b) PUT IT ON MY SITES (a Worker route serving a stored page at /s/<name>/ with its own policy and a phone-callable publish) and a `game`
+  brain tool are KERNEL 3 items, with the two test names (games5.test, gamestudio.test) for the brain's test list; asked of him in WHATS-LEFT;
+  (c) the studio's 230 KB in the one bundle (first screen +6% here) is a build-shape change for POLISH 3 or KERNEL 3, not this PR. Entry 198
+  for GAMES 5 stands; the studio takes entry 208.
+- GAMES 6 brief written 12 Nov: BRIEF-GAMES-6 (worktree games6, port 8835, spec games6, base 4511157a = GAMES 5's head; lands after GAMES 5):
+  POKER (chips, never money) and A WORD GAME of our own against Ghosty on the board kit, rated in the GYM; GAMES 5's loose ends (whole-turn
+  take-back, Workers precached, the cave level floor, the stomp at world 1, faster playouts, the damaged save's line). PICO-8 and Cave Story
+  itself stay NEEDS HIS WORD. Started 12 Nov when THE GAME STUDIO handed back.

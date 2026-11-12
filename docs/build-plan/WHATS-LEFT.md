@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-one; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-three; each goes up when its checks are green)
 1. **The weekly training, for real.** Every week Ghosty's own small brain trains on what you taught it, on the free Kaggle machine, and the
    new brain reaches your phone only if it beats the old one; the whole path is now proved end to end, you see where it is, and RUN NOW
    runs it on your tap.
@@ -49,12 +49,16 @@ Four lists in the order things happen, then the questions only you can answer. Q
     "Drawing the world…" once, a search that finds nothing says what to try, a dead camera says so with TRY ANOTHER, every plane's and
     ship's number has its unit and "from the feed", the Lens says how to allow the camera in your phone's own settings, a stranger gets the
     rule's line word for word, every measurement says "a first estimate", every threat says when and from which feed.
+23. **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel, people
+    with dialogue and shops, quests, save points), play it from the ARCADE, share it as a file, save it as a page you can add to your Home
+    Screen. Waits for Video, then joins the EDITORS card. "Put it on my sites" is not in it yet (see your answers below).
 
 ## 2. Being built right now (four)
 - **Photo 2.** Your yes: a real cut-out model, a real erase model and a RAW reader, each a download on your tap with the size said,
   licences checked and written down before a byte is fetched.
-- **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel,
-  people with dialogue and shops, quests, save points), play it from the ARCADE, share it, put it on your Home Screen as an app.
+- **Games 6.** Poker (chips, never money) and a word game of our own, both against Ghosty with a level you can raise without end; and the
+  loose ends of Games 5 (backgammon's take-back takes the whole turn, the games play offline from the first open, the cave's level does
+  not wobble down, Othello and backgammon think faster).
 - **Video onto the EDITORS card.** The video editor joins MAKE's EDITORS card as its sixth pill, after Photo; every count and test in the
   app follows (nothing new to use yet: this is the editor being seated so it can go live).
 - **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
@@ -86,6 +90,11 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **The brain's own tools** (write a document, make slides, cut a video, read your Workspace from the chat): yes; documents in Kernel 2, the
   other three in Kernel 3 once those editors are live.
 - **"Share to Ghosty" inside other apps**: yes; goes in with Polish 3.
+- **One new question (12 Nov): may a game you make in the game studio go on your sites as an installable app?** Today your sites only take a
+  page Ghosty publishes in a chat turn with your APPROVE, shown in a locked frame that cannot keep a game's saves or be added to your Home
+  Screen. Making it work needs a change to Ghosty's server (one of the protected files, so I ask). My recommendation: yes, in Kernel 3, with
+  the same APPROVE each time. Until then the game is a file you can save and open. Also in Kernel 3 if you say yes: Ghosty making a game for
+  you from the chat ("make me a platformer about a fox").
 - Still open, no hurry: the keys you can add in Settings (plant naming, a contact form, your car's MOT history, two free AI keys); five minutes
   on the phone (our .pptx in Keynote, our .mp4 in Photos, the voice check with a friend); your principles in your own words for the
   character pass.
