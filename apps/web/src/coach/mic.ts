@@ -4,6 +4,7 @@
  * lesson runs. A METRONOME built on the audio clock (clicks scheduled ahead, so they never drift), with a visual beat as well.
  * Nothing is sent anywhere or kept: a recording lives in memory until the lesson is scored.
  */
+import { trail } from '../ui/hisWords';
 
 export interface Mic {
   sampleRate: number;
@@ -28,7 +29,8 @@ export function micMessage(e: unknown): string {
   const name = (e as { name?: string })?.name ?? '';
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'The microphone is blocked. On iPhone: Settings, Safari, Microphone, Allow (or the aA button, Website Settings); then tap START again.';
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'This phone has no microphone I can reach.';
-  return `The microphone did not open (${(e as Error)?.message ?? 'unknown'}).`;
+  trail(e, 'microphone');
+  return 'The microphone did not open. Close other apps that use it and tap START again.';
 }
 
 export async function openMic(): Promise<Mic> {

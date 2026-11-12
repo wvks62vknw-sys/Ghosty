@@ -5,6 +5,7 @@
  */
 import { brain } from '../api/brain';
 import { createStore } from '../core/store';
+import { sayError } from '../ui/hisWords';
 
 export const pushState = createStore({
   supported: false,
@@ -79,7 +80,7 @@ export async function enablePush(): Promise<string> {
     pushState.set({ status: 'on' });
     return 'Notifications are on for this device.';
   } catch (e) {
-    return `Could not turn on notifications: ${String((e as Error)?.message ?? e)}`;
+    return sayError(e, 'turn on notifications');
   }
 }
 

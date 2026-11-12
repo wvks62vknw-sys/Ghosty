@@ -12,6 +12,7 @@ import { Reader } from '../vision/ocr';
 import { loadImageFile } from '../vision/camera';
 import { cleanOcr, titleFrom } from '../vision/ocrtext';
 import { coverFromFile, keepCover } from './covers';
+import { rawText, trail } from '../ui/hisWords';
 
 export type Progress = (text: string, frac: number) => void;
 
@@ -85,7 +86,7 @@ export async function addFile(file: File, progress: Progress): Promise<{ doc: Li
       x = { ...x, pages: [await brain.libraryConvert(file)], warning: undefined };
       warning = undefined;
     } catch (e) {
-      if (!chars) throw new Error(`couldn't read any text from ${file.name}${x.warning ? ` (${x.warning})` : failed ? ` (${failed.message})` : ''}: ${(e as Error).message}`);
+      if (!chars) { trail(e, 'library convert'); throw Object.assign(new Error(`I could not read any text from ${file.name}. A clearer copy may help.`), { raw: rawText(e) }); }
       // keep the little text we found
     }
   }

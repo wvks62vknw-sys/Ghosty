@@ -21,6 +21,7 @@ import { statusDials } from '../../ui/statusdials';
 import { speedCard } from './speed';
 import { phoneCard } from './phone';
 import { sectionNow, sections } from '../../ui/sections';
+import { sayError } from '../../ui/hisWords';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -101,7 +102,7 @@ export const systemTab: TabDef = {
             toast(r.works === false ? `${k.label}: ${r.info}` : `${k.label} key works${r.waiting ? ' (kept while memory is paused)' : ''}`, r.works === false ? 'warn' : 'ok');
             setTimeout(() => void load(), 1200);
           } catch (e) {
-            st.textContent = String((e as Error).message);
+            st.textContent = sayError(e, 'change that');
           } finally {
             b.disabled = false;
           }
@@ -303,7 +304,7 @@ export const systemTab: TabDef = {
             toast(text, 'ok');
             void paintBackup();
           } catch (e) {
-            msg.textContent = String((e as Error).message);
+            msg.textContent = sayError(e, 'change that');
             msg.className = 'note backupmsg bad';
             b.disabled = false;
           }
@@ -332,7 +333,7 @@ export const systemTab: TabDef = {
               msg.textContent = `${await restoreAndReload(b)} Reloading…`;
               msg.className = 'note backupmsg good';
             } catch (e) {
-              msg.textContent = String((e as Error).message);
+              msg.textContent = sayError(e, 'change that');
               msg.className = 'note backupmsg bad';
               btn.disabled = false;
             }
@@ -342,7 +343,7 @@ export const systemTab: TabDef = {
       } catch (e) {
         if (mine !== painting) return;
         const st = (e as { status?: number }).status;
-        bkp.body.append(h('div.note', st === 404 ? 'The brain cannot keep backups yet: it needs an update first.' : st === 501 ? String((e as Error).message) : 'The list of backups needs the brain; it is not reachable right now.'));
+        bkp.body.append(h('div.note', st === 404 ? 'The brain cannot keep backups yet: it needs an update first.' : st === 501 ? 'The brain cannot keep backups yet: it needs an update first.' : 'The list of backups needs the brain; it is not reachable right now.'));
       }
     };
 

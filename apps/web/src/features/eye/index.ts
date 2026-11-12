@@ -53,6 +53,7 @@ import { createRoadAhead } from './roadahead';
 import { machineState } from './machine';
 import { createMachine } from './machineview';
 import { fetchImage } from '../../api/feed';
+import { rawText } from '../../ui/hisWords';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
 /** Open the nearest public camera within `maxKm`; returns its distance (km), or null if none is that close. */
@@ -631,7 +632,7 @@ export const eyeTab: TabDef = {
           stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
           box.classList.remove('dead');
         } catch (e) {
-          stamp.textContent = (e as Error)?.message === 'offline' ? 'CAMERA OFFLINE (National Highways)' : 'SIGNAL LOST — retrying';
+          stamp.textContent = rawText(e) === 'offline' ? 'CAMERA OFFLINE (National Highways)' : 'SIGNAL LOST — retrying';
           box.classList.add('dead');
         }
       };

@@ -5,19 +5,21 @@
  * Nothing here sends anything anywhere.
  */
 import type { Size } from './boxes';
+import { rawText, trail } from '../ui/hisWords';
 
 export type Facing = 'environment' | 'user';
 
 /** A camera error in plain words (what to do about it when there is something to do). */
 export function cameraMessage(e: unknown): string {
   const name = String((e as { name?: unknown })?.name ?? '');
-  const msg = String((e as { message?: unknown })?.message ?? (typeof e === 'string' ? e : '') ?? '');
+  const msg = rawText(e);
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'Camera not allowed: Settings → Safari → Camera (or the site settings in your browser), then try again';
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return 'No camera on this device';
   if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return 'The camera is busy in another app';
   if (/secure context|insecure|https/i.test(msg)) return 'The camera only works over https';
   if (/getUserMedia|mediaDevices|not supported|not a function|undefined/i.test(msg) || name === 'TypeError') return 'This browser cannot open the camera';
-  return `Camera error: ${msg || name || 'unknown'}`;
+  trail(e, 'camera');
+  return 'The camera did not open. Close other apps that use it and try again.';
 }
 
 export const cameraSupported = (): boolean => typeof navigator !== 'undefined' && !!navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function';

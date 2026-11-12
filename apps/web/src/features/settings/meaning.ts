@@ -11,6 +11,7 @@ import { EMBED_MODEL } from '../../offline/models';
 import { progressLabel } from '../../offline/prompt';
 import { bar, button, confirmSheet, toast } from '../../ui/components';
 import { meaningCovers } from '../../../../../packages/shared/src/meaning';
+import { sayError } from '../../ui/hisWords';
 
 export function meaningBlock(): HTMLElement {
   const line = h('div.note.mnline', 'Checking this phone…');
@@ -24,7 +25,7 @@ export function meaningBlock(): HTMLElement {
     if (embedState.get().busy) return;
     void downloadEmbedder((frac) => paintProgress(frac))
       .then(() => toast('Search by meaning is on this phone: the library is being indexed', 'ok'))
-      .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad'))
+      .catch((e) => toast(sayError(e, 'make that index'), 'bad'))
       .finally(refresh);
     paint();
   }, 'on');

@@ -13,6 +13,7 @@ import { panicProblem, panicSecret, type GuardianInfo } from '../../../../../pac
 import { switchRow } from './switch';
 import { cars, loadCars } from '../core/cards'; // [cards] PEOPLE: the people he introduced and the cars he named (BRIEF-SIDEWAYS 2d)
 import type { NamedCar } from '../../../../../packages/shared/src/cards';
+import { sayError } from '../../ui/hisWords';
 
 export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   const p = panel('GUARDIAN', { grow: false, status: 'Not set' });
@@ -115,7 +116,7 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
     dropPhrase.disabled = !info?.panic;
   };
 
-  const said = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error:\s*/, '').slice(0, 160);
+  const said = (e: unknown) => sayError(e, 'reach my brain');
 
   const savePerson = async () => {
     const body = { name: name.value.trim(), telegram: tg.value.trim(), email: email.value.trim(), sharePos: share, ownerName: mine.value.trim() };

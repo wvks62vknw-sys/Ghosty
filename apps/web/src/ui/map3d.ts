@@ -21,6 +21,7 @@ import { button, toast } from './components';
 import type { MapPoint } from './flatmap';
 import type { MapLibreNS, MLLayerSpec, MLMap, MLMarker, MLStyleSpec } from './maplibre';
 import type { MapSpot } from './mapurls';
+import { rawText, sayError } from './hisWords';
 
 export type Style3dId = 'dark' | 'liberty' | 'bright' | 'positron' | 'fiord' | 'mbtraffic' | 'mbsat' | 'mbnight';
 export type Overlay3dId = 'rail' | 'rain';
@@ -337,7 +338,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
       try {
         map = new ML.Map({ container: canvasHost, style: styleFor(styleId), center: [spot.lon, spot.lat], zoom, pitch, bearing: 0, maxPitch: 70, attributionControl: { compact: false }, fadeDuration: 150, failIfMajorPerformanceCaveat: false });
       } catch (e) {
-        info.textContent = `This browser can't draw the 3D map: ${(e as Error).message}`;
+        info.textContent = sayError(e, 'draw the 3D map');
         return;
       }
       // the specs' handle on the map (only ever under a test runner)
@@ -348,7 +349,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
       map.on('click', (e) => void dropPin(e.lngLat.lat, e.lngLat.lng));
       map.on('moveend', onMove);
       map.on('error', (e) => {
-        const m = e.error?.message ?? '';
+        const m = rawText(e.error);
         if (!fromPack && /style|fetch|network|load/i.test(m)) info.textContent = 'Map tiles are not reachable right now.';
       });
       map.once('load', () => {

@@ -12,6 +12,7 @@ import { cropCanvas } from '../../vision/camera';
 import { FrameBudget } from '../../vision/frame';
 import { classifier, detector, nextStamp, type ImageClassifierLike, type ObjectDetectorLike } from '../../vision/models';
 import type { LensContext, Mode } from './index';
+import { sayError } from '../../ui/hisWords';
 
 export function createSeeMode(L: LensContext): Mode {
   const S = L.state;
@@ -121,7 +122,7 @@ export function createSeeMode(L: LensContext): Mode {
       } catch (e) {
         if (v !== visit) return;
         loading = null;
-        S.error = String((e as Error)?.message ?? e);
+        S.error = sayError(e, 'find objects');
         if (S.mode === 'see') L.status(S.error, 'off');
       }
     })();
@@ -135,9 +136,8 @@ export function createSeeMode(L: LensContext): Mode {
     if (++failures < 3 || !det) return;
     failures = 0;
     det = null;
-    const msg = String((e as Error)?.message ?? e);
     if (detector.delegate === 'CPU') {
-      S.error = `The detector keeps failing: ${msg}`;
+      S.error = sayError(e, 'find objects');
       if (S.mode === 'see') L.status(S.error, 'off');
       return;
     }
@@ -147,7 +147,7 @@ export function createSeeMode(L: LensContext): Mode {
       det = d;
       if (S.mode === 'see') L.status('looking (on the CPU: the GPU could not run the detector)…', 'ok');
     }).catch((e2: unknown) => {
-      S.error = `The detector cannot run here: ${String((e2 as Error)?.message ?? e2)}`;
+      S.error = sayError(e2, 'find objects');
       if (S.mode === 'see') L.status(S.error, 'off');
     });
   };

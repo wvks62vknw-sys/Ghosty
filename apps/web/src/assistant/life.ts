@@ -8,6 +8,7 @@
  *    (the brain's hourly beat reads it and tells him once; WATCHERS under PLAN lists it with STOP).
  * `answer` is local.ts's own: his words shown, the reply (with its buttons) under them, said aloud when he asked by voice.
  */
+import { sayError } from '../ui/hisWords';
 import { teachLines, watcherAsked, type ReportRun } from '../../../../packages/shared/src/lifeeasier';
 import { brain, headers } from '../api/brain';
 import { chat } from './session';
@@ -116,7 +117,7 @@ export async function watcherTurn(text: string, opts: Opts, answer: Answer): Pro
     return true;
   }
   const done = waiting(text, 'Reading that page once, to be sure I can…', opts);
-  const r = await within(brain.watchersAdd({ kind: w.kind, url: w.url }).then((x) => ({ ok: true as const, said: x.said }), (e: Error) => ({ ok: false as const, said: String(e.message ?? e) })), 15_000).finally(done);
+  const r = await within(brain.watchersAdd({ kind: w.kind, url: w.url }).then((x) => ({ ok: true as const, said: x.said }), (e: Error) => ({ ok: false as const, said: sayError(e, 'start watching that') })), 15_000).finally(done);
   if (!r) return answer(text, 'That page is slow to answer, so I haven’t started watching it. Ask me again in a minute.', { kind: 'watcher' }, opts), true;
   if (r.ok) return answer(text, r.said, { kind: 'watcher', go }, opts), true;
   const offline = /fetch|network|offline|reach/i.test(r.said) && !/page/i.test(r.said);

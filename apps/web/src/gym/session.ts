@@ -8,6 +8,7 @@ import { type Game, type Learner, LEVELS, type Problem, type Report, type Verdic
 import type { GameMeta } from './meta';
 import { type League, leagueMeta } from './rating';
 import { EDGE_SPAN, edgeNext, type EdgeState, newEdge } from './stretch';
+import { sayError } from '../ui/hisWords';
 
 export interface Point {
   /** Units trained so far (all levels). */
@@ -184,7 +185,7 @@ export class Session {
     try {
       verdict = this.game.check(t.problem, t.answer);
     } catch (err) {
-      verdict = { correct: false, score: 0, why: `the checker failed: ${String((err as Error)?.message ?? err).slice(0, 80)}` };
+      verdict = { correct: false, score: 0, why: sayError(err, 'check that') };
     }
     this.rec.edge = edgeNext(e, !!verdict.correct, this.rec.level, EDGE_SPAN[this.game.id] ?? 1);
     return { ...t, verdict, x: e.x };

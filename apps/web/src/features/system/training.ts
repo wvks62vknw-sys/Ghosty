@@ -18,6 +18,7 @@ import { flushStars } from '../../offline/starbox';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
 import { sayOnIt } from '../../assistant/acks';
 import { sendGymLevels } from './ledger';
+import { sayError } from '../../ui/hisWords';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -68,7 +69,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
         toast(done(st), 'ok');
         paint();
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+        toast(sayError(e, 'change that'), 'warn');
       } finally {
         busy = false;
         b.disabled = false;
@@ -168,7 +169,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
         st = await brain.selftrain.status();
         paint();
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+        toast(sayError(e, 'do that'), 'warn');
       } finally {
         busy = false;
         b.disabled = false;
@@ -184,7 +185,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
         st = await brain.selftrain.run();
         toast('Started: the pre-flight was clear and the first step is under way.', 'ok');
       } catch (e) {
-        toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+        toast(sayError(e, 'do that'), 'warn');
         try {
           st = await brain.selftrain.status();
         } catch {

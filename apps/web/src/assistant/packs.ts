@@ -21,6 +21,7 @@ import { dailyWords, FIRST_AID_LINE, LANGS, learningAsked, lessonFor, TYPING_LIN
 import { answerTyping, armTyping } from '../features/learning/typing';
 import { libraryPassage } from '../features/learning/library';
 import { brain } from '../api/brain';
+import { sayError } from '../ui/hisWords';
 
 /** What local.ts writes: his message as the chat shows it, the reply, the cards, and the GO chips under it. */
 export interface PackReply {
@@ -58,8 +59,7 @@ export async function statementTurn(text: string): Promise<PackReply> {
       go: [{ id: 'spending', ask: -1, label: 'Open spending', open: 'agenda' }],
     };
   } catch (e) {
-    const why = (e as Error).message || 'my brain did not answer';
-    return { said, reply: `I couldn’t keep that statement: ${why}. Nothing was sent anywhere else.` };
+    return { said, reply: `${sayError(e, 'keep that statement')} Nothing was sent anywhere else.` };
   }
 }
 

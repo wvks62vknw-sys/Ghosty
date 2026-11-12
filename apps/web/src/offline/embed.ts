@@ -15,6 +15,7 @@
 import { createStore } from '../core/store';
 import { normalise } from '../../../../packages/shared/src/meaning';
 import { EMBED_MODEL, QUERY_PREFIX, WORKER_REV, modelBase } from './models';
+import { rawText, trail } from '../ui/hisWords';
 
 const VENDOR = '/vendor/webllm';
 const IDLE_UNLOAD_MS = 60_000;
@@ -219,7 +220,8 @@ export async function downloadEmbedder(onProgress?: (frac: number, text: string)
   try {
     await load(onProgress, true);
   } catch (e) {
-    throw new Error(`The download stopped (${String((e as Error)?.message ?? e).slice(0, 120)}). ADD again on Wi-Fi carries on from where it stopped.`);
+    trail(e, 'search by meaning download');
+    throw new Error('The download stopped. ADD again on Wi-Fi carries on from where it stopped.');
   }
   armIdle();
 }
@@ -272,7 +274,7 @@ export async function embedTexts(texts: string[], kind: 'query' | 'passage'): Pr
     try {
       return ((await call('embed', { input })).vectors ?? []).map((v) => normalise(v));
     } catch (e) {
-      if (!/context window|exceed/i.test(String((e as Error)?.message ?? e))) throw e;
+      if (!/context window|exceed/i.test(rawText(e))) throw e;
       // One of them is longer than the model reads (dense code, long numbers): each on its own, shorter until it fits.
       const out: Float32Array[] = [];
       for (const one of input) {
@@ -282,7 +284,7 @@ export async function embedTexts(texts: string[], kind: 'query' | 'passage'): Pr
             out.push(normalise(((await call('embed', { input: [s] })).vectors ?? [])[0] ?? []));
             break;
           } catch (err) {
-            if (tries >= 3 || !/context window|exceed/i.test(String((err as Error)?.message ?? err))) throw err;
+            if (tries >= 3 || !/context window|exceed/i.test(rawText(err))) throw err;
             s = s.slice(0, Math.floor(s.length / 2));
           }
         }

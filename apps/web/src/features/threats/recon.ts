@@ -13,6 +13,7 @@ import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, panel, row, toast } from '../../ui/components';
 import { askPrompt, failedCount, reconError, reconTitle, reportRows, runningText, standout, summaryLine, type ViewRow } from './reconview';
+import { sayError } from '../../ui/hisWords';
 
 /** An error already in plain words (the brain's answer, said by reconError). */
 class Said extends Error {}
@@ -98,7 +99,7 @@ export function reconPanel(): HTMLElement {
     } catch (e) {
       clear(out);
       current = null;
-      status.textContent = e instanceof Said ? e.message : reconError(e);
+      status.textContent = e instanceof Said ? sayError(e, 'look that up') : reconError(e);
       status.className = 'reconstatus bad';
       p.setStatus('FAILED', 'off');
     } finally {
@@ -124,7 +125,7 @@ export function reconPanel(): HTMLElement {
       if (!r.ok) throw new Said(reconError(null, r.status, j?.error ?? ''));
       toast(`Saved to the library: ${j?.title ?? title}`, 'ok');
     } catch (e) {
-      toast(e instanceof Said ? e.message : reconError(e), 'bad');
+      toast(e instanceof Said ? sayError(e, 'look that up') : reconError(e), 'bad');
     } finally {
       save.disabled = false;
     }

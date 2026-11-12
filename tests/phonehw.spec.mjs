@@ -122,7 +122,7 @@ const MODELS = await bundle('offline/models.ts');
   const flaky = { path: 'webgpu', n: 0, async matmul(a, b, m, k, n) { if (++this.n > 7) throw new Error('device lost'); return G.cpuBackend.matmul(a, b, m, k, n); }, close() {} };
   const half = await G.chooseBackend({}, async () => flaky, (m) => (heard = m));
   const done = await T.trainMlp(half.backend, p, [16], 40, 0.5, 9);
-  check(half.path === 'cpu' && half.message === 'Training moved to the processor: WebGPU stopped (device lost).' && heard === half.message, `[gym] a chip that fails half-way: "${half.message}" / "${heard}"`);
+  check(half.path === 'cpu' && half.message === 'Training moved to the processor: WebGPU stopped (the chip stopped partway).' && heard === half.message, `[gym] a chip that fails half-way: "${half.message}" / "${heard}"`);
   check(Math.abs(done.loss - cpu.loss) < 1e-6, `[gym] the run that moved to the processor ended somewhere else: ${done.loss} against ${cpu.loss}`);
 }
 
@@ -374,7 +374,7 @@ for (const [name, o, path, say, after] of [
   const dispatches = await page.evaluate(() => window.__gpu.dispatches);
   if (name === 'webgpu') check(after.test(timed) && dispatches > 20 && (await gpath(page).getAttribute('data-path')) === 'webgpu', `[gym webgpu] "${timed}" after ${dispatches} dispatches`);
   if (name === 'absent') check(after.test(timed) && dispatches === 0 && (await gpath(page).getAttribute('data-path')) === 'cpu', `[gym absent] "${timed}" after ${dispatches} dispatches`);
-  if (name === 'fails') check((await gpath(page).getAttribute('data-path')) === 'cpu' && /^Training moved to the processor: WebGPU stopped \(device lost\)\.$/.test(said) && after.test(timed), `[gym fails] path ${await gpath(page).getAttribute('data-path')} "${said}" "${timed}"`);
+  if (name === 'fails') check((await gpath(page).getAttribute('data-path')) === 'cpu' && /^Training moved to the processor: WebGPU stopped \(the chip stopped partway\)\.$/.test(said) && after.test(timed), `[gym fails] path ${await gpath(page).getAttribute('data-path')} "${said}" "${timed}"`);
   if (name === 'webgpu') await page.screenshot({ path: `${out}/gym-path.png`, timeout: 15000 }).catch(() => undefined);
   await ctx.close();
 }

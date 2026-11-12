@@ -13,6 +13,7 @@ import { button, toast } from '../../ui/components';
 import { loadImageFile } from '../../vision/camera';
 import { cleanOcr } from '../../vision/ocrtext';
 import type { LensContext } from './index';
+import { sayError } from '../../ui/hisWords';
 
 /** The brain's answer (apps/edge/src/school/markwork.ts `WorkResult`, with the misses as cards). */
 export interface WorkMark {
@@ -99,7 +100,7 @@ export function openMark(L: LensContext, text: string, back: () => void): void {
       st.status = 'idle';
     } catch (e) {
       st.status = 'error';
-      st.error = String((e as Error)?.message ?? e);
+      st.error = sayError(e, 'mark that');
       toast(`Could not read it: ${st.error}`, 'bad');
     } finally {
       schemePhoto.disabled = false;
@@ -158,7 +159,7 @@ export function openMark(L: LensContext, text: string, back: () => void): void {
       L.status(`marked: ${r.raw} of ${r.max}`, 'ok');
     } catch (e) {
       st.status = 'error';
-      st.error = String((e as Error)?.message ?? e);
+      st.error = sayError(e, 'mark that');
       clear(out, h('div.note.bad', `Could not mark it: ${st.error}`));
       L.status('marking failed', 'off');
     } finally {

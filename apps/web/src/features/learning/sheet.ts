@@ -48,6 +48,7 @@ import {
 } from '../../../../../packages/shared/src/learning';
 import { libraryPassage, libraryRaw } from './library';
 import { hush, onVoices, sayIn, voiceReport } from './voices';
+import { sayError } from '../../ui/hisWords';
 
 export type LearnWhat = 'words' | 'review' | 'draw' | 'typing' | 'hand' | 'readfast' | 'memory' | 'maths' | 'spelling' | 'firstaid' | 'plan' | 'progress';
 /** The sheet's pages (its row of buttons, and the LEARNING screen's panels: features/learning/index.ts). */
@@ -112,7 +113,7 @@ async function run(action: string, a: Record<string, unknown>): Promise<{ text: 
     learnState.said = r.text;
     return r;
   } catch (e) {
-    toast(`My brain didn’t answer: ${(e as Error).message}`, 'warn');
+    toast(sayError(e, 'get an answer from my brain'), 'warn');
     return { text: '' };
   }
 }
@@ -508,7 +509,7 @@ function handView(a: Record<string, unknown>): HTMLElement {
       result.textContent = l.said;
       await logIt({ skill: 'hand', score: l.share, unit: '% legible' }, logged);
     } catch (e) {
-      status.textContent = `I couldn’t read that photo: ${(e as Error).message}`;
+      status.textContent = sayError(e, 'read that photo');
     }
   });
   return h('div.pkcol', { dataset: { view: 'hand' } }, h('p.pkpass', line), status, h('div.pkrow', pick), read, result, logged);

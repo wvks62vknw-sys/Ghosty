@@ -8,6 +8,7 @@
  * Only the phone's own model is used: THINK HARDER never asks a cloud model (ASK THE BIG BRAIN is a
  * separate button in the chat). The time it may take is set in SETTINGS → OFFLINE BRAIN (default 55 s).
  */
+import { inHisWords } from '../ui/hisWords';
 import { createStore } from '../core/store';
 import type { GymOut } from '../gym/worker';
 import { addRun, CATS, LOCAL_ITEMS, runBench, type BenchItem, type Run } from './bench';
@@ -40,7 +41,7 @@ function gym(m: Record<string, unknown>): Promise<Reply> {
     };
     gw.onerror = (e) => {
       e.preventDefault();
-      for (const f of gwait.values()) f({ gym: 'reply', req: 0, error: e.message || 'the gym worker stopped' });
+      for (const f of gwait.values()) f({ gym: 'reply', req: 0, error: 'The training worker stopped. Try again.' });
       gwait.clear();
       gw?.terminate();
       gw = null;
@@ -127,7 +128,7 @@ export function stopThinking(): void {
   ctl?.abort();
 }
 
-const notReady = () => new Error("THINK HARDER uses the offline brain on this phone, and it isn't downloaded yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi).");
+const notReady = () => inHisWords("THINK HARDER uses the offline brain on this phone, and it isn't downloaded yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi).");
 
 /** THINK HARDER's share of the prompt for what the phone knows (memory, agenda, library, recent turns): it is asked many times. */
 const CONTEXT_BUDGET = 700;

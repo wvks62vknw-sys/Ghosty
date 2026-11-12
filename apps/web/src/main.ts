@@ -31,6 +31,7 @@ import { settings, ui } from './state/app';
 import { applyMood, applyRecipe, keptRecipe, settleTheme, themeState } from './state/theme';
 import { mood } from './state/mood';
 import { button, toast } from './ui/components';
+import { sayError } from './ui/hisWords';
 
 /**
  * Ask for the owner key on this device (only needed when Cloudflare Access isn't set up). A real
@@ -51,7 +52,7 @@ function pair(reason: string): Promise<void> {
         box.remove();
         resolve();
       } catch (e) {
-        msg.textContent = e instanceof AuthError ? 'That key was not accepted.' : `Brain unreachable: ${String((e as Error).message)}`;
+        msg.textContent = e instanceof AuthError ? 'That key was not accepted.' : sayError(e, 'reach my brain');
       }
     };
     const unlock = h('button.on', { type: 'submit' }, 'UNLOCK');

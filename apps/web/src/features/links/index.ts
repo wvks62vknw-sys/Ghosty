@@ -16,6 +16,7 @@ import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
+import { sayError } from '../../ui/hisWords';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -174,7 +175,7 @@ export const linksTab: TabDef = {
             void paintEmail();
           }
         } catch (e) {
-          msg.textContent = String((e as Error).message);
+          msg.textContent = sayError(e, 'send that');
           msg.className = 'note bad';
         } finally {
           b.disabled = false;
@@ -273,7 +274,7 @@ export const linksTab: TabDef = {
           try {
             await startSpotifyLink(idIn.value);
           } catch (e) {
-            msg.textContent = String((e as Error).message);
+            msg.textContent = sayError(e, 'send that');
             msg.className = 'note bad';
             b.disabled = false;
           }
@@ -314,7 +315,7 @@ export const linksTab: TabDef = {
         try {
           await brain.telegramCode();
         } catch (e) {
-          toast(String((e as Error).message), 'warn');
+          toast(sayError(e, 'send that'), 'warn');
         }
         void paintTelegram();
       });
@@ -344,7 +345,7 @@ export const linksTab: TabDef = {
         h('div.note', 'Message the bot in Telegram the way you talk to Ghosty here: text, a voice note or a photo. Reminders and finished tasks arrive there too.'),
         h('div.keyrow.wrapit', button('TEST', async (b) => {
           b.disabled = true;
-          const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: e.message }));
+          const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: sayError(e, 'send that') }));
           toast(r.sent ? 'Sent to your Telegram' : `Could not send: ${r.error ?? 'unknown'}`, r.sent ? 'ok' : 'warn');
           b.disabled = false;
         }, 'on'), button('UNPAIR', async () => {
@@ -410,7 +411,7 @@ export const linksTab: TabDef = {
                 void paintApp();
               },
               async () => {
-                await brain.pushRemove(d.id).catch((e) => toast(`Could not remove it: ${(e as Error).message}`, 'bad'));
+                await brain.pushRemove(d.id).catch((e) => toast(sayError(e, 'remove it'), 'bad'));
                 pushGoing.delete(d.id);
                 void paintApp();
               },
@@ -444,7 +445,7 @@ export const linksTab: TabDef = {
           msg.className = `note ${r.works === false ? 'bad' : 'good'}`;
           setTimeout(done, 1200);
         } catch (e) {
-          msg.textContent = String((e as Error).message);
+          msg.textContent = sayError(e, 'send that');
         } finally {
           b.disabled = false;
         }

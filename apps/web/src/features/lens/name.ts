@@ -21,6 +21,7 @@ import { namesLine, tapSquare, type NameGuess } from '../../vision/clipmath';
 import type { LensContext, Mode, ModeOpts } from './index';
 import { createLiving } from './living';
 import { ASKED_KINDS, type AskedKind } from '../../../../../packages/shared/src/living';
+import { sayError } from '../../ui/hisWords';
 
 /** How often the live picture is named, at most (the encoder takes ~0.3–1 s on a phone). */
 const EVERY_MS = 700;
@@ -238,7 +239,7 @@ export function createNameMode(L: LensContext): Mode {
       if (S.mode === 'name') L.status(`${focus ? 'naming the part you tapped' : photo || S.frozen ? 'named · tap a name' : 'naming what is in view'}${namer.extended ? ' · more names' : ''}`, 'ok');
     } catch (e) {
       if (v !== visit) return;
-      S.error = `The namer failed: ${String((e as Error)?.message ?? e)}`;
+      S.error = sayError(e, 'name that');
       L.status(S.error, 'off');
     }
   };
@@ -268,7 +269,7 @@ export function createNameMode(L: LensContext): Mode {
       .catch((e: unknown) => {
         if (v !== visit) return;
         progress.hidden = true;
-        S.error = String((e as Error)?.message ?? e);
+        S.error = sayError(e, 'name that');
         if (S.mode === 'name') L.status(S.error, 'off');
       });
   };
@@ -292,7 +293,7 @@ export function createNameMode(L: LensContext): Mode {
     } catch (e) {
       progress.hidden = true;
       more.classList.remove('on');
-      toast(`Could not load the extra names: ${String((e as Error)?.message ?? e)}`, 'bad');
+      toast(sayError(e, 'load the extra names'), 'bad');
     }
   };
 
@@ -317,7 +318,7 @@ export function createNameMode(L: LensContext): Mode {
       S.lastAction = 'name a photo';
       await usePhoto(await loadImageFile(f, 1024));
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'bad');
+      toast(sayError(e, 'name that'), 'bad');
     }
   });
 

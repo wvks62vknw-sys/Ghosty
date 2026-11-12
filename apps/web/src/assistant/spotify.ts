@@ -6,6 +6,7 @@
  * The page never talks to Spotify itself: the security policy only allows this site.
  */
 import { brain } from '../api/brain';
+import { sayError } from '../ui/hisWords';
 
 const PKCE_KEY = 'ghosty.spotify.pkce';
 const CLIENT_KEY = 'ghosty.spotify.clientId';
@@ -83,11 +84,11 @@ export async function finishSpotifyLink(): Promise<{ ok: boolean; text: string }
     /* ignore */
   }
   if (!saved.state || saved.state !== state || !saved.verifier || !saved.clientId) return null; // not ours: ignore
-  if (error) return { ok: false, text: error === 'access_denied' ? 'Spotify linking was cancelled' : `Spotify said: ${error}` };
+  if (error) return { ok: false, text: error === 'access_denied' ? 'Spotify linking was cancelled' : 'Spotify said no. Try linking it again.' };
   try {
     const r = await brain.spotifyLink({ code: code!, verifier: saved.verifier, redirectUri: redirectUri(), clientId: saved.clientId });
     return { ok: true, text: `Spotify linked as ${r.name}` };
   } catch (e) {
-    return { ok: false, text: `Spotify linking failed: ${String((e as Error).message)}` };
+    return { ok: false, text: sayError(e, 'link Spotify') };
   }
 }

@@ -23,6 +23,7 @@ import { askWithImage } from '../../vision/ask';
 import { compassPoint, declutter, distanceText, focalFor, groundDistance, headingOf, horizonLine, poseFrom, poseFromOrientation, project, rotatePose, turn, wrap360, type Pose, type Projected, type Viewport } from '../../aim/project';
 import { AIM_KINDS, KIND_GLYPH, KIND_LABEL, describeTarget, issFrom, labelLine, locate, placesFrom, planesFrom, shipsFrom, transitFrom, type AimKind, type Seen, type Target } from '../../aim/targets';
 import type { LensContext, Mode } from './index';
+import { sayError } from '../../ui/hisWords';
 
 /** Saved on this phone: the compass correction, which kinds show, the manual heading. */
 const prefs = createStore(
@@ -256,7 +257,7 @@ export function createAimMode(L: LensContext): Mode {
       if (k === 'place') placesAt = { lat: pos.lat, lon: pos.lon };
       A.feeds[k] = A.feeds[k].startsWith('note:') ? A.feeds[k] : 'live';
     } catch (e) {
-      A.feeds[k] = `problem: ${String((e as Error)?.message ?? e).slice(0, 120)}`;
+      A.feeds[k] = sayError(e, 'read that feed');
     } finally {
       busy[k] = false;
       seenDirty = true;

@@ -37,6 +37,7 @@ import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 import { ITEM_FLOOR, judgedFor, trust, type AskCat, type BrainTrust, type TrustCat } from './trust';
 import { brain as brainApi, headers } from '../api/brain';
+import { rawText, sayError, trail } from '../ui/hisWords';
 
 export type { OfflineMsg } from './prompt';
 export { modelJob, withModel, type ModelJob } from './lock';
@@ -499,7 +500,7 @@ async function fallBack(e: unknown): Promise<boolean> {
       model: least.id,
       downloaded: true,
       loaded: false,
-      fellBack: refused ? `${(e as Error).message} Ghosty is using ${least.label}, ${which}.` : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${least.label}, ${which}, instead.`,
+      fellBack: refused ? `${sayError(e, 'load that brain')} Ghosty is using ${least.label}, ${which}.` : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${least.label}, ${which}, instead.`,
     });
     checkedAt = 0;
     return true;
@@ -517,7 +518,7 @@ async function fallBack(e: unknown): Promise<boolean> {
     downloaded: here,
     loaded: false,
     fellBack: refused
-      ? `${(e as Error).message} Ghosty is using ${small.label}${get}.`
+      ? `${sayError(e, 'load that brain')} Ghosty is using ${small.label}${get}.`
       : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${small.label} instead${get}. ${m.label} stays on this phone: close other apps and choose it again to try once more, or REMOVE it to free ${sizeText(m.mb)}.`,
   });
   checkedAt = 0;
@@ -540,7 +541,7 @@ async function testLoad(t: TestEngine, retry = true): Promise<void> {
 }
 
 /** The phone ran out of memory or lost its graphics device: worth trying the smaller model. */
-const tooBig = (e: unknown) => /memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(String((e as Error)?.message ?? e));
+const tooBig = (e: unknown) => /memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(rawText(e));
 
 /** navigator.storage.persist() is asked at most once each time Ghosty opens (at the first GET or DOWNLOAD). */
 let askedKeep = false;
@@ -656,7 +657,8 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
       checkedAt = 0;
       // (tell the brain too, or it would recommend this one again: it is dropped for good and the log says broken)
       void brainApi.selftrain.broken(m.rev).catch(() => undefined);
-      throw new Error(`${m.label} would not download (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
+      trail(e, 'trained model download');
+      throw new Error(`${m.label} would not download. Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
     }
     throw e;
   }

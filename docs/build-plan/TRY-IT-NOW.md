@@ -72,6 +72,12 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 3. Leave it closed a day, open it: WHAT DID I MISS; tap GOT IT.
 4. Open SPENDING after a statement: the nudge lines are at the top.
 5. With email linked, DRAFT a reply: nothing goes until you tap SEND.
+## THE EDGES (errors, waits, the biggest text)
+1. Flight mode on, ask anything: it answers in its own words about the signal (never the browser's). Open the Lens: it says what still works.
+2. Settings, Accessibility, the biggest text: the house line wraps to two rows, nothing is cut, every room is still tappable.
+3. Ask "where is Lisbon?": "Drawing it…" under the sentence for a beat, then the picture. Open the Studio: "Opening the studio…" then the room.
+4. Close Ghosty, slow connection, open it: the film keeps moving; after six seconds it says "Still waking. The signal is slow."
+5. Open Favourites before you star anything: it says what is empty and the one thing to do.
 ## THIS PHONE (SYSTEM)
 1. SYSTEM, then THIS PHONE: REFRESH reads your screen's rate (120 Hz on a ProMotion iPhone).
 2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.

@@ -27,6 +27,7 @@ import { cloudOf, findFloor, joinRoom, roomFromCloud, STANCE, withScaleDoubt, ty
 import { space } from '../../space/store';
 import type { DepthMap } from '../../measure/depth3d';
 import type { Intrinsics } from '../../measure/exif';
+import { sayError } from '../../ui/hisWords';
 
 type Kind = 'auto' | 'drawing' | 'room';
 
@@ -184,7 +185,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
       const r = await reader.read(page, (t, frac) => status(`reading the plan: ${t}${frac != null ? ` ${Math.round(frac * 100)}%` : ''}`, 'mid'));
       words = (r.words ?? []).filter((w) => w.bbox);
     } catch (e) {
-      toast(`Could not read the writing (${String((e as Error)?.message ?? e).slice(0, 80)}): the scale will be a guess`, 'warn');
+      toast(`${sayError(e, 'read the writing')} The scale will be a guess.`, 'warn');
     } finally {
       reader.terminate();
     }
@@ -298,7 +299,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         status('Photos of the room need a 50 MB distance model, downloaded once and kept on the phone (Wi-Fi is best): DOWNLOAD to go on.', 'mid');
       } else await fromRoom(files);
     } catch (e) {
-      status(String((e as Error)?.message ?? e), 'off');
+      status(sayError(e, 'do that in the room'), 'off');
     } finally {
       S.busy = false;
       paint();
@@ -321,7 +322,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         space.setRoom({ w: result.size.w, d: result.size.d });
       } catch (e) {
         undoStack.pop();
-        return void toast(String((e as Error)?.message ?? e), 'warn');
+        return void toast(sayError(e, 'do that in the room'), 'warn');
       }
     }
     S.applied++;

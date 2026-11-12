@@ -15,6 +15,7 @@
 import type { Action, Intent } from '../input';
 import { monoBuffer, openAudio, pcm16, pcm8, type EngineAudio } from './audio';
 import { takeLook, type Engine, type EngineEvents, type EngineFiles, type EngineHandle, type EngineProbe, type StartOptions } from './types';
+import { rawText, sayError } from '../../ui/hisWords';
 
 export const QUAKE_VENDOR = '/vendor/quake';
 /** Quake's own top frame rate (host_maxfps in the original). */
@@ -260,7 +261,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   try {
     q.start(['quake', ...(audio ? [] : ['-nosound']), ...(opts.args ?? [])]);
   } catch (e) {
-    throw new Error(errorText || (e as Error)?.message || String(e));
+    throw new Error(errorText || sayError(e, 'start Quake'));
   }
 
   // ---- the loop ----
@@ -375,9 +376,9 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
       /* already down */
     }
     letGo();
-    ev.onError?.(new Error(errorText || (e as Error)?.message || String(e)));
+    ev.onError?.(new Error(errorText || sayError(e, 'start Quake')));
   };
-  const isAbort = (e: unknown): boolean => e === 'Host.abortserver' || (e as Error)?.message === 'Host.abortserver';
+  const isAbort = (e: unknown): boolean => e === 'Host.abortserver' || rawText(e) === 'Host.abortserver';
   const loop = (t: number): void => {
     if (stopped) return;
     raf = requestAnimationFrame(loop);

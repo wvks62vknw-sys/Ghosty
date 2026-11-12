@@ -17,6 +17,7 @@ import { type Env, finalLine, type Frame, type Game, type Learner, lvl, pick, ty
 import { BUG_SETS } from './bugsets';
 import { BUGHUNT } from './meta';
 import { ARITH, COMPARE, fmt, indent, KEYWORDS, parse, type Program, RULES, run, show, TinyError, tokens, type Val } from './tiny';
+import { rawText, sayError } from '../ui/hisWords';
 
 // ---- the programs (correct versions); {a} {b}… are variable names chosen per seed ----------------------
 
@@ -159,7 +160,7 @@ export function runTests(lines: string[], tests: Test[]): { pass: boolean[]; got
   try {
     p = parse(lines);
   } catch (e) {
-    const m = e instanceof TinyError ? e.message : String(e);
+    const m = e instanceof TinyError ? rawText(e) : sayError(e, 'run that');
     return { pass: tests.map(() => false), got: tests.map(() => `cannot run: ${m}`), cover: tests.map(() => new Set()) };
   }
   const pass: boolean[] = [];

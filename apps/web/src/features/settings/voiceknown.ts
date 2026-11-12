@@ -19,6 +19,7 @@ import { addVoice, forgetVoice, knownVoices, MAX_VOICES, putBack, saveMine, type
 import { speechCaps } from '../../api/brain';
 import { panel, toast, undo } from '../../ui/components';
 import { key, plate, tag, truthLine } from '../../ui/machine';
+import { sayError } from '../../ui/hisWords';
 
 /**
  * The three sentences he reads: Ghosty's own words (what he says about this very thing), short, with the vowels in different
@@ -49,7 +50,7 @@ async function listenOnce(stage: Stage, line: (t: string) => void): Promise<Voic
   try {
     text = await listen(false, () => undefined, () => line('Now'), true);
   } catch (e) {
-    stage.say(String((e as Error)?.message ?? e));
+    stage.say(sayError(e, 'learn your voice'));
     return null;
   }
   void text;
@@ -304,7 +305,7 @@ export function peoplePanel(): { el: HTMLElement; refresh(): Promise<void> } {
       try {
         said = await listen(!(navigator.onLine === false) && speechCaps.get().stt, () => undefined, () => undefined);
       } catch (e) {
-        stage.say(String((e as Error)?.message ?? e));
+        stage.say(sayError(e, 'learn your voice'));
         return void (await new Promise((r) => setTimeout(r, 1800)), await finish());
       }
       takeSound(); // (the yes is words, not the voiceprint)

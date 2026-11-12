@@ -11,6 +11,7 @@ import { ringOf } from './edit';
 import { materialOf, type Obj } from './scene';
 import { primsOf, triangles, turnRad } from './shapes';
 import type { RawMesh, RawModel } from './gltf';
+import { sayError } from '../ui/hisWords';
 
 const rgbVar = (name: string, fallback: [number, number, number]): number => {
   try {
@@ -72,7 +73,7 @@ export class EngineView {
     try {
       this.lib = await loadThree();
     } catch (e) {
-      this.error = `The 3-D engine did not load: ${(e as Error).message}`;
+      this.error = sayError(e, 'draw the 3-D view');
       return false;
     }
     const T = this.lib.THREE;

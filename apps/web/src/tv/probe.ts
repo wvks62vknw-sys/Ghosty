@@ -8,6 +8,7 @@
  *    a TV, and said in one line on the shelf. Nothing is fetched but the engine's own files.
  */
 import { DOS_BACKEND, DOS_BASE } from '../arcade/engines/dos';
+import { sayError } from '../ui/hisWords';
 
 /** Can this browser draw WebGL2 (the 3-D everything here is built on)? Asked once. */
 let gl2: boolean | null = null;
@@ -68,10 +69,10 @@ export function probeDos(timeoutMs = 25_000): Promise<DosProbe> {
           if (n === 'ws-ready' || n === 'ws-server-ready') end(true);
           else if (n === 'ws-err') end(false, 'the engine reported an error');
         };
-        w.onerror = (e) => end(false, e.message || 'the engine stopped');
+        w.onerror = (e) => end(false, 'the engine stopped');
         w.postMessage({ name: 'wc-install', props: { sessionId: 'tv-probe' } });
       } catch (e) {
-        end(false, String((e as Error)?.message ?? e));
+        end(false, sayError(e, 'run that test'));
       }
     });
   })();

@@ -5,6 +5,7 @@
  * long each size took to load here and what the page gained, with the three sizes' guidance (offline/measure.ts). MEASURE THE BRAIN
  * loads the brain in use once more under a stopwatch, and only when it is already on the phone: nothing is ever downloaded for it.
  */
+import { sayError } from '../../ui/hisWords';
 import { clear, h } from '../../core/dom';
 import { refresh } from '../../engine/refresh';
 import { probeCaps, capsWords, type Caps } from '../../offline/capability';
@@ -51,7 +52,7 @@ export function phoneCard(): HTMLElement {
       await loadOffline();
       note.textContent = `${currentModel().label} ${measureWords(brainMeasure.get().by[currentModel().id])}${heapNow() === null ? '' : `; heap now ${Math.round(heapNow()!)} MB`}.`;
     } catch (e) {
-      note.textContent = `It did not load: ${String((e as Error)?.message ?? e)}`;
+      note.textContent = sayError(e, 'load that');
     }
     b.disabled = false;
     draw();

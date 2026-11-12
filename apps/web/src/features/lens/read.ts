@@ -21,6 +21,7 @@ import { loadImageFile } from '../../vision/camera';
 import { cleanOcr, ocrSummary, titleFrom, wordRegions, type Region } from '../../vision/ocrtext';
 import type { LensContext, Mode, ModeOpts } from './index';
 import { openMark } from './mark';
+import { sayError } from '../../ui/hisWords';
 
 export function createReadMode(L: LensContext): Mode {
   const S = L.state;
@@ -114,7 +115,7 @@ export function createReadMode(L: LensContext): Mode {
     try {
       await readStill(await loadImageFile(f, 2048));
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'bad');
+      toast(sayError(e, 'read that'), 'bad');
     }
   });
   text.addEventListener('input', () => {
@@ -164,10 +165,10 @@ export function createReadMode(L: LensContext): Mode {
       if (L.active()) L.reveal(actions);
     } catch (e) {
       progress.hidden = true;
-      const msg = String((e as Error)?.message ?? e);
-      L.status(`Could not read it: ${msg}`, 'off');
+      const msg = sayError(e, 'read that');
+      L.status(msg, 'off');
       // no pop-up for a read the owner ended themselves by leaving the Lens ("reader stopped")
-      if (L.active()) toast(`Could not read it: ${msg}`, 'bad');
+      if (L.active()) toast(msg, 'bad');
     } finally {
       reading = false;
     }
@@ -182,7 +183,7 @@ export function createReadMode(L: LensContext): Mode {
         void L.reader
           .warm((s) => S.mode === 'read' && !reading && L.status(s, 'mid'))
           .then(() => S.mode === 'read' && !reading && L.status('reader ready · CAPTURE or PICK PHOTO', 'ok'))
-          .catch((e: unknown) => S.mode === 'read' && L.status(`The reader could not load: ${String((e as Error)?.message ?? e)}`, 'off'));
+          .catch((e: unknown) => S.mode === 'read' && L.status(sayError(e, 'load the reader'), 'off'));
       }
       if (opts?.still) void readStill(opts.still);
       else if (opts?.capture) void readStill(L.still(1600));

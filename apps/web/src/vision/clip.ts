@@ -13,6 +13,7 @@
  */
 import { bankFromF16, bankFromI8, CLIP_DIM, CLIP_SIZE, centreSquare, nameTop, normalize, rgbaToChw, type LabelBank, type NameGuess } from './clipmath';
 import { simdSupported, type Progress } from './models';
+import { rawText } from '../ui/hisWords';
 
 const BASE = '/vendor/clip';
 export const CLIP_FILES = {
@@ -33,7 +34,7 @@ export const EXTENDED_SIZE = '15 MB';
 /** The runtime's WebAssembly memory cap in 64 KB pages, as faces.ts holds it: 1 GB first, 256 MB if the phone refuses that (the encoder needs well under). */
 const MAX_PAGES = [16384, 4096] as const;
 /** The runtime could not get its memory (an iPhone refusing the reservation): worth one try with a smaller cap. */
-export const memoryTrouble = (e: unknown): boolean => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(String((e as Error)?.message ?? e));
+export const memoryTrouble = (e: unknown): boolean => /RangeError|out of memory|no available backend|could not allocate|allocation failed/i.test(rawText(e));
 
 /** The namer could not start for want of memory, even at the smaller cap: plain words, never the runtime's own text. */
 export class NamerMemoryError extends Error {

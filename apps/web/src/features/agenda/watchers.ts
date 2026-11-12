@@ -5,6 +5,7 @@
  * waiting, what was told, and what could not be read. A page is added by his words in the chat or by its address here: public
  * pages only, never a login, never a person's page (said in the panel). The brain keeps them: with no signal the list says so.
  */
+import { sayError } from '../../ui/hisWords';
 import { watcherStands, type WatcherInfo } from '../../../../../packages/shared/src/lifeeasier';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -81,7 +82,7 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       url.value = '';
       await refresh();
     } catch (e) {
-      msg.textContent = String((e as Error).message ?? e);
+      msg.textContent = sayError(e, 'do that');
     } finally {
       b.disabled = false;
     }
