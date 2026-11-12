@@ -63,12 +63,12 @@ Four lists in the order things happen, then the questions only you can answer. Q
    PLAN (the Brief, Agenda, spending, markets, radio), ME (Memory, Settings, System, Links, Social), the chat itself (the log, the Stage, WHY,
    the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
    worst, add a test so it cannot come back.
-3. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
-4. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
+2. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
+3. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
    the Lens acting on what it sees (not just naming it), fun, better answers.
-5. **Training at scale** on the free GPU budget, said honestly if the budget cannot carry it; and the self-edit trial (Ghosty proposing its own
+4. **Training at scale** on the free GPU budget, said honestly if the budget cannot carry it; and the self-edit trial (Ghosty proposing its own
    fixes) measured.
-6. **A tutorial in the app** for showing it to other people, once the editors are in.
+5. **A tutorial in the app** for showing it to other people, once the editors are in.
 
 ## Your answers (12 Nov: "yes to all")
 - **Downloads**, each on your tap on Wi-Fi with the size said: physics in the 3-D engine (Kernel 2); RAW photos, cut-outs and object removal on
