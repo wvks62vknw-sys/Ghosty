@@ -402,3 +402,4 @@ New ideas from today, all free:
 - The deck's live lines for spending and places.
 - The Lens's living cards kept in the library as a nature diary ("seen: a robin, 24 Oct") with a map of where.
 - GYM on WebGPU the moment the phone arrives: ten to fifty times faster training, measured.
+   THE PHONE-HARDWARE ITEMS landed 12 Nov (OWNER-ISSUES 186): 120 Hz, the eyes' size choice, GYM on the chip, the brain measured; pending the PR's run.
