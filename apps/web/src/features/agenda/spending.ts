@@ -11,6 +11,7 @@ import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type Spe
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { bar, button, empty, modal, panel, row, toast } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 type View = 'month' | 'year' | 'changes';
 const COLOURS: Record<Category, string> = {
@@ -53,7 +54,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
         'ok',
       );
     } catch (e) {
-      toast(`Could not read that statement: ${(e as Error).message}`, 'bad');
+      toast(sayError(e, 'read that statement'), 'bad');
       paint();
     }
   });
@@ -89,7 +90,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
           set(x);
           toast(`${x.filed} row${x.filed === 1 ? '' : 's'} filed as ${c}`, 'ok');
         } catch (e) {
-          toast(`Could not file it: ${(e as Error).message}`, 'bad');
+          toast(sayError(e, 'file it'), 'bad');
         }
       }, c === r.c ? 'on' : ''))),
     ));
@@ -105,7 +106,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       set(x);
       toast(x.set.monthly ? `Budget: ${gbp(x.set.monthly)} a month on ${x.set.category}` : `No budget on ${x.set.category} now`, 'ok');
     } catch (e) {
-      toast((e as Error).message, 'warn');
+      toast(sayError(e, 'file that'), 'warn');
     }
   };
   budgetIn.addEventListener('keydown', (e) => e.key === 'Enter' && void setBudget());
@@ -117,7 +118,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     p.foot!.hidden = !s.kept;
     if (!s.kept) {
       p.setStatus('NO STATEMENT YET', 'mid');
-      p.body.append(h('p.note.privacy', s.privacy || PRIVACY), h('div.keyrow', button('ADD STATEMENT', pick, 'on')));
+      p.body.append(empty('NONE', 'Add a statement from your bank and I will sort it. It stays on this phone.', 'No statement yet'), h('p.note.privacy', s.privacy || PRIVACY), h('div.keyrow', button('ADD STATEMENT', pick, 'on')));
       return;
     }
     p.setStatus(`${s.kept.toLocaleString('en-GB')} rows kept · up to ${s.cap.toLocaleString('en-GB')}`, 'ok');
@@ -194,7 +195,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
       } catch (e) {
-        toast(`Could not export: ${(e as Error).message}`, 'bad');
+        toast(sayError(e, 'export'), 'bad');
       }
     }),
     button('FORGET ALL', () => {
@@ -204,7 +205,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
           set(await brain.spendingForget());
           toast('Spending forgotten', 'ok');
         } catch (e) {
-          toast(`Could not forget it: ${(e as Error).message}`, 'bad');
+          toast(sayError(e, 'forget it'), 'bad');
         }
       }, 'warn'))));
     }, 'warn'),

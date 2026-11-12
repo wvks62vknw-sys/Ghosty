@@ -26,6 +26,7 @@ import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import * as L from './store';
+import { sayError } from '../../ui/hisWords';
 
 type View = 'home' | 'course' | 'lesson' | 'quiz' | 'revise' | 'exam';
 
@@ -237,7 +238,7 @@ export const learnTab: TabDef = {
         toast(`Course ready: ${c.title}`, 'ok');
         showCourse(c.id);
       } catch (e) {
-        toast(`Could not plan it: ${(e as Error).message}`, 'bad');
+        toast(sayError(e, 'plan it'), 'bad');
       }
       startBtn.disabled = false;
       startBtn.textContent = 'START';
@@ -376,7 +377,7 @@ export const learnTab: TabDef = {
             going.commit().catch((e) => {
               // the brain could not be told: it stays, and shows again
               going.undo();
-              toast(`Could not remove it: ${(e as Error).message}`, 'bad');
+              toast(sayError(e, 'remove it'), 'bad');
               if (learnState.view === 'home') showHome();
             }),
         );
@@ -425,7 +426,7 @@ export const learnTab: TabDef = {
         if (!L.learn.get().full[courseId]) await L.course(courseId);
         l = await L.lesson(courseId, n);
       } catch (e) {
-        clear(sp.body, h('div.note', `Could not get the lesson: ${(e as Error).message}`), button('BACK', () => void showCourse(courseId)));
+        clear(sp.body, h('div.note', sayError(e, 'get the lesson')), button('BACK', () => void showCourse(courseId)));
         return;
       }
       if (learnState.view !== 'lesson' || learnState.lesson !== n) return;
@@ -494,7 +495,7 @@ export const learnTab: TabDef = {
         const q = await L.quiz({ ...a, n: 5 });
         showQuiz(q);
       } catch (e) {
-        clear(sp.body, h('div.note', `No quiz: ${(e as Error).message}`), button('BACK', () => (a.course ? void showCourse(a.course) : showHome())));
+        clear(sp.body, h('div.note', sayError(e, 'make that quiz')), button('BACK', () => (a.course ? void showCourse(a.course) : showHome())));
       }
     };
 
@@ -525,7 +526,7 @@ export const learnTab: TabDef = {
           await L.addCard(q.course, item.q, `${item.kind === 'mc' ? `${LETTERS[Number(item.answer)]}) ${item.choices?.[Number(item.answer)]}` : item.answer}${item.why ? ` — ${item.why}` : ''}`);
           toast('Kept as a flashcard', 'ok');
         } catch (e) {
-          toast(`Could not keep it: ${(e as Error).message}`, 'bad');
+          toast(sayError(e, 'keep it'), 'bad');
           b.disabled = false;
         }
       });
@@ -600,7 +601,7 @@ export const learnTab: TabDef = {
       try {
         await L.startExam(courseId);
       } catch (e) {
-        clear(sp.body, h('div.note', `No exam: ${(e as Error).message}`), button('BACK TO COURSE', () => void showCourse(courseId)));
+        clear(sp.body, h('div.note', sayError(e, 'make that exam')), button('BACK TO COURSE', () => void showCourse(courseId)));
         return;
       }
       if (view === 'exam') runExam();

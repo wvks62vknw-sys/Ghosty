@@ -147,6 +147,8 @@ export const bootState = {
   drawMs: -1,
   /** How long it held before landing, waiting for the app underneath and Home's hero, ms. */
   held: 0,
+  /** Passes of the sweep made while the film was held for a slow Home (one every 1.3 s: the last shot never stands still). */
+  heldSweeps: 0,
   /** Whether Mind (three.js) drew it. */
   mind: false,
   /** Whether the hum played (the voice setting on and the phone allowing sound). */
@@ -531,6 +533,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.frames = 0;
   bootState.worstGap = 0;
   bootState.held = 0;
+  bootState.heldSweeps = 0;
   bootState.said = 0;
   bootState.hudAt = -1;
   bootState.pace = 1;
@@ -580,7 +583,9 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const stamp = h('p.g-stamp.bstamp', { dataset: { g: 'stamp', case: 'keep' } });
   const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, greetingLine());
   const feeds = h('div.bfeeds');
-  const top = h('div.btop', stamp, greet, feeds);
+  // a slow open (the network slow, the brain cold): after six seconds the film says so, in its own voice, and keeps moving
+  const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
+  const top = h('div.btop', stamp, greet, feeds, slow);
   const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
   const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
@@ -943,6 +948,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       }
     }
     const orbState: MindState = T >= tl.greeting ? 'speaking' : T >= tl.recognise ? 'attending' : 'idle';
+    // held at the landing for a Home that is late: how long this hold has lasted, and whether the line for a slow open is up
+    const holding = T >= tl.land - 1 && T < tl.land + 1 && bootState.held > 0 && !bootState.skipped;
+    const heldFor = bootState.held;
+    if (holding) bootState.heldSweeps = Math.floor(heldFor / 1300);
+    slow.hidden = !(holding && e > 6000);
+    slow.style.opacity = slow.hidden ? '0' : '1';
     if (mindIn && mind) {
       let look: BootLook = BOOT_DONE;
       let fade = 1;
@@ -959,8 +970,9 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
           core: 1,
           turn: -0.35 * (1 - easeInOut(seg(S, N))),
           push,
-          // the sweep: down through the gathering constellation once, crossing the equator half-way
-          sweep: T >= G + 240 && T <= G + 540 ? 1.1 - 2.2 * seg(G + 240, G + 540) : NaN,
+          // the sweep: down through the gathering constellation once, crossing the equator half-way; while the film is held for a slow
+          // Home it goes on passing, a pass every 1.3 s, so the last shot never stands still (the landing then needs no cut)
+          sweep: holding ? (heldFor % 1300 < 1200 ? 1.1 - 2.2 * ((heldFor % 1300) / 1200) : NaN) : T >= G + 240 && T <= G + 540 ? 1.1 - 2.2 * seg(G + 240, G + 540) : NaN,
           trails: lean ? 0 : 1,
           refract: lean ? 0 : 1,
         };

@@ -18,6 +18,7 @@ import type { TabInstance } from '../shell/tabs';
 import { button, panel, type Panel } from './components';
 import { page } from './page';
 import { sections, type Sections } from './sections';
+import { sayError } from './hisWords';
 
 /** What a sheet's own function makes: the page, and what puts it away. */
 export interface SheetScreen {
@@ -127,7 +128,7 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
           show(x);
         });
         again.setAttribute('aria-label', `Try opening ${x.part.title.toLowerCase()} again`);
-        clear(x.pn.body, h('div.pkcol.sheeterr', h('p.note', `This page did not open: ${e?.message ?? e}`), again));
+        clear(x.pn.body, h('div.pkcol.sheeterr', h('p.note', sayError(e, 'open this page')), again));
       })
       .finally(() => {
         if (x.want === ticket && !x.live) x.want = 0;
@@ -183,7 +184,7 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
   if (Array.isArray(o.sections)) setup(o.sections);
   else
     void o.sections().then(setup, (e: Error) => {
-      P.left.append(h('p.note', `This screen did not open: ${e?.message ?? e}`));
+      P.left.append(h('p.note', sayError(e, 'open this screen')));
     });
 
   const paintBig = () => {

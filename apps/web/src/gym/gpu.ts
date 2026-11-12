@@ -9,6 +9,8 @@
  * plain code, one that has no adapter, one whose device throws.
  */
 
+import { sayError, trail } from '../ui/hisWords';
+
 export type Path = 'webgpu' | 'cpu';
 
 export interface Backend {
@@ -142,7 +144,7 @@ export async function chooseBackend(gpu: Gpu | undefined, make: (g: Gpu | undefi
   try {
     fast = await make(gpu);
   } catch (e) {
-    const why = String((e as Error)?.message ?? e).replace(/\.$/, '');
+    const why = sayError(e, 'use the graphics chip').replace(/\.$/, '');
     return { path: 'cpu', backend: cpuBackend, message: WORDS.cpu(why), why };
   }
   const out: Choice = { path: 'webgpu', message: WORDS.gpu, why: '', backend: fast };
@@ -157,7 +159,8 @@ export async function chooseBackend(gpu: Gpu | undefined, make: (g: Gpu | undefi
           return await fast.matmul(a, b, m, k, n);
         } catch (e) {
           broken = true;
-          const why = String((e as Error)?.message ?? e).replace(/\.$/, '');
+          trail(e, 'the chip stopped half-way');
+          const why = 'the chip stopped partway';
           out.path = 'cpu';
           out.why = why;
           out.message = WORDS.stopped(why);

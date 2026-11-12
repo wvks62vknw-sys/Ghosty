@@ -13,6 +13,7 @@ import { modelKey, needsCheck, reportCard, runReportCard, stopThinking, thinking
 import { goToPanel } from '../../ui/sections';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
 import { independenceBlock } from './independence';
+import { sayError } from '../../ui/hisWords';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const secs = (ms: number) => (ms >= 90_000 ? `${Math.round(ms / 60_000)} min` : `${Math.max(0, Math.round(ms / 1000))} s`);
@@ -49,7 +50,7 @@ export function reportCardPanel(): Panel & { refresh(): void } {
     if (thinking.get().busy) return;
     void runReportCard(withThink)
       .then((r) => toast(r.complete ? 'Report card done' : 'Report card stopped: partial scores kept', r.complete ? 'ok' : 'warn'))
-      .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 160), 'bad'))
+      .catch((e) => toast(sayError(e, 'change that'), 'bad'))
       .finally(paint);
     paint();
   };

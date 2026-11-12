@@ -12,6 +12,7 @@
  */
 import { type Env, finalLine, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
 import { COUNTDOWN } from './meta';
+import { sayError } from '../ui/hisWords';
 
 const OPS = ['+', '−', '×', '÷'];
 
@@ -370,7 +371,7 @@ export function evaluate(expr: string): { value: number; used: number[] } | { er
     if (i < t.length) fail('there is something extra at the end');
     return { value, used };
   } catch (e) {
-    return { error: (e as Error).message };
+    return { error: sayError(e, 'run that') };
   }
 }
 

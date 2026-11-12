@@ -23,12 +23,13 @@ import { forgetWidget, keepWidget, mergeWidgets, syncLocalWidgets } from '../../
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 import { draftCard } from './draftcard';
+import { sayError } from '../../ui/hisWords';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
 const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
 /** Why something did not happen, in plain words (never "Failed to fetch"). */
-const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : String((e as Error)?.message ?? e));
+const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : sayError(e, 'reach the workshop'));
 /** A project and its steps in plain words (the brain's own names are active / todo / doing / failed). */
 const PROJECT_WORD: Record<Project['status'], string> = { active: 'RUNNING', paused: 'PAUSED', done: 'FINISHED', cancelled: 'CANCELLED' };
 const STEP_WORD: Record<ProjectStep['status'], string> = { done: 'DONE', doing: 'NOW', todo: 'TO DO', failed: 'DIDN’T WORK' };
@@ -435,7 +436,7 @@ export const workshopTab: TabDef = {
         try {
           ({ code, model } = await brain.trainingAttempt(id, history));
         } catch (e) {
-          tLine(`✕ ${ex.title}: no AI available (${(e as Error).message}) — stopping`, 'bad');
+          tLine(`✕ ${ex.title}: ${sayError(e, 'reach an AI')} Stopping.`, 'bad');
           training = false;
           return false;
         }
@@ -712,8 +713,8 @@ export const workshopTab: TabDef = {
       const wasOffline = offline;
       offline = !!failed && unreachable(failed.reason);
       if (offline !== wasOffline) paint();
-      const err = failed && !offline && !isPaused(failed.reason) ? String((failed.reason as Error)?.message ?? failed.reason) : '';
-      if (err && err !== toldErr) toast(`Workshop: ${err}`, 'warn');
+      const err = failed && !offline && !isPaused(failed.reason) ? sayError(failed.reason, 'reach the workshop') : '';
+      if (err && err !== toldErr) toast(err, 'warn');
       toldErr = err;
     };
     paint();

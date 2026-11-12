@@ -11,6 +11,7 @@ import { button, modal, toast } from '../../ui/components';
 import { clampBox, handleAt, handlePoints, moveRect, normalizeRect, resizeRect, wholeFrame, type Box, type Handle } from '../../vision/boxes';
 import { cropCanvas, toJpegBlob } from '../../vision/camera';
 import { engineUrls, expiresText, SHARE_MAX_BYTES, type ShareInfo } from '../../vision/engines';
+import { sayError } from '../../ui/hisWords';
 
 export interface CropOptions {
   /** Start with this box (a detection's crop); else the whole picture. */
@@ -142,7 +143,7 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
       status.textContent = 'Taken down: the link stops working within a minute; anything that already fetched it may keep a copy.';
       paintShare();
     } catch (e) {
-      toast(`Could not forget it: ${String((e as Error)?.message ?? e)}`, 'bad');
+      toast(sayError(e, 'forget it'), 'bad');
     }
   }, 'warn');
   const shareBtn = button('GET A LINK FOR THE ENGINES', () => void share(), 'warn');
@@ -171,7 +172,7 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
       status.textContent = 'Link ready. Pick an engine; each opens in a new tab.';
       paintShare();
     } catch (e) {
-      status.textContent = `Could not share it: ${String((e as Error)?.message ?? e)}`;
+      status.textContent = sayError(e, 'share it');
     } finally {
       sharing = false;
       shareBtn.disabled = false;

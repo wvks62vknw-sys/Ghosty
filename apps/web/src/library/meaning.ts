@@ -18,6 +18,7 @@ import { embedReady, embedState, embedTexts, embedderWarm } from '../offline/emb
 import { meaningCovers } from '../../../../packages/shared/src/meaning';
 import { runIndex } from './idle';
 import { indexCounts, onLibraryChange, saveVectors, setQueryEmbedder, unindexed, type PassageKey } from './local';
+import { sayError } from '../ui/hisWords';
 
 /** The index's state: `indexed` of `total` passages have their vector; `how` the last search's ranking. */
 export const meaningIndex = createStore({ indexed: 0, total: 0, running: false, waiting: false, error: '', how: '' as '' | 'meaning' | 'keywords' });
@@ -86,7 +87,7 @@ export function fillIndex(): Promise<void> {
         if (r.done && meaningIndex.get().indexed < meaningIndex.get().total && r.kept > 0) again = true;
       } while (again);
     } catch (e) {
-      meaningIndex.set({ error: String((e as Error)?.message ?? e).slice(0, 160) });
+      meaningIndex.set({ error: sayError(e, 'make that index') });
     } finally {
       meaningIndex.set({ running: false, waiting: false });
       stop = null;

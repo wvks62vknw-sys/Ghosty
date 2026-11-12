@@ -11,6 +11,7 @@ import { button, toast } from '../../ui/components';
 import { timeZone } from '../../state/app';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
+import { sayError } from '../../ui/hisWords';
 
 export function healthScreen(): Screen {
   const input = h('input', { type: 'file', accept: '.zip,.xml,application/zip,text/xml', 'aria-label': 'Your Apple Health export (export.zip or export.xml)', hidden: true }) as HTMLInputElement;
@@ -34,8 +35,8 @@ export function healthScreen(): Screen {
       void import('../core/cards').then((m) => m.postCard(healthCard(week))).catch(() => undefined);
       await brain.packDo('body', 'health', { week }).catch(() => toast('Read here, but my brain didn’t answer: ask me later and pick it again.', 'warn'));
     } catch (e) {
-      bodyState.error = (e as Error).message;
-      status.textContent = `I couldn’t read that: ${(e as Error).message}.`;
+      bodyState.error = sayError(e, 'read that');
+      status.textContent = sayError(e, 'read that');
     }
   });
   const paint = (w: HealthWeek) => {

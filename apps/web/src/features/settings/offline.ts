@@ -38,6 +38,7 @@ import { settings } from '../../state/app';
 import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
 import { meaningBlock } from './meaning';
 import { independenceBlock } from '../system/independence';
+import { sayError } from '../../ui/hisWords';
 
 /** The device's memory when the browser says it (Chrome, at most 8); Safari does not, and the picker uses the 18 Pro Max's 12 GB. */
 const deviceGB = (): number | null => {
@@ -140,7 +141,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (offlineBrain.get().busy) return;
     void downloadOffline((frac, text) => paintProgress(frac, text))
       .then(() => toast('Offline brain ready on this phone', 'ok'))
-      .catch((e) => toast(`Download stopped: ${String((e as Error)?.message ?? e).slice(0, 140)}`, 'bad'))
+      .catch((e) => toast(sayError(e, 'finish that download'), 'bad'))
       .finally(refresh);
     refresh();
   }, 'on');
@@ -185,12 +186,12 @@ export function offlinePanel(): Panel & { refresh(): void } {
           const secs = Math.max(1, Math.round(run.ms / 1000));
           quick.textContent = `QUICK CHECK on ${m.label}: ${right} of ${run.items.length} right as in chat (${Math.round(overall(run)[0] * 100)}%) in ${secs >= 90 ? `${Math.round(secs / 60)} min` : `${secs} s`}${voiceLine(run) ? ` · ${voiceLine(run)}` : ''}${run.complete ? '' : ' (stopped early)'}. The whole card: SYSTEM → OFFLINE BRAIN REPORT CARD.`;
         } catch (e) {
-          quick.textContent = `QUICK CHECK on ${m.label} did not run: ${String((e as Error)?.message ?? e).slice(0, 160)}`;
+          quick.textContent = sayError(e, 'run the quick check');
         } finally {
           off();
         }
       })
-      .catch((e) => clear(out, `The test failed: ${String((e as Error)?.message ?? e).slice(0, 200)}`))
+      .catch((e) => clear(out, sayError(e, 'run the test')))
       .finally(refresh);
   });
 
@@ -239,7 +240,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     try {
       await useBrain(m.id);
     } catch (e) {
-      toast(String((e as Error)?.message ?? e).slice(0, 300), 'bad');
+      toast(sayError(e, 'finish that'), 'bad');
       refresh();
       return;
     }
@@ -277,7 +278,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (!yes || offlineBrain.get().busy) return;
     void getBrain(m.id, (frac, text) => paintProgress(frac, text))
       .then(() => toast(`${m.label} is on this phone: tap Use to load it`, 'ok'))
-      .catch((e) => toast(`Download stopped: ${String((e as Error)?.message ?? e).slice(0, 200)}`, 'bad'))
+      .catch((e) => toast(sayError(e, 'finish that download'), 'bad'))
       .finally(refresh);
     refresh();
   };

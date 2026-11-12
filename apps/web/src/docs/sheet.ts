@@ -25,6 +25,7 @@ import {
   writeMessage, writtenBlocks,
   type Align, type Block, type BlockType, type Doc, type EditKind, type PageSetup, type Run, type Suggestion,
 } from './model';
+import { sayError } from '../ui/hisWords';
 
 export const docsState = {
   open: false,
@@ -598,7 +599,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       paintImages();
       say(`Photo added (${p.iw} × ${p.ih}, kept on this phone only). SMALLER and LARGER size it; describe it for people who cannot see it.`);
     } catch (e) {
-      say(`I couldn’t add it: ${(e as Error).message}.`);
+      say(sayError(e, 'add it'));
     }
   });
   const grid = { rows: 3, cols: 3 };
@@ -853,7 +854,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       paintSuggestions();
       say(r.list.length ? `${r.list.length} suggestion${r.list.length === 1 ? '' : 's'} from ${r.where === 'phone' ? 'the brain on this phone' : 'my brain'}: accept or reject each one.` : 'My brain suggested no changes.');
     } catch (e) {
-      say(`I couldn’t ask: ${(e as Error).message}.`);
+      say(sayError(e, 'ask'));
     }
   };
 
@@ -890,7 +891,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       showPair(doc(), r.doc, `${r.where === 'phone' ? 'Translated by the brain on this phone (rough: a small model).' : 'Translated by my brain.'} Any language my brain writes can be asked for by name.${r.missing ? ` ${r.missing} paragraph${r.missing === 1 ? ' was' : 's were'} not translated and ${r.missing === 1 ? 'is' : 'are'} kept as ${r.missing === 1 ? 'it was' : 'they were'}.` : ''}`);
       say(`Translated into ${lang}.`);
     } catch (e) {
-      say(`I couldn’t translate it: ${(e as Error).message}.`);
+      say(sayError(e, 'translate it'));
     }
   };
   const scriptPick = h('select', { 'aria-label': 'The script' }, ...SCRIPTS.map((s) => h('option', { value: s.id }, s.name))) as HTMLSelectElement;
@@ -922,7 +923,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     };
     const go = (make: (d: Doc) => Promise<Blob> | Blob, ext: string) => {
       say(`Making your ${ext === 'docx' ? 'Word file' : ext === 'md' ? 'Markdown file' : ext === 'html' ? 'web page' : 'PDF'} on this phone…`);
-      void ready().then(make).then((blob) => made(blob, file(ext)), (e: Error) => say(`I couldn’t make it: ${e.message}.`));
+      void ready().then(make).then((blob) => made(blob, file(ext)), (e: Error) => say(sayError(e, 'make that file')));
     };
     return h('div.dcexport',
       h('small.cvgh', 'EXPORT'),
@@ -954,7 +955,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       askIn.value = '';
       say(`${blocks.length} paragraph${blocks.length === 1 ? '' : 's'} written into the page by ${r.where === 'phone' ? 'the brain on this phone' : 'my brain'}. UNDO takes them out again.`);
     } catch (e) {
-      say(`I couldn’t ask: ${(e as Error).message}.`);
+      say(sayError(e, 'ask'));
     }
   };
   const rewriteHere = async () => {
@@ -970,7 +971,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       paintSuggestions();
       say('One suggestion: accept or reject it.');
     } catch (e) {
-      say(`I couldn’t ask: ${(e as Error).message}.`);
+      say(sayError(e, 'ask'));
     }
   };
   askIn.addEventListener('keydown', (e) => e.key === 'Enter' && void writeInto());
@@ -1046,7 +1047,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       docsState.lost = word ? [...readNotes.lost] : [];
       say(`${d.title}: ${readingWords(d)}. Read here; nothing was sent.${word ? ' Kept in My documents to edit.' : ''}${docsState.lost.length ? ` Left out of the page: ${docsState.lost.join(', ')}.` : ''}`);
     } catch (e) {
-      say(`I couldn’t read it: ${(e as Error).message}.`);
+      say(sayError(e, 'read it'));
     }
   });
   const bar = h('div.dcbar', button('MY DOCUMENTS', showList), button('NEW', () => {

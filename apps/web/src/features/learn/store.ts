@@ -11,6 +11,7 @@ import type { AnswerResult, Card, Confidence, Course, CourseLesson, CourseSummar
 import { dayKey, emptyStreak, markDay, mergeStreaks, rate, type Rating, type Streak } from '../../../../../packages/shared/src/sm2';
 import { headers } from '../../api/brain';
 import { createStore } from '../../core/store';
+import { rawText } from '../../ui/hisWords';
 
 export interface Mirror {
   courses: CourseSummary[];
@@ -315,7 +316,7 @@ export async function finishExam(): Promise<ExamMarked | null> {
     r = await call<ExamMarked>('POST', '/exam/finish', { exam: e.exam.id, answers: e.answers, used });
   } catch (err) {
     // Gone from the brain (marked elsewhere, or the course removed): nothing to wait for.
-    if (/no longer open/.test((err as Error).message)) learn.set({ exam: null });
+    if (/no longer open/.test(rawText(err))) learn.set({ exam: null });
     throw err;
   }
   learn.set({ exam: null });

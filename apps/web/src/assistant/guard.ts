@@ -18,6 +18,7 @@ import { button, toast } from '../ui/components';
 import { homeSaid, minutesIn, panicSaid, walkCancelled, walkStart, type PanicSecret, type WalkInfo } from '../../../../packages/shared/src/guardian';
 import { chat, type Entry } from './session';
 import { speak } from './voice';
+import { sayError, trail } from '../ui/hisWords';
 
 /** This phone's copy of the panic phrase's hash (never the words), for a cold start before the brain answers. */
 const PANIC_KEY = 'ghosty.guardian.panic';
@@ -172,7 +173,7 @@ async function endWalk(how: 'home' | 'cancelled', text: string, voice = false): 
     if (info) setGuardian({ ...info, walk: r.walk });
     show(text, r.said, voice);
   } catch (e) {
-    toast(`I couldn't reach my brain to end the walk: ${String((e as Error)?.message ?? e).slice(0, 120)}`, 'bad');
+    toast(sayError(e, 'reach my brain to end the walk'), 'bad');
   }
 }
 
@@ -189,7 +190,8 @@ async function begin(text: string, minutes: number | null, voice: boolean): Prom
     show(text, r.said, voice);
     await loadGuardian();
   } catch (e) {
-    show(text, `I couldn't start the walk: my brain can't be reached (${String((e as Error)?.message ?? e).slice(0, 100)}). Tell someone you're on your way.`, voice);
+    trail(e, 'guard walk start');
+    show(text, "I couldn't start the walk: my brain can't be reached. Tell someone you're on your way.", voice);
   }
 }
 
@@ -202,7 +204,7 @@ export async function guardTurn(text: string, opts: { voice?: boolean } = {}): P
   const secret = panicHere();
   if (secret && (await panicSaid(text, secret))) {
     const pos = await onePos(false, 2500);
-    const r = await brain.panic(pos ?? undefined).catch((e: unknown) => ({ sent: false, why: String((e as Error)?.message ?? e).slice(0, 100) }));
+    const r = await brain.panic(pos ?? undefined).catch((e: unknown) => ({ sent: false, why: sayError(e, 'reach my brain') }));
     toast(r.sent ? 'Sent.' : `It couldn't go: ${r.why}`, r.sent ? 'ok' : 'bad');
     return true;
   }

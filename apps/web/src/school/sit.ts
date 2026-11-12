@@ -23,6 +23,7 @@ import { createStore } from '../core/store';
 import { brainsHere, currentModel, getBrain, loadOffline, mayUse, offlineBrain, offlineModels, offlineReady, offlineReply, onMobileData, sitOn, unloadOffline, withModel, type OfflineMsg } from '../offline/brain';
 import { modelKey } from '../offline/harder';
 import { CHAIN, chainPick, isBigger, MODELS, NO_BRAIN, rungOf, sitBudget, sitMessages, sitOffer, sitOfferWhy, type ModelDef } from '../offline/models';
+import { rawText } from '../ui/hisWords';
 
 export type { PaperResult, StageId };
 
@@ -411,7 +412,7 @@ export const sitGen: Gen = async (messages, o) => {
   try {
     return (await offlineReply(messages, () => undefined, o.signal, { temperature: o.temperature, max: o.max })).text;
   } catch (e) {
-    const msg = String((e as Error)?.message ?? e);
+    const msg = rawText(e);
     if ((e as Error)?.name === 'AbortError' || o.signal.aborted || !GONE.test(msg)) throw e;
     unloadOffline();
     // (in his words for whoever shows it, e.g. the reading check's toast; the browser's own words stay in `cause`)
@@ -445,7 +446,7 @@ export async function sitSubjects(stage: string, subjects: string[], o: { small?
       const out: PaperResult[] = [];
       try {
         await loadOffline().catch((e) => {
-          const notHere = /isn't on this phone/.test(String((e as Error)?.message));
+          const notHere = /isn't on this phone/.test(rawText(e));
           // (a brain that closed Ghosty before is refused in its own words: they say what to do)
           const refused = !!(e as { refuse?: boolean })?.refuse;
           throw notHere || refused ? e : new Error(`I couldn't load ${brain.label} to sit the paper (the phone may be short of memory): close other apps, then press SIT again.`);

@@ -8,6 +8,7 @@ import { brain } from '../../api/brain';
 import { needsHomeScreen, pushState } from '../../assistant/push';
 import { clear, h } from '../../core/dom';
 import { button, row, toast, type Panel } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 export const HOME_SCREEN_ONLY = 'iPhone only allows notifications for apps on your Home Screen: Share → Add to Home Screen, then open Ghosty from there.';
 
@@ -50,7 +51,7 @@ export async function paintNotifications(p: Panel): Promise<void> {
         const n = got.kinds.filter((x) => prefs[x.id]).length;
         p.setStatus(`${n} OF ${got.kinds.length} ON`, n ? 'ok' : 'mid');
       } catch (e) {
-        toast(`Not changed: ${String((e as Error).message)}`, 'warn');
+        toast(sayError(e, 'change that'), 'warn');
       } finally {
         b.disabled = false;
       }

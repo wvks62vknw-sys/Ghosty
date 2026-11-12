@@ -33,6 +33,7 @@ import { hasLeague, LeagueRun } from './league';
 import { admit, bytesOf, type Frozen, type LeagueVerdict, newLeague } from './rating';
 import { type GymRecord, recMeta, Session } from './session';
 import { edgeLabel } from './stretch';
+import { sayError } from '../ui/hisWords';
 
 export type GymIn =
   | { gym: 'train'; id: string; rec?: GymRecord | null; epoch?: number; carry?: boolean }
@@ -240,7 +241,7 @@ function tick(post: (m: GymOut) => void) {
     }
     if (active && !l.league && l.s.stretches && now() - lastEdge > edgeGap) stretch(post, l);
   } catch (e) {
-    post({ gym: 'error', id: active ?? '', message: String((e as Error)?.message ?? e), epoch: l.epoch });
+    post({ gym: 'error', id: active ?? '', message: sayError(e, 'run that'), epoch: l.epoch });
     active = null;
     return;
   }
@@ -259,7 +260,7 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
         post({ gym: 'reply', req: m.req, exact: g && { label: g.label, kind: g.kind }, verdict: g?.verdict ?? null });
       }
     } catch (e) {
-      post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+      post({ gym: 'reply', req: m.req, error: sayError(e, 'run that') });
     }
     return;
   }
@@ -272,7 +273,7 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       if (study && l.s.learner.known) post({ gym: 'known', id: m.id, epoch: l.epoch, ...l.s.learner.known() });
       post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
     } catch (e) {
-      post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+      post({ gym: 'reply', req: m.req, error: sayError(e, 'run that') });
     }
     return;
   }
@@ -303,7 +304,7 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
         post({ gym: 'reply', req: m.req, move: why.move, why });
       } else post({ gym: 'reply', req: m.req, move: l.s.learner.move?.(m.board ?? []) ?? -1 });
     } catch (e) {
-      post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+      post({ gym: 'reply', req: m.req, error: sayError(e, 'run that') });
     }
     return;
   }
@@ -312,7 +313,7 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
     try {
       l = live(m.id, m.rec, m.epoch);
     } catch (e) {
-      post({ gym: 'error', id: m.id, message: String((e as Error)?.message ?? e), epoch: m.epoch ?? 0 });
+      post({ gym: 'error', id: m.id, message: sayError(e, 'run that'), epoch: m.epoch ?? 0 });
       return;
     }
     if (active && active !== m.id) {

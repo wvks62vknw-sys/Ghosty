@@ -15,6 +15,7 @@ import { roomBoxes, type RoomPlan } from './room';
 import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TPlane, type TRenderer, type TScene, type TVector3 } from './three';
+import { sayError } from '../ui/hisWords';
 
 export interface StudioPart {
   id: number;
@@ -120,7 +121,7 @@ export class Viewer {
     try {
       this.lib = await loadThree();
     } catch (e) {
-      this.error = `The 3-D engine did not load: ${(e as Error).message}`;
+      this.error = sayError(e, 'draw the 3-D view');
       return false;
     }
     if (this.renderer) return true;

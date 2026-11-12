@@ -12,6 +12,7 @@ import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, panel, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { rawText, sayError } from '../../ui/hisWords';
 
 const CSS = `
 .mdreport { font-size: 15px; line-height: 22px; overflow-wrap: anywhere; }
@@ -144,8 +145,8 @@ export const reverseTab: TabDef = {
         // the new report, waiting, in place: when to expect it and that he can go
         void show(r.job.id, true);
       } catch (e) {
-        const msg = String((e as Error).message ?? e);
-        tell(msg);
+        const msg = rawText(e);
+        tell(sayError(e, 'start that'));
         if (/GitHub token/i.test(msg)) gh.hidden = false;
       } finally {
         startBtn.disabled = false;
@@ -231,7 +232,7 @@ export const reverseTab: TabDef = {
         if (!r.ok) throw new Error(j.error ?? `the brain answered ${r.status}`);
         clear(savedLine, `Saved in the Library as “${title}”. `, button('OPEN LIBRARY', () => go('library')));
       } catch (e) {
-        savedLine.textContent = navigator.onLine === false ? 'You’re offline, so it could not be saved. Try again when you’re back.' : `Could not save it: ${String((e as Error).message ?? e)}`;
+        savedLine.textContent = navigator.onLine === false ? 'You’re offline, so it could not be saved. Try again when you’re back.' : sayError(e, 'save it');
         b.disabled = false;
       }
     };
@@ -279,7 +280,7 @@ export const reverseTab: TabDef = {
               await refresh();
               void show(r.job.id, true);
             } catch (e) {
-              why.textContent = sentence(String((e as Error).message ?? e));
+              why.textContent = sentence(sayError(e, 'open that'));
               why.hidden = false;
               b.disabled = false;
             }
@@ -307,7 +308,7 @@ export const reverseTab: TabDef = {
         bringIn();
       } catch (e) {
         clear(viewer.body);
-        viewer.body.append(h('div.note', String((e as Error).message ?? e)));
+        viewer.body.append(h('div.note', sayError(e, 'open that')));
         bringIn();
       }
     };

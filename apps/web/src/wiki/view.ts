@@ -17,6 +17,7 @@ import { keptLine, LICENCE, sizeWords, WHY_NOT_ALL, WIKI_FILES, type WikiFile } 
 import { articleText, rewriteArticle, type FrameLook } from './html';
 import { archiveOf, bytesOf, chooseReading, deleteWiki, filesHere, getWiki, goneFiles, keptAll, offMobileData, onMobileData, progressLine, readingFile, readLog, type GetProgress } from './store';
 import type { Archive, Hit } from './zim';
+import { sayError } from '../ui/hisWords';
 
 /** What the spec and the console can read (window.__ghostyWiki): the last search's and the last article's times, in ms. */
 export const wikiTimes = { search: -1, open: -1, results: 0 };
@@ -169,7 +170,7 @@ export function mountWiki(p: Panel): void {
     } catch (e) {
       const stopped = (e as Error)?.name === 'AbortError';
       getting = null;
-      failed = stopped ? { id: f.id, text: 'Stopped. What came so far stays: GET carries on from there.' } : { id: f.id, text: String((e as Error)?.message ?? e) };
+      failed = stopped ? { id: f.id, text: 'Stopped. What came so far stays: GET carries on from there.' } : { id: f.id, text: sayError(e, 'open that') };
       await paint();
     }
   };
@@ -224,7 +225,7 @@ export function mountWiki(p: Panel): void {
       wikiTimes.results = hits.length;
       clear(results, ...(hits.length ? hits.map(row) : [h('p.note', `No title starts with “${text}” in ${reading?.name ?? 'this file'}.`)]));
     } catch (e) {
-      clear(results, h('p.note.wikierr', String((e as Error)?.message ?? e)));
+      clear(results, h('p.note.wikierr', sayError(e, 'open that')));
     }
   };
   q.addEventListener('input', () => {
@@ -243,7 +244,7 @@ export function mountWiki(p: Panel): void {
   let urls: string[] = [];
   let pictures: { i: number; path: string }[] = [];
   const openArticle = async (path: string, push = true): Promise<void> => {
-    const a = await opened().catch((e) => (toast(String((e as Error)?.message ?? e), 'warn'), null));
+    const a = await opened().catch((e) => (toast(sayError(e, 'open that'), 'warn'), null));
     if (!a) return;
     const t0 = performance.now();
     const got = await a.article(path).catch(() => null);

@@ -14,6 +14,7 @@ import { setScene } from '../engine/scheduler';
 import { ui } from '../state/app';
 import type { Readout, StatusWord } from './hubcards';
 import type { ScreenContext } from '../../../../packages/shared/src/awareness';
+import { sayError } from '../ui/hisWords';
 
 export interface TabInstance {
   enter?(): void;
@@ -100,7 +101,7 @@ function build(def: TabDef): { root: HTMLElement; inst: TabInstance } {
       inst = def.mount(root);
     } catch (e) {
       console.error('tab mount', def.id, e);
-      root.append(h('div.note', `This tab failed to load: ${String((e as Error)?.message ?? e)}`));
+      root.append(h('div.note', sayError(e, 'open that tab')));
     }
     m = { root, inst };
     mounted.set(def.id, m);

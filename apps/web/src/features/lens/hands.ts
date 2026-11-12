@@ -11,6 +11,7 @@ import { FrameBudget } from '../../vision/frame';
 import { GESTURE_HELP, GestureDebouncer, gestureWords, HAND_CONNECTIONS, handSide, type GestureEvent } from '../../vision/gestures';
 import { detector, gestures, nextStamp, type GestureRecognizerLike, type MPGestureResult } from '../../vision/models';
 import type { LensContext, Mode } from './index';
+import { sayError } from '../../ui/hisWords';
 
 export function createHandsMode(L: LensContext): Mode {
   const S = L.state;
@@ -129,7 +130,7 @@ export function createHandsMode(L: LensContext): Mode {
       } catch (e) {
         if (v !== visit) return;
         loading = null;
-        S.error = String((e as Error)?.message ?? e);
+        S.error = sayError(e, 'track your hand');
         if (S.mode === 'hands') L.status(S.error, 'off');
       }
     })();
@@ -139,9 +140,8 @@ export function createHandsMode(L: LensContext): Mode {
     if (++failures < 3 || !rec) return;
     failures = 0;
     rec = null;
-    const msg = String((e as Error)?.message ?? e);
     if (gestures.delegate === 'CPU') {
-      S.error = `The hand recogniser keeps failing: ${msg}`;
+      S.error = sayError(e, 'track your hand');
       if (S.mode === 'hands') L.status(S.error, 'off');
       return;
     }
@@ -151,7 +151,7 @@ export function createHandsMode(L: LensContext): Mode {
       rec = r;
       if (S.mode === 'hands') L.status('show a hand (on the CPU: the GPU could not run the recogniser)', 'ok');
     }).catch((e2: unknown) => {
-      S.error = `The hand recogniser cannot run here: ${String((e2 as Error)?.message ?? e2)}`;
+      S.error = sayError(e2, 'track your hand');
       if (S.mode === 'hands') L.status(S.error, 'off');
     });
   };

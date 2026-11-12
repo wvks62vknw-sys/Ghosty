@@ -41,6 +41,7 @@ import { gameArt } from './art';
 import { ratedCardLine, ratedSection, leaveRated } from './chessrated';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
+import { sayError, trail } from '../../ui/hisWords';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
 export const gymState = {
@@ -305,8 +306,8 @@ export const gymTab: TabDef = {
           worker = new Worker('/textures.worker.js');
           worker.onmessage = (e: MessageEvent) => onWorker(e.data as GymOut);
           worker.onerror = (e) => {
-            gymState.error = e.message || 'worker error';
-            gymState.log.push(`worker error ${gymState.error}`);
+            trail(e, 'gym worker');
+            gymState.error = 'The training worker stopped.';
             gymToast('The gym stopped: training could not run on this phone', 'bad');
             stopAll(false);
             training = null;
@@ -314,7 +315,7 @@ export const gymTab: TabDef = {
             paint();
           };
         } catch (e) {
-          gymState.error = String(e);
+          gymState.error = sayError(e, 'run that');
           gymToast('Training cannot run on this phone', 'bad');
           return;
         }
@@ -853,7 +854,7 @@ export const gymTab: TabDef = {
           },
           (e: unknown) => {
             locking = false;
-            note(`keep awake refused: ${String((e as Error)?.message ?? e)}`);
+            note(sayError(e, 'keep the screen awake'));
           },
         );
       } else if (!wantAwake() && lock) {

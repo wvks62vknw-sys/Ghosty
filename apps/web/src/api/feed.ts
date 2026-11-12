@@ -7,6 +7,7 @@
  */
 import { headers } from './brain';
 import { Emitter } from '../core/store';
+import { sayError } from '../ui/hisWords';
 
 export async function fetchText(url: string, ttl = 60, timeout = 15000): Promise<string> {
   const ctl = new AbortController();
@@ -54,7 +55,7 @@ export class Feed<T> {
       this.error = '';
     } catch (e) {
       this.status = this.data ? 'STALE' : 'NO FEED';
-      this.error = String((e as Error)?.message ?? e);
+      this.error = sayError(e, 'load that feed');
     } finally {
       this.busy = false;
       this.events.emit('change', this);

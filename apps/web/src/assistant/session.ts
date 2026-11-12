@@ -35,6 +35,7 @@ import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
+import { sayError } from '../ui/hisWords';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -412,8 +413,8 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       // answered on the phone
     } else if (e instanceof AuthError) {
       ui.set({ connected: false });
-      push({ kind: 'error', text: `I can't reach my brain: ${e.message}` });
-      toast(`Can't reach the brain: ${e.message}`, 'bad');
+      push({ kind: 'error', text: sayError(e, 'reach my brain') });
+      toast(sayError(e, 'reach the brain'), 'bad');
     } else {
       // No connection at all: answer from the library copy on this device.
       const answer = e instanceof TypeError && offline ? await offline().catch(() => null) : null;
@@ -425,9 +426,9 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
         chat.set({ live: answer });
         if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer, { owner: String(at), brief: true });
       } else {
-        const msg = String((e as Error)?.message ?? e);
+        const msg = sayError(e, 'answer that');
         push({ kind: 'error', text: msg });
-        toast(msg.length > 140 ? `${msg.slice(0, 140)}…` : msg, 'bad');
+        toast(msg, 'bad');
       }
     }
   } finally {
@@ -644,7 +645,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
   // "Translate this into Spanish" with no signal: the same small model, asked only to translate (roughly; the card says so).
   const tr = translateAsk(t, [...recent].reverse().find((x) => x.role === 'assistant')?.text ?? '');
   push({ kind: 'assistant', text: '', at, model: first ? FIRST_MODEL : OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}), ...(priv ? { private: true } : {}), ...(first ? { first } : {}) });
-  ui.set({ status: tr ? 'translating on your phone…' : 'thinking on your phone…' });
+  ui.set({ status: tr ? 'translating on your phone…' : modelWarm() ? 'thinking on your phone…' : 'Waking the brain on this phone. Twenty seconds or so.' });
   let raw = '';
   let painted = 0;
   const b = first ? budgeted() : null;
@@ -694,7 +695,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     remove();
     if ((e as Error)?.name === 'AbortError') return true;
     // A brain that closed Ghosty before is refused in plain words (offline/brain.ts): said, so the silence is explained.
-    if ((e as { refuse?: boolean })?.refuse) toast(String((e as Error).message).slice(0, 220), 'warn');
+    if ((e as { refuse?: boolean })?.refuse) toast(sayError(e, 'start that brain'), 'warn');
     console.warn('offline brain', e);
     return false;
   } finally {
@@ -766,7 +767,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at), here: kept });
   } catch (e) {
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
-    if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+    if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: sayError(e, 'answer that') });
     recheckThink(); // perhaps the model is not on this phone any more: the button goes
   } finally {
     ui.set({ busy: false, status: '' });

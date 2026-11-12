@@ -25,6 +25,7 @@ import { addCut, addShape, buildPlan, emptySketch, HONEST, measuredList, nearest
 import { LESSON, poseOf, type Pose } from './pose';
 import { align, recognise, type Pt } from './shapes';
 import { commandSaid, itemSaid, lengthSaid, materialSaid, nameSaid, northSaid, type ItemWords } from './words';
+import { sayError } from '../ui/hisWords';
 
 type Placed = 'shape' | 'cut' | 'item';
 /** The sketch, kept on this phone between visits (never sent anywhere). */
@@ -292,7 +293,7 @@ export function createShapesMode(L: LensContext): Mode {
       const t = await listen(false, (x) => (say.textContent = x));
       if (t && !words(t, true)) tell('Say a length, a piece, or where north is.', true);
     } catch (e) {
-      toast(String((e as Error)?.message ?? e), 'warn');
+      toast(sayError(e, 'track your hand'), 'warn');
     }
   };
 
@@ -375,7 +376,7 @@ export function createShapesMode(L: LensContext): Mode {
       } catch (e) {
         if (v !== visit) return;
         loading = null;
-        L.status(`The hand tracker cannot run here: ${String((e as Error)?.message ?? e)}`, 'off');
+        L.status(sayError(e, 'track your hand'), 'off');
       }
     })();
   };

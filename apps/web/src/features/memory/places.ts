@@ -9,6 +9,7 @@ import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, toast, undoBar } from '../../ui/components';
 import { offlineNow, why } from './timeline';
+import { sayError } from '../../ui/hisWords';
 
 const KINDS: [string, string][] = [
   ['home', 'Home'],
@@ -42,7 +43,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     } catch (e) {
       found = null;
       check.hidden = false;
-      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : `Not found: ${(e as Error).message}`));
+      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : `Not found: ${sayError(e, 'find that place')}`));
     }
     b.disabled = false;
     b.textContent = 'FIND';

@@ -14,6 +14,7 @@ import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, empty, modal, panel, toast, undo, undoBar, type Panel } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -33,7 +34,7 @@ export const heardWords = (n?: number): string => (n && n >= 2 ? `heard ${TIMES[
 /** No connection: fetch's own TypeError, or the phone says it is offline. */
 export const offlineNow = (e?: unknown): boolean => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
 /** Why a change did not happen, in his words: no connection said plainly (never "Failed to fetch"). */
-export const why = (e: unknown): string => (offlineNow(e) ? 'you’re offline, so nothing changed. Try again when you’re back online' : String((e as Error)?.message ?? e));
+export const why = (e: unknown): string => (offlineNow(e) ? 'you’re offline, so nothing changed. Try again when you’re back online' : sayError(e, 'change that'));
 
 /** A diary day as he would say it: "2026-10-17 (later)" → "Saturday 17 October (later)" (the year only when it is not this one). */
 export function diaryDay(heading: string): string {

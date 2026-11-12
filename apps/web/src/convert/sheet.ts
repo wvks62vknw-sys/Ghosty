@@ -19,6 +19,7 @@ import { pdfPageCount } from './pdfpages';
 import { noteConverted } from './tally';
 import { run } from '../commands/registry';
 import type { Doc } from '../docs/model';
+import { sayError } from '../ui/hisWords';
 
 /** A document read here, opened in DOCUMENTS (the sheet's command: MAKE → DOCUMENTS). */
 const openDoc = async (doc: Doc) => {
@@ -184,7 +185,7 @@ export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files
       say(`Done on this phone: ${outputs.length === 1 ? `${outputs[0]!.name}, ${sizeWords(outputs[0]!.blob.size)}` : `${outputs.length} files, ${sizeWords(outputs.reduce((n, o) => n + o.blob.size, 0))} in all`}.`);
       if (outputs.length === 1 && outputs[0]!.doc) void openDoc(outputs[0]!.doc);
     } catch (e) {
-      say(`I couldn’t: ${(e as Error).message}.`);
+      say(sayError(e, 'convert that'));
     }
   };
 
@@ -264,7 +265,7 @@ export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files
         convertState.outputs = [{ name: 'qr-code.png', size: png.size, type: 'image/png', note: `version ${q.version}` }];
         say(`Made on this phone: a QR code (version ${q.version}, ${q.size} × ${q.size}). A phone’s camera reads it.`);
       } catch (e) {
-        say(`I couldn’t: ${(e as Error).message}.`);
+        say(sayError(e, 'convert that'));
       }
     }, 'on');
     return [h('div.cvrow', kind, ecc), text, wifi, make, show];
@@ -367,7 +368,7 @@ export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files
           clear(show, outRow(wav, `recording ${new Date().toTimeString().slice(0, 5).replace(':', '.')}.wav`));
           say('Recorded on this phone, as a WAV.');
         } catch (e) {
-          say(`I couldn’t: ${(e as Error).message}.`);
+          say(sayError(e, 'convert that'));
         }
       };
       rec.start();

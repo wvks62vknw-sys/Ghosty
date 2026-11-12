@@ -29,6 +29,7 @@ import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sayError } from '../../ui/hisWords';
 
 /** What the spec and Ghosty read: the game on screen, what is kept here, the engines' numbers. */
 export const arcadeState = {
@@ -397,7 +398,7 @@ export const arcadeTab: TabDef = {
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
-        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${(err as Error)?.message ?? err}`);
+        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${sayError(err, 'get that game')}`);
       } finally {
         busy.delete(of.at);
         paintAll();
@@ -456,7 +457,7 @@ export const arcadeTab: TabDef = {
       const said: string[] = [];
       const begin = (files: EngineFiles): Promise<EngineHandle> =>
         engine.start(p.canvas, filesFor(e, files), p.intent, {
-          onError: (err) => p.fail(err.message),
+          onError: (err) => p.fail(sayError(err, 'run that game')),
           onHit: () => vibrate(25),
           onQuit: () => p.quit(),
           onLevelDone: (sc, words) => {
@@ -496,7 +497,7 @@ export const arcadeTab: TabDef = {
             status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
           }
         } catch (err) {
-          status.set(r.card, `It would not start: ${(err as Error)?.message ?? err}`);
+          status.set(r.card, sayError(err, 'start that game'));
           await handle?.quit().catch(() => undefined);
         } finally {
           close();

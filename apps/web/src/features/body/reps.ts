@@ -13,6 +13,7 @@ import { fetchModel, visionRuntime } from '../../vision/models';
 import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
+import { sayError } from '../../ui/hisWords';
 
 export const POSE_MODEL = '/vendor/pose/pose_landmarker_lite.task';
 
@@ -150,8 +151,8 @@ export function repsScreen(first: string): Screen {
       eng = await poseEngine((s) => (status.textContent = s));
     } catch (e) {
       bodyState.engine = 'none';
-      bodyState.error = (e as Error).message;
-      status.textContent = `The pose model didn’t load: ${(e as Error).message}`;
+      bodyState.error = sayError(e, 'read that');
+      status.textContent = sayError(e, 'open that');
       return;
     }
     status.textContent = `Counting ${EXERCISES.find((x) => x.id === ex)!.say}: I say each one.`;

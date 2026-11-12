@@ -43,6 +43,8 @@ import { detector, nextStamp, type ObjectDetectorLike } from '../../vision/model
 import { go } from '../../shell/tabs';
 import type { LensAsk, LensReply } from '../../workers/lens.worker';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { sayError } from '../../ui/hisWords';
+import { waiting as putUpWait } from '../../ui/wait';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -303,8 +305,10 @@ export function createOneMode(L: LensContext): Mode {
     oneState.stepSaid = '';
     setGet('GETTING THE EYES…');
     markAll();
+    const woken = putUpWait(layer, 'Waking the eyes…', { as: 'tag' });
     try {
       const d = await detector.get(progressFor(setGet, 'EYES'));
+      woken();
       if (v !== visit) return d.close();
       det = d;
       oneState.finder = 'ready';
@@ -315,9 +319,10 @@ export function createOneMode(L: LensContext): Mode {
       // a phone the namer has started on before loads it too, by itself, from the kept files
       if (flag(NAMER_KEY)) void loadNamer();
     } catch (e) {
+      woken();
       if (v !== visit) return;
       oneState.finder = 'failed';
-      oneState.stepSaid = memoryTrouble(e) ? FINDER_MEMORY_WORDS : `I couldn’t get the object finder: ${String((e as Error)?.message ?? e).slice(0, 160)}`;
+      oneState.stepSaid = memoryTrouble(e) ? FINDER_MEMORY_WORDS : sayError(e, 'get the object finder');
       markAll();
     }
   };
@@ -414,7 +419,7 @@ export function createOneMode(L: LensContext): Mode {
           say('');
           L.setMode('ask', { text, question: 'Translate this text into English. Tell me which language it is.', send: true });
         } catch (e) {
-          say(`I couldn’t read it: ${String((e as Error)?.message ?? e)}`);
+          say(sayError(e, 'read it'));
         }
         return;
       }
@@ -700,6 +705,8 @@ export function createOneMode(L: LensContext): Mode {
     }
   };
 
+  let lookSince = 0;
+  let lookingWait: (() => void) | null = null;
   /** The stamp's words: at most once a second. */
   let lookedAt = 0;
   const looked = (words: string, now: number): void => {
@@ -762,6 +769,15 @@ export function createOneMode(L: LensContext): Mode {
       oneState.tags.push({ id: t.id, kind: t.kind, tag: word, truth: t.truth, acts: [], box: t.box, fade, selected: selectedId === t.id, label: t.data?.label ?? '', greyed: [] });
     }
     oneState.selected = selectedId;
+    // the first tag: LOOKING… as a tag row until the first real one lands (every wait said)
+    if (!list.length && S.camera === 'on' && S.mode === 'lens' && oneState.finder === 'ready') {
+      lookSince ||= now;
+      if (!lookingWait && now - lookSince > 350) lookingWait = putUpWait(layer, 'Looking…', { as: 'tag' });
+    } else {
+      lookSince = 0;
+      lookingWait?.();
+      lookingWait = null;
+    }
     drawPlates();
     placePlates(list, rects, vw, vh);
     // the one true line under the viewfinder, and the stamp's LOOKING AT
@@ -1023,7 +1039,7 @@ export function createOneMode(L: LensContext): Mode {
       .catch((e: unknown) => {
         // the reader could not load (offline with no copy): the cheap pass says so on the bar, nothing else
         codeBroken = true;
-        S.error = String((e as Error)?.message ?? e);
+        S.error = sayError(e, 'read that');
         markAll();
       })
       .finally(() => (codeBusy = false));
@@ -1277,6 +1293,9 @@ export function createOneMode(L: LensContext): Mode {
     },
     leave() {
       visit++;
+      lookingWait?.(); // (the first tag's wait goes with the mode)
+      lookingWait = null;
+      lookSince = 0;
       layer.remove();
       markRow.remove();
       for (const n of nodes.values()) n.box.remove();

@@ -5,6 +5,7 @@
  * process, which is what a pixel read costs on a busy phone and on the preview's software graphics.
  */
 import { Steady, greyOf, textTiles, type TextBlock } from '../vision/tags';
+import { sayError } from '../ui/hisWords';
 
 const GREY_W = 160;
 const steady = new Steady();
@@ -80,6 +81,6 @@ scope.onmessage = (ev) => {
       scope.postMessage(reply, [reply.px]);
     } else scope.postMessage(reply);
   } catch (e) {
-    scope.postMessage({ id: a.id, ms: 0, tiles: 0, blocks: [], steady: false, epoch: 0, diff: 255, w: 0, h: 0, error: String((e as Error)?.message ?? e) });
+    scope.postMessage({ id: a.id, ms: 0, tiles: 0, blocks: [], steady: false, epoch: 0, diff: 255, w: 0, h: 0, error: sayError(e, 'run that') });
   }
 };

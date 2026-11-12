@@ -10,6 +10,7 @@ import { NIGHT_LIMITS } from '../../../../../packages/shared/src/night';
 import { clear, h } from '../../core/dom';
 import { night, setNight } from '../../night';
 import { button, panel, row, toast, type Light, type Panel } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
 
 const hours = (ms: number) => `${Math.round(ms / 3600_000)} hour${ms === 3600_000 ? '' : 's'}`;
 
@@ -30,7 +31,7 @@ export function nightPanel(): Panel {
       await setNight({ on });
       toast(on ? `Night School is on: ${night.get().settings.from} to ${night.get().settings.to}, UK time` : 'Night School is off', 'ok');
     } catch (e) {
-      toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn');
+      toast(sayError(e, 'change that'), 'warn');
     } finally {
       b.disabled = false;
     }
@@ -41,7 +42,7 @@ export function nightPanel(): Panel {
     const i = h('input.nighttime', { type: 'time', step: '60', 'aria-label': which === 'from' ? 'Night School starts at' : 'Night School ends at' }) as HTMLInputElement;
     i.addEventListener('change', () => {
       if (!/^\d{2}:\d{2}$/.test(i.value)) return;
-      void setNight({ [which]: i.value }).catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 200), 'warn'));
+      void setNight({ [which]: i.value }).catch((e) => toast(sayError(e, 'change that'), 'warn'));
     });
     return i;
   };
