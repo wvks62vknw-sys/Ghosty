@@ -8,6 +8,7 @@
  * (apps/edge/src/arcade.ts), asked with the owner's sign-in. The games run entirely on the phone: the brain never sees a
  * byte of a package, and nothing that bills is ever asked.
  */
+import { inHisWords } from '../ui/hisWords';
 import type { GameData, Take } from './shelf';
 import { concat, findEntry, zipEntries, zipRead, zipStore } from './zip';
 import { rawText, trail } from '../ui/hisWords';
@@ -149,7 +150,7 @@ export async function fetchPackage(data: GameData, onProgress?: (p: Progress) =>
       why.push(`${sameSite ? 'this site' : new URL(url).host}: ${rawText(e)}`);
     }
   }
-  throw new Error(`No mirror gave the right file (${why.join('; ')}).`);
+  throw inHisWords(`No mirror gave the right file (${why.join('; ')}).`);
 }
 
 /** Take the game's files out of the package, each checked against its own checksum when it carries one. */
