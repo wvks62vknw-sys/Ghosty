@@ -61,6 +61,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
   money price watch and the watchers made one system.
+- **Video 2.** Your yes: a clip steadied, the best clips chosen for you with the reason said, cuts snapped to the music's beat, reverse
+  play and a speed ramp; all the phone's own arithmetic, nothing new downloaded unless the builder proves it must and says the size.
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain,
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 

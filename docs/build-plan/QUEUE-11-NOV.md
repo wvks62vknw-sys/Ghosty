@@ -146,6 +146,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     Space, the Workbench and the tunnel, Convert and House measured and twenty-five fixes made, MAKE's rows in the STATES RATCHET; the hub
     cards and band (THE WORKSPACE's fold), the editors, the engine's scene and the solvers untouched. Started 12 Nov in worktree makepass
     from the SEE pass's head (08a5337a) the hour it handed back; lands after it.
+13b. VIDEO 2 (BRIEF-EDITOR-VIDEO-2, written 12 Nov; worktree video2, port 8839, spec video2): under his yes (185): STEADY by the app's own
+    block matching and a smoothed camera path, BEST CLIPS scored on the phone (sharpness, light, motion, variety; the namer only where kept),
+    ON THE BEAT from the music's onsets, REVERSE and a SPEED RAMP; nothing new downloaded unless proved. Starts from VIDEO's head on the fold
+    when that rebase hands back; lands after VIDEO.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
