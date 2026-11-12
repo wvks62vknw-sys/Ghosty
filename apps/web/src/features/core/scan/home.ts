@@ -474,6 +474,12 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       if (pr.width < 2 || pr.height < 2) continue;
       plates.push({ left: pr.left - frameLeft, top: pr.top - frameTop, right: pr.right - frameLeft, bottom: pr.bottom - frameTop });
     }
+    // the callout (the thing of the hour, at the right edge) is a plate too: a mark that the readout ribbon pushed down on a short screen would sit
+    // under it, so it waits there (the safari spec: God's eye and the station under "Now · tonight's book" at 440 × 763)
+    if (callout.offsetParent) {
+      const cr = callout.getBoundingClientRect();
+      if (cr.width > 2 && cr.height > 2) plates.push({ left: cr.left - frameLeft, top: cr.top - frameTop, right: cr.right - frameLeft, bottom: cr.bottom - frameTop });
+    }
     const onPlate = (bx: { left: number; top: number; right: number; bottom: number }) => plates.some((pl) => bx.left < pl.right && bx.right > pl.left && bx.top < pl.bottom && bx.bottom > pl.top);
     const list = marksAt(alt).concat(MARKS.filter((m) => m.id === scanState.lit && !m.where.includes(alt) && alt !== 'line' && alt !== 'out'));
     // what the eye looks at: the thing of the hour at home; out and on the way, the place locked (the station)
