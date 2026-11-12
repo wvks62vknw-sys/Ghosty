@@ -10,11 +10,15 @@
  * for an hour" stops the asking for an hour (said, and kept only across that hour, in this tab's session storage: it is a time,
  * not a voice). The panic phrase and a plain "stop" are never held (session.ts runs them before this).
  *
+ * WITH THE VOICE MODEL on the phone (assistant/speakermodel.ts, a pack he fetched on his tap) the sound is embedded and judged by
+ * speakerjudge.ts; without it, by the phone's own features as before. Either way the answer is the same three labels.
+ *
  * Nothing here sends anything: the sound lives in memory until it is scored, the numbers stay in IndexedDB (voicestore.ts).
  */
 import { createStore } from '../core/store';
 import { sound, takeSound } from './voice';
-import { features, judge, type Known, type Voiced } from './voiceprint';
+import { embed } from './speakermodel';
+import { features, judgeBest, type Known, type Voiced } from './voiceprint';
 import { knownVoices } from './voicestore';
 
 /** What the brain is told about who spoke (packages/shared/src/awareness.ts `ClientContext.voice`). */
@@ -62,7 +66,8 @@ void loaded;
 export const haveVoices = (): boolean => known.length > 0;
 
 /** The measured speed of the last score, for the speed check: ms from the recording's end to the answer. */
-export const lastScore = { ms: -1, kind: '', why: '' };
+/** `via`: 'model' when the voice model judged, 'features' when the phone's own sound features did (the model not on the phone). */
+export const lastScore = { ms: -1, kind: '', why: '', via: '', d: 0 };
 
 /** Is the hour's grace on? */
 export function graceOn(now = Date.now()): boolean {
@@ -109,16 +114,20 @@ export async function hear(snd: ReturnType<typeof takeSound>): Promise<Heard | n
   // a spoken turn with voices known and no sound to judge (the room alone, an ear that gives none): nothing is shown or held, and
   // the MY VOICE mark says so (DEGRADED) rather than calling every such turn a stranger
   if (!pcm) {
-    Object.assign(lastScore, { ms: -1, kind: 'nosound', why: '' });
+    Object.assign(lastScore, { ms: -1, kind: 'nosound', why: '', via: '' });
     return null;
   }
   const v: Voiced = features(pcm);
   // under MIN_VOICED of voice (a one-word command) is too little to judge: no tag, nothing held, the turn goes unlabelled as a typed one would
   if (!v.profile) {
-    Object.assign(lastScore, { ms: Math.round(performance.now() - snd!.at), kind: 'short', why: '' });
+    Object.assign(lastScore, { ms: Math.round(performance.now() - snd!.at), kind: 'short', why: '', via: '' });
     return null;
   }
-  const r = judge(known, v);
+  // the voice model's numbers for what was said, when the model is on the phone (else null, and the phone's own features judge)
+  v.emb = await embed(pcm);
+  const r = judgeBest(known, v);
+  lastScore.via = r.via;
+  lastScore.d = Math.round(r.d * 1000) / 1000;
   lastScore.ms = Math.round(performance.now() - snd!.at);
   lastScore.kind = r.who.kind;
   lastScore.why = r.who.kind === 'unknown' ? r.who.why : '';

@@ -142,6 +142,11 @@ export class Reactor {
       this.lastGlow = 0.6;
       return;
     }
+    // The 2-D stand-in is not drawn under the boot's own screen (shell/boot.ts, `#boot`): nobody can see it there, and its first frame
+    // (the housing, rings and glass painted once in buildPro, then the first draw) was the largest single piece of the first screen's
+    // script on a phone that cannot run Mind (118 ms of the first screen's measured time, in the profile). It is drawn from the frame
+    // after the boot lets go.
+    if (document.getElementById('boot')) return;
     this.resize();
     this.t += dt;
     const t = this.t;

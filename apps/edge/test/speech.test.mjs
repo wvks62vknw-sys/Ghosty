@@ -471,3 +471,6 @@ test('narration: each step said as he would say it, short enough to say aloud, n
 
 // HIS VOICE KNOWN (BRIEF-VOICE-KNOWN): the voiceprint with no model, the label that reaches the brain, and the lines that do not move
 await import('./voiceknown.test.mjs');
+
+// THE REAL SPEAKER MODEL (STARS 171, BRIEF-SPEAKER): the filterbank, the embedding judge, the fallback, never a lock
+await import('./speaker.test.mjs');

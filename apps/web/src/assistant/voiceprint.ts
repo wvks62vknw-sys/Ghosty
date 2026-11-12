@@ -19,9 +19,12 @@
  * under FLOOR_MIN nor over FLOOR_MAX: a steady speaker gets a tight floor, one whose voice moves a lot a wider one.
  *
  * HOW STRONG IT IS: a courtesy signal, not a lock. A recording of his voice played at the phone defeats it; a cold, a shout or a
- * whisper moves it; two people who sound alike may not be told apart (then adding the second says so). A real speaker model is
- * a download on his tap, STARS 171; until then this is what the phone can do by itself.
+ * whisper moves it; two people who sound alike may not be told apart (then adding the second says so). The voice model (a pack
+ * he fetches on his tap: speakermodel.ts, speakerjudge.ts) tells voices apart better; this is what the phone does by itself, and
+ * what it falls back to when the model is not on the phone (`judgeBest` at the end of this file chooses).
  */
+
+import { enrolEmb, hasEmb, isEmb, judgeEmb, tooAlike, type EmbPrint, type KnownEmb } from './speakerjudge';
 
 export const RATE = 16_000;
 const FRAME = 400; // 25 ms
@@ -58,6 +61,8 @@ export interface Print {
   looks: number[][];
   pooled: number[];
   floor: number;
+  /** The voice model's numbers for the same three lines, when the model was on the phone at enrolment (speakerjudge.ts). */
+  emb?: EmbPrint;
 }
 
 export interface Voiced {
@@ -65,6 +70,8 @@ export interface Voiced {
   secs: number;
   /** The capture's profile (PROFILE_LEN numbers), or null when there was too little voice. */
   profile: number[] | null;
+  /** The voice model's embedding of the capture, when the model is on the phone and there was speech enough. */
+  emb?: number[] | null;
 }
 
 // ---------------------------------------------------------------- the arithmetic
@@ -290,13 +297,14 @@ export function enrol(looks: Voiced[]): Print | null {
   if (good.length < SENTENCES) return null;
   const profiles = good.map((l) => l.profile);
   const weights = good.map((l) => l.secs);
-  return { v: 1, looks: profiles, pooled: pool(profiles, weights), floor: floorFor(profiles, weights) };
+  const emb = enrolEmb(good.map((l) => l.emb));
+  return { v: 1, looks: profiles, pooled: pool(profiles, weights), floor: floorFor(profiles, weights), ...(emb ? { emb } : {}) };
 }
 
 /** Is a stored thing a Print with its numbers whole? (A hurt record is no voice.) */
 export function isPrint(p: unknown): p is Print {
   const q = p as Print | null;
-  return !!q && q.v === 1 && Array.isArray(q.pooled) && q.pooled.length === PROFILE_LEN && Array.isArray(q.looks) && q.looks.length > 0 && q.looks.every((l) => Array.isArray(l) && l.length === PROFILE_LEN && l.every(Number.isFinite)) && q.pooled.every(Number.isFinite) && Number.isFinite(q.floor);
+  return !!q && q.v === 1 && Array.isArray(q.pooled) && q.pooled.length === PROFILE_LEN && Array.isArray(q.looks) && q.looks.length > 0 && q.looks.every((l) => Array.isArray(l) && l.length === PROFILE_LEN && l.every(Number.isFinite)) && q.pooled.every(Number.isFinite) && Number.isFinite(q.floor) && (q.emb === undefined || isEmb(q.emb));
 }
 
 export type Who = { kind: 'owner' } | { kind: 'person'; id: string; name: string } | { kind: 'unknown'; why: 'voice' | 'unsure' | 'short' };
@@ -333,5 +341,14 @@ export function judge(known: Known[], capture: Voiced): { who: Who; d: number } 
  * Returns the one it sounds like, or null.
  */
 export function soundsLike(known: Known[], print: Print): Known | null {
-  return known.find((k) => distance(k.print.pooled, print.pooled) < k.print.floor + print.floor) ?? null;
+  return known.find((k) => distance(k.print.pooled, print.pooled) < k.print.floor + print.floor) ?? (print.emb ? tooAlike(known, print.emb) : null);
+}
+
+/**
+ * Whose voice a capture is: by the model's numbers when the model gave some and every voice known has its own, else by the phone's
+ * own features (voiceprint.ts), exactly as before. `via` says which, for the checks and the MY VOICE screen.
+ */
+export function judgeBest(known: Known[], capture: Voiced): { who: Who; d: number; via: 'model' | 'features' } {
+  if (capture.emb && known.length && known.every(hasEmb)) return { ...judgeEmb(known as KnownEmb[], capture.emb), via: 'model' };
+  return { ...judge(known, capture), via: 'features' };
 }

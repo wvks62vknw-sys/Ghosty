@@ -32,10 +32,13 @@ const INK = { ground: 'warm', world: 'ink', night: 'warm', switches: {} };
 const SCAN = { ground: 'graphite', world: 'scan', night: 'graphite', switches: {} };
 const GLASS = { ground: 'graphite', world: 'glass', night: 'graphite', switches: {} };
 const WIDE = { width: 390, height: 844 };
+const TITLE = 'Alice’s Adventures in Wonderland';
 
 /** A phone opened on Ghosty, signed in, his name Boss, in the look asked for; `book`: a book on the go; `pins`: his favourites. */
-async function open({ viewport = PHONE, look = INK, book = false, pins = ['lens', 'agenda'], recents = null, once = true } = {}) {
+async function open({ viewport = PHONE, look = INK, book = false, pins = ['lens', 'agenda'], recents = null, once = true, shelf = false } = {}) {
   const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  // `shelf`: his shelf holds the book he is in, under its real title (the document's id is the title with its punctuation and capitals gone)
+  if (shelf) await ctx.route(/\/api\/library$/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ docs: [{ id: 'alices-adventures-in-wonderland.pdf', title: TITLE, source: 'his own file', kind: 'pdf', pages: 120, passages: 40, chars: 90000, status: 'ready', at: Date.now() }], stats: { docs: 1, passages: 40, chars: 90000, bytes: 90000, vectors: 0 }, vectors: false, starterReady: true }) }));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
@@ -125,7 +128,7 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   const ink0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built, label: document.querySelector(sel)?.getAttribute('aria-label') }), card('ink'));
   check(!ink0.coming && ink0.built === 'true', `[gallery] ONE INK's card is still COMING: ${JSON.stringify(ink0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look).join());
-  check(comings === 'eye,orbit,grown', `[gallery] COMING is on ${comings} (want eye,orbit,grown: THE MAP is built)`);
+  check(comings === 'orbit,grown', `[gallery] COMING is on ${comings} (want orbit,grown: THE MAP and THE EYE are built)`);
   await page.click(card('ink'));
   await until(page, () => document.documentElement.dataset.world === 'ink', 5000, '[gallery] a tap on ONE INK did not make the world ink');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
@@ -152,10 +155,10 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   if (!(await page.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await page.locator('.logbtn:visible').first().click().catch(() => undefined);
   await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
   // the looks still coming say their line and change nothing
-  await page.fill('#cin', 'the eye');
+  await page.fill('#cin', 'orbit');
   await page.press('#cin', 'Enter');
-  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('The Eye is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "the eye" did not say its line'));
-  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "the eye" changed the world');
+  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Orbit is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "orbit" did not say its line'));
+  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "orbit" changed the world');
   await page.fill('#cin', 'one ink');
   await page.press('#cin', 'Enter');
   await until(page, () => document.documentElement.dataset.world === 'ink', 8000, '[words] "one ink" did not make the world ink');
@@ -168,9 +171,11 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
 
 // ---- b. Home is the printed page, at 440 and at 390; the thing of the hour as the book, the agenda, the Brief
 for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
-  const { ctx, page } = await open({ viewport: vp, book: true, recents: ['library', 'eye', 'brief'] });
+  const { ctx, page } = await open({ viewport: vp, book: true, shelf: true, recents: ['library', 'eye', 'brief'] });
   await go(page, 'core');
   await until(page, HOME_READY, 15000, `[home ${tag}] Home never became the printed page`);
+  // the book's real title, once his shelf has been read (until then the document's id, as THE SCAN's room says it): it was the id, always
+  await until(page, (t) => document.querySelector('.inkentry h2')?.textContent === t, 12000, `[home ${tag}] the entry never took the book's real title off his shelf (it still says the document's id)`, TITLE);
   await page.waitForTimeout(900);
   const h = await page.evaluate(() => {
     const q = (s) => document.querySelector(s);
@@ -202,6 +207,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
       scanmarks: document.querySelectorAll('.scanmarks, .scanleads').length ? [...document.querySelectorAll('.scanmarks, .scanleads')].filter((e) => e.getClientRects().length).length : 0,
       feeds: [...document.querySelectorAll('.rcwx, .rcbelow, .rchero, .scancol, #cbar, #ccap')].filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').length,
       glowEls: all.filter((e) => getComputedStyle(e).getPropertyValue('--g-glow').trim() !== '0').length,
+      toastText: [...document.querySelectorAll('#toasts .toast')].map((x) => (x.textContent ?? '').trim().slice(0, 80)).join(' | '),
       blur: [...document.querySelectorAll('body *')].filter((e) => seen(e) && ((getComputedStyle(e).backdropFilter && getComputedStyle(e).backdropFilter !== 'none') || (getComputedStyle(e).webkitBackdropFilter && getComputedStyle(e).webkitBackdropFilter !== 'none'))).map((e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${String(e.className).split(' ')[0]}`),
       shadows: all.filter((e) => seen(e) && /rgba?\([^)]*\) [-\d.]+px [-\d.]+px [1-9]/.test(getComputedStyle(e).boxShadow)).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).split(' ')[0]}`),
       plates: [...document.querySelectorAll('.g-plate, .scanret, .scanco')].filter(seen).length,
@@ -219,7 +225,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   check(h.eq && Math.abs(h.orbMid - (h.eq[0] + h.eq[1] / 2)) <= 2, `[home ${tag}] the equator rule (${h.eq}) does not run through the orb's middle (${h.orbMid})`);
   check(h.glow === '0', `[home ${tag}] --g-glow is ${h.glow}, not 0`);
   check(h.entries === 1 && h.kickIndex === '01' && /^TONIGHT|THIS MORNING|TODAY$/i.test(h.kickTag) && /^(Reading|Agenda|Brief)$/.test(h.kickRight), `[home ${tag}] the entry: ${JSON.stringify({ n: h.entries, i: h.kickIndex, t: h.kickTag, r: h.kickRight })}`);
-  check(/Alice/.test(h.name) && /serif|New York|Georgia|Iowan/i.test(h.nameFamily) && h.nameSize === '26px', `[home ${tag}] the entry's name is "${h.name}" at ${h.nameSize} in ${h.nameFamily.slice(0, 30)}`);
+  check(h.name === TITLE && /Alice/.test(h.name) && /serif|New York|Georgia|Iowan/i.test(h.nameFamily) && h.nameSize === '26px', `[home ${tag}] the entry's name is "${h.name}" at ${h.nameSize} in ${h.nameFamily.slice(0, 30)}`);
   check(/^Page 42 · 37 % read · yesterday$/.test(h.line) && /mono|SF Mono|Menlo|ui-monospace/i.test(h.lineFamily), `[home ${tag}] the entry's one true line is "${h.line}" in ${h.lineFamily.slice(0, 30)}`);
   check(h.keys.length === 2 && /fill/.test(h.keys[0].cls) && /ghost/.test(h.keys[1].cls) && h.keys[0].text === 'Carry on reading' && h.keys[1].text === 'Listen', `[home ${tag}] the entry's keys: ${JSON.stringify(h.keys)}`);
   check(h.recent.join() === 'Library,God’s eye,Brief' || h.recent.join() === 'Library,God’s Eye,Brief' || h.recent.length >= 2, `[home ${tag}] RECENT is ${h.recent}`);
@@ -231,7 +237,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   check(h.housekick === 'none' && h.houseask === 'none', `[home ${tag}] the house's label row (${h.housekick}) or a second ask line (${h.houseask}) shows`);
   check(h.frameBottom <= h.footTop + 1, `[home ${tag}] the page (${h.frameBottom}) runs under the foot (${h.footTop})`);
   check(h.scanmarks === 0 && h.feeds === 0 && h.plates === 0 && h.topShown === 'none', `[home ${tag}] Scan marks ${h.scanmarks}, feeds ${h.feeds}, plates ${h.plates}, the top bar ${h.topShown}`);
-  check(h.glowEls === 0 && !h.blur.length && !h.shadows.length, `[home ${tag}] nothing may glow on the page: --g-glow elsewhere ${h.glowEls}, backdrop-filter ${h.blur}, shadows ${h.shadows}`);
+  check(h.glowEls === 0 && !h.blur.length && !h.shadows.length, `[home ${tag}] nothing may glow on the page: --g-glow elsewhere ${h.glowEls}, backdrop-filter ${h.blur}, shadows ${h.shadows}${h.toastText ? `, a toast is up: "${h.toastText}"` : ''}`);
   const bad = await floor(page, vp.width, '.inkframe');
   check(!bad.length, `[home ${tag}] the floor: ${bad.slice(0, 6).join('; ')}`);
   await page.screenshot({ path: `${out}/ink-home-${tag}.png` });
@@ -462,8 +468,38 @@ const diffPng = async (a, b) => {
   }
 }
 
+// ---- f. the chat in ONE INK: the conversation's log is drawn (it was 0 × 0: its column was hidden), between the one key at the top and the ask line
+for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
+  const { ctx, page } = await open({ viewport: vp });
+  await go(page, 'core');
+  await until(page, HOME_READY, 15000, `[chat ${tag}] Home never became the printed page`);
+  await page.evaluate(() => document.querySelector('.logbtn')?.click());
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 }).catch(() => problems.push(`[chat ${tag}] the chat's ask line never showed`));
+  await page.fill('#cin', 'hello there');
+  await page.press('#cin', 'Enter');
+  await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /hello there/.test(m.textContent ?? '')), 15000, `[chat ${tag}] the reply never landed in the log`);
+  await page.waitForTimeout(600);
+  // (the newest reply rises into place: measured once it has)
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+  const c = await page.evaluate(() => {
+    const box = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), b: Math.round(r.bottom) } : null; };
+    const msgs = [...document.querySelectorAll('#pg-core .convo .msg')].filter((m) => m.getClientRects().length);
+    const last = document.querySelector('#pg-core .convo .msg.latest');
+    return { ink: document.body.classList.contains('inkhome'), logopen: !!document.querySelector('.hud.core.logopen'), convo: box('.convo'), log: box('.convo .log'), bar: box('#cbar'), top: box('#top .logbtn'), msgs: msgs.length, lastBottom: last ? Math.round(last.getBoundingClientRect().bottom) : null, W: innerWidth, sideways: document.documentElement.scrollWidth };
+  });
+  check(c.ink && c.logopen, `[chat ${tag}] the chat is not open in ONE INK: ${JSON.stringify(c)}`);
+  check(!!c.log && c.log.w > vp.width / 2 && c.log.h > 200 && c.log.x >= 0 && c.log.x + c.log.w <= vp.width, `[chat ${tag}] the conversation log is not drawn (was 0 × 0): ${JSON.stringify(c.log)}`);
+  check(c.msgs >= 2, `[chat ${tag}] the sentences are not drawn: ${c.msgs} messages shown`);
+  check(!!c.log && !!c.bar && c.log.b <= c.bar.y + 1, `[chat ${tag}] the log runs under the ask line: ${JSON.stringify([c.log, c.bar])}`);
+  check(!!c.log && !!c.top && c.log.y >= c.top.b - 1, `[chat ${tag}] the log runs under the way-back key: ${JSON.stringify([c.log, c.top])}`);
+  check(c.lastBottom != null && c.bar && c.lastBottom <= c.bar.y, `[chat ${tag}] the last sentence is hidden behind the ask line`);
+  check(c.sideways <= c.W + 1, `[chat ${tag}] the page scrolls sideways: ${c.sideways}`);
+  await page.screenshot({ path: `${out}/ink-chat-${tag}.png` });
+  await ctx.close();
+}
+
 await browser.close();
 timings.push(`whole run ${Math.round((Date.now() - T0) / 1000)} s`);
 console.log(timings.map((t) => `TIMING ${t}`).join('\n'));
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'ONE INK run clean at 440 × 956 and 390 × 844: the gallery built and kept, Home the printed page, the foot on every screen, the plan, the jump bar, under budget, The Scan and Glass untouched.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'ONE INK run clean at 440 × 956 and 390 × 844: the gallery built and kept, Home the printed page, the chat log drawn, the foot on every screen, the plan, the jump bar, under budget, The Scan and Glass untouched.');
 process.exit(problems.length ? 1 : 0);

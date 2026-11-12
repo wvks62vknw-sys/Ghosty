@@ -12,6 +12,8 @@
 import { clear, h } from '../../core/dom';
 import { listen, sound, speak, stopListening, takeSound, talkHooks, voiceSupport } from '../../assistant/voice';
 import { refresh as refreshKnown, lastScore } from '../../assistant/voiceknown';
+import { embed, modelReady } from '../../assistant/speakermodel';
+import { onSpeakerPack } from '../../offline/speakerpack';
 import { enrol, features, MIN_ENROL_VOICED, soundsLike, SENTENCES, type Print, type Voiced } from '../../assistant/voiceprint';
 import { addVoice, forgetVoice, knownVoices, MAX_VOICES, putBack, saveMine, type Stored } from '../../assistant/voicestore';
 import { speechCaps } from '../../api/brain';
@@ -53,7 +55,11 @@ async function listenOnce(stage: Stage, line: (t: string) => void): Promise<Voic
   void text;
   const snd = takeSound();
   const pcm = snd ? await snd.pcm : null;
-  return pcm ? features(pcm) : { secs: 0, profile: null };
+  if (!pcm) return { secs: 0, profile: null };
+  // with the voice model on the phone, the line is kept as its numbers too (never the sound)
+  const v = features(pcm);
+  if (v.profile) v.emb = await embed(pcm);
+  return v;
 }
 
 /** The three sentences, one at a time, each asked again (up to three tries) if not enough of the voice was caught. */
@@ -140,6 +146,8 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
     if (busy) return; // (a read in progress owns the panel: a late repaint must not wipe it)
     const me = all.find((v) => v.me);
     const nosound = lastScore.kind === 'nosound';
+    const model = await modelReady();
+    const byModel = !!me?.print.emb;
     const mark = unsupported() ? { word: 'DEGRADED', tone: 'warn' as const, why: 'this browser gives me no sound to compare' } : me ? (nosound ? { word: 'DEGRADED', tone: 'warn' as const, why: 'my last listen gave me no sound to compare: the phone’s own ear does not always share the microphone' } : { word: 'WORKING', tone: 'on' as const, why: `I know your voice, from ${day(me.at)}` }) : { word: 'DEGRADED', tone: 'warn' as const, why: 'no voice enrolled yet' };
     p.setStatus(mark.word === 'WORKING' ? 'Working' : 'Degraded');
     const keys: HTMLElement[] = [];
@@ -154,6 +162,12 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
           const l = truthLine([{ text: 'My voice', tone: 'strong' }, { text: mark.word, tone: mark.tone }, mark.why]);
           l.setAttribute('role', 'listitem');
           l.dataset.mark = mark.word.toLowerCase();
+          return l;
+        })(),
+        (() => {
+          const l = truthLine([{ text: 'Judged by', tone: 'strong' }, byModel && model ? 'the voice model on this phone' : model && me ? 'the phone’s own sound features: ENROL again so the voice model learns you' : model ? 'the voice model, once you enrol' : 'the phone’s own sound features (the voice model is optional: see VOICE MODEL)']);
+          l.setAttribute('role', 'listitem');
+          l.dataset.judged = byModel && model ? 'model' : 'features';
           return l;
         })(),
         (() => {
@@ -208,6 +222,7 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
   };
 
   void paint();
+  onSpeakerPack(() => void paint());
   return { el: p.el, refresh: paint };
 }
 

@@ -743,6 +743,12 @@ export class Mind {
     this.t += dt;
     if (performance.now() - this.fetchedAt > 300_000) void this.refresh();
     if (document.hidden || !this.inView) return;
+    // the jump bar covers the whole screen while it is open: nothing behind it is drawn (on a phone one frame of the orb is the dearest thing
+    // the page does, and the bar's own open waits behind it); the first frame after it closes is drawn at once
+    if (document.getElementById('palette')?.classList.contains('on')) {
+      this.dirty = true;
+      return;
+    }
     // (heavy mode, core/heavy.ts: a paper being sat on the phone's brain gets the graphics; one still frame per change)
     const still = reduced() || heavy.get().on;
     heroState.loop = !still;

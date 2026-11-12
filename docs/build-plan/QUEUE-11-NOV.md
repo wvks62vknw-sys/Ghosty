@@ -5,8 +5,10 @@ Everything in THE-GUIDE-11-NOV sections 6, 7 and 8, as briefs, in this order. Fo
 a run green first time; main's own run read after. The top tier reviews every diff before it is handed to the orchestrator. Ticked when on main.
 
 ## Running or landing now
-- [ ] ENGINE 3D (landing) · THE MAP (landing) · SPEAKER (landing) · TRAINING FOR REAL (landing) · THIS PHONE (landing)
-- [ ] THE EYE HUD (building) · SMALL FIXES 1 (building) · DOCUMENTS editor (building) · OCTOBER IDEAS 1, the HUD alive (building)
+- [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
+- [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE
+- [ ] Building: GROWN UP HUD · PRESENTATIONS · QUALITY PASS: LIFE · RELIABILITY AND HEALTH
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -29,7 +31,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    the Lens's tags smoothed; a drawn picture sent to Telegram as an image.
 5. THE TWO LOOKS: ORBIT (Mind is the way in), then GROWN UP (today, with less on it), each a whole HUD like THE MAP and THE EYE.
    Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
-   8817, spec grownup); GROWN UP starts after ORBIT has landed, since both touch the shell.
+   8817, spec grownup). ORBIT handed back 11 Nov evening (reviewed clean, in the landing queue after THE EYE); GROWN UP started the
+   same hour in worktree grownup standing on ORBIT's six commits cherry-picked, so it lands as the diff above that tip, the EYE-over-MAP way.
+   GROWN UP handed back 12 Nov (reviewed clean; the capsule, THE ROOMS layer, the folds; the one bar when Home's conversation is open and
+   the Mind's mic glyph decided under 179); in the landing queue right after ORBIT.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
    passes; SMALL FIXES 2 ("On it." proven in the phone's own voice and never over DOWNLOAD; the money pack's price watches and WATCHERS one
    system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
@@ -37,23 +42,63 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 7. THE EDITORS 3 to 8, in the programme's order (PROGRAMME-EDITORS): spreadsheets, presentations, the workspace, photo, video, the game studio.
    Brief written 11 Nov for the third: BRIEF-EDITOR-SPREADSHEETS (worktree sheets, port 8821, spec sheets; the app's own formula engine and
    .xlsx over convert/zip.ts, no package); starts after DOCUMENTS is on main.
+   Brief written 11 Nov night for the fourth: BRIEF-EDITOR-PRESENTATIONS (worktree slides, port 8825, spec slides; the app's own .pptx
+   over convert/zip.ts, the documents' blocks reused, a report becomes a deck, PRESENT ON THE WALL where landed); cherry-picks DOCUMENTS
+   if it starts before that lands.
+   SPREADSHEETS handed back 12 Nov (reviewed clean; 169 formula results equal; MAKE holds nine on a two-row band, decided under 179); in
+   the landing queue after THE WALL. PRESENTATIONS started the same hour in worktree slides, standing on DOCUMENTS cherry-picked.
+   Brief written 12 Nov for the fifth: BRIEF-EDITOR-WORKSPACE (worktree workspace, port 8827, spec workspace; pages on the documents'
+   blocks, databases with relations, rollups and formulas through the spreadsheets' engine, five views, templates, backlinks, history, a
+   project read whole as one chat turn with the size said; the editors fold under one EDITORS card past ten MAKE things); cherry-picks
+   DOCUMENTS and SPREADSHEETS if it starts before they land.
+   Brief written 12 Nov for the sixth: BRIEF-EDITOR-PHOTO (worktree photoedit, port 8831, spec photoedit; a non-destructive recipe over
+   the untouched original, the app's own WebGL2 passes with a CPU path that must agree, masks, heal, a layer, presets and batch, full-size
+   export in tiles; the PHOTO TOOLS' three brain keys kept as they are; RAW and on-phone matting NEEDS HIS WORD); starts from the session
+   branch.
+   PHOTO started 12 Nov in worktree photoedit when GROWN UP handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
+   Handed back 11 Nov night (reviewed clean; routes under /guardian/wall; the wall starts from ?wall=1 or THIS IS THE WALL so TV MODE is
+   unchanged); in the landing queue after ORBIT.
 9. RELIABILITY AND HEALTH (the depth plan's Pass 2): a WORKING / DEGRADED / NEEDS KEY / OFFLINE mark on every ability, verification on actions,
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
+   Brief written 11 Nov: BRIEF-RELIABILITY (worktree health, port 8823, spec health; the brain's health route in its own file mounted
+   under /guardian); starts after POLISH 1 is on main (its error voice and wait helper).
+   Started 12 Nov in worktree health, made from POLISH 1's head (72f121c6) so its error voice and wait helper are in the tree; the
+   orchestrator lands only the diff above that head, after POLISH 1 is on main.
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
     Brief written 11 Nov: BRIEF-GAMES-5 (worktree games5, port 8822, spec games5): THE PLATFORMER and THE CAVE as games of our own, four board
     games searched on the chip and rated in the GYM's league (learning on the free GPU, per 179 f); Cave Story itself and PICO-8 named as
     NEEDS HIS WORD, not built. Waits on no landing.
+    Handed back 12 Nov (reviewed clean; six games, the boards searched in a Worker, Glicko-2 ratings as chess; a cell-0 move bug found by
+    its own spec and fixed); in the landing queue after SPREADSHEETS.
 12. THE WORKING ENGINE: a real 3-D engine model that turns, in the Studio, with every part named (first estimate, never certified).
+    Brief written 11 Nov: BRIEF-WORKING-ENGINE (worktree workingengine, port 8824, spec workingengine; the car's own geometry over the
+    three.js the Studio loads, kinematic, no package; physics stays at KERNEL 2). ENGINE 3D and THE CAR are on main: waits on no landing.
+    Started 11 Nov night in worktree workingengine when THE WALL handed back.
+    Handed back 12 Nov (reviewed clean; kinematic engine from the car's record, 28 parts with sheets, 14 brain tests; the tray's ENGINE
+    stays 120 × 60 × 70 and the table is not put under IN THE WORKS, decided under 179); in the landing queue after GAMES 5.
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
     arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
     System, Links, Social) · the chat itself (the log, the Stage, WHY, the ask line) · Telegram · the boot and the orb. Each pass: every state,
     every word, every wait, every number, every tap; before-and-after stills in the report; nothing new added, everything there made right.
+    Seeded 11 Nov from the first critic pass over the twelve unlanded diffs (scratchpad critic-pass-1.md; the top tier's read-only critic):
+    each build's words, missing states and unsaid waits are listed per file and line and go to the pass that owns its room, and each PR's
+    entry names them as found-not-fixed. Rule-level findings were fixed at landing instead (a confirm on the mail send; the ack never over
+    DOWNLOAD; a failed Telegram picture said once; the raw-error sites swept through the one error voice when its lint lands).
+    First pass written 12 Nov: BRIEF-QUALITY-LIFE (worktree lifepass, port 8826, spec lifepass): the eight packs measured and the top ten
+    per pack fixed, a STATES RATCHET; made from POLISH 1's head so its error voice is in the tree; lands after POLISH 1.
+    Started 12 Nov in worktree lifepass when GAMES 5 handed back.
+    Second pass written 12 Nov: BRIEF-QUALITY-HOME (worktree homepass, port 8829, spec homepass): Home, THE BRIEF, the house line, the
+    boot and the orb measured and twenty-five fixes made, HOME's rows in the STATES RATCHET; starts from the LIFE pass's head when it hands
+    back; lands after it.
+    Third pass written 12 Nov: BRIEF-QUALITY-SEE (worktree seepass, port 8832, spec seepass): God's Eye, the Machine view, the Lens's
+    every mode, Threats and the eyes' pack rows measured and twenty-five fixes made, SEE's rows in the STATES RATCHET; the people rule's
+    logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
