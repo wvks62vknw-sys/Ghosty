@@ -7,8 +7,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 ## Running or landing now
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL
-- [ ] Building: GROWN UP HUD · GAMES 5 · SPREADSHEETS · THE WORKING ENGINE
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS
+- [ ] Building: GROWN UP HUD · GAMES 5 · THE WORKING ENGINE · PRESENTATIONS
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -43,6 +43,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    Brief written 11 Nov night for the fourth: BRIEF-EDITOR-PRESENTATIONS (worktree slides, port 8825, spec slides; the app's own .pptx
    over convert/zip.ts, the documents' blocks reused, a report becomes a deck, PRESENT ON THE WALL where landed); cherry-picks DOCUMENTS
    if it starts before that lands.
+   SPREADSHEETS handed back 12 Nov (reviewed clean; 169 formula results equal; MAKE holds nine on a two-row band, decided under 179); in
+   the landing queue after THE WALL. PRESENTATIONS started the same hour in worktree slides, standing on DOCUMENTS cherry-picked.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
