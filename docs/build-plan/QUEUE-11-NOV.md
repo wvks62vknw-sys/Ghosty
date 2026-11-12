@@ -13,8 +13,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run)
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE
-- [ ] Building: QUALITY PASS: SEE · THE GAME STUDIO · PHOTO 2 · PHOTO onto the fold (then VIDEO the same way)
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE
+- [ ] Building: THE GAME STUDIO · PHOTO 2 · PHOTO onto the fold (then VIDEO the same way) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -139,7 +139,13 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     Third pass written 12 Nov: BRIEF-QUALITY-SEE (worktree seepass, port 8832, spec seepass): God's Eye, the Machine view, the Lens's
     every mode, Threats and the eyes' pack rows measured and twenty-five fixes made, SEE's rows in the STATES RATCHET; the people rule's
     logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it. Started 12 Nov in worktree
-    seepass from the HOME pass's head (9f7338e5) the hour it handed back.
+    seepass from the HOME pass's head (9f7338e5) the hour it handed back. Handed back 12 Nov: thirty-one fixes against twenty-five, SEE's
+    eighteen ratchet rows, 218 spec checks; reviewed clean (its four nogl scratch copies of specs removed, 08a5337a; thescan re-run clean,
+    the builder's red a flake); queued right after the HOME pass as OWNER-ISSUES 205.
+    Fourth pass written 12 Nov: BRIEF-QUALITY-MAKE (worktree makepass, port 8838, spec makepass): the Workshop, the 3D studio, Reverse,
+    Space, the Workbench and the tunnel, Convert and House measured and twenty-five fixes made, MAKE's rows in the STATES RATCHET; the hub
+    cards and band (THE WORKSPACE's fold), the editors, the engine's scene and the solvers untouched. Started 12 Nov in worktree makepass
+    from the SEE pass's head (08a5337a) the hour it handed back; lands after it.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.

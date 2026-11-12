@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (seventeen; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-one; each goes up when its checks are green)
 1. **The weekly training, for real.** Every week Ghosty's own small brain trains on what you taught it, on the free Kaggle machine, and the
    new brain reaches your phone only if it beats the old one; the whole path is now proved end to end, you see where it is, and RUN NOW
    runs it on your tap.
@@ -45,13 +45,18 @@ Four lists in the order things happen, then the questions only you can answer. Q
     an .mp4 out that plays anywhere. Waits for the Workspace and Photo, then joins the EDITORS card.
 21. **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
     whole in one chat turn. It also folds the editors under one EDITORS card in MAKE once there are more than ten things there.
+22. **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given thirty-one fixes: the globe says
+    "Drawing the world…" once, a search that finds nothing says what to try, a dead camera says so with TRY ANOTHER, every plane's and
+    ship's number has its unit and "from the feed", the Lens says how to allow the camera in your phone's own settings, a stranger gets the
+    rule's line word for word, every measurement says "a first estimate", every threat says when and from which feed.
 
 ## 2. Being built right now (four)
 - **Photo 2.** Your yes: a real cut-out model, a real erase model and a RAW reader, each a download on your tap with the size said,
   licences checked and written down before a byte is fetched.
 - **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel,
   people with dialogue and shops, quests, save points), play it from the ARCADE, share it, put it on your Home Screen as an app.
-- **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given twenty-five fixes in your words.
+- **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
+  House given twenty-five fixes in your words (the new editors are not in this pass: they were built to the rule).
 
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
