@@ -33,6 +33,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    Briefs written 11 Nov: BRIEF-ORBIT-HUD (worktree orbithud, port 8816, spec orbithud) and BRIEF-GROWN-UP-HUD (worktree grownup, port
    8817, spec grownup). ORBIT handed back 11 Nov evening (reviewed clean, in the landing queue after THE EYE); GROWN UP started the
    same hour in worktree grownup standing on ORBIT's six commits cherry-picked, so it lands as the diff above that tip, the EYE-over-MAP way.
+   GROWN UP handed back 12 Nov (reviewed clean; the capsule, THE ROOMS layer, the folds; the one bar when Home's conversation is open and
+   the Mind's mic glyph decided under 179); in the landing queue right after ORBIT.
 6. POLISH 3, the words and the two screens: one sentence a screen (Settings, System, the Theme page, the packs); the Agenda and System upgrade
    passes; SMALL FIXES 2 ("On it." proven in the phone's own voice and never over DOWNLOAD; the money pack's price watches and WATCHERS one
    system). The boot's slow open went to POLISH 1. Brief written 11 Nov: BRIEF-POLISH-3 (worktree polish3, port 8819, spec polish3); starts
@@ -53,6 +55,7 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    the untouched original, the app's own WebGL2 passes with a CPU path that must agree, masks, heal, a layer, presets and batch, full-size
    export in tiles; the PHOTO TOOLS' three brain keys kept as they are; RAW and on-phone matting NEEDS HIS WORD); starts from the session
    branch.
+   PHOTO started 12 Nov in worktree photoedit when GROWN UP handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
