@@ -8,8 +8,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE
-- [ ] Building: PRESENTATIONS · RELIABILITY AND HEALTH · PHOTO · QUALITY PASS: HOME
+  QUALITY PASS: LIFE · PRESENTATIONS
+- [ ] Building: RELIABILITY AND HEALTH · PHOTO · QUALITY PASS: HOME · THE WORKSPACE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -52,6 +52,12 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    blocks, databases with relations, rollups and formulas through the spreadsheets' engine, five views, templates, backlinks, history, a
    project read whole as one chat turn with the size said; the editors fold under one EDITORS card past ten MAKE things); cherry-picks
    DOCUMENTS and SPREADSHEETS if it starts before they land.
+   PRESENTATIONS handed back 12 Nov (reviewed clean: the app's own .pptx written and read back, 234 spec checks, a thirteen-slide round
+   trip in 67 ms); in the landing queue after the LIFE pass. THE WORKSPACE started the same hour in worktree workspace, standing on
+   DOCUMENTS, SPREADSHEETS and PRESENTATIONS cherry-picked. The MAKE count, settled 12 Nov under 179: main holds 8, DOCUMENTS adds none (it
+   upgraded MY DOCUMENTS in place), SPREADSHEETS 9, PRESENTATIONS 10 on the two-row band, THE WORKSPACE 11 and builds the EDITORS fold with
+   its pills from one list; so the editors land SPREADSHEETS → PRESENTATIONS → WORKSPACE → PHOTO, and PHOTO's builder rebases onto the fold
+   before it lands.
    Brief written 12 Nov for the sixth: BRIEF-EDITOR-PHOTO (worktree photoedit, port 8831, spec photoedit; a non-destructive recipe over
    the untouched original, the app's own WebGL2 passes with a CPU path that must agree, masks, heal, a layer, presets and batch, full-size
    export in tiles; the PHOTO TOOLS' three brain keys kept as they are; RAW and on-phone matting NEEDS HIS WORD); starts from the session
