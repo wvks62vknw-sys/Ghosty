@@ -42,7 +42,7 @@ Four lists in the order things happen, then the questions only you can answer. Q
 19. **Photo.** The sixth editor: a real photo editor (light, colour, curves, crop, masks, heal a spot, presets, batch), the original never
     touched, full-size export. Checked and now a pill of the EDITORS card in MAKE; goes up right after the Workspace.
 20. **Video.** The seventh editor: CapCut's core. Clips trimmed, split and ordered, transitions, a grade, music, your voice over it, subtitles,
-    an .mp4 out that plays anywhere. Being made a sixth pill of the EDITORS card right now, the way Photo just was; goes up once that is checked.
+    an .mp4 out that plays anywhere. Checked and now the sixth pill of the EDITORS card in MAKE; goes up right after Photo 2.
 21. **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
     whole in one chat turn. It also folds the editors under one EDITORS card in MAKE once there are more than ten things there.
 22. **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given thirty-one fixes: the globe says
@@ -51,7 +51,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
     rule's line word for word, every measurement says "a first estimate", every threat says when and from which feed.
 23. **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel, people
     with dialogue and shops, quests, save points), play it from the ARCADE, share it as a file, save it as a page you can add to your Home
-    Screen. Waits for Video, then joins the EDITORS card. "Put it on my sites" is not in it yet (see your answers below).
+    Screen. Being seated on the EDITORS card right now (list 2); goes up after Video. "Put it on my sites" is not in it yet (see your answers
+    below).
 24. **Photo 2.** Your yes, built: in the photo editor, SUBJECT can fetch a real cut-out model (4.6 MB), ERASE a real erase model (about
     70 MB with its runtime) and OPEN RAW a camera-RAW reader (under 1 MB), each only on your tap on Wi-Fi with the size said first, kept on
     the phone, removable; licences checked and written down before a byte was taken. Goes up right after Photo.
@@ -63,8 +64,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **Games 6.** Poker (chips, never money) and a word game of our own, both against Ghosty with a level you can raise without end; and the
   loose ends of Games 5 (backgammon's take-back takes the whole turn, the games play offline from the first open, the cave's level does
   not wobble down, Othello and backgammon think faster).
-- **Video onto the EDITORS card.** The video editor joins MAKE's EDITORS card as its sixth pill, after Photo; every count and test in the
-  app follows (nothing new to use yet: this is the editor being seated so it can go live).
+- **The game studio onto the EDITORS card.** The game studio joins MAKE's EDITORS card as its seventh pill, after Video; every count and
+  test in the app follows, and its "Put it on my sites" line is cut to one honest sentence (nothing new to use yet: the editor being seated so
+  it can go live).
 - **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
   House given twenty-five fixes in your words (the new editors are not in this pass: they were built to the rule).
 

@@ -15,8 +15,8 @@ a run green first time; main's own run read after. The top tier reviews every di
       PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run)
 - [ ] Landing, in order: OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO)
-- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · QUALITY PASS: PLAN AND ME (from 08a5337a, worktree planmepass, port 8841) · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO) · VIDEO (on the fold: builder/videofold, base 0aff585c, head 3bcd43b6; its reserved entry; lands right after PHOTO 2; tabs2's 42 count stands on CI's word) · GAME STUDIO (after its fold rebase, entry 208)
+- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · QUALITY PASS: PLAN AND ME (from 08a5337a, worktree planmepass, port 8841) · GAME STUDIO onto the fold (from VIDEO's fold head 3bcd43b6, worktree gsfold, branch builder/gsfold, port 8837; seventh pill, band cap back to 8, icon once, SITES_LINE one sentence; entry 208) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -196,3 +196,7 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   SEE pass's head, shared with the MAKE pass; lands after the MAKE pass with the ratchet rows and the `all=` word resolved as a union). Owns
   SPENDING, THE MARKETS, THE RADIO, MEMORY, SETTINGS' pages, SYSTEM's pages, LINKS and SOCIAL (25 fixes); NOT the Agenda's, Settings' and
   System's fronts (POLISH 3's), THREATS or the packs page (the SEE pass's). Started 12 Nov when PHOTO 2 handed back.
+- 12 Nov, VIDEO's fold hand-back: builder/videofold head 3bcd43b6 (VIDEO 1–15 cherry-picked onto PHOTO's fold head, one fold commit); reviewed
+  clean (one `all=` word at the end, no model name, counts only in the tests, MAKE still 8 cards, six pills). tabs2 stayed red on the known
+  jump-bar budget so its 42 count stands on CI's word. GAME STUDIO's rebase onto 3bcd43b6 started at once (worktree gsfold, port 8837); VIDEO 2
+  (BRIEF-EDITOR-VIDEO-2, port 8839) takes the next free slot.
