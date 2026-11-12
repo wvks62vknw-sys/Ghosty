@@ -28,7 +28,6 @@ import { recipe, recipeEvents } from '../../state/theme';
 import { scanHome, type ScanHome } from './scan/home';
 import { inkHome, type InkHome } from './ink/home';
 import { mapHome, type MapHome } from './map/home';
-import { eyeHome, type EyeHome } from './eye/home';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
@@ -486,7 +485,6 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
 let scanHud: ScanHome | null = null;
 let inkHud: InkHome | null = null;
 let mapHud: MapHome | null = null;
-let eyeHud: EyeHome | null = null;
 function homeContext(): ScreenContext {
   const live = chat.get().live.replace(/\s+/g, ' ').trim();
   // THE SCAN's Home says where he is (a word and a saved place's name, decided on the phone: scan/place.ts), never a coordinate
@@ -750,10 +748,6 @@ export const coreTab: TabDef = {
     // it takes the stamp line and the orb's wrap as they are and gives them back when the look is another
     mapHud = mapHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, onBack: () => reactor.poke() });
     hud.append(mapHud.el);
-    // THE EYE's Home (BRIEF-EYE-HUD; eye/home.ts): the wall of feeds, one sharp, over God's Eye's globe in grain, drawn when THE LOOK's world is The Eye;
-    // it takes the stamp line and the orb's wrap as they are and gives them back when the look is another
-    eyeHud = eyeHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, onBack: () => reactor.poke() });
-    hud.append(eyeHud.el);
     const scanWanted = () => recipe().world === 'scan';
     const inkWanted = () => recipe().world === 'ink';
     hud.classList.toggle('scan', scanWanted());
@@ -767,24 +761,16 @@ export const coreTab: TabDef = {
       if (on) {
         inkHud?.leave();
         mapHud?.leave();
-        eyeHud?.leave();
         scanHud?.enter();
       } else {
         scanHud?.leave();
         if (inkWanted()) {
           mapHud?.leave();
-          eyeHud?.leave();
           inkHud?.enter();
         } else {
           inkHud?.leave();
-          if (recipe().world === 'map') {
-            eyeHud?.leave();
-            mapHud?.enter();
-          } else {
-            mapHud?.leave();
-            if (recipe().world === 'eye') eyeHud?.enter();
-            else eyeHud?.leave();
-          }
+          if (recipe().world === 'map') mapHud?.enter();
+          else mapHud?.leave();
         }
       }
     });
@@ -1008,7 +994,6 @@ export const coreTab: TabDef = {
         nextUp = ev ? `${ev.title}${ev.allDay ? '' : ` · ${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}` : '';
         inkHud?.refresh();
         mapHud?.refresh();
-        eyeHud?.refresh();
       }
     };
     let calloutTimer = 0;
@@ -1044,7 +1029,6 @@ export const coreTab: TabDef = {
         if (scanWanted()) scanHud?.enter();
         else if (recipe().world === 'ink') inkHud?.enter();
         else if (recipe().world === 'map') mapHud?.enter();
-        else if (recipe().world === 'eye') eyeHud?.enter();
         // back on the reactor with the conversation still open: the bar says so again
         if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
@@ -1068,7 +1052,6 @@ export const coreTab: TabDef = {
         scanHud?.leave();
         inkHud?.leave();
         mapHud?.leave();
-        eyeHud?.leave();
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here

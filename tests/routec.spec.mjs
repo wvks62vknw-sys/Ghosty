@@ -408,7 +408,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const gone = await page.$$eval('#pg-settings .pn.themepn.pushed :is(.swatch, .swatch[data-theme], .swatches, .gdials, .gdial, .gchoice, .gswitch, .gsw, .swcustom)', (els) => els.length);
     if (gone) problems.push(`[themes] the Theme page still has ${gone} preset, dial, switch or ground controls (they left the page: 155, 157)`);
     const looks = await page.$$eval('#pg-settings .gg-look', (bs) => ({ n: bs.length, coming: bs.filter((b) => b.querySelector('.gg-coming')).length }));
-    if (looks.n !== 7 || looks.coming !== 2) problems.push(`[themes] the Theme page shows ${looks.n} looks, ${looks.coming} marked COMING (want 7 and 2: ONE INK, THE MAP and THE EYE are built)`);
+    if (looks.n !== 7 || looks.coming !== 3) problems.push(`[themes] the Theme page shows ${looks.n} looks, ${looks.coming} marked COMING (want 7 and 3: ONE INK and THE MAP are built)`);
     // every swatch and card a 44 pt target where it is tapped: each is brought to the middle first
     for (const sel of [...sw.map((x) => `#pg-settings .gg-sw[data-colour="${x.id}"]`), ...(await page.$$eval('#pg-settings .gg-look', (bs) => bs.map((b) => `#pg-settings .gg-look[data-look="${b.dataset.look}"]`)))]) {
       await page.$eval(sel, (b) => b.scrollIntoView({ block: 'center' }));

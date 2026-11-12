@@ -19,7 +19,7 @@
 //  6. the states said in a sentence: Reduce Motion on (the orb holds still, the typed line shows whole), sound off, no 3-D (the orb
 //     cannot be drawn here, said; Chromium only).
 //  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2) AND THE GALLERY (BRIEF-THEME-GALLERY; every check fails on the code before it — run
-//     against it once): the Theme page two taps from Settings is SEVEN LOOKS as stills (THE SCAN marked YOU'RE IN IT, two COMING: ONE INK, THE MAP and THE EYE are built) and
+//     against it once): the Theme page two taps from Settings is SEVEN LOOKS as stills (THE SCAN marked YOU'RE IN IT, three COMING: ONE INK and THE MAP are built) and
 //     the twelve colours, and nothing else (no dial, switch, ground row or preset on it: the selectors are asserted absent), the row
 //     saying the recipe; a tap on GLASS and on THE SCAN (the world at once, Home's frame, kept across a reload), a tap on THE MAP (one
 //     toast, nothing changed); the stills (img, width, height, alt, loaded, each under 60 KB); the twelve colours apply at once, are
@@ -548,7 +548,7 @@ if (!isWebKit) {
   check(gal.looks.map((l) => norm(l.name)).join() === LOOKS7.map((l) => l[1]).join(), `[gallery] the names are ${gal.looks.map((l) => l.name).join(' | ')}`);
   check(gal.looks.every((l, i) => (i === 0 ? norm(l.line) === "YOU'RE IN IT" : norm(l.line) === norm(LOOKS7[i][2]))), `[gallery] the lines are ${gal.looks.map((l) => l.line).join(' | ')}`);
   check(gal.looks[0].on === 'true' && gal.looks.slice(1).every((l) => l.on === 'false'), `[gallery] the chosen look on a fresh open is not THE SCAN alone: ${gal.looks.map((l) => l.on).join()}`);
-  check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === 'orbit,grown' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want the two that are not built: THE MAP, THE EYE and ONE INK are, and a still on every card)`);
+  check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === 'eye,orbit,grown' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want the three that are not built: THE MAP and ONE INK are, and a still on every card)`);
   check(/THE LOOK/i.test(gal.head) && /THE SCAN/i.test(gal.head) && /7 · each a whole HUD/.test(gal.head), `[gallery] the plate reads "${gal.head}"`);
   check(/THE COLOUR/i.test(gal.kick) && /REACTOR/i.test(gal.kick) && /12 · YOURS TO CHANGE/i.test(gal.kick), `[gallery] the colour plate reads "${gal.kick}"`);
   check(gal.swatches.join() === TWELVE.join(), `[gallery] the colours: ${gal.swatches.join()}`);
@@ -660,15 +660,15 @@ if (!isWebKit) {
     check(sc.on === 'true' && /you.re in it/i.test(sc.line) && /THE SCAN/i.test(sc.head), `[gallery] THE SCAN after its tap: ${JSON.stringify(sc)}`);
     await p9.evaluate(() => (location.hash = 'core'));
     await until(p9, () => document.body.classList.contains('scanhome'), null, 10000, '[gallery] with THE SCAN chosen Home did not wear its frame (body.scanhome)');
-    // a tap on ORBIT (not built): one toast with its line, the world unchanged, no navigation
+    // a tap on THE EYE (not built): one toast with its line, the world unchanged, no navigation
     await themePage(p9);
     await clearToasts(p9);
     const before = await p9.evaluate(() => ({ hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab }));
-    await p9.click(card('orbit'));
+    await p9.click(card('eye'));
     await p9.waitForTimeout(400);
     const map = await p9.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent ?? ''), hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab, still: !!document.querySelector('#pg-settings .pn.themepn.pushed'), saved: window.__ghosty.settings.get().look?.world }));
-    check(map.toasts.length === 1 && map.toasts[0].includes('Orbit is coming: Mind is the way in'), `[gallery] a tap on ORBIT says ${JSON.stringify(map.toasts)}`);
-    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'orbit', `[gallery] a tap on ORBIT changed something: ${JSON.stringify({ before, map })}`);
+    check(map.toasts.length === 1 && map.toasts[0].includes('The Eye is coming: Attention is the material'), `[gallery] a tap on THE EYE says ${JSON.stringify(map.toasts)}`);
+    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'eye', `[gallery] a tap on THE EYE changed something: ${JSON.stringify({ before, map })}`);
     // the stills: each an <img> under looks/ with width, height and alt, loaded; each file under 60 KB, the seven under 350 KB
     const imgs = await p9.evaluate(async () => {
       const list = [...document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-look img')];
@@ -689,7 +689,7 @@ if (!isWebKit) {
     const asked = [];
     p9.on('request', (r) => /\/api\/chat\b/.test(r.url()) && asked.push(r.url()));
     const world0 = (await state(p9)).world;
-    for (const [w, line] of [['orbit', 'Orbit is coming: Mind is the way in'], ['grown up', 'Grown Up is coming: Today, with less on it']]) {
+    for (const [w, line] of [['the eye', 'The Eye is coming: Attention is the material'], ['orbit', 'Orbit is coming: Mind is the way in'], ['grown up', 'Grown Up is coming: Today, with less on it']]) {
       await say(p9, w);
       await p9.waitForFunction((l) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes(l)), line, { timeout: 8000 }).catch(() => problems.push(`[words] "${w}" did not answer "${line}"`));
       check((await state(p9)).world === world0, `[words] "${w}" changed the world to ${(await state(p9)).world}`);
@@ -709,19 +709,11 @@ if (!isWebKit) {
     await say(p9, 'the map');
     await until(p9, () => document.documentElement.dataset.world === 'map', null, 8000, '[words] "the map" did not make the world map');
     check((await state(p9)).colour === 'ember', '[words] "the map" changed his colour');
-    // THE EYE is built too (it was a COMING line before this pass): "the eye" and "switch to the eye" switch to it, the colour his
-    await say(p9, 'the eye');
-    await until(p9, () => document.documentElement.dataset.world === 'eye', null, 8000, '[words] "the eye" did not make the world eye');
-    check((await state(p9)).colour === 'ember', '[words] "the eye" changed his colour');
-    await say(p9, 'switch to the map');
-    await until(p9, () => document.documentElement.dataset.world === 'map', null, 8000, '[words] "switch to the map" did not make the world map');
-    await say(p9, 'switch to the eye');
-    await until(p9, () => document.documentElement.dataset.world === 'eye', null, 8000, '[words] "switch to the eye" did not make the world eye');
     await say(p9, 'the scan');
-    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 8000, '[words] "the scan" did not bring The Scan back from The Eye');
+    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 8000, '[words] "the scan" did not bring The Scan back from The Map');
     await until(p9, () => document.documentElement.dataset.theme === 'ember', null, 8000, '[words] "ember" did not make the colour ember');
     check(!asked.length, `[words] the brain was asked ${asked.length} times for the looks' words`);
-    notes.push('the looks by words (orbit, grown up: one line, nothing changed; show me the looks; glass, the scan, one ink, the map, the eye, ember applied) with no model');
+    notes.push('the looks by words (the eye, orbit, grown up: one line, nothing changed; show me the looks; glass, the scan, one ink, the map, ember applied) with no model');
   });
   await c9.close();
 

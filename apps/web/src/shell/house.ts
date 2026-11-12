@@ -35,15 +35,11 @@ export const houseState = { planOpen: false, room: '', says: '' };
 // it enters, straight after the screen's own classes changed)
 let narrow = innerWidth < 900;
 addEventListener('resize', () => (narrow = innerWidth < 900));
-export const houseOn = (): boolean => narrow && ['scan', 'ink', 'map', 'eye'].includes(document.documentElement.dataset.world ?? '');
+export const houseOn = (): boolean => narrow && ['scan', 'ink', 'map'].includes(document.documentElement.dataset.world ?? '');
 /** The house is drawn as THE MAP's scale: the same seven keys as ticks on a ruler, the plan as its districts (BRIEF-MAP-EYE-HUDS). */
 export const scaleOn = (): boolean => narrow && document.documentElement.dataset.world === 'map';
-/** The house is drawn as THE EYE's instruments: the same seven keys as seven small feeds, the one he is in the one sharp feed (BRIEF-EYE-HUD). */
-export const eyeOn = (): boolean => narrow && document.documentElement.dataset.world === 'eye';
-/** The house's own name on its kick and the plan's head: the map calls the rooms districts, the eye calls them feeds on its wall. */
-const houseName = (): string => (scaleOn() ? 'The map · 7 districts' : eyeOn() ? 'The wall · 7 feeds' : 'The house · 7 rooms');
-/** What the kick says he is doing: the eye is looking at a room, the others are in it. */
-const youWords = (title: string): string => (eyeOn() ? `Looking at ${title}` : `You are in ${title}`);
+/** The house's own name on its kick and the plan's head: the map calls the rooms districts. */
+const houseName = (): string => (scaleOn() ? 'The map · 7 districts' : 'The house · 7 rooms');
 /** The house is drawn as ONE INK's foot (the same house in another drawing: no label row, no ask line). */
 export const footOn = (): boolean => narrow && document.documentElement.dataset.world === 'ink';
 
@@ -123,7 +119,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   const draw = () => {
     const starred = new Set(favourites());
     const recent = new Set(recentTabs());
-    const head = h('button.planhead', { type: 'button', 'aria-label': 'Fold the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()), h('span.g-truth', youWords(roomNow().title)));
+    const head = h('button.planhead', { type: 'button', 'aria-label': 'Fold the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()), h('span.g-truth', `You are in ${roomNow().title}`));
     head.addEventListener('click', () => close());
     const rooms = ROOMS.map((r) => {
       const title = h('button.planroomhead', { type: 'button', dataset: { room: r.key, case: 'keep' }, 'aria-label': `${r.title}: open the room` }, h('span.rtitle', r.title), h('span.rcount', String(r.things.length)));
@@ -139,8 +135,8 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     if (el || !houseOn()) return;
     el = draw();
     const topEl = document.getElementById('top');
-    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK, THE MAP and THE EYE the plan stands on the foot's, the scale's or the instruments' keys)
-    const askEl = footOn() || scaleOn() || eyeOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK and THE MAP the plan stands on the foot's or the scale's keys)
+    const askEl = footOn() || scaleOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
     el.style.setProperty('--plan-bottom', `${Math.round(askEl ? innerHeight - askEl.getBoundingClientRect().top : 0) + 8}px`);
     document.getElementById('app')!.append(el);
@@ -180,7 +176,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     } else meKey.remove();
     const r = roomNow();
     houseState.room = r.key;
-    houseState.says = youWords(r.title);
+    houseState.says = `You are in ${r.title}`;
     // (words are written only when they changed: a write makes the dock lay itself out again)
     if (where.textContent !== houseState.says) where.textContent = houseState.says;
     const kw = houseName();
