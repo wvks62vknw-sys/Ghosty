@@ -8,7 +8,7 @@
  *
  * Light on the battery: three.js loads only when Home is first shown, the way the 3D STUDIO loads it
  * (studio/three.ts: the vendored module, never bundled, nothing from the network). There is one WebGL context.
- * It draws at 30 fps when idle and at the display's own rate (60, or 120 on a ProMotion phone: engine/refresh.ts) for a second after a change, and not at all while the tab is hidden or the
+ * It draws at 30 fps when idle and 60 fps for a second after a change, and not at all while the tab is hidden or the
  * hero is scrolled out of view. The pixel ratio is capped at 2. With "reduce motion", and while a paper is sat on the
  * phone's brain (heavy mode, core/heavy.ts), it draws one still frame for each change and runs no loop. reactor.ts keeps
  * today's 2-D reactor whenever this cannot run.
@@ -27,7 +27,6 @@
  */
 import { brain } from '../../api/brain';
 import { heavy } from '../../core/heavy';
-import { moving } from '../../engine/refresh';
 import type { VoiceState } from '../../state/app';
 import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
@@ -511,7 +510,7 @@ export class Mind {
     return true;
   }
 
-  /** One tick of THE LOOK's loop while it holds the scene, in `state`: 30 fps, the display's rate for a second after a change; one still per change under reduce motion or heavy mode. */
+  /** One tick of THE LOOK's loop while it holds the scene, in `state`: 30 fps, 60 for a second after a change; one still per change under reduce motion or heavy mode. */
   lentFrame(dt: number, state: MindState, level = 0): void {
     if (!this.active || !this.lent || document.hidden) return;
     const still = reduced() || heavy.get().on;
@@ -523,7 +522,7 @@ export class Mind {
       if (!this.dirty) return;
       this.ease(state, 1);
     } else {
-      const fps = this.t - this.changedAt < 1 ? moving() : 30;
+      const fps = this.t - this.changedAt < 1 ? 60 : 30;
       this.acc += dt;
       if (this.acc < 1 / fps - 0.002 && !this.dirty) return;
       this.ease(state, this.acc);
@@ -631,7 +630,7 @@ export class Mind {
     return this.T && this.renderer ? { T: this.T, renderer: this.renderer } : null;
   }
 
-  /** Something moved (the camera crossing the room): draw at the display's rate for the next second, and at once if a frame is due. */
+  /** Something moved (the camera crossing the room): draw at 60 fps for the next second, and at once if a frame is due. */
   nudge(): void {
     this.changedAt = this.t;
     this.dirty = true;
@@ -721,7 +720,7 @@ export class Mind {
   }
 
   /**
-   * One tick from Home's frame loop. Draws when a frame is due: 30 fps idle, the display's rate for a second after a change,
+   * One tick from Home's frame loop. Draws when a frame is due: 30 fps idle, 60 fps for a second after a change,
    * nothing while hidden or scrolled away, and only on a change with reduce motion.
    */
   frame(dt: number, voice: VoiceState, level: number): void {
@@ -757,7 +756,7 @@ export class Mind {
       if (!this.dirty) return;
       this.p = { ...TARGET[this.st] };
     } else {
-      const fps = this.t - this.changedAt < 1 || this.kick > 0.01 ? moving() : 30;
+      const fps = this.t - this.changedAt < 1 || this.kick > 0.01 ? 60 : 30;
       this.acc += dt;
       if (this.acc < 1 / fps - 0.002 && !this.dirty) return;
       const k = Math.min(1, this.acc * 3);
