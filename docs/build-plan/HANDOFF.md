@@ -2256,3 +2256,4 @@ quota line, and the daily GPU on Hugging Face. What follows needs the owner at a
   fakes, as `Resilience` does now.
 - **Size**: about a week's work for SFT/DPO on the TPU plus two or three supervised real runs to tune; generation on the
   TPU after that, only if the split week leaves the T4 hours short.
+  12 Nov: DOCUMENTS (builder/editors, base ec54b5b) landed from claude/new-session-4erjve-land-editors (check.yml's list ends ... speaker docs; the styles conflict kept both sides): a real word processor (pictures, tables, the page, Word in and out, PDF, Ghosty writing in). OWNER-ISSUES 188.
