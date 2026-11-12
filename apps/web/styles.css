@@ -7367,7 +7367,6 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 /* an empty page says where to start, an empty cell is a place to type */
 .dcpage > p.dcb:empty:only-child::before { content: 'Start writing here'; color: var(--g-ink-4); pointer-events: none; }
 .dcpage .dctable :is(td, th):empty { min-width: 96px; }
-=======
 /* ==========================================================================================================================
    FURTHER (BRIEF-OCT-IDEAS-3): the interpreter's two halves, the orb's map of what I know, the lab's pages, WALK ME THROUGH IT's pointer,
    REHEARSE and the diary. Every colour, size and duration is a token; every key is the target's size; reduced motion stills the pulse.
