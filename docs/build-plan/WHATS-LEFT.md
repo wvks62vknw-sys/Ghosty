@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-two; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-three; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
@@ -56,6 +56,10 @@ Four lists in the order things happen, then the questions only you can answer. Q
 24. **Photo 2.** Your yes, built: in the photo editor, SUBJECT can fetch a real cut-out model (4.6 MB), ERASE a real erase model (about
     70 MB with its runtime) and OPEN RAW a camera-RAW reader (under 1 MB), each only on your tap on Wi-Fi with the size said first, kept on
     the phone, removable; licences checked and written down before a byte was taken. Goes up right after Photo.
+25. **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
+    House given twenty-five fixes in your words: the website draft says "Opening the website…" and offers RETRY, WHAT'S NEW stops saying
+    "11 this week" for old news, a wrong number is said beside the field, every bare number says "a ratio, no unit", the wind tunnel says
+    "Starting the wind…" and RETRY if it stops, an unknown unit is named back with the ones it knows, an empty house says what to add.
 
 ## 2. Being built right now (four)
 - **The PLAN and ME rooms made right.** Spending, the Markets, the Radio, Memory, the Settings pages, the System pages, Links and Social
@@ -67,8 +71,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
 - **The game studio onto the EDITORS card.** The game studio joins MAKE's EDITORS card as its seventh pill, after Video; every count and
   test in the app follows, and its "Put it on my sites" line is cut to one honest sentence (nothing new to use yet: the editor being seated so
   it can go live).
-- **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
-  House given twenty-five fixes in your words (the new editors are not in this pass: they were built to the rule).
+- **The LEARN room made right.** Courses, the Arcade, the GYM, School, the Library and its reader, Learning and the Coach measured and given
+  their fixes in your words: every empty shelf says the next thing, every download says its size, every wait is said, every score has its
+  meaning, every key under your thumb.
 
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
@@ -79,7 +84,7 @@ Four lists in the order things happen, then the questions only you can answer. Q
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 
 ## 4. Not started yet (I write these next, in this order)
-1. **Every other room made right, one at a time:** LEARN (courses, arcade, GYM, school, library; written up, waits for the MAKE pass), the
+1. **Every other room made right, one at a time:** the
    chat itself (the log, the Stage, WHY, the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
    worst, add a test so it cannot come back.
 2. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
@@ -100,6 +105,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
   Screen. Making it work needs a change to Ghosty's server (one of the protected files, so I ask). My recommendation: yes, in Kernel 3, with
   the same APPROVE each time. Until then the game is a file you can save and open. Also in Kernel 3 if you say yes: Ghosty making a game for
   you from the chat ("make me a platformer about a fox").
+- **Decided for you (12 Nov), say if you disagree:** the two other looks (GLASS and ONE INK) keep their smaller 40 pt buttons on the 3D studio,
+  Space and the Workbench, because we promised those looks stay pixel-exact; the MAKE pass's other leftovers (WHAT'S NEW filled in with this
+  fortnight's changes, a failed project offering RETRY, saying "open the workshop" to get there) go into Polish 3.
 - Still open, no hurry: the keys you can add in Settings (plant naming, a contact form, your car's MOT history, two free AI keys); five minutes
   on the phone (our .pptx in Keynote, our .mp4 in Photos, the voice check with a friend); your principles in your own words for the
   character pass.
