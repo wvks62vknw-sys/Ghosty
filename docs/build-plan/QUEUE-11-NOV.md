@@ -86,6 +86,9 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     First pass written 12 Nov: BRIEF-QUALITY-LIFE (worktree lifepass, port 8826, spec lifepass): the eight packs measured and the top ten
     per pack fixed, a STATES RATCHET; made from POLISH 1's head so its error voice is in the tree; lands after POLISH 1.
     Started 12 Nov in worktree lifepass when GAMES 5 handed back.
+    Second pass written 12 Nov: BRIEF-QUALITY-HOME (worktree homepass, port 8829, spec homepass): Home, THE BRIEF, the house line, the
+    boot and the orb measured and twenty-five fixes made, HOME's rows in the STATES RATCHET; starts from the LIFE pass's head when it hands
+    back; lands after it.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
