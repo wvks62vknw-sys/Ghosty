@@ -146,6 +146,10 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     Space, the Workbench and the tunnel, Convert and House measured and twenty-five fixes made, MAKE's rows in the STATES RATCHET; the hub
     cards and band (THE WORKSPACE's fold), the editors, the engine's scene and the solvers untouched. Started 12 Nov in worktree makepass
     from the SEE pass's head (08a5337a) the hour it handed back; lands after it.
+    Fifth pass written 12 Nov: BRIEF-QUALITY-LEARN (worktree learnpass, port 8840, spec learnpass): courses, the Arcade's shelf, the GYM's
+    cards, School, the Library and the reader, Learning and the Coach measured and twenty-five fixes made, LEARN's rows in the STATES
+    RATCHET; the games, the workers, the papers, the reader's page engine and the hub cards untouched. Starts from the MAKE pass's head when
+    it hands back; lands after it.
 13b. VIDEO 2 (BRIEF-EDITOR-VIDEO-2, written 12 Nov; worktree video2, port 8839, spec video2): under his yes (185): STEADY by the app's own
     block matching and a smoothed camera path, BEST CLIPS scored on the phone (sharpness, light, motion, variety; the namer only where kept),
     ON THE BEAT from the music's onsets, REVERSE and a SPEED RAMP; nothing new downloaded unless proved. Starts from VIDEO's head on the fold
