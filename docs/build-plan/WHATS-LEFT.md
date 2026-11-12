@@ -37,19 +37,20 @@ Four lists in the order things happen, then the questions only you can answer. Q
     THAT FELT OFF tap on any reply.
 17. **Presentations.** The fourth editor: PowerPoint's core in MAKE. A report becomes slides, themes, notes, a slide show in your hand,
     .pptx out that opens in Keynote, someone's .pptx in.
+18. **Home made right.** Home, THE BRIEF, the house line, the boot and the orb given twenty-three fixes: the brain's silence said once, no
+    dashes, every fetch says what it waits for, a failed send says I COULDN'T with RETRY, the jump bar says "Nothing matches that." and
+    offers the nearest room, READ IT TO ME stops on one tap.
 
 ## 2. Being built right now (four)
+- **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given twenty-five fixes in your words.
 - **Photo.** The sixth editor: a real photo editor (light, colour, curves, crop, masks, heal a spot, presets, batch), the original never
   touched, full-size export.
-- **Home made right.** Home, THE BRIEF, the house line, the boot and the orb measured and given twenty-five fixes in your words.
 - **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
   whole in one chat turn.
 - **Video.** The seventh editor: CapCut's core. Clips trimmed, split and ordered, transitions, a grade, music, your voice over it, subtitles,
   an .mp4 out that plays anywhere.
 
 ## 3. Written up, waiting for a free builder or for something above to go live
-- **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given twenty-five fixes. Starts when Home's pass
-  finishes.
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
   money price watch and the watchers made one system.
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain,
