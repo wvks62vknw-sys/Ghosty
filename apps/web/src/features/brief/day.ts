@@ -83,12 +83,16 @@ export interface Facts {
   diary?: string;
   /** "24 min to work". */
   commute?: string;
+  /** [further] What the drive costs in fuel, as an estimate (further/spendnear.ts): "About £2.20 in fuel there and back (estimate…)". */
+  cost?: string;
+  /** [further] The money line, when a merchant's saved place is known: "£62 spent near Work this week". */
+  money?: string;
 }
 
 /** The hero's one plain sentence, short enough to read at a glance and to say aloud. */
 export function summary(f: Facts): string {
   const wx = [f.now, f.range ? `${f.range} today` : '', f.rain].filter(Boolean).join(', ');
-  const parts = [wx, f.diary, f.commute].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const parts = [wx, f.diary, f.commute, f.cost, f.money].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
   return parts.length ? `${parts.join('. ')}.` : '';
 }
 

@@ -13,6 +13,7 @@ import { briefForesight } from './foresight';
 import { briefIndependence } from '../system/independence';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { home } from '../../state/app';
+import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 
@@ -35,6 +36,9 @@ export const briefTab: TabDef = {
     // [offline2] the week's independence in one line, when a brain sits on the phone (features/system/independence.ts)
     say.after(briefIndependence());
     let commuteWords = '';
+    // [further] the drive's fuel, a first estimate, and this week's money near a saved place (further/spendnear.ts); '' until known
+    let commuteCost = '';
+    let moneyWords = '';
     // The last weather is kept on the phone (today's only): opened offline, or with Open-Meteo down, the Brief
     // still shows the morning's forecast, marked with when it was fetched, instead of a blank top.
     const KEPT = 'ghosty.brief.wx';
@@ -69,6 +73,8 @@ export const briefTab: TabDef = {
       }
       if (dayItems) f.diary = diarySentence(dayItems);
       if (commuteWords) f.commute = commuteWords;
+      if (commuteCost) f.cost = commuteCost;
+      if (moneyWords) f.money = moneyWords;
       return f;
     };
     const paintSay = () => {
@@ -144,6 +150,7 @@ export const briefTab: TabDef = {
         // Not saved yet: one quiet line on where to save them (he would never find the commute otherwise).
         if (!home || !work) {
           commuteWords = '';
+          commuteCost = '';
           commute.setStatus('');
           return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → Me → Places and the drive to work shows here each morning.`, '›', { wrap: true, onClick: () => go('memory') }));
         }
@@ -151,6 +158,7 @@ export const briefTab: TabDef = {
         // time is not this morning's, so say it plainly instead.
         if (navigator.onLine === false) {
           commuteWords = '';
+          commuteCost = '';
           commute.setStatus('OFFLINE', 'off');
           return void clear(commute.body, row('HOME → WORK', 'You’re offline: the drive time comes back with the connection.', null, { wrap: true }));
         }
@@ -159,15 +167,32 @@ export const briefTab: TabDef = {
         commuteWords = `${c.minutes} min to work${c.live && c.delayMin >= 5 ? `, ${c.delayMin} min of it traffic` : ''}`;
         paintSay();
         commute.setStatus(c.live ? 'LIVE' : 'NO LIVE TRAFFIC', c.live ? 'ok' : 'mid');
-        clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }));
+        const fuel = fuelEstimate(c.km);
+        commuteCost = fuel?.line ?? '';
+        clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }), ...(fuel ? [row('FUEL', `${fuel.line}.`, null, { wrap: true })] : []));
+        paintSay();
       } catch (e) {
         if (commute.el.hidden) return;
         commuteWords = '';
+        commuteCost = '';
         paintSay();
         const msg = (e as Error).message;
         commute.setStatus('CAN’T TIME IT', 'mid');
         clear(commute.body, row('HOME → WORK', /no road route/i.test(msg) ? 'There’s no road route between home and work: check the two places in Memory → Me → Places.' : 'The drive can’t be timed right now. It tries again when you next open the Brief.', null, { wrap: true }));
       }
+    };
+    // [further] The money line (PLACES AND SPENDING TOGETHER): this week's money near a saved place, when a statement's words name it; said
+    // in the day's sentence and nowhere else, and nothing when none fit. His statements and his saved places only: no position, nothing new fetched.
+    const paintMoney = async () => {
+      try {
+        const [s, p] = await Promise.all([brain.spending(), brain.places()]);
+        const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        const n = s.kept && s.month === thisMonth ? nearPlaces(s.rows, p.places ?? [])[0] : undefined;
+        moneyWords = n ? nearShort(n) : '';
+      } catch {
+        moneyWords = '';
+      }
+      paintSay();
     };
     const np = panel('HEADLINES', { footer: true, status: 'BBC', cls: 'news' });
     const sections = h('div.tabs', ...Object.entries(NEWS_FEEDS).map(([id, [label]]) => button(label, (b) => {
@@ -273,6 +298,7 @@ export const briefTab: TabDef = {
         if (g) g.brief = { describe };
         void paintDay();
         void paintCommute();
+        void paintMoney();
         void fore.paint();
         weather.start();
         air.start();

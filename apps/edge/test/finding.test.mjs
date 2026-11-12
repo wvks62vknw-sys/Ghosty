@@ -73,7 +73,7 @@ function pathOf(id) {
   }
   if (t.inside) {
     const parent = byId.get(t.inside);
-    const via = parent.id === 'settings' ? 'the row' : 'a book';
+    const via = parent.id === 'settings' || parent.id === 'workshop' ? 'the row' : 'a book';
     return [...pathOf(t.inside), `tap ${via} to open ${nice(t)}`];
   }
   const a = areaOfTab(id);
@@ -88,7 +88,7 @@ const table = SCREENS.map((id) => ({ id, path: pathOf(id) }));
 
 test('the screens of the catalogue are the screens of the code (the table below is every one)', () => {
   assert.deepEqual([...SCREENS].sort(), tabs.map((t) => t.id).sort());
-  assert.ok(SCREENS.length >= 45, `${SCREENS.length} screens`);
+  assert.ok(SCREENS.length >= 48, `${SCREENS.length} screens`);
 });
 
 test('THE RULE: every screen is at most three taps from Home, by visible things (the table is printed)', () => {
@@ -121,6 +121,10 @@ test('every screen is on a visible list: a hub card, the Me sheet, the Every scr
   assert.match(settings, /goRow\('THE LOOK', 'look'/, "Settings has THE LOOK's row");
   assert.match(settings, /id: 'appearance', label: 'Appearance', match: \/\^\(THEME\|THE LOOK/, "THE LOOK's row is under Settings' first pill, the one it opens on");
   assert.match(read('features/library/index.ts'), /cardTo: 'library\?shelf'/, "the Library's card opens the Shelf, where the books are");
+  // THE LAB sits inside the Workshop: one row, under the Workshop's first pill (Build), which it opens on (the Scan's rooms hold eight things at most)
+  const workshop = read('features/workshop/index.ts');
+  assert.match(workshop, /panel\('THE LAB'/, "the Workshop has THE LAB's row");
+  assert.match(workshop, /id: 'build', label: 'Build', match: \/\^\(TELL GHOSTY\|PROJECTS\|THE LAB\)\//, "THE LAB's row is under the Workshop's first pill");
 });
 
 test('every screen is one typed word in the jump bar (the word is typed into the bar\'s own ranking; its row is on the first screenful)', () => {
@@ -182,10 +186,10 @@ test('the Abilities page is not a way in: no tab, no row, no card, no deck card,
 });
 
 // ---------------------------------------------------------------- THE HOUSE AND ITS PLAN (BRIEF-SHELL-2): one list for the plan, a room, Every screen and this test
-test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 45 screens are on it or inside it', () => {
+test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 48 screens are on it or inside it', () => {
   assert.deepEqual(RM.ROOMS.map((r) => r.title), ['HOME', 'SEE', 'MAKE', 'LEARN', 'PLAN', 'LIFE', 'ME']);
   const counts = Object.fromEntries(RM.ROOMS.map((r) => [r.key, r.things.length]));
-  assert.deepEqual(counts, { home: 1, see: 2, make: 8, learn: 7, plan: 4, life: 8, me: 7 });
+  assert.deepEqual(counts, { home: 1, see: 3, make: 8, learn: 8, plan: 4, life: 8, me: 7 });
   for (const r of RM.ROOMS) assert.deepEqual(r.things.map((t) => t.n), r.things.map((_, i) => i + 1), `${r.key} is numbered 01, 02, 03 in order`);
   // the things are the screens of the areas (hub order), plus the two things under ME that are not screens of their own
   for (const a of D.AREAS) {
@@ -195,14 +199,14 @@ test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from t
   }
   assert.deepEqual(RM.ROOMS.find((r) => r.key === 'me').things.filter((t) => !t.screen).map((t) => t.id), ['origin', 'deck']);
   // every screen of the catalogue is on the plan: a thing (35), a room's own key (Home, and the six hubs), or inside another screen (THE LOOK, the reader)
-  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, reader: 1 })]);
+  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, reader: 1, lab: 1 })]);
   const missing = SCREENS.filter((id) => !onPlan.has(id) && !byId.get(id)?.hub);
   assert.deepEqual(missing, [], `screens on no plan: ${missing.join(', ')}`);
-  assert.equal(SCREENS.length, 45, 'the 45 screens');
-  assert.equal(RM.THINGS.length, 37, 'thirty-seven numbered things: the 35 screens of the rooms, the origin and Every screen');
+  assert.equal(SCREENS.length, 48, 'the 48 screens (the interpreter, the lab and REHEARSE joined on 11 Nov)');
+  assert.equal(RM.THINGS.length, 39, 'thirty-nine numbered things: the 37 screens of the rooms, the origin and Every screen');
   console.log(`plan: 7 rooms, ${RM.THINGS.length} numbered things (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}); with the 7 room keys, THE LOOK and the reader all ${SCREENS.length} screens are on it`);
   // each thing has one name, said as in the mock
-  assert.deepEqual(RM.ROOMS.find((r) => r.key === 'learn').things.map((t) => t.name), ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach']);
+  assert.deepEqual(RM.ROOMS.find((r) => r.key === 'learn').things.map((t) => t.name), ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach', 'Rehearse']);
   assert.equal(RM.thingName('homeadmin'), 'Household');
 });
 

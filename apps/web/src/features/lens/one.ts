@@ -167,7 +167,30 @@ export function oneSelected(): { kind: 'thing'; id: string; label: string; detai
 }
 
 /** What the words ("read that", "what is that", "translate it", "measure it") reach while the one view is open. */
-export const oneHooks: { act?: (w: LensWord) => string | null } = {};
+export const oneHooks: { act?: (w: LensWord) => string | null; feed?: OneFeed } = {};
+
+/** A fixture feed for the specs (window.__ghosty.oneFeed, only under a test runner): each `see` is one frame of the feed. */
+export interface OneFeed {
+  /** One frame: these sightings are taken in at once and the tags are drawn (an empty list is a frame the finder missed). */
+  see(sightings: Sighting[]): void;
+  /** The feed's own (object) tags go. */
+  reset(): void;
+  /** A tag of this kind goes (it leaves the picture). */
+  drop(kind: TagKind): void;
+}
+export const oneFeed: OneFeed = {
+  see: (s) => oneHooks.feed?.see(s),
+  reset: () => oneHooks.feed?.reset(),
+  drop: (k) => oneHooks.feed?.drop(k),
+};
+
+/** The follow: a box eases to where its tag is (the time constant, ms), never a jump; a long gap between frames counts as at most this much. */
+const FOLLOW_MS = 90;
+const FOLLOW_STEP_MAX_MS = 50;
+/** A tag that has left is drawn fading for this long before it goes. */
+const LEAVE_MS = 240;
+/** The namer's word stands in for the finder's only after it has been the same for this many frames. */
+const NAME_FRAMES = 2;
 
 export function createOneMode(L: LensContext): Mode {
   const S = L.state;
@@ -358,8 +381,19 @@ export function createOneMode(L: LensContext): Mode {
     geo: string;
     aria: string;
     word: string;
+    kind: TagKind;
+    /** Where the box is drawn now (it eases toward its tag) and when it was last moved. */
+    cur?: { x: number; y: number; w: number; h: number };
+    at: number;
+    /** The object's word as drawn, and the word that wants to replace it with how many frames it has been the same. */
+    label: string;
+    cand: string;
+    candN: number;
   }
   const nodes = new Map<number, Node>();
+  /** Reduce Motion: no eased follow (the box is where its tag is), still no flicker. */
+  const reduce = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const calm = (): boolean => !!reduce?.matches || document.documentElement.dataset.motion === 'calm';
 
   /** The crop round a tag, from a still (the text check's box covers only the tiles it was sure of, often less than the words: the crop for text is generous) of the live frame (frame pixels → the still's), for READ, NAME and ASK. */
   const cropOf = (t: Tag): HTMLCanvasElement | null => {
@@ -674,7 +708,7 @@ export function createOneMode(L: LensContext): Mode {
     const tagEl = h('span.lt-tag');
     const box = h('div.lenstag', { dataset: { kind: t.kind } }, ret.el, tagEl);
     layer.append(box);
-    return { id: t.id, box, ret, body, tag: tagEl, geo: '', aria: '', word: '' };
+    return { id: t.id, box, ret, body, tag: tagEl, geo: '', aria: '', word: '', kind: t.kind, at: 0, label: '', cand: '', candN: 0 };
   };
 
   /** What one tag is, for the words (the text's state is the scene's: one text tag stands). Never a known face's name beyond the plate. */
@@ -716,8 +750,17 @@ export function createOneMode(L: LensContext): Mode {
     const live = new Set(list.map((t) => t.id));
     for (const [id, n] of nodes) {
       if (live.has(id)) continue;
-      n.box.remove();
       nodes.delete(id);
+      // a tag that leaves fades out where it stood, rather than vanishing: a faint ghost of its box (never a tag: nothing can be tapped or counted)
+      if (calm()) n.box.remove();
+      else {
+        const ghost = h('div.lensghost', { dataset: { kind: n.kind }, 'aria-hidden': 'true' });
+        Object.assign(ghost.style, { left: n.box.style.left, top: n.box.style.top, width: n.box.style.width, height: n.box.style.height, opacity: n.box.style.opacity || '1' });
+        layer.append(ghost);
+        n.box.remove();
+        requestAnimationFrame(() => (ghost.style.opacity = '0'));
+        setTimeout(() => ghost.remove(), LEAVE_MS);
+      }
     }
     if (selectedId && !live.has(selectedId)) selectedId = 0;
     // the words of a text that has left the picture go with it
@@ -725,19 +768,50 @@ export function createOneMode(L: LensContext): Mode {
     const vw = layer.clientWidth || 360;
     const vh = layer.clientHeight || 400;
     const frame = L.camera.size;
+    const still = calm();
     const sorted = [...list].sort((a, b) => a.box.y - b.box.y);
     oneState.tags = [];
     const rects = new Map<number, { x0: number; y0: number; x1: number; y1: number }>();
     const knowns: Known[] = [];
     for (const t of sorted) {
       const n = nodes.get(t.id) ?? (nodes.set(t.id, makeNode(t)), nodes.get(t.id)!);
+      // the namer's word replaces the finder's only once it has been the same for two frames (one odd frame changes nothing)
+      if (t.kind === 'object') {
+        const want = t.data?.label ?? '';
+        if (!n.label || want === n.label) {
+          n.label = want;
+          n.candN = 0;
+        } else {
+          if (want === n.cand) n.candN++;
+          else {
+            n.cand = want;
+            n.candN = 1;
+          }
+          if (n.candN >= NAME_FRAMES) {
+            n.label = want;
+            n.candN = 0;
+          }
+        }
+      }
       const k = knownOf(t, frame);
+      if (k.kind === 'object') k.label = n.label || k.label;
       knowns.push(k);
       const b = L.viewBox(t.box);
-      const w = Math.max(44, Math.min(vw - 8, b.w));
-      const hh = Math.max(44, Math.min(vh - 8, b.h));
-      const x = Math.max(4, Math.min(vw - w - 4, b.x));
-      const y = Math.max(STAMP_ROOM, Math.min(vh - hh - 4, b.y));
+      const w0 = Math.max(44, Math.min(vw - 8, b.w));
+      const hh0 = Math.max(44, Math.min(vh - 8, b.h));
+      const x0 = Math.max(4, Math.min(vw - w0 - 4, b.x));
+      const y0 = Math.max(STAMP_ROOM, Math.min(vh - hh0 - 4, b.y));
+      // the box follows its tag by easing; with Reduce Motion it is where the tag is
+      const dt = Math.max(0, Math.min(FOLLOW_STEP_MAX_MS, n.at ? now - n.at : 0));
+      const a = !n.cur || still ? 1 : 1 - Math.exp(-dt / FOLLOW_MS);
+      const cur = n.cur ?? { x: x0, y: y0, w: w0, h: hh0 };
+      const near = (c: number, to: number) => (Math.abs(to - c) < 0.6 ? to : c + (to - c) * a);
+      n.cur = { x: near(cur.x, x0), y: near(cur.y, y0), w: near(cur.w, w0), h: near(cur.h, hh0) };
+      n.at = now;
+      const x = n.cur.x;
+      const y = n.cur.y;
+      const w = n.cur.w;
+      const hh = n.cur.h;
       rects.set(t.id, { x0: x, y0: y, x1: x + w, y1: y + hh });
       const fade = tags.fade(t, now);
       // (only what changed is written: a layout for nothing on every frame is a frame the UI does not have)
@@ -759,7 +833,7 @@ export function createOneMode(L: LensContext): Mode {
         n.word = word;
         n.tag.replaceChildren(tagMark(word, { tone: t.kind === 'stranger' ? 'off' : selectedId === t.id ? 'on' : undefined }));
       }
-      oneState.tags.push({ id: t.id, kind: t.kind, tag: word, truth: t.truth, acts: [], box: t.box, fade, selected: selectedId === t.id, label: t.data?.label ?? '', greyed: [] });
+      oneState.tags.push({ id: t.id, kind: t.kind, tag: word, truth: t.truth, acts: [], box: t.box, fade, selected: selectedId === t.id, label: t.kind === 'object' ? n.label : t.data?.label ?? '', greyed: [] });
     }
     oneState.selected = selectedId;
     drawPlates();
@@ -1262,6 +1336,23 @@ export function createOneMode(L: LensContext): Mode {
       window.addEventListener('online', netChanged);
       window.addEventListener('offline', netChanged);
       oneHooks.act = byWord;
+      if (typeof navigator !== 'undefined' && navigator.webdriver) {
+        oneHooks.feed = {
+          see: (list) => {
+            const t = performance.now();
+            note(tags.see(list, t, L.camera.size), t);
+            paint(t);
+          },
+          reset: () => {
+            tags.drop((x) => x.kind === 'object');
+            paint(performance.now());
+          },
+          drop: (kind) => {
+            tags.drop((x) => x.kind === kind);
+            paint(performance.now());
+          },
+        };
+      }
       oneState.faces = 'off';
       tileTimes.length = 0;
       oneState.textFrames = 0;
@@ -1308,6 +1399,7 @@ export function createOneMode(L: LensContext): Mode {
       if (oneState.finder !== 'failed') oneState.finder = 'off';
       if (oneState.namer !== 'failed') oneState.namer = 'off';
       oneHooks.act = undefined;
+      oneHooks.feed = undefined;
       window.removeEventListener('online', netChanged);
       window.removeEventListener('offline', netChanged);
       // the heavy models and the code reader go back with the view (their memory); the files stay kept

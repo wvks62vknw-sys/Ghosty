@@ -67,6 +67,8 @@ export const KIND_SAID: Record<TagKind, string> = { text: 'text', code: 'a code'
 
 /** A tag lives this long after its last sighting, then fades (the Machine's turn). */
 export const TAG_LIFE_MS = 2000;
+/** A tag keeps its box at least this long after its last sighting, so the finder missing it for a frame never makes it flicker (TAG_LIFE_MS is far over it). */
+export const TAG_HOLD_MIN_MS = 300;
 
 /** A sighting: what a detector saw, where (frame pixels), and how sure it is (0–1). */
 export interface Sighting {

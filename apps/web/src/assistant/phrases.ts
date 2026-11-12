@@ -48,6 +48,7 @@ import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
 import { learningAsked } from '../../../../packages/shared/src/learning';
 import { typingPending } from '../features/learning/typing';
+import { furtherAsked } from '../further/words';
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -62,6 +63,8 @@ export const LOCAL_ASKS = [
   { id: 'roomnumber', test: (t: string) => /^(?:ok(?:ay)?[, ]+|please[, ]+)?(?:open|go to|show|take me to)\b/i.test(t.trim()) && (numberIn(t) !== null || roomNumberIn(t) !== null) },
   // [themes2] the look by words, applied at once with no model (state/theme.ts)
   { id: 'look', test: (t: string) => lookAsked(t) !== null || looksAsked(t) !== null },
+  // [further] the interpreter, the map of what I know, a walk through a screen, what changed, REHEARSE (further/ask.ts): the phone's own, no model
+  { id: 'further', test: (t: string) => furtherAsked(t) },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)

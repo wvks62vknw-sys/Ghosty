@@ -46,7 +46,7 @@ import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/l
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look';
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -101,6 +101,8 @@ export async function learnIt(at: number): Promise<boolean> {
   const e = chat.get().entries.find((x) => x.kind === 'assistant' && x.at === at) as Extract<Entry, { kind: 'assistant' }> | undefined;
   const ask = e?.local?.learn?.ask;
   if (!e || !ask) return false;
+  // [further] YES also drafts the change as a job in the Workshop (further/selfdraft.ts): on this phone, nothing sent, nothing shipped
+  void import('../further/selfdraft').then((m) => m.draftJob(ask)).catch(() => undefined);
   try {
     await brain.learnGoal(ask);
   } catch {
@@ -261,6 +263,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     tvSetting.set({ mode: on ? 'on' : 'off' });
     return answer(text, on ? 'TV mode is on: big buttons, and the arrow keys or a controller’s d-pad move between them. Say “TV mode off” to go back.' : 'TV mode is off.', { kind: 'tv' }, opts);
   },
+  // [further] the interpreter, the map, a walk, what changed, REHEARSE (further/ask.ts)
+  further: (text, opts) => import('../further/ask').then((x) => x.furtherTurn(text, opts, answer)).catch(() => false),
   // [restd] DESIGN A BUILD (build/ask.ts): a design from his words, the 3-D, a part's prices, a change; no model
   build: (text, opts) => import('../build/ask').then((b) => b.buildTurn(text, opts, answer)).catch(() => false),
   // [restd] THE HOUSE (house/ask.ts): his things by their names, a guarded one only by his tap with a confirm; no model

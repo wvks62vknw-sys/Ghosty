@@ -2542,3 +2542,29 @@ test('the card in his words: no run yet, published, not kept, stopped, rolled ba
   assert.equal(log.length, 20);
   assert.equal(log[0].week, 24);
 });
+// [further] THE SUNDAY NOTE'S SECOND SECTION (BRIEF-OCT-IDEAS-3 item 10): "What I learned this week" in the same letter, from the LOOPS card's
+// numbers and the REPORT CARD's weekly run; its words are tested on their own in sundaynote.test.mjs (imported here: package.json is protected)
+test('the Sunday letter carries "What I learned this week" as one more section of the same message (not a second one), without saying the run’s exam twice', async () => {
+  const DAY = 86_400_000;
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.UTC(2026, 10, 8, 5, 40) }); // Sunday 8 November, 05:40
+  await s.put('owner:ctx', { tz: 'Europe/London' });
+  // the LOOPS card's numbers: a point a week ago, then this week's drills better than before; the weekly run kept its exam
+  await s.put('loops:days', [{ d: '2026-11-01', at: d.deps.now() - 7 * DAY, drills: 40, right: 20, reads: 0, digests: 0, failed: 0 }]);
+  await s.put('study:state', { drills: 60, right: 35, domains: {} });
+  await s.put('train:report', { week: 12, startedAt: d.deps.now() - 2 * DAY, finishedAt: d.deps.now() - DAY, base: 'stock', before: { gym: 0.64, tools: 0.64 }, after: { gym: 0.71, tools: 0.71 }, items: {}, gate: { pass: true, why: '' }, trained: {}, rejected: [], phases: [] });
+  const n = d.notes.length;
+  await C.sundayNote(d.deps);
+  assert.equal(d.notes.length, n + 1, 'one letter, not two');
+  const letter = d.notes.at(-1);
+  assert.equal(letter.title, 'What I learned to do this week');
+  assert.match(letter.text, /What I learned this week:\n/, 'the new section is in it');
+  assert.match(letter.text, /My drills went from 50% right to 75%\./);
+  assert.match(letter.text, /^My offline brain passed week 12's exam \(64% → 71%\)/, 'the letter’s first section says the run');
+  assert.ok(!/Week 12’s training/.test(letter.text), 'and the new section does not say it again');
+  assert.match(letter.text, /What I can’t say: /, 'honest about the gap');
+  assert.ok(letter.text.split('\n').length <= 9, 'one line, a blank, the heading and at most five');
+});
+
+await import('./sundaynote.test.mjs');
+

@@ -47,6 +47,6 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
     no.dataset.case = 'keep';
     no.classList.add('learnno');
     row.append(yes, no);
-  } else if (learn?.state === 'yes') row.append(h('span.note.learned', 'On my learning list. I’ll work on it: Workshop → Upgrade ideas.'));
+  } else if (learn?.state === 'yes') row.append(h('span.note.learned', 'On my learning list, and drafted as a job: Workshop → Ideas. Nothing is built until you tap SHIP IT.'));
   return row.childElementCount ? row : null;
 }

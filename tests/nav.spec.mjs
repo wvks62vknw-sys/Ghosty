@@ -148,8 +148,8 @@ await page.waitForTimeout(700);
 s = await sw(page);
 if (s.tab !== 'area-learn' || s.open) problems.push(`a short press on Learn: tab ${s.tab}, switcher ${s.open ? 'open' : 'closed'}`);
 if (s.aria !== 'true') problems.push(`the closed switcher is not aria-hidden (${s.aria})`);
-// the long press: the arc fans out above the bar, Learn's seven tools (the arcade joined on 1 Nov; the learning pack and the coach,
-// screens of their own since that night: BRIEF-TABS) with their instruments, names and readings, past five on two arcs
+// the long press: the arc fans out above the bar, Learn's eight tools (the arcade joined on 1 Nov; the learning pack and the coach,
+// screens of their own since that night: BRIEF-TABS; REHEARSE on 11 Nov) with their instruments, names and readings, past five on two arcs
 await show(page, 'gym', 900);
 await f.down(at.x, at.y);
 await page.waitForTimeout(600);
@@ -160,8 +160,8 @@ if (!held) problems.push('the held tab does not keep its touch flare while the a
 await settle(page);
 s = await sw(page);
 if (s.aria !== null) problems.push(`the open switcher is still aria-hidden (${s.aria})`);
-if (s.items.map((i) => i.id).join(',') !== 'learn,arcade,gym,school,library,learning,coach') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Arcade, Gym, School, Library, Learning, Coach)`);
-// (seven tools: no two of them on top of each other, the rings 72 pt across)
+if (s.items.map((i) => i.id).join(',') !== 'learn,arcade,gym,school,library,learning,coach,rehearse') problems.push(`the Learn arc holds ${s.items.map((i) => i.id).join(', ')} (want Courses, Arcade, Gym, School, Library, Learning, Coach, Rehearse)`);
+// (eight tools since REHEARSE joined on 11 Nov: no two of them on top of each other, the rings 72 pt across)
 for (const [k, i] of s.items.entries()) for (const j of s.items.slice(k + 1)) if (Math.hypot(i.x - j.x, i.y - j.y) < 72) problems.push(`[switcher] ${i.id} and ${j.id} overlap (${i.x},${i.y} and ${j.x},${j.y})`);
 for (const i of s.items) {
   if (!i.drawn) problems.push(`[switcher ${i.id}] no instrument in its face`);
@@ -632,8 +632,8 @@ if (!graphite.dotOn || graphite.dotOn === reactor.dotOn) problems.push(`[graphit
 // ===================================================================== nothing sideways at 440 and 390; every tool on its hub
 // (the area's tools, shell/areadefs.ts: Ask adds Voice)
 const HUBS = {
-  'area-see': ['eye', 'lens'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
-  'area-learn': ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], 'area-plan': ['agenda', 'markets', 'threats', 'radio'],
+  'area-see': ['eye', 'lens', 'interpreter'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  'area-learn': ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], 'area-plan': ['agenda', 'markets', 'threats', 'radio'],
   'area-life': ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
 };
 for (const viewport of [PHONE, { width: 390, height: 844 }]) {

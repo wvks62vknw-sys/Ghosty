@@ -45,7 +45,19 @@ function cm(v: number, unit: string, bareIsM: boolean): number {
 }
 
 /** "140 by 70", "140 x 70 x 75 cm", "4m × 3m": the run of two or three sizes joined by by / x / ×. */
-function runOf(text: string): { vals: number[]; unit: string } | null {
+export type Shown = 'mm' | 'cm' | 'm' | 'ft' | 'in';
+/** The unit he used, as the edges of the picture write it ("4 by 3" is metres, "140 by 70" is cm). */
+const shownOf = (unit: string, bareIsM: boolean): Shown => (unit === 'mm' ? 'mm' : /^m/.test(unit) ? 'm' : /^f/.test(unit) ? 'ft' : /^in/.test(unit) ? 'in' : unit === 'cm' ? 'cm' : bareIsM ? 'm' : 'cm');
+/** A length in cm written in the unit he used: "1.4 m", "140 cm", "4 ft 7". */
+export function lengthIn(cmv: number, unit: Shown): string {
+  const r = (x: number, d = 1) => String(Math.round(x * 10 ** d) / 10 ** d);
+  if (unit === 'm') return `${r(cmv / 100, 2)} m`;
+  if (unit === 'mm') return `${r(cmv * 10, 0)} mm`;
+  if (unit === 'ft') return `${r(cmv / 30.48, 1)} ft`;
+  if (unit === 'in') return `${r(cmv / 2.54, 1)} in`;
+  return `${r(cmv, 0)} cm`;
+}
+function runOf(text: string): { vals: number[]; unit: string; shown: Shown } | null {
   const m = /(\d+(?:\.\d+)?)\s*(mm|cm|m|metres?|meters?|ft|feet|in|inch(?:es)?)?\s*(?:by|x|×|\*)\s*(\d+(?:\.\d+)?)\s*(mm|cm|m|metres?|meters?|ft|feet|in|inch(?:es)?)?(?:\s*(?:by|x|×|\*)\s*(\d+(?:\.\d+)?)\s*(mm|cm|m|metres?|meters?|ft|feet|in|inch(?:es)?)?)?/i.exec(text);
   if (!m) return null;
   const units = [m[2], m[4], m[6]].filter(Boolean).map((u) => u!.toLowerCase());
@@ -53,7 +65,7 @@ function runOf(text: string): { vals: number[]; unit: string } | null {
   const raw = [m[1], m[3], m[5]].filter(Boolean).map(Number);
   const bareIsM = !unit && raw.every((x) => x <= 12);
   const us = [m[2], m[4], m[6]];
-  return { vals: raw.map((x, i) => cm(x, (us[i] ?? unit ?? '').toLowerCase() || unit, bareIsM)), unit };
+  return { vals: raw.map((x, i) => cm(x, (us[i] ?? unit ?? '').toLowerCase() || unit, bareIsM)), unit, shown: shownOf(unit, bareIsM) };
 }
 
 export interface PartAsk {
@@ -62,6 +74,8 @@ export interface PartAsk {
   dims: Dims;
   /** Which of w, d, h were his and which are the stated default. */
   given: ('w' | 'd' | 'h')[];
+  /** The unit he used, for the sizes written on the edges. */
+  unit: Shown;
 }
 
 /** "show me a desk 140 by 70": a part and its size; null for a thing not in the table, a buying question, or no making word. */
@@ -75,6 +89,7 @@ export function partAsked(ask: string): PartAsk | null {
   const dims = { ...p.dims };
   const given: PartAsk['given'][number][] = [];
   const run = runOf(t);
+  let unit: Shown = run?.shown ?? 'cm';
   if (run && run.vals.length >= 2) {
     const [a, b, c] = run.vals as [number, number, number | undefined];
     // two sizes are width and depth; three are width, depth, height
@@ -89,12 +104,13 @@ export function partAsked(ask: string): PartAsk | null {
     for (const m of t.matchAll(/(\d+(?:\.\d+)?)\s*(mm|cm|m|metres?|meters?|ft|feet|in|inch(?:es)?)?\s*(wide|long|deep|high|tall)\b/g)) {
       const v = cm(Number(m[1]), (m[2] ?? '').toLowerCase(), false);
       const k = m[3] === 'wide' || m[3] === 'long' ? 'w' : m[3] === 'deep' ? 'd' : 'h';
+      if (!given.length) unit = shownOf((m[2] ?? '').toLowerCase(), false);
       dims[k] = v;
       if (!given.includes(k)) given.push(k);
     }
   }
   for (const k of ['w', 'd', 'h'] as const) dims[k] = Math.round(Math.max(15, Math.min(k === 'h' ? 300 : 400, dims[k])));
-  return { kind: p.kind, name: p.name, dims, given };
+  return { kind: p.kind, name: p.name, dims, given, unit };
 }
 
 export interface RoomAsk {
@@ -104,6 +120,8 @@ export interface RoomAsk {
   things: { kind: PartKind; n: number }[];
   /** True when the size was his. */
   sized: boolean;
+  /** The unit he used (metres when he gave none), for the sizes written on the edges. */
+  unit: Shown;
 }
 
 const COUNT: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, a_pair_of: 2 };
@@ -124,7 +142,7 @@ export function roomAsked(ask: string): RoomAsk | null {
     if (m) things.push({ kind: p.kind, n: Math.max(1, Math.min(4, COUNT[(m[1] ?? 'a').toLowerCase()] ?? (Number(m[1]) || 1))) });
   }
   things.sort((a, b) => scope.search(partOf(a.kind).re) - scope.search(partOf(b.kind).re));
-  return { w: Math.round(Math.max(150, Math.min(1500, w))), d: Math.round(Math.max(150, Math.min(1500, d))), things: things.slice(0, 6), sized };
+  return { w: Math.round(Math.max(150, Math.min(1500, w))), d: Math.round(Math.max(150, Math.min(1500, d))), things: things.slice(0, 6), sized, unit: sized ? run!.shown : 'm' };
 }
 
 /** A part as boxes in metres: centred on x and z at 0, standing on the floor (y up), its width along x. */

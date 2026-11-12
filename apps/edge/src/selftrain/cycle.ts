@@ -120,6 +120,7 @@ import {
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfRepoInfo, hfTag, hfWhoami, kaggleQuota, kaggleWorks, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { brainLoops, drainStars, noteDays, takeStars } from './loops';
+import { learnedLines, letterText } from './learned';
 import { ledgerLines, LEDGER_KEY, loadLedger, noteGym, noteTools } from './ledger';
 import { observe } from '../mind';
 import { drainPool, loadPool, poolAnswer, poolReady, poolSit, poolStep, poolView, type PoolWeek } from './pool';
@@ -1536,8 +1537,10 @@ export async function sundayNote(d: CycleDeps): Promise<string[]> {
   const day = isoLocal(now, tz).slice(0, 10);
   if (zoned(now, tz).wd !== 0 || (await loadLedger(s)).sent === day) return [];
   const lines = await ledgerNow(d);
+  // [further] one more section of the same letter, from the LOOPS card and the REPORT CARD (learned.ts): never a second message
+  const learned = await (async () => learnedLines(await brainLoops(s, await trainStatus(d), now), lines))().catch(() => [] as string[]);
   await s.put(LEDGER_KEY, { ...(await loadLedger(s)), sent: day });
-  if (lines.length) await d.notify?.('What I learned to do this week', lines.join('\n')).catch(() => undefined);
+  if (lines.length || learned.length) await d.notify?.('What I learned to do this week', letterText(lines, learned)).catch(() => undefined);
   return lines;
 }
 

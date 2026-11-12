@@ -53,6 +53,7 @@ export { TELEGRAM_CAN, TELEGRAM_COMMANDS };
 import { cardText, type Card } from '../../../packages/shared/src/cards'; // [cards] the cards as text (BRIEF-SIDEWAYS 5)
 import { draftText, type Draft } from '../../../packages/shared/src/social'; // [social] a draft with APPROVE · EDIT · NO
 import type { SocialTelegram } from './social'; // [social]
+import { pictureFor } from './telegrampic'; // [polish2] the picture of a reply, drawn here and sent as a photo
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -331,6 +332,28 @@ export async function tgReply(token: string, chatId: number, text: string, origi
   }
 }
 
+/**
+ * [polish2] The picture of a reply, sent as a photo after its sentence (telegrampic.ts): a chart from its numbers, a page from its words,
+ * a room or a part from his sizes, a map of a place a screen command named. Nothing is said when there is nothing to draw; if a picture was drawn or tried and failed, one line says so and the sentence stands.
+ */
+export async function tgPicture(token: string, chatId: number, f: { ask: string; reply: string; place?: { name: string; lat: number; lon: number; zoom: number } }): Promise<void> {
+  const tile = async (url: string): Promise<Uint8Array | null> => {
+    const r = await fetch(url, { headers: { 'user-agent': 'Ghosty (a personal assistant; tile requests for one owner)' } }).catch(() => null);
+    return r && r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+  };
+  // a picture that could not be drawn or sent is said once, in a line, and the words stand; none is said when there was nothing to draw
+  const failed = () => tgSend(token, chatId, 'The picture did not come out; the words stand.').catch(() => undefined);
+  let drew = true;
+  const pic = await pictureFor({ ...f, ...(f.place ? { tile } : {}) }).catch(() => ((drew = false), null));
+  if (!pic) return void (drew ? undefined : await failed());
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  form.append('photo', new Blob([pic.png as unknown as BlobPart], { type: 'image/png' }), `${pic.kind}.png`);
+  let sent = true;
+  await apiForm(token, 'sendPhoto', form).catch(() => (sent = false));
+  if (!sent) await failed();
+}
+
 /** A question with two signed buttons. */
 async function tgAsk(token: string, chatId: number, text: string, kind: ButtonPress['kind'], id: string, yes = 'APPROVE'): Promise<void> {
   await api(token, 'sendMessage', {
@@ -429,13 +452,16 @@ const SCREEN_ACTIONS = new Set(['open_tab', 'fly_to', 'show_map', 'show_route', 
  * The turn's events as Telegram messages, sent in order: the reply (with a heard voice note
  * echoed first), an approval with its buttons, a screen action as a note, an error as it is.
  */
-function collector(token: string, chatId: number, origin: string, prefix = '', onAsk?: (id: string) => Promise<void>): { emit: (ev: ChatEvent) => void; flush: () => Promise<void>; said: () => string } {
+export function collector(token: string, chatId: number, origin: string, prefix = '', onAsk?: (id: string) => Promise<void>, ask = ''): { emit: (ev: ChatEvent) => void; flush: () => Promise<void>; said: () => string } {
   let chain: Promise<void> = Promise.resolve();
   const queue = (fn: () => Promise<void>) => void (chain = chain.then(fn).catch(() => undefined));
   let first = true;
   const replies: string[] = [];
   // [cards] a tool's cards come before the reply that uses them: held, and sent as text lines after it
   let cards: string[] = [];
+  // [polish2] a place a screen command named: the only place a map is ever drawn for here (a named place, never live GPS)
+  let place: { name: string; lat: number; lon: number; zoom: number } | undefined;
+  let pictured = false;
   const sendCards = () => {
     if (!cards.length) return;
     const lines = cards.join('\n');
@@ -456,7 +482,14 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
           await onAsk?.(ev.id);
         });
       }
-      else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
+      else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) {
+        if (ev.name === 'show_map') {
+          const a = (ev.args ?? {}) as Record<string, unknown>;
+          if (typeof a.lat === 'number' && typeof a.lon === 'number') place = { name: String(a.place ?? '').slice(0, 60) || 'The place', lat: a.lat, lon: a.lon, zoom: typeof a.zoom === 'number' ? a.zoom : 15 };
+        }
+        // (a map with a place is drawn and sent as a picture after the sentence, so it needs no note; other screen actions keep theirs)
+        if (!(ev.name === 'show_map' && place)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
+      }
       // [cards] the reply's live cards, as text: title · line · the deep link into the app (cards.ts cardText); a card that
       // came after the reply (the car he named) goes at once, one that came before it waits for it
       else if (ev.t === 'cards' && ev.cards.length) {
@@ -467,7 +500,14 @@ function collector(token: string, chatId: number, origin: string, prefix = '', o
       } else if (ev.t === 'error') {
         queue(() => tgSend(token, chatId, ev.message));
         sendCards();
-      } else if (ev.t === 'done') sendCards();
+      } else if (ev.t === 'done') {
+        sendCards();
+        // [polish2] the picture the Stage would have drawn on the phone, as an image after the sentence; none when it cannot be drawn
+        if (ask && replies.length && !pictured) {
+          pictured = true;
+          queue(() => tgPicture(token, chatId, { ask, reply: replies.join('\n\n'), ...(place ? { place } : {}) }));
+        }
+      }
     },
     flush: () => chain,
     said: () => replies.join('\n\n'),
@@ -846,7 +886,7 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
   const busy = typing(token, chatId);
-  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : shown ? `${shown}\n\n` : '', (id) => noteAsked(host.storage, id));
+  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : shown ? `${shown}\n\n` : '', (id) => noteAsked(host.storage, id), text);
   try {
     const client = await host.client();
     // Spoken to: answered in the spoken style (persona.ts SPOKEN), and in Ghosty's voice below.

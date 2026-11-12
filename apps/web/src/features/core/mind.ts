@@ -108,6 +108,18 @@ export function plan(d: MindData): { fields: { name: string; nodes: number; lit:
   return { fields: out, nodes: out.reduce((n, f) => n + f.nodes, 0), lit: out.reduce((n, f) => n + f.lit, 0), perNode };
 }
 
+/**
+ * The orb's own points: the i-th of n subjects on a Fibonacci shell of radius `shell` (the fields' hubs are exactly these; the map of
+ * what he knows, features/further/mindmap.ts, lays his subjects out on the same ones). `n` of 1 sits at the middle.
+ */
+export function shellPoint(i: number, n: number, shell = n < 6 ? 0.56 : 0.64): [number, number, number] {
+  if (n <= 1) return [0, 0, 0];
+  const y = 1 - ((i + 0.5) * 2) / n;
+  const rr = Math.sqrt(1 - y * y);
+  const th = i * Math.PI * (3 - Math.sqrt(5));
+  return [Math.cos(th) * rr * shell, y * shell, Math.sin(th) * rr * shell];
+}
+
 /** Can this browser draw WebGL at all? Checked ONCE, on a throwaway canvas, and remembered: the answer does not change in a
  *  page's life, and making a WebGL context is dear (about 200 ms in a software renderer, and a context held until the next
  *  collection on a phone), so the boot, the Mind's start and THE LOOK's borrow all share the one probe. */
@@ -1018,13 +1030,7 @@ export class Mind {
     };
     // field hubs, evenly round a shell (a Fibonacci sphere); one field sits at the middle
     const shell = n === 1 ? 0 : n < 6 ? 0.56 : 0.64;
-    const hubs = fields.map((_, i) => {
-      if (n === 1) return new T.Vector3(0, 0, 0);
-      const y = 1 - ((i + 0.5) * 2) / n;
-      const rr = Math.sqrt(1 - y * y);
-      const th = i * Math.PI * (3 - Math.sqrt(5));
-      return new T.Vector3(Math.cos(th) * rr, y, Math.sin(th) * rr).multiplyScalar(shell);
-    });
+    const hubs = fields.map((_, i) => new T.Vector3(...shellPoint(i, n, shell)));
     const nodes: { p: Any; f: number; lit: boolean }[] = [];
     fields.forEach((f, i) => {
       const sigma = n === 1 ? 0.3 : Math.min(0.1, 0.03 + 0.012 * Math.sqrt(f.nodes));

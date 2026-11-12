@@ -10,6 +10,12 @@ import { eyeTab } from './eye';
 import { gymTab } from './gym';
 import { learnTab } from './learn';
 import { lensTab } from './lens';
+// INTERPRETER (BRIEF-OCT-IDEAS-3 item 1): two halves, two languages, hold to talk, nothing kept
+import { interpreterTab } from './interpreter';
+// THE LAB (BRIEF-OCT-IDEAS-3 item 4): experiments on free public data, each kept as a page
+import { labTab } from './lab';
+// REHEARSE (BRIEF-OCT-IDEAS-3 item 7): a talk or a hard conversation against Ghosty, three rounds, then notes
+import { rehearseTab } from './rehearse';
 import { libraryTab } from './library';
 // THE READER (BRIEF-LIBRARY-READER): a book from the Library's Shelf, read here or aloud, its place kept
 import { readerTab } from './reader';
@@ -47,4 +53,4 @@ import { docsTab } from './docs';
 import { houseTab } from './house';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, houseTab, ...HUB_TABS];

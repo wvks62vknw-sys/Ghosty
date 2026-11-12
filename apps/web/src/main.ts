@@ -193,6 +193,12 @@ async function boot(): Promise<void> {
     if (f.firstRun()) o.noteFirstRun();
     else if (ui.get().connected) setTimeout(() => void o.dailyOffer().catch(() => undefined), 15_000);
   }).catch(() => undefined);
+  // [further] WHAT CHANGED SINCE YESTERDAY (further/changed.ts): the day's readings kept a while after it opens, so tomorrow's plan can say it
+  void import('./further/changed').then((c) => {
+    (window as unknown as { __ghosty: Record<string, unknown> }).__ghosty.changed = c.changedState;
+    // (once a day, a few minutes after it opens and only while it is on screen: the rooms' own throttled reads, nothing the plan would not ask)
+    if (ui.get().connected) setTimeout(() => document.visibilityState === 'visible' && c.needsDailyRead() && void c.refreshChanged().catch(() => undefined), 180_000);
+  }).catch(() => undefined);
   gfx.post.flash = 0.6;
 }
 

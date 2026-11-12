@@ -10,7 +10,7 @@
  */
 import type { Card } from '../../../../packages/shared/src/cards';
 import { docFromReply, writeAsked } from '../docs/model';
-import { seriesFrom, type Series } from './chart';
+import { chartTitle, seriesFrom, type Series } from './chart';
 import { partAsked, roomAsked, type PartAsk, type RoomAsk } from './parts';
 import { simFrom, type Sim } from './sim';
 
@@ -52,7 +52,7 @@ interface Base {
 }
 export type Show =
   | (Base & { kind: 'map'; lat: number; lon: number; label: string; zoom: number; via?: 'its screen' })
-  | (Base & { kind: 'eye'; lat: number; lon: number; label: string })
+  | (Base & { kind: 'eye'; lat: number; lon: number; label: string; /** The city's country (its code in the world pack): the picture outlines it. */ country?: string })
   | (Base & { kind: 'journey'; via: 'its screen' })
   | (Base & { kind: 'chart'; series: Series })
   | (Base & { kind: 'document'; paragraphs: { t: string; text: string }[]; ask: string; replyAt?: number })
@@ -85,7 +85,7 @@ const liney = (reply: string) => reply.split('\n').filter((l) => /^\s*(?:[-*•]
 const simShow = (sim: Sim): Show => ({ kind: 'simulation', id: `sim:${sim.kind}:${sim.title}`, tag: 'SIMULATION', title: sim.title, truth: ['FIRST ESTIMATE', 'NOT CERTIFIED', sim.kind === 'orbit' ? 'TWO-BODY ORBIT' : 'STILL AIR, ONE POINT MASS'], sim });
 const roomShow = (room: RoomAsk): Show => ({ kind: 'room', id: `room:${room.w}x${room.d}:${room.things.map((t) => t.kind + t.n).join('')}`, tag: 'ROOM', title: `Room ${room.w / 100} × ${room.d / 100} m`, truth: [room.sized ? 'YOUR SIZE' : 'SIZE ASSUMED 4 × 3 m', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], room });
 const partShow = (part: PartAsk): Show => ({ kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part });
-const chartShow = (ask: string, series: Series): Show => ({ kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: ask.length > 44 ? `${ask.slice(0, 41).replace(/\s+\S*$/, '')}…` : ask.replace(/[?.!]+$/, ''), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series });
+const chartShow = (ask: string, series: Series): Show => ({ kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: chartTitle(ask), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series });
 function docShow(f: ShowFacts, letter: boolean): Show | null {
   const { title, list: paragraphs } = paragraphsOf(f.reply.trim(), f.ask.trim(), f.me?.name);
   return paragraphs.length >= 2 ? { kind: 'document', id: `doc:${f.replyAt ?? f.ask.trim().slice(0, 20)}`, tag: letter ? 'LETTER' : 'DOCUMENT', title: title.slice(0, 60), truth: ['YOUR WORDS, LAID OUT', 'EDIT AND SAVE AS PDF OR WORD'], paragraphs, ask: f.ask.trim(), replyAt: f.replyAt } : null;
@@ -111,11 +111,12 @@ export function brainPick(f: ShowFacts): Show | null {
       const label = String(d.label ?? '').trim().slice(0, 80) || 'The place';
       if (d.screen === true) return { kind: 'map', id: `map:${label}`, tag: 'MAP', title: label, truth: ['ON ITS OWN SCREEN'], lat, lon, label, zoom: 15, via: 'its screen' };
       if (d.globe === true) return { kind: 'eye', id: `eye:${label}`, tag: "GOD'S EYE", title: label, truth: ['CHOSEN BY THE BRAIN', 'LAND AND CITIES'], lat, lon, label };
-      return { kind: 'map', id: `map:${label}`, tag: 'MAP', title: label, truth: ['CHOSEN BY THE BRAIN', 'OPENSTREETMAP'], lat, lon, label, zoom: num(d.zoom) ?? 11 };
+      return { kind: 'map', id: `map:${label}`, tag: 'MAP', title: label, truth: ['CHOSEN BY THE BRAIN', 'OPENSTREETMAP'], lat, lon, label, zoom: num(d.zoom) ?? 12 };
     }
     case 'numbers': {
       const pts = Array.isArray(d.points) ? (d.points as unknown[]).map((p) => p as { label?: unknown; value?: unknown }).filter((p) => typeof p.label === 'string' && num(p.value) !== null).slice(0, 12) : [];
-      if (pts.length < 3) return null;
+      // three or more is a chart; one is the number said large; none says so in his words; two are a sentence
+      if (pts.length === 2 || (pts.length < 3 && !Array.isArray(d.points))) return null;
       const unit = typeof d.unit === 'string' ? d.unit.slice(0, 6) : '';
       return chartShow(f.ask.trim(), { kind: d.line === true ? 'line' : 'bars', points: pts.map((p) => ({ label: String(p.label).slice(0, 24), value: p.value as number })), unit, before: d.before === true });
     }
@@ -171,20 +172,35 @@ export function decideShow(f: ShowFacts): Show | null {
   }
 
   // a place: a saved place named in passing, by its name, or a city of the world pack
-  if (f.mentioned) return { kind: 'map', id: `map:${f.mentioned.label}`, tag: 'MAP', title: f.mentioned.label, truth: ['A PLACE YOU SAVED', 'OPENSTREETMAP'], lat: f.mentioned.lat, lon: f.mentioned.lon, label: f.mentioned.label, zoom: 15 };
+  if (f.mentioned) return { kind: 'map', id: `map:${f.mentioned.label}`, tag: 'MAP', title: f.mentioned.label, truth: ['A PLACE YOU SAVED', 'OPENSTREETMAP'], lat: f.mentioned.lat, lon: f.mentioned.lon, label: f.mentioned.label, zoom: 16 };
   const pa = placeAsked(ask);
   if (pa) {
     const saved = f.places.find((p) => p.label.toLowerCase() === pa.name || pa.name === `${p.label.toLowerCase()}'s`);
-    if (saved) return { kind: 'map', id: `map:${saved.label}`, tag: 'MAP', title: saved.label, truth: ['A PLACE YOU SAVED', 'OPENSTREETMAP'], lat: saved.lat, lon: saved.lon, label: saved.label, zoom: 15 };
+    if (saved) return { kind: 'map', id: `map:${saved.label}`, tag: 'MAP', title: saved.label, truth: ['A PLACE YOU SAVED', 'OPENSTREETMAP'], lat: saved.lat, lon: saved.lon, label: saved.label, zoom: 16 };
     const city = f.city?.(pa.name);
     if (city) {
-      if (pa.map) return { kind: 'map', id: `map:${city.name}`, tag: 'MAP', title: city.name, truth: ['A CITY OF THE WORLD PACK', 'OPENSTREETMAP'], lat: city.lat, lon: city.lon, label: city.name, zoom: 11 };
-      return { kind: 'eye', id: `eye:${city.name}`, tag: "GOD'S EYE", title: city.name, truth: ['THE WORLD PACK ON THIS PHONE', 'LAND AND CITIES'], lat: city.lat, lon: city.lon, label: city.name };
+      if (pa.map) return { kind: 'map', id: `map:${city.name}`, tag: 'MAP', title: city.name, truth: ['A CITY OF THE WORLD PACK', 'OPENSTREETMAP'], lat: city.lat, lon: city.lon, label: city.name, zoom: 12 };
+      return { kind: 'eye', id: `eye:${city.name}`, tag: "GOD'S EYE", title: city.name, truth: ['THE WORLD PACK ON THIS PHONE', 'LAND AND CITIES'], lat: city.lat, lon: city.lon, label: city.name, country: city.country };
     }
   }
 
   // numbers: three label-and-number pairs the reply itself wrote
   const series = reply ? seriesFrom(reply) : null;
   if (series) return chartShow(ask, series);
+  return null;
+}
+
+/**
+ * Which kind of picture his words alone already promise (before any reply): the Stage's room is reserved at once so the sentence
+ * lands where it will stay. A prediction only: the decision above is still the one that shows, and a wrong guess hands the room back.
+ */
+export function predictKind(ask: string): ShowKind | null {
+  const a = ask.trim();
+  if (!a) return null;
+  if (simFrom(a)) return 'simulation';
+  if (roomAsked(a)) return 'room';
+  if (partAsked(a)) return 'part';
+  if (writeAsked(a) || (PLAN_ASK.test(a) && PLAN_VERB.test(a))) return 'document';
+  if (placeAsked(a)) return 'map';
   return null;
 }

@@ -44,6 +44,7 @@ import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
 import { holdForWhy, whyButton } from './why';
+import { holdOrb } from '../further/mindmap';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
@@ -701,6 +702,8 @@ export const coreTab: TabDef = {
     // Route C's Home (home.ts): the date and weather lines, the reactor framed by its four instruments, the
     // Today card and the two tiles.
     const rwrap = h('div.rwrap', reactor.el);
+    // [further] a long hold on the orb opens MIND AS A MAP: what he knows, laid out by subject (features/further/mindmap.ts)
+    holdOrb(rwrap);
     const rc = routeCHome(rwrap);
     // [cards] HOME AS HIS WALL (wall.ts): the live cards in order of what matters now, above Home's own cards
     const wall = wallView();

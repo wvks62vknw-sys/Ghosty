@@ -405,3 +405,4 @@ New ideas from today, all free:
    THE PHONE-HARDWARE ITEMS landed 12 Nov (OWNER-ISSUES 187): 120 Hz, the eyes' size choice, GYM on the chip, the brain measured; pending the PR's run.
    DOCUMENTS (the second editor) landed 12 Nov (OWNER-ISSUES 188): a word processor of the app's own with Word in and out; pending the PR's run.
    THE WEEKLY TRAINING FOR REAL landed 12 Nov (OWNER-ISSUES 186): the whole path gated and rolled back, proven with fakes; his first tap is CHECK FIRST; pending the PR's run.
+   POLISH 2 (the picture) and OCTOBER IDEAS 3 landed 12 Nov (OWNER-ISSUES 192, 193); pending the PR's run.

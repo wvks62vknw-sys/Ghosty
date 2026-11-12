@@ -56,7 +56,7 @@ export const ROOMS: Room[] = AREAS.map((a) => ({
 export const THINGS: (Thing & { room: string })[] = ROOMS.flatMap((r) => r.things.map((t) => ({ ...t, room: r.key })));
 
 /** The room a screen (or a thing) belongs to; a screen that sits inside another (THE LOOK, the reader) is its parent's. */
-const INSIDE: Record<string, string> = { look: 'settings', reader: 'library' };
+const INSIDE: Record<string, string> = { look: 'settings', reader: 'library', lab: 'workshop' };
 export function roomOf(screen: string): Room | undefined {
   const id = INSIDE[screen] ?? screen;
   if (id === 'core') return ROOMS[0];

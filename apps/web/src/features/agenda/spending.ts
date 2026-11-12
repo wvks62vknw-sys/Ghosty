@@ -11,6 +11,8 @@ import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type Spe
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { bar, button, empty, modal, panel, row, toast } from '../../ui/components';
+import type { SavedPlace } from '../../../../../packages/shared/src/places';
+import { nearHow, nearLine, nearPlaces, type NearPlace } from '../../further/spendnear';
 
 type View = 'month' | 'year' | 'changes';
 const COLOURS: Record<Category, string> = {
@@ -24,11 +26,13 @@ const COLOURS: Record<Category, string> = {
   income: '#52f2b5',
   other: '#7d8590',
 };
+/** A time's month as the statements write it (2026-11). */
+const monthOf = (t: number) => `${new Date(t).getFullYear()}-${String(new Date(t).getMonth() + 1).padStart(2, '0')}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 /** What a spec reads: window.__ghosty.spending. */
-export const spendingState = { kept: 0, month: '', view: 'month' as View, budgets: [] as string[], subs: [] as string[], refiled: 0 };
+export const spendingState = { kept: 0, month: '', view: 'month' as View, budgets: [] as string[], subs: [] as string[], refiled: 0, /** [further] the places-and-spending lines under the month ("You spent £62 near Work this week") */ near: [] as string[] };
 
 export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
   const p = panel('SPENDING', { footer: true, cls: 'spend', status: '' });
@@ -37,6 +41,32 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
   let s: SpendingSummary | null = null;
   let view: View = 'month';
   let all = false;
+  /** [further] His saved places, read once, to set beside this week's rows (further/spendnear.ts); null until they have answered. */
+  let places: SavedPlace[] | null = null;
+  let weekRows: SpendRow[] | null = null;
+  const nearNow = (): NearPlace[] => (places && weekRows ? nearPlaces(weekRows, places) : []);
+  /** The rows of the last seven days: this month's, and last month's too in the first week of a month (only for the month now). */
+  const loadNear = async () => {
+    if (!s || s.month !== monthOf(Date.now())) return void (weekRows = null);
+    const mine = s.rows;
+    let rows = mine;
+    if (new Date().getDate() < 7 && s.months.includes(prevMonth(s.month))) {
+      try {
+        rows = [...mine, ...(await brain.spending(prevMonth(s.month))).rows];
+      } catch {
+        /* this month's rows alone */
+      }
+    }
+    weekRows = rows;
+    if (!places) {
+      try {
+        places = (await brain.places()).places;
+      } catch {
+        places = [];
+      }
+    }
+    paint();
+  };
   const file = h('input', { type: 'file', accept: '.csv,text/csv', 'aria-label': 'Bank statement (CSV)', hidden: true });
   const pick = () => file.click();
   file.addEventListener('change', async () => {
@@ -67,6 +97,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     spendingState.budgets = x.budgets.map((b) => `${b.category}: ${b.line}`);
     spendingState.subs = x.subscriptions.map((v) => `${v.name} ${v.cadence} ${gbp(v.amount, true)}`);
     paint();
+    void loadNear();
   };
   const load = async (month?: string) => {
     try {
@@ -138,6 +169,10 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     if (view === 'month' && s.view) {
       const v = s.view;
       p.body.append(h('div.spendtot', h('b', `${gbp(v.out)} out`), h('span', ` · ${gbp(v.in)} in`)));
+      // [further] "You spent £62 near Work this week": his statements beside his saved places, by the words alone; nothing when none fit
+      const near = nearNow();
+      spendingState.near = near.map(nearLine);
+      for (const n of near) p.body.append(h('div.spnear', h('b', nearLine(n)), h('small.note', nearHow(n))));
       if (s.budgets.length) {
         p.body.append(h('div.lab', 'BUDGETS'));
         for (const b of s.budgets) {

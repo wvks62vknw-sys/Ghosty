@@ -65,6 +65,9 @@ import { houseNow, loadHouse } from '../house/api';
 import { hisBooks, lastRead, readingNow, shelfDocs } from '../features/library/reader';
 import { reading, shortTitle } from '../library/listen';
 import { syncPlaces } from '../library/place';
+import { loadPair } from '../further/interpret';
+import { keptRehearsals, ROUNDS } from '../further/rehearse';
+import { langName } from '../../../../packages/shared/src/scan';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
 /** One reading on a card: its label, the value (null: not known yet → "Not yet" or `none`), a small unit. */
@@ -225,6 +228,9 @@ const loadSocial = every(60_000, async () => {
 /** The kitchen's timers run on this phone (features/kitchen/timers.ts, started only where there are any): taken when the hub opens. */
 let kitchenTimers: typeof import('../features/kitchen/timers') | null = null;
 const loadKitchen = async () => void (kitchenTimers ??= await import('../features/kitchen/timers'));
+
+/** [further] The reads WHAT CHANGED SINCE YESTERDAY needs (further/changed.ts): the room cards' own, throttled, nothing changed. */
+export const loadChangedFacts = (): Promise<unknown[]> => Promise.all([loadSchool(), loadGym(), loadCoach(), loadMoney(), loadPeople(), loadWork(), loadProjects(), loadKept(), loadReverse()]);
 
 /* ------------------------------------------------------------------ helpers */
 const n = (x: number | null | undefined) => (x == null || !Number.isFinite(x) ? null : fmt.n(x));
@@ -836,6 +842,33 @@ export const CARDS: Record<string, HubCard> = {
     },
     idle: 'Practise today and the streak starts; it all stays on this phone',
     load: loadCoach,
+  },
+  // ---------------------------------------------------------------- [further] the interpreter, the lab and REHEARSE (BRIEF-OCT-IDEAS-3)
+  interpreter: {
+    title: 'Two languages, face to face',
+    status: () => 'READY',
+    instrument: () => voiceInst(false),
+    readouts: () => {
+      const p = loadPair();
+      return [
+        { label: 'Pair', value: `${langName(p.a)} · ${langName(p.b)}` },
+        { label: 'Kept', value: null, none: 'Nothing' },
+      ];
+    },
+    why: () => 'Hold a key and speak; nothing is recorded',
+  },
+  rehearse: {
+    title: 'Practise a hard talk',
+    status: () => 'READY',
+    instrument: () => levelInst(null, ROUNDS),
+    readouts: () => {
+      const k = keptRehearsals();
+      return [
+        { label: 'Rounds', value: String(ROUNDS) },
+        { label: 'Kept', value: k ? String(k) : null, unit: k === 1 ? 'rehearsal' : 'rehearsals', none: 'None yet' },
+      ];
+    },
+    why: () => 'I play the other side; notes after three rounds',
   },
   // ---------------------------------------------------------------- [tabs] MAKE: the house (the converter and the documents are above)
   house: {
