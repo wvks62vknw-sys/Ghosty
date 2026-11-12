@@ -212,3 +212,6 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
 - 12 Nov, BRIEF-QUALITY-TELEGRAM written (the ninth quality pass: every message Ghosty sends in Telegram and the pairing page; telegram.ts is
   not protected, agent.ts's two routes untouched; from the chat pass head; spec `telegrampass`; port 8843; entry 214 when it hands back; mine
   next 215).
+- 12 Nov, BRIEF-KERNEL-3 written (slides, videoedit, workspace and game tools for the brain under his 185 yes; the test list carried on; the
+  sites route ONLY IF he answers yes to WHATS-LEFT's question, else NOT REACHED: HIS WORD; no new `all=` word; port 8844; starts after
+  KERNEL 2, PRESENTATIONS, WORKSPACE, VIDEO, VIDEO 2 and GAME STUDIO are on main).

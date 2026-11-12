@@ -93,6 +93,10 @@ Four lists in the order things happen, then the questions only you can answer. Q
   phone in one sentence per state. Starts when the chat's pass hands back.
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain,
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
+- **Kernel 3.** Your yes from 12 Nov, written up: the brain gets hands on the new editors from the chat ("make slide three's title shorter",
+  "cut the first clip to five seconds", "what did I write about the garden?", "make me a platformer about a fox"), every change shown to you
+  first and applied only on your tap, nothing exported or published by the brain itself; and the brain's test list names every test. The
+  game-on-your-sites part is in it too but only gets built if you answer yes below. Starts once Kernel 2 and the editors are live.
 
 ## 4. Not started yet (I write these next, in this order)
 1. **Every other room made right, one at a time:** the boot and the orb, and a second pass on THE EYE look (the chat's and Telegram's passes
