@@ -17,6 +17,7 @@ import { guardian } from '../../state/guardian';
 import { button } from '../../ui/components';
 import * as gymStore from '../gym/store';
 import { cardEl, cars, known, loadCars } from './cards';
+import { missed, wallMissed } from './missed';
 
 const DAY = 86_400_000;
 export const EMPTY_WALL = 'Nothing needs you right now. When something does, it’s here first.';
@@ -84,8 +85,9 @@ export async function wallCards(now = Date.now()): Promise<Card[]> {
     const what = [c.mot === month ? 'MOT' : '', c.tax === month ? 'tax' : ''].filter(Boolean).join(' and ');
     if (what) out.push(card({ id: `carnews:${c.plate}`, kind: 'car', at: now, title: carName(c), line: `${c.plate}: ${what} due this month`, car: { plate: c.plate, whose: c.whose }, acts: [{ label: 'SHOW THE CAR', car: c.plate }] }));
   }
-  const [due, prog, place] = await Promise.all([dueSoon(now), progress(now), placeOffer(now)]);
-  out.push(...due, ...prog, ...(place ? [place] : []));
+  const [due, prog, place, gap] = await Promise.all([dueSoon(now), progress(now), placeOffer(now), wallMissed(now).catch(() => null)]);
+  // [lifeeasier] WHAT DID I MISS?: a day or more away, one card from his own data (features/core/missed.ts), until he says GOT IT
+  out.push(...due, ...prog, ...(place ? [place] : []), ...(gap ? [gap] : []));
   return wallOrder(out, now);
 }
 
@@ -130,6 +132,7 @@ export function wallView(): Wall {
   inbox.subscribe(() => void refresh());
   guardian.subscribe(() => void refresh());
   cars.subscribe(() => void refresh());
+  missed.subscribe(() => void refresh());
   setTimeout(() => void loadCars(), 4000);
   void refresh();
   return { el, refresh: () => void refresh() };

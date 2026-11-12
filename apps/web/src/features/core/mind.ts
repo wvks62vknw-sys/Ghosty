@@ -32,6 +32,7 @@ import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
 import { glowNow, orbTokens, themeEvents } from '../../state/theme';
+import { dayState } from './day';
 import { attendingNow } from '../../ui/machine';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -1203,7 +1204,8 @@ export class Mind {
     P.h1.material.opacity = 0.85 * b.core;
     // BETTER 3: its halos glow as much as the world does (BRIEF-THEMES-2: a world governs the orb's glow, never its draw; GLOW off
     // and One Ink: none, the crisp parts stand alone) and as much as the colour's own glow (Mono's .25: as quiet as its room)
-    const halo = glowNow() * this.ownGlow;
+    // (THE LIGHT FOLLOWING THE DAY, BRIEF-OCT-IDEAS-1 4: on THE SCAN's Home the halo is a little dimmer in the dark and full at noon; nowhere else)
+    const halo = glowNow() * this.ownGlow * (document.body.classList.contains('scanhome') ? 0.86 + 0.14 * Math.max(0, dayState.value) : 1);
     P.h2.material.opacity = 0.45 * p.bright * b.core * halo;
     P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core) * halo;
     P.nucleus.visible = b.core > 0.02;

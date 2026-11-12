@@ -32,9 +32,14 @@ import { themeEvents } from '../../../state/theme';
 import { places } from '../../../library/place';
 import { dur, tag, truthLine } from '../../../ui/machine';
 import { currentMind, type Mind } from '../mind';
+import { missed } from '../missed';
 import { Scan, lerpPose, type CamPose, type V3 } from './scene';
 import { ALTITUDES, CAMERAS, FOG, MARKS, ORB_AT, ORB_FILL, marksAt, worldDesc, type Altitude, type Mark } from './world';
 import { decide, placeLine, placeNow, startSense, youAre, type PlaceNow } from './place';
+import { ribbon } from '../ribbon';
+import { orbFx } from '../orbfx';
+import { tilt, tiltState } from '../tilt';
+import { startDay } from '../day';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
@@ -139,6 +144,8 @@ export interface ScanHome {
   placeWords(): string;
   /** Home's second line, in my voice (what Now is). */
   say2(): string;
+  /** A source of the readout ribbon changed (the next event arrived). */
+  refresh(): void;
 }
 
 /**
@@ -146,8 +153,9 @@ export interface ScanHome {
  * (Mind's anchor): it is moved here and placed where the camera puts the orb each frame. `stamp`: Home's stamp line (one source,
  * shell/awareness.ts); `caption`: the latest reply's line; `ask`: the ask line (#cbar), re-homed under the house.
  */
-export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: HTMLElement; ask: HTMLElement; onBack: () => void }): ScanHome {
+export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: HTMLElement; ask: HTMLElement; onBack: () => void; next?: () => string | null }): ScanHome {
   const scan = scanScene();
+  startDay();
   const stage = h('div.scanstage', { 'aria-hidden': 'true' }, h('i.scansky'), h('i.scanlamp'), h('i.scanroomlight'));
   const marks = h('div.scanmarks');
   const leads = svgEl('svg', { class: 'scanleads', 'aria-hidden': 'true' });
@@ -157,6 +165,9 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   const leadDot = svgEl('circle', { class: 'scanleaddot', r: 2 });
   leads.append(sight, sightDot, lead, leadDot);
   const orbHost = h('div.scanorb');
+  // (the orb reacting, drawn over its box in 2-D: the pulse, the ring, and the plan's thread: orbfx.ts)
+  const fx = orbFx();
+  orbHost.append(fx.el);
   const where = h('p.g-truth.where.scanwhere', { dataset: { g: 'truth', case: 'keep' }, role: 'status' });
   const say = h('p.scansay', { dataset: { case: 'keep' } });
   const say2 = h('p.scansay2', { dataset: { case: 'keep' } });
@@ -187,7 +198,11 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     col.dataset.day = open ? 'open' : 'shut';
     dayKey.setAttribute('aria-expanded', String(open));
   });
-  const el = h('div.scanframe', stage, orbHost, col, marks, leads, callout, top, alts, askHost, kick);
+  // THE LIGHT FOLLOWING THE TOUCH (BRIEF-OCT-IDEAS-1 2): one soft radial of the accent's pale tint over the plate the finger is on, only while he has permitted the tilt
+  const sweep = h('i.scansweep', { 'aria-hidden': 'true', dataset: { on: 'false' } });
+  const el = h('div.scanframe', stage, orbHost, col, sweep, marks, leads, callout, top, alts, askHost, kick);
+  // THE READOUT RIBBON (BRIEF-OCT-IDEAS-1 1): under the stamp line, drawn after the hand-over, never on the first frame (armRibbon, below)
+  const rib = ribbon('scan', o.next ?? (() => null));
   // the parts of today's Home this frame takes (and gives back when the look is another): where each came from
   const taken: { el: HTMLElement; into: HTMLElement; first: boolean; before?: HTMLElement; parent: HTMLElement | null; next: Node | null }[] = [
     { el: o.stamp, into: top, first: true, parent: null, next: null },
@@ -225,6 +240,20 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       }
     });
   }
+  // [lifeeasier] a day or more away: WHAT DID I MISS? (features/core/missed.ts) opens the wall by itself, so its card is on Home the moment it
+  // lands and not one key away; GOT IT puts the wall back as it was (a wall he opened himself stays open)
+  let openedForMissed = false;
+  missed.subscribe((s) => {
+    if (s.card && col.dataset.wall !== 'open') {
+      openedForMissed = true;
+      col.dataset.wall = 'open';
+      nowKey?.setAttribute('aria-expanded', 'true');
+    } else if (!s.card && openedForMissed) {
+      openedForMissed = false;
+      col.dataset.wall = 'shut';
+      nowKey?.setAttribute('aria-expanded', 'false');
+    }
+  });
   const voiceEl = pick('#voicetag');
   const take = () => {
     for (const t of taken) {
@@ -408,6 +437,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     const stageEl = stage;
     stageEl.dataset.place = p.kind;
     stageEl.dataset.hour = new Date(now()).getHours() >= 17 || new Date(now()).getHours() < 6 ? 'night' : 'day';
+    rib.paint();
   };
 
   // ---------------------------------------------------------------- each frame: the camera, the orb, the marks, the leads
@@ -418,6 +448,8 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     const side = (2 * rp) / ORB_FILL;
     return { x: sx - side / 2, y: sy - side / 2, w: side, h: side };
   };
+  /** The orb's viewport inside the stage's canvas: the stage moves with the world under a tilt, so the orb's own (smaller) shift is the difference. */
+  const stageRectNow = (q: { x: number; y: number; w: number; h: number }) => ({ x: q.x + tiltState.orb[0]! - tiltState.world[0]!, y: q.y + tiltState.orb[1]! - tiltState.world[1]!, w: q.w, h: q.h });
   const paintMarks = (force = false) => {
     void force;
     const cam = scan.cam;
@@ -469,6 +501,9 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
         box.top -= dy;
         box.bottom -= dy;
       }
+      // a box too tall for the band between the words above and the keys below (the shelf, with the readout ribbon taking its line at the top)
+      // is shortened to the band, never dropped, so long as it stays a 44 pt target
+      if (box.top < topBottom + 4 && box.bottom - (topBottom + 4) >= 44) box.top = topBottom + 4;
       if (box.top < topBottom + 4 || box.bottom > H - 2 || onPlate(box)) {
         b.hidden = true;
         continue;
@@ -487,7 +522,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     Object.assign(orbHost.style, { left: `${q.x.toFixed(1)}px`, top: `${q.y.toFixed(1)}px`, width: `${q.w.toFixed(1)}px`, height: `${q.h.toFixed(1)}px` });
     scanState.orb = [Math.round(q.x), Math.round(q.y), Math.round(q.w), Math.round(q.h)];
     const m = currentMind();
-    if (m && !m.booting) m.stageRect = q;
+    if (m && !m.booting) m.stageRect = stageRectNow(q);
     // the callout at the screen's right edge, a third down, its leader to the thing; the line of sight from the orb's rim
     leads.setAttribute('width', String(W));
     leads.setAttribute('height', String(H));
@@ -573,6 +608,8 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     return { pos: [pose.pos[0] + bx, pose.pos[1] + by, pose.pos[2]], tgt: [pose.tgt[0] + bx * 0.6, pose.tgt[1], pose.tgt[2]], fov: pose.fov };
   };
 
+  let tiltAt = 0;
+  const tl = tilt({ world: [stage, marks, leads], plates: [col], orb: [orbHost] }, () => undefined);
   let fpsN = 0;
   let fpsAt = 0;
   let dockH = 0;
@@ -597,6 +634,19 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       return;
     }
     const w0 = performance.now();
+    // the tilt eases on the display's own frame, the orb's pulse and ring are drawn (both are nothing at rest)
+    const dtS = tiltAt ? Math.min(0.1, (t - tiltAt) / 1000) : 0.016;
+    tiltAt = t;
+    tl.frame(dtS, still());
+    if (tl.moving()) {
+      const mm = currentMind();
+      if (mm && !mm.booting && scanState.orb) {
+        const [ox, oy, ow, oh] = scanState.orb as [number, number, number, number];
+        mm.stageRect = stageRectNow({ x: ox, y: oy, w: ow, h: oh });
+        mm.nudge();
+      }
+    }
+    fx.frame(t, still(), scanState.orb?.[2] ?? 0);
     const r = el.getBoundingClientRect();
     W = Math.max(1, Math.round(r.width || innerWidth));
     H = Math.max(1, Math.round(r.height || innerHeight));
@@ -721,12 +771,64 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     }
   });
 
+  // THE READOUT RIBBON comes after the hand-over: once the boot's veil is gone it waits a beat (700 ms), then takes its place under the stamp
+  let ribTimer = 0;
+  let boneAt = 0;
+  const armRibbon = () => {
+    if (rib.el.isConnected || ribTimer) return;
+    const show = () => {
+      ribTimer = 0;
+      if (!scanState.on) return;
+      if (document.getElementById('boot')) {
+        ribTimer = window.setTimeout(show, 150);
+        return;
+      }
+      if (!boneAt) {
+        boneAt = performance.now();
+        ribTimer = window.setTimeout(show, 500);
+        return;
+      }
+      rib.mount(top, where);
+    };
+    ribTimer = window.setTimeout(show, 600);
+  };
+  // the light follows the touch across a plate, while the tilt is permitted (and never under Reduce Motion)
+  const sweepAt = (e: PointerEvent) => {
+    if (!settings.get().hudTilt || still()) {
+      sweep.dataset.on = 'false';
+      return;
+    }
+    const plate = (e.target as Element | null)?.closest?.('.scancol > *') as HTMLElement | null;
+    if (!plate) {
+      sweep.dataset.on = 'false';
+      return;
+    }
+    const pr = plate.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    Object.assign(sweep.style, { left: `${pr.left - er.left}px`, top: `${pr.top - er.top}px`, width: `${pr.width}px`, height: `${pr.height}px` });
+    sweep.style.setProperty('--sx', `${Math.round(e.clientX - pr.left)}px`);
+    sweep.style.setProperty('--sy', `${Math.round(e.clientY - pr.top)}px`);
+    sweep.dataset.on = 'true';
+  };
+  col.addEventListener('pointerdown', sweepAt);
+  col.addEventListener('pointermove', sweepAt);
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave'] as const) col.addEventListener(ev, () => (sweep.dataset.on = 'false'));
+  // the plan opened or folded: the thread from the orb to the room in use
+  let planned = false;
+  new MutationObserver(() => {
+    const now2 = document.body.classList.contains('planned');
+    if (now2 === planned) return;
+    planned = now2;
+    fx.plan(planned && scanState.on, orbHost, still());
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
   const api: ScanHome = {
     el,
     enter() {
       wanted = true;
       if (!phone()) return;
       scanState.on = true;
+      armRibbon();
       document.body.classList.add('scanhome');
       take();
       // (the field keeps 'Talk to me': his principle that it invites talk, not a query (OWNER-ISSUES 63, 64; the character spec); the mock's words were the designer's)
@@ -758,6 +860,8 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       giveBack();
       markLeft();
       clearInterval(minute);
+      clearTimeout(ribTimer);
+      ribTimer = 0;
       cancelAnimationFrame(loop);
       loop = 0;
     },
@@ -769,6 +873,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       scanState.moving = false;
       scanState.k = 1;
       scanState.landed = 'boot';
+      armRibbon();
       try {
         localStorage.removeItem(LEFT_KEY);
       } catch {
@@ -782,6 +887,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
       return p.how === 'off' ? '' : p.kind === 'way' ? 'on the way' : p.kind === 'out' ? `out, near ${p.name}` : 'at home';
     },
     say2: () => say2.textContent ?? '',
+    refresh: () => rib.paint(),
   };
   // what the checks read
   const w = window as unknown as { __ghosty?: Record<string, unknown> };

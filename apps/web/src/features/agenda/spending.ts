@@ -7,10 +7,12 @@
  * yearly total, budgets in plain words, EXPORT AS CSV and FORGET ALL. The brain keeps the rows
  * (apps/edge/src/spending.ts); the sums are `packages/shared/src/spending.ts`.
  */
-import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type SpendingSummary, type SpendRow } from '../../../../../packages/shared/src/spending';
+import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type Nudge, type SpendingSummary, type SpendRow } from '../../../../../packages/shared/src/spending';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { bar, button, empty, modal, panel, row, toast } from '../../ui/components';
+import { quietLine } from '../money/nudges';
+import { isoDay } from '../brief/day';
 
 type View = 'month' | 'year' | 'changes';
 const COLOURS: Record<Category, string> = {
@@ -35,6 +37,8 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   if (w.__ghosty) w.__ghosty.spending = spendingState;
   let s: SpendingSummary | null = null;
+  // [lifeeasier] today's nudges: only from a read that said which day it is (an import's answer does not)
+  let nudge: Nudge[] = [];
   let view: View = 'month';
   let all = false;
   const file = h('input', { type: 'file', accept: '.csv,text/csv', 'aria-label': 'Bank statement (CSV)', hidden: true });
@@ -48,6 +52,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       const r = await brain.spendingImport(await f.text());
       const x = r.result;
       set(r);
+      void load(r.month);
       toast(
         `Added ${x.added} row${x.added === 1 ? '' : 's'}${x.bank ? ` from ${x.bank}` : ''}${x.duplicates ? ` · ${x.duplicates} already kept` : ''}${x.asked ? ` · ${x.asked} name${x.asked === 1 ? '' : 's'} sorted by the free AI` : ''}${x.unplaced ? ` · ${x.unplaced} to file yourself` : ''}`,
         'ok',
@@ -70,7 +75,9 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
   };
   const load = async (month?: string) => {
     try {
-      set(await brain.spending(month));
+      const x = await brain.spending(month, isoDay(new Date()));
+      nudge = x.month === x.months[x.months.length - 1] ? (x.nudges ?? []) : nudge;
+      set(x);
     } catch {
       p.setStatus('OFFLINE', 'off');
       if (!s) clear(p.body, empty('OFFLINE', 'The spending card needs the brain: try again in a moment.'));
@@ -87,6 +94,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
           const x = await brain.spendingFile(r.k, c, s?.month ?? '');
           spendingState.refiled += x.filed;
           set(x);
+          void load(x.month);
           toast(`${x.filed} row${x.filed === 1 ? '' : 's'} filed as ${c}`, 'ok');
         } catch (e) {
           toast(`Could not file it: ${(e as Error).message}`, 'bad');
@@ -103,6 +111,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       const x = await brain.spendingBudget(words, s?.month ?? '');
       budgetIn.value = '';
       set(x);
+      void load(x.month);
       toast(x.set.monthly ? `Budget: ${gbp(x.set.monthly)} a month on ${x.set.category}` : `No budget on ${x.set.category} now`, 'ok');
     } catch (e) {
       toast((e as Error).message, 'warn');
@@ -134,7 +143,12 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     );
     (nav.firstChild as HTMLButtonElement).disabled = i <= 0;
     (nav.lastChild as HTMLButtonElement).disabled = i >= s.months.length - 1;
-    p.body.append(tabs, nav);
+    // [lifeeasier] MONEY NUDGES: a renewal this week, a price that went up, the month running hot (from the rows above, nothing else)
+    const latest = s.month === s.months[s.months.length - 1];
+    const nudges = latest
+      ? h('div.spendnudges', { dataset: { count: String(nudge.length) }, 'aria-label': 'Nudges from your statements' }, ...(nudge.length ? nudge.map((n) => h('p.nudge', { dataset: { kind: n.kind, id: n.id, case: 'keep' } }, n.line)) : [h('p.nudge.quiet', { dataset: { case: 'keep' } }, quietLine(s.month, isoDay(new Date())))]))
+      : null;
+    p.body.append(...(nudges ? [nudges] : []), tabs, nav);
     if (view === 'month' && s.view) {
       const v = s.view;
       p.body.append(h('div.spendtot', h('b', `${gbp(v.out)} out`), h('span', ` · ${gbp(v.in)} in`)));

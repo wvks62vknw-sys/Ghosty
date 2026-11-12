@@ -22,6 +22,8 @@ import { settings } from '../../../state/app';
 import { key, tag } from '../../../ui/machine';
 import { currentMind } from '../mind';
 import { decide } from '../scan/place';
+import { ribbon } from '../ribbon';
+import { startDay } from '../day';
 import { bookName, bookNow, sayTwo, whenWord } from '../scan/home';
 
 const LISTEN = '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a3.5 3.5 0 010 5M17.5 7a7 7 0 010 10"/>';
@@ -118,7 +120,8 @@ export function tonightEntry(nextUp: () => string): Entry {
  * `stamp`: Home's stamp line; `caption`: the latest reply's line (read, not moved); `mic`: the talk bar's microphone; `nextUp`: Core's
  * next event ("Dentist · 9:30 AM", or nothing).
  */
-export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: HTMLElement; mic: () => void; nextUp: () => string; onBack: () => void }): InkHome {
+export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: HTMLElement; mic: () => void; nextUp: () => string; next?: () => string | null; onBack: () => void }): InkHome {
+  startDay();
   const mast = h('header.inkmast', { dataset: { case: 'keep' } });
   const say = h('p.inksay', { dataset: { case: 'keep' } });
   const say2 = h('p.inksay2', { dataset: { case: 'keep' } });
@@ -132,6 +135,23 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
   const speak = h('button.inkspeak', { type: 'button', 'aria-label': 'Talk to me', dataset: { case: 'keep' } }, 'Speak');
   const ask = h('div.inkask', field, speak);
   const el = h('div.inkframe', mast, say, say2, orb, entry, lists, ask);
+  // THE READOUT RIBBON (BRIEF-OCT-IDEAS-1 1): the same line, set in the serif under the masthead; drawn after the hand-over, never on the first frame
+  const rib = ribbon('ink', o.next ?? (() => null));
+  let ribTimer = 0;
+  let goneAt = 0;
+  const armRibbon = () => {
+    if (rib.el.isConnected || ribTimer) return;
+    const show = () => {
+      ribTimer = 0;
+      if (!inkState.on) return;
+      if (document.getElementById('boot')) ribTimer = window.setTimeout(show, 150);
+      else if (!goneAt) {
+        goneAt = performance.now();
+        ribTimer = window.setTimeout(show, 500);
+      } else rib.mount(el, say);
+    };
+    ribTimer = window.setTimeout(show, 600);
+  };
 
   field.addEventListener('click', () => togglePalette());
   speak.addEventListener('click', () => o.mic());
@@ -253,6 +273,7 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     paintLine();
     paintEntry();
     paintLists();
+    rib.paint();
   };
   new MutationObserver(() => inkState.on && paintLine()).observe(o.caption, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
@@ -266,6 +287,7 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       inkState.on = true;
       document.body.classList.add('inkhome');
       take();
+      armRibbon();
       paintWords();
       learnTitles();
       // the orb is drawn in bone with no glow: the Mind reads its light again now that the page is on
@@ -282,6 +304,8 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       document.body.classList.remove('inkhome');
       giveBack();
       clearInterval(minute);
+      clearTimeout(ribTimer);
+      ribTimer = 0;
       currentMind()?.recolour();
     },
     refresh() {

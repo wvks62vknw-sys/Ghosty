@@ -183,6 +183,8 @@ export function act(a: CardAct): void {
   else if (a.open) perform({ open: a.open.tab, ...(a.open.panel ? { panel: a.open.panel } : {}) });
   else if (a.ask) askInBox(a.ask);
   else if (a.car) void carTap(a.car);
+  // [lifeeasier] GOT IT on WHAT DID I MISS?: answered for good (features/core/missed.ts)
+  else if (a.dismiss) void import('./missed').then((m) => m.dismiss(a.dismiss!));
 }
 
 /** The CAR offer's tap: filled in by the trigger table's half of this file (below), which knows the cars he named. */
@@ -194,6 +196,7 @@ export function onCarTap(f: (plate: string) => Promise<void>): void {
 /** One card, as the chat and Home's wall draw it. */
 export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
   if (c.kind === 'draft' && c.draft) return draftEl(c);
+  if (c.lines?.length) return linesEl(c, opts);
   const vis = h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS));
   const first = c.acts?.find((a) => a.open || a.run);
   if (first && !opts.wall) {
@@ -237,6 +240,27 @@ export function cardEl(c: Card, opts: { wall?: boolean } = {}): HTMLElement {
     el.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), act(tap)));
   }
   return el;
+}
+
+/**
+ * [lifeeasier] A card of several lines (WHAT DID I MISS?): the same article as every card, its title, its one plain line, then a
+ * sentence for each thing, then its buttons; on Home's wall the card itself is no button (GOT IT is), so a tap on a line never
+ * dismisses it by accident.
+ */
+function linesEl(c: Card, opts: { wall?: boolean }): HTMLElement {
+  const acts = (c.acts ?? []).slice(0, 2).map((a, i) => {
+    const b = button(a.label, () => act(a), i === 0 ? 'on' : '');
+    b.dataset.case = 'keep';
+    b.classList.add('ccbtn');
+    b.setAttribute('aria-label', a.dismiss ? 'Got it: clear this card' : a.label);
+    return b;
+  });
+  return h(
+    `article.ccard.ccmissed${opts.wall ? '.wall' : ''}` as 'article',
+    { dataset: { kind: c.kind, id: c.id, case: 'keep' } },
+    h('div.ccvis', { 'aria-hidden': 'true' }, visual(c, opts.wall ? WALL_VIS : VIS)),
+    h('div.ccbody', h('b.cctitle', c.title), h('span.ccline', c.line), h('ul.ccmiss', ...c.lines!.map((l) => h('li', { dataset: { case: 'keep' } }, l))), acts.length ? h('div.ccacts', ...acts) : null),
+  );
 }
 
 // ---------------------------------------------------------------- he brings things up himself (item 2): the table's acting half

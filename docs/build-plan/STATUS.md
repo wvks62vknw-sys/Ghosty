@@ -404,3 +404,4 @@ New ideas from today, all free:
 - GYM on WebGPU the moment the phone arrives: ten to fifty times faster training, measured.
    DOCUMENTS (the second editor) landed 12 Nov (OWNER-ISSUES 188): a word processor of the app's own with Word in and out; pending the PR's run.
    THE WEEKLY TRAINING FOR REAL landed 12 Nov (OWNER-ISSUES 186): the whole path gated and rolled back, proven with fakes; his first tap is CHECK FIRST; pending the PR's run.
+   OCTOBER IDEAS 1 and LIFE EASIER landed 12 Nov (OWNER-ISSUES 189, 190): the ribbon, the tilt, a word when I start; Siri, the Brief aloud, what did I miss; pending the PR's run.

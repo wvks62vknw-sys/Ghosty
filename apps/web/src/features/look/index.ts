@@ -30,6 +30,7 @@ import { panel, type Panel } from '../../ui/components';
 import { heroState, mindFor, STATES, webglWorks, type Mind, type MindState } from '../core/mind';
 import { eyeGlyph, index, key, lineOfSight, lockBox, MARKS, marksState, plate, recognise, release, reticle, search, stampLine, tag, toneHeard, truthLine, typedLine, type Reticle, type StampFacts } from '../../ui/machine';
 import { sections } from '../../ui/sections';
+import { tiltRow } from '../core/tilt';
 import { themeSwatches } from '../../ui/swatches';
 
 const GLYPH = {
@@ -465,6 +466,7 @@ export const lookTab: TabDef = {
         plate({}, tag('Held to the floor', { tone: 'on' }), truthLine([`${GROUNDS.length} grounds × ${Object.keys(COLOUR_LABELS).length} colours`, `text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, `in all ${WORLDS.length} worlds`])),
         swatches.el,
         dials.el,
+        tiltRow(),
         plate({}, tag('Orbit'), truthLine(ORBIT_LINE), truthLine(ROOMS_LINE)));
       swatches.paint();
     };

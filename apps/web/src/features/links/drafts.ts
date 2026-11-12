@@ -7,11 +7,13 @@
  */
 import { stateWords, accountInfo, graphemes, type Draft } from '../../../../../packages/shared/src/social';
 import type { Card } from '../../../../../packages/shared/src/cards';
+import { draftReply, type MailLine } from '../../../../../packages/shared/src/lifeeasier';
 import { brain } from '../../api/brain';
 import { chat, type Entry } from '../../assistant/session';
 import { register } from '../../commands/registry';
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
+import { settings } from '../../state/app';
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -154,3 +156,58 @@ register({
     }
   },
 });
+
+// ---------------------------------------------------------------- a reply to his own email (BRIEF-OCT-IDEAS-2 8)
+
+/** What a spec reads: window.__ghosty.emailDraft. */
+export const emailDraftState = { open: false, to: '', sends: 0, sent: false, error: '' };
+
+/**
+ * DRAFT on an email that needs an answer (the Brief's line, features/brief/mail.ts): a reply to start from, written by rule and
+ * never by a model, in a sheet for his edit. Nothing leaves until his SEND tap: SEND goes to the brain, which answers that one
+ * message of his inbox only (apps/edge/src/mailtriage.ts). CANCEL, or closing the sheet, sends nothing and keeps nothing.
+ */
+export function openEmailDraft(m: MailLine): void {
+  const w = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (w.__ghosty) w.__ghosty.emailDraft = emailDraftState;
+  const me = (settings.get().name ?? '').trim();
+  const start = draftReply(m, me && me !== 'Boss' ? me : '');
+  const who = m.name || m.address;
+  const subject = h('input.mdsubject', { type: 'text', 'aria-label': 'Subject' }) as HTMLInputElement;
+  subject.value = start.subject;
+  const body = h('textarea.drbox.mdbody', { rows: '8', 'aria-label': 'Your reply' }) as HTMLTextAreaElement;
+  body.value = start.body;
+  const msg = h('small.note.mdmsg', { role: 'status', 'aria-live': 'polite' }, 'A start of mine, not a final answer: change it as you like. Nothing is sent until you tap SEND.');
+  let busy = false;
+  const send = button('SEND', async (b) => {
+    if (busy || !body.value.trim()) {
+      if (!body.value.trim()) msg.textContent = 'There is nothing to send yet: write your reply first.';
+      return;
+    }
+    busy = true;
+    b.disabled = true;
+    msg.textContent = `Sending to ${who}…`;
+    try {
+      await brain.mailReply({ reply_to_uid: m.uid, subject: subject.value, body: body.value, confirm: true });
+      emailDraftState.sends++;
+      emailDraftState.sent = true;
+      emailDraftState.error = '';
+      toast(`Sent to ${who}.`, 'ok');
+      sheet.close();
+    } catch (e) {
+      emailDraftState.error = String((e as Error).message ?? e);
+      msg.textContent = `It did not go: ${emailDraftState.error}. Your words are still here: tap SEND to try again.`;
+      b.disabled = false;
+      busy = false;
+    }
+  }, 'on');
+  send.setAttribute('aria-label', `Send this reply to ${who}`);
+  const cancel = button('CANCEL', () => sheet.close());
+  cancel.setAttribute('aria-label', 'Cancel: nothing is sent');
+  emailDraftState.open = true;
+  emailDraftState.to = m.address;
+  emailDraftState.sent = false;
+  emailDraftState.error = '';
+  const sheet = modal(`Reply to ${who}`, h('div.dredit.mailsheet', h('div.lab', 'TO'), h('p.mdto', `${who}${m.name ? ` · ${m.address}` : ''}`), h('div.lab', 'SUBJECT'), subject, h('div.lab', 'YOUR REPLY'), body, msg, h('div.row', send, cancel)), () => (emailDraftState.open = false));
+  setTimeout(() => body.focus(), 60);
+}

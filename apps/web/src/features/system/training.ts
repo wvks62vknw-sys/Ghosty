@@ -16,6 +16,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
 import { flushStars } from '../../offline/starbox';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
+import { sayOnIt } from '../../assistant/acks';
 import { sendGymLevels } from './ledger';
 
 const KIND: Record<string, string> = {
@@ -176,6 +177,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
     const go = button('RUN NOW', async (b) => {
       if (busy) return;
       if (!(await confirmSheet('Start a real training run now?', `${w.willDo.join(' ')} It checks first, and stops without starting if anything is wrong.`, 'RUN NOW'))) return;
+      sayOnIt('run');
       busy = true;
       b.disabled = true;
       try {
