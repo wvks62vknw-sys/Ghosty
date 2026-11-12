@@ -402,4 +402,4 @@ New ideas from today, all free:
 - The deck's live lines for spending and places.
 - The Lens's living cards kept in the library as a nature diary ("seen: a robin, 24 Oct") with a map of where.
 - GYM on WebGPU the moment the phone arrives: ten to fifty times faster training, measured.
-   THE WEEKLY TRAINING FOR REAL landed 12 Nov (OWNER-ISSUES 185): the whole path gated and rolled back, proven with fakes; his first tap is CHECK FIRST; pending the PR's run.
+   THE WEEKLY TRAINING FOR REAL landed 12 Nov (OWNER-ISSUES 186): the whole path gated and rolled back, proven with fakes; his first tap is CHECK FIRST; pending the PR's run.

@@ -57,6 +57,10 @@ tests), the prompt guard (prompt.test's ceilings), the ratchet's ceiling if styl
    rolled back automatically twice. Tests: apps/edge/test/training.test.mjs (or the test that owns training) gains the three cases (load
    failure rolls back, a worse score rolls back once, a hand roll-forward is left alone); the training spec gains the line shown.
 
+His yes (OWNER-ISSUES 185, 12 Nov, "yes to all"): item 3's one package is confirmed; the `document` tool of item 2 is confirmed; the
+`slides`, `video` and workspace tools are NOT this brief: they follow as KERNEL 3 once PRESENTATIONS, VIDEO and THE WORKSPACE are on main, and
+the test list of item 1 names every test present when this lands (slides, photoedit, health, workspace and video included if they are in).
+
 ## What must not change
 
 The prompt guard; `apps/edge/src/index.ts`, `tools/repo.ts`, `.github/*` untouched; no new key, nothing that costs money (the package is
