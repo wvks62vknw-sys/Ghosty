@@ -55,6 +55,16 @@ apps/edge/src/watchers.ts are NOT protected.
    protected: it stays as it is and must not double-tell (the watchers' store carries the last told reading; a second reader of the same drop
    tells nothing). Its removal is NEEDS HIS WORD for KERNEL 2, named in the report.
 
+6. **SMALL FIXES 2c: "SHARE TO GHOSTY" FROM ANY APP (his yes, OWNER-ISSUES 185).** apps/web/public/manifest.webmanifest gains a
+   `share_target` (method POST, enctype multipart/form-data, `title`, `text`, `url` and `files` accepting images, PDFs, documents, sheets,
+   slides, audio and video), and the service worker answers that POST by keeping the shared things in the phone's own database and
+   redirecting to the app with one marker, where the library's existing Add path takes a file (the same words and sizes as a file picked
+   there) and the chat takes shared words or a link as his typed line, never sent anywhere by itself. Said once the first time: "Shared
+   from another app; kept here." Nothing leaves the phone. Proof: polish3.spec posts a form to the share path on the preview (a picture
+   and a line of text) and sees the picture in the library and the words in the ask line; the manifest's share_target parsed and its
+   fields named; the Shortcuts' `?add=` of LIFE EASIER unchanged. Installed as a Home Screen app, the share sheet lists Ghosty: NEEDS HIS
+   PHONE (the phone check has it).
+
 ## What must not change
 
 The first-screen budget and every other budget; GLASS pixel-equal; ONE INK's page; every control 44 pt; nothing sideways at 440 × 956 or 390 ×

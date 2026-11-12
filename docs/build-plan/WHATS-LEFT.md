@@ -69,15 +69,12 @@ Four lists in the order things happen, then the questions only you can answer. Q
    fixes) measured.
 6. **A tutorial in the app** for showing it to other people, once the editors are in.
 
-## Questions only you can answer (plain yes or no; nothing is stuck waiting except where said)
-1. **Keys.** Pl@ntNet (plants named from a photo), Formspree (a contact form on your sites), DVSA MOT (your car's MOT history), two free AI
-   keys. Each thing works without its key and says so. Add any you want in Settings; no answer needed.
-2. **Downloads of models or packages, each on your tap on Wi-Fi with the size said.** Do you want: physics in the 3-D engine (one package;
-   recommend yes, Kernel 2 asks); RAW photo files in Photo; cut-outs and object removal on the phone in Photo; stabilisation and "best clips" in
-   Video? Say yes or no per item, or "all yes".
-3. **The brain's own tools** so you can ask it in chat to write a document, make slides, cut a video, or read your Workspace: each is a
-   kernel pass. Recommend yes to all four.
-4. **Things only your phone can try:** our .pptx opening in Keynote, our .mp4 playing in Photos, the voice check with a friend, the PS5 TV
-   MODE test. When you have five minutes; tell me what broke.
-5. **The Siri Shortcut that files anything you share** is built; a share button inside other apps ("Share to Ghosty") is not. Want it? Recommend yes.
-6. **Your principles in your own words** (what Ghosty should and should not be like) for the character pass, whenever you have a minute.
+## Your answers (12 Nov: "yes to all")
+- **Downloads**, each on your tap on Wi-Fi with the size said: physics in the 3-D engine (Kernel 2); RAW photos, cut-outs and object removal on
+  the phone (a Photo 2 pass after Photo lands); stabilisation and "best clips" (a Video 2 pass after Video lands). All yes.
+- **The brain's own tools** (write a document, make slides, cut a video, read your Workspace from the chat): yes; documents in Kernel 2, the
+  other three in Kernel 3 once those editors are live.
+- **"Share to Ghosty" inside other apps**: yes; goes in with Polish 3.
+- Still open, no hurry: the keys you can add in Settings (plant naming, a contact form, your car's MOT history, two free AI keys); five minutes
+  on the phone (our .pptx in Keynote, our .mp4 in Photos, the voice check with a friend); your principles in your own words for the
+  character pass.
