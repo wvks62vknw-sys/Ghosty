@@ -13,8 +13,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run)
 - [ ] Landing, in order: TRAINING FOR REAL · THIS PHONE · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE
-- [ ] Building: THE GAME STUDIO · PHOTO 2 · PHOTO onto the fold (then VIDEO the same way) · QUALITY PASS: MAKE
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE)
+- [ ] Building: THE GAME STUDIO · PHOTO 2 · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -163,3 +163,5 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 ## His hands only (not builds; asked once, here)
 The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; the 0.5B SIT result; the voice blind check; his principles in his
 own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's test list: recommend yes).
+
+- PHOTO onto the fold handed back and reviewed 12 Nov: seven PHOTO commits cherry-picked onto THE WORKSPACE's head 16458d0a plus three fold commits (head 0aff585c). One line in EDITORS (`{ id: 'photo', pill: 'PHOTO' }`); the EDITORS card's line counts kept photos; MAKE still 8 cards, five pills ending PHOTO; counts screens 49, THE PLAN 41 things, MAKE 12 with HOUSE at 12; `all=` ends `... workspace photoedit`. Every spec green except tabs' jump bar under load 19 (not in the diff; its cause cut at Home's per-frame loop by the landing agent on TRAINING's branch, 911bfcbf). Brain tests 822 ok. VIDEO goes onto the fold the same way from 0aff585c (builder/videofold), `all=` to end `... photoedit video`, six pills.

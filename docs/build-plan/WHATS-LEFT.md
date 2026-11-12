@@ -40,9 +40,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
     dashes, every fetch says what it waits for, a failed send says I COULDN'T with RETRY, the jump bar says "Nothing matches that." and
     offers the nearest room, READ IT TO ME stops on one tap.
 19. **Photo.** The sixth editor: a real photo editor (light, colour, curves, crop, masks, heal a spot, presets, batch), the original never
-    touched, full-size export. Waits for the Workspace, whose EDITORS card it joins.
+    touched, full-size export. Checked and now a pill of the EDITORS card in MAKE; goes up right after the Workspace.
 20. **Video.** The seventh editor: CapCut's core. Clips trimmed, split and ordered, transitions, a grade, music, your voice over it, subtitles,
-    an .mp4 out that plays anywhere. Waits for the Workspace and Photo, then joins the EDITORS card.
+    an .mp4 out that plays anywhere. Being made a sixth pill of the EDITORS card right now, the way Photo just was; goes up once that is checked.
 21. **The Workspace.** The fifth editor: Notion's core. Pages inside pages, databases with formulas, five views, templates, a project read
     whole in one chat turn. It also folds the editors under one EDITORS card in MAKE once there are more than ten things there.
 22. **The SEE room made right.** God's Eye, the Machine view, the Lens's every mode and Threats given thirty-one fixes: the globe says
@@ -55,6 +55,8 @@ Four lists in the order things happen, then the questions only you can answer. Q
   licences checked and written down before a byte is fetched.
 - **The game studio.** The eighth editor: make your own 2-D game on the phone (paint rooms in tiles, draw sprites pixel by pixel,
   people with dialogue and shops, quests, save points), play it from the ARCADE, share it, put it on your Home Screen as an app.
+- **Video onto the EDITORS card.** The video editor joins MAKE's EDITORS card as its sixth pill, after Photo; every count and test in the
+  app follows (nothing new to use yet: this is the editor being seated so it can go live).
 - **The MAKE room's older half made right.** The Workshop, the 3D studio, Reverse, Space, the Workbench and its wind tunnel, Convert and
   House given twenty-five fixes in your words (the new editors are not in this pass: they were built to the rule).
 

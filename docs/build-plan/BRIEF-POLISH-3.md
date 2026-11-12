@@ -78,6 +78,7 @@ apps/edge/src/watchers.ts are NOT protected.
    font's load, a layout read) and cut at the cause so the reading sits under 250 ms with the budget unchanged; the number before and after
    in the report. Also here: learn.spec's and voice.spec's leftover state from a previous spec in the same browser (the TRAINING landing's
    race): each spec that leaves state behind puts it back, with the check that proves the next spec opens clean.
+   12 Nov, later: the cause was found and cut by the landing agent on TRAINING's branch (911bfcbf): Home's per-frame loop read two bounding boxes and drew the reactor and its HUD rings behind the open jump bar; it now returns at once while the bar is open. Budget untouched. What is left of 2e: confirm the runner's reading sits under 250 ms across ten runs on main, and learn.spec/voice.spec putting their state back.
 
 ## What must not change
 
