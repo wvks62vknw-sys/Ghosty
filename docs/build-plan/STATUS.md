@@ -349,6 +349,7 @@ built in the old look after day one, so no screen is built twice.
    THE MAP landed 11 Nov (OWNER-ISSUES 180): the third whole HUD (Home as the plane with districts and the square of nine; the house as a scale on every screen); THE EYE next; PR #84 merged (2c65f80), main's own run green 12 Nov: FINISHED on the code side, pending his phone check.
    THE EYE HUD landed 12 Nov (OWNER-ISSUES 181): the fourth whole HUD (Home as the wall of feeds, the instruments as the tab bar, the globe behind); pending the PR's run.
    THE SPEAKER MODEL landed 12 Nov (OWNER-ISSUES 182): a voice-recognition model on his tap on Wi-Fi (27 MB); never a lock on its own; pending the PR's run.
+   SMALL FIXES 1 landed 12 Nov with THE EYE's second landing and the speaker (OWNER-ISSUES 183); THE EYE was undone once on main by the guard for a 7 ms budget miss; pending the PR's run.
 5. THE MACHINE AS HE MEANS IT: SHOW ME, BY DEFAULT, AT SCALE (STARS 164). The first slice first: a place → the map or God's Eye; a
    route → the journey; numbers → a chart; a plan or a letter → the document; a formula → the simulation; a room or a part → 3-D on
    the Stage from parametric furniture and a first set of free models fetched on his tap (the product library's first slice,

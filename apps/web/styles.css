@@ -6847,13 +6847,17 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html body.inkhome .hud.core:not(.logopen) > :not(.inkframe) { display: none !important; }
   html body.inkhome #top { display: none; }
   /* the conversation, open over the page (the ask line's own words, or the gallery's "Say a look"): today's log and talk bar, in ink, over the whole page; the one key at the top is the way back */
-  html body.inkhome .hud.core.logopen > :not(.inkframe, .ccenter) { display: none !important; }
+  html body.inkhome .hud.core.logopen > :not(.inkframe, .ccenter, .cside.l) { display: none !important; }
   html body.inkhome .hud.core.logopen .inkframe { visibility: hidden; }
   html body.inkhome .hud.core.logopen > .ccenter { position: absolute; inset: 0; z-index: 7; gap: 0; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + 56px) var(--g-gutter) max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); overflow: hidden; background: var(--g-canvas); }
   html body.inkhome.ownback #top { display: flex; position: absolute; z-index: 12; left: 0; right: 0; top: env(safe-area-inset-top, 0px); min-height: 0; padding: var(--g-s-1) var(--g-gutter) 0; background: none; }
   html body.inkhome.ownback #top .logbtn { width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; border: var(--g-stroke) solid var(--g-line); border-radius: 0 !important; background: none; box-shadow: none; }
   html body.inkhome .hud.core.logopen > .ccenter > #cbar { margin-top: auto; }
   html body.inkhome .hud.core.logopen > .ccenter > .log { flex: 1 1 auto; min-height: 0; overflow-y: auto; pointer-events: auto; }
+  /* the sentences themselves: the log lives in the left column (as in The Scan), so it is that column, not the centre, that is drawn over the page, between the one key at the top and the ask line */
+  html body.inkhome .hud.core.logopen > .cside.l { display: flex; z-index: 8; inset: calc(max(env(safe-area-inset-top, 0px), 14px) + 56px) 0 calc(var(--g-target) + var(--g-s-2) + max(var(--g-s-1), env(safe-area-inset-bottom, 0px))) 0; padding: 0 var(--g-gutter); }
+  html body.inkhome .hud.core .convo .msg.latest:not(.me) { border-radius: 0; background: none !important; box-shadow: none !important; border: var(--g-stroke) solid var(--g-line); }
+  html body.inkhome .hud.core .convo .msg.me { border-radius: 0; background: none; border: var(--g-stroke) solid var(--g-line); }
   html body.inkhome.ownback #top :is(.logo, .clock, .conn, .tstatus, .navtitle, .navback, .sp, .rcdate, .cmd, .you) { display: none !important; }
   html .inkmast { flex: none; padding: var(--g-s-1) 0 var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
   html .inkmast .hstamp { padding: 0; opacity: 1; }

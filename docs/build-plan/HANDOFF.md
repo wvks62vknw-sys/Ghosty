@@ -512,6 +512,8 @@ folder that no longer exists; ignore those paths).
   12 Nov: PR #85 (THE EYE) green on attempt 2 (smoke (2) rerun once for a games2 voxel timing flake on a spec the diff does not touch) and SQUASH-MERGED as 7d0a79a; main's own run 43144275465 read below. Worktree eyehud and branch removed.
   12 Nov: SPEAKER (builder/speaker, base 98ea938) landed on the session branch as one commit (check.yml's list ends ... eyehud speaker); the builder's model-name guard test removed (it listed vendor names in the test itself); brain 1882 of 1882; speaker, settings, offlineeyes clean (one slow-spring flake);
   voice's score-ready budget over under load. OWNER-ISSUES 182.
+  12 Nov: THE GUARD UNDID THE EYE on main (66e2555d): main's run 43144275465 attempt 1 red only on tabs' jump bar 307 ms vs 300 (a chronic 303-336 on the runner). Plan: merge main back keeping the session tree, land SMALL FIXES 1 (its first-screen cost cut) and the Home orb not drawn behind the open jump bar,
+  with THE EYE and SPEAKER in ONE PR (the branch carries all three). SMALL FIXES 1 (builder/fixes, base ec54b5b) applied with one conflict resolved by hand in ink/home.ts (shared tonightEntry kept; the shelf's real title layered over it). OWNER-ISSUES 183. Jump bar locally unmeasurable at load 20-28.
   clean, nav clean on rerun, studio red on its WebGL picture line and look red at BODY 21 on load only (the head before it passed look): the PR's run decides. OWNER-ISSUES 177.
   built and then points out the small fixes. BRIEF-ORCHESTRATOR-2 written; a MID-TIER ORCHESTRATOR launched with the whole
   method (it lands ONE INK, then runs 164's queue in order, stops new builds at 90%; notes in scratchpad/orchestrator-notes.md).

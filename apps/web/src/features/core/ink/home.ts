@@ -17,6 +17,7 @@ import { greeting, navTo, pinnedAndRecent, toolName } from '../../../shell/areas
 import { pinOnHold } from '../../../shell/favourites';
 import { openChat } from '../../../shell/launcher';
 import { togglePalette } from '../../../commands/registry';
+import { brain } from '../../../api/brain';
 import { settings } from '../../../state/app';
 import { key, tag } from '../../../ui/machine';
 import { currentMind } from '../mind';
@@ -163,7 +164,34 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
   };
 
   // ---------------------------------------------------------------- the thing of the hour (the same source as THE SCAN's room: tonightEntry above)
-  const tonight = (): Entry => tonightEntry(o.nextUp);
+  // the shelf's own titles ("Alice’s Adventures in Wonderland"): the entry says the document's id (as THE SCAN's room does) until the shelf
+  // has been read, then the real title. The shelf is read when something else has read it (the Library, the LEARN room); when none has by
+  // the time the first screen is long done, once, here: a read of his own shelf from his own brain, never on the first screen.
+  const titles = new Map<string, string>();
+  let unwatch: (() => void) | null = null;
+  let askedAt = 0;
+  const learnTitles = () =>
+    void import('../../library/reader').then((r) => {
+      const read = () => {
+        let changed = false;
+        for (const d of r.shelfDocs.get().docs) if (titles.get(d.id) !== d.title) (titles.set(d.id, d.title), (changed = true));
+        if (changed && inkState.on) api.refresh();
+      };
+      read();
+      unwatch ??= r.shelfDocs.subscribe(read);
+      const book = bookNow();
+      if (book && !titles.has(book.doc) && Date.now() - askedAt > 300_000) {
+        askedAt = Date.now();
+        setTimeout(() => void brain.library().then((l) => r.shelfDocs.set({ docs: l.docs, at: Date.now() })).catch(() => undefined), 2500);
+      }
+    }).catch(() => undefined);
+  /** The shared entry (tonightEntry), with the book named by its real title once the shelf has been read. */
+  const tonight = (): Entry => {
+    const e = tonightEntry(o.nextUp);
+    const book = e.kind === 'book' ? bookNow() : null;
+    const title = book ? titles.get(book.doc) : undefined;
+    return title ? { ...e, name: title } : e;
+  };
 
   let entryKey = '';
   const paintEntry = () => {
@@ -239,6 +267,7 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       document.body.classList.add('inkhome');
       take();
       paintWords();
+      learnTitles();
       // the orb is drawn in bone with no glow: the Mind reads its light again now that the page is on
       currentMind()?.recolour();
       clearInterval(minute);
@@ -248,6 +277,8 @@ export function inkHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       wanted = false;
       if (!inkState.on) return;
       inkState.on = false;
+      unwatch?.();
+      unwatch = null;
       document.body.classList.remove('inkhome');
       giveBack();
       clearInterval(minute);

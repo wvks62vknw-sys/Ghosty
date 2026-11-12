@@ -962,6 +962,9 @@ if (!isWebKit) {
     for (let k = 0; k < 2; k++) await say(p8, 'bigger text');
     await until(p8, () => document.documentElement.dataset.body === '21', null, 8000, `[${vp.width}] "bigger text" twice did not make BODY 21`);
     await themePage(p8);
+    // the page is measured once it has settled, as it is at the normal size above: the push-in (a .45 s spring) was still 22 px off on the loaded
+    // sandbox, and a page still sliding in has everything on it a few pixels past the edge (measured: every flagged word sat exactly that far over)
+    await p8.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     for (let y = 0; y < 6; y++) {
       await p8.evaluate((y) => { const b = document.querySelector('#pg-settings .pn.themepn.pushed > .bd'); if (b) b.scrollTop = y * 650; }, y);
       await p8.waitForTimeout(150);
