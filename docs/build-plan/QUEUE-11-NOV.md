@@ -207,3 +207,5 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   and none weaker; reviewed clean, entry 211. Two of its NEEDS HIS WORD decided under 179 by his posting rule: the draft card's refuse key stays
   NO (as Telegram's) and a failed post's key stays APPROVE. seepass/homepass/lifepass/nav could not finish under load here (the base the same):
   CI's shards decide. VIDEO 2 started from 3bcd43b6 (worktree video2, port 8839).
+- 12 Nov, BRIEF-QUALITY-CHAT written (the eighth quality pass: the log, a turn's states, the talk bar, the Stage, the sources, the phone's
+  own answers, the guardian's words only; from the LEARN pass head; spec `chatpass`; port 8842; entry 213 when it hands back; mine next 214).

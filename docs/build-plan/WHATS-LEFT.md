@@ -83,13 +83,16 @@ Four lists in the order things happen, then the questions only you can answer. Q
 ## 3. Written up, waiting for a free builder or for something above to go live
 - **Polish 3, the words.** One plain sentence on every screen; the Agenda and System screens upgraded; "On it." in the phone's own voice; the
   money price watch and the watchers made one system.
+- **The chat itself made right.** The conversation you use every day: what it says before you have said anything, one plain line under your
+  words for every step it takes, an answer cut by the signal kept with RETRY for the rest, the page never jumping while you read, "I'm
+  listening." and "Tap to stop me." in words, the Stage's picture with its wait and its close under your thumb, every source openable.
+  Starts when the LEARN room's pass hands back.
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain,
   physics for the 3-D engine, and automatic rollback if a publish fails its own first check.
 
 ## 4. Not started yet (I write these next, in this order)
-1. **Every other room made right, one at a time:** the
-   chat itself (the log, the Stage, WHY, the ask line), Telegram, the boot and the orb, and a second pass on THE EYE look. Same method each time: measure every rough spot, fix the
-   worst, add a test so it cannot come back.
+1. **Every other room made right, one at a time:** Telegram, the boot and the orb, and a second pass on THE EYE look (the chat's pass is
+   written up, list 3). Same method each time: measure every rough spot, fix the worst, add a test so it cannot come back.
 2. **Games 6.** Whatever of wave 2 Games 5 left: PICO-8 cartridges, more board games on the phone's chip.
 3. **The depth plan**, pass by pass: memory and recall (it remembers what you told it months ago), character (it sounds like one person),
    the Lens acting on what it sees (not just naming it), fun, better answers.
