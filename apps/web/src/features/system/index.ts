@@ -19,6 +19,7 @@ import { trainingPanel } from './training';
 import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
 import { speedCard } from './speed';
+import { phoneCard } from './phone';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 
@@ -215,9 +216,10 @@ export const systemTab: TabDef = {
     const dials = statusDials();
     // SPEED (speed.ts) under the dials: how long Ghosty takes, from this phone's stopwatch and the brain's
     const speed = speedCard();
+    const phone = phoneCard();
     const paintStatus = () => {
       clear(sp.body);
-      sp.body.append(dials.el, speed.el);
+      sp.body.append(dials.el, speed.el, phone);
       void dials.paint(status);
       speed.paint(status);
       // What the owner needs at a glance; the engineering details fold away under Advanced.

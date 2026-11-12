@@ -8,6 +8,7 @@
  * keep working on slow devices.
  */
 import { gfx } from './gfx';
+import { refresh } from './refresh';
 import { stepView } from './space';
 
 export interface FrameTask {
@@ -24,7 +25,8 @@ let fpsStart = 0;
 let fpsFrames = 0;
 let low = 0;
 let high = 0;
-export const stats = { fps: 60, scale: 1 };
+/** `hz` is the display's own rate as measured (0 until it is known: engine/refresh.ts). */
+export const stats = { fps: 60, scale: 1, hz: 0 };
 
 export function setScene(s: { update(dt: number): void; draw(): void } | null): void {
   scene = s;
@@ -64,12 +66,15 @@ function governor(now: number): void {
 function frame(now: number): void {
   requestAnimationFrame(frame);
   if (document.hidden) {
+    refresh.pause();
     last = now;
     fpsStart = 0;
     fpsFrames = 0;
     return;
   }
-  const dt = Math.min(0.1, (now - last) / 1000 || 0.016);
+  refresh.note(now);
+  stats.hz = refresh.hz;
+  const dt = Math.min(0.1, (now - last) / 1000 || refresh.dt());
   last = now;
   gfx.time += dt;
   gfx.post.flash *= Math.pow(0.015, dt);
