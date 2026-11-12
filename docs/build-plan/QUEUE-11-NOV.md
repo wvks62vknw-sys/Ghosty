@@ -5,6 +5,8 @@ Everything in THE-GUIDE-11-NOV sections 6, 7 and 8, as briefs, in this order. Fo
 a run green first time; main's own run read after. The top tier reviews every diff before it is handed to the orchestrator. Ticked when on main.
 
 ## Running or landing now
+- 12 Nov, his word "i don't mind you doing several PR's at once" (OWNER-ISSUES 184): landings run from their own branches, up to three pull
+  requests at once; merges still one at a time in the order below. TRY-IT-NOW.md and WHATS-LEFT.md are his two short pages.
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
