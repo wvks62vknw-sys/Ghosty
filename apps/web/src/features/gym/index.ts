@@ -17,7 +17,6 @@
  * learned first, 20 minutes each a round; KEEP AWAKE holds a screen wake lock while he trains. A run of
  * level-ups is one toast, and there is never more than one GYM toast on screen.
  */
-import { trainingPathRow } from './path';
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { heavy } from '../../core/heavy';
 import { onFrame } from '../../engine/scheduler';
@@ -533,7 +532,7 @@ export const gymTab: TabDef = {
     const lvlHead = h('div.gymlvhd', { dataset: { case: 'keep' } }, h('span.k'), h('span.lv', 'Lv 1–10'));
     const lvlBars = h('div.gymlvls', { 'aria-hidden': 'true' });
     awakeSw.el.prepend(h('span.bic', icon('<path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z"/>')));
-    nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus, trainingPathRow()));
+    nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus));
     const gamesHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Games'), h('span'));
     cards.before(gamesHead);
     // ======================= the game as a pushed screen (phones)

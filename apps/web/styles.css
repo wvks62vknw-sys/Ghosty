@@ -7217,23 +7217,6 @@ html .e3rowin b { font: var(--g-t-head); letter-spacing: var(--g-tr-body); }
 html .e3savedlist { display: flex; flex-direction: column; gap: var(--g-s-half); }
 html[data-world="ink"] .e3stage { border: 0; }
 =======
-/* PHONE HARDWARE (BRIEF-PHONE-HARDWARE): the second size of an eyes pack, its choice, and the SYSTEM card for this phone */
-html .eyesizes { display: flex; flex-direction: column; gap: var(--g-s-1); }
-html .eyesize { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
-html .eyesize small, html .wikioffer .packsize { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
-html .eyesize .row { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
-html .eyesize .row button { min-height: var(--g-target) !important; min-width: var(--g-target); }
-html .eyesize .row button[aria-pressed="true"] { color: var(--g-accent); }
-html .gympath { display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-1); }
-html .gympath small { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
-html .gympath button, html #pg-gym .gympath button { height: auto; min-height: var(--g-target) !important; align-self: flex-start; }
-html .phonecard { display: flex; flex-direction: column; gap: var(--g-s-1); margin: var(--g-s-2) 0; padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate); min-width: 0; }
-html .phonecard .pchead { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
-html .phonecard .pcrow { display: flex; gap: var(--g-s-2); align-items: baseline; padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
-html .phonecard .pcrow .k { flex: none; font: var(--g-t-body); color: var(--g-ink-2); }
-html .phonecard .pcrow .v { flex: 1; min-width: 0; text-align: right; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
-html .phonecard .pcnote { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; margin: 0; }
-html .phonecard button, html #pg-system .phonecard button { height: auto; min-height: var(--g-target) !important; align-self: flex-start; }
 /* ---------------------------------------------------------------- DOCUMENTS: the editor (BRIEF-EDITOR-DOCUMENTS; the old document rules moved in, in tokens)
    The page is the world's own plate and ink, never a white sheet; every key is 44 pt; the pills are WRITE, INSERT, PAGE. */
 .dcsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-1); }
