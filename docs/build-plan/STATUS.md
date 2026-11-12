@@ -402,3 +402,4 @@ New ideas from today, all free:
 - The deck's live lines for spending and places.
 - The Lens's living cards kept in the library as a nature diary ("seen: a robin, 24 Oct") with a map of where.
 - GYM on WebGPU the moment the phone arrives: ten to fifty times faster training, measured.
+   DOCUMENTS (the second editor) landed 12 Nov (OWNER-ISSUES 188): a word processor of the app's own with Word in and out; pending the PR's run.

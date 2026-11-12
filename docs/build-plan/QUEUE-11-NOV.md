@@ -5,10 +5,15 @@ Everything in THE-GUIDE-11-NOV sections 6, 7 and 8, as briefs, in this order. Fo
 a run green first time; main's own run read after. The top tier reviews every diff before it is handed to the orchestrator. Ticked when on main.
 
 ## Running or landing now
+- 12 Nov, his "yes to all" (OWNER-ISSUES 185): physics stays in KERNEL 2; RAW, matting and inpainting become a PHOTO 2 pass; stabilisation
+  and best clips a VIDEO 2 pass; slides, video and workspace tools a KERNEL 3; "Share to Ghosty" is SMALL FIXES 2c in POLISH 3.
+- 12 Nov, his word "i don't mind you doing several PR's at once" (OWNER-ISSUES 184): landings run from their own branches, up to three pull
+  requests at once; merges still one at a time in the order below. TRY-IT-NOW.md and WHATS-LEFT.md are his two short pages.
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE
-- [ ] Building: GROWN UP HUD · PRESENTATIONS · QUALITY PASS: LIFE · RELIABILITY AND HEALTH
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
+  QUALITY PASS: LIFE · RELIABILITY AND HEALTH · PRESENTATIONS
+- [ ] Building: PHOTO · QUALITY PASS: HOME · THE WORKSPACE · VIDEO
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -51,11 +56,23 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    blocks, databases with relations, rollups and formulas through the spreadsheets' engine, five views, templates, backlinks, history, a
    project read whole as one chat turn with the size said; the editors fold under one EDITORS card past ten MAKE things); cherry-picks
    DOCUMENTS and SPREADSHEETS if it starts before they land.
+   PRESENTATIONS handed back 12 Nov (reviewed clean: the app's own .pptx written and read back, 234 spec checks, a thirteen-slide round
+   trip in 67 ms); in the landing queue after the LIFE pass. THE WORKSPACE started the same hour in worktree workspace, standing on
+   DOCUMENTS, SPREADSHEETS and PRESENTATIONS cherry-picked. The MAKE count, settled 12 Nov under 179: main holds 8, DOCUMENTS adds none (it
+   upgraded MY DOCUMENTS in place), SPREADSHEETS 9, PRESENTATIONS 10 on the two-row band, THE WORKSPACE 11 and builds the EDITORS fold with
+   its pills from one list; so the editors land SPREADSHEETS → PRESENTATIONS → WORKSPACE → PHOTO, and PHOTO's builder rebases onto the fold
+   before it lands.
    Brief written 12 Nov for the sixth: BRIEF-EDITOR-PHOTO (worktree photoedit, port 8831, spec photoedit; a non-destructive recipe over
    the untouched original, the app's own WebGL2 passes with a CPU path that must agree, masks, heal, a layer, presets and batch, full-size
    export in tiles; the PHOTO TOOLS' three brain keys kept as they are; RAW and on-phone matting NEEDS HIS WORD); starts from the session
    branch.
    PHOTO started 12 Nov in worktree photoedit when GROWN UP handed back.
+   Brief written 12 Nov for the seventh: BRIEF-EDITOR-VIDEO (worktree video, port 8834, spec video; clips on a timeline with trims, splits,
+   speed, transitions, titles, the PHOTO grade and a .cube LUT, music, a voice-over with ducking, subtitles by his brain's own hearing route,
+   chroma key and overlays; WebCodecs with the app's own flat .mp4 muxer where the phone has it, else the phone's recorder in real time, the
+   path and the size said; scenes and pauses found on the phone; stabilisation, best clips, Director Mode and reverse NEEDS HIS WORD); starts
+   from the session branch and lands after PHOTO, its builder rebasing onto the fold first. VIDEO started 12 Nov in worktree video when
+   RELIABILITY AND HEALTH handed back.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
@@ -67,6 +84,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    under /guardian); starts after POLISH 1 is on main (its error voice and wait helper).
    Started 12 Nov in worktree health, made from POLISH 1's head (72f121c6) so its error voice and wait helper are in the tree; the
    orchestrator lands only the diff above that head, after POLISH 1 is on main.
+   Handed back 12 Nov (reviewed clean: the four marks computed never written, actions verified by read-back, PERMISSIONS, crash records,
+   THAT FELT OFF; health.test on one import line); in the landing queue after the LIFE pass, with which it shares its base.
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
@@ -92,10 +111,11 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     DOWNLOAD; a failed Telegram picture said once; the raw-error sites swept through the one error voice when its lint lands).
     First pass written 12 Nov: BRIEF-QUALITY-LIFE (worktree lifepass, port 8826, spec lifepass): the eight packs measured and the top ten
     per pack fixed, a STATES RATCHET; made from POLISH 1's head so its error voice is in the tree; lands after POLISH 1.
-    Started 12 Nov in worktree lifepass when GAMES 5 handed back.
+    Started 12 Nov in worktree lifepass when GAMES 5 handed back. Handed back 12 Nov: eighty fixes, ten a pack, each with a spec check red
+    on the base; the STATES RATCHET over 32 screens, 44 states before and 98 after; reviewed clean and queued after THE WORKING ENGINE.
     Second pass written 12 Nov: BRIEF-QUALITY-HOME (worktree homepass, port 8829, spec homepass): Home, THE BRIEF, the house line, the
     boot and the orb measured and twenty-five fixes made, HOME's rows in the STATES RATCHET; starts from the LIFE pass's head when it hands
-    back; lands after it.
+    back; lands after it. Started 12 Nov in worktree homepass from the LIFE pass's head (d713414d) the hour it handed back.
     Third pass written 12 Nov: BRIEF-QUALITY-SEE (worktree seepass, port 8832, spec seepass): God's Eye, the Machine view, the Lens's
     every mode, Threats and the eyes' pack rows measured and twenty-five fixes made, SEE's rows in the STATES RATCHET; the people rule's
     logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it.
