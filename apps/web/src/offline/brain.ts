@@ -35,7 +35,7 @@ import { BIGGER, brainModels, brainOf, CHAIN, chainPick, closeLine, downloadFail
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 import { ITEM_FLOOR, judgedFor, trust, type AskCat, type BrainTrust, type TrustCat } from './trust';
-import { headers } from '../api/brain';
+import { brain as brainApi, headers } from '../api/brain';
 
 export type { OfflineMsg } from './prompt';
 export { modelJob, withModel, type ModelJob } from './lock';
@@ -639,6 +639,8 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
       markStored(storedId(m), 0);
       offlineBrain.set({ model: stock.id, downloaded: false });
       checkedAt = 0;
+      // (tell the brain too, or it would recommend this one again: it is dropped for good and the log says broken)
+      void brainApi.selftrain.broken(m.rev).catch(() => undefined);
       throw new Error(`${m.label} would not download (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
     }
     throw e;

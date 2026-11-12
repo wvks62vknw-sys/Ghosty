@@ -56,7 +56,7 @@
  * report arrived cannot write its stale copy over it.
  */
 import { feel } from '../mood';
-import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, stopWords, STUCK_INSTALL, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, stopWords, STUCK_INSTALL, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type Preflight, type PreflightStep, type TrainEvent, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { NIGHT_CALLS, nightStep } from '../school/night';
@@ -118,12 +118,13 @@ import {
   type Rating,
   type RewriteItem,
 } from './factory';
-import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
+import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfRepoInfo, hfTag, hfWhoami, kaggleQuota, kaggleWorks, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { brainLoops, drainStars, noteDays, takeStars } from './loops';
 import { ledgerLines, LEDGER_KEY, loadLedger, noteGym, noteTools } from './ledger';
 import { observe } from '../mind';
 import { drainPool, loadPool, poolAnswer, poolReady, poolSit, poolStep, poolView, type PoolWeek } from './pool';
 import { revokeCap, weightsCap } from './weights';
+import { addEvent, runEvent, weeklyView } from './weekly';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
@@ -271,6 +272,9 @@ const K = {
   weekBase: 'train:weekbase',
   /** Kaggle's GPU quota as last read, and when (for the forecast in the status). */
   quota: 'train:quota',
+  /** The last twenty runs that ended and brains rolled back (weekly.ts), and the pre-flight's last answer. */
+  log: 'train:log',
+  preflight: 'train:preflight',
 };
 
 /** The base the weekly training follows: the one chosen in SETTINGS → OFFLINE BRAIN. */
@@ -1150,6 +1154,7 @@ async function endWeek(d: CycleDeps, st: State, report: TrainReport, note: strin
   const prev = await d.storage.get<TrainReport>(K.report);
   if (prev && prev.week !== report.week) await d.storage.put(K.previous, prev);
   await d.storage.put(K.report, report);
+  await logEvent(d.storage, runEvent(report, nowOf(d)));
   st.phase = 'idle';
   st.nextRun = st.startedAt + WEEK;
   st.note = note;
@@ -1595,7 +1600,116 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
     })()),
     ...(st.phase !== 'idle' && st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
     pool: poolView(await loadPool(s), nowOf(d), !!keys.kaggle && !!keys.hf),
+    weekly: weeklyView({ log: await loadLog(s), now: nowOf(d), phase: st.phase, nextRun: st.nextRun || jobs[0]?.next || 0, note: st.note, keysOk: !!keys.kaggle && !!keys.hf, preflight: (await s.get<Preflight>(K.preflight)) ?? null }),
   };
+}
+
+// ---- E0: the pre-flight, RUN NOW, and the log that remembers ------------------------------------------------------
+
+export const loadLog = async (s: DurableObjectStorage): Promise<TrainEvent[]> => (await s.get<TrainEvent[]>(K.log)) ?? [];
+async function logEvent(s: DurableObjectStorage, e: TrainEvent): Promise<void> {
+  await s.put(K.log, addEvent(await loadLog(s), e));
+}
+
+/**
+ * E0, the pre-flight: everything a real run needs, asked in order with no side effect but reading (nothing is gathered,
+ * uploaded or pushed), stopping at the first that is wrong and saying in his words which and what to do. Kept for the card.
+ */
+export async function preflight(d: CycleDeps): Promise<Preflight> {
+  const f = fetchOf(d);
+  const now = nowOf(d);
+  const steps: PreflightStep[] = [];
+  const fail = (id: string, label: string, say: string): false => (steps.push({ id, label, ok: false, say }), false);
+  const pass = (id: string, label: string, say: string): true => (steps.push({ id, label, ok: true, say }), true);
+  const words = (e: unknown): string => (e instanceof RemoteError ? e.message : String((e as Error)?.message ?? e)).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…').slice(0, 240);
+  const run = async (): Promise<void> => {
+    const st = await loadState(d.storage);
+    if (st.phase !== 'idle') return void fail('idle', 'No run under way', `A run is already under way (${st.note}). Wait for it to finish.`);
+    pass('idle', 'No run under way', 'Nothing is running.');
+    const keys = await keysOf(d);
+    if (!keys.kaggle || !keys.hf) return void fail('keys', 'Both keys saved', missingNote(keys));
+    pass('keys', 'Both keys saved', 'The Kaggle key and the Hugging Face write token are saved.');
+    let user = '';
+    try {
+      user = await kaggleWorks(f, keys.kaggle);
+    } catch (e) {
+      return void fail('kaggle', 'Kaggle accepts the key', `${words(e)} Make a new token at kaggle.com → Settings → API Tokens and save it in SYSTEM → KEYS.`);
+    }
+    pass('kaggle', 'Kaggle accepts the key', `Kaggle knows the account ${user}.`);
+    let plan;
+    try {
+      const q = await noteQuota(d.storage, await kaggleQuota(f, keys.kaggle), now);
+      plan = runPlan(q);
+      if (plan.mode === 'wait') return void fail('hours', "Kaggle's free GPU hours", plan.why);
+      pass('hours', "Kaggle's free GPU hours", plan.mode === 'full' ? `${hours(q.left)} of ${hours(q.total)} free hours left: a full run fits. Pay-to-scale is off.` : plan.why);
+    } catch (e) {
+      return void fail('hours', "Kaggle's free GPU hours", words(e));
+    }
+    let me;
+    try {
+      me = await hfWhoami(f, keys.hf);
+    } catch (e) {
+      return void fail('hf', 'Hugging Face accepts the token', `${words(e)} Make a new write token as the steps in SYSTEM → KEYS say.`);
+    }
+    if (me.role === 'read') return void fail('hf', 'Hugging Face accepts the token', 'The token can only read: make a write (or fine-grained) token as the steps in SYSTEM → KEYS say.');
+    pass('hf', 'Hugging Face accepts the token', `The token belongs to ${me.name} and may write.`);
+    const notes: string[] = [];
+    for (const [repo, type] of [[`${me.name}/${DATA_REPO}`, 'dataset'], [`${me.name}/${MODEL_REPO}`, 'model']] as const) {
+      try {
+        const info = await hfRepoInfo(f, keys.hf, repo, type);
+        if (!info && !me.canCreate) return void fail('repos', 'Your two spaces are private', `The token cannot make the ${type} "${repo}": make it yourself as a PRIVATE ${type} (steps in SYSTEM → KEYS) and give the token write access to it.`);
+        if (info && !me.canWrite(repo)) return void fail('repos', 'Your two spaces are private', `The token may not write to "${repo}": give it write access to that ${type}.`);
+        notes.push(!info ? `${repo} will be made, private` : info.private ? `${repo} is private` : `${repo} is public and will be made private before anything is sent`);
+      } catch (e) {
+        return void fail('repos', 'Your two spaces are private', words(e));
+      }
+    }
+    pass('repos', 'Your two spaces are private', `${notes.join('; ')}.`);
+    const base = await loadBase(d.storage);
+    const nob = baseProblem(base);
+    if (nob) return void fail('base', 'The brain fits the free GPU', nob);
+    pass('base', 'The brain fits the free GPU', `${base.label} trains on Kaggle's free card.`);
+    const held = installHold(await d.storage.get<TrainReport>(K.report), notebookTag(), false);
+    if (held) return void fail('install', 'The last install did not stop for good', `${held.replace(/ \(TRAIN NOW tries anyway\)\.$/, '.')} RUN NOW tries anyway.`);
+    pass('install', 'The last install did not stop for good', 'The notebook has not stopped on a package problem it would hit again.');
+    if (!d.origin) return void fail('origin', 'The brain knows its own address', 'The brain does not know its own address yet: open Ghosty once, then try again.');
+    pass('origin', 'The brain knows its own address', 'The notebook can report back to it.');
+  };
+  await run().catch((e) => void fail('error', 'The check itself', words(e)));
+  const bad = steps.find((x) => !x.ok);
+  const out: Preflight = { at: now, ok: !bad, ...(bad ? { stoppedAt: bad.id } : {}), steps };
+  await d.storage.put(K.preflight, out);
+  return out;
+}
+
+/** TRAIN NOW / TRAIN FROM SCRATCH / RUN NOW: the next step of the week is the start (his press also goes past the install hold). */
+async function startNow(d: CycleDeps, scratch: boolean): Promise<void> {
+  const s = d.storage;
+  const st = await loadState(s);
+  if (scratch) st.force = true;
+  st.tryAnyway = true;
+  if (st.phase === 'idle') {
+    st.nextRun = 0;
+    st.note = scratch ? 'Starting now: the retrain from scratch.' : 'Starting now.';
+  }
+  await saveState(s, st);
+  await ensureTrainJob(s);
+  const j = (await loadJobs(s)).find((x) => x.kind === 'train');
+  if (j) {
+    await setNext(s, j.id, Date.now() + 1000);
+    await rearm(s);
+  }
+}
+
+/** A kept brain dropped for good (ROLLBACK, or a brain the phone could not load): the one before it of the same base takes its place. */
+async function dropModel(d: CycleDeps, models: KeptModel[], i: number, reason: NonNullable<TrainEvent['reason']>): Promise<void> {
+  const s = d.storage;
+  const gone = models[i]!;
+  const wasActive = (await s.get<string | null>(K.active)) === gone.commit;
+  const older = models.slice(i + 1).find((m) => baseOfModel(m) === baseOfModel(gone));
+  await s.put(K.models, models.filter((_, k) => k !== i));
+  if (wasActive) await s.put(K.active, older?.commit ?? null);
+  await logEvent(s, { at: nowOf(d), kind: 'rollback', commit: gone.commit, label: gone.label, week: gone.week, reason, why: reason === 'broken' ? `${gone.label} would not load on the phone` : reason === 'worse' ? `${gone.label} turned out worse` : `${gone.label} dropped by you` });
 }
 
 /** Route `/training…` for the phone (owner only: behind the kernel's sign-in like every other route). */
@@ -1677,25 +1791,21 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     return json(await trainStatus(d));
   }
   if ((path === '/training/now' || path === '/training/scratch') && method === 'POST') {
-    const st = await loadState(s);
     const keys = await keysOf(d);
     if (!keys.kaggle || !keys.hf) return json({ error: missingNote(keys) }, 400);
-    // TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain whatever the date.
-    const scratch = path === '/training/scratch';
-    if (scratch) st.force = true;
-    // (his press also goes past the pre-flight's install check: installHold)
-    st.tryAnyway = true;
-    if (st.phase === 'idle') {
-      st.nextRun = 0;
-      st.note = scratch ? 'Starting now: the retrain from scratch.' : 'Starting now.';
+    await startNow(d, path === '/training/scratch');
+    return json(await trainStatus(d));
+  }
+  if (path === '/training/preflight' && method === 'POST') return json(await preflight(d));
+  if (path === '/training/run' && method === 'POST') {
+    // RUN NOW: only on his tap (`confirm`), and only when the pre-flight finds every step clear; else nothing starts.
+    if (body.confirm !== true) return json({ error: 'RUN NOW starts a real run: it needs your confirm.' }, 400);
+    const pf = await preflight(d);
+    if (!pf.ok) {
+      const bad = pf.steps.find((x) => x.id === pf.stoppedAt);
+      return json({ error: `Not started. Stopped at "${bad?.label}": ${bad?.say}`, preflight: pf }, 409);
     }
-    await saveState(s, st);
-    await ensureTrainJob(s);
-    const j = (await loadJobs(s)).find((x) => x.kind === 'train');
-    if (j) {
-      await setNext(s, j.id, Date.now() + 1000);
-      await rearm(s);
-    }
+    await startNow(d, false);
     return json(await trainStatus(d));
   }
   if (path === '/training/rollback' && method === 'POST') {
@@ -1704,11 +1814,8 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     const i = models.findIndex((m) => m.commit === active);
     if (i >= 0) {
       // The brain in use goes (it is never offered again); the next older good one of the same base, or that base's
-      // stock build after the oldest.
-      const gone = models[i]!;
-      const older = models.slice(i + 1).find((m) => baseOfModel(m) === baseOfModel(gone));
-      await s.put(K.models, models.filter((_, k) => k !== i));
-      await s.put(K.active, older?.commit ?? null);
+      // stock build after the oldest. `why`: it turned out worse, or broken (else his choice), for the log.
+      await dropModel(d, models, i, body.why === 'worse' || body.why === 'broken' ? body.why : 'chosen');
     } else if (active === null) {
       // Already on the stock build of a base chosen since: back to the old chain (its newest kept brain, or its stock).
       const from = await s.get<BaseId>(K.switchedFrom);
@@ -1718,6 +1825,13 @@ export async function trainingRoute(req: Request, path: string, method: string, 
         await s.delete(K.switchedFrom);
       }
     }
+    return json(await trainStatus(d));
+  }
+  if (path === '/training/broken' && method === 'POST') {
+    // The phone could not load this brain's files: it is dropped for good and never offered again (the older one takes its place).
+    const models = await loadModels(s);
+    const i = models.findIndex((m) => m.commit === String(body.commit ?? ''));
+    if (i >= 0) await dropModel(d, models, i, 'broken');
     return json(await trainStatus(d));
   }
   if (path === '/training/base' && method === 'POST') {

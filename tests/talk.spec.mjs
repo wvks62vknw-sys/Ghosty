@@ -420,7 +420,10 @@ if (part('spoken')) {
   await page.click('.logbtn');
   console.log(`[${name}] cut in "${cutPiece}"; carried on: "${resumed.slice(0, 90)}…"`);
   if (cutAgain) {
-    await waitVoice(page, 'listening', 8000);
+    // (listening again after the tap: waited for as long as the later steps wait, and settled, as the new ask below is; on a slow runner 8 s was not enough
+    // and "go on" was said into a mind that was not listening yet)
+    await waitVoice(page, 'listening', 20000);
+    await settle(page);
     const again = await page.evaluate(() => performance.now());
     io.heard.push('go on');
     await speakFor(page, 400);
