@@ -7,8 +7,8 @@ a run green first time; main's own run read after. The top tier reviews every di
 ## Running or landing now
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5
-- [ ] Building: GROWN UP HUD · THE WORKING ENGINE · PRESENTATIONS · QUALITY PASS: LIFE
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE
+- [ ] Building: GROWN UP HUD · PRESENTATIONS · QUALITY PASS: LIFE · RELIABILITY AND HEALTH
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -58,6 +58,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    the permissions screen; the "that felt off" tap that files a moment with its screen (SMALL-GAPS' capture).
    Brief written 11 Nov: BRIEF-RELIABILITY (worktree health, port 8823, spec health; the brain's health route in its own file mounted
    under /guardian); starts after POLISH 1 is on main (its error voice and wait helper).
+   Started 12 Nov in worktree health, made from POLISH 1's head (72f121c6) so its error voice and wait helper are in the tree; the
+   orchestrator lands only the diff above that head, after POLISH 1 is on main.
 10. THE DEPTH PLAN, pass by pass (PLAN-STARS passes 1b, 1c, 3 to 11): memory and recall, character, the Lens acting on what it sees, fun, answers,
     making, life deep, the rest.
 11. GAMES WAVE 2: the Cave Story-like, a platformer, PICO-8 carts, the others he named; AlphaZero-style board games on the phone's chip.
@@ -70,6 +72,8 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     Brief written 11 Nov: BRIEF-WORKING-ENGINE (worktree workingengine, port 8824, spec workingengine; the car's own geometry over the
     three.js the Studio loads, kinematic, no package; physics stays at KERNEL 2). ENGINE 3D and THE CAR are on main: waits on no landing.
     Started 11 Nov night in worktree workingengine when THE WALL handed back.
+    Handed back 12 Nov (reviewed clean; kinematic engine from the car's record, 28 parts with sheets, 14 brain tests; the tray's ENGINE
+    stays 120 × 60 × 70 and the table is not put under IN THE WORKS, decided under 179); in the landing queue after GAMES 5.
 13. QUALITY PASSES, one room a PR, interleaved from here with the items above (one quality pass after every two new builds): HOME and the
     house line · SEE (God's Eye, the Machine view, the Lens, threats) · MAKE (the Workshop, the Studio, the Workbench) · LEARN (courses, the
     arcade, the GYM, school, the library) · PLAN (the Brief, the Agenda, spending, markets, radio) · LIFE (the eight packs) · ME (Memory, Settings,
