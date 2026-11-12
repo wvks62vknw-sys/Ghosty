@@ -7,8 +7,9 @@ a run green first time; main's own run read after. The top tier reviews every di
 ## Running or landing now
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE
-- [ ] Building: GROWN UP HUD · PRESENTATIONS · QUALITY PASS: LIFE · RELIABILITY AND HEALTH
+  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
+  QUALITY PASS: LIFE
+- [ ] Building: PRESENTATIONS · RELIABILITY AND HEALTH · PHOTO · QUALITY PASS: HOME
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -92,10 +93,11 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     DOWNLOAD; a failed Telegram picture said once; the raw-error sites swept through the one error voice when its lint lands).
     First pass written 12 Nov: BRIEF-QUALITY-LIFE (worktree lifepass, port 8826, spec lifepass): the eight packs measured and the top ten
     per pack fixed, a STATES RATCHET; made from POLISH 1's head so its error voice is in the tree; lands after POLISH 1.
-    Started 12 Nov in worktree lifepass when GAMES 5 handed back.
+    Started 12 Nov in worktree lifepass when GAMES 5 handed back. Handed back 12 Nov: eighty fixes, ten a pack, each with a spec check red
+    on the base; the STATES RATCHET over 32 screens, 44 states before and 98 after; reviewed clean and queued after THE WORKING ENGINE.
     Second pass written 12 Nov: BRIEF-QUALITY-HOME (worktree homepass, port 8829, spec homepass): Home, THE BRIEF, the house line, the
     boot and the orb measured and twenty-five fixes made, HOME's rows in the STATES RATCHET; starts from the LIFE pass's head when it hands
-    back; lands after it.
+    back; lands after it. Started 12 Nov in worktree homepass from the LIFE pass's head (d713414d) the hour it handed back.
     Third pass written 12 Nov: BRIEF-QUALITY-SEE (worktree seepass, port 8832, spec seepass): God's Eye, the Machine view, the Lens's
     every mode, Threats and the eyes' pack rows measured and twenty-five fixes made, SEE's rows in the STATES RATCHET; the people rule's
     logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it.
