@@ -2,7 +2,7 @@
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 
-## 1. Finished and checked, waiting to go live (twenty-four; each goes up when its checks are green)
+## 1. Finished and checked, waiting to go live (twenty-five; each goes up when its checks are green)
 1. ~~The weekly training, for real~~ LIVE since 12 Nov: every week Ghosty's own small brain trains on what you taught it, on the free Kaggle
    machine, and the new brain reaches your phone only if it beats the old one; you see where it is in SYSTEM, and RUN NOW runs it on your
    tap. Steps in TRY-IT-NOW.
@@ -64,8 +64,13 @@ Four lists in the order things happen, then the questions only you can answer. Q
     given twenty-five fixes in your words: every amount to the penny, every price with its time ("As of 14:02"), a dead radio station offers
     the next one, your memory timeline says "Today" and "Yesterday", every switch says what changes when it is off, a failed link says what to
     check, a post never sent without your APPROVE and a failed one says "Nothing went out. APPROVE sends it once."
+27. **Games 6.** Poker against Ghosty (heads-up hold'em, chips only, never money; HINT says your chance "about N%"), and WORDS, a word game of
+    our own on a 15×15 board, Ghosty playing from a public-domain word list that is a 362 KB download once, on your tap on Wi-Fi, with the
+    size said first; both with a level you can raise without end. And Games 5's six loose ends: backgammon's take-back takes the whole turn,
+    the games play offline from the first open, the cave's level holds, the platformer bot stomps, Othello and backgammon think three times
+    faster, a damaged save says so.
 
-## 2. Being built right now (four; one more starts the moment the October ideas are live)
+## 2. Being built right now (three; two more start the moment the October ideas are live)
 - **Kernel 2.** The deeper changes you already said yes to: the brain's test list names every test, a `document` tool for the brain (it
   proposes a change to your open document, you accept or reject with one tap), physics for the 3-D engine (a dropped part lands; the physics
   download only on your tap with its size said), and automatic rollback if a published brain fails its own first check.
@@ -73,9 +78,6 @@ Four lists in the order things happen, then the questions only you can answer. Q
   percentage), BEST CLIPS picks the sharp, well-lit, varied ones for a 15, 30 or 60 second cut with the reason for each, ON THE BEAT moves
   your cuts to the music's beat, REVERSE and a speed RAMP; all the phone's own arithmetic, nothing new downloaded unless the builder proves it
   must and says the size first.
-- **Games 6.** Poker (chips, never money) and a word game of our own, both against Ghosty with a level you can raise without end; and the
-  loose ends of Games 5 (backgammon's take-back takes the whole turn, the games play offline from the first open, the cave's level does
-  not wobble down, Othello and backgammon think faster).
 - **The LEARN room made right.** Courses, the Arcade, the GYM, School, the Library and its reader, Learning and the Coach measured and given
   their fixes in your words: every empty shelf says the next thing, every download says its size, every wait is said, every score has its
   meaning, every key under your thumb.
@@ -125,6 +127,9 @@ Four lists in the order things happen, then the questions only you can answer. Q
   Screen. Making it work needs a change to Ghosty's server (one of the protected files, so I ask). My recommendation: yes, in Kernel 3, with
   the same APPROVE each time. Until then the game is a file you can save and open. Also in Kernel 3 if you say yes: Ghosty making a game for
   you from the chat ("make me a platformer about a fox").
+- **Decided for you (12 Nov), say if you disagree:** the word game keeps the whole public-domain list as a 362 KB download on your tap (it
+  has a few crude words in it; cutting them would mean cutting the list to bundle it); the poker card's line is "Chips, never money."; PICO-8
+  and Cave Story still wait for your word (Games 7).
 - **Decided for you (12 Nov), say if you disagree:** the two other looks (GLASS and ONE INK) keep their smaller 40 pt buttons on the 3D studio,
   Space and the Workbench, because we promised those looks stay pixel-exact; the MAKE pass's other leftovers (WHAT'S NEW filled in with this
   fortnight's changes, a failed project offering RETRY, saying "open the workshop" to get there) go into Polish 3.
