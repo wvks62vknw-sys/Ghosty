@@ -35,6 +35,7 @@ import { chat, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
+import { moneyAsked, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -227,12 +228,36 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
+  // [moneylane] the MONEY screen on the page his words name (features/money/words.ts), no model
+  async moneyapp(text, opts) {
+    const page = moneyAsked(text);
+    if (!page) return false;
+    location.hash = `money?${page}`;
+    return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
+  },
+  // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
+  track: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, ...(r.open ? { go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: r.open } }] } : {}) }, opts);
+  },
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   stretch: async (text, opts) => packAnswer(await bodyTurn(text), opts),
-  water: async (text, opts) => packAnswer(await bodyTurn(text), opts),
+  // [bodylane] a drink, kept on this phone by the water tracker (features/body/track.ts), in any of his wordings
+  water: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
+    return packAnswer(await bodyTurn(text), opts);
+  },
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
+  larder: async (text, opts) => {
+    const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, go: [{ id: 'kitchen', ask: -1, label: 'Open it', run: 'open_kitchen', args: { what: r.open } }] }, opts);
+  },
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page

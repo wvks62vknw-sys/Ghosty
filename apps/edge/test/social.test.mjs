@@ -492,7 +492,7 @@ test('POST /discord/interactions: the signature first; PING → PONG; /ask from 
   const net = fakeDiscord({ key });
   const d = depsWith(net);
   await SO.APIS.discord.link(d, { token: BOT_TOKEN, app: APP, key, guild: GUILD, channel: CHANNEL });
-  const signed = async (o, ts = '1730455200') => {
+  const signed = async (o, ts = String(Math.floor(Date.now() / 1000))) => { // a fresh timestamp: a stale one is a replay now (security lane)
     const body = JSON.stringify(o);
     const sig = toHex(await crypto.subtle.sign({ name: 'Ed25519' }, keys.privateKey, new TextEncoder().encode(ts + body)));
     return new Request('https://g.example/api/discord/interactions', { method: 'POST', headers: { 'x-signature-ed25519': sig, 'x-signature-timestamp': ts, 'content-type': 'application/json' }, body });

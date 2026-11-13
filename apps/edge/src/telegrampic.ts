@@ -8,6 +8,7 @@
  *
  * The colours are The Scan's own (graphite, bone, the accent and the sequence), the same the phone draws the Stage in.
  */
+import { readCappedBytes } from './netguard';
 import { chartTitle, figure, humanLabel, niceTicks, seriesFrom, tickText, type Series } from '../../../packages/shared/src/chart';
 import { docFromReply, writeAsked } from '../../web/src/docs/model';
 import { faces } from '../../web/src/show/iso';
@@ -197,6 +198,8 @@ export async function decodePng(b: Uint8Array): Promise<{ w: number; h: number; 
   if (!w || !h || interlace || (depth !== 8 && !(type === 3 && depth <= 8))) return null;
   const channels = type === 0 ? 1 : type === 2 ? 3 : type === 3 ? 1 : type === 4 ? 2 : type === 6 ? 4 : 0;
   if (!channels) return null;
+  // [security] a header may claim any size: a picture past 16 megapixels is refused before anything is inflated
+  if (w > 8192 || h > 8192 || w * h > 16_777_216) return null;
   const all = new Uint8Array(idat.reduce((n, p) => n + p.length, 0));
   let o = 0;
   for (const p of idat) {
@@ -205,7 +208,10 @@ export async function decodePng(b: Uint8Array): Promise<{ w: number; h: number; 
   }
   let raw: Uint8Array;
   try {
-    raw = new Uint8Array(await new Response(new Blob([all as unknown as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+    // [security] inflated no further than the header's own size (a few bytes of zeros can claim gigabytes)
+    const want = (Math.ceil((w * depth * channels) / 8) + 1) * h;
+    const got = await readCappedBytes(new Response(new Blob([all as unknown as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate'))), want);
+    raw = got.bytes;
   } catch {
     return null;
   }

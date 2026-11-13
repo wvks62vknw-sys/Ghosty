@@ -1,6 +1,6 @@
 # TRY IT NOW — the quick checks for what is live on your phone
 
-Written 12 Nov for the five builds live since 11 Nov (pull requests 83 to 86). Each is two to five taps. The full phone checks stay in
+Written 12–13 Nov, one section per build as it lands (it began with the five builds live since 11 Nov, pull requests 83 to 86). Each is two to five taps. The full phone checks stay in
 OWNER-ISSUES (177, 180 to 183) and in each pull request; this page is the short version. Open ghosty.wvks62vknw.workers.dev. If a step does
 not do what it says, tell me the number (for example "map 3").
 
@@ -29,7 +29,7 @@ not do what it says, tell me the number (for example "map 3").
 5. Reduce Motion on (iPhone Settings → Accessibility → Motion): the globe stands still. Long-press a feed: the pin sheet.
 
 ## SPEAKER (your voice known, never a lock)
-1. Settings → VOICE MODEL → GET on Wi-Fi (27 MB).
+1. Settings → VOICE MODEL → GET on Wi-Fi (about 41 MB, 27 MB of it the model; less if the Lens's eyes are already kept).
 2. MY VOICE: enrol with three lines.
 3. Say hello: the answer says YOU.
 4. Hand the phone to someone and let them speak: "a voice I don't know", and it asks before it goes on.
@@ -42,12 +42,11 @@ not do what it says, tell me the number (for example "map 3").
 4. The search key on Home: the jump bar comes up at once; the orb freezes behind it and moves again when you close it.
 
 ## Not on your phone yet
-Landing one at a time, in this order: TRAINING, THIS PHONE, DOCUMENTS, OCTOBER IDEAS 1, LIFE EASIER, POLISH 1, POLISH 2, OCTOBER IDEAS 3,
-ORBIT, GROWN UP, THE WALL, SPREADSHEETS, GAMES 5, THE WORKING ENGINE, the LIFE quality pass, HEALTH, PRESENTATIONS. Building: PHOTO, the
-Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it lands.
+Every build named on this page has its section below. Still to come (13 Nov): Polish 3, memory and recall, and the final round's lanes
+(docs/build-plan/FINAL-ROUND.md); each gets its own section here when it lands.
 
 ## DOCUMENTS (MAKE)
-1. MAKE, Documents, NEW: type a few lines; make one a heading, one bold; add a link on a word.
+1. MAKE, EDITORS, DOCUMENTS, NEW: type a few lines; make one a heading, one bold; add a link on a word.
 2. PHOTO: add one of yours and make it LARGER; INSERT TABLE and fill a cell.
 3. PAGE: choose Letter and add a footer line.
 4. Export WORD and open it in Pages or Word (the same page, picture and table); export PDF.
@@ -119,7 +118,7 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 4. Say "clear the wall", then hold anywhere on the wall for a second: unpaired.
 
 ## SPREADSHEETS (formulas, charts, Excel in and out)
-1. MAKE, SPREADSHEETS: tap START WITH A BUDGET; twelve months and a chart appear.
+1. MAKE, EDITORS, SPREADSHEETS: tap START WITH A BUDGET; twelve months and a chart appear.
 2. In March, change the Rent cell to 1950: the totals and the chart move at once.
 3. Tap a column's letter: SORT LARGEST FIRST.
 4. DATA, tap XLSX (the size is beside it) and open the file in Numbers or Excel.
@@ -130,7 +129,7 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 2. THE PLATFORMER: run and jump to the flag, stomp a walker, kick a shell.
 3. THE CAVE: find the boots, save at a lantern, close Ghosty and CONTINUE.
 4. DRAUGHTS at level 1, then 12; BACKGAMMON: look at the dice, ask for a hint, take a move back.
-5. Tomorrow: the GYM's Report card lists the four board ratings.
+5. Tomorrow: the GYM's Report card lists the six board ratings (four from Games 5, poker and WORDS from Games 6).
 
 ## THE WORKING ENGINE (the engine turns, every part named)
 1. Type your plate, SHOW ME, "open the bonnet", then LIFT THE COVER: the engine turns.
@@ -161,7 +160,7 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 5. On any reply tap THAT FELT OFF, then find it under SYSTEM, HEALTH.
 
 ## PRESENTATIONS (slides, notes, PowerPoint in and out)
-1. MAKE, PRESENTATIONS: START FROM A REPORT on a report you have.
+1. MAKE, EDITORS, PRESENTATIONS: START FROM A REPORT on a report you have.
 2. Tap a slide, change its words; change the theme: every slide repaints.
 3. INSERT a photo on one slide and a chart on another; move a slide; delete one and UNDO.
 4. NOTES on a slide, then PRESENT: your notes and the next title in your hand.
@@ -213,7 +212,7 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 1. PHOTO, SUBJECT on a mug: the first cut; GET the cut-out model (about 19 MB, Wi-Fi): the cut again.
 2. ERASE: GET the erase model (about 70 MB), brush over a mark: gone?
 3. Share a RAW or DNG from a camera: it opens; EXPORT ORIGINAL gives it back.
-4. Settings, offline packs: REMOVE the cut-out model.
+4. Settings, OFFLINE EYES: REMOVE the cut-out model.
 5. Aeroplane mode: GET waits and says so.
 
 ## VIDEO (a video editor on the phone)

@@ -5,6 +5,7 @@
  * no DMs); his home timeline and a search read with authors and times; the server's own rate limits said in plain words;
  * an APPROVE sent twice can never post twice (Mastodon keeps the draft's id as its Idempotency-Key).
  */
+import { unsafeUrl } from '../netguard';
 import { notLinked, type Draft, type FeedPost } from '../../../../packages/shared/src/social';
 import { imageBytes } from '../lens';
 import type { AccountApi, SocialDeps } from './index';
@@ -35,7 +36,8 @@ async function load(d: SocialDeps): Promise<Saved | null> {
 /** "mastodon.social" from "https://mastodon.social/", "@me@mastodon.social" or "Mastodon.Social"; '' when it is not a host. */
 export function serverOf(v: unknown): string {
   const s = String(v ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^@?[^@\s/]+@/, '').replace(/[/?#].*$/, '');
-  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s) ? s : '';
+  // [security] his token goes to this host: a public name only, never an IP address or a local-network name
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s) && !/^[\d.]+$/.test(s) && !unsafeUrl(`https://${s}/`) ? s : '';
 }
 
 /** "sam@mastodon.social" from "@sam@mastodon.social" or "https://mastodon.social/@sam". */

@@ -6558,6 +6558,56 @@ html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .sca
 #boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
 #boot .g-lock.bsearch { z-index: 3; }
 
+/* ---- THE BODY TRACKERS (FINAL ROUND, BODY lane; features/body/track.ts): water, sleep, steps, weight and mood. The ring,
+   the history's chart and the keys, all in tokens: the accent for what is met, ink for the rest, the line for the goal */
+html .bt .bt-hero { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
+html .bt .bt-ringbox { position: relative; flex: none; width: clamp(112px, 34vw, 150px); aspect-ratio: 1; }
+html .bt .bt-ring { display: block; width: 100%; height: 100%; }
+html .bt .bt-track { fill: none; stroke: var(--g-line-faint); stroke-width: 12; }
+html .bt .bt-fill { fill: none; stroke: var(--g-ink-2); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray var(--g-dur-turn) var(--g-ease-bring); }
+html .bt .bt-fill.met { stroke: var(--g-accent); }
+html .bt .bt-ringmid { position: absolute; inset: 14%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+html .bt .bt-ringbig { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; line-height: 1.1; }
+html .bt .bt-ringsmall { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bt-herotext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .bt .bt-line { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bt-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .bt .bt-hist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .bt .bt-chartbox { min-width: 0; }
+html .bt .bt-chart { display: block; width: 100%; height: 120px; }
+html .bt .bt-bar { fill: var(--g-ink-3); }
+html .bt .bt-bar.met { fill: var(--g-accent); }
+html .bt .bt-goal { stroke: var(--g-ink-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+html .bt .bt-days { display: grid; gap: 0; min-width: 0; }
+html .bt .bt-days small { text-align: center; font: var(--g-t-fine); color: var(--g-ink-3); min-width: 0; white-space: nowrap; }
+html .bt .bt-cups { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+html .bt .bt-cups button { min-height: 56px; }
+html .bt .bt-cup { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+html .bt .bt-cup small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bt-moods { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+html .bt .bt-entry { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .pkitem button, html .bt .pkadd button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .bt .bt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt select { min-height: var(--g-target); width: 100%; }
+html .bt .pkfield label { font: var(--g-t-caption); color: var(--g-ink-3); }
+@media (prefers-reduced-motion: reduce) { html .bt .bt-fill { transition: none; } }
+/* ---- THE PANTRY AND THE RECIPE BOOK (features/kitchen/larder.ts) */
+html .kl .kl-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .kl .kl-title { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-name { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; text-align: left; }
+html .kl .kl-name small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .kl .kl-soon .kl-name small, html .kl .kl-past .kl-name small { color: var(--g-amber); }
+html .kl .kl-got .kl-name small { color: var(--g-accent-text); }
+html .kl .pkitem button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .kl .kl-book .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; padding-top: var(--g-s-1); padding-bottom: var(--g-s-1); }
+html .kl .kl-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .kl select, html .kl input[type=date], html .kl textarea { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .kl .kl-serves { align-items: center; }
+html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-value); color: var(--g-ink-1); }
+html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .pkfield label { overflow-wrap: anywhere; }
+
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
    jump bar, the stamp and the page's name, a room, Every screen and Settings, drawn in THE SCAN's language. On while the world is The
@@ -9385,6 +9435,47 @@ html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overfl
 html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore summary, html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore .pknote { color: var(--g-ink-2); }
 /* ---- end POLISH 3 ---- */
 html .watchers .wrow .k { flex: none; min-width: 58px; }
+/* [moneylane] THE MONEY APP (features/money/app.ts): the month, budgets, bills and trends. Tokens only: no hex, no rgba, no px radius. */
+.mnapp { gap: 12px; }
+.mnnav { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mnnav b { flex: 1 1 auto; min-width: 0; text-align: center; font: var(--g-t-head); color: var(--fg); overflow-wrap: anywhere; }
+.mnnav.mnhead b { text-align: left; }
+.mnnav button { flex: none; min-width: 44px; min-height: 44px; }
+.mnfigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
+.mnfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
+.mnfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
+.mnfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnfig[data-tone="ok"] .mnval { color: var(--ok); }
+.mnfig[data-tone="over"] .mnval { color: var(--g-red); }
+.mnhow { display: block; font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnmeter { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mnline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+.mnline b { font: var(--g-t-head); color: var(--fg); min-width: 0; overflow-wrap: anywhere; }
+.mnline span { font: var(--g-t-reading); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnbar { position: relative; height: 8px; border-radius: var(--g-radius-capsule); background: var(--fill2, var(--fill)); overflow: hidden; }
+.mnbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); border-radius: var(--g-radius-capsule); }
+.mnmeter[data-tone="ok"] .mnbar i { background: var(--ok); }
+.mnmeter[data-tone="soft"] .mnbar i { background: var(--amber, var(--c)); }
+.mnmeter[data-tone="over"] .mnbar i { background: var(--g-red); }
+.mnmeter .pkrow button { flex: 0 1 auto; }
+.mnsearch, .mnamount, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
+.mnsearch { width: 100%; }
+.mnamount { flex: 1 1 120px; }
+.mnselect { flex: 1 1 160px; }
+.mntxn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; border-radius: var(--g-radius-cell); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--fg); }
+.mnwhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.mnwhat b { font: var(--g-t-head); overflow-wrap: anywhere; }
+.mnwhat small { font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnamt { flex: none; font: var(--g-t-reading); font-variant-numeric: tabular-nums; }
+.mnamt[data-tone="in"] { color: var(--ok); }
+.mndue { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.mnchips button { flex: 0 1 auto; min-height: 44px; }
+.mnup { color: var(--amber, var(--fg)); }
+html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
+html body .mnnav button { min-width: var(--g-target, 44px) !important; }
+/* [moneylane] the to-do list in a good to-do app's order (features/work/sheet.ts): the group heads, a late job in the warning colour */
+.pkitems .pktodohead { list-style: none; margin: 10px 0 2px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); overflow-wrap: anywhere; }
+.pkitems .pkitem.late label { color: var(--amber, var(--fg)); }
 /* ===== FINAL ROUND · THE LEARN LANE (13 Nov): every key 44 pt on the reader, rehearse, the lab and the interpreter; at the
    biggest text (BODY 21) the GYM's card names wrap instead of being cut with an ellipsis. Tokens only. */
 html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */

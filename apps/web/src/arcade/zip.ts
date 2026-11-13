@@ -84,10 +84,29 @@ export function crc32(data: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+/** [security] Inflated to the size the archive claims and no further (a bomb's stream is cut off, never held whole). */
+async function inflateRaw(data: Uint8Array, max: number): Promise<Uint8Array> {
   if (typeof DecompressionStream === 'undefined') throw new Error('this browser cannot unpack the download (no DecompressionStream)');
-  const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const reader = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const r = await reader.read();
+    if (r.done) break;
+    parts.push(r.value);
+    size += r.value.length;
+    if (size > max) {
+      reader.cancel().catch(() => undefined);
+      throw new Error('the archive unpacks bigger than it says');
+    }
+  }
+  const out = new Uint8Array(size);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
 }
 
 /** One member's bytes, checked against its size and CRC-32. */
@@ -98,7 +117,7 @@ export async function zipRead(buf: Uint8Array, e: ZipEntry): Promise<Uint8Array>
   if (raw.length !== e.csize) throw new Error(`the archive is cut short (${e.name})`);
   let out: Uint8Array;
   if (e.method === 0) out = raw.slice();
-  else if (e.method === 8) out = await inflateRaw(raw);
+  else if (e.method === 8) out = await inflateRaw(raw, Math.min(e.usize, 512 * 1024 * 1024)); // [security] the claim, and never past 512 MB
   else throw new Error(`${e.name} is packed in a way this reader does not know (method ${e.method})`);
   if (out.length !== e.usize || crc32(out) !== e.crc) throw new Error(`${e.name} did not unpack whole (size or CRC-32 differs)`);
   return out;

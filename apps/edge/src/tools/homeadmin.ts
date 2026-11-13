@@ -144,7 +144,7 @@ const bills: ActionFn = async (a, d) => {
   const words = wordsOf(a);
   const today = todayOf(d);
   const list = await billsOf(d);
-  if (!list.length) return { text: 'No bills kept yet. Photograph one in the HOME sheet (or paste its text) and I keep the supplier, the amount and the day it is due.', open: sheet('bills') };
+  if (!list.length) return { text: 'No bills kept yet. Photograph one in the HOUSEHOLD sheet (or paste its text) and I keep the supplier, the amount and the day it is due.', open: sheet('bills') };
   if (/\bhow much\b|\btotal\b|\bspent\b|\bcost\b/i.test(words)) {
     const t = billTotal(list, words, arg.str(a, 'year', false) || today.slice(0, 4));
     if (!t) return { text: `I have no bills like that for ${today.slice(0, 4)}. I only know the ones you showed me (${list.length} kept).` };
@@ -256,7 +256,7 @@ const manual: ActionFn = async (a, d) => {
     return { text: left.length < saved.length ? 'Forgot that manual link.' : 'Which model? Say “forget the manual for SMS24AW01G”.' };
   }
   if (!dev.model) {
-    return { text: saved.length ? `Manuals you saved (links to the maker’s own pages):\n${saved.map((m) => `- ${m.name}: ${m.url}`).join('\n')}` : 'I need the model number: it is on the rating plate (inside the door, on the back or underneath, after “Model”, “Type” or “E-Nr”). Photograph it in the HOME sheet or say it, like “manual for Bosch dishwasher SMS24AW01G”. I save the maker’s own page as a link, never a copy.' };
+    return { text: saved.length ? `Manuals you saved (links to the maker’s own pages):\n${saved.map((m) => `- ${m.name}: ${m.url}`).join('\n')}` : 'I need the model number: it is on the rating plate (inside the door, on the back or underneath, after “Model”, “Type” or “E-Nr”). Photograph it in the HOUSEHOLD sheet or say it, like “manual for Bosch dishwasher SMS24AW01G”. I save the maker’s own page as a link, never a copy.' };
   }
   const have = saved.find((m) => m.model === dev.model);
   if (have) return { text: `Saved already: ${have.name} — “${have.title}” on ${have.host}: ${have.url}`, data: { manual: have } };
@@ -480,7 +480,7 @@ const meter: ActionFn = async (a, d) => {
   };
   if (!text.trim() || !/\d{3}/.test(text.replace(/\s/g, ''))) {
     const kinds = Object.keys(all);
-    return { text: kinds.length ? kinds.map(say).join('\n') : 'No readings kept. Photograph the meter in the HOME sheet and I read the dial; I keep the reading and the day, and tell you the usage between readings.', open: kinds.length ? undefined : sheet('meter') };
+    return { text: kinds.length ? kinds.map(say).join('\n') : 'No readings kept. Photograph the meter in the HOUSEHOLD sheet and I read the dial; I keep the reading and the day, and tell you the usage between readings.', open: kinds.length ? undefined : sheet('meter') };
   }
   const r = readMeter(text);
   if (!r) return { text: 'I couldn’t read a number off that. Try a closer, straighter photo of the dial, or type the reading.' };
@@ -571,10 +571,10 @@ const things: ActionFn = async (a, d) => {
   }
   const rooms = [...new Set(all.map((t) => t.room))];
   const total = all.reduce((s, t) => s + (t.value ?? 0) * t.qty, 0);
-  if (!all.length) return { text: 'Nothing kept yet. Say “in the living room: a 55 inch TV worth £400, 2 armchairs”, or photograph a room in the HOME sheet and confirm what I see.', open: sheet('things') };
+  if (!all.length) return { text: 'Nothing kept yet. Say “in the living room: a 55 inch TV worth £400, 2 armchairs”, or photograph a room in the HOUSEHOLD sheet and confirm what I see.', open: sheet('things') };
   const csv = inventoryCsv(all);
   return {
-    text: `${said}${rooms.map((r) => `${r}: ${all.filter((t) => t.room === r).map((t) => `${t.qty > 1 ? `${t.qty} ` : ''}${t.name}`).join(', ')}`).join('\n')}\n${all.length} things in ${rooms.length} room${rooms.length === 1 ? '' : 's'}; ${total ? `${pounds(total)} where you gave a value` : 'no values given yet (an insurer wants them)'}.${wantsCsv ? ' The CSV is ready to copy or download in the HOME sheet.' : ' Say “export it for my insurer” for a CSV.'}`,
+    text: `${said}${rooms.map((r) => `${r}: ${all.filter((t) => t.room === r).map((t) => `${t.qty > 1 ? `${t.qty} ` : ''}${t.name}`).join(', ')}`).join('\n')}\n${all.length} things in ${rooms.length} room${rooms.length === 1 ? '' : 's'}; ${total ? `${pounds(total)} where you gave a value` : 'no values given yet (an insurer wants them)'}.${wantsCsv ? ' The CSV is ready to copy or download in the HOUSEHOLD sheet.' : ' Say “export it for my insurer” for a CSV.'}`,
     data: { things: all, csv },
   };
 };

@@ -48,6 +48,7 @@ import { addDays, daysBetween, listWords, moneyIn, pounds, prettyDay, shortId } 
 import { monthName } from '../../../../packages/shared/src/spending';
 import { getJson, getText, load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
 import { notSavedYet, savedPlace } from '../places';
+import { unsafeUrl } from '../netguard';
 import { monthMoves, spendingSummary } from '../spending';
 import { addJob } from '../schedule';
 import { fromZoned } from '../time';
@@ -61,7 +62,7 @@ const MAX_SPENT = 500;
 export const MONEY_WHEN =
   /\b(budgets?|spent|spend|spending|money|fuel|petrol|diesel|unleaded|prices?|cheaper|price (?:drop|watch)|watch (?:the |this |that )?price|subscriptions?|renews?|renewal|split|round ?ups?|pay ?day|paid on the|what if i (?:save|put)|save \d|savings?|warrant(?:y|ies)|guarantee|statements?|mpg|trip cost|cost to drive)\b/i;
 export const MONEY_ABOUT =
-  'You can keep his money (money: month, spent, week, fuel, trip, watch, unwatch, subs, split, roundup, payday, whatif, warranty): fuel near a SAVED place only; no bank, nothing billed.';
+  'You can track his money (money: month, spent, week, fuel, trip, watch, unwatch, subs, split, roundup, payday, whatif, warranty): fuel near a SAVED place only; no bank, nothing billed.';
 
 // ---------------------------------------------------------------- the actions
 
@@ -159,7 +160,7 @@ const watch: ActionFn = async (a, d) => {
   const url = arg.str(a, 'url', false).trim() || (/https?:\/\/\S+/.exec(wordsOf(a))?.[0] ?? '');
   const list = await priceWatches(d);
   if (!url) return { text: list.length ? `Watching ${list.length}: ${list.map((w) => `${w.label} ${pounds(w.last.price ?? 0)}`).join('; ')}.` : 'Not watching any prices. Send me a product page and say "watch the price".' };
-  if (!/^https:\/\//i.test(url)) return { text: 'Send the page’s full https:// address and I’ll watch it.' };
+  if (!/^https:\/\//i.test(url) || unsafeUrl(url)) return { text: 'Send the page’s full https:// address and I’ll watch it.' };
   const bad = whyNot(url);
   if (bad) return { text: bad };
   const all = await loadWatchers(d.storage);

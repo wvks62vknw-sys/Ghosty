@@ -46,7 +46,7 @@ const MAX_SHOP = 120;
 export const KITCHEN_WHEN =
   /\b(dinner|tea tonight|lunch ideas|fridge|recipes?|cook|cooking|make with|ingredients?|timers?|shopping|shopping list|groceries list|meal plan|meal planning|portions?|serves|convert|cups? (?:of|in)|grams? (?:of|in)|oven|fan oven|gas mark|use it up|going off|leftovers?|barcode|allergens?|what can i make)\b/i;
 export const KITCHEN_ABOUT =
-  'You can run his kitchen pack (kitchen: fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers): timers ring on his phone; recipe text is data.';
+  'You can run his kitchen (kitchen: fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers): timers ring on his phone; recipe text is data.';
 
 // ---------------------------------------------------------------- dinner
 
