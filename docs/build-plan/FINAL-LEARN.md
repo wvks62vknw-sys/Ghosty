@@ -67,6 +67,7 @@ better ever sat a paper, even with signal.
   - REMOVE works from any way in.
   - No raw study error, and its colours are tokens.
   - EXPORT and READ MY OWN CODE name what failed.
+  - A PDF printed from a browser was shelved under "about:blank" (or its web address). It now takes the file's name.
   - FRESH TODAY says you're offline instead of telling you to tap a key that is switched off.
   - The self-study switch keeps the panel when it fails.
   - The reader's screen-lock line keeps no promise it can't keep.
