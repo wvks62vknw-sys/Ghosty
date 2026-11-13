@@ -17,7 +17,7 @@ import { ROOMS, roomOf, thingOf } from './rooms';
 import { nearestRoom } from './near';
 import { roomWord, thingForNumber, worksLine } from './inventory';
 import { ui } from '../state/app';
-import { jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
+import { allCommands, jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
 import { sayError } from '../ui/hisWords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -119,7 +119,16 @@ function draw(ctx: JumpCtx): number {
   }
   // a number said or typed is the thing it means where he is ("two" in a room)
   const num = thingForNumber(q, ui.get().tab);
-  const hit = num?.screen ? items.findIndex((c) => c.id === `tab_${num.screen}`) : -1;
+  let hit = num?.screen ? items.findIndex((c) => c.id === `tab_${num.screen}`) : -1;
+  // (the rows are ranked by their words, and a lone digit can rank other screens above the one the number means, or leave it out:
+  // "2" in LEARN is Games, whatever else has a 2 in its words. Its row is put at the head of the palette's own list, which a tap reads.)
+  if (num?.screen && hit < 0) {
+    const c = allCommands().find((x) => x.id === `tab_${num.screen}`);
+    if (c) {
+      items.unshift(c);
+      hit = 0;
+    }
+  }
   // the find: the first screen ranked (the bar's own order); else the first row that is not a question to me
   let at = hit >= 0 ? hit : items.findIndex((c) => !!screenOf(c));
   if (at < 0) at = items.findIndex((c) => c.group !== 'ASK');
