@@ -69,7 +69,19 @@ export interface CardDeps {
 
 const day = (): string => isoDay(new Date());
 
-export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void } {
+/** A job by his words (vision/tags.ts lensWord): the card it belongs to, the key it presses, and what is said when there is none. */
+export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy', { jobs: string[]; key: string; done: string; none: string }> = {
+  solve: { jobs: ['sum'], key: 'COPY ANSWER', done: 'It’s worked out on the card.', none: 'I don’t see a sum yet. Hold the page still.' },
+  call: { jobs: ['phone', 'code'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
+  agenda: { jobs: ['date'], key: 'ADD TO AGENDA', done: 'Putting it in your agenda.', none: 'I don’t see a date yet.' },
+  map: { jobs: ['address'], key: 'ON THE MAP', done: 'Finding it on the map.', none: 'I don’t see an address yet.' },
+  species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
+  place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
+  aloud: { jobs: ['text', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
+  copy: { jobs: ['text', 'phone', 'link', 'email', 'letter', 'sum'], key: 'COPY', done: 'Copied.', none: 'I don’t see anything to copy yet.' },
+};
+
+export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string } {
   const el = h('div.lenscards', { role: 'region', 'aria-label': 'What I understand', 'aria-live': 'polite' });
   let sig = '';
   let last: CardInput | null = null;
@@ -153,7 +165,11 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
         const j = (await r.json().catch(() => null)) as LookupResult | null;
         products.set(code, r.ok && j && j.kind !== 'unknown' && j.title ? j : 'unknown');
       })
-      .catch(() => products.set(code, 'failed'))
+      .catch(() => {
+        products.set(code, 'failed');
+        // a lookup the signal failed is tried again the next time the code is in view, half a minute on
+        setTimeout(() => products.get(code) === 'failed' && products.delete(code), 30_000);
+      })
       .finally(() => {
         productBusy = '';
         sig = '';
@@ -308,6 +324,23 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   return {
     el,
     update,
+    /** Do a card's job by his words: the first card of its jobs that has the key (a sum is shown worked already: saying so is the job). */
+    press(word) {
+      const w = CARD_WORDS[word];
+      for (const job of w.jobs) {
+        const k = [...el.querySelectorAll<HTMLElement>(`.lenscard[data-job="${job}"] .lc-keys > *`)].find((x) => (x.textContent ?? '').trim().startsWith(w.key));
+        if (k) {
+          if (word !== 'solve') k.click();
+          if (word === 'solve') {
+            const c = k.closest('.lenscard');
+            const steps = [...(c?.querySelectorAll('.lc-steps li') ?? [])].map((x) => x.textContent).join('; ');
+            return `${steps}. So it’s ${(c?.querySelector('.lc-answer')?.textContent ?? '').replace(/^= /, '')}.`;
+          }
+          return w.done;
+        }
+      }
+      return w.none;
+    },
     clear() {
       sig = '';
       last = null;

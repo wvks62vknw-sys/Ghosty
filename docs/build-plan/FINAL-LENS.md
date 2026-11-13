@@ -44,8 +44,20 @@ WI-FI)". It downloads on his tap only. Then the line says "Waking the eyes…", 
 - "No signal. I still read words, codes and things on this phone; translations, products, species and places wait for a signal." with no signal.
 
 **Keys kept to a minimum.** The bar is still four keys: START, FLIP, FREEZE (the one shutter that holds a moment) and MORE. MORE
-opens the tools and acts, which is how he tells it to do something else instead. The words work too ("read that", "translate
-it", "measure it").
+opens the tools and acts, which is how he tells it to do something else instead.
+
+The words work too, while the Lens is on screen. These were there before: "read that", "translate it", "measure it".
+
+These are new, each in more than one wording:
+
+- "solve that", "work it out" and "what's the answer" (it says the working);
+- "call that number" and "ring it";
+- "add that to my agenda" and "put this date in my diary";
+- "show that on the map";
+- "what species is that" and "what bird is this";
+- "what building is that";
+- "read it aloud";
+- "copy that".
 
 **Free sources only.** The phone's own eyes come first: the text check, the barcode reader, the object finder and the namer, all from
 the OFFLINE EYES packs. After that the Lens uses only the brain's free, keyless routes:

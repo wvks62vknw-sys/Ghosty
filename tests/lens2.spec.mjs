@@ -12,6 +12,7 @@
 //   A THING  named with how sure; MEASURE IT opens the measure
 //   LIVING   a robin: WHICH SPECIES takes the picture to NAME (the free model that sees), on his tap only
 //   A PLACE  a clock tower: WHAT PLACE IS THIS names it (the free model that sees) with its encyclopedia summary
+//   VOICE    "call that number" and "solve that" do the cards' jobs by his words
 //   FACES    someone he introduced by the name he gave; a stranger said plainly, never named
 //   LAYOUT   every key 44 pt both ways, nothing sideways, no card's words cut
 // The bar keeps its four keys (START, FLIP, FREEZE as the shutter, MORE for "do something else instead").
@@ -188,6 +189,9 @@ async function run(viewport, all) {
   await keyIn('link', 'OPEN').click();
   check((await page.evaluate(() => window.__opened)).includes('https://www.example.org'), `${T} [link] OPEN did not open https://www.example.org`);
   check((await keyIn('email', 'WRITE').getAttribute('href')) === 'mailto:hello@example.org', `${T} [email] WRITE does not write to hello@example.org`);
+  // by his words, with the Lens on screen: "call that number" calls it
+  await page.evaluate(() => window.__ghosty.send('call that number'));
+  await until(() => window.__opened.includes('tel:01214960123'), null, 5000, '[voice] "call that number" did not call it');
   await layout('text');
   await page.screenshot({ path: `${out}/lens2-text-${viewport.width}.png`, fullPage: false });
   await keyIn('address', 'ON THE MAP').click();
@@ -205,6 +209,9 @@ async function run(viewport, all) {
   const sums = await page.evaluate(() => [...document.querySelectorAll('#pg-lens .lenscard[data-job="sum"]')].map((c) => ({ steps: [...c.querySelectorAll('.lc-steps li')].map((l) => l.textContent), answer: c.querySelector('.lc-answer')?.textContent })));
   check(sums[0]?.steps.join(' | ') === '7 × 3 = 21 | 12 + 21 = 33' && sums[0]?.answer === '= 33', `${T} [sum] 12 + 7 × 3 worked as ${JSON.stringify(sums[0])}`);
   check(sums[1]?.steps.join(' | ') === '2x = 11 − 3 = 8 | x = 8 ÷ 2 = 4' && sums[1]?.answer === 'x = 4', `${T} [sum] 2x + 3 = 11 worked as ${JSON.stringify(sums[1])}`);
+  // "solve that": the working, said
+  await page.evaluate(() => window.__ghosty.send('solve that'));
+  await until(() => /^7 × 3 = 21; 12 \+ 21 = 33\. So it’s 33\.$/.test(window.__ghosty.one.said), null, 5000, `[voice] "solve that" said "${await page.evaluate(() => window.__ghosty.one.said)}"`);
   await layout('sum');
   await letGo();
   await reset();

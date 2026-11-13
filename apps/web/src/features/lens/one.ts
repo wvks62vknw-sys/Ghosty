@@ -1401,7 +1401,12 @@ export function createOneMode(L: LensContext): Mode {
       return line;
     }
     if (w === 'translate') return translateWord();
-    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy') {
+      const line = cards.press(w);
+      say(line);
+      return line;
+    }
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },

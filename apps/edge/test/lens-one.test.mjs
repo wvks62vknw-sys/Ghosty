@@ -485,3 +485,8 @@ test('a sum is worked the way it is taught: brackets, powers, × and ÷, + and �
   assert.equal(F.solve('hello world'), null);
   assert.equal(F.solve('42'), null, 'a lone number is no sum');
 });
+
+test('the jobs of the cards by his words, in more than one wording (and nothing else taken for them)', () => {
+  for (const [w, want] of [['solve that', 'solve'], ['work it out', 'solve'], ["what's the answer", 'solve'], ['call that number', 'call'], ['ring it', 'call'], ['add that to my agenda', 'agenda'], ['put this date in my diary', 'agenda'], ['show that on the map', 'map'], ['where is that address', 'map'], ['what species is that', 'species'], ['what bird is this', 'species'], ['what kind of plant is that', 'species'], ['what building is that', 'place'], ['which painting is this', 'place'], ['read it aloud', 'aloud'], ['read that out loud', 'aloud'], ['copy that', 'copy'], ['copy this number', 'copy']]) assert.equal(F.lensWord(w), want, w);
+  for (const w of ['do it', 'call mum', 'play music', 'what is the time', 'show me the map']) assert.equal(F.lensWord(w), null, w);
+});
