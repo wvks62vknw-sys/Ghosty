@@ -58,7 +58,8 @@ better ever sat a paper, even with signal.
 - **Interpreter.** The whole conversation stays on screen. A translated line is a key that says it again for the other person.
   A browser that can't hear opens the typing line instead of showing a dead key. "One moment: still translating" is said. A
   failure is shown on the half it came from.
-- **GYM.** It no longer contradicts itself and no longer shows raw worker text. An empty secret is said beside the box. The
+- **GYM.** It says "Reading what I've learned…" while your records load, so they never look wiped. KEEP AWAKE says when the
+  phone refuses. It no longer contradicts itself and no longer shows raw worker text. An empty secret is said beside the box. The
   rated chess keys work after a game, and RATE ME says when it fails. Card names wrap at the biggest text.
 - **Arcade.** PAUSE gets you out of a slow start. A failed start shows the way back. A failed delete and an unreadable MY GAMES
   are said.
@@ -112,8 +113,6 @@ better ever sat a paper, even with signal.
 - The GYM's TIME IT line says "Training on the graphics chip". The timing does run there, but the long training runs on the
   processor. That line is locked by the phone-hardware spec, so I left it.
 - These were found and not done:
-  - The GYM has no "reading what I've learned…" line while its saved records load. For a moment they look empty.
-  - KEEP AWAKE in the GYM does not flip back when the phone refuses.
   - Rehearse keeps your rehearsals but has no list to reread them.
   - The interpreter has no copy key.
   - The first photo read in learning loads its reading model without saying the size. It comes from Ghosty's own site, on

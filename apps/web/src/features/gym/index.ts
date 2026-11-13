@@ -888,6 +888,8 @@ export const gymTab: TabDef = {
           (e: unknown) => {
             locking = false;
             note(sayError(e, 'keep the screen awake'));
+            // (the phone said no: the switch says so under its name, rather than staying on as if it worked)
+            awakeSw.set(prefs.awake, true, `${sayError(e, 'keep the screen awake')} Plug the phone in and keep it open instead.`);
           },
         );
       } else if (!wantAwake() && lock) {
@@ -1449,6 +1451,8 @@ export const gymTab: TabDef = {
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)
     const fresh = { ...prefs };
+    // (until his records are read the cards are not yet his: said, never shown as wiped)
+    P.sub.textContent = 'Reading what I’ve learned…';
     ready = Promise.all([store.loadAll(), store.loadPrefs(), store.loadJournal()]).then(([all, kept, jr]) => {
       // (a game finished while this was loading is kept too)
       journal = { c4: [...jr.c4, ...journal.c4], seen: jr.seen ?? null };
