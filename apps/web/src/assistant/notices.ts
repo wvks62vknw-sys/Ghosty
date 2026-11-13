@@ -115,9 +115,6 @@ function turn(): Promise<boolean> {
   });
 }
 
-/** [lifeeasier] A quiet moment for something said by itself (the Brief read aloud on the first open): true at the next one, false when none comes in half a minute. */
-export const whenQuiet = (): Promise<boolean> => turn();
-
 /** A notice to be read out: queued behind whatever is being said, and said at the next quiet moment. */
 function say(text: string): void {
   queue.push(text);

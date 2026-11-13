@@ -14,7 +14,6 @@ import {
   isCategory,
   modelAsk,
   monthView,
-  nudges,
   parseBudget,
   PRIVACY,
   readModelAnswer,
@@ -205,7 +204,7 @@ export async function setBudget(storage: DurableObjectStorage, b: { words?: stri
 }
 
 /** Everything the card shows for a month (default: the latest month on a statement). */
-export async function spendingSummary(storage: DurableObjectStorage, month?: string | null, today?: string | null): Promise<SpendingSummary> {
+export async function spendingSummary(storage: DurableObjectStorage, month?: string | null): Promise<SpendingSummary> {
   const idx = await loadIndex(storage);
   const rows = await allRows(storage, idx);
   const latest = idx.months[idx.months.length - 1] ?? '';
@@ -224,8 +223,6 @@ export async function spendingSummary(storage: DurableObjectStorage, month?: str
     subscriptions: findSubscriptions(rows),
     budgets: Object.entries(idx.budgets).map(([c, v]) => budgetStatus(c as Category, v!, rows, m)),
     rows: rows.filter((r) => r.d.startsWith(m)).reverse(),
-    // [lifeeasier] today's nudges, in his own day (the phone says which); from the rows kept and nothing else
-    nudges: nudges(rows, Object.entries(idx.budgets).map(([c, v]) => ({ category: c as Category, monthly: v! })), today && /^\d{4}-\d{2}-\d{2}$/.test(today) ? today : new Date().toISOString().slice(0, 10)),
   };
 }
 
@@ -267,7 +264,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 export async function spendingRoute(req: Request, path: string, method: string, url: URL, deps: SpendingDeps): Promise<Response> {
   const { storage } = deps;
   try {
-    if (path === '/profile/spending' && method === 'GET') return json(await spendingSummary(storage, url.searchParams.get('month'), url.searchParams.get('today')));
+    if (path === '/profile/spending' && method === 'GET') return json(await spendingSummary(storage, url.searchParams.get('month')));
     if (path === '/profile/spending/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { csv?: unknown; rulesOnly?: unknown };
       const csv = typeof b.csv === 'string' ? b.csv : '';

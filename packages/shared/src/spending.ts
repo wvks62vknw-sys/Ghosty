@@ -516,84 +516,6 @@ export function changes(rows: SpendRow[], month: string): { lines: string[]; mov
   return { lines, moves };
 }
 
-// ---- Nudges (BRIEF-OCT-IDEAS-2 4): from the statements he added and nothing else.
-
-/** One fact worth a line, said once: a renewal this week, a price that went up, the month running hot. */
-export interface Nudge {
-  /** Steady for the same fact ("renew:netflix:2026-11-14"): said once per fact, wherever it is said. */
-  id: string;
-  kind: 'renew' | 'price' | 'hot';
-  line: string;
-}
-
-const dayOfMonth = (d: string) => +d.slice(8, 10);
-const daysIn = (month: string) => new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
-const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const nextMonth = (month: string) => (+month.slice(5, 7) === 12 ? `${+month.slice(0, 4) + 1}-01` : `${month.slice(0, 4)}-${pad2(+month.slice(5, 7) + 1)}`);
-/** "Friday 14 November". */
-const spokenDay = (d: string) => `${WEEKDAYS[new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10))).getUTCDay()]} ${+d.slice(8, 10)} ${monthName(d.slice(0, 7))}`;
-
-/**
- * What the statements say is worth a line today (`today`: "2026-11-11", his own day):
- *  - a subscription renewing this week: the same merchant, out, on the same day of the month in each of the last two months, and
- *    its next one falling in the coming seven days (today counts);
- *  - a price that went up: a charge within the last 45 days above the old price that the merchant had been paid twice, a month (or a year) apart;
- *  - the month running hot: money out so far this month at least a seventh over the same day last month (and £25 more), else a
- *    budget most of the way gone well before the month is.
- * Said in his words, with honest numbers (pence on a price, whole pounds on a month); nothing is guessed that the rows do not show.
- */
-export function nudges(rows: SpendRow[], budgets: { category: Category; monthly: number }[], today: string): Nudge[] {
-  const out: Nudge[] = [];
-  const by = new Map<string, SpendRow[]>();
-  for (const r of rows) if (r.a < 0 && r.c !== 'cash' && r.c !== 'income') by.set(r.k, [...(by.get(r.k) ?? []), r]);
-  for (const [k, list0] of by) {
-    const list = [...list0].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
-    const last = list[list.length - 1]!;
-    const before = list[list.length - 2];
-    if (!before) continue;
-    const cents = (r: SpendRow) => Math.round(-r.a * 100);
-    // a renewal this week: the same day of the month in each of the last two months, at about the same price (a shop he visits on the
-    // same day each month at four times the money is not a subscription)
-    const m1 = last.d.slice(0, 7);
-    const sameDay = dayOfMonth(before.d) === dayOfMonth(last.d) && prevMonth(m1) === before.d.slice(0, 7);
-    const alike = Math.abs(cents(last) - cents(before)) <= Math.max(cents(before), cents(last)) * 0.25;
-    if (sameDay && alike) {
-      const m = nextMonth(m1);
-      const due = `${m}-${pad2(Math.min(dayOfMonth(last.d), daysIn(m)))}`;
-      const away = dayNo(due) - dayNo(today);
-      if (away >= 0 && away <= 6) out.push({ id: `renew:${k}:${due}`, kind: 'renew', line: `${title(k)} renews on ${spokenDay(due)}: about ${gbp(-last.a, true)}${cents(last) === cents(before) ? ', the same as last time' : ''}.` });
-    }
-    // a price that went up: the old price paid at least twice, then a dearer one (never more than double: that is a different bill), a month
-    // or a year on, within the last 45 days
-    const older = list[list.length - 3];
-    if (older && cents(before) === cents(older) && cents(last) > cents(before) && cents(last) <= cents(before) * 2 && cadenceOf([older.d, before.d, last.d]) && dayNo(today) - dayNo(last.d) <= 45) {
-      out.push({ id: `price:${k}:${last.d}`, kind: 'price', line: `${title(k)} went up: ${gbp(-last.a, true)} against ${gbp(-before.a, true)} last time.` });
-    }
-  }
-  // the month running hot
-  const month = today.slice(0, 7);
-  const prev = prevMonth(month);
-  const n = dayOfMonth(today);
-  const spend = (m: string, upTo: number) => rows.filter((r) => r.a < 0 && r.c !== 'income' && r.d.startsWith(m) && dayOfMonth(r.d) <= upTo).reduce((t, r) => t - r.a, 0);
-  const nowSpend = Math.round(spend(month, n));
-  const was = Math.round(spend(prev, n));
-  if (was >= 50 && nowSpend >= was * 1.15 && nowSpend - was >= 25) {
-    out.push({ id: `hot:${month}`, kind: 'hot', line: `${monthName(month)} is running hot: ${gbp(nowSpend)} out so far, ${gbp(nowSpend - was)} more than by this day in ${monthName(prev)}.` });
-  } else {
-    const elapsed = n / daysIn(month);
-    const worst = budgets
-      .map((b) => budgetStatus(b.category, b.monthly, rows, month))
-      .filter((b) => b.frac >= 0.8 && b.frac > elapsed + 0.15)
-      .sort((a, b) => b.frac - a.frac)[0];
-    if (worst) {
-      const left = daysIn(month) - n;
-      out.push({ id: `hot:${month}:${worst.category}`, kind: 'hot', line: `${cap1(worst.category)} is running hot: ${gbp(worst.spent)} of your ${gbp(worst.monthly)} budget with ${left} day${left === 1 ? '' : 's'} of ${monthName(month)} to go.` });
-    }
-  }
-  return out;
-}
-const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
 // ---- Out again.
 
 /** The rows as CSV (Date, Description, Amount, Category), safe to open in a spreadsheet (no cell starts a formula). */
@@ -640,6 +562,4 @@ export interface SpendingSummary {
   subscriptions: Subscription[];
   budgets: BudgetStatus[];
   rows: SpendRow[];
-  /** [lifeeasier] Today's nudges from the statements (a renewal this week, a price up, the month running hot); absent from an older brain. */
-  nudges?: Nudge[];
 }

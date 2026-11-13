@@ -24,8 +24,6 @@ export interface CardAct {
   ask?: string;
   /** The CAR offer's one tap: that plate's public record. */
   car?: string;
-  /** [lifeeasier] GOT IT: this card is answered for good (its id), and goes from the wall and the conversation. */
-  dismiss?: string;
 }
 
 export interface Card {
@@ -56,8 +54,6 @@ export interface Card {
   brief?: { icon: BriefIcon };
   progress?: { frac: number };
   place?: { label: string; saved: boolean };
-  /** [lifeeasier] A card of several plain lines (WHAT DID I MISS?): one sentence each, under the line, six at most. */
-  lines?: string[];
   /** [social] A draft in the queue (packages/shared/src/social.ts): its words in full, the account, its state. */
   draft?: Draft;
 }
@@ -84,7 +80,6 @@ export function oneLine(s: string, n = 110): string {
 export function card(c: Omit<Card, 'title' | 'line' | 'at'> & { title: string; line: string; at?: number }): Card {
   const out: Card = { ...c, title: shortTitle(c.title), line: oneLine(c.line), at: c.at ?? Date.now() };
   if (out.acts) out.acts = out.acts.slice(0, MAX_ACTS);
-  if (out.lines) out.lines = out.lines.map((l) => oneLine(l, 140)).slice(0, 6);
   return out;
 }
 

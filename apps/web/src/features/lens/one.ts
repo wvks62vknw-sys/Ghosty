@@ -43,7 +43,6 @@ import { detector, nextStamp, type ObjectDetectorLike } from '../../vision/model
 import { go } from '../../shell/tabs';
 import type { LensAsk, LensReply } from '../../workers/lens.worker';
 import type { LensContext, Mode, ModeOpts } from './index';
-import { letterKeys } from './letter';
 import { sayError } from '../../ui/hisWords';
 import { waiting as putUpWait } from '../../ui/wait';
 
@@ -514,13 +513,10 @@ export function createOneMode(L: LensContext): Mode {
       inplace.replaceChildren(h('p.lp-big', ocr.translation), h('p.lp-small', `${ocr.text.replace(/\s+/g, ' ')} · ${ocr.lang.name}`));
       return;
     }
-    const offer = swapped ? null : letterKeys(ocr.text, (t, b) => L.saveNote(t, b, 'scan'));
     plate.replaceChildren(
       h('p.lp-label', swapped ? 'IN ENGLISH' : 'WHAT IT SAYS'),
       h('p.lp-text', ...shown.nodes),
       ...(swapped ? [h('p.lp-small', `${ocr.text.replace(/\s+/g, ' ').slice(0, 160)} · ${ocr.lang.name}`)] : []),
-      // [lifeeasier] a letter or a bill: REMIND (the date found, confirmed in one tap) and FILE (the library, under its sender)
-      ...(offer ? [offer] : []),
     );
     plate.scrollTop = 0;
   };

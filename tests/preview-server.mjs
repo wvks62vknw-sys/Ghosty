@@ -13,7 +13,6 @@ import { guardianFeeds, setGuardMode } from './fixtures/guardian-feeds.mjs';
 import { foresightFeeds, seedLedger, setForeMode } from './fixtures/foresight-feeds.mjs';
 import { resetSocial, socialApis, socialSent } from './fixtures/social-apis.mjs';
 import { houseApi, houseCalls, resetHouse } from './fixtures/house-api.mjs';
-import { setWatcher, watcherPages } from './fixtures/watcher-pages.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -82,9 +81,6 @@ globalThis.fetch = async (input, init) => {
   // Test only: his Home Assistant box, stood in for (tests/fixtures/house-api.mjs): the bridge's every call lands here.
   const house = houseApi(u, init);
   if (house) return house;
-  // Test only: the pages a WATCHER watches (tests/fixtures/watcher-pages.mjs): a made-up shop, status page and notice board.
-  const watched = watcherPages(u);
-  if (watched) return watched;
   const manualSearch = manualsWeb(u);
   if (manualSearch) return new Response(manualSearch, { headers: { 'content-type': 'text/html' } });
   if (u.href === 'https://media3.bosch-home.com/robots.txt') return new Response('', { headers: { 'content-type': 'text/plain' } });
@@ -192,14 +188,6 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
       res.write(lines);
       setTimeout(() => res.end(), hold);
-      return;
-    }
-    // Test only (tests/lifeeasier.spec.mjs): the watched pages' words switched (?price=24.99, ?strike=1, ?notice=2, ?reset=1); and the
-    // brain's WATCHERS forgotten (?forget=1), as a retry on the same brain needs.
-    if (url.pathname === '/__test/watcher') {
-      if (url.searchParams.get('forget') === '1') await state.storage.delete(['watchers:list']);
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(setWatcher(url.searchParams)));
       return;
     }
     // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.

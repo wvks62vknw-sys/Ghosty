@@ -66,12 +66,6 @@ export interface Settings {
   bootScore: boolean;
   /** SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply (show/turn.ts `mayShow`); off, no Stage ever. On by default. */
   showMe: boolean;
-  /** THE HUD TILTS WITH THE PHONE (BRIEF-OCT-IDEAS-1 2; THE LOOK): the Scan's layers follow the phone's tilt and a light follows the touch across a plate. Off until he permits it. */
-  hudTilt: boolean;
-  /** A WORD WHEN I START SOMETHING (BRIEF-OCT-IDEAS-1 5; Settings → Voice): "On it." in my voice when a tap starts work that takes more than a beat (needs Voice on). */
-  sayStart: boolean;
-  /** [lifeeasier] BRIEF-OCT-IDEAS-2 2: the Brief read aloud on the first open of the day (Settings → Voice; off until he turns it on). */
-  briefAloud: boolean;
 }
 
 const tz = (() => {
@@ -104,9 +98,6 @@ export const settings = createStore<Settings>(
     placeSense: true,
     bootScore: true,
     showMe: true,
-    hudTilt: false,
-    sayStart: true,
-    briefAloud: false,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

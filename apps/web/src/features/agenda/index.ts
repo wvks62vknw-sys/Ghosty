@@ -11,7 +11,6 @@ import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/components';
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
-import { watchersPanel } from './watchers';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 
@@ -75,9 +74,7 @@ export const agendaTab: TabDef = {
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
     // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
     const sp = spendingPanel();
-    // [lifeeasier] WATCHERS (watchers.ts) follows SPENDING and so sits under its pill: the pills stay as they were
-    const wp = watchersPanel();
-    P.left.append(ep.el, cp.el, sp.el, wp.el);
+    P.left.append(ep.el, cp.el, sp.el);
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
@@ -373,7 +370,6 @@ export const agendaTab: TabDef = {
       enter() {
         void load();
         void sp.refresh();
-        void wp.refresh();
         void pollInbox();
         timer = window.setInterval(() => void load(), 60_000);
       },

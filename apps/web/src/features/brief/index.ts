@@ -8,15 +8,11 @@ import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '.
 import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
-import { commuteLine, dayName, diarySentence, digestDay, greeting, hhmm, isoDay, leaveFor, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts, type PlaceWords } from './day';
+import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, rainClause, rainWhen, spoken, stillToday, summary, type DayItem, type Facts } from './day';
 import { briefForesight } from './foresight';
 import { briefIndependence } from '../system/independence';
-import { briefNudges } from '../money/nudges';
-import { briefMail } from './mail';
-import { goToPanel } from '../../ui/sections';
 import { onLibraryChange, passagesOf } from '../../library/local';
-import { home, ui } from '../../state/app';
-import { markSeen } from '../core/missed';
+import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 import { rawText } from '../../ui/hisWords';
@@ -40,12 +36,6 @@ export const briefTab: TabDef = {
     // [offline2] the week's independence in one line, when a brain sits on the phone (features/system/independence.ts)
     say.after(briefIndependence());
     let commuteWords = '';
-    // the drive and the work it is to, kept so "leave by" follows whichever of the diary and the drive arrives last
-    let drive: { minutes: number; delayMin: number; live: boolean } | null = null;
-    let workPlace: PlaceWords | null = null;
-    const setCommuteWords = () => {
-      commuteWords = drive ? commuteLine(drive, workPlace && dayItems ? leaveFor(dayItems, workPlace, drive.minutes, Date.now()) : null) : '';
-    };
     // The last weather is kept on the phone (today's only): opened offline, or with Open-Meteo down, the Brief
     // still shows the morning's forecast, marked with when it was fetched, instead of a blank top.
     const KEPT = 'ghosty.brief.wx';
@@ -114,8 +104,7 @@ export const briefTab: TabDef = {
     const paintDay = async () => {
       if (dayItems === null) clear(dp.body, row(null, 'Checking your diary…', null));
       // (the one shared mind: the same picture of today the chat's context is made from)
-      // (and his statements' nudges: a renewal this week, a price up, the month running hot, each said once: money/nudges.ts)
-      const [mind, inbox, money] = await Promise.all([brain.mind().catch(() => null), brain.inbox().catch(() => null), brain.spending(undefined, isoDay(new Date())).catch(() => null)]);
+      const [mind, inbox] = await Promise.all([brain.mind().catch(() => null), brain.inbox().catch(() => null)]);
       const items = mind ? stillToday(mind.today, Date.now()) : null;
       if (!mind || !items) {
         dp.setStatus('CAN’T CHECK', 'mid');
@@ -123,7 +112,6 @@ export const briefTab: TabDef = {
         return;
       }
       dayItems = items;
-      setCommuteWords();
       const open = () => go('agenda');
       const rows = dayItems.slice(0, 5).map((x) => row(x.when, x.title, x.where ?? null, { wrap: true, onClick: open }));
       if (dayItems.length > 5) rows.push(row(null, `${dayItems.length - 5} more today`, '›', { onClick: open }));
@@ -134,21 +122,12 @@ export const briefTab: TabDef = {
       }
       // [packs] the packs' lines (BRIEF-PACKS-1): payday, a renewal tomorrow, a warranty ending, water so far…
       for (const l of mind.packs ?? []) rows.push(row(null, l, null, { wrap: true }));
-      for (const n of briefNudges(money?.nudges ?? [], isoDay(new Date()))) {
-        const r = row('MONEY', n.line, '›', { wrap: true, onClick: () => goToPanel('agenda', 'SPENDING') });
-        r.classList.add('brmoney');
-        r.dataset.nudge = n.kind;
-        rows.push(r);
-      }
       const unread = inbox?.unread ?? 0;
       if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { onClick: open }));
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
       clear(dp.body, ...rows);
       paintSay();
     };
-    // [lifeeasier] EMAIL TRIAGE: "two emails need an answer", with DRAFT on each, only with his own email linked (brief/mail.ts)
-    const mail = briefMail();
-    dp.el.append(mail.el);
     const wp = panel('WEATHER', { cls: 'wx' });
     // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ME → PLACES; until
     // then one line saying where to save them).
@@ -165,7 +144,6 @@ export const briefTab: TabDef = {
         commute.el.hidden = false;
         // Not saved yet: one quiet line on where to save them (he would never find the commute otherwise).
         if (!home || !work) {
-          drive = null;
           commuteWords = '';
           commute.setStatus('');
           return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → Me → Places and the drive to work shows here each morning.`, '›', { wrap: true, onClick: () => go('memory') }));
@@ -173,22 +151,18 @@ export const briefTab: TabDef = {
         // Offline the phone would answer with the last drive it was told (kept for every read): an old "LIVE"
         // time is not this morning's, so say it plainly instead.
         if (navigator.onLine === false) {
-          drive = null;
           commuteWords = '';
           commute.setStatus('OFFLINE', 'off');
           return void clear(commute.body, row('HOME → WORK', 'You’re offline: the drive time comes back with the connection.', null, { wrap: true }));
         }
         commute.setStatus('…', 'mid');
         const c = await brain.commute(home, work);
-        drive = { minutes: c.minutes, delayMin: c.delayMin, live: c.live };
-        workPlace = { label: work.label, query: work.query, address: work.address };
-        setCommuteWords();
+        commuteWords = `${c.minutes} min to work${c.live && c.delayMin >= 5 ? `, ${c.delayMin} min of it traffic` : ''}`;
         paintSay();
         commute.setStatus(c.live ? 'LIVE' : 'NO LIVE TRAFFIC', c.live ? 'ok' : 'mid');
         clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }));
       } catch (e) {
         if (commute.el.hidden) return;
-        drive = null;
         commuteWords = '';
         paintSay();
         const msg = rawText(e);
@@ -280,8 +254,6 @@ export const briefTab: TabDef = {
       }
       ng.set(news.data ?? []);
       np.setStatus(news.status, news.status === 'LIVE' ? 'ok' : 'off');
-      // [lifeeasier] what the Brief is showing him is seen: WHAT DID I MISS? leaves those headlines out (features/core/missed.ts)
-      if (ui.get().tab === 'brief') markSeen(topHeadlines());
     };
     weather.onChange(paintWeather);
     addEventListener('online', paintWeather);
@@ -301,9 +273,7 @@ export const briefTab: TabDef = {
         const g = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;
         if (g) g.brief = { describe };
         void paintDay();
-        void mail.paint();
         void paintCommute();
-        setTimeout(() => ui.get().tab === 'brief' && markSeen(topHeadlines()), 1500);
         void fore.paint();
         weather.start();
         air.start();

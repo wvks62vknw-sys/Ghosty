@@ -5,8 +5,6 @@
  *  - `?open=<screen>&panel=<panel>`: the screen, scrolled to the panel whose title starts so (what the deck's lines do);
  *  - `?say=<words>`: the words in the chat box, sent when they ask something (a question, a look-up), left in the box when
  *    they would start something (a reminder, a message, a purchase, a standing rule, praise: the catalogue's TRY IT rule);
- *  - `?ask=<words>`: "Hey Siri, ask Ghosty …": the dictated words sent as his turn at once, whatever they are (BRIEF-OCT-IDEAS-2 1);
- *  - `?add=<anything shared>`: a link, a page's text or a note, filed into the library (the share sheet's Shortcut; same rule);
  *  - `?do=<command>`: one of the app's own commands: `timer:10m`, `lens:scan`, `open:<screen>`, `arcade`, `sit`, `walkhome`,
  *    `remind:<words>`, `morse`, `wiki:<title>`, `listen` (a conversation, listening the moment Ghosty shows: BRIEF-TALK-1A 6).
  * Only on the owner's own signed-in phone: anyone else's opening of such a link shows the sign-in and runs nothing.
@@ -27,10 +25,6 @@ export type DoCmd =
 export type Link =
   | { kind: 'open'; tab: string; panel?: string }
   | { kind: 'say'; text: string; send: boolean }
-  /** [lifeeasier] Siri's "ask Ghosty …": the words sent as his turn at once. */
-  | { kind: 'ask'; text: string }
-  /** [lifeeasier] The share sheet's "Send to Ghosty": a link (`url`) or words, filed into the library. */
-  | { kind: 'add'; text: string; url: boolean }
   | { kind: 'do'; what: DoCmd }
   /** A link for the owner, opened by someone who is not him (not signed in): the sign-in, and nothing run. */
   | { kind: 'signin' }
@@ -110,19 +104,8 @@ export function parseLink(search: string, o: { owner: boolean; tabs: string[] })
   const say = q.get('say');
   const doIt = q.get('do');
   const open = q.get('open');
-  const ask = q.get('ask');
-  const add = q.get('add');
-  if (say == null && doIt == null && open == null && ask == null && add == null) return null;
+  if (say == null && doIt == null && open == null) return null;
   if (!o.owner) return { kind: 'signin' };
-  if (ask != null) {
-    const text = ask.replace(/\s+/g, ' ').trim().slice(0, 500);
-    return text ? { kind: 'ask', text } : { kind: 'unknown', text: 'ask' };
-  }
-  if (add != null) {
-    const text = add.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 20_000);
-    if (!text) return { kind: 'unknown', text: 'add' };
-    return { kind: 'add', text, url: /^https?:\/\/\S+$/i.test(text) };
-  }
   if (doIt != null) {
     const what = parseDo(doIt, o.tabs);
     return what ? { kind: 'do', what } : { kind: 'unknown', text: doIt.slice(0, 80) };
@@ -141,14 +124,12 @@ export function parseLink(search: string, o: { owner: boolean; tabs: string[] })
 // ---------------------------------------------------------------- making links
 
 /** A link of his: words to say, a command, or a screen (and a panel on it). */
-export type LinkAsk = { say: string } | { do: string } | { open: string; panel?: string } | { ask: string } | { add: string };
+export type LinkAsk = { say: string } | { do: string } | { open: string; panel?: string };
 
 /** The address for a link of his (`origin`: this Ghosty's own, e.g. https://ghosty.example.workers.dev). */
 export function shortcutUrl(origin: string, ask: LinkAsk): string {
   const base = origin.replace(/\/+$/, '');
   if ('say' in ask) return `${base}/?say=${encodeURIComponent(ask.say)}`;
-  if ('ask' in ask) return `${base}/?ask=${encodeURIComponent(ask.ask)}`;
-  if ('add' in ask) return `${base}/?add=${encodeURIComponent(ask.add)}`;
   if ('do' in ask) return `${base}/?do=${encodeURIComponent(ask.do).replace(/%3A/gi, ':')}`;
   return `${base}/?open=${encodeURIComponent(ask.open)}${ask.panel ? `&panel=${encodeURIComponent(ask.panel)}` : ''}`;
 }
@@ -165,26 +146,6 @@ export interface Ready {
  * on its own, first, above the gallery.
  */
 export const LISTEN: Ready = { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking. No tap.', ask: { do: 'listen' } };
-
-/**
- * [lifeeasier] The two that save a tap (BRIEF-OCT-IDEAS-2 1): "Hey Siri, ask Ghosty …" (Siri dictates the words, the Shortcut puts
- * them after `?ask=`) and the share sheet's "Send to Ghosty" (whatever is shared goes after `?add=`). Their links are templates:
- * the Shortcut adds the words, so the link ends where they begin.
- */
-export const SIRI: { ask: Ready & { how: string }; add: Ready & { how: string } } = {
-  ask: {
-    name: 'Ask Ghosty',
-    does: 'Siri hears your words, Ghosty opens and answers them at once. “Hey Siri, ask Ghosty what’s the weather.”',
-    ask: { ask: '' },
-    how: 'GET copies the link and opens Shortcuts: add Dictate Text, then URL Encode, then Open URLs with the link and the encoded text after it.',
-  },
-  add: {
-    name: 'Send to Ghosty',
-    does: 'In any share sheet, Send to Ghosty files what you share (a link, a page, words) on your Shelf.',
-    ask: { add: '' },
-    how: 'GET copies the link and opens Shortcuts: turn on Show in Share Sheet, then URL Encode the Shortcut Input and Open URLs with the link and it after.',
-  },
-};
 
 /** The twelve ready shortcuts (the SHORTCUTS panel's gallery). */
 export const READY: Ready[] = [
