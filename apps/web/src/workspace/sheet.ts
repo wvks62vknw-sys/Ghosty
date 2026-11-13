@@ -33,7 +33,7 @@ import { importCsv } from './csv';
 import {
   addComment, backlinks, below, binDaysLeft, binned, children, deletePage, depth, duplicatePage, emptyBin, History, ICONS, insertBlock, isDb, isEmptyWorkspace, isInside, isRow, live, movePage, moveBlock,
   newPage, patchBlock, patchPage, projectOf, putPage, removeComment, restorePage, rowsOf, setIcon, setRuns, setTitle, shiftPage, tick, titleOf, trail, wblock, withBlocks, wordsOf, wText,
-  type Page, type WBlock, type WType, type Workspace,
+  type Page, type Tone, TONES, type WBlock, type WType, type Workspace,
 } from './model';
 
 export const WORKSPACE_TITLE = 'THE WORKSPACE';
@@ -101,7 +101,9 @@ const KIND_ITEMS: { id: string; label: string; line: string }[] = [
   { id: 'db', label: 'DATABASE', line: 'A list of rows with properties, drawn as a table, a board, a calendar…' },
   { id: 'link', label: 'LINK TO A PAGE', line: 'A card that opens another page, or one of my documents' },
   { id: 'quote', label: 'QUOTATION', line: 'Words set apart' },
+  { id: 'callout', label: 'CALLOUT', line: 'A note in a box: tap its mark for a tip or a warning' },
 ];
+const TONE_WORDS: Record<Tone, { mark: string; name: string }> = { note: { mark: 'i', name: 'Note' }, tip: { mark: '✓', name: 'Tip' }, warn: { mark: '!', name: 'Warning' } };
 
 /**
  * The workspace's page (the sheet's, and THE WORKSPACE screen's: features/workspace/index.ts): `start` opens what was asked for (a page, a project
@@ -896,7 +898,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
               return drawBlocks(b.id, 0);
             }
             const prev = bs[k - 1];
-            if (!prev || !['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'quote', 'todo', 'right'].includes(prev.t)) return;
+            if (!prev || !['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'quote', 'todo', 'right', 'callout'].includes(prev.t)) return;
             const at = prev.runs.reduce((n, x) => n + x.text.length, 0);
             let w2 = patchBlock(ws(), id, prev.id, (x) => ({ ...x, runs: tidyRuns([...x.runs, ...readRuns(ed)]) }));
             w2 = patchBlock(w2, id, b.id, () => null);
@@ -915,6 +917,18 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           });
           row1.append(box, ed, ...(done ? [h('small.wsdone', `Done ${new Date(b.done!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`)] : []));
           row1.dataset.done = done ? '1' : '';
+        } else if (b.t === 'callout') {
+          const tone: Tone = b.tone ?? 'note';
+          const next = TONES[(TONES.indexOf(tone) + 1) % TONES.length]!;
+          const mark = h('button.wstone', { type: 'button', dataset: { tone }, 'aria-label': `${TONE_WORDS[tone].name}: tap to make it a ${TONE_WORDS[next].name.toLowerCase()}` }, TONE_WORDS[tone].mark) as HTMLButtonElement;
+          mark.addEventListener('click', () => {
+            flush();
+            change(patchBlock(ws(), id, b.id, (x) => ({ ...x, tone: next === 'note' ? undefined : next })), 'none');
+            drawBlocks();
+            say(`Now a ${TONE_WORDS[next].name.toLowerCase()}. UNDO takes it back.`);
+          });
+          row1.dataset.tone = tone;
+          row1.append(mark, ed);
         } else row1.append(ed);
       }
       if (talk) row1.append(talk);
@@ -934,7 +948,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         document.execCommand(cmd);
       };
       const kb = h(`div.${cls}` as 'div', { role: 'toolbar', 'aria-label': edit ? 'The line I am in' : 'This block' },
-        ...(edit ? [key('B', () => mk('bold'), 'wsfmt', 'Bold'), key('I', () => mk('italic'), 'wsfmt', 'Italic'), key('U', () => mk('underline'), 'wsfmt', 'Underline'),
+        ...(edit ? [key('B', () => mk('bold'), 'wsfmt', 'Bold'), key('I', () => mk('italic'), 'wsfmt', 'Italic'), key('U', () => mk('underline'), 'wsfmt', 'Underline'), key('S', () => mk('strikeThrough'), 'wsfmt', 'Strikethrough'),
           key('LINK', () => {
             if (!need()) return;
             const a = prompt('The address to link the chosen words to (https://… or an email)');
