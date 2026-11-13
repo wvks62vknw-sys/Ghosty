@@ -35,3 +35,19 @@ export function openSafe(raw: unknown): void {
   const u = safeHref(raw);
   if (u && !/^\s*(about|blob):/i.test(u)) window.open(u, '_blank', 'noopener');
 }
+
+/** [security] The most one imported file may be: a document, a deck, a sheet, a zip of pages, a book (a phone tab is not a server). */
+export const MAX_IMPORT_BYTES = 150 * 1024 * 1024;
+/** A game or a 3D room shared as a file. */
+export const MAX_GAME_BYTES = 30 * 1024 * 1024;
+
+/** Throws the plain-words error when a picked file is past `max`. */
+export function checkSize(f: Blob, max = MAX_IMPORT_BYTES): void {
+  if (f.size > max) throw new Error(`That file is too big to open on this phone (over ${Math.round(max / 1024 / 1024)} MB).`);
+}
+
+/** A picked file's bytes, or the plain-words error when it is past `max` (read only after the size is checked). */
+export async function bytesOf(f: Blob, max = MAX_IMPORT_BYTES): Promise<Uint8Array> {
+  checkSize(f, max);
+  return new Uint8Array(await f.arrayBuffer());
+}

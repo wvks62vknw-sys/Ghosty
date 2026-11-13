@@ -302,3 +302,13 @@ test('[security] a zip that claims 4 GB for an entry or 60,000 entries is not be
   assert.equal(new TextDecoder().decode(files.get('a.txt')), 'hello', 'the claimed 4 GB is a hint, not an allocation');
   assert.throws(() => ZIP.unzipSync(zip(60_000)), /too many files/);
 });
+
+test('[security] a picked file past the import limit is refused by its size before a byte of it is read', async () => {
+  let read = 0;
+  const huge = { size: SU.MAX_IMPORT_BYTES + 1, arrayBuffer: async () => { read++; return new ArrayBuffer(0); } };
+  await assert.rejects(SU.bytesOf(huge), /too big to open on this phone/);
+  assert.throws(() => SU.checkSize(huge), /too big/);
+  await assert.rejects(SU.bytesOf({ size: SU.MAX_GAME_BYTES + 1, arrayBuffer: huge.arrayBuffer }, SU.MAX_GAME_BYTES), /too big/);
+  assert.equal(read, 0);
+  assert.equal((await SU.bytesOf(new Blob([new Uint8Array([1, 2, 3])]))).length, 3);
+});
