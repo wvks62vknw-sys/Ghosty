@@ -19,7 +19,7 @@ export const outsideTab: TabDef = {
     sheetPage(root, {
       screen: 'outside',
       tag: 'LIFE // OUTSIDE',
-      sub: 'A safer walk, what is near, where you parked, the way when you’re lost and a fare split. Where you are is asked only when you tap.',
+      sub: 'A safer walk, what is near, your car, the way when lost, a fare split.',
       big: () => cardBig('outside'),
       load: () => cardLoad('outside'),
       sections: async () => {

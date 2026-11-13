@@ -18,7 +18,7 @@ export const peopleTab: TabDef = {
     sheetPage(root, {
       screen: 'people',
       tag: 'LIFE // PEOPLE',
-      sub: 'Only the people you tell me about, never looked up: birthdays, gift ideas and a plan for a group.',
+      sub: 'Only the people you tell me about: birthdays, gift ideas, group plans.',
       big: () => cardBig('people'),
       load: () => cardLoad('people'),
       sections: async () => {

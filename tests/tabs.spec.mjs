@@ -117,13 +117,11 @@ const unnamed = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=h
   .filter((e) => !((e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || e.getAttribute('placeholder') || '').trim() || e.closest('label')?.textContent?.trim()))
   .slice(0, 6).map((e) => e.outerHTML.slice(0, 90)));
 /**
- * Controls a finger cannot take: under 44 pt (a box or a switch counts by the label round it). One known exception, said in the
- * report: the drum pads' step grid (CREATIVE → DRUM PADS), sixteen steps as two rows of eight, each 44 pt tall but only as wide
- * as a 390-pt phone leaves (about 31 pt), as in its sheet.
+ * Controls a finger cannot take: under 44 pt (a box or a switch counts by the label round it). No exception: the drum pads' step grid
+ * (CREATIVE → DRUM PADS) is sixteen steps as four beats of four, each a full 44 pt (BRIEF-QUALITY-LIFE).
  */
 const small = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=hidden]):not([type=file]), textarea, select, [role=button])`, (els) => els
   .filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]'))
-  .filter((e) => !(e.matches('.pkgridrow .pkstep') && e.offsetHeight >= 44))
   .map((e) => {
     const t = /^(checkbox|radio)$/.test(e.type ?? '') ? e.closest('label') ?? e : e;
     // its laid-out size (a page still landing is drawn a little smaller for a moment: that is not the target's size)

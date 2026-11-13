@@ -19,7 +19,7 @@ export const bodyTab: TabDef = {
     sheetPage(root, {
       screen: 'body',
       tag: 'LIFE // BODY',
-      sub: 'Reps counted by the camera, a running coach, breathing, stretches, your Health week and water: on this phone.',
+      sub: 'Reps, a running coach, breathing, stretches, your Health week and water.',
       big: () => cardBig('body'),
       load: () => cardLoad('body'),
       sections: async () => {

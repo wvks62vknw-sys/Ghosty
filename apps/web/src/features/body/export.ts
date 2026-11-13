@@ -58,8 +58,8 @@ async function exportText(file: File, read: (n: number, of: number) => void): Pr
   let inflate = false;
   if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
     const e = await zipEntry(file, (n) => /(^|\/)export\.xml$/i.test(n));
-    if (!e) throw new Error('there is no export.xml in that zip: it needs the Health app’s own export');
-    if (e.method !== 0 && e.method !== 8) throw new Error('that zip is packed in a way I can’t read');
+    if (!e) throw Object.assign(new Error('That file has no Health export in it. In the Health app use Export All Health Data, then pick that.'), { said: true });
+    if (e.method !== 0 && e.method !== 8) throw Object.assign(new Error('I can’t read how that file is packed. Export again from the Health app.'), { said: true });
     src = file.slice(e.start, e.start + e.size);
     inflate = e.method === 8;
   }

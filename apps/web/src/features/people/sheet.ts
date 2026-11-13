@@ -9,6 +9,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
+import { emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type PeopleWhat = 'who' | 'plan';
 interface PersonRow {
@@ -65,14 +66,16 @@ export function peopleScreen(w: PeopleWhat): { el: HTMLElement; stop(): void } {
   return { el: w === 'plan' ? planSheet() : whoSheet(), stop: () => undefined };
 }
 
-async function say(action: string, args: Record<string, unknown>): Promise<{ text: string; data?: unknown }> {
+/** One brain action. `failed` when it did not land (no signal, or a silent brain): the caller says so in the page, never a toast. */
+async function say(action: string, args: Record<string, unknown>): Promise<{ text: string; data?: unknown; failed?: boolean; offline?: boolean }> {
+  if (lacksSignal()) return { text: '', failed: true, offline: true };
   try {
     const r = await brain.packDo('people', action, args);
     peopleState.said = r.text;
     return r;
   } catch (e) {
-    toast(sayError(e, 'get an answer from my brain'), 'warn');
-    return { text: '' };
+    sayError(e, 'get an answer from my brain');
+    return { text: '', failed: true };
   }
 }
 
@@ -95,9 +98,13 @@ function whoSheet(): HTMLElement {
         ? peopleState.people.map((p) => {
             const more = h('div.pkcol', { hidden: true });
             const gift = h('p.pknote', { 'aria-live': 'polite' });
-            const bits = [p.rel.toLowerCase() === p.name.toLowerCase() ? '' : p.rel, p.born ? `birthday ${dayOf(p.next || p.born)}` : '', p.notes[p.notes.length - 1] ?? ''].filter(Boolean).join(' · ');
+            const day = p.next || p.born;
+            const bits = [p.rel.toLowerCase() === p.name.toLowerCase() ? '' : p.rel, p.born ? `birthday ${dayOf(day)}${p.next ? ` · ${inWords(p.next)}` : ''}` : '', p.notes[p.notes.length - 1] ?? ''].filter(Boolean).join(' · ');
             const details = button('Details', () => {
               more.hidden = !more.hidden;
+              details.textContent = more.hidden ? 'Details' : 'Hide details';
+              details.setAttribute('aria-expanded', String(!more.hidden));
+              details.setAttribute('aria-label', `${more.hidden ? 'Details' : 'Hide details'} for ${p.name}`);
               more.replaceChildren(
                 h('p.pknote', p.notes.length ? p.notes.join('; ') : 'Nothing else said yet.'),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
@@ -106,26 +113,52 @@ function whoSheet(): HTMLElement {
               );
             });
             details.setAttribute('aria-label', `Details for ${p.name}`);
+            details.setAttribute('aria-expanded', 'false');
             const ideas = button('Gift ideas', async () => {
-              gift.textContent = (await say('gift', { who: p.name })).text;
+              gift.textContent = '';
+              delete gift.dataset.state;
+              const done = waitFor(card, `Thinking of gifts for ${p.name}…`);
+              const r = await say('gift', { who: p.name });
+              done();
+              if (r.failed) stateIn(gift, 'error', troubleWords(!!r.offline));
+              else gift.textContent = r.text;
             });
             ideas.setAttribute('aria-label', `Gift ideas for ${p.name}`);
-            return h('div.pkperson', { role: 'group', 'aria-label': p.name }, h('b', p.name), h('span.pklab', bits || 'You told me about them'), h('div.pkrow', ideas, details), gift, more);
+            const card = h('div.pkperson', { role: 'group', 'aria-label': p.name }, h('b', p.name), h('span.pklab', bits || 'You told me about them'), h('div.pkrow', ideas, details), gift, more);
+            return card;
           })
-        : [h('p.pknote', 'You haven’t told me about anyone yet. Add someone below, or say "Sam is my cousin" in the chat.')]),
+        /* state: people.who empty */
+        : [emptyState('Tell me about someone.', 'Type a name and one thing to remember below, or say “Sam is my cousin”.')]),
     );
   };
   const load = async () => {
+    list.replaceChildren();
+    /* state: people.who loading */
+    const done = waitFor(el, 'Opening your people…');
     const r = await say('who', { words: 'everyone' });
-    // [tabs] not answered: said so on the page, rather than "you haven't told me about anyone"
-    if (!r.text && r.data === undefined) return void list.replaceChildren(h('p.pknote', 'My brain didn’t answer, so I can’t read your people just now.'));
+    done();
+    if (r.failed || (!r.text && r.data === undefined)) {
+      const again = button('Try again', () => void load());
+      again.setAttribute('aria-label', 'Try reading your people again');
+      /* state: people.who error */
+      /* state: people.who offline */
+      list.replaceChildren(h('div.pkcol', stateLine(r.offline ? 'offline' : 'error', r.offline ? 'No signal. I read your people when the phone is back online.' : 'My brain isn’t answering, so I can’t read your people just now.'), again));
+      return;
+    }
     peopleState.people = ((r.data as { people?: PersonRow[] } | undefined)?.people ?? []).slice();
     paint();
   };
   const add = async () => {
-    if (!name.value.trim() || !what.value.trim()) return;
+    if (!name.value.trim() || !what.value.trim()) {
+      stateIn(status, '', 'Give me a name and one thing to remember.');
+      return;
+    }
     const r = await say('note', { who: name.value.trim(), words: `${name.value.trim()} ${what.value.trim()}` });
-    status.textContent = r.text;
+    if (r.failed) {
+      stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} What you typed is still here.`);
+      return;
+    }
+    stateIn(status, '', r.text);
     name.value = '';
     what.value = '';
     await load();
@@ -133,17 +166,19 @@ function whoSheet(): HTMLElement {
   what.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Keep it', () => void add(), 'on');
   addBtn.setAttribute('aria-label', 'Keep what I said about them');
+  const el = h('div.pkcol', list, h('div.pkadd', name, what, addBtn), status, phrases(['who\'s who', 'Sam is my cousin']));
   void load();
-  return h('div.pkcol', list, h('div.pkadd', name, what, addBtn), status);
+  return el;
 }
 
 function planSheet(): HTMLElement {
   const box = h('div.pkcol', { 'aria-live': 'polite' });
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Tell me who said what in the chat, or tap here. I message nobody.');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Tap yes, maybe or no under a name, or tell me in the chat. I message nobody.');
   const paint = () => {
     const p = peopleState.plan;
     if (!p) {
-      box.replaceChildren(h('p.pknote', 'No plan yet. Say "plan: pub on Friday at 8 at the Crown, asked Ali, Sam and Jo" in the chat.'));
+      /* state: people.plan empty */
+      box.replaceChildren(emptyState('No plan yet', 'Say “plan: pub on Friday at 8 at the Crown, asked Ali, Sam and Jo”.'));
       return;
     }
     const names = [...new Set([...p.asked, ...p.yes, ...p.maybe, ...p.no])];
@@ -156,8 +191,9 @@ function planSheet(): HTMLElement {
           h('div.pkrow', ...(['yes', 'maybe', 'no'] as const).map((s) => {
             const b = button(s, async () => {
               const r = await say('plan', { words: `${n} ${s === 'yes' ? 'is in' : s === 'no' ? 'is out' : 'maybe'}` });
+              if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
               peopleState.plan = ((r.data as { plan?: PlanRow } | undefined)?.plan ?? peopleState.plan) as PlanRow | null;
-              status.textContent = r.text;
+              stateIn(status, '', r.text);
               paint();
             }, now(n) === s ? 'on' : '');
             b.setAttribute('aria-label', `${n}: ${s}`);
@@ -167,9 +203,19 @@ function planSheet(): HTMLElement {
       ),
     );
   };
+  const el = h('div.pkcol', box, status);
+  /* state: people.plan loading */
+  const done = waitFor(el, 'Opening your plan…');
   void say('plan', { words: '' }).then((r) => {
+    done();
+    if (r.failed) {
+      /* state: people.plan error */
+      /* state: people.plan offline */
+      box.replaceChildren(stateLine(r.offline ? 'offline' : 'error', r.offline ? 'No signal. I read your plan when the phone is back online.' : 'My brain isn’t answering, so I can’t read your plan just now.'));
+      return;
+    }
     peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
     paint();
   });
-  return h('div.pkcol', box, status);
+  return el;
 }

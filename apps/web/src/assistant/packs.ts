@@ -29,6 +29,8 @@ export interface PackReply {
   reply: string;
   cards?: Card[];
   go?: { id: string; ask: number; label: string; open?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
+  /** The brain could not be reached: the reply is the error in his words (the MONEY screen keeps what he pasted). */
+  failed?: boolean;
 }
 
 const prevMonth = (m: string) => (m.slice(5, 7) === '01' ? `${+m.slice(0, 4) - 1}-12` : `${m.slice(0, 4)}-${String(+m.slice(5, 7) - 1).padStart(2, '0')}`);
@@ -39,12 +41,12 @@ export async function statementOrBox(text: string): Promise<PackReply> {
   if (!PASTE_ASK.test(text.trim())) return statementTurn(text);
   const { openMoney } = await import('../features/money/sheet');
   openMoney();
-  return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only, read by code.' };
+  return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only.' };
 }
 
 export async function statementTurn(text: string): Promise<PackReply> {
   const lines = unflatten(text).split(/\r?\n/).filter((l) => l.trim()).length;
-  const said = `A statement pasted (${lines} lines): read in code on its way to my brain, never shown to a model.`;
+  const said = `A statement pasted (${lines} lines): read by plain rules on its way to my brain, never shown to a model.`;
   try {
     const r = await brain.spendingImport(text, true);
     const v = r.view;
@@ -59,7 +61,7 @@ export async function statementTurn(text: string): Promise<PackReply> {
       go: [{ id: 'spending', ask: -1, label: 'Open spending', open: 'agenda' }],
     };
   } catch (e) {
-    return { said, reply: `${sayError(e, 'keep that statement')} Nothing was sent anywhere else.` };
+    return { said, reply: `${sayError(e, 'keep that statement')} Nothing was sent anywhere else.`, failed: true };
   }
 }
 

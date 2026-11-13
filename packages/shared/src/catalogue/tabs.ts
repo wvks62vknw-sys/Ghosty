@@ -21,13 +21,13 @@ export const TABS_WORDS: Record<string, CatValue> = {
 
   // ---- the screens the sheets became (each its card on its hub is the same entry: below)
   'screen:money': {
-    name: 'Money: your statements, read', line: 'You can paste a bank statement and I read it in code, sort it by rules and keep the month in your brain.',
+    name: 'Money: your statements, read', line: 'You can paste a bank statement and I sort it by plain rules and keep the month in your brain.',
     more: 'Its CSV, or the text copied out of its PDF: no AI sees it, not even the shop names, and there is no bank access of any kind. The month comes back as a card with the top five categories and what changed. The rest of money is asked in the chat: what you spent this week, fuel prices, a trip budget, subscriptions.',
     say: ['Paste a statement', 'How much did I spend this month?'], scene: ['money'], cat: 'do', needs: ['statement'], since: SINCE,
   },
   'screen:body': {
     name: 'Body: reps, runs and breathing', line: 'You can have your squats counted by the camera, a run coached by the GPS, a breath paced, a stretch timed and water kept.',
-    more: 'The pose model runs on the phone and nothing leaves it; a run sends my brain only the distance, the time and the splits, never a position. Your Apple Health export is read here, in code. The camera and the GPS start only when you press START, and stop when you leave the page.',
+    more: 'The camera’s model runs on the phone and nothing leaves it; a run sends my brain only the distance, the time and the splits, never a position. Your Apple Health export is read here. The camera and the GPS start only when you press START, and stop when you leave the page.',
     say: ['Count my squats', 'Start a run', 'Breathe with me'], scene: ['phone'], cat: 'do', needs: ['camera', 'location'], since: SINCE,
   },
   'screen:kitchen': {
@@ -47,7 +47,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
   },
   'screen:creative': {
     name: 'Creative: songs, posters, beats', line: 'You can make a song the phone plays, a poster, a birthday card, a comic strip, a logo, a palette and a beat.',
-    more: 'Each is laid out in code and drawn on this phone, and saved to your own downloads when you tap to save it. The song and the drum pads play through the phone’s own sound, started by your tap. Nothing is sent anywhere.',
+    more: 'Each is laid out and drawn on this phone, and saved to your own downloads when you tap to save it. The song and the drum pads play through the phone’s own sound, started by your tap. Nothing is sent anywhere.',
     say: ['Make me a beat', 'Make a poster for the car boot sale', 'What should I draw?'], scene: ['making'], cat: 'build', since: SINCE,
   },
   'screen:outside': {

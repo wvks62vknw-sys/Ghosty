@@ -12,12 +12,12 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'tool:money': { same: 'act:money:month' },
   'act:money:month': {
     name: 'Your month in one card', line: 'I can show your month from your statements: the top five things you spent on, and what changed.',
-    more: 'From the statements you added or pasted, read by code. The card opens SPENDING for the whole picture. No bank access, ever.',
+    more: 'From the statements you added or pasted, read by plain rules. The card opens SPENDING for the whole picture. No bank access, ever.',
     say: ['How did my month go?', 'What did I spend most on this month?'], scene: ['money'], cat: 'watch', needs: ['statement'], since: SINCE,
   },
   'phrase:statement': {
     name: 'Paste a bank statement', line: 'You can paste a bank statement, its CSV or the text from its PDF, or pick the file, and I sort your month.',
-    more: 'It goes straight to your brain and is read by code, with a table of rules: no AI sees it, not even the shop names. The chat shows only that a statement came.',
+    more: 'It goes straight to your brain and is read by plain rules. Nothing else sees it, not even the shop names. The chat shows only that a statement came.',
     say: ['Paste a statement', '(paste the statement in the chat)'], scene: ['money'], cat: 'watch', since: SINCE,
     go: { run: 'open_money' }, tryText: 'Opens the box to paste it in',
   },
@@ -90,7 +90,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'tool:body': { same: 'act:body:reps' },
   'act:body:reps': {
     name: 'Count your reps by camera', line: 'I can count your squats, push-ups or star jumps with the camera and say each one out loud.',
-    more: 'Prop the phone up so it sees all of you. A pose model on the phone finds your joints; nothing from the camera leaves it. DONE puts the count in the chat.',
+    more: 'Prop the phone up so it sees all of you. A model on the phone finds your joints; nothing from the camera leaves it. DONE puts the count in the chat.',
     say: ['Count my squats', 'Count my push-ups', 'Count my star jumps'], scene: ['camera', 'phone'], cat: 'do', needs: ['camera'], since: SINCE,
     go: { run: 'open_body', args: { what: 'reps' } }, tryText: 'Opens the reps counter',
   },
@@ -110,7 +110,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:body:steps': {
     name: 'Your steps this week', line: 'I can tell you your steps for the week from the Apple Health export you give me.',
-    more: 'The export is read on your phone, in code; only the week’s numbers reach me. Where your iPhone and Watch both count, the larger is used. Not medical advice.',
+    more: 'The export is read on your phone; only the week’s numbers reach me. Where your iPhone and Watch both count, the larger is used. Not medical advice.',
     say: ['How many steps did I do this week?'], scene: ['phone'], cat: 'do', since: SINCE,
   },
   'act:body:sleep': {

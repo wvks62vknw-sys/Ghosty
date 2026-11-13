@@ -14,6 +14,7 @@ import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
 import { sayError } from '../../ui/hisWords';
+import { phrases, stateIn, waitFor } from '../lifeui';
 
 export const POSE_MODEL = '/vendor/pose/pose_landmarker_lite.task';
 
@@ -50,6 +51,15 @@ function poseEngine(progress: (s: string) => void): Promise<PoseEngine> {
   return engine;
 }
 
+/** The camera's refusal or absence, once, in his words, with how to allow it. */
+function cameraWords(e: unknown): string {
+  const n = String((e as { name?: unknown })?.name ?? '');
+  if (n === 'NotAllowedError' || n === 'PermissionDeniedError' || n === 'SecurityError') return 'The phone would not give me the camera. Settings, Ghosty, Camera, then press Start.';
+  if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') return 'This phone has no camera I can use here.';
+  if (n === 'NotReadableError' || n === 'TrackStartError') return 'Another app has the camera. Close it, then press Start.';
+  return sayError(e, 'open the camera');
+}
+
 const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 
 export function repsScreen(first: string): Screen {
@@ -62,7 +72,10 @@ export function repsScreen(first: string): Screen {
   const cam = new Camera(video as HTMLVideoElement);
   const dots = h('canvas.pkdots', { 'aria-hidden': 'true' });
   const count = h('b.pkbig', { 'aria-live': 'polite', 'aria-label': 'Count' }, '0');
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Prop the phone up so it sees all of you, then START.');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Prop the phone up so it sees all of you, then press Start.');
+  // the stage before the camera is on: said, never a black block
+  /* state: body.reps empty */
+  const off = h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', { dataset: { label: 'The camera is off' } }, 'The camera is off'), h('span', { dataset: { label: 'Press Start and I count.' } }, 'Press Start and I count.'));
   const chips = h('div.pkrow', { role: 'group', 'aria-label': 'Which exercise' });
   const paintChips = () => {
     chips.replaceChildren(
@@ -134,33 +147,52 @@ export function repsScreen(first: string): Screen {
     cancelAnimationFrame(raf);
     cam.stop();
     bodyState.camera = 'off';
+    off.hidden = false;
+    stop.hidden = true;
   };
   const start = button('Start', async () => {
     if (live) return;
-    status.textContent = 'Opening the camera…';
+    delete status.dataset.state;
+    status.textContent = '';
+    /* state: body.reps loading */
+    const done = waitFor(el, 'Opening the camera…');
     try {
       await cam.start('user');
       bodyState.camera = 'on';
     } catch (e) {
+      done();
       bodyState.camera = 'refused';
-      status.textContent = cameraMessage(e);
+      /* state: body.reps error */
+      stateIn(status, 'error', cameraWords(e));
       return;
     }
+    done();
+    status.textContent = 'Waking the pose model…';
     let eng: PoseEngine;
     try {
       eng = await poseEngine((s) => (status.textContent = s));
     } catch (e) {
       bodyState.engine = 'none';
       bodyState.error = sayError(e, 'read that');
-      status.textContent = sayError(e, 'open that');
+      stateIn(status, 'error', sayError(e, 'open that'));
+      stopCam();
       return;
     }
-    status.textContent = `Counting ${EXERCISES.find((x) => x.id === ex)!.say}: I say each one.`;
+    stateIn(status, '', `Counting ${EXERCISES.find((x) => x.id === ex)!.say}: I say each one.`);
+    off.hidden = true;
+    stop.hidden = false;
     started = Date.now();
     live = true;
     loop(eng);
   }, 'on');
   start.setAttribute('aria-label', 'Start counting');
+  const stop = button('Stop', () => {
+    if (!live) return;
+    stopCam();
+    stateIn(status, '', state.n ? `Stopped at ${state.n}. Press Done to keep it, or Start to go on.` : 'Stopped. Nothing counted yet.');
+  });
+  stop.setAttribute('aria-label', 'Stop counting');
+  stop.hidden = true;
   const done = button('Done', async () => {
     stopCam();
     const n = state.n;
@@ -179,6 +211,7 @@ export function repsScreen(first: string): Screen {
     status.textContent = `${n} ${EXERCISES.find((x) => x.id === ex)!.label.toLowerCase()}: in the chat as a card.`;
   });
   done.setAttribute('aria-label', 'Done: put the count in the chat');
-  const el = h('div.pkcol', chips, h('div.pkstage', video, dots), h('div.pkhero', count, h('span.pklab', 'counted on this phone')), h('div.pkrow', start, done), status);
+  // START and STOP right under the exercise chips, where the thumb is; the picture of the camera below them
+  const el = h('div.pkcol', chips, h('div.pkhero', count, h('span.pklab', 'counted on this phone')), h('div.pkrow', start, stop, done), h('div.pkstage', video, dots, off), status, phrases(['count my squats', 'start a run', 'breathe']));
   return { el, stop: stopCam };
 }

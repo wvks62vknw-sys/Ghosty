@@ -105,4 +105,4 @@ export function saveFile(data: Blob | Uint8Array, name: string, mime: string): v
   a.click();
   setTimeout(() => (a.remove(), URL.revokeObjectURL(url)), 4000);
 }
-export const pngOf = (c: HTMLCanvasElement): Promise<Blob> => new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('the picture could not be made'))), 'image/png'));
+export const pngOf = (c: HTMLCanvasElement): Promise<Blob> => new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(Object.assign(new Error('I could not make the picture. Try again in a moment.'), { said: true }))), 'image/png'));

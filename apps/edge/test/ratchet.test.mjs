@@ -57,3 +57,72 @@ test('no tracked file carries a merge-conflict marker line', () => {
   }
   assert.deepEqual(bad, [], `merge-conflict marker lines: ${bad.join(', ')}`);
 });
+
+// THE STATES RATCHET (BRIEF-QUALITY-LIFE; the same shape as the colour ratchet above, but upward): for each screen of the eight packs of
+// the LIFE room, how many of the four states (empty, loading, error, offline) are designed, read from the source by the marker kept where
+// each is drawn: a `/* state: <screen> <kind> */` comment (the element itself also carries `data-state="<kind>"`, which the lifepass spec
+// reads on the page). A screen that loses a state fails here. `base` is what the packs drew before the quality pass (each read from the
+// code as it was), `now` what they draw after it: the count only goes up, a pass that adds states writes its new number here.
+import { readdirSync } from 'node:fs';
+const FEATURES = new URL('../../web/src/features/', import.meta.url);
+export const STATES = {
+  'money.statement': { dir: 'money', base: 2, now: 4 },
+  'body.reps': { dir: 'body', base: 2, now: 3 },
+  'body.run': { dir: 'body', base: 1, now: 1 },
+  'body.breathe': { dir: 'body', base: 0, now: 1 },
+  'body.stretch': { dir: 'body', base: 0, now: 1 },
+  'body.health': { dir: 'body', base: 2, now: 4 },
+  'body.water': { dir: 'body', base: 2, now: 4 },
+  'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
+  'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
+  'kitchen.plan': { dir: 'kitchen', base: 1, now: 3 },
+  'people.who': { dir: 'people', base: 2, now: 4 },
+  'people.plan': { dir: 'people', base: 1, now: 4 },
+  'work.todo': { dir: 'work', base: 2, now: 4 },
+  'work.interview': { dir: 'work', base: 2, now: 3 },
+  'work.doc': { dir: 'work', base: 1, now: 1 },
+  'creative.song': { dir: 'creative', base: 1, now: 2 },
+  'creative.poster': { dir: 'creative', base: 0, now: 4 },
+  'creative.card': { dir: 'creative', base: 0, now: 2 },
+  'creative.comic': { dir: 'creative', base: 0, now: 2 },
+  'creative.logo': { dir: 'creative', base: 0, now: 2 },
+  'creative.palette': { dir: 'creative', base: 2, now: 4 },
+  'creative.beat': { dir: 'creative', base: 1, now: 2 },
+  'outside.walk': { dir: 'outside', base: 2, now: 3 },
+  'outside.nearby': { dir: 'outside', base: 2, now: 4 },
+  'outside.car': { dir: 'outside', base: 1, now: 4 },
+  'outside.lost': { dir: 'outside', base: 2, now: 3 },
+  'outside.split': { dir: 'outside', base: 1, now: 3 },
+  'home.due': { dir: 'homeadmin', base: 2, now: 4 },
+  'home.bins': { dir: 'homeadmin', base: 3, now: 4 },
+  'home.bills': { dir: 'homeadmin', base: 2, now: 4 },
+  'home.meter': { dir: 'homeadmin', base: 2, now: 4 },
+  'home.things': { dir: 'homeadmin', base: 2, now: 3 },
+};
+const KINDS = ['empty', 'loading', 'error', 'offline'];
+function statesOf(screen, dir) {
+  const src = readdirSync(new URL(`${dir}/`, FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => readFileSync(new URL(`${dir}/${f}`, FEATURES), 'utf8')).join('\n');
+  const found = new Set();
+  for (const m of src.matchAll(/\/\*\s*state:\s*([a-z]+\.[a-z]+)\s+(empty|loading|error|offline)\s*\*\//g)) if (m[1] === screen) found.add(m[2]);
+  return [...found].sort();
+}
+test('THE STATES RATCHET: each screen of the eight packs keeps every state it has been given (equal or more, never fewer)', () => {
+  const rows = [];
+  for (const [screen, { dir, base, now }] of Object.entries(STATES)) {
+    const have = statesOf(screen, dir);
+    rows.push(`${screen}: ${base} → ${have.length} (${have.join(', ') || 'none'})`);
+    assert.ok(now >= base, `${screen}: the pinned number (${now}) is under what the pass began with (${base})`);
+    assert.ok(have.length >= now, `${screen} has lost a state: ${have.length} drawn (${have.join(', ')}), ${now} pinned. Put back what was drawn there (a "state: ${screen} <kind>" marker where each is drawn).`);
+  }
+  console.log(`states ratchet:\n${rows.join('\n')}`);
+});
+test('the state markers name real screens and real kinds, and the pack screens named here are all of them', () => {
+  const named = new Set(Object.keys(STATES));
+  for (const dir of ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']) {
+    const src = readdirSync(new URL(`${dir}/`, FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => readFileSync(new URL(`${dir}/${f}`, FEATURES), 'utf8')).join('\n');
+    for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
+      assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);
+      assert.ok(KINDS.includes(m[2]), `${dir}: a state marker of kind "${m[2]}" (use ${KINDS.join(', ')})`);
+    }
+  }
+});

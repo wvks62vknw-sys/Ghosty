@@ -19,7 +19,7 @@ export const homeadminTab: TabDef = {
       screen: 'homeadmin',
       name: 'Home admin',
       tag: 'LIFE // HOME',
-      sub: 'What is due at home, the bin days, the bills, the meter and each room’s things, kept in my brain.',
+      sub: 'What is due at home, bins, bills, the meter and your rooms.',
       big: () => cardBig('homeadmin'),
       load: () => cardLoad('homeadmin'),
       sections: async () => {

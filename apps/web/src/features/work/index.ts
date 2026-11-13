@@ -4,10 +4,10 @@
  * last document I wrote for him (a CV, a cover letter, an email), as text to copy or share: nothing is sent for him.
  * "interview practice" and a written document still open the sheet from the chat.
  */
-import { h } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
 import { sheetPage } from '../../ui/sheetpage';
+import { emptyState } from '../lifeui';
 
 export const workTab: TabDef = {
   id: 'work',
@@ -20,7 +20,7 @@ export const workTab: TabDef = {
     sheetPage(root, {
       screen: 'work',
       tag: 'LIFE // WORK',
-      sub: 'Your to-do list, interview practice out loud, and the documents I write for you to copy or share.',
+      sub: 'Your to-do list, interview practice and the documents I write for you.',
       big: () => cardBig('work'),
       load: () => cardLoad('work'),
       sections: async () => {
@@ -36,7 +36,7 @@ export const workTab: TabDef = {
               pack: 'work',
               screen: 'doc',
               // the last one I wrote on this visit, as its sheet showed it; none yet: where one comes from
-              build: () => (m.workState.doc.text ? m.workScreen('doc', { title: m.workState.doc.title, text: m.workState.doc.text }) : { el: h('p.pknote', 'Nothing written yet. Ask me in the chat for a CV, a cover letter, an email or a meeting summary: it shows here as text for you to copy or share. Nothing is sent for you.') }),
+              build: () => (m.workState.doc.text ? m.workScreen('doc', { title: m.workState.doc.title, text: m.workState.doc.text }) : { /* state: work.doc empty */ el: emptyState('No document yet', 'Ask me in the chat for a CV, a cover letter or an email.') }),
             }],
           },
         ];

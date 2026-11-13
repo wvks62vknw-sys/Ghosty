@@ -45,7 +45,7 @@ export const PACK3_WORDS: Record<string, CatValue> = {
   },
   'act:outside:open': {
     name: 'What is open near you', line: 'I can list what is open right now near a place, with when it closes, from the hours on the map.',
-    more: 'I read the opening hours on OpenStreetMap in code. Hours I can’t read are counted, not guessed, and bank-holiday hours can differ.',
+    more: 'I read the opening hours from OpenStreetMap. Hours I can’t read are counted, not guessed, and bank-holiday hours can differ.',
     say: ['What’s open near the Bullring?', 'Pharmacy open now near home'], scene: ['out'], cat: 'do', since: SINCE,
   },
   'act:outside:toilets': {

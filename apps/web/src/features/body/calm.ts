@@ -9,8 +9,16 @@ import { h } from '../../core/dom';
 import { button } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
+import { lacksSignal, stateLine } from '../lifeui';
 
 const ROUNDS = 4;
+
+/** With no signal these two still work in full: said once, only then. */
+const offlineNote = (): HTMLElement[] => {
+  /* state: body.breathe offline */
+  /* state: body.stretch offline */
+  return lacksSignal() ? [stateLine('offline', 'No signal needed: this works as it is.')] : [];
+};
 
 export function breatheScreen(first: 'box' | '478'): Screen {
   let kind = first;
@@ -65,7 +73,7 @@ export function breatheScreen(first: 'box' | '478'): Screen {
   }, 'on');
   start.setAttribute('aria-label', 'Start breathing');
   paintChips();
-  const el = h('div.pkcol', chips, h('div.pkbreathbox', ring), h('div.pkhero', say, left), h('div.pkrow', start, button('Stop', stop)), h('p.pknote', 'Breathe through the nose if you can. Stop if you feel dizzy.'));
+  const el = h('div.pkcol', chips, h('div.pkbreathbox', ring), h('div.pkhero', say, left), h('div.pkrow', start, button('Stop', stop)), h('p.pknote', 'Breathe through the nose if you can. Stop if you feel dizzy.'), ...offlineNote());
   return { el, stop };
 }
 
@@ -117,6 +125,6 @@ export function stretchScreen(): Screen {
     step();
   });
   next.setAttribute('aria-label', 'Next stretch');
-  const el = h('div.pkcol', h('div.pkhero', left, h('span.pklab', 'seconds')), name, cue, h('div.pkrow', start, next, button('Stop', stop)), list, h('p.pknote', 'Gently: a stretch should never hurt.'));
+  const el = h('div.pkcol', h('div.pkhero', left, h('span.pklab', 'seconds')), name, cue, h('div.pkrow', start, next, button('Stop', stop)), list, h('p.pknote', 'Gently: a stretch should never hurt.'), ...offlineNote());
   return { el, stop };
 }

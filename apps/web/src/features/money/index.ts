@@ -12,13 +12,13 @@ export const moneyTab: TabDef = {
   title: 'MONEY',
   icon: '<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v5M17.5 9.5v5"/>',
   scene: 'backdrop',
-  blurb: 'a statement read by rules · spending by month · no bank access',
+  blurb: 'a statement read by plain rules · spending by month · no bank access',
   now: () => cardNow('money'),
   mount: (root) =>
     sheetPage(root, {
       screen: 'money',
       tag: 'LIFE // MONEY',
-      sub: 'Paste a statement: I read it in code, sort it by rules and keep the month in your brain. No bank access, ever.',
+      sub: 'Your month, from a statement you give me. No bank access, ever.',
       big: () => cardBig('money'),
       load: () => cardLoad('money'),
       sections: async () => {

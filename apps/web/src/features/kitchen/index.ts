@@ -18,7 +18,7 @@ export const kitchenTab: TabDef = {
     sheetPage(root, {
       screen: 'kitchen',
       tag: 'LIFE // KITCHEN',
-      sub: 'Timers on this phone, the shopping list and the week’s meals, kept in my brain.',
+      sub: 'Timers, the shopping list and the week’s dinners.',
       big: () => cardBig('kitchen'),
       load: () => cardLoad('kitchen'),
       sections: async () => {

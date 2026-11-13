@@ -12,6 +12,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
+import { emptyState, lacksSignal, stateLine } from '../lifeui';
 
 export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
@@ -81,25 +82,39 @@ export function closeBody(): void {
 /** WATER: a glass a tap, kept in my brain (it nudges only when you asked, under the speak-first dial). */
 function waterScreen(): Screen {
   const count = h('b.pkbig', { 'aria-live': 'polite' }, '…');
-  const note = h('p.pknote', 'A glass is 250 ml. Kept in my brain; I nudge you only if you ask me to.');
+  const note = h('p.pknote', 'Kept in my brain. I nudge you only if you ask me to.');
+  const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const paint = (text: string) => {
     const m = /(\d+) of (\d+)/.exec(text);
     if (m) {
       bodyState.water = { n: +m[1]!, goal: +m[2]! };
       count.textContent = `${m[1]} of ${m[2]}`;
+      /* state: body.water empty */
+      slot.replaceChildren(...(+m[1]! === 0 ? [emptyState('No glasses yet today', 'Tap +1 glass each time you have one.')] : []));
     }
   };
   const act = async (words: string) => {
+    if (lacksSignal()) {
+      /* state: body.water offline */
+      slot.replaceChildren(stateLine('offline', 'No signal. I count your glasses once the phone is back online.'));
+      if (count.textContent === '…') count.textContent = '—';
+      return;
+    }
     try {
       paint((await brain.packDo('body', 'water', { words })).text);
     } catch (e) {
-      toast(sayError(e, 'get an answer from my brain'), 'warn');
+      if (count.textContent === '…') count.textContent = '—';
+      /* state: body.water error */
+      slot.replaceChildren(stateLine('error', `I can’t reach my brain, so I can’t count your glasses just now. ${/lost the signal/.test(sayError(e)) ? 'Try again when you have a signal.' : 'Try again in a moment.'}`));
     }
   };
-  void act('');
+  /* state: body.water loading */
+  count.dataset.state = 'loading';
+  void act('').then(() => delete count.dataset.state);
   const el = h(
     'div.pkcol',
-    h('div.pkhero', count, h('span.pklab', 'glasses today')),
+    h('div.pkhero', count, h('span.pklab', 'glasses today, 250 ml each')),
+    slot,
     h('div.pkrow', button('+1 glass', () => void act('a glass'), 'on'), button('Undo', () => void act('undo'))),
     h('div.pkrow', button('Nudge me', () => void act('remind me')), button('No nudges', () => void act('stop reminding me'))),
     note,

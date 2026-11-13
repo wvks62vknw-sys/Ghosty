@@ -94,12 +94,12 @@ test('a pasted statement goes in by the rules only (no model asked), and the mon
   assert.equal(j.result.added, 6);
   assert.equal(j.result.shape, 'statement text');
   const out = await M.MONEY.month({ month: '2026-10' }, deps(storage));
-  assert.match(out.text, /^October: £[\d,]+ out, £[\d,]+ in\. Top five: /);
+  assert.match(out.text, /^October: £[\d,]+\.\d{2} out, £[\d,]+\.\d{2} in\. Top five: /);
   assert.match(out.text, /Since September: /);
   assert.match(out.text, /no bank access/);
   const card = out.cards[0];
   assert.equal(card.id, 'money:month:2026-10');
-  assert.match(card.title, /^October £[\d,]+ out$/);
+  assert.match(card.title, /^October £[\d,]+\.\d{2} out$/);
   assert.ok(card.line.split(' · ').length >= 3 && card.line.length <= 110, card.line);
   assert.deepEqual(card.acts.map((a) => a.label), ['OPEN SPENDING', 'ASK']);
   assert.deepEqual(card.acts[0].open, { tab: 'agenda', panel: 'SPENDING' });
