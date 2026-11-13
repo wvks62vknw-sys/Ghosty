@@ -149,6 +149,11 @@ export const TOOLS_1: Record<string, CatValue> = {
     say: ['Make me a habit tracker app', 'Make an app to track my gym sessions'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me an app for ', send: false },
   },
+  'tool:publish_game': {
+    name: 'Put your game on your sites', line: 'I can put a game you made in the Game Studio on your sites, as a page that installs on a Home Screen and plays offline.',
+    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it.',
+    say: ['Put Fox Run on my sites', 'Put my game on my sites'], scene: ['making'], cat: 'build', where: 'Game Studio → AS AN APP → PUT IT ON MY SITES, or ask me',
+  },
   'tool:study_site': {
     name: 'Study a website to rebuild it', line: 'I can study any website, its layout, words and colours, so I can rebuild it better.',
     more: 'Step one of a rebuild: I read the page and its styles and see how it is made. Then I write an improved version and, once you tap APPROVE, put it online.',
