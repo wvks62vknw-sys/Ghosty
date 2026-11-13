@@ -3,6 +3,8 @@ import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/p
 import { clearPatterns, stashFacts, stashForgottenFacts } from '../memories';
 import { loadPlaces } from '../places';
 import { arg, type Tool } from './types';
+import { recallSearch } from '../recall';
+import { viaWord } from '../../../../packages/shared/src/recall';
 
 export const MEMORY_KEY = 'memory';
 
@@ -95,6 +97,22 @@ export const memoryTools: Tool[] = [
       const places = await loadPlaces(ctx.storage).catch(() => []);
       const lines = [...facts.map((f) => `${f.id}: ${f.text}`), ...places.map((p) => `place ${p.label}: ${p.address}`)];
       return lines.length ? lines.join('\n') : 'Nothing remembered yet.';
+    },
+  },
+  {
+    // [recall] BRIEF-DEPTH-MEMORY 2c: "what did I ask you about X?" over the 30 days of his turns, the app's and Telegram's alike
+    name: 'recall',
+    description: 'Find what the owner asked you before, by his words: "what did I ask you about X", "when did I mention X". Returns the matching turns with their day and channel.',
+    parameters: { type: 'object', properties: { about: { type: 'string', description: 'What he is looking for, in his words.' } }, required: ['about'] },
+    risk: 'auto',
+    pure: true,
+    async run(a, ctx) {
+      const about = arg.str(a, 'about').trim();
+      if (!about) return 'Say what to look for.';
+      const tz = (await ctx.storage.get<{ tz?: string }>('owner:ctx').catch(() => null))?.tz || 'UTC';
+      const hits = await recallSearch(ctx.storage, about, Date.now(), tz);
+      if (!hits.length) return `Nothing like that in the last 30 days of our chats.`;
+      return hits.slice(0, 3).map((h) => `${h.stamp} (${h.day}, ${viaWord(h.via)}): he asked “${h.q}”${h.a ? `; you said “${h.a}”` : ''}`).join('\n');
     },
   },
 ];

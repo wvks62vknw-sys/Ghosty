@@ -13,11 +13,14 @@ import { button, toast } from '../../ui/components';
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { ui } from '../../state/app';
 import { navTo } from '../../shell/areas';
+import { recallRows } from '../memory/recallcard';
 
 export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement | null {
   const l = e.local;
   if (!l) return null;
   const row = h('div.row.wrap.localacts', { dataset: { case: 'keep' } });
+  // [recall] the RECALL card: the turns or things found on this phone, each a tap into it (features/memory/recallcard.ts)
+  if (l.found?.length) row.append(recallRows(l.found));
   // [health] the mark of the ability it found, one word after its line (abilities/health.ts)
   const top = (l.kind === 'can' || l.kind === 'offer') && l.go?.[0] ? abilityById(l.go[0].id) : null;
   if (top) row.append(h('span.g-truth.hmark', { dataset: { case: 'keep', mark: markFor(top).mark } }, markFor(top).mark));

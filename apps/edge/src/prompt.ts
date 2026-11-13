@@ -12,6 +12,7 @@ import type { MemoryFact } from '../../../packages/shared/src/protocol';
 import type { DayLine, MindSnapshot } from '../../../packages/shared/src/mind';
 import { engineeringEssentials, topConduct, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
+import { recallLine } from '../../../packages/shared/src/recall';
 import type { ToolGroup } from './tools';
 import type { Profile } from '../../../packages/shared/src/protocol';
 import { MAX_PRINCIPLES, profileLines } from './profile';
@@ -81,6 +82,11 @@ export function baseMind(c: ClientContext, now = Date.now()): MindSnapshot {
 
 const dayText = (x: DayLine) => `${x.when} ${x.title}${x.where ? ` (${x.where})` : ''}`;
 
+/** [recall] The RECALL line's head: the model may say "like you said on Tuesday", which the phone turns into a tap (RECALL chip). */
+export const RECALL_HEAD = 'His past asks (say "like you said <day>" if one helps): ';
+/** The room the Earlier line always had at its longest ("Earlier: " and three 140-character episodes with their times): RECALL shares it. */
+export const HISTORY_CHARS = 451;
+
 /**
  * The CONTEXT block, rendered from the one shared mind: his time (with the weekday, in the YYYY-MM-DDTHH:MM form TIMES
  * asks for), where he is, what is left of today (or the next thing), what he is in the middle of, what happened earlier
@@ -102,8 +108,17 @@ export function contextLines(m: MindSnapshot, c: ClientContext): string[] {
   if (day) out.push(shown.some((x) => x.from) ? asData('his calendars', day) : day);
   if (m.today.doing.length) out.push(`Doing: ${m.today.doing.slice(0, 3).join('; ')}`);
   // (his own messages are in the conversation already: the day log adds what happened elsewhere)
+  // [recall] BRIEF-DEPTH-MEMORY 1: his earlier asks that bear on this one (mind.ts recall) come first, and share the room the Earlier
+  // line always had (HISTORY_CHARS, its longest: three 140-character episodes), so the CONTEXT block's worst case is unchanged.
+  let room = HISTORY_CHARS;
+  const past = (m.recall ?? []).map(recallLine).filter((l) => (room -= l.length + 2) >= RECALL_HEAD.length);
+  if (past.length) {
+    out.push(`${RECALL_HEAD}${past.join('; ')}`);
+    room -= RECALL_HEAD.length;
+  } else room = HISTORY_CHARS;
   const earlier = m.recent.filter((e) => e.kind !== 'turn').slice(-3);
-  if (earlier.length && m.now.tz) out.push(`Earlier: ${earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).join('; ')}`);
+  const done = m.now.tz ? earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).filter((l) => (room -= l.length + 2) >= 7) : [];
+  if (done.length) out.push(`Earlier: ${done.join('; ')}`);
   // 7 Nov 2026, BRIEF-AWARENESS: these two lines leave the prompt in the follow-up PR that adds the agent.ts call (his 5 Nov rule: the
   // screen rides in his message). Until then they stay, as they were; `withScreen` in context.ts is ready and waiting for that call.
   // The phone now sends `screen` as a ScreenContext: it is said with the same `contextWords` the wrapped line uses, so the two never drift.
