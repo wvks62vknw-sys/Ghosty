@@ -3,7 +3,7 @@
 // and voice.spec raced on what an earlier spec left. The preview server (tests/preview-server.mjs) keeps the brain's storage; this takes a copy
 // when a spec opens and gives it back when the spec ends.
 //   const clean = await brainBefore(base);        // the brain as the spec found it
-//   …the spec…
+//   (the spec's own checks run here)
 //   problems.push(...(await brainAfter(base, clean)));  // put back; a line for anything it could not
 export async function brainBefore(base) {
   const r = await fetch(`${base}/__test/snapshot`).then((x) => x.json()).catch(() => null);
