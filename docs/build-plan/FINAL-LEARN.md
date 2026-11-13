@@ -112,6 +112,8 @@ better ever sat a paper, even with signal.
 6. In the interpreter, tap a line the other person missed, and it is said again.
 
 ## What is left
+- learnpass's "lesson out" check (C2) fails when the learn spec has just run on the same preview, because learn has already
+  written the same photosynthesis course. The untouched final branch fails it the same way. On a fresh preview it passes.
 - The GYM's TIME IT line says "Training on the graphics chip". The timing does run there, but the long training runs on the
   processor. That line is locked by the phone-hardware spec, so I left it.
 - These were found and not done:
