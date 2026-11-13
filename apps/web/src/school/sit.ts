@@ -14,7 +14,11 @@
  * The chain (1 Nov: "press SIT and it works"): the 0.6B, the Qwen2.5 0.5B, the floor (SmolLM2 360M); a paper goes to
  * the largest of them here that has not closed Ghosty, and after a close with none here, SIT and CARRY ON are ONE
  * button that GETs the next one down (his tap, on Wi-Fi, its size on the button) and sits; when the floor closed too,
- * the words say no brain runs here yet. Never a cloud model.
+ * the words say no brain runs here yet.
+ * 13 Nov (the owner: "the school still uses the smallest brain which answers in like multiple choice"): with signal, a
+ * paper is sat by the brain's own model (the one it chooses for its best work), every answer in full working with one
+ * last "Answer:" line, and marked the same way (`sitOnline`); the phone's brain above sits it only with no signal, or
+ * when no online model answers, and carries on the same paper from the question it reached. The line says which.
  */
 import type { PaperResult, StageId } from '../../../../packages/shared/src/school';
 import { headers } from '../api/brain';
@@ -106,7 +110,12 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 export const school = {
   view: () => call<StageView>('GET', '/school'),
   sit: (stage: string, subject: string) => call<{ paper: SitPaper; done: string[]; resumed: boolean; from?: Source }>('POST', '/school/sit', { stage, subject }),
-  answers: (paperId: string, answers: { id: string; given: string }[], final: boolean) => call<{ result?: PaperResult; changed?: { passed: string[]; stage: string | null }; stage?: string; next?: string | null; saved?: number }>('POST', '/school/answers', { paperId, answers, final, model: modelKey() }),
+  /** `model`: the phone's brain that wrote them (its key); '' when the brain's own model sat it online (the brain keeps its name). */
+  answers: (paperId: string, answers: { id: string; given: string }[], final: boolean, model: string = modelKey()) => call<{ result?: PaperResult; changed?: { passed: string[]; stage: string | null }; stage?: string; next?: string | null; saved?: number }>('POST', '/school/answers', { paperId, answers, final, model }),
+  /** One question sat by the brain's own model online, in full working (apps/edge/src/school/online.ts). */
+  online: (paperId: string, itemId: string) => call<{ id: string; given: string; answer: string; model: string; line: string }>('POST', '/school/sit-online', { paperId, itemId }),
+  /** Whether the brain has a model to sit papers with (GET /school/sit-online). */
+  onlineReady: () => call<{ ready: boolean; line: string }>('GET', '/school/sit-online'),
   paper: (id: string) => call<{ paper: { items: (SitItem & { answer?: string; rubric?: string; also?: string[] })[]; passages?: SitPaper['passages']; title: string; official: boolean; source?: string; licence?: string; boundaries?: string; leftOut?: { what: string; marks: number; why: string }[]; from?: 'bank' | 'official' }; from?: 'written' | 'official' | 'bank'; result: PaperResult; given: Record<string, string> }>('GET', `/school/paper/${encodeURIComponent(id)}`),
   settings: (nightly: boolean) => call<StageView>('POST', '/school/settings', { nightly }),
 };
@@ -236,7 +245,102 @@ export const sitting = createStore({
   brain: '',
   /** A sitting that closed Ghosty, or whose brain failed mid-paper: CARRY ON offers it again where it stopped. */
   resume: null as Resume | null,
+  /** Sat by the brain's own model online (13 Nov), and the last answer's working as it wrote it (shown live). */
+  online: false,
+  working: '',
 });
+
+// ---------------------------------------------------------------------------------------
+// Sitting, by the brain's own model online (13 Nov)
+// ---------------------------------------------------------------------------------------
+
+/** Whether the brain's own model can sit papers now (null: not asked yet), and the model that last answered. */
+export const onlineSit = createStore({ ready: null as boolean | null, model: '', at: 0 });
+
+/** Asked at most once a minute: no signal (the phone says it is offline, or the brain cannot be reached) is false. */
+export async function onlineReady(force = false): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    onlineSit.set({ ready: false, at: Date.now() });
+    return false;
+  }
+  const was = onlineSit.get();
+  if (!force && was.ready !== null && Date.now() - was.at < 60_000) return was.ready;
+  const ready = await school.onlineReady().then((r) => !!r.ready).catch(() => false);
+  onlineSit.set({ ready, at: Date.now() });
+  return ready;
+}
+
+/** Which brain sits the papers, in one line, when the brain's own model does (`model`: the one that last answered). */
+export function onlineLine(model: string, phone: string | null, now: boolean): string {
+  const lead = now ? `I'm sitting it on ${model || 'my own online model'}, online` : `I sit papers on ${model ? `${model}, my own online model` : 'my own online model'}`;
+  return `${lead}, every answer in full working. ${phone ? `With no signal, on ${phone} on this phone.` : 'With no signal, on the offline brain, once it is on this phone.'}`;
+}
+
+/** No online answer for a question: no signal, or no model free. The phone's brain carries on from there. */
+export class NoOnline extends Error {
+  readonly offline = true;
+}
+
+/**
+ * The questions not done yet, one at a time, sat by the brain's own model (`ask`: it keeps each answer with the paper as
+ * it is written). Returns whether it stopped early; throws NoOnline at the first question it could not answer (`n`), with
+ * every answer before it kept, so the phone's brain carries on there. Pure apart from what it is given.
+ */
+export async function runOnline(paper: SitPaper, d: { ask: (itemId: string) => Promise<{ given: string; model: string }>; done: Set<string>; signal: AbortSignal; onProgress: (n: number, of: number) => void; onAnswer?: (a: { id: string; given: string; model: string }) => void }): Promise<{ stopped: boolean }> {
+  for (const [i, it] of paper.items.entries()) {
+    if (d.done.has(it.id)) continue;
+    if (d.signal.aborted) break;
+    d.onProgress(i + 1, paper.items.length);
+    let got: { given: string; model: string };
+    try {
+      got = await d.ask(it.id);
+    } catch (e) {
+      throw Object.assign(new NoOnline(rawText(e) || 'No online model answered.'), { n: i + 1, of: paper.items.length });
+    }
+    d.done.add(it.id);
+    d.onAnswer?.({ id: it.id, ...got });
+  }
+  return { stopped: d.signal.aborted };
+}
+
+/**
+ * Sit these subjects with the brain's own model. Returns the results, and the subjects left (with the first one's paper
+ * part-answered) when a question could not be answered online: the phone's brain carries on with those.
+ */
+async function sitOnline(stage: string, subjects: string[], mine: AbortController): Promise<{ out: PaperResult[]; left: string[] }> {
+  const out: PaperResult[] = [];
+  const model = onlineSit.get().model;
+  sitting.set({ busy: true, online: true, working: '', stage, subject: subjects[0] ?? '', title: '', n: 0, of: 0, left: subjects.slice(1), line: 'getting the paper…', results: [], stopped: false, brain: onlineLine(model, null, true).split('. ')[0] + '.', resume: null });
+  for (const [k, subject] of subjects.entries()) {
+    if (mine.signal.aborted) break;
+    sitting.set({ subject, left: subjects.slice(k + 1), line: 'getting the paper…', n: 0, of: 0, working: '' });
+    const { paper, done } = await school.sit(stage, subject);
+    sitting.set({ title: paper.title, of: paper.items.length, n: done.length, line: done.length ? `carrying on from question ${done.length + 1}` : '' });
+    try {
+      await runOnline(paper, {
+        ask: (itemId) => school.online(paper.id, itemId),
+        done: new Set(done),
+        signal: mine.signal,
+        onProgress: (n, of) => sitting.set({ n, of, line: `Question ${n} of ${of}` }),
+        onAnswer: (a) => {
+          onlineSit.set({ model: a.model });
+          sitting.set({ working: a.given, brain: `${onlineLine(a.model, null, true).split('. ')[0]}.` });
+        },
+      });
+    } catch (e) {
+      if (!(e instanceof NoOnline)) throw e;
+      onlineSit.set({ ready: false, at: Date.now() });
+      return { out, left: subjects.slice(k) };
+    }
+    sitting.set({ line: 'handing it in for marking…' });
+    const r = await school.answers(paper.id, [], true, '');
+    if (r.result) {
+      out.push(r.result);
+      sitting.set((s) => ({ last: r.result!, results: [...s.results, r.result!] }));
+    }
+  }
+  return { out, left: [] };
+}
 
 /** Where a sitting has got to, kept on this phone as it goes: what CARRY ON picks up. */
 interface SitMark {
@@ -427,6 +531,30 @@ export const sitGen: Gen = async (messages, o) => {
  * whatever he chose (CARRY ON after a close or a failed brain).
  */
 export async function sitSubjects(stage: string, subjects: string[], o: { small?: boolean } = {}): Promise<PaperResult[]> {
+  // 13 Nov: with signal, the brain's own model sits it in full working; the phone's brain only with none (or none free).
+  // (CARRY ON after the phone's brain closed Ghosty is the phone's own paper: it stays on the phone, as before.)
+  if (!o.small && !sitting.get().busy && (await onlineReady())) {
+    const mine = new AbortController();
+    ctl = mine;
+    let got: { out: PaperResult[]; left: string[] };
+    try {
+      got = await sitOnline(stage, subjects, mine);
+    } finally {
+      if (ctl === mine) ctl = null;
+      sitting.set({ busy: false, line: '', left: [], online: false, stopped: mine.signal.aborted });
+    }
+    if (!got.left.length || mine.signal.aborted) return got.out;
+    // No online answer mid-paper (no signal, or no model free): the phone's brain carries on that paper from there.
+    const rest = await sitOnPhone(stage, got.left, o).catch((e) => {
+      throw new Error(`My online model stopped answering (no signal?), and ${rawText(e).replace(/^\w/, (c) => c.toLowerCase())}`);
+    });
+    return [...got.out, ...rest];
+  }
+  return sitOnPhone(stage, subjects, o);
+}
+
+/** The phone's own brain sits them (the chain, heavy mode, the crash record), as before 13 Nov. */
+async function sitOnPhone(stage: string, subjects: string[], o: { small?: boolean }): Promise<PaperResult[]> {
   // The brain it is sat on, on this phone (1 Nov: the chain), or the words for why not: none left, the one tap, or GET it.
   const plan = await sitPlan(o.small);
   const brain = plan.brain;
@@ -438,7 +566,7 @@ export async function sitSubjects(stage: string, subjects: string[], o: { small?
     async () => {
       ctl = mine;
       const mark: SitMark = { stage, subjects, title: '', n: 0, of: 0, brain: brain.id, at: Date.now() };
-      sitting.set({ busy: true, stage, subject: subjects[0] ?? '', title: '', n: 0, of: 0, left: subjects.slice(1), line: 'getting ready (loading the model)…', results: [], stopped: false, brain: brainLine({ ...plan, brain }, true), resume: null });
+      sitting.set({ busy: true, online: false, working: '', stage, subject: subjects[0] ?? '', title: '', n: 0, of: 0, left: subjects.slice(1), line: 'getting ready (loading the model)…', results: [], stopped: false, brain: brainLine({ ...plan, brain }, true), resume: null });
       // Heavy mode first (the GYM pauses, Mind goes still), then the crash record, then the brain it sits on.
       heavy.set({ on: true, why: 'sitting a paper' });
       writeMark(mark);

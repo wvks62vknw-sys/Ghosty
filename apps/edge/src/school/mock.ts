@@ -6,6 +6,7 @@
  */
 import { CHECK_EXACT_SYSTEM, CHECK_SCHEME_SYSTEM, WRITER_SYSTEM } from './banks';
 import type { Ask } from './mark';
+import type { Sit } from './online';
 import { READ_MARKS_SYSTEM, READ_QUESTIONS_SYSTEM, READ_TEXTS_SYSTEM } from './official';
 
 let made = 0;
@@ -63,4 +64,19 @@ export const schoolMock: Ask = async (system, user) => {
     return JSON.stringify([...user.matchAll(/^(\d+)\s+Answer:\s*(.+?)\s*$/gm)].map((m) => ({ n: m[1], answer: m[2], rubric: `Award the marks for: ${m[2]}` })));
   }
   return '';
+};
+
+/**
+ * SCHOOL's stand-in for the brain's own model sitting a question online (school/online.ts), ONLY with the scripted test
+ * model: it writes its working out in full, then the answer line, as the real one is asked to. Never used for real.
+ */
+export const schoolMockSit: Sit = async (_system, _user, item) => {
+  const answer = item.type === 'mcq' ? (item.answer ?? 'a').toUpperCase() : item.type === 'extended' ? 'done' : item.answer ?? '';
+  const working = [
+    `Working: I read the question carefully (${item.marks} mark${item.marks === 1 ? '' : 's'}).`,
+    item.type === 'mcq' ? `Step 1: I check each choice against what the question asks.\nStep 2: Only one choice fits: ${item.options?.['abcdefgh'.indexOf((item.answer ?? 'a').toLowerCase())] ?? answer}.` : `Step 1: I set out what is known.\nStep 2: I work it through: ${item.answer ?? 'my answer'}.`,
+    item.type === 'extended' ? `${item.answer ?? 'My piece of writing, written out in full.'}` : '',
+    `Answer: ${answer}`,
+  ].filter(Boolean);
+  return { text: working.join('\n'), model: 'Stand-in · test model' };
 };
