@@ -21,7 +21,7 @@ import { stopwatch } from '../core/stopwatch';
 import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
-import { clearTag, graceOn, hear, hold, labelOf, type Label } from './voiceknown';
+import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -272,7 +272,7 @@ function settle(ids?: Set<string>): void {
 }
 
 /** What goes with every turn (shell/awareness.ts: one function for the chat and the Lens: his time, name and saved place, and what is on screen). */
-const context = () => clientContext(spokenTurn, turnVoice);
+const context = () => clientContext(spokenTurn, turnVoice, heardNote());
 
 let speakReplies = true;
 /** This message was spoken, not typed. */
@@ -928,7 +928,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     const h = await hear(snd);
     who = labelOf(h);
     if (h && h.label === 'unknown' && !graceOn()) {
-      hold(t, () => void send(t, { ...opts, as: 'unknown' }));
+      hold(t, () => void send(t, { ...opts, as: labelOf(h) ?? 'unknown' }));
       return;
     }
   }
@@ -952,6 +952,12 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
   if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv }))) {
     // [offline2] answered on the phone with no model: his own, on the independence meter too
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
+  // [voice lane] MANY WORDINGS, ONE MEANING (assistant/meaningturn.ts): "put some tunes on", "log a pint", "kill the lights" — read
+  // to the one ability they mean, after every table had his words as said; "play something" asks which, with both as keys
+  if (!opts.cloud && !opts.plain && (await import('./meaningturn').then((m) => m.meaningTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
@@ -1055,7 +1061,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await stream(
     async (cb) => {
       await readyWork(t); // [sites] the game open in the studio goes to the brain first, for "put it on my sites"
-      await brain.chat(t + openDocData() + openWorkData(t), context(), (ev) => {
+      await brain.chat(t + openDocData() + openWorkData(t) + (await import('./meaningturn').then((m) => m.meaningNote(t)).catch(() => '')), context(), (ev) => {
         lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
@@ -1206,6 +1212,8 @@ export function clearConversation(): void {
       await brain.clearHistory();
       // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
       await brain.clearPatterns().catch(() => undefined);
+      // [recall] and from the phone's own recall index (features/memory/recall.ts)
+      await import('../features/memory/recall').then((r) => r.clearTurns()).catch(() => undefined);
     },
   );
 }
