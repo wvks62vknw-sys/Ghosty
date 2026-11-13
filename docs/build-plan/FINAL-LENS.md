@@ -21,19 +21,19 @@ are drawn in `apps/web/src/features/lens/cards.ts`, inside the one view (`one.ts
 
 | Points it at | The Lens does |
 | --- | --- |
-| Words | READ ALOUD and COPY. Words in another language are translated by themselves (only the words are sent, as before), or TRANSLATE. |
-| A date in the words | ADD TO AGENDA: an all-day entry on that day. |
-| A phone number | CALL (the phone's dialler) and COPY. |
-| An address (a UK postcode line) | ON THE MAP. |
-| A link or an email address | OPEN, or WRITE. |
-| A sum or an equation | Solved and shown worked, line by line ("7 × 3 = 21", "12 + 21 = 33"; "2x = 11 − 3 = 8", "x = 8 ÷ 2 = 4"; "15% of 80"). It never makes up an answer: dividing by nought, or anything that is not a sum, gives none. |
-| A bill or a letter | The letter card, with the plate's REMIND ME and FILE, which are kept exactly as they were. |
-| A whole page | SCAN IT FLAT, which opens SCAN's document part on the frame, and READ ALOUD. |
-| A shop barcode | Looked up on Open Food Facts and its sister open databases through the brain: name, brand, size, Nutri-Score, and the credit. Only the number is sent. Free, no key. |
-| A QR code | What it holds, acted on: OPEN for a link, CALL for a number, and SCAN's full card behind MORE. |
-| A thing | Named on the phone, with how sure ("82% sure"); MEASURE IT (the existing measure); ASK ABOUT IT. |
-| A plant or an animal | Named on the phone with how sure; WHICH SPECIES sends the picture to the free model that sees (NAME's LIVING THING card, Pl@ntNet for plants when his free key is in). |
-| A landmark or a work of art | WHAT PLACE IS THIS: the free model that sees names it, and the brain's encyclopedia route gives its summary and a WIKIPEDIA key. |
+| Words | READ ALOUD (in the words' own language's voice until they have their English) and COPY. Words in another language are translated by themselves (only the words are sent, as before), or TRANSLATE. |
+| A date in the words | ADD TO AGENDA: an all-day entry on that day. Once it is in, the card says IN YOUR AGENDA and does not offer it twice. |
+| A phone number | CALL (the phone's dialler) and COPY. UK numbers only, with or without a bracketed area code. An order, invoice, account or reference number is never offered as a phone number. |
+| An address (a UK postcode line) | ON THE MAP, with its street line when the line before is one. A product spec ("S24 8GB"), a unit or a floor sign is never taken for a postcode. |
+| A link or an email address | OPEN, or WRITE. A link gets SCAN's checks: a look-alike address, an unencrypted page or a bare number address makes the key OPEN ANYWAY, with the warning said and a confirm first. |
+| A sum or an equation | Solved and shown worked, line by line, the way it is taught ("7 × 3 = 21", "12 + 21 = 33"; "2x = 11 − 3 = 8", "x = 8 ÷ 2 = 4"; "15% of 80"; −3² is −9; 2^3^2 is 2^9). A homework question's number ("1)", "Q2.", "(a)") is left off. It never makes up an answer: dividing by nought, a span of years ("1914 - 1918"), opening hours ("9-5") or a season ("2024/25") gives none. |
+| A bill or a letter | The letter card, with READ ALOUD and COPY, and the plate's REMIND ME and FILE, which are kept exactly as they were. |
+| A whole page | SCAN IT FLAT, which opens SCAN's document part on the frame, and READ ALOUD. A page stays a page while he holds it, with no flicker between the page card and the text card. |
+| A shop barcode or a book's ISBN | Looked up on Open Food Facts and its sister open databases (Open Library for a book) through the brain. It shows the name, brand and size; the Nutri-Score and Green-Score; energy, sugars, fat, saturates, salt and protein per 100 g; the allergens; and whose data it is. A book shows its authors, year, publisher and pages. Only the number is sent. Free, no key. If the databases are out, it asks again later and never says "nobody knows it". |
+| A QR code | What it holds, acted on in the card. A link opens (OPEN ANYWAY with its warnings when it looks wrong). A Wi-Fi code gives the network and COPY PASSWORD. A contact gives CALL and WRITE. A number gives CALL, a text-message code TEXT, an email code WRITE, and a place ON THE MAP. SCAN's full card is behind MORE. |
+| A thing | Named on the phone, with how sure ("82% sure"); MEASURE IT (the existing measure); ASK ABOUT IT (that thing, with its picture, sent by him). A teddy bear or a hot dog is a thing, not an animal. |
+| A plant or an animal | Named on the phone with how sure. One tap on WHICH SPECIES runs NAME's living-thing check at once, as the kind the phone's name says: a bird, an insect, a plant (Pl@ntNet, with his free key) or other. The answer is NAME's full card: the species and its Latin name, how sure, the tell-tale, WIKIPEDIA, SAVE and KEEP. |
+| A landmark or a work of art | WHAT PLACE IS THIS: the free model that sees names it, and the brain's encyclopedia route gives its summary and a WIKIPEDIA key, with ASK AGAIN if it is wrong. The answer belongs to the thing it was asked about: another clock tower is never shown as the first. A failed request is said as failed, not as "not sure". |
 | A face | Only him or someone he introduced, by the name he gave. A stranger gets "Someone I don’t know. I never identify a stranger." Faces never leave the phone. |
 
 **Every state is said in his words.** With no eyes on the phone, the one line is the offer itself: "GET THE EYES (18 MB, ON
@@ -88,6 +88,26 @@ No new keys. Nothing that costs money. The security headers are unchanged.
   already there. They let the spec show the Lens a frame's words without a real reader. Words staged this way are never read over
   by the real reader.
 
+## The independent review
+
+Before merging, four reviewers read the change, each from one angle:
+
+- what the Lens reads off print;
+- the cards and their wiring;
+- his rules and privacy;
+- the spec.
+
+Then a separate skeptic tried to disprove each finding. Every finding that survived is fixed, and each has its own check in
+`lens-one.test.mjs` or `lens2`. The changes are listed in the table above:
+
+- sums that were not sums;
+- powers worked in the wrong order;
+- postcodes, phone numbers and links taken wrongly;
+- a place answer shown for the wrong thing;
+- cards blinking out while the same words were re-read;
+- a risky link opening in one tap;
+- a fixed wait in the spec.
+
 ## How to try it on his phone
 
 1. Open the Lens and tap START. The picture should be in full colour.
@@ -96,29 +116,44 @@ No new keys. Nothing that costs money. The security headers are unchanged.
    - a sum written on paper, to see it worked;
    - a packet's barcode, to see what it is;
    - a mug, to see "A MUG · 82% sure";
-   - a plant, then tap WHICH SPECIES;
+   - a plant or a bird, then tap WHICH SPECIES once;
+   - a Wi-Fi QR code, then tap COPY PASSWORD;
    - a famous building on a screen or a postcard, then tap WHAT PLACE IS THIS.
 3. Change the look in THE LOOK, and the picture stays in colour.
 
 ## What was checked
 
-- **Typecheck:** `apps/web` is clean.
-- **Brain tests:** `apps/edge/test/lens-one.test.mjs` has three new tests. They cover:
+- **Typecheck:** `apps/web` and `apps/edge` are clean.
+- **Brain tests:** `apps/edge/test/lens-one.test.mjs` has seven new tests. They cover:
   - the job for each kind of frame;
   - the things in a read text, in order;
-  - a sum and an equation worked, with no answer made up.
+  - sums and equations worked, with no answer made up;
+  - the review's cases, one by one;
+  - powers and signs as taught;
+  - which kind a species question is asked as;
+  - the new voice wordings, and that nothing else is taken for them.
 
-  The test list is protected, so they run in the existing file.
+  The test list is protected, so they run in the existing file. The ratchet, knowledge, look, finding, abilities and catalogue
+  tests pass. The full brain suite passed before the merge (its count is in the merge commit).
 - **New spec `tests/lens2.spec.mjs`, at 440 × 956 and 390 × 844.** On fixture frames it proves:
   - the true colour in all seven looks, at 440;
-  - every job above;
+  - every job above, including:
+    - the species named in one tap;
+    - the product's figures and allergens;
+    - a Wi-Fi password copied;
+    - a risky link's OPEN ANYWAY;
+    - a second clock tower not taken for the first;
+  - "call that number" and "solve that" by voice;
   - every key at 44 pt, nothing sideways and no words cut.
 
   Its word is at the end of check.yml's `all=`.
-- **Specs re-run:** lens, lifeeasier, offlineeyes, seepass and phonehw (results below).
+- **Specs re-run, all clean:** lens, lifeeasier, offlineeyes, seepass and phonehw.
 
 ## What is left
 
 - An address outside the UK, written without a postcode, is not found yet.
 - A date written as "next Tuesday" is not found. Only days written out are found ("4 December", "04/12/2026").
 - Measuring a thing still opens the measure on a held frame. It does not draw the sizes over the live picture.
+- A sum is solved only when it is printed on one line, in numbers. A word problem ("Tom has 3 apples…") goes to ASK.
+- The place answer is kept only while that thing stays in view. Pointing away and back asks again on his tap, rather than
+  remembering.
