@@ -9405,6 +9405,8 @@ html #pg-social .soccompose .pknote, html #pg-social .socsent .pklab, html #pg-s
 html #pg-social .soccompose .soccount.bad { color: var(--r); }
 html #pg-social .soccompose .socmsg:empty, html #pg-social .soccompose .socpicl:empty, html #pg-social .soccompose .soccount:empty { display: none; }
 html #pg-social .soccompose .keyrow.wrapit { flex-wrap: wrap; }
+/* the picker itself is never drawn: ADD A PICTURE opens it (a general `input { display: block }` would otherwise show it) */
+html #pg-social .soccompose input[type='file'] { display: none !important; }
 html #pg-social .soccompose .keyrow button[aria-pressed='false'] { opacity: .85; }
 /* SENT TODAY: OPEN IT ON … is a key his thumb can hit (44 pt) */
 html #pg-social .socsent a.socopen { display: inline-flex; align-items: center; min-height: 44px; }

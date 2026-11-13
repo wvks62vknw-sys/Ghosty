@@ -184,6 +184,7 @@ export async function run(H) {
     await page.waitForSelector('#pg-social .soccompose img.socthumb', { timeout: 5000 }).catch(() => check(false, `[${world}] the picture did not show`));
     const f = await fit(page, '#pg-social');
     check(!f.small.length && !f.sideways && !f.cut.length, `[${world}] SOCIAL fits: ${JSON.stringify(f)}`);
+    check(!(await page.isVisible('#pg-social .soccompose input[type=file]')), `[${world}] the bare file picker is never drawn (ADD A PICTURE opens it)`);
     const c = await page.$eval('#pg-social .socto', (e) => ({ color: getComputedStyle(e).color, bg: getComputedStyle(document.body).backgroundColor })).catch(() => null);
     check(c && c.color !== c.bg && c.color !== 'rgba(0, 0, 0, 0)', `[${world}] the composer's words are drawn in a colour of the look: ${JSON.stringify(c)}`);
     if (world === 'glass') await page.screenshot({ path: `${H.out}/planlane-social-glass.png` });
