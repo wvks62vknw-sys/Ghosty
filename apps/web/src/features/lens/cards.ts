@@ -54,6 +54,8 @@ export interface CardInput extends Seen {
   langTag?: string;
   /** The thing's own tag (the place a WHAT PLACE IS THIS answer belongs to: that thing, never the next one with the same name). */
   thingId?: number;
+  /** The text's own tag (a page stays a page while this tag stays, through a re-read). */
+  textId?: number;
   english?: string;
   /** The Lens is still reading the text. */
   reading?: boolean;
@@ -90,13 +92,14 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   let last: CardInput | null = null;
   const products = new Map<string, LookupResult | 'unknown' | 'failed'>();
   /** A place's answer belongs to the thing it was asked about (its tag), never to the next thing the namer calls the same. */
-  const places = new Map<number, { name: string; summary: string; url: string } | 'unsure' | 'failed' | 'novision'>();
-  let askingFor = -2;
+  /** The answer is kept with the name the phone gave the thing when he asked; it shows only while the same tag still carries that name. */
+  const places = new Map<number, { label: string; v: { name: string; summary: string; url: string } | 'unsure' | 'failed' | 'novision' }>();
+  let askingFor = { id: -2, label: '' };
   let productBusy = '';
-  /** The days he has put in the agenda from the Lens this visit: their cards say so, and do not offer it twice. */
+  /** What he has put in the agenda from the Lens this visit (the day and its line): those cards say so, and do not offer it twice. */
   const added = new Set<string>();
-  /** The words of a page once it has been a page: it stays one until it is truly smaller in the picture (no flicker at the line). */
-  let docFor = '';
+  /** The text tag that is a page: it became one at DOC_SHARE of the picture and stays one down to DOC_SHARE − 0.07 (no flicker at the line). */
+  let docFor = -1;
 
   const card = (job: string, head: string, line: string | Node, ...keys: (HTMLElement | null)[]): HTMLElement => {
     const k = keys.filter((x): x is HTMLElement => !!x);
@@ -134,19 +137,20 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   /** One card for each thing in the words he can act on. */
   const actCard = (a: TextAct): HTMLElement => {
     switch (a.kind) {
-      case 'date':
-        if (added.has(a.value)) {
+      case 'date': {
+        const line = (last?.text ?? '').split('\n').find((l) => l.includes(a.text))?.trim() ?? a.text;
+        const id = `${a.value}|${line}`;
+        if (added.has(id)) {
           const b = key('IN YOUR AGENDA', () => undefined, { label: `${longDay(a.value)} is in your agenda` });
           b.disabled = true;
           return card('date', `A DATE · ${longDay(a.value).toUpperCase()}`, `“${a.text}”`, b);
         }
         return card('date', `A DATE · ${longDay(a.value).toUpperCase()}`, `“${a.text}”`, key('ADD TO AGENDA', async (b) => {
           b.disabled = true;
-          const line = (last?.text ?? '').split('\n').find((l) => l.includes(a.text))?.trim() ?? a.text;
           const [y, m, d] = a.value.split('-').map(Number);
           try {
             await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
-            added.add(a.value);
+            added.add(id);
             done(`In your agenda for ${longDay(a.value)}.`);
             b.querySelector('span')!.textContent = 'IN YOUR AGENDA';
           } catch {
@@ -154,6 +158,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             toast('I couldn’t reach my brain to put it in your agenda. Tap again when there is a signal.', 'warn');
           }
         }, { label: `Add ${longDay(a.value)} to your agenda` }));
+      }
       case 'phone':
         return card('phone', 'A PHONE NUMBER', a.text, link('CALL', `tel:${a.value}`, `Call ${a.text}`), copy('COPY', a.text, 'the number'));
       case 'address':
@@ -268,7 +273,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     b.disabled = true;
     const label = last.thing?.label ?? 'place';
     const id = last.thingId ?? -1;
-    askingFor = id;
+    askingFor = { id, label };
     places.delete(id);
     cardsState.place = { state: 'asking', name: '', summary: '' };
     sig = '';
@@ -282,35 +287,37 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       );
       const j = firstJson(r.text) as { name?: unknown; sure?: unknown } | null;
       const name = typeof j?.name === 'string' ? j.name.trim().slice(0, 80) : '';
-      if (r.noVision) places.set(id, 'novision');
-      else if (r.error && !r.text) places.set(id, 'failed');
+      if (r.noVision) places.set(id, { label, v: 'novision' });
+      else if (r.error && !r.text) places.set(id, { label, v: 'failed' });
       else if (!name || j?.sure === 'cant') {
-        places.set(id, 'unsure');
+        places.set(id, { label, v: 'unsure' });
       } else {
         const about = await fetch(`/api/aim/about?title=${encodeURIComponent(name)}`, { headers: headers(), credentials: 'same-origin' })
           .then((x) => (x.ok ? (x.json() as Promise<{ title?: string; extract?: string; url?: string }>) : null))
           .catch(() => null);
-        places.set(id, { name: about?.title || name, summary: about?.extract ?? '', url: about?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(name.replace(/ /g, '_'))}` });
+        places.set(id, { label, v: { name: about?.title || name, summary: about?.extract ?? '', url: about?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(name.replace(/ /g, '_'))}` } });
       }
     } catch {
-      places.set(id, 'failed');
+      places.set(id, { label, v: 'failed' });
     }
-    if (askingFor === id) askingFor = -2;
+    if (askingFor.id === id && askingFor.label === label) askingFor = { id: -2, label: '' };
     sig = '';
     if (last) update(last);
   };
 
   const update = (k0: CardInput): void => {
     // a page stays a page while its words stay and it is still most of the way there (0.38 of the picture, against 0.45 to become one)
-    const k = k0.text && k0.text === docFor && (k0.textShare ?? 0) >= DOC_SHARE - 0.07 ? { ...k0, textShare: Math.max(k0.textShare ?? 0, DOC_SHARE) } : k0;
+    const k = k0.text && k0.textId != null && k0.textId === docFor && (k0.textShare ?? 0) >= DOC_SHARE - 0.07 ? { ...k0, textShare: Math.max(k0.textShare ?? 0, DOC_SHARE) } : k0;
     last = k;
     const jobs = k.camera ? jobsOf(k) : [];
-    docFor = jobs.includes('document') ? (k.text ?? '') : k.text === docFor ? docFor : '';
-    const acts = k.text ? textActs(k.text, day()) : [];
+    docFor = jobs.includes('document') ? (k.textId ?? -1) : -1;
+    // while the words are being read again, nothing is offered on the words that were: a new scene's number is never the old one
+    const acts = k.text && !k.reading ? textActs(k.text, day()) : [];
     const code = k.code?.text ?? '';
     const prod = jobs.includes('product') ? products.get(code) : undefined;
-    const place = k.thingId != null ? places.get(k.thingId) : undefined;
-    const asking = k.thingId != null && askingFor === k.thingId;
+    const pe = k.thingId != null ? places.get(k.thingId) : undefined;
+    const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
+    const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
     const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size]);
     if (s === sig) return;
     sig = s;
@@ -318,7 +325,14 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     cardsState.acts = acts.map((a) => ({ kind: a.kind, value: a.value }));
     cardsState.cards = [];
     const out: HTMLElement[] = [];
+    let readingSaid = false;
     for (const job of jobs) {
+      // the words are being read again (a small move, or a new page): one card says so, with nothing to tap until they are read
+      if (k.reading && k.text && (job === 'text' || job === 'letter' || job === 'document')) {
+        if (!readingSaid) out.push(card('reading', 'READING AGAIN', 'Reading the words again…'));
+        readingSaid = true;
+        continue;
+      }
       switch (job) {
         case 'stranger':
           out.push(card('stranger', 'SOMEONE I DON’T KNOW', STRANGER));
@@ -434,17 +448,23 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           return w.done;
         }
       }
-      // the card is there but its key is not (no signal, already in the agenda): its own words say why
-      const there = w.jobs.map((j) => el.querySelector(`.lenscard[data-job="${j}"]`)).find(Boolean);
-      if (there) return (there.querySelector('.lc-line')?.textContent ?? '').trim() || w.none;
+      // the card is there but its key is not, for a reason its own words give: a date already in the agenda; a plant or a place
+      // with no signal, or already being asked about. Any other card is not this job's, and says nothing for it.
+      if (word === 'agenda' && el.querySelector('.lenscard[data-job="date"] .lc-keys > [disabled]')) return 'That’s already in your agenda.';
+      if (word === 'species' || word === 'place') {
+        const there = el.querySelector(`.lenscard[data-job="${word === 'species' ? 'living' : 'place'}"]`);
+        if (there) return (there.querySelector('.lc-line')?.textContent ?? '').trim() || w.none;
+      }
+      if (el.querySelector('.lenscard[data-job="reading"]')) return 'I’m reading the words again. Ask me in a moment.';
       return w.none;
     },
     clear() {
       sig = '';
       last = null;
       places.clear();
-      askingFor = -2;
-      docFor = '';
+      askingFor = { id: -2, label: '' };
+      docFor = -1;
+      added.clear();
       cardsState.jobs = [];
       cardsState.cards = [];
       cardsState.acts = [];

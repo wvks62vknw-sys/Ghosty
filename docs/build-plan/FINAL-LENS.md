@@ -108,6 +108,48 @@ Then a separate skeptic tried to disprove each finding. Every finding that survi
 - a risky link opening in one tap;
 - a fixed wait in the spec.
 
+## The second review: the fixes reviewed too
+
+Fixes can bring their own faults, so a second pair of reviewers read only the fixes. Again, a skeptic tried to disprove each
+finding. Twelve held up, and all are fixed and tested.
+
+Phone numbers:
+
+- My first reference-number filter hid customer-services numbers ("Customer Services 0800 …"), the number he most needs on a
+  bill. Now a reference's label must stand right before the number, or end the line above it, so "Account number" on its own
+  line is caught too.
+- A stray digit after a number is no longer swallowed into it.
+
+Postcodes:
+
+- Real postcodes ending TH, ST, ND or RD came back ("B33 8TH").
+- Lowercase and unspaced postcodes are found again.
+- A product spec is ruled out by the list of real UK postcode areas, and a room in a building ("Room B1 2ND") is not taken for a
+  postcode.
+
+Street lines:
+
+- "10-12 High Street" joins its address again.
+- "Dr Jane Patel" does not.
+
+Sums:
+
+- A sign before a power now waits for the power wherever it stands: "10 ÷ −2²" is −2.5, not −40.
+
+Cards:
+
+- A place's answer is kept with the name the phone gave the thing, so panning from one landmark to the next never carries the
+  first one's name across.
+- While the words are read again, one card says READING AGAIN and offers nothing to tap. A new letter's number can never be
+  dialled from the old letter's card.
+- "Already in your agenda" now means that day and that line, for this visit only.
+- A voice answer gives a card's own reason only where that reason truly applies.
+- A page stays a page while its text tag stays.
+
+Decision: when the phone's namer drops a landmark's tag and makes a new one (a shake, a weak look), the answer does not follow it
+to the new tag, and he taps WHAT PLACE IS THIS again. Carrying it across would sometimes put the first landmark's name on the
+next one, and a wrong name is worse than asking twice.
+
 ## How to try it on his phone
 
 1. Open the Lens and tap START. The picture should be in full colour.
@@ -155,5 +197,6 @@ Then a separate skeptic tried to disprove each finding. Every finding that survi
 - A date written as "next Tuesday" is not found. Only days written out are found ("4 December", "04/12/2026").
 - Measuring a thing still opens the measure on a held frame. It does not draw the sizes over the live picture.
 - A sum is solved only when it is printed on one line, in numbers. A word problem ("Tom has 3 apples…") goes to ASK.
-- The place answer is kept only while that thing stays in view. Pointing away and back asks again on his tap, rather than
-  remembering.
+- The place answer is kept only while that thing's tag stays. Pointing away and back, or a shake that makes the namer look
+  again, asks again on his tap rather than remembering.
+- A postcode whose second half ends in GB or TB (rare) is not found: those are taken for storage sizes ("8GB", "1TB").

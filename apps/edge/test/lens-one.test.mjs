@@ -534,10 +534,38 @@ test('what is no sum, no phone, no postcode and no link is left alone; what is o
 });
 
 test('a sign binds after a power and a chain of powers is worked from its top, as taught; separate powers left to right', () => {
-  assert.deepEqual(F.solve('-3^2 + 10'), { answer: '1', steps: ['3 ^ 2 = 9', '-1 × 9 = -9', '-9 + 10 = 1'] });
+  assert.deepEqual(F.solve('-3^2 + 10'), { answer: '1', steps: ['-(3 ^ 2) = -9', '-9 + 10 = 1'] });
+  // the sign waits on its number until the power is worked, wherever the number stands
+  assert.deepEqual(F.solve('10 ÷ -2^2'), { answer: '-2.5', steps: ['-(2 ^ 2) = -4', '10 ÷ -4 = -2.5'] });
+  assert.equal(F.solve('100 / -10^2 =').answer, '-1');
+  assert.equal(F.solve('2^-3^2').answer, '0.001953');
+  assert.equal(F.solve('-2^3^2').answer, '-512');
+  assert.deepEqual(F.solve('(-3)^2'), { answer: '9', steps: ['(-3) ^ 2 = 9'] });
   assert.equal(F.solve('-2^2').answer, '-4');
   assert.equal(F.solve('2 x -3^2').answer, '-18');
   assert.deepEqual(F.solve('2^3^2'), { answer: '512', steps: ['3 ^ 2 = 9', '2 ^ 9 = 512'] });
   assert.equal(F.solve('2 ^ -1').answer, '0.5');
   assert.equal(F.solve('1 + 2^3^2 - 4').answer, '509');
+});
+
+test('a phone number is one unless a reference’s label stands right before it (on its line, or ending the line above)', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  // the service numbers on a bill or a letter are phones (the second review's cases)
+  for (const [s, tel] of [['Customer Services 0800 123 4567', '08001234567'], ['Customer Services: 0345 300 0000', '03453000000'], ['Booking hotline 0161 496 0000', '01614960000'], ['Card services 0345 300 0000', '03453000000'], ['Policy enquiries 0345 300 0000', '03453000000'], ['NHS England: 0300 311 2233', '03003112233'], ['Our ref: JS/123 T: 0161 496 0000', '01614960000'], ['Questions about your bill?\nCustomer Services 0800 123 4567', '08001234567'], ['Tel (0121) 496 0123', '01214960123']]) assert.deepEqual(kinds(s), [`phone:${tel}`], s);
+  // a stray digit after a number is not swallowed into it
+  assert.deepEqual(kinds('Crimestoppers 0800 555 111  7 days a week'), ['phone:0800555111']);
+  // references: the label right before, on the line above, after a bracketed aside, or after an earlier phone on the same line
+  for (const s of ['Account number\n0123 456 7890', 'Order number:\n01234567890', 'Account number (please quote): 0123456789', 'Your account number is 0123456789', 'Booking reference: 0161 496 0000', 'Customer number: 0123 456 7890']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('Tel 0800 123 4567 Account 0123456789'), ['phone:08001234567']);
+  assert.deepEqual(kinds('ACCOUNT NUMBER\n0123 456 7890\nCALL 0161 496 0000'), ['phone:01614960000']);
+});
+
+test('a postcode is a real area’s, in any case, with a space or none; never a storage size or a room; the street line goes with it', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  for (const [s, v] of [['Birmingham B33 8TH', 'Birmingham B33 8TH'], ['Leeds LS2 7RD', 'Leeds LS2 7RD'], ['Leeds LS1 1ST', 'Leeds LS1 1ST'], ['london sw1a 1aa', 'london SW1A 1AA'], ['London SW1A1AA', 'London SW1A 1AA'], ['London SW1A 1AA', 'London SW1A 1AA'], ['EC1A 1BB', 'EC1A 1BB'], ['W1A 0AX', 'W1A 0AX']]) assert.deepEqual(kinds(s), [`address:${v}`], s);
+  assert.equal(kinds('Galaxy S24 8GB to Leeds LS1 4AP').length, 1, 'a storage size before a real postcode does not hide it');
+  for (const s of ['PS5 1TB Console', 'Floor 2 Room B1 2ND', 'Samsung Galaxy S24 8GB 256GB']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('10-12 High Street\nLeeds LS1 6DT'), ['address:10-12 High Street, Leeds LS1 6DT']);
+  assert.deepEqual(kinds('Flat 2.01, 5 High St\nLeeds LS1 6DT'), ['address:Flat 2.01, 5 High St, Leeds LS1 6DT']);
+  assert.deepEqual(kinds('Dr Jane Patel\nLeeds LS1 4AP'), ['address:Leeds LS1 4AP'], 'a person’s title is no street');
 });

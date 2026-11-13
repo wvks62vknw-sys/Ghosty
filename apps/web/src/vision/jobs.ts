@@ -98,18 +98,35 @@ export interface TextAct {
   steps?: string[];
 }
 
-const PHONE = /(?:\+44\s?\(?0?\)?\s?|\(0|\b0)(?:\d[\s)-]{0,2}){9,10}\b/g;
-/** A number labelled as a reference is no phone number ("Order number 0123 456 789"), unless the label says it is one. */
-const NOT_PHONE_LABEL = /\b(order|invoice|account|acct|customer|policy|ref|reference|membership|member|booking|tracking|serial|sort code|nhs|case|claim|meter|mpan|mprn|card|voucher|ticket|barcode|isbn|id)\b[^\n]{0,16}$/i;
-const PHONE_LABEL = /\b(tel|telephone|phone|call|ring|mobile|mob|text|fax|helpline|contact|whatsapp)\b[^\n]{0,24}$/i;
+/** A UK number: a bracketed area code and the rest ("(020) 7946 0958"), or +44 or 0 and nine or ten more digits, one space or dash at most between digits. */
+const PHONE = /\(0\d{2,4}\)\s?(?:\d[\s-]?){5,8}\b|(?:\+44\s?\(?0?\)?\s?|\b0)(?:\d[\s-]?){9,10}\b/g;
+/**
+ * A reference's label standing right before a number ("Order number 0123 456 789", "Your account number is …", "Booking
+ * reference: …", "Account no. (please quote): …"): that number is the reference, never a phone. Only number nouns, a bracketed
+ * aside, "is" and punctuation may stand between the label and the number, so "Customer Services 0800 …" stays a phone.
+ */
+const REF_LABEL = /\b(order|invoice|account|acct|customer|policy|ref|reference|membership|member|booking|tracking|serial|sort code|nhs|case|claim|meter|mpan|mprn|card|voucher|ticket|barcode|isbn|id)(?:\s*(?:no\.?|number|num|#|ref(?:erence)?|code|id))*\s*(?:\([^)\n]{0,24}\)\s*)?(?:is\s*)?[:.#-]?\s*$/i;
+/** Is the number at `at` a reference (its label right before it on its line, or ending the line above when it starts its own)? */
+function isReference(t: string, at: number): boolean {
+  const ls = t.lastIndexOf('\n', at - 1) + 1;
+  const lead = t.slice(Math.max(ls, at - 60), at);
+  if (REF_LABEL.test(lead)) return true;
+  if (lead.trim() || ls === 0) return false;
+  const above = t.slice(t.lastIndexOf('\n', ls - 2) + 1, ls - 1);
+  return REF_LABEL.test(above);
+}
 const URL_RE = /\b(?:https?:\/\/|www\.)(?:[^\s<>"'()]|\([^\s<>"'()]*\))*(?:[^\s<>"'().,;:!?]|\([^\s<>"'()]*\))/gi;
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-/** A UK postcode (the address is the line it stands on, with the line before when that line is short). */
-const POSTCODE = /\b([A-PR-UWYZ][A-HK-Y]?\d[A-Z\d]?) +(\d[ABD-HJLNP-UW-Z]{2})\b/;
-/** Inward halves that are units or ordinals, not a postcode ("8GB", "1TB", "2ND"). */
-const NOT_INWARD = /^\d(?:GB|TB|ST|ND|RD|TH)$/;
-/** A line before the postcode that is part of the address: a house number first, or a street word as a word. */
-const STREET = /^\s*\d+[A-Z]?\b|\b(road|rd|street|st|lane|ln|avenue|ave|close|drive|dr|way|place|crescent|grove|gardens|terrace|court|square|hill|row|walk|mews|parade|park)\b/i;
+/** A UK postcode's shape (the address is the line it stands on, with the street line before it when there is one); any case, a space or none. */
+const POSTCODE = /\b([A-PR-UWYZ][A-HK-Y]?\d[A-Z\d]?)[ \u00a0]*(\d[ABD-HJLNP-UW-Z]{2})\b/gi;
+/** The postcode areas of the UK, the Isle of Man and the Channel Islands: a shape whose letters are no area is no postcode ("PS5 1TB"). */
+const AREAS = new Set('AB AL B BA BB BD BH BL BN BR BS BT CA CB CF CH CM CO CR CT CV CW DA DD DE DG DH DL DN DT DY E EC EH EN EX FK FY G GL GU GY HA HD HG HP HR HS HU HX IG IM IP IV JE KA KT KW KY L LA LD LE LL LN LS LU M ME MK ML N NE NG NN NP NR NW OL OX PA PE PH PL PO PR RG RH RM S SA SE SG SK SL SM SN SO SP SR SS ST SW SY TA TD TF TN TQ TR TS TW UB W WA WC WD WF WN WR WS WV YO ZE'.split(' '));
+/** Inward halves that are units of storage, not a postcode ("8GB", "1TB"). */
+const NOT_INWARD = /^\d(?:GB|TB)$/;
+/** A floor, a room or a unit just before the shape: a sign in a building ("Room B1 2ND"), not a postcode. */
+const IN_BUILDING = /\b(floor|room|level|unit|flat|suite|lift|gate|platform|bay)\s*$/i;
+/** A street word in the line before the postcode: that line is the street. */
+const STREET_WORD = /\b(road|rd|street|st|lane|ln|avenue|ave|close|drive|dr|way|place|crescent|grove|gardens|terrace|court|square|hill|row|walk|mews|parade|park)\b/i;
 
 /** A phone number as a dialler takes it: +44 or 0 and the digits, nothing else. */
 export function telOf(words: string): string | null {
@@ -136,20 +153,25 @@ export function textActs(text: string, today: string): TextAct[] {
   for (const m of t.matchAll(PHONE)) {
     const tel = telOf(m[0]);
     const at = m.index ?? 0;
-    const lead = t.slice(Math.max(0, at - 40), at);
-    if (!tel || (NOT_PHONE_LABEL.test(lead) && !PHONE_LABEL.test(lead))) continue;
+    if (!tel || isReference(t, at)) continue;
     add({ kind: 'phone', text: m[0].trim(), value: tel }, at, m[0].length);
   }
   const lines = t.split(/\n/);
   let pos = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const m = POSTCODE.exec(line);
-    if (m && !NOT_INWARD.test(m[2]!)) {
+    // the first shape on the line that is a postcode: a real area, no storage unit, not a room in a building
+    const m = [...line.matchAll(POSTCODE)].find((c) => AREAS.has(c[1]!.replace(/\d.*$/, '').toUpperCase()) && !NOT_INWARD.test(c[2]!.toUpperCase()) && !IN_BUILDING.test(line.slice(0, c.index)));
+    if (m) {
       const prev = i > 0 ? lines[i - 1]!.trim() : '';
-      // the street line goes with it only when it is one (a house number first, or a street word), never a phone or an opening time
-      const before = prev && prev.length <= 40 && STREET.test(prev) && !telOf(prev) && !/\d{1,2}[:.]\d{2}|\d\s*[-–]\s*\d/.test(prev) ? `${prev}, ` : '';
-      add({ kind: 'address', text: `${before}${line.trim()}`.slice(0, 120), value: `${before}${line.trim()}`.replace(/ +/g, ' ').slice(0, 120) }, pos + (m.index ?? 0), m[0].length);
+      // the street line goes with it when it is one: a street word (a person's title is none: "Dr Jane Patel"), or a house number
+      // first ("12", "10-12") on a line that is no opening time ("9-5", "9.00 - 17.00"); never a phone number
+      const named = prev.replace(/^(?:dr|mr|mrs|ms|miss|prof|rev)\.?\s+/i, '');
+      const street = STREET_WORD.test(named) || (/^\s*\d+[A-Z]?(?:\s*[-–]\s*\d+[A-Z]?)?\s+[A-Z]/i.test(prev) && !/\d{1,2}[:.]\d{2}/.test(prev));
+      const before = prev && prev.length <= 40 && street && !telOf(prev) ? `${prev}, ` : '';
+      const pc = `${m[1]!.toUpperCase()} ${m[2]!.toUpperCase()}`;
+      const said = `${before}${line.trim()}`;
+      add({ kind: 'address', text: said.slice(0, 120), value: said.replace(m[0], pc).replace(/[ \u00a0]+/g, ' ').slice(0, 120) }, pos + (m.index ?? 0), m[0].length);
     }
     pos += line.length + 1;
   }
@@ -169,7 +191,7 @@ export function num(n: number): string {
   return String(Object.is(r, -0) ? 0 : r);
 }
 
-type Tok = { t: 'n'; v: number } | { t: 'op'; v: string } | { t: '('; v: string } | { t: ')'; v: string };
+type Tok = { t: 'n'; v: number; neg?: boolean } | { t: 'op'; v: string } | { t: '('; v: string } | { t: ')'; v: string };
 
 /** The tokens of an arithmetic expression (×, x between numbers, ÷, ^, %, brackets), or null when it is not one. */
 function tokens(src: string): Tok[] | null {
@@ -223,8 +245,8 @@ export function work(expr: string): { answer: number; steps: string[] } | null {
     const prev = signed[signed.length - 1];
     if (k.t === 'op' && k.v === '-' && (!prev || prev.t === 'op' || prev.t === '(') && flat[i + 1]?.t === 'n') {
       const n = flat[i + 1] as { v: number };
-      // a sign binds after a power, as taught: −3² is −(3²) = −9, so it is worked as −1 × 3²
-      if (flat[i + 2]?.t === 'op' && (flat[i + 2] as { v: string }).v === '^') signed.push({ t: 'n', v: -1 }, { t: 'op', v: '*' }, { t: 'n', v: n.v });
+      // a sign binds after a power, as taught: −3² is −(3²) = −9; the sign waits on the number until its power is worked
+      if (flat[i + 2]?.t === 'op' && (flat[i + 2] as { v: string }).v === '^') signed.push({ t: 'n', v: n.v, neg: true });
       else signed.push({ t: 'n', v: -n.v });
       i++;
     } else signed.push(k);
@@ -242,9 +264,14 @@ export function work(expr: string): { answer: number; steps: string[] } | null {
         const a = list[i - 1];
         const b = list[i + 1];
         if (a?.t !== 'n' || b?.t !== 'n') return null;
-        const v = k.v === '^' ? a.v ** b.v : k.v === '*' ? a.v * b.v : k.v === '/' ? (b.v === 0 ? NaN : a.v / b.v) : k.v === '+' ? a.v + b.v : a.v - b.v;
+        const v0 = k.v === '^' ? a.v ** b.v : k.v === '*' ? a.v * b.v : k.v === '/' ? (b.v === 0 ? NaN : a.v / b.v) : k.v === '+' ? a.v + b.v : a.v - b.v;
+        // a signed base takes its sign after its power: −(3 ^ 2) = −9
+        const neg = k.v === '^' && a.neg === true;
+        const v = neg ? -v0 : v0;
         if (!Number.isFinite(v)) return null;
-        steps.push(`${num(a.v)} ${SYM[k.v]} ${num(b.v)} = ${num(v)}`);
+        // (a negative base is written in its brackets: (−3) ^ 2 is not −3 ^ 2)
+        const base = k.v === '^' && a.v < 0 ? `(${num(a.v)})` : num(a.v);
+        steps.push(neg ? `-(${num(a.v)} ^ ${num(b.v)}) = ${num(v)}` : `${base} ${SYM[k.v]} ${num(b.v)} = ${num(v)}`);
         list.splice(i - 1, 3, { t: 'n', v });
         // the next operator now stands where this one stood; after a power, look again from the start (a waiting power may be free)
         i = k.v === '^' ? -1 : i - 1;

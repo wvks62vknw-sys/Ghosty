@@ -653,11 +653,12 @@ export function createOneMode(L: LensContext): Mode {
     const code = list.find((t) => t.kind === 'code');
     const objs = list.filter((t) => t.kind === 'object' && (labels.get(t.id) || t.data?.label)).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
     const face = list.find((t) => t.kind === 'face');
-    // (while the same words are read again after a small move, the cards keep them: they never blink out for the reader's second look)
+    // (while the words are read again after a small move, the cards know the words were there, and say they are being read again)
     const read = ocr.state === 'read' || (ocr.state === 'reading' && ocr.text) ? ocr.text : '';
     return {
       text: read,
       textShare: text ? (text.box.w * text.box.h) / area : 0,
+      ...(text ? { textId: text.id } : {}),
       ...(code?.data?.text ? { code: { text: code.data.text, format: code.data.format } } : {}),
       ...(objs[0] ? { thing: { label: labels.get(objs[0].id) || objs[0].data?.label || '', score: objs[0].score }, thingId: objs[0].id } : {}),
       known: !!face,
@@ -667,7 +668,7 @@ export function createOneMode(L: LensContext): Mode {
       lang: read ? ocr.lang.name : '',
       langTag: read ? ocr.lang.tag : '',
       english: ocr.tr === 'done' ? ocr.translation : '',
-      reading: ocr.state === 'reading' && !ocr.text,
+      reading: ocr.state === 'reading',
       online,
       eyes: oneState.finder === 'ready',
       camera: S.camera === 'on',
