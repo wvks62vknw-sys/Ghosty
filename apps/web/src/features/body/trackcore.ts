@@ -262,6 +262,7 @@ export function hours(h: number): string {
   const whole = Math.floor(h);
   const min = Math.round((h - whole) * 60);
   if (min === 60) return `${whole + 1} h`;
+  if (!whole) return `${min} min`;
   return min ? `${whole} h ${min} min` : `${whole} h`;
 }
 export const MOODS = ['Awful', 'Low', 'Okay', 'Good', 'Great'];

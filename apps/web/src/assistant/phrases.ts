@@ -23,6 +23,7 @@ import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { trackAsked } from '../features/body/trackcore';
+import { larderAsked } from '../features/kitchen/larderwords';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
@@ -90,6 +91,8 @@ export const LOCAL_ASKS = [
   { id: 'water', test: (t: string) => bodyAsked(t)?.what === 'water' },
   // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
+  // [bodylane] the pantry and the recipe book, kept on this phone (features/kitchen/larder.ts)
+  { id: 'larder', test: (t: string) => larderAsked(t) },
   { id: 'shopping', test: (t: string) => shoppingAsked(t) },
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
   // [social] "who made you?", "where did you come from?": FATHER AND THE ORIGIN's first lines and its card (features/me)

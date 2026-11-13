@@ -228,6 +228,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   stretch: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   water: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
+  larder: async (text, opts) => {
+    const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, go: [{ id: 'kitchen', ask: -1, label: 'Open it', run: 'open_kitchen', args: { what: r.open } }] }, opts);
+  },
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page

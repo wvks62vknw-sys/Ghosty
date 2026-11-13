@@ -49,7 +49,7 @@ const IN_THE_WORKS = ['coach', 'learning'];
 const NEW = {
   money: { area: 'life', name: 'Money', word: 'statement', pills: [], pages: ['PASTE A STATEMENT'] },
   body: { area: 'life', name: 'Body', word: 'squats', pills: ['Reps', 'Run', 'Breathe', 'Stretch', 'Health', 'Water', 'Sleep', 'Steps', 'Weight', 'Mood'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'BREATHE', 'STRETCH SET', 'MY HEALTH WEEK', 'WATER TODAY', 'SLEEP', 'STEPS', 'WEIGHT', 'MOOD'] },
-  kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN'] },
+  kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Group plan'], pages: ['YOUR PEOPLE', 'GROUP PLAN'] },
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Interview', 'Document'], pages: ['TO-DO', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
   creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },

@@ -116,7 +116,9 @@ for (const vp of VIEWPORTS) {
   // my brain cut off for the packs: the trackers must not need it
   await page.route(/\/api\/packs\/do/, (r) => r.abort('failed'));
 
-  // ---- a. WATER
+  // ---- a. WATER (today's drinks at 10:00 on the phone's clock, moved by window.__ghostyClockOffset, so the nudges' hours are known)
+  const at = (h) => page.evaluate((hr) => { const d = new Date(); d.setHours(hr, 0, 0, 0); window.__ghostyClockOffset = d.getTime() - Date.now(); }, h);
+  await at(10);
   await open(page, 'body', 'Water');
   on('water');
   await page.waitForSelector(`${W} .bt-ringbig`);
@@ -153,23 +155,24 @@ for (const vp of VIEWPORTS) {
   check(await until(page, (s) => document.querySelectorAll(`${s} .bt-days small`).length === 30 && document.querySelector(`${s} .bt-hist button[aria-pressed="true"]`)?.textContent === 'Month', W), `${T} MONTH draws thirty days, pressed`);
   check(/The last 30 days: .* a day on average/.test(await txt(page, `${W} [data-avg]`)), `${T} the month's average is said: "${await txt(page, `${W} [data-avg]`)}"`);
   const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.body.track') ?? '{}').log?.water?.length);
-  check(kept === 7, `${T} kept in the phone's own storage (7 water entries): ${kept}`);
+  check(kept === 6, `${T} kept in the phone's own storage (3 days before, and today's pint, glass and flask): ${kept}`);
   await page.screenshot({ path: `${out}/bodylane-water-${vp.width}.png` });
   await bar(page, `${T} water`, 'body');
 
   // ---- b. NUDGES (the phone's clock moved to the hour needed: window.__ghostyClockOffset)
-  const at = (h) => page.evaluate((hr) => { const d = new Date(); d.setHours(hr, 0, 0, 0); window.__ghostyClockOffset = d.getTime() - Date.now(); }, h);
   await page.evaluate((s) => (document.querySelector(`${s} .bt-nudges`).open = true), W);
   await page.locator(`${W} .bt-nudges button[aria-pressed]`).click();
   check(await until(page, (s) => document.querySelector(`${s} .bt-nudges button[aria-pressed]`)?.getAttribute('aria-pressed') === 'true', W), `${T} nudges turn on`);
-  await at(15);
+  await at(20);
   const nudge = await page.evaluate(() => { window.__ghosty.track.nudge.tick(); return window.__ghosty.track.nudge.last; });
-  check(nudge === 'behind' && (await until(page, () => [...document.querySelectorAll('.toast, [role=status], [role=alert]')].some((e) => /Time for some water/.test(e.textContent ?? '')))), `${T} behind at 15:00, a nudge is said (${nudge})`);
+  check(nudge === 'behind' && (await until(page, () => [...document.querySelectorAll('.toast, [role=status], [role=alert]')].some((e) => /Time for some water/.test(e.textContent ?? '')))), `${T} behind at 20:00, a nudge is said (${nudge})`);
+  await at(12);
+  check((await page.evaluate(() => { window.__ghosty.track.nudge.tick(); return window.__ghosty.track.nudge.last; })) === 'on track', `${T} on track at noon (1.22 of 2.25 litres): no nudge`);
   await at(23);
   check((await page.evaluate(() => { window.__ghosty.track.nudge.tick(); return window.__ghosty.track.nudge.last; })) === 'quiet', `${T} never in his quiet hours (23:00)`);
-  await at(15);
+  await at(20);
   await page.evaluate(() => (window.__ghostyClockOffset += 1));
-  for (let i = 0; i < 2; i++) await tap(page, 'Add a bottle');
+  for (let i = 0; i < 3; i++) await tap(page, 'Add a bottle');
   check((await page.evaluate(() => { window.__ghosty.track.nudge.tick(); return window.__ghosty.track.nudge.last; })) === 'met', `${T} no nudge once the goal is met`);
   check(/goal met/.test(await txt(page, `${W} .bt-line`)) && (await page.locator(`${W} .bt-fill.met`).count()) === 1, `${T} the ring says the goal is met: "${await txt(page, `${W} .bt-line`)}"`);
   check(/4 days in a row/.test(await txt(page, `${W} .bt-streak`)), `${T} today met joins the run: "${await txt(page, `${W} .bt-streak`)}"`);
@@ -184,7 +187,7 @@ for (const vp of VIEWPORTS) {
   await page.evaluate(() => (window.__ghostyClockOffset = 7.5 * 3600e3));
   await tap(page, 'I’m up');
   check(await ringIs(page, /^7 h 30 min$/), `${T} I'M UP 7 h 30 min later keeps it: "${await txt(page, `${W} .bt-ringbig`)}"`);
-  check(/30 min under your 8 h goal/.test(await txt(page, `${W} .bt-line`)), `${T} sleep says it against the goal: "${await txt(page, `${W} .bt-line`)}"`);
+  check(/7 h 30 min last night, 30 min under your 8 h goal/.test(await txt(page, `${W} .bt-line`)), `${T} sleep says it against the goal: "${await txt(page, `${W} .bt-line`)}"`);
   await page.evaluate(() => (window.__ghostyClockOffset = 0));
   await bar(page, `${T} sleep`, 'body');
   await open(page, 'body', 'Steps');
@@ -208,10 +211,10 @@ for (const vp of VIEWPORTS) {
   await page.locator(`${W} .bt-moods button`, { hasText: /^Good$/ }).click();
   check(await until(page, (s) => document.querySelector(`${s} .bt-moods button[aria-pressed="true"]`)?.textContent === 'Good' && /Today: Good/.test(document.querySelector(`${s} .bt-line`)?.textContent ?? ''), W), `${T} mood: one tap, pressed and said`);
   await bar(page, `${T} mood`, 'body');
-  // the water goal from his body now: 84.4 kg × 33 ml = 2,800 ml, +250 ml at 24°C
+  // the water goal from his body now: 84.4 kg × 33 ml, +250 ml at 24°C, +350 ml for 10,000 steps = 3,385, to 3.4 litres
   await open(page, 'body', 'Water');
   on('water');
-  check(/of 3\.05 litres/.test(await txt(page, `${W} .bt-ringsmall`)) && /84 kg × 33 ml/.test(await txt(page, `${W} .bt-goalbox`)), `${T} the water goal is worked out from his weight: "${await txt(page, `${W} .bt-ringsmall`)}"`);
+  check(/of 3\.4 litres/.test(await txt(page, `${W} .bt-ringsmall`)) && /84 kg × 33 ml = 2\.8 litres/.test(await txt(page, `${W} .bt-goalbox`)) && /\+350 ml: 10,000 steps today/.test(await txt(page, `${W} .bt-goalbox`)), `${T} the water goal is worked out from his weight: "${await txt(page, `${W} .bt-ringsmall`)}"`);
   // offline: everything works, the heat waits, said in his words
   await page.evaluate(() => { window.__off = true; delete window.__ghostyHeat; });
   await page.locator(`${W} .bt-hist button`, { hasText: /^Week$/ }).click();
@@ -224,7 +227,7 @@ for (const vp of VIEWPORTS) {
   await page.waitForTimeout(300);
   await open(page, 'body', 'Water');
   on('water');
-  const topOk = await until(page, () => /Water \d[\d.,]* (ml|litres?) of 3\.05 litres/.test(document.querySelector('#pg-body')?.textContent ?? ''), null, 6000);
+  const topOk = await until(page, () => /Water \d[\d.,]* (ml|litres?) of 3\.4 litres/.test(document.querySelector('#pg-body')?.textContent ?? ''), null, 6000);
   check(topOk, `${T} the Body card says today's water: "${(await txt(page, '#pg-body')).slice(0, 160)}"`);
 
   // ---- d. THE CHAT
@@ -234,14 +237,14 @@ for (const vp of VIEWPORTS) {
   await page.waitForSelector('#cin', { state: 'visible', timeout: 8000 }).catch(() => problems.push(`${T} the chat's box did not open`));
   const before = await page.evaluate(() => window.__ghosty.track.data().log.water.length);
   for (const [w, re] of [
-    ['I drank a pint', /^568 ml kept\./],
-    ['log a glass of water', /^250 ml kept\./],
+    ['I drank a pint', /568 ml kept\./],
+    ['log a glass of water', /250 ml kept\./],
     ['how much have I drunk?', /litres today|to go/],
-    ['I slept 7 and a half hours', /^7 h 30 min of sleep kept/],
-    ['walked 6,000 steps', /^6,000 steps kept/],
+    ['I slept 7 and a half hours', /7 h 30 min of sleep kept/],
+    ['walked 6,000 steps', /6,000 steps kept/],
     ['how many steps today?', /16,000 steps today/],
     ['what do I weigh?', /84\.4 kg \(13 st 4 lb\)[\s\S]*first estimate/],
-    ['my mood is great', /^Mood kept: Great/],
+    ['my mood is great', /Mood kept: Great/],
   ]) {
     const r = await say(page, w);
     check(re.test(r) && !RAW.test(r), `${T} the chat: "${w}" → "${r.slice(0, 140)}"`);
@@ -249,6 +252,47 @@ for (const vp of VIEWPORTS) {
   check((await page.evaluate(() => window.__ghosty.track.data().log.water.length)) === before + 2, `${T} the chat's drinks are kept on the phone`);
   const agenda = await say(page, 'remind me to drink water at 5');
   check(!/water nudges on|kept\./i.test(agenda), `${T} "remind me to drink water at 5" is the agenda's, not the trackers': "${agenda.slice(0, 120)}"`);
+  // the pantry by chat
+  const f1 = await say(page, 'add milk and eggs to the fridge');
+  check(/In the fridge: milk, eggs\./.test(f1), `${T} the chat: "add milk and eggs to the fridge" → "${f1.slice(-80)}"`);
+  const f2 = await say(page, 'what’s in my fridge?');
+  check(/In the fridge: milk, eggs\./.test(f2), `${T} the chat: "what’s in my fridge?" → "${f2.slice(-80)}"`);
+
+  // ---- g. THE PANTRY AND THE RECIPE BOOK (kept on the phone)
+  await open(page, 'kitchen', 'Pantry');
+  const PN = '#pg-kitchen .pn:not([hidden]) [data-larder="pantry"]';
+  check((await page.locator(`${PN} li[data-item]`).count()) === 2, `${T} the pantry holds what the chat put in`);
+  await page.fill(`${PN} input[aria-label="What to add to the pantry"]`, 'chicken');
+  await page.selectOption(`${PN} select[aria-label="Where it goes"]`, 'fridge');
+  await page.evaluate((s) => { const i = document.querySelector(`${s} input[type=date]`); const d = new Date(); i.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, PN);
+  await page.locator(`${PN} button[aria-label="Add to the pantry"]`).click();
+  check(await until(page, (s) => /chicken · use today/.test(document.querySelector(`${s} .kl-soon`)?.textContent ?? ''), PN), `${T} a thing with today's date is under USE SOON: "${await txt(page, `${PN} .kl-soon`)}"`);
+  await page.locator(`${PN} button[aria-label="eggs: used up"]`).click();
+  check(await until(page, (s) => document.querySelectorAll(`${s} li[data-item]`).length === 2 && !!document.querySelector(`${s} button`)?.parentElement && [...document.querySelectorAll(`${s} button`)].some((b) => b.textContent === 'Add eggs to shopping'), PN), `${T} USED UP takes it off and offers the shopping list`);
+  await bar(page, `${T} pantry`, 'kitchen');
+  await open(page, 'kitchen', 'Recipes');
+  const RC = '#pg-kitchen .pn:not([hidden]) [data-larder="recipes"]';
+  check((await page.locator(`${RC} [data-state="empty"]`).count()) === 1, `${T} recipes: none of his own yet is a designed state`);
+  await page.evaluate((s) => (document.querySelector(`${s} .kl-add`).open = true), RC);
+  await page.fill(`${RC} input[aria-label="The recipe’s name"]`, 'Tony’s pasta');
+  await page.fill(`${RC} input[aria-label="How many it serves"]`, '2');
+  await page.fill(`${RC} textarea[aria-label="Its things, one a line"]`, '200 g pasta\n2 eggs\n1 chicken breast');
+  await page.fill(`${RC} textarea[aria-label="Its steps, one a line"]`, 'Boil the pasta for 10 minutes.\nFry the chicken 6 minutes.\nStir in the eggs off the heat.');
+  await page.locator(`${RC} button`, { hasText: /^Keep the recipe$/ }).click();
+  check(await until(page, (s) => /Tony’s pasta/.test(document.querySelector(`${s} .kl-book li`)?.textContent ?? ''), RC), `${T} his recipe is kept, first in the book`);
+  await page.locator(`${RC} button[aria-label="Open Tony’s pasta"]`).click();
+  await page.locator(`${RC} button[aria-label="More people"]`).click();
+  check(await until(page, (s) => /300 g pasta/.test(document.querySelector(s)?.textContent ?? '') && /3 eggs/.test(document.querySelector(s)?.textContent ?? '') && document.querySelector(`${s} [data-serves]`)?.dataset.serves === '3', RC), `${T} SERVES 3 scales his amounts: "${(await txt(page, `${RC} .pkitems`)).slice(0, 100)}"`);
+  check(/chicken breast · in the pantry/.test(await txt(page, RC)), `${T} what the pantry has is marked`);
+  await page.locator(`${RC} button`, { hasText: /^Cook it, step by step$/ }).click();
+  check(await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '1', RC), `${T} cook mode opens on step 1`);
+  const n0 = await page.evaluate(() => window.__ghosty.timers().length);
+  await page.locator(`${RC} button[aria-label="Start a 10 minute timer"]`).click();
+  check(await until(page, (k) => window.__ghosty.timers().length === k + 1, n0), `${T} a step's minutes start a kitchen timer`);
+  await page.locator(`${RC} button`, { hasText: /^Next step$/ }).click();
+  check(await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '2', RC), `${T} NEXT STEP`);
+  await bar(page, `${T} recipes`, 'kitchen');
+  await page.evaluate(() => window.__ghosty.timers().forEach(() => undefined));
   await ctx.close();
 
   // ---- f. every pill of the lane

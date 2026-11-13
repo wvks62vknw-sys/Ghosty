@@ -6564,6 +6564,22 @@ html .bt .bt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minm
 html .bt select { min-height: var(--g-target); width: 100%; }
 html .bt .pkfield label { font: var(--g-t-caption); color: var(--g-ink-3); }
 @media (prefers-reduced-motion: reduce) { html .bt .bt-fill { transition: none; } }
+/* ---- THE PANTRY AND THE RECIPE BOOK (features/kitchen/larder.ts) */
+html .kl .kl-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .kl .kl-title { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-name { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; text-align: left; }
+html .kl .kl-name small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .kl .kl-soon .kl-name small, html .kl .kl-past .kl-name small { color: var(--g-amber); }
+html .kl .kl-got .kl-name small { color: var(--g-accent-text); }
+html .kl .pkitem button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .kl .kl-book .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; padding-top: var(--g-s-1); padding-bottom: var(--g-s-1); }
+html .kl .kl-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .kl select, html .kl input[type=date], html .kl textarea { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .kl .kl-serves { align-items: center; }
+html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-value); color: var(--g-ink-1); }
+html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .pkfield label { overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the

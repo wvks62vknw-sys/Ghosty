@@ -438,7 +438,7 @@ export function registerBuiltins(): void {
     {
       // [packs] THE KITCHEN PACK's sheets (features/kitchen): the timers, the shopping list, the week's meal plan.
       id: 'open_kitchen',
-      title: 'Kitchen: timers, shopping list, meal plan',
+      title: 'Kitchen: timers, shopping list, meal plan, pantry, recipes',
       group: 'GO',
       run: async (a) => {
         const { openKitchen } = await import('../features/kitchen/sheet');
