@@ -129,7 +129,7 @@ export async function dropSource(project: string, src: string): Promise<void> {
 }
 
 /** Saves a project 200 ms after the last change; `onSaved` says "Saved" (the first time a project is, only once). */
-export function autosaver(onSaved: () => void): { change(p: Project): void; flush(): Promise<void> } {
+export function autosaver(onSaved: (p: Project) => void): { change(p: Project): void; flush(): Promise<void> } {
   let timer = 0;
   let latest: Project | null = null;
   const run = async () => {
@@ -138,7 +138,7 @@ export function autosaver(onSaved: () => void): { change(p: Project): void; flus
     if (!p) return;
     try {
       await saveProject(p);
-      onSaved();
+      onSaved(p);
     } catch {
       /* a full or blocked store is said by the screen when it adds a clip */
     }

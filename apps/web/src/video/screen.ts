@@ -79,6 +79,8 @@ export const videoState = {
   rough: false,
   /** How many times the project has been written to the phone (a spec waits for the next one, never for a clock). */
   saves: 0,
+  /** The change-time (`at`) of the project as last written: equal to the open project's own when every change is kept. */
+  savedAt: 0,
 };
 
 const reduced = (): boolean => !!matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -315,8 +317,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     videoState.line = words;
     clear(lineAct, act);
   };
-  const autosave = autosaver(() => {
+  const autosave = autosaver((written) => {
     videoState.saves++;
+    videoState.savedAt = written.at;
     void refreshKept().then(() => noteVideos(kept.filter((k) => !k.gone).length, project.name, lengthWords(duration(project))));
     if (savedOnce) return;
     savedOnce = true;
