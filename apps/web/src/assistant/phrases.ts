@@ -39,6 +39,7 @@ import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
+import { whatCanAsked } from './words';
 import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
@@ -143,7 +144,7 @@ export const LOCAL_ASKS = [
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },
-  { id: 'canyou', test: (t: string) => canYouAsked(t) !== null },
+  { id: 'canyou', test: (t: string) => canYouAsked(t) !== null || whatCanAsked(t) },
 ] as const;
 export type LocalAsk = (typeof LOCAL_ASKS)[number]['id'];
 

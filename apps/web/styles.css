@@ -8232,6 +8232,30 @@ html .hubtile .kick.long .nm { letter-spacing: 0; }
 @keyframes slpush { from { transform: translateX(14%); opacity: .2; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push, .slflash.go { animation: none; } .slflash.go { opacity: 1; } }
 html[data-motion="calm"] :is(.slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push) { animation: none; }
+/* ---- THE CHAT (BRIEF-QUALITY-CHAT): the first open, the turn's one line, the folded reply, the newest key, the talk bar's words, the approval's keys. Tokens only. ---- */
+html .hud.core .convo .logfirst { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2) 0; }
+html .logfirst .logidle { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); }
+html .logfirst .logsay { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html .logtries { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-half); }
+html #app .logtries button.g-key { justify-content: flex-start; width: 100%; text-align: left; text-transform: none; white-space: normal; overflow-wrap: anywhere; padding-top: var(--g-s-half); padding-bottom: var(--g-s-half); }
+html .log > .turnline { margin: 0; padding: var(--g-s-half) 0 var(--g-s-1); font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); }
+html .log > .turnline[data-phase="stopped"] { color: var(--g-ink-2); }
+html .log > .newestkey { position: sticky; bottom: var(--g-s-1); align-self: center; flex: none; margin: var(--g-s-1) 0 0; text-transform: none; z-index: 2; }
+html .foldrow { margin: var(--g-s-half) 0 0; }
+html #app .foldrow button.g-key { text-transform: none; }
+html .foldrest[hidden] { display: none; }
+html #app .approval .row button.apkey { min-height: var(--g-target); min-width: var(--g-target); }
+html .approval .apthing { font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .approval[data-state="approved"], html .approval[data-state="declined"] { opacity: .86; }
+html #talkline { display: flex; align-items: center; justify-content: center; gap: var(--g-s-1); min-height: var(--g-target); margin: 0 var(--g-s-2) var(--g-s-half); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); text-align: center; }
+html #talkline[hidden] { display: none; }
+html #talkline .tlsay { min-width: 0; overflow-wrap: anywhere; }
+html #talkline[data-state="refused"] { color: var(--g-ink-1); text-align: left; }
+html #talkline .g-key[hidden] { display: none; }
+html .citeaddr { display: block; margin: var(--g-s-1) 0; padding: var(--g-s-1); overflow-wrap: anywhere; font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .hud.core .convo .msg.err[data-state="empty"] > small { color: var(--g-ink-3); }
+html .hud.core .convo .localacts button, html .localacts button { min-height: var(--g-target) !important; height: auto; }
+html :is(.log, #talkline, #thestage, .citedoc, .modal) button.g-key, html #app .approval .row button.apkey { min-height: var(--g-target) !important; height: auto; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

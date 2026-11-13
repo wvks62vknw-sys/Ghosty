@@ -1,7 +1,7 @@
 /**
  * Questions about Ghosty himself, answered on the phone from what is really there, with no model (BRIEF-ABILITIES):
  *  - "can you …?" (OWNER-ISSUES 68): the same search as the ABILITIES box — the ability and a way straight to it, or
- *    "Not yet. Want me to learn it?", whose YES becomes a learning goal. Only a question about him is taken: a polite
+ *    "I can’t do that yet. Shall I learn it?", whose YES becomes a learning goal. Only a question about him is taken: a polite
  *    request ("can you remind me at 5 to call mum") goes to the brain as always (shared/abilities.ts canYouAsked);
  *  - "why did you do that?" (OWNER-ISSUES 67d): the last reply's trail in plain words (features/core/why.ts); a bare "why?"
  *    after a reply that ran nothing is about what was said, so it goes to the brain;
@@ -32,6 +32,8 @@ import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
 import { chat, type Entry } from './session';
+import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
+import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
@@ -92,11 +94,12 @@ export function canAnswer(words: string, list: Ability[] = allAbilities()): { te
   }
   if (r.kind === 'near' && top) {
     return {
-      text: `Not quite. The nearest I’ve got: ${top.line} Want me to learn it properly?`,
+      text: CAN_NEAR(top.line),
       local: { kind: 'can', go: [{ id: top.id, ask: top.from === 'app' ? bestAsk(top, words) : -1, label: top.from === 'brain' ? 'Do it' : goLabel(top, bestAsk(top, words)) }], learn: { ask: words, state: 'open' }, doIt: words },
     };
   }
-  return { text: 'Not yet. Want me to learn it?', local: { kind: 'can', learn: { ask: words, state: 'open' }, doIt: words } };
+  /* state: core.local empty */
+  return { text: CAN_NONE, local: { kind: 'can', learn: { ask: words, state: 'open' }, doIt: words } };
 }
 
 /** YES to "want me to learn it?": his words become a learning goal (ABILITIES → LEARNING, Workshop → UPGRADE IDEAS). */
@@ -313,6 +316,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const open = info?.items.filter((p) => p.kind === 'answer' && !p.outcome && Date.now() - p.at < ANSWER_DAYS * 86_400_000).sort((a, b) => b.at - a.at)[0];
     if (!open) return false;
     const done = await within(resolveForesight(open.id, verdict.right));
+    /* state: core.local error */
     return answer(text, done ? notedWords(verdict.right) : 'I couldn’t reach my brain to note that. Try again when you’re back online.', { kind: 'foresight' }, opts);
   },
   today: (text, opts) => todayTurn(text, opts),
@@ -355,6 +359,7 @@ async function todayTurn(text: string, opts: Opts): Promise<boolean> {
     phoneDay(),
   ]);
   const lines = dayLines([...(brainSide ?? []), ...phone], tz);
+  /* state: core.local offline */
   if (!brainSide) lines.push('I can’t reach my brain right now, so this is only what this phone did.');
   const reply = lines.join('\n');
   add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
@@ -379,6 +384,11 @@ async function whyTurn(text: string, opts: Opts): Promise<boolean> {
 }
 
 async function canYouTurn(text: string, opts: Opts): Promise<boolean> {
+  // "what can you do here?": the rooms, one line each, and a key into each (nothing here that is not already a room)
+  if (whatCanAsked(text)) {
+    const reply = AREAS.map((a) => `${a.title}: ${a.sub}`).join('\n');
+    return answer(text, reply, { kind: 'can', go: AREAS.map((a) => ({ id: `room:${a.id}`, ask: -1, label: a.title, open: a.tabs[0]! })) }, opts);
+  }
   const thing = canYouAsked(text);
   if (thing === null) return false;
   // the brain's abilities as last heard (kept on this phone); a fresh look in the background for next time

@@ -146,7 +146,8 @@ function paintBar(w: WalkInfo | null): void {
     bar = h('div#walkask', { role: 'alert' }, h('span'), button("I'M HOME", () => void endWalk('home', "I'm home"), 'warn'));
     document.body.append(bar);
   }
-  (bar.firstChild as HTMLElement).textContent = w.stage === 'alerted' ? 'Home? I messaged your named person.' : 'Home?';
+  // (the question, then the way to answer it: the key is the answer, and a "home" said does the same)
+  (bar.firstChild as HTMLElement).textContent = w.stage === 'alerted' ? 'Home? I messaged your named person. Tap I’M HOME when you’re in.' : 'Home? Tap I’M HOME when you’re in.';
   if (w.stage === 'asked2' && spokenFor !== w.id) {
     spokenFor = w.id;
     void speak('Are you home?', { here: true }).catch(() => undefined);
@@ -173,6 +174,8 @@ async function endWalk(how: 'home' | 'cancelled', text: string, voice = false): 
     if (info) setGuardian({ ...info, walk: r.walk });
     show(text, r.said, voice);
   } catch (e) {
+    // said in the chat as well as on a toast that goes: the walk is still on, and the key or the word will try again
+    show(text, 'I couldn’t reach my brain to end the walk. It is still on: tap I’M HOME again when you have a signal.', voice);
     toast(sayError(e, 'reach my brain to end the walk'), 'bad');
   }
 }

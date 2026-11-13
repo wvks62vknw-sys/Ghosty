@@ -186,6 +186,18 @@ export const STATES = {
   'library.reader': { dir: 'library', base: 4, now: 4 },
   'learning.pills': { dir: 'learning', base: 2, now: 3 },
   'coach.tuner': { at: 'coach', dir: '', base: 3, now: 3 },
+  // THE CHAT (BRIEF-QUALITY-CHAT): the log (its first open, with and without a signal), a turn's one line (its wait, its cut stream), the talk bar (its
+  // listening, the microphone refused, no signal to hear him with), the Stage (its wait, no picture, a picture that could not be drawn), the sources
+  // (a source that will not open), the phone's own answers (nothing found, no brain to ask, a note that could not be kept) and the HUD's call-outs
+  // (not answering, no signal). `base` is what each drew, in words of its own, before that pass (a bare "thinking…", a word on a toast that went, a
+  // dash or a made-up figure is not a state).
+  'core.log': { dir: 'core', base: 1, now: 2 },
+  'core.turn': { dir: 'core', base: 0, now: 2 },
+  'core.talk': { dir: 'core', base: 1, now: 3 },
+  'show.stage': { at: 'show', dir: '', base: 1, now: 3 },
+  'core.cited': { dir: 'core', base: 0, now: 1 },
+  'core.local': { at: 'assistant', dir: '', base: 1, now: 3 },
+  'core.hud': { dir: 'core', base: 1, now: 2 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {

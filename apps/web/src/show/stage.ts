@@ -27,6 +27,8 @@ import { orbView } from '../shell/capsule';
 import { grownOn } from '../shell/house';
 import { WALL_SAYS } from '../../../../packages/shared/src/wall';
 import { noteShown, stageToWall, takeWallTurn, sendToWall, wallOf, wallPhone } from '../wall/phone'; // [wall] the WALL key, and "on the wall" after an ask
+import { drawingWords, noPictureWords, NO_PICTURE_BROKE } from './words';
+import { trail } from '../ui/hisWords';
 
 /** What the Stage has done, for the checks (window.__ghosty.show.state()). */
 export const stageState = {
@@ -743,9 +745,16 @@ export function prefetch(): void {
 export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
   // Drawing it…: said under the sentence while the picture is on its way (the world pack, his places), gone when it lands or there is none
   const logHost = document.querySelector<HTMLElement>('.hud.core .log') ?? document.querySelector<HTMLElement>('#log') ?? document.body;
-  const drawn = waiting(logHost, 'Drawing it…');
+  /* state: show.stage loading */
+  const drawn = waiting(logHost, drawingWords(f.ask));
   try {
     return await presentNow(f);
+  } catch (e) {
+    // the picture could not be drawn: said in one line, never silence (and the sentence he has stays as it was)
+    trail(e, 'draw the picture');
+    /* state: show.stage error */
+    void import('../assistant/session').then(({ chat }) => chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: NO_PICTURE_BROKE, note: true }].slice(-120) })));
+    return null;
   } finally {
     drawn();
   }
@@ -777,6 +786,10 @@ async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'client
   const toWall = takeWallTurn(); // [wall] asked "…, on the wall": the picture goes to the wall, and the phone's chat stays clear
   if (!show) {
     if (toWall) void import('../ui/components').then((c) => c.toast(WALL_SAYS.nothing));
+    // he asked for a picture and there is nothing to draw it from: one line of why in the log, and no plate
+    const why = noPictureWords(f.ask);
+    /* state: show.stage empty */
+    if (why) chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: why, note: true }].slice(-120) }));
   }
   if (!show || ('via' in show && show.via)) {
     // a wrong promise: the room reserved for it goes back to the conversation, the way the Stage would have left

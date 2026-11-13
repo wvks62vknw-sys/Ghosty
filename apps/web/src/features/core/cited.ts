@@ -11,6 +11,8 @@ import { citedBody, citedPieces } from '../../cited/text';
 import { h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, modal, toast } from '../../ui/components';
+import { key } from '../../ui/machine';
+import { checkWords, COPIED, COPY_ADDRESS, COPY_FAILED, sourceUnopened } from './words';
 import { claimsInst } from '../../ui/instruments';
 
 /** A library source: the words that back the answer, and a way to the shelf. */
@@ -19,8 +21,11 @@ function openDoc(c: Citation): void {
   const m = modal(`[${c.n}] ${c.title}`, h('div', box, h('div.keyrow', button('OPEN LIBRARY', () => (m.close(), go('library')), 'on'))));
 }
 
+/** A source never opened this turn: what to do with what it backs, and its address to copy when there is one (a plain sheet, not a toast that is gone). */
 function missing(c: Citation): void {
-  toast(`Source [${c.n}] was never looked up this turn — treat what it backs with care.`, 'warn');
+  /* state: core.cited error */
+  const copy = c.url ? key(COPY_ADDRESS, () => void navigator.clipboard?.writeText(c.url!).then(() => toast(COPIED, 'ok'), () => toast(COPY_FAILED, 'warn')), { kind: 'line', label: `Copy the address of source ${c.n}` }) : null;
+  modal(`Source ${c.n}`, h('div.citedoc', { dataset: { state: 'error' } }, h('p.note', sourceUnopened(c.n, c.url)), c.url ? h('code.citeaddr', c.url) : null, h('div.keyrow', copy)));
 }
 
 /** The chip for source `n` (or a flagged one when the answer names no such source). */
@@ -67,7 +72,7 @@ export function citedReply(text: string, info: CitedInfo, linked: (t: string) =>
     const counts = labelCounts(info.checks.map((c) => labelOf(c.label) ?? undefined));
     // the claims readout: one segment per claim, the ones found in the sources lit, beside the check line
     out.push(h(`div.rcclaims.${all ? 'ok' : 'warn'}` as 'div', claimsInst(ok, info.checks.length),
-      h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${ok ? '✓' : '✕'} ${ok} of ${info.checks.length} claim${info.checks.length === 1 ? '' : 's'} found in the sources${counts ? ` · ${counts}` : ''}`, all ? null : h('span', ' · the unconfirmed ones are marked'))));
+      h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${checkWords(ok, info.checks.length)}${counts ? ` · ${counts}` : ''}`)));
   }
   return out;
 }
