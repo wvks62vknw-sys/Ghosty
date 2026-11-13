@@ -119,18 +119,26 @@ const manySentences = (page, tab) => page.evaluate(({ tab, SENTENCES }) => {
   return out;
 }, { tab, SENTENCES });
 
-/** Open a panel by its title (a pushed one is left first: the page is drawn afresh so the next is as a first tap). */
-async function panelOpen(page, tab, hash, title) {
-  await go(page, hash, 450);
-  await page.evaluate(({ tab, title }) => {
-    const root = document.getElementById(`pg-${tab}`);
-    const pn = [...root.querySelectorAll('.pn[data-row]')].find((p) => (p.querySelector('.ptitle')?.textContent ?? '').trim() === title);
-    pn?.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true }));
-    pn?.querySelector('h3')?.click();
-  }, { tab, title });
-  await page.waitForTimeout(450);
-}
-const panelTitles = (page, tab) => page.$$eval(`#pg-${tab} .pn[data-row] .ptitle`, (els) => els.map((e) => e.textContent.trim()).filter(Boolean));
+/** A section pressed, and every panel of it drawn open at once (as each would be when tapped open): the page is measured in one look. */
+const showSection = (page, tab, pill) => page.evaluate(async ({ tab, pill }) => {
+  const root = document.getElementById(`pg-${tab}`);
+  [...root.querySelectorAll('.secpills .secpill')].find((x) => x.textContent.trim() === pill)?.click();
+  await new Promise((r) => setTimeout(r, 350));
+  const pns = [...root.querySelectorAll('.pn[data-row]')].filter((p) => !p.hidden);
+  root.classList.add('haspush');
+  for (const p of pns) {
+    p.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true }));
+    p.classList.add('pushed');
+  }
+  await new Promise((r) => setTimeout(r, 350));
+  return pns.length;
+}, { tab, pill });
+const hideSection = (page, tab) => page.evaluate((tab) => {
+  const root = document.getElementById(`pg-${tab}`);
+  root.querySelectorAll('.pn.pushed').forEach((p) => p.classList.remove('pushed'));
+  root.classList.remove('haspush');
+}, tab);
+const pillsOf = (page, tab) => page.$$eval(`#pg-${tab} .secpills .secpill`, (e) => e.map((x) => x.textContent.trim()));
 
 for (const W of [440, 390]) {
   await section(`a ${W}`, async () => {
@@ -138,62 +146,40 @@ for (const W of [440, 390]) {
     const { ctx, page } = await open({ W, hash: 'settings' });
     const said = new Set();
     const note = (lines) => lines.forEach((l) => said.add(l));
-    // Settings: every panel at 440, the longest-spoken at 390
-    await go(page, 'settings', 900);
-    note(await manySentences(page, 'settings'));
-    const titles = await panelTitles(page, 'settings');
-    check(titles.length >= 18, `${T} [a] Settings lists ${titles.length} panels`);
-    const LONG = ['PERMISSIONS', 'OFFLINE BRAIN', 'VOICE & HOME', 'SHORTCUTS', 'MY VOICE', 'OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL', 'THE WALL', 'PRIVACY'];
-    for (const t of W === 440 ? titles : titles.filter((x) => ['PERMISSIONS', 'OFFLINE MAPS', 'SHORTCUTS'].includes(x))) {
-      await panelOpen(page, 'settings', 'settings', t);
-      note(await manySentences(page, 'settings'));
-    }
-    // the packs' cards: what it is, what it costs, one key; the licence and the rest behind the "?"
-    for (const t of W === 440 ? ['OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL'] : ['OFFLINE MAPS']) {
-      await panelOpen(page, 'settings', 'settings', t);
-      const cards = await page.evaluate(() => [...document.querySelectorAll('#pg-settings .wikioffer')].filter((c) => c.getBoundingClientRect().height > 0).map((c) => {
-        const vis = (e) => e.getBoundingClientRect().height > 0 && !e.closest('details:not([open])');
-        const keys = [...c.querySelectorAll('button')].filter(vis).map((b) => b.textContent.trim());
-        const lic = c.querySelector('.packlic');
-        return { name: c.querySelector('b')?.textContent ?? '', keys, licVisible: !!lic && vis(lic), notes: [...c.querySelectorAll('small.note')].filter(vis).length, what: c.querySelector(':scope > span')?.textContent ?? '', cost: [...c.querySelectorAll(':scope > small')].filter(vis).map((s) => s.textContent).join(' | ') };
-      }));
-      check(cards.length >= 1, `${T} [a card] ${t} shows no card`);
-      for (const c of cards) {
-        check(c.keys.length === 1, `${T} [a card] "${c.name}" shows ${c.keys.length} keys (${c.keys.join(', ')}): want the one`);
-        check(!c.licVisible && c.notes === 0, `${T} [a card] "${c.name}" shows its licence or a note on the card itself`);
-        check(/(MB|GB|KB)/.test(c.cost + c.keys.join(' ')), `${T} [a card] "${c.name}" does not say its size: ${c.cost} / ${c.keys}`);
+    // Settings and System: each section with every one of its panels open
+    for (const [tab, hash] of [['settings', 'settings'], ['system', 'system']]) {
+      await go(page, hash, tab === 'system' ? 2200 : 1000);
+      const pills = await pillsOf(page, tab);
+      check(pills.length >= 4, `${T} [a] ${tab} has ${pills.length} sections`);
+      let panels = 0;
+      for (const pill of pills) {
+        panels += await showSection(page, tab, pill);
+        note(await manySentences(page, tab));
+        if (tab === 'settings') {
+          // the packs' cards: what it is, what it costs, one key; the licence and the rest behind the "?"
+          const cards = await page.evaluate(() => [...document.querySelectorAll('#pg-settings .wikioffer')].filter((c) => c.getBoundingClientRect().height > 0).map((c) => {
+            const vis = (e) => e.getBoundingClientRect().height > 0 && !e.closest('details:not([open])');
+            const keys = [...c.querySelectorAll('button')].filter(vis).map((b) => b.textContent.trim());
+            const lic = c.querySelector('.packlic');
+            return { name: c.querySelector('b')?.textContent ?? '', keys, licVisible: !!lic && vis(lic), notes: [...c.querySelectorAll('small.note')].filter(vis).length, cost: [...c.querySelectorAll(':scope > small')].filter(vis).map((x) => x.textContent).join(' | ') };
+          }));
+          if (pill === 'Voice & home') check(cards.length >= 5, `${T} [a card] the packs show ${cards.length} cards`);
+          for (const c of cards) {
+            check(c.keys.length === 1, `${T} [a card] "${c.name}" shows ${c.keys.length} keys (${c.keys.join(', ')}): want the one`);
+            check(!c.licVisible && c.notes === 0, `${T} [a card] "${c.name}" shows its licence or a note on the card itself`);
+            check(/(MB|GB|KB)/.test(c.cost + c.keys.join(' ')), `${T} [a card] "${c.name}" does not say its size: ${c.cost} / ${c.keys}`);
+          }
+          // a switch row's helper never repeats its label
+          const dup = await page.evaluate(() => [...document.querySelectorAll('#pg-settings button.setsw')].filter((b) => b.getBoundingClientRect().height > 0).map((b) => [b.querySelector('b')?.textContent ?? '', b.querySelector('small')?.textContent ?? '']).filter(([l, x]) => l && x && x.toLowerCase().includes(l.toLowerCase())).map(([l, x]) => `"${l}" in "${x}"`));
+          check(!dup.length, `${T} [a rows] a helper repeats its label: ${dup.join('; ')}`);
+        }
+        await hideSection(page, tab);
       }
-    }
-    // a switch row's helper never repeats its label
-    for (const t of W === 440 ? ['VOICE & HOME', 'THEME'] : ['THEME']) {
-      await panelOpen(page, 'settings', 'settings', t);
-      const dup = await page.evaluate(() => [...document.querySelectorAll('#pg-settings button.setsw')].filter((b) => b.getBoundingClientRect().height > 0).map((b) => [b.querySelector('b')?.textContent ?? '', b.querySelector('small')?.textContent ?? '']).filter(([l, s]) => l && s && s.toLowerCase().includes(l.toLowerCase())).map(([l, s]) => `"${l}" in "${s}"`));
-      check(!dup.length, `${T} [a rows] a helper repeats its label: ${dup.join('; ')}`);
-    }
-    // System: every panel at 440
-    await go(page, 'system', 1500);
-    note(await manySentences(page, 'system'));
-    const pills = await page.$$eval('#pg-system .secpills .secpill', (e) => e.map((x) => x.textContent.trim()));
-    for (const pill of pills) {
-      if (W === 390 && !['Status', 'Backup'].includes(pill)) continue;
-      await openSection(page, 'system', pill);
-      note(await manySentences(page, 'system'));
-      const ts = await panelTitles(page, 'system');
-      for (const t of ts.filter((x) => (W === 440 ? true : ['KEYS', 'BACKUP & RESTORE'].includes(x)))) {
-        await go(page, 'system', 900);
-        await openSection(page, 'system', pill);
-        await page.evaluate((title) => {
-          const pn = [...document.querySelectorAll('#pg-system .pn[data-row]')].find((p) => (p.querySelector('.ptitle')?.textContent ?? '').trim() === title);
-          pn?.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true }));
-          pn?.querySelector('h3')?.click();
-        }, t);
-        await page.waitForTimeout(450);
-        note(await manySentences(page, 'system'));
-      }
+      check(panels >= (tab === 'settings' ? 18 : 12), `${T} [a] ${tab}: ${panels} panels were looked at`);
     }
     // the Theme page: every section
     await go(page, 'look', 1500);
-    const lp = await page.$$eval('#pg-look .secpills .secpill', (e) => e.map((x) => x.textContent.trim()));
+    const lp = await pillsOf(page, 'look');
     check(lp.length >= 4, `${T} [a look] the Theme page has ${lp.length} sections`);
     for (const pill of lp) {
       await openSection(page, 'look', pill);

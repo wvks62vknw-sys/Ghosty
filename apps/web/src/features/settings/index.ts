@@ -191,7 +191,7 @@ export const settingsTab: TabDef = {
         },
         (e) => {
           b.disabled = false;
-          toast(e.code === 1 ? 'I’m not allowed your location; allow it in iPhone Settings, Privacy, Location, or type the city.' : 'Couldn’t find where you are just now: try again outside, or type the city.', 'warn');
+          toast(e.code === 1 ? 'I’m not allowed your location: in iPhone Settings, Privacy & Security, Location Services, Safari Websites, allow it, or type the city.' : 'Couldn’t find where you are just now: try again outside, or type the city.', 'warn');
         },
         { timeout: 8000 },
       );
