@@ -1075,6 +1075,13 @@ export const coreTab: TabDef = {
       if (unseen) log.append(newest);
       else newest.remove();
     };
+    // [ci] The line is painted on the next frame, once, however many times the turn moves before it: painting it there and then
+    // read the log's height straight after a change (a forced layout) inside the brain's event, before the reply was handed to the
+    // voice, and so delayed his first spoken word (FINAL-CI 1). The frame comes before anything is drawn, so nothing flickers.
+    let turnFrame = 0;
+    const paintTurnSoon = () => {
+      if (!turnFrame) turnFrame = requestAnimationFrame(() => ((turnFrame = 0), paintTurn()));
+    };
     const paintLog = () => {
       // a plan card goes under the reply it came with (homecard.ts)
       const shown = homeAfterReply(chat.get().entries.slice(-40));
@@ -1144,7 +1151,7 @@ export const coreTab: TabDef = {
       lastSig = sig;
       if (atEnd || sent !== lastSent) log.scrollTop = log.scrollHeight;
       lastSent = sent;
-      paintTurn();
+      paintTurnSoon();
       reveal(chat.get().live);
       paintCapRate();
       armFade();
@@ -1162,9 +1169,20 @@ export const coreTab: TabDef = {
         ...(done && last.first && !last.struck && last.text && ui.get().connected !== false ? [h('div.row.askrow', askCloudButton(last.at))] : []));
     };
     ui.subscribe((u, prev) => void ((u.busy !== prev.busy || (u.voice === 'speaking') !== (prev.voice === 'speaking')) && paintCapRate()));
-    turn.subscribe(paintTurn);
-    ui.subscribe((u, prev) => void (u.status !== prev.status && paintTurn()));
-    chat.subscribe(paintLog);
+    turn.subscribe(paintTurnSoon);
+    ui.subscribe((u, prev) => void (u.status !== prev.status && paintTurnSoon()));
+    // [ci] What the conversation holds is drawn once a frame: a reply landing moves the conversation two or three times in a row (the
+    // reply, its steps settled, the turn's end), and each whole repaint of the log, there and then, held up the clip the voice had
+    // just asked for, so his first spoken word came later (FINAL-CI 1). His own words, just sent, are drawn there and then.
+    let logFrame = 0;
+    chat.subscribe((s) => {
+      const newest = s.entries.at(-1);
+      if (newest?.kind === 'user' && newest.at !== lastSent) {
+        cancelAnimationFrame(logFrame);
+        logFrame = 0;
+        paintLog();
+      } else if (!logFrame) logFrame = requestAnimationFrame(() => ((logFrame = 0), paintLog()));
+    });
     canThink.subscribe(paintLog);
     settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
     recheckThink();
