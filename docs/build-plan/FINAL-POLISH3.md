@@ -76,6 +76,9 @@ Branch `claude/new-session-4erjve-lane-polish3`, merged into `claude/new-session
     opens the Arcade either way);
   - the selftrain test builds with the Worker's sockets marked external, as the suite's own build steps already do. It was red on
     the final tip too: a school file now reaches the mail code.
+- **The second merge:** the money pack keeps the one-watcher system and gains the security lane's address guard. What's New keeps
+  the consistency lane's lines plus POLISH 3's lines that say something different, newest first, none twice. The memory lane's
+  new System line now says one sentence: "Recall index: empty; it builds while the phone sits idle."
 - **Decided, as the brief said:** School and the Gym speak as "I" and keep doing so.
 
 ## How to try it on your phone
