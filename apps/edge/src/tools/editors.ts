@@ -4,7 +4,7 @@
  * from this turn's stored message, so the brain keeps no copy and reaches nothing that is not open. `read` and `search` look; every
  * change is a PROPOSAL sent to the phone as a client event, shown in the editor as a marked change his tap accepts or rejects. The
  * brain applies nothing, starts no export, publishes nothing; the game tool builds from the studio's own kit (no model draws a
- * sprite or a tile) and the phone keeps it in the studio's library, never on his sites.
+ * sprite or a tile) and the phone keeps it in the studio's library; only publish_game (tools/sites.ts), with his APPROVE, puts one on his sites.
  */
 import type { ChatTurn } from '../../../../packages/shared/src/protocol';
 import { one, num, parseOpenWork, secondsWord, workLine, WORK_WHEN, type OpenWork, type WorkKind, type WorkLine } from '../../../../packages/shared/src/openwork';
@@ -469,5 +469,5 @@ export const gameTools: Tool[] = [
     },
   },
 ];
-export const GAME_ABOUT = 'You can make a game in his Game Studio from its own kit (game: make), and read or change the open one (read, edit): kept in his library, never published; a change is only proposed.';
+export const GAME_ABOUT = 'You can make a game in his Game Studio from its own kit (game: make), and read or change the open one (read, edit): kept in his library (on his sites only by publish_game, his APPROVE); a change is only proposed.';
 export const GAME_WHEN = WORK_WHEN.game;

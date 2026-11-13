@@ -29,6 +29,7 @@ import { spendFlag } from './spending';
 import { packLines } from './packs'; // [packs]
 import { isoLocal, safeTz, startOfDay, validTz, zoned } from './time';
 import { loadMemory } from './tools/memory';
+import { noteGist, recallFor } from './recall'; // [recall] BRIEF-DEPTH-MEMORY: the turns' gists kept 30 days
 
 export type { DayLine, Episode, EpisodeKind, MindSnapshot };
 
@@ -72,6 +73,8 @@ export async function observe(storage: DurableObjectStorage, ev: { kind: Episode
   log.push(e);
   log.sort((a, b) => a.at - b.at);
   await storage.put(LOG_KEY, boundLog(log));
+  // [recall] a turn's gist is kept 30 days apart from the day log (recall.ts), for RECALL and "what did I ask you about X?"
+  if (e.kind === 'turn') await noteGist(storage, e).catch(() => undefined);
   return e;
 }
 
@@ -192,7 +195,7 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
   const after = startOfDay(end + 30 * HOUR, tz);
   const mine = async () => ({ events: (await loadEvents(storage)).filter((e) => (e.end ?? e.start + 1) > start && e.start < after) });
   const z = zoned(now, tz);
-  const [profile, facts, lessons, principles, mood, places, fed, jobs, school, study, spend, guard, ledger, packs, log] = await Promise.all([
+  const [profile, facts, lessons, principles, mood, places, fed, jobs, school, study, spend, guard, ledger, packs, log, recall] = await Promise.all([
     tryOr(() => loadProfile(storage), null),
     tryOr(() => loadMemory(storage), []),
     // batch 2's state, when it is there (feature-detected: never written here)
@@ -217,6 +220,8 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
     tryOr(() => packLines({ storage, now: () => now }), [] as string[]),
     // what happened: the day log's last day
     tryOr(() => loadLog(storage), []),
+    // [recall] his earlier turns that bear on this ask (recall.ts), at most four
+    tryOr(() => recallFor(storage, now, tz), []),
   ]);
 
   // who he is
@@ -261,5 +266,6 @@ export async function mindSnapshot(storage: DurableObjectStorage, o: MindOptions
 
   // what happened: the day log's last day
   m.recent = log.filter((e) => e.at > now - DAY && e.at <= now).slice(-8);
+  if (recall.length) m.recall = recall.map((h) => ({ at: h.at, via: h.via, day: h.day, q: h.q, ...(h.a ? { a: h.a } : {}) }));
   return m;
 }

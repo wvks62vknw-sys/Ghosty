@@ -80,10 +80,23 @@ const UNITS: Unit[] = [
   U('temp', 0, '°F', ['f', '°f', 'fahrenheit', 'degrees f', 'degrees fahrenheit']),
   U('temp', 0, 'K', ['kelvin']),
 ];
+/** The kinds the converter pad offers, in the order a unit app lists them, each with its everyday name. */
+export const UNIT_KINDS: [Dim, string][] = [['length', 'Length'], ['mass', 'Weight'], ['volume', 'Volume'], ['temp', 'Temperature'], ['area', 'Area'], ['speed', 'Speed'], ['time', 'Time'], ['data', 'Data'], ['energy', 'Energy'], ['power', 'Power'], ['pressure', 'Pressure'], ['fuel', 'Fuel use']];
+export type { Dim };
+/** The units of one kind, by their names (the pad's lists). */
+export const unitsOfKind = (dim: Dim): string[] => UNITS.filter((u) => u.dim === dim).map((u) => u.name);
+/** The unit called this name exactly (names are unique: "K" is kelvin here, never a km). */
+const byName = (name: string): Unit | null => UNITS.find((u) => u.name === name) ?? null;
+/** The kind a unit name is, or null. */
+export const kindOf = (name: string): Dim | null => byName(name)?.dim ?? null;
+/** Two units the pad starts a kind on (the pair most people turn between). */
+export const KIND_PAIR: Record<Dim, [string, string]> = { length: ['mile', 'km'], mass: ['lb', 'kg'], volume: ['pint', 'litre'], temp: ['°F', '°C'], area: ['sq ft', 'm²'], speed: ['mph', 'km/h'], time: ['hour', 'minute'], data: ['GB', 'MB'], energy: ['kcal', 'kJ'], power: ['hp', 'kW'], pressure: ['psi', 'bar'], fuel: ['mpg', 'l/100km'] };
+
 const BY_WORD = new Map<string, Unit>();
 for (const u of UNITS) for (const w of u.words) BY_WORD.set(w, u);
 
-export const unitOf = (w: string): Unit | null => BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null;
+/** A unit by his word; a capital K alone is kelvin ("300 K in C"), a small k a kilometre ("5k in miles"). */
+export const unitOf = (w: string): Unit | null => (w.trim() === 'K' ? byName('K') : BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null);
 
 /** What a unit measures, said as a noun with its article ("a length"), and the plural for a list ("lengths"). */
 const KIND: Record<Dim, [string, string]> = { length: ['a length', 'lengths'], mass: ['a weight', 'weights'], volume: ['a volume', 'volumes'], area: ['an area', 'areas'], speed: ['a speed', 'speeds'], time: ['a time', 'times'], data: ['a data size', 'data sizes'], temp: ['a temperature', 'temperatures'], energy: ['an amount of energy', 'amounts of energy'], pressure: ['a pressure', 'pressures'], power: ['a power', 'powers'], fuel: ['a fuel use', 'fuel uses'] };
@@ -146,9 +159,19 @@ export interface UnitAnswer {
 
 /** A value in one unit as another of the same kind (null: different kinds, or unknown units). */
 export function convertUnits(value: number, fromWord: string, toWord: string): UnitAnswer | null {
-  const f = unitOf(fromWord);
-  const t = unitOf(toWord);
-  if (!f || !t || f.dim !== t.dim) return null;
+  return convertU(value, unitOf(fromWord), unitOf(toWord));
+}
+/** The same by the units' exact names (the pad's lists), so a symbol never meets a word it shares ("K" and "k"). */
+export const convertByName = (value: number, from: string, to: string): UnitAnswer | null => convertU(value, byName(from), byName(to));
+/** One value in every unit of its kind (the pad's IN EVERY UNIT), its own unit first left out. */
+export const everyUnit = (value: number, from: string): UnitAnswer[] => {
+  const f = byName(from);
+  if (!f) return [];
+  return UNITS.filter((u) => u.dim === f.dim && u !== f).map((u) => convertU(value, f, u)).filter((x): x is UnitAnswer => !!x);
+};
+function convertU(value: number, f: Unit | null, t: Unit | null): UnitAnswer | null {
+  if (!f || !t || f.dim !== t.dim || !Number.isFinite(value)) return null;
+  if (f.dim === 'fuel' && f.name !== t.name && value === 0) return null;
   let v: number;
   if (f.dim === 'temp') v = fromC(toC(value, f.name), t.name);
   else if (f.dim === 'fuel') v = f.name === t.name ? value : 282.4809363 / value; // UK mpg and l/100km are each other's reciprocal

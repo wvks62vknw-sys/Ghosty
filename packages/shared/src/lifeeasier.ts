@@ -11,7 +11,7 @@
 
 // ================================================================ watchers
 
-export type WatchKind = 'price' | 'page' | 'strike';
+export type WatchKind = 'price' | 'page' | 'strike' | 'reply';
 
 /** A watcher as the brain lists it (apps/edge/src/watchers.ts publicWatcher). */
 export interface WatcherInfo {
@@ -28,15 +28,21 @@ export interface WatcherInfo {
   note?: string;
   price?: number;
   strikeNow?: boolean;
+  /** [recall] a chase (kind `reply`): the name he used, what about, its morning, whether mail was linked, and when a reply came. */
+  who?: string;
+  about?: string;
+  by?: number;
+  mail?: boolean;
+  repliedAt?: number;
 }
 
 /** What he asked a watcher to do, from "tell me when …": the kind, and the address if his words carry one. null when it is no such ask. */
-export function watcherAsked(text: string): { kind: WatchKind; url: string; words: string } | null {
+export function watcherAsked(text: string): { kind: Exclude<WatchKind, 'reply'>; url: string; words: string } | null {
   const t = text.replace(/\s+/g, ' ').trim();
   if (!/^(?:hey ghosty[, ]+|ghosty[, ]+|please[, ]+)?(?:tell|let|ping|notify|message|warn|alert)\s+me\s+(?:when|if|as soon as|the moment)\b/i.test(t) && !/^(?:hey ghosty[, ]+|ghosty[, ]+|please[, ]+)?let me know\s+(?:when|if|as soon as)\b/i.test(t)) return null;
   const url = (/https?:\/\/[^\s<>"']+/i.exec(t)?.[0] ?? '').replace(/[.,;:!?)]+$/, '');
   const rest = t.replace(/https?:\/\/[^\s<>"']+/gi, ' ');
-  const kind: WatchKind | null =
+  const kind: Exclude<WatchKind, 'reply'> | null =
     /\b(strikes?|industrial action|walk-?outs?)\b/i.test(rest) ? 'strike'
     : /\b(price|cost)\b.*\b(drops?|falls?|goes down|gets? cheaper|reduced|lower|comes down|dips?)\b|\b(drops?|falls?|goes down|gets? cheaper|reduced|comes down|goes on sale|on sale|cheaper)\b/i.test(rest) && /\b(price|cost|cheaper|sale|reduced|drops?|goes down)\b/i.test(rest) ? 'price'
     : /\b(change[sd]?|updates?d?|new|different|moves?|is posted|appears?)\b/i.test(rest) && /\b(page|site|website|web ?page|notice|status|timetable|list|post|link)\b/i.test(rest) ? 'page'
@@ -45,7 +51,9 @@ export function watcherAsked(text: string): { kind: WatchKind; url: string; word
 }
 
 /** The plain line a watcher says under PLAN: what it watches for, and where it stands. */
-export function watcherStands(w: Pick<WatcherInfo, 'kind' | 'state' | 'ok' | 'checked' | 'note' | 'line' | 'toldAt' | 'price' | 'strikeNow'>, now: number, clock: (ms: number) => string, day: (ms: number) => string): string {
+export function watcherStands(w: Pick<WatcherInfo, 'kind' | 'state' | 'ok' | 'checked' | 'note' | 'line' | 'toldAt' | 'price' | 'strikeNow'> & Partial<Pick<WatcherInfo, 'by' | 'mail' | 'who'>>, now: number, clock: (ms: number) => string, day: (ms: number) => string): string {
+  // [recall] a chase: when it looks, and whether that is through his mail or a plain reminder
+  if (w.kind === 'reply' && w.state === 'watching') return `I look on ${w.by ? day(w.by) : 'its day'} at 9 am${w.mail ? ` for a reply${w.who ? ` from ${w.who}` : ''}` : ': a plain reminder, as no mail account is linked'}${w.note ? ` · ${w.note}` : ''}`;
   const what = w.kind === 'price' ? 'a price drop' : w.kind === 'page' ? 'a change to the page' : 'a strike or industrial action';
   if (w.state === 'told') return `Told you${w.toldAt ? ` on ${day(w.toldAt)}` : ''}: ${w.line ?? what}`;
   if (w.state === 'stopped') return `Stopped: ${(w.note ?? 'I cannot read it any more').replace(/^I could not read it: /, '')}`;
