@@ -3141,8 +3141,10 @@ html .secpills.dense { gap: 3px; }
 html .secpills.dense .secpill { padding: 0 4px; font-size: 13px !important; }
 html .secpills.scrolls { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
 html .secpills.scrolls::-webkit-scrollbar { display: none; }
+/* every pill is a 44 pt key whatever the font: a short name ("You") is never squeezed under 44 wide when the longer names take the
+   row (CI's fonts set "Appearance" wider than the phone's); a row that then does not fit goes dense, then scrolls, as above */
 html .secmark { display: block; height: 0; }
-html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
+html .secpills .secpill { min-width: var(--g-target, 44px); height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
 html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
 html .hud.secs [data-sec][hidden], html .hud.secs .secnone { display: none !important; }
 /* On a wide screen the sections are off (every panel shows) and their row and its marker must not be grid items of the
