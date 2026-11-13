@@ -23,6 +23,7 @@ export interface ReadSource {
 }
 
 let open: { close(): void } | null = null;
+let opening = 0;
 export const readerOpen = (): boolean => !!open;
 export function closeReader(): void {
   open?.close();
@@ -30,7 +31,11 @@ export function closeReader(): void {
 
 export async function openReader(src: ReadSource, at?: number): Promise<void> {
   open?.close();
+  const ticket = ++opening;
   const saved = await placeOf(src.id).catch(() => undefined);
+  // (a second tap while this one was reading its place: the newer one opens, this one stops here)
+  if (ticket !== opening) return;
+  open?.close();
   let page = Math.max(0, Math.min(src.count - 1, at ?? saved?.page ?? 0));
   let panel = at == null ? saved?.panel ?? -1 : -1;
   let guided = panel >= 0;
@@ -119,6 +124,11 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
       }));
       if (ticket !== painting) return;
       clear(sheet, ...imgs);
+      // (only the pages near this one stay held: a 400-page book never fills the phone's memory)
+      for (const [n, u] of urls) if (Math.abs(n - page) > 3) {
+        URL.revokeObjectURL(u);
+        urls.delete(n);
+      }
       /* state: comic.reader loading */
       note.hidden = true;
       // fit the pages to the stage
@@ -187,11 +197,17 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     tx = ty = 0;
     void paint();
   };
+  /** Guided ends when he zooms or pinches himself: the keys and the line say so at once. */
+  const leaveGuided = () => {
+    if (!guided) return;
+    guided = false;
+    panel = -1;
+    guide.setAttribute('aria-pressed', 'false');
+    two.hidden = !wide();
+    where.textContent = `Page ${page + 1} of ${src.count}`;
+  };
   const setZoom = (z: number) => {
-    if (guided) {
-      guided = false;
-      panel = -1;
-    }
+    leaveGuided();
     const nz = Math.max(1, Math.min(5, z));
     const cx = stage.clientWidth / 2 - ox;
     const cy = stage.clientHeight / 2 - oy;
@@ -219,7 +235,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     const [a, b] = [...pts.values()];
     if (b && start.d) {
       zoom = Math.max(1, Math.min(5, (start.z * Math.hypot(a!.x - b.x, a!.y - b.y)) / start.d));
-      guided = false;
+      leaveGuided();
       apply();
     } else if (zoom > 1 && !guided) {
       tx = start.tx + e.clientX - start.x;
@@ -245,7 +261,8 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
         else if (fx > 0.7) void step(1);
       }
       lastTap = now;
-    } else record();
+    } else if (!guided && wide() && spreadOn && shown().length !== comicState.reader.shown.length) void paint();
+    else record();
     start = null;
   };
   stage.addEventListener('pointerup', up);

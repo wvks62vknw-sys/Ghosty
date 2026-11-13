@@ -15,6 +15,8 @@ import { inHisWords } from '../../ui/hisWords';
 import { newId } from './model';
 import type { Book } from './store';
 
+/** The most pages a PDF is drawn into (each page is a picture kept on the phone). */
+export const PDF_MAX = 400;
 const PIC = /\.(?:jpe?g|png|webp|gif|avif|bmp)$/i;
 const natural = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 const mimeOf = (name: string): string => (/\.png$/i.test(name) ? 'image/png' : /\.webp$/i.test(name) ? 'image/webp' : /\.gif$/i.test(name) ? 'image/gif' : /\.avif$/i.test(name) ? 'image/avif' : /\.bmp$/i.test(name) ? 'image/bmp' : 'image/jpeg');
@@ -68,8 +70,9 @@ async function pdfPages(bytes: Uint8Array, say: Progress): Promise<Blob[]> {
   const { doc, done } = await openPdf(bytes);
   const out: Blob[] = [];
   try {
-    for (let i = 1; i <= Math.min(doc.numPages, 400); i++) {
-      say(`Reading page ${i} of ${doc.numPages}…`);
+    const last = Math.min(doc.numPages, PDF_MAX);
+    for (let i = 1; i <= last; i++) {
+      say(`Reading page ${i} of ${last}${doc.numPages > last ? ` (the first ${PDF_MAX} of ${doc.numPages})` : ''}…`);
       const pg = await doc.getPage(i);
       const v0 = pg.getViewport({ scale: 1 });
       const scale = Math.min(3, 1600 / Math.max(v0.height, 1));
@@ -98,13 +101,19 @@ export async function importFiles(files: File[], say: Progress, from: Book['from
   let kind = '';
   let title = '';
   const bytesIn = files.reduce((n, f) => n + f.size, 0);
-  if (pics.length && pics.length === files.length) {
+  const packed: File[] = [];
+  for (const f of files) {
+    if (pics.includes(f)) continue;
+    const head = new Uint8Array(await f.slice(0, 300).arrayBuffer());
+    if (['zip', 'rar', '7z', 'pdf', 'tar'].includes(sniff(head))) packed.push(f);
+  }
+  if (pics.length && !packed.length) {
     pages = pics;
     kind = pics.length === 1 ? 'a picture' : `${pics.length} pictures`;
     const dir = (pics[0]!.webkitRelativePath || '').split('/')[0];
     title = dir || titleOf(pics[0]!.name);
   } else {
-    const f = files.find((x) => !PIC.test(x.name)) ?? files[0]!;
+    const f = packed[0] ?? files.find((x) => !PIC.test(x.name)) ?? files[0]!;
     title = titleOf(f.name);
     say(`Opening ${f.name}…`);
     const bytes = new Uint8Array(await f.arrayBuffer());
@@ -118,7 +127,7 @@ export async function importFiles(files: File[], say: Progress, from: Book['from
       if (!pages.length) throw inHisWords('That file has no pictures in it, so there are no pages to read.');
     } else if (what === 'pdf') {
       pages = await pdfPages(bytes, say);
-      kind = 'a PDF';
+      kind = pages.length >= PDF_MAX ? `a PDF (its first ${PDF_MAX} pages; the rest were left out to keep the phone’s room)` : 'a PDF';
       if (!pages.length) throw inHisWords('That PDF has no pages.');
     } else if (what === 'pic') {
       pages = [new Blob([bytes as BlobPart], { type: f.type || mimeOf(f.name) })];

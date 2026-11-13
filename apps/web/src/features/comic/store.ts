@@ -98,8 +98,15 @@ async function del(store: StoreName, keys: string[]): Promise<void> {
 
 export const pageKey = (id: string, n: number) => `${id}/${n}`;
 export async function keepBook(b: Book, pages: Blob[]): Promise<void> {
-  for (let i = 0; i < pages.length; i++) await put('pages', pageKey(b.id, i), pages[i]);
-  await put('books', b.id, b);
+  let i = 0;
+  try {
+    for (; i < pages.length; i++) await put('pages', pageKey(b.id, i), pages[i]);
+    await put('books', b.id, b);
+  } catch (e) {
+    // (what was written of it goes, so a half-kept comic never holds room on the phone)
+    await del('pages', Array.from({ length: i + 1 }, (_, k) => pageKey(b.id, k))).catch(() => undefined);
+    throw e;
+  }
 }
 export const updateBook = (b: Book): Promise<void> => put('books', b.id, b);
 export const bookOf = (id: string): Promise<Book | undefined> => get<Book>('books', id);

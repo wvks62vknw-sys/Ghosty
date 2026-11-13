@@ -297,8 +297,8 @@ await g.ctx.close();
     if (everything !== ids.slice().sort().join()) problems.push(`${at} the room holds "${everything}", want every tool of the area: "${ids.slice().sort().join()}" (nothing left out)`);
     const numbered = ids.filter((i) => i !== 'voice' && i !== 'core');
     if (a !== 'ask' && room.band.length !== numbered.length) problems.push(`${at} the band has ${room.band.length} reticles for ${numbered.length} things`);
-    // (THE PLAN numbers every screen: the EDITORS reticle keeps the number of the first editor it holds, 07, and the HOUSE after the seven is 14)
-    const wantN = a === 'make' ? ['01', '02', '03', '04', '05', '06', '07', '14'] : room.band.map((_b, i) => String(i + 1).padStart(2, '0'));
+    // (THE PLAN numbers every screen: the EDITORS reticle keeps the number of the first editor it holds, 07, and the HOUSE after the eight is 15: the COMIC joined on 13 Nov)
+    const wantN = a === 'make' ? ['01', '02', '03', '04', '05', '06', '07', '15'] : room.band.map((_b, i) => String(i + 1).padStart(2, '0'));
     if (room.band.some((b, i) => b.n !== wantN[i] || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered ${wantN.join(', ')} in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
     // (a room of more than eight things takes its band on two rows, each reticle 44 pt, never sideways: checked above and below)
     if (room.band.length > 10) problems.push(`${at} the band has more than ten (${room.band.length})`);

@@ -18,6 +18,8 @@ export interface PdFile {
   name: string;
   bytes: number;
   kind: 'CBZ' | 'PDF';
+  /** the PDF to fall back on when a CBZ turns out to be RAR inside (common on the Archive) */
+  alt?: PdFile;
 }
 
 const SEARCH = 'https://archive.org/advancedsearch.php';
@@ -51,8 +53,9 @@ export async function fileOf(id: string, signal?: AbortSignal): Promise<PdFile> 
   const cbz = files.find((f) => /\.cbz$/i.test(f.name!) || /comic book zip/i.test(f.format ?? ''));
   const pdf = files.filter((f) => /\.pdf$/i.test(f.name!) && !/_text\.pdf$/i.test(f.name!)).sort((a, b) => Number(a.size) - Number(b.size))[0];
   const f = cbz ?? pdf;
-  if (!f) throw inHisWords('This one only comes as a CBR (RAR), which a phone browser can’t open, so I left it. Pick another.');
-  return { name: f.name!, bytes: Number(f.size) || 0, kind: f === cbz ? 'CBZ' : 'PDF' };
+  if (!f) throw inHisWords(files.some((x) => /\.cbr$/i.test(x.name!)) ? 'This one only comes as a CBR (RAR), which a phone browser can’t open, so I left it. Pick another.' : 'This one has no comic file I can read (no CBZ or PDF). Pick another.');
+  const pdfFile: PdFile | undefined = pdf ? { name: pdf.name!, bytes: Number(pdf.size) || 0, kind: 'PDF' } : undefined;
+  return f === cbz ? { name: f.name!, bytes: Number(f.size) || 0, kind: 'CBZ', ...(pdfFile ? { alt: pdfFile } : {}) } : pdfFile!;
 }
 
 /** The file itself, through the Archive's own CORS door, with how much has come said as it comes. */

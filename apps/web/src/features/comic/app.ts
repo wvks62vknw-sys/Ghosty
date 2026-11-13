@@ -13,7 +13,7 @@ import { button, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, sizeWords, stateLine } from '../lifeui';
 import { drawCover, drawPage, hitOf, type Drawn } from './art';
-import { cbzOf, importFiles, panelsOf, pdfOf } from './files';
+import { cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
 import { blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, type ReadSource } from './reader';
@@ -105,6 +105,18 @@ type Hooks = { showShelf?: () => void; make?: (idea: string) => void; edit?: (id
 export const hooks: Hooks = {};
 /** What the chat asked before the screen was ready. */
 export const pending: { make?: string; edit?: string; library?: string; import?: boolean } = {};
+/** A made comic opened in MAKE, whether MAKE is on screen yet or not (on a phone it is built when its pill is picked). */
+function editMade(id: string): void {
+  void import('../../shell/tabs').then(({ go }) => {
+    if (hooks.edit) {
+      go('comic?make');
+      hooks.edit(id);
+    } else {
+      pending.edit = id;
+      go('comic?make');
+    }
+  });
+}
 
 // ---------------------------------------------------------------- SHELF
 export function shelfPart(): { el: HTMLElement; stop(): void } {
@@ -156,7 +168,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
     clear(list, ...all.map((b) => {
       const cover = b.thumb ? h('img.cxthumb', { src: b.thumb, alt: '' }) : h('div.cxthumb.none', b.title.slice(0, 1));
       const read = key('Read', () => void readBook(b.id).then((ok) => ok || toast('That comic is no longer on this phone.', 'warn')), `Read ${b.title}`);
-      const edit = b.from === 'made' ? key('Edit', () => hooks.edit?.(b.id), `Edit ${b.title}`) : null;
+      const edit = b.from === 'made' ? key('Edit', () => editMade(b.id), `Edit ${b.title}`) : null;
       const drop = key('Remove', async () => {
         if (drop.dataset.sure !== '1') {
           drop.dataset.sure = '1';
@@ -178,8 +190,9 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
   };
   hooks.showShelf = () => void paint();
   hooks.importNow = () => pickFile.click();
-  const lasting = shelfInfo.lasting ? null : h('p.cxnote', 'This browser keeps nothing after you leave (a private window), so your shelf lasts for this visit only.');
+  const lasting = h('p.cxnote', { hidden: true }, 'This browser keeps nothing after you leave (a private window), so your shelf lasts for this visit only.');
   void paint().then(() => {
+    lasting.hidden = shelfInfo.lasting;
     if (pending.import) {
       pending.import = false;
       clear(note, h('span', 'Pick your comic: a CBZ, a PDF, pictures or a folder of them. CBR files can’t be opened in a browser; save them as CBZ first.'));
@@ -260,7 +273,11 @@ export function makePart(): { el: HTMLElement; stop(): void } {
   };
   const soon = () => {
     clearTimeout(drawT);
-    drawT = window.setTimeout(() => (redraw(), keep()), 140);
+    drawT = window.setTimeout(() => {
+      drawT = 0;
+      redraw();
+      keep();
+    }, 140);
   };
   const changed = (full = false) => {
     if (full) {
@@ -412,9 +429,17 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       const pdf = await pdfOf(c.title, pics);
       const file = new File([pdf as BlobPart], `${name}.pdf`, { type: 'application/pdf' });
       if (how === 'share' && navigator.canShare?.({ files: [file] })) {
+        let how2 = 'shared' as 'shared' | 'cancelled' | 'saved';
         await navigator.share({ files: [file], title: c.title, text: c.tagline }).catch((e: Error) => {
-          if (e?.name !== 'AbortError') throw e;
+          if (e?.name === 'AbortError') how2 = 'cancelled';
+          else if (e?.name === 'NotAllowedError') how2 = 'saved';
+          else throw e;
         });
+        if (how2 === 'cancelled') return void clear(status, h('span', { dataset: { state: 'done' } }, 'Nothing was shared.'));
+        if (how2 === 'saved') {
+          saveBlob(pdf, file.name, 'application/pdf');
+          return void clear(status, h('span', { dataset: { state: 'done' } }, `The phone wouldn’t open its share sheet this time, so ${file.name} (${sizeWords(file.size)}) is in your downloads to send from there.`));
+        }
         comicState.saved = { kind: 'share', name: file.name, bytes: file.size };
         clear(status, h('span', { dataset: { state: 'done' } }, `Shared ${file.name}, ${sizeWords(file.size)}. Only the people you picked get it.`));
         return;
@@ -481,7 +506,15 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     pending.edit = undefined;
     hooks.edit(id);
   } else paintIdea();
-  return { el: root, stop: () => (clearTimeout(drawT), (hooks.make = undefined), (hooks.edit = undefined)) };
+  return {
+    el: root,
+    stop: () => {
+      if (drawT) keep();
+      clearTimeout(drawT);
+      hooks.make = undefined;
+      hooks.edit = undefined;
+    },
+  };
 }
 
 // ---------------------------------------------------------------- LIBRARY
@@ -522,7 +555,12 @@ export function libraryPart(): { el: HTMLElement; stop(): void } {
   const row = (it: PdItem): HTMLElement => {
     const line = h('p.cxbookline', { 'aria-live': 'polite' }, [it.year, it.creator].filter(Boolean).join(' · ') || 'Public domain');
     let file: PdFile | null = null;
+    let kept = '';
+    let busy = false;
     const get: HTMLButtonElement = key('See size', async () => {
+      if (kept) return void readBook(kept);
+      if (busy) return;
+      busy = true;
       try {
         if (!file) {
           get.disabled = true;
@@ -539,7 +577,17 @@ export function libraryPart(): { el: HTMLElement; stop(): void } {
           return;
         }
         get.disabled = true;
-        const f = await fetchPd(it.id, file, (got) => (line.textContent = `Fetching… ${sizeWords(got)} of ${sizeWords(file!.bytes)}`));
+        const fetchOne = (pf: PdFile) => fetchPd(it.id, pf, (n) => (line.textContent = `Fetching… ${sizeWords(n)} of ${sizeWords(pf.bytes)}`));
+        const f = await fetchOne(file);
+        if (file.alt && sniff(new Uint8Array(await f.slice(0, 8).arrayBuffer())) === 'rar') {
+          // (its CBZ is RAR inside, which no browser opens: its PDF is offered instead, its size said, fetched only on his next tap)
+          file = file.alt;
+          get.disabled = false;
+          get.textContent = `Get PDF · ${sizeWords(file.bytes)}`;
+          get.setAttribute('aria-label', `Get ${it.title} as a PDF, ${sizeWords(file.bytes)}`);
+          line.textContent = `Its CBZ turned out to be a RAR file inside, which a browser can’t open. Its PDF is ${sizeWords(file.bytes)}: tap GET PDF for that instead.`;
+          return;
+        }
         line.textContent = 'Putting it on your shelf…';
         const got = await importFiles([f], (w) => (line.textContent = w), 'library', creditOf(it));
         got.book.title = it.title.slice(0, 120);
@@ -549,14 +597,14 @@ export function libraryPart(): { el: HTMLElement; stop(): void } {
         get.disabled = false;
         line.textContent = `On your shelf: ${got.book.pages} pages. ${creditOf(it)}`;
         hooks.showShelf?.();
-        get.onclick = (e) => {
-          e.stopImmediatePropagation();
-          void readBook(got.book.id);
-        };
+        kept = got.book.id;
+        get.setAttribute('aria-label', `Read ${it.title}`);
       } catch (e) {
         get.disabled = false;
         get.textContent = file ? `Get · ${sizeWords(file.bytes)}` : 'See size';
         line.textContent = sayError(e, 'fetch that comic');
+      } finally {
+        busy = false;
       }
     }, `See the size of ${it.title} before getting it`);
     const thumb = h('img.cxthumb', { src: `https://archive.org/services/img/${encodeURIComponent(it.id)}`, alt: '', loading: 'lazy' });
