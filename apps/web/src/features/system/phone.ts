@@ -42,7 +42,7 @@ export function phoneCard(): HTMLElement {
       return;
     }
     if (!st.downloaded) {
-      note.textContent = 'No offline brain is on this phone, so there is nothing to time; GET one in SETTINGS.';
+      note.textContent = 'No offline brain is on this phone, so there is nothing to time, and nothing is downloaded for this; GET one in SETTINGS.';
       return;
     }
     b.disabled = true;

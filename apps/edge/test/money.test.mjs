@@ -205,6 +205,8 @@ test('a price watched: the number found on the page, stored as a watcher of kind
   assert.ok((await W.loadWatchers(storage)).some((w) => w.id === 'old1' && w.kind === 'price'), 'moved to the watchers store');
   assert.deepEqual(await storage.get(M.MONEY_KEYS.watches), [], 'and left the old one');
   assert.equal(told.length, 0);
+  // (POLISH 3, his yes: the money pack asks the follow job for no beat of its own any more; the planning watch sets its clock)
+  assert.ok((await M.followTick(deps(storage, fetch, NOW + 40 * 3_600_000), tell)) >= NOW + 40 * 3_600_000 + 7 * 86_400_000, 'no twice-a-day beat from the money pack');
   // how a price is read: product data, a price tag, else the first £ in the text
   assert.equal(S.priceOf('<meta property="product:price:amount" content="12.50">').price, 12.5);
   assert.equal(S.priceOf('<p>Now only &pound;7.99!</p>').how, 'the first £ price in the page’s text');

@@ -312,7 +312,9 @@ check(list[0]?.tag === 'IN USE' && list.slice(1).every((r) => !r.tag), `only the
 check(list.slice(1).every((r) => r.buttons.join() === 'GET'), `GET for the brains not on the phone: ${JSON.stringify(list.map((r) => r.buttons))}`);
 check((await page.locator(`#pg-settings .offbrain .obbrain[data-model="${ID.two}"] button`).getAttribute('aria-label')) === 'Get Qwen3.5 2B: about 1.1 GB, on Wi-Fi', 'GET says the size to VoiceOver');
 const cost = await text(page, '.obcost');
-check(/bigger download, more of the phone’s memory and a slower first word/.test(cost) && /answers better/.test(cost) && /tap TEST after it loads/.test(cost), `the cost and gain line: "${cost}"`);
+// (POLISH 3: one sentence on screen; how to know it fits is behind its WHY, read whole)
+const costAll = await page.evaluate(() => [document.querySelector('#pg-settings .obcost'), document.querySelector('#pg-settings .obcost')?.nextElementSibling].map((e) => e?.textContent ?? '').join(' ').replace(/\s+/g, ' '));
+check(/bigger download, more of the phone’s memory and a slower first word\.$/.test(cost) && /answers better/.test(cost) && /tap TEST after it loads/.test(costAll) && (await page.locator('#pg-settings .obcost + details.pkmore').count()) === 1, `the cost and gain line: "${cost}" / "${costAll}"`);
 const hold0 = await text(page, '.obhold');
 check(/^What this phone can hold: its graphics chip takes pieces of up to 1,024 MB, enough for every brain here\. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much\.$/.test(hold0), `the can-hold line: "${hold0}"`);
 await shot(page, 'picker');
@@ -333,7 +335,7 @@ await page.evaluate(() => (window.__net = 'wifi'));
 const hitsBefore = net.hits.length;
 await press(page, ID.two, 'GET');
 const asked2B = await answerSheet(page, false);
-check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it \(it needs about 2\.2 GB of memory when running; if your phone cannot give it that, Qwen3 0\.6B takes over\)\.$/.test(asked2B), `the question, in Ghosty's own sheet: "${asked2B}"`);
+check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE\. USE first checks this phone can run it \(about 2\.2 GB of memory when running\); if it cannot, Qwen3 0\.6B takes over\.$/.test(asked2B), `the question, in Ghosty's own sheet: "${asked2B}"`);
 check(dialogs.length === 0, `GET asks in Ghosty's sheet, not the browser's: ${JSON.stringify(dialogs)}`);
 check((await stored(page)).model === ID.small && net.hits.length === hitsBefore, 'saying no changes nothing and fetches nothing');
 const unloadsBefore = (await engine(page)).unloads;
@@ -411,7 +413,7 @@ const warn = (await page.locator('.modal').last().textContent().catch(() => ''))
 // the title names the brain as it is written (sentence case had made it "Load qwen3.5 2b?")
 const warnTitle = await page.locator('.modal .mhead b').last().evaluate((b) => ({ t: b.textContent, tt: getComputedStyle(b).textTransform })).catch(() => null);
 check(warnTitle?.t === 'Load Qwen3.5 2B?' && warnTitle.tt === 'none', `the warning's title as shown: ${JSON.stringify(warnTitle)}`);
-check(/Load Qwen3\.5 2B\?/.test(warn) && /Loading the 2B takes about 2\.2 GB of graphics memory\. If the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(warn), `the warning: "${warn}"`);
+check(/Load Qwen3\.5 2B\?/.test(warn) && /Loading the 2B takes about 2\.2 GB of graphics memory; if the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(warn), `the warning: "${warn}"`);
 await page.screenshot({ path: `${out}/bigbrain-${browserName}-warning.png` });
 await sheet(page).locator('button', { hasText: 'KEEP IT' }).click();
 await page.waitForTimeout(400);
@@ -571,7 +573,7 @@ await answerSheet(sp, true);
 check(await tagIs(sp, ID.mid, 'ON THIS PHONE', 20000), 'GET of the 0.8B did not finish');
 await press(sp, ID.mid, 'USE');
 const midWarn = await sheet(sp).waitFor({ state: 'visible', timeout: 4000 }).then(() => sp.locator('.modal').last().textContent(), () => '');
-check(/Loading the 0\.8B takes about 1\.6 GB of graphics memory\. If the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(midWarn ?? ''), `the 0.8B's warning: "${midWarn}"`);
+check(/Loading the 0\.8B takes about 1\.6 GB of graphics memory; if the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(midWarn ?? ''), `the 0.8B's warning: "${midWarn}"`);
 await sheet(sp).locator('button.sureyes').click().catch(() => problems.push('no LOAD IT for the 0.8B'));
 check(await tagIs(sp, ID.mid, 'IN USE', 5000), 'the 0.8B is not IN USE after USE');
 check((await engine(sp)).loads.at(-1) === ID.mid, 'USE loaded the 0.8B');
@@ -743,7 +745,7 @@ check(/closed Ghosty answering on Qwen3 0\.6B/.test(await text(cp, '.obhold')), 
 await cp.locator('#pg-settings .offbrain button', { hasText: /^TEST$/ }).click();
 check(await sheet(cp).waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false), '[closed] TEST on the brain that closed Ghosty did not ask first');
 const closedAsk = (await cp.locator('.modal').last().textContent().catch(() => '')) ?? '';
-check(/It closed Ghosty on this phone on \d+ \w+ while answering\. Loading the 0\.6B takes about 1\.4 GB of graphics memory\. If the phone cannot hold it, Ghosty will close and come back\./.test(closedAsk), `[closed] the question before another try: "${closedAsk}"`);
+check(/It closed Ghosty on this phone on \d+ \w+ while answering\. Loading the 0\.6B takes about 1\.4 GB of graphics memory; if the phone cannot hold it, Ghosty will close and come back\./.test(closedAsk), `[closed] the question before another try: "${closedAsk}"`);
 await sheet(cp).locator('button', { hasText: 'KEEP IT' }).click();
 await cp.waitForTimeout(400);
 check((await engine(cp)).loads.length === 0, '[closed] KEEP IT loaded nothing');

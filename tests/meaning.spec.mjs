@@ -155,7 +155,7 @@ const full = await page
   .catch(() => null);
 if (!full) problems.push(`the index never finished: "${await blk.locator('.mncount').textContent().catch(() => '')}"`);
 const line1 = (await blk.locator('.mnline').textContent().catch(() => '')) ?? '';
-if (!/^Search by meaning: 70 MB, on this phone\./.test(line1)) problems.push(`the line after ADD reads "${line1}"`);
+if (!/^Search by meaning: 70 MB, on this phone; the library and the offline brain find passages by what they mean, not only by their words\.$/.test(line1)) problems.push(`the line after ADD reads "${line1}"`);
 const ix = await page.evaluate(() => window.__ghosty?.meaning?.index?.() ?? null);
 if (!ix || ix.indexed !== ix.total || ix.total < 2) problems.push(`window.__ghosty.meaning: ${JSON.stringify(ix)}`);
 // 440 px: nothing sideways, every button 44 px tall.

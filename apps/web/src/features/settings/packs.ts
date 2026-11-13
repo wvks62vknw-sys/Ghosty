@@ -155,7 +155,7 @@ export const eyesPanel = (): Panel & { refresh(): void } =>
   packsPanel(
     'OFFLINE EYES',
     'offeyes',
-    'What the Lens reads with, kept on this phone so it works with no signal. Nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
+    'What the Lens reads with, kept on this phone so it works with no signal, and nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
     () => EYES_PACKS.flatMap((d) => [d, ...largerList().filter((l) => l.of === d.id).map((l) => l.pack)]),
     [CANNOT],
     sizesBlock,
@@ -166,9 +166,9 @@ export const voiceModelPanel = (): Panel & { refresh(): void } =>
   packsPanel(
     'VOICE MODEL',
     'offvoice',
-    'A small free model that tells voices apart, kept on this phone. Nothing you say is sent to it or from it. Fetched only when you tap, on Wi-Fi.',
+    'A small free model that tells voices apart, kept on this phone, and nothing you say is sent to it or from it. Fetched only when you tap, on Wi-Fi.',
     () => [SPEAKER_PACK],
-    ['It only ever helps me know it is you, or someone you introduced with them there. It is never a lock: a recording of you can fool it, and everything that matters still needs your tap. Without it, or with no signal, I use what I did before.'],
+    ['It is never a lock: it only helps me know it is you, or someone you introduced with them there, and everything that matters still needs your tap. A recording of you can fool it; without it, or with no signal, I use what I did before.'],
   );
 /**
  * OFFLINE EYES' sizes (offline/sizes.ts): what this phone reports, whether a larger size would be chosen for it, and for each pack that

@@ -77,7 +77,7 @@ await page.locator('#pg-settings .character [data-dial="brief"] button', { hasTe
 await page.waitForFunction(() => /As short as it can be/.test(document.querySelector('#pg-settings .character .charsays')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
 check(JSON.stringify(saves.at(-1)) === JSON.stringify({ dry: 2, brief: 2, warm: 1, fire: 1 }), `last save: ${JSON.stringify(saves.at(-1))}`);
 check(/very dry, deadpan/.test((await told()) ?? '') && /As short as it can be/.test((await told()) ?? ''), `tuned words: ${await told()}`);
-check(/^Now: very dry, warm, firm, terse answers\. /.test((await nowLine()) ?? ''), `the plain line after VERY DRY and TERSE: "${await nowLine()}"`);
+check(/^Now: very dry, warm, firm, terse answers; the app, the voice, Telegram and notifications all sound like this\.$/.test((await nowLine()) ?? ''), `the plain line after VERY DRY and TERSE: "${await nowLine()}"`);
 // HOW FIERY (OWNER-ISSUES 69a): FIERY is saved by the brain and its one line is what he is given
 await page.locator('#pg-settings .character [data-dial="fire"] button', { hasText: 'FIERY' }).click();
 await page.waitForFunction(() => /Argue hard and blunt, rude back if he is\./.test(document.querySelector('#pg-settings .character .charsays')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);

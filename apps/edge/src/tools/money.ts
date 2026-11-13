@@ -190,9 +190,10 @@ const unwatch: ActionFn = async (a, d) => {
 };
 
 /**
- * The old follow job's look (agent.ts, protected, still calls this): the twice-a-day job is no longer added, and one that is still on the
- * clock only carries any price watch of the old store over to the watchers' store, once, and tells nothing: the watchers' hourly beat
- * (watchers.ts) is the one reader and the one telling, so a drop is never told twice. Returns the next look.
+ * The money pack's part of the follow job (agent.ts runs it with the home pack's planning watch): the twice-a-day price job is no longer
+ * added, and this only carries any price watch of the old store over to the watchers' store, once, and tells nothing: the watchers' hourly
+ * beat (watchers.ts) is the one reader and the one telling, so a drop is never told twice. With nothing left to move it asks for no beat
+ * of its own (a week away: the planning watch sets the job's clock).
  */
 export async function followTick(d: PackDeps, _tell: (title: string, text: string, c: ReturnType<typeof watchCard>) => Promise<unknown>): Promise<number> {
   const old = await load<Watch[]>(d, MONEY_KEYS.watches, []);
@@ -203,7 +204,7 @@ export async function followTick(d: PackDeps, _tell: (title: string, text: strin
     if (moved.length) await saveWatchers(d.storage, [...all, ...moved]);
     await save(d, MONEY_KEYS.watches, []);
   }
-  return d.now() + 12 * 3_600_000;
+  return d.now() + 7 * 86_400_000;
 }
 
 const subs: ActionFn = async (a, d) => {

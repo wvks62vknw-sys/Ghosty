@@ -70,8 +70,13 @@ export const biggestLine = (by: { label: string; r: number; w: number }[], n: (x
   by.slice(0, 3).map((b) => `${b.label.replace(/^[a-z]+:/, '').replace(/^\/?$/, 'the app')} ${n(b.r)} rows read, ${n(b.w)} written`).join(' · ');
 
 /** HEALTH's KEYS row: how many of how many are added and which; the ones not added are behind its "?" (never a list of twenty names). */
-export const keysLine = (have: string[], missing: number, asOf: string): string =>
-  have.length ? `${have.length} of ${have.length + missing} added: ${have.join(', ')} (${asOf}).` : `None of the ${missing} added yet (${asOf}).`;
+export const keysLine = (have: string[], missing: string[], asOf: string): string => {
+  // the missing ones named too (the first three, in the order the keys are listed, the needed ones first), so a gap is plain
+  const gap = missing.length ? `${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ` and ${missing.length - 3} more` : ''}` : '';
+  return have.length
+    ? `${have.length} of ${have.length + missing.length} added: ${have.join(', ')}${gap ? `; not yet: ${gap}` : ''} (${asOf}).`
+    : `None of the ${missing.length} added yet: ${gap} (${asOf}).`;
+};
 
 /** The frame rate with its units: frames a second, and the size the scene is drawn at. */
 export const frameLine = (fps: number, scale: number): string => `${Math.round(fps)} frames a second, drawn at ${Math.round(scale * 100)}% size`;

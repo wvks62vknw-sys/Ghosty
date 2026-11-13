@@ -41,6 +41,8 @@ export async function initApp(): Promise<void> {
     pushState.set({ status: 'unsupported' });
     return;
   }
+  // (a browser that blocks service workers can answer the register with nothing: then there is nothing to push to)
+  if (!reg) return pushState.set({ status: 'unsupported' });
   const supported = 'PushManager' in window && 'Notification' in window;
   pushState.set({ supported });
   if (!supported) {

@@ -371,7 +371,7 @@ for (const W of [440, 390]) {
     const resets = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.adv .rw')].map((r) => r.textContent).find((t) => /ALLOWANCE RESETS/i.test(t)) ?? '');
     check(!/route:|\d+r\/\d+w|biggest:/.test(resets), `${T} [7 no code words] the allowance row reads "${resets}"`);
     // 8. HEALTH's KEYS row: how many of how many, never a list of twenty names (the ones not added behind its WHICH)
-    check(SYS.keysLine(['Gemini', 'Groq'], 18, 'as of 10:00') === '2 of 20 added: Gemini, Groq (as of 10:00).' && SYS.keysLine([], 20, 'as of 10:00') === 'None of the 20 added yet (as of 10:00).', `${T} [8 the keys line] reads "${SYS.keysLine(['Gemini', 'Groq'], 18, 'as of 10:00')}"`);
+    check(SYS.keysLine(['Gemini', 'Groq'], ['Tavily', 'TomTom', 'Brave', 'NASA'], 'as of 10:00') === '2 of 6 added: Gemini, Groq; not yet: Tavily, TomTom, Brave and 1 more (as of 10:00).' && SYS.keysLine([], ['Gemini', 'Groq'], 'as of 10:00') === 'None of the 2 added yet: Gemini, Groq (as of 10:00).' && SYS.keysLine(['Gemini'], [], 'as of 10:00') === '1 of 1 added: Gemini (as of 10:00).', `${T} [8 the keys line] reads "${SYS.keysLine(['Gemini', 'Groq'], ['Tavily', 'TomTom', 'Brave', 'NASA'], 'as of 10:00')}"`);
     // 9. the frame rate with its units (never "58 fps @ 75%")
     check(SYS.frameLine(58.4, 0.75) === '58 frames a second, drawn at 75% size', `${T} [9 units] the frame rate reads "${SYS.frameLine(58.4, 0.75)}"`);
     const fr = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.adv .rw')].map((r) => r.textContent).find((t) => /FRAME RATE/i.test(t)) ?? '');
@@ -625,7 +625,59 @@ await section('g', async () => {
   await ctx.close();
 });
 
+// ================================================================== h. 2d: the photo and video editors' work rides the daily backup
+// (their JSON only: a photo's recipe and the brush pictures it names, his own looks, a video project; the photos and clips stay on the phone)
+await section('h', async () => {
+  const root = new URL('../', import.meta.url).pathname;
+  const r = buildSync({
+    stdin: { contents: "import { collect, restoreEditors, reportText } from './apps/web/src/features/system/backup.ts';\nimport * as ph from './apps/web/src/photo/store.ts';\nimport * as vd from './apps/web/src/video/store.ts';\nimport { newRecipe } from './apps/web/src/photo/recipe.ts';\nimport { newProject } from './apps/web/src/video/model.ts';\nwindow.__bk = { collect, restoreEditors, reportText, ph, vd, newRecipe, newProject };", resolveDir: root, loader: 'ts' },
+    bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent', loader: { '.css': 'empty' },
+  });
+  const { ctx, page } = await open({ W: 390, hash: 'core' });
+  await page.addScriptTag({ content: r.outputFiles[0].text });
+  const got = await page.evaluate(async () => {
+    const B = window.__bk;
+    const png = await (await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==')).blob();
+    const kept = await B.ph.keepPhoto(png, 'Backup test photo', { w: 1, h: 1 });
+    const id = kept.meta.id;
+    const rc = B.newRecipe();
+    rc.light.exposure = 0.7;
+    await B.ph.saveRecipe(id, rc);
+    await B.ph.saveMyLook({ name: 'Backup test look', line: 'A test look.', mine: true, look: { light: rc.light, wb: rc.wb, curves: rc.curves, color: rc.color, detail: rc.detail, effects: rc.effects } });
+    const proj = B.newProject('Backup test film');
+    await B.vd.saveProject(proj);
+    const bundle = await B.collect();
+    const inPhoto = bundle.editors?.photos.find((p) => p.id === id);
+    const inLook = bundle.editors?.looks.some((l) => l.name === 'Backup test look');
+    const inFilm = bundle.editors?.videos.some((v) => v.id === proj.id);
+    // the edit lost (reset to plain), the look and the project gone: the photo itself still here; the copy dated after the reset
+    await B.ph.saveRecipe(id, B.newRecipe());
+    const row = await B.ph.getMeta(id);
+    inPhoto.at = row.at + 1000;
+    await B.ph.removeMyLook('Backup test look');
+    await B.vd.removeProject(proj.id);
+    const out = { restored: [], merged: [], same: [], skipped: [], docs: 0, photos: 0, looks: 0, videos: 0, photosAway: 0 };
+    const away = { ...inPhoto, id: 'pnotonthisphone' };
+    await B.restoreEditors({ ...bundle.editors, photos: [...bundle.editors.photos, away] }, out);
+    const back = await B.ph.getRecipe(id);
+    const looks = await B.ph.listMyLooks();
+    const film = await B.vd.loadProject(proj.id);
+    const words = B.reportText(out);
+    // nothing of the test left on this phone
+    await B.ph.removePhoto(id); await B.ph.removeMyLook('Backup test look'); await B.vd.removeProject(proj.id);
+    return { inPhoto: !!inPhoto, exposure: inPhoto?.recipe.light.exposure, inLook, inFilm, backExposure: back?.light.exposure, look: looks.some((l) => l.name === 'Backup test look'), film: film?.name, out, words, size: JSON.stringify(bundle.editors).length };
+  }).catch((e) => ({ error: String(e.message).split('\n')[0] }));
+  if (got.error) return void problems.push(`[h 2d] the backup could not be tried: ${got.error}`);
+  check(got.inPhoto && got.exposure === 0.7 && got.inLook && got.inFilm, `[h 2d] the backup does not carry the photo edit, the look and the video project: ${JSON.stringify(got)}`);
+  check(got.backExposure === 0.7 && got.look && got.film === 'Backup test film', `[h 2d] a restore did not put them back: ${JSON.stringify(got)}`);
+  check(got.out.photos === 1 && got.out.looks === 1 && got.out.videos === 1 && got.out.photosAway === 1, `[h 2d] the restore counted ${JSON.stringify(got.out)}`);
+  check(got.words === 'Put back in the editors: 1 photo edit, 1 look of your own, 1 video project. 1 photo edit waiting for its photo: the photos themselves stay on the phone they were taken on.', `[h 2d] the restore says "${got.words}"`);
+  check(got.size < 64 * 1024, `[h 2d] the editors' part is ${got.size} bytes for one small edit (the photos must not be in it)`);
+  await ctx.close();
+});
+
 // the brain put back, and the next spec shown to open on what this one found (2e and 2f e)
 problems.push(...(await brainAfter(base, cleanBrain)));
 await browser.close();
+if (problems.length) process.exitCode = 1;
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'POLISH 3 run clean at 440 × 956 and 390 × 844: one sentence a screen on Settings, System, the Theme page and the packs\' cards; the Agenda\'s ten fixes and the System screen\'s; "On it." in the phone\'s own voice and never over DOWNLOAD; one watcher system; Share to Ghosty; the Make and Learn leftovers.');

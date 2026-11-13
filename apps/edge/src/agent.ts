@@ -1798,7 +1798,8 @@ export class GhostyAgent {
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'follow') {
-          // [packs] The money pack's price watches (tools/money.ts): each page read again, a drop told once; twice a day.
+          // [packs] The home pack's planning watch, and the money pack's one-time move of any old price watch to WATCHERS (tools/money.ts
+          // followTick: it reads and tells nothing; WATCHERS' hourly beat is the one reader of a price, so a drop is told once). POLISH 3, his yes.
           const next = await packsTick(this.packsDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);

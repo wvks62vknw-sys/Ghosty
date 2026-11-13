@@ -420,7 +420,7 @@ for (const [name, mem] of [['4 GB', 4], ['12 GB', 12], ['no figure', null]]) {
   await openSystem(page);
   await page.locator('#pg-system .phonecard button[data-act="measure-brain"]').click();
   await page.waitForTimeout(500);
-  check(/nothing to time\. Nothing is downloaded for this/.test(await text(page.locator('#pg-system .phonecard .pcnote'))), '[brain none] no words for a brain that is not on the phone');
+  check(/^No offline brain is on this phone, so there is nothing to time, and nothing is downloaded for this; GET one in SETTINGS\.$/.test(await text(page.locator('#pg-system .phonecard .pcnote'))), '[brain none] no words for a brain that is not on the phone');
   check(!asked.some((p) => /huggingface|webllm\/.*\.bin|resolve\/main/.test(p)), '[brain none] something was downloaded');
   await ctx.close();
 }

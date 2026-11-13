@@ -251,7 +251,9 @@ let mine = [];
   await row(page).waitFor({ timeout: 10000 });
   let t = await rowText(page);
   check(/The voice model/.test(t) && new RegExp(`Get · ${SAID.replace('.', '\\.')}`, 'i').test(t), `[offer] the size said is not "Get · ${SAID}": ${t.slice(0, 200)}`);
-  check(/on Wi-Fi/.test(t) && /CC BY 4\.0/.test(t) && /27 MB/.test(t), `[offer] on Wi-Fi, the licence and the model's own 27 MB are not said: ${t.slice(0, 300)}`);
+  // (POLISH 3: the row says one sentence; the licence and the model's own size are behind its WHY, so the row's whole text is read)
+  const whole = ((await row(page).textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
+  check(/on Wi-Fi/.test(t) && /CC BY 4\.0/.test(whole) && /27 MB/.test(whole) && (await row(page).locator('details.pkmore summary').count()) >= 1, `[offer] on Wi-Fi, the licence and the model's own 27 MB are not said: ${whole.slice(0, 300)}`);
   check(/never a lock/i.test(await page.locator('#pg-settings .offvoice').innerText()), '[offer] the panel does not say it is never a lock');
   check((await row(page).locator('button[data-act="get"]').getAttribute('aria-label')) === `Get The voice model, ${SAID}, on Wi-Fi`, '[offer] the button\'s VoiceOver label');
   check(seen.asked.size === 0, `[offer] looking fetched ${[...seen.asked.keys()].join(', ')}`);

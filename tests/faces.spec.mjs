@@ -243,7 +243,7 @@ check((await x.count()) === 1 && (await x.getAttribute('aria-label')) === `Forge
 const box = await x.boundingBox();
 check(box && box.width >= 44 && box.height >= 44, `the × is under a 44 pt target: ${JSON.stringify(box)}`);
 await x.click();
-await until(() => /^1 face: you\./.test(document.querySelector('#pg-settings .facecount')?.textContent ?? ''), null, 5000, `after ×: "${await page.locator('#pg-settings .facecount').textContent()}"`);
+await until(() => /^1 face: you; they never leave this phone and are not in backups\.$/.test(document.querySelector('#pg-settings .facecount')?.textContent ?? ''), null, 5000, `after ×: "${await page.locator('#pg-settings .facecount').textContent()}"`);
 await page.locator('.undofloat button', { hasText: 'UNDO' }).click();
 await until(() => /2 faces/.test(document.querySelector('#pg-settings .facecount')?.textContent ?? ''), null, 5000, 'UNDO did not bring the face back');
 await page.screenshot({ path: `${out}/faces-settings.png` });

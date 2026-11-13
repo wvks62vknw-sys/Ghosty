@@ -37,8 +37,8 @@ export const START_WAIT = 'Starting your report…';
 export const START_EMPTY = 'Paste a link first, like bbc.co.uk';
 export const START_OFFLINE = 'You’re offline, so nothing can start. Try again when you’re back';
 
-/** The screen's one line: what it is for, and what comes back. */
-export const REVERSE_SUB = 'Paste a link and I take it apart: what it is built with, and what it talks to.';
+/** The screen's one line: what it is for (the Make hub's card says the same, and it fits two lines there). */
+export const REVERSE_SUB = 'Paste a link and I take it apart, piece by piece';
 
 /** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
 export const PHRASES = ['reverse this'];

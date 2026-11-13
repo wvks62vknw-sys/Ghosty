@@ -297,7 +297,7 @@ export const systemTab: TabDef = {
       }
       bkp.body.append(
         h('div.note', 'Once a day I lock a copy of what lives only on this phone and keep it in your brain.'),
-        more('The copy holds courses, flashcards, plans, documents and settings, locked with your owner key; only this phone can open it. Your chat, memory and agenda are kept by the brain itself.'),
+        more('The copy holds courses, flashcards, plans, documents, photo edits, video projects and settings, locked with your owner key; only this phone can open it, and the photos and clips themselves stay here. Your chat, memory and agenda are kept by the brain itself.'),
         last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
         h('div.keyrow', backupBtn = button('BACK UP NOW', async (b) => {
           // A phone with no backup record while the brain has copies may be a wiped one: ask first.

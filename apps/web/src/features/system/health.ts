@@ -141,7 +141,7 @@ export function healthPanels(): { panels: Panel[]; refresh(force?: boolean): voi
     }
     const have = b.keys.filter((k) => k.set).map((k) => k.label);
     const miss = b.keys.filter((k) => !k.set).map((k) => k.label);
-    lines.push(['KEYS', keysLine(have, miss.length, asOf(at))]);
+    lines.push(['KEYS', keysLine(have, miss, asOf(at))]);
     if (b.gpu) lines.push(['TRAINING', `My weekly training job had ${fmt.n(b.gpu.left, 1)} of ${fmt.n(b.gpu.total, 1)} free GPU hours left${b.gpu.at ? ` when it last started, ${day(b.gpu.at)}` : ''} (${asOf(at)}).`]);
     for (const [k, v] of lines) brainBox.append(row(k, v, null, { wrap: true }));
     if (miss.length) brainBox.append(more(`Not added yet: ${miss.join(', ')}.`, 'WHICH'));
