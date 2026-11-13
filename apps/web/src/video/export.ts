@@ -413,7 +413,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
 async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string }): Promise<Exported> {
   const ctx = new AudioContext();
   const tap = ctx.createMediaStreamDestination();
-  const player = new Player(c.canvas, c.feeder, p, { audio: !o.silent, ctx, tap });
+  const player = new Player(c.canvas, c.feeder, p, { audio: !o.silent, ctx, tap, stay: true });
   player.blobOf = o.blobOf;
   player.setSize(Math.max(c.s.w, c.s.h));
   player.setProject(p);
@@ -436,11 +436,23 @@ async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string
   });
   const playedAt = performance.now();
   player.play();
-  await ended;
+  // [ci] The file ends at the last picture the recorder's encoder has handed on when it is stopped, and an encoder hands a picture on
+  // only once the next one has come in: the last picture drawn is lost. With the player drawing three pictures a second (CI's
+  // software GPU, or a slow phone) that cost the file up to a third of a second (54797 ms against 54902: FINAL-CI 2). So the timeline's
+  // last picture is drawn at the timeline's own length after the start, and the same picture twice more, 40 ms apart, to push it
+  // through; where nothing is held back, the file runs at most 80 ms over. Then two frames and 150 ms for it to arrive.
+  const atEnd = new Promise<void>((ok) => setTimeout(ok, Math.max(0, playedAt + c.dur - performance.now())));
+  await Promise.race([ended, atEnd]);
   player.pause();
-  // one more picture at the very end, then the recorder stops where the timeline does (its file is as long as the video, not a moment less)
-  player.draw();
-  await new Promise((r) => setTimeout(r, Math.max(30, playedAt + c.dur + 40 - performance.now())));
+  player.t = Math.min(player.t, Math.max(0, c.dur - 1));
+  for (let k = 0; k < 3; k++) {
+    await new Promise((r) => setTimeout(r, Math.max(0, playedAt + c.dur + k * 40 - performance.now())));
+    player.draw();
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+  }
+  const drawnAt = performance.now();
+  for (let k = 0; k < 2; k++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+  await new Promise((r) => setTimeout(r, Math.max(0, drawnAt + 150 - performance.now())));
   rec.stop();
   await stopped;
   stream.getTracks().forEach((t) => t.stop());
