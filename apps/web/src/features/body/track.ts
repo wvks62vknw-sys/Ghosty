@@ -577,5 +577,5 @@ export function homeLine(): string {
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.track = { data: () => load(), reset: () => { cache = null; }, nudge: nudgeState, goal: (m: Metric) => goalOf(m), line };
+  if (w.__ghosty) w.__ghosty.track = { data: () => load(), reset: () => { cache = null; }, nudge: nudgeState, goal: (m: Metric) => goalOf(m), line, asked: (t: string) => trackAsked(t, load().set.cups) };
 }
