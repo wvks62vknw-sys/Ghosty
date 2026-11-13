@@ -10,6 +10,7 @@ import { watcherStands, type WatcherInfo } from '../../../../../packages/shared/
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, panel, toast } from '../../ui/components';
+import { intoChat } from '../../abilities/registry';
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 const day = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -54,10 +55,13 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
             const b = button('STOP', (btn) => void stop(x, btn), 'wstop');
             b.setAttribute('aria-label', x.state === 'watching' ? `Stop watching ${x.label}` : `Remove ${x.label} from the list`);
             b.dataset.label = 'Stop';
+            // [recall] a chase that came due with no reply: DRAFT A CHASE asks for a draft (the mail rule stands: SEND needs his confirm)
+            const draft = x.kind === 'reply' && x.state === 'told' && !x.repliedAt ? button('DRAFT A CHASE', () => void intoChat(`Draft a short, polite chase email${x.who ? ` to ${x.who}` : ''}${x.about ? ` about “${x.about}”` : ''} for my OK. Don't send it.`), 'wdraft') : null;
             return h(
               'div.wrow',
               { dataset: { id: x.id, kind: x.kind, state: x.state, case: 'keep' } },
-              h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60))),
+              h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), x.url ? h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60)) : ''),
+              ...(draft ? [draft] : []),
               b,
             );
           })
