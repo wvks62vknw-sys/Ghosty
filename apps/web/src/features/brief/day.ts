@@ -57,6 +57,48 @@ export function stillToday(today: { day: string; items: DayLine[] }, now: number
   return today.items.filter((x) => x.allDay || (x.end ?? x.at) > now || (x.kind === 'reminder' && x.at >= now)).map((x) => (!x.allDay && x.kind === 'event' && x.at <= now ? { ...x, when: 'Now' } : x));
 }
 
+// ---------------------------------------------------------------- the drive to work: leave by (BRIEF-OCT-IDEAS-2 2)
+
+/** A saved place, as much of it as an agenda line names it by (label, what he typed, what the map found). */
+export interface PlaceWords {
+  label: string;
+  query?: string;
+  address?: string;
+}
+const GENERIC = new Set(['road', 'street', 'avenue', 'lane', 'drive', 'close', 'court', 'place', 'work', 'office', 'unit', 'house', 'the', 'and', 'england', 'united', 'kingdom']);
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Does an agenda line's `where` name this saved place: its label as a word, the first part of what he typed, or its postcode. */
+export function namesPlace(where: string | undefined, p: PlaceWords): boolean {
+  const w = (where ?? '').toLowerCase().trim();
+  if (!w) return false;
+  const label = p.label.toLowerCase().trim();
+  if (label && new RegExp(`(^|[^a-z])${esc(label)}($|[^a-z])`).test(w)) return true;
+  const first = (p.query ?? '').split(',')[0]?.toLowerCase().trim() ?? '';
+  if (first.length >= 5 && !GENERIC.has(first) && w.includes(first)) return true;
+  const post = /\b[a-z]{1,2}\d[a-z\d]?\s*\d[a-z]{2}\b/i.exec(`${p.query ?? ''} ${p.address ?? ''}`)?.[0]?.toLowerCase().replace(/\s+/g, '');
+  return !!post && w.replace(/\s+/g, '').includes(post);
+}
+
+/**
+ * The first thing in the diary still to come that is at work (a timed event or reminder that names his saved work), and when to
+ * leave for it: its start less the drive's minutes. null when nothing is at work or the time to leave has gone.
+ */
+export function leaveFor(items: DayItem[], work: PlaceWords, minutes: number, now: number): { at: number; leave: number; title: string; when: string } | null {
+  if (!(minutes > 0)) return null;
+  const next = items.filter((x) => x.when !== 'All day' && x.when !== 'Now' && x.at > now && namesPlace(x.where, work)).sort((a, b) => a.at - b.at)[0];
+  if (!next) return null;
+  const leave = next.at - Math.round(minutes) * 60_000;
+  return leave > now - 60_000 ? { at: next.at, leave, title: next.title, when: next.when } : null;
+}
+
+/** The commute as the Brief says it: "24 min to work, leave by 08:20 for Standup at 09:00 (an estimate)". */
+export function commuteLine(c: { minutes: number; delayMin: number; live: boolean }, left: { leave: number; title: string; when: string } | null): string {
+  const base = `${c.minutes} min to work${c.live && c.delayMin >= 5 ? `, ${c.delayMin} min of it traffic` : ''}`;
+  if (!left) return base;
+  return `${base}, leave by ${hhmm(left.leave)} for ${left.title} at ${left.when}${c.live ? '' : ' (an estimate)'}`;
+}
+
 /** "2 things today, first Dentist at 09:30" — or "Nothing in your diary for the rest of today". */
 export function diarySentence(items: DayItem[]): string {
   if (!items.length) return 'Nothing in your diary for the rest of today';
@@ -83,12 +125,16 @@ export interface Facts {
   diary?: string;
   /** "24 min to work". */
   commute?: string;
+  /** [further] What the drive costs in fuel, as an estimate (further/spendnear.ts): "About £2.20 in fuel there and back (estimate…)". */
+  cost?: string;
+  /** [further] The money line, when a merchant's saved place is known: "£62 spent near Work this week". */
+  money?: string;
 }
 
 /** The hero's one plain sentence, short enough to read at a glance and to say aloud. */
 export function summary(f: Facts): string {
   const wx = [f.now, f.range ? `${f.range} today` : '', f.rain].filter(Boolean).join(', ');
-  const parts = [wx, f.diary, f.commute].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const parts = [wx, f.diary, f.commute, f.cost, f.money].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
   return parts.length ? `${parts.join('. ')}.` : '';
 }
 

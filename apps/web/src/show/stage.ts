@@ -15,10 +15,12 @@ import { h, svgEl } from '../core/dom';
 import { key, tag, truthLine, type TruthPart } from '../ui/machine';
 import { triggersIn } from '../assistant/triggers';
 import { decideShow, placeAsked, type Show, type ShowFacts } from './decide';
-import { figure, type Series } from './chart';
-import { faces } from './iso';
-import { partBoxes, roomBoxesOf, roomPlanFor, type PartKind } from './parts';
-import type { Sim } from './sim';
+import { type Series } from './chart';
+import { chartPic } from './chartpic';
+import { faces, type Pt } from './iso';
+import { countryPic, mapPic } from './mappic';
+import { lengthIn, partBoxes, roomBoxesOf, roomPlanFor, type PartKind, type Shown } from './parts';
+import { dialsOf, simWith, type Sim } from './sim';
 import { showTrace } from './turn';
 import { waiting } from '../ui/wait';
 
@@ -34,19 +36,76 @@ export const stageState = {
   presented: 0,
   why: '',
   closed: '',
+  /** ms from the data arriving (present) to the picture's first paint, and what came after it: mounted, painted, pointed. */
+  paintMs: 0,
+  marks: [] as string[],
+  /** How many times "offline map" was said on the Stage (once, or none). */
+  offlineSaid: 0,
+  /** The waiting line the map said before its first paint. */
+  waitLine: '',
+  /** Where the sentence stood when the room was reserved and after the Stage rose (its top), for the check that it did not move. */
+  reserved: '',
 };
 
 const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
 
 let stop: () => void = () => undefined;
 
-/** Take the Stage away (CLOSE, Escape, his next word, leaving the screen). */
+/** The room the Stage takes at the foot of the conversation: where it sits and how tall it is (the same numbers reserve it and place it). */
+function stageBox(): { bottom: number; hgt: number } {
+  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const bar = [...document.querySelectorAll<HTMLElement>('#cbar, #dock .houseask, #dock')].find((b) => b.getClientRects().length && b.getBoundingClientRect().height > 0);
+  const top = bar ? bar.getBoundingClientRect().top : vh - 16;
+  const bottom = Math.max(8, vh - top + 8);
+  const head = 64;
+  return { bottom, hgt: Math.max(240, Math.min(560, vh * 0.6, vh - bottom - head)) };
+}
+
+let reservedFor = 0;
+
+/**
+ * His words promise a picture (a room, a desk, a letter, a place, a formula): its room is taken from the conversation at once, so
+ * the sentence lands where it will stay and the Stage rises under it without moving it. A wrong promise hands the room back.
+ */
+export function reserve(kind: string): void {
+  if (document.querySelector('#thestage:not(.leaving)') || !document.querySelector('.hud.core.logopen')) return;
+  const b = stageBox();
+  document.body.classList.add('staged');
+  document.body.style.setProperty('--stageh', `${Math.round(b.bottom + b.hgt + 10)}px`);
+  stageState.reserved = kind;
+  // the conversation keeps to its end at its new size, so the reply that follows is followed and lands in sight, in the place it will stay
+  for (const log of document.querySelectorAll<HTMLElement>('.hud.core.logopen .log')) log.scrollTop = log.scrollHeight;
+  const mine = ++reservedFor;
+  // (a reply that never comes: the room is handed back, quietly)
+  setTimeout(() => mine === reservedFor && !document.querySelector('#thestage:not(.leaving)') && releaseRoom(), 25000);
+}
+
+/** Hand the reserved room back to the conversation (it eases open: the Stage's own easing). */
+export function releaseRoom(): void {
+  if (document.querySelector('#thestage:not(.leaving)')) return;
+  document.body.classList.remove('staged');
+  document.body.style.removeProperty('--stageh');
+  stageState.reserved = '';
+}
+
+/** Take the Stage away (CLOSE, Escape, his next word, leaving the screen): it leaves as quietly as it came. */
 export function clearStage(why: string): void {
   stop();
   stop = () => undefined;
-  document.getElementById('thestage')?.remove();
-  document.body.classList.remove('staged');
-  document.body.style.removeProperty('--stageh');
+  const el = document.getElementById('thestage');
+  if (el) {
+    if (why === 'replaced' || why === 'check' || still()) el.remove();
+    else if (!el.classList.contains('leaving')) {
+      // (it keeps its place for the length of its leaving; a newer Stage takes it away at once)
+      el.classList.add('leaving');
+      setTimeout(() => el.remove(), 360);
+    }
+  }
+  if (why !== 'replaced') {
+    document.body.classList.remove('staged');
+    document.body.style.removeProperty('--stageh');
+    stageState.reserved = '';
+  }
   if (stageState.shown) stageState.closed = why;
   stageState.shown = null;
 }
@@ -60,44 +119,6 @@ function text(x: number, y: number, s: string, cls: string, anchor: 'start' | 'm
   const t = svgEl('text', { x, y, class: `stg-t ${cls}`, 'text-anchor': anchor });
   t.textContent = s;
   return t;
-}
-
-/** BARS (or a LINE, when the labels run in time) from the reply's own numbers, the figures written on them. */
-function chartPic(s: Series): SVGSVGElement {
-  const pts = s.points;
-  const hi = Math.max(...pts.map((p) => p.value));
-  const lo = Math.min(0, ...pts.map((p) => p.value));
-  const span = hi - lo || 1;
-  if (s.kind === 'bars') {
-    const row = 28;
-    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${pts.length * row + 4}`, class: 'stg-svg', role: 'img', 'aria-label': `Bars: ${pts.map((p) => `${p.label} ${figure(p.value, s)}`).join(', ')}` });
-    const x0 = 96;
-    const room = W - x0 - 64;
-    pts.forEach((p, i) => {
-      const y = i * row + 2;
-      svg.append(text(0, y + 18, (p.label.length > 12 ? `${p.label.slice(0, 11)}…` : p.label).toUpperCase(), 'cap'));
-      const bx = x0 + (Math.min(0, p.value) - lo) * (room / span);
-      svg.append(svgEl('rect', { x: bx, y: y + 4, width: Math.max(2, Math.abs(p.value) * (room / span)), height: 16, class: 'stg-bar', 'data-bar': '1' }));
-      svg.append(text(x0 + (Math.max(0, p.value) - lo) * (room / span) + 6, y + 18, figure(p.value, s), 'fig'));
-    });
-    svg.append(svgEl('line', { x1: x0 + (0 - lo) * (room / span), y1: 0, x2: x0 + (0 - lo) * (room / span), y2: pts.length * row + 4, class: 'stg-axis' }));
-    stageState.drawn = { bars: pts.length };
-    return svg;
-  }
-  const H = 190;
-  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'stg-svg', role: 'img', 'aria-label': `Line: ${pts.map((p) => `${p.label} ${figure(p.value, s)}`).join(', ')}` });
-  const px = (i: number) => 24 + (i * (W - 48)) / Math.max(1, pts.length - 1);
-  const py = (v: number) => 30 + (1 - (v - lo) / span) * (H - 76);
-  for (let k = 0; k <= 3; k++) svg.append(svgEl('line', { x1: 14, y1: 30 + (k * (H - 76)) / 3, x2: W - 14, y2: 30 + (k * (H - 76)) / 3, class: 'stg-axis' }));
-  svg.append(svgEl('polyline', { points: pts.map((p, i) => `${px(i).toFixed(1)},${py(p.value).toFixed(1)}`).join(' '), class: 'stg-line', 'data-line': '1' }));
-  const top = pts.reduce((a, p, i) => (p.value > pts[a]!.value ? i : a), 0);
-  pts.forEach((p, i) => {
-    svg.append(svgEl('circle', { cx: px(i), cy: py(p.value), r: i === top ? 4 : 3, class: `stg-dot${i === top ? ' on' : ''}`, 'data-dot': '1' }));
-    if (i === 0 || i === pts.length - 1 || i === top) svg.append(text(px(i), py(p.value) - 9, figure(p.value, s), 'fig', i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'));
-    if (pts.length <= 7 || i === 0 || i === pts.length - 1 || i === Math.floor(pts.length / 2)) svg.append(text(px(i), H - 8, p.label.slice(0, 7).toUpperCase(), 'cap', i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'));
-  });
-  stageState.drawn = { points: pts.length };
-  return svg;
 }
 
 /** The orthographic point of (lat, lon) seen from (lat0, lon0): x right, y up, and how far toward the eye it is (above 0: seen). */
@@ -182,83 +203,68 @@ function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
   return svg;
 }
 
-/** The MAP: OpenStreetMap's own tiles (the card kit's source), the place in a reticle with its pin. */
-function mapPic(lat: number, lon: number, z: number, label: string): HTMLElement {
-  const TILE = 256;
-  const n = 2 ** z;
-  const wx = ((lon + 180) / 360) * n;
-  const sinLat = Math.sin((lat * Math.PI) / 180);
-  const wy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * n;
-  const cx = Math.floor(wx);
-  const cy = Math.floor(wy);
-  const layer = h('div.stgtiles');
-  let tiles = 0;
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      const ty = cy + dy;
-      if (ty < 0 || ty >= n) continue;
-      const tx = (((cx + dx) % n) + n) % n;
-      const img = h('img', { alt: '', decoding: 'async', draggable: false, src: `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png` });
-      img.style.left = `${Math.round((cx + dx - wx) * TILE)}px`;
-      img.style.top = `${Math.round((cy + dy - wy) * TILE)}px`;
-      img.addEventListener('error', () => img.remove());
-      layer.append(img);
-      tiles++;
-    }
-  }
-  stageState.drawn = { tiles };
-  const pin = svgEl('svg', { viewBox: '-20 -20 40 40', class: 'stgpin', 'aria-hidden': 'true' });
-  pin.append(svgEl('rect', { x: -14, y: -14, width: 28, height: 28, class: 'stg-box' }), svgEl('circle', { cx: 0, cy: 0, r: 4, class: 'stg-core' }));
-  return h('div.stgmap', { role: 'img', 'aria-label': `Map of ${label}` }, layer, pin, h('span.stgattr', '© OpenStreetMap'));
-}
-
-/** The reply as a page: its heading, its paragraphs and list items, as the document editor will read it. */
+/** The reply as a page: its heading, its paragraphs and list items, set as a page with margins in the system's reading type. */
 function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
-  const page = h('div.stgpage', { role: 'img', 'aria-label': 'The document, laid out' }, h('b.stgh', title));
+  const page = h('div.stgpage.paper', { role: 'img', 'aria-label': 'The document, laid out as a page' }, h('b.stgh', title));
   let i = 0;
   for (const p of paras.filter((x, k) => !(k === 0 && x.text.trim() === title.trim()))) {
-    const el = p.t === 'h1' || p.t === 'h2' || p.t === 'h3' ? h('b.stgh', p.text) : p.t === 'ul' || p.t === 'ol' ? h('span.stgli', `${p.t === 'ol' ? `${++i}.` : '–'} ${p.text}`) : h('span.stgp', p.text);
+    const el = p.t === 'h1' || p.t === 'h2' || p.t === 'h3' ? h('b.stgh', p.text) : p.t === 'ul' || p.t === 'ol' ? h('span.stgli', `${p.t === 'ol' ? `${++i}.` : '–'} ${p.text}`) : p.t === 'right' ? h('span.stgp.right', p.text) : p.t === 'quote' ? h('span.stgp.quote', p.text) : h('span.stgp', p.text);
     page.append(el);
   }
   stageState.drawn = { blocks: paras.length + 1 };
   return page;
 }
 
-/** A FORMULA RUN: the solver's path drawn true to scale and run once (still with Reduce Motion), a tap runs it again. */
-function simPic(sim: Sim): { el: SVGSVGElement; stop: () => void } {
+/** A FORMULA RUN: the solver's path drawn true to scale and run once (still with Reduce Motion), a tap runs it again; `set` draws it again for a new answer. */
+function simPic(first: Sim): { el: SVGSVGElement; stop: () => void; set: (s: Sim) => void } {
   const H = 210;
-  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'stg-svg sim', role: 'img', 'aria-label': `${sim.title}: the path` });
-  const xs = sim.path.map((p) => p.x);
-  const ys = sim.path.map((p) => p.y);
-  const x0 = Math.min(...xs);
-  const x1 = Math.max(...xs);
-  const y0 = Math.min(...ys);
-  const y1 = Math.max(...ys);
-  const spanX = x1 - x0 || 1;
-  const spanY = y1 - y0 || 1;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'stg-svg sim', role: 'img', 'aria-label': `${first.title}: the path` });
+  let sim = first;
   const box = { l: 18, r: W - 18, t: 18, b: H - 30 };
-  // true to scale (a flight and an orbit are shapes); a fall's two axes are different things and fill the box
-  const eq = sim.kind !== 'fall';
-  const k = eq ? Math.min((box.r - box.l) / spanX, (box.b - box.t) / spanY) : 0;
-  const mx = (x: number) => box.l + (eq ? (x - x0) * k + ((box.r - box.l) - spanX * k) / 2 : ((x - x0) / spanX) * (box.r - box.l));
-  const my = (y: number) => (eq ? box.b - (y - y0) * k - ((box.b - box.t) - spanY * k) / 2 : box.b - ((y - y0) / spanY) * (box.b - box.t));
-  const pts = sim.path.map((p) => `${mx(p.x).toFixed(1)},${my(p.y).toFixed(1)}`);
-  svg.append(svgEl('line', { x1: box.l, y1: box.b, x2: box.r, y2: box.b, class: 'stg-axis' }));
-  if (sim.kind === 'orbit') svg.append(svgEl('circle', { cx: mx(0), cy: my(0), r: 3, class: 'stg-core' }));
-  const path = svgEl('polyline', { points: pts.join(' '), class: 'stg-line', pathLength: 1, 'data-path': String(sim.path.length) });
-  const dot = svgEl('circle', { r: 5, class: 'stg-dot on', cx: pts[0]!.split(',')[0]!, cy: pts[0]!.split(',')[1]! });
-  svg.append(path, dot, text(box.l, H - 8, sim.axes.x, 'cap'), text(box.r, H - 8, sim.axes.y.toUpperCase(), 'cap', 'end'));
+  const path = svgEl('polyline', { class: 'stg-line', pathLength: 1 });
+  const dot = svgEl('circle', { r: 5, class: 'stg-dot on' });
+  const base = svgEl('line', { x1: box.l, y1: box.b, x2: box.r, y2: box.b, class: 'stg-axis' });
+  const core = svgEl('circle', { r: 3, class: 'stg-core' });
+  const capX = text(box.l, H - 8, '', 'cap');
+  const capY = text(box.r, H - 8, '', 'cap', 'end');
+  svg.append(base, core, path, dot, capX, capY);
+  let pts: string[] = [];
   let raf = 0;
+  const lay = () => {
+    const xs = sim.path.map((p) => p.x);
+    const ys = sim.path.map((p) => p.y);
+    const x0 = Math.min(...xs);
+    const x1 = Math.max(...xs);
+    const y0 = Math.min(...ys);
+    const y1 = Math.max(...ys);
+    const spanX = x1 - x0 || 1;
+    const spanY = y1 - y0 || 1;
+    // true to scale (a flight and an orbit are shapes); a fall's two axes are different things and fill the box
+    const eq = sim.kind !== 'fall';
+    const k = eq ? Math.min((box.r - box.l) / spanX, (box.b - box.t) / spanY) : 0;
+    const mx = (x: number) => box.l + (eq ? (x - x0) * k + ((box.r - box.l) - spanX * k) / 2 : ((x - x0) / spanX) * (box.r - box.l));
+    const my = (y: number) => (eq ? box.b - (y - y0) * k - ((box.b - box.t) - spanY * k) / 2 : box.b - ((y - y0) / spanY) * (box.b - box.t));
+    pts = sim.path.map((p) => `${mx(p.x).toFixed(1)},${my(p.y).toFixed(1)}`);
+    path.setAttribute('points', pts.join(' '));
+    path.setAttribute('data-path', String(sim.path.length));
+    core.setAttribute('cx', String(mx(0)));
+    core.setAttribute('cy', String(my(0)));
+    core.style.display = sim.kind === 'orbit' ? '' : 'none';
+    capX.textContent = sim.axes.x;
+    capY.textContent = sim.axes.y.toUpperCase();
+    svg.setAttribute('aria-label', `${sim.title}: the path`);
+    stageState.drawn = { path: sim.path.length };
+  };
+  const place = (f: number) => {
+    const last = sim.path.length - 1;
+    const p = pts[Math.min(last, Math.round(f * last))]!.split(',');
+    dot.setAttribute('cx', p[0]!);
+    dot.setAttribute('cy', p[1]!);
+    path.style.strokeDasharray = '1';
+    path.style.strokeDashoffset = String(1 - f);
+  };
   const play = () => {
     cancelAnimationFrame(raf);
-    const last = sim.path.length - 1;
-    const place = (f: number) => {
-      const p = pts[Math.min(last, Math.round(f * last))]!.split(',');
-      dot.setAttribute('cx', p[0]!);
-      dot.setAttribute('cy', p[1]!);
-      path.style.strokeDasharray = '1';
-      path.style.strokeDashoffset = String(1 - f);
-    };
     if (still()) return place(1);
     const ms = Math.max(1800, Math.min(5200, sim.seconds * 800));
     const t0 = performance.now();
@@ -270,27 +276,104 @@ function simPic(sim: Sim): { el: SVGSVGElement; stop: () => void } {
     raf = requestAnimationFrame(tick);
   };
   svg.addEventListener('click', play);
+  lay();
   play();
-  stageState.drawn = { path: sim.path.length };
-  return { el: svg, stop: () => cancelAnimationFrame(raf) };
+  return {
+    el: svg,
+    stop: () => cancelAnimationFrame(raf),
+    set: (s2) => {
+      // a dial moved: the new path is drawn whole at once (the answer is the point, not the show)
+      cancelAnimationFrame(raf);
+      sim = s2;
+      lay();
+      place(1);
+    },
+  };
 }
 
-/** BOXES IN 3-D from parameters: turns by drag, slowly by itself (still with Reduce Motion). */
-function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string): { el: SVGSVGElement; stop: () => void } {
-  const svg = svgEl('svg', { viewBox: '-180 -160 360 320', class: 'stg-svg iso', role: 'img', 'aria-label': `${label}, in 3-D: drag to turn` });
+/** The sizes written on the edges, in the unit he used, and the part named where it is: placed again on every turn. */
+interface Sizes {
+  unit: Shown;
+  /** Width, depth and height in cm. */
+  w: number;
+  d: number;
+  h: number;
+  /** What stands in it, named at the top of each: world metres. */
+  names: { name: string; at: [number, number, number] }[];
+}
+
+/** BOXES IN 3-D from parameters: lit from above and to the left with a soft shadow on its ground, its sizes on its edges, turning slowly until he touches it. */
+function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string, sizes: Sizes): { el: SVGSVGElement; stop: () => void } {
+  const svg = svgEl('svg', { viewBox: '-180 -180 360 360', class: 'stg-svg iso', role: 'img', 'aria-label': `${label}, in 3-D: drag to turn` });
+  const defs = svgEl('defs', {});
+  const blur = svgEl('filter', { id: 'stgsoft', x: '-20%', y: '-20%', width: '140%', height: '140%' });
+  blur.append(svgEl('feGaussianBlur', { stdDeviation: '4' }));
+  defs.append(blur);
   const g = svgEl('g', {});
-  svg.append(g);
+  svg.append(defs, g);
   let yaw = 0.7;
-  let pause = 0;
-  const radius = faces(boxes, 0, 0.5, room).radius;
-  const scale = (room ? 150 : 128) / radius;
+  let touched = false;
+  // the picture fills the Stage at every turn: the scale is the one at which the widest and tallest of a whole turn (ground, walls, shadow) still fit
+  let fitX = 1;
+  let fitY = 1;
+  for (let k = 0; k < 16; k++) {
+    const sw = faces(boxes, (k * Math.PI) / 8, 0.5, room);
+    for (const q of [...sw.scene.ground, ...(sw.scene.shadow ?? []), ...sw.faces.flatMap((f) => f.pts)]) {
+      fitX = Math.max(fitX, Math.abs(q[0]));
+      fitY = Math.max(fitY, Math.abs(q[1]));
+    }
+  }
+  const scale = Math.min(196 / fitX, 170 / fitY);
+  const sc = (p: Pt): Pt => [p[0] * scale, p[1] * scale];
+  const poly = (pts: Pt[], cls: string, extra: Record<string, string | number> = {}) => svgEl('polygon', { points: pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(' '), class: cls, ...extra });
+  const clampP = (p: Pt): Pt => [Math.max(-168, Math.min(168, p[0])), Math.max(-166, Math.min(170, p[1]))];
   const draw = () => {
-    const { faces: fs } = faces(boxes, yaw, 0.5, room);
-    const nodes: SVGElement[] = fs.map((f) => {
-      const p = svgEl('polygon', { points: f.pts.map((q) => `${(q[0] * scale).toFixed(1)},${(q[1] * scale).toFixed(1)}`).join(' '), class: `stg-face ${f.kind}`, 'fill-opacity': (f.kind === 'floor' ? 0.06 + f.shade * 0.08 : 0.1 + f.shade * 0.34).toFixed(2) });
-      return p;
-    });
+    const { faces: fs, scene } = faces(boxes, yaw, 0.5, room);
+    const nodes: SVGElement[] = [];
+    // the ground it stands on, then its shadow (soft, thrown away from the light), then the faces
+    nodes.push(poly(scene.ground.map(sc), 'stg-ground'));
+    if (scene.shadow) nodes.push(poly(scene.shadow.map(sc), 'stg-shadow', { filter: 'url(#stgsoft)' }));
+    for (const f of fs) nodes.push(poly(f.pts.map(sc), `stg-face ${f.kind}`, { 'fill-opacity': (f.kind === 'floor' ? 0.06 + f.shade * 0.08 : 0.1 + f.shade * 0.34).toFixed(2) }));
+    // the sizes, written on the three edges nearest the eye: the front's width, the side's depth, the corner's height
+    const { x0, x1, z0, z1, y0, y1 } = scene.foot;
+    const corners: [number, number][] = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+    const depth = corners.map(([x, z]) => scene.depthOf([x, y0, z]));
+    const near = depth.indexOf(Math.max(...depth));
+    const centre = sc(scene.project([(x0 + x1) / 2, y0, (z0 + z1) / 2]));
+    const tag = (a: [number, number], b: [number, number], v: number, cls: string) => {
+      const m = sc(scene.project([(a[0] + b[0]) / 2, y0, (a[1] + b[1]) / 2]));
+      let dx = m[0] - centre[0];
+      let dy = m[1] - centre[1];
+      const n = Math.hypot(dx, dy) || 1;
+      dx /= n;
+      dy /= n;
+      const at = clampP([m[0] + dx * 18, m[1] + dy * 18 + 4]);
+      const t = text(at[0], at[1], lengthIn(v, sizes.unit), `cap dim ${cls}`, at[0] > m[0] + 4 ? 'start' : at[0] < m[0] - 4 ? 'end' : 'middle');
+      nodes.push(t);
+    };
+    for (const j of [(near + 1) % 4, (near + 3) % 4]) {
+      const a = corners[near]!;
+      const b = corners[j]!;
+      // the edge along x is as wide as the thing, the other as deep
+      tag(a, b, a[1] === b[1] ? sizes.w : sizes.d, 'edge');
+    }
+    const base = sc(scene.project([corners[near]![0], y0, corners[near]![1]]));
+    const top = sc(scene.project([corners[near]![0], y1, corners[near]![1]]));
+    const hm: Pt = [(base[0] + top[0]) / 2, (base[1] + top[1]) / 2];
+    const side = hm[0] >= centre[0] ? 1 : -1;
+    const hp = clampP([hm[0] + side * 16, hm[1] + 4]);
+    nodes.push(text(hp[0], hp[1], lengthIn(sizes.h, sizes.unit), 'cap dim edge', side > 0 ? 'start' : 'end'));
+    // a part named where it is (two names that would touch stand a line apart)
+    const placed: Pt[] = [];
+    for (const n of [...sizes.names].sort((a, b) => scene.project(a.at)[1] - scene.project(b.at)[1])) {
+      const p = clampP(sc(scene.project(n.at)));
+      let y = p[1] - 6;
+      for (const q of placed) if (Math.abs(q[0] - p[0]) < 64 && Math.abs(q[1] - y) < 13) y = q[1] + 13;
+      placed.push([p[0], y]);
+      nodes.push(text(p[0], y, n.name.toUpperCase(), 'cap partname', 'middle'));
+    }
     g.replaceChildren(...nodes);
+    svg.dataset.yaw = yaw.toFixed(4);
     stageState.drawn = { faces: fs.length, boxes: boxes.length };
   };
   draw();
@@ -299,7 +382,7 @@ function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: strin
   const spin = (t: number) => {
     const dt = lastT ? Math.min(0.1, (t - lastT) / 1000) : 0;
     lastT = t;
-    if (t > pause) {
+    if (!touched) {
       yaw += dt * 0.28;
       draw();
     }
@@ -307,14 +390,15 @@ function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: strin
   };
   if (!still()) raf = requestAnimationFrame(spin);
   let down: { x: number; yaw: number } | null = null;
+  // a touch stops the turn and it stays stopped: he has the room in his hand now
   svg.addEventListener('pointerdown', (e) => {
+    touched = true;
     down = { x: e.clientX, yaw };
     svg.setPointerCapture?.(e.pointerId);
   });
   svg.addEventListener('pointermove', (e) => {
     if (!down) return;
     yaw = down.yaw + (e.clientX - down.x) * 0.012;
-    pause = performance.now() + 2500;
     draw();
   });
   const up = () => (down = null);
@@ -352,18 +436,26 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
 
 /** Where the Stage sits: above the ask line (or the dock), with the conversation shrunk above it. */
 function place(el: HTMLElement): void {
-  const vh = window.visualViewport?.height ?? window.innerHeight;
-  const bar = [...document.querySelectorAll<HTMLElement>('#cbar, #dock .houseask, #dock')].find((b) => b.getClientRects().length && b.getBoundingClientRect().height > 0);
-  const top = bar ? bar.getBoundingClientRect().top : vh - 16;
-  const bottom = Math.max(8, vh - top + 8);
-  const head = 64;
-  const hgt = Math.max(240, Math.min(560, vh * 0.6, vh - bottom - head));
+  const { bottom, hgt } = stageBox();
   el.style.setProperty('--stage-bottom', `${Math.round(bottom)}px`);
   el.style.setProperty('--stage-h', `${Math.round(hgt)}px`);
-  // (a chart or a page is as tall as it is: the conversation above it is shrunk by what it really takes)
+  // (a chart is as tall as it is: the conversation above it is shrunk by what it really takes)
   document.body.style.setProperty('--stageh', `${Math.round(bottom + Math.min(hgt, el.getBoundingClientRect().height || hgt) + 10)}px`);
-  // (the conversation is shrunk above the Stage: its latest words stay in sight)
-  setTimeout(() => document.querySelectorAll<HTMLElement>('.hud.core.logopen .log').forEach((l) => (l.scrollTop = l.scrollHeight)), 60);
+  // (the conversation is shrunk above the Stage: its latest words stay in sight; the sentence moves only when it would be covered)
+  setTimeout(() => keepSentence(), 60);
+}
+
+/** The reply's last sentence stays above the Stage: the log scrolls by what it must, and not at all when it is already clear. */
+function keepSentence(): void {
+  const stage = document.getElementById('thestage');
+  if (!stage) return;
+  const top = stage.getBoundingClientRect().top;
+  for (const log of document.querySelectorAll<HTMLElement>('.hud.core.logopen .log')) {
+    const last = [...log.querySelectorAll<HTMLElement>('.msg:not(.me)')].pop();
+    if (!last) continue;
+    const over = last.getBoundingClientRect().bottom - (top - 8);
+    if (over > 0) log.scrollTop += over;
+  }
 }
 
 /** The city of the world pack his words name: its own name exactly, else its start (four letters at least). */
@@ -373,60 +465,127 @@ function cityNamed(name: string): { name: string; lat: number; lon: number; coun
   return hit ? { name: hit.name, lat: hit.lat, lon: hit.lon, country: hit.country } : null;
 }
 
-/** Mount a decided show on the Stage. */
-function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): void {
+/** Mount a decided show on the Stage. `t0` is when the data arrived: the first paint is measured from it. */
+function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0: number): void {
   clearStage('replaced');
   let pic: Node;
   const stops: (() => void)[] = [];
   const truth: TruthPart[][] = [show.truth];
+  let relayout: (() => void) | null = null;
+  let answerEl: HTMLElement | null = null;
+  const marks = (stageState.marks = ['mounted']);
+  // (the picture's first paint, said once; the pointing line is set a frame after it and never before)
+  let el: HTMLElement | null = null;
+  const painted = () => {
+    if (marks.includes('painted')) return;
+    marks.push('painted');
+    stageState.paintMs = Math.round(performance.now() - t0);
+    requestAnimationFrame(() => {
+      if (!el || !el.isConnected) return;
+      el.dataset.pointed = '1';
+      marks.push('pointed');
+    });
+  };
+  const count = (n: Record<string, number>) => (stageState.drawn = { ...(stageState.drawn.offline ? stageState.drawn : {}), ...n });
   switch (show.kind) {
-    case 'chart':
-      pic = chartPic(show.series);
+    case 'chart': {
+      const c = chartPic(show.series, (n) => (stageState.drawn = n), () => Math.max(200, stageBox().hgt - 204));
+      pic = c.el;
+      relayout = c.relayout;
       break;
-    case 'eye':
-      pic = eyePic(show.lat, show.lon, show.label);
+    }
+    case 'eye': {
+      // a city of a country is that country's outline with the city lit; a place with no country is the globe, as before
+      const known = show.country && World.ready && World.cities.some((c) => c.country === show.country);
+      pic = known ? countryPic(show.lat, show.lon, show.label, show.country!, (n) => (stageState.drawn = n)) : eyePic(show.lat, show.lon, show.label);
       break;
+    }
     case 'map':
-      pic = mapPic(show.lat, show.lon, show.zoom, show.label);
+      pic = mapPic(show.lat, show.lon, show.zoom, show.label, { painted, count, offlineSaid: () => stageState.offlineSaid++ });
+      stageState.waitLine = (pic as HTMLElement).querySelector('.stgwait')?.textContent ?? '';
       break;
     case 'document':
       pic = docPic(show.title, show.paragraphs);
       break;
     case 'simulation': {
       const s = simPic(show.sim);
-      pic = s.el;
+      const answer = h('div.stganswer', { dataset: { answer: '1' } });
+      const said = (sim: Sim) => answer.replaceChildren(truthLine(sim.lines.slice(0, 3).map((l) => ({ text: `${l.label} ${l.value}`, tone: 'strong' as const }))));
+      said(show.sim);
+      // the variables as dials, with their units; the answer line is said again as one moves
+      const dials = h('div.stgdials');
+      let sim = show.sim;
+      for (const d of dialsOf(show.sim)) {
+        const out = h('output.stgdial-v', `${d.value} ${d.unit}`);
+        const input = h('input', { type: 'range', min: d.min, max: d.max, step: d.step, value: String(d.value), 'aria-label': `${d.label}, ${d.unit}`, dataset: { dial: d.key } });
+        input.addEventListener('input', () => {
+          const v = Number(input.value);
+          out.textContent = `${v} ${d.unit}`;
+          const next = simWith(sim, d.key, v);
+          if (!next) {
+            answer.replaceChildren(truthLine([{ text: 'No answer for that one', tone: 'warn' as const }]));
+            return;
+          }
+          sim = next;
+          s.set(next);
+          said(next);
+          const t = el?.querySelector('.stgtitle');
+          if (t) t.textContent = next.title;
+        });
+        dials.append(h('label.stgdial', h('span.stgdial-k', d.label), input, out));
+      }
+      pic = h('div.stgsim', s.el, dials);
+      answerEl = answer;
       stops.push(s.stop);
-      truth.push(show.sim.lines.slice(0, 3).map((l) => ({ text: `${l.label} ${l.value}`, tone: 'strong' as const })));
       break;
     }
     case 'room':
     case 'part': {
       let boxes;
+      let sizes: Sizes;
       if (show.kind === 'room' && show.room) {
         const plan = roomPlanFor(show.room);
-        boxes = roomBoxesOf(plan, plan.items!.map((i) => (i as unknown as { kind: PartKind }).kind)).boxes;
-      } else boxes = partBoxes(show.part!.kind, show.part!.dims);
-      const s = isoPic(boxes, show.kind === 'room', show.title);
+        const kinds = plan.items!.map((i) => (i as unknown as { kind: PartKind }).kind);
+        boxes = roomBoxesOf(plan, kinds).boxes;
+        const W2 = plan.room.w / 100;
+        const D2 = plan.room.d / 100;
+        sizes = {
+          unit: show.room.unit,
+          w: show.room.w,
+          d: show.room.d,
+          h: plan.room.h ?? 240,
+          names: plan.items!.map((it) => ({ name: it.name, at: [it.x / 100 + it.w / 200 - W2 / 2, (it.h ?? 75) / 100, it.y / 100 + it.d / 200 - D2 / 2] as [number, number, number] })),
+        };
+      } else {
+        boxes = partBoxes(show.part!.kind, show.part!.dims);
+        sizes = { unit: show.part!.unit, w: show.part!.dims.w, d: show.part!.dims.d, h: show.part!.dims.h, names: [{ name: show.part!.name, at: [0, show.part!.dims.h / 100, 0] }] };
+      }
+      const s = isoPic(boxes, show.kind === 'room', show.title, sizes);
       pic = s.el;
       stops.push(s.stop);
       if (show.kind === 'room' && show.room) truth.push([show.room.things.length ? show.room.things.map((t) => `${t.n} ${t.kind}`).join(' · ').toUpperCase() : 'AN EMPTY ROOM'].map((x) => ({ text: x, tone: 'strong' as const })));
       break;
     }
   }
-  const el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id }, role: 'region', 'aria-label': `Shown: ${show.title}` });
+  el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id }, role: 'region', 'aria-label': `Shown: ${show.title}` });
   const close = () => clearStage('closed');
   const openable = show.kind !== 'chart';
   el.append(
     h('div.stghead', tag(`SHOWING · ${show.tag}`, { tone: 'on' }), h('b.stgtitle', show.title)),
     h('div.stgpic', pic),
     ...truth.map((t) => truthLine(t)),
+    ...(answerEl ? [answerEl] : []),
     h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
   document.body.append(el);
   document.body.classList.add('staged');
   place(el);
+  relayout?.();
   const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
-  const onResize = () => place(el);
+  const onResize = () => {
+    place(el!);
+    relayout?.();
+  };
   const onHash = () => clearStage('left the screen');
   document.addEventListener('keydown', onKey);
   window.visualViewport?.addEventListener('resize', onResize);
@@ -439,7 +598,17 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): vo
   };
   stageState.shown = show.kind;
   stageState.closed = '';
+  stageState.offlineSaid = 0;
   showTrace.order.push('stage');
+  // every kind but the map paints at once (a frame after it is in); the map paints at its first tile or its offline drawing
+  if (show.kind !== 'map') requestAnimationFrame(() => requestAnimationFrame(painted));
+}
+
+type Known = Awaited<ReturnType<typeof import('../features/core/cards').known>>;
+/** His saved places and people, asked for when his word is sent (the answer takes seconds; this is ready long before it): the picture then waits for nothing of its own. */
+let early: Promise<Known | null> | null = null;
+export function prefetch(): void {
+  early = import('../features/core/cards').then((c) => c.known(0)).catch(() => null);
 }
 
 /**
@@ -458,15 +627,19 @@ export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'cl
 }
 
 async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
+  const t0 = performance.now();
   const delay = (window as unknown as { __ghostyShowDelay?: number }).__ghostyShowDelay;
   if (delay) await new Promise((r) => setTimeout(r, delay));
-  const { known } = await import('../features/core/cards');
-  const kn = await known(0).catch(() => ({ places: [], people: [], cars: [] }));
+  const asked = early ?? import('../features/core/cards').then((c) => c.known(0)).catch(() => null);
+  early = null;
+  const kn = (await asked) ?? { places: [], people: [], cars: [] };
   const places = kn.places.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)).map((p) => ({ label: p.label, lat: p.lat, lon: p.lon }));
   const hit = triggersIn(f.ask, kn).find((x) => x.row === 'place');
   const mentioned = hit && hit.row === 'place' && Number.isFinite(hit.place.lat) ? { label: hit.place.label, lat: hit.place.lat, lon: hit.place.lon } : undefined;
-  // the world pack is read only for a place asked by name (it is the phone's own gazetteer: no request but its own file)
-  if (placeAsked(f.ask) && !World.ready) await World.load();
+  // the world pack is read only for a place asked by name that is not one of his own (it is the phone's own gazetteer: no request but its own file)
+  const pa = placeAsked(f.ask);
+  const own = pa && places.some((p) => p.label.toLowerCase() === pa.name || pa.name === `${p.label.toLowerCase()}'s`);
+  if (pa && !own && !World.ready) await World.load();
   const { chat } = await import('../assistant/session');
   const replyAt = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant')?.at;
   const { settings } = await import('../state/app');
@@ -475,8 +648,12 @@ async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'client
   stageState.last = show ? { kind: show.kind, id: show.id, ...('via' in show && show.via ? { via: show.via } : {}), title: show.title } : null;
   stageState.why = show ? ('via' in show && show.via ? 'its own screen drew it' : '') : 'nothing in the answer to show';
   stageState.presented++; // (counted once its verdict and its reason are both in place: a reader never sees the count moved with the last turn's reason)
-  if (!show) return null;
-  if ('via' in show && show.via) return show;
-  mount(show as Exclude<Show, { via: 'its screen' }>, facts);
+  if (!show || ('via' in show && show.via)) {
+    // a wrong promise: the room reserved for it goes back to the conversation, the way the Stage would have left
+    releaseRoom();
+    return show;
+  }
+  // (the country's outline needs the world pack: for a city asked by name it is already here)
+  mount(show as Exclude<Show, { via: 'its screen' }>, facts, t0);
   return show;
 }

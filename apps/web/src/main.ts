@@ -5,9 +5,11 @@
  *  2. connect to the brain (Cloudflare Access, or pair this device with the owner key)
  *  3. build the shell, open the first tab, start the single frame loop
  */
+import { keepStamp } from './state/lastopen';
 import { AuthError, brain, mirrorLibraryNow, ownerKey, refreshKeyCopy, sendQueued } from './api/brain';
 import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
+import './assistant/acks'; // [octideas] a word when I start something
 import { initApp } from './assistant/push';
 import { loadHistory, type HistoryReply } from './assistant/session';
 import { syncTrained } from './offline/trained';
@@ -194,7 +196,24 @@ async function boot(): Promise<void> {
     if (f.firstRun()) o.noteFirstRun();
     else if (ui.get().connected) setTimeout(() => void o.dailyOffer().catch(() => undefined), 15_000);
   }).catch(() => undefined);
+  // [further] WHAT CHANGED SINCE YESTERDAY (further/changed.ts): the day's readings kept a while after it opens, so tomorrow's plan can say it
+  void import('./further/changed').then((c) => {
+    (window as unknown as { __ghosty: Record<string, unknown> }).__ghosty.changed = c.changedState;
+    // (once a day, a few minutes after it opens and only while it is on screen: the rooms' own throttled reads, nothing the plan would not ask)
+    if (ui.get().connected) setTimeout(() => document.visibilityState === 'visible' && c.needsDailyRead() && void c.refreshChanged().catch(() => undefined), 180_000);
+  }).catch(() => undefined);
   gfx.post.flash = 0.6;
+  // [lifeeasier] this open keeps its stamp fresh: the next open measures its gap from it (state/lastopen.ts)
+  keepStamp();
+  // [lifeeasier] the Brief read aloud on the first open of the day, once Home has landed (features/brief/aloud.ts; off until switched on)
+  // (only when he has switched it on: with it off nothing is fetched on the way to the first screen)
+  if (ui.get().connected && settings.get().briefAloud) {
+    void import('./features/brief/aloud').then((a) => a.readOnFirstOpen(new Promise<void>((done) => {
+      const t0 = Date.now();
+      const look = () => (!document.getElementById('boot') || Date.now() - t0 > 15_000 ? done() : void setTimeout(look, 40));
+      look();
+    }))).catch(() => undefined);
+  }
 }
 
 boot().catch((e) => {

@@ -199,7 +199,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
   check(/^Good (morning|afternoon|evening|night), Boss\.$/.test(h.say) && h.say2.length > 3 && h.state && h.state.line === h.say2, `[home ${tag}] the words: "${h.say}" / "${h.say2}" / state ${h.state?.line}`);
   const rooms = h.feeds.filter((f) => f.kind === 'room');
   check(rooms.map((d) => d.room).join() === 'see,make,learn,plan,life,me,screens' && rooms.slice(0, 6).every((d) => /^\d+ screens$/i.test(d.line) && d.border === 'dotted' && d.h >= 44 && d.pic?.drawn), `[home ${tag}] the room feeds: ${JSON.stringify(rooms.map((d) => [d.room, d.line, d.border, d.h, d.pic]))}`);
-  check(rooms.find((d) => d.room === 'learn')?.line === '7 screens' && rooms.find((d) => d.room === 'see')?.line === '2 screens' && /^all \d+$/i.test(rooms.find((d) => d.room === 'screens')?.line ?? ''), `[home ${tag}] LEARN has ${rooms.find((d) => d.room === 'learn')?.line}`);
+  check(rooms.find((d) => d.room === 'learn')?.line === '8 screens' && rooms.find((d) => d.room === 'see')?.line === '3 screens' && /^all \d+$/i.test(rooms.find((d) => d.room === 'screens')?.line ?? ''), `[home ${tag}] LEARN has ${rooms.find((d) => d.room === 'learn')?.line}`);
   const sharp = h.feeds.filter((f) => f.sharp);
   check(sharp.length === 1 && h.state.sharp === 1 && sharp[0].kind === 'tonight' && sharp[0].slot === 't' && /Alice/.test(sharp[0].name) && /^TONIGHT|THIS MORNING|TODAY$/i.test(sharp[0].tag) && sharp[0].borderColour !== h.feeds.find((f) => !f.sharp).borderColour && !sharp[0].pic, `[home ${tag}] the sharp feed: ${JSON.stringify(sharp)}`);
   const grain = h.feeds.filter((f) => !f.sharp && f.kind !== 'free');

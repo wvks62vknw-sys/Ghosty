@@ -138,6 +138,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
   let pin: L.Marker | null = null;
   let extra: L.LayerGroup | null = null;
   let route: L.Polyline | null = null;
+  /** The route's two named ends and the time on it. */
+  let routeMarks: L.LayerGroup | null = null;
   let journeyLayer: L.LayerGroup | null = null;
   let journey: Journey | null = null;
   let measure: { on: boolean; pts: L.LatLng[]; line: L.Polyline | null; dots: L.LayerGroup | null } = { on: false, pts: [], line: null, dots: null };
@@ -295,6 +297,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
   const routeClear = chip('CLEAR ROUTE', () => {
     route?.remove();
     route = null;
+    routeMarks?.remove();
+    routeMarks = null;
     steps.hidden = true;
     clear(steps);
     routeClear.hidden = true;
@@ -403,8 +407,19 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       if (j.code !== 'Ok' || !r) return note('No road route between those places.');
       const path = r.geometry.coordinates.map(([x, y]) => [y, x] as [number, number]);
       route?.remove();
-      route = Lf.polyline(path, { color: '#4fd1ff', weight: 5, opacity: 0.9 }).addTo(map);
-      map.fitBounds(route.getBounds(), { padding: [30, 30] });
+      routeMarks?.remove();
+      route = Lf.polyline(path, { color: '#4fd1ff', weight: 5, opacity: 0.9, className: 'fmroute' }).addTo(map);
+      // the route drawn whole, its two ends named and the time on it
+      const fromName = gpsHere ? 'You' : home().name;
+      const toName = to.name || 'The pin';
+      const endMark = (pt: [number, number], name: string, fill: string) => Lf.circleMarker(pt, { radius: 6, color: '#fff', weight: 2, fillColor: fill, fillOpacity: 1 }).bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -8], className: 'fmlabel fmend' });
+      const mid = path[Math.floor(path.length / 2)]!;
+      routeMarks = Lf.layerGroup([
+        endMark(path[0]!, fromName, '#52f2b5'),
+        endMark(path[path.length - 1]!, toName, '#ff4d6a'),
+        Lf.circleMarker(mid, { radius: 1, opacity: 0, fillOpacity: 0, interactive: false }).bindTooltip(`${dur(r.duration)} by car`, { permanent: true, direction: 'bottom', offset: [0, 4], className: 'fmlabel fmtime' }),
+      ]).addTo(map);
+      map.fitBounds(route.getBounds(), { padding: [48, 48] });
       routeClear.hidden = false;
       const list = r.legs.flatMap((l) => l.steps).filter((s) => s.maneuver.type !== 'new name' && (s.distance > 150 || s.maneuver.type === 'arrive' || s.maneuver.type === 'depart'));
       clear(steps, h('b', `${km(r.distance)} · ${dur(r.duration)} by car${gpsHere ? ' from where you are' : ` from ${home().name}`}`), ...list.slice(0, 18).map((s, i) => h('div', `${i + 1}. ${stepText(s)}${s.maneuver.type !== 'arrive' ? ` — ${km(s.distance)}` : ''}`)));

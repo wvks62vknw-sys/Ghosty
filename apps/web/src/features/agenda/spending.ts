@@ -7,10 +7,14 @@
  * yearly total, budgets in plain words, EXPORT AS CSV and FORGET ALL. The brain keeps the rows
  * (apps/edge/src/spending.ts); the sums are `packages/shared/src/spending.ts`.
  */
-import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type SpendingSummary, type SpendRow } from '../../../../../packages/shared/src/spending';
+import { CATEGORIES, gbp, monthName, prevMonth, PRIVACY, type Category, type Nudge, type SpendingSummary, type SpendRow } from '../../../../../packages/shared/src/spending';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { bar, button, empty, modal, panel, row, toast } from '../../ui/components';
+import type { SavedPlace } from '../../../../../packages/shared/src/places';
+import { nearHow, nearLine, nearPlaces, type NearPlace } from '../../further/spendnear';
+import { quietLine } from '../money/nudges';
+import { isoDay } from '../brief/day';
 import { sayError } from '../../ui/hisWords';
 
 type View = 'month' | 'year' | 'changes';
@@ -25,19 +29,49 @@ const COLOURS: Record<Category, string> = {
   income: '#52f2b5',
   other: '#7d8590',
 };
+/** A time's month as the statements write it (2026-11). */
+const monthOf = (t: number) => `${new Date(t).getFullYear()}-${String(new Date(t).getMonth() + 1).padStart(2, '0')}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
 /** What a spec reads: window.__ghosty.spending. */
-export const spendingState = { kept: 0, month: '', view: 'month' as View, budgets: [] as string[], subs: [] as string[], refiled: 0 };
+export const spendingState = { kept: 0, month: '', view: 'month' as View, budgets: [] as string[], subs: [] as string[], refiled: 0, /** [further] the places-and-spending lines under the month ("You spent £62 near Work this week") */ near: [] as string[] };
 
 export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
   const p = panel('SPENDING', { footer: true, cls: 'spend', status: '' });
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   if (w.__ghosty) w.__ghosty.spending = spendingState;
   let s: SpendingSummary | null = null;
+  // [lifeeasier] today's nudges: only from a read that said which day it is (an import's answer does not)
+  let nudge: Nudge[] = [];
   let view: View = 'month';
   let all = false;
+  /** [further] His saved places, read once, to set beside this week's rows (further/spendnear.ts); null until they have answered. */
+  let places: SavedPlace[] | null = null;
+  let weekRows: SpendRow[] | null = null;
+  const nearNow = (): NearPlace[] => (places && weekRows ? nearPlaces(weekRows, places) : []);
+  /** The rows of the last seven days: this month's, and last month's too in the first week of a month (only for the month now). */
+  const loadNear = async () => {
+    if (!s || s.month !== monthOf(Date.now())) return void (weekRows = null);
+    const mine = s.rows;
+    let rows = mine;
+    if (new Date().getDate() < 7 && s.months.includes(prevMonth(s.month))) {
+      try {
+        rows = [...mine, ...(await brain.spending(prevMonth(s.month))).rows];
+      } catch {
+        /* this month's rows alone */
+      }
+    }
+    weekRows = rows;
+    if (!places) {
+      try {
+        places = (await brain.places()).places;
+      } catch {
+        places = [];
+      }
+    }
+    paint();
+  };
   const file = h('input', { type: 'file', accept: '.csv,text/csv', 'aria-label': 'Bank statement (CSV)', hidden: true });
   const pick = () => file.click();
   file.addEventListener('change', async () => {
@@ -49,6 +83,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       const r = await brain.spendingImport(await f.text());
       const x = r.result;
       set(r);
+      void load(r.month);
       toast(
         `Added ${x.added} row${x.added === 1 ? '' : 's'}${x.bank ? ` from ${x.bank}` : ''}${x.duplicates ? ` · ${x.duplicates} already kept` : ''}${x.asked ? ` · ${x.asked} name${x.asked === 1 ? '' : 's'} sorted by the free AI` : ''}${x.unplaced ? ` · ${x.unplaced} to file yourself` : ''}`,
         'ok',
@@ -68,10 +103,13 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     spendingState.budgets = x.budgets.map((b) => `${b.category}: ${b.line}`);
     spendingState.subs = x.subscriptions.map((v) => `${v.name} ${v.cadence} ${gbp(v.amount, true)}`);
     paint();
+    void loadNear();
   };
   const load = async (month?: string) => {
     try {
-      set(await brain.spending(month));
+      const x = await brain.spending(month, isoDay(new Date()));
+      nudge = x.month === x.months[x.months.length - 1] ? (x.nudges ?? []) : nudge;
+      set(x);
     } catch {
       p.setStatus('OFFLINE', 'off');
       if (!s) clear(p.body, empty('OFFLINE', 'The spending card needs the brain: try again in a moment.'));
@@ -88,6 +126,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
           const x = await brain.spendingFile(r.k, c, s?.month ?? '');
           spendingState.refiled += x.filed;
           set(x);
+          void load(x.month);
           toast(`${x.filed} row${x.filed === 1 ? '' : 's'} filed as ${c}`, 'ok');
         } catch (e) {
           toast(sayError(e, 'file it'), 'bad');
@@ -104,6 +143,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       const x = await brain.spendingBudget(words, s?.month ?? '');
       budgetIn.value = '';
       set(x);
+      void load(x.month);
       toast(x.set.monthly ? `Budget: ${gbp(x.set.monthly)} a month on ${x.set.category}` : `No budget on ${x.set.category} now`, 'ok');
     } catch (e) {
       toast(sayError(e, 'file that'), 'warn');
@@ -135,10 +175,19 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     );
     (nav.firstChild as HTMLButtonElement).disabled = i <= 0;
     (nav.lastChild as HTMLButtonElement).disabled = i >= s.months.length - 1;
-    p.body.append(tabs, nav);
+    // [lifeeasier] MONEY NUDGES: a renewal this week, a price that went up, the month running hot (from the rows above, nothing else)
+    const latest = s.month === s.months[s.months.length - 1];
+    const nudges = latest
+      ? h('div.spendnudges', { dataset: { count: String(nudge.length) }, 'aria-label': 'Nudges from your statements' }, ...(nudge.length ? nudge.map((n) => h('p.nudge', { dataset: { kind: n.kind, id: n.id, case: 'keep' } }, n.line)) : [h('p.nudge.quiet', { dataset: { case: 'keep' } }, quietLine(s.month, isoDay(new Date())))]))
+      : null;
+    p.body.append(...(nudges ? [nudges] : []), tabs, nav);
     if (view === 'month' && s.view) {
       const v = s.view;
       p.body.append(h('div.spendtot', h('b', `${gbp(v.out)} out`), h('span', ` · ${gbp(v.in)} in`)));
+      // [further] "You spent £62 near Work this week": his statements beside his saved places, by the words alone; nothing when none fit
+      const near = nearNow();
+      spendingState.near = near.map(nearLine);
+      for (const n of near) p.body.append(h('div.spnear', h('b', nearLine(n)), h('small.note', nearHow(n))));
       if (s.budgets.length) {
         p.body.append(h('div.lab', 'BUDGETS'));
         for (const b of s.budgets) {

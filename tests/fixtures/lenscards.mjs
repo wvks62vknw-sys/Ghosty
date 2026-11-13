@@ -1,7 +1,7 @@
 // The Lens that just knows: the cards the camera shows, switchable in the page (BRIEF-LENS-KNOWS tests).
 // Chromium's file-based fake camera (lenscard.mjs) plays one card for a whole run; a spec that has to move from a letter to a sign to a
 // code to a mug in one visit gives the page its own camera instead: getUserMedia answers with a canvas's stream, and `window.__setCard(name)`
-// redraws it ('blank', 'letter', 'sign-fr', 'sign-fr2', 'sign-es', 'qr', 'mug'). Static on purpose: identical frames are a steady frame.
+// redraws it ('blank', 'letter', 'bill', 'sign-fr', 'sign-fr2', 'sign-es', 'qr', 'mug'). Static on purpose: identical frames are a steady frame.
 import { readFileSync } from 'node:fs';
 
 export const qrPng = () => readFileSync(new URL('./qr-url.png', import.meta.url)).toString('base64');
@@ -36,6 +36,13 @@ export function cardCamera({ qr }) {
       g.fillText('Your bins are changing.', 40, 60);
       g.font = '24px sans-serif';
       ['From Monday the general waste bin moves to', 'Thursdays. Recycling stays on Mondays. Garden', 'waste pauses for the winter and starts again', 'in March.', '', 'Put your bins out by seven on collection day.', 'Nothing else changes for your street.'].forEach((l, i) => g.fillText(l, 40, 120 + i * 36));
+    } else if (c === 'bill') {
+      // a bill (BRIEF-OCT-IDEAS-2 6): the spec sets window.__billLines (a letterhead, an amount, a due date, a reference)
+      const lines = window.__billLines ?? ['BRITISH GAS', 'Your balance is £84.20.', 'Please pay by 14 November 2026.', 'Reference 4471 2290'];
+      g.font = 'bold 34px sans-serif';
+      g.fillText(lines[0], 40, 64);
+      g.font = '26px sans-serif';
+      lines.slice(1).forEach((l, i) => g.fillText(l, 40, 130 + i * 44));
     } else if (c === 'sign-fr') {
       // a notice with a headline and a small line (the text check looks for print: one huge line is a blind spot of it, said in the report)
       centred('SORTIE DE SECOURS', 210, 34);

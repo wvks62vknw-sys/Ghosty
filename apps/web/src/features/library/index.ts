@@ -14,6 +14,7 @@
  * (features/library/reader.ts, a screen of its own: his place kept, read to him with LISTEN). FRESH TODAY is the day's
  * digest (the news, papers and events Ghosty gathered this morning — DIGEST NOW gathers again).
  */
+import { diaryPanel } from './diary';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
@@ -699,14 +700,16 @@ export const libraryTab: TabDef = {
     }, 'on');
     fresh.foot!.prepend(digestBtn);
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
-    P.right.append(ap.el, shelf.el, rights.el, gadgets.el, study.el, fresh.el, wp.el);
+    // [further] the nature diary (what he tapped KEEP on in the Lens, with where from): on the shelf, his own things (library/diary.ts)
+    const diary = diaryPanel();
+    P.right.append(ap.el, shelf.el, rights.el, diary.pn.el, gadgets.el, study.el, fresh.el, wp.el);
     // Sections (ui/sections.ts; the navigation sheet): asking first, then his shelf (his own documents at its top, then
     // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
     // himself, and the two things he does least, adding a book and the gadgets' manuals.
     secs = sections(root, 'library', [
       // [resta] asking holds WIKIPEDIA, OFFLINE too (the row already has the six pills it can hold)
       { id: 'ask', label: 'Ask', match: /^(ASK|WIKIPEDIA)/ },
-      { id: 'shelf', label: 'Shelf', match: /^(SHELF|RIGHTS)/ },
+      { id: 'shelf', label: 'Shelf', match: /^(SHELF|RIGHTS|NATURE)/ },
       { id: 'study', label: 'Self-study', match: /^SELF-STUDY/ },
       { id: 'fresh', label: 'Fresh today', match: /^FRESH/ },
       { id: 'add', label: 'Add', match: /^ADD/ },

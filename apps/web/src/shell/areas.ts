@@ -47,7 +47,7 @@ export { AREAS, ME_CARDS, ME_ROWS, type Area };
  * Kept for the callers that still pass a colour along (Search's decor).
  */
 export const TINT: Record<string, string> = {
-  core: '#64d2ff', brief: '#5e5ce6', eye: '#0a84ff', lens: '#bf5af2',
+  core: '#64d2ff', brief: '#5e5ce6', eye: '#0a84ff', lens: '#bf5af2', interpreter: '#5ac8fa', lab: '#ffb340', rehearse: '#30d158',
   studio: '#ff9f0a', workshop: '#8e8e93', reverse: '#40c8e0', space: '#ac8e68', workbench: '#ffb340',
   learn: '#30d158', gym: '#ff375f', school: '#ffd60a', library: '#a2845e',
   agenda: '#ff453a', markets: '#00c7be', threats: '#ffd60a', radio: '#ff6482',
@@ -100,7 +100,7 @@ export function navTo(id: string, dir: NavDir): void {
 
 const def = (id: string) => tabs().find((t) => t.id === id);
 /** A tool's name inside its area: LEARN's own course tool is "Courses" there (not "Learn" inside Learn). */
-const ALIAS: Record<string, string> = { learn: 'Courses' };
+const ALIAS: Record<string, string> = { learn: 'Courses', interpreter: 'Interpret' };
 export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 
 /** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */

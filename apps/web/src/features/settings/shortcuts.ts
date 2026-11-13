@@ -9,7 +9,8 @@
 import { h } from '../../core/dom';
 import { tabs } from '../../shell/tabs';
 import { button, panel, toast, type Panel } from '../../ui/components';
-import { LISTEN, NO_BACKGROUND, NOT_INSTALLED, parseLink, READY, shortcutUrl, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
+import { brain, headers } from '../../api/brain';
+import { LISTEN, NO_BACKGROUND, NOT_INSTALLED, parseLink, READY, shortcutUrl, SIRI, STEPS, type DoCmd, type LinkAsk } from './deeplinks';
 
 const origin = () => (typeof location !== 'undefined' ? location.origin : '');
 
@@ -36,6 +37,17 @@ async function copy(text: string, b: HTMLButtonElement): Promise<void> {
   if (ok) setTimeout(() => (b.textContent = 'COPY'), 2000);
 }
 
+/** GET: the link copied, then the Shortcuts app opened on a new shortcut (iPhone lets no page add one itself: the plain steps are said under it). */
+async function get(url: string, b: HTMLButtonElement): Promise<void> {
+  await copy(url, b);
+  b.textContent = 'GET';
+  try {
+    location.href = 'shortcuts://create-shortcut';
+  } catch {
+    /* no Shortcuts app here (a desk's browser): the link is copied, the steps are above */
+  }
+}
+
 const urlEl = (url: string) => h('code.scurl', { tabIndex: 0, 'aria-label': `Link: ${url}` }, url);
 
 export function shortcutsPanel(): Panel {
@@ -45,6 +57,14 @@ export function shortcutsPanel(): Panel {
   const listenCopy = button('COPY', (btn) => void copy(listenUrl, btn), 'on');
   listenCopy.setAttribute('aria-label', `Copy the link for ${LISTEN.name}`);
   const listen = h('div.sclisten', { dataset: { name: LISTEN.name } }, h('b', `“${LISTEN.name}”`), h('span', LISTEN.does), urlEl(listenUrl), h('div.row', listenCopy), h('p.note', NO_BACKGROUND));
+  // [lifeeasier] "Hey Siri, ask Ghosty …" and the share sheet's "Send to Ghosty": each with its GET and its one-line how-to
+  const siri = (k: 'ask' | 'add') => {
+    const r = SIRI[k];
+    const url = shortcutUrl(origin(), r.ask);
+    const b = button('GET', (btn) => void get(url, btn), 'on');
+    b.setAttribute('aria-label', `Get the shortcut ${r.name}: copy its link and open Shortcuts`);
+    return h('div.sclisten.sirirow', { dataset: { name: r.name, siri: k } }, h('b', `“${r.name}”`), h('span', r.does), urlEl(url), h('p.note', r.how), h('div.row', b));
+  };
   const gallery = h('div.scgal', ...READY.map((r) => {
     const url = shortcutUrl(origin(), r.ask);
     const b = button('COPY', (btn) => void copy(url, btn), 'on');
@@ -75,6 +95,8 @@ export function shortcutsPanel(): Panel {
     h('p.note.scsteps', STEPS),
     h('p.note', NOT_INSTALLED),
     listen,
+    siri('ask'),
+    siri('add'),
     h('p.note', 'A shortcut opens Ghosty in Safari: sign in there once (Passwords fills your key). Words that would start something, like a reminder, wait in the chat box for your send.'),
     gallery,
     h('div.scown', h('b', 'MAKE YOUR OWN'), h('div.row', pick, words), made, h('div.row', copyMine)),
@@ -111,9 +133,51 @@ export async function followLink(owner: boolean): Promise<void> {
         void send(link.text);
       } else (await import('../core/cards')).askInBox(link.text);
       return;
+    case 'ask': {
+      // [lifeeasier] Siri's words are his turn, sent at once
+      L.openChat();
+      const { send } = await import('../../assistant/session');
+      void send(link.text);
+      return;
+    }
+    case 'add':
+      return void fileShared(link.text, link.url);
     case 'do':
       return doCommand(link.what, L);
   }
+}
+
+/**
+ * [lifeeasier] What the share sheet's Shortcut sent: a link is read into the library by the brain as any imported page; where it
+ * cannot be read (offline, a page that refuses) the link itself is kept, so nothing shared is lost. Words are filed as a note.
+ */
+async function fileShared(text: string, isUrl: boolean): Promise<void> {
+  const note = async (title: string, body: string): Promise<boolean> => {
+    const r = await fetch('/api/library/text', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ title, text: body, kind: 'note', source: 'Share sheet' }), credentials: 'same-origin' }).catch(() => null);
+    return !!r?.ok;
+  };
+  const host = (u: string) => {
+    try {
+      return new URL(u).hostname.replace(/^www\./, '');
+    } catch {
+      return u.slice(0, 40);
+    }
+  };
+  if (isUrl) {
+    try {
+      const r = await brain.libraryImport(text);
+      toast(`On your Shelf: ${r.doc?.title ?? host(text)}.`, 'ok');
+      return;
+    } catch {
+      /* the page could not be read: the link itself is kept below */
+    }
+    if (await note(`Link from ${host(text)}`, text)) toast(`I couldn’t read that page, so I kept the link on your Shelf (${host(text)}).`, 'ok');
+    else toast('I couldn’t file that just now: the brain isn’t answering. Share it again when you’re back online.', 'warn');
+    return;
+  }
+  const first = text.split('\n')[0]!.trim().slice(0, 60) || 'Shared note';
+  if (await note(first, text)) toast(`On your Shelf: ${first}.`, 'ok');
+  else toast('I couldn’t file that just now: the brain isn’t answering. Share it again when you’re back online.', 'warn');
 }
 
 async function doCommand(d: DoCmd, L: typeof import('../../shell/launcher')): Promise<void> {

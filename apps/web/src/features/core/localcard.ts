@@ -9,6 +9,8 @@ import { abilityById, learnIt, setLearn } from '../../assistant/local';
 import { send, type Entry } from '../../assistant/session';
 import { h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
+import { speak, stopSpeaking } from '../../assistant/voice';
+import { ui } from '../../state/app';
 import { navTo } from '../../shell/areas';
 
 export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement | null {
@@ -17,7 +19,7 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
   const row = h('div.row.wrap.localacts', { dataset: { case: 'keep' } });
   for (const g of l.go ?? []) {
     if (g.open || g.run || g.words != null) {
-      const b = button(g.label, () => (g.open ? navTo(g.open, 'push') : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));
+      const b = button(g.label, () => (g.open ? (g.panel ? perform({ open: g.open, panel: g.panel }) : navTo(g.open, 'push')) : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));
       b.dataset.case = 'keep';
       b.classList.add('localgo');
       row.append(b);
@@ -31,6 +33,18 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
     b.dataset.id = a.id;
     b.classList.add('localgo');
     row.append(b);
+  }
+  // [lifeeasier] READ IT TO ME under "teach me what you learned this week": the phone's own voice reads the five sentences; a second tap stops it
+  if (l.read) {
+    const read = button('READ IT TO ME', (b) => {
+      if (ui.get().voice === 'speaking') return void stopSpeaking();
+      b.textContent = 'STOP';
+      void speak(l.read!).finally(() => (b.textContent = 'READ IT TO ME'));
+    }, 'on');
+    read.dataset.case = 'keep';
+    read.classList.add('localgo', 'localread');
+    read.setAttribute('aria-label', 'Read this to me aloud');
+    row.append(read);
   }
   const learn = l.learn;
   if (learn?.state === 'open') {
@@ -47,6 +61,6 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
     no.dataset.case = 'keep';
     no.classList.add('learnno');
     row.append(yes, no);
-  } else if (learn?.state === 'yes') row.append(h('span.note.learned', 'On my learning list. I’ll work on it: Workshop → Upgrade ideas.'));
+  } else if (learn?.state === 'yes') row.append(h('span.note.learned', 'On my learning list, and drafted as a job: Workshop → Ideas. Nothing is built until you tap SHIP IT.'));
   return row.childElementCount ? row : null;
 }

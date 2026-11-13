@@ -42,6 +42,7 @@ import {
 } from '../../../../../packages/shared/src/living';
 import type { LensContext } from './index';
 import { goToPanel } from '../../ui/sections';
+import { entryFor, keptWords, loadDiary, saveDiary, whereNow } from '../../further/diary';
 import { sayError } from '../../ui/hisWords';
 
 /** What the card shows now, for a test (window.__ghosty.lens.card) and for describe(). */
@@ -126,6 +127,26 @@ export function createLiving(L: LensContext) {
       }, 'warn');
       save.setAttribute('aria-label', 'Save to Memory as seen today');
       row.append(save);
+      // [further] KEEP: into the library's nature diary, with where he is now (his own position, on this phone only; nothing goes to the brain)
+      const keep = button('KEEP', async (b) => {
+        b.disabled = true;
+        b.textContent = 'PLACING YOU…';
+        const where = await whereNow();
+        const saved = await brain.places().then((r) => r.places).catch(() => []);
+        const at = home();
+        const e = entryFor(l, where, saved, at ? { name: at.name, lat: at.lat, lon: at.lon } : null);
+        if (!e || !saveDiary([...loadDiary(), e])) {
+          b.disabled = false;
+          b.textContent = 'KEEP';
+          return void toast('I couldn’t keep it in the diary: this phone’s storage is full or blocked.', 'bad');
+        }
+        b.textContent = 'KEPT';
+        S.lastAction = `kept in the nature diary: ${e.name}`;
+        toast(keptWords(e), 'ok');
+      });
+      keep.dataset.case = 'keep';
+      keep.setAttribute('aria-label', 'Keep in the nature diary, with where you are now');
+      row.append(keep);
     }
     row.append(close);
     kids.push(row);

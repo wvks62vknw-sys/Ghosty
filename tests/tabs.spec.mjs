@@ -35,8 +35,8 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
-  learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach'], plan: ['agenda', 'markets', 'threats', 'radio'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
   me: ['memory', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1)
@@ -610,7 +610,7 @@ for (const viewport of [PHONE, SMALL]) {
   if (g.world !== 'glass' || g.housed) problems.push(`[glass] the world is ${g.world}, housed ${g.housed}`);
   if (g.keys.join(',') !== 'Ask,See,Make,Learn,Plan,Life') problems.push(`[glass] the bar's words are ${g.keys.join(',')} (want Ask, See, Make, Learn, Plan, Life: six keys, no Me)`);
   if (g.kick !== 'none' || g.ask !== 'none' || g.headstamp !== 'none' || g.plan) problems.push(`[glass] the house's parts are drawn: ${JSON.stringify(g)}`);
-  if (g.cards !== 7 || g.room !== 'none') problems.push(`[glass] the Learn hub shows ${g.cards} cards (want its 7), the room is ${g.room}`);
+  if (g.cards !== 8 || g.room !== 'none') problems.push(`[glass] the Learn hub shows ${g.cards} cards (want its 8), the room is ${g.room}`);
   await go(page, 'settings', 900);
   if ((await page.evaluate(() => getComputedStyle(document.querySelector('#pg-settings .scanset')).display)) !== 'none' || !(await page.locator('#pg-settings .secpills .secpill').first().isVisible())) problems.push('[glass] Settings is not today\'s list with its pills');
   await go(page, 'core', 800);

@@ -33,6 +33,7 @@ import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
 import { glowNow, orbTokens, themeEvents } from '../../state/theme';
+import { dayState } from './day';
 import { attendingNow } from '../../ui/machine';
 import { sayError } from '../../ui/hisWords';
 
@@ -107,6 +108,18 @@ export function plan(d: MindData): { fields: { name: string; nodes: number; lit:
     }
   }
   return { fields: out, nodes: out.reduce((n, f) => n + f.nodes, 0), lit: out.reduce((n, f) => n + f.lit, 0), perNode };
+}
+
+/**
+ * The orb's own points: the i-th of n subjects on a Fibonacci shell of radius `shell` (the fields' hubs are exactly these; the map of
+ * what he knows, features/further/mindmap.ts, lays his subjects out on the same ones). `n` of 1 sits at the middle.
+ */
+export function shellPoint(i: number, n: number, shell = n < 6 ? 0.56 : 0.64): [number, number, number] {
+  if (n <= 1) return [0, 0, 0];
+  const y = 1 - ((i + 0.5) * 2) / n;
+  const rr = Math.sqrt(1 - y * y);
+  const th = i * Math.PI * (3 - Math.sqrt(5));
+  return [Math.cos(th) * rr * shell, y * shell, Math.sin(th) * rr * shell];
 }
 
 /** Can this browser draw WebGL at all? Checked ONCE, on a throwaway canvas, and remembered: the answer does not change in a
@@ -1019,13 +1032,7 @@ export class Mind {
     };
     // field hubs, evenly round a shell (a Fibonacci sphere); one field sits at the middle
     const shell = n === 1 ? 0 : n < 6 ? 0.56 : 0.64;
-    const hubs = fields.map((_, i) => {
-      if (n === 1) return new T.Vector3(0, 0, 0);
-      const y = 1 - ((i + 0.5) * 2) / n;
-      const rr = Math.sqrt(1 - y * y);
-      const th = i * Math.PI * (3 - Math.sqrt(5));
-      return new T.Vector3(Math.cos(th) * rr, y, Math.sin(th) * rr).multiplyScalar(shell);
-    });
+    const hubs = fields.map((_, i) => new T.Vector3(...shellPoint(i, n, shell)));
     const nodes: { p: Any; f: number; lit: boolean }[] = [];
     fields.forEach((f, i) => {
       const sigma = n === 1 ? 0.3 : Math.min(0.1, 0.03 + 0.012 * Math.sqrt(f.nodes));
@@ -1205,7 +1212,8 @@ export class Mind {
     P.h1.material.opacity = 0.85 * b.core;
     // BETTER 3: its halos glow as much as the world does (BRIEF-THEMES-2: a world governs the orb's glow, never its draw; GLOW off
     // and One Ink: none, the crisp parts stand alone) and as much as the colour's own glow (Mono's .25: as quiet as its room)
-    const halo = glowNow() * this.ownGlow;
+    // (THE LIGHT FOLLOWING THE DAY, BRIEF-OCT-IDEAS-1 4: on THE SCAN's Home the halo is a little dimmer in the dark and full at noon; nowhere else)
+    const halo = glowNow() * this.ownGlow * (document.body.classList.contains('scanhome') ? 0.86 + 0.14 * Math.max(0, dayState.value) : 1);
     P.h2.material.opacity = 0.45 * p.bright * b.core * halo;
     P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core) * halo;
     P.nucleus.visible = b.core > 0.02;

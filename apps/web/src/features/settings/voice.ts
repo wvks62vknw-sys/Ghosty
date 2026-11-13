@@ -36,6 +36,13 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   // (a switch, not a drop-down: switch.ts)
   const barge = switchRow('Talk over Ghosty to interrupt', 'When off, a tap stops him instead', () => settings.get().bargeIn, (on) => settings.set({ bargeIn: on }));
 
+  // (BRIEF-OCT-IDEAS-1 5: a word in my voice when a tap starts something that takes a moment: assistant/acks.ts)
+  const ack = switchRow('A word when I start something', 'I say “On it.” when you tap something that takes a moment. Needs Voice on.', () => settings.get().sayStart !== false, (on) => settings.set({ sayStart: on }));
+  ack.el.dataset.id = 'saystart';
+  // [lifeeasier] the Brief said aloud once a day, after Home lands (features/brief/aloud.ts): off until he turns it on
+  const aloud = switchRow('Read me the Brief on the first open of the day', 'After Home lands, once a day, with the voice on', () => settings.get().briefAloud, (on) => settings.set({ briefAloud: on }));
+  aloud.el.dataset.id = 'brief-aloud';
+
   const fill = () => {
     const s = settings.get();
     engine.value = s.voiceEngine;
@@ -62,6 +69,8 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
             ? 'Free, unlimited and works offline.'
             : `Free, unlimited and works offline. ${IOS_TIP}`;
     barge.paint();
+    ack.paint();
+    aloud.paint();
   };
   engine.addEventListener('change', () => {
     settings.set({ voiceEngine: engine.value === 'phone' ? 'phone' : engine.value === 'ghosty' ? 'ghosty' : 'auto' });
@@ -87,5 +96,5 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     /* no speech synthesis */
   }
   speechCaps.subscribe(fill);
-  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, now, barge.el], refresh: fill };
+  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, now, barge.el, ack.el, aloud.el], refresh: fill };
 }

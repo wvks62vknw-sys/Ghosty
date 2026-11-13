@@ -23,6 +23,7 @@ import { forgetWidget, keepWidget, mergeWidgets, syncLocalWidgets } from '../../
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 import { draftCard } from './draftcard';
+import { draftedPanel } from './selfdraft';
 import { sayError } from '../../ui/hisWords';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
@@ -399,7 +400,12 @@ export const workshopTab: TabDef = {
       wn.body.append(...rows, all);
       P.left.append(wn.el);
     }
-    P.left.append(ask.el, rp.el, jp.el, ip.el, cp.el);
+    // [further] what he drafted for himself when the owner said YES to learning it (selfdraft.ts): in the Ideas section, above the ideas
+    const dj = draftedPanel();
+    // [further] THE LAB sits inside the Workshop (a screen of its own, one row away: features/lab): experiments on free public data
+    const lp = panel('THE LAB', { grow: false, status: '5 PAGES' });
+    lp.body.append(row('EXPERIMENTS', 'Five pages on free public data: quakes, rain against the forecast, buses, the markets, space weather', '›', { wrap: true, onClick: () => go('lab') }));
+    P.left.append(ask.el, lp.el, rp.el, jp.el, dj.pn.el, ip.el, cp.el);
     // training ground
     const tp = panel('TRAINING GROUND', { footer: true, grow: false });
     const tStats = h('div.note', 'Ghosty writes a solution, hidden tests run it in a locked sandbox, and it must fix every failure until all tests pass.');
@@ -492,8 +498,8 @@ export const workshopTab: TabDef = {
     // Sections: what he asks for and the projects that run for days first, then the ideas and the roadmap, the changes
     // to ship or roll back (with the kernel lock), what he made (his pages and widgets) and the coding practice.
     sections(root, 'workshop', [
-      { id: 'build', label: 'Build', match: /^(TELL GHOSTY|PROJECTS)/ },
-      { id: 'ideas', label: 'Ideas', match: /^UPGRADE/ },
+      { id: 'build', label: 'Build', match: /^(TELL GHOSTY|PROJECTS|THE LAB)/ },
+      { id: 'ideas', label: 'Ideas', match: /^(UPGRADE|DRAFTED)/ },
       { id: 'changes', label: 'Changes', match: /^(PROPOSED|VERSIONS|KERNEL)/ },
       { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED)/ },
       { id: 'training', label: 'Training', match: /^TRAINING/ },

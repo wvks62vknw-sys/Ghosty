@@ -42,9 +42,9 @@ export interface DeckScreen {
 
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
-  ['Ask and see', ['core', 'brief', 'eye', 'lens']],
+  ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
   ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house']],
-  ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'agenda', 'markets', 'threats', 'radio']],
+  ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
   ['Me', ['memory', 'settings', 'system', 'links', 'social']],
@@ -96,6 +96,28 @@ export const DECK: Record<string, DeckScreen> = {
     ],
     dyk: 'He names things on the phone itself, from 4,624 everyday names. Nothing leaves it until you ask.',
   },
+  interpreter: {
+    name: 'Interpreter',
+    promise: 'Two halves, two languages: hold and talk',
+    can: [
+      { text: 'Hold your key and speak: the far half writes and says it', act: { open: 'interpreter' } },
+      { text: 'Hand the phone over: they hold theirs and answer', act: { open: 'interpreter' } },
+      { text: 'Pick the two languages once; the last pair is remembered', act: { open: 'interpreter' } },
+      { text: 'No signal: the phone translates by itself, roughly', act: { open: 'interpreter' } },
+    ],
+    dyk: 'Nothing is recorded and nothing of the other person is kept: it is gone when you leave.',
+  },
+  rehearse: {
+    name: 'Rehearse',
+    promise: 'Practise a hard talk against me, in three rounds',
+    can: [
+      { text: 'A job interview for a junior mechanic', act: { open: 'rehearse?situation=a%20job%20interview%20for%20a%20junior%20mechanic' } },
+      { text: 'Telling my landlord about the damp', act: { open: 'rehearse?situation=telling%20my%20landlord%20about%20the%20damp' } },
+      { text: 'Talk for a minute: your filler words, your pace, the line to cut', act: { open: 'rehearse?talk' } },
+      { text: 'Notes on what landed and what to tighten, in five lines', act: { open: 'rehearse' } },
+    ],
+    dyk: 'Nothing is kept unless you tap KEEP, and the other side’s lines are never kept.',
+  },
   studio: {
     name: '3D studio',
     promise: 'Make 3-D models, then take them apart',
@@ -114,6 +136,7 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'See a preview, then ship it or bin it', act: { open: 'workshop', panel: 'PROPOSED CHANGES' } },
       { text: 'Roll back to any earlier version', act: { open: 'workshop', panel: 'VERSIONS' } },
       { text: 'Make a mini-game: “a little snake game”', act: { ask: 'Make me a little snake game to play' } },
+      { text: 'Experiments on free public data: the lab', act: { open: 'lab' } },
     ],
     dyk: 'Every morning he suggests upgrades for himself; one tap on Build starts one.',
   },

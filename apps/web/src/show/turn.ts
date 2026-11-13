@@ -32,7 +32,20 @@ export function showBegin(ask: string): void {
   turn = { ask, reply: [], tools: [], clients: [], cards: [] };
   showTrace.order = [];
   showTrace.turns++;
-  if (typeof document !== 'undefined' && document.getElementById('thestage')) void import('./stage').then((s) => s.clearStage('his next word')).catch(() => undefined);
+  if (typeof document === 'undefined') return;
+  // the last Stage goes with his word; and when his words already promise a picture (a room, a letter, a place, a formula), its room is
+  // taken at once, so the sentence lands where it will stay and the Stage rises under it without moving it
+  const wants = mayShow() && !!ask.trim();
+  if (!wants && !document.getElementById('thestage')) return;
+  void Promise.all([import('./stage'), wants ? import('./decide') : Promise.resolve(null)])
+    .then(([s, d]) => {
+      if (document.getElementById('thestage')) s.clearStage('his next word');
+      if (d) s.prefetch();
+      const kind = d ? d.predictKind(ask) : null;
+      if (kind && turn.ask === ask) s.reserve(kind);
+      else s.releaseRoom();
+    })
+    .catch(() => undefined);
 }
 
 /** Every stream event of the turn, as it arrives (cheap: nothing is drawn here). */
@@ -71,6 +84,7 @@ if (typeof window !== 'undefined') {
         state: async () => (await import('./stage')).stageState,
         present: async (f: unknown) => (await import('./stage')).present(f as Parameters<typeof import('./stage').present>[0]),
         clear: async () => (await import('./stage')).clearStage('check'),
+        prefetch: async () => (await import('./stage')).prefetch(),
       };
     }
   }, 2800);

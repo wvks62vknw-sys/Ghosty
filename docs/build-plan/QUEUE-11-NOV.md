@@ -10,10 +10,13 @@ a run green first time; main's own run read after. The top tier reviews every di
 - 12 Nov, his word "i don't mind you doing several PR's at once" (OWNER-ISSUES 184): landings run from their own branches, up to three pull
   requests at once; merges still one at a time in the order below. TRY-IT-NOW.md and WHATS-LEFT.md are his two short pages.
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
-- [ ] Landing, in order: THE EYE HUD · SPEAKER · TRAINING FOR REAL · THIS PHONE · SMALL FIXES 1 · DOCUMENTS · OCTOBER IDEAS 1 · LIFE EASIER ·
+- [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run) ·
+      TRAINING (on main 12 Nov, PR 87, e977f173, green on main's own run; carries the Home fix for the jump bar's open) ·
+      PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run)
+- [ ] Landing, in order: OCTOBER IDEAS 1 · LIFE EASIER ·
   POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · RELIABILITY AND HEALTH · PRESENTATIONS
-- [ ] Building: PHOTO · QUALITY PASS: HOME · THE WORKSPACE · VIDEO
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO)
+- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · QUALITY PASS: PLAN AND ME (from 08a5337a, worktree planmepass, port 8841) · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -73,6 +76,23 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
    path and the size said; scenes and pauses found on the phone; stabilisation, best clips, Director Mode and reverse NEEDS HIS WORD); starts
    from the session branch and lands after PHOTO, its builder rebasing onto the fold first. VIDEO started 12 Nov in worktree video when
    RELIABILITY AND HEALTH handed back.
+   PHOTO handed back 12 Nov (reviewed clean: a 12-megapixel export in six tiles, GPU against CPU equal, the original byte-equal; RAW,
+   matting and inpainting to PHOTO 2 under his yes); parked until THE WORKSPACE is on main, then rebased onto the fold and landed.
+   Brief written 12 Nov for the eighth: BRIEF-EDITOR-GAME-STUDIO (worktree gamestudio, port 8835, spec gamestudio; a 2-D game maker on the
+   platformer's and the cave's own engine: rooms painted in tiles, a pixel editor for sprites, characters with dialogue and shops, things,
+   quests, rules, sound, save points; one runtime plays any game on the ARCADE shelf; .ghostygame shared; AS AN APP through the sites
+   path or said honestly; 3-D, multiplayer and money not in it); starts from GAMES 5's head and lands after GAMES 5 and the fold. THE GAME
+   STUDIO started 12 Nov in worktree gamestudio when PHOTO handed back.
+   VIDEO handed back 12 Nov (reviewed clean: fifteen commits, the app's own .mp4 muxer and reader, both export paths, 182 spec checks; the
+   size said before an export made honest by the recorder's own rate and a one-line truth when the file still differs); parked behind
+   WORKSPACE and PHOTO for the fold. Brief written 12 Nov under his yes (185): BRIEF-EDITOR-PHOTO-2 (worktree photo2, port 8836, spec photo2;
+   the cut-out model, the erase model and a RAW reader as packs on his tap with the size said, licences and sizes written before a byte is
+   vendored; starts from PHOTO's head, lands after PHOTO). PHOTO 2 started 12 Nov in worktree photo2 when VIDEO handed back.
+   THE WORKSPACE handed back 12 Nov (reviewed clean: pages, databases through the spreadsheets' engine, five views, templates, versions,
+   the EDITORS fold with its pills from one list, MAKE showing 8 cards, 210 edits in a simulated week with none lost); queued after
+   PRESENTATIONS as OWNER-ISSUES 206. Its found-not-fixed routed: the editors' keys in the daily backup and the 40 px button rule to POLISH 3
+   (SMALL FIXES 2d). PHOTO is being cherry-picked onto its head (worktree photofold) so it lands right after without waiting for main; VIDEO
+   follows the same way.
 8. PHONE IN HAND, MACHINE ON THE WALL (STARS 165): the Machine on a TV or laptop screen, the phone the remote.
    Brief written 11 Nov: BRIEF-MACHINE-WALL (worktree wall, port 8820, spec wall; the wall's brain route in its own file); no landing it
    waits on, so it takes the next free slot when the HUD briefs are blocked.
@@ -115,10 +135,27 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
     on the base; the STATES RATCHET over 32 screens, 44 states before and 98 after; reviewed clean and queued after THE WORKING ENGINE.
     Second pass written 12 Nov: BRIEF-QUALITY-HOME (worktree homepass, port 8829, spec homepass): Home, THE BRIEF, the house line, the
     boot and the orb measured and twenty-five fixes made, HOME's rows in the STATES RATCHET; starts from the LIFE pass's head when it hands
-    back; lands after it. Started 12 Nov in worktree homepass from the LIFE pass's head (d713414d) the hour it handed back.
+    back; lands after it. Started 12 Nov in worktree homepass from the LIFE pass's head (d713414d) the hour it handed back. Handed back 12 Nov: twenty-three of the twenty-five fixes (the two
+    unreached are the boot's, left to the boot-and-orb pass), the ratchet's HOME rows, 95 spec checks; reviewed clean, queued right after the
+    LIFE pass as OWNER-ISSUES 203.
     Third pass written 12 Nov: BRIEF-QUALITY-SEE (worktree seepass, port 8832, spec seepass): God's Eye, the Machine view, the Lens's
     every mode, Threats and the eyes' pack rows measured and twenty-five fixes made, SEE's rows in the STATES RATCHET; the people rule's
-    logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it.
+    logic and the models' pins untouched; starts from the HOME pass's head when it hands back; lands after it. Started 12 Nov in worktree
+    seepass from the HOME pass's head (9f7338e5) the hour it handed back. Handed back 12 Nov: thirty-one fixes against twenty-five, SEE's
+    eighteen ratchet rows, 218 spec checks; reviewed clean (its four nogl scratch copies of specs removed, 08a5337a; thescan re-run clean,
+    the builder's red a flake); queued right after the HOME pass as OWNER-ISSUES 205.
+    Fourth pass written 12 Nov: BRIEF-QUALITY-MAKE (worktree makepass, port 8838, spec makepass): the Workshop, the 3D studio, Reverse,
+    Space, the Workbench and the tunnel, Convert and House measured and twenty-five fixes made, MAKE's rows in the STATES RATCHET; the hub
+    cards and band (THE WORKSPACE's fold), the editors, the engine's scene and the solvers untouched. Started 12 Nov in worktree makepass
+    from the SEE pass's head (08a5337a) the hour it handed back; lands after it.
+    Fifth pass written 12 Nov: BRIEF-QUALITY-LEARN (worktree learnpass, port 8840, spec learnpass): courses, the Arcade's shelf, the GYM's
+    cards, School, the Library and the reader, Learning and the Coach measured and twenty-five fixes made, LEARN's rows in the STATES
+    RATCHET; the games, the workers, the papers, the reader's page engine and the hub cards untouched. Starts from the MAKE pass's head when
+    it hands back; lands after it.
+13b. VIDEO 2 (BRIEF-EDITOR-VIDEO-2, written 12 Nov; worktree video2, port 8839, spec video2): under his yes (185): STEADY by the app's own
+    block matching and a smoothed camera path, BEST CLIPS scored on the phone (sharpness, light, motion, variety; the namer only where kept),
+    ON THE BEAT from the music's onsets, REVERSE and a SPEED RAMP; nothing new downloaded unless proved. Starts from VIDEO's head on the fold
+    when that rebase hands back; lands after VIDEO.
 14. REINFORCEMENT AT SCALE (GRPO-style) inside the free GPU budget, said honestly if the budget does not allow; the self-edit trial measured.
 15. KERNEL 2 (BRIEF-KERNEL-2, worktree kernel2, port 8818): the protected-file calls decided under OWNER-ISSUES 179: the brain's test list names
     what it runs, a `document` tool, physics for the engine (one package), automatic rollback after a publish that fails its own first check.
@@ -128,3 +165,34 @@ QUALITY PASSES below, one room each, each with a ratchet test so the old shape c
 ## His hands only (not builds; asked once, here)
 The Pl@ntNet, Formspree, DVSA MOT and two free AI keys; the PS5 TV MODE test; the 0.5B SIT result; the voice blind check; his principles in his
 own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's test list: recommend yes).
+
+- PHOTO onto the fold handed back and reviewed 12 Nov: seven PHOTO commits cherry-picked onto THE WORKSPACE's head 16458d0a plus three fold commits (head 0aff585c). One line in EDITORS (`{ id: 'photo', pill: 'PHOTO' }`); the EDITORS card's line counts kept photos; MAKE still 8 cards, five pills ending PHOTO; counts screens 49, THE PLAN 41 things, MAKE 12 with HOUSE at 12; `all=` ends `... workspace photoedit`. Every spec green except tabs' jump bar under load 19 (not in the diff; its cause cut at Home's per-frame loop by the landing agent on TRAINING's branch, 911bfcbf). Brain tests 822 ok. VIDEO goes onto the fold the same way from 0aff585c (builder/videofold), `all=` to end `... photoedit video`, six pills.
+
+- THE GAME STUDIO handed back and reviewed 12 Nov: branch builder/gamestudio, base 4511157a (GAMES 5's head, before the fold), head 98bcd26d, 11
+  commits, 51 files. Clean on the rules: no protected file but `all=` (ends `... games5 gamestudio`), no model names, nothing downloaded, a game of
+  his stays on the phone. Spec green at 440 and 390 alone; its brain test 12 of 12 by one import line in router.test. Decisions under 179:
+  (a) it lands ONLY on the fold: when VIDEO's fold hands back, the studio is rebased onto that head as the seventh pill GAME STUDIO of the EDITORS
+  card (its own MAKE card goes; hubcards' band cap of nine, the one loosening, goes back to eight; MAKE stays 8 cards); that rebase also makes
+  the exported page carry its icon once (175 of 278 KB were the icon twice) and shortens the PUT IT ON MY SITES line to one sentence in his
+  voice ("I can't put this on your sites yet: that needs a change to my server, which needs your word. The file in the library is yours.");
+  (b) PUT IT ON MY SITES (a Worker route serving a stored page at /s/<name>/ with its own policy and a phone-callable publish) and a `game`
+  brain tool are KERNEL 3 items, with the two test names (games5.test, gamestudio.test) for the brain's test list; asked of him in WHATS-LEFT;
+  (c) the studio's 230 KB in the one bundle (first screen +6% here) is a build-shape change for POLISH 3 or KERNEL 3, not this PR. Entry 198
+  for GAMES 5 stands; the studio takes entry 208.
+- GAMES 6 brief written 12 Nov: BRIEF-GAMES-6 (worktree games6, port 8835, spec games6, base 4511157a = GAMES 5's head; lands after GAMES 5):
+  POKER (chips, never money) and A WORD GAME of our own against Ghosty on the board kit, rated in the GYM; GAMES 5's loose ends (whole-turn
+  take-back, Workers precached, the cave level floor, the stomp at world 1, faster playouts, the damaged save's line). PICO-8 and Cave Story
+  itself stay NEEDS HIS WORD. Started 12 Nov when THE GAME STUDIO handed back.
+
+- PHOTO 2 handed back and reviewed 12 Nov: branch builder/photo2, base 37bdc01a, head d061a0be (12 commits). Vendored with licence and size
+  written before a byte: the cut-out model 4.6 MB (Apache-2.0), the erase model 55.7 MB in three parts (our own int8 weights; a ready-made int8
+  file was rejected as unverifiable and wrong by 121/255), LibRaw 0.22.1 as WebAssembly 0.93 MB (LGPL-2.1/CDDL-1.0, binding MIT; a first
+  library was rejected because it needed a content-security relaxation in _headers, which the builder was refused and did not work around).
+  Nothing fetched before his tap; each pack with its size; offline said. `all=` ends `... photoedit photo2`. Two licence files renamed to
+  LICENSE.txt so no model name stands in a path (182's rule). Spec photo2 green at both widths; the known load reds (lens, speed2, look, ink)
+  not in the diff. Decisions under 179: no extra big-pack warning for the 70 MB erase pack beyond its size said; true 16-bit RAW editing
+  (a float source in photo/gpu.ts) left for a later PHOTO pass; the brain test on one import line. Entry 209.
+- QUALITY PASS: PLAN AND ME brief written 12 Nov: BRIEF-QUALITY-PLAN-ME (worktree planmepass, port 8841, spec planmepass, base 08a5337a, the
+  SEE pass's head, shared with the MAKE pass; lands after the MAKE pass with the ratchet rows and the `all=` word resolved as a union). Owns
+  SPENDING, THE MARKETS, THE RADIO, MEMORY, SETTINGS' pages, SYSTEM's pages, LINKS and SOCIAL (25 fixes); NOT the Agenda's, Settings' and
+  System's fronts (POLISH 3's), THREATS or the packs page (the SEE pass's). Started 12 Nov when PHOTO 2 handed back.

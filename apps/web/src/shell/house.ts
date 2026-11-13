@@ -22,6 +22,7 @@ import { ROOMS, roomOf, type Room, type Thing } from './rooms';
 import { worksLine } from './inventory';
 import { tabs } from './tabs';
 import { deckState } from './launcher';
+import { changedLines, refreshChanged, type ChangeLine } from '../further/changed';
 
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
 const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
@@ -114,11 +115,40 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
       h('span.ptname', t.name),
       starred.has(t.id) ? icon(STAR, 'ic ptmark') : recent.has(t.id) ? icon(CLOCK, 'ic ptmark') : null,
       works ? h('i.ptdot', { 'aria-hidden': 'true' }) : null);
+    // [further] a long press on a thing in the plan walks him through it (WALK ME THROUGH IT: features/further/walk.ts); a tap opens it as ever
+    let held = false;
+    let timer = 0;
+    let from = { x: 0, y: 0 };
+    if (t.screen) {
+      b.addEventListener('pointerdown', (e) => {
+        held = false;
+        from = { x: e.clientX, y: e.clientY };
+        clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          held = true;
+          close();
+          void import('../features/further/walk').then((m) => m.startWalk(t.id)).catch(() => undefined);
+        }, 650);
+      });
+      b.addEventListener('pointermove', (e) => Math.hypot(e.clientX - from.x, e.clientY - from.y) > 10 && clearTimeout(timer));
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => clearTimeout(timer));
+      b.addEventListener('contextmenu', (e) => held && e.preventDefault());
+    }
     b.addEventListener('click', () => {
+      if (held) return void (held = false);
       close();
       openThing(t);
     });
     return b;
+  };
+  /** WHAT CHANGED SINCE YESTERDAY (further/changed.ts): one line under a room that has something new; a room with nothing new says nothing. */
+  const paintChanges = (lines: ChangeLine[] = changedLines()) => {
+    if (!el) return;
+    for (const sec of el.querySelectorAll<HTMLElement>('.planroom')) {
+      sec.querySelector('.planchg')?.remove();
+      const l = lines.find((x) => x.room === sec.dataset.room);
+      if (l) sec.querySelector('.planroomhead')?.after(h('p.planchg', { dataset: { room: l.room, case: 'keep' } }, l.text));
+    }
   };
   const draw = () => {
     const starred = new Set(favourites());
@@ -144,6 +174,9 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
     el.style.setProperty('--plan-bottom', `${Math.round(askEl ? innerHeight - askEl.getBoundingClientRect().top : 0) + 8}px`);
     document.getElementById('app')!.append(el);
+    paintChanges();
+    // (the rooms' own readings are read again, and what is new said as soon as they are in)
+    void refreshChanged().then((l) => paintChanges(l)).catch(() => undefined);
     document.body.classList.add('planned');
     left.setAttribute('aria-expanded', 'true');
     houseState.planOpen = true;

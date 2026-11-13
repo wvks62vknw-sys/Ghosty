@@ -73,7 +73,8 @@ async function run(name, viewport) {
   await page.waitForTimeout(800);
   // (on the phone the Workshop is in sections, ui/sections.ts: the widgets are under its Made pill)
   await openSection(page, 'workshop', 'Made');
-  const w = page.locator('#pg-workshop .rw.link .v').first();
+  // (not the LAB's EXPERIMENTS row, which is a link too: the widgets are the other rows)
+  const w = page.locator('#pg-workshop .rw.link').filter({ hasNotText: 'EXPERIMENTS' }).locator('.v').first();
   // the list fills from the brain; on a slow runner that takes a moment
   await w.waitFor({ state: 'attached', timeout: 15000 }).catch(() => undefined);
   if (await w.count()) {

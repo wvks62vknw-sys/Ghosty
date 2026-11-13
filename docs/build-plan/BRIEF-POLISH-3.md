@@ -65,6 +65,21 @@ apps/edge/src/watchers.ts are NOT protected.
    fields named; the Shortcuts' `?add=` of LIFE EASIER unchanged. Installed as a Home Screen app, the share sheet lists Ghosty: NEEDS HIS
    PHONE (the phone check has it).
 
+7. **SMALL FIXES 2d: EVERY EDITOR'S WORK RIDES THE DAILY BACKUP (THE WORKSPACE's found-not-fixed).** apps/edge/src/backup.ts's BACKUP_KEYS
+   (not protected) gains `ghosty.docs`, `ghosty.sheets`, `ghosty.slides` (and `ghosty.photo` recipes and `ghosty.video` projects where those have
+   landed: their originals stay on the phone, the recipes and projects are small), so a lost phone keeps his documents as it keeps his
+   workspace; the Settings backup line counts them; backup.test proves the keys and the restore. Also measured here, not assumed: the
+   global rule `html button … min-height: 40px !important` (styles.css) against the 44 pt rule: every screen's keys are measured at 390 and
+   440 and any under 44 pt that the rule holds at 40 are made right at the rule, not one by one, with tabs.spec's `small` check the proof.
+   ONE INK's God's Eye bar is measured here too (the SEE pass made the bar 44 pt in The Scan only; Glass stays pixel-equal).
+8. **SMALL FIXES 2e: THE JUMP BAR'S OPEN, CUT AT THE CAUSE (the landings' chronic red).** tabs.spec's jump-bar open reads 300 to 310 ms on
+   the runner against its 300 ms budget on branch after branch whose diff never touches it (TRAINING's run, 12 Nov: 304 ms, 1.3% over, rerun
+   once under 179(a)). Measured with the profiler on the preview and the runner, the cost found (the bar's first build, the orb's freeze, a
+   font's load, a layout read) and cut at the cause so the reading sits under 250 ms with the budget unchanged; the number before and after
+   in the report. Also here: learn.spec's and voice.spec's leftover state from a previous spec in the same browser (the TRAINING landing's
+   race): each spec that leaves state behind puts it back, with the check that proves the next spec opens clean.
+   12 Nov, later: the cause was found and cut by the landing agent on TRAINING's branch (911bfcbf): Home's per-frame loop read two bounding boxes and drew the reactor and its HUD rings behind the open jump bar; it now returns at once while the bar is open. Budget untouched. What is left of 2e: confirm the runner's reading sits under 250 ms across ten runs on main, and learn.spec/voice.spec putting their state back.
+
 ## What must not change
 
 The first-screen budget and every other budget; GLASS pixel-equal; ONE INK's page; every control 44 pt; nothing sideways at 440 × 956 or 390 ×

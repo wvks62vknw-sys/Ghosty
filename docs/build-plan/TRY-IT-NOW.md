@@ -60,6 +60,18 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 4. Hours later the card shows the report card (old brain against new on the same questions) and Published or Not kept.
 5. Published and you do not like it: tap ROLLBACK; the card says Rolled back.
 
+## OCTOBER IDEAS 1 (the ribbon, the tilt, a word when I start)
+1. Home: under the orb a ribbon says the hour's weather and the next thing.
+2. Settings, THE LOOK, switch the tilt row on; tilt the phone: the layers move a few pixels and stop.
+3. Ask something slow: the orb pulses while it thinks and a ring moves while it speaks.
+4. With Voice on, tap something that takes a moment (TRAIN NOW, say): "On it." in the phone's voice. Tapping a download's GET says nothing.
+
+## LIFE EASIER (Siri, the Brief aloud, what did I miss)
+1. Settings, SHORTCUTS: get "Ask Ghosty", then say "Hey Siri, ask Ghosty what's the weather".
+2. Settings, VOICE: switch the Brief row on; open the app tomorrow morning: it reads the Brief after Home lands.
+3. Leave it closed a day, open it: WHAT DID I MISS; tap GOT IT.
+4. Open SPENDING after a statement: the nudge lines are at the top.
+5. With email linked, DRAFT a reply: nothing goes until you tap SEND.
 ## THE EDGES (errors, waits, the biggest text)
 1. Flight mode on, ask anything: it answers in its own words about the signal (never the browser's). Open the Lens: it says what still works.
 2. Settings, Accessibility, the biggest text: the house line wraps to two rows, nothing is cut, every room is still tappable.
@@ -71,3 +83,17 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 2. Settings, OFFLINE EYES: a line under the packs says what this phone can take and that the Lens has one size for now.
 3. GYM: the line under TRAIN ALL says whether the chip or the processor is used; tap TIME IT to see both times.
 4. With the offline brain on the phone: SYSTEM, THIS PHONE, MEASURE THE BRAIN: its load time, the memory, and which of the three sizes fits.
+
+## THE PICTURE (the Stage, the Lens tags, Telegram)
+1. Ask about your bills with a few numbers in the answer: round ticks, the pound said once, the last value written.
+2. Ask "where is Lisbon?", then "where is my work": the country outline, then the block with the pin and its name beside it.
+3. Ask for a letter: a page on the Stage; OPEN opens the editor.
+4. Ask for a kitchen: lit from above-left, sizes on the edges; touch it and it stops turning.
+5. Point the Lens at something and keep it in view: the boxes ease and do not flicker. Ask from Telegram: the sentence, then a picture.
+
+## OCTOBER IDEAS 3 (interpreter, mind map, rehearse, the lab)
+1. SEE, Interpret: hold your key and say a sentence; the far half writes and speaks it in the other language.
+2. Hold the orb: your memories as a map; tap one; FORGET, then UNDO.
+3. MAKE, Workshop, THE LAB row: five pages; run one again.
+4. LEARN, REHEARSE: "a job interview for a junior mechanic": three rounds and the notes.
+5. Say "walk me through the library": a pointer and a sentence, NEXT to the end.
