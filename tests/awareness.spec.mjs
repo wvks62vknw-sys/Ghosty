@@ -482,7 +482,7 @@ if (part('turn') || part('deck')) {
 if (part('screens')) {
   const { ctx, page } = await open(PHONE, 'screens');
   const SCREENS = ['brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'workshop', 'learn', 'gym', 'school', 'reverse', 'workbench', 'links', 'settings', 'system', 'arcade',
-    'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'house',
+    'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'house',
     'area-ask', 'area-see', 'area-make', 'area-learn', 'area-plan', 'area-life', 'area-me'];
   const said = {};
   for (const id of SCREENS) {

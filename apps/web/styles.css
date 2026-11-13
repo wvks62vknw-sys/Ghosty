@@ -8963,3 +8963,79 @@ html .pephoto .perawoffer { position: absolute; left: var(--g-s-1); right: var(-
 html .pephoto .pesubjectbox { display: flex; flex-direction: column; gap: var(--g-s-1); }
 /* PHOTO 2: a row of keys wraps onto a second line, and a long label wraps in its key, rather than being cut off at the width of the phone */
 html .pephoto .pekeys > button { flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+/* ---------------------------------------------------------------- THE VIDEO EDITOR (BRIEF-EDITOR-VIDEO; video/screen.ts)
+   The strip of clips, the picture at the project's shape, the tools as pills and their tray. Every key is 44 pt; nothing goes
+   sideways (the strip scrolls inside its own frame); the picture is never stretched. Prefixed vd. */
+.vdsheet { min-width: 0; }
+.sheetpg .pn > .bd > .vdsheet { flex: none; padding: 0; overflow: visible; }
+.vd { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 4px 0 16px; font: 400 15px/1.4 var(--sf); color: var(--fg); }
+.vd button { min-height: 44px; min-width: 44px; text-transform: none; white-space: normal; }
+.vdbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.vdname { flex: 1 1 140px; min-height: 44px; min-width: 0; font: 600 16px/1.3 var(--sf); }
+.vdsaved { flex: 0 0 auto; font: 600 12px/1 var(--sf); letter-spacing: .06em; color: var(--mute); opacity: 0; transition: opacity .6s; }
+.vdsaved.show { opacity: 1; transition: opacity .15s; }
+.vdlinerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.vdlinerow:has(.vdline:empty):not(:has(.vdinline)) { display: none; }
+.vdline { margin: 0; flex: 1 1 12em; min-height: 21px; font: 400 14px/1.45 var(--sf); color: var(--mute); overflow-wrap: anywhere; }
+.vdline:empty { display: none; }
+.vdlineact { display: inline-flex; flex: 0 0 auto; }
+.vdtitleline { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vdtitleline[hidden] { display: none; }
+.vdtitleline .vdlabel { flex: 0 0 auto; font: 600 11px/1.3 var(--sf); letter-spacing: .08em; color: var(--mute); }
+.vdtitlein, .vdcue { flex: 1 1 auto; min-height: 44px; min-width: 0; max-width: 100%; box-sizing: border-box; font: 400 16px/1.3 var(--sf); }
+.vdstage { display: flex; justify-content: center; min-width: 0; }
+.vdcanvas { display: block; margin: 0 auto; max-width: 100%; max-height: 44vh; width: auto; height: auto; background: black; border-radius: 0.75rem; touch-action: manipulation; }
+.vdcanvas.picking { cursor: crosshair; outline: 2px dashed var(--c); outline-offset: 2px; }
+.vdtransport { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vdplay { flex: 0 0 auto; min-width: 88px; }
+.vdtime { flex: 0 0 auto; font: 500 13px/1.2 var(--sf); font-variant-numeric: tabular-nums; color: var(--mute); }
+.vdscrub, .vdrange { flex: 1 1 auto; width: 100%; min-height: 44px; margin: 0; }
+.vdstripbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.vdzoom { display: flex; align-items: center; gap: 6px; margin-left: auto; font: 400 12px/1 var(--sf); color: var(--mute); }
+.vdstrip { position: relative; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-x; min-height: 100px; border-radius: 0.75rem; background: color-mix(in srgb, var(--fg) 5%, transparent); scrollbar-width: none; }
+.vdstrip::-webkit-scrollbar { display: none; }
+.vdtrack { position: relative; height: 80px; margin-top: 6px; }
+.vdtile { position: absolute; top: 0; height: 80px; box-sizing: border-box; border-radius: 0.625rem; border: 2px solid transparent; background: color-mix(in srgb, var(--fg) 14%, black) center / cover no-repeat; overflow: hidden; cursor: pointer; }
+.vdtile:focus-visible { outline: 2px solid var(--c); }
+.vdtile.on { border-color: var(--c); }
+.vdtile.lift { z-index: 4; box-shadow: 0 6px 18px color-mix(in srgb, black 50%, transparent); opacity: .92; }
+.vdtile b { position: absolute; left: 6px; top: 4px; padding: 1px 6px; border-radius: 0.5rem; background: color-mix(in srgb, black 60%, transparent); color: white; font: 600 12px/1.4 var(--sf); }
+.vdtile small { position: absolute; left: 6px; bottom: 4px; padding: 1px 6px; border-radius: 0.5rem; background: color-mix(in srgb, black 60%, transparent); color: white; font: 500 11px/1.4 var(--sf); }
+.vdtr { position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 0.6875rem; display: grid; place-items: center; background: var(--c); color: black; font: 700 12px/1 var(--sf); font-style: normal; z-index: 2; }
+.vdhandle { position: absolute; top: 0; bottom: 0; width: 44px; z-index: 3; touch-action: none; background: color-mix(in srgb, white 28%, transparent); border: 0; cursor: ew-resize; }
+.vdhandle::after { content: ''; position: absolute; top: 50%; width: 4px; height: 28px; margin-top: -14px; border-radius: 0.125rem; background: white; }
+.vdhandle.in { left: 0; border-radius: 0.5rem 0 0 0.5rem; } .vdhandle.in::after { left: 28px; }
+.vdhandle.out { right: 0; border-radius: 0 0.5rem 0.5rem 0; } .vdhandle.out::after { right: 28px; }
+.vdlanes { position: relative; display: flex; flex-direction: column; gap: 3px; margin: 4px 0 6px; }
+.vdlane { position: relative; height: 16px; }
+.vdbar_ { position: absolute; top: 0; height: 16px; box-sizing: border-box; padding: 0 5px; border-radius: 0.3125rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 500 10px/16px var(--sf); color: black; background: var(--c); }
+.vdlane.ti .vdbar_ { background: var(--a); } .vdlane.pi .vdbar_ { background: color-mix(in srgb, var(--c) 50%, var(--r)); color: white; } .vdlane.mu .vdbar_ { background: var(--ok, var(--c)); } .vdlane.vo .vdbar_ { background: var(--r); } .vdlane.su .vdbar_ { background: var(--fg); }
+.vdhead { position: absolute; left: 0; top: 0; width: 2px; background: white; box-shadow: 0 0 0 1px color-mix(in srgb, black 40%, transparent); pointer-events: none; z-index: 5; will-change: transform; }
+.vdempty { display: none; flex-direction: column; gap: 8px; }
+.vd[data-empty="true"] .vdempty { display: flex; }
+.vd[data-empty="true"] :is(.vdstrip, .vdpills, .vdtray, .vdtransport, .vdtitleline, .vdzoom) { display: none; }
+.vd[data-empty="true"] .vdstage { display: none; }
+.vdempty1 { margin: 0; font: 600 20px/1.3 var(--sf); color: var(--fg); }
+.vdpills { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.vdpill, .vdchoice, .vdkey { flex: 0 1 auto; max-width: 100%; text-align: center; }
+.vdpill.on, .vdchoice.on { box-shadow: inset 0 0 0 2px var(--c); }
+.vdtray { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding-top: 4px; border-top: .5px solid var(--line); }
+.vdrow, .vdchoices { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.vdsay { margin: 0; font: 600 15px/1.4 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.vdnote, .vdpath { margin: 0; font: 400 13px/1.45 var(--sf); color: var(--mute); overflow-wrap: anywhere; }
+.vdh { margin: 6px 0 0; font: 600 11px/1.3 var(--sf); letter-spacing: .08em; color: var(--mute); }
+.vdslider { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 10px; min-width: 0; }
+.vdslider .vdlabel { font: 500 14px/1.3 var(--sf); } .vdval { font: 500 13px/1.3 var(--sf); color: var(--mute); font-variant-numeric: tabular-nums; }
+.vdslider .vdrange { grid-column: 1 / -1; }
+.vdstep { display: flex; align-items: center; gap: 8px; min-width: 0; } .vdstep .vdlabel { flex: 1 1 auto; min-width: 0; font: 500 14px/1.3 var(--sf); } .vdstepv { min-width: 64px; text-align: center; font: 500 14px/1.3 var(--sf); font-variant-numeric: tabular-nums; }
+.vdcard { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 0.875rem; background: color-mix(in srgb, var(--fg) 6%, transparent); min-width: 0; }
+.vdcard.on { box-shadow: inset 0 0 0 1.5px var(--c); }
+.vdcardbody { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.vdlist { width: 100%; text-align: left; justify-content: flex-start; }
+.vdcuerow { gap: 6px; } .vdcuet { font: 500 12px/1.3 var(--sf); color: var(--mute); font-variant-numeric: tabular-nums; }
+.vdlevel { height: 12px; border-radius: 0.375rem; background: color-mix(in srgb, var(--fg) 12%, transparent); overflow: hidden; } .vdlevel i { display: block; height: 100%; width: 0; background: var(--r); transition: width .06s linear; }
+.vdrec.on { background: var(--r); color: white; }
+.vdprog { width: 100%; height: 12px; } .vdprog[hidden] { display: none; }
+.vdfile { display: inline-flex; }
+.vdask { display: flex; flex-direction: column; gap: 8px; } .vdask:empty { display: none; }
+@media (prefers-reduced-motion: reduce) { .vdsaved, .vdlevel i { transition: none; } .vdstrip { scroll-behavior: auto; } }

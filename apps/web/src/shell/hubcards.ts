@@ -50,6 +50,8 @@ import { listBooks } from '../sheets/store';
 import { listDecks } from '../slides/store';
 import { loadWorkspace } from '../workspace/store';
 import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/model';
+import { videoInst } from '../video/inst';
+import { videoTally } from '../video/tally';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
@@ -308,7 +310,7 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
   h('span.insc', svg, h('span.ctr', h('span', h('b.tnum', big, h('span.of', of)), h('small', word))));
 
 /* ------------------------------------------------------------------ the twenty tools */
-/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages, photos), and the newest one's name. */
+/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages, photos, videos), and the newest one's name. */
 const editorsKept = (): { total: number; newest: string } => {
   const all: { at: number; title: string }[] = [
     ...listDocs().map((d) => ({ at: d.at, title: d.title })),
@@ -317,6 +319,8 @@ const editorsKept = (): { total: number; newest: string } => {
     ...workspacePages().map((p) => ({ at: p.at, title: pageTitle(p) })),
     // PHOTO's kept photos: counted from its own database (read by loadPhotos, which the card asks for)
     ...Array.from({ length: hubFacts.photos?.n ?? 0 }, (_, i) => ({ at: i ? 0 : hubFacts.photos!.at, title: hubFacts.photos!.last ?? 'a photo' })),
+    // VIDEO's kept videos: counted from the tally its store keeps when a project is saved
+    ...Array.from({ length: videoTally()?.n ?? 0 }, (_, i) => ({ at: i ? 0 : videoTally()!.at, title: videoTally()!.last })),
   ];
   all.sort((a, b) => b.at - a.at);
   return { total: all.length, newest: all[0]?.title ?? '' };
@@ -593,6 +597,25 @@ export const CARDS: Record<string, HubCard> = {
       return k.total ? `${k.total.toLocaleString('en-GB')} ${k.total === 1 ? 'thing' : 'things'} on this phone across my editors, the newest “${k.newest}”` : '';
     },
     idle: 'Nothing in the editors yet: start a letter, a budget, a deck or a project',
+  },
+  // [video] MAKE → VIDEO (video/screen.ts): the seventh full editor; the card reads the tally kept when a project is saved
+  video: {
+    title: 'Edit a video',
+    status: () => 'READY',
+    instrument: videoInst,
+    readouts: () => {
+      const t = videoTally();
+      return [
+        { label: 'Kept here', value: t ? String(t.n) : null, none: 'None yet' },
+        { label: 'Last', value: t ? t.last : null, none: '—' },
+      ];
+    },
+    why: () => (videoTally() ? '' : 'Add a clip from your phone and I’ll start a video'),
+    say: () => {
+      const t = videoTally();
+      return t ? `${t.n} ${t.n === 1 ? 'video' : 'videos'} on this phone, the newest “${t.last}”, ${t.len}` : '';
+    },
+    idle: 'No videos yet: add a clip and cut it here',
   },
   learn: {
     title: 'Learn anything',

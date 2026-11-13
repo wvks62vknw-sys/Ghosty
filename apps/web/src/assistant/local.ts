@@ -36,6 +36,7 @@ import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn } from './reste';
+import { videoTurn } from './video';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
@@ -327,6 +328,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   slides: async (text, opts) => packAnswer(await slidesTurn(text), opts),
   workspace: async (text, opts) => packAnswer(await workspaceTurn(text), opts),
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
+  video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

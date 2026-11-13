@@ -573,6 +573,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [video] THE VIDEO EDITOR (video/screen.ts): MAKE's seventh full editor; clips handed over open in it.
+      id: 'open_video',
+      title: 'Video: cut, grade, score and export a video',
+      group: 'GO',
+      run: async () => {
+        const { openVideo } = await import('../video/screen');
+        await openVideo();
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

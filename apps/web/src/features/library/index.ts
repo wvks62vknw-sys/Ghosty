@@ -25,6 +25,7 @@ import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
+import { isVideoFile } from '../../video/files';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -179,8 +180,16 @@ export const libraryTab: TabDef = {
       line.className = 'note bad';
       line.dataset.state = 'error';
     };
-    const ingest = async (picked: File[]) => {
+    const ingest = async (all: File[]) => {
+      let picked = all;
       // Photos of pages picked together are one document (a page per photo); every other file is its own.
+      // [video] a video file is not a thing to read: it is offered the video editor instead (OPEN IN VIDEO), the clip handed over as it is
+      for (const f of picked.filter(isVideoFile)) {
+        const l = note(`${f.name}: that’s a video, so there’s nothing to read in it. I can cut it in the video editor.`);
+        l.append(button('OPEN IN VIDEO', () => void import('../../video/screen').then((m) => m.openVideo([f])), 'libopen'));
+        l.className = 'note ok done';
+      }
+      picked = picked.filter((f) => !isVideoFile(f));
       const photos = picked.filter(isPhoto);
       const jobs: { name: string; add: (p: (t: string) => void) => Promise<{ doc: LibraryDoc; warning?: string }> }[] = [
         ...(photos.length ? [{ name: photos.length === 1 ? photos[0]!.name : `${photos.length} photos`, add: (p: (t: string) => void) => addPhotos(photos, p) }] : []),

@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -468,6 +468,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Straighten, grade, mask, heal and save a look', act: { open: 'photo' } },
     ],
     dyk: 'Your original is never changed: every edit is a recipe beside it, and the look you save goes onto many photos at once.',
+  },
+  video: {
+    name: 'Video',
+    promise: 'Cut, grade and score a video on this phone',
+    can: [
+      { text: 'Your videos, kept on this phone', act: { open: 'video' } },
+      { text: 'Edit a video', act: { ask: 'Edit a video' } },
+      { text: 'Cut this video', act: { ask: 'Cut this video' } },
+    ],
+    dyk: 'Your clips are never changed: every cut, grade and title is a recipe laid over them, and the file is made on the phone.',
   },
   house: {
     name: 'House',

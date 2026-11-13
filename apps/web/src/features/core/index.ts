@@ -845,7 +845,13 @@ export const coreTab: TabDef = {
       const files = [...(e.dataTransfer?.files ?? [])];
       if (!files.length) return;
       e.preventDefault();
-      void import('../../convert/sheet').then((s) => s.openConvert(files));
+      // [video] "cut this video": a clip dropped on the chat opens the video editor with it in (video/screen.ts); the rest go to the converter
+      void import('../../video/screen').then((v) => {
+        const clips = files.filter(v.isVideoFile);
+        if (clips.length === files.length) return void v.openVideo(clips);
+        void import('../../convert/sheet').then((s) => s.openConvert(files.filter((f) => !v.isVideoFile(f))));
+        if (clips.length) void v.openVideo(clips);
+      });
     });
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays

@@ -47,6 +47,7 @@ import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
 import { workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
+import { videoAsked } from '../video/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -134,6 +135,8 @@ export const LOCAL_ASKS = [
   { id: 'workspace', test: (t: string) => !!workspaceAsked(t) },
   // [photo] the photo editor (BRIEF-EDITOR-PHOTO): "edit a photo", "my photos"
   { id: 'photoedit', test: (t: string) => !!photoAsked(t) },
+  // [video] the video editor (video/asks.ts): "my videos", "edit a video", "cut this video"
+  { id: 'video', test: (t: string) => !!videoAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },
