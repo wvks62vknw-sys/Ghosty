@@ -420,7 +420,12 @@ export const radioTab: TabDef = {
           ...(n ? { selected: { kind: 'item', id: 'station', label: n.name, detail: p.state === 'paused' ? 'paused' : 'playing' } } : {}),
         });
       },
-      describe: () => `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites; ${player.get().sleepAt > Date.now() ? sleepLine(player.get().sleepAt, Date.now()) : 'no sleep timer'}.`,
+      // (his favourites in his order, so "play my second favourite" can be read off the screen; near me, his country)
+      describe: () => {
+        const f = favourites.list();
+        const favs = f.length ? `${f.length} favourites (${f.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}`).join(', ')}${f.length > 5 ? ', …' : ''})` : 'no favourites';
+        return `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favs}; near me: ${countryWord(homeCountry())}; ${player.get().sleepAt > Date.now() ? sleepLine(player.get().sleepAt, Date.now()) : 'no sleep timer'}.`;
+      },
     };
   },
 };
