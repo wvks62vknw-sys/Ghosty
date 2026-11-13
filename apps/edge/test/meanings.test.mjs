@@ -29,7 +29,7 @@ const P = await import('./.build/meanings/phrases.mjs');
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
 
 /** Which phone table each meaning's canonical words belong to. */
-const TABLE_OF = { look: 'look', water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video', money: 'moneyapp' };
+const TABLE_OF = { look: 'look', water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video', money: 'moneyapp', comic: 'comic' };
 
 /** What his words end up doing on the phone: a table's id when a table takes them as said, else the meaning's id, the question, or null. */
 function route(t) {
@@ -138,9 +138,10 @@ test('every screen a meaning opens is a real tab of the app, and its line is sai
       }
     }
   const comic = M.meaningOf('make a comic');
-  assert.deepEqual([comic.open, comic.panel], ['creative', 'comic'], 'the comic is the creative screen’s COMIC panel');
-  const creative = readFileSync(at('../../web/src/features/creative/index.ts'), 'utf8');
-  assert.match(creative, /id: 'comic'/, 'the creative screen has its comic panel');
+  // (the comic is its own screen since the FINAL ROUND's comic lane: features/comic, its shelf, MAKE and the library)
+  assert.deepEqual([comic.open, comic.panel], ['comic', undefined], 'the comic opens the COMIC screen');
+  const comicTab = readFileSync(at('../../web/src/features/comic/index.ts'), 'utf8');
+  assert.match(comicTab, /id: 'comic'/, 'the comic screen is a tab of its own');
 });
 
 test('words that could mean two things ask one short question, with both as keys', () => {

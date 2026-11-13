@@ -51,7 +51,9 @@ export const GROUP_NEEDS: Record<string, { any: string[]; where: string; open: {
   spotify: { any: ['spotify'], where: 'needs linking: LINKS → SPOTIFY', open: { open: 'links', panel: 'SPOTIFY' } },
   repo: { any: ['github'], where: 'needs a key: SYSTEM → KEYS → GitHub token', open: { open: 'system', panel: 'KEYS' } },
   reverse: { any: ['github'], where: 'needs a key: SYSTEM → KEYS → GitHub token', open: { open: 'system', panel: 'KEYS' } },
-  vehicle: { any: ['dvsa_mot', 'dvla_ves'], where: 'needs a key: SYSTEM → KEYS → DVSA MOT history', open: { open: 'system', panel: 'KEYS' } },
+  // [consistency] his own accounts: ABILITIES said "I can use your own accounts" with none linked (FINAL-CONSISTENCY)
+  social: { any: ['bluesky', 'mastodon', 'discord', 'telegram'], where: 'needs linking: LINKS → BLUESKY', open: { open: 'links', panel: 'BLUESKY' } },
+  vehicle: { any: ['dvsa_mot', 'dvla_ves'], where: 'needs a key: SYSTEM → KEYS → OPTIONAL → DVSA MOT history', open: { open: 'system', panel: 'KEYS' } },
 };
 
 /** The first sentence of a tool's description, for when a group has no line of its own. */

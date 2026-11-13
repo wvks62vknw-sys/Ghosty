@@ -1,5 +1,8 @@
 # Ghosty: the plan for 23 October to 13 November 2026
 
+> **Now historical (13 Nov, FINAL-CONSISTENCY):** its numbers ("51 browser checks", "925 tests") are the 23 Oct baseline. Today: 152
+> browser specs and 151 brain test files. Where things stand now: STATUS.md and WHATS-LEFT.md.
+
 Written for the owner, in plain words. This is the ONE ordered plan the handoff asked for: fix what is broken
 first, then the design, then the iPhone 18 Pro Max work, then the big new features and the "everything miles
 better" pass. Nothing in a week's list is built until the owner has said yes to that list. Design picks always

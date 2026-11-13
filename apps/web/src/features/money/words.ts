@@ -11,7 +11,7 @@ const ASKS: [MoneyAsk, RegExp][] = [
   ['budgets', new RegExp(`${LEAD}(?:budgets?|monthly budgets?|budget page)${TAIL}`, 'i')],
   ['bills', new RegExp(`${LEAD}(?:subscriptions?|bills and subscriptions|subscriptions and bills|direct debits|regular payments)${TAIL}`, 'i')],
   ['trends', new RegExp(`${LEAD}(?:spending trends|money trends|spending over time|spending by month)${TAIL}`, 'i')],
-  ['month', new RegExp(`${LEAD}(?:spending|money app|month(?:['’]s)? (?:spending|money)|spending this month|money this month)${TAIL}`, 'i')],
+  ['month', new RegExp(`${LEAD}(?:spending|money|money app|month(?:['’]s)? (?:spending|money)|spending this month|money this month)${TAIL}`, 'i')],
 ];
 
 /** The page his words name, or null. */
