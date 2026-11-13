@@ -79,6 +79,13 @@ function manualsWeb(u) {
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  // Test only: a spec's own slow server on this machine, named as a public host (`*.loopback.test`) because the brain's
+  // network gate (apps/edge/src/netguard.ts) rightly refuses loopback addresses; only this preview maps the name back.
+  if (u.hostname.endsWith('.loopback.test')) {
+    const to = new URL(u.href);
+    to.hostname = '127.0.0.1';
+    return realFetch(to.href, init);
+  }
   // Test only: his Home Assistant box, stood in for (tests/fixtures/house-api.mjs): the bridge's every call lands here.
   const house = houseApi(u, init);
   if (house) return house;
