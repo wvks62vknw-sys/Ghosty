@@ -56,7 +56,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
     say: ['Toilets near me', 'I parked on Cannon Street', 'I’m lost'], scene: ['out'], cat: 'watch', needs: ['location'], since: SINCE,
   },
   'screen:homeadmin': {
-    name: 'Home: bins, bills and meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
+    name: 'Household: bins, bills, meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
     more: 'Tell me a bin day or photograph a bill and I keep it in my brain; the photo is read on this phone first. What is due comes in date order, and the Brief says it before the day. A meter reading shows the usage since the last one.',
     say: ['When are the bins?', 'What’s due this month?', 'Read my meter'], scene: ['money', 'morning'], cat: 'do', since: SINCE,
   },

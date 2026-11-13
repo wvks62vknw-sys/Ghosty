@@ -54,7 +54,7 @@ const NEW = {
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Interview', 'Document'], pages: ['TO-DO', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
   creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
-  homeadmin: { area: 'life', name: 'Home', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS'] },
+  homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS'] },
   learning: { area: 'learn', name: 'Learning', word: 'first aid', pills: ['Words', 'Draw', 'Typing', 'Drills', 'First aid', 'Plan'], pages: ['WORDS', 'CARDS', 'DRAW', 'WRITING', 'TYPING', 'READING', 'MEMORY', 'MATHS', 'SPELLING', 'FIRST AID', 'PLAN', 'STREAKS'] },
   coach: { area: 'learn', name: 'Coach', word: 'guitar', pills: ['Tuner', 'Lessons', 'Typing', 'Draw', 'Words'], pages: ['TUNER', 'LESSONS', 'TYPING', 'DRAW', 'WORDS'] },
   social: { area: 'me', name: 'Social', word: 'bluesky', pills: ['Waiting', 'Accounts', 'Origin'], pages: ['WAITING FOR YOUR APPROVE', 'SENT TODAY', 'BLUESKY', 'MASTODON', 'DISCORD', 'TELEGRAM CHANNEL', 'FATHER AND THE ORIGIN'] },
@@ -377,7 +377,7 @@ for (const viewport of [PHONE, SMALL]) {
   };
   // the home pack: the bins answered in the chat with no model, its chip opens the HOME sheet on its BINS page
   if (await say('when are the bins?', /bin/, '[chat] "when are the bins?" had no answer about the bins')) {
-    const chip = page.locator('#pg-core .msg:not(.me) :is(button, a):visible', { hasText: /^Open the HOME sheet$/i }).last();
+    const chip = page.locator('#pg-core .msg:not(.me) :is(button, a):visible', { hasText: /^Open the HOUSEHOLD sheet$/i }).last();
     if (!(await chip.count())) problems.push('[chat] the bins answer has no chip to open the HOME sheet');
     else {
       await chip.click({ timeout: 8000 }).catch(() => problems.push('[chat] the chip to open the HOME sheet could not be tapped'));

@@ -59,7 +59,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:set_theme': {
     name: 'Change my look', line: 'I can change my look when you ask: my colour, the ground, the world or a switch, in your own words.',
-    more: 'Any of my twelve colours, a ground (black, slate, warm, paper), a world (The Scan, The Map, The Eye, One Ink, Glass) or a switch like the glow. Every screen keeps its layout. You can also tap it in Settings → THEME.',
+    more: 'Any of my twelve colours, a ground (black, graphite, slate, warm, paper), a world (The Scan, The Map, The Eye, Orbit, Grown Up, One Ink, Glass) or a switch like the glow. A colour keeps every layout; a world is a whole different look. You can also tap it in Settings → THEME, or THE LOOK → THEMES.',
     say: ['Switch to Ember', 'Go back to Reactor'], scene: ['talking'], cat: 'talk',
     go: { open: 'settings', panel: 'THEME' },
   },
@@ -86,7 +86,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:open_lens': {
     name: 'Open the camera for you', line: 'I can open the Lens in the right mode when you ask: read, translate, measure, name.',
-    more: 'Say what you want the camera for and I open it ready. The Lens does its work on this phone.',
+    more: 'Say what you want the camera for and I open the Lens ready; the camera itself starts only on your tap. The Lens does its work on this phone.',
     say: ['Open the camera', 'Open the Lens to translate a sign', 'I want to measure something'], scene: ['camera'], cat: 'see', needs: ['camera'],
   },
   'tool:open_space': {
@@ -249,7 +249,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:earthquakes': {
     name: 'Earthquakes around the world', line: 'I can list the earthquakes of the last day around the world, biggest first.',
-    more: 'From the US Geological Survey, magnitude 2.5 and up. God’s eye can show them on the globe.',
+    more: 'From the US Geological Survey, magnitude 4 and up unless you ask for smaller ones (down to 2.5). God’s eye can show them on the globe.',
     say: ['Any earthquakes today?', 'Was there a big quake anywhere?'], scene: ['watching'], cat: 'watch',
   },
   // ---- directions

@@ -22,7 +22,7 @@ interface BillRow {
   due: string;
   paid?: string;
 }
-/** The sheet's pages (its row of buttons, and the HOME screen's pills: features/homeadmin/index.ts). */
+/** The sheet's pages (its row of buttons, and the HOUSEHOLD screen's pills: features/homeadmin/index.ts). */
 export const HOME_VIEWS: { id: HomeWhat; label: string }[] = [
   { id: 'due', label: 'Due' },
   { id: 'bins', label: 'Bins' },
@@ -60,7 +60,7 @@ export async function openHomeadmin(what: string): Promise<void> {
   show(v);
 }
 
-/** One page of the sheet, made by its own function (the sheet's, and the HOME screen's panels). */
+/** One page of the sheet, made by its own function (the sheet's, and the HOUSEHOLD screen's panels). */
 export function homeView(view: HomeWhat): HTMLElement {
   const win = window as unknown as { __ghosty?: Record<string, unknown> };
   if (win.__ghosty) win.__ghosty.homeadmin = homeState;

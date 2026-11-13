@@ -37,7 +37,7 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'delete_widget',
   // Nothing a background run reads may leave instructions behind for later:
   'remember',
-  'learn_lesson', // lessons go into every prompt, so only the owner's own sessions may write them
+  'learn_lesson', // lessons go into every coding prompt, so only the owner's own sessions may write them
   'forget_lesson',
   'library_import', // the library flows into every prompt; only the owner's sessions add to it
   'plan_upgrade', // a roadmap is a standing plan for self-edits; only the owner's sessions set it

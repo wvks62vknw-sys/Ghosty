@@ -147,11 +147,11 @@ export async function outsideTurn(text: string): Promise<PackReply> {
 
 /**
  * [packs3] The home pack's words on this phone: "when are the bins?", "what's due at home?" and "my bills" are answered from my
- * brain's own records with no model (and the HOME sheet a tap away); the meter and the rooms open their pages.
+ * brain's own records with no model (and the HOUSEHOLD sheet a tap away); the meter and the rooms open their pages.
  */
 export async function homeTurn(text: string): Promise<PackReply> {
   const view: HomeView = homeAsked(text) ?? 'due';
-  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOME sheet', run: 'open_homeadmin', args: { what: view } }];
+  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOUSEHOLD sheet', run: 'open_homeadmin', args: { what: view } }];
   if (view === 'bins' || view === 'due' || view === 'bills') {
     try {
       const r = await brain.packDo('homeadmin', view, view === 'due' ? { days: 14 } : {});
