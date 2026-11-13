@@ -413,7 +413,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
 async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string }): Promise<Exported> {
   const ctx = new AudioContext();
   const tap = ctx.createMediaStreamDestination();
-  const player = new Player(c.canvas, c.feeder, p, { audio: !o.silent, ctx, tap });
+  const player = new Player(c.canvas, c.feeder, p, { audio: !o.silent, ctx, tap, stay: true });
   player.blobOf = o.blobOf;
   player.setSize(Math.max(c.s.w, c.s.h));
   player.setProject(p);
@@ -436,11 +436,19 @@ async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string
   });
   const playedAt = performance.now();
   player.play();
-  await ended;
+  // [ci] The file runs from the recorder's start to the last picture that reached it. That last picture is drawn at the timeline's
+  // own length after the start (not when the player's end comes round, which on a slow GPU can be a third of a second either side),
+  // and the recorder stops only once it has had time to take it: two frames and at least 150 ms. Stopped 30 ms after that drawing,
+  // as it was, a phone (or CI's software GPU) drawing three pictures a second had not yet handed it over, and the file ended on an
+  // earlier picture, short of the timeline (FINAL-CI 2).
+  const atEnd = new Promise<void>((ok) => setTimeout(ok, Math.max(0, playedAt + c.dur - performance.now())));
+  await Promise.race([ended, atEnd]);
   player.pause();
-  // one more picture at the very end, then the recorder stops where the timeline does (its file is as long as the video, not a moment less)
+  player.t = Math.min(player.t, Math.max(0, c.dur - 1));
   player.draw();
-  await new Promise((r) => setTimeout(r, Math.max(30, playedAt + c.dur + 40 - performance.now())));
+  const drawnAt = performance.now();
+  for (let k = 0; k < 2; k++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+  await new Promise((r) => setTimeout(r, Math.max(0, drawnAt + 150 - performance.now())));
   rec.stop();
   await stopped;
   stream.getTracks().forEach((t) => t.stop());
