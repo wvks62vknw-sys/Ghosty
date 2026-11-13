@@ -294,3 +294,6 @@ test('the shelf\'s titles matched loosely, as the jump bar matches: exactly, the
   assert.equal(at('ngtwks', [{ id: 'x', title: 'Night Walks' }, { id: 'y', title: 'Nightly Walkers' }]), null);
   assert.equal(at('ngtwks', [{ id: 'x', title: 'Night Walks' }]), 'x', 'with one such book, it is that one');
 });
+
+// MANY WORDINGS, ONE MEANING and COLOURS NAMED PLAINLY (the final round's voice lane): its table test, run from here (package.json is protected)
+await import('./meanings.test.mjs');

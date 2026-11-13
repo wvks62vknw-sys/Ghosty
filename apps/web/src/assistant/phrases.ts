@@ -66,12 +66,20 @@ export function findAsked(text: string): string | null {
   return m ? m[1]!.trim() : null;
 }
 
+/**
+ * [voice lane] "Do you know it's me?", "who's talking?", "can you recognise my voice?": answered from the phone's own tag, truly
+ * (assistant/voiceknown.ts whoWords), before "can you …?" could call it an ability he lacks. His voice is never a lock.
+ */
+export const SPEAKER_ASK = /^(?:(?:hey |ok |so )?(?:ghosty,? )?)(?:do you (?:know|recognise|recognize) (?:it's|its|it is|that it's|that its) me|(?:do|can|could) you (?:know|recognise|recognize|tell|hear) (?:my voice|it's me|its me|it is me|who i am|who's (?:talking|speaking)|who is (?:talking|speaking)|me by my voice|me from my voice|that it's me)|do you know (?:my voice|who's talking|who is talking|who's speaking|who is speaking|who i am|me)|who(?:'s| is) (?:talking|speaking)(?: (?:now|to you|right now))?|whose voice (?:is (?:this|that)|was that|is it)|(?:is|was) (?:that|this|it) me(?: (?:talking|speaking))?|did you recognise (?:me|my voice)|did you recognize (?:me|my voice)|how do you know it's me|are you sure it's me|who said that|who am i to you|recognise me|recognize me)[?.!]*$/i;
+
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
+  { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },

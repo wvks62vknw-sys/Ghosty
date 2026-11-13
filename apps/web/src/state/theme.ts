@@ -40,18 +40,18 @@ export interface Theme {
 
 /** The twelve, Reactor first (the default), then Graphite, then BRIEF-THEMES' ten in its order. Colours: tokens.css. */
 export const THEMES: Record<string, Theme> = {
-  reactor: { label: 'Reactor', tag: 'Reactor cyan, bright and alive' },
-  graphite: { label: 'Graphite', tag: 'Cool steel, a quieter light' },
-  ember: { label: 'Ember', tag: 'Forge orange, warm and bright' },
-  gold: { label: 'Gold', tag: 'The armour’s gold, amber light' },
-  crimson: { label: 'Crimson', tag: 'Deep red, the suit at night' },
-  violet: { label: 'Violet', tag: 'Electric purple' },
-  emerald: { label: 'Emerald', tag: 'Green glass, calm and alive' },
-  ice: { label: 'Ice', tag: 'Pale blue-white, a low cold glow' },
-  rose: { label: 'Rose', tag: 'Coral pink, soft' },
+  reactor: { label: 'Blue', tag: 'Reactor cyan, bright and alive' },
+  graphite: { label: 'Grey', tag: 'Cool steel, a quieter light' },
+  ember: { label: 'Orange', tag: 'Forge orange, warm and bright' },
+  gold: { label: 'Yellow', tag: 'The armour’s gold, amber light' },
+  crimson: { label: 'Red', tag: 'Deep red, the suit at night' },
+  violet: { label: 'Purple', tag: 'Electric purple' },
+  emerald: { label: 'Green', tag: 'Green glass, calm and alive' },
+  ice: { label: 'Light blue', tag: 'Pale blue-white, a low cold glow' },
+  rose: { label: 'Pink', tag: 'Coral pink, soft' },
   lime: { label: 'Lime', tag: 'Acid green, the loud one' },
-  sunset: { label: 'Sunset', tag: 'Orange into pink' },
-  mono: { label: 'Mono', tag: 'White light, glow off, the quietest' },
+  sunset: { label: 'Peach', tag: 'Orange into pink' },
+  mono: { label: 'White', tag: 'White light, glow off, the quietest' },
 };
 export const DEFAULT_THEME = 'reactor';
 

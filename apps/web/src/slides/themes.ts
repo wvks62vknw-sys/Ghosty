@@ -24,17 +24,17 @@ export const THEME_KEYS = ['ghosty', 'paper', 'graphite', 'ember', 'gold', 'crim
 export const THEMES: Record<string, Palette> = {
   ghosty: dark('Ghosty', '#64d2ff', '#bff0ff'),
   paper: { name: 'Paper', ground: '#f3efe6', plate: '#e9e4d9', ink: '#1a1a18', ink2: '#383733', accent: '#355c6b', seq: ['#355c6b', '#8a4f00', '#196530', '#b02a20', '#4e4c46'], dark: false },
-  graphite: dark('Graphite', '#9db7cc', '#dbe6ef'),
-  ember: dark('Ember', '#ff7a3d', '#ffd2bd'),
-  gold: dark('Gold', '#ffc53d', '#ffeab8'),
-  crimson: dark('Crimson', '#ff3b4a', '#ffc2c6'),
-  violet: dark('Violet', '#b18cff', '#e0d2ff'),
-  emerald: dark('Emerald', '#3ddc97', '#bff4dc'),
-  ice: dark('Ice', '#cfe9ff', '#f0f8ff'),
-  rose: dark('Rose', '#ff7eb6', '#ffd0e4'),
+  graphite: dark('Grey', '#9db7cc', '#dbe6ef'),
+  ember: dark('Orange', '#ff7a3d', '#ffd2bd'),
+  gold: dark('Yellow', '#ffc53d', '#ffeab8'),
+  crimson: dark('Red', '#ff3b4a', '#ffc2c6'),
+  violet: dark('Purple', '#b18cff', '#e0d2ff'),
+  emerald: dark('Green', '#3ddc97', '#bff4dc'),
+  ice: dark('Light blue', '#cfe9ff', '#f0f8ff'),
+  rose: dark('Pink', '#ff7eb6', '#ffd0e4'),
   lime: dark('Lime', '#c6ff3d', '#eaffb8'),
-  sunset: dark('Sunset', '#ff7f6e', '#ffd3c8'),
-  mono: dark('Mono', '#ffffff', '#ffffff'),
+  sunset: dark('Peach', '#ff7f6e', '#ffd3c8'),
+  mono: dark('White', '#ffffff', '#ffffff'),
 };
 export const DEFAULT_THEME = 'ghosty';
 
