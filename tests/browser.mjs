@@ -18,8 +18,23 @@ export const isWebKit = engine === 'webkit';
 const SANDBOXED_FRAME = /[Ss]ervice [Ww]orker is disabled because the context is sandboxed/;
 export const webkitNoise = (e) => SANDBOXED_FRAME.test(e.message) || (isWebKit && /ResizeObserver loop completed|due to access control checks/.test(e.message));
 
+/** NO_SHOTS=1: a machine too busy to draw (a screenshot waits 30 s for a frame and the spec dies on it) skips the picture files; every check still runs. */
+function mute(browser) {
+  if (!process.env.NO_SHOTS) return browser;
+  const none = async () => Buffer.alloc(0);
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (o) => {
+    const c = await newContext(o);
+    const newPage = c.newPage.bind(c);
+    c.newPage = async () => Object.assign(await newPage(), { screenshot: none });
+    c.on('page', (p) => (p.screenshot = none));
+    return c;
+  };
+  return browser;
+}
+
 export async function launch(options = {}) {
-  if (!isWebKit) return chromium.launch(options);
+  if (!isWebKit) return mute(await chromium.launch(options));
   const { args: _args, executablePath: _path, channel: _channel, ...rest } = options;
   const browser = await webkit.launch(rest);
   // In WebKit, page.route() never sees a request made by a page that Ghosty's service worker controls (even the
@@ -29,5 +44,5 @@ export async function launch(options = {}) {
   const newPage = browser.newPage.bind(browser);
   browser.newContext = (o = {}) => newContext({ serviceWorkers: 'block', ...o });
   browser.newPage = (o = {}) => newPage({ serviceWorkers: 'block', ...o });
-  return browser;
+  return mute(browser);
 }

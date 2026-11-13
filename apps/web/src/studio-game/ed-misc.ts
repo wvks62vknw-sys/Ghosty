@@ -3,6 +3,7 @@
  * `.ghostygame` with its size said and reads one back; AS AN APP writes one self-contained page to the library with its size said,
  * and says honestly what PUT IT ON MY SITES can and cannot do from here.
  */
+import { bytesOf, MAX_GAME_BYTES } from '../core/safeurl';
 import { h } from '../core/dom';
 import { saveStore } from '../arcade/engines/saves';
 import { toast, undo } from '../ui/components';
@@ -209,7 +210,7 @@ export function sharePill(ctx: Ctx): HTMLElement {
     const f = input.files?.[0];
     input.value = '';
     if (!f) return;
-    const r = await importBytes(new Uint8Array(await f.arrayBuffer()), ctx);
+    const r = await importBytes(await bytesOf(f, MAX_GAME_BYTES), ctx);
     if (r) ctx.go('rooms');
   });
   const result = h('p.stNote', { 'aria-live': 'polite' });

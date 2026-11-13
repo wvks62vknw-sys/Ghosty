@@ -132,11 +132,11 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 await toSystem();
 const line = await page.textContent('#pg-system .storageline');
-check(/^STORAGE: (PROTECTED( · [\d.]+ MB used)?|NOT PROTECTED — .+)$/.test(line ?? ''), `storage line not in plain words: "${line}"`);
+check(/^STORAGE: (PROTECTED( · [\d.]+ MB used)?|NOT PROTECTED — .+?)( · [\d.]+ MB used)? · as of \d\d:\d\d$/.test(line ?? ''), `storage line not in plain words, with its "as of": "${line}"`);
 if (/NOT PROTECTED/.test(line ?? '')) {
   const canAsk = await page.evaluate(() => !!navigator.storage?.persisted);
   if (canAsk) {
-    check(/add Ghosty to your Home Screen \(Share → Add to Home Screen\) so iPhone keeps your data|press PROTECT/.test(line), `no Home Screen advice: "${line}"`);
+    check(/add Ghosty to your Home Screen so iPhone keeps your data|press PROTECT/.test(line), `no Home Screen advice: "${line}"`);
     check(!!(await page.$('#pg-system button:has-text("PROTECT")')), 'no PROTECT button while not protected');
   } else check(/cannot be asked|add Ghosty to your Home Screen/.test(line), `no plain words for a browser that cannot be asked: "${line}"`);
 }

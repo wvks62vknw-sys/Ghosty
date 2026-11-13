@@ -175,6 +175,8 @@ function sourceChips(sources: LearnSource[] = []): HTMLElement {
   );
 }
 
+/** Quiz answers that never reached the brain, by quiz: the DONE line then never claims every miss is a flashcard. */
+const lostAnswers = new Map<string, number>();
 let opener: ((a: Record<string, unknown>) => void) | null = null;
 let waiting: Record<string, unknown> | null = null;
 
@@ -213,6 +215,13 @@ export const learnTab: TabDef = {
 
     // ======================= COURSES
     const cp = panel('COURSES', { cls: 'learncourses' });
+    /** Whether the last sync with the brain went through (the COURSES count is said only then). */
+    let syncOk = true;
+    const syncNow = (): Promise<boolean> =>
+      L.sync().then((ok) => {
+        syncOk = ok;
+        return ok;
+      });
     // ======================= START A COURSE
     const np = panel('START A COURSE', { cls: 'learnnew' });
     const topicIn = h('input', { placeholder: 'What do you want to learn?', 'aria-label': 'Topic to learn', maxlength: '120' });
@@ -289,7 +298,9 @@ export const learnTab: TabDef = {
 
     const paintCourses = () => {
       const s = L.learn.get();
-      cp.setStatus(s.synced ? `${s.courses.length}` : 'ON THIS PHONE', s.synced ? 'ok' : 'mid');
+      // (a count only while the brain answers: offline, or after a sync that failed, the courses are the phone's own copy)
+      const live = !!s.synced && syncOk && navigator.onLine !== false;
+      cp.setStatus(live ? `${s.courses.length}` : 'ON THIS PHONE', live ? 'ok' : 'mid');
       clear(cp.body);
       if (!s.courses.length) {
         const none = empty('NONE', 'Start one below, or just say “teach me photosynthesis”.', 'No courses yet');
@@ -538,11 +549,11 @@ export const learnTab: TabDef = {
         sp.title.textContent = 'QUIZ · DONE';
         const pct = Math.round((right / q.questions.length) * 100);
         sp.body.append(
-          h('div.learnscore', h('b', `${right} / ${q.questions.length}`), h('small', pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good — the misses (and lucky guesses) are now flashcards.' : 'Worth another go — the misses are now flashcards.')),
+          h('div.learnscore', h('b', `${right} / ${q.questions.length}`), h('small', lostAnswers.get(q.id) ? `${pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good.' : 'Worth another go.'} Some answers didn’t reach me, so not every miss is a flashcard yet.` : pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good — the misses (and lucky guesses) are now flashcards.' : 'Worth another go — the misses are now flashcards.')),
           h('div.row.wrap.learnbar', button('NEW QUIZ', () => void startQuiz(q.course !== 'general' ? { course: q.course } : { topic: q.topic }), 'on'), L.dueCards().length ? button('REVISE', () => showRevise({ limit: 10 })) : '', q.course !== 'general' ? button('BACK TO COURSE', () => void showCourse(q.course)) : ''),
         );
         // The brain's score for the course, now that every answer is in.
-        void L.sync().then(() => paintAll());
+        void syncNow().then(() => paintAll());
         paintAll();
         return;
       }
@@ -587,7 +598,7 @@ export const learnTab: TabDef = {
               choices[Number(item.answer)]?.classList.add('good');
               const guessNote = ok && conf === 'guess' ? ' A lucky guess still becomes a card.' : !ok && conf === 'sure' ? ' You were sure: this card comes back more often.' : '';
               done(ok, `${ok ? `Right.${item.why ? ` ${item.why}` : ''}` : wrongAnswer(LETTERS[Number(item.answer)]!, String(item.choices?.[Number(item.answer)] ?? ''), item.why)}${guessNote}`, !ok || conf === 'guess');
-              void L.answer({ quiz: q.id, q: item.id, answer: k, conf }).catch(() => undefined).finally(() => paintAll());
+              void L.answer({ quiz: q.id, q: item.id, answer: k, conf }).catch(() => void lostAnswers.set(q.id, (lostAnswers.get(q.id) ?? 0) + 1)).finally(() => paintAll());
             }));
           }, 'learnchoice');
           return b;
@@ -634,7 +645,9 @@ export const learnTab: TabDef = {
         done();
       } catch (e) {
         done();
-        clear(sp.body, h('div.note', sayError(e, 'make that exam')), button('BACK TO COURSE', () => void showCourse(courseId)));
+        // (another course's exam is still open: the way to it, not only the way back)
+        const open = L.learn.get().exam;
+        clear(sp.body, h('div.note', sayError(e, 'make that exam')), open && open.exam.course !== courseId ? button('RESUME THAT EXAM', () => void showExam(open.exam.course), 'on') : null, button('BACK TO COURSE', () => void showCourse(courseId)));
         return;
       }
       if (view === 'exam') runExam();
@@ -732,7 +745,7 @@ export const learnTab: TabDef = {
       }
       showExamResult(r, e.exam);
       paintAll();
-      void L.sync().then(() => paintAll());
+      void syncNow().then(() => paintAll());
     };
 
     const showExamResult = (r: ExamMarked, exam: { course: string; title: string; questions: QuizQuestion[] }) => {
@@ -813,7 +826,7 @@ export const learnTab: TabDef = {
 
     const handle = (a: Record<string, unknown>) => {
       const id = typeof a.course === 'string' ? a.course : '';
-      void L.sync().then(() => {
+      void syncNow().then(() => {
         paintAll();
         if (typeof a.quiz === 'string') void L.quizById(a.quiz).then((q) => (q ? showQuiz(q) : toast('That quiz is no longer kept', 'warn')));
         else if (a.view === 'revise') showRevise({ limit: 10 });
@@ -847,7 +860,7 @@ export const learnTab: TabDef = {
         paintAll();
         // An exam left open: back on its question with the time that is really left (or marked, if it ran out).
         if (view === 'exam' && L.learn.get().exam) runExam();
-        void L.sync().then(() => {
+        void syncNow().then(() => {
           paintAll();
           if (view === 'home') showHome();
         });

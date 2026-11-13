@@ -9,6 +9,7 @@
  * The mark (STANDARD, the second habit): WORKING with a voice enrolled, DEGRADED with none ("no voice enrolled yet": ENROL), and
  * never OFFLINE, because it needs no signal (said).
  */
+import { para } from '../../ui/oneline';
 import { clear, h } from '../../core/dom';
 import { listen, sound, speak, stopListening, takeSound, talkHooks, voiceSupport } from '../../assistant/voice';
 import { refresh as refreshKnown, lastScore } from '../../assistant/voiceknown';
@@ -89,7 +90,7 @@ async function readEach(stage: Stage, who: string): Promise<Voiced[] | null> {
       else stage.say(`${who} · ${i + 1} of ${READ.length}`, READ[i]!, v.secs > 0.2 ? 'I only caught a little of that: once more, a touch louder.' : 'I didn’t hear anything: once more.');
     }
     if (!ok) {
-      if (!stage.cancelled()) stage.say('I couldn’t hear you well enough. Try again somewhere quieter, with the phone close.');
+      if (!stage.cancelled()) stage.say('I couldn’t hear you well enough; try again somewhere quieter, with the phone close.');
       return null;
     }
     got.push(ok);
@@ -158,7 +159,7 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
     } else keys.push(key('ENROL', () => void start(), { kind: 'fill', label: 'Enrol my voice: read three short sentences' }));
     clear(
       body,
-      h('p.vk-lede', { dataset: { case: 'keep' } }, 'I’ll know it’s you. It never unlocks anything: the confirm tap still does.'),
+      h('p.vk-lede', { dataset: { case: 'keep' } }, 'I’ll know it’s you; it never unlocks anything: the confirm tap still does.'),
       h('div.vk-marks', { role: 'list', 'aria-label': 'How it is now' },
         (() => {
           const l = truthLine([{ text: 'My voice', tone: 'strong' }, { text: mark.word, tone: mark.tone }, mark.why]);
@@ -178,9 +179,9 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
           return l;
         })()),
       h('div.vk-keys', ...keys),
-      h('p.vk-note', { dataset: { case: 'keep' } }, 'What it is for: when you talk to me I check the sound against yours and show YOU on the bar. When it is someone else I ask before I go on, and I say nothing private to them.'),
-      h('p.vk-note', { dataset: { case: 'keep' } }, 'What it is not: a lock. A recording of you can fool it, and a cold or a whisper can make me doubt you. Everything that matters still needs your tap.'),
-      h('p.vk-note', { dataset: { case: 'keep' } }, 'What I keep: a few hundred numbers about how you sound, never a recording. They stay on this phone: not sent to my brain, not in a backup.'),
+      ...para('p.vk-note', 'What it is for: when you talk to me I check the sound against yours and show YOU on the bar. When it is someone else I ask before I go on, and I say nothing private to them.'),
+      ...para('p.vk-note', 'What it is not: a lock. A recording of you can fool it, and a cold or a whisper can make me doubt you. Everything that matters still needs your tap.'),
+      ...para('p.vk-note', 'What I keep: a few hundred numbers about how you sound, never a recording. They stay on this phone: not sent to my brain, not in a backup.'),
     );
   };
 
@@ -206,8 +207,8 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
       await refreshKnown();
       lastEnrol.ms = Math.round(performance.now() - t0);
       lastEnrol.who = 'me';
-      toast('Got it. I’ll know your voice now.', 'ok');
-    } else if (looks) toast('I couldn’t get a clean enough read of your voice. Try again somewhere quieter.', 'warn');
+      toast('Got it; i’ll know your voice now.', 'ok');
+    } else if (looks) toast('I couldn’t get a clean enough read of your voice; try again somewhere quieter.', 'warn');
     await paint();
   };
 
@@ -253,11 +254,11 @@ export function peoplePanel(): { el: HTMLElement; refresh(): Promise<void> } {
     add.disabled = full || busy;
     clear(
       body,
-      h('p.vk-lede', { dataset: { case: 'keep' } }, others.length ? 'I know these voices, because each of them said yes to me aloud.' : 'No one yet. I only learn a voice with its owner here, saying yes aloud.'),
+      h('p.vk-lede', { dataset: { case: 'keep' } }, others.length ? 'I know these voices, because each of them said yes to me aloud.' : 'No one yet; I only learn a voice with its owner here, saying yes aloud.'),
       list,
       h('div.vk-add', h('label.vk-label', { for: 'vk-name', dataset: { case: 'keep' } }, 'THEIR NAME'), Object.assign(name, { id: 'vk-name' }), add),
-      h('p.vk-note', { dataset: { case: 'keep' } }, full ? `I keep ${MAX_VOICES} people at most, so it never becomes a roll of strangers. Forget someone to add another.` : `Only with them here: I ask them aloud, they say yes, then they read three sentences. I keep ${MAX_VOICES} people at most, so it never becomes a roll of strangers.`),
-      h('p.vk-note', { dataset: { case: 'keep' } }, 'I only ever use this to say a name when I hear one of these voices. A voice that matches none of them is just a voice I don’t know: I never guess a name.'),
+      h('p.vk-note', { dataset: { case: 'keep' } }, full ? `I keep ${MAX_VOICES} people at most, so it never becomes a roll of strangers; forget someone to add another.` : `Only with them here: I ask them aloud, they say yes, then they read three sentences; I keep ${MAX_VOICES} people at most, so it never becomes a roll of strangers.`),
+      ...para('p.vk-note', 'I only ever use this to say a name when I hear one of these voices. A voice that matches none of them is just a voice I don’t know: I never guess a name.'),
     );
   };
 

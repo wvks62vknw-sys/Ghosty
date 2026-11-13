@@ -54,7 +54,7 @@ export const dataTools: Tool[] = [
   },
   {
     name: 'earthquakes',
-    description: 'Recent earthquakes worldwide from USGS (last 24 hours, magnitude 2.5+), biggest first.',
+    description: 'Recent earthquakes worldwide from USGS (last 24 hours, M4+ by default), biggest first.',
     parameters: { type: 'object', properties: { min_magnitude: { type: 'number' } } },
     risk: 'auto',
     pure: true,

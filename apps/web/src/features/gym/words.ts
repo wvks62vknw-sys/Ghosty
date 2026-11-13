@@ -13,7 +13,7 @@ export const TRAIN_FAILED = 'Training stopped by itself. Tap TRAIN and I’ll tr
 export const TRAIN_CANNOT = 'I can’t train on this phone just now. Close other apps, then tap TRAIN.';
 
 /** A move I could not work out (the board is kept; the one way on). */
-export const MOVE_FAILED = 'I couldn’t work out my move. Tap PLAY AGAIN to start over.';
+export const MOVE_FAILED = 'I couldn’t work out my move. Tap NEW GAME to start over.';
 
 /** How a finished game is said: as that, and the key that follows it. */
 export const overWords = (over: string): string => over.replace(/\bYou win\.$/, 'You beat me.').replace(/\bI win\.$/, 'I won this one.');
@@ -38,3 +38,6 @@ export function chessLine(you: number | null, me: number | null, rd: number): st
 
 /** The chat phrase that opens the chess rating on the phone (the one local ask the GYM has), listed in one line. */
 export const PHRASES = ['my chess rating'];
+
+/** The league's one helper sentence: the rating has no human-scale word and compares only with my own earlier versions. */
+export const LEAGUE_HELPER = 'This rating compares me only with my own earlier versions, never with people.';

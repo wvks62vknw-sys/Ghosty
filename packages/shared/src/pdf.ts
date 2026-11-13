@@ -16,8 +16,11 @@ export interface PdfText {
   warning?: string;
 }
 
-/** Inflate zlib ('deflate') or raw deflate data; null when nothing decodes (a corrupt tail keeps what decoded). */
-export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-raw'): Promise<Uint8Array | null> {
+/** [security] The most one stream may inflate to (a PDF or zip bomb stops here, not at the phone's or brain's memory). */
+export const MAX_INFLATE_ALL = 256 * 1024 * 1024;
+
+/** Inflate zlib ('deflate') or raw deflate data; null when nothing decodes, or when it inflates past `max` (a corrupt tail keeps what decoded). */
+export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-raw', max = MAX_INFLATE_ALL): Promise<Uint8Array | null> {
   try {
     const ds = new DecompressionStream(format);
     const writer = ds.writable.getWriter();
@@ -36,6 +39,10 @@ export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-
       if (r.done) break;
       parts.push(r.value);
       size += r.value.length;
+      if (size > max) {
+        reader.cancel().catch(() => undefined);
+        return null;
+      }
     }
     if (!size) return null;
     const out = new Uint8Array(size);
@@ -247,7 +254,10 @@ export async function extractPdf(bytes: Uint8Array, fallbackTitle: string): Prom
   })();
   const total = texts.join('').replace(/\s/g, '').length;
   const warning = encrypted ? 'This PDF is encrypted.' : total < Math.max(60, pages.length * 40) ? 'Very little text found — this PDF may be scanned images.' : undefined;
-  return { title: (title && /[a-z]{3}/i.test(title) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning, ...(author ? { author } : {}) };
+  // (a title a program put there, not a person: a page printed from a browser says "about:blank" or its address, and many
+  // tools say "Untitled"; the file's own name is the better title then)
+  const junk = !title || /^(about:blank|untitled(\s+document)?|document\d*|[a-z][a-z0-9+.-]*:\/\/\S+)$/i.test(title.trim());
+  return { title: (!junk && /[a-z]{3}/i.test(title!) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning, ...(author ? { author } : {}) };
 }
 
 /** ToUnicode CMap: bfchar and bfrange entries. */

@@ -7,6 +7,7 @@
  * properties at the head; ASK ABOUT THIS PROJECT (the project's text as one chat turn's data, its size said first); EXPORT as a zip of Markdown and
  * CSV, IMPORT of Markdown, a folder, a zip or a CSV. Autosave said once; reopened where he was. Everything is on the phone; only an ASK leaves it.
  */
+import { bytesOf } from '../core/safeurl';
 import { h, clear, icon } from '../core/dom';
 import { sayError } from '../ui/hisWords';
 import { button, modal } from '../ui/components';
@@ -550,7 +551,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     for (const f of files) {
       if (/\.zip$/i.test(f.name)) {
         try {
-          for (const [p, b] of unzipSync(new Uint8Array(await f.arrayBuffer()))) {
+          for (const [p, b] of unzipSync(await bytesOf(f))) {
             if (p.endsWith('/') || /^__MACOSX\//.test(p)) continue;
             if (/\.(md|markdown|txt|csv)$/i.test(p)) all.push({ path: p, text: new TextDecoder().decode(b) });
             else lost.push(`${p.split('/').pop()} (not Markdown or CSV)`);

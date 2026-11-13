@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts') },
+  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts') },
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -24,12 +24,13 @@ const M = await import('./.build/meanings/meanings.mjs');
 const C = await import('./.build/meanings/colours.mjs');
 const TH = await import('./.build/meanings/themes.mjs');
 const P = await import('./.build/meanings/phrases.mjs');
+const SA = await import('./.build/meanings/screenasks.mjs');
 
 /** The table that answers words first on the phone (assistant/local.ts localTurn's order), or null. */
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
 
 /** Which phone table each meaning's canonical words belong to. */
-const TABLE_OF = { water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video' };
+const TABLE_OF = { look: 'look', water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video', money: 'moneyapp', comic: 'comic' };
 
 /** What his words end up doing on the phone: a table's id when a table takes them as said, else the meaning's id, the question, or null. */
 function route(t) {
@@ -44,17 +45,17 @@ function route(t) {
 // ---------------------------------------------------------------- the wordings, by ability
 
 const W = {
-  radio: ['play music', 'play some music', 'put some music on', 'put some tunes on', 'stick some tunes on', 'bung the radio on', 'put the radio on', 'whack some music on', 'play the radio', 'play radio', 'radio on', 'music on', 'turn on the radio', 'fire up the radio', 'I want some music', 'I fancy some music', 'I want to hear something', 'I wanna listen to some music', 'let me hear some tunes', 'listen to the radio', 'play my last station', 'play my favourite station', 'give me some tunes', 'chuck some music on', 'music', 'tunes', 'some tunes please', "it's too quiet in here", 'get the party started', 'play some bangers', 'put a song on', 'play a tune', 'I need some background music', 'switch on the radio', 'start the radio', 'pop some music on', 'throw some tunes on', 'play something to listen to'],
+  radio: ['play music', 'play some music', 'put some music on', 'put some tunes on', 'stick some tunes on', 'bung the radio on', 'put the radio on', 'whack some music on', 'play the radio', 'play radio', 'radio on', 'music on', 'turn on the radio', 'fire up the radio', 'I want some music', 'I fancy some music', 'I want to hear something', 'I wanna listen to some music', 'let me hear some tunes', 'listen to the radio', 'play my last station', 'play my favourite station', 'give me some tunes', 'chuck some music on', 'music', 'tunes', 'some tunes please', "it's too quiet in here", 'get the party started', 'play some bangers', 'put a song on', 'play a tune', 'I need some background music', 'switch on the radio', 'start the radio', 'pop some music on', 'throw some tunes on', 'play something to listen to', 'bang some music on', 'can we have some music', 'some music would be nice', 'play us a tune', 'get some music going', 'drop some beats'],
   'radio-stop': ['stop the music', 'kill the music', 'turn off the radio', 'radio off', 'music off', 'turn the music off', 'pause the music', 'mute the radio', 'cut the music', 'switch off the radio', 'enough music', 'shut the radio off', 'stop the radio'],
   'radio screen': ['open the radio', 'show me the radio stations', 'go to the radio', 'take me to the radio'],
-  water: ['log a glass of water', 'log a glass', 'log a cup of water', 'add a glass of water', "I've had a glass of water", 'I had a glass of water', 'just had a glass of water', 'I drank a glass of water', "I've just drunk a bottle of water", 'had some water', 'I necked a glass of water', 'record a glass of water', 'track a water', 'count another glass', 'water logged', "I'm hydrated", 'another water', 'one water', "I've had a glass", 'log another glass of water', 'mark a bottle of water', 'add water', 'just drank some water'],
+  water: ['log a glass of water', 'log a glass', 'log a cup of water', 'add a glass of water', "I've had a glass of water", 'I had a glass of water', 'just had a glass of water', 'I drank a glass of water', "I've just drunk a bottle of water", 'had some water', 'I necked a glass of water', 'record a glass of water', 'track a water', 'count another glass', 'water logged', "I'm hydrated", 'another water', 'one water', "I've had a glass", 'log another glass of water', 'mark a bottle of water', 'add water', 'just drank some water', 'log my water'],
   'water-pint': ['log a pint', 'log a pint of water', "I've had a pint of water", 'just necked a pint of water', 'add a pint', 'I drank a pint of water', 'record a pint of water'],
   'lights-on': ['turn the lights on', 'turn on the lights', 'switch the lights on', 'flick the lights on', 'put the lights on', 'let there be light', "it's too dark in here", 'get the lights', 'switch on the lights'],
   'lights-off': ['turn the lights off', 'turn off the lights', 'kill the lights', 'cut the lights', 'switch the lights off', 'knock the lights off', 'shut the lights off', "it's too bright in here", 'lose the lights', 'flick the lights off', 'all lights out'],
-  timer: ['timer for 10 minutes', 'set a timer for ten minutes', 'countdown 5 minutes', 'count down three minutes', 'give me a shout in 10 minutes', 'give us a shout in twenty minutes', 'buzz me in 5 minutes', 'shout at me in 2 minutes', 'time 4 minutes', 'ten minute timer', '5 min timer', 'timer 30 seconds', 'start a timer for 15 minutes', 'set an alarm for 20 minutes', 'ping me in 3 mins', 'nudge me in a couple of minutes', 'remind me when 10 minutes is up', 'eggs for 6 minutes', 'pasta needs 11 minutes', 'tea 4 minutes', 'timer for an hour', 'timer for half an hour', 'timer for a minute', 'give me a buzz in five minutes', 'set timer 45 minutes', 'countdown of 90 seconds', 'start a countdown for 2 minutes'],
-  map: ['show me the map', 'open the map', 'bring up the map', 'pull up the map', 'open maps', 'take me to the map', 'show me the globe', "open god's eye", 'gods eye', 'let me see the map', 'I need the map', 'where am I on the map', 'show me the world map'],
+  timer: ['timer for 10 minutes', 'set a timer for ten minutes', 'countdown 5 minutes', 'count down three minutes', 'give me a shout in 10 minutes', 'give us a shout in twenty minutes', 'buzz me in 5 minutes', 'shout at me in 2 minutes', 'time 4 minutes', 'ten minute timer', '5 min timer', 'timer 30 seconds', 'start a timer for 15 minutes', 'set an alarm for 20 minutes', 'ping me in 3 mins', 'nudge me in a couple of minutes', 'remind me when 10 minutes is up', 'eggs for 6 minutes', 'pasta needs 11 minutes', 'tea 4 minutes', 'timer for an hour', 'timer for half an hour', 'timer for a minute', 'give me a buzz in five minutes', 'set timer 45 minutes', 'countdown of 90 seconds', 'start a countdown for 2 minutes', 'wake me in 20 minutes', 'time me for 3 minutes'],
+  map: ['show me the map', 'open the map', 'bring up the map', 'pull up the map', 'open maps', 'take me to the map', 'show me the globe', "open god's eye", 'gods eye', 'let me see the map', 'I need the map', 'where am I on the map', 'show me where I am', 'open google maps', 'show me the world map'],
   lens: ['open the lens', 'open lens', 'start the lens', 'launch the scanner', 'fire up the lens', 'use the lens', 'tell me what this is', 'have a look at this', 'bring up the lens', 'google lens', 'open visual search'],
-  comic: ['open the comic', 'make a comic', 'draw a comic', 'write a comic', 'create a comic book', 'make me a comic strip', 'read a comic', 'open my comics', 'show me the comics', 'start a graphic novel', 'make a manga', "let's make a comic", 'comic time'],
+  comic: ['open the comic', 'make a comic', 'draw a comic', 'write a comic', 'create a comic book', 'make me a comic strip', 'read a comic', 'open my comics', 'show me the comics', 'start a graphic novel', 'make a manga', "let's make a comic", 'comic time', 'new comic'],
   docs: ['write a letter', 'write a document', 'start a doc', 'open a new document', 'draft a letter', 'type up a report', 'make a word document', 'create a document', 'write an essay', 'open my documents', 'type a letter'],
   sheets: ['make a spreadsheet', 'start a spreadsheet', 'create a sheet', 'open excel', 'make an excel sheet', 'build a budget sheet', 'open my spreadsheets', 'make a table', 'new workbook'],
   slides: ['make a presentation', 'build a slideshow', 'create a slide deck', 'make a powerpoint', 'put together a presentation', 'open my presentations', 'start a deck', 'make some slides', 'make a keynote'],
@@ -62,20 +63,24 @@ const W = {
   video: ['edit a video', 'trim a clip', 'cut my video', 'make a video', 'splice this footage', 'open my videos', 'show my clips', 'video editor', 'chop a clip', 'edit my film', 'make a reel'],
   games: ['open the arcade', 'go to the arcade', 'play an arcade game', 'play some retro games', 'fancy an arcade game', "let's play arcade games"],
   'board games': ['play chess', 'play a game of chess', "let's play draughts", 'play checkers', 'play a board game', 'fancy a game of chess', 'play connect four'],
-  weather: ["what's the weather", 'what is the weather like', "how's the weather looking", 'is it going to rain', 'is it gonna rain today', 'will it rain later', 'is it gonna chuck it down', 'is it going to tip it down', 'do I need a coat', 'should I take a brolly', 'should I bring an umbrella today', 'weather', 'the forecast', 'forecast tomorrow', "what's it like outside", 'will it be cold tomorrow', 'is it sunny', 'will it snow tonight', "how's the forecast today", 'is it windy'],
+  weather: ["what's the weather", 'what is the weather like', "how's the weather looking", 'is it going to rain', 'is it gonna rain today', 'will it rain later', 'is it gonna chuck it down', 'is it going to tip it down', 'do I need a coat', 'should I take a brolly', 'should I bring an umbrella today', 'weather', 'the forecast', 'forecast tomorrow', "what's it like outside", 'will it be cold tomorrow', 'is it sunny', 'will it snow tonight', "how's the forecast today", 'is it windy', 'what is the weather going to be like tomorrow'],
   news: ["what's the news", "what's in the news", 'any news', 'the headlines', 'news please', 'read me the news', 'tell me the headlines', "what's the latest news", 'what is happening in the world', 'give me the top stories', 'headlines today', "what's going on out there"],
   settings: ['open settings', 'show the settings', 'go to settings', 'preferences', 'open the options', 'change my settings', 'take me to settings', 'bring up the control panel', 'settings'],
   agenda: ['open my diary', 'show my calendar', 'check my schedule', 'my diary', 'calendar', "what's on my calendar", 'open the agenda', 'show me my week', 'bring up my planner'],
   money: ['show me my money', 'open my finances', 'check my spending', 'how much have I spent', "where's my money gone", 'open my budget', 'check my bank', 'show my accounts'],
   library: ['open the library', 'show me my books', 'take me to my bookshelf', 'read a book', 'I want to read a book', 'open my reading list', 'read me a book'],
+  look: ['change the colour', 'change the theme', 'pick a colour', 'show me the colours', 'open the themes', 'change your colour'],
   learn: ['open learn', 'show me the lessons', 'teach me something', 'learn something new', 'I want to learn something', 'take me to the courses', 'help me learn something'],
 };
 const EXPECT = { 'water-pint': 'water' };
 /** The wrappings round a request, which change nothing of what is asked. */
 const WRAP = [(b) => b, (b) => `please ${b}`, (b) => `${b} please`, (b) => `ghosty, ${b}`, (b) => `hey ghosty ${b}`, (b) => `${b} mate`, (b) => `${b[0].toUpperCase()}${b.slice(1)}!`];
-const accepts = (want, r) => {
+/** (POLISH 3) The meanings that open a screen, and that screen: a plain "open the arcade" is taken first by the phone's open-a-screen table, which opens the same screen. */
+const SCREEN_OF = { games: 'arcade', learn: 'learn' };
+const accepts = (want, r, t = '') => {
   if (!r) return false;
   if (r.by === 'meaning') return r.id === want;
+  if (r.by === 'table' && r.id === 'openscreen') return !!SCREEN_OF[want] && SA.screenAsked(t)?.tab === SCREEN_OF[want];
   if (r.by === 'table') return TABLE_OF[want] === r.id;
   return false;
 };
@@ -90,7 +95,7 @@ test('hundreds of wordings, each to its one ability, through the phone’s own o
         const t = wrap(base);
         n++;
         const r = route(t);
-        if (!accepts(want, r)) wrong.push(`"${t}" → ${r ? `${r.by} ${r.id}` : 'nothing'} (want ${want})`);
+        if (!accepts(want, r, t)) wrong.push(`"${t}" → ${r ? `${r.by} ${r.id}` : 'nothing'} (want ${want})`);
       }
   }
   console.log(`MEASURED meanings: ${n} wordings over ${Object.keys(W).length} abilities, ${n - wrong.length} right`);
@@ -137,9 +142,10 @@ test('every screen a meaning opens is a real tab of the app, and its line is sai
       }
     }
   const comic = M.meaningOf('make a comic');
-  assert.deepEqual([comic.open, comic.panel], ['creative', 'comic'], 'the comic is the creative screen’s COMIC panel');
-  const creative = readFileSync(at('../../web/src/features/creative/index.ts'), 'utf8');
-  assert.match(creative, /id: 'comic'/, 'the creative screen has its comic panel');
+  // (the comic is its own screen since the FINAL ROUND's comic lane: features/comic, its shelf, MAKE and the library)
+  assert.deepEqual([comic.open, comic.panel], ['comic', undefined], 'the comic opens the COMIC screen');
+  const comicTab = readFileSync(at('../../web/src/features/comic/index.ts'), 'utf8');
+  assert.match(comicTab, /id: 'comic'/, 'the comic screen is a tab of its own');
 });
 
 test('words that could mean two things ask one short question, with both as keys', () => {
@@ -163,7 +169,7 @@ test('words that could mean two things ask one short question, with both as keys
   const src = readFileSync(at('../../web/src/assistant/meaningturn.ts'), 'utf8');
   for (const [id, words] of [...src.matchAll(/^\s+'?([\w ]+)'?: '([^']+)',$/gm)].map((m) => [m[1], m[2]])) {
     const r = route(words);
-    assert.ok(r && r.by !== 'two' && (r.id === id || TABLE_OF[id] === r.id), `the ${id} key's words "${words}" → ${JSON.stringify(r && r.id)}`);
+    assert.ok(r && r.by !== 'two' && (r.id === id || TABLE_OF[id] === r.id || accepts(id, r, words)), `the ${id} key's words "${words}" → ${JSON.stringify(r && r.id)}`);
   }
 });
 
@@ -207,7 +213,7 @@ test('"make it red", "red theme" and "change the colour to blue" change the colo
   const base = TH.recipeFrom('reactor');
   const asks = {
     'make it red': 'crimson', 'red theme': 'crimson', 'Red': 'crimson', 'change the colour to blue': 'reactor', 'change the theme to green': 'emerald', 'can you make it purple please': 'violet',
-    'make everything pink': 'rose', 'switch to orange': 'ember', 'go yellow': 'gold', 'set the accent to teal': 'reactor', 'paint it scarlet': 'crimson', 'crimson theme': 'crimson', 'make it navy': 'reactor', 'emerald': 'emerald',
+    'make everything pink': 'rose', 'switch to orange': 'ember', 'go yellow': 'gold', 'set the accent to teal': 'reactor', 'paint it scarlet': 'crimson', 'turn yourself red': 'crimson', 'make yourself green': 'emerald', 'crimson theme': 'crimson', 'make it navy': 'reactor', 'emerald': 'emerald',
     'I want it lime green': 'lime', 'light blue please': 'ice', 'make it light blue': 'ice', 'turn it peach': 'sunset', 'the colour to coral': 'sunset', 'white light': 'mono', 'grey colour': 'graphite', 'blue colour scheme': 'reactor',
     'change the colour to red please': 'crimson', 'Ghosty, make it gold': 'gold', 'switch the theme to violet': 'violet', 'red mode': 'crimson', 'make it maroon': 'crimson', 'change your colour to green': 'emerald',
   };

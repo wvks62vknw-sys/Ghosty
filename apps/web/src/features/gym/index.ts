@@ -46,7 +46,7 @@ import * as store from './store';
 import { sayError, trail } from '../../ui/hisWords';
 import { waiting as waitFor } from '../../ui/wait';
 import { phrases } from '../lifeui';
-import { AGAIN, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
+import { AGAIN, LEAGUE_HELPER, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
 export const gymState = {
@@ -548,7 +548,7 @@ export const gymTab: TabDef = {
     // the same Glicko-2 as the chess above. Search alone until trained; nothing learns on the phone.
     const boardsHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Report card'), h('span', 'Board games'));
     const boards = h('div.gymboards', { role: 'list', 'aria-label': 'Ratings in the six games he can lose to' });
-    const paintBoards = () => clear(boards, ...RATED_IDS.map((id) => h('div.gb', { role: 'listitem', dataset: { board: id } }, h('b', BOARD_NAMES[id]), h('span', reportLine(id)))), h('small.gbnote', 'Ghosty searches on this phone. He is search alone until the GYM trains him on the free GPU; nothing learns here.'));
+    const paintBoards = () => clear(boards, ...RATED_IDS.map((id) => h('div.gb', { role: 'listitem', dataset: { board: id } }, h('b', BOARD_NAMES[id]), h('span', reportLine(id)))), h('small.gbnote', 'In these six I search for my moves on this phone, move by move; the GYM’s training above does not reach them yet.'));
     paintBoards();
     cardsP.body.append(boardsHead, boards);
     // ======================= the game as a pushed screen (phones)
@@ -636,7 +636,13 @@ export const gymTab: TabDef = {
     const ideas = h('section.gymideas');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
-    const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
+    // (an empty secret is said beside the box, never sent to be played)
+    const goSecret = () => {
+      const v = secretIn.value.trim();
+      if (!v) return void (secretIn.placeholder = 'Type your secret first');
+      void watch(v);
+    };
+    const secretGo = button('GO', goSecret, 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
     gameP.body.append(hero, learns, status, trainErr, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
@@ -789,7 +795,7 @@ export const gymTab: TabDef = {
         const bytes = lg.versions.reduce((t, v) => t + v.bytes, 0);
         const last = lg.verdicts.at(-1);
         parts.push(
-          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
+          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small.gymleaguehelp', LEAGUE_HELPER), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
       if (open.id === 'chess') parts.push(rated.el);
@@ -882,6 +888,8 @@ export const gymTab: TabDef = {
           (e: unknown) => {
             locking = false;
             note(sayError(e, 'keep the screen awake'));
+            // (the phone said no: the switch says so under its name, rather than staying on as if it worked)
+            awakeSw.set(prefs.awake, true, `${sayError(e, 'keep the screen awake')} Plug the phone in and keep it open instead.`);
           },
         );
       } else if (!wantAwake() && lock) {
@@ -1180,7 +1188,8 @@ export const gymTab: TabDef = {
     const round = async (id: string, loop: boolean, secret?: string) => {
       const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
       if (m.error) {
-        clear(board, h('div.note.bad', `I couldn’t play that: ${m.error}`));
+        trail(m.error, 'gym watch');
+        clear(board, h('div.note.bad', 'I couldn’t play that one just now. Try WATCH again.'));
         if (watchOn === id) stopWatch();
         paint();
         return;
@@ -1388,7 +1397,7 @@ export const gymTab: TabDef = {
       pl.why = m.why?.reason ?? '';
       paintPlay((pl.over && overWords(pl.over)) || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
     };
-    secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
+    secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && goSecret());
 
     // ======================= hidden app, or a paper being sat (heavy mode) → pause (and save); back → carry on
     const away = () => document.hidden || heavy.get().on;
@@ -1442,6 +1451,8 @@ export const gymTab: TabDef = {
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)
     const fresh = { ...prefs };
+    // (until his records are read the cards are not yet his: said, never shown as wiped)
+    P.sub.textContent = 'Reading what I’ve learned…';
     ready = Promise.all([store.loadAll(), store.loadPrefs(), store.loadJournal()]).then(([all, kept, jr]) => {
       // (a game finished while this was loading is kept too)
       journal = { c4: [...jr.c4, ...journal.c4], seen: jr.seen ?? null };

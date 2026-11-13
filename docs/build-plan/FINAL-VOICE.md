@@ -61,8 +61,8 @@ Where the words fairly mean two things, it asks one short question with both as 
 
 The radio tool's description now says plain asks for music mean it too.
 
-**Proof.** `meanings.test.mjs` runs 2,149 wordings over 25 abilities through the phone's real order (its tables first, then the
-meanings), and all 2,149 come out right. It also proves:
+**Proof.** `meanings.test.mjs` runs 2,282 wordings over 26 abilities through the phone's real order (its tables first, then the
+meanings), and all 2,282 come out right. It also proves:
 - every canonical phrase is taken by its own table;
 - every screen it opens is a real tab;
 - every two-way key's words lead back to exactly that meaning;
@@ -98,7 +98,7 @@ was called red.
 
 ## Checks run
 - Typecheck (web): clean.
-- Brain tests: meanings (2,149 wordings, all right), voiceknown, prompt (worst turn 5,498 of 5,500 after the merge), look, catalogue, social, car,
+- Brain tests: meanings (2,282 wordings, all right), voiceknown, prompt (worst turn 5,498 of 5,500 after the merge), look, catalogue, social, car,
   ratchet and knowledge. The full suite ran 2,161 passing with one red: speaker.test's "never a lock" ratchet caught the word "unlocks"
   in my answer text. I reworded it to "It never opens anything on its own: it's a courtesy, never a lock", and speaker and voiceknown
   passed again.
@@ -119,6 +119,19 @@ was called red.
 - **I didn't change the protected `tools/index.ts`.** On Telegram, "put some tunes on" still relies on the brain's own word match;
   the phone handles every app turn first.
 - **push.ts:** a browser that blocks service workers (a private window) made the app throw at start. It now says push is unsupported.
+
+## Adversarial pass (19:30 UTC)
+I tried about 130 more wordings to find wrong matches and gaps.
+- **Wrong matches:** none against ordinary chat ("set the table for dinner", "had a glass of wine", "the radio said it would rain").
+  "Show me the money" opens Money, which is fair.
+  Two idioms are read as colour asks, "go green" and "green light". They change only the colour and
+  say so, so I left them.
+- **Gaps closed:** "bang some music on", "can we have some music", "play us a tune", "drop some beats", "log my water", "wake me in 20
+  minutes", "time me for 3 minutes", "show me where I am", "open google maps", "new comic", "wanna play a game", "what's the weather
+  going to be like tomorrow", "change the colour" (opens THE LOOK and says "say one, like make it red"), "dark theme", and "turn
+  yourself red" / "make yourself green".
+- **Left to the brain on purpose:** asks that carry content, like "make me a comic about a cat", "write a letter to my landlord",
+  "play some jazz", "put Radio 1 on" and "remind me in 10 minutes". The brain's own tools do these with what he said.
 
 ## What is left
 - Studio-game's sprite colours (Night, Moss, Lagoon…) are scene names rather than theme colours, so I left them as they are.

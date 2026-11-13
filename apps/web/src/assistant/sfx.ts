@@ -1,6 +1,6 @@
 /**
  * Interface sounds: tiny synthesized blips (no audio files), quiet enough to sit under the
- * radio. Off in System → Look & Voice. Browsers only allow sound after the first tap, so
+ * radio. Off in Settings → VOICE & HOME. Browsers only allow sound after the first tap, so
  * nothing plays at boot.
  */
 import { settings } from '../state/app';

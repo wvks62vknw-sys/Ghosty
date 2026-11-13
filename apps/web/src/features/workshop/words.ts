@@ -56,3 +56,6 @@ export const PROJECTS_NONE = {
 
 /** No signal: the lists are what the phone kept, and when that was. */
 export const offlineWords = (at: number): string => `No signal; this is from ${at ? new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'before the phone lost it'}.`;
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['open the workshop'];

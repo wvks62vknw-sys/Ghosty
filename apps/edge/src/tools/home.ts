@@ -6,6 +6,7 @@
  * call stays well under the free plan's 50 outbound requests (two searches take ≤ 22).
  */
 import { asData } from '../kernel/permissions';
+import { guardedFetch } from '../netguard';
 import { formatResults, hitsFrom, knownShop, looksLikeProduct, parseListing, parseProduct, pickPages, rankProducts, searchQueries, type Hit, type Limits, type Product } from '../integrations/products';
 import { arg, type Tool } from './types';
 import { search, UA } from './web';
@@ -16,7 +17,8 @@ export const MAX_PAGES = 8;
 const MAX_PAGE_BYTES = 2_000_000;
 
 async function readPage(url: string): Promise<string> {
-  const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5', 'Accept-Language': 'en-GB,en;q=0.8' }, redirect: 'follow', signal: AbortSignal.timeout(9000) });
+  // [security] addresses from search hits and shop pages: public web only, every redirect hop checked before it is asked
+  const r = await guardedFetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5', 'Accept-Language': 'en-GB,en;q=0.8' }, signal: AbortSignal.timeout(9000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   if (!r.body) return '';
   const reader = r.body.getReader();

@@ -70,10 +70,10 @@ const school_status: Tool = {
   },
 };
 
-/** The exam runs on the phone's own model (or the same weights on Kaggle's free GPU), started from SCHOOL: this says how. */
+/** The exam is started from SCHOOL: sat online by the brain's own model in full working, or on the phone's model with no signal (or the same weights on Kaggle's free GPU): this says how. */
 const sit_exam: Tool = {
   name: 'sit_exam',
-  description: "Start a school exam for the offline brain: on the owner's phone or the free GPU, from the SCHOOL tab, so this says how. Any stage may be a placement test.",
+  description: "Start a school exam from the SCHOOL tab (sat online in full working, or on the phone with no signal); this says how. Any stage may be a placement test.",
   parameters: { type: 'object', properties: { stage: { type: 'string', description: 'nursery, reception, ks1, ks2, …' }, subject: { type: 'string' } } },
   risk: 'auto',
   pure: true,
@@ -94,7 +94,7 @@ const sit_exam: Tool = {
     const placement = STAGE_IDS.indexOf(id) > STAGE_IDS.indexOf(st.stage) ? ` It is above his stage (${stageName(st.stage)}), so it is a placement test: SIT A PLACEMENT TEST, pick ${stage.label}. If he gets top grades in every subject, that stage and everything below it is done at once.` : '';
     const gpu = ` Or SIT ON THE FREE GPU beside it: the same brain sits the paper on Kaggle's free GPU in about 10 minutes, with no phone time (it needs the Kaggle key saved in SYSTEM → KEYS).`;
     const part = missing.length ? ` Not written yet: ${missing.map(subjectWord).join(', ')}.` : '';
-    return `Exams run on the offline brain on the owner's phone, which I cannot reach from here. Open the SCHOOL tab on the phone (open_tab school) and press ${what} for ${stage.label}; keep Ghosty open while he sits it.${gpu}${placement}${part}`;
+    return `Exams are started from the SCHOOL tab on the phone: with signal my own online model sits the paper in full working, and with none the offline brain on the phone does. Open the SCHOOL tab (open_tab school) and press ${what} for ${stage.label}; keep Ghosty open while he sits it.${gpu}${placement}${part}`;
   },
 };
 

@@ -304,7 +304,7 @@ test('THE LOOK has its five sections in the order the brief names, and its top l
   const secs = /sections\(root, 'look', \[([\s\S]*?)\]\)/.exec(src)?.[1] ?? '';
   assert.deepEqual([...secs.matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]), ['tokens', 'type', 'marks', 'mind', 'themes']);
   for (const p of ['TOKENS', 'TYPE', 'MARKS', 'MIND', 'THEMES']) assert.match(src, new RegExp(`panel\\('${p}'`), `the ${p} panel`);
-  assert.ok(src.includes('This is how I draw everything from here. Tap a mark to see it work.'), 'his line at the top');
+  assert.ok(src.includes('This is how I draw everything from here; tap a mark to see it work.'), 'his line at the top');
   assert.ok(src.includes("import tokensCss from '../../design/tokens.css'"), 'the tokens are read from the file itself');
   assert.match(read('../../web/src/features/index.ts'), /settingsTab, lookTab,/, 'THE LOOK is a tab, after Settings');
   assert.match(read('../../web/src/features/settings/index.ts'), /goRow\('THE LOOK', 'look'/, 'Settings has the row that opens it');

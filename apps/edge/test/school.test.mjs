@@ -16,7 +16,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/school/markwork.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts', '../../../packages/shared/src/papers.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/school/markwork.ts', '../src/school/online.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts', '../../../packages/shared/src/papers.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -47,6 +47,7 @@ const PR = await load('apps/edge/src/school/practice');
 const RM = await load('apps/edge/src/school/remote');
 const SCH = await load('apps/edge/src/schedule');
 const MW = await load('apps/edge/src/school/markwork');
+const ON = await load('apps/edge/src/school/online');
 
 class MemStorage {
   m = new Map();
@@ -1587,4 +1588,114 @@ test('MARK MY WORK through the SCHOOL route: marked once and never kept as a sch
   const none = await route(h, '/school/markwork', 'POST', { subject: 'maths', answers: '   ' });
   assert.equal(none.status, 400);
   assert.match(none.body.error, /no answers to mark/);
+});
+
+// ---- 13 Nov: SCHOOL sat by the brain's own model, in full working (school/online.ts; the phone's sit.ts sitOnline) ----
+
+test('sitting online (13 Nov): the brain\'s own model (the big tier, the same choice as his chat) answers every question in full working, kept with the paper, marked properly, named, and recorded as sat online', async () => {
+  const asked = [];
+  const tiers = [];
+  // a stand-in router: it writes working out in full and the right final line (a letter for multiple choice only)
+  const router = {
+    complete: async (messages, _tools, _signal, opts) => {
+      tiers.push(opts);
+      const sys = messages[0].content;
+      const user = messages[1].content;
+      asked.push({ sys, user });
+      return { message: { role: 'assistant', content: 'Working: written out step by step.\nStep 1: …\nStep 2: …\nAnswer: 1' }, model: 'Provider · best' };
+    },
+  };
+  const h = host({ router, ask: fairMarker });
+  // the brain says it can sit papers online
+  const probe = await route(h, '/school/sit-online', 'GET');
+  assert.equal(probe.status, 200);
+  assert.equal(probe.body.ready, true);
+  const set = await route(h, '/school/sit', 'POST', { stage: 'ks2', subject: 'maths' });
+  assert.equal(set.status, 200);
+  const paper = set.body.paper;
+  const it = paper.items[0];
+  const r = await route(h, '/school/sit-online', 'POST', { paperId: paper.id, itemId: it.id });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.model, 'Provider · best', 'it says which model answered');
+  assert.match(r.body.line, /^Answered by Provider · best, online, in full working\.$/);
+  assert.match(r.body.given, /Working:[\s\S]*Step 2[\s\S]*\nAnswer: 1$/, 'the working is kept, not only the answer');
+  // the best tier, in the background lane (his chat keeps its room), waiting for room rather than failing at once
+  assert.equal(tiers[0].tier, 'big');
+  assert.equal(tiers[0].priority, 'background');
+  assert.ok(tiers[0].maxWaitMs > 0);
+  // the prompt asks for full working and never for a bare pick; the choices only on a multiple-choice question
+  assert.match(asked[0].sys, /full working/);
+  assert.match(asked[0].sys, /Never just pick or guess/);
+  assert.match(asked[0].user, /Show your full working|Choices:/);
+  if (it.type !== 'mcq') assert.doesNotMatch(asked[0].user, /Choices:/);
+  // never the answer or the mark scheme in what the model reads
+  const full = (await h.storage.get('school:paper:' + paper.id)) ?? [...h.storage.m.values()].find((v) => v?.paper?.id === paper.id);
+  assert.ok(full, 'the paper is kept');
+  const key = full.paper.items[0];
+  if (key.rubric) assert.ok(!asked[0].user.includes(key.rubric), 'the mark scheme is never shown to the sitter');
+  // handed in (no phone model named): marked like the phone's, and recorded as sat online by that model
+  const done = await route(h, '/school/answers', 'POST', { paperId: paper.id, answers: [], final: true, model: '' });
+  assert.equal(done.status, 200);
+  assert.equal(done.body.result.where, 'online');
+  assert.equal(done.body.result.model, 'Provider · best');
+  const a = done.body.result.answers.find((x) => x.id === it.id);
+  assert.notEqual(a.how, 'unanswered');
+  // once handed in, no more online answers to it
+  const late = await route(h, '/school/sit-online', 'POST', { paperId: paper.id, itemId: it.id });
+  assert.equal(late.status, 409);
+});
+
+test('sitting online: a multiple-choice question is worked out before its letter; full working past the room keeps its answer line, so the code still marks it', async () => {
+  const P2 = { stage: 'ks2', title: 'Key Stage 2 English', passages: [] };
+  const mcq = { id: 'q1', q: 'Which word is a verb?', type: 'mcq', marks: 1, options: ['run', 'blue', 'table', 'soft'], answer: 'a' };
+  const u = ON.onlinePrompt(mcq, P2);
+  assert.match(u, /Choices:\nA\) run\nB\) blue/);
+  assert.match(u, /Work it out first, then give the letter on the last line\./);
+  const num = { id: 'q2', q: 'What is 12 × 12?', type: 'number', marks: 1, answer: '144' };
+  const long = `Working:\n${'12 × 12 = 12 × 10 + 12 × 2 = 120 + 24. '.repeat(80)}\nAnswer: 144`;
+  const kept = MK.keepGiven(num, long);
+  assert.ok(kept.length <= MK.GIVEN_MAX.short, 'within the room');
+  assert.match(kept, /\nAnswer: 144$/, 'the answer line survives the trim');
+  assert.equal(S.markExact(num, kept), 1, 'marked by the code from the kept answer line');
+  assert.equal(S.markExact(mcq, 'Run is something you do, so it is the verb.\nAnswer: A'), 1);
+  // a short answer that fits is kept whole
+  assert.equal(MK.keepGiven(num, 'Working: 144\nAnswer: 144'), 'Working: 144\nAnswer: 144');
+});
+
+test('sitting online: no model answered in time is a plain 503 the phone carries on from; no sitter set up says so; unknown paper or question is 404', async () => {
+  const h = host({ router: { complete: async () => { throw new Error('all full'); } } });
+  const set = await route(h, '/school/sit', 'POST', { stage: 'nursery', subject: subjectsOf('nursery')[0] });
+  const paper = set.body.paper;
+  const r = await route(h, '/school/sit-online', 'POST', { paperId: paper.id, itemId: paper.items[0].id });
+  assert.equal(r.status, 503);
+  assert.equal(r.body.busy, true);
+  assert.match(r.body.error, /^No online model answered in time, so this phone’s brain answers that question\.$/);
+  assert.equal((await route(h, '/school/sit-online', 'POST', { paperId: 'nope-1', itemId: 'x' })).status, 404);
+  assert.equal((await route(h, '/school/sit-online', 'POST', { paperId: paper.id, itemId: 'not-a-question' })).status, 404);
+  const none = host({});
+  const p2 = await route(none, '/school/sit-online', 'GET');
+  assert.equal(p2.body.ready, false);
+  // the scripted test model has SCHOOL's own stand-in sitter, which writes working too
+  const mock = host({ env: { MOCK_LLM: '1' } });
+  assert.equal((await route(mock, '/school/sit-online', 'GET')).body.ready, true);
+  const ms = await route(mock, '/school/sit', 'POST', { stage: 'ks1', subject: subjectsOf('ks1')[0] });
+  const mr = await route(mock, '/school/sit-online', 'POST', { paperId: ms.body.paper.id, itemId: ms.body.paper.items[0].id });
+  assert.equal(mr.status, 200);
+  assert.match(mr.body.given, /^Working:[\s\S]*\nAnswer: /);
+});
+
+test('sitting online on the phone (sit.ts runOnline): every question asked of the brain\'s model in turn, done ones skipped, and the first one it cannot answer hands over to the phone with the question reached', async () => {
+  await buildSit();
+  const SIT = await import('./.build/school/sit.mjs?online');
+  const items = Array.from({ length: 4 }, (_, i) => ({ id: `q${i + 1}`, q: `What is ${i} + 1?`, type: 'number', marks: 1 }));
+  const paper = { id: 'p', stage: 'nursery', subject: 'numbers', title: 'Nursery Numbers', official: false, maxMarks: 4, items, passages: [] };
+  const asked = [];
+  const r = await SIT.runOnline(paper, { ask: async (id) => (asked.push(id), { given: 'Working: …\nAnswer: 1', model: 'Provider · best' }), done: new Set(['q1']), signal: new AbortController().signal, onProgress: () => undefined });
+  assert.deepEqual(asked, ['q2', 'q3', 'q4']);
+  assert.equal(r.stopped, false);
+  let n = 0;
+  await assert.rejects(SIT.runOnline(paper, { ask: async () => { if (++n === 2) throw new Error('no signal'); return { given: 'Answer: 1', model: 'x' }; }, done: new Set(), signal: new AbortController().signal, onProgress: () => undefined }), (e) => e.offline === true && e.n === 2 && e.of === 4);
+  // the line says which brain sits it, and the phone's brain for no signal
+  assert.equal(SIT.onlineLine('Provider · best', 'Qwen3 0.6B', false), 'I sit papers on Provider · best, my own online model, every answer in full working. With no signal, on Qwen3 0.6B on this phone.');
+  assert.equal(SIT.onlineLine('', null, false), 'I sit papers on my own online model, every answer in full working. With no signal, on the offline brain, once it is on this phone.');
 });
