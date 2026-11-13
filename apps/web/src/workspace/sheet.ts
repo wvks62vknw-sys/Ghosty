@@ -1,7 +1,7 @@
 /**
  * THE WORKSPACE SHEET (BRIEF-EDITOR-WORKSPACE; MAKE → THE WORKSPACE, "my workspace", the Stage's ADD TO A PROJECT): the core of Notion on the phone.
  * His pages as a tree (a chevron folds the children), NEW PAGE from five templates or blank, SEARCH, RECENT; a page with its mark and title in a line
- * above, its blocks (the documents' blocks, a to-do, a link to a page, a view of a database) with "/" offering the kinds, BACKLINKS under them, a
+ * above, its blocks (the documents' blocks, a to-do, a callout (a note, a tip or a warning), a link to a page, a view of a database) with "/" offering the kinds, BACKLINKS under them, a
  * comment on a block by a long press, HISTORY (versions listed, opened read-only, RESTORE THIS VERSION), MOVE TO, DUPLICATE, DELETE into a BIN for
  * thirty days; a database with VIEW pills (TABLE, BOARD, CALENDAR, TIMELINE, GALLERY), FILTER & SORT, PROPERTIES, a row opening as a page with its
  * properties at the head; ASK ABOUT THIS PROJECT (the project's text as one chat turn's data, its size said first); EXPORT as a zip of Markdown and

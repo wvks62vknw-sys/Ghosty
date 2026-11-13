@@ -315,6 +315,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   document.addEventListener('selectionchange', () => {
     const sel = getSelection();
     if (sel?.rangeCount && page.contains(sel.anchorNode)) lastRange = sel.getRangeAt(0).cloneRange();
+    // the choice let go of (nothing chosen anywhere): a key must not act on words chosen before
+    else if (!sel?.rangeCount) lastRange = null;
   });
 
   let cell = { id: '', r: 0, c: 0 };

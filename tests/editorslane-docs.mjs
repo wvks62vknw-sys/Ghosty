@@ -149,6 +149,25 @@ export default async function (h) {
     await ctx.close();
   }
 
+  // ---------------------------------------------------------------- a big document: 1,500 paragraphs (about 60,000 words) opens and takes a tick fast
+  {
+    const words = 'The tenancy agreement says the landlord repairs the structure and the exterior of the house within a reasonable time of notice';
+    const blocks = Array.from({ length: 1500 }, (_, k) => (k % 50 === 0 ? { id: `h${k}`, t: 'h1', runs: [{ text: `Part ${k / 50 + 1}` }] } : k % 7 === 0 ? { id: `t${k}`, t: 'todo', runs: [{ text: `Check item ${k}` }] } : { id: `p${k}`, t: 'p', runs: [{ text: `${words} (${k}), ` }, { text: 'kept', hl: true }, { text: ' and ' }, { text: 'struck', s: true }, { text: '.' }] }));
+    const { ctx, page } = await open({ look: LOOKS.scan, seed: { 'ghosty.docs': [{ id: 'dbig', title: 'Tenancy file', kind: 'document', at: Date.now(), blocks }] } });
+    await goDocs(page);
+    const t0 = Date.now();
+    await page.locator('.dcopen', { hasText: 'Tenancy file' }).first().click();
+    const opened = await until(page, () => window.__ghosty?.docs?.view === 'doc' && document.querySelectorAll('.dcpage .dcb').length >= 1500, null, 20000);
+    const openMs = Date.now() - t0;
+    check(opened && openMs < 5000, `docs: a 1,500-paragraph document opens in ${openMs} ms (under 5 s)`);
+    const t1 = Date.now();
+    await page.locator('.dcpage .dctodo .dcbox').nth(3).click();
+    const ticked = await until(page, () => JSON.parse(window.__ghosty.docs.json).blocks.filter((b) => b.ticked).length === 1, null, 10000);
+    const tickMs = Date.now() - t1;
+    check(ticked && tickMs < 3000, `docs: a tick in it is kept in ${tickMs} ms (under 3 s)`);
+    await ctx.close();
+  }
+
   // ---------------------------------------------------------------- 5. every look, The Scan small, BODY 21
   const seedDoc = {
     id: 'dlane1', title: 'Moving day', kind: 'document', at: Date.now(),
