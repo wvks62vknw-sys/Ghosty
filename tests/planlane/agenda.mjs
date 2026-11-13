@@ -28,7 +28,16 @@ export async function run(H) {
     ['what is late', { what: 'list', when: 'late' }],
     ['tick off buy milk', { what: 'tick', text: 'buy milk', loose: false }],
     ['cross the bank off my list', { what: 'tick', text: 'the bank', loose: false }],
-    ['mark buy milk as done', { what: 'tick', text: 'buy milk', loose: false }],
+    ['mark buy milk as done', { what: 'tick', text: 'buy milk', loose: true }],
+    ['mark buy milk as done on my list', { what: 'tick', text: 'buy milk', loose: false }],
+    ['Done: typing 52', { what: 'tick', text: 'typing 52', loose: true }],
+    // a bare number is a time or a count, never a day; "the 20th", "6 Dec" are days
+    ['to-do: call mum at 6', { what: 'add', text: 'Call mum at 6', due: '' }],
+    ['to-do: book a table for 4', { what: 'add', text: 'Book a table for 4', due: '' }],
+    ['add buy 2 to my list', { what: 'add', text: 'Buy 2', due: '' }],
+    ['add buy eggs x 12 to my to-do list', { what: 'add', text: 'Buy eggs x 12', due: '' }],
+    ['to-do: pay the rent on the 20th', { what: 'add', text: 'Pay the rent', due: '2026-11-20' }],
+    ['to-do: dentist 6 Dec', { what: 'add', text: 'Dentist', due: '2026-12-06' }],
     ["I've done the passport", { what: 'tick', text: 'the passport', loose: true }],
     ['take buy milk off my list', { what: 'remove', text: 'buy milk' }],
     ['clear my done to-dos', { what: 'clear' }],
@@ -38,7 +47,9 @@ export async function run(H) {
   ];
   for (const [w, x] of want) check(said(w) === JSON.stringify(x), `[agenda] "${w}" → ${said(w)}`);
   // the words owned elsewhere are left alone: the VOICE lane's, the brain's reminders and diary, the kitchen's list, the weather
-  for (const w of ['open the agenda', 'my diary', 'remind me to call mum at 6', 'add dinner on Friday at 7', 'add eggs to my shopping list', 'check the weather', 'what is on today'])
+  // (and the work pack's several jobs at once, the kitchen's bare "the list", a loose "I got …")
+  for (const w of ['open the agenda', 'my diary', 'remind me to call mum at 6', 'add dinner on Friday at 7', 'add eggs to my shopping list', 'check the weather', 'what is on today',
+    'Add to my to-do: send the invoice by Friday, book the van, ring the landlord', 'Add to my to-do: send the invoice and ring the landlord', 'Add milk, eggs and bread to the list', 'Add milk and eggs to the list', "what's on the list", 'I got a new car', 'I got the job'])
     check(A.agendaAsked(w, now) === null, `[agenda] "${w}" is not the agenda's: ${said(w)}`);
   check(T.nextDue('2026-11-13', 'daily', now) === '2026-11-14' && T.nextDue('2026-11-13', 'weekdays', now) === '2026-11-16' && T.nextDue('2026-11-13', 'weekly', now) === '2026-11-20', `[agenda] a repeat's next day: ${T.nextDue('2026-11-13', 'weekdays', now)}`);
   check(T.nextDue('2026-01-31', 'monthly', new Date(2026, 0, 31).getTime()) === '2026-02-28', `[agenda] monthly from the 31st lands on the month's last day: ${T.nextDue('2026-01-31', 'monthly', new Date(2026, 0, 31).getTime())}`);
@@ -50,6 +61,15 @@ export async function run(H) {
     { id: 'l', text: 'Pay the gas bill', due: '2026-11-10', done: false, at: 4 },
   ];
   check(T.findTodo(L, 'the passport')?.id === 'p' && T.findTodo(L, 'milk')?.id === 'm' && T.findTodo(L, 'gas bill')?.id === 'l' && T.findTodo(L, 'washing up') === null, '[agenda] a to-do found by his words, and nothing found for words not on it');
+  // a loose wording ("I'm done with work") never ticks a to-do on one shared word; "the passport" is still "Renew passport"
+  const L2 = [
+    { id: 'c', text: 'Book the car in', due: '', done: false, at: 1 }, { id: 'w', text: 'Send work email', due: '', done: false, at: 2 },
+    { id: 'd', text: 'Book dinner with Sam', due: '', done: false, at: 3 }, { id: 'p', text: 'Renew passport', due: '', done: false, at: 4 },
+    { id: 'x', text: 'Mark step 1 of the plan', due: '', done: false, at: 5 },
+  ];
+  const strict = (w) => T.findTodo(L2, w, false, true)?.id ?? null;
+  check(strict('work') === null && strict('dinner') === null && strict('a new car') === null && strict('step 2 of the upgrade') === null && strict('the passport') === 'p' && strict('book dinner with sam') === 'd' && strict('the car') === 'c',
+    `[agenda] a loose tick takes no to-do on one shared word: ${JSON.stringify(['work', 'dinner', 'a new car', 'step 2 of the upgrade', 'the passport', 'book dinner with sam', 'the car'].map(strict))}`);
   check(T.sortTodos(L, now).map((t) => t.id).join('') === 'lspm', `[agenda] late first, then starred, then by day: ${T.sortTodos(L, now).map((t) => t.id).join('')}`);
   check(T.weekWords([], 0) === 'Nothing on' && T.weekWords(['Dentist 10:00'], 1) === 'Dentist 10:00 · 1 to-do' && T.weekWords(['A 09:00', 'B 10:00', 'C 11:00'], 2) === 'A 09:00 and 2 more · 2 to-dos', `[agenda] a day of the week in a line: ${T.weekWords(['A 09:00', 'B 10:00', 'C 11:00'], 2)}`);
   check(L.filter((t) => T.inView(t, 'today', now)).map((t) => t.id).join('') === 'l' && L.filter((t) => T.inView(t, 'upcoming', now)).map((t) => t.id).join('') === 'p' && L.filter((t) => T.inView(t, 'starred', now)).map((t) => t.id).join('') === 's', '[agenda] the views: today (and late), upcoming, starred');
@@ -82,10 +102,17 @@ export async function run(H) {
     await reply("what's on my to-do list", /^4 to do: Water the plants \(due today\); Call the bank \(due tomorrow\); Renew passport \(due \w{3},? \d+ \w{3}\); and Buy milk\.$/);
     check(await page.evaluate(() => document.body.dataset.tab === 'agenda' && !!document.querySelector('#pg-agenda .pn.todo')?.offsetParent).catch(() => false), '[agenda chat] reading the whole list opens it on the screen');
     await reply('what do I need to do today', /^Due today: Water the plants\.$/);
-    await reply('tick off buy milk', /^Ticked off: Buy milk\. 3 left to do\.$/);
-    await reply("I've done the passport", /^Ticked off: Renew passport\. 2 left to do\.$/);
-    await reply('water the plants is done', /^Ticked off: Water the plants\. It repeats: the next one is due tomorrow\. 2 left to do\.$/);
-    await reply('tick off walk the dog', /^I can’t find “walk the dog” on your to-do list\. On it: /);
+    await reply('tick off buy milk', /^Ticked off: Buy milk\. 3 left to do\. UNDO puts it back\.$/);
+    await reply("I've done the passport", /^Ticked off: Renew passport\. 2 left to do\. UNDO puts it back\.$/);
+    await reply('water the plants is done', /^Ticked off: Water the plants\. It repeats: the next one is due tomorrow\. 2 left to do\. UNDO puts it back\.$/);
+    // a chat tick has UNDO: the repeating one comes back undone, and the next one it made goes (never two)
+    await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, '[agenda chat] no UNDO after a tick by chat'));
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ghosty.agenda.todo') ?? '[]').filter((t) => t.text === 'Water the plants').length === 1, null, { timeout: 3000 }).catch(() => undefined);
+    const wp = (await todos()).filter((t) => t.text === 'Water the plants');
+    check(wp.length === 1 && !wp[0].done, `[agenda chat] UNDO on a repeating tick leaves one, not done: ${JSON.stringify(wp.map((t) => [t.due, t.done]))}`);
+    await reply('water the plants is done', /^Ticked off: Water the plants\. It repeats: the next one is due tomorrow\. 2 left to do\. UNDO puts it back\.$/);
+    // nothing like it on his list: the phone leaves it to the brain (the work pack's list, the shopping list), never "I can't find"
+    await reply('tick off walk the dog', /\S/).then((r) => check(!/on your to-do list|Ticked off/.test(r), `[agenda chat] a tick of something not on his list is left to the brain: ${r}`));
     await reply('clear my done to-dos', /^Cleared 3 done to-dos\. UNDO brings them back\.$/);
     check((await todos()).every((t) => !t.done) && (await todos()).length === 2, `[agenda chat] the done ones are gone: ${JSON.stringify((await todos()).map((t) => t.text))}`);
     await reply('show my month', /^\w+ \(from today\): \d+ events?/);
@@ -136,6 +163,10 @@ export async function run(H) {
     const next = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.agenda.todo')).filter((t) => t.text === 'Take the bins out'));
     check(next.length === 2 && next.some((t) => t.done) && next.some((t) => !t.done && t.every === 'weekly'), `[agenda ${vp.width}] ticking a weekly one makes the next: ${JSON.stringify(next.map((t) => [t.due, t.done]))}`);
     check(await page.$$eval('#pg-agenda .todoit:not(.done)', (e) => e.some((x) => /Take the bins out/.test(x.textContent) && /Due \w{3},? \d+ \w{3}/.test(x.textContent))), `[agenda ${vp.width}] the next one shows with its day`);
+    // ticked back on (a mis-tap), the next one it made goes: one, not two
+    await page.click('#pg-agenda .todoit[data-id="a3"] button.todotick');
+    const back = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.agenda.todo')).filter((t) => t.text === 'Take the bins out'));
+    check(back.length === 1 && !back[0].done, `[agenda ${vp.width}] unticking a repeating one takes back the next it made: ${JSON.stringify(back.map((t) => [t.due, t.done]))}`);
     // tap the words: change them and the day, SAVE, then UNDO
     await page.click('#pg-agenda .todoit[data-id="a2"] button.todotx');
     await page.waitForSelector('#pg-agenda .todoit[data-id="a2"] .todoedit', { timeout: 3000 }).catch(() => check(false, `[agenda ${vp.width}] tapping the words did not open the change box`));
@@ -173,15 +204,19 @@ export async function run(H) {
     check((await row(`${name} moved`).count()) === 0, `[agenda ${vp.width}] UNDO took the changed one out`);
     // THIS WEEK under the month: seven days, today lit, each with what it holds; a tap says the day whole under the grid
     const wk = await page.$$eval('#pg-agenda .monweek button.monwk', (b) => b.map((x) => ({ t: x.innerText.replace(/\s+/g, ' ').trim(), today: x.classList.contains('today'), label: x.getAttribute('aria-label') })));
+    const ti = wk.findIndex((d) => d.today);
+    check(wk.slice(0, ti).every((d) => /Gone$/.test(d.t) && /: gone$/.test(d.label ?? '')), `[agenda ${vp.width}] a day gone this week says so, never "Nothing on": ${JSON.stringify(wk.slice(0, ti).map((d) => d.t))}`);
     check(wk.length === 7 && wk.filter((d) => d.today).length === 1 && wk.every((d) => /^\w{3} \d{1,2} .+/.test(d.t) && !RAW.test(d.t)), `[agenda ${vp.width}] this week, seven days, today lit: ${JSON.stringify(wk.map((d) => d.t))}`);
     // (the event went in at the box's own time, the next hour but one: its day's line names it when that day is this week)
     const evDay = new Date(Math.ceil(Date.now() / 3600_000) * 3600_000 + 3600_000);
     const evIdx = (evDay.getDay() + 6) % 7;
     const sameWeek = Math.round((new Date(evDay.getFullYear(), evDay.getMonth(), evDay.getDate()) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / 86400_000) <= 6 - ((new Date().getDay() + 6) % 7);
-    if (sameWeek) check(new RegExp(`^\\w{3} \\d{1,2} ${name} \\d\\d:\\d\\d$`).test(wk[evIdx]?.t ?? ''), `[agenda ${vp.width}] the event's day in this week names it: ${wk[evIdx]?.t}`);
-    const pickAt = wk.findIndex((d) => !d.today);
+    if (sameWeek) check(new RegExp(`^\\w{3} \\d{1,2} ${name} \\d\\d:\\d\\d(?: · \\d+ to-dos?)?$`).test(wk[evIdx]?.t ?? ''), `[agenda ${vp.width}] the event's day in this week names it: ${wk[evIdx]?.t}`);
+    // (a day still to come when there is one this week; a gone one is said gone under the grid too)
+    const pickAt = wk.findIndex((d, i) => i > ti) >= 0 ? wk.findIndex((d, i) => i > ti) : ti - 1;
     await page.locator('#pg-agenda .monweek button.monwk').nth(pickAt).click();
-    check((await page.textContent('#pg-agenda .mdayline')) === wk[pickAt].label, `[agenda ${vp.width}] a day of the week tapped is said under the grid: ${await page.textContent('#pg-agenda .mdayline')}`);
+    const under = (await page.textContent('#pg-agenda .monlist')) ?? '';
+    check(pickAt > ti ? (await page.textContent('#pg-agenda .mdayline')) === wk[pickAt].label : /This day has gone/.test(under), `[agenda ${vp.width}] a day of the week tapped is said under the grid: ${under}`);
     const fw = await fit(page, '#pg-agenda .pn.month');
     check(!fw.small.length && !fw.sideways && !fw.cut.length, `[agenda ${vp.width}] the month with this week fits: ${JSON.stringify(fw)}`);
     await row(name).first().locator('.del').click();

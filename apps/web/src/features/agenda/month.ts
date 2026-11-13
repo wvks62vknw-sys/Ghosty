@@ -83,10 +83,12 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
         paint();
       }, `monwk${k === today ? ' today' : ''}${k === picked ? ' on' : ''}${k < today ? ' past' : ''}`);
       b.setAttribute('role', 'listitem');
-      b.setAttribute('aria-label', dayLine(d.getTime(), de.length, dt.length));
+      // a day gone this week was never read (the diary shows what is still to come): "Gone", never "Nothing on"
+      const gone = k < today && !de.length && !dt.length;
+      b.setAttribute('aria-label', gone ? `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: gone` : dayLine(d.getTime(), de.length, dt.length));
       b.dataset.case = 'keep';
       b.append(h('b', d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })),
-        h('span', weekWords(de.map((e) => `${e.title}${e.allDay ? '' : ` ${fmt.time(new Date(e.start))}`}`), dt.length)));
+        h('span', gone ? 'Gone' : weekWords(de.map((e) => `${e.title}${e.allDay ? '' : ` ${fmt.time(new Date(e.start))}`}`), dt.length)));
       week.append(b);
     }
     clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list, h('b.monwkh', 'This week'), week);
