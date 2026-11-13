@@ -35,7 +35,11 @@ const REASON: Record<NonNullable<TrainEvent['reason']>, string> = { worse: 'it t
 
 export function weeklyView(o: { log: TrainEvent[]; now: number; phase: string; nextRun: number; note: string; keysOk: boolean; preflight: Preflight | null }): WeeklyView {
   const run = o.log.find((e) => e.kind === 'run' && e.real);
-  const gone = run?.commit ? o.log.find((e) => e.kind === 'rollback' && e.commit === run.commit && e.at >= run.at) : undefined;
+  const goneRaw = run?.commit ? o.log.find((e) => e.kind === 'rollback' && e.commit === run.commit && e.at >= run.at) : undefined;
+  // a brain he put back in use by hand after it rolled back by itself is in use again (its first check never decides twice)
+  const forward = goneRaw && o.log.find((e) => e.kind === 'forward' && e.commit === goneRaw.commit && e.at >= goneRaw.at);
+  const gone = forward ? undefined : goneRaw;
+  const checked = run?.commit ? o.log.find((e) => e.kind === 'check' && e.commit === run.commit && e.at >= run.at) : undefined;
   const last: WeeklyView['last'] = run ? { ...run, outcome: gone ? 'rolled-back' : run.outcome!, ...(gone ? { rolledBack: { at: gone.at, reason: gone.reason ?? 'chosen' } } : {}) } : null;
   const tried = o.log.find((e) => e.kind === 'run' && !e.real);
 
@@ -49,7 +53,8 @@ export function weeklyView(o: { log: TrainEvent[]; now: number; phase: string; n
     const worst = areas.length > 1 ? areas[areas.length - 1] : undefined;
     card = `The old brain scored ${pct(last.before ?? 0)} and the new one ${pct(last.after ?? 0)} on the same questions${best ? `. Best: ${AREA_LABEL[best.area as ExamArea].toLowerCase()} ${pts(best.d)}` : ''}${worst ? `. Worst: ${AREA_LABEL[worst.area as ExamArea].toLowerCase()} ${pts(worst.d)}` : ''}.`;
     happened =
-      last.outcome === 'published' ? `Published: the new brain beat the old one (${last.why}) and is offered to your phone.`
+      last.outcome === 'published' ? `Published: the new brain beat the old one (${last.why}) and is offered to your phone.${checked ? ` First check on your phone: kept (${checked.why}).` : ''}${goneRaw && forward ? ` It rolled back by itself on ${ukWhen(goneRaw.at)} (${goneRaw.why}); you chose it again, so it stays.` : ''}`
+      : last.outcome === 'rolled-back' && gone?.auto ? `Published, then rolled back by itself on ${ukWhen(gone.at)} after its first check on your phone (${gone.why}). The brain before it is in use; ROLLBACK is still yours for anything else.`
       : last.outcome === 'rolled-back' ? `Published, then rolled back on ${ukWhen(last.rolledBack!.at)} (${REASON[last.rolledBack!.reason as keyof typeof REASON] ?? 'you chose to'}). The brain before it is in use.`
       : last.outcome === 'not-kept' ? `Not published: ${last.why}. Nothing changed on your phone.`
       : `Stopped before the end: ${last.why}. Nothing changed on your phone.`;

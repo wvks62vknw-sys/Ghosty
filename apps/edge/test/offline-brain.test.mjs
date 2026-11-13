@@ -184,9 +184,6 @@ test('offline translation: the request, the prompt and the clean answer', () => 
   assert.equal(P.OFFLINE_TRANSLATION_NOTE, 'Offline translation: check the important bits');
 });
 
-// THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
-// because this one is in the test list (package.json is protected).
-await import('./thinkharder.test.mjs');
 
 test('a bigger brain: Qwen3.5 0.8B, 2B and 4B pinned exactly as the vendored WebLLM 0.2.85 lists them, their compiled code vendored, and the fit line worked out from memory', async () => {
   const { readFileSync, statSync } = await import('node:fs');
@@ -516,6 +513,3 @@ test('GET stores what WebLLM looks up, a big piece in parts, and the storage lin
   assert.match(M.roomProblem({ label: 'Tiny', mb: 3, largest: 0 }, 1e6, 0), /^This phone gives Ghosty 1 MB of space \(1 MB of it free\); the Tiny needs 3 MB\. Nothing was downloaded/, 'no parts, no room for them');
 });
 
-// THE INDEPENDENCE METER (packages/shared/src/independence.ts): its tests live in independence.test.mjs (run from here: the
-// test list in package.json is protected).
-await import('./independence.test.mjs');

@@ -6,6 +6,7 @@
  * SUGGESTIONS accepted or rejected one by one (never applied silently); a translation paragraph by paragraph with the
  * structure kept. Pure: apps/edge/test/reste.test.mjs.
  */
+import { openDocBlock } from '../../../../packages/shared/src/opendoc';
 
 export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'quote' | 'right' | 'table' | 'img' | 'pb';
 export interface Run {
@@ -554,6 +555,8 @@ export interface Suggestion {
   blockId: string;
   old: string;
   new: string;
+  /** The brain's `document` tool added words at the end (`old` empty): accepting lays them out after the last paragraph. */
+  append?: boolean;
 }
 
 /** The brain's changed paragraphs as suggestions: one per paragraph whose words really changed. */
@@ -572,7 +575,33 @@ export function suggestionsFrom(d: Doc, reply: string): Suggestion[] {
 }
 
 /** A suggestion accepted: that paragraph's words become the new ones (its bold and italic go with the old words). */
-export const accept = (d: Doc, s: Suggestion): Doc => withBlock(d, s.blockId, (b) => ({ ...b, runs: inline(s.new) }));
+export const accept = (d: Doc, s: Suggestion): Doc => (s.append ? { ...d, blocks: [...d.blocks, ...writtenBlocks(s.new)] } : withBlock(d, s.blockId, (b) => ({ ...b, runs: inline(s.new) })));
+
+// ---------------------------------------------------------------- the brain's `document` tool (BRIEF-KERNEL-2)
+
+/** The open document as a message's data: its numbered paragraphs (the numbers the edits use), marked as data; '' when it has no words. */
+export function openDocData(d: Doc): string {
+  return openDocBlock(d.title, numbered(d).map((b) => ({ level: isHeading(b.t) ? Number(b.t[1]) : 0, text: textOf(b) })));
+}
+
+/**
+ * What the brain's `document` tool proposed (an edit of one paragraph, or words to add at the end) as a suggestion to accept or
+ * reject, or the reason it cannot be shown: the paragraph is no longer as the brain read it, or there is no such paragraph.
+ */
+export function proposalFrom(d: Doc, a: Record<string, unknown>): Suggestion | string {
+  const text = typeof a.text === 'string' ? a.text.trim() : '';
+  if (!text) return 'The brain proposed nothing I could show.';
+  if (a.op === 'append') {
+    const last = d.blocks[d.blocks.length - 1];
+    return last ? { id: `k-end-${last.id}-${text.length}`, blockId: last.id, old: '', new: text, append: true } : 'The document is empty: nothing to add to.';
+  }
+  const b = numbered(d)[Number(a.paragraph) - 1];
+  if (!b) return 'The brain pointed at a paragraph that is not there.';
+  const old = textOf(b);
+  if (typeof a.old === 'string' && a.old.replace(/\s+/g, ' ').trim() !== old.replace(/\s+/g, ' ').trim()) return 'The paragraph has changed since the brain read it: nothing was marked. Ask again.';
+  if (old.replace(/\s+/g, ' ').trim() === text.replace(/\s+/g, ' ').trim()) return 'The brain would keep that paragraph as it is.';
+  return { id: `k-${a.paragraph}-${b.id}`, blockId: b.id, old, new: text };
+}
 
 /** The words that differ, for showing the old struck and the new beside them: [same, gone, came] pieces. */
 export function wordDiff(a: string, b: string): { same?: string; gone?: string; came?: string }[] {

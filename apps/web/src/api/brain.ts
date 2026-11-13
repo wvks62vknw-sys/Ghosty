@@ -16,7 +16,7 @@ import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src
 import type { MailLine, WatcherInfo } from '../../../../packages/shared/src/lifeeasier';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { PackName, PackOut } from '../../../../packages/shared/src/packs';
-import type { Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { FirstCheck, Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
@@ -571,6 +571,8 @@ export const brain = {
     rollback: (why?: 'worse' | 'broken') => req<TrainStatus>('POST', '/training/rollback', why ? { why } : {}),
     /** This brain's files would not load on the phone: the brain drops it for good (the older one takes its place). */
     broken: (commit: string) => req<TrainStatus>('POST', '/training/broken', { commit }),
+    /** The first check of a brain just published to this phone (BRIEF-KERNEL-2): it loaded or not, its score on the phone's own check beside the brain before it; the brain rolls back by itself when it fails (once). */
+    firstCheck: (c: FirstCheck) => req<{ result: 'kept' | 'rolled-back' | 'waiting' | 'ignored'; why: string; status: TrainStatus }>('POST', '/training/firstcheck', c),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
     /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
     base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),

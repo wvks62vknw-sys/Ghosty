@@ -179,4 +179,10 @@ export const TOOLS_3: Record<string, CatValue> = {
     more: 'Say "teach me…" and I plan a course from my library and Wikipedia. Each lesson ends with a check question, and flashcards come back when you are about to forget them.',
     say: ['Teach me how the stock market works', 'Quiz me on what we did yesterday'], scene: ['school'], cat: 'learn',
   },
+  // ---- the open document
+  'tool:document': {
+    name: 'Change your open document', line: 'I can read the document you have open and propose changes to it: a shorter paragraph, a fixed passage, a closing line.',
+    more: 'Open a document, then tell me what to change. Each change shows in the page as a marked change with the old words struck: you tap ACCEPT or REJECT, and nothing changes until you do. I only see the one document you have open.',
+    say: ['Make the second paragraph shorter', 'Add a closing line asking them to reply this week'], scene: ['making'], cat: 'do',
+  },
 };

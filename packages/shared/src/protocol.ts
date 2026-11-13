@@ -130,6 +130,7 @@ export const CLIENT_COMMANDS = [
   'open_work', // [packs] the work pack's documents, interview practice, rota and to-do
   'pack_card', // [packs] not run on the phone: a pack's cards ride in it, and cardsFromTool makes them the chat's live cards (BRIEF-AWARENESS: found when emit became typed)
   'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
+  'document', // [document] a change the brain proposes to the open document: shown as a marked change, his tap decides (BRIEF-KERNEL-2)
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

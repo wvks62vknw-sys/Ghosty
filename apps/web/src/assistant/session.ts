@@ -38,6 +38,8 @@ import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair t
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
 import { readBack, ruleFor, SAY_NO, type Rule, type Verified } from './verify'; // [health] a thing the brain says it did is read back before "Done"
+import { openDocData } from '../docs/live'; // [document] the document open in the editor goes with his message, as data (BRIEF-KERNEL-2)
+import { withoutOpenDoc } from '../../../../packages/shared/src/opendoc';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -1010,7 +1012,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   cloudTurn = turn;
   await stream(
     async (cb) => {
-      await brain.chat(t, context(), (ev) => {
+      await brain.chat(t + openDocData(), context(), (ev) => {
         lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
@@ -1129,7 +1131,7 @@ export async function loadHistory(ahead?: Promise<HistoryReply | null>): Promise
   try {
     const h = (await ahead) ?? (await brain.history());
     const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
-      if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
+      if (t.role === 'user') return [{ kind: 'user', text: withoutOpenDoc(t.text), at: t.at }];
       // A page published in that turn keeps its live-link card under the reply.
       return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model, ...(t.cited ? { cited: t.cited } : {}) }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
     });

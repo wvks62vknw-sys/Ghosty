@@ -593,6 +593,17 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [document] a change the brain's `document` tool proposes to the open document: marked in the editor, his tap decides (docs/live.ts)
+      id: 'document',
+      title: 'A change proposed to the open document',
+      group: 'GO',
+      run: async (a) => {
+        const { proposeToDoc } = await import('../docs/live');
+        const said = proposeToDoc(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+        toast(said);
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

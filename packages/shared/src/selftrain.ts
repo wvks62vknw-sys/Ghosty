@@ -77,6 +77,44 @@ export function gateVerdict(before: AreaScores, after: AreaScores, items: Partia
   return { pass: true, why: `${pts(gain)} better on average, and no area fell further than it may`, drops };
 }
 
+// ---- the first check of a published brain (BRIEF-KERNEL-2 item 4) ---------------------------------------------
+
+/**
+ * What the phone reports about a brain just published to it: its files loaded (`loaded`), the smoke question answered
+ * (`answered`), and its score on the phone's own fixed check (`score`, 0 to 1, over `asked` questions) beside the score of the brain
+ * it replaced on the same check (`previous`). A report without `score` and `previous` that found nothing wrong waits for them.
+ */
+export interface FirstCheck {
+  commit: string;
+  loaded: boolean;
+  answered?: boolean;
+  score?: number;
+  previous?: number;
+  asked?: number;
+}
+
+/** How long after a publish its first check may still decide (the phone checks within hours; a late report is ignored). */
+export const FIRST_CHECK_WINDOW_MS = 3 * 24 * 3600 * 1000;
+
+export interface FirstCheckVerdict {
+  /** 'keep': it passed; 'back': roll back at once; 'wait': nothing is wrong yet, the score is still to come. */
+  do: 'keep' | 'back' | 'wait';
+  reason?: 'broken' | 'worse';
+  why: string;
+}
+
+const pc = (x: number): string => `${Math.round(x * 100)}%`;
+
+/** The decision: a load failure, a smoke question not answered, or a score below the previous brain's by more than the gate's own margin rolls back. */
+export function firstCheckVerdict(c: FirstCheck): FirstCheckVerdict {
+  if (!c.loaded) return { do: 'back', reason: 'broken', why: 'it would not load on the phone' };
+  if (c.answered === false) return { do: 'back', reason: 'broken', why: 'it loaded but did not answer the first question' };
+  if (typeof c.score !== 'number' || typeof c.previous !== 'number' || !Number.isFinite(c.score) || !Number.isFinite(c.previous)) return { do: 'wait', why: 'it loaded; its score on the phone is still to come' };
+  const margin = allowedDrop(c.asked);
+  if (c.previous - c.score > margin + 1e-9) return { do: 'back', reason: 'worse', why: `it scored ${pc(c.score)} on the phone's own check against ${pc(c.previous)} for the brain before it` };
+  return { do: 'keep', why: `it scored ${pc(c.score)} on the phone's own check against ${pc(c.previous)} for the brain before it` };
+}
+
 // ---- the brain's base model --------------------------------------------------------------------------------
 
 /** The base models the offline brain can be (SETTINGS → OFFLINE BRAIN chooses; the weekly training follows it). */
@@ -400,7 +438,7 @@ export interface Preflight {
 /** One line of the brain's log of the weekly training (the last twenty are kept): a run that ended, or a brain rolled back. */
 export interface TrainEvent {
   at: number;
-  kind: 'run' | 'rollback';
+  kind: 'run' | 'rollback' | 'check' | 'forward';
   week?: number;
   /** A REAL run: it got as far as the test of the new brain. */
   real?: boolean;
@@ -415,6 +453,11 @@ export interface TrainEvent {
   why: string;
   /** A rollback: the new brain was worse, broken (it would not load), or he chose it. */
   reason?: 'worse' | 'broken' | 'chosen';
+  /** A rollback the brain made by itself after the phone's first check of a published brain (never his ROLLBACK tap). */
+  auto?: boolean;
+  /** A check or an automatic rollback: the phone's own score of the new brain and of the one before it (0 to 1). */
+  score?: number;
+  previous?: number;
 }
 
 /** What RUN NOW will do, said first (the phone's confirm shows it word for word; a test holds it). */

@@ -65,6 +65,7 @@ export const GROUP_WHY: Record<string, string> = {
   social: 'When you talk about Bluesky, Mastodon, your Discord or your Telegram channel, posting something, or following someone.',
   creative: 'When you ask for a song, a poem, a story, a poster, a comic, a birthday card, a logo, a palette, names, rhymes or a beat.',
   learning: 'When you talk about words in a language, a typing test, a maths or memory drill, reading faster, first aid, a drawing class, or a plan for a skill.',
+  doc: 'When you have a document open and ask me to shorten, fix or add to it: I mark each change for you to accept or reject.',
   homeadmin: 'When you talk about a bill, a meter reading, bin day, a warranty, a manual, the car’s MOT or insurance, planning near home, rent, or the boiler service.',
   outside: 'When you talk about a car park, the last train or bus home, a walk at night, toilets or cash near you, rain and a coat, splitting a fare, or where you parked.',
   work: 'When you talk about your CV, a job ad, a cover letter, an interview, meeting notes, a to-do, your pay after tax, your hours, a rota, or a word count.',

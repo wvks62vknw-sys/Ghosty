@@ -92,7 +92,8 @@ export function lengthBand(owner: string[]): string {
 }
 
 /** A turn that will be heard, not read (the app's microphone, a Telegram voice note). */
-export const SPOKEN = 'SPOKEN: heard, not read: 1–3 short sentences; no lists, links, markdown.';
+// ("heard, not read" and "short" went, 16 characters, to pay for the doc group's "doc: document" in the ALSO list: BRIEF-KERNEL-2; the prompt guard is unchanged)
+export const SPOKEN = 'SPOKEN: heard: 1–3 sentences; no lists, links, markdown.';
 
 // ---------------------------------------------------------------- the post-filter
 

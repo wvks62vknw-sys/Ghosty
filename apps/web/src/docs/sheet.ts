@@ -17,11 +17,12 @@ import { readDocBytes, pdfOfDocAnyScript, readNotes } from './read';
 import { addPhoto, imageBytes, imageNow, loadImages } from './images';
 import { docxFrom } from './docx';
 import { pageCount, readingWords } from './layout';
-import { askBrain, myName, replyText, suggestEdits, translateDoc } from './ask';
+import { askBrain, myName, replyText, suggestEdits, tellGhosty, translateDoc } from './ask';
+import { setLiveDoc } from './live';
 import { getDoc, letterDate, listDocs, removeDoc, saveDoc, tidyImages, whenWords } from './store';
 import { fromLatin, scriptOf, SCRIPTS, THE_LINE, toLatin, type Script } from './translit';
 import {
-  accept, block, blockId, contents, counts, docFromReply, EDITS, findIn, History, isHeading, langCode, LANGUAGES, newDoc, newTable, pageOf, plainBlock, replaceAll, rewriteMessage, textOf, tidyRuns, toHtml, toMarkdown, withBlock, wordDiff,
+  accept, block, blockId, contents, counts, docFromReply, EDITS, findIn, History, isHeading, langCode, LANGUAGES, newDoc, newTable, openDocData, pageOf, plainBlock, proposalFrom, replaceAll, rewriteMessage, textOf, tidyRuns, toHtml, toMarkdown, withBlock, wordDiff,
   writeMessage, writtenBlocks,
   type Align, type Block, type BlockType, type Doc, type EditKind, type PageSetup, type Run, type Suggestion,
 } from './model';
@@ -110,6 +111,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
 
   // ---------------------------------------------------------------- MY DOCUMENTS
   const showList = () => {
+    setLiveDoc(null);
     stopReading();
     docsState.view = 'list';
     tidyImages();
@@ -130,6 +132,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     hist = new History(d);
     suggestions = [];
     focused = '';
+    // the chat sends this document with his message, and the brain's `document` tool proposes changes to it (BRIEF-KERNEL-2)
+    setLiveDoc({ data: () => (hist ? openDocData(hist.doc) : ''), propose: proposeHere });
     render();
     void hydrate(d);
   };
@@ -844,6 +848,19 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       )),
     );
   };
+  /** A change the brain's `document` tool proposed: marked in the page with the others, nothing applied; his ACCEPT or REJECT decides. */
+  const proposeHere = (args: Record<string, unknown>): string => {
+    const f = hist ? proposalFrom(doc(), args) : 'No document is open.';
+    if (typeof f === 'string') {
+      say(f);
+      return f;
+    }
+    suggestions = [...suggestions.filter((x) => x.id !== f.id), f];
+    paintSuggestions();
+    const words = `Ghosty marked ${f.append ? 'words to add at the end' : 'a change'} in the page: ACCEPT applies it, REJECT leaves your words as they were.`;
+    say(words);
+    return words;
+  };
   const askEdit = async (kind: EditKind) => {
     const el = elOf(focused);
     if (el) sync(el);
@@ -860,6 +877,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
 
   // ---------------------------------------------------------------- translation and letters, side by side
   const showPair = (left: Doc, right: Doc, note: string, label = right.lang ? right.lang.toUpperCase() : 'LATIN LETTERS') => {
+    setLiveDoc(null);
     stopReading();
     docsState.view = 'pair';
     docsState.pair = { left: left.blocks.map(textOf).join('\n'), right: right.blocks.map(textOf).join('\n'), rtl: !!right.rtl, lang: right.lang ?? '' };
@@ -974,6 +992,19 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       say(sayError(e, 'ask'));
     }
   };
+  const tellHere = async () => {
+    const what = askIn.value.trim();
+    if (!what) return say('Say what to change first (“make the second paragraph shorter”).');
+    flush();
+    say('Asking my brain. It reads this document as the message’s data and can only mark a change here; nothing changes until you accept it.');
+    try {
+      const r = await tellGhosty(what, openDocData(doc()), (a) => void proposeHere(a));
+      askIn.value = '';
+      say(r.proposed ? `${r.proposed} change${r.proposed === 1 ? '' : 's'} marked in the page: accept or reject ${r.proposed === 1 ? 'it' : 'each'}.${r.text ? ` ${r.text}` : ''}` : r.text || 'My brain made no change.');
+    } catch (e) {
+      say(sayError(e, 'ask'));
+    }
+  };
   askIn.addEventListener('keydown', (e) => e.key === 'Enter' && void writeInto());
 
   // ---------------------------------------------------------------- the document view
@@ -1015,7 +1046,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       });
     }
     const asks = h('div.dcasks', h('small.cvgh', 'ASK ME TO'), h('div.cvbtns', ...(Object.keys(EDITS) as EditKind[]).map((k) => cased(button(EDITS[k].label, () => void askEdit(k))))));
-    const write = h('div.dcasks.dcwrite', h('small.cvgh', 'GHOSTY WRITES IN IT'), h('div.dcrow', askIn), h('div.cvbtns', button('WRITE INTO IT', () => void writeInto(), 'on'), button('REWRITE THIS PARAGRAPH', () => void rewriteHere())));
+    const write = h('div.dcasks.dcwrite', h('small.cvgh', 'GHOSTY WRITES IN IT'), h('div.dcrow', askIn), h('div.cvbtns', button('WRITE INTO IT', () => void writeInto(), 'on'), button('REWRITE THIS PARAGRAPH', () => void rewriteHere()), button('ASK GHOSTY', () => void tellHere())));
     const trans = h('div.dcasks', h('small.cvgh', 'TRANSLATE'), h('div.dcrow', langPick, langOther, button('TRANSLATE', () => void translate(), 'on')));
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
@@ -1091,6 +1122,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       flush();
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flush);
+      setLiveDoc(null);
       stopReading();
     },
   };

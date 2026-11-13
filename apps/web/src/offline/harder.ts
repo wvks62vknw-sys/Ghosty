@@ -234,7 +234,11 @@ async function benchNow(withThink: boolean): Promise<Run> {
       onProgress: (done, total, line, partial) => reportCard.set({ live: { ...partial, items: [...partial.items] }, line, done, total }),
     });
     // A stopped run is kept (marked partial) so its numbers aren't lost; only a whole run counts as checked.
+    const before = reportCard.get().history;
     reportCard.set((s) => ({ history: addRun(s.history, run), live: null, line: '', ...(run.complete ? { checked: run.model } : {}) }));
+    // [firstcheck] the brain just published is the one in use: its report card beside the brain before it is its first check (offline/firstcheck.ts)
+    const m = currentModel();
+    if (run.complete && m.rev === offlineBrain.get().active) void import('./firstcheck').then((f) => { const c = f.checkOf(before, run, m.rev); return c ? f.reportFirstCheck(c) : undefined; }).catch(() => undefined);
     return run;
   } finally {
     if (ctl === mine) ctl = null;

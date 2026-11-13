@@ -56,8 +56,9 @@ import { creativeTools, CREATIVE_ABOUT, CREATIVE_WHEN } from './creative'; // [p
 import { outsideTools, OUTSIDE_ABOUT, OUTSIDE_WHEN } from './outside'; // [packs3] the outside pack (BRIEF-PACKS-3)
 import { homeAdminTools, HOME_ABOUT, HOME_WHEN } from './homeadmin'; // [packs3] the home pack (its group is "homeadmin": "home" is the furniture finder)
 import { learningTools, LEARNING_ABOUT, LEARNING_WHEN } from './learning'; // [packs3] the learning pack (practice skills beside the LEARN tab)
+import { documentTools, DOCUMENT_ABOUT, DOCUMENT_WHEN } from './document'; // [document] the one open document (BRIEF-KERNEL-2)
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools, ...outsideTools, ...homeAdminTools, ...learningTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2] [packs3]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools, ...outsideTools, ...homeAdminTools, ...learningTools, ...documentTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2] [packs3]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -337,6 +338,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'outside', tools: outsideTools, when: OUTSIDE_WHEN, about: OUTSIDE_ABOUT, short: 'outside pack' },
   { name: 'homeadmin', tools: homeAdminTools, when: HOME_WHEN, about: HOME_ABOUT, short: 'home pack' },
   { name: 'learning', tools: learningTools, when: LEARNING_WHEN, about: LEARNING_ABOUT, short: 'learning pack' },
+  // [document] the one document open on his phone: its proposals are marked changes he accepts or rejects (BRIEF-KERNEL-2)
+  { name: 'doc', tools: documentTools, when: DOCUMENT_WHEN, about: DOCUMENT_ABOUT },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

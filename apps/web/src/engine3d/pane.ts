@@ -8,6 +8,7 @@
 import type { ScreenContext } from '../../../../packages/shared/src/awareness';
 import { clear, h } from '../core/dom';
 import { button, toast, undo as offerUndo } from '../ui/components';
+import { Drops } from './drop';
 import { Engine } from './engine';
 import { exportGltf, type Exported } from './gltf';
 import { freeShelf, forgetFile, getWords, keptFile, keptIds, loadFree, modelFile, onMobileData, waitWords, type FreeModel } from './library';
@@ -66,7 +67,13 @@ export function enginePane(view: HTMLElement): EnginePane {
     b.setAttribute('aria-label', t.aria);
     return b;
   });
-  const tools = h('div.e3tools', { role: 'group', 'aria-label': 'What a drag does to the selected thing' }, ...toolKeys);
+  // ---- PHYSICS (physics.ts, drop.ts): off until he turns it on; DROP IT lets the selected thing fall
+  const drops = new Drops(engine);
+  eview.tick = (ms, force) => drops.tick(ms, force);
+  const dropKey = button('DROP IT', () => void (engine.selected && drops.drop(engine.selected)), 'e3tool');
+  dropKey.dataset.case = 'keep';
+  dropKey.setAttribute('aria-label', 'Drop it: the selected thing falls and lands on what is under it');
+  const tools = h('div.e3tools', { role: 'group', 'aria-label': 'What a drag does to the selected thing' }, ...toolKeys, dropKey);
   const hintText = h('span');
   const hintMid = button('IN THE MIDDLE', () => {
     if (engine.armed) engine.place(engine.armed.kind, 0, 0, engine.armed.over ?? {}), engine.arm(null);
@@ -84,7 +91,12 @@ export function enginePane(view: HTMLElement): EnginePane {
   const library = h('div.e3library');
   const things = h('div.e3things', { role: 'group', 'aria-label': 'Everything in the scene' });
   const sceneBox = h('div.e3scene');
-  const el = h('div.studiopane.e3pane', est, say, things, inspector, library, sceneBox);
+  const physKey = button('PHYSICS: OFF', () => void (drops.on ? drops.turnOff() : drops.turnOn()), 'e3act');
+  physKey.dataset.case = 'keep';
+  physKey.setAttribute('aria-pressed', 'false');
+  physKey.setAttribute('aria-label', 'Physics is off. Tap to turn it on: things you drop then fall and land.');
+  const phys = h('div.e3acts.e3phys', physKey);
+  const el = h('div.studiopane.e3pane', est, say, phys, things, inspector, library, sceneBox);
 
   // ---- the library: PARAMETRIC and FREE MODELS
   let shelf: 'param' | 'free' = 'param';
@@ -99,6 +111,7 @@ export function enginePane(view: HTMLElement): EnginePane {
     say.textContent = t;
     engine.last = t;
   };
+  drops.say = said;
 
   const card = (p: Product) => {
     const b = button(h('span.e3cardin', h('b', p.name), h('small', `${p.w} × ${p.d} × ${p.h} cm`)), () => (engine.armed?.kind === p.kind ? engine.arm(null) : engine.arm({ kind: p.kind, label: p.name })), 'e3card');
@@ -386,6 +399,14 @@ export function enginePane(view: HTMLElement): EnginePane {
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', String(on));
     }
+    // (put in the row only while it can be used: a hidden attribute loses to the keys' own display rule)
+    if (drops.on && engine.obj) {
+      if (!dropKey.isConnected) tools.append(dropKey);
+    } else dropKey.remove();
+    physKey.textContent = drops.loading ? 'PHYSICS: LOADING…' : drops.on ? 'PHYSICS: ON' : 'PHYSICS: OFF';
+    physKey.setAttribute('aria-pressed', String(drops.on));
+    physKey.disabled = drops.loading;
+    physKey.setAttribute('aria-label', drops.on ? 'Physics is on. Tap to turn it off.' : 'Physics is off. Tap to turn it on: things you drop then fall and land.');
     hint.hidden = !engine.armed;
     hintText.textContent = engine.armed ? `Tap the ground to put the ${engine.armed.label.toLowerCase()} there` : '';
     for (const b of el.querySelectorAll<HTMLElement>('.e3card')) b.setAttribute('aria-pressed', String(b.dataset.kind === engine.armed?.kind));
@@ -475,6 +496,7 @@ export function enginePane(view: HTMLElement): EnginePane {
       exported: exported ? { name: exported.name, bytes: exported.bytes, nodes: exported.nodes, meshes: exported.meshes, materials: exported.materials, triangles: exported.triangles, unloaded: exported.unloaded } : null,
       last: engine.last,
       handles: engine.handles().map((hd) => ({ kind: hd.kind, at: screenOf(hd.at) })),
+      physics: drops.state(),
     }),
     place: (kind: string, x: number, z: number, over?: Partial<Obj>) => engine.place(kind as Product['kind'], x, z, over),
     select: (id: string) => engine.select(id),
@@ -510,6 +532,18 @@ export function enginePane(view: HTMLElement): EnginePane {
     /** Where a point of the scene (cm from the ground's middle, cm up) is on the stage, in page pixels; null behind the eye. */
     screenOf: (x: number, y: number, z: number) => screenOf([x / 100, y / 100, z / 100]),
     ground: () => ({ w: engine.scene.ground.w, d: engine.scene.ground.d }),
+    /** PHYSICS (physics.ts): on loads the package (the first time only), drop lets a thing fall, bench times frames with the world in them. */
+    physics: {
+      on: async () => {
+        const ok = await drops.turnOn();
+        engine.onChange();
+        return ok;
+      },
+      off: () => drops.turnOff(),
+      drop: (id: string) => drops.drop(id),
+      bench: (n = 60) => eview.bench(n),
+      state: () => drops.state(),
+    },
     handleScreen: (kind: string) => api.state().handles.find((x) => x.kind === kind)?.at ?? null,
   };
 
@@ -552,6 +586,7 @@ export function enginePane(view: HTMLElement): EnginePane {
     },
     leave() {
       on = false;
+      drops.leave();
       stage.hidden = true;
       eview.stop();
     },

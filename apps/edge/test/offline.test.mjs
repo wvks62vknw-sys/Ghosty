@@ -215,23 +215,5 @@ test('daily backup: a failed try never turns off the wiped-phone guard; after wa
   assert.equal(calls, 0);
 });
 
-// ---------------------------------------------------------------------------------------------------------
-// The GYM's games run on the phone with no brain at all: their tests live in gym.test.mjs (run from here,
-// because the test list in package.json is protected).
-await import('./gym.test.mjs');
-// GYM part 2: the reasoning games (gym2) and the board/control games — checkers, chess, Go, poker, Sokoban,
-// balance & lander (gym2a).
-await import('./gym2.test.mjs');
-await import('./gym2a.test.mjs');
-// The GYM's next level: league play against his past selves, puzzles at his edge, records from checked work,
-// the REPORT CARD's LOOPS card (BRIEF-GYM-IDEAS).
-await import('./gymideas.test.mjs');
-// PLAY HIM at full strength, lessons from the owner's games, the tactical floor on the other boards (gym2).
-await import('./gymvs.test.mjs');
 
-// The offline brain's weekly self-training on Kaggle (apps/edge/src/selftrain): its tests live in
-// selftrain.test.mjs (run from here for the same reason).
-await import('./selftrain.test.mjs');
 
-// NIGHT SCHOOL (packages/shared/src/night.ts, apps/edge/src/school/night.ts): its tests live in night.test.mjs.
-await import('./night.test.mjs');

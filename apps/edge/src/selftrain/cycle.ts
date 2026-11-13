@@ -56,7 +56,7 @@
  * report arrived cannot write its stale copy over it.
  */
 import { feel } from '../mood';
-import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, stopWords, STUCK_INSTALL, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type Preflight, type PreflightStep, type TrainEvent, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, FIRST_CHECK_WINDOW_MS, firstCheckVerdict, gateVerdict, recordProblem, stopWords, STUCK_INSTALL, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type Preflight, type PreflightStep, type FirstCheck, type TrainEvent, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { NIGHT_CALLS, nightStep } from '../school/night';
@@ -276,6 +276,10 @@ const K = {
   /** The last twenty runs that ended and brains rolled back (weekly.ts), and the pre-flight's last answer. */
   log: 'train:log',
   preflight: 'train:preflight',
+  /** Commits whose first check has decided (commit → 'kept' | 'rolled-back'), those rolled back automatically, and those he put in use by hand. */
+  checked: 'train:checked',
+  autoRolled: 'train:autorolled',
+  hand: 'train:hand',
 };
 
 /** The base the weekly training follows: the one chosen in SETTINGS → OFFLINE BRAIN. */
@@ -1715,6 +1719,51 @@ async function dropModel(d: CycleDeps, models: KeptModel[], i: number, reason: N
   await logEvent(s, { at: nowOf(d), kind: 'rollback', commit: gone.commit, label: gone.label, week: gone.week, reason, why: reason === 'broken' ? `${gone.label} would not load on the phone` : reason === 'worse' ? `${gone.label} turned out worse` : `${gone.label} dropped by you` });
 }
 
+/**
+ * THE FIRST CHECK OF A PUBLISHED BRAIN (BRIEF-KERNEL-2 item 4). The phone reports what it found on the brain just offered to it:
+ * its files loaded, the first question answered, its score on the phone's own check beside the brain it replaced. A load failure, an
+ * unanswered question or a score below the previous brain's by more than the gate's own margin rolls back to the previous brain at
+ * once (the brain stays on the list, so he can still put it back by hand), writes `why` in the log, and tells him ONCE in his voice
+ * with the two numbers. A pass is logged as kept. Only the brain in use, only inside its window, only once: a brain already decided,
+ * already rolled back by itself, or put in use by hand is left alone. His ROLLBACK tap stays for everything else.
+ */
+export async function firstCheck(d: CycleDeps, c: FirstCheck): Promise<{ result: 'kept' | 'rolled-back' | 'waiting' | 'ignored'; why: string }> {
+  const s = d.storage;
+  const ignored = (why: string) => ({ result: 'ignored' as const, why });
+  const models = await loadModels(s);
+  const i = models.findIndex((m) => m.commit === c.commit);
+  const m = models[i];
+  if (!m) return ignored('no such brain');
+  if ((await s.get<string | null>(K.active)) !== m.commit) return ignored('not the brain in use');
+  if (nowOf(d) - m.at > FIRST_CHECK_WINDOW_MS) return ignored('past its first-check window');
+  if ((await s.get<string[]>(K.hand))?.includes(m.commit)) return ignored('he put it in use himself: left alone');
+  if ((await s.get<string[]>(K.autoRolled))?.includes(m.commit)) return ignored('already rolled back once by itself');
+  const checked = (await s.get<Record<string, string>>(K.checked)) ?? {};
+  if (checked[m.commit]) return ignored(`its first check already decided: ${checked[m.commit]}`);
+  const v = firstCheckVerdict(c);
+  if (v.do === 'wait') return { result: 'waiting', why: v.why };
+  const log = await loadLog(s);
+  const run = log.find((e) => e.kind === 'run' && e.commit === m.commit);
+  const nums = typeof c.score === 'number' && typeof c.previous === 'number' ? { score: c.score, previous: c.previous } : {};
+  await s.put(K.checked, { ...checked, [m.commit]: v.do === 'keep' ? 'kept' : 'rolled-back' });
+  if (v.do === 'keep') {
+    await logEvent(s, { at: nowOf(d), kind: 'check', commit: m.commit, label: m.label, week: m.week, why: v.why, ...nums });
+    return { result: 'kept', why: v.why };
+  }
+  // back to the previous brain of the same base (or its stock build), the new one kept on the list
+  const older = models.slice(i + 1).find((x) => baseOfModel(x) === baseOfModel(m));
+  await s.put(K.active, older?.commit ?? null);
+  await s.put(K.autoRolled, [...((await s.get<string[]>(K.autoRolled)) ?? []), m.commit]);
+  await logEvent(s, { at: nowOf(d), kind: 'rollback', commit: m.commit, label: m.label, week: m.week, reason: v.reason!, auto: true, why: v.why, ...nums });
+  const pc = (x: number) => `${Math.round(x * 100)}%`;
+  const exam = run?.before !== undefined && run.after !== undefined ? ` It had scored ${pc(run.after)} in its exam against ${pc(run.before)} for the old one.` : '';
+  const words = nums.score !== undefined
+    ? `I rolled myself back to the brain before this week's: the new one scored ${pc(nums.score)} on your phone against ${pc(nums.previous!)} for the old one. If you would rather have the new one, choose it in SETTINGS → OFFLINE BRAIN.`
+    : `I rolled myself back to the brain before this week's: the new one ${v.why.replace(/^it /, '')}.${exam} If you would rather have it, choose it in SETTINGS → OFFLINE BRAIN.`;
+  await d.notify?.('Offline brain training', words).catch(() => undefined);
+  return { result: 'rolled-back', why: v.why };
+}
+
 /** Route `/training…` for the phone (owner only: behind the kernel's sign-in like every other route). */
 export async function trainingRoute(req: Request, path: string, method: string, d: CycleDeps): Promise<Response> {
   const s = d.storage;
@@ -1852,6 +1901,13 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     }
     return json(await trainStatus(d));
   }
+  if (path === '/training/firstcheck' && method === 'POST') {
+    // The phone's first check of the brain just published (see firstCheck above): numbers and booleans only.
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1 ? v : undefined);
+    const asked = typeof body.asked === 'number' && Number.isFinite(body.asked) ? Math.max(0, Math.min(1000, Math.round(body.asked))) : undefined;
+    const r = await firstCheck(d, { commit: String(body.commit ?? ''), loaded: body.loaded !== false, ...(typeof body.answered === 'boolean' ? { answered: body.answered } : {}), ...(num(body.score) !== undefined ? { score: num(body.score) } : {}), ...(num(body.previous) !== undefined ? { previous: num(body.previous) } : {}), ...(asked ? { asked } : {}) });
+    return json({ ...r, status: await trainStatus(d) });
+  }
   if (path === '/training/use' && method === 'POST') {
     const want = body.commit === null ? null : String(body.commit ?? '');
     const m = want === null ? null : (await loadModels(s)).find((x) => x.commit === want);
@@ -1862,6 +1918,11 @@ export async function trainingRoute(req: Request, path: string, method: string, 
       await s.put(K.base, baseOfModel(m));
     }
     await s.put(K.active, want);
+    // a brain he put in use himself is never rolled back by its first check (and one rolled back by itself, put back, stays)
+    if (want !== null) {
+      await s.put(K.hand, [...new Set([...((await s.get<string[]>(K.hand)) ?? []), want])].slice(-20));
+      if ((await s.get<string[]>(K.autoRolled))?.includes(want)) await logEvent(s, { at: nowOf(d), kind: 'forward', commit: want, label: m?.label, week: m?.week, why: 'you chose it again after it rolled back by itself' });
+    }
     return json(await trainStatus(d));
   }
   return json({ error: 'not found' }, 404);

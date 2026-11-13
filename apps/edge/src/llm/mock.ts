@@ -201,6 +201,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
     if (lastCall && ['people', 'work', 'creative', 'outside', 'home', 'learning'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
+    // [document] After the document tool: what it did, in a line (a proposal is marked in the page for him, never applied).
+    if (lastCall?.name === 'document') return { message: { role: 'assistant', content: /^Proposed/.test(textOf(last.content)) ? 'It is marked in your document: accept it or reject it there.' : textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -262,6 +264,13 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if (/^SHEET CLEAN\b/.test(docAsk)) return { message: { role: 'assistant', content: [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((m) => `[${m[1]}] ${m[2]!.trim().replace(/\s+/g, ' ').replace(/\b([a-z])/g, (c) => c.toUpperCase())}`).join('\n') }, model };
   // [editors] DOCUMENTS writing into the page (docs/ask.ts, the document as the turn's data): new words as Markdown with its chatter, one paragraph said again
   if (/^DOCUMENT WRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: "Sure, here you go:\n\n## Next steps\n\nPlease reply within 14 days. If I have not heard from you by then I will take the matter further.\n\n- Repair the **damp** at the back of the flat\n- Confirm the date of the visit\n\nWant me to make it firmer?" }, model };
+  // [document] the `document` tool (tools/document.ts; BRIEF-KERNEL-2): "make the second paragraph shorter" with a document open reads it from the
+  // turn's data (the numbered paragraphs after his message) and proposes the paragraph's first sentence; the reply says it is marked for him.
+  if (last.role === 'user' && has('document') && (m = /^make the (first|second|third|fourth|\d+)(?:st|nd|rd|th)? paragraph (?:a bit )?shorter/.exec(docAsk.toLowerCase()))) {
+    const at = ({ first: 1, second: 2, third: 3, fourth: 4 } as Record<string, number>)[m[1]!] ?? Number(m[1]);
+    const words = new RegExp(`^\\[${at}\\] (?:#{1,3} )?(.*)$`, 'm').exec(textOf(last.content))?.[1] ?? '';
+    return { message: call('document', { op: 'edit', paragraph: at, text: words.split(/(?<=[.!?])\s+/)[0] ?? words }), model };
+  }
   if (/^DOCUMENT REWRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: 'Please arrange the repair within 14 days.' }, model };
   if (/^DOCUMENT (?:EDIT|TRANSLATE)\b/.test(docAsk)) {
     const paras = [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((x) => ({ n: Number(x[1]), text: x[2]! }));

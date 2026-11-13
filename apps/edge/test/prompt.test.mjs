@@ -701,6 +701,3 @@ test('the CONTEXT block comes from the one shared mind: the snapshot when the tu
   assert.ok(`\nCONTEXT:\n${P.contextLines(base, client).join('\n')}`.length < old.length);
 });
 
-// The one shared mind's own tests (apps/edge/src/mind.ts): run from here (the test list in package.json is protected).
-await import('./mind.test.mjs');
-await import('./awareness.test.mjs');

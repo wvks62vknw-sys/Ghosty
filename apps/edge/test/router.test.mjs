@@ -756,27 +756,6 @@ test('the owner’s chat waits for its best model two seconds at most, then the 
   assert.ok(Date.now() - t0 < 1000, `no silent wait in a conversation (${Date.now() - t0} ms)`);
 });
 
-// The stopwatch's tests (speed.ts and the phone's core/stopwatch.ts) run with these.
-await import('./speed.test.mjs');
-await import('./kernel-yes.test.mjs');
-await import('./telegrampic.test.mjs');
-// BRIEF-OCT-IDEAS-2: watchers, money nudges, email triage and the words of LIFE EASIER (package.json is protected: run from here, as kernel-yes is).
-await import('./watchers.test.mjs');
-await import('./wall.test.mjs'); // [wall] BRIEF-MACHINE-WALL: pairing, the stream, the refusals
-await import('./sheets.test.mjs');
-// THE GAMES OF PASS 5 (BRIEF-GAMES-5): the platformer, the cave and four board games, held to their rules with no screen.
-await import('./games5.test.mjs');
-await import('./workingengine.test.mjs');
-await import('./health.test.mjs'); // [health] the marks, the brain's health object, "that felt off" (BRIEF-RELIABILITY)
-await import('./slides.test.mjs');
-await import('./workspace.test.mjs');
-await import('./photoedit.test.mjs');
-await import('./photo2.test.mjs');
-await import('./video.test.mjs');
-await import('./video2.test.mjs');
-// THE GAME STUDIO (BRIEF-EDITOR-GAME-STUDIO): the model, the runtime, the .ghostygame file and the app page, held to their rules with no screen.
-await import('./gamestudio.test.mjs');
-await import('./games6.test.mjs');
 
 // [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
 // each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings

@@ -17,6 +17,10 @@
 //     the desk; "show me a desk 140 by 70" opens it with the part at that size.
 //  9. THE THREE WORLDS: The Scan (and at 390 × 844), Glass and ONE INK: the pane is reachable, nothing sideways, every key 44 pt, no
 //     security-policy refusal, no page error.
+// 10. PHYSICS (BRIEF-KERNEL-2): off by default (the package is not fetched, a part dropped stays); PHYSICS: ON fetches the one vendored file
+//     and says its true size once in the pane's line, nothing moves until DROP IT; a part dropped lands on the floor within 2 s, one dropped
+//     onto another rests on it, one dropped over a wall stops on it; eight resting blocks draw under 16 ms a frame (a first estimate);
+//     UNDO puts a drop back; OFF leaves everything where it is and a second ON fetches nothing.
 //   BASE=http://localhost:8802 NO_GL_SHOTS=1 node tests/engine3d.spec.mjs [outDir]
 import { mkdirSync, readFileSync } from 'node:fs';
 import { launch, webkitNoise } from './browser.mjs';
@@ -33,8 +37,8 @@ const GLASS = { ground: 'graphite', world: 'glass', night: 'graphite', switches:
 const INK = { ground: 'warm', world: 'ink', night: 'warm', switches: {} };
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const policy = [];
-// ONLY=e|s|w runs just the editor, SHOW ME or the worlds (for working on one part; CI runs all three)
-const only = process.env.ONLY ?? 'esw';
+// ONLY=e|s|w|p runs just the editor, SHOW ME, the worlds or PHYSICS (for working on one part; CI runs all four)
+const only = process.env.ONLY ?? 'eswp';
 
 async function open({ look = SCAN, viewport = PHONE, show = false, fresh = true } = {}, ctxIn = null) {
   const ctx = ctxIn ?? (await browser.newContext({ viewport, ...UK, serviceWorkers: 'block', hasTouch: true, isMobile: true }));
@@ -499,6 +503,118 @@ for (const [name, look, viewport] of only.includes('w') ? worlds : []) {
   await page.screenshot({ path: `${out}/engine3d-${name}.png`, timeout: 15000 }).catch(() => undefined);
   await ctx.close();
 }
+// ================================================================ 10. PHYSICS (BRIEF-KERNEL-2 item 3)
+let physicsLine = '';
+if (only.includes('p')) {
+  const { ctx, page } = await open();
+  const hits = [];
+  page.on('request', (r) => /\/vendor\/rapier\//.test(r.url()) && hits.push(r.url()));
+  await toEngine(page);
+  const P = (pg) => pg.evaluate(() => window.__ghosty.engine3d.state().physics);
+  const room = { v: 1, name: 'Physics room', ground: { w: 400, d: 300 }, objects: [
+    { id: 'o1', kind: 'box', name: 'Wall back', x: 0, z: -155, y: 0, rot: 0, w: 420, d: 10, h: 240, mat: 'white' },
+    { id: 'o2', kind: 'box', name: 'Wall right', x: 205, z: 0, y: 0, rot: 0, w: 10, d: 300, h: 240, mat: 'white' },
+    { id: 'o3', kind: 'table', name: 'Table', x: 0, z: 0, y: 0, rot: 0, w: 120, d: 80, h: 75, mat: 'oak' },
+  ] };
+  check(await page.evaluate((r) => window.__ghosty.engine3d.load(r), room), '[10] the room scene did not load');
+  await page.waitForTimeout(400);
+  // ---- off by default: the package is not fetched, nothing moves, DROP IT is not there
+  {
+    const cup = await page.evaluate(() => window.__ghosty.engine3d.place('cylinder', 150, 100, { name: 'Cup', w: 8, d: 8, h: 10, y: 200 }));
+    await page.waitForTimeout(900);
+    const st = await E(page);
+    check(st.physics.on === false && st.physics.fetched === 0 && !st.physics.loaded, `[10] physics is not off by default: ${JSON.stringify(st.physics)}`);
+    check(hits.length === 0, `[10] the physics package was asked for before PHYSICS was turned on: ${hits.join()}`);
+    check((await obj(page, cup)).y === 200, '[10] physics off: a part dropped (placed high) moved');
+    check(await page.evaluate(() => document.querySelector('.e3pane .e3phys button')?.textContent === 'PHYSICS: OFF'), '[10] the key does not say PHYSICS: OFF');
+    check(await page.evaluate(() => ![...document.querySelectorAll('.e3tools button')].some((b) => /DROP IT/.test(b.textContent) && b.getClientRects().length)), '[10] DROP IT shows with physics off');
+    check((await page.evaluate((id) => window.__ghosty.engine3d.physics.drop(id), cup)) === false, '[10] a drop worked with physics off');
+    await page.waitForTimeout(500);
+    check((await obj(page, cup)).y === 200, '[10] physics off: the part dropped did not stay');
+    // ---- ON: the one file asked for, its true size said once in the pane's line, nothing moves
+    // ---- on mobile data: PHYSICS: ON fetches nothing, says it waits for Wi-Fi with the size, and stays off; on Wi-Fi it goes ahead
+    await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'cellular', saveData: false }, configurable: true }));
+    await press(page, '.e3phys button');
+    await page.waitForTimeout(500);
+    const waitedLine = await page.evaluate(() => document.querySelector('.e3say')?.textContent ?? '');
+    check(waitedLine === 'You’re on mobile data, so I’ll wait for Wi-Fi, then fetch 4.3 MB.' && hits.length === 0 && (await P(page)).on === false && (await P(page)).waited === 1, `[10] ON on mobile data did not wait: ${waitedLine} ${hits.length}`);
+    check(await page.evaluate(() => document.querySelector('.e3phys button')?.textContent === 'PHYSICS: OFF'), '[10] the key left OFF on mobile data');
+    await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'cellular', saveData: false }, configurable: true }));
+    await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'wifi', saveData: false }, configurable: true }));
+    await page.evaluate(() => {
+      window.__says = [];
+      new MutationObserver(() => window.__says.push(document.querySelector('.e3say')?.textContent ?? '')).observe(document.querySelector('.e3say'), { childList: true, characterData: true, subtree: true });
+    });
+    await press(page, '.e3phys button');
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.on === true, null, 30000, '[10] PHYSICS: ON never came'), '');
+    const size = (await (await fetch(`${base}/vendor/rapier/rapier.mjs`)).arrayBuffer()).byteLength; // (read here, not by the page: the page's own requests are what is counted)
+    const said = await page.evaluate(() => window.__ghosty.engine3d.state().last);
+    const line = await page.evaluate(() => document.querySelector('.e3say')?.textContent ?? '');
+    const asked = hits.filter((u) => /rapier\.mjs/.test(u)).length;
+    check(asked >= 1, `[10] the package was not fetched on PHYSICS: ON (${hits.join()})`);
+    check(size > 4_000_000 && Math.abs(size - 4_340_292) < 1, `[10] the vendored file is ${size} bytes, not the stated 4,340,292`);
+    check(/^Physics is on\./.test(line) || /Loading physics/.test(line), `[10] the pane's line: ${line}`);
+    check(await page.evaluate((n) => window.__ghosty.engine3d.state().physics.fetched === 1 && n > 0, size), '[10] the package was fetched more than once');
+    const says = await page.evaluate(() => window.__says);
+    const loading = says.filter((t) => /^Loading physics, /.test(t));
+    check(loading.length >= 1 && loading.every((t) => t === `Loading physics, ${(size / 1_000_000).toFixed(1)} MB…`), `[10] the size said in the pane's line is not the file's (${size} bytes): ${JSON.stringify(says)}`);
+    void said;
+    await page.waitForTimeout(700);
+    check((await obj(page, cup)).y === 200, '[10] turning physics on moved a part: nothing may move until DROP IT');
+    check(await page.evaluate(() => document.querySelector('.e3phys button')?.textContent === 'PHYSICS: ON'), '[10] the key does not say PHYSICS: ON');
+    // ---- DROP IT on a part (a real tap on the key): it lands on the floor within 2 s
+    await page.evaluate((id) => window.__ghosty.engine3d.select(id), cup);
+    await page.waitForTimeout(150);
+    check(await page.evaluate(() => { const b = [...document.querySelectorAll('.e3tools button')].find((x) => /DROP IT/.test(x.textContent)); return !!b && b.getClientRects().length > 0 && b.getBoundingClientRect().height >= 43.5; }), '[10] DROP IT is not there at 44 pt with a thing selected');
+    const t0 = Date.now();
+    await press(page, '.e3tools button[aria-label^="Drop it"]');
+    const landed = await until(page, () => (window.__ghosty.engine3d.state().objects.find((o) => o.name === 'Cup')?.y ?? 99) <= 1.5, null, 2000, '[10] the cup did not land within 2 s');
+    const took = Date.now() - t0;
+    await until(page, () => window.__ghosty.engine3d.state().physics.landed >= 1, null, 3000, '[10] the cup never came to rest');
+    const c = await obj(page, cup);
+    check(landed && took <= 2000, `[10] the cup took ${took} ms to land`);
+    check(c.y >= 0 && c.y <= 1.5 && Math.abs(c.x - 150) < 1 && Math.abs(c.z - 100) < 1, `[10] the cup is at ${JSON.stringify({ x: c.x, y: c.y, z: c.z })}, not on the floor where it fell`);
+    // one undo step puts it back where it was
+    check((await page.evaluate(() => window.__ghosty.engine3d.undo())) && (await obj(page, cup)).y === 200, '[10] UNDO did not put the dropped cup back');
+    // ---- a part dropped onto another rests on it (the table's top is 75 cm)
+    const mug = await page.evaluate(() => window.__ghosty.engine3d.place('cylinder', 20, 10, { name: 'Mug', w: 8, d: 8, h: 10 }));
+    await page.evaluate((id) => window.__ghosty.engine3d.select(id), mug);
+    await page.evaluate((id) => window.__ghosty.engine3d.physics.drop(id), mug);
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.landed >= 2 && window.__ghosty.engine3d.state().physics.moving === 0, null, 3000, '[10] the mug did not land'), '');
+    const m = await obj(page, mug);
+    check(Math.abs(m.y - 75) <= 2 && Math.abs(m.x - 20) < 1.5 && Math.abs(m.z - 10) < 1.5, `[10] the mug did not rest on the table: ${JSON.stringify({ x: m.x, y: m.y, z: m.z })}`);
+    // ---- a part dropped over a wall does not pass through it: it lands on top of it
+    const box = await page.evaluate(() => window.__ghosty.engine3d.place('box', 190, -60, { name: 'Crate', w: 40, d: 40, h: 40, y: 400 }));
+    await page.evaluate((id) => window.__ghosty.engine3d.physics.drop(id), box);
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.moving === 0 && window.__ghosty.engine3d.state().physics.landed >= 3, null, 4000, '[10] the crate did not land'), '');
+    const b = await obj(page, box);
+    check(b.y >= 238 && b.y <= 242, `[10] the crate dropped over the right wall is at y ${b.y}, not on top of it (240)`);
+    // ---- eight things resting: the frame time (a first estimate; the world stepped in every frame, rerun alone before red)
+    const eight = [];
+    for (let i = 0; i < 8; i++) eight.push(await page.evaluate(([i]) => window.__ghosty.engine3d.place('box', -150 + (i % 4) * 70, 60 + Math.floor(i / 4) * 70, { name: `Block ${i + 1}`, w: 30, d: 30, h: 30, y: 60 }), [i]));
+    for (const id of eight) await page.evaluate((id) => window.__ghosty.engine3d.physics.drop(id), id);
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.moving === 0 && window.__ghosty.engine3d.state().physics.landed >= 4, null, 6000, '[10] eight blocks did not all land'), '');
+    const rest = await Promise.all(eight.map((id) => obj(page, id)));
+    check(rest.every((o) => o.y >= 0 && o.y <= 1.5), `[10] a block is not on the floor: ${rest.map((o) => o.y)}`);
+    let bench = await page.evaluate(() => window.__ghosty.engine3d.physics.bench(60));
+    if (bench.median >= 16) bench = await page.evaluate(() => window.__ghosty.engine3d.physics.bench(60));
+    physicsLine = `physics: the package ${size} bytes fetched once on PHYSICS: ON; the cup landed in ${took} ms; frame time with eight blocks resting and the world stepped in every frame: median ${bench.median} ms, mean ${bench.mean} ms, max ${bench.max} ms over ${bench.n} frames (first estimate)`;
+    check(bench.median < 16, `[10] the frame time with eight blocks resting is ${bench.median} ms median (max ${bench.max}), not under 16`);
+    // ---- OFF: it stays where it is, DROP IT goes, a second ON does not fetch again
+    const before = await obj(page, eight[0]);
+    await press(page, '.e3phys button');
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.on === false, null, 3000, '[10] PHYSICS: OFF never came'), '');
+    check(JSON.stringify(await obj(page, eight[0])) === JSON.stringify(before), '[10] turning physics off moved a part');
+    check((await page.evaluate((id) => window.__ghosty.engine3d.physics.drop(id), eight[0])) === false, '[10] a drop worked after physics was turned off');
+    const hitsBefore = hits.length;
+    await press(page, '.e3phys button');
+    check(await until(page, () => window.__ghosty.engine3d.state().physics.on === true, null, 8000, '[10] PHYSICS: ON (again) never came'), '');
+    check(hits.length === hitsBefore && (await P(page)).fetched === 1, '[10] turning physics on a second time fetched the package again');
+    check((await page.evaluate(() => window.__says)).filter((t) => /^Loading physics, /.test(t)).length === loading.length, '[10] the size was said again on the second ON');
+  }
+  await ctx.close();
+}
+
 check(policy.length === 0, `a security-policy refusal: ${policy[0]}`);
 
 await browser.close();
@@ -506,4 +622,5 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log('3-D engine run clean: a ground and a camera turned, pinched and slid by touch; a desk placed by a real tap and moved, turned and sized by its handles to the numbers the camera maths gives; every primitive and part placed, sizes typed in cm exact and clamped; materials, undo and redo; the free models shelf listing size, licence and author and fetching nothing until GET on Wi-Fi (once, kept, credited); save, reload, open and delete; a glTF file read back with the right bounds, materials, credit and estimate and loaded by the vendored loader; SHOW ME opening a 4 by 3 room and a 140 by 70 desk in the engine; the three worlds and 390 clean.');
+console.log(physicsLine);
+console.log('3-D engine run clean: a ground and a camera turned, pinched and slid by touch; a desk placed by a real tap and moved, turned and sized by its handles to the numbers the camera maths gives; every primitive and part placed, sizes typed in cm exact and clamped; materials, undo and redo; the free models shelf listing size, licence and author and fetching nothing until GET on Wi-Fi (once, kept, credited); save, reload, open and delete; a glTF file read back with the right bounds, materials, credit and estimate and loaded by the vendored loader; SHOW ME opening a 4 by 3 room and a 140 by 70 desk in the engine; the three worlds and 390 clean; PHYSICS off by default and fetching nothing, ON fetching the one file (its true size said once), a dropped part landing on the floor within 2 s, resting on the table, stopped by the wall, eight resting blocks under 16 ms a frame, OFF leaving everything where it is.');
