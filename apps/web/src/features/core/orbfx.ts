@@ -46,6 +46,40 @@ export function orbFx(): OrbFx {
   let was = false;
   let ringR = 0;
   let thread: SVGSVGElement | null = null;
+  let planTurn = 0;
+  let unwatch: () => void = () => undefined;
+
+  /** The thread from the orb's box to the lit room's row, where both stand now: drawn the first time, its ends moved after. */
+  const place = (orb: HTMLElement): { path: SVGPathElement; dot: SVGCircleElement; len: number } | null => {
+    const o = orb.getBoundingClientRect();
+    const row = document.querySelector<HTMLElement>('#plan .planroom.lit .planroomhead');
+    if (!row || o.width < 2) return null;
+    const r = row.getBoundingClientRect();
+    const cx = o.left + o.width / 2;
+    const cy = o.top + o.height / 2;
+    const tx = Math.max(r.left, Math.min(r.right, cx));
+    const ty = Math.max(r.top, Math.min(r.bottom, cy));
+    const ang = Math.atan2(ty - cy, tx - cx);
+    const rr = (o.width * ORB_FILL) / 2;
+    const sx = cx + rr * Math.cos(ang);
+    const sy = cy + rr * Math.sin(ang);
+    const len = Math.hypot(tx - sx, ty - sy);
+    const d = `M${sx.toFixed(1)} ${sy.toFixed(1)}L${tx.toFixed(1)} ${ty.toFixed(1)}`;
+    if (!thread) {
+      thread = svgEl('svg', { class: 'orbthread', 'aria-hidden': 'true' });
+      thread.append(svgEl('path', { class: 'orbthreadline' }), svgEl('circle', { class: 'orbthreaddot', r: 2.5 }));
+      document.body.append(thread);
+    }
+    const path = thread.querySelector('path')!;
+    const dot = thread.querySelector('circle')!;
+    for (const [k, v] of [['width', String(innerWidth)], ['height', String(innerHeight)], ['viewBox', `0 0 ${innerWidth} ${innerHeight}`]]) thread.setAttribute(k!, v!);
+    path.setAttribute('d', d);
+    path.setAttribute('stroke-dasharray', String(len));
+    dot.setAttribute('cx', tx.toFixed(1));
+    dot.setAttribute('cy', ty.toFixed(1));
+    orbFxState.thread = { from: [Math.round(sx), Math.round(sy)], to: [Math.round(tx), Math.round(ty)] };
+    return { path, dot, len };
+  };
 
   const thinkingNow = (t: number): boolean => {
     const u = ui.get();
@@ -120,29 +154,34 @@ export function orbFx(): OrbFx {
       thread?.remove();
       thread = null;
       orbFxState.thread = null;
+      unwatch();
+      const mine = ++planTurn;
       if (!open || still) return;
-      const o = orb.getBoundingClientRect();
-      const row = document.querySelector<HTMLElement>('#plan .planroom.lit .planroomhead');
-      if (!row || o.width < 2) return;
-      const r = row.getBoundingClientRect();
-      const cx = o.left + o.width / 2;
-      const cy = o.top + o.height / 2;
-      const tx = Math.max(r.left, Math.min(r.right, cx));
-      const ty = Math.max(r.top, Math.min(r.bottom, cy));
-      const ang = Math.atan2(ty - cy, tx - cx);
-      const rr = (o.width * ORB_FILL) / 2;
-      const sx = cx + rr * Math.cos(ang);
-      const sy = cy + rr * Math.sin(ang);
-      const len = Math.hypot(tx - sx, ty - sy);
-      const path = svgEl('path', { class: 'orbthreadline', d: `M${sx.toFixed(1)} ${sy.toFixed(1)}L${tx.toFixed(1)} ${ty.toFixed(1)}` });
-      const dot = svgEl('circle', { class: 'orbthreaddot', cx: tx.toFixed(1), cy: ty.toFixed(1), r: 2.5 });
-      thread = svgEl('svg', { class: 'orbthread', 'aria-hidden': 'true', width: String(innerWidth), height: String(innerHeight), viewBox: `0 0 ${innerWidth} ${innerHeight}` });
-      thread.append(path, dot);
-      document.body.append(thread);
-      orbFxState.thread = { from: [Math.round(sx), Math.round(sy)], to: [Math.round(tx), Math.round(ty)] };
-      path.setAttribute('stroke-dasharray', String(len));
-      path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 300, easing: 'ease-out', fill: 'both' });
-      dot.animate([{ opacity: 0 }, { opacity: 0, offset: 0.8 }, { opacity: 1 }], { duration: 300, fill: 'both' });
+      // (the plan unfolds on the tokens' curve, rising 8 px as it fades in: the thread is measured once it stands where it stays, and
+      // follows the lit row if the plan's own lines move it after that, so its end is always on the row)
+      const planEl = document.getElementById('plan');
+      // (its own unfolding only: a looping animation never finishes, and the thread never waits longer than the unfolding could take)
+      const unfolding = planEl ? planEl.getAnimations().filter((a) => Number.isFinite(Number(a.effect?.getComputedTiming().endTime))) : [];
+      const settled = Promise.race([Promise.all(unfolding.map((a) => a.finished.catch(() => undefined))), new Promise((ok) => setTimeout(ok, 1200))]);
+      void settled.then(() => {
+        if (mine !== planTurn || !document.body.classList.contains('planned')) return;
+        const at = place(orb);
+        if (!at) return;
+        const { path, dot, len } = at;
+        path.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 300, easing: 'ease-out', fill: 'both' });
+        dot.animate([{ opacity: 0 }, { opacity: 0, offset: 0.8 }, { opacity: 1 }], { duration: 300, fill: 'both' });
+        const again = () => mine === planTurn && thread && place(orb);
+        const ro = new ResizeObserver(again);
+        for (const n of [orb, planEl, planEl?.querySelector('.plangrid'), document.querySelector('#plan .planroom.lit')]) if (n) ro.observe(n);
+        planEl?.addEventListener('scroll', again, { capture: true, passive: true });
+        // (a slow phone: the unfolding outlasted the wait above, so the ends are set again where it stops)
+        void Promise.all(unfolding.map((a) => a.finished.catch(() => undefined))).then(() => again());
+        unwatch = () => {
+          ro.disconnect();
+          planEl?.removeEventListener('scroll', again, { capture: true });
+          unwatch = () => undefined;
+        };
+      });
     },
   };
 }
