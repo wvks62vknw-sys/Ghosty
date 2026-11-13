@@ -336,8 +336,12 @@ function comicScreen(a: Record<string, unknown>): Screen {
   for (const el of [...inputs, names]) el.addEventListener('input', later);
   const save = button('Save PNG', () => void keepFile(status, () => pngOf(canvas), 'comic-strip.png', 'image/png'), 'on');
   save.setAttribute('aria-label', 'Save the comic strip as a PNG picture');
+  // [comic] the four-panel strip is the quick one; a whole comic (a cover, pages, balloons, a cast kept panel to panel) and his
+  // own comics to read are THE COMIC's (features/comic), one tap away
+  const whole = button('Make a whole comic', () => void import('../../shell/tabs').then((m) => m.go('comic?make')));
+  whole.setAttribute('aria-label', 'Open Comic to make a whole comic, or read your own');
   void draw();
-  return { el: h('div.pkcol', canvas, ...inputs.map((i, k) => field(`Panel ${k + 1}`, i)), field('Characters', names), h('div.pkrow', save), status, ...offlineNote()), stop: () => clearTimeout(t) };
+  return { el: h('div.pkcol', canvas, ...inputs.map((i, k) => field(`Panel ${k + 1}`, i)), field('Characters', names), h('div.pkrow', save, whole), status, ...offlineNote()), stop: () => clearTimeout(t) };
 }
 
 // ---------------------------------------------------------------- LOGO

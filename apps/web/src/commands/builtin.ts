@@ -518,6 +518,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [comic] THE COMIC (features/comic): his shelf, MAKE and the public-domain library
+      id: 'open_comic',
+      title: 'Comic: read, import and make comics',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('comic');
+      },
+    },
+    {
       // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
       id: 'open_gamestudio',
       title: 'Game studio: make a 2-D game',
