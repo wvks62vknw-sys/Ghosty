@@ -27,6 +27,8 @@ every decision is written down below.
      within 30 minutes.
    - So a publish that did not come through your APPROVE is refused. That covers no ticket, a made-up ticket, a used one and an old one.
    - What goes live is exactly what you approved, even if the game changes on your phone after you saw the card.
+   - There is only ever one ticket, the latest card's. A card you declined leaves no copy of the game behind, and an older card
+     cannot publish once a newer one exists.
    - The same game again updates its own link. Another page's link is never taken over: the game gets `-2`.
 3. **Served straight at /s/<name>/, as its own page.**
    - **The page is built fresh on every visit.** It is made from the stored game and the studio's own player as your deployed app
@@ -70,6 +72,13 @@ every decision is written down below.
   This is harmless: the ticket is single-use and lasts 30 minutes.
 - **gamestudio.spec's old check** ("PUT IT ON MY SITES says honestly what stops it") now checks the new sentence. The tap itself, your
   APPROVE and the published page are checked by the new spec, so no test was skipped or weakened.
+- **The prompt guard (5,500) was not raised.** Naming publish_game in the plain prompt's tool list put two worst cases (spoken,
+  Telegram voice note) 4 and 6 characters over. I condensed two always-on lines by 8 characters and kept every word other tests read:
+  - "TIMES: when you pass a time to a tool**:** <you>'s local …" (was ", use …");
+  - "WORK IN CHAINS: … **chain them**, each feeding the next; independent **calls** in ONE." (was "do the chain", "lookups").
+
+  This leaves only about 2 characters spare under the guard, so any other lane that adds prompt words must cut words of its own.
+- **A second tap while the key is working does nothing**, so it never asks twice.
 - **The test brain** (`llm/mock.ts`, test only) learned "put <name> on my sites" → publish_game, so the spec can run without a model.
 
 ## Tests
@@ -88,6 +97,12 @@ every decision is written down below.
   - with no player to be had, it says so in words (503) and never shows a broken game.
 
   These tests fail on the code from before this lane, which had no `publish_game` and no `gamesite.ts`.
+- **The full brain suite: 2,158 tests.**
+  - The first full run had 2 reds: the catalogue had no words for publish_game, and two worst-case prompts were over 5,500. Both
+    are fixed.
+  - The second full run had 1 red: social.test reads an earlier round's exact BUILDING THINGS wording, which I had condensed. That
+    line is back word for word, and the 2 characters were found elsewhere.
+  - After that, social, prompt, voiceknown, catalogue, sites, game-tool, gamesites and telegram all pass.
 - **prompt.test**: the exact list of the sites group's tools now names publish_game. The game group's line is 212 characters, under
   its 220 ceiling. The prompt guard was not raised.
 - **Spec** `tests/gamesites.spec.mjs`; its word `gamesites` is added at the end of check.yml's `all=`. It runs at 440 × 956 and
