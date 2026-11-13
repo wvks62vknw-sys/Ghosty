@@ -451,6 +451,11 @@ export function houseAsked(text: string): HouseAsk | null {
     what = m[1] ?? m[2] ?? '';
     where = clean(m[3] ?? '');
   } else if ((m = /^(?:all|everything) off(?: (?:in|on) (?:the |my )?(.+))?$/.exec(t))) where = clean(m[1] ?? '');
+  // ("turn off the lights", with no room: every light on in the house, not "which one?")
+  else if (/^(?:please )?(?:turn|switch|put) (?:off (?:the |my )?(?:lights|lamps)|(?:the |my )?(?:lights|lamps) off)$/.test(t)) {
+    what = 'lights';
+    where = '';
+  }
   if (where !== null) {
     const whole = !where || /^(?:the )?(?:house|home)$/.test(where);
     if (whole || roomy(where)) return { kind: 'alloff', room: whole ? '' : where, lights: /light|lamp/.test(what) };

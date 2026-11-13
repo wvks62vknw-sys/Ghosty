@@ -81,6 +81,8 @@ export async function run(H) {
   check(S.houseAsked('turn off all notifications') === null && S.houseAsked('run a bath') === null, '[house words] not the house: "turn off all notifications", "run a bath"');
   S.setHouseNames(list.map((e) => e.name));
   check(S.houseAsked('run movie night')?.kind === 'run', `[house words] "run movie night" runs his scene once his names are known: ${JSON.stringify(S.houseAsked('run movie night'))}`);
+  const r0 = S.resolveAsk(S.houseAsked('turn off the lights'), list, [], now);
+  check(r0.kind === 'many' && r0.calls.map((c) => c.entity.id).join() === 'light.hall_light,light.kitchen_light' && S.houseAsked('turn off the lights in the hall')?.kind === 'power', `[house words] "turn off the lights" turns off every light on (never the TV), not "which one?"; with a room it is as before: ${JSON.stringify(r0.calls?.map((c) => c.entity.id) ?? r0)}`);
   const r1 = S.resolveAsk(S.houseAsked('turn everything off in the kitchen'), list, [], now);
   check(r1.kind === 'many' && r1.calls.map((c) => c.entity.id).join() === 'light.kitchen_light', `[house words] kitchen ALL OFF turns off the light that is on, never the fridge's switch: ${JSON.stringify(r1.calls?.map((c) => c.entity.id))}`);
   const r2 = S.resolveAsk(S.houseAsked('is the front door locked?'), list, [], now);
