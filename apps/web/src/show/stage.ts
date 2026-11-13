@@ -96,9 +96,15 @@ export function clearStage(why: string): void {
   if (el) {
     if (why === 'replaced' || why === 'check' || still()) el.remove();
     else if (!el.classList.contains('leaving')) {
-      // (it keeps its place for the length of its leaving; a newer Stage takes it away at once)
+      // (it keeps its place for the length of its leaving; a newer Stage takes it away at once. ORBIT: giving the Stage back is the orb
+      // shrinking again, the same slow tide run backwards, so it stays for the tide's length)
+      const orbit = document.documentElement.dataset.world === 'orbit';
       el.classList.add('leaving');
-      setTimeout(() => el.remove(), 360);
+      if (orbit) {
+        el.dataset.leaving = 'true';
+        el.setAttribute('aria-hidden', 'true');
+      }
+      setTimeout(() => el.remove(), orbit ? 960 : 360);
     }
   }
   if (why !== 'replaced') {
@@ -439,6 +445,16 @@ function place(el: HTMLElement): void {
   const { bottom, hgt } = stageBox();
   el.style.setProperty('--stage-bottom', `${Math.round(bottom)}px`);
   el.style.setProperty('--stage-h', `${Math.round(hgt)}px`);
+  // ORBIT: it grows from where the orb is (Home's, at the centre of its sky, or the line's at the foot of the screen)
+  if (document.documentElement.dataset.world === 'orbit') {
+    const orb = [...document.querySelectorAll<HTMLElement>('body.orbithome .orbhost, #dock .orbbtn')].find((o) => o.getClientRects().length);
+    const r = orb?.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    if (r && r.width) {
+      el.style.setProperty('--orb-x', `${Math.round(r.left + r.width / 2 - e.left)}px`);
+      el.style.setProperty('--orb-y', `${Math.round(r.top + r.height / 2 - e.top)}px`);
+    }
+  }
   // (a chart is as tall as it is: the conversation above it is shrunk by what it really takes)
   document.body.style.setProperty('--stageh', `${Math.round(bottom + Math.min(hgt, el.getBoundingClientRect().height || hgt) + 10)}px`);
   // (the conversation is shrunk above the Stage: its latest words stay in sight; the sentence moves only when it would be covered)
@@ -567,7 +583,9 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       break;
     }
   }
-  el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id }, role: 'region', 'aria-label': `Shown: ${show.title}` });
+  // (ORBIT: a map, a globe, a chart or a simulation is a sphere grown from the orb; a document, a room or a part is a rounded page with the same lit rim)
+  const shape = show.kind === 'map' || show.kind === 'eye' || show.kind === 'chart' || show.kind === 'simulation' ? 'sphere' : 'page';
+  el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id, shape }, role: 'region', 'aria-label': `Shown: ${show.title}` });
   const close = () => clearStage('closed');
   const openable = show.kind !== 'chart';
   el.append(

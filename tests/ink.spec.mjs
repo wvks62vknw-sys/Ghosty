@@ -128,7 +128,7 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   const ink0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built, label: document.querySelector(sel)?.getAttribute('aria-label') }), card('ink'));
   check(!ink0.coming && ink0.built === 'true', `[gallery] ONE INK's card is still COMING: ${JSON.stringify(ink0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look).join());
-  check(comings === 'orbit,grown', `[gallery] COMING is on ${comings} (want orbit,grown: THE MAP and THE EYE are built)`);
+  check(comings === 'grown', `[gallery] COMING is on ${comings} (want grown: THE MAP, THE EYE and ORBIT are built)`);
   await page.click(card('ink'));
   await until(page, () => document.documentElement.dataset.world === 'ink', 5000, '[gallery] a tap on ONE INK did not make the world ink');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));

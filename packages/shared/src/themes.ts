@@ -10,7 +10,7 @@
  *
  * The twelve themes of today and the directions are PRESETS (a recipe with a name); a dial changed under a preset makes "Custom",
  * kept exactly as set. The orb in every world is the hologram (his decision, OWNER-ISSUES 142): a world governs its floor and its
- * glow, never its draw. Orbit (D1) is a way round, not a look: it comes with the shell, and THE LOOK says so.
+ * glow, never its draw. Orbit (D1) is the fifth whole HUD (BRIEF-ORBIT-HUD): no bar, the orb is the way in.
  *
  * Pure (no DOM, no storage, no clock of its own): the phone (state/theme.ts, ui/dials.ts, the chat's words) and the brain's tests
  * (apps/edge/test/look.test.mjs) read the same tables. NEVER live GPS: ground-follows-the-day reads the phone's clock and his
@@ -60,7 +60,7 @@ export const isColour = (k: string): k is ColourKey => (COLOUR_KEYS as readonly 
 
 // ---------------------------------------------------------------- the world
 
-export const WORLD_KEYS = ['scan', 'map', 'eye', 'ink', 'glass'] as const;
+export const WORLD_KEYS = ['scan', 'map', 'eye', 'ink', 'glass', 'orbit'] as const;
 export type WorldKey = (typeof WORLD_KEYS)[number];
 
 export interface World {
@@ -79,10 +79,9 @@ export const WORLDS: World[] = [
   { key: 'eye', label: 'The Eye', from: 'W3', line: 'Grain everywhere but the one sharp box I’m looking at, my line of sight drawn to it.' },
   { key: 'ink', label: 'One Ink', from: 'D2', line: 'One ink, rules instead of boxes, and a serif when I talk.' },
   { key: 'glass', label: 'Glass', from: 'route C', line: 'Today’s look: blurred glass, rounded corners and the glow.' },
+  { key: 'orbit', label: 'Orbit', from: 'D1', line: 'No bar: my orb is the way in, the six rooms stand on a ring round it.' },
 ];
 export const DEFAULT_WORLD: WorldKey = 'scan';
-/** D1 was a navigation, not a drawing: not a world (THE LOOK says so). */
-export const ORBIT_LINE = 'Orbit is a way round, not a look; it comes with the shell.';
 /** What a world reaches today, said once on THE LOOK and the Theme page. */
 export const ROOMS_LINE = 'Every room follows the world fully with the shell.';
 export const worldOf = (k: string): World | undefined => WORLDS.find((w) => w.key === k);
@@ -219,16 +218,11 @@ export const DIRECTION_PRESETS: Preset[] = [
   { key: 'eye', label: 'The Eye', tag: 'Black, grain, and the one sharp box', ground: 'black', colour: 'reactor', world: 'eye', switches: {}, from: 'W3' },
   { key: 'oneink', label: 'One Ink', tag: 'Warm black, bone ink, one gold light', ground: 'warm', colour: 'gold', world: 'ink', switches: { readings: 'system' }, from: 'D2' },
   { key: 'glass', label: 'Glass', tag: 'Today’s look: glass, round corners, the glow', ground: 'graphite', colour: 'reactor', world: 'glass', switches: {}, from: 'route C' },
+  { key: 'orbit', label: 'Orbit', tag: 'Black, a ring of rooms, the orb is the way in', ground: 'black', colour: 'reactor', world: 'orbit', switches: {}, from: 'D1' },
 ];
 
-/**
- * The six directions seen along the way (OWNER-ISSUES 141), in the catalogue's order: five are presets; Orbit (D1) was a
- * navigation, not a look, and is said so wherever it is found (it comes with the shell).
- */
-export const DIRECTIONS: { key: string; label: string; from: string; preset: boolean }[] = [
-  ...DIRECTION_PRESETS.map((p) => ({ key: p.key, label: p.label, from: p.from ?? '', preset: true })),
-  { key: 'orbit', label: 'Orbit', from: 'D1', preset: false },
-];
+/** The six directions seen along the way (OWNER-ISSUES 141), in the catalogue's order: each is a preset now that Orbit (D1) is built. */
+export const DIRECTIONS: { key: string; label: string; from: string; preset: boolean }[] = DIRECTION_PRESETS.map((p) => ({ key: p.key, label: p.label, from: p.from ?? '', preset: true }));
 
 /** Every preset: the twelve (Graphite + the colour + The Scan + the default switches), then the five directions. */
 export function presets(tags: Partial<Record<ColourKey, string>> = {}): Preset[] {
@@ -358,6 +352,7 @@ const DIRECTION_WORDS: [RegExp, string][] = [
   [/^the eye$/, 'eye'],
   [/^one ink$/, 'oneink'],
   [/^glass$/, 'glass'],
+  [/^orbit$/, 'orbit'],
 ];
 
 /** The polite wrapping round a request, which changes nothing of what is asked. */

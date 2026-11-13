@@ -59,6 +59,13 @@ export const hourWord = (d = new Date(now())): string => {
   return hr >= 17 || hr < 5 ? 'Tonight' : hr < 12 ? 'This morning' : 'Today';
 };
 
+/**
+ * Which of the three tonight's thing is (ORBIT's lit station and its hour card read it; tonightEntry below draws the same three for ONE INK,
+ * THE SCAN's room, THE MAP and THE EYE): the book he is in, else the next thing on his agenda (`next`: Core's next event, "Dentist · 9:30 AM",
+ * or nothing), else the Brief. Never invented.
+ */
+export const tonightKind = (next: string): 'book' | 'agenda' | 'brief' => (bookNow() ? 'book' : next ? 'agenda' : 'brief');
+
 export interface Entry {
   kind: 'book' | 'agenda' | 'brief';
   name: string;

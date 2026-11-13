@@ -605,7 +605,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const fctx = floor.getContext('2d');
   let floorAt = -1;
   // (the film draws the world itself: the floor forming is the scan's points, so the 2-D floor stays out of its way)
-  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass';
+  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass' || world === 'orbit';
   if (floorHas || filmWanted) bootState.floorDrawn = world;
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)

@@ -7,7 +7,8 @@
  * finding test's list: one source). Glass keeps today's bar: nothing here is drawn there (`body.housed` is the house's own class).
  * In ONE INK the house is the FOOT (BRIEF-ONE-INK): the same seven keys and the same YOU ARE IN state in another drawing, with no
  * label row and no second ask line (the field is the jump bar, reached from Home's ask line, ⌘K and /); the plan opens from a long
- * press on the foot's eye (the Home key) and from the jump bar's words "the plan".
+ * press on the foot's eye (the Home key) and from the jump bar's words "the plan". In ORBIT (BRIEF-ORBIT-HUD) there is no bar at all: the plan
+ * opens from the left end of the orb's line (shell/orbit.ts) and draws the same seven rooms as stations along an orbit.
  * Home draws its own house (features/core/scan/home.ts) with the same words; this piece gives it THE HOUSE's tap.
  */
 import { h, icon } from '../core/dom';
@@ -36,7 +37,7 @@ export const houseState = { planOpen: false, room: '', says: '' };
 // it enters, straight after the screen's own classes changed)
 let narrow = innerWidth < 900;
 addEventListener('resize', () => (narrow = innerWidth < 900));
-export const houseOn = (): boolean => narrow && ['scan', 'ink', 'map', 'eye'].includes(document.documentElement.dataset.world ?? '');
+export const houseOn = (): boolean => narrow && ['scan', 'ink', 'map', 'eye', 'orbit'].includes(document.documentElement.dataset.world ?? '');
 /** The house is drawn as THE MAP's scale: the same seven keys as ticks on a ruler, the plan as its districts (BRIEF-MAP-EYE-HUDS). */
 export const scaleOn = (): boolean => narrow && document.documentElement.dataset.world === 'map';
 /** The house is drawn as THE EYE's instruments: the same seven keys as seven small feeds, the one he is in the one sharp feed (BRIEF-EYE-HUD). */
@@ -47,6 +48,8 @@ const houseName = (): string => (scaleOn() ? 'The map · 7 districts' : eyeOn() 
 const youWords = (title: string): string => (eyeOn() ? `Looking at ${title}` : `You are in ${title}`);
 /** The house is drawn as ONE INK's foot (the same house in another drawing: no label row, no ask line). */
 export const footOn = (): boolean => narrow && document.documentElement.dataset.world === 'ink';
+/** ORBIT is drawn (a phone): no bar, the orb is the way in; the house is its rooms on a ring and the plan opens from the line's left end (shell/orbit.ts). */
+export const orbitOn = (): boolean => narrow && document.documentElement.dataset.world === 'orbit';
 
 /** The room he is in: the house's key lit and the words at the right ("LEARN"). Every screen has one; Every screen is under ME. */
 export function roomNow(): Room {
@@ -169,10 +172,12 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     if (el || !houseOn()) return;
     el = draw();
     const topEl = document.getElementById('top');
-    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK, THE MAP and THE EYE the plan stands on the foot's, the scale's or the instruments' keys)
-    const askEl = footOn() || scaleOn() || eyeOn() ? cap : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK, THE MAP and THE EYE the plan stands on the foot's, the scale's or the instruments' keys; in ORBIT on the orb's line)
+    const askEl = footOn() || scaleOn() || eyeOn() ? cap : orbitOn() ? dock.querySelector<HTMLElement>('.orbline') : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (a line that is not on screen, ORBIT's on Home, has no top to stand on: the plan then ends at the foot)
+    const askRect = askEl && askEl.getClientRects().length ? askEl.getBoundingClientRect() : null;
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
-    el.style.setProperty('--plan-bottom', `${Math.round(askEl ? innerHeight - askEl.getBoundingClientRect().top : 0) + 8}px`);
+    el.style.setProperty('--plan-bottom', `${Math.round(askRect ? innerHeight - askRect.top : 0) + 8}px`);
     document.getElementById('app')!.append(el);
     paintChanges();
     // (the rooms' own readings are read again, and what is new said as soon as they are in)

@@ -1,6 +1,6 @@
 /**
  * THE SEVEN LOOKS (BRIEF-THEME-GALLERY; OWNER-ISSUES 155, 157): each an entirely different whole HUD, the colour the only choice
- * under it. Five are built (The Scan, The Map, The Eye, One Ink and Glass: a tap applies that world); two are coming (a tap says so and changes nothing).
+ * under it. Six are built (The Scan, The Map, The Eye, Orbit, One Ink and Glass: a tap applies that world); one is coming (a tap says so and changes nothing).
  * The words are the round-two mock's (docs/build-plan/mockups/hud/2026-11-08-2/theme.html). Pure: no DOM, no state.
  */
 import { COLOUR_KEYS, type ColourKey, type WorldKey } from './themes';
@@ -25,7 +25,7 @@ export const LOOKS: LookDef[] = [
   { key: 'scan', name: 'The Scan', line: 'The world, sampled as points', world: 'scan', built: true, still: 'looks/scan.webp' },
   { key: 'map', name: 'The Map', line: 'The field, from above', world: 'map', built: true, still: 'looks/map.webp' },
   { key: 'eye', name: 'The Eye', line: 'Attention is the material', world: 'eye', built: true, still: 'looks/eye.webp' },
-  { key: 'orbit', name: 'Orbit', line: 'Mind is the way in', world: null, built: false, still: 'looks/orbit.webp' },
+  { key: 'orbit', name: 'Orbit', line: 'Mind is the way in', world: 'orbit', built: true, still: 'looks/orbit.webp' },
   { key: 'ink', name: 'One Ink', line: 'A printed page', world: 'ink', built: true, still: 'looks/ink.webp' },
   { key: 'grown', name: 'Grown Up', line: 'Today, with less on it', world: null, built: false, still: 'looks/grown.webp' },
   { key: 'glass', name: 'Glass', line: 'Today’s look', world: 'glass', built: true, still: 'looks/glass.webp' },
@@ -48,12 +48,11 @@ export const ASK_LINE = 'Say a look, or a colour';
 export type LooksAsked = { kind: 'coming'; look: LookDef } | { kind: 'world'; look: LookDef } | { kind: 'gallery' } | { kind: 'colour'; colour: ColourKey };
 
 const WORDS: [RegExp, LookKey][] = [
-  [/^orbit$/, 'orbit'],
   [/^grown[ -]?up$/, 'grown'],
 ];
 
 /**
- * His words about the looks: "one ink", "the map" and "the eye" (built: each switches to it); "orbit",
+ * His words about the looks: "one ink", "the map", "the eye" and "orbit" (built: each switches to it);
  * "grown up" (each answers with the card's one line and changes nothing); "show me the looks". Only clear asks: "the eye of the
  * storm" and "what is the map of London" are never taken.
  */
@@ -73,6 +72,8 @@ export function looksAsked(text: string): LooksAsked | null {
   // ("show me the eye" and "open the eye" are the God's Eye screen's words, as "open the map" is the map's: the eye look is taken bare or with a verb that changes a look)
   if (/^(?:the )?eye$/.test(t) && (!opens || noun)) return { kind: 'world', look: lookOf('eye')! };
   if (/^(?:the )?eye$/.test(t)) return null;
+  // ORBIT is built too: "orbit" and "switch to orbit" switch to it (the colour stays his)
+  if (/^orbit$/.test(t)) return { kind: 'world', look: lookOf('orbit')! };
   for (const [re, key] of WORDS) if (re.test(t)) return { kind: 'coming', look: lookOf(key)! };
   // the page asks "Say a look, or a colour": a colour's bare name is that colour ("ember"); with a verb or its noun, the look table already takes it
   const c = /^([a-z]+)(?: (?:colour|color|theme))?$/.exec(t.replace(/^the /, ''));

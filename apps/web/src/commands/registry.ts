@@ -135,7 +135,7 @@ export function togglePalette(): void {
       const jump = decor?.jump?.on() ? decor.jump : null;
       if (jump || pal!.classList.contains('scanjump')) {
         pal!.classList.toggle('scanjump', !!jump);
-        input.placeholder = jump ? 'Ask, or say where to go' : 'Ask, or jump to a screen or place';
+        input.placeholder = jump ? (document.documentElement.dataset.world === 'orbit' ? 'Type a word' : 'Ask, or say where to go') : 'Ask, or jump to a screen or place';
       }
       if (jump) {
         clearBtn.hidden = !input.value;

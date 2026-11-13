@@ -6183,7 +6183,7 @@ html[data-ground="paper"] body.tabbar:is([data-tab="look"], .g-themepage) #dock 
    behind the rooms (--g-room-canvas, the body's), so on THE LOOK and the Theme page the bar itself takes the paper (a colour, nearly whole, that a
    reading can measure), or the words in paper's dark ink sat on a dark floor at 2.17:1. */
 @media (max-width: 899px) {
-  html[data-ground="paper"] body.housed:not(.scanhome, .inkhome):is([data-tab="look"], .g-themepage) #dock.areas { background: rgba(var(--g-canvas-rgb), .96); }
+  html[data-ground="paper"] body.housed:not(.scanhome, .inkhome, .orbithome):is([data-tab="look"], .g-themepage) #dock.areas { background: rgba(var(--g-canvas-rgb), .96); }
 }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap { background: rgba(var(--g-canvas-rgb), .9); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint), var(--g-lift-front); }
 html[data-ground="paper"] body:is([data-tab="look"], .g-themepage) #dock .tabcap::before { display: none; }
@@ -6369,40 +6369,40 @@ html .scanalt.on .g-truth { color: var(--g-accent-text); }
 html .scanask { position: absolute; z-index: 6; left: var(--g-gutter); right: var(--g-gutter); bottom: var(--scan-floor); pointer-events: auto; }
 /* the ask line's plate carries every control the bar has: the chat key, the on-this-phone key, the field, CITED, the microphone (SEND where
    he has typed), and the plus (voice replies, the camera) with the chat open; 44 pt at least each, nothing sideways at 390 or 440 */
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar { position: relative; display: flex; align-items: stretch; flex: none; margin: 0; padding: 0; width: 100%; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar > :not(.plusmenu) { grid-column: auto; grid-row: auto; justify-self: auto; align-self: center; flex: none !important; margin: 0; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin { order: 4; flex: 1 1 0 !important; min-width: 0; width: auto; height: 44px; min-height: 44px; padding: 0 8px 0 6px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: none !important; border-radius: 0; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin:not(:placeholder-shown) { padding: 0 8px 0 6px; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin::placeholder { color: var(--g-ink-3); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #cin:focus { box-shadow: none !important; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar :is(.logbtn, .plusbtn, .herebtn, .citedbtn, .sendbtn), html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .logbtn { order: 1; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusbtn { order: 2; display: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core.logopen #cbar .plusbtn, html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core.logopen #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: grid; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusbtn .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn { order: 3; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn[hidden] { display: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .logbtn::before, html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn::before { background: var(--g-ink-2); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar :is(.logbtn, .herebtn).on::before { background: var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .herebtn.on { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn { order: 5; display: flex; width: auto; min-width: 44px; padding: 0 10px; border-left: var(--g-stroke) solid var(--g-line); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; color: var(--g-ink-2); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn::before { display: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn.on { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); background: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .sendbtn { order: 6; display: none; width: 48px; border-left: var(--g-stroke) solid var(--g-line); background: var(--g-accent); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .sendbtn::before { background: var(--g-canvas); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .sendbtn { display: grid; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) :is(#mic, .citedbtn, .logbtn) { display: none; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic { order: 7; width: 48px; border-left: var(--g-stroke) solid var(--g-line); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu { left: 0; bottom: calc(100% + var(--g-s-1)); min-width: 230px; padding: var(--g-s-half); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); box-shadow: none; -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu button { height: 48px; min-height: 48px !important; border-radius: 0; color: var(--g-ink-1); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu #lensbtn::after { font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu > button:first-child::before { background: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .plusmenu #lensbtn .ic { stroke: var(--g-ink-1); }
-@media (max-width: 400px) { html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar .citedbtn { padding: 0 8px; } }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic .ic { stroke: var(--g-ink-1); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic.on { background: none; color: var(--g-accent-text); }
-html body:is(.scanhome, .inkhome, .maphome, .eyehome) .hud.core #cbar #mic.on .ic { stroke: var(--g-accent-text); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar { position: relative; display: flex; align-items: stretch; flex: none; margin: 0; padding: 0; width: 100%; gap: 0; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar > :not(.plusmenu) { grid-column: auto; grid-row: auto; justify-self: auto; align-self: center; flex: none !important; margin: 0; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #cin { order: 4; flex: 1 1 0 !important; min-width: 0; width: auto; height: 44px; min-height: 44px; padding: 0 8px 0 6px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); background: none !important; border-radius: 0; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #cin:not(:placeholder-shown) { padding: 0 8px 0 6px; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #cin::placeholder { color: var(--g-ink-3); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #cin:focus { box-shadow: none !important; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar :is(.logbtn, .plusbtn, .herebtn, .citedbtn, .sendbtn), html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #mic { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .logbtn { order: 1; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusbtn { order: 2; display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core.logopen #cbar .plusbtn, html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core.logopen #cbar:has(#cin:not(:placeholder-shown)) .plusbtn { display: grid; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusbtn .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .herebtn { order: 3; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .herebtn[hidden] { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .logbtn::before, html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .herebtn::before { background: var(--g-ink-2); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar :is(.logbtn, .herebtn).on::before { background: var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .herebtn.on { background: none; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .citedbtn { order: 5; display: flex; width: auto; min-width: 44px; padding: 0 10px; border-left: var(--g-stroke) solid var(--g-line); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; color: var(--g-ink-2); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .citedbtn::before { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .citedbtn.on { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); background: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .sendbtn { order: 6; display: none; width: 48px; border-left: var(--g-stroke) solid var(--g-line); background: var(--g-accent); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .sendbtn::before { background: var(--g-canvas); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) .sendbtn { display: grid; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar:has(#cin:not(:placeholder-shown)) :is(#mic, .citedbtn, .logbtn) { display: none; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #mic { order: 7; width: 48px; border-left: var(--g-stroke) solid var(--g-line); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusmenu { left: 0; bottom: calc(100% + var(--g-s-1)); min-width: 230px; padding: var(--g-s-half); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); border: var(--g-hair) solid var(--g-line-faint); box-shadow: none; -webkit-backdrop-filter: blur(var(--g-blur)); backdrop-filter: blur(var(--g-blur)); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusmenu button { height: 48px; min-height: 48px !important; border-radius: 0; color: var(--g-ink-1); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase !important; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusmenu #lensbtn::after { font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusmenu > button:first-child::before { background: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .plusmenu #lensbtn .ic { stroke: var(--g-ink-1); }
+@media (max-width: 400px) { html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar .citedbtn { padding: 0 8px; } }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #mic .ic { stroke: var(--g-ink-1); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #mic.on { background: none; color: var(--g-accent-text); }
+html body:is(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) .hud.core #cbar #mic.on .ic { stroke: var(--g-accent-text); }
 /* the column over the world, under the greeting and above the altitude keys, the ask line and the house: the plates of today's Home
    (the wall, the task at work, the chips, whose voice, the readings), scrolling; empty, only the key to THE DAY stays and the world is clear.
    Under the marks (a key is always the thing under the finger); the empty room between the plates lets the world and the orb's tap through */
@@ -6529,56 +6529,56 @@ html #top .headstamp { display: none; }
      never runs under the house's label row, its keys or its ask line, so the house never lies over a page's own controls; the stage
      itself still runs to the foot of the screen. The old bar's padding (--tabh) is now only the breathing room above the house: 20 px
      in all, the safe area already counted in the house's own height */
-  html body.housed:not(.scanhome, .inkhome) { --tabh: calc(16px - env(safe-area-inset-bottom, 0px)); --dockh: 164px; }
-  html body.housed:not(.scanhome, .inkhome) #stage > .pg { bottom: var(--dockh); }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) { --tabh: calc(16px - env(safe-area-inset-bottom, 0px)); --dockh: 164px; }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #stage > .pg { bottom: var(--dockh); }
   /* the world ends there too: the globe's canvas stops where the house begins, so the camera's centre (the Machine view's home, a
      tapped spot) lands in the open sky between the chips and the sheet, not under the sheet; the Scan's Home keeps its own frame */
-  html body.housed:not(.scanhome, .inkhome) #gl { height: calc(100% - var(--dockh)); } /* (a canvas is a replaced element: `height: auto` would take its own ratio, so the height is said) */
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #gl { height: calc(100% - var(--dockh)); } /* (a canvas is a replaced element: `height: auto` would take its own ratio, so the height is said) */
   /* toasts and the undo pill stack from above the ask line: above the whole house on a room's screen; on Home (its ask line is its
      own, over a house of 44 pt keys) 22 px higher than the old bar's floor */
-  html body.housed:not(.scanhome, .inkhome) #toasts { bottom: calc(var(--dockh) + var(--g-s-1)); }
-  html body.housed:not(.scanhome, .inkhome) .rcundo.undofloat { bottom: calc(var(--dockh) + var(--g-s-1)); }
-  html body.housed:not(.scanhome, .inkhome):has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--dockh) + 62px + var(--g-s-1)); }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #toasts { bottom: calc(var(--dockh) + var(--g-s-1)); }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) .rcundo.undofloat { bottom: calc(var(--dockh) + var(--g-s-1)); }
+  html body.housed:not(.scanhome, .inkhome, .orbithome):has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--dockh) + 62px + var(--g-s-1)); }
   html body.housed.scanhome #toasts { bottom: calc(var(--tabh) + 96px + env(safe-area-inset-bottom, 0px)); }
   html body.housed.scanhome .rcundo.undofloat { bottom: calc(var(--tabh) + 96px + env(safe-area-inset-bottom, 0px)); }
   html body.housed.scanhome:has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--tabh) + 158px + env(safe-area-inset-bottom, 0px)); }
-  html body.housed:not(.scanhome, .inkhome) #dock.areas { flex-direction: column; align-items: stretch; gap: var(--g-s-half); background: linear-gradient(to top, var(--g-room-canvas) 0, var(--g-room-canvas) 66%, rgba(var(--g-room-canvas-rgb), 0)); }
-  html body.housed:not(.scanhome, .inkhome) #dock .tabblur { display: none; }
-  html body.housed:not(.scanhome, .inkhome) #dock .tabcap { flex: none; pointer-events: auto; }
-  html body.housed:not(.scanhome, .inkhome) #dock .housekick { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); pointer-events: none; }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #dock.areas { flex-direction: column; align-items: stretch; gap: var(--g-s-half); background: linear-gradient(to top, var(--g-room-canvas) 0, var(--g-room-canvas) 66%, rgba(var(--g-room-canvas-rgb), 0)); }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #dock .tabblur { display: none; }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #dock .tabcap { flex: none; pointer-events: auto; }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #dock .housekick { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--g-s-2); pointer-events: none; }
   html #app #dock .housebtn { display: flex; align-items: flex-end; min-height: var(--g-target) !important; margin: 0; padding: 0 0 var(--g-s-half); border: 0; border-radius: 0; background: none; box-shadow: none; pointer-events: auto; text-align: left; }
   html #app #dock .housebtn[aria-expanded="true"] .g-truth { color: var(--g-accent-text); }
   html #dock .housewhere { padding-bottom: var(--g-s-half); white-space: nowrap; }
-  html body.housed:not(.scanhome, .inkhome) #dock .houseask { display: flex; align-items: stretch; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); pointer-events: auto; }
+  html body.housed:not(.scanhome, .inkhome, .orbithome) #dock .houseask { display: flex; align-items: stretch; height: 48px; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); pointer-events: auto; }
   html #app #dock .housefield { display: flex; align-items: center; flex: 1 1 0; min-width: 0; height: 100%; min-height: 48px !important; margin: 0; padding: 0 var(--g-s-2); border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-3); }
   html #app #dock .housefield .housewords { display: block; position: static; text-transform: none; font: inherit; letter-spacing: inherit; color: inherit; opacity: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html #app #dock .housemic { flex: none; display: grid; place-items: center; width: 48px; height: 100%; min-height: 48px !important; margin: 0; padding: 0; border: 0; border-left: var(--g-stroke) solid var(--g-line); border-radius: 0; background: none; box-shadow: none; }
   html #dock .housemic .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
   /* the top: the stamp line, then the page's name in the system's display type, with its way back and the keys at the right */
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { font-size: 28px; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
   /* a long title (a panel's "Phone · App & Notifications") is said whole on two lines, never cut with dots */
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback { order: 5; display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-half); width: auto !important; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback[hidden] { display: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback .ic { width: 16px; height: 16px; stroke: var(--g-ink-1); stroke-width: 2.2; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navback span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; text-transform: uppercase; white-space: nowrap; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .sp { display: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top :is(.cmd, .you) { order: 6; flex: none; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .cmd::before { background: var(--g-ink-1); }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you .av { width: 100%; height: 100%; border-radius: var(--g-radius-key); background: none; color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); box-shadow: none; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you.on { border-color: var(--g-accent); }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you.on .av { box-shadow: none; color: var(--g-accent-text); }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top :is(.clock, .conn, .tstatus, .logo) { display: none !important; }
-  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .pausedtag { order: 7; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navback { order: 5; display: inline-flex; align-items: center; justify-content: center; gap: var(--g-s-half); width: auto !important; height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navback[hidden] { display: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navback .ic { width: 16px; height: 16px; stroke: var(--g-ink-1); stroke-width: 2.2; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navback span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; text-transform: uppercase; white-space: nowrap; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .sp { display: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top :is(.cmd, .you) { order: 6; flex: none; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key) !important; background: var(--g-plate-fill) !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .cmd::before { background: var(--g-ink-1); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .you .av { width: 100%; height: 100%; border-radius: var(--g-radius-key); background: none; color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); box-shadow: none; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .you.on { border-color: var(--g-accent); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .you.on .av { box-shadow: none; color: var(--g-accent-text); }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top :is(.clock, .conn, .tstatus, .logo) { display: none !important; }
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .pausedtag { order: 7; }
   /* God's Eye in the house: its header stands in the flow with the stamp, the title and the keys as every screen has them (it floated over the globe, and the stamp sat on the search and the layer chips); the globe fills what is under it */
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top { position: relative; z-index: auto; left: auto; top: auto; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { display: block !important; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .cmd { display: block !important; }
-  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome) #top .you { display: grid !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top { position: relative; z-index: auto; left: auto; top: auto; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .cmd { display: block !important; }
+  html body.housed[data-tab="eye"]:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .you { display: grid !important; }
   html body.housed[data-depth="inner"] .hud.eye .eyetop { padding-left: 0; }
   html body.housed .eyechips { margin-left: 0; }
   html body.housed .eyetop .myplaces { margin-left: 54px; } /* (as Glass's: the layers button stands at the left of the row above, not over the first place) */
@@ -6877,10 +6877,10 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="ink"] #plan .planroom.lit .planroomhead { box-shadow: inset 0 calc(-1 * var(--g-stroke)) 0 var(--g-ink-1); }
   html[data-world="ink"] #plan .planthing .g-index { color: var(--g-ink-3); }
   /* the stamp and the page's name on every screen: the title in the serif, a rule under the stamp */
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="l"] { font-size: 28px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .navtitle[data-len="xl"] { font-size: 22px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
   /* rules instead of boxes: a plate is a rule above and below, a key keeps its edge */
   html[data-world="ink"] body.housed .g-plate, html[data-world="ink"] body.housed .jplate { border-width: var(--g-hair) 0; }
   html[data-world="ink"] body.housed :is(.scanset, .planroom) { background: none; }
@@ -7112,6 +7112,196 @@ html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="eye"] #plan .planroom.lit .planroomhead { color: var(--g-accent-text); }
   html[data-world="eye"] body.housed :is(.scanset, .jplate, #plan .plangrid) { border-style: var(--g-plate-edge); }
 }
+   ORBIT: THE FIFTH WHOLE HUD (BRIEF-ORBIT-HUD; docs/build-plan/mockups/directions/d1/; shell/orbit.ts, features/core/orbit/home.ts,
+   shell/areas.ts hubs). On while THE LOOK's world is Orbit on a phone. No bar anywhere: the orb is the way in. Home is the orb at the
+   centre of its sky (body.orbithome) with the six rooms on a ring round it; on every other screen the orb sits bottom-left as the open
+   end of a thin line (the dock, drawn by the world); a hub is layers by distance from the orb. The language is light, not glass: a
+   thing is an outline and a little glow, depth is how near it is to the orb; nothing blurs and nothing casts a shadow. Every value
+   is a token (ORBIT's own are the --g-orbit-* of tokens.css).
+   ===================================================================================================================== */
+html .orbline, html .orbframe { display: none; }
+@media (max-width: 899px) {
+  /* ---- the dock is the line: no keys, no label row, no ask line; the orb at its open end, the plan's key, the words, the mic */
+  html[data-world="orbit"] body.housed { --tabh: calc(var(--g-s-2) - env(safe-area-inset-bottom, 0px)); --dockh: calc(var(--g-orbit-orb) + var(--g-s-1) + var(--g-s-1) + env(safe-area-inset-bottom, 0px)); }
+  html[data-world="orbit"] body.housed #dock :is(.tabblur, .tabcap, .housekick, .houseask) { display: none !important; }
+  html[data-world="orbit"] body.housed #dock.areas { flex-direction: row; align-items: flex-end; gap: 0; padding: var(--g-s-2) var(--g-gutter) max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--g-room-canvas) 0, var(--g-room-canvas) 86%, rgba(var(--g-room-canvas-rgb), 0)); }
+  html[data-world="orbit"] body.housed #dock .orbline { position: relative; flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 0; height: var(--g-orbit-orb); pointer-events: none; }
+  html[data-world="orbit"] body.housed #dock .orbline[hidden] { display: none; }
+  html[data-world="orbit"] body.orbithome #dock { display: none; }
+  html[data-world="orbit"] #app #dock .orbline button { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; pointer-events: auto; color: var(--g-ink-1); -webkit-tap-highlight-color: transparent; }
+  html[data-world="orbit"] #app #dock .orbline button.orbbtn { position: relative; flex: none; display: grid; place-items: center; width: var(--g-orbit-orb); height: var(--g-orbit-orb); min-height: var(--g-orbit-orb) !important; border-radius: var(--g-radius-orb); touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  html[data-world="orbit"] #dock .orbview { display: block; width: 100%; height: 100%; border-radius: var(--g-radius-orb); pointer-events: none; }
+  html[data-world="orbit"] #dock .orbring { position: absolute; inset: -3px; border-radius: var(--g-radius-orb); box-shadow: 0 0 0 var(--g-hair) rgba(var(--g-accent-pale-rgb), .22); pointer-events: none; transition: box-shadow var(--g-dur-lock) var(--g-ease-lock); }
+  html[data-world="orbit"] #dock .orbbtn:active .orbring, html[data-world="orbit"] #dock .orbbtn.held .orbring { box-shadow: 0 0 0 var(--g-stroke) rgba(var(--g-accent-rgb), .6), 0 0 0 7px rgba(var(--g-accent-rgb), calc(.1 * var(--g-glow))); }
+  html[data-world="orbit"] #app #dock .orbline button.orbplan { flex: none; display: grid; place-items: center; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin-left: var(--g-s-half); border-radius: var(--g-radius-orb); }
+  html[data-world="orbit"] #dock .orbplan .ic { width: var(--g-icon); height: var(--g-icon); fill: none; stroke: var(--g-ink-3); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html[data-world="orbit"] #dock .orbplan[aria-expanded="true"] .ic { stroke: var(--g-accent-text); }
+  html[data-world="orbit"] #app #dock .orbline button.orbfield { flex: 1 1 0; min-width: 0; display: flex; align-items: center; height: var(--g-orbit-orb); min-height: var(--g-orbit-orb) !important; padding: 0 var(--g-s-half); font: var(--g-t-body) !important; letter-spacing: var(--g-tr-body); color: var(--g-ink-3); box-shadow: inset 0 calc(-1 * var(--g-hair)) 0 var(--g-line-faint); }
+  html[data-world="orbit"] #dock .orbwords { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html[data-world="orbit"] #app #dock .orbline button.orbmic { flex: none; display: grid; place-items: center; width: var(--g-target); height: var(--g-orbit-orb); min-height: var(--g-orbit-orb) !important; box-shadow: inset 0 calc(-1 * var(--g-hair)) 0 var(--g-line-faint); }
+  html[data-world="orbit"] #dock .orbmic .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-2); stroke-width: 2; stroke-linecap: round; }
+  /* the thread: a hub's recent card hangs from the orb on it */
+  html[data-world="orbit"] #dock .orbthread { display: none; position: absolute; left: calc(var(--g-orbit-orb) / 2); bottom: calc(100% - 2px); width: 2px; height: var(--g-s-2); margin-left: -1px; background: linear-gradient(180deg, rgba(var(--g-accent-rgb), .12), var(--g-accent)); pointer-events: none; }
+  html[data-world="orbit"] body[data-tab^="area-"] #dock .orbthread { display: block; }
+  /* the page, the world and the toasts end above the line (--dockh, measured by the house) */
+  html[data-world="orbit"] body.housed:not(.orbithome) #stage > .pg { bottom: var(--dockh); }
+  html[data-world="orbit"] body.orbithome #toasts { bottom: calc(var(--g-s-3) + env(safe-area-inset-bottom, 0px)); }
+  html[data-world="orbit"] body.orbithome .rcundo.undofloat { bottom: calc(var(--g-s-3) + env(safe-area-inset-bottom, 0px)); }
+  /* no blur, no shadow, anywhere in this world (a blur of 0 px is still a blur) */
+  html[data-world="orbit"] #app :is(button.g-key, .g-key, .g-plate, .g-tag, .g-lock, .g-ret), html[data-world="orbit"] #palette, html[data-world="orbit"] #plan { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  /* the plan: the same seven rooms, drawn as stations on an orbit (a thread joins them), the room he is in lit */
+  html[data-world="orbit"] #plan { padding-top: max(env(safe-area-inset-top, 0px), var(--g-s-2)); }
+  html[data-world="orbit"] #plan .planhead .g-truth:last-child { color: var(--g-accent-text); }
+  html[data-world="orbit"] #plan .plangrid { border: 0; background: none; gap: var(--g-s-1); padding: var(--g-s-1) 0; }
+  html[data-world="orbit"] #plan .planroom { border: 0; border-radius: var(--g-radius-cell); box-shadow: var(--g-orbit-edge); background: var(--g-orbit-wash); }
+  html[data-world="orbit"] #plan .planroom.lit { box-shadow: var(--g-orbit-edge-lit), var(--g-orbit-halo); }
+  html[data-world="orbit"] #plan .planroomhead::before { content: ''; flex: none; width: var(--g-s-1); height: var(--g-s-1); margin-right: var(--g-s-half); border-radius: var(--g-radius-orb); box-shadow: inset 0 0 0 var(--g-hair) var(--g-orbit-line); }
+  html[data-world="orbit"] #plan .planroom.lit .planroomhead::before { background: var(--g-accent); box-shadow: 0 0 8px var(--g-accent); }
+  html[data-world="orbit"] #plan .planroomhead .rtitle { flex: 1 1 auto; text-align: left; }
+  html[data-world="orbit"] #plan .planthing .g-index { color: var(--g-ink-3); }
+  /* the top of a screen: the stamp line, then the page's name in the system's display type (the house's own drawing, in this world's corners) */
+  html[data-world="orbit"] body.housed:not(.scanhome, .inkhome, .orbithome) #top .headstamp { text-align: left; }
+  html[data-world="orbit"] body.housed .g-plate, html[data-world="orbit"] body.housed .jplate { border-color: transparent; box-shadow: var(--g-orbit-edge); }
+  html[data-world="orbit"] body.housed .g-ret-frame { border-color: var(--g-line-faint); border-radius: var(--g-radius-mark); }
+
+  /* ---- THE FAN: hold the orb and the six rooms open round it (shell/switcher.ts, a fan): outlines and a little glow, no blur */
+  html[data-world="orbit"] #switcher .swdim { background: radial-gradient(ellipse 120% 70% at 12% 100%, rgba(var(--g-accent-rgb), calc(.1 * var(--g-glow))), transparent 60%), rgba(var(--g-canvas-rgb), .94); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swcap { left: calc(var(--g-gutter) + var(--g-orbit-orb) + var(--g-s-2)); right: var(--g-gutter); top: auto; bottom: max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); height: var(--g-orbit-orb); justify-content: center; align-items: flex-start; text-align: left; }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swk { display: none; }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swt { font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swh { font: var(--g-t-caption); color: var(--g-ink-3); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .switem { width: var(--g-orbit-station); min-height: var(--g-target); margin: calc(-1 * var(--g-target) / 2) 0 0 calc(-1 * var(--g-orbit-station) / 2); gap: var(--g-s-half); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swring { width: var(--g-target); height: var(--g-target); border-radius: var(--g-radius-orb); background: var(--g-orbit-disc); box-shadow: var(--g-orbit-edge); overflow: visible; }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swring > .ic { width: var(--g-icon); height: var(--g-icon); stroke: var(--g-ink-1); stroke-width: var(--g-icon-stroke); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swnm { position: absolute; left: 50%; bottom: calc(100% + 2px); margin: 0; transform: translateX(-50%); font: var(--g-t-head); font-size: 13px; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--g-ink-2); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .swrd { display: none; }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .switem:is([data-status="live"], [data-status="training"]) .swring { box-shadow: var(--g-orbit-edge-lit), var(--g-orbit-halo); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .switem.on .swring { transform: scale(1.14); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent), var(--g-orbit-halo); }
+  html[data-world="orbit"] #switcher[data-fan="orbit"] .switem.on .swnm { color: var(--g-accent-text); }
+  html[data-world="orbit"] body.housed #dock .orbbtn.held { z-index: 9; }
+
+  /* ---- HOME: the orb at the centre of its own sky (features/core/orbit/home.ts) */
+  html body.orbithome .hud.core { display: block; padding: 0; }
+  html body.orbithome .hud.core .orbframe { display: flex; flex-direction: column; }
+  html body.orbithome .hud.core:not(.logopen) > :not(.orbframe) { display: none !important; }
+  html body.orbithome #top { display: none; }
+  html body.orbithome .hud.core.logopen > :not(.orbframe, .ccenter) { display: none !important; }
+  html body.orbithome .hud.core.logopen .orbframe { visibility: hidden; }
+  html body.orbithome .hud.core.logopen > .ccenter { position: absolute; inset: 0; z-index: 7; gap: 0; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + 56px) var(--g-gutter) max(var(--g-s-1), env(safe-area-inset-bottom, 0px)); overflow: hidden; background: var(--g-canvas); }
+  html body.orbithome.ownback #top { display: flex; position: absolute; z-index: 12; left: 0; right: 0; top: env(safe-area-inset-top, 0px); min-height: 0; padding: var(--g-s-1) var(--g-gutter) 0; background: none; }
+  html body.orbithome.ownback #top .logbtn { width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-orb) !important; background: none; box-shadow: none; }
+  html body.orbithome .hud.core.logopen > .ccenter > #cbar { margin-top: auto; }
+  html body.orbithome .hud.core.logopen > .ccenter > .log { flex: 1 1 auto; min-height: 0; overflow-y: auto; pointer-events: auto; }
+  html body.orbithome.ownback #top :is(.logo, .clock, .conn, .tstatus, .navtitle, .navback, .sp, .rcdate, .cmd, .you) { display: none !important; }
+  html .orbframe { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 1; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: calc(max(env(safe-area-inset-top, 0px), 14px) + var(--g-s-1)) var(--g-gutter) max(var(--g-s-2), env(safe-area-inset-bottom, 0px)); background: var(--g-canvas); color: var(--g-ink-1); }
+  /* the sky: the faint light of a nebula behind the orb, and a few stars (points of the ink, drawn once) */
+  html .orbframe::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background:
+    radial-gradient(64% 34% at 50% 42%, rgba(var(--g-accent-rgb), calc(.11 * var(--g-glow))), transparent 72%),
+    radial-gradient(1px 1px at 12% 18%, rgba(var(--g-bone-rgb), .5), transparent), radial-gradient(1px 1px at 84% 12%, rgba(var(--g-bone-rgb), .4), transparent),
+    radial-gradient(1.5px 1.5px at 30% 34%, rgba(var(--g-accent-pale-rgb), .45), transparent), radial-gradient(1px 1px at 92% 38%, rgba(var(--g-bone-rgb), .35), transparent),
+    radial-gradient(1px 1px at 6% 52%, rgba(var(--g-bone-rgb), .4), transparent), radial-gradient(1.5px 1.5px at 78% 58%, rgba(var(--g-accent-pale-rgb), .4), transparent),
+    radial-gradient(1px 1px at 22% 74%, rgba(var(--g-bone-rgb), .35), transparent), radial-gradient(1px 1px at 64% 82%, rgba(var(--g-bone-rgb), .4), transparent),
+    radial-gradient(1px 1px at 46% 92%, rgba(var(--g-bone-rgb), .3), transparent), radial-gradient(1px 1px at 96% 90%, rgba(var(--g-bone-rgb), .35), transparent); }
+  html .orbframe > * { position: relative; z-index: 1; }
+  html .orbmast { flex: none; padding: var(--g-s-half) 0 0; }
+  html .orbmast .hstamp { padding: 0; opacity: 1; justify-content: center; text-align: center; }
+  html .orbmast .g-stamp { justify-content: center; }
+  html .orbmast .g-stamp .on { color: var(--g-accent-text); }
+  html .orbsay { flex: none; margin: var(--g-s-2) 0 0; text-align: center; font: var(--g-t-display); font-size: 30px; line-height: 36px; letter-spacing: var(--g-tr-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: balance; }
+  html .orbsay2 { flex: none; margin: var(--g-s-half) 0 0; min-height: 28px; text-align: center; font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-2); overflow-wrap: anywhere; text-wrap: balance; }
+  html .orbframe[data-reply="true"] .orbsay2 { cursor: pointer; color: var(--g-ink-1); }
+  /* the ring: six stations on it, the orb at its centre; the stations are placed from their angle's cosine and sine (--ox, --oy) against the ring's own size */
+  html .orbsky { position: relative; flex: 1 1 0; min-height: 256px; container-type: size; display: grid; place-items: center; }
+  html .orbplace { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
+  html .orbrings { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  html .orbrings circle { fill: none; vector-effect: non-scaling-stroke; }
+  html .orbtrack { stroke: var(--g-orbit-line); stroke-width: 1; }
+  html .orbticks { stroke: rgba(var(--g-accent-pale-rgb), .34); stroke-width: 6; stroke-dasharray: 1 11; animation: orbdrift 180s linear infinite; }
+  html .orbinner { stroke: rgba(var(--g-accent-pale-rgb), .12); stroke-width: 1; }
+  @keyframes orbdrift { to { stroke-dashoffset: -1200; } }
+  html .orbhost { position: absolute; left: 50%; top: 50%; width: 54%; height: 54%; transform: translate(-50%, -50%); cursor: pointer; z-index: 1; border-radius: var(--g-radius-orb); -webkit-tap-highlight-color: transparent; }
+  html .orbhost .rwrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; transform: none; filter: none; opacity: 1; }
+  html .orbhost canvas.reactor { width: 100%; height: 100%; max-width: none; }
+  html .orbhost:focus-visible { outline: var(--g-stroke) solid var(--g-accent); outline-offset: 6px; }
+  /* a faint ring on the orb that says it is a button; it lights while it is pressed */
+  html .orbpress { position: absolute; inset: -9%; border-radius: var(--g-radius-orb); box-shadow: 0 0 0 var(--g-hair) rgba(var(--g-accent-pale-rgb), .2); pointer-events: none; transition: box-shadow var(--g-dur-lock) var(--g-ease-lock); }
+  html .orbhost:active .orbpress { box-shadow: 0 0 0 var(--g-stroke) rgba(var(--g-accent-rgb), .6), 0 0 0 10px rgba(var(--g-accent-rgb), calc(.1 * var(--g-glow))); }
+  html #app button.orbst { position: absolute; left: calc(50% + var(--ox) * 41%); top: calc(50% + var(--oy) * 41%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: var(--g-s-half); width: var(--g-orbit-station); min-height: var(--g-target) !important; height: auto; margin: calc(-1 * var(--g-target) / 2) 0 0 calc(-1 * var(--g-orbit-station) / 2); padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--g-ink-1); text-transform: none; -webkit-tap-highlight-color: transparent; }
+  html .orbst .orbdisc { position: relative; flex: none; display: grid; place-items: center; width: var(--g-target); height: var(--g-target); border-radius: var(--g-radius-orb); background: var(--g-orbit-disc); box-shadow: var(--g-orbit-edge); transition: box-shadow var(--g-dur-lock) var(--g-ease-lock), color var(--g-dur-lock) var(--g-ease-lock); }
+  html .orbst .orbdisc .ic { width: var(--g-icon); height: var(--g-icon); fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html .orbst .orbnm { font: var(--g-t-head); font-size: 13px; line-height: 16px; letter-spacing: 0; color: var(--g-ink-2); }
+  html .orbst:active .orbdisc { box-shadow: var(--g-orbit-edge-lit); }
+  html .orbst.hot .orbdisc { box-shadow: var(--g-orbit-edge-lit), var(--g-orbit-halo); color: var(--g-accent-text); }
+  html .orbst.hot .orbdisc::after { content: ''; position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border-radius: var(--g-radius-orb); background: var(--g-accent); box-shadow: 0 0 8px var(--g-accent); }
+  html .orbst.hot .orbnm { color: var(--g-ink-1); }
+  html .orbhint { flex: none; margin: var(--g-s-1) 0 0; text-align: center; font: var(--g-t-caption); font-size: 15px; line-height: 20px; color: var(--g-ink-3); }
+  html .orbhint[hidden] { display: none; }
+  /* the capsule: recents, then favourites, each its name and one true reading, and the three dots (the typed word has the rest) */
+  html .orbcap { flex: none; display: flex; align-items: stretch; min-height: 56px; margin: var(--g-s-2) 0 0; border-radius: var(--g-radius-capsule); box-shadow: var(--g-orbit-edge); background: linear-gradient(180deg, rgba(var(--g-accent-rgb), calc(.06 * var(--g-glow))), rgba(var(--g-accent-rgb), 0)); overflow: hidden; }
+  html .orbcap .orbnone { flex: 1; align-self: center; margin: 0; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-2); text-align: center; }
+  html #app button.orbitem { position: relative; flex: 1 1 0; min-width: 0; min-height: 56px !important; height: auto; display: flex; flex-direction: column; justify-content: center; gap: 0; margin: 0; padding: 6px var(--g-s-1); border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; color: var(--g-ink-1); }
+  html #app button.orbitem + button.orbitem::before, html #app button.orbmore::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: var(--g-hair); background: var(--g-line-faint); }
+  html .orbitem .orbitem-top { display: flex; align-items: center; gap: var(--g-s-half); min-width: 0; }
+  html .orbitem .orbmark { flex: none; width: var(--g-icon-small); height: var(--g-icon-small); fill: none; stroke: var(--g-ink-3); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+  html .orbitem[data-kind="favourite"] .orbmark { stroke: var(--g-accent-text); }
+  html .orbitem b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--g-t-head); font-size: 14px; line-height: 20px; letter-spacing: -.01em; }
+  html .orbitem small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--g-t-fine); font-size: 12px; line-height: 16px; letter-spacing: 0; color: var(--g-ink-3); }
+  html #app button.orbmore { position: relative; flex: none; display: grid; place-items: center; width: 56px; min-height: 56px !important; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--g-ink-2); }
+  html .orbmore .ic { width: 20px; height: 20px; fill: currentColor; stroke: none; }
+  /* the hour's card: what matters tonight, with its one key and the quiet one beside it */
+  html .orbhour { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) var(--g-target); gap: var(--g-s-2); align-items: center; margin: var(--g-s-2) 0 0; padding: 12px 12px 12px var(--g-s-2); border-radius: var(--g-radius-cell); box-shadow: var(--g-orbit-edge); background: var(--g-orbit-wash); }
+  html #app button.orbhourmain { width: 100%; white-space: normal; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; color: var(--g-ink-1); }
+  html .orbhourmain > * { max-width: 100%; }
+  html .orbhour .orbkick { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+  html .orbhour .orbname { font: var(--g-t-head); font-size: 20px; line-height: 24px; letter-spacing: -.014em; color: var(--g-ink-1); overflow-wrap: anywhere; }
+  html .orbhour .orbhourline { display: block; font: var(--g-t-caption); font-size: 15px; line-height: 20px; color: var(--g-ink-2); overflow-wrap: anywhere; }
+  html #app button.orbhourgo { display: grid; place-items: center; width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; margin: 0; padding: 0; border: 0; border-radius: var(--g-radius-orb); background: none; box-shadow: var(--g-orbit-edge-lit); color: var(--g-accent-text); text-transform: none; font: var(--g-t-key) !important; }
+  html .orbhourgo .ic { width: var(--g-icon); height: var(--g-icon); fill: none; stroke: currentColor; stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- A HUB IS LAYERS BY DISTANCE FROM THE ORB (shell/areas.ts): the rest at the top along an orbit line, his favourites under them, the recent card at the bottom on its thread */
+  html[data-world="orbit"] body.housed .hub.orbiting { min-height: 100%; }
+  html[data-world="orbit"] .hub.orbiting .scanroom { flex: 1 1 auto; justify-content: flex-end; gap: var(--g-s-3); }
+  html[data-world="orbit"] .hub.orbiting .scanroom > :is(.roomband, .athand, .therest) { display: none; }
+  html .hub:not(.orbiting) .scanroom > .orblayer { display: none; }
+  html .orblayer[hidden] { display: none; }
+  html .orblayer { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+  html .orbtier { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-s-2); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+  html .orbtier > i { flex: none; width: 7px; height: 7px; border-radius: var(--g-radius-orb); box-shadow: inset 0 0 0 var(--g-hair) var(--g-ink-3); }
+  html .orbtier.rec { color: var(--g-accent-text); }
+  html .orbtier.rec > i { background: var(--g-accent); box-shadow: 0 0 8px var(--g-accent); }
+  html .orbtier > em { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-style: normal; color: var(--g-ink-3); }
+  html .orbtier > em > b { width: 6px; height: 6px; border-radius: var(--g-radius-orb); background: var(--g-amber); }
+  html .orblayer .orbnone { margin: 0; padding: var(--g-s-1) var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-2); border-radius: var(--g-radius-cell); box-shadow: var(--g-orbit-edge); }
+  html .orbrest { position: relative; display: flex; flex-direction: column; padding-left: var(--g-s-3); }
+  html .orbrest::before { content: ''; position: absolute; left: 3px; top: var(--g-s-3); bottom: var(--g-s-3); width: var(--g-hair); background: var(--g-orbit-line); }
+  html .orbfavs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+  html .orbfavs > :only-child { grid-column: 1 / -1; }
+  html .orbrecent { display: flex; flex-direction: column; gap: var(--g-s-1); border-radius: var(--g-radius-cell); box-shadow: var(--g-orbit-edge-lit), var(--g-orbit-halo); background: var(--g-orbit-wash); padding-bottom: var(--g-s-2); }
+  html .orbchips { display: flex; flex-wrap: wrap; gap: var(--g-s-1); padding: 0 var(--g-s-2); }
+  html #app button.orbchip { min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0 var(--g-s-2); border: 0; border-radius: var(--g-radius-capsule); background: none; box-shadow: var(--g-orbit-edge); font: var(--g-t-head) !important; font-size: 14px !important; letter-spacing: -.01em; text-transform: none; color: var(--g-ink-1); }
+  /* the cards in a layer: an outline and a little glow (the Scan room's rules and the numbers step aside) */
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--g-s-half); width: 100%; min-height: var(--g-target) !important; padding: 12px var(--g-s-2); border: 0 !important; border-radius: var(--g-radius-cell) !important; box-shadow: var(--g-orbit-edge) !important; background: var(--g-orbit-wash) !important; text-align: left; color: var(--g-ink-1); }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile::before { content: none !important; }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile :is(.kick, .t, .reads, .one, .works) { grid-column: 1; grid-row: auto; }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile .t { margin: 0; font: var(--g-t-head); font-size: 17px; line-height: 24px; letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile .reads { display: flex; justify-content: space-between; gap: var(--g-s-2); margin: 0; padding: 0; border: 0; }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile .one { display: none; }
+  html[data-world="orbit"] #app .scanroom .orbrecent button.hubtile { box-shadow: none !important; background: none !important; padding-bottom: var(--g-s-half); }
+  html[data-world="orbit"] #app .scanroom .orbrecent button.hubtile .t { font-size: 20px; line-height: 24px; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile { position: relative; display: grid !important; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--g-s-2); padding: var(--g-s-1) 0; border-radius: 0 !important; box-shadow: none !important; background: none !important; min-height: 60px !important; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile + button.hubtile { box-shadow: inset 0 var(--g-hair) 0 var(--g-line-faint) !important; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile::before { content: '' !important; position: absolute; left: calc(-1 * var(--g-s-3) + 0px); top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: var(--g-radius-orb); background: var(--g-canvas); box-shadow: inset 0 0 0 var(--g-hair) var(--g-orbit-line); grid-row: auto; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile[data-works="true"]::before { box-shadow: inset 0 0 0 var(--g-hair) var(--g-amber); }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile .kick { grid-column: 1; grid-row: 1; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile .t { grid-column: 1; grid-row: 2; font-size: 15px; line-height: 20px; color: var(--g-ink-2); }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile .reads { grid-column: 2; grid-row: 1 / span 2; flex-direction: column; align-self: center; gap: 0; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile .works { grid-column: 1; grid-row: 3; }
+  html[data-world="orbit"] #app .scanroom .orblayer button.hubtile .rd { display: flex; flex-direction: column; min-width: 0; max-width: 9.5em; }
+  html[data-world="orbit"] #app .scanroom .orbrest button.hubtile .rd { flex-direction: row; gap: var(--g-s-1); align-items: baseline; justify-content: flex-end; }
+}
+@media (prefers-reduced-motion: reduce) { html .orbticks { animation: none; } html #dock .orbring, html .orbpress, html .orbst .orbdisc { transition: none; } }
+html[data-motion="calm"] .orbticks { animation: none; }
+html[data-motion="calm"] :is(#dock .orbring, .orbpress, .orbst .orbdisc) { transition: none; }
 
 /* ==========================================================================================================================
    THE STAGE (BRIEF-SHOW-ME-1; show/stage.ts): what the answer is about, brought up and shown. A plate brought to the front, in the
@@ -7221,6 +7411,33 @@ html[data-world="ink"] #thestage .stg-shadow { fill: none; stroke: var(--g-line-
 html[data-world="ink"] #thestage .stg-ground { fill: none; }
 /* ONE INK: the printed page has rules, not a box (the world's plate tokens draw the rules); the Stage is solid paper over it */
 html[data-world="ink"] #thestage { box-shadow: none; }
+/* ORBIT: THE STAGE GROWS OUT OF THE ORB (BRIEF-ORBIT-HUD 5; d1/show-440.png). A map, a globe, a chart or a simulation: the orb becomes a sphere with the
+   picture inside it (a circular clip, the graticule over it, the equator scale riding across in front, the rim lit in his colour); a document, a room or a
+   part: a rounded page with the same lit ring as its bezel and the orb docked at its top edge. It grows from where the orb is (--orb-x, --orb-y, set when it
+   is placed) on the orbit's slow tide, and giving it back is the orb shrinking again. No tide under Reduce Motion or calm motion: it is there at once. */
+@media (max-width: 899px) {
+  html[data-world="orbit"] #thestage { background: rgba(var(--g-canvas-rgb), .97); border: 0; border-radius: var(--g-radius-cell); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; transform-origin: var(--orb-x, 28px) var(--orb-y, calc(100% + 40px)); animation: orbgrow var(--g-orbit-tide) var(--g-orbit-ease) both; }
+  html[data-world="orbit"] #thestage[data-leaving="true"] { animation: orbshrink var(--g-orbit-tide) var(--g-orbit-ease) both; pointer-events: none; }
+  @keyframes orbgrow { from { opacity: 0; transform: scale(.06); } 30% { opacity: 1; } to { opacity: 1; transform: none; } }
+  @keyframes orbshrink { from { opacity: 1; transform: none; } 70% { opacity: 1; } to { opacity: 0; transform: scale(.06); } }
+  html[data-world="orbit"] #thestage .stgkeys button.g-key { min-height: var(--g-target) !important; }
+  html[data-world="orbit"] #thestage .stghead { justify-content: center; }
+  html[data-world="orbit"] #thestage .stgtitle { flex: 0 1 auto; text-align: center; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] { align-items: center; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic { position: relative; flex: none; width: min(100%, calc(var(--stage-h, 420px) - 168px)); aspect-ratio: 1; border-radius: var(--g-radius-orb); overflow: hidden; background: var(--g-orbit-disc); box-shadow: 0 0 0 var(--g-stroke) var(--g-accent), inset 0 0 36px rgba(var(--g-accent-rgb), calc(.26 * var(--g-glow))), var(--g-orbit-halo-wide); }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic > :is(.stg-svg, .stgmap) { max-height: none; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"][data-kind="chart"] .stgpic { padding: 14%; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic > .stgmap { position: absolute; inset: 0; border: 0; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic > .stg-svg.eye { width: 136%; max-width: none; }
+  /* the graticule over the picture, and the equator scale riding across in front of it */
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: rgba(var(--g-accent-pale-rgb), .22); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='.6'%3E%3Ccircle r='99'/%3E%3Cellipse rx='62' ry='99'/%3E%3Cellipse rx='28' ry='99'/%3E%3Cpath d='M0 -99V99'/%3E%3Cellipse cy='-52' rx='84' ry='16'/%3E%3Cellipse cy='52' rx='84' ry='16'/%3E%3Cellipse cy='0' rx='99' ry='19'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 200'%3E%3Cg fill='none' stroke='black' stroke-width='.6'%3E%3Ccircle r='99'/%3E%3Cellipse rx='62' ry='99'/%3E%3Cellipse rx='28' ry='99'/%3E%3Cpath d='M0 -99V99'/%3E%3Cellipse cy='-52' rx='84' ry='16'/%3E%3Cellipse cy='52' rx='84' ry='16'/%3E%3Cellipse cy='0' rx='99' ry='19'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+  html[data-world="orbit"] #thestage[data-shape="sphere"] .stgpic::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 19%; margin-top: -9.5%; z-index: 3; pointer-events: none; border-radius: var(--g-radius-orb); background: repeating-linear-gradient(90deg, rgba(var(--g-accent-pale-rgb), .7) 0 1px, transparent 1px 6px) center bottom / 100% 6px no-repeat; -webkit-mask: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 94%, black 95%); mask: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 94%, black 95%); box-shadow: none; }
+  html[data-world="orbit"] #thestage[data-shape="page"] { border-radius: var(--g-radius-cell); padding-top: var(--g-s-3); box-shadow: 0 0 0 var(--g-stroke) var(--g-accent), inset 0 0 36px rgba(var(--g-accent-rgb), calc(.18 * var(--g-glow))), var(--g-orbit-halo-wide); background: var(--g-canvas); overflow: visible; }
+  html[data-world="orbit"] #thestage[data-shape="page"]::before { content: ''; position: absolute; left: 50%; top: calc(-1 * var(--g-target) / 2); width: var(--g-target); height: var(--g-target); margin-left: calc(-1 * var(--g-target) / 2); border-radius: var(--g-radius-orb); background: radial-gradient(circle at 38% 34%, rgba(var(--g-accent-pale-rgb), .9) 0 4%, rgba(var(--g-accent-rgb), .45) 30%, var(--g-orbit-disc) 72%); box-shadow: 0 0 0 var(--g-stroke) var(--g-accent), var(--g-orbit-halo); z-index: 2; }
+  html[data-world="orbit"] #thestage[data-shape="page"] .stgpic { border-radius: var(--g-radius-chip); }
+  html[data-world="orbit"] #thestage .stgpage { border-radius: var(--g-radius-chip); border-color: var(--g-line-faint); background: var(--g-orbit-wash); }
+  html[data-world="orbit"] #thestage .stgmap { border-color: transparent; }
+}
 /* ===================================================================================================================   THE 3-D ENGINE (BRIEF-ENGINE-3D-1; engine3d/pane.ts): a pane of the 3D studio. The stage clears to the world's canvas and draws in
    the accent and bone it reads from these tokens; every key, field and row is a token, 44 pt, square-cornered in The Scan and
    ONE INK and glass in Glass by the plate tokens. No colour of its own.

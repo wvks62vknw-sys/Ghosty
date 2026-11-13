@@ -25,7 +25,7 @@ import type { TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { PRESETS, recipe, recipeEvents, recipeNow, themeEvents } from '../../state/theme';
-import { COLOUR_LABELS, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
+import { COLOUR_LABELS, groundOf, GROUNDS, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
 import { lookDials } from '../../ui/dials';
 import { panel, type Panel } from '../../ui/components';
 import { heroState, mindFor, STATES, webglWorks, type Mind, type MindState } from '../core/mind';
@@ -469,7 +469,7 @@ export const lookTab: TabDef = {
         swatches.el,
         dials.el,
         tiltRow(),
-        plate({}, tag('Orbit'), truthLine(ORBIT_LINE), truthLine(ROOMS_LINE)));
+        plate({}, tag('Orbit'), truthLine(worldOf('orbit')!.line), truthLine(ROOMS_LINE)));
       swatches.paint();
     };
 

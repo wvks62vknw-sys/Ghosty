@@ -9,6 +9,7 @@ import { modal } from '../ui/components';
 import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
 import { buildHouse, type House } from './house';
+import { buildOrbit } from './orbit';
 import { scanList } from './scanlist';
 import { screenContext, lookingAt, stampFacts } from './awareness';
 import { stampLine } from '../ui/machine';
@@ -146,6 +147,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     document.querySelector('#top .you')?.remove();
     paintTabBar = buildTabBar(dock, () => deck.open());
     house = buildHouse(dock, () => deck.open());
+    // ORBIT's line (shell/orbit.ts): the orb at the open end of a thin line; drawn only while the world is Orbit on a phone
+    buildOrbit(dock);
     document.body.classList.add('tabbar');
     paintNav();
   };

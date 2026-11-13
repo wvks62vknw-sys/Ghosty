@@ -127,8 +127,7 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const id of hubs) add({ id: `hub:${id}`, kind: 'hub', screen: have.has(id) ? id : 'core', cat: SCREEN_CAT[id] ?? 'talk', go: { open: have.has(id) ? id : 'core' } });
   // (Reactor and Graphite since 18 Oct; the ten of BRIEF-THEMES joined with the design system, their words say when)
   for (const id of Object.keys(THEMES)) add({ id: `theme:${id}`, kind: 'theme', screen: 'settings', cat: 'talk', go: { open: 'settings', panel: 'THEME' }, since: '2026-10-18' });
-  // [themes2] THE RECIPE (BRIEF-THEMES-2): each ground, each world, each switch, and the six directions (five presets, and Orbit
-  // said honestly as a way round, not a look); each found where it is turned, Settings → Theme
+  // [themes2] THE RECIPE (BRIEF-THEMES-2): each ground, each world, each switch, and the six directions (each a preset now that Orbit is built); each found where it is turned, Settings → Theme
   const recipeGo = { open: 'settings', panel: 'THEME' } as const;
   for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
   for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });

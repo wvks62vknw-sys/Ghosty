@@ -15,7 +15,7 @@
 import { clear, h } from '../core/dom';
 import { applyRecipe, groundNow, recipe, recipeEvents, savedHome, THEMES } from '../state/theme';
 import { settings } from '../state/app';
-import { clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
+import { clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
 import { toast } from './components';
 import { eyeGlyph, tag, truthLine } from './machine';
 
@@ -97,7 +97,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
       const wNow = worldOf(r.world)!;
       blocks.push(h('section.gdial', { dataset: { dial: 'world' } }, head('World', wNow.label, `${wNow.label}${/^[WD]\d$/.test(wNow.from) ? ` (${wNow.from})` : ''}: ${wNow.line.charAt(0).toLowerCase()}${wNow.line.slice(1)}`),
         h('div.gchoices.worlds', { role: 'radiogroup', 'aria-label': 'World' }, ...tiles),
-        h('p.gdial-note', { dataset: { case: 'keep' } }, `${ORBIT_LINE} ${ROOMS_LINE}`)));
+        h('p.gdial-note', { dataset: { case: 'keep' } }, ROOMS_LINE)));
     }
     if (parts.includes('switches')) {
       const rows = SWITCHES.map((def) => {

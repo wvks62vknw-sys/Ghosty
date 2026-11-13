@@ -23,7 +23,8 @@ import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { favourites, isFavourite, pinOnHold } from './favourites';
 import { jump } from './jump';
-import { footOn, houseOn, housePlan, openThing } from './house';
+import { footOn, houseOn, housePlan, openThing, orbitOn } from './house';
+import { panelsOf } from './orbitpanels';
 import { atHand, thingForNumber, thingLine } from './inventory';
 import { ROOMS } from './rooms';
 import { recipeEvents } from '../state/theme';
@@ -245,7 +246,12 @@ function hubTab(a: Area): TabDef {
       const restHead = h('div.rhead', tag('The rest', { count: 0 }), h('span.g-truth', { dataset: { case: 'keep' } }, 'Say a number: “open two”'));
       const restGrid = h('div.restgrid');
       const rest = h('section.therest', { dataset: { part: 'therest' } }, restHead, restGrid);
-      const roomEl = h('div.scanroom', band, hand, rest);
+      // ORBIT's layers by distance from the orb (BRIEF-ORBIT-HUD 4): the rest along an orbit line at the top, his favourites under them, the recent
+      // card nearest the orb at the bottom on its thread; the same cards, drawn here only while the world is Orbit
+      const lyRest = h('section.orblayer', { dataset: { layer: 'rest' } });
+      const lyFav = h('section.orblayer', { dataset: { layer: 'favourites' } });
+      const lyRecent = h('section.orblayer', { dataset: { layer: 'recent' } });
+      const roomEl = h('div.scanroom', band, hand, rest, lyRest, lyFav, lyRecent);
       const wrap = h('div.hub',
         sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
@@ -263,12 +269,15 @@ function hubTab(a: Area): TabDef {
       let drawn = '\0';
       const arrange = () => {
         const on = houseOn();
+        const orbit = orbitOn();
         wrap.classList.toggle('roomed', on);
+        wrap.classList.toggle('orbiting', orbit);
         const mine = atHand(room);
-        const sig = on ? mine.map((m) => `${m.id}:${m.why}`).join(',') : 'glass';
+        const sig = on ? `${orbit ? 'orbit:' : ''}${mine.map((m) => `${m.id}:${m.why}`).join(',')}` : 'glass';
         if (sig === drawn) return;
         drawn = sig;
         if (!on) return void clear(grid, ...cards.map((c) => c.el));
+        if (orbit) return paintLayers(mine);
         const num = new Map(room.things.map((t) => [t.id, t.n]));
         const byN = (x: ToolCard, y: ToolCard) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99);
         const inHand = mine.map((m) => ({ c: everyCard.find((x) => x.id === m.id)!, why: m.why })).filter((m) => m.c);
@@ -293,6 +302,30 @@ function hubTab(a: Area): TabDef {
           return b;
         }));
       };
+      // ORBIT: three layers, nearest the orb last. The newest recent is THE recent card (with its panels as chips); his starred things are the
+      // favourites; everything else (the older recents too) is the rest, as stations along an orbit line, in the room's own order
+      const paintLayers = (mine: { id: string; why: 'recent' | 'starred' }[]) => {
+        const num = new Map(room.things.map((t) => [t.id, t.n]));
+        const byId = (id: string) => everyCard.find((x) => x.id === id);
+        const recentId = mine.find((m) => m.why === 'recent')?.id;
+        const favIds = mine.filter((m) => m.why === 'starred').map((m) => m.id);
+        const restCards = everyCard.filter((c) => c.id !== recentId && !favIds.includes(c.id)).sort((x, y) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99));
+        const head = (cls: string, name: string, right?: Node | null) => h(`div.orbtier${cls}` as 'div', h('i', { 'aria-hidden': 'true' }), h('span', name), right ?? null);
+        const rc = recentId ? byId(recentId) : undefined;
+        if (rc) rc.place({ n: num.get(rc.id), why: 'recent', at: 'hand' });
+        for (const id of favIds) byId(id)?.place({ n: num.get(id), why: 'starred', at: 'hand' });
+        for (const c of restCards) c.place({ n: num.get(c.id), at: 'rest' });
+        const works = restCards.some((c) => CARDS[c.id]?.works);
+        clear(lyRest, head('', `Everything else · ${restCards.length}`, works ? h('em', h('b'), 'In the works') : null), h('div.orbrest', ...restCards.map((c) => c.el)));
+        lyRest.hidden = restCards.length === 0;
+        clear(lyFav, head('', 'Favourites'), favIds.length ? h('div.orbfavs', ...favIds.map((id) => byId(id)!.el)) : h('p.orbnone', { dataset: { case: 'keep' } }, 'Hold any thing to star it: it stands here.'));
+        const chips = recentId ? panelsOf(recentId) : [];
+        clear(lyRecent, head('.rec', 'Recent'), rc ? h('div.orbrecent', rc.el, chips.length ? h('div.orbchips', ...chips.map((p) => {
+          const b = h('button.orbchip', { type: 'button', dataset: { to: p.to, case: 'keep' } }, p.label);
+          b.addEventListener('click', () => navTo(p.to, 'push'));
+          return b;
+        })) : null) : h('p.orbnone', { dataset: { case: 'keep' } }, 'Nothing opened here yet: the last thing you open stands here, nearest the orb.'));
+      };
       // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
       // city, his latest project) where the phone has the reading, else the plain line; never a sample
       const paintSub = () => {
@@ -306,10 +339,21 @@ function hubTab(a: Area): TabDef {
         arrange();
       };
       let timer = 0;
+      // ORBIT: the layers nearest the orb are the ones in sight when a hub opens (the calm top of it is a scroll away)
+      const toOrb = () => {
+        if (!orbitOn()) return;
+        let n: HTMLElement | null = wrap;
+        while (n && !/(auto|scroll)/.test(getComputedStyle(n).overflowY)) n = n.parentElement;
+        if (n) n.scrollTop = n.scrollHeight;
+      };
       const paint = () => {
         drawn = '\0';
         paintAll();
-        void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
+        requestAnimationFrame(toOrb);
+        void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(() => {
+          paintAll();
+          requestAnimationFrame(toOrb);
+        });
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
@@ -673,7 +717,8 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   const t = def(tab);
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
-  if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
+  // (ORBIT has no bar and so no Home key: a room's hub has its way back to Home, as the mock's hub has its chevron)
+  if (isHub(tab)) return orbitOn() ? { back: 'Home', backTo: 'core', title: a?.title ?? t.title } : { back: '', backTo: '', title: a?.title ?? t.title };
   // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like Settings: Me's screens are the Me sheet's rows)
   // (in The Scan the house has ME as a room, and these are things in it: the way back is ‹ ME, to the room)
   if (tab === 'memory' || tab === 'settings' || tab === 'social') return houseOn() ? { back: 'Me', backTo: 'area-me', title: niceCase(t.title) } : { back: '', backTo: '', title: niceCase(t.title) };

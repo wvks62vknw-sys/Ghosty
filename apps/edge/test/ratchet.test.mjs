@@ -4,6 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const CEILING = { hex: 506, rgba: 1016, radiusPx: 470, total: 1992 };
 const css = readFileSync(new URL('../../web/styles.css', import.meta.url), 'utf8');
@@ -31,4 +34,26 @@ test('the section the count leaves out holds no raw colour of its own', () => {
   const shell = sys.slice(sys.indexOf('THE SHELL IN THE SCAN (BRIEF-SHELL-2'));
   assert.ok(shell.length > 1000);
   assert.equal((shell.replace(/\/\*[\s\S]*?\*\//g, '').match(/(?<![\w-])#[0-9a-fA-F]{3,8}(?![\w-])/g) ?? []).length, 0, 'a hex colour in the shell section');
+});
+
+// [markers] No file git tracks carries a merge-conflict marker line. One stray "=======" sat in styles.css from PR 86 until the POLISH 2 landing and
+// made the rule after it invalid, on the live site, with every check green; this reads every tracked text file so none can come back unseen.
+test('no tracked file carries a merge-conflict marker line', () => {
+  const root = fileURLToPath(new URL('../../../', import.meta.url));
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 << 20 }).split('\0').filter(Boolean);
+  assert.ok(files.length > 100, `git listed only ${files.length} files`);
+  const bad = [];
+  for (const f of files) {
+    let buf;
+    try {
+      buf = readFileSync(join(root, f));
+    } catch {
+      continue; // (a tracked file deleted in the working tree has nothing to read)
+    }
+    if (buf.includes(0)) continue; // binary: no lines
+    buf.toString('utf8').split('\n').forEach((line, i) => {
+      if (/^(<{7}|\|{7}|={7}|>{7})( |$)/.test(line)) bad.push(`${f}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(bad, [], `merge-conflict marker lines: ${bad.join(', ')}`);
 });

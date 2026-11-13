@@ -3,7 +3,7 @@
  * sections, the ten themes that joined Reactor and Graphite (BRIEF-THEMES, exactly as rendered on 2 Nov), and the deck's
  * Settings lines (the count named; THE LOOK one tap from the deck). Joined into APP_WORDS in app.ts.
  * THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2, 7 Nov): each ground, each world, each switch, the six directions (five presets,
- * and Orbit said as it is: a way round, not a look) and the look by words, with no model. Spread last into APP_WORDS, so the
+ * and Orbit, a whole look since BRIEF-ORBIT-HUD) and the look by words, with no model. Spread last into APP_WORDS, so the
  * THEME panel's words are said again here for the recipe.
  */
 import type { CatValue } from '../catalogue';
@@ -63,7 +63,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'panel:look:THEMES': {
     name: 'My looks, contrast measured',
     line: 'You can pick a whole look here, or turn its dials: ground, colour, world and switches, each with its contrast measured.',
-    more: 'The same presets and dials as Settings → Theme, applied at once and kept. Every ground holds the floor with every colour, measured on screen. Orbit is a way round, not a look: it comes with the shell.',
+    more: 'The same presets and dials as Settings → Theme, applied at once and kept. Every ground holds the floor with every colour, measured on screen. Orbit is a whole look now: no bar, the orb is the way in.',
     say: ['Switch to Ember', 'Black background'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'section:look:tokens': { same: 'panel:look:TOKENS' },
@@ -92,6 +92,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:world:eye': world('The Eye, grain and one box', 'You can have me in The Eye: grain everywhere but the one sharp box I’m looking at, my line of sight drawn to it.', 'The third world of round two. Plates carry less ink, so what I attend to stands out sharp.', 'The eye'),
   'theme:world:ink': world('One Ink, rules not boxes', 'You can have me in One Ink: one ink, rules instead of boxes, and a serif when I talk.', 'From the first round of directions. No floor pattern, no glow, square corners; what is lit is a line, never the words.', 'One ink'),
   'theme:world:glass': world('Glass, my look before', 'You can have me in Glass: blurred glass, rounded corners and the glow, the look I had before.', 'No floor pattern, frosted plates, round corners and my glow: the look before the design system, kept as a choice.', 'Glass'),
+  'theme:world:orbit': world('Orbit, my orb is the way', 'You can have me in Orbit: no bar, my orb the way in, the six rooms on a ring round it.', 'The first round’s navigation, built whole. Home is my orb at the centre of its sky; on every other screen the orb sits bottom left as the open end of a line, and holding it fans the rooms.', 'Orbit'),
   // ---- the switches: each one visible thing
   'theme:switch:glow': sw('My glow, on or off', 'You can turn my glow off: no halo round my orb or the room, every light a clean line.', 'Glow off'),
   'theme:switch:floor': sw('The floor behind every screen', 'You can turn the floor off: no points, grid or grain behind the screens, just the ground.', 'Floor off'),
@@ -101,17 +102,13 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:switch:motion': sw('Calm or alive motion', 'You can make me calm: my eye holds still, lines appear whole, boxes land where they land.', 'Calm'),
   'theme:switch:sound': sw('A tone, a click or silence', 'You can choose what you hear when I recognise a thing: a tone, a click, or nothing.', 'The click sound'),
   'theme:switch:day': sw('Ground follows the day', 'You can have Paper by day and your night ground after sunset, from your home’s sun times.', 'Follow the day'),
-  // ---- the six directions seen along the way: five presets, and Orbit as it is
+  // ---- the six directions seen along the way: each a preset
   'theme:preset:scan': preset('The Scan, as rendered', 'You can have The Scan as you saw it: true black, the field of points, no glow.', 'The direction you picked, exactly as it was drawn: Black, Reactor, The Scan, glow off. Tap it in Settings → Theme, or just say it.', 'The scan'),
   'theme:preset:map': preset('The Map on Slate', 'You can have The Map: Slate, the plotting grid and square pins round what I watch.', 'Slate, Reactor and The Map. The grid sits behind every screen; plates have dashed edges and square corners.', 'The map'),
   'theme:preset:eye': preset('The Eye on black', 'You can have The Eye: black, grain, and the one sharp box I’m looking at.', 'Black, Reactor and The Eye. What I attend to is a sharp box with my line of sight; the rest is grain.', 'The eye'),
   'theme:preset:oneink': preset('One Ink, warm and gold', 'You can have One Ink: warm black, bone ink, one gold light, rules instead of boxes.', 'Warm, Gold for the one light, One Ink, and my readings in the phone’s own type. My words stay in the ink.', 'One ink'),
   'theme:preset:glass': preset('Glass, the look before', 'You can have Glass: the look before back, with its glass, round corners and the glow.', 'Graphite, Reactor and Glass: the look you had before the design system, kept as a preset.', 'Glass'),
-  'theme:preset:orbit': {
-    name: 'Orbit, a way round', line: 'You can’t pick Orbit as a look: it is a way round my screens, and it comes with the shell.',
-    more: 'Orbit was the first round’s navigation, the areas standing on my orb’s orbit. It changes how you move, not how I draw, so it is not a preset. THE LOOK says so.',
-    say: ['Show me the look'], scene: ['talking'], cat: 'talk', since: T2,
-  },
+  'theme:preset:orbit': preset('Orbit on black', 'You can have Orbit: black, no bar, my orb the way in and the six rooms on a ring round it.', 'Black, Reactor and Orbit. Press my orb to type, hold it and the rooms open round it; your colour stays yours.', 'Orbit'),
   // ---- by words, with no model
   'phrase:look': {
     name: 'Change my look by words', line: 'You can say “black background”, “paper”, “the map”, “calm” or “bigger text” and my look changes at once, with no AI.',
