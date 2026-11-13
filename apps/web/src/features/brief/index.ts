@@ -14,6 +14,7 @@ import { briefIndependence } from '../system/independence';
 import { briefNudges } from '../money/nudges';
 import { briefMail } from './mail';
 import { goToPanel } from '../../ui/sections';
+import { briefHealth } from '../system/health';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { home, ui } from '../../state/app';
@@ -37,6 +38,8 @@ export const briefTab: TabDef = {
     const dateEl = h('div.brdate', { dataset: { case: 'keep' } });
     const say = h('p.brsay', { dataset: { case: 'keep' } });
     P.big.before(dateEl);
+    // [health] the first line: what needs him (SYSTEM → HEALTH), and nothing when nothing does
+    dateEl.before(briefHealth());
     P.sub.after(say);
     // [offline2] the week's independence in one line, when a brain sits on the phone (features/system/independence.ts)
     say.after(briefIndependence());

@@ -4,6 +4,7 @@
  * have meant), and the offer "want me to learn it?" as YES / NO. YES makes it a learning goal; NO just closes.
  */
 import { go, intoChat } from '../../abilities/registry';
+import { markFor } from '../../abilities/health';
 import { perform } from '../../shell/launcher';
 import { abilityById, learnIt, setLearn } from '../../assistant/local';
 import { send, type Entry } from '../../assistant/session';
@@ -17,6 +18,9 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
   const l = e.local;
   if (!l) return null;
   const row = h('div.row.wrap.localacts', { dataset: { case: 'keep' } });
+  // [health] the mark of the ability it found, one word after its line (abilities/health.ts)
+  const top = (l.kind === 'can' || l.kind === 'offer') && l.go?.[0] ? abilityById(l.go[0].id) : null;
+  if (top) row.append(h('span.g-truth.hmark', { dataset: { case: 'keep', mark: markFor(top).mark } }, markFor(top).mark));
   for (const g of l.go ?? []) {
     if (g.open || g.run || g.words != null) {
       const b = button(g.label, () => (g.open ? (g.panel ? perform({ open: g.open, panel: g.panel }) : navTo(g.open, 'push')) : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));

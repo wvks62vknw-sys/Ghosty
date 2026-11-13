@@ -15,7 +15,7 @@ interface Group {
 }
 export const SETTINGS_GROUPS: Group[] = [
   { title: 'The look', match: /^(THEME|THE LOOK|READING)/ },
-  { title: 'You', match: /^(NAME|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
+  { title: 'You', match: /^(NAME|PERMISSIONS|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
   { title: 'The brain', match: /^OFFLINE/ },
   { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)/ },
   { title: 'About', match: /^(ABOUT|PRIVACY|HELP)/ },
@@ -26,6 +26,7 @@ const SAID: [RegExp, string, string][] = [
   [/^THE LOOK/, 'The look', 'How I draw everything'],
   [/^READING/, 'Reading', 'How a book is shown and who reads it'],
   [/^NAME/, 'Name & units', 'What I call you, how I measure'],
+  [/^PERMISSIONS/, 'Permissions', 'What the phone lets me use, and what I never do with it'],
   [/^CHARACTER/, 'Character', 'How I talk to you: drier, briefer, warmer'],
   [/^GUARDIAN/, 'Guardian', 'Who I tell if you do not answer'],
   [/^VOICE/, 'Voice & home', 'My voice, my manner, your saved place'],

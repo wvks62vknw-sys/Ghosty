@@ -46,6 +46,7 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
+import { heldReply, verifyRow } from './verifycard'; // [health] "Setting it…", the tick, RETRY and SHOW ME
 import { holdForWhy, whyButton } from './why';
 import { holdOrb } from '../further/mindmap';
 import { siteRow } from './sitecard';
@@ -412,7 +413,10 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant': {
       if (e.think) return renderThink(e);
+      if (e.held) return heldReply();
       const el = plainReply(e, askedAt);
+      // [health] what it did was read back: the tick, or RETRY and SHOW ME (verifycard.ts)
+      if (e.verify) el.append(verifyRow(e) ?? '');
       // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
       if (e.local) el.append(localRow(e) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).

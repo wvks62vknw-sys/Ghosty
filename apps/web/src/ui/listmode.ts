@@ -40,6 +40,8 @@ const MAP: [RegExp, keyof typeof G, string][] = [
   [/^THE LOOK$/, 'look', '#bf5af2'],
   [/^THEME/, 'brush', '#bf5af2'],
   [/^NAME/, 'person', '#98989d'],
+  [/^PERMISSIONS/, 'hand', '#98989d'],
+  [/^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/, 'pulse', '#30d158'],
   [/^VOICE/, 'wave', '#ff375f'],
   [/^CHARACTER/, 'spark', '#ff9f0a'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],

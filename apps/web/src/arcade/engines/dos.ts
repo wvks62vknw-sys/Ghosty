@@ -14,6 +14,7 @@
  * keys our buttons press always rule). What the game writes (its saved games) is taken back with the emulator's
  * persistence on PAUSE, on QUIT, when the page is hidden and every two minutes, merged into its saved bundle.
  */
+import { beat } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { CONTROLS_PATH, type DosControls, freshInput, KEYS, keyOfEvent, keysHeld, mouseSteps } from '../dos';
 import { zipEntries, zipRead, zipStore } from '../zip';
 import { arcadeAudio } from './audio';
@@ -223,6 +224,7 @@ export const dosEngine: Engine = {
     let raf = 0;
     const tick = () => {
       raf = requestAnimationFrame(tick);
+      beat('arcade');
 
     // ---- a keyboard (a real one, or the phone's own, for a saved game's name or a cheat) goes straight to DOS
     const typed = new Set<number>();

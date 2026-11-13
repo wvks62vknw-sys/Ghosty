@@ -127,6 +127,8 @@ export function reportCardPanel(): Panel & { refresh(): void } {
     past,
     // the independence meter: how much of his week his own brains answered (OWNER-ISSUES 78)
     independenceBlock(),
+    // [health] how every ability and the brain itself are doing is on its own page: linked here, not repeated
+    h('div.keyrow', button('HOW EVERYTHING IS DOING → HEALTH', () => goToPanel('system', 'HEALTH'), 'tohealth')),
     h('div.note', 'Measured on this phone, not claimed: the same 20 questions each time, one try each as in chat, then THINK HARDER (which here may only use checks that work an answer out — never ones that already know it — so its score is the model’s own). Timings depend on the phone and how warm it is.'),
   );
   reportCard.subscribe(paint);

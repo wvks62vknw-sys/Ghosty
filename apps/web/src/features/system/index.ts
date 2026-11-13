@@ -13,6 +13,7 @@ import { foresightPanel } from './foresight';
 import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { independencePanel } from './independence';
+import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
@@ -53,7 +54,9 @@ export const systemTab: TabDef = {
     const np = nightPanel();
     // [offline2] INDEPENDENCE (independence.ts): how much of what he asks stays on his own brains, by kind, and why the rest does not
     const ip = independencePanel();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el);
+    // [health] HEALTH: a mark on every ability, the crash records, what felt off and the brain's own page (health.ts)
+    const hl = healthPanels();
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
@@ -61,6 +64,7 @@ export const systemTab: TabDef = {
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
       { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
+      { id: 'health', label: 'Health', match: /^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/ },
       { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS|INDEPENDENCE)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
       { id: 'backup', label: 'Backup', match: /^(STORAGE|BACKUP)/ },
@@ -369,6 +373,7 @@ export const systemTab: TabDef = {
       enter() {
         void load();
         void checkVersion();
+        hl.refresh();
         tp.refresh();
         lp.refresh();
         lg.refresh();

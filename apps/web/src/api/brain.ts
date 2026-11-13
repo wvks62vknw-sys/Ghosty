@@ -22,6 +22,7 @@ import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
 import type { WallInfo } from '../../../../packages/shared/src/wall';
+import type { BrainHealth, FeltList } from '../../../../packages/shared/src/health'; // [health]
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
 import type { NamedCar } from '../../../../packages/shared/src/cards';
 import type { Dial, Spoken } from '../../../../packages/shared/src/cadence';
@@ -170,7 +171,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail/.test(path);
+const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -308,6 +309,12 @@ export const speechCaps = createStore({ stt: false, tts: false });
 
 /** The last status and library counts this phone was given (kept from the calls Home and the Me sheet make anyway): the deck's live lines read them, never fetch. */
 export const lastSeen = createStore({ status: null as BrainStatus | null, passages: null as number | null });
+
+/**
+ * A read that is never answered from the copy kept on this device (the read cache above): for what must be true now, as the
+ * read-back that checks a thing the brain says it did (assistant/verify.ts) and the health of an ability.
+ */
+export const readFresh = <T>(path: string): Promise<T> => send<T>('GET', path);
 
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
@@ -480,6 +487,11 @@ export const brain = {
   wallShow: (b: { kind: string; data: Record<string, unknown>; sentence: string; pair?: string }) => send<WallInfo>('POST', '/guardian/wall/show', b),
   wallClear: () => send<WallInfo>('POST', '/guardian/wall/clear', {}),
   wallLeave: (screen?: string) => send<WallInfo>('POST', '/guardian/wall/leave', screen ? { screen } : {}),
+  /** [health] GET /guardian/health: the brain's health in one small object (never a key's value, never an error's text); a read that is never served from the kept copy. */
+  brainHealth: () => send<BrainHealth>('GET', '/guardian/health'),
+  /** [health] "That felt off": a moment of words only (apps/edge/src/health.ts keeps the last 300). */
+  feltOff: (moment: Record<string, unknown>) => send<{ ok: boolean; id: string }>('POST', '/guardian/feltoff', moment),
+  feltList: () => send<FeltList>('GET', '/guardian/feltoff'),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
   guardianPerson: (p: { name: string; telegram?: string; email?: string; sharePos: boolean; ownerName?: string }) => req<GuardianInfo>('POST', '/guardian/person', p),
   guardianPersonRemove: () => req<GuardianInfo>('DELETE', '/guardian/person'),

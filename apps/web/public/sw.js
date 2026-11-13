@@ -22,6 +22,13 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// One of the app's own files could not be fetched and none is kept: the page is told (core/crash.ts writes a record and says so in his words).
+function tellPages(path) {
+  if (!/\.(js|css|html|webmanifest)$/.test(path) && path !== '/') return undefined;
+  self.clients.matchAll().then((cs) => cs.forEach((c) => c.postMessage({ ghosty: 'fetch-failed', path }))).catch(() => undefined);
+  return undefined;
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
@@ -60,7 +67,7 @@ self.addEventListener('fetch', (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('/index.html') : undefined)).then((r) => r || Response.error())),
+      .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('/index.html') : undefined)).then((r) => r || tellPages(url.pathname) || Response.error())),
   );
 });
 

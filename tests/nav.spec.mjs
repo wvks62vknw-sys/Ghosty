@@ -270,7 +270,7 @@ const visible = (p, re) => p.panels.filter((x) => re.test(x.t)).every((x) => x.s
 const hiddenIn = (p, re) => p.panels.filter((x) => re.test(x.t)).every((x) => x.hidden && !x.shown);
 await show(page, 'system', 2500);
 let P = await pills(page, 'system');
-if (!P.shown || P.labels.join(',') !== 'Status,Report card,Training,Backup') problems.push(`[system] the pills read "${P.labels.join(', ')}" (want Status, Report card, Training, Backup)`);
+if (!P.shown || P.labels.join(',') !== 'Status,Health,Report card,Training,Backup') problems.push(`[system] the pills read "${P.labels.join(', ')}" (want Status, Health, Report card, Training, Backup)`);
 if (P.labels.length > 6) problems.push(`[system] ${P.labels.length} pills (six at most)`);
 if (P.on !== 'Status' || P.selected !== 1) problems.push(`[system] a new phone opens on "${P.on}" (want Status, the one he uses most)`);
 if (P.pillH < 44) problems.push(`[system] a pill is ${P.pillH} pt high (want 44)`);

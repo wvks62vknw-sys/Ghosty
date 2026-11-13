@@ -37,6 +37,7 @@ import { argWords } from '../../../../packages/shared/src/abilities';
 import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair the wall", "on the wall", "clear the wall" (BRIEF-MACHINE-WALL)
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
+import { readBack, ruleFor, SAY_NO, type Rule, type Verified } from './verify'; // [health] a thing the brain says it did is read back before "Done"
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -68,7 +69,9 @@ export type Entry =
   /** [talk] `heard`: of a reply cut off, the sentences he heard; `carried`: he said "go on" and it was carried on below.
    *  `carries`: this is that carrying on (BRIEF-TALK-1A 2), of the reply at that tag, `heardBefore` being what he had heard of
    *  it, `head` that reply's first words as said (so the brain can tell which of its replies he means). */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean; heard?: string; carried?: boolean; carries?: number; heardBefore?: string; head?: string }
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string }; private?: boolean; local?: LocalAnswer; first?: First; struck?: boolean; heard?: string; carried?: boolean; carries?: number; heardBefore?: string; head?: string;
+      /** [health] `held`: the reply's line waits as "Setting it…" while what it did is read back; `verify`: how that went (assistant/verify.ts). */
+      held?: boolean; verify?: Verified }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes.
    *  `tool`, `args`: its name and its arguments in plain words, for WHY (features/core/why.ts). */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress; tool?: string; args?: string }
@@ -277,6 +280,7 @@ function handle(ev: ChatEvent): void {
     }
     case 'tool':
       toolRan = true;
+      toolArgs.set(ev.id, ev.args);
       narr.lastTool = ev.name;
       narrate(`tool:${ev.id}`, toolLine(ev.name, label(ev.name, ev.args)));
       if (ev.name === 'vehicle_check') {
@@ -294,13 +298,20 @@ function handle(ev: ChatEvent): void {
         (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), progress: progressOf(ev) }),
       );
       break;
-    case 'tool_result':
+    case 'tool_result': {
+      // [health] it says it did a thing that leaves a record: read it back through the route that lists it (verify.ts)
+      const rule = ev.ok ? ruleFor(ev.name, toolArgs.get(ev.id) ?? {}, ev.summary) : null;
+      if (rule) {
+        const args = toolArgs.get(ev.id) ?? {};
+        verifies.push({ p: readBack(rule, args, ev.summary), rule, args, summary: ev.summary, tool: ev.name });
+      }
       patch(
         (e) => e.kind === 'activity' && e.id === ev.id,
         (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary, progress: undefined }),
       );
       if (!chat.get().entries.some((e) => e.kind === 'activity' && e.id === ev.id)) push({ kind: 'activity', id: ev.id, label: label(ev.name, {}), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary });
       break;
+    }
     case 'client':
       void run(ev.name, ev.args);
       break;
@@ -314,6 +325,8 @@ function handle(ev: ChatEvent): void {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)
       // [kernel-yes] The reply arrives a sentence at a time (`part`): drawn as it comes, one entry that grows; the whole reply, when it
       // lands, sets that entry's words (and is the one spoken); an empty whole takes the pieces back (the brain turned to a tool).
+      // [health] while a thing it did is being read back, the pieces are not drawn: the whole reply is held as "Setting it…" below
+      if (ev.part && verifies.length) break;
       if (ev.part) {
         if (drawing === null) {
           drawing = stamp();
@@ -332,6 +345,24 @@ function handle(ev: ChatEvent): void {
         break;
       }
       const at = drawn ?? stamp();
+      // [health] the reply's line is held as "Setting it…" until what it says it did has been read back: then its sentence stands
+      // with the tick, or it says it cannot see it yet (never a bare "Done")
+      if (verifies.length && ev.text) {
+        const pend = verifies;
+        verifies = [];
+        chat.set((s) => ({ entries: [...s.entries.filter((e) => !(e.kind === 'assistant' && e.at === at)), { kind: 'assistant' as const, text: 'Setting it…', at, held: true }].slice(-120), live: 'Setting it…' }));
+        void Promise.all(pend.map((v) => v.p)).then((rs) => {
+          const bad = rs.findIndex((r) => r === 'no');
+          const first = bad >= 0 ? pend[bad]! : null;
+          const text = first ? SAY_NO : ev.text;
+          const verify: Verified = first
+            ? { state: 'no', where: [], fail: { tool: first.tool, args: first.args, summary: first.summary, original: ev.text, show: first.rule.show } }
+            : { state: 'ok', where: [...new Set(pend.map((v) => v.rule.where))] };
+          chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === at ? { ...e, text, held: undefined, verify } : e)), live: text }));
+          if (speakReplies && settings.get().speak) void speak(text, { owner: String(at), brief: true });
+        });
+        break;
+      }
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
@@ -408,6 +439,8 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   };
   const since = Date.now();
   toolRan = approvalAsked = false;
+  verifies = [];
+  toolArgs.clear();
   try {
     await fn(cb);
   } catch (e) {
@@ -454,6 +487,9 @@ let streams = 0;
 /** What this stream did (for the independence meter): a tool ran; it ended asking for an approval (its answer comes after). */
 let toolRan = false;
 let approvalAsked = false;
+/** [health] The things this turn's tools say they did, each being read back (assistant/verify.ts); the reply waits for them. */
+let verifies: { p: Promise<'ok' | 'no'>; rule: Rule; args: Record<string, unknown>; summary: string; tool: string }[] = [];
+const toolArgs = new Map<string, Record<string, unknown>>();
 
 /**
  * [talk] NARRATION (BRIEF-TALK-1A 3; STARS 9): while the brain works, the status line says what he is doing in his own words,
@@ -648,6 +684,8 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
   const remove = () => chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
   // "Translate this into Spanish" with no signal: the same small model, asked only to translate (roughly; the card says so).
   const tr = translateAsk(t, [...recent].reverse().find((x) => x.role === 'assistant')?.text ?? '');
+  // [health] the phone's own brain answering because the cloud could not: a fallback in use, said on the health marks
+  if (!first) void import('../abilities/health').then((m) => m.noteFallback('brain')).catch(() => undefined);
   push({ kind: 'assistant', text: '', at, model: first ? FIRST_MODEL : OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}), ...(priv ? { private: true } : {}), ...(first ? { first } : {}) });
   ui.set({ status: tr ? 'translating on your phone…' : modelWarm() ? 'thinking on your phone…' : 'Waking the brain on this phone. Twenty seconds or so.' });
   let raw = '';

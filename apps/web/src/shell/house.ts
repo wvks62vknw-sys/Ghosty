@@ -25,6 +25,7 @@ import { worksLine } from './inventory';
 import { tabs } from './tabs';
 import { deckState } from './launcher';
 import { changedLines, refreshChanged, type ChangeLine } from '../further/changed';
+import { holdForFelt } from '../features/core/feltoff'; // [health] a long press on the house line: THAT FELT OFF
 
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
 const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
@@ -98,6 +99,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   const left = h('button.housebtn', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'The house: seven rooms. Open the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()));
   const where = h('span.g-truth.housewhere', { dataset: { case: 'keep' } });
   const kick = h('div.housekick', { dataset: { case: 'keep' } }, left, where);
+  holdForFelt(kick);
   const words = h('span.housewords');
   const field = h('button.housefield', { type: 'button', 'aria-label': 'Ask, or jump to a screen' }, words);
   const mic = h('button.housemic', { type: 'button', 'aria-label': 'Say it' }, icon(MIC));

@@ -8,6 +8,7 @@
  * Every part is moved under one `model` group (keeping where it was in the world), so taking
  * apart is just moving each part's position from `home` along its `offset`.
  */
+import { beat, draws } from '../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { explodeOffsets, ease, fmtLength, thinnestAxis, type V3 } from './explode';
 import { triangulate } from '../../../../packages/shared/src/design';
 import type { StandInPart } from '../../../../packages/shared/src/models3d';
@@ -215,9 +216,11 @@ export class Viewer {
   start(): void {
     if (this.running || !this.renderer) return;
     this.running = true;
+    draws('studio', true);
     const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
+      beat('studio');
       if (document.hidden) return;
       this.step(now);
     };
@@ -226,6 +229,7 @@ export class Viewer {
 
   stop(): void {
     this.running = false;
+    draws('studio', false);
     cancelAnimationFrame(this.raf);
   }
 

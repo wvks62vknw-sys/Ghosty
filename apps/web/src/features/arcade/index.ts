@@ -11,6 +11,7 @@
  * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
  * one Intent the game's engine reads.
  */
+import { draws } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
@@ -811,6 +812,7 @@ function player(e: ShelfEntry, title = e.title) {
     }
   };
   raf = requestAnimationFrame(frame);
+  draws('arcade', true);
 
   let sayTimer = 0;
   return {
@@ -847,6 +849,7 @@ function player(e: ShelfEntry, title = e.title) {
       pause();
     },
     stop() {
+      draws('arcade', false);
       cancelAnimationFrame(raf);
       clearTimeout(sayTimer);
       document.removeEventListener('visibilitychange', hidden);

@@ -12,6 +12,7 @@
  * Opens from the avatar's Me sheet ("Every screen"), a long press on the avatar, the GHOSTY logo or the M key.
  * Escape or ✕ closes it.
  */
+import { markOfScreen } from '../abilities/health';
 import { register, run } from '../commands/registry';
 import { clear, h, icon } from '../core/dom';
 import { sfx } from '../assistant/sfx';
@@ -218,9 +219,11 @@ export function buildLauncher(): Launcher {
     if (isFavourite(t.id)) b.dataset.pinned = 'true';
     return b;
   };
-  const canRow = (l: DeckLine) =>
+  // [health] one word after each line, the mark of the screen's ability (abilities/health.ts): never a colour alone
+  const canRow = (l: DeckLine, screen: string) =>
     h('button.dkrow', { type: 'button', dataset: { act: actKind(l.act), case: 'keep' }, onclick: () => choose(l.act) },
       h('span', l.text),
+      h('small.g-truth.hmark', { dataset: { case: 'keep', mark: markOfScreen(screen) } }, markOfScreen(screen)),
       'ask' in l.act ? h('small.dkask', 'Ask') : icon(RIGHT, 'ic dkchev'),
     );
   const detail = (t: TabDef) => {
@@ -233,7 +236,7 @@ export function buildLauncher(): Launcher {
       h('div.dkrt',
         h('span.dkhd', glyph(t), h('b', c.name)),
         h('p.dkpromise', c.promise),
-        c.can.length ? h('div.dkcan', h('small.dkk', 'You can'), ...c.can.map(canRow)) : null,
+        c.can.length ? h('div.dkcan', h('small.dkk', 'You can'), ...c.can.map((l) => canRow(l, t.id))) : null,
         c.dyk ? h('div.dkdyk', h('b', 'Did you know'), h('span', c.dyk)) : null,
         h('div.dkacts',
           h('button.dkopen', { type: 'button', dataset: { case: 'keep' }, onclick: () => choose({ open: t.id }) }, `Open ${c.name}`),

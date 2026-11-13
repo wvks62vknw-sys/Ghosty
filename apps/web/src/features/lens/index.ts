@@ -14,6 +14,7 @@
  * owner's own tap (the START button, a tap that brought the tab up), never on its own: not on a
  * reload that lands on #lens, and not because the brain called open_lens.
  */
+import { beat, draws } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -655,7 +656,11 @@ export const lensTab: TabDef = {
 
     // ---- the frame loop: the one scheduler, nothing of our own
     onFrame((_dt, now) => {
-      if (!L.active() || S.camera !== 'on') return;
+      // [health] the Lens draws while the camera is on: a frame that stays frozen is told (core/crash.ts)
+      const drawing = L.active() && S.camera === 'on';
+      draws('lens', drawing);
+      if (!drawing) return;
+      beat('lens');
       mode?.tick?.(now);
     });
 

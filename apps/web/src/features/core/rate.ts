@@ -12,6 +12,7 @@ import { createStore } from '../../core/store';
 import { h, icon } from '../../core/dom';
 import { toast } from '../../ui/components';
 import { replyId, withRating } from './ratelist';
+import { feltKey } from './feltoff';
 
 export { replyId };
 
@@ -47,23 +48,26 @@ function setRated(id: number, v: 1 | -1 | undefined): void {
 /** 👍 as a line glyph (👎 is the same glyph turned over, styles.css .rateb .down). */
 const THUMB = '<path d="M7.5 10.5v9H4.5v-9z"/><path d="M7.5 10.5l3.6-6.3a1.6 1.6 0 012.9 1.1l-.6 4.2h5a1.8 1.8 0 011.8 2.1l-1.1 6.2a2.2 2.2 0 01-2.2 1.7H7.5"/>';
 
-export function rateRow(e: Reply): HTMLElement {
+/** Rate a reply (the one path to the brain: 👍, 👎 and "that felt off" all go through here). Tapping the same one again takes it back. */
+export function rateReply(e: Reply, v: 1 | -1): void {
   const id = replyId(e.text.trim());
+  const was = ratedOf(e);
+  const next = was === v ? undefined : v;
+  setRated(id, next);
+  void brain.selftrain
+    .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}), ...(next === undefined ? {} : { kind: next === 1 ? ('reward' as const) : ('discipline' as const), weight: 1 }) })
+    .then(() => {
+      if (next === -1) toast('Thanks. I’ll learn a better answer to that in my weekly training.', 'ok');
+    })
+    .catch(() => {
+      setRated(id, was);
+      toast('I couldn’t send that rating. Try again when I can reach my brain.', 'warn');
+    });
+}
+
+export function rateRow(e: Reply): HTMLElement {
   const now = ratedOf(e);
-  const send = (v: 1 | -1) => {
-    const was = ratedOf(e);
-    const next = was === v ? undefined : v;
-    setRated(id, next);
-    void brain.selftrain
-      .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}), ...(next === undefined ? {} : { kind: next === 1 ? ('reward' as const) : ('discipline' as const), weight: 1 }) })
-      .then(() => {
-        if (next === -1) toast('Thanks. I’ll learn a better answer to that in my weekly training.', 'ok');
-      })
-      .catch(() => {
-        setRated(id, was);
-        toast('I couldn’t send that rating. Try again when I can reach my brain.', 'warn');
-      });
-  };
+  const send = (v: 1 | -1) => rateReply(e, v);
   // line glyphs (route C's reply card), the same buttons in every look
   const up = h('button.rateb', { type: 'button', 'aria-label': 'Good reply', title: 'Good reply', 'aria-pressed': String(now === 1) }, icon(THUMB));
   const down = h('button.rateb', { type: 'button', 'aria-label': 'Bad reply', title: 'Bad reply', 'aria-pressed': String(now === -1) }, icon(THUMB, 'ic down'));
@@ -76,5 +80,6 @@ export function rateRow(e: Reply): HTMLElement {
     ev.stopPropagation();
     send(-1);
   });
-  return h(`div.rate${now ? '.done' : ''}` as 'div', up, down);
+  // [health] THAT FELT OFF, beside them: files the moment with its screen, and counts as a 👎 for this reply (features/core/feltoff.ts)
+  return h(`div.rate${now ? '.done' : ''}` as 'div', up, down, feltKey({ reply: e }));
 }

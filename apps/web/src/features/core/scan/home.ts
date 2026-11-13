@@ -25,6 +25,7 @@
  * the points' drift), never moving the type; the type floor; the Machine's lines mono, whole segments, the dot at each end.
  * The checks read it at window.__ghosty.scan (scanState).
  */
+import { holdForFelt } from '../feltoff';
 import { h, svgEl } from '../../../core/dom';
 import { navTo, greeting } from '../../../shell/areas';
 import { settings } from '../../../state/app';
@@ -189,6 +190,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   kickL.addEventListener('click', () => void import('../../../shell/house').then((m) => m.housePlan()?.toggle()));
   const kickR = h('span.g-truth', 'You are home');
   const kick = h('div.scankick', { dataset: { case: 'keep' } }, kickL, kickR);
+  holdForFelt(kick); // [health] a long press on the house line: THAT FELT OFF
   const askHost = h('div.scanask');
   // the column over the world, under the greeting: what today's Home shows besides the world (the wall, the task at work, whose
   // voice, the readings), taken as they are; empty, it is nothing and the world is clear. Home's standing cards are one key away

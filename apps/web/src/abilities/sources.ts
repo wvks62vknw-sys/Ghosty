@@ -57,6 +57,7 @@ export const CHAT_CONTROLS = [
   { id: 'copy', sel: '.msgact[title="Copy"]' },
   { id: 'why', sel: '.whybtn' },
   { id: 'rate', sel: '.rateb' },
+  { id: 'felt', sel: '.rate .feltb' }, // [health] THAT FELT OFF, beside the thumbs (features/core/feltoff.ts)
   { id: 'harder', sel: '.thinkbtn' },
   { id: 'bigbrain', sel: '.bigbrain' },
   { id: 'askcloud', sel: '.askcloud' }, // [offline2] under an answer the phone gave first (offline/trust.ts)

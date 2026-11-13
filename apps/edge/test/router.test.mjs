@@ -767,6 +767,7 @@ await import('./sheets.test.mjs');
 // THE GAMES OF PASS 5 (BRIEF-GAMES-5): the platformer, the cave and four board games, held to their rules with no screen.
 await import('./games5.test.mjs');
 await import('./workingengine.test.mjs');
+await import('./health.test.mjs'); // [health] the marks, the brain's health object, "that felt off" (BRIEF-RELIABILITY)
 
 // [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
 // each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings

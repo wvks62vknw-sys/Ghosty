@@ -12,6 +12,7 @@
  * WebAudio (the shareware has no music: it was on the CD). Saved games (Quake's own SAVE and LOAD menus: no typing)
  * and the settings go to the SaveStore. No network: the multiplayer menu says there is none.
  */
+import { beat } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import type { Action, Intent } from '../input';
 import { monoBuffer, openAudio, pcm16, pcm8, type EngineAudio } from './audio';
 import { takeLook, type Engine, type EngineEvents, type EngineFiles, type EngineHandle, type EngineProbe, type StartOptions } from './types';
@@ -382,6 +383,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   const loop = (t: number): void => {
     if (stopped) return;
     raf = requestAnimationFrame(loop);
+    beat('arcade');
     const dt = t - last;
     last = t;
     if (t - fpsAt >= 1000) {

@@ -16,6 +16,7 @@ import { characterPanel } from './character';
 import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
+import { permissionsPanel } from './permissions'; // [health] PERMISSIONS: what the phone can be asked for
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
 import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
@@ -58,7 +59,9 @@ export const settingsTab: TabDef = {
     paintReading();
     readingPrefs.subscribe(paintReading);
     rp.body.append(readingControls());
-    P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), rp.el, np.el, cp.el, gp.el);
+    // [health] PERMISSIONS, under the name: the nine things the phone can be asked for, in his words (permissions.ts)
+    const pmp = permissionsPanel();
+    P.left.append(lp.el, goRow('THE LOOK', 'look', 'How I draw everything'), rp.el, np.el, pmp.el, cp.el, gp.el);
     // [voiceknown] his voice known, and the people he introduced: under VOICE & HOME, in the same section (BRIEF-VOICE-KNOWN 2, 5)
     const mv = myVoicePanel();
     const pv = peoplePanel();
@@ -93,7 +96,7 @@ export const settingsTab: TabDef = {
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
       { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK|READING)/ },
-      { id: 'you', label: 'You', match: /^NAME/ },
+      { id: 'you', label: 'You', match: /^(NAME|PERMISSIONS)/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
       { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)$/ },

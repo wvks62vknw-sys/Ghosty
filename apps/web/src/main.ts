@@ -32,6 +32,11 @@ import { applyMood, applyRecipe, keptRecipe, settleTheme, themeState } from './s
 import { mood } from './state/mood';
 import { button, toast } from './ui/components';
 import { sayError } from './ui/hisWords';
+import { installCrashNet } from './core/crash';
+import { installPermissionRecord } from './features/settings/permissions'; // [health] crash records, never a blank
+
+installCrashNet();
+installPermissionRecord(); // [health] the last grant or refusal of each thing the phone can be asked for
 
 /**
  * Ask for the owner key on this device (only needed when Cloudflare Access isn't set up). A real
@@ -185,6 +190,8 @@ async function boot(): Promise<void> {
     // (a check's way of saying something on any screen: the chat's box is on Home only; the microphone says it anywhere)
     send: (t: string, voice = false) => import('./assistant/session').then((m) => m.send(t, { voice })),
     // the catalogue as this build has it, for the checks (no page shows it: BRIEF-SHELL pass 1), and FAVOURITES (shell/favourites.ts)
+    // [health] the marks, the crash records and the test hook (abilities/health.ts, core/crash.ts)
+    healthcheck: async () => (await import('./abilities/health')).healthCheck(), loadHealth: async (force = false) => (await import('./abilities/health')).loadHealth(force), crash: await import('./core/crash'), permissions: await import('./features/settings/permissions'),
     abilities: { health: async () => (await import('./abilities/registry')).catalogueHealth(Object.keys((await import('./shell/hubcards')).CARDS)), load: async () => (await import('./abilities/registry')).loadBrainSide() },
     pins: await import('./shell/favourites') };
   // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
