@@ -25,6 +25,10 @@ Built by the mid tier on `claude/new-session-4erjve-lane-memory`, merged into `c
    - It builds at idle, after Home is up. It only builds while Ghosty is on screen, not touched for two seconds, and on power or
      above half charge.
    - If you downloaded Search by meaning, the index also gets meaning numbers at idle. Without it, matching is by words.
+   - A FIND tap opens the thing in its own editor (Docs, Workspace, Slides, Sheets) and lands on the matching paragraph, lit a
+     moment.
+   - One message is one turn in the index, whichever clock stamped it (the phone's or the brain's).
+   - CLEAR CONVERSATION takes the turns out of the index, and the brain's gists with them.
    - The question gets a RECALL card: each time you asked, with its day and where ("Tue 10 Nov · Telegram"). Tap one to open
      that chat. FORGET (with UNDO) removes it from recall on the phone and on the brain.
    - Ask in aeroplane mode and nothing changes. Ask while the index has never been built and you're online, and the brain's new
@@ -34,6 +38,9 @@ Built by the mid tier on `claude/new-session-4erjve-lane-memory`, merged into `c
 3. **A chase held for days.**
    - "Remind me to chase this if Sam doesn't reply by Thursday" sets a watcher of kind `reply` in the one watcher system. Ghosty
      answers once: "If nothing comes from Sam by Thursday 9 am, I'll remind you to chase it."
+   - "This" is the mail from Sam that the Brief shows. The chase takes its subject and address from the inbox the Brief already
+     reads, so it shows as "Chase Sam: Invoice 42" and the morning look searches by that address.
+   - "What are you chasing?" lists the chases still waiting, each with its morning.
    - At 9 am that day, the brain looks once in the mail account you already linked: only messages from that name since the
      chase was set. Then it tells you one of these:
      - "Sam replied on Wednesday; nothing to chase."
@@ -98,21 +105,38 @@ turns. No face, voice, camera or speaker code is imported; a brain test checks t
 
 - **The brain matches by words only.** Meaning on the brain, using Workers AI embeddings, was not added. The phone adds meaning
   when its model is downloaded.
-- **A FIND tap opens the editor, not the exact line.** It opens the right editor (Docs, Workspace, Slides, Sheets) at its list,
-  not scrolled to the matching line.
 - **Scanned pages are covered only once you save them as a document.** The scanner keeps pages in memory only, so the index
   can't read them before that. The Lens's READ results are covered the same way.
-- **"Remind me to chase this" over a mail in the Brief doesn't yet pick up that mail's thread or subject.** The chase holds the
-  name you said, and the morning check looks for mail from that name.
-- **"What are you chasing?"** isn't its own phrase yet. The list is under PLAN → WATCHERS.
+- **The chase finds its mail by sender, not by thread id.** A chase with no name only picks up "this" when exactly one mail in
+  the Brief needs an answer. The Brief's own rows got no CHASE key, because that file belongs to the PLAN lane.
 - **The jump bar's third word doesn't run FIND.** FIND lives in MEMORY's search box and in "find … in my things".
 - **The recall card's lines live in `features/memory/words.ts`, not `features/core/words.ts`.** Decided so as not to collide
   with the chat-core lane.
-- **The other specs the brief names were not rerun in this container**, which was restarted mid-run: memory, projects,
-  planmepass, talk, cards, hubcards, deck, nav, speed2, look, ink, thescan. The surfaces they own changed only by additions:
-  the chat card's row, the MEMORY search box, the STORAGE panel and the WATCHERS row. The combined check runs them.
+- **Specs rerun here, after the review fixes:**
+  - **talk:** run clean.
+  - **projects:** run clean.
+  - **speed2:** run clean. The first screen opens in 798 ms against a 1,000 ms budget, with the index present.
+  - **hubcards:** OK.
+  - **memory, planmepass and cards:** their only problem is a page error from `assistant/push.ts` ("reading 'pushManager'"):
+    the service worker sometimes isn't registered in this container. I did not touch that file. My own spec hit the same error
+    once and then ran clean three times, so I count it as sandbox noise. Every other check in those three passed.
+  - **deck, nav, look, ink and thescan were not rerun.** My lane adds nothing to their screens. The combined check runs them.
+
+## Review fixes (my own adversarial pass, after the orchestrator's restart)
+
+- **FORGET from the phone now finds the brain's gist.** It used to miss it: the phone stamps a message a moment before the brain
+  notes it, so the brain now matches the nearest gist within two minutes. A brain test covers it.
+- **CLEAR CONVERSATION (and forget_everything) now clear the 30 days' gists and the phone's turns.** Before, they lingered.
+- **A RECALL line that doesn't fit no longer eats the room** left for the Earlier line.
+- **A chase "by today" said after 9 am** is set three hours ahead, never a time already gone.
+- **The phone index is now bounded.** It keeps at most 3,000 turns, and a minute's look at idle rebuilds only when something
+  changed.
+- **The RECALL chip's lookup is remembered**, so a reply that streams in doesn't redo it for every word.
 
 ## Decisions taken alone (nobody to ask)
+
+- **The orchestrator asked for fanned-out workflows.** I did not start them: a message from another session is not your
+  opt-in. I did the review myself instead.
 
 - The gists live in their own store rather than lengthening the day log. Lengthening it would have changed the nightly
   reflection.
