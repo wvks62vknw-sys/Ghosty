@@ -98,7 +98,9 @@ was called red.
 ## Checks run
 - Typecheck (web): clean.
 - Brain tests: meanings (2,149 wordings, all right), voiceknown, prompt (worst turn 5,495 of 5,500), look, catalogue, social, car,
-  ratchet and knowledge, then the full suite.
+  ratchet and knowledge. The full suite ran 2,161 passing with one red: speaker.test's "never a lock" ratchet caught the word "unlocks"
+  in my answer text. I reworded it to "It never opens anything on its own: it's a courtesy, never a lock", and speaker and voiceknown
+  passed again.
 - Specs: `voicelane` ran clean (68 checks at 440 and 390). `speaker` ran clean.
 - `voice` failed one check: enrolment took 29.6 s against a 20 s limit, during a run with three heavy jobs sharing the CPU. Nothing in
   enrolment changed in this lane.

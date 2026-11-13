@@ -193,7 +193,7 @@ export function whoWords(spoken: boolean, now = Date.now()): string {
   const h = spoken ? speaker.get().heard : null;
   const via = lastScore.via === 'model' ? ' (the voice pack judged it)' : '';
   if (spoken && h) {
-    if (h.label === 'owner') return `Yes: that’s your voice. I recognised it on this phone, and I’m sure${via}. It never unlocks anything on its own.`;
+    if (h.label === 'owner') return `Yes: that’s your voice. I recognised it on this phone, and I’m sure${via}. It never opens anything on its own: it’s a courtesy, never a lock.`;
     if (typeof h.label === 'object') return `That sounds like ${h.label.name}, whom you introduced${via}.`;
     return h.sure === false ? 'I’m not sure: it sounded a bit like a voice I know, not enough to say. Say a whole sentence and I’ll try again.' : 'No: that’s a voice I don’t know. I won’t say anything private until I know who it is.';
   }

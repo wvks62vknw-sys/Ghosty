@@ -278,6 +278,6 @@ test('"do you know it’s me?" and "who’s talking?" are answered on the phone 
   assert.match(local, /speaker: \(text, opts\) => import\('\.\/voiceknown'\)\.then\(\(v\) => answer\(text, v\.whoWords\(!!opts\.voice\)/);
   const known = src('assistant/voiceknown.ts');
   // the answers say what is true: taught or not, sure or not, typed or spoken, and never that it is a lock
-  for (const w of ['I don’t know your voice yet. Teach me in Settings, under My voice', 'Yes: that’s your voice. I recognised it on this phone, and I’m sure', 'It never unlocks anything on its own', 'I’m not sure', 'that’s a voice I don’t know', 'You typed that, so I heard no voice', 'too short to judge']) assert.ok(known.includes(w), w);
+  for (const w of ['I don’t know your voice yet. Teach me in Settings, under My voice', 'Yes: that’s your voice. I recognised it on this phone, and I’m sure', 'It never opens anything on its own', 'I’m not sure', 'that’s a voice I don’t know', 'You typed that, so I heard no voice', 'too short to judge']) assert.ok(known.includes(w), w);
   assert.doesNotMatch(code('assistant/voiceknown.ts'), /no way of recognising|can'?t recognise/i, 'it never says it cannot');
 });
