@@ -13,11 +13,16 @@
  *   GET /guardian/watchers · POST /guardian/watchers { kind, url, label? } · DELETE /guardian/watchers?id=
  */
 import { priceOf } from '../../../packages/shared/src/money';
+import { guardedFetch } from './netguard';
 import { parseTarget } from './integrations/recon';
 import type { GuardDeps } from './guardstate';
+import type { Vault } from './kernel/vault';
+import { listMessages, parseEmailKey } from './integrations/mail';
+import { chaseAt, chaseDueLine, chaseSetLine, repliedLine } from '../../../packages/shared/src/recall';
 
 export const WATCHERS_KEY = 'watchers:list';
-export type WatchKind = 'price' | 'page' | 'strike';
+export type WatchKind = 'price' | 'page' | 'strike' | 'reply';
+/** The page watchers (a `reply` watcher is a chase: no page, set with its own fields; addChase below). */
 export const WATCH_KINDS: WatchKind[] = ['price', 'page', 'strike'];
 /** At most this many at once (each is one read an hour). */
 export const MAX_WATCHERS = 8;
@@ -45,16 +50,100 @@ export interface Watcher {
   line?: string;
   /** Why the last read failed, in a plain line. */
   note?: string;
+  /**
+   * [recall] A chase (kind `reply`, BRIEF-DEPTH-MEMORY 3): the name he used for his own correspondent, what it is about, the
+   * thread's message id when the Brief's mail gave one, the morning it is checked (ms), whether a mail account was linked when it
+   * was set, and that morning's outcome: `repliedAt` (a reply came) or not. No person is profiled: a name, a thread, a day.
+   */
+  who?: string;
+  /** The address of the mail he means (the Brief's line he named), when the phone knew it: the morning's look is by it. */
+  from?: string;
+  about?: string;
+  thread?: string;
+  by?: number;
+  mail?: boolean;
+  repliedAt?: number;
 }
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 export interface WatchDeps extends Pick<GuardDeps, 'storage' | 'notify'> {
   fetch?: Fetcher;
   now?: () => number;
+  /** [recall] The vault, for the mail account already linked (the Brief's): a chase looks in it on its morning, nothing more. */
+  vault?: Pick<Vault, 'get'>;
+  /** [recall] For the tests: did a reply come (its time), null for none, undefined when no mail account is linked. */
+  replied?(w: Watcher): Promise<number | null | undefined>;
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 const nowOf = (d: Pick<WatchDeps, 'now'>) => (d.now ? d.now() : Date.now());
+
+// ---------------------------------------------------------------- a chase held for days ([recall])
+
+/** Is a mail account linked (the vault's `email` key, as the Brief's mail reads it)? */
+async function mailLinked(d: WatchDeps): Promise<boolean> {
+  if (d.replied) return (await d.replied({ kind: 'reply' } as Watcher).catch(() => undefined)) !== undefined;
+  return !!(await d.vault?.get('email').catch(() => ''));
+}
+
+/** On its morning: the first message from him (by the name he used) since the chase was set, through the mail account already linked. */
+async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | undefined> {
+  if (d.replied) return d.replied(w);
+  const key = await d.vault?.get('email').catch(() => '');
+  if (!key) return undefined;
+  const cfg = parseEmailKey(key);
+  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(!w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
+  const at = r.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
+  return at ?? null;
+}
+
+/**
+ * "Remind me to chase this if Sam doesn't reply by Thursday": a watcher of kind `reply`, checked once, on that morning at 9 (his
+ * zone). Said once, when set (chaseSetLine). Without a mail account it is a plain dated reminder, and says so.
+ */
+export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; about?: unknown; thread?: unknown; from?: unknown; tz?: unknown }): Promise<{ watcher?: Watcher; said: string; error?: string }> {
+  const day = typeof b.day === 'string' ? b.day.toLowerCase().trim() : '';
+  if (!/^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/.test(day)) return { said: '', error: 'say by when: a day like Thursday, or tomorrow' };
+  const who = typeof b.who === 'string' ? b.who.replace(/[^\p{L}\p{N} '’.-]/gu, '').trim().slice(0, 40) : '';
+  const about = typeof b.about === 'string' ? b.about.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  const thread = typeof b.thread === 'string' ? b.thread.slice(0, 200) : '';
+  const from = typeof b.from === 'string' && /^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}$/.test(b.from.trim()) ? b.from.trim() : '';
+  const tz = typeof b.tz === 'string' && b.tz ? b.tz : 'UTC';
+  const list = await loadWatchers(d.storage);
+  if (list.filter((w) => w.state === 'watching').length >= MAX_WATCHERS) return { said: '', error: `I’m watching ${MAX_WATCHERS} things already: stop one first.` };
+  const now = nowOf(d);
+  const by = chaseAt(day, now, tz);
+  const mail = await mailLinked(d);
+  const label = `Chase ${who || 'a reply'}${about ? `: ${about.slice(0, 50)}` : ''}`;
+  const w: Watcher = { id: shortId(), kind: 'reply', url: '', label, created: now, checked: now, ok: true, last: {}, state: 'watching', ...(who ? { who } : {}), ...(about ? { about } : {}), ...(thread ? { thread } : {}), ...(from ? { from } : {}), by, mail };
+  await saveWatchers(d.storage, [...list, w]);
+  return { watcher: w, said: chaseSetLine(who, by, tz, mail) };
+}
+
+/** A chase on its morning: the reply looked for once, and the one line that fits told through the one notify path. */
+async function chaseTick(d: WatchDeps, w: Watcher, now: number, tz: string): Promise<string | null> {
+  if (!w.by || now < w.by) return null;
+  let came: number | null | undefined;
+  try {
+    came = await replyCame(d, w);
+  } catch {
+    // the mail did not answer: look again on the next beat, for a day; then it is a plain reminder
+    if (now - w.by < 86_400_000) {
+      w.note = 'I could not reach your mail this time';
+      return null;
+    }
+    came = undefined;
+  }
+  w.state = 'told';
+  w.toldAt = now;
+  w.checked = now;
+  if (came) {
+    w.repliedAt = came;
+    w.line = repliedLine(w.who ?? '', came, tz);
+  } else w.line = chaseDueLine(w.who ?? '', w.about ?? '', came === null);
+  await d.notify({ kind: 'reminder', title: came ? 'Nothing to chase' : `Chase ${w.who || 'that reply'}`, text: w.line }).catch(() => undefined);
+  return w.line;
+}
 export const loadWatchers = async (s: DurableObjectStorage): Promise<Watcher[]> => (await s.get<Watcher[]>(WATCHERS_KEY)) ?? [];
 const saveWatchers = (s: DurableObjectStorage, list: Watcher[]) => s.put(WATCHERS_KEY, list);
 
@@ -126,7 +215,14 @@ export interface Reading {
 
 /** One read: https only, a body of at most MAX_BYTES, nine seconds, a login or a private address on the way refused. Throws a plain line. */
 export async function readPage(fetcher: Fetcher, url: string): Promise<Reading> {
-  const r = await fetcher(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, redirect: 'follow', signal: AbortSignal.timeout(9000) });
+  // [security] each redirect hop is checked BEFORE it is asked (a redirect into a private address is never requested)
+  let r: Response;
+  try {
+    r = await guardedFetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, signal: AbortSignal.timeout(9000) }, { fetcher });
+  } catch (e) {
+    if (/redirect/.test(String((e as Error)?.message))) throw new Error('moved');
+    throw e;
+  }
   if (r.status === 401 || r.status === 403) throw new Error('login');
   if (!r.ok) throw new Error(`the page answered ${r.status}`);
   const end = r.url || url;
@@ -202,7 +298,7 @@ export function tripped(w: Pick<Watcher, 'kind' | 'label' | 'last'>, now: { pric
   return null;
 }
 
-const TITLES: Record<WatchKind, string> = { price: 'Price dropped', page: 'Page changed', strike: 'Strike on your line' };
+const TITLES: Record<WatchKind, string> = { price: 'Price dropped', page: 'Page changed', strike: 'Strike on your line', reply: 'Chase' };
 
 // ---------------------------------------------------------------- the beat
 
@@ -216,7 +312,13 @@ export async function watchersTick(d: WatchDeps, o: { force?: boolean } = {}): P
   const fetcher: Fetcher = d.fetch ?? ((u, i) => fetch(u, i));
   const now = nowOf(d);
   const told: string[] = [];
+  const tz = (await d.storage.get<{ tz?: string }>('owner:ctx').catch(() => null))?.tz || 'UTC';
   for (const w of list) {
+    if (w.state === 'watching' && w.kind === 'reply') {
+      const line = await chaseTick(d, w, now, tz);
+      if (line) told.push(line);
+      continue;
+    }
     if (w.state !== 'watching' || (!o.force && now - w.checked < MIN_GAP)) continue;
     try {
       const r = await readPage(fetcher, w.url);
@@ -248,7 +350,7 @@ export async function watchersTick(d: WatchDeps, o: { force?: boolean } = {}): P
 }
 
 /** A watcher as the phone lists it (never the hash). */
-export const publicWatcher = (w: Watcher) => ({ id: w.id, kind: w.kind, url: w.url, label: w.label, created: w.created, checked: w.checked, ok: w.ok, state: w.state, ...(w.toldAt ? { toldAt: w.toldAt } : {}), ...(w.line ? { line: w.line } : {}), ...(w.note ? { note: w.note } : {}), ...(w.last.price !== undefined ? { price: w.last.price } : {}), ...(w.last.strike !== undefined ? { strikeNow: w.last.strike } : {}) });
+export const publicWatcher = (w: Watcher) => ({ id: w.id, kind: w.kind, url: w.url, label: w.label, created: w.created, checked: w.checked, ok: w.ok, state: w.state, ...(w.kind === 'reply' ? { ...(w.who ? { who: w.who } : {}), ...(w.about ? { about: w.about } : {}), ...(w.by ? { by: w.by } : {}), mail: !!w.mail, ...(w.repliedAt ? { repliedAt: w.repliedAt } : {}) } : {}), ...(w.toldAt ? { toldAt: w.toldAt } : {}), ...(w.line ? { line: w.line } : {}), ...(w.note ? { note: w.note } : {}), ...(w.last.price !== undefined ? { price: w.last.price } : {}), ...(w.last.strike !== undefined ? { strikeNow: w.last.strike } : {}) });
 
 const shortId = () => [...crypto.getRandomValues(new Uint8Array(5))].map((x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -286,7 +388,7 @@ export async function watchersRoute(req: Request, path: string, method: string, 
   if (path === '/guardian/watchers' && method === 'GET') return json({ watchers: (await loadWatchers(d.storage)).map(publicWatcher), max: MAX_WATCHERS });
   if (path === '/guardian/watchers' && method === 'POST') {
     const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const r = await addWatcher(d, b);
+    const r = b.kind === 'reply' ? await addChase(d, b) : await addWatcher(d, b);
     return r.error ? json({ error: r.error }, 400) : json({ watcher: publicWatcher(r.watcher!), said: r.said });
   }
   if (path === '/guardian/watchers' && method === 'DELETE') {

@@ -12,7 +12,7 @@ import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
-import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
+import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn } from './kernel/permissions';
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
 import { Meter } from './meter';
@@ -60,6 +60,7 @@ import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
 import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { gameSiteResponse, gameUpload } from './gamesite'; // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
@@ -412,6 +413,8 @@ export class GhostyAgent {
       if (sp && method === 'GET') {
         try {
           const site = await siteStore(this.env, this.storage).get(sp[1]!);
+          // [sites] a game from his studio, published a moment ago (KV not caught up here yet): served as its own page (gamesite.ts)
+          if (site?.game) return await gameSiteResponse(site, this.env, url.origin, `/s/${site.name}/`, sp[2] ? (url.searchParams.get('dest') ?? '') : null);
           return sp[2] ? siteFrameResponse(site, url.searchParams.get('dest')) : siteResponse(site);
         } catch (e) {
           if (!storageError(e)) throw e;
@@ -491,6 +494,8 @@ export class GhostyAgent {
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
       // [selftrain] SYSTEM → OFFLINE BRAIN TRAINING (before /train, the training ground, which would match it too)
       if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
+      // [sites] the game open in his studio, handed over to wait for "put it on my sites" and his APPROVE; never published here (gamesite.ts)
+      if (path === '/sites/game') return await gameUpload(req, { env: this.env, storage: this.storage });
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
@@ -1038,10 +1043,10 @@ export class GhostyAgent {
       let args = safeArgs(call.function.arguments);
       let result: string;
       let ok = true;
-      if (tool && needsApproval(tool) && i === 0 && first === 'declined') {
+      if (tool && needsApprovalIn(tool, ctx) && i === 0 && first === 'declined') {
         result = 'The owner declined this action. Do not retry it unless they ask again.';
         ok = false;
-      } else if (tool && needsApproval(tool) && !(i === 0 && first === 'approved')) {
+      } else if (tool && needsApprovalIn(tool, ctx) && !(i === 0 && first === 'approved')) {
         let reason = describe(tool.name, args);
         try {
           if (tool.approval) ({ reason, args } = await tool.approval(args, tctx));
@@ -1147,7 +1152,8 @@ export class GhostyAgent {
   private async runCalls(ctx: Msg[], calls: ToolCall[], client: ClientContext, emit: (ev: ChatEvent) => void, first?: 'approved' | 'declined'): Promise<boolean> {
     const tctx = this.toolContext(emit);
     const code = codingTurn(ctx);
-    if (calls.length > 1 && !first && calls.every(pureCall)) {
+    // [security] a guarded tool after outside words this turn never joins a parallel batch: it goes the approval way below
+    if (calls.length > 1 && !first && calls.every(pureCall) && !calls.some((c) => { const t = toolByName.get(c.function.name); return !!t && needsApprovalIn(t, ctx); })) {
       const results = await Promise.all(calls.map((call) => this.runOne(call, toolByName.get(call.function.name)!, safeArgs(call.function.arguments), tctx, emit, code)));
       // The model reads them in the order it asked for them, whichever finished first.
       calls.forEach((call, i) => ctx.push(toolMsg(call, results[i]!)));
@@ -1167,7 +1173,7 @@ export class GhostyAgent {
       } else if (i === 0 && first === 'declined') {
         result = 'The owner declined this action. Do not retry it unless they ask again.';
         emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: 'declined by you' });
-      } else if (needsApproval(tool) && !(i === 0 && first === 'approved')) {
+      } else if (needsApprovalIn(tool, ctx) && !(i === 0 && first === 'approved')) {
         // Work out exactly what is being approved (e.g. pin the commit to merge) BEFORE asking.
         let reason = describe(tool.name, args);
         let pinned = args;

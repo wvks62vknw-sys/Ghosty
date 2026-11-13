@@ -3,6 +3,7 @@
  * the editor as pills: ROOMS, SPRITES, CHARACTERS, THINGS, QUESTS, RULES, SOUND, PLAY, SHARE, AS AN APP. Everything saves 200 ms
  * after a change ("Saved" said once), UNDO is sixty deep and sits in the line, and the editor reopens on the room he left it on.
  */
+import { bytesOf, MAX_GAME_BYTES } from '../core/safeurl';
 import { clear, h } from '../core/dom';
 import { confirmSheet, panel, toast, undo } from '../ui/components';
 import { appPill, importBytes, playPill, rulesPill, sharePill, soundPill } from './ed-misc';
@@ -17,6 +18,7 @@ import { clone, firstRoom, type Game, History, hardProblems, problems, resizeRoo
 import { autosave, getGame, keeps, listGames, type Meta, putGame, removeGame, room } from './store';
 import { openWorkBlock, q } from '../../../../packages/shared/src/openwork';
 import { setLiveWork } from '../proposals/live';
+import { handOver, ON_SITES } from './sites';
 import { askBox, proposalBar } from '../proposals/bar';
 
 const LAST = 'ghosty.studio.last';
@@ -118,7 +120,7 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
       const f = input.files?.[0];
       input.value = '';
       if (!f) return;
-      const r = await importBytes(new Uint8Array(await f.arrayBuffer()), { say });
+      const r = await importBytes(await bytesOf(f, MAX_GAME_BYTES), { say });
       if (r) {
         toast(r.said, 'ok');
         void paintShelf();
@@ -309,7 +311,7 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
     paintEditor();
     wire(g);
     props.clear();
-    setLiveWork('game', { data: dataOf, propose: proposeHere });
+    setLiveWork('game', { data: dataOf, propose: proposeHere, ready: async (words) => void (hist && ON_SITES.test(words) && (await handOver(hist.game))) });
     return true;
   }
   async function closeGame() {

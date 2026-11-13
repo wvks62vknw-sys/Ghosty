@@ -22,6 +22,8 @@ import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
+import { trackAsked } from '../features/body/trackcore';
+import { larderAsked } from '../features/kitchen/larderwords';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
@@ -62,6 +64,20 @@ import { learningAsked } from '../../../../packages/shared/src/learning';
 import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
+import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+
+/** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
+export function findAsked(text: string): string | null {
+  const t = text.replace(/\s+/g, ' ').trim().replace(/[?.!]+$/, '');
+  const m = /^(?:find|search(?: for)?|look for) (.+?) (?:in|across|through) (?:all )?my (?:things|stuff|notes|documents|docs|files|pages|workspace)$/i.exec(t) ?? /^search (?:all )?my (?:things|stuff|notes|documents|docs|files|pages|workspace) for (.+)$/i.exec(t);
+  return m ? m[1]!.trim() : null;
+}
+
+/**
+ * [voice lane] "Do you know it's me?", "who's talking?", "can you recognise my voice?": answered from the phone's own tag, truly
+ * (assistant/voiceknown.ts whoWords), before "can you …?" could call it an ability he lacks. His voice is never a lock.
+ */
+export const SPEAKER_ASK = /^(?:(?:hey |ok |so )?(?:ghosty,? )?)(?:do you (?:know|recognise|recognize) (?:it's|its|it is|that it's|that its) me|(?:do|can|could) you (?:know|recognise|recognize|tell|hear) (?:my voice|it's me|its me|it is me|who i am|who's (?:talking|speaking)|who is (?:talking|speaking)|me by my voice|me from my voice|that it's me)|do you know (?:my voice|who's talking|who is talking|who's speaking|who is speaking|who i am|me)|who(?:'s| is) (?:talking|speaking)(?: (?:now|to you|right now))?|whose voice (?:is (?:this|that)|was that|is it)|(?:is|was) (?:that|this|it) me(?: (?:talking|speaking))?|did you recognise (?:me|my voice)|did you recognize (?:me|my voice)|how do you know it's me|are you sure it's me|who said that|who am i to you|recognise me|recognize me)[?.!]*$/i;
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -69,12 +85,18 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
+  { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
   // [shell2] "open two", "go to number three", "open learn 5": a number said where he is opens that thing (shell/rooms.ts numbers, assistant/roomnumber.ts); only with a verb, so a bare "2" in a conversation is not taken
   { id: 'roomnumber', test: (t: string) => /^(?:ok(?:ay)?[, ]+|please[, ]+)?(?:open|go to|show|take me to)\b/i.test(t.trim()) && (numberIn(t) !== null || roomNumberIn(t) !== null) },
   // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
+  // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
+  // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
+  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
+  { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
   { id: 'watcher', test: (t: string) => watcherAsked(t) !== null },
@@ -84,14 +106,19 @@ export const LOCAL_ASKS = [
   { id: 'further', test: (t: string) => furtherAsked(t) },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
+  // [bodylane] the body trackers on the phone, no model (features/body/track.ts): water, sleep, steps, weight, mood, kept and asked
+  // (a drink logged is the water table's, below, which keeps it on the phone the same way: the voice lane's meanings expect it there)
+  { id: 'track', test: (t: string) => { const a = trackAsked(t); return a !== null && !(a.kind === 'log' && a.m === 'water'); } },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
   { id: 'run', test: (t: string) => bodyAsked(t)?.what === 'run' },
   { id: 'breathe', test: (t: string) => bodyAsked(t)?.what === 'breathe' },
   { id: 'stretch', test: (t: string) => bodyAsked(t)?.what === 'stretch' },
-  { id: 'water', test: (t: string) => bodyAsked(t)?.what === 'water' },
+  { id: 'water', test: (t: string) => { const a = trackAsked(t); return bodyAsked(t)?.what === 'water' || (a?.kind === 'log' && a.m === 'water'); } },
   // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
+  // [bodylane] the pantry and the recipe book, kept on this phone (features/kitchen/larder.ts)
+  { id: 'larder', test: (t: string) => larderAsked(t) },
   { id: 'shopping', test: (t: string) => shoppingAsked(t) },
   { id: 'oven', test: (t: string) => !!ovenAsked(t) },
   // [social] "who made you?", "where did you come from?": FATHER AND THE ORIGIN's first lines and its card (features/me)

@@ -36,3 +36,26 @@ export const OFFLINE_EMPTY = { head: 'You’re offline', next: 'My memory shows 
 export const PATTERNS_EMPTY = 'Nothing yet. After a few days of chats I point out what keeps coming up, and how often.';
 /** The fact cut from PATTERNS' empty state, kept where he can ask for it. */
 export const PATTERNS_WHY = 'Each one is worked out by counting what is stored in your brain, never guessed.';
+
+// ---------------------------------------------------------------- [recall] RECALL and FIND (BRIEF-DEPTH-MEMORY 5)
+
+/** The index not built yet. */
+export const RECALL_COLD = 'Still reading your things; ask me again in a minute.';
+/** "what did I ask you about X?" with no match. */
+export const recallNone = (about: string): string => `Nothing like that: I can’t find a time you asked me about “${about.slice(0, 40)}”.`;
+/** The RECALL card's head. */
+export const recallHead = (n: number, about: string): string => `${n === 1 ? 'Once' : `${n} times`} you asked me about “${about.slice(0, 40)}”${n > 3 ? '; the best three first' : ''}:`;
+/** FIND with no match. */
+export const findNone = (q: string): string => `Nothing like “${q.slice(0, 40)}” in your documents, pages, decks, sheets or chats on this phone.`;
+/** FIND's head. */
+export const findHead = (n: number, q: string): string => `${n} thing${n === 1 ? '' : 's'} of yours about “${q.slice(0, 40)}”:`;
+/** A chase set while my brain is out of reach. */
+export const CHASE_OFFLINE = 'I can’t reach my brain right now, and it is the brain that checks on the day, so the chase isn’t set. Ask me again when I’m back online.';
+/** A turn forgotten from RECALL. */
+export const TURN_FORGOTTEN = 'Forgotten: it won’t come up in recall again.';
+/** SYSTEM → STORAGE's line for the index. */
+export const indexLine = (items: number, bytes: number): string => (items ? `Recall index: ${items} thing${items === 1 ? '' : 's'}, ${bytes < 1_000_000 ? `${Math.max(1, Math.round(bytes / 1000))} KB` : `${(bytes / 1_000_000).toFixed(1)} MB`}, kept only on this phone.` : 'Recall index: empty. It builds while the phone sits idle.');
+/** "what are you chasing?" */
+export const chasingLine = (items: string[]): string => `I'm chasing ${items.length === 1 ? 'one reply' : `${items.length} replies`}: ${items.join('; ')}.`;
+export const CHASING_NONE = 'I’m not chasing anything for you. Say “remind me to chase this if Sam doesn’t reply by Thursday” and I will.';
+export const CHASE_LIST_OFFLINE = 'I can’t reach my brain right now, and it is the brain that keeps the chases. Ask me again when I’m back online.';

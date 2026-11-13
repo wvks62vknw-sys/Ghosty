@@ -39,7 +39,7 @@ export const mediaTools: Tool[] = [
   {
     name: 'play_radio',
     description:
-      'Find and play an internet radio station in the interface. Search by station name (e.g. "BBC Radio 1", "Capital FM") or by genre/tag (e.g. "jazz", "lofi", "news") and optional country.',
+      'Find and play an internet radio station in the interface. Search by station name (e.g. "BBC Radio 1", "Capital FM") or by genre/tag (e.g. "jazz", "lofi", "news") and optional country. "Play music", "put some tunes on" or "something to listen to" with no station named mean this too: pick a popular genre (e.g. "pop") and say which.',
     parameters: {
       type: 'object',
       properties: { name: { type: 'string', description: 'Station name' }, genre: { type: 'string', description: 'Genre/tag instead of a name' }, country: { type: 'string' } },

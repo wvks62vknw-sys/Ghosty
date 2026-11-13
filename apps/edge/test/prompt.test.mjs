@@ -44,7 +44,7 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.match(sys, /show_cameras: the West Midlands motorways/, 'the traffic group is on: its about line is there');
   assert.match(sys, /say so plainly and show the nearest motorway camera/);
   assert.match(sys, /ALSO \(call by name\):\n/);
-  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
+  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, publish_game, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
   assert.ok(!/DO IT, never reply/.test(sys), 'the website rule comes only with the sites group');
   assert.ok(!/TOOLS: only the tools that look relevant/.test(sys) && !/WHAT YOU CAN DO:/.test(sys), 'the old paragraph and name list are gone');
   const site = P.systemPrompt(client, [], false, [], { groups: T.selectGroups('make me a website for my bakery', new Set(), false) });
@@ -315,7 +315,7 @@ test('the voice line (BRIEF-VOICE-KNOWN 4): every label on every channel and eve
   const band = 'He writes at length: a paragraph is fine.';
   const MOOD = await import('./.build/mood.mjs');
   const mood = MOOD.moodLine(MOOD.moodAfter(MOOD.CALM, { kind: 'discipline', weight: 3 }, 0), 59 * 60_000);
-  const labels = { owner: 'owner', unknown: 'unknown', 'a person with the longest name': { name: 'Bartholomew-Anne Fitzgerald' }, 'a name that is not a name': { name: '' } };
+  const labels = { owner: 'owner', unknown: 'unknown', unsure: 'unsure', 'a person with the longest name': { name: 'Bartholomew-Anne Fitzgerald' }, 'a name that is not a name': { name: '' } };
   const channels = { spoken: { ...client }, telegramVoice: { ...client, tab: 'telegram', screen: TG_SCREEN } };
   const worstOf = {};
   for (const [cn, base] of Object.entries(channels)) {
@@ -329,15 +329,23 @@ test('the voice line (BRIEF-VOICE-KNOWN 4): every label on every channel and eve
       assert.ok(worst.n <= 5500, `${cn} with ${ln}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
     }
   }
+  // (the final round's voice lane) a typed turn carries what the phone knows of voices: the longest such line, with the longest name
+  for (const [ln, heard] of Object.entries({ 'typed, last heard a person': { taught: true, last: { name: 'Bartholomew-Anne Fitzgerald' }, mins: 25 }, 'typed, not taught': { taught: false }, 'spoken, too short': { taught: true } })) {
+    let n = 0;
+    for (const dials of ALL_DIALS) n = Math.max(n, P.systemPrompt({ ...client, heard, ...(ln.startsWith('spoken') ? { voice: true } : {}) }, [], true, [], { groups: hello(), profile: withDials(dials), band, mood }).length);
+    worstOf[`app / ${ln}`] = n;
+    assert.ok(n <= 5500, `${ln}: the longest is ${n} characters`);
+  }
   const worst = Math.max(...Object.values(worstOf));
   console.log(`MEASURED prompt worst case with the voice line, per channel and label: ${Object.entries(worstOf).map(([k, v]) => `${k} ${v}`).join(' | ')} (the guard: 5,500; worst ${worst})`);
   // exactly one line, in the CONTEXT block, and a plain spoken turn (not scored) carries none
   const sys = P.systemPrompt({ ...client, voice: 'unknown' }, [], true, [], { groups: hello() });
-  assert.equal(sys.split('\nVoice: ').length, 2, 'once');
-  assert.ok(sys.includes(`\nCONTEXT:\n${sys.split('\nCONTEXT:\n')[1].split('\n')[0]}`) && /\nCONTEXT:\nVoice: one you don't know: say nothing private, ask who it is\n/.test(sys), 'in the CONTEXT block');
-  assert.ok(!P.systemPrompt({ ...client, voice: true }, [], true, [], { groups: hello() }).includes('Voice:'), 'a spoken turn not scored says nothing');
-  assert.ok(!P.systemPrompt({ ...client, tab: 'telegram', screen: TG_SCREEN, voice: 'owner' }, [], true, [], { groups: hello() }).includes('Voice:'), 'Telegram never scores a voice, so its turn carries no such line');
-  assert.ok(!P.systemPrompt(client, [], true, [], { groups: hello() }).includes('Voice:'), 'a typed turn says nothing');
+  assert.equal(sys.split('\nSpeaker: ').length, 2, 'once');
+  assert.ok(sys.includes(`\nCONTEXT:\n${sys.split('\nCONTEXT:\n')[1].split('\n')[0]}`) && /\nCONTEXT:\nSpeaker: a voice this phone doesn't know: say nothing private, ask who\n/.test(sys), 'in the CONTEXT block');
+  assert.ok(!P.systemPrompt({ ...client, voice: true }, [], true, [], { groups: hello() }).includes('Speaker:'), 'a spoken turn not scored, with nothing said of voices, says nothing');
+  assert.ok(!P.systemPrompt({ ...client, tab: 'telegram', screen: TG_SCREEN, voice: 'owner' }, [], true, [], { groups: hello() }).includes('Speaker:'), 'Telegram never scores a voice, so its turn carries no such line');
+  assert.ok(!P.systemPrompt({ ...client, tab: 'telegram', screen: TG_SCREEN, heard: { taught: true, last: 'owner', mins: 1 } }, [], true, [], { groups: hello() }).includes('Speaker:'), 'nor what the phone knows of voices');
+  assert.ok(!P.systemPrompt(client, [], true, [], { groups: hello() }).includes('Speaker:'), 'a typed turn with nothing said of voices says nothing');
   assert.ok(!/\d/.test(P.voiceLine('unknown') + P.voiceLine('owner')), 'no number in the line');
 });
 

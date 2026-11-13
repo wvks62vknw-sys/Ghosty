@@ -3180,6 +3180,9 @@ html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-
 .schsub button { flex: 0 0 auto; }
 .schlive { margin: 8px 0 2px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .schliveh { display: flex; flex-direction: column; }
+.schworking { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 12px; background: var(--thin); }
+.schworking small { color: var(--mute); letter-spacing: .08em; }
+.schworking pre { margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 15px/1.45 var(--sf); color: var(--fg); }
 .schliveh small { color: var(--mute); }
 .schbtns { margin-top: 8px; }
 .schbtns > button { flex: 1 1 140px; }
@@ -4154,6 +4157,9 @@ html .studiocardby { font: 400 11px/14px var(--sf); color: var(--ink3); }
 html #pg-studio .pn .rw.link, html #pg-studio .studiolist .rw { margin: 0; padding: 12px 0; border-radius: 0; }
 html #pg-studio .studiolist .rw .k { font: 500 15px var(--sf); color: var(--ink); min-width: 0; }
 html #pg-studio .studiolist .rw .v { font: 400 13px var(--sf); color: var(--ink3); }
+/* FINAL ROUND (MAKE lane): a model's licence line is read whole ("Khronos sample · CC BY 4.0" at 390), never cut */
+html #pg-studio .studiolist .rw, html #pg-studio .studiopane .rw { flex-wrap: wrap; }
+html #pg-studio .studiolist .rw .v, html #pg-studio .studiopane .rw .v { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: right; }
 /* SPACE: chips in sentence case, FIND ONE THAT FITS as a tinted action (not a warning), the plan's numbers tabular */
 html #pg-space .lenschips button, html #pg-space .spacereview .row button:not(.on) { position: relative; height: 36px; min-height: 36px !important; padding: 0 14px; border-radius: 18px; font-weight: 500 !important; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 html #pg-space .lenschips button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
@@ -4775,8 +4781,8 @@ html .hubtile .hline[hidden] { display: none; }
 /* ---- THE WORKBENCH (BRIEF-WORKSHOP; features/workbench): a compact form in his units, the answer at once below it, and
    FIRST ESTIMATE · NOT CERTIFIED on every card as a shape and its words (never colour alone). Every row 44 pt or more. */
 html .pn.wb .bd { display: flex; flex-direction: column; }
-html .wbmodes { display: flex; gap: 6px; margin: 4px 0 6px; }
-#pg-workbench .wbmodes button { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 0 8px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .wbmodes { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+#pg-workbench .wbmodes button { flex: 1 1 auto; min-width: 48px; min-height: 44px !important; padding: 0 10px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: normal; overflow-wrap: anywhere; }
 html .wbform { display: flex; flex-direction: column; }
 html .wbf { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid var(--hair); }
 html .wbf > label { flex: 1 1 auto; min-width: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
@@ -4809,6 +4815,10 @@ html .wbfold ul, html .wbfold p { margin: 0 0 10px; padding-left: 18px; font: 40
 html .wbfold p { padding-left: 0; }
 html .wbproblem { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; font: 500 15px/20px var(--sf); color: var(--ink); }
 html .wbcaveat { margin: 10px 0 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
+/* FINAL ROUND (MAKE lane): COPY under an estimate, a 44 pt key and its line */
+html .wbcopyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; min-width: 0; }
+html .wbcopy { min-height: 44px; min-width: 88px; }
+html .wbcopied { flex: 1 1 160px; min-width: 0; font: 400 13px/18px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { html .wbfold > summary::after { transition: none; } }
 /* the WIND TUNNEL (features/workbench/tunnel.ts): the flow drawn at the lattice's own 192 × 96, scaled smoothly to the card;
    while DRAW is on, a touch draws instead of scrolling. */
@@ -5603,6 +5613,8 @@ body.tv #cbar .tvkbbtn { display: grid; place-items: center; grid-column: 4; wid
 .studioseg { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .studioseg button { grid-column: span 2; }
 .studioseg button[data-pane="car"], .studioseg button[data-pane="build"] { grid-column: span 3; }
+/* FINAL ROUND (MAKE lane): a pane's name is never cut ("CUT · MEASURE" at 390): it wraps on two lines inside its 44 pt key */
+html .studioseg button { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; height: auto; min-height: 44px !important; line-height: 1.15; }
 .buildstage { position: absolute; inset: 0; z-index: 3; overflow: hidden; border-radius: inherit; background: #cfe3f2; touch-action: none; user-select: none; -webkit-user-select: none; }
 .buildstage[hidden] { display: none; }
 .buildstage canvas.buildcanvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
@@ -5741,6 +5753,18 @@ canvas.buildplan { display: block; max-width: 100%; }
 .cvans { font: 600 17px/1.4 var(--sf); color: var(--fg); }
 .cvqr { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0; }
 .cvqr img { width: min(240px, 100%); height: auto; image-rendering: pixelated; border-radius: 8px; background: #fff; }
+/* FINAL ROUND (MAKE lane): the unit pad (convert/unitpad.ts) — the answer big, every unit as a list, recents as keys; tokens only */
+.cvpad { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cvpad .cvpadval { font: 600 22px/1.2 var(--sf); }
+.cvpadans { margin: 0; font: 700 21px/1.35 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.cvpadans[data-state] { font-weight: 400; font-size: 15px; color: var(--mute); }
+.cvpadevery { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cvpadrow { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-height: 32px; border-bottom: .5px solid var(--line); min-width: 0; }
+.cvpadrow b { font: 600 16px/1.35 var(--sf); color: var(--fg); overflow-wrap: anywhere; min-width: 0; }
+.cvpadrow span { font: 400 14px/1.35 var(--sf); color: var(--mute); }
+.cvpadrecent { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cvpadswap, .cvpadcopy, .cvpadrec { min-height: 44px; }
+html body .cvpadrec[data-case="keep"], html body .cvpadrec[data-case="keep"]::first-letter { text-transform: none !important; }
 .cvtools { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: .5px solid var(--line, rgba(255,255,255,.15)); }
 .rtsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .rtsheet > button, .rtgroup button, .rtlink { min-height: 44px; }
@@ -6566,6 +6590,56 @@ html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .sca
 #boot .bsight .scansightdot { fill: var(--g-accent); }
 #boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
 #boot .g-lock.bsearch { z-index: 3; }
+
+/* ---- THE BODY TRACKERS (FINAL ROUND, BODY lane; features/body/track.ts): water, sleep, steps, weight and mood. The ring,
+   the history's chart and the keys, all in tokens: the accent for what is met, ink for the rest, the line for the goal */
+html .bt .bt-hero { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
+html .bt .bt-ringbox { position: relative; flex: none; width: clamp(112px, 34vw, 150px); aspect-ratio: 1; }
+html .bt .bt-ring { display: block; width: 100%; height: 100%; }
+html .bt .bt-track { fill: none; stroke: var(--g-line-faint); stroke-width: 12; }
+html .bt .bt-fill { fill: none; stroke: var(--g-ink-2); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray var(--g-dur-turn) var(--g-ease-bring); }
+html .bt .bt-fill.met { stroke: var(--g-accent); }
+html .bt .bt-ringmid { position: absolute; inset: 14%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+html .bt .bt-ringbig { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; line-height: 1.1; }
+html .bt .bt-ringsmall { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bt-herotext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .bt .bt-line { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bt-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .bt .bt-hist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .bt .bt-chartbox { min-width: 0; }
+html .bt .bt-chart { display: block; width: 100%; height: 120px; }
+html .bt .bt-bar { fill: var(--g-ink-3); }
+html .bt .bt-bar.met { fill: var(--g-accent); }
+html .bt .bt-goal { stroke: var(--g-ink-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+html .bt .bt-days { display: grid; gap: 0; min-width: 0; }
+html .bt .bt-days small { text-align: center; font: var(--g-t-fine); color: var(--g-ink-3); min-width: 0; white-space: nowrap; }
+html .bt .bt-cups { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+html .bt .bt-cups button { min-height: 56px; }
+html .bt .bt-cup { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+html .bt .bt-cup small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bt-moods { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+html .bt .bt-entry { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .pkitem button, html .bt .pkadd button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .bt .bt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt select { min-height: var(--g-target); width: 100%; }
+html .bt .pkfield label { font: var(--g-t-caption); color: var(--g-ink-3); }
+@media (prefers-reduced-motion: reduce) { html .bt .bt-fill { transition: none; } }
+/* ---- THE PANTRY AND THE RECIPE BOOK (features/kitchen/larder.ts) */
+html .kl .kl-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .kl .kl-title { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-name { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; text-align: left; }
+html .kl .kl-name small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .kl .kl-soon .kl-name small, html .kl .kl-past .kl-name small { color: var(--g-amber); }
+html .kl .kl-got .kl-name small { color: var(--g-accent-text); }
+html .kl .pkitem button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .kl .kl-book .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; padding-top: var(--g-s-1); padding-bottom: var(--g-s-1); }
+html .kl .kl-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .kl select, html .kl input[type=date], html .kl textarea { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .kl .kl-serves { align-items: center; }
+html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-value); color: var(--g-ink-1); }
+html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .pkfield label { overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
@@ -8514,8 +8588,7 @@ html body.housed :is(.invnone, .rnone) .empty { border-top: 0; padding: var(--g-
 /* the held landing's line: what the open waits for, in the stamp's small type (shell/bootwords.ts) */
 #boot .bhold { margin: var(--g-s-1) 0 0; color: var(--g-ink-2); }
 #boot .bhold[hidden] { display: none; }
-/* ==========================================================================================================================
-   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
+/* ===================================================================================================================   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
    own canvas and ink; every size is the wall's unit (1 percent of the screen's width or 1.78 of its height, whichever is less: 19.2 px
    at 1,920 × 1,080, 12.8 px at 1,280 × 720) times a step, so the Machine's type is at least twice its phone size at both. The pictures
    are the Stage's own (show/stage.ts), drawn into a frame. Only the colours, lines and type of THE SYSTEM's tokens; nothing else.
@@ -9405,3 +9478,52 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 
 /* ==== [planlane:links end] ==== */
 
+
+/* ===== FINAL ROUND · THE LEARN LANE (13 Nov): every key 44 pt on the reader, rehearse, the lab and the interpreter; at the
+   biggest text (BODY 21) the GYM's card names wrap instead of being cut with an ellipsis. Tokens only. */
+html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard :is(.gymname, .gymsay) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext), html:is([data-body="19"], [data-body="21"]) #pg-gym .gymlvhd .k { white-space: normal; overflow: visible; text-overflow: clip; }
+/* the interpreter keeps the whole talk on screen (scrolls, newest at the foot); a translated line is a key that says it again */
+html .fxlines { justify-content: flex-start; overflow-y: auto; }
+html .fxlines > :first-child { margin-top: auto; }
+html button.fxline.again { display: block; width: 100%; min-height: 44px; padding: 0; text-align: inherit; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; border-radius: 0; color: var(--g-accent-text); font: var(--g-t-reading); }
+
+/* INTERPRETER: a translated line says itself again on a tap and has a COPY key; PHRASES, the short phrasebook */
+html .fxline.fxtwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-1); }
+html .fxline.fxtwin small { grid-column: 1 / -1; }
+html button.fxreplay { box-sizing: border-box; min-width: 0; min-height: var(--g-target); margin: 0; padding: 0; font: inherit; letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; color: inherit; background: none; border: 0; cursor: pointer; }
+html button.fxcopy { flex: none; display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target); padding: 0; color: var(--g-ink-2); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.fxcopy svg { width: var(--g-icon); height: var(--g-icon); stroke: currentColor; fill: none; stroke-width: var(--g-icon-stroke); }
+html .fxbook { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .fxbook button.fxbookkey { align-self: flex-start; min-width: var(--g-target); min-height: var(--g-target); }
+html .fxbook button.fxbookkey[aria-expanded="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .fxphrases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5em), 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .fxphrases[hidden] { display: none; }
+html .fxphrases button.fxphrase { box-sizing: border-box; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-body); letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; }
+
+/* REHEARSE: KEPT, the rehearsals he kept, newest first */
+html .rhkept { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .rhkeptitem { display: flex; flex-direction: column; min-width: 0; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.rhkepthead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-1) var(--g-s-2); text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; color: var(--g-ink-1); background: none; border: 0; }
+html button.rhkepthead[aria-expanded="true"] .rhkeptsit { color: var(--g-accent-text); }
+html .rhkeptsit { font: var(--g-t-body); max-width: 100%; }
+html .rhkeptmeta { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody { display: flex; flex-direction: column; gap: var(--g-s-1); padding: 0 var(--g-s-2) var(--g-s-2); min-width: 0; }
+html .rhkeptbody ol, html .rhkeptbody ul { margin: 0; padding-left: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .rhkeptans small { display: block; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); }
+html .rhkeptbody .row button { min-height: var(--g-target); min-width: var(--g-target); height: auto; white-space: normal; }
+html .fxbooknote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody ol.rhkeptans { list-style: none; padding-left: 0; }
+/* [recall] THE RECALL CARD, FIND and the index's line (features/memory/recallcard.ts): a row per turn or thing, each a 44 pt key that wraps
+   rather than clips at BODY 21, FORGET / UNDO beside a turn; the RECALL chip under a reply that says "like you said on Tuesday" */
+html .recallcard, html .recallfind { display: flex; flex-direction: column; gap: var(--g-s-half); width: 100%; min-width: 0; }
+html .recallrow { display: flex; align-items: stretch; gap: var(--g-s-half); width: 100%; min-width: 0; }
+html body .recallrow button.recallgo { flex: 1 1 auto; min-width: 0; min-height: var(--g-target) !important; height: auto; justify-content: flex-start; text-align: left; white-space: normal; overflow-wrap: anywhere; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); padding: var(--g-s-half) var(--g-s-1); }
+html body .recallrow button.recallgo.struck { text-decoration: line-through; color: var(--g-ink-3); }
+html body .recallrow button.recallforget, html body .recallrow button.recallundo, html body .recallchip button, html body .recallidx button { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
+html .recallidx { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); margin-top: var(--g-s-1); }
+html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
+/* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
+html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
