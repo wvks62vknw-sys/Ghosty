@@ -171,7 +171,9 @@ export async function spotifyStatus(vault: Keys): Promise<SpotifyStatus> {
 function testWhy(e: unknown): string {
   if (e instanceof SpotifyError) return e.status === 401 ? 'signin' : e.status === 429 ? 'busy' : 'refused';
   const m = String((e as Error)?.message ?? '');
-  return m === NOT_LINKED ? 'not' : /withdrawn|expired/.test(m) ? 'signin' : 'reach';
+  // Withdrawn for good: refresh() has already let the sign-in go, so it is not linked any more (link it again), not "tap UNLINK".
+  // Spotify turning the app itself down (a deleted app, a changed Client ID) is the sign-in, never "couldn't reach Spotify".
+  return m === NOT_LINKED || /withdrawn|expired/.test(m) ? 'not' : /^Spotify sign-in failed/.test(m) ? 'signin' : 'reach';
 }
 
 /** The LINKS tab's routes: /spotify/link, /spotify/status, /spotify/unlink, /spotify/test (one read of his own profile: does the sign-in still work?). */
