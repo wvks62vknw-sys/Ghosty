@@ -449,7 +449,8 @@ function typingView(a: Record<string, unknown>): HTMLElement {
   const result = note();
   const logged = note();
   const finish = async () => {
-    if (finished || !t0) return;
+    if (finished) return;
+    if (!t0) return void (result.textContent = 'Type the passage first: the clock starts at your first key.');
     finished = true;
     const t = typingScore(passage, box.value, performance.now() - t0);
     learnState.score = t.wpm;
@@ -579,15 +580,21 @@ function readView(a: Record<string, unknown>): HTMLElement {
   };
   const ask = (data: ReadData) => {
     const given: number[] = [];
+    // (scored once: a tap after the last answer changes nothing, logs nothing and never moves the speed twice)
+    let scored = false;
     const rows = data.questions.map((q, qi) => {
       const opts = h('div.pkrow', { role: 'group', 'aria-label': `Question ${qi + 1}` });
       for (const [oi, o] of q.options.entries()) {
         opts.append(
           named(
             button(o, (b) => {
+              if (scored) return;
               given[qi] = oi;
               for (const x of opts.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
-              if (given.filter((x) => x !== undefined).length === data.questions.length) void score(data, given);
+              if (given.filter((x) => x !== undefined).length === data.questions.length) {
+                scored = true;
+                void score(data, given);
+              }
             }),
             `Question ${qi + 1}: ${o}`,
           ),
@@ -630,7 +637,7 @@ function memoryView(a: Record<string, unknown>): HTMLElement {
   const kinds = h('div.pkrow', { role: 'group', 'aria-label': 'What to remember' });
   const names = h('textarea', { rows: 3, 'aria-label': 'Names and a cue each, like Priya - red scarf, Tom - tall, Jo - glasses', placeholder: 'Priya - red scarf, Tom - tall, Jo - glasses' }) as HTMLTextAreaElement;
   names.value = ls.get('names');
-  const namesField = h('div.pkfield', { hidden: kind !== 'names' }, h('span.pklab', 'Names and a cue you choose for each. I never look at faces or look anyone up. They are kept on this phone only, and sent to your own brain just to set the drill.'), names);
+  const namesField = h('div.pkfield', { hidden: kind !== 'names' }, h('span.pklab', 'Names and a cue you choose for each. I never look at faces or look anyone up. They are kept on this phone, and sent only to your own brain to set the drill.'), names);
   const show = h('p.pkpass', { hidden: true, 'aria-live': 'polite' });
   const answer = h('input', { type: 'text', 'aria-label': 'Your answer', autocomplete: 'off', hidden: true }) as HTMLInputElement;
   const check = named(button('CHECK', () => void score()), 'Check my answer');
@@ -712,6 +719,8 @@ function mathsView(): HTMLElement {
   let ends = 0;
   let attempt = 0;
   let live = false;
+  let skipKey: HTMLButtonElement | null = null;
+  let stopKey: HTMLButtonElement | null = null;
   cleanups.push(() => window.clearInterval(timer));
   const showSum = () => {
     q.textContent = sums[i] ? `${sums[i]!.q} =` : '';
@@ -721,6 +730,7 @@ function mathsView(): HTMLElement {
   const finish = async () => {
     if (!live) return;
     live = false;
+    if (skipKey && stopKey) skipKey.hidden = stopKey.hidden = true;
     window.clearInterval(timer);
     input.hidden = true;
     q.textContent = '';
@@ -759,6 +769,7 @@ function mathsView(): HTMLElement {
     tried = 0;
     right = 0;
     live = true;
+    if (skipKey && stopKey) skipKey.hidden = stopKey.hidden = false;
     ends = Date.now() + 5 * 60_000;
     input.hidden = false;
     status.textContent = `Level ${level}. Five minutes, as many as you can.`;
@@ -771,7 +782,11 @@ function mathsView(): HTMLElement {
     paint();
     timer = window.setInterval(paint, 250);
   };
-  return h('div.pkcol', { dataset: { view: 'maths' } }, status, more(MATHS_MORE), clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), named(button('SKIP', () => answer(true)), 'Skip this sum'), named(button('STOP', () => void finish()), 'Stop and score the drill')), result, logged);
+  // (SKIP and STOP only while a drill runs: before START and after it they would do nothing)
+  skipKey = named(button('SKIP', () => answer(true)), 'Skip this sum');
+  stopKey = named(button('STOP', () => void finish()), 'Stop and score the drill');
+  skipKey.hidden = stopKey.hidden = true;
+  return h('div.pkcol', { dataset: { view: 'maths' } }, status, more(MATHS_MORE), clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), skipKey, stopKey), result, logged);
 }
 
 // ---------------------------------------------------------------- SPELLING
@@ -921,7 +936,7 @@ function planView(): HTMLElement {
     const d = (r.data ?? {}) as PlanData;
     const plans = d.plans ?? [];
     /* state: learning.pills empty */
-    status.textContent = plans.length ? r.text : 'No plan yet. Name a skill and I make four weeks of ten minutes a day, with the day’s line in your Brief. It is a plan, not a teacher.';
+    status.textContent = plans.length ? r.text : 'No plan yet. Name a skill and I make four weeks of a few minutes a day (you choose how many), with the day’s line in your Brief. It is a plan, not a teacher.';
     draw(plans);
   };
   const make = named(

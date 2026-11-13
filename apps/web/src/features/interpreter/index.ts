@@ -85,7 +85,6 @@ export const interpreterTab: TabDef = {
       const kb = h('button.fxkb', { type: 'button', 'aria-label': 'Type it instead', 'aria-pressed': 'false', dataset: { case: 'keep' } }, icon(KB));
       kb.addEventListener('click', () => {
         typed.hidden = !typed.hidden;
-        state.hidden = !typed.hidden;
         kb.setAttribute('aria-pressed', String(!typed.hidden));
         if (!typed.hidden) typed.focus();
       });
@@ -93,7 +92,8 @@ export const interpreterTab: TabDef = {
       let ear: Ear | null = null;
       let down = false;
       const begin = () => {
-        if (down || busy) return;
+        if (busy) return half(side).say('One moment: still translating the last one.');
+        if (down) return;
         down = true;
         stopSpeaking();
         interpState.listening = side;
@@ -115,7 +115,7 @@ export const interpreterTab: TabDef = {
         try {
           said = await e.stop();
         } catch (err) {
-          return half(side).say(sayError(err, 'translate that'));
+          return half(side).say(sayError(err, 'hear that'));
         }
         if (!said) return half(side).say('I heard nothing. Hold the key and say it again.');
         void exchange(side, said);
@@ -143,9 +143,17 @@ export const interpreterTab: TabDef = {
       typed.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const t = typed.value.trim();
+        if (!t) return;
+        if (busy) return half(side).say('One moment: still translating the last one.');
         typed.value = '';
-        if (t) void exchange(side, t);
+        void exchange(side, t);
       });
+      // A browser that cannot hear: no key that only ever says so; the typing line is open instead.
+      if (!canHear()) {
+        key.hidden = true;
+        typed.hidden = false;
+        kb.hidden = true;
+      }
       return { el, head, lines, state, key, typed, say: (t) => (state.textContent = t) };
     };
     // (far is made first: it sits on top, the other person's side)
@@ -159,6 +167,8 @@ export const interpreterTab: TabDef = {
     (P.big.parentElement?.querySelector('.swap') as HTMLElement | null)?.setAttribute('hidden', '');
 
     let busy = false;
+    /** Bumped when he leaves: a translation still on its way then is dropped, never said aloud on another screen. */
+    let visit = 0;
     /** The key's words and the heading, for the pair now. */
     function paintPair(): void {
       const { a, b } = pairNow();
@@ -177,7 +187,7 @@ export const interpreterTab: TabDef = {
       P.big.textContent = `${langName(a)} ⇄ ${langName(b)}`;
       const miss = [a, b].filter((c) => !voiceIn(c)).map(langName);
       for (const s of ['near', 'far'] as const) {
-        if (!halves[s].state.textContent) halves[s].state.textContent = miss.length ? `No ${miss.join(' or ')} voice on this phone: it will write, not say.` : 'Hold the key and speak.';
+        if (!halves[s].state.textContent) halves[s].state.textContent = miss.length ? `No ${miss.join(' or ')} voice on this phone: it will write, not say.` : canHear() ? 'Hold the key and speak.' : 'Type it below, then Return: this browser can’t listen.';
       }
     }
     function setPair(p: Pair): void {
@@ -197,20 +207,30 @@ export const interpreterTab: TabDef = {
         const mine = s;
         clear(
           halves[s].lines,
-          ...interpState.lines.slice(-4).map((l) => {
+          ...interpState.lines.map((l) => {
             const own = l.from === mine ? l.said : l.came;
             const who = l.from === mine ? 'YOU' : 'THEM';
+            // a translated line on this half can be said again with one tap (they missed it); the rest is plain text
+            if (l.from !== mine && l.how !== 'failed' && own) {
+              const ln = (l.from === 'near' ? pairNow().b : pairNow().a);
+              const b = h('button.fxline.theirs.again', { type: 'button', 'aria-label': 'Say it again', dataset: { case: 'keep' } }, h('small', `${who} · TAP TO HEAR AGAIN`), own) as HTMLButtonElement;
+              b.addEventListener('click', () => {
+                if (!speakIn(own, ln)) halves[s].say(`No ${langName(ln)} voice on this phone: it is written here.`);
+              });
+              return b;
+            }
             return h(`p.fxline.${l.from === mine ? 'mine' : 'theirs'}${l.how === 'failed' ? '.bad' : ''}` as 'p', h('small', who), l.how === 'failed' && l.from !== mine ? '…' : own || '…');
           }),
         );
+        halves[s].lines.scrollTop = halves[s].lines.scrollHeight;
       }
       paintSay();
     }
     function paintSay(): void {
       const last = interpState.lines.at(-1);
       if (last?.how === 'failed') {
-        halves.near.say(last.why ?? '');
-        halves.far.say('');
+        halves[last.from].say(last.why ?? '');
+        halves[last.from === 'near' ? 'far' : 'near'].say('…');
       }
       P.sub.textContent = interpState.lines.length ? 'Hold a key to speak again.' : 'Two halves of the screen, one for each of you. Hold a key and speak; the other half writes it and says it.';
     }
@@ -227,7 +247,9 @@ export const interpreterTab: TabDef = {
       half(from).say(`Translating into ${langName(toLang)}…`);
       half(to).say(`Translating into ${langName(toLang)}…`);
       try {
+        const at = visit;
         const r = await translate(said, toLang, fromLang);
+        if (at !== visit) return;
         line.came = r.text;
         line.how = r.how;
         paintLines();
@@ -255,6 +277,7 @@ export const interpreterTab: TabDef = {
       },
       leave() {
         // nothing of the other person is kept: the lines, what was heard and what was said aloud all go
+        visit++;
         stopSpeaking();
         interpState.lines.length = 0;
         interpState.spoken.length = 0;

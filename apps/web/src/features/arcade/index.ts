@@ -11,6 +11,7 @@
  * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
  * one Intent the game's engine reads.
  */
+import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
 import { draws } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -394,6 +395,11 @@ export const arcadeTab: TabDef = {
     const get = async (of: CardOf, also: string[] = []) => {
       const data = of.data;
       if (!data) return; // a game made by us: nothing to fetch
+      // (a phone that cannot tell Wi-Fi from mobile data: the first tap says so with the size; the second is his yes)
+      if (netUnknown() && !secondTap(`game:${of.at}`)) {
+        for (const c of sharing(of.at)) (status.set(c.of.id, unknownNet(sizeWords(data.bytes))), c.paint());
+        return;
+      }
       const ctl = new AbortController();
       busy.set(of.at, ctl);
       // the cards this GET fills, and any that asked for it (a level pack fetching the Freedoom it plays over)
@@ -445,7 +451,13 @@ export const arcadeTab: TabDef = {
     const del = async (of: CardOf) => {
       const data = of.data;
       if (!data) return; // a game made by us: nothing to delete
-      await removeFiles({ id: of.at, data });
+      try {
+        await removeFiles({ id: of.at, data });
+      } catch (e) {
+        for (const c of sharing(of.at)) status.set(c.of.id, sayError(e, 'delete that game'));
+        paintAll();
+        return;
+      }
       here.delete(of.at);
       for (const c of sharing(of.at)) (kinds.delete(c.of.id), status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`));
       paintAll();
@@ -547,7 +559,14 @@ export const arcadeTab: TabDef = {
     // MY GAMES: the games of the studio, played by its own engine ('studio') on the arcade's frame
     const mine = (m: Meta): ShelfEntry => ({ id: `studio-${m.id}`, title: m.name.toUpperCase(), line: 'A game you made.', engine: 'studio', data: null, madeByUs: true, controls: ['move', 'jump'], saves: true, since: '', ghosty: 'Your own game. Walk about, talk, and finish what it asks.', done: 'Your best is kept.' });
     const paintMine = async () => {
-      const list = await listGames().catch(() => [] as Meta[]);
+      myPanel.setStatus('…');
+      let failed = '';
+      const list = await listGames().catch((e) => ((failed = sayError(e, 'read your games')), [] as Meta[]));
+      if (failed) {
+        myPanel.setStatus('ERROR', 'off');
+        clear(myGrid, h('div.note', { dataset: { state: 'error' } }, failed));
+        return;
+      }
       myPanel.setStatus(list.length ? `${list.length} GAME${list.length === 1 ? '' : 'S'}` : 'NONE YET');
       const all = allScores();
       clear(myGrid, ...(list.length
@@ -705,7 +724,9 @@ function player(e: ShelfEntry, title = e.title) {
     fpsLine.hidden = !fpsLine.textContent;
   };
   const pause = () => {
-    if (paused || !handle) return;
+    if (paused) return;
+    // (still starting: PAUSE is the way out, never a screen he is stuck behind)
+    if (!handle) return finish(clock());
     paintFps();
     paused = true;
     played = clock();
@@ -897,8 +918,8 @@ function player(e: ShelfEntry, title = e.title) {
     },
     fail(message: string) {
       errBox.hidden = false;
-      if (made) {
-        // no PAUSE of the player's here: the way back is on the message
+      if (made || !handle) {
+        // no PAUSE of the player's here (or it never started): the way back is on the message
         const back = h('button.arcm.quit', { type: 'button', 'aria-label': 'Back to the shelf' }, 'BACK TO THE SHELF');
         back.addEventListener('click', () => finish(clock()));
         clear(errBox, `${title} stopped: ${message}.`, back);

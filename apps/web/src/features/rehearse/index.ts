@@ -81,6 +81,11 @@ export const rehearseTab: TabDef = {
     send.dataset.act = 'send';
     send.dataset.case = 'keep';
     const speakKey = h('button.fxkey.rhspeak', { type: 'button', dataset: { act: 'speak', case: 'keep' }, 'aria-label': 'Hold to speak your answer' }, 'HOLD TO SPEAK') as HTMLButtonElement;
+    // (a browser that cannot hear: no key that only ever says so)
+    if (!canHear()) {
+      speakKey.hidden = true;
+      answer.placeholder = 'Your answer: type it';
+    }
     const answerBox = h('div.rhanswer', answer, h('div.row.wrap', speakKey, send));
     answerBox.hidden = true;
     const notesBox = h('div.rhnotes', { hidden: true });
@@ -120,7 +125,7 @@ export const rehearseTab: TabDef = {
         S.talk.push({ other: said, answer: '' });
         paintLines();
         S.stage = 'answering';
-        state.textContent = `Round ${S.round} of ${ROUNDS}: your turn. Answer by typing, or hold SPEAK.`;
+        state.textContent = `Round ${S.round} of ${ROUNDS}: your turn. Answer by typing${canHear() ? ', or hold SPEAK' : ''}.`;
         answerBox.hidden = false;
         answer.value = '';
         answer.focus({ preventScroll: true });
@@ -128,7 +133,7 @@ export const rehearseTab: TabDef = {
       } catch (e) {
         S.stage = 'idle';
         state.textContent = '';
-        clear(state, h('span', `${sayError(e, 'do that')} `), button('TRY AGAIN', () => void turn()));
+        clear(state, h('span', `${sayError(e, 'play the other side')} `), button('TRY AGAIN', () => void turn()));
         conv.setStatus('NOT REACHED', 'off');
       }
     };
@@ -210,7 +215,7 @@ export const rehearseTab: TabDef = {
           state.textContent = 'That is what I heard: change anything, then SEND.';
         } else state.textContent = 'I heard nothing. Hold SPEAK and try again, or type.';
       } catch (err) {
-        state.textContent = sayError(err, 'do that');
+        state.textContent = sayError(err, 'hear you');
       }
     };
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) speakKey.addEventListener(ev, () => void letGo());
@@ -251,7 +256,7 @@ export const rehearseTab: TabDef = {
         secsIn.value = String(Math.max(1, Math.round((Date.now() - started) / 1000)));
         tState.textContent = said.value.trim() ? 'That is what I heard. CHECK IT gives your notes.' : 'I heard nothing. Try again, or type it.';
       } catch (err) {
-        tState.textContent = sayError(err, 'do that');
+        tState.textContent = sayError(err, 'hear you');
       }
     }
     const check = button('CHECK IT', () => {

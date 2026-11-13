@@ -9344,3 +9344,7 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */
 html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard :is(.gymname, .gymsay) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext), html:is([data-body="19"], [data-body="21"]) #pg-gym .gymlvhd .k { white-space: normal; overflow: visible; text-overflow: clip; }
+/* the interpreter keeps the whole talk on screen (scrolls, newest at the foot); a translated line is a key that says it again */
+html .fxlines { justify-content: flex-start; overflow-y: auto; }
+html .fxlines > :first-child { margin-top: auto; }
+html button.fxline.again { display: block; width: 100%; min-height: 44px; padding: 0; text-align: inherit; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; border-radius: 0; color: var(--g-accent-text); font: var(--g-t-reading); }

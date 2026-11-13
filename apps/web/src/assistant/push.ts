@@ -41,7 +41,8 @@ export async function initApp(): Promise<void> {
     pushState.set({ status: 'unsupported' });
     return;
   }
-  const supported = 'PushManager' in window && 'Notification' in window;
+  // (a registration without a push manager, as when service workers are blocked: no push here, never a crash)
+  const supported = 'PushManager' in window && 'Notification' in window && !!reg?.pushManager;
   pushState.set({ supported });
   if (!supported) {
     pushState.set({ status: isIos() && !standalone() ? 'needs-install' : 'unsupported' });
