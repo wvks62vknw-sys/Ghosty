@@ -11,7 +11,7 @@ import { button, toast } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { encodeWav } from '../convert/audio';
 import {
-  ASPECTS, clipLen, clock, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
+  ASPECTS, clipLen, clock, duplicateClip, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
   type Aspect, type Clip, type Overlay, type Project, type Source, type TransitionKind,
 } from './model';
 import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, splitMany } from './edit';
@@ -871,11 +871,24 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
 
   function orderTray(c: Clip): Nodes {
     const i = project.main.findIndex((x) => x.id === c.id);
+    // a move with nowhere to go would be a key that does nothing: it is greyed, its name saying why
+    const moveKey = (label: string, to: number, edge: boolean) => {
+      const b = act(label, () => commit(moveClip(project, i, to), `Moved to place ${to + 1}.`));
+      b.disabled = edge;
+      if (edge) b.setAttribute('aria-label', `${label}: this clip is already at that end`);
+      return b;
+    };
     return [
       h('p.vdsay', `Clip ${i + 1} of ${project.main.length}`),
       row(
-        act('MOVE LEFT', () => commit(moveClip(project, i, i - 1), `Moved to place ${i}.`)),
-        act('MOVE RIGHT', () => commit(moveClip(project, i, i + 1), `Moved to place ${i + 2}.`)),
+        moveKey('MOVE LEFT', i - 1, i === 0),
+        moveKey('MOVE RIGHT', i + 1, i === project.main.length - 1),
+        act('DUPLICATE CLIP', () => {
+          const d = duplicateClip(project, c.id);
+          if (!d) return;
+          sel = d.id;
+          commit(fixTransitions(d.p), `A copy of clip ${i + 1} is in place ${i + 2}, right after it. UNDO takes it out.`);
+        }),
         act('DELETE CLIP', () => {
           const was = project;
           commit(removeClip(project, c.id), 'The clip is out.');

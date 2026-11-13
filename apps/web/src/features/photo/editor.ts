@@ -83,6 +83,8 @@ export const peState = {
   /** The RAW opened on this screen: what the reader said (empty for any other photo). */
   raw: '',
   rawMs: 0,
+  /** The photo whose edits COPY EDITS last kept (its name), for PASTE EDITS on another. */
+  copied: '',
 };
 
 export interface Ed {

@@ -338,6 +338,19 @@ export function moveClip(p: Project, from: number, to: number): Project | null {
   return q;
 }
 
+/** A copy of a main clip laid straight after it (the same stretch of the same source, the same speed, look and sound). The original's
+ * transition moves onto the copy and the original cuts into it. The source is shared, so nothing new is stored. */
+export function duplicateClip(p: Project, id: string): { p: Project; id: string } | null {
+  const i = p.main.findIndex((x) => x.id === id);
+  if (i < 0) return null;
+  const q = clone(p);
+  const c = q.main[i]!;
+  const copy: Clip = { ...clone(c), id: uid() };
+  c.next = { kind: 'cut', len: 0 };
+  q.main.splice(i + 1, 0, copy);
+  return { p: q, id: copy.id };
+}
+
 export function setTransition(p: Project, index: number, kind: TransitionKind, len: number): Project | null {
   const q = clone(p);
   const c = q.main[index];

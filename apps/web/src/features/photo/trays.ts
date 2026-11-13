@@ -182,7 +182,61 @@ function looks(ed: Ed): HTMLElement {
     ));
     window.setTimeout(() => input.focus(), 60);
   }, 'on');
-  return h('div.petrayin', h('p.g-truth.peintro', 'EIGHT LOOKS, EACH SHOWN ON THIS PHOTO'), strip, state, h('div.perow', save));
+  return h('div.petrayin', h('p.g-truth.peintro', 'EIGHT LOOKS, EACH SHOWN ON THIS PHOTO'), strip, state, h('div.perow', save), copyPaste(ed, state));
+}
+
+// ---------------------------------------------------------------- COPY EDITS / PASTE EDITS
+/** Where the copied edits wait (on this phone only): the look of one photo, ready to lay on another. */
+export const COPIED_KEY = 'ghosty.photo.copiedEdits';
+interface Copied { from: string; name: string; at: number; look: Preset['look'] }
+const readCopied = (): Copied | null => {
+  try {
+    const c = JSON.parse(localStorage.getItem(COPIED_KEY) ?? 'null') as Copied | null;
+    return c && c.look && c.look.light ? c : null;
+  } catch {
+    return null;
+  }
+};
+
+/** COPY EDITS keeps this photo's light, colour, curves, detail and effects; PASTE EDITS lays them on the photo open now, as one step UNDO
+ * takes back. The crop, the masks, the heals and the layer belong to each photo and are never carried across. */
+function copyPaste(ed: Ed, state: HTMLElement): HTMLElement {
+  const copyB = button('COPY EDITS', () => {
+    const p = presetOf(ed.r, 'copied');
+    const c: Copied = { from: peState.id, name: peState.name || 'this photo', at: Date.now(), look: p.look };
+    try {
+      localStorage.setItem(COPIED_KEY, JSON.stringify(c));
+    } catch {
+      return void (state.textContent = 'This phone would not let me keep the copy: its storage is full or switched off.');
+    }
+    peState.copied = c.name;
+    state.textContent = `Copied the light, colour, curves, detail and effects of ${c.name}. Open another photo and press PASTE EDITS.`;
+    paint();
+  }, 'pecopy');
+  const pasteB = button('PASTE EDITS', () => {
+    const c = readCopied();
+    if (!c) return void (state.textContent = 'Nothing copied yet: press COPY EDITS on the photo whose look you want.');
+    const next = applyPreset(ed.r, { name: 'pasted', line: '', look: c.look });
+    ed.live((r) => {
+      r.light = next.light;
+      r.wb = next.wb;
+      r.curves = next.curves;
+      r.color = next.color;
+      r.detail = next.detail;
+      r.effects = next.effects;
+    });
+    ed.keep(`Edits pasted from ${c.name}`);
+    state.textContent = c.from === peState.id
+      ? 'Pasted this photo’s own copied edits back. UNDO takes them off.'
+      : `Pasted the edits of ${c.name}. Your crop, masks and heals stay as they were; UNDO takes the paste off.`;
+  }, 'pepaste');
+  const paint = () => {
+    const c = readCopied();
+    pasteB.disabled = !c;
+    pasteB.setAttribute('aria-label', c ? `Paste edits from ${c.name}` : 'Paste edits: nothing copied yet');
+  };
+  paint();
+  return h('div.perow.pecopyrow', { role: 'group', 'aria-label': 'Copy and paste edits between photos' }, copyB, pasteB);
 }
 
 // ---------------------------------------------------------------- LIGHT
