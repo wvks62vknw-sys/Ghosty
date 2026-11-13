@@ -4,7 +4,7 @@
  * AT HAND and THE REST, Every screen and the finding test (apps/edge/test/finding.test.mjs) all read it, so a screen added to an
  * area's list is in all of them by itself and no list is kept by hand twice. Pure: no document, no state, so the test can bundle it.
  */
-import { AREAS, ME_ROWS } from './areadefs';
+import { AREAS, EDITORS, EDITORS_ID, folds, ME_ROWS } from './areadefs';
 import { DECK } from './deckcopy';
 
 export interface Thing {
@@ -51,6 +51,19 @@ export const ROOMS: Room[] = AREAS.map((a) => ({
   screen: a.id === 'ask' ? 'core' : `area-${a.id}`,
   things: thingsOf(a.id).map((t, i) => ({ id: t.id, name: thingName(t.id), screen: t.screen, n: i + 1 })),
 }));
+
+/**
+ * What a room's hub draws as its band and its cards: the plan's things, with the editors folded under one EDITORS thing where the room holds more
+ * than ten (areadefs.ts). THE PLAN itself (and Every screen, the jump bar, "open seven") still numbers every screen: the EDITORS thing keeps the
+ * number of the first editor it holds, so a gap in the band's numbers is the editors inside it, never a renumbering.
+ */
+export function hubThings(room: Room): Thing[] {
+  const a = AREAS.find((x) => x.id === room.area)!;
+  if (!folds(a)) return room.things;
+  const ids = new Set(EDITORS.map((e) => e.id));
+  const first = room.things.find((t) => ids.has(t.id))!;
+  return room.things.flatMap((t) => (ids.has(t.id) ? (t.id === first.id ? [{ id: EDITORS_ID, name: 'Editors', screen: null, n: t.n }] : []) : [t]));
+}
 
 /** Every numbered thing in the house, in order. */
 export const THINGS: (Thing & { room: string })[] = ROOMS.flatMap((r) => r.things.map((t) => ({ ...t, room: r.key })));

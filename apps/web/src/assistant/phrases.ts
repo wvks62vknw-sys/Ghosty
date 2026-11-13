@@ -45,6 +45,7 @@ import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
+import { workspaceAsked } from '../workspace/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -129,6 +130,7 @@ export const LOCAL_ASKS = [
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },
+  { id: 'workspace', test: (t: string) => !!workspaceAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

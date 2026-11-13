@@ -547,6 +547,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [editors] THE WORKSPACE (workspace/sheet.ts): my workspace; a project started, a page opened, an answer added to a project, Markdown or a CSV read.
+      id: 'open_workspace',
+      title: 'The workspace: pages, boards, calendars, projects the brain reads whole',
+      group: 'GO',
+      run: async (a) => {
+        const { openWorkspace } = await import('../workspace/sheet');
+        await openWorkspace(a && typeof a === 'object' ? (a as Parameters<typeof openWorkspace>[0]) : {});
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

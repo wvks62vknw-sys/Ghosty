@@ -39,7 +39,7 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
-  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', house: 'do',
+  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', house: 'do',
   // [reader] THE READER (BRIEF-LIBRARY-READER): his books, read here or to him
   reader: 'learn',
 };

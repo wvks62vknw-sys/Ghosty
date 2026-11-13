@@ -44,6 +44,23 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_slides' }, tryText: 'Opens my slides',
   },
   'phrase:slides': { same: 'hub:slides' },
+  'hub:workspace': {
+    name: 'Pages, projects and databases',
+    line: 'You can keep pages inside pages and a project with its tasks and dates, and I read all of it before I answer.',
+    more: 'Start a project and a board of tasks, notes, decisions and a calendar of deadlines appear, all over one list of rows. The same rows can be a table, a board, a calendar, a timeline or a gallery, and a column can work something out. Every page keeps sixty versions, a BIN holds deleted ones for thirty days, and it is all on this phone: only a question about a project leaves it, and I say how big first.',
+    say: ['My workspace', 'Start a project', 'What is due this week in my project'],
+    scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
+    go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
+  },
+  'hub:editors': {
+    name: 'Every editor in one place',
+    line: 'You can write, calculate, present and plan in one place, and all of it is kept on this phone.',
+    more: 'The four editors sit under one card in MAKE: documents, spreadsheets, slides and the workspace. Each opens in one tap, and the card says how many things live on this phone across them.',
+    say: ['My documents', 'My spreadsheets', 'My slides', 'My workspace'],
+    scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
+    go: { open: 'docs' }, tryText: 'Opens my documents',
+  },
+  'phrase:workspace': { same: 'hub:workspace' },
   'panel:library:RIGHTS AND LAW': {
     name: 'Your rights, from the documents',
     line: 'You can open what the law and the courts actually say: your rights in the UK, and the rulings and findings in the news.',

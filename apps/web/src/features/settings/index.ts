@@ -1,5 +1,7 @@
 /** SETTINGS tab: theme (seven looks and the twelve colours), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location, the offline brain and the packs for no signal (offline maps, offline eyes). (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
-import { fmt, h } from '../../core/dom';
+import { clear, fmt, h } from '../../core/dom';
+import { agoWords } from '../../workspace/versions';
+import { lastBackupAt } from '../../workspace/store';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
@@ -91,7 +93,14 @@ export const settingsTab: TabDef = {
       row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
-    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
+    // [editors] THE WORKSPACE keeps its pages on this phone; "synced to the brain" means the daily encrypted backup, and this one line says when it last ran
+    const wsp = panel('WORKSPACE', { grow: false, status: 'On this phone' });
+    const paintWs = (): void => {
+      const when = lastBackupAt();
+      clear(wsp.body, row('SYNCED', when ? `My workspace is on this phone; the brain keeps only a sealed copy, last taken ${agoWords(when)}. I cannot open it.` : 'My workspace is on this phone; no backup has been taken yet, so the brain has no copy. SYSTEM takes one.', null, { wrap: true }));
+    };
+    paintWs();
+    P.right.append(wsp.el, goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
@@ -99,7 +108,7 @@ export const settingsTab: TabDef = {
       { id: 'you', label: 'You', match: /^(NAME|PERMISSIONS)/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
-      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)$/ },
+      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 

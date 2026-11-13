@@ -83,6 +83,11 @@ export const APP_3: Record<string, CatValue> = {
     more: 'Up to ten people, each gone by name with UNDO. I never guess a name: a voice that matches none of them is just a voice I don’t know.',
     say: ['Learn Sam’s voice'], scene: ['talking', 'phone'], cat: 'talk', since: '2026-11-07',
   },
+  'panel:settings:WORKSPACE': {
+    name: 'Where your workspace is kept', line: 'You can see that your workspace lives on this phone, and when its sealed copy was last taken.',
+    more: 'The brain keeps only the sealed copy from the daily backup and cannot open it.',
+    say: ['Where is my workspace kept?'], scene: ['phone', 'behind'], cat: 'do',
+  },
   'panel:settings:ABOUT': {
     name: 'Which version I am', line: 'You can see which version of me this is and when it was built.',
     more: 'The Me sheet says whether a newer version is ready.',

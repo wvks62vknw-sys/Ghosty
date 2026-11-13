@@ -6,6 +6,7 @@
 import { keepOnly } from './images';
 import type { Doc } from './model';
 import { deckImageIds } from '../slides/store';
+import { workspaceImageIds } from '../workspace/store';
 
 const KEY = 'ghosty.docs';
 const MAX = 100;
@@ -53,8 +54,8 @@ export const whenWords = (ms: number): string => new Date(ms).toLocaleString('en
 /** Today as a letter has it: "1 November 2026". */
 export const letterDate = (d = new Date()): string => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-/** The pictures the kept documents and the kept decks (slides/store.ts) hold. */
-export const imagesInUse = (): Set<string> => new Set([...listDocs().flatMap((d) => d.blocks.flatMap((b) => (b.img ? [b.img] : []))), ...deckImageIds()]);
+/** The pictures the kept documents, the kept decks (slides/store.ts) and the kept workspace (workspace/store.ts) hold. */
+export const imagesInUse = (): Set<string> => new Set([...listDocs().flatMap((d) => d.blocks.flatMap((b) => (b.img ? [b.img] : []))), ...deckImageIds(), ...workspaceImageIds()]);
 
 /** Let go of the pictures no kept document holds any more (after one is removed, and when the list is shown). */
 export const tidyImages = (): void => void keepOnly(imagesInUse()).catch(() => undefined);

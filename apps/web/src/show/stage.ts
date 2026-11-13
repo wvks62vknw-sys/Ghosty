@@ -472,6 +472,12 @@ async function makeSlides(show: Show, facts: ShowFacts): Promise<void> {
   if (show.kind === 'chart') return void (await run('open_slides', { chart: { title: show.title, chart: { kind: show.series.kind, points: show.series.points, unit: show.series.unit, before: show.series.before } } }));
 }
 
+/** ADD TO A PROJECT: the document answer's words become a page inside a project in THE WORKSPACE. */
+async function addToProject(show: Show, facts: ShowFacts): Promise<void> {
+  const { run } = await import('../commands/registry');
+  if (show.kind === 'document') await run('open_workspace', { addDoc: { text: facts.reply, title: show.title } });
+}
+
 /** OPEN: the full screen for what the Stage shows (the map sheet, God's Eye, the document editor, the Workbench, the Studio). */
 async function open(show: Show, facts: ShowFacts): Promise<void> {
   const { run } = await import('../commands/registry');
@@ -687,7 +693,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
     h('div.stgpic', pic),
     ...truth.map((t) => truthLine(t)),
     ...(answerEl ? [answerEl] : []),
-    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, show.kind === 'document' || show.kind === 'chart' ? key('MAKE SLIDES OF IT', () => void makeSlides(show, facts), { label: `Make slides of ${show.title}` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
+    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, show.kind === 'document' || show.kind === 'chart' ? key('MAKE SLIDES OF IT', () => void makeSlides(show, facts), { label: `Make slides of ${show.title}` }) : null, show.kind === 'document' ? key('ADD TO A PROJECT', () => void addToProject(show, facts), { label: `Add ${show.title} to a project in my workspace` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
   // GROWN UP: the orb is docked in the panel's top edge like a jewel, and the bezel is lit from it (styles.css `#thestage::before`): a second view of the one Mind
   if (grownOn()) {

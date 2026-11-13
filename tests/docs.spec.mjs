@@ -59,8 +59,8 @@ const until = (page, fn, arg, ms = 15000) => page.waitForFunction(fn, arg, { tim
 const docs = (page) => page.evaluate(() => ({ ...window.__ghosty.docs, json: undefined, doc: JSON.parse(window.__ghosty.docs.json || 'null') }));
 const goDocs = async (page) => {
   await page.evaluate(() => (location.hash = 'area-make'));
-  await page.waitForSelector('#pg-area-make .hubtile[data-id="docs"]', { timeout: 15000 });
-  await page.click('#pg-area-make .hubtile[data-id="docs"]');
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]');
   await page.waitForSelector('#pg-docs .dcsheet', { timeout: 15000 });
 };
 const pill = (page, name) => page.locator('.dcpill', { hasText: new RegExp(`^${name}$`, 'i') }).click();

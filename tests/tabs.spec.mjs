@@ -35,7 +35,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
@@ -62,6 +62,7 @@ const NEW = {
   docs: { area: 'make', name: 'Documents', word: 'landlord', pills: [], pages: ['DOCUMENTS'] },
   sheets: { area: 'make', name: 'Spreadsheets', word: 'formulas', pills: [], pages: ['SPREADSHEETS'] },
   slides: { area: 'make', name: 'Presentations', word: 'slides', pills: [], pages: ['PRESENTATIONS'] },
+  workspace: { area: 'make', name: 'The workspace', word: 'workspace', pills: [], pages: ['THE WORKSPACE'] },
   house: { area: 'make', name: 'House', word: 'heating', pills: [], pages: ['HOUSE'] },
 };
 
@@ -217,7 +218,8 @@ for (const viewport of [PHONE, SMALL]) {
       await page.click(`#mesheet .merow[data-id="${id}"]`).catch(() => problems.push(`${at} no row on the Me sheet`));
     } else {
       await go(page, `area-${s.area}`, 1000);
-      const card = page.locator(`#pg-area-${s.area} .hubtile[data-id="${id}"]`);
+      // (the editors sit under the one EDITORS card since the MAKE room passed ten things: their pills are one tap, shell/areadefs.ts)
+      const card = page.locator(['docs', 'sheets', 'slides', 'workspace'].includes(id) ? `#pg-area-${s.area} .hubtile[data-id="editors"] .hubpill[data-editor="${id}"]` : `#pg-area-${s.area} .hubtile[data-id="${id}"]`);
       await card.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
       await card.click({ timeout: 5000 }).catch(() => problems.push(`${at} has no card on the ${s.area} hub`));
     }

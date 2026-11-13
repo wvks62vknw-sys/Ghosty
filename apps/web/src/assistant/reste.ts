@@ -9,6 +9,7 @@ import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
+import { workspaceAsked } from '../workspace/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -78,6 +79,30 @@ export async function slidesTurn(text: string): Promise<PackReply> {
           ? 'Choose the PowerPoint file (.pptx) and I open it here. Nothing is uploaded, and what I could not keep I say once.'
           : 'My slides are open: the decks you made or opened, kept on this phone with their dates.';
   return { said: text, reply, go: [{ id: 'slides', ask: -1, label: 'Open my slides', run: 'open_slides', args: {} }] };
+}
+
+/** "my workspace", "start a project", "a blank page", "what is due this week in my project": THE WORKSPACE, open on it; the dates answered here from the phone. */
+export async function workspaceTurn(text: string): Promise<PackReply> {
+  const ask = workspaceAsked(text) ?? { what: 'list' as const };
+  if (ask.what === 'due') {
+    // his own dates are his data: no brain is asked, so this answers with the brain out of reach too
+    const [{ loadWorkspace }, { dueWords }, { isoOf }] = await Promise.all([import('../workspace/store'), import('../workspace/context'), import('../workspace/db')]);
+    const d = dueWords(loadWorkspace(), isoOf(new Date()));
+    return { said: text, reply: d.text, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+  }
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: ask.what });
+  const reply =
+    ask.what === 'project'
+      ? 'A project is open: a board of tasks, notes, a decisions table and a calendar of deadlines, with every word yours to change.'
+      : ask.what === 'blank'
+        ? 'A blank page is open: type its name in the line above, then write, or type “/” for more.'
+        : ask.what === 'import'
+          ? 'Choose the Markdown, the zip of a folder, or the CSV and I read it here. A CSV becomes a database. Nothing is uploaded, and what I could not keep I say once.'
+          : ask.what === 'bin'
+            ? 'The BIN is open: pages I deleted sit there for 30 days.'
+            : 'My workspace is open: your pages as a tree, your projects, search, and the pages you touched last.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
 }
 
 /** "3.5 miles in km", "hello in base64", "decode aGVsbG8=", "1700000000 as a date": answered here. */

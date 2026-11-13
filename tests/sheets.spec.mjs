@@ -57,8 +57,8 @@ const state = (page) => page.evaluate(() => { const s = window.__ghosty.sheets; 
 const read = (page, sheet, addr) => page.evaluate(([s, a]) => window.__ghosty.sheets.read(s, a), [sheet, addr]);
 const goSheets = async (page) => {
   await page.evaluate(() => (location.hash = 'area-make'));
-  await page.waitForSelector('#pg-area-make .hubtile[data-id="sheets"]', { timeout: 15000 });
-  await page.click('#pg-area-make .hubtile[data-id="sheets"]');
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]');
   await page.waitForSelector('#pg-sheets .shsheet', { timeout: 15000 });
 };
 const bar = (page, label) => page.locator('#pg-sheets .shbar button', { hasText: label }).first();

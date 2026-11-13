@@ -64,7 +64,7 @@ const S = (page) => page.evaluate(() => ({ ...window.__ghosty.slides, json: unde
 /** Two taps: the MAKE key, then the card. Returns the page's own reading of the second tap to the screen's page drawn (the click event to the sheet's first node), so the spec's own waiting is not in it. */
 const goSlides = async (page) => {
   await page.click('#dock .tabcap button[data-area="make"]');
-  await page.waitForSelector('#pg-area-make .hubtile[data-id="slides"]', { timeout: 15000 });
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="slides"]', { timeout: 15000 });
   await page.evaluate(() => {
     window.__slT = {};
     document.addEventListener('click', () => (window.__slT.c ??= performance.now()), { capture: true, once: true });
@@ -75,7 +75,7 @@ const goSlides = async (page) => {
       }
     }).observe(document.body, { subtree: true, childList: true });
   });
-  await page.click('#pg-area-make .hubtile[data-id="slides"]');
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="slides"]');
   await page.waitForSelector('#pg-slides .slsheet', { timeout: 15000 });
   await page.waitForFunction(() => window.__slT?.s, null, { timeout: 5000 }).catch(() => undefined);
   const ms = await page.evaluate(() => Math.round((window.__slT.s ?? performance.now()) - (window.__slT.c ?? 0)));

@@ -38,6 +38,7 @@ export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
   { key: 'ghosty.lens.morenames', label: 'Lens naming choice', whole: true },
   { key: 'ghosty.spotify.clientId', label: 'Spotify app id', whole: true },
   { key: 'ghosty.inbox.seen', label: 'which notices you have seen', whole: true },
+  { key: 'ghosty.workspace', label: 'your workspace: pages, databases and their versions' },
 ];
 
 /** Kept on this phone, never backed up: when the last backup ran and how it went. */

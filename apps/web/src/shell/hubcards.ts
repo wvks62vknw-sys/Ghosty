@@ -44,10 +44,12 @@ import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
-import { convertInst, docsInst, sheetsInst, slidesInst } from '../convert/inst';
+import { convertInst, docsInst, editorsInst, sheetsInst, slidesInst, workspaceInst } from '../convert/inst';
 import { listDocs } from '../docs/store';
 import { listBooks } from '../sheets/store';
 import { listDecks } from '../slides/store';
+import { loadWorkspace } from '../workspace/store';
+import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/model';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
@@ -299,6 +301,24 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
   h('span.insc', svg, h('span.ctr', h('span', h('b.tnum', big, h('span.of', of)), h('small', word))));
 
 /* ------------------------------------------------------------------ the twenty tools */
+/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages), and the newest one's name. */
+const editorsKept = (): { total: number; newest: string } => {
+  const all: { at: number; title: string }[] = [
+    ...listDocs().map((d) => ({ at: d.at, title: d.title })),
+    ...listBooks().map((b) => ({ at: b.at, title: b.title })),
+    ...listDecks().map((d) => ({ at: d.at, title: d.title })),
+    ...workspacePages().map((p) => ({ at: p.at, title: pageTitle(p) })),
+  ];
+  all.sort((a, b) => b.at - a.at);
+  return { total: all.length, newest: all[0]?.title ?? '' };
+};
+
+/** The pages of his workspace (not a database's rows), newest first. */
+const workspacePages = () => {
+  const w = loadWorkspace();
+  return livePages(w).filter((p) => !isRow(w, p)).sort((a, b) => b.at - a.at);
+};
+
 export const CARDS: Record<string, HubCard> = {
   core: {
     title: 'Talk to me',
@@ -502,6 +522,47 @@ export const CARDS: Record<string, HubCard> = {
       return all.length ? `${all.length} ${all.length === 1 ? 'deck' : 'decks'} on this phone, the newest “${all[0]!.title}”` : '';
     },
     idle: 'No slides yet: start from a report, or start blank',
+  },
+  // [editors] MAKE → THE WORKSPACE (workspace/sheet.ts): pages in pages, databases as boards and calendars, projects the brain reads whole; kept on this phone
+  workspace: {
+    title: 'Pages and projects',
+    status: () => 'READY',
+    instrument: workspaceInst,
+    readouts: () => {
+      const all = workspacePages();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0] ? pageTitle(all[0]) : null, none: '—' },
+      ];
+    },
+    why: () => (workspacePages().length ? '' : 'Start a project, or start with a blank page'),
+    say: () => {
+      const all = workspacePages();
+      return all.length ? `${all.length} ${all.length === 1 ? 'page' : 'pages'} in my workspace, the newest “${pageTitle(all[0])}”` : '';
+    },
+    idle: 'No pages yet: start a project, or start blank',
+  },
+  // [editors] MAKE → EDITORS: the editors folded under one card past ten things in the room (shell/areadefs.ts); its pills open each, and its line counts what lives on this phone across them
+  editors: {
+    title: () => {
+      const n = editorsKept().total;
+      return n ? `${n.toLocaleString('en-GB')} ${n === 1 ? 'thing lives' : 'things live'} on this phone across them` : 'Write, calculate, present, plan: start any one';
+    },
+    status: () => 'READY',
+    instrument: editorsInst,
+    readouts: () => {
+      const k = editorsKept();
+      return [
+        { label: 'Kept here', value: k.total ? String(k.total) : null, none: 'None yet' },
+        { label: 'Newest', value: k.newest || null, none: '—' },
+      ];
+    },
+    why: () => (editorsKept().total ? '' : 'Start with a letter, a budget, a deck or a project'),
+    say: () => {
+      const k = editorsKept();
+      return k.total ? `${k.total.toLocaleString('en-GB')} ${k.total === 1 ? 'thing' : 'things'} on this phone across my editors, the newest “${k.newest}”` : '';
+    },
+    idle: 'Nothing in the editors yet: start a letter, a budget, a deck or a project',
   },
   learn: {
     title: 'Learn anything',

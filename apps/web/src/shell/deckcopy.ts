@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -448,6 +448,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Open a PowerPoint file', act: { ask: 'Open a PowerPoint file' } },
     ],
     dyk: 'Press and hold a slide to move it; in the talk your notes and the next title are on the phone, not on the slide.',
+  },
+  workspace: {
+    name: 'The workspace',
+    promise: 'Pages in pages, with a brain that has read all of it',
+    can: [
+      { text: 'Your pages, kept on this phone', act: { open: 'workspace' } },
+      { text: 'Start a project: a board, notes, decisions, deadlines', act: { ask: 'Start a project' } },
+      { text: 'What is due this week in my project?', act: { ask: 'What is due this week in my project' } },
+    ],
+    dyk: 'A database is one list of rows: draw it as a table, a board, a calendar, a timeline or a gallery, and a change in one shows in all of them.',
   },
   house: {
     name: 'House',
