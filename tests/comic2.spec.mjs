@@ -414,6 +414,15 @@ for (const vp of [PHONE, PHONE2]) {
   await page.keyboard.press('ArrowRight');
   check(await until(page, () => window.__ghosty.comic.reader.spread && window.__ghosty.comic.reader.shown.join() === '1,2'), '[wide] then two pages side by side');
   check(/Pages 2–3 of 3/.test(await txt(page, '.cxread .cxrwhere')), `[wide] it says "${await txt(page, '.cxread .cxrwhere')}"`);
+  // manga: right to left, the left arrow goes on, the pair is laid right to left, and it is kept with the place
+  await page.keyboard.press('ArrowLeft');
+  await until(page, () => window.__ghosty.comic.reader.page === 0);
+  await page.click('.cxread button[aria-label="Read right to left, as manga is"]');
+  check(await until(page, () => window.__ghosty.comic.reader.rtl === true), '[wide] RIGHT TO LEFT turns manga reading on');
+  await page.keyboard.press('ArrowLeft');
+  check(await until(page, () => window.__ghosty.comic.reader.shown.join() === '1,2'), '[wide] right to left, the left arrow goes on');
+  const order = await page.evaluate(() => [...document.querySelectorAll('.cxread .cxrpage')].map((i) => i.alt).join());
+  check(order === 'Page 3,Page 2', `[wide] the pair is laid right to left: ${order}`);
   await ctx.close();
 }
 

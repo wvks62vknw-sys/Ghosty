@@ -19,7 +19,7 @@ export interface ReadSource {
   title: string;
   count: number;
   page(n: number): Promise<Blob>;
-  panels(n: number): Promise<[number, number, number, number][]>;
+  panels(n: number, rtl?: boolean): Promise<[number, number, number, number][]>;
 }
 
 let open: { close(): void } | null = null;
@@ -45,6 +45,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   let ox = 0;
   let oy = 0;
   let spreadOn = true;
+  let rtl = saved?.rtl ?? false;
   const urls = new Map<number, string>();
   const panelsCache = new Map<number, [number, number, number, number][]>();
 
@@ -70,17 +71,24 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     void paint();
   }, 'g-key cxrkey');
   two.setAttribute('aria-label', 'Two pages side by side');
+  const manga = button('Right to left', () => {
+    rtl = !rtl;
+    panelsCache.clear();
+    if (guided) panel = 0;
+    void paint();
+  }, 'g-key cxrkey');
+  manga.setAttribute('aria-label', 'Read right to left, as manga is');
   const slider = h('input.cxrslide', { type: 'range', min: '1', max: String(src.count), value: String(page + 1), 'aria-label': 'Go to page' }) as HTMLInputElement;
   slider.addEventListener('change', () => go(Number(slider.value) - 1, -1));
   const root = h('div.cxread', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `Reading ${src.title}` },
     h('div.cxrtop', close, title, where),
     stage,
     note,
-    h('div.cxrbar', prev, guide, zout, zin, two, next),
+    h('div.cxrbar', prev, guide, zout, zin, two, manga, next),
     slider,
   );
   document.body.append(root);
-  comicState.reader = { open: true, id: src.id, page, panel, guided, zoom, spread: false, pages: src.count, shown: [] };
+  comicState.reader = { open: true, id: src.id, page, panel, guided, rtl, zoom, spread: false, pages: src.count, shown: [] };
 
   const wide = () => stage.clientWidth > stage.clientHeight * 1.05 && innerWidth >= 700;
   /** The pages on screen now: the cover alone, then pairs when two fit. */
@@ -100,14 +108,14 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   const panelsAt = async (n: number) => {
     let p = panelsCache.get(n);
     if (!p) {
-      p = await src.panels(n);
+      p = await src.panels(n, rtl);
       panelsCache.set(n, p);
     }
     return p;
   };
   const record = () => {
-    Object.assign(comicState.reader, { page, panel, guided, zoom, spread: shown().length === 2, shown: shown() });
-    void keepPlace(src.id, { page, panel: guided ? panel : -1, at: Date.now() }).catch(() => undefined);
+    Object.assign(comicState.reader, { page, panel, guided, rtl, zoom, spread: shown().length === 2, shown: shown() });
+    void keepPlace(src.id, { page, panel: guided ? panel : -1, at: Date.now(), rtl }).catch(() => undefined);
   };
   const apply = () => {
     sheet.style.transform = `translate(${ox + tx}px, ${oy + ty}px) scale(${zoom})`;
@@ -123,7 +131,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
         return img;
       }));
       if (ticket !== painting) return;
-      clear(sheet, ...imgs);
+      clear(sheet, ...(rtl ? [...imgs].reverse() : imgs));
       // (only the pages near this one stay held: a 400-page book never fills the phone's memory)
       for (const [n, u] of urls) if (Math.abs(n - page) > 3) {
         URL.revokeObjectURL(u);
@@ -157,6 +165,8 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
       where.textContent = list.length === 2 ? `Pages ${list[0]! + 1}–${list[1]! + 1} of ${src.count}` : `Page ${page + 1} of ${src.count}${guided ? `, panel ${panel + 1} of ${(await panelsAt(page)).length}` : ''}`;
       slider.value = String(page + 1);
       guide.setAttribute('aria-pressed', String(guided));
+      manga.setAttribute('aria-pressed', String(rtl));
+      slider.style.direction = rtl ? 'rtl' : '';
       two.hidden = !wide() || guided;
       two.setAttribute('aria-pressed', String(spreadOn));
       prev.disabled = page === 0 && (!guided || panel <= 0);
@@ -250,15 +260,15 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
     const quick = Date.now() - start.t < 350;
-    if ((zoom === 1 || guided) && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) void step(dx < 0 ? 1 : -1);
+    if ((zoom === 1 || guided) && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) void step((dx < 0) !== rtl ? 1 : -1);
     else if (quick && Math.hypot(dx, dy) < 12) {
       const now = Date.now();
       if (now - lastTap < 300) setZoom(zoom > 1 ? 1 : 2.2);
       else if (zoom === 1 || guided) {
         const r = stage.getBoundingClientRect();
         const fx = (e.clientX - r.left) / r.width;
-        if (fx < 0.3) void step(-1);
-        else if (fx > 0.7) void step(1);
+        if (fx < 0.3) void step(rtl ? 1 : -1);
+        else if (fx > 0.7) void step(rtl ? -1 : 1);
       }
       lastTap = now;
     } else if (!guided && wide() && spreadOn && shown().length !== comicState.reader.shown.length) void paint();
@@ -273,8 +283,10 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     setZoom(zoom * (e.deltaY < 0 ? 1.1 : 0.9));
   }, { passive: false });
   const key = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') void step(1);
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') void step(-1);
+    if (e.key === 'PageDown' || e.key === ' ') void step(1);
+    else if (e.key === 'PageUp') void step(-1);
+    else if (e.key === 'ArrowRight') void step(rtl ? -1 : 1);
+    else if (e.key === 'ArrowLeft') void step(rtl ? 1 : -1);
     else if (e.key === 'Escape') shut();
     else return;
     e.preventDefault();

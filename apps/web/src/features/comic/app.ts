@@ -65,7 +65,12 @@ export function madeSource(c: Comic): ReadSource {
     title: c.title,
     count: c.pages.length + 1,
     page: (n) => pagePic(c, n),
-    panels: async (n) => (n === 0 ? [[0, 0, 1, 1]] : panelRects(c.pages[n - 1]!).map((r) => [r.x / PAGE_W, r.y / PAGE_H, r.w / PAGE_W, r.h / PAGE_H] as [number, number, number, number])),
+    panels: async (n, rtl) => {
+      if (n === 0) return [[0, 0, 1, 1]];
+      const rs = panelRects(c.pages[n - 1]!).map((r) => [r.x / PAGE_W, r.y / PAGE_H, r.w / PAGE_W, r.h / PAGE_H] as [number, number, number, number]);
+      // (right to left: each row from the right)
+      return rtl ? [...rs].sort((a, b) => (Math.abs(a[1] - b[1]) > 0.02 ? a[1] - b[1] : b[0] - a[0])) : rs;
+    },
   };
 }
 function bookSource(b: Book): ReadSource {
@@ -78,7 +83,11 @@ function bookSource(b: Book): ReadSource {
       if (!p) throw new Error('this page is missing from the phone');
       return p;
     },
-    panels: async (n) => {
+    panels: async (n, rtl) => {
+      if (rtl) {
+        const p = await pageOf(b.id, n);
+        return p ? panelsOf(p, true) : [[0, 0, 1, 1]];
+      }
       const kept = b.panels?.[n];
       if (kept) return kept;
       const p = await pageOf(b.id, n);
@@ -101,7 +110,7 @@ export async function readBook(id: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------- the app's hooks (what the chat and the other pages call)
-type Hooks = { showShelf?: () => void; make?: (idea: string) => void; edit?: (id: string) => void; pick?: (section: string) => void; importNow?: () => void; library?: (q: string) => void };
+type Hooks = { askImport?: () => void; showShelf?: () => void; make?: (idea: string) => void; edit?: (id: string) => void; pick?: (section: string) => void; importNow?: () => void; library?: (q: string) => void };
 export const hooks: Hooks = {};
 /** What the chat asked before the screen was ready. */
 export const pending: { make?: string; edit?: string; library?: string; import?: boolean } = {};
@@ -191,11 +200,12 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
   hooks.showShelf = () => void paint();
   hooks.importNow = () => pickFile.click();
   const lasting = h('p.cxnote', { hidden: true }, 'This browser keeps nothing after you leave (a private window), so your shelf lasts for this visit only.');
+  hooks.askImport = () => clear(note, h('span', 'Pick your comic: a CBZ, a PDF, pictures or a folder of them. CBR files can’t be opened in a browser; save them as CBZ first.'));
   void paint().then(() => {
     lasting.hidden = shelfInfo.lasting;
     if (pending.import) {
       pending.import = false;
-      clear(note, h('span', 'Pick your comic: a CBZ, a PDF, pictures or a folder of them. CBR files can’t be opened in a browser; save them as CBZ first.'));
+      hooks.askImport?.();
     }
   });
   const el = h('div.cx.cxcol',
@@ -203,7 +213,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
     h('p.cxsmall', 'CBZ, PDF, pictures or a folder of them. CBR (RAR) can’t be opened by any browser: save it as CBZ first. Everything stays on this phone.'),
     note, pickFile, pickDir, lasting, list,
   );
-  return { el, stop: () => (hooks.showShelf = undefined) };
+  return { el, stop: () => ((hooks.showShelf = undefined), (hooks.askImport = undefined)) };
 }
 
 // ---------------------------------------------------------------- MAKE: the idea, then the editor

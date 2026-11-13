@@ -26,6 +26,8 @@ export interface Place {
   page: number;
   panel: number;
   at: number;
+  /** read right to left (manga) */
+  rtl?: boolean;
 }
 
 const DB = 'ghosty-comics';

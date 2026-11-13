@@ -223,7 +223,7 @@ export function findPanels(data: ImageData, rtl = false): [number, number, numbe
   return real.length >= 2 ? real : [[0, 0, 1, 1]];
 }
 /** The panels of a page picture (shrunk to 240 wide to look). */
-export async function panelsOf(b: Blob): Promise<[number, number, number, number][]> {
+export async function panelsOf(b: Blob, rtl = false): Promise<[number, number, number, number][]> {
   try {
     const bm = await createImageBitmap(b);
     const w = 240;
@@ -234,7 +234,7 @@ export async function panelsOf(b: Blob): Promise<[number, number, number, number
     const ctx = c.getContext('2d', { willReadFrequently: true })!;
     ctx.drawImage(bm, 0, 0, w, h);
     bm.close();
-    return findPanels(ctx.getImageData(0, 0, w, h));
+    return findPanels(ctx.getImageData(0, 0, w, h), rtl);
   } catch {
     return [[0, 0, 1, 1]];
   }

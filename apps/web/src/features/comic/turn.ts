@@ -24,8 +24,9 @@ export async function comicTurn(text: string): Promise<ComicReply> {
     }
     reply = `I wrote and drew a comic about ${idea}: a cover and four pages, with a beginning, a turn and an end. It is open in COMIC → MAKE, kept on this phone. Tap any panel to change a line, a face or the place; READ IT shows it full screen.`;
   } else if (ask.what === 'import') {
-    app.pending.import = true;
     open('shelf');
+    if (app.hooks.askImport) app.hooks.askImport();
+    else app.pending.import = true;
     reply = 'COMIC → SHELF is open: tap IMPORT A COMIC and pick a CBZ, a PDF, pictures or a folder of them. A CBR can’t be opened in any browser, so save it as a CBZ first. It stays on this phone.';
   } else if (ask.what === 'library') {
     if (app.hooks.library) {
