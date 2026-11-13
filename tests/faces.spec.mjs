@@ -250,7 +250,8 @@ await page.screenshot({ path: `${out}/faces-settings.png` });
 await faces.locator('[data-face="me"] button', { hasText: 'DELETE' }).click();
 await until(() => /^1 face: 1 person you introduced/.test(document.querySelector('#pg-settings .facecount')?.textContent ?? ''), null, 5000, `after DELETE: "${await page.locator('#pg-settings .facecount').textContent()}"`);
 await faces.locator('button.facedel').click();
-await until(() => /^None\./.test(document.querySelector('#pg-settings .facecount')?.textContent ?? ''), null, 5000, 'the last face did not go');
+// (the empty state's words since QUALITY PASS: PLAN AND ME: "None yet." and what it knows, said in full)
+await until(() => (document.querySelector('#pg-settings .facecount')?.textContent ?? '') === 'None yet. I only know you, and people you introduce. I never identify a stranger.', null, 5000, `the last face did not go: "${await page.locator('#pg-settings .facecount').textContent()}"`);
 const left = await page.evaluate(() => new Promise((ok) => {
   const r = indexedDB.open('ghosty-faces');
   r.onsuccess = () => {
