@@ -75,10 +75,10 @@ Each line says what Ghosty said, what was true, and whether the words or the cod
 ### Errors across the app
 26. **"Cannot read properties of undefined (reading 'pushManager')".** A browser that blocks service workers hands back no
     registration, and the push set-up threw an unhandled error. This failed the machine and upgrades specs in this container's
-    browser. **Code changed (minimal, `assistant/push.ts`):** no registration now means "no push", said once and never thrown.
-27. **The full brain suite:** 2,153 of 2,153 tests pass, before and after.
+    browser. **Code changed (minimal, `assistant/push.ts`):** no registration now means "no push", said once and never thrown. (POLISH 3 made the same fix at the same time; at the merge its version was kept.)
+27. **The full brain suite:** 2,153 of 2,153 tests passed before; after the last merge with every lane so far it is 2,204 of 2,204.
 28. **Every screen at 440 and 390, and Home and every hub in all seven looks:** no console error, no unhandled error, nothing
-    scrolling sideways (the new spec, `errors`). A one-off full sweep of every screen in every look is `FULL=1`.
+    scrolling sideways (the new spec, `errors`). A one-off full sweep of every screen in every look (`FULL=1`) ran clean at 20:20 UTC on the merged branch.
 29. **Dead keys:** none. Every visible key on every screen has something listening to it. The check plants a dead key first and
     must find it, so it cannot pass blind.
 30. **The hub cards' counts** match their areas' screens (MAKE's editors folded as one card with seven pills; ASK's microphone
@@ -129,6 +129,8 @@ Each line says what Ghosty said, what was true, and whether the words or the cod
   to POLISH 3, whose lane owns Settings.
 - **Plain mentions of "SYSTEM → KEYS → Pl@ntNet"** (the Lens's no-key card) and TomTom (God's eye's toast) still leave out
   OPTIONAL, because the Lens and SEE lanes' specs read those exact words. Both keys are real and reachable there.
+- **Specs run on the merged branch:** consistency, gamesites and look, plus tabs, deck, abilities, settings, markets, makepass, lifepass,
+  hubcards, packs3, machine, upgrades, awareness, cards and nav (all the specs whose words this lane touched): every one passes.
 - **The browser suite in this container:** the restart at 18:45 stopped the full run. Before it, the first sixteen specs ran.
   Thirteen passed. Two (machine, upgrades) failed on the pushManager error, which is now fixed. The lens spec failed on "2
   tag(s) stick out of the viewfinder at 390" (LENS lane, being rebuilt). The rest is left to the combined check.
