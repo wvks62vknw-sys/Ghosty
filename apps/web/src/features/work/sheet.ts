@@ -301,9 +301,12 @@ function todoScreen(): Screen {
   const add = async () => {
     if (!input.value.trim()) return;
     const words = `add: ${input.value}`;
-    input.value = '';
     const t = await act(words);
-    if (t) stateIn(status, '', t);
+    // (what he typed stays in the box until my brain has kept it)
+    if (t) {
+      input.value = '';
+      stateIn(status, '', t);
+    }
   };
   input.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Add', () => void add(), 'on');

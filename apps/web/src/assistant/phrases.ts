@@ -54,6 +54,7 @@ import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
 import { screenAsked } from './screenasks';
+import { comicAsked } from '../features/comic/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -174,6 +175,8 @@ export const LOCAL_ASKS = [
   { id: 'gamestudio', test: (t: string) => !!gameAsked(t) },
   // [polish3] the Workshop, the 3D studio, Reverse, Space, COURSES, the Arcade and SCHOOL, opened by name (assistant/screenasks.ts)
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
+  // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
+  { id: 'comic', test: (t: string) => !!comicAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

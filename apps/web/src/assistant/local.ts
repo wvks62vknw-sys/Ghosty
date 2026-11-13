@@ -375,6 +375,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;
     return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
   },
+  // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),
