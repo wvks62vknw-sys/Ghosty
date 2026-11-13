@@ -553,7 +553,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
     await ctx.close();
     return out;
   };
-  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [MAP, 'map', true, 'ask,see,make,learn,plan,life,me'], [EYE, 'eye', false, 'ask,see,make,learn,plan,life']]) {
+  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [MAP, 'map', true, 'ask,see,make,learn,plan,life,me'], [EYE, 'eye', true, 'ask,see,make,learn,plan,life,me']]) {
     const f = await facts(look, PHONE);
     for (const id of ['home', 'learn', 'settings']) {
       const x = f[id];

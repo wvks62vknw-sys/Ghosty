@@ -40,6 +40,7 @@ const INK = { ground: 'warm', world: 'ink', night: 'warm', switches: {} };
 const GLASS = { ground: 'graphite', world: 'glass', night: 'graphite', switches: {} };
 const MAP = { ground: 'slate', world: 'map', night: 'slate', switches: {} };
 const ORBIT = { ground: 'black', world: 'orbit', night: 'black', switches: {} };
+const EYE = { ground: 'black', world: 'eye', night: 'black', switches: {} };
 const WIDE = { width: 390, height: 844 };
 const ROOMS = ['home', 'see', 'make', 'learn', 'plan', 'life', 'me'];
 
@@ -615,7 +616,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
     await ctx.close();
     return out;
   };
-  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [MAP, 'map', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [ORBIT, 'orbit', true, '']]) {
+  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [MAP, 'map', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [ORBIT, 'orbit', true, ''], [EYE, 'eye', true, 'ask,see,make,learn,plan,life,me']]) {
     const f = await facts(look, PHONE);
     for (const id of ['home', 'learn', 'settings']) {
       const x = f[id];
