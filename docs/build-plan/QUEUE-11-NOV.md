@@ -251,3 +251,17 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   first check; ceilings hold (plain 5,280/5,500, tools 6,486 unchanged); reviewed clean, entry 218, lands last (the import lines the earlier
   landings leave are folded into the list at its landing). Decisions under 179: lockfile-only install stands; the 6,500 guard reads the plain
   turn. Slot waits for #92 green on main (POLISH 3 and the boot-and-orb pass).
+- 13 Nov, the owner: "start opening all the PR's which haven't been opened yet because if not the checks are gonna take ages". Every
+  remaining landing opened at once as ONE STACKED CHAIN, each PR based on the one below (so each PR's checks run on the tree main will
+  hold and none goes conflicted when the one below merges): #94 ORBIT, #95 GROWN UP, #96 THE WALL, #97 SPREADSHEETS, #98 GAMES 5,
+  #99 THE WORKING ENGINE, #100 LIFE pass, #101 HOME pass, #102 HEALTH, #103 PRESENTATIONS, #104 THE WORKSPACE, #105 SEE pass,
+  #106 MAKE pass, #107 PLAN AND ME, #108 LEARN pass, #109 PHOTO, #110 PHOTO 2, #111 VIDEO, #112 VIDEO 2, #113 THE GAME STUDIO,
+  #114 GAMES 6, #115 KERNEL 2, #116 the stack's notes (OWNER-ISSUES 194 to 218, STATUS, HANDOFF, TRY-IT-NOW; docs only). First on
+  #93's branch (POLISH 2 with OCTOBER IDEAS 3, which now carries OCTOBER IDEAS 1 and LIFE EASIER again after the guard reverted #92 on
+  main: the orb-breathing check read 0 on CI's software GL; the landing agent fixed the cause in orbfx.ts). Each landing brought only its
+  build's own commits (a squash of its own range); conflicts resolved by hand; at each landing a build made before POLISH 1 had its raw
+  error text routed through sayError, and the counts were recounted (KERNEL 2's tip: 54 screens, 45 numbered things, MAKE 8 cards on the
+  hub, 14 on THE PLAN). #115 moved the sixteen imported tests into the brain's list (147 test files, each named once). Entry numbers:
+  PRESENTATIONS 202, THE WORKSPACE 206 (as the queue gave it). The landing agent merges in order as each goes green and fixes forward.
+  GitHub runs about three of these runs at a time on this account, each about 70 minutes, so the set needs most of a day of checks.
+
