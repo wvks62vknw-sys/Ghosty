@@ -15,6 +15,7 @@
  * The decisions are pure (vision/jobs.ts); this file only draws them and does the acts.
  */
 import { brain, headers } from '../../api/brain';
+import { openSafe } from '../../core/safeurl';
 import { h } from '../../core/dom';
 import { confirmSheet, toast } from '../../ui/components';
 import { key } from '../../ui/machine';
@@ -122,7 +123,8 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     return key('OPEN ANYWAY', async () => {
       if (!(await confirmSheet(`Open ${domain}?`, warnings.join(' '), 'OPEN'))) return;
       cardsState.done = `open: ${href}`;
-      window.open(href, '_blank', 'noopener,noreferrer');
+      // [security] through the one opener that refuses an unsafe scheme (core/safeurl.ts)
+      openSafe(href);
     }, { label: `Open ${domain} anyway: ${warnings.join(' ')}` });
   };
   const copy = (word: string, text: string, what: string): HTMLButtonElement =>
