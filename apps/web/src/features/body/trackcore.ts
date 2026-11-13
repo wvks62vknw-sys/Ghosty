@@ -306,9 +306,9 @@ export type TrackAsk =
   | { kind: 'bed' }
   | { kind: 'up' };
 
-const DRINK = /\b(?:drank|drunk|had|drink|drinking|log|logged|add|added|record|put down|track)\b/;
+const DRINK = /\b(?:drank|drunk|had|log|logged|add|added|record|put down|track)\b/;
 const WATERY = /\b(?:water|glass(?:es)?|pints?|mugs?|bottles?|litres?|liters?|ml|cups?)\b/;
-const NOT_WATER = /\b(?:beer|lager|ale|wine|cider|coffee|tea|juice|cola|coke|vodka|whisky|whiskey|gin|rum|milk|bills?|plants?|the garden)\b/;
+const NOT_WATER = /\b(?:beer|lager|ale|wine|cider|coffee|tea|juice|cola|coke|vodka|whisky|whiskey|gin|rum|milk|bills?|plants?|the garden|shopping|list|basket|order|buy|fridge|freezer|cupboard|pantry)\b/;
 
 /** His words, read for the trackers with no model. */
 export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
@@ -323,7 +323,7 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
   if (/^(?:undo|take back|remove) (?:that|the last|my last) (?:glass|drink|water)|^undo (?:the )?water$/.test(t)) return { kind: 'undo', m: 'water' };
   // questions
   const span = (s: string): 'today' | 'week' | 'month' => (/\bmonth\b/.test(s) ? 'month' : /\bweek\b|\blately\b|\brecently\b/.test(s) ? 'week' : 'today');
-  if (/^(?:how much (?:water )?(?:have i|did i|i've) (?:drunk|drank|had)|how much water|how am i doing (?:on|with) water|am i (?:drinking enough|hydrated|on track with water)|what'?s my water)/.test(t)) return { kind: 'ask', m: 'water', span: span(t) };
+  if (/^(?:how much (?:water )?(?:have i|did i|i've) (?:drunk|drank|had)|how much water(?: (?:today|this week|this month|so far|have i had|did i have))?$|how am i doing (?:on|with) water|am i (?:drinking enough|hydrated|on track with water)|what'?s my water)/.test(t)) return { kind: 'ask', m: 'water', span: span(t) };
   if (/^(?:how (?:did|have) i (?:sleep|slept)|how much (?:did i sleep|sleep)|how'?s my sleep|what'?s my sleep)/.test(t)) return { kind: 'ask', m: 'sleep', span: /last night|today/.test(t) ? 'today' : span(t) === 'today' ? 'week' : span(t) };
   if (/^(?:how many steps|how far have i walked|what'?s my step|my steps today|steps today)/.test(t)) return { kind: 'ask', m: 'steps', span: span(t) };
   if (/^(?:what do i weigh|how much do i weigh|what'?s my weight|my weight trend|how'?s my weight)/.test(t)) return { kind: 'ask', m: 'weight', span: 'month' };
@@ -336,7 +336,7 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
   }
   // bed and up
   if (/^(?:i'?m |i am )?(?:going to bed|off to bed|going to sleep now)$/.test(t)) return { kind: 'bed' };
-  if (/^(?:i'?m |i am |just )?(?:up now|awake now|woke up|just woke up)$/.test(t)) return { kind: 'up' };
+  if (/^(?:i'?m |i am |just )?(?:up|up now|awake now|woke up|just woke up)$/.test(t) && t !== 'up') return { kind: 'up' };
   // sleep
   const sl = /^(?:i )?(?:slept|got|had|log|logged) (?:about |around )?(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)( and a half| and a quarter|\.5)? ?(?:hours?|hrs?|h)\b(?: (\d+) ?(?:minutes?|mins?|m))?(?: (?:of )?sleep)?(?: last night)?$/.exec(t) ?? /^(?:log )?(\d+(?:\.\d+)?)( and a half)? ?(?:hours?|hrs?|h) (?:of )?sleep(?: last night)?$/.exec(t);
   if (sl) {
@@ -351,8 +351,9 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
     if (v > 0 && v < 200000) return { kind: 'log', m: 'steps', v };
   }
   // weight
-  if (/^(?:i (?:weigh|weighed|am|'m)|my weight is|weight|log (?:my )?weight|i'?m now)\b/.test(t)) {
-    const kg = kgOf(t);
+  if (/^(?:i(?: weigh| weighed| am|'m)|my weight is|weight|log (?:my )?weight|i'?m now)\b/.test(t)) {
+    // (a bare number after "I am" is an age, never a weight: "I am 30"; a unit, or the word weigh, makes it a weight)
+    const kg = /^i(?: am|'m)\b/.test(t) && !/\b(?:kg|kgs|kilos?|kilograms?|st|stones?|lbs?|pounds?)\b/.test(t) ? null : kgOf(t);
     if (kg != null && kg >= 25 && kg <= 350) return { kind: 'log', m: 'weight', v: kg };
   }
   // mood
@@ -365,7 +366,7 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
   }
   // water
   if (NOT_WATER.test(t)) return null;
-  if (/^(?:a |another )?(?:glass|pint|mug|bottle|cup) of water$/.test(t) || (DRINK.test(t) && WATERY.test(t)) || /^(?:\+|plus )?\d+ ?ml$/.test(t) || cups.some((c) => t.includes(c.name.toLowerCase()) && DRINK.test(t))) {
+  if (/^(?:a |another |\d+ |two |three |four )?(?:glass|glasses|pints?|mugs?|bottles?|cups?) of water$/.test(t) || (DRINK.test(t) && WATERY.test(t)) || /^(?:\+|plus )?\d+ ?ml$/.test(t) || cups.some((c) => t.includes(c.name.toLowerCase()) && DRINK.test(t))) {
     const v = mlIn(t, cups);
     if (v != null && v > 0 && v <= 3000) return { kind: 'log', m: 'water', v };
   }

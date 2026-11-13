@@ -82,6 +82,11 @@ const FEATURES = new URL('../../web/src/features/', import.meta.url);
 const SRC = new URL('../../web/src/', import.meta.url);
 export const STATES = {
   'money.statement': { dir: 'money', base: 2, now: 4 },
+  // FINAL ROUND (the money lane): the MONEY screen as a budgeting app of its own (features/money/app.ts), each page with all four states
+  'money.month': { dir: 'money', base: 0, now: 4 },
+  'money.budgets': { dir: 'money', base: 0, now: 4 },
+  'money.bills': { dir: 'money', base: 0, now: 4 },
+  'money.trends': { dir: 'money', base: 0, now: 4 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
@@ -101,6 +106,7 @@ export const STATES = {
   'kitchen.recipes': { dir: 'kitchen', base: 0, now: 3 },
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
+  'people.coming': { dir: 'people', base: 0, now: 4 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
@@ -235,6 +241,11 @@ export const STATES = {
   'core.cited': { dir: 'core', base: 0, now: 1 },
   'core.local': { at: 'assistant', dir: '', base: 1, now: 3 },
   'core.hud': { dir: 'core', base: 1, now: 2 },
+  // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
+  'comic.shelf': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.reader': { dir: 'comic', base: 0, now: 2 },
+  'comic.library': { dir: 'comic', base: 0, now: 4 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -259,7 +270,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

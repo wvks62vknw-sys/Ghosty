@@ -194,7 +194,9 @@ async function saves(page, label, W) {
   await closeSheet(page);
 
   log('comic');
-  await say(page, 'A comic about a cat who learns to drive');
+  // [comic] (FINAL ROUND, lane COMIC) the chat's "a comic about…" now makes a whole comic in COMIC (comic2 holds that); the quick
+  // four-panel strip is still CREATIVE's, opened as the brain's creative tool opens it, with the captions it writes for this ask
+  await page.evaluate(() => window.__ghosty.run('open_creative', { what: 'comic', captions: ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] }));
   await sheet(page, 'comic', W, 'the comic strip did not open');
   await until(page, () => window.__ghosty?.creative?.comic?.drawn >= 1 && window.__ghosty.creative.comic.captions.length === 4, null, 12000, async () => `[${W}] the comic was not drawn: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.creative?.comic))}`);
   const caps = await page.evaluate(() => window.__ghosty.creative.comic.captions);

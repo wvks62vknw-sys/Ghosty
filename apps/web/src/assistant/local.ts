@@ -35,6 +35,7 @@ import { chat, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
+import { moneyAsked, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -226,6 +227,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
+  // [moneylane] the MONEY screen on the page his words name (features/money/words.ts), no model
+  async moneyapp(text, opts) {
+    const page = moneyAsked(text);
+    if (!page) return false;
+    location.hash = `money?${page}`;
+    return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
+  },
   // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
   track: async (text, opts) => {
     const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
@@ -366,6 +374,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   planradio: async (text, opts) => { const r = await import('../features/radio/turn').then((m) => m.radioTurn(text)); return r ? packAnswer(r, opts) : false; },
   planmarkets: async (text, opts) => { const r = await import('../features/markets/turn').then((m) => m.marketsTurn(text)); return r ? packAnswer(r, opts) : false; },
   planbrief: async (text, opts) => { const r = await import('../features/brief/turn').then((m) => m.briefTurn(text)); return r ? packAnswer(r, opts) : false; },
+  // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

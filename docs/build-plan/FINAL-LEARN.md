@@ -81,6 +81,10 @@ better ever sat a paper, even with signal.
 - **Every key in the lane is 44 pt.**
 
 **Proof.**
+- learnpass's "lesson out" check failed when learn.spec had just run on the same preview. learn.spec plans the same
+  "photosynthesis" course and writes its lesson 2, and the brain hands back that course, so the check never met a lesson
+  still to be written. learnpass now plans its own topic. Every check is as strict as before, and it passes in full at both
+  widths straight after learn.spec.
 - Four new brain tests in `school.test.mjs` cover:
   - the best tier and the full-working prompt;
   - the answer being kept and the result recorded online, by name;
@@ -112,8 +116,6 @@ better ever sat a paper, even with signal.
 6. In the interpreter, tap a line the other person missed, and it is said again.
 
 ## What is left
-- learnpass's "lesson out" check (C2) fails when the learn spec has just run on the same preview, because learn has already
-  written the same photosynthesis course. The untouched final branch fails it the same way. On a fresh preview it passes.
 - The GYM's TIME IT line says "Training on the graphics chip". The timing does run there, but the long training runs on the
   processor. That line is locked by the phone-hardware spec, so I left it.
 - These were found and not done:

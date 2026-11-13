@@ -56,7 +56,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
     say: ['Toilets near me', 'I parked on Cannon Street', 'I’m lost'], scene: ['out'], cat: 'watch', needs: ['location'], since: SINCE,
   },
   'screen:homeadmin': {
-    name: 'Home: bins, bills and meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
+    name: 'Household: bins, bills, meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
     more: 'Tell me a bin day or photograph a bill and I keep it in my brain; the photo is read on this phone first. What is due comes in date order, and the Brief says it before the day. A meter reading shows the usage since the last one.',
     say: ['When are the bins?', 'What’s due this month?', 'Read my meter'], scene: ['money', 'morning'], cat: 'do', since: SINCE,
   },
@@ -92,6 +92,13 @@ export const TABS_WORDS: Record<string, CatValue> = {
     say: ['Make a game', 'My games', 'Sketch a cave room with two ledges'], scene: ['phone', 'playing'], cat: 'build', since: '2026-11-12',
   },
   'phrase:gamestudio': { same: 'screen:gamestudio' },
+  'screen:comic': {
+    name: 'Comic: read and make comics', line: 'You can read your own comics, get free public-domain ones, and make a whole comic from an idea.',
+    more: 'Import a CBZ, a PDF, pictures or a folder of them; read with page turns, a guided panel-by-panel view, zoom and two pages side by side on a wide screen, and it opens where you stopped. A CBR is RAR, which no browser can open, so save it as CBZ first. The library is the Internet Archive’s public-domain comics, fetched only on your tap, on Wi-Fi, with the size said. MAKE writes and draws a comic from your idea, a cover and four pages with a cast that looks the same in every panel; change any panel, line or balloon, and save it as a CBZ or a PDF, or share it. Everything stays on this phone.',
+    say: ['Make me a comic about a cat who wants to fly', 'Read a comic', 'Public domain comics'], scene: ['phone'], cat: 'build', since: '2026-11-13',
+  },
+  'phrase:comic': { same: 'screen:comic' },
+  'hub:comic': { same: 'screen:comic' },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
 
@@ -158,6 +165,9 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'deck:gamestudio:make-a-game-from-a-template': { same: 'screen:gamestudio' },
   'deck:gamestudio:make-a-game': { same: 'screen:gamestudio' },
   'deck:gamestudio:my-games': { same: 'screen:gamestudio' },
+  'deck:comic:make-a-comic-about-a-cat': { same: 'screen:comic' },
+  'deck:comic:read-a-comic': { same: 'screen:comic' },
+  'deck:comic:free-public-domain-comics': { same: 'screen:comic' },
   'deck:house:lights-heating-and-blinds-room-by': { same: 'screen:house' },
   'deck:house:is-the-back-door-open': { same: 'phrase:house' },
   'deck:house:whats-the-temperature-in-the-kitchen': { same: 'phrase:house' },
