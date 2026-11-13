@@ -37,9 +37,21 @@ export const TODAY_WORDS = {
 
 /**
  * A free square round the orb (THE MAP's square of nine, GOD'S EYE's wall of feeds): what fills it, said once, not "nothing yet"
- * in every square. `n` counts the free squares from 0: the first says what lands there, the second how to keep one, the rest are
- * only "Free".
+ * in every square. The words follow the square's role, not its place among the free ones: a square the next screen he opens fills
+ * says so ('recent'), the square the next pin fills says how to pin ('pin'); only the first free square of each role says it, and
+ * a square nothing can fill ('none') is only "Free". Short enough for two lines in the narrowest cell at his largest text.
  */
-export function freeSquare(n: number): string {
-  return n === 0 ? 'What you open lands here' : n === 1 ? 'Hold one to pin it here' : '';
+export const FREE_WORDS = { recent: 'Recents go here', pin: 'Hold to pin' } as const;
+export function freeSquare(role: 'recent' | 'pin' | 'none', first: boolean): string {
+  return first && role !== 'none' ? FREE_WORDS[role] : '';
+}
+/** THE MAP's free squares, in order (they all come after its 3 recents and 4 pins): the next screen opened fills the first free
+ * square while there are fewer than 3 recents; the next pin fills the first square after that, while there are fewer than 4 pins. */
+export function mapFreeRoles(recents: number, pins: number): ('recent' | 'pin')[] {
+  return [...(recents < 3 ? (['recent'] as const) : []), ...(pins < 4 ? (['pin'] as const) : [])];
+}
+
+/** Home's second line when to-dos are due today or late and nothing else needs him: never "Nothing needs you" over a to-do. */
+export function todoNeeds(n: number): string {
+  return n === 1 ? 'One thing on your to-do list today.' : `${n} things on your to-do list today.`;
 }

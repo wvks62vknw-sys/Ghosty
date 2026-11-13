@@ -27,7 +27,7 @@ import { startDay } from '../day';
 import { bookName, bookNow, sayTwo, whenWord } from '../scan/home';
 import { loadTodos } from '../../agenda/todo';
 import { dueToday, dueWords } from '../../agenda/todowords';
-import { goToPanel } from '../../../ui/sections';
+import { goToPanel, revealSection } from '../../../ui/sections';
 
 const LISTEN = '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a3.5 3.5 0 010 5M17.5 7a7 7 0 010 10"/>';
 /** The frame is the phone's (styles.css draws it under 900 px); at a desk today's three-column Home stays as it is. */
@@ -130,7 +130,7 @@ export function tonightEntry(nextUp: () => string): Entry {
       name: at > 0 ? next.slice(0, at) : next,
       line: at > 0 ? `Next on your agenda · ${next.slice(at + 3)}` : 'Next on your agenda',
       right: 'Agenda',
-      fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => navTo('agenda', 'push') },
+      fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => (navTo('agenda', 'push'), revealSection('agenda', 'DIARY')) },
       ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
     };
   }

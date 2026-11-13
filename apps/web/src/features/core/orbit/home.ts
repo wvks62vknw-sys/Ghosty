@@ -14,6 +14,7 @@
  */
 import { clear, h, icon } from '../../../core/dom';
 import { greeting, navTo, pinnedAndRecent, toolName } from '../../../shell/areas';
+import { revealSection } from '../../../ui/sections';
 import { pinOnHold } from '../../../shell/favourites';
 import { openChat } from '../../../shell/launcher';
 import { thingLine } from '../../../shell/inventory';
@@ -164,7 +165,7 @@ export function orbitHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption
         name: at > 0 ? next.slice(0, at) : next,
         line: at > 0 ? next.slice(at + 3) : 'On your agenda',
         right: 'Agenda',
-        fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => navTo('agenda', 'push') },
+        fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => (navTo('agenda', 'push'), revealSection('agenda', 'DIARY')) },
         ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
       };
     }

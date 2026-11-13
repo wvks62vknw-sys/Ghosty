@@ -26,7 +26,7 @@ import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
 import { loadTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
-import { goToPanel } from '../../ui/sections';
+import { goToPanel, revealSection } from '../../ui/sections';
 import { TODAY_WORDS, todayAria, todayCount, todayTap, todoSummary } from './todaywords';
 
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
@@ -210,7 +210,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const evs = h('div.rcevs');
   // [planlane:home] a tap opens what the card shows: the to-do list when to-dos are all that is left today, else the diary
   let todayTo: 'todo' | 'diary' = 'diary';
-  const today = h('button.rccard.rctoday', { type: 'button', dataset: { case: 'keep', to: 'diary' }, 'aria-label': todayAria('diary'), onclick: () => (todayTo === 'todo' ? goToPanel('agenda', 'TO-DO') : navTo('agenda', 'push')) },
+  const today = h('button.rccard.rctoday', { type: 'button', dataset: { case: 'keep', to: 'diary' }, 'aria-label': todayAria('diary'), onclick: () => (todayTo === 'todo' ? goToPanel('agenda', 'TO-DO') : (navTo('agenda', 'push'), revealSection('agenda', 'DIARY'))) },
     h('span.rcthead', icon(CAL), h('b', 'Today'), todayLeft), evs);
 
   // ---------- Roads near you
