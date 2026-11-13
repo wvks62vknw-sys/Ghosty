@@ -20,6 +20,7 @@ import { speechCaps } from '../../api/brain';
 import { panel, toast, undo } from '../../ui/components';
 import { key, plate, tag, truthLine } from '../../ui/machine';
 import { sayError } from '../../ui/hisWords';
+import { NO_LISTEN } from './words';
 
 /**
  * The three sentences he reads: Ghosty's own words (what he says about this very thing), short, with the vowels in different
@@ -185,7 +186,7 @@ export function myVoicePanel(): { el: HTMLElement; refresh(): Promise<void> } {
 
   const start = async () => {
     if (busy) return;
-    if (unsupported()) return void toast('This browser gives me no way to listen for your voice: try Safari on your phone.', 'warn');
+    if (unsupported()) return void toast(NO_LISTEN, 'warn');
     busy = true;
     const t0 = performance.now();
     const release = takeTheEar();
@@ -276,7 +277,7 @@ export function peoplePanel(): { el: HTMLElement; refresh(): Promise<void> } {
     if (busy) return;
     const who = cleanName(name.value);
     if (!who) return void toast('Type their name first.', 'warn');
-    if (unsupported()) return void toast('This browser gives me no way to listen for a voice: try Safari on your phone.', 'warn');
+    if (unsupported()) return void toast(NO_LISTEN, 'warn');
     const all = await knownVoices();
     if (all.some((v) => v.name.toLowerCase() === who.toLowerCase())) return void toast(`I already know a ${who}: forget them first, or add them with another name.`, 'warn');
     busy = true;

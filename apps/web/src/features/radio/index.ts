@@ -6,6 +6,9 @@ import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { waiting } from '../../ui/wait';
+import { FINDING, nextStation, NO_OTHER, TRY_ANOTHER, TUNING } from './words';
+import { phrases } from '../lifeui';
 import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
 const GENRES = ['news', 'pop', 'rock', 'jazz', 'classical', 'lofi', 'chillout', 'dance', 'hip hop', 'talk', 'ambient', 'country'];
@@ -66,6 +69,8 @@ export const radioTab: TabDef = {
     let lastLabel = '';
     let lastQuery: Query | null = null;
     let failed = false;
+    let searching = false;
+    let stopFinding: (() => void) | null = null;
     // only the newest search may fill the list (an older, slower one finishing later would replace it)
     let asked = 0;
     const go = async (query: Query, label: string): Promise<boolean> => {
@@ -78,9 +83,12 @@ export const radioTab: TabDef = {
         return false;
       }
       sp.setStatus('SEARCHING', 'mid');
+      searching = true;
+      if (!results.length) paintResults(label);
       try {
         const r = await search(query);
         if (mine !== asked) return false;
+        searching = false;
         failed = false;
         results.splice(0, results.length, ...r);
         sp.setStatus(`${r.length}`, r.length ? 'ok' : 'mid');
@@ -88,6 +96,7 @@ export const radioTab: TabDef = {
         return true;
       } catch {
         if (mine !== asked) return false;
+        searching = false;
         failed = true;
         results.length = 0;
         sp.setStatus(offline() ? 'OFFLINE' : 'NO ANSWER', 'off');
@@ -107,6 +116,7 @@ export const radioTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.wrapit', q, button('SEARCH', submit)), sp.body);
     const chips = h('div.keyrow.wrapit.chips', ...GENRES.map((g) => button(g.toUpperCase(), () => void go({ tag: g }, g))));
     sp.el.insertBefore(chips, sp.body);
+    sp.el.insertBefore(phrases(['play BBC Radio 4', 'play some jazz']), sp.body);
 
     const play = async (s: NowPlaying) => {
       await playStation(s);
@@ -121,7 +131,7 @@ export const radioTab: TabDef = {
       const on = sounding(s);
       const p = player.get();
       const tuning = on && p.state === 'loading';
-      const line = p.now?.url === s.url ? (tuning ? 'Connecting…' : p.state === 'playing' ? 'Playing now' : p.state === 'paused' ? 'Paused' : p.state === 'error' ? 'Didn’t play' : '') : '';
+      const line = p.now?.url === s.url ? (tuning ? TUNING : p.state === 'playing' ? 'Playing now' : p.state === 'paused' ? 'Paused' : p.state === 'error' ? 'Didn’t play' : '') : '';
       const info = [line, s.info].filter(Boolean).join(' · ');
       const r = row(fav ? '★' : '☆', h('span', h('b', s.name), info ? h('br') : null, info ? h('small.note', info) : null), on ? '■' : '▶', { wrap: true, onClick: () => (sounding(s) ? stopAudio() : void play(s)) });
       r.classList.add('station');
@@ -151,8 +161,18 @@ export const radioTab: TabDef = {
     };
     const paintResults = (label = lastLabel) => {
       lastLabel = label;
+      stopFinding?.();
+      stopFinding = null;
       clear(sp.body);
       if (!results.length) {
+        /* state: radio.stations loading */
+        if (searching && !offline()) {
+          stopFinding = waiting(sp.body, FINDING);
+          return;
+        }
+        /* state: radio.stations offline */
+        /* state: radio.stations error */
+        /* state: radio.stations empty */
         if (offline()) sp.body.append(empty('OFFLINE', 'Stations come back when the phone is online. Your favourites are kept here.', 'You’re offline'));
         else if (failed) sp.body.append(empty('NONE', 'The station list didn’t answer. Tap SEARCH or a kind of radio to try again.', 'Can’t reach the station list'));
         else sp.body.append(label ? empty('NONE', 'Try another name, a kind of radio above, or a country.', `Nothing playable for “${label}”`) : empty('NONE', 'Search above or pick a kind of radio. You can also just say “play BBC Radio 4” or “play some jazz”.', 'Find a station'));
@@ -188,7 +208,7 @@ export const radioTab: TabDef = {
           : state === 'loading'
             ? since
               ? 'Buffering…'
-              : 'Connecting…'
+              : TUNING
             : state === 'paused'
               ? 'Paused'
               : state === 'error'
@@ -212,7 +232,18 @@ export const radioTab: TabDef = {
       if (!now) keys.push(button(`▶ PLAY`, () => void play(last!), 'on'));
       else if (state === 'playing' || state === 'loading') keys.push(button('❚❚ PAUSE', () => pauseAudio()), button('■ STOP', () => stopAudio(), 'warn'));
       else if (state === 'paused') keys.push(button('▶ PLAY', () => void resumeAudio(), 'on'), button('■ STOP', () => stopAudio(), 'warn'));
-      else keys.push(button(why === 'tap' ? '▶ PLAY' : '▶ TRY AGAIN', () => void resumeAudio(), 'on'), button('■ STOP', () => stopAudio(), 'warn'));
+      else {
+        keys.push(button(why === 'tap' ? '▶ PLAY' : '▶ TRY AGAIN', () => void resumeAudio(), 'on'));
+        // a station that will not play: the next one in the list, one tap (the way on, never a dead end)
+        if (why !== 'tap') {
+          keys.push(button(TRY_ANOTHER, () => {
+            const n = nextStation([...results, ...favourites.list()], now?.url);
+            if (n) void play(n);
+            else toast(NO_OTHER, 'warn');
+          }));
+        }
+        keys.push(button('■ STOP', () => stopAudio(), 'warn'));
+      }
       const kr = h('div.keyrow', ...keys);
       if (!slider) kr.classList.add('novol');
       np.body.append(kr);

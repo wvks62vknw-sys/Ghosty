@@ -9,7 +9,8 @@ import { draftEl } from './drafts';
 import { brain, type SocialInfo } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
-import { sayError } from '../../ui/hisWords';
+import { trail } from '../../ui/hisWords';
+import { linkFailed, LINKING } from './words';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -125,6 +126,7 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
     const f = FORMS[a.id]!;
     const who = info?.accounts.find((x) => x.id === a.id)?.who ?? null;
     clear(p.body);
+    /* state: links.account offline */
     p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'OFFLINE', who ? 'ok' : 'mid');
     if (who && !editing.has(a.id)) {
       // drafts for this account still waiting (made on Telegram or Discord, or an earlier chat): answered here too
@@ -160,7 +162,7 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
       }
       b.disabled = true;
       msg.className = 'note';
-      msg.textContent = `signing in to ${a.name} to check it…`;
+      msg.textContent = LINKING(a.name);
       try {
         const r = await brain.socialLink(a.id, values);
         if (!r.ok) throw new Error(r.error ?? 'it did not work');
@@ -168,7 +170,10 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
         editing.delete(a.id);
         void paint();
       } catch (e) {
-        msg.textContent = sayError(e, 'send that');
+        // what to try, once, in his words (the raw reason goes to the WHY trail)
+        trail(e, `link ${a.name}`);
+        /* state: links.account error */
+        msg.textContent = linkFailed(a.id as 'bluesky' | 'mastodon' | 'discord' | 'channel', a.name);
         msg.className = 'note bad';
       } finally {
         b.disabled = false;

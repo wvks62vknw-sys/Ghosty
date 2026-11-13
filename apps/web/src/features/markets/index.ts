@@ -8,13 +8,16 @@ import { settings } from '../../state/app';
 import { button, modal, panel, row, spark } from '../../ui/components';
 import { sparkInst } from '../../ui/instruments';
 import { page } from '../../ui/page';
+import { asOfLine, NOT_READ, RETRY, RETRYING, sheetAsOf, WEEK_EMPTY } from './words';
+import { waiting } from '../../ui/wait';
 
 const btc = () => coins.data?.find((c) => c.sym === 'BTC') ?? null;
 
 /** A coin's week as a chart: the line between its own high and low (labelled beside it, so the scale is plain). */
 function weekChart(c: Coin): HTMLElement {
   const v = c.spark;
-  if (v.length < 2) return h('p.mknote', 'No week of prices yet.');
+  /* state: markets.prices empty */
+  if (v.length < 2) return h('p.mknote.mkweekempty', WEEK_EMPTY);
   const W = 320, H = 140;
   const lo = Math.min(...v), hi = Math.max(...v), span = Math.max(1e-9, hi - lo);
   const pts = v.map((x, i) => `${((i / (v.length - 1)) * W).toFixed(1)},${(6 + (1 - (x - lo) / span) * (H - 12)).toFixed(1)}`);
@@ -38,7 +41,7 @@ function weekChart(c: Coin): HTMLElement {
  */
 /** The coin open in its sheet now (for this screen's own sentence). */
 let coinOpen: Coin | null = null;
-function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string }): void {
+function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string; at: number }): void {
   coinOpen = c;
   const v = c.spark;
   const week = v.length > 1 ? ((v[v.length - 1]! - v[0]!) / v[0]!) * 100 : null;
@@ -50,7 +53,7 @@ function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string }): voi
   }, 'on mkask');
   const m = modal(c.name, h('div.mkcoin', { dataset: { case: 'keep' } },
     h('div.mkprice', h('b.tnum', money(c.price, c.cur)), h(`span.${tone}` as 'span', `${moved(c.change)} in 24 hours`)),
-    h('p.mkasof', `${s.live ? '' : `${s.why || 'Not updated since'} · `}As of ${s.asOf} · from CoinGecko`),
+    h('p.mkasof', sheetAsOf(s.live, s.why, s.at, Date.now())),
     weekChart(c),
     h('p.mknote', [week != null ? `Over 7 days: ${moved(week)}.` : '', c.low != null && c.high != null ? `Last 24 hours: ${money(c.low, c.cur)} to ${money(c.high, c.cur)}.` : ''].filter(Boolean).join(' ')),
     ask), () => (coinOpen = null));
@@ -136,12 +139,12 @@ export const marketsTab: TabDef = {
       if (!r) return void [mp, fp].forEach((p) => clear(p.body, nothing(rates)));
       clear(mp.body, ...(['xau', 'xag'] as const).map((m) => {
         const x = ounce(r, m, cur);
-        return row(null, m === 'xau' ? 'Gold' : 'Silver', x == null ? '—' : `${money(x, cur)} an ounce`);
+        return row(null, m === 'xau' ? 'Gold' : 'Silver', x == null ? NOT_READ : `${money(x, cur)} an ounce`);
       }));
       const mine = FX.find(([c]) => c === cur)!;
       clear(fp.body, ...FX.filter(([c]) => c !== cur).map(([c, name, sign]) => {
         const x = rate(r, cur, c);
-        return row(null, name, x == null ? '—' : fxAmount(x, sign));
+        return row(null, name, x == null ? NOT_READ : fxAmount(x, sign));
       }));
       fp.title.textContent = `WHAT ${mine[2].trim()}1 BUYS`;
     };
@@ -151,7 +154,7 @@ export const marketsTab: TabDef = {
     const state = (f: typeof coins | typeof rates, at: number) => {
       const off = navigator.onLine === false;
       const why = off ? 'You’re offline' : f.status === 'STALE' || f.status === 'NO FEED' ? 'CoinGecko can’t be reached' : '';
-      return { has: !!f.data, live: fresh(f), asOf: f.data ? clock(at) : '', why };
+      return { has: !!f.data, live: fresh(f), asOf: f.data ? clock(at) : '', why, at };
     };
     const stamp = (p: typeof cp, s: ReturnType<typeof state>) =>
       s.has ? p.setStatus(`AS OF ${s.asOf}`, s.live ? 'ok' : 'mid') : p.setStatus(s.why ? 'CAN’T REACH' : 'LOADING', s.why ? 'off' : 'mid');
@@ -160,7 +163,23 @@ export const marketsTab: TabDef = {
       const s = state(f, f.at);
       const head = s.why ? (s.why.startsWith('You') ? s.why : 'CoinGecko can’t be reached right now') : 'Loading the prices…';
       const line = s.why ? 'The prices show again as soon as it answers.' : 'From CoinGecko, free.';
-      return h(`div.empty${s.why ? '.bad' : '.wait'}` as 'div', h('b', { dataset: { case: 'keep' } }, head), h('span', line));
+      // (error and offline: RETRY asks again at once; loading: the wait said)
+      /* state: markets.prices loading */
+      /* state: markets.prices error */
+      /* state: markets.prices offline */
+      const el = h(`div.empty${s.why ? '.bad' : '.wait'}` as 'div', h('b', { dataset: { case: 'keep' } }, head), h('span', line));
+      if (s.why && f === coins) {
+        const again = button(RETRY, () => {
+          again.disabled = true;
+          const done = waiting(el, RETRYING);
+          void Promise.allSettled([coins.refresh(true), rates.refresh(true)]).then(() => {
+            done();
+            again.disabled = false;
+          });
+        }, 'on mkretry');
+        el.append(again);
+      }
+      return el;
     };
     // "Dogecoin moved most, up 5.20% to £0.1543. Bitcoin £60,411, up 0.20%. Gold £2,988 an ounce; £1 buys $1.34."
     const sentence = (list: Coin[]) => {
@@ -187,7 +206,7 @@ export const marketsTab: TabDef = {
       P.big.textContent = !list.length ? (cs.why ? 'No prices right now' : 'Loading the prices') : cs.live ? dayWord(list) : 'Not up to date';
       P.big.dataset.tone = cs.live && /up/.test(P.big.textContent) ? 'up' : cs.live && /down/.test(P.big.textContent) ? 'dn' : '';
       P.sub.textContent = !list.length ? (cs.why.startsWith('You') ? cs.why : cs.why ? `${cs.why}. It tries again every two minutes.` : '') : cs.live ? `Last 24 hours · as of ${cs.asOf}` : `${cs.why || 'Not updated since'} · as of ${cs.asOf}`;
-      say.textContent = sentence(list);
+      say.textContent = list.length ? `${sentence(list)} ${asOfLine(coinsAt(), Date.now(), cs.live)}` : '';
       if (list.length) clear(cp.body, ...list.map(coinRow));
       else clear(cp.body, nothing(coins));
       paintRates();

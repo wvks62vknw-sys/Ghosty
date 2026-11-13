@@ -5,6 +5,7 @@
  * navigator.storage.persist(), and the SYSTEM tab says in plain words whether it worked.
  */
 import { createStore } from '../../core/store';
+import { withSize } from './words';
 
 export const storageState = createStore({
   /** null: not known yet. */
@@ -43,6 +44,10 @@ export const mbText = (n: number) => (n < 0 ? '' : `${n < 10 * 1024 * 1024 ? (n 
 
 /** The one line the SYSTEM tab shows. */
 export function storageLine(): { text: string; ok: boolean } {
+  const l = storageLineRaw();
+  return { text: withSize(l.text, storageState.get().usage), ok: l.ok };
+}
+function storageLineRaw(): { text: string; ok: boolean } {
   const st = storageState.get();
   if (st.persisted) return { text: `STORAGE: PROTECTED${st.usage >= 0 ? ` · ${mbText(st.usage)}` : ''}`, ok: true };
   // No way to ask (an older iPhone): a Home Screen app is still spared Safari's 7-day clear-out.

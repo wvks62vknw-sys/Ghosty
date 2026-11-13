@@ -17,6 +17,7 @@ import { paintNotifications } from './notifications';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 import { sayError } from '../../ui/hisWords';
+import { NO_DEVICE, sentTo, TELEGRAM_TEST_FAILED } from './words';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -346,7 +347,7 @@ export const linksTab: TabDef = {
         h('div.keyrow.wrapit', button('TEST', async (b) => {
           b.disabled = true;
           const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: sayError(e, 'send that') }));
-          toast(r.sent ? 'Sent to your Telegram' : `Could not send: ${r.error ?? 'unknown'}`, r.sent ? 'ok' : 'warn');
+          toast(r.sent ? 'Sent to your Telegram' : TELEGRAM_TEST_FAILED, r.sent ? 'ok' : 'warn');
           b.disabled = false;
         }, 'on'), button('UNPAIR', async () => {
           if (!(await confirmSheet('Unpair Telegram?', 'Ghosty stops answering in your Telegram chat and sends nothing there. To pair again, send the bot a new code.', 'UNPAIR'))) return;
@@ -382,7 +383,7 @@ export const linksTab: TabDef = {
               }, 'on'),
           button('SEND TEST', async () => {
             const r = await brain.pushTest().catch(() => ({ sent: 0 }));
-            toast(r.sent ? `Sent to ${r.sent} device(s)` : 'No device has notifications on yet', r.sent ? 'ok' : 'warn');
+            toast(r.sent ? sentTo(r.sent) : NO_DEVICE, r.sent ? 'ok' : 'warn');
           }),
         ),
         st.status === 'blocked' ? h('div.note.bad', "Notifications are blocked for this site. Allow them in the browser's site settings (padlock icon), then press TURN ON.") : '',

@@ -8773,3 +8773,27 @@ body.housed .studiocard :is(.studiocardby, .studiocardname) { text-transform: no
 html .wbwhy { padding: 4px 0 8px; color: var(--r); }
 html .wbwhy[hidden] { display: none; }
 /* ==== end MAKE quality pass ==== */
+/* ==== PLAN AND ME quality pass (BRIEF-QUALITY-PLAN-ME): the lines these screens say where they happen, and every control 44 pt; no colour of its own ==== */
+.emptymonth, .spenderr { margin: 6px 0; font: 400 14px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.mkweekempty { margin: 8px 0; font: 400 13px/18px var(--sf); color: var(--ink); }
+html .mkretry { margin-top: 8px; height: 44px; min-height: 44px !important; }
+html .memerr button { margin-top: 8px; height: 44px; min-height: 44px !important; }
+.patempty { display: flex; align-items: flex-start; gap: 8px; }
+.patwhy summary { list-style: none; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; cursor: pointer; }
+.patwhy summary::-webkit-details-marker { display: none; }
+.patwhy p { margin: 0 0 8px; font: 400 13px/18px var(--sf); color: var(--ink); }
+body.housed #pg-memory .keyrow button, body.housed #pg-memory .mia button { min-height: 44px !important; }
+/* ==== end PLAN AND ME quality pass ==== */
+/* ==== PLAN AND ME quality pass: LINKS ==== */
+body.housed #pg-links .rw button[data-kind] { height: 44px; min-height: 44px !important; min-width: 58px; }
+body.housed #pg-links a.lnk { display: inline-flex; align-items: center; min-height: 44px; }
+.notifyscope { display: flex; align-items: flex-start; gap: 8px; }
+/* ==== end PLAN AND ME quality pass: LINKS ==== */
+/* ==== PLAN AND ME quality pass: SOCIAL ==== */
+.drexact { display: block; margin: 4px 0; font: 500 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.dracts button { min-height: 44px; }
+/* ==== end PLAN AND ME quality pass: SOCIAL ==== */
+/* ==== PLAN AND ME quality pass: SPENDING ==== */
+body.housed #pg-agenda .spend button { min-height: 44px !important; }
+body.housed #pg-agenda .spend .spendnav button { min-width: 44px; }
+/* ==== end PLAN AND ME quality pass: SPENDING ==== */

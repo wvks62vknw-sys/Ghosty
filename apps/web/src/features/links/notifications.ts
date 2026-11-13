@@ -9,6 +9,8 @@ import { needsHomeScreen, pushState } from '../../assistant/push';
 import { clear, h } from '../../core/dom';
 import { button, row, toast, type Panel } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { NOTES_LOADING, NOTIFY_SCOPE, NO_DEVICE, sentTo } from './words';
 
 export const HOME_SCREEN_ONLY = 'iPhone only allows notifications for apps on your Home Screen: Share → Add to Home Screen, then open Ghosty from there.';
 
@@ -17,6 +19,8 @@ let painting = 0;
 
 export async function paintNotifications(p: Panel): Promise<void> {
   const mine = ++painting;
+  /* state: links.notes loading */
+  const done = waiting(p.body, NOTES_LOADING);
   let got: Awaited<ReturnType<typeof brain.pushPrefs>> | null = null;
   let failed: unknown = null;
   try {
@@ -24,6 +28,7 @@ export async function paintNotifications(p: Panel): Promise<void> {
   } catch (e) {
     failed = e;
   }
+  done();
   if (mine !== painting) return; // a newer paint is on its way
   const st = pushState.get();
   const homeOnly = needsHomeScreen() || st.status === 'needs-install';
@@ -31,6 +36,7 @@ export async function paintNotifications(p: Panel): Promise<void> {
   if (homeOnly) p.body.append(h('div.note.bad.homeonly', HOME_SCREEN_ONLY));
   else if (st.status !== 'on') p.body.append(h('div.note', 'Notifications are off on this device: turn them on in PHONE above. These switches say which kinds Ghosty sends.'));
   if (!got) {
+    /* state: links.notes offline */
     p.setStatus('', 'off');
     p.body.append(h('div.note', (failed as { status?: number }).status === 404 ? 'The brain cannot keep these choices yet: it needs an update first.' : 'These choices are kept by the brain, which is not reachable right now.'));
     return;
@@ -64,10 +70,10 @@ export async function paintNotifications(p: Panel): Promise<void> {
     p.body.append(r);
   }
   p.body.append(
-    h('div.note.notifyscope', 'OFF stops that kind everywhere: no phone notification, no Telegram message, no alert or voice in the app. It still goes in your Agenda inbox. Always sent: what you ask for ("ping my phone…"), finished tasks and projects, and anything that went wrong.'),
+    h('div.note.notifyscope', NOTIFY_SCOPE.short, h('details.patwhy', h('summary', { 'aria-label': 'More about what OFF stops' }, '?'), h('p', NOTIFY_SCOPE.more))),
     h('div.keyrow', button('SEND A TEST', async () => {
       const r = await brain.pushTest().catch(() => ({ sent: 0 }));
-      toast(r.sent ? `Sent to ${r.sent} device(s)` : homeOnly ? HOME_SCREEN_ONLY : 'No device has notifications on yet', r.sent ? 'ok' : 'warn');
+      toast(r.sent ? sentTo(r.sent) : homeOnly ? HOME_SCREEN_ONLY : NO_DEVICE, r.sent ? 'ok' : 'warn');
     })),
   );
 }

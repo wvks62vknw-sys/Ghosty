@@ -15,6 +15,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { settings } from '../../state/app';
 import { sayError } from '../../ui/hisWords';
+import { exactLine, failedWords, NO, sendKey } from '../social/words';
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -117,9 +118,9 @@ export function draftEl(c: Card, after?: () => void): HTMLElement {
   const acts = live
     ? h(
         'div.ccacts.dracts',
-        named(button('APPROVE', (b) => void approve(d, b, after), 'on'), `Approve: ${d.kind === 'post' ? `post this on ${where}` : `${d.kind} on ${where}`}`),
+        named(button(sendKey(d.state), (b) => void approve(d, b, after), 'on'), `Approve: ${d.kind === 'post' ? `post this on ${where}` : `${d.kind} on ${where}`}`),
         ...(d.kind === 'post' ? [named(button('EDIT', () => edit(d, after)), 'Edit the words')] : []),
-        named(button('NO', () => void refuse(d, after), 'warn'), 'No: drop it, nothing goes out'),
+        named(button(NO, () => void refuse(d, after), 'warn'), 'No: drop it, nothing goes out'),
       )
     : null;
   for (const b of acts?.querySelectorAll('button') ?? []) {
@@ -134,7 +135,8 @@ export function draftEl(c: Card, after?: () => void): HTMLElement {
       h('b.cctitle', c.title),
       h('p.drwords', words),
       d.image ? h('figure.drpic', h('img', { src: `/i/${d.image.id}`, alt: d.image.alt, loading: 'lazy' }), h('figcaption', `In words: ${d.image.alt}`)) : null,
-      h('small.drstate', { role: 'status' }, stateWords(d)),
+      live ? h('small.drexact', exactLine(d.kind, where, d.who, sendKey(d.state))) : null,
+      h('small.drstate', { role: 'status' }, d.state === 'failed' ? failedWords(d.fault) : stateWords(d)),
       d.link ? h('a.drlink', { href: d.link, target: '_blank', rel: 'noopener noreferrer' }, `OPEN ON ${where.toUpperCase()} ↗`) : null,
       acts,
     ),

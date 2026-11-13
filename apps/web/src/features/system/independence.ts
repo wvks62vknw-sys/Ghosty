@@ -18,6 +18,8 @@ import { goToPanel } from '../../ui/sections';
 import { brainDays, meter, phoneDay } from '../../core/independence';
 import { settings } from '../../state/app';
 import { bar, panel, row, spark, type Panel } from '../../ui/components';
+import { ownBrainsValue } from './words';
+import { phrases } from '../lifeui';
 import { brainKey, currentModel, mayUse, offlineReady, offlineSupport, syncTrust } from '../../offline/brain';
 import { briefLine, CAT_WORDS, judgedFor, spanOf, trust, TRUST_CATS, type AskCat } from '../../offline/trust';
 
@@ -37,7 +39,7 @@ export function independenceBlock(): HTMLElement & { paint(): void } {
     clear(
       box,
       h('div.lab', 'YOUR OWN BRAINS'),
-      own !== null ? bar('OWN BRAINS', own / 100, `${own}%`) : null,
+      own !== null ? bar('OWN BRAINS', own / 100, ownBrainsValue(own)) : null,
       h('div.note.indline', meterLine(w)),
       seen.length >= 2 ? h('div.indtrend', h('div.note.small', trendLine(weeks)), spark(seen, 140, 24)) : null,
       h('div.lab', `SOVEREIGN MODE · ${always ? 'ON' : 'OFF'}`),
@@ -122,6 +124,7 @@ export function independencePanel(): Panel {
     h('div.lab', 'BY KIND OF ASK'),
     brainLine,
     cats,
+    phrases(['how independent are you?']),
     h('div.note.indtruth', 'SOVEREIGN MODE is the plain name for Always (Settings → Offline brain → WHEN THE PHONE ANSWERS): the cloud is off-limits; what I can’t do here, I say I can’t.'),
     h('div.note.small.indceiling', 'One honest limit, said once: a phone alone will likely never match the very biggest cloud brains on the hardest, newest reasoning. That is physics (memory, power, energy), not a lack of training. Your own brains, your tools and the library on this phone do more of what you need every week, and the cloud stays a rare fallback you can switch off.'),
   );

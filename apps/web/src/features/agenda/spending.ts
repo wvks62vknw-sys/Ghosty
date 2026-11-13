@@ -16,6 +16,9 @@ import { nearHow, nearLine, nearPlaces, type NearPlace } from '../../further/spe
 import { quietLine } from '../money/nudges';
 import { isoDay } from '../brief/day';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { phrases } from '../lifeui';
+import { emptyMonthWords, importWords, NAV, pounds, READ_FAILED, READING, totalWords } from './spendwords';
 
 type View = 'month' | 'year' | 'changes';
 const COLOURS: Record<Category, string> = {
@@ -79,18 +82,20 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     file.value = '';
     if (!f) return;
     p.setStatus('READING…', 'mid');
+    /* state: spending.statement loading */
+    const done = waiting(p.body, READING);
     try {
       const r = await brain.spendingImport(await f.text());
-      const x = r.result;
+      done();
       set(r);
       void load(r.month);
-      toast(
-        `Added ${x.added} row${x.added === 1 ? '' : 's'}${x.bank ? ` from ${x.bank}` : ''}${x.duplicates ? ` · ${x.duplicates} already kept` : ''}${x.asked ? ` · ${x.asked} name${x.asked === 1 ? '' : 's'} sorted by the free AI` : ''}${x.unplaced ? ` · ${x.unplaced} to file yourself` : ''}`,
-        'ok',
-      );
+      toast(importWords(r.result), 'ok');
     } catch (e) {
+      done();
+      /* state: spending.statement error */
       toast(sayError(e, 'read that statement'), 'bad');
       paint();
+      p.body.append(h('p.note.bad.spenderr', { dataset: { case: 'keep' } }, READ_FAILED), h('div.keyrow', button('TRY AGAIN', pick, 'on')));
     }
   });
 
@@ -112,6 +117,8 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       set(x);
     } catch {
       p.setStatus('OFFLINE', 'off');
+      /* state: spending.statement offline */
+      /* state: spending.statement empty */
       if (!s) clear(p.body, empty('OFFLINE', 'The spending card needs the brain: try again in a moment.'));
     }
   };
@@ -158,7 +165,7 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     p.foot!.hidden = !s.kept;
     if (!s.kept) {
       p.setStatus('NO STATEMENT YET', 'mid');
-      p.body.append(empty('NONE', 'Add a statement from your bank and I will sort it. It stays on this phone.', 'No statement yet'), h('p.note.privacy', s.privacy || PRIVACY), h('div.keyrow', button('ADD STATEMENT', pick, 'on')));
+      p.body.append(empty('NONE', 'Add a statement from your bank and I will sort it. It stays on this phone.', 'No statement yet'), h('p.note.privacy', s.privacy || PRIVACY), h('div.keyrow', button('ADD STATEMENT', pick, 'on')), phrases(['paste a statement']));
       return;
     }
     p.setStatus(`${s.kept.toLocaleString('en-GB')} rows kept · up to ${s.cap.toLocaleString('en-GB')}`, 'ok');
@@ -173,8 +180,12 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       h('b.mname', view === 'year' ? s.month.slice(0, 4) : `${monthName(s.month)} ${s.month.slice(0, 4)}`),
       button('›', () => void load(s!.months[i + 1])),
     );
-    (nav.firstChild as HTMLButtonElement).disabled = i <= 0;
-    (nav.lastChild as HTMLButtonElement).disabled = i >= s.months.length - 1;
+    const prevB = nav.firstChild as HTMLButtonElement;
+    const nextB = nav.lastChild as HTMLButtonElement;
+    prevB.disabled = i <= 0;
+    nextB.disabled = i >= s.months.length - 1;
+    prevB.setAttribute('aria-label', prevB.disabled ? `${NAV.earlier}. ${NAV.first}` : NAV.earlier);
+    nextB.setAttribute('aria-label', nextB.disabled ? `${NAV.later}. ${NAV.last}` : NAV.later);
     // [lifeeasier] MONEY NUDGES: a renewal this week, a price that went up, the month running hot (from the rows above, nothing else)
     const latest = s.month === s.months[s.months.length - 1];
     const nudges = latest
@@ -183,7 +194,12 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     p.body.append(...(nudges ? [nudges] : []), tabs, nav);
     if (view === 'month' && s.view) {
       const v = s.view;
-      p.body.append(h('div.spendtot', h('b', `${gbp(v.out)} out`), h('span', ` · ${gbp(v.in)} in`)));
+      const tw = totalWords(v.out, v.in);
+      p.body.append(h('div.spendtot', h('b', tw.out), h('span', tw.into)));
+      if (!v.categories.length) {
+        const e = emptyMonthWords(s.month, i > 0);
+        p.body.append(h('p.note.emptymonth', { dataset: { case: 'keep' } }, h('b', e.head), ' ', e.next));
+      }
       // [further] "You spent £62 near Work this week": his statements beside his saved places, by the words alone; nothing when none fit
       const near = nearNow();
       spendingState.near = near.map(nearLine);
@@ -200,12 +216,12 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       p.body.append(h('div.keyrow.wrapit.budgetadd', budgetIn, button('SET BUDGET', () => void setBudget())));
       p.body.append(h('div.lab', 'BY CATEGORY'));
       const most = Math.max(1, ...v.categories.map((c) => c.spent));
-      for (const c of v.categories) p.body.append(bar(cap(c.c), c.spent / most, gbp(c.spent), COLOURS[c.c]));
+      for (const c of v.categories) p.body.append(bar(cap(c.c), c.spent / most, pounds(c.spent), COLOURS[c.c]));
       if (s.subscriptions.length) {
         const year = s.subscriptions.reduce((k, x) => k + x.yearly, 0);
-        p.body.append(h('div.lab', `SUBSCRIPTIONS · ${gbp(year)} A YEAR`));
+        p.body.append(h('div.lab', `SUBSCRIPTIONS · ${pounds(year)} A YEAR`));
         for (const x of s.subscriptions) {
-          const r = row(x.cadence === 'monthly' ? 'MONTHLY' : 'YEARLY', h('span', h('b', x.name), x.was !== undefined ? h('small.note', ` was ${gbp(x.was, true)} until ${ddmm(x.changed!)}`) : null), `${gbp(x.amount, true)} · ${gbp(x.yearly)}/yr`, { wrap: true });
+          const r = row(x.cadence === 'monthly' ? 'MONTHLY' : 'YEARLY', h('span', h('b', x.name), x.was !== undefined ? h('small.note', ` was ${gbp(x.was, true)} until ${ddmm(x.changed!)}`) : null), `${pounds(x.amount)} · ${pounds(x.yearly)} a year`, { wrap: true });
           r.classList.add('sub');
           p.body.append(r);
         }
@@ -221,11 +237,11 @@ export function spendingPanel(): { el: HTMLElement; refresh(): Promise<void> } {
       if (s.rows.length > rows.length) p.body.append(h('div.keyrow', button(`SHOW ALL ${s.rows.length}`, () => ((all = true), paint()))));
     } else if (view === 'year' && s.year) {
       const y = s.year;
-      p.body.append(h('div.spendtot', h('b', `${gbp(y.out)} out`), h('span', ` · ${gbp(y.in)} in · ${y.months.length} month${y.months.length === 1 ? '' : 's'}`)));
+      p.body.append(h('div.spendtot', h('b', totalWords(y.out, y.in).out), h('span', `${totalWords(y.out, y.in).into} · ${y.months.length} month${y.months.length === 1 ? '' : 's'}`)));
       const most = Math.max(1, ...y.months.map((m) => m.out));
-      for (const m of y.months) p.body.append(bar(monthName(m.month).slice(0, 3).toUpperCase(), m.out / most, gbp(m.out)));
+      for (const m of y.months) p.body.append(bar(monthName(m.month).slice(0, 3).toUpperCase(), m.out / most, pounds(m.out)));
       p.body.append(h('div.lab', 'BY CATEGORY'));
-      for (const c of y.categories) p.body.append(row(cap(c.c), gbp(c.spent)));
+      for (const c of y.categories) p.body.append(row(cap(c.c), pounds(c.spent)));
     } else {
       p.body.append(h('div.lab', `${monthName(s.month).toUpperCase()} AGAINST ${monthName(prevMonth(s.month)).toUpperCase()}`), ...s.changes.map((l) => h('p.change', l)));
     }

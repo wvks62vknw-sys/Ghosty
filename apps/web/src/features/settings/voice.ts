@@ -13,8 +13,9 @@ import { clear, h } from '../../core/dom';
 import { settings, ui } from '../../state/app';
 import { button } from '../../ui/components';
 import { switchRow } from './switch';
+import { IOS_TIP as TIP, SWITCHES } from './words';
 
-const IOS_TIP = 'Tip: an iPhone has free natural British voices — Settings › Accessibility › Spoken Content › Voices › English › Voice (UK): download Serena (Premium) or Daniel (Enhanced). Then pick it here.';
+const IOS_TIP = TIP;
 
 export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   const engine = h('select', { 'aria-label': 'Voice engine' }, h('option', { value: 'auto' }, 'Best British voice available (automatic)'), h('option', { value: 'ghosty' }, "Ghosty's own voice (from the brain)"), h('option', { value: 'phone' }, "This phone's voice"));
@@ -34,7 +35,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   }, 'on');
   sample.setAttribute('aria-label', 'Hear a sample of this voice');
   // (a switch, not a drop-down: switch.ts)
-  const barge = switchRow('Talk over Ghosty to interrupt', 'When off, a tap stops him instead', () => settings.get().bargeIn, (on) => settings.set({ bargeIn: on }));
+  const barge = switchRow('Talk over Ghosty to interrupt', SWITCHES.barge, () => settings.get().bargeIn, (on) => settings.set({ bargeIn: on }));
 
   // (BRIEF-OCT-IDEAS-1 5: a word in my voice when a tap starts something that takes a moment: assistant/acks.ts)
   const ack = switchRow('A word when I start something', 'I say “On it.” when you tap something that takes a moment. Needs Voice on.', () => settings.get().sayStart !== false, (on) => settings.set({ sayStart: on }));

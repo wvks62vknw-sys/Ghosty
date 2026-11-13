@@ -16,6 +16,8 @@ import { flushStars, starBox } from '../../offline/starbox';
 import { button, niceCase, panel, toast, type Panel } from '../../ui/components';
 import { loadAll } from '../gym/store';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { loopsHead, WAIT } from './words';
 
 const WEEK = 7 * 86_400_000;
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -44,7 +46,8 @@ export function loopsPanel(): Panel & { refresh(): void } {
     loopsState.since = b?.since ?? now - WEEK;
     const w = window as unknown as { __ghosty?: Record<string, unknown> };
     if (w.__ghosty) w.__ghosty.loops = loopsState;
-    head.textContent = b ? `This week, since ${day(b.since)}: what each loop practised, what got better, and what was thrown out.` : 'The brain is not reachable: only this phone’s loops are shown.';
+    /* state: system.loops offline */
+    head.textContent = b ? loopsHead(b.since, now) : 'The brain is not reachable: only this phone’s loops are shown.';
     p.setStatus(b ? `${rows.length} LOOPS` : 'PHONE ONLY', b ? 'ok' : 'mid');
     clear(
       list,
@@ -78,10 +81,14 @@ export function loopsPanel(): Panel & { refresh(): void } {
   function refresh(): void {
     void (async () => {
       const now = Date.now();
+      // the page says what it is waiting for (the brain's numbers are a fetch he can feel)
+      /* state: system.loops loading */
+      const done = waiting(p.body, WAIT.loops);
       // (what is waiting goes first, so the numbers include it)
       await flushStars().catch(() => 0);
       const [b, ph] = await Promise.all([brain.selftrain.loops().catch(() => null), phoneLoops(now)]);
       loopsState.loads++;
+      done();
       paint(loopRows(b, ph), b, now);
     })();
   }

@@ -139,7 +139,7 @@ const toasts = (page) => page.evaluate(() => document.getElementById('toasts')?.
   await tap(rowOf(page, 'Spec Hang FM').locator('.n'), 'Spec Hang FM ▶/■');
   await page.waitForTimeout(600);
   const tuning = await rowOf(page, 'Spec Hang FM').evaluate((r) => `${r.querySelector('.n').textContent}|${r.querySelector('.note')?.textContent ?? ''}`, null, { timeout: 5000 }).catch(() => '');
-  check(/^■\|Connecting…/.test(tuning), `a station connecting should say so on its row, its button a stop: ${tuning}`);
+  check(/^■\|Tuning…/.test(tuning), `a station connecting should say so on its row, its button a stop: ${tuning}`);
   await tap(rowOf(page, 'Spec Plain FM').locator('.n'), 'Spec Plain FM ▶/■');
   check(await waitHero(page, /^On air/), `the station switched to should play: ${JSON.stringify(await hero(page))}`);
   await page.waitForTimeout(800);

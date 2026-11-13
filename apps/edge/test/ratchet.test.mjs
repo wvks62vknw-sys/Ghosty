@@ -149,6 +149,19 @@ export const STATES = {
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
   'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },
   'house.house': { at: 'house', dir: '', base: 4, now: 4 },
+  // PLAN AND ME (BRIEF-QUALITY-PLAN-ME): base read from the code at 08a5337a, now what the pass draws
+  'spending.statement': { dir: 'agenda', base: 2, now: 4 },
+  'markets.prices': { dir: 'markets', base: 3, now: 4 },
+  'radio.stations': { dir: 'radio', base: 3, now: 4 },
+  'memory.timeline': { dir: 'memory', base: 2, now: 4 },
+  'settings.faces': { dir: 'settings', base: 1, now: 2 },
+  'settings.principles': { dir: 'settings', base: 1, now: 3 },
+  'system.loops': { dir: 'system', base: 1, now: 2 },
+  'system.ledger': { dir: 'system', base: 2, now: 3 },
+  'system.foresight': { dir: 'system', base: 2, now: 3 },
+  'links.account': { dir: 'links', base: 1, now: 2 },
+  'links.notes': { dir: 'links', base: 1, now: 2 },
+  'social.queue': { dir: 'social', base: 3, now: 4 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -173,7 +186,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

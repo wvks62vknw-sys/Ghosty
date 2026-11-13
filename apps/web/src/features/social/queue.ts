@@ -8,6 +8,8 @@ import { accountName, draftCard } from '../../../../../packages/shared/src/socia
 import { brain, type SocialInfo } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { draftEl } from '../links/drafts';
+import { queueNote, QUEUE_ERROR, QUEUE_LOADING } from './words';
+import { phrases } from '../lifeui';
 
 /** One read of the brain shared by the pages shown together (the queue and what went out). */
 let held: { at: number; info: Promise<SocialInfo | null> } | null = null;
@@ -23,21 +25,21 @@ export const waiting = (info: SocialInfo | null) => (info?.drafts ?? []).filter(
 /** THE QUEUE: each waiting draft as the chat draws it, newest first. */
 export function queueScreen(): { el: HTMLElement; stop(): void } {
   const list = h('div.pkcol.socq', { 'aria-live': 'polite' });
-  const note = h('p.pknote', 'Reading the queue…');
+  /* state: social.queue loading */
+  const note = h('p.pknote', QUEUE_LOADING);
   let gone = false;
   const paint = async (fresh = false) => {
     const info = await socialInfo(fresh);
     if (gone) return;
     const w = waiting(info).sort((a, b) => b.at - a.at);
-    note.textContent = !info
-      ? 'I can’t reach my brain right now, so I can’t read the queue.'
-      : w.length
-        ? `${w.length} waiting for your APPROVE. Nothing goes out until you press it; a draft is gone after 24 hours.`
-        : 'Nothing waiting. Ask me to draft a post (“post that to Bluesky”) and it waits here, and in the chat, for your APPROVE.';
+    /* state: social.queue offline */
+    /* state: social.queue empty */
+    /* state: social.queue error */
+    note.textContent = !info ? QUEUE_ERROR : queueNote(w.length);
     clear(list, ...w.map((d) => draftEl(draftCard(d), () => void paint(true))));
   };
   void paint();
-  return { el: h('div.pkcol', note, list), stop: () => (gone = true) };
+  return { el: h('div.pkcol', note, list, phrases(['post that to Bluesky', 'who made you?'])), stop: () => (gone = true) };
 }
 
 /** What went out today: each post, follow or unfollow with its account, its time and its link. */
