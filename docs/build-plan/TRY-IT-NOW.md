@@ -97,3 +97,156 @@ Home quality pass, THE WORKSPACE, VIDEO. Each gets its own section here when it 
 3. MAKE, Workshop, THE LAB row: five pages; run one again.
 4. LEARN, REHEARSE: "a job interview for a junior mechanic": three rounds and the notes.
 5. Say "walk me through the library": a pointer and a sentence, NEXT to the end.
+
+## ORBIT HUD (the fifth whole look, the orb as the way in)
+1. Settings, Theme, ORBIT: the orb in the middle, six rooms on a ring, no bar.
+2. Tap LEARN on the ring, then hold the orb, slide to PLAN and let go.
+3. Press the orb, type three letters: it finds the thing.
+4. Ask "Where is Lisbon?": the orb grows into a sphere with the map.
+5. Say "orbit" after trying another look: it comes back.
+
+## GROWN UP HUD (today with less on it, one capsule)
+1. Settings, Theme, GROWN UP: one capsule at the bottom, nothing crowding the top.
+2. Tap the rooms key: recents and starred, then the seven rooms; tap one.
+3. Type "rad": RADIO is found. Type "how are you": he answers.
+4. Press the small Mind to talk; hold it to fan the switcher.
+5. Say "grown up" after trying GLASS: it comes back.
+
+## THE WALL (the Machine on a TV, the phone the remote)
+1. Open Ghosty on a TV or laptop with ?wall=1: "I am the wall." and a code.
+2. On the phone, Settings, The wall: type the code, tap PAIR.
+3. Ask for a chart of your bills and tap WALL: it is on the wall.
+4. Say "clear the wall", then hold anywhere on the wall for a second: unpaired.
+
+## SPREADSHEETS (formulas, charts, Excel in and out)
+1. MAKE, SPREADSHEETS: tap START WITH A BUDGET; twelve months and a chart appear.
+2. In March, change the Rent cell to 1950: the totals and the chart move at once.
+3. Tap a column's letter: SORT LARGEST FIRST.
+4. DATA, tap XLSX (the size is beside it) and open the file in Numbers or Excel.
+5. IMPORT a .xlsx or CSV: it opens here.
+
+## GAMES 5 (a platformer, a cave, four board games)
+1. ARCADE: six new tiles after THE BEAT, each with its two scores.
+2. THE PLATFORMER: run and jump to the flag, stomp a walker, kick a shell.
+3. THE CAVE: find the boots, save at a lantern, close Ghosty and CONTINUE.
+4. DRAUGHTS at level 1, then 12; BACKGAMMON: look at the dice, ask for a hint, take a move back.
+5. Tomorrow: the GYM's Report card lists the four board ratings.
+
+## THE WORKING ENGINE (the engine turns, every part named)
+1. Type your plate, SHOW ME, "open the bonnet", then LIFT THE COVER: the engine turns.
+2. Tap a piston: its sheet with every number marked estimate or typical.
+3. REVS up, PAUSE, STEP four times: the strokes line goes round.
+4. TAKE APART to half, then SECTION, then MEASURE two points.
+5. Ask "how does an engine work" and tap OPEN.
+
+## QUALITY PASS: LIFE (the eight life packs made right)
+1. LIFE: open each of the eight packs: the same empty shape and waiting lines.
+2. MONEY with nothing pasted: "Nothing kept yet" and the box; paste a statement: pence on every amount.
+3. KITCHEN: "timer 8 minutes for the pasta"; when it rings, one tap stops it.
+4. BODY, REPS: START and STOP right under the exercise.
+5. Wi-Fi off: each page says "No signal…" and what still works.
+
+## QUALITY PASS: HOME (Home, the Brief and the house line made right)
+1. Cold-open at breakfast: the boot, then Home, with a greeting true to the hour.
+2. Aeroplane mode: one line about the brain, no dashes.
+3. THE BRIEF: READ IT TO ME and one tap stops it.
+4. Jump bar: type "gsdfg": "Nothing matches that." with Every screen offered.
+5. Press the orb ten times: the house line is mentioned once.
+
+## RELIABILITY AND HEALTH (a health mark on every ability)
+1. SYSTEM, HEALTH: one line at the top; every ability marked with its reason.
+2. Wi-Fi off: HEALTH says "Offline: N of M things still work."
+3. Say "Remind me at 3 to call the garage": "Setting it…" then the tick.
+4. SETTINGS, PERMISSIONS: refuse the camera in the Lens and see its line land there.
+5. On any reply tap THAT FELT OFF, then find it under SYSTEM, HEALTH.
+
+## PRESENTATIONS (slides, notes, PowerPoint in and out)
+1. MAKE, PRESENTATIONS: START FROM A REPORT on a report you have.
+2. Tap a slide, change its words; change the theme: every slide repaints.
+3. INSERT a photo on one slide and a chart on another; move a slide; delete one and UNDO.
+4. NOTES on a slide, then PRESENT: your notes and the next title in your hand.
+5. EXPORT .pptx (size said) and open it in Keynote or PowerPoint.
+
+## THE WORKSPACE (pages, boards, calendars and the EDITORS card)
+1. MAKE, EDITORS, THE WORKSPACE: START A PROJECT: the tree, the board, the calendar, the table.
+2. Add three tasks with dates and drag one across the board.
+3. Type a page; "/" for a to-do or a link; open the link and see BACKLINKS.
+4. "…", HISTORY: restore an older version.
+5. ASK ABOUT THIS PROJECT: it says how much it sends first.
+
+## QUALITY PASS: SEE (God's Eye, the Lens and Threats made right)
+1. God's Eye cold: "Drawing the world…", then search a town, then nonsense.
+2. The Lens with the camera refused: the words once; allow it and point at a blank page.
+3. PEOPLE yourself, then a stranger on the TV: the rule's line.
+4. MEASURE a table: "a first estimate"; aeroplane mode: ASK says what still works.
+5. THREATS: each row says how old it is and from which feed.
+
+## QUALITY PASS: MAKE (the Workshop, studio, Space and Workbench made right)
+1. MAKE, the Workshop with nothing on the go: "Nothing being made…" and ASK FOR ONE; pull the signal and watch the project line.
+2. The 3D studio cold: "Loading the studio…" once; search "kettle": "by SV Garip · CC0".
+3. SPACE: drag two pieces too close: the gap is named.
+4. The Workbench: type "abc" into a span; the tunnel says "Starting the wind…".
+5. CONVERT "12 furlongs to km": it says which units it knows.
+
+## QUALITY PASS: PLAN AND ME (spending, markets, radio, memory, settings and social made right)
+1. SPENDING with no statement: ADD STATEMENT; add one: every amount to the penny.
+2. THE MARKETS in aeroplane mode: open a coin: "You’re offline · As of 13:50…".
+3. THE RADIO: "Finding stations…", then PLAY says "Tuning…".
+4. MEMORY, Timeline: type nonsense in "Find a memory": "Nothing matches “…”".
+5. SOCIAL: a post waits with "I will post exactly this on Bluesky, only when you tap APPROVE."
+
+## QUALITY PASS: LEARN (courses, the Arcade, the GYM, School and the Library made right)
+1. LEARN, courses with none: type nothing and tap START: the line under the box.
+2. The Arcade on mobile data: GET says the size and that it waits for Wi-Fi.
+3. The GYM: TRAIN says "Starting to train…"; lose a tic-tac-toe game: "I won this one."
+4. SCHOOL: SIT a paper: "Question 7 of 20", "about 4 min left".
+5. The Library: search nonsense: "I can’t find “…”"; the COACH with the microphone refused says where to switch it on.
+
+## PHOTO (a photo editor with the original kept)
+1. MAKE, EDITORS, PHOTO: open a photo from your camera roll.
+2. LIGHT, COLOUR and CURVES: change it; hold the photo to see the original.
+3. CROP: straighten a crooked horizon; MASKS: darken a gradient over the sky.
+4. SAVE A LOOK, then BATCH it onto five photos: the size is said first.
+5. EXPORT one as JPEG and share it.
+
+## PHOTO 2 (cut-outs, erase and RAW, each on your tap)
+1. PHOTO, SUBJECT on a mug: the first cut; GET the cut-out model (about 19 MB, Wi-Fi): the cut again.
+2. ERASE: GET the erase model (about 70 MB), brush over a mark: gone?
+3. Share a RAW or DNG from a camera: it opens; EXPORT ORIGINAL gives it back.
+4. Settings, offline packs: REMOVE the cut-out model.
+5. Aeroplane mode: GET waits and says so.
+
+## VIDEO (a video editor on the phone)
+1. VIDEO: ADD four clips: they open at once, upright, with sound.
+2. TRIM, SPLIT, SPEED 2x, a crossfade and a TITLE.
+3. MUSIC, RECORD a few words: the music drops under you.
+4. EXPORT 1080p: the size and the path are said before the tap.
+5. Aeroplane mode: one line says what needs a signal.
+
+## VIDEO 2 (steady, best clips, on the beat, reverse and ramp)
+1. VIDEO, a hand-held clip: SPEED, STEADY, then move the Steadier slider and UNDO.
+2. Four clips: SCENES, BEST CLIPS at 30 s: see what is left out and why.
+3. Add music: SOUND, ON THE BEAT, then SNAP TO THE BEAT.
+4. SPEED, REVERSE on a short clip; try a RAMP and see the length said.
+5. Aeroplane mode: all four still work.
+
+## THE GAME STUDIO (a 2-D game maker on the phone)
+1. MAKE, EDITORS, GAME STUDIO, NEW, AN ADVENTURE: PLAY it and talk to the villager.
+2. ROOMS: paint a third room, place a door and link it to the cave.
+3. SPRITES: draw a 16 × 16 tile and a two-frame walk.
+4. QUESTS: talk, collect three coins, reach the cave; PLAY the whole quest.
+5. ARCADE, MY GAMES, CONTINUE: where you were.
+
+## GAMES 6 (poker, a word game and a take-back that takes the turn)
+1. ARCADE: two new tiles after CONNECT 4: POKER and WORDS.
+2. POKER: play a few hands; HINT; the card says "Chips, never money."
+3. WORDS: tap GET (362 KB, on Wi-Fi), drag tiles into a word; a made-up word is refused.
+4. BACKGAMMON: take a move back: the whole turn goes back.
+5. Aeroplane mode, app reopened: DRAUGHTS and POKER still play.
+
+## KERNEL 2 (ask Ghosty to edit a document, physics, rollback)
+1. DOCUMENTS, a letter open: "make the second paragraph shorter" in the write panel, ASK GHOSTY: the change is marked; ACCEPT applies it.
+2. The 3-D engine, a room with a table: PHYSICS: OFF, tap it: "Loading physics, 4.3 MB…" once.
+3. Select the cup, tap DROP IT: it lands on the table; UNDO puts it back.
+4. With mobile data on, PHYSICS: ON: it waits for Wi-Fi and says the size.
+5. SYSTEM, OFFLINE BRAIN TRAINING, WHAT HAPPENED: the first check line after a publish.

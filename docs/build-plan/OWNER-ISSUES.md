@@ -533,3 +533,687 @@ QUESTIONS (recommendation first): (a) DECIDED BY THE ORCHESTRATOR, WITH YOUR VET
 189. **THE OCTOBER IDEAS, SLICE 1 (BRIEF-OCT-IDEAS-1; your October ideas; the mid tier, landed 12 Nov with LIFE EASIER in one pull request; PR "OCTOBER IDEAS 1 with LIFE EASIER").** What it is: a readout ribbon under the orb on Home (the hour's weather and the next thing); THE HUD TILTS WITH THE PHONE (Settings, THE LOOK, a tilt row, default off: the Scan's layers move a few pixels and stop, a light follows the touch across a plate); the orb pulses while it thinks and a 32-bar ring moves while it speaks; the paper's warmth and halo follow the hour; and A WORD WHEN I START SOMETHING (Settings, Voice, default on): "On it." or "Sitting it now." in the phone's own voice when a tap starts work that takes a moment (needs Voice on; never over a reply being said; once per tap). Changed at landing (critic pass): the word is NOT said for a download's GET (a download asks for Wi-Fi or a confirm first and says its size; your rule 179(b) is that the word never covers DOWNLOAD) and RUN NOW's word is said only after its confirm sheet is answered yes, not when the key is first pressed. The two speech-recorder fixtures that shared a name (the voice model's stand-in and this build's speech recorder) now have their own names. YOUR PHONE CHECK: (1) Home: the readout ribbon under the orb with the hour's weather and the next thing; (2) Settings, THE LOOK, the tilt row on, tilt the phone: the Scan's layers move a few pixels and stop; (3) ask something slow: the orb pulses while it thinks and a 32-bar ring moves while it speaks; (4) open at night then at noon: the paper's warmth and the halo follow the hour; (5) tap something that takes a moment with Voice on: "On it." in the phone's voice. DECIDED under 179: the spoken word uses the phone's own voice (instant, offline) by default; whether the word should also cover the offline brain's DOWNLOAD is no (it opens a confirm sheet first). THE CALL THAT IS YOURS: none.
 190. **LIFE EASIER (BRIEF-OCT-IDEAS-2; your October ideas; the mid tier, landed 12 Nov in the same pull request as OCTOBER IDEAS 1).** What it is: Siri and the Share sheet (Settings, SHORTCUTS: GET "Ask Ghosty" and "Send to Ghosty": say "Hey Siri, ask Ghosty what's the weather", or share a page from Safari and it is on the Shelf; a photo needs Extract Text first); the Brief read aloud once on the first open of the day, after Home lands (Settings, Voice, the Brief row, off until you turn it on; the commute line says "leave by"); WHAT DID I MISS after a day away (GOT IT dismisses it); money nudges at the top of SPENDING and in the Brief's money line; "Teach me what you learned this week" (five sentences at most); the Lens on a letter with a date offers REMIND (the agenda has it) and FILE (the library has it); "Tell me when there's a strike on my line" makes a watcher in the Agenda with STOP; with email linked, the Brief's line, a DRAFT and nothing goes without your SEND. Changed at landing (critic pass): the reply route now refuses (400, "your SEND is needed") unless the phone sends `confirm: true`, which it does only from the SEND key of the draft you are looking at, with a brain test; nothing is sent without you. YOUR PHONE CHECK: (1) Settings, SHORTCUTS: GET "Ask Ghosty", say "Hey Siri, ask Ghosty what's the weather": he opens and answers; GET "Send to Ghosty", share a page from Safari: it is on the Shelf (a photo needs Extract Text first); (2) Settings, VOICE, the Brief row on; open tomorrow morning: he reads the Brief after Home lands; the commute line says "leave by"; (3) leave him closed a day; open: WHAT DID I MISS, GOT IT dismisses it; (4) SPENDING with statements: nudge lines at the top and in the Brief's money line; (5) "Teach me what you learned this week": five sentences at most; (6) Lens on a letter with a date: REMIND then the agenda has it; FILE then the library has it; (7) "Tell me when there's a strike on my line": WATCHERS in Agenda with STOP; (8) with email linked: the Brief's line; DRAFT; nothing goes without SEND. FOUND NOT FIXED: two price-watch systems now exist (the money pack's twice-a-day watch and the hourly WATCHERS; to be made one in a later pass); the mail rule reads sender and subject only; "spending added since" counts the latest import only; the Shortcuts recipe is in Apple's terms (critic pass). THE CALL THAT IS YOURS: none.
 191. **POLISH 1, THE EDGES: ONE ERROR VOICE, EVERY WAIT SAID, THE BIGGEST TEXT (BRIEF-POLISH-1; your words "insane quality even if there's things in the past which could have better quality" (178) and "very overcrowded"; the mid tier, landed 12 Nov; PR "POLISH 1: the edges (one error voice, every wait said, the biggest text)").** What it is: (1) ONE ERROR VOICE: 273 places (the brief said 27) where a raw error could reach the screen now say it through one function by kind (the signal lost, a timeout, the phone refusing, a stop, a quota, memory, not found, the rest), in your words ("I lost the signal halfway. Try again when you have one."; "That took too long; I stopped it. Try again in a moment."; "The phone would not let me <what>. Settings, Ghosty, and switch it on."; "Stopped. Nothing was lost."; "I could not <what>. Try again in a moment."), the raw text going to the WHY trail only; a lint test now keeps it that way (273 on the base, 0 now); (2) EVERY WAIT SAID: the Stage "Drawing it…", the Lens "Waking the eyes…" / "Looking…", the Studio "Opening the studio…" / "Building the room…", the offline brain's cold load ("Waking the brain on this phone. Twenty seconds or so."), the Library's first open; (3) THE BIGGEST TEXT: the house line wraps to two rows at BODY 21, the keys keep whole words at 44 pt, Settings rows become a grid; every empty list (Favourites, Recents, the Library shelf, Spending) says what is empty and the one thing to do, in the world's own marks; (4) THE BOOT keeps its sweep moving on a slow open and says "Still waking. The signal is slow." after six seconds. The colour ratchet is equal (1,992); one pinned test (the camera refusal) now holds your words and is not loosened. Where this landed on top of builds that arrived after it was written, the sites those builds added (the voice model, the training card, the documents, the model download) were routed through the same function by hand so the new lint stays at zero. YOUR PHONE CHECK: (1) flight mode on, ask anything: his own words about the signal, never a browser's; open the Lens: the words say what still works; (2) Settings, Accessibility, the biggest text: the house line and ONE INK's foot wrap, nothing cut, every room still tappable; (3) "Where is Lisbon?": "Drawing it…" under the sentence, then the map; open the Studio: "Opening the studio…" then the room; (4) close Ghosty, slow connection, open it: the film keeps moving, says "Still waking. The signal is slow." after six seconds, lands on Home with no held frame; (5) Favourites before you star one: his words and the one thing to do, in the world's own marks. DECIDED under 179: the error sentences' voice stands as above; "Waking the brain on this phone. Twenty seconds or so." replaces the old model-named wait line. FOUND NOT FIXED: THE SCAN's Home at the biggest text still cuts the world marks' labels and two collide (Home is not this pass's to change); server-written error sentences pass a blocklist only, not the lint; about 70 call sites use a generic verb ("open that") where each wants a word from its screen's owner; SIT's first paper and a website publish do not go through the wait function; the boot spec reads counters, not pixels (critic pass: "Nothing was lost." is a promise the funnel cannot know and a server 5xx is blamed on your signal). THE CALL THAT IS YOURS: none.
+194. **ORBIT HUD (BRIEF-ORBIT-HUD; your words in 155 "every theme as like a whole different hud as a whole like even the tabs are different" and 176
+   "do all of it"; the mid tier, landed 13 Nov; PR "ORBIT HUD: the fifth whole look").** What it is: ORBIT is the fifth whole look (Settings, Theme,
+   ORBIT), a different screen and not a dark colour scheme: no bar, and the orb is the only chrome and the way in. On Home the orb sits at the centre
+   of a ring with six rooms (SEE, MAKE, LEARN, PLAN, LIFE, ME) standing round it as named stations, the room for tonight's thing lit, a capsule of
+   what you used last and your starred things under it (three shown, dots for the rest; a tap opens, a long press pins), a short hint line until you
+   have pressed the orb ten times, and the hour's card ("Carry on reading" with its Listen key). On every other screen the orb sits bottom-left as the
+   open end of a line: press it to type a word (recent and starred first), hold it for a third of a second and the six rooms fan out on an arc, slide
+   to one and let go to open its hub (let go on none: nothing); the plan unfolds from the left end of the line as seven stations. A room's hub shows
+   its things as stations on an orbit line, favourites under them and the card for what you used last nearest the orb on a thread. The Stage (where
+   the app draws a map, a chart or a page) grows out of the orb: a map, globe, chart or simulation is a sphere, a document, room or part a rounded
+   page with the orb docked at its top edge; closing shrinks it back, and under Reduce Motion nothing tides. Saying "orbit" switches to it in your
+   colour; the Stage's own keys are 44 pt in this look (they were 36 to 40 pt in every look). The colour ratchet is equal. This landing also removes a
+   stray merge-marker line (a lone line of equals signs) from apps/web/styles.css that has been on the live site since PR 86 and dropped the eye-pack
+   "second size" rule, and adds a brain test that fails if any tracked file carries a merge-marker line. YOUR PHONE CHECK: (1) Settings, Theme, ORBIT:
+   the orb in the middle of its sky, six rooms on a ring, tonight's one lit, recents under it, no bar. Is it a different screen and not a dark theme?
+   (2) Tap LEARN on the ring: the room, with the card for what you used last nearest the orb on a thread, and the orb bottom-left with its line. (3)
+   Hold the orb, slide to PLAN and let go: PLAN opens. Hold and let go on nothing: nothing happens. (4) Press the orb and type three letters: it finds
+   the thing; open it. (5) Ask "Where is Lisbon?": the orb grows into a sphere with the map. Ask "write me a letter": the rounded page with its ring.
+   Close either: it shrinks back. (6) Press the orb ten times across the day: the hint line goes. (7) Go back to THE SCAN, THE MAP, THE EYE, ONE INK
+   and GLASS: each as before. Say "orbit": it comes back. FOUND NOT FIXED: panel chips exist only for the Library and God's Eye (the screens whose
+   panels have addresses); two #switcher elements exist in this look (the tab bar's, never opened, and the fan's); the Scan's capital-letter stamp and
+   title type are reused on its screens; Home in ORBIT and a room's layers opened over their speed budgets on a shared, loaded machine (Home 470 to
+   1,005 ms against 300, layers 600 to 1,490 ms), with no new request or file; it wants a rerun on a quiet machine; the look and speed specs also
+   missed their budgets under that load. THE CALL THAT IS YOURS: left as built, say if you want it changed: the plan is seven outlined stations in a
+   grid with a thread, not literally a ring (a ring of seven cannot hold 37 things at 44 pt); when tonight's thing is the Brief the lit station is
+   PLAN, since the Brief's own room has no station; the hint counts a press on the orb or on the line's words (a hold is not a press); Home has no
+   line at the bottom.
+195. **GROWN UP HUD (BRIEF-GROWN-UP-HUD; your first complaint that started the looks, "very overcrowded", with 155 and 176 "do all of it"; the mid
+   tier, landed 13 Nov; PR "GROWN UP HUD: today, with less on it").** What it is: GROWN UP is the sixth whole look (Settings, Theme, GROWN UP):
+   today's Ghosty with the crowding taken out. One glass capsule sits at the bottom of every screen in place of the ask bar over the tab bar: the
+   rooms key on the left, one field that is both the chat and the jump bar in the middle, a small Mind on the right (press and it listens as the mic
+   does, hold it for a third of a second and the quick switcher fans with this room's tools). The rooms key opens THE ROOMS (head THE HOUSE · 7 ROOMS,
+   or YOU ARE IN <ROOM>; recent and starred chips, the seven rooms each with their screens as chips; a room's name opens its hub). Home is the stamp,
+   a greeting, one sentence (a reply replaces it), the orb with ONE ring of today's free answers (every state worded: counting, cannot count, no key,
+   no cap, used up, low), the hour's card and one row of chips (recent then starred); the four gauges and the second bar are gone by design. A room's
+   hub is three layers: the recent card raised with its panels as chips, favourites, and the rest folded into one stack that opens in place as
+   single-line rows. The Stage is a glass panel with a dashed bezel lit from the orb and the orb docked as a jewel on its top edge; its keys are 44
+   pt. Six dense screens each fold one thing into a key, reachable in one tap and never removed: the GYM's levels chart, SCHOOL's locked stages, the
+   Library's section pills, God's Eye's layer chips, Settings' section pills, SYSTEM's three dials. The boot is GLASS's and lands on Home; GLASS
+   itself is untouched (a pixel check of three screens on the ORBIT tip and on this head differs by under 100 pixels of 1.68 million, the live reactor
+   behind). It stands on ORBIT's six commits, which land first. YOUR PHONE CHECK: (1) Settings, Theme, GROWN UP: one capsule at the bottom and nothing
+   crowding the top. (2) Tap the rooms key: recents and starred on top, the seven rooms with their screens; tap one. (3) Type "rad": RADIO is found.
+   Type "how are you": he answers. (4) Press the small Mind: he talks. Hold it: the switcher fans. (5) Open LEARN: the recent card in front,
+   favourites behind, the rest as rows; open the fold and a row. (6) Ask "Where is Lisbon?": the glass Stage with the lit bezel and the orb in its
+   edge. (7) Open the GYM, SCHOOL, the Library, God's Eye, Settings and SYSTEM: each has one thing folded, found in one tap. (8) Go back to GLASS: as
+   before. Say "grown up": it comes back. DECIDED under 179: the small Mind's press talks as the mic does (the mic is drawn as a glyph on the small
+   Mind, as the mock draws it, with no second mic in the field); and while Home's conversation is open it keeps its own ask bar and the capsule steps
+   aside, so there is one bar at a time. FOUND NOT FIXED: the Library and Settings fold their section pills, so switching a Library section costs a
+   tap (the hub's recent card carries Shelf and Ask as chips); the ring is full when there is no daily cap ("Today's free answers have no daily
+   cap."); a book on Home loses its apostrophe because its name comes from the file name; old tab-bar fan items and ORBIT's switcher share an id with
+   the new one, so the checks scope to the one that is open; Home and a room's layers opened over their speed budgets (Home 493 ms against 300) on a
+   shared, loaded machine, as the other looks' specs did; it wants a rerun on a quiet machine. THE CALL THAT IS YOURS: none.
+196. **THE WALL (BRIEF-MACHINE-WALL; your wish in STARS 165 for the TV showing what you are talking about, and 176 "do all of it"; the mid tier,
+   landed 13 Nov; PR "THE WALL: the Machine on a TV, the phone the remote").** What it is: THE WALL turns a TV or laptop screen into a second screen
+   of the same Ghosty that shows whatever your phone is talking about, with nothing to touch on it. Open Ghosty on that screen with ?wall=1 (or
+   Settings, Theme, TV MODE, THIS IS THE WALL): it says "I am the wall." and shows a six-letter code (no look-alike letters, new every two minutes;
+   three wrong tries wait a minute; one wall at a time). On the phone, Settings, THE WALL, type the code and tap PAIR; the wall says "Paired with your
+   phone." and rests (the orb breathing, the hour, the day, your next diary item and the Home weather if saved). Then a chart, map, place, document,
+   plan, room or part you ask for can go up there: the Stage gets a WALL key (44 pt, shown only while paired; it says SENDING, ON THE WALL or NO WALL
+   RIGHT NOW), and the chat takes "pair the wall, CODE", "on the wall", "show that on the wall", "clear the wall" or "wall off", and "<ask>, on the
+   wall". A pairing lasts until either side taps LEAVE (or 30 days); the wall rests after an hour of phone silence; a one-second press anywhere on the
+   wall leaves it. One list says what may go and is checked three times (the phone, the brain, the wall). A face the Lens is looking at never goes: it
+   says "That stays on the phone." The wall uses no new key (both screens must already be signed in; the code only joins them). If the wall loses its
+   brain it says so and keeps the last picture, dimmed. Measured: a chart is on the wall 432 ms after the phone's tap, and the wall's held request is
+   answered in under a second. The brain's side lives under /guardian/wall, mounted by one line in the guardian file. YOUR PHONE CHECK: (1) Open
+   Ghosty on the TV or a laptop with ?wall=1: "I am the wall." and a code. (2) On the phone, Settings, The wall, PAIR, type the code: the wall says
+   "Paired with your phone." and then rests. (3) Ask for a chart of your bills and tap WALL: it is on the wall within a breath. (4) Ask "Where is
+   Lisbon, on the wall": the map; the phone keeps no picture. (5) With the Lens on a face, say "show that on the wall": "That stays on the phone." (6)
+   Say "clear the wall": it rests. Hold anywhere on the wall for one second: it is unpaired on both. (7) Cut the brain's Wi-Fi for a minute: the wall
+   says it lost its brain and keeps the last picture dim. DECIDED under 179: reviewed and kept as built: the routes are under /guardian/wall, and the
+   wall starts only from ?wall=1 or THIS IS THE WALL, so TV MODE itself is unchanged. FOUND NOT FIXED: the Stage's line chart month labels overlap at
+   390 (older, in POLISH 2's room); the wall can draw the car and a tune's waveform and the brain accepts them, but no phone screen sends them yet
+   (plans go as documents); swiping the wall's thumbnail is a read-only plate (the kind and the sentence), with no swipe; a real TV's Safari and the
+   PS5 could not be tried here (the wall uses only plain page drawing); speed budgets (first screen, Home) missed under load on a shared machine, not
+   shown to be this build's. THE CALL THAT IS YOURS: whether a television in automatic TV MODE should ask once to become the wall (today it never does
+   by itself, so TV MODE stays as it was).
+197. **SPREADSHEETS (BRIEF-EDITOR-SPREADSHEETS; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid tier,
+   landed 13 Nov; PR "SPREADSHEETS: the third editor (formulas, charts, Excel in and out)").** What it is: MAKE, SPREADSHEETS is the core of Excel on
+   the phone, built on the app's own code with no package. A workbook has named sheets (A to AZ, up to 10,000 rows), formulas that recalculate by a
+   dependency graph (about 110 functions, with errors in Excel's own spelling and a circular reference said, never a silent 0), formats (number,
+   pounds, percent, date, decimals, bold, italic, alignment, five fills), column widths, a frozen first row, SORT (the header and a Total line stay
+   put) and FILTER (hidden rows never lost), a fill handle, named ranges, charts under the grid, FIND and REPLACE ALL, copy and paste, sixty steps of
+   UNDO and REDO, and autosave. The screen has 44 pt cells and keys, a formula line above the grid (never a caret in a cell), a name box that takes
+   B2, A1:D5 or a range name, function names offered as you type, point-and-tap to put a cell's address in a formula, pinch to zoom. Out: .xlsx (our
+   own writer: formulas stay formulas, Excel recalculates on opening), CSV and PDF, each with the size said before the tap and equal to the file. In:
+   someone else's .xlsx or a CSV through our own reader; what it could not keep (merged cells, charts, pictures, comments, borders, conditional
+   formats, pivot tables, macros and more) is said once under the title. START WITH A BUDGET makes a twelve-month household budget with a summary and
+   a chart. GHOSTY IN IT: explain a cell, write a formula, tidy a column, as ordinary chat turns with only the chosen cells as context. A table in an
+   answer on the Stage gets OPEN, which lands it in a new sheet. In a test, a budget of 13 sheets, 660 cells and 184 formulas is built, worked out,
+   written and read back equal in 42 to 111 ms, and 169 formula results match Excel's. YOUR PHONE CHECK: (1) MAKE, SPREADSHEETS: the empty page and
+   START WITH A BUDGET; twelve months and a summary appear, with a bar chart of what is left each month. (2) In March, tap a cell in the Rent column
+   (C2), type 1950 on the formula line and tick: March's totals, the Summary's March line, the year line and the chart move at once. (3) Tap the bills
+   column's letter (D): SORT LARGEST FIRST; then "is over 50" and FILTER (the total row stays); CLEAR FILTER. (4) On the Summary type D2:D13 in the
+   box on the left, open CHART, BARS, MAKE THE CHART; pinch the grid to zoom. (5) DATA shows EXPORT with the size beside each: tap XLSX, then open the
+   file in Numbers or Excel: the same numbers, the formulas still formulas, the sheets named. (6) IMPORT someone's .xlsx or a CSV: it opens here and
+   what it could not keep is said once under the title. (7) In the chat say "show me my spending as a table" and tap OPEN on the Stage: it lands in a
+   new sheet. DECIDED under 179: MAKE holds nine things on a two-row band (the room's band takes two rows past eight, each key still 44 pt, nothing
+   sideways). FOUND NOT FIXED: the shell's title bar cuts "SPREADSHEETS" to "Spreadsh..." at 440 and 390; the hub card's big line is read when the
+   screen opens and stays until it is opened again; importing through the library's share path and the Shortcuts' ?add= is not built (neither exists
+   in this codebase); import is the IMPORT key, "open a spreadsheet" in the chat, and the Stage's table; a cell too narrow for its text is cut, not
+   shown as ###, until WIDER is tapped; rows are drawn at the cell height; the PDF draws bold but not italic, and the .xlsx we write carries no chart
+   part ("The chart is in the PDF, the numbers are in the file"); conditional formats, data validation, merged cells, tables, pivot tables, comments
+   and charts in other people's files are read but not kept (and said). NOT REACHED: opening our .xlsx in Excel and Numbers unchanged (the reader's
+   round trip and a hand-made Excel-style file stand for it here); the handles and the pinch, which a sandbox browser cannot try. THE CALL THAT IS
+   YOURS: a `spreadsheet` brain tool, so Ghosty can edit a sheet while you talk, stays out until a kernel pass (it needs the protected tool files).
+198. **GAMES 5 (BRIEF-GAMES-5; your words in 93 "second wave: Tyrian, Cave Story, Flappy, Doodle Jump, a platformer", 94 "insanely good quality and
+   not just slop", 172 "no cap on skill", and STARS 100 (Ghosty as an opponent you can lose to); the mid tier, landed 13 Nov; PR "GAMES 5: a
+   platformer, a cave and four board games he can lose to").** What it is: Six games of our own on the Arcade shelf, right after THE BEAT, each ending
+   in two scores, all in the Arcade's frame (Play, How to play, Sound and Quit keys at 44 pt, Ghosty's line, our own synthesised sound, haptics,
+   touch, pad and keyboard, saves). THE PLATFORMER: eight worlds of our own (Green Hills, Glowstone Caves, Rooftops at Dusk, Old Factory, Cloud
+   Garden, Sunken Ship, Snowfield, Tower), a jump with a short grace after leaving a ledge and a press buffer, stomps, a shell you can kick, crates,
+   springs, moving platforms, three lives and a checkpoint; the level of the measure picks the world and the lap, and every eight levels the worlds
+   come round faster and more crowded with no cap; Ghosty plays it and his best run of each world is the dotted ghost beside you. THE CAVE: twelve
+   rooms of our own, tools in order (boots, then a blaster, then a lamp), six creatures, two bosses, lanterns that save and mend, a map that fills;
+   the card says "this is OUR cave, not Cave Story". FOUR BOARD GAMES: DRAUGHTS, OTHELLO, BACKGAMMON and CONNECT 4 (moved from the GYM and made
+   strong), on one board kit, every square 44 pt or more, legal moves shown on touch, three take-backs a game, one hint that costs the rating nothing,
+   the game kept (CONTINUE). Ghosty's play is a search with a hand-written value per game, run in a background worker; his thinking time is 0.2 s at
+   level 1 up to 8 s at level 20 and keeps growing above that; backgammon's dice are rolled fairly from the game's seed and shown. Ratings are
+   Glicko-2, starting at 1,200, as the GYM's chess; the GYM's Report card lists the four board ratings. After 100 practice sessions his platformer and
+   cave levels reach about 5. Only OUR art and sound: nothing downloaded. YOUR PHONE CHECK: (1) ARCADE: six tiles after THE BEAT, each ending in its
+   two scores (levels for the platformer and the cave, ratings for the board games, starting at 1,200). (2) THE PLATFORMER: run and jump to the flag.
+   Does the jump feel right? Stomp a walker (world 2 on), kick a shell; the dotted ghost is Ghosty's best. (3) THE CAVE: find the boots, save at a
+   lantern, close Ghosty, CONTINUE puts you back; pinch for the map. (4) DRAUGHTS at level 1, then level 12: can you still beat him? CONNECT 4: does
+   the trick that used to win every time still work? (5) BACKGAMMON: the dice are shown, ask for a hint, take a move back. (6) Tomorrow: Ghosty's
+   platformer level and his room in the cave are higher; the GYM's Report card lists the four board ratings. (7) Does any of the six feel like filler?
+   Say which. DECIDED under 179: reviewed clean: six games, the boards searched in a worker, Glicko-2 ratings as chess; a real bug its own spec found
+   (a move to cell or column 0 was not counted as a move) is fixed. FOUND NOT FIXED: a take-back goes back one of your single moves, not a whole turn;
+   backgammon and Othello search are slow on a loaded machine (about 10 s a game in the test at 300 playouts a move) and levels above about 12 are
+   untried on a phone; the cave bot wobbles at high levels (a level-3 cave beats it at the Brood Mother) and the platformer bot never stomps in world
+   1; the board worker is not in the service worker's precache; a damaged saved draughts or Othello game falls back to no CONTINUE; the board games'
+   value is not trained (the GYM's free-GPU job that would fill it does not exist yet): "search alone until trained"; the speed, look, ink and nav
+   specs could not be called green or red on a loaded shared machine. NOT REACHED: Cave Story itself (freeware, but its engine reimplementation is GPL
+   and needs data files, a download) and PICO-8 (paid and closed; its carts need a runtime, a download and carts' terms) are not built. THE CALL THAT
+   IS YOURS: Cave Story and PICO-8 stay yours: say if you want either, with its licence and its download size.
+199. **THE WORKING ENGINE (BRIEF-WORKING-ENGINE; your words in 91a "i have this car and this is what's wrong with it" and the audit's "the working 3-D
+   engine"; the mid tier, landed 13 Nov; PR "THE WORKING ENGINE: a 3-D engine that turns, every part named").** What it is: The car's engine bay now
+   holds an engine model that turns, every part named, built from the car's own record. A typical engine for that car (cylinders and layout, bore and
+   stroke from the displacement, petrol or diesel, a turbo where the fuel and year make one typical, belt or chain by the maker, one or two cams; a
+   hybrid's motor, or an electric car's motor, inverter, charger and coolant loop) is fitted into the bay and said once: "A typical four-cylinder
+   petrol engine for a car like yours, a first estimate; not your exact engine." LIFT THE COVER brings the camera in, the casing goes see-through and
+   the engine turns: the crank angle drives pistons by the rod geometry, valves by a cam profile with overlap, the cams at half speed, belts and the
+   flywheel; the four strokes for cylinder one are named as they happen with a plain sentence each, the firing order under them, a chip per cylinder.
+   A REVS dial (44 pt, 600 to 6,000, "slowed 20×" said on it), PAUSE and PLAY, STEP a quarter turn; under Reduce Motion it stands at top dead centre
+   and STEP works. TAKE APART flies the parts out in layers, SECTION cuts the casing along the cylinders and shows the oil and coolant channels,
+   MEASURE between two taps gives a length in cm, an estimate. A tap on a part lights it by name and opens its sheet (what it is, a 30-second check,
+   do it yourself or a garage, a rough cost, where it is, and a THIS ENGINE list of its numbers, each ending "an estimate", "typical" or "from the MOT
+   record"); 28 new parts with their whole sheets. "What is this?" with a part lit is answered from its sheet with no brain. The 3-D ENGINE's tray
+   gets ENGINE (120 × 60 × 70 cm) whose file names each part, and "how does an engine work", "show me the four strokes", "show me a turbo" put the
+   engine on the Stage with OPEN into the Studio. Kinematic only: no physics here. Nothing downloaded, no package. YOUR PHONE CHECK: (1) Type your
+   plate, tap SHOW ME, say "open the bonnet": the bay, with one line saying a typical engine for a car like yours, a first estimate. Tap LIFT THE
+   COVER: the camera comes in, the casing goes see-through and the engine turns, the four strokes named as they happen and the firing order under
+   them. (2) Tap a piston: it lights and its sheet is "Piston 2" with its numbers, each marked estimate, typical or from the MOT record. Say or type
+   "what is this?": it answers from the sheet. (3) REVS up: faster, and it says "slowed 20×"; PAUSE; STEP four times: the strokes line goes round. (4)
+   TAKE APART to half: the head lifts first, the pistons stay on their rods. SECTION: the casing is cut and the oil and coolant channels show. MEASURE
+   two points: a length in cm, an estimate. (5) "The battery light is on" then SHOW ME: the alternator lit as before. "The car won't start, it just
+   clicks": the battery and the starter lit. (6) MAKE, 3-D ENGINE: ENGINE in the tray; tap the ground to stand it there; EXPORT: the file names each
+   part. (7) Ask "how does an engine work": the Stage's picture; OPEN takes you to it turning. Does it look like an engine, or like boxes? Say which
+   part looks least right. DECIDED under 179: the tray's ENGINE stays 120 × 60 × 70 cm as briefed, and the engine table is not put under IN THE WORKS
+   (every screen already says "typical" and "a first estimate"). FOUND NOT FIXED: the Studio's own TAKE APART, SECTION and MEASURE cannot take this
+   engine group, so the car pane has its own with the same words and keys; FIX IT's chip for the starter still jumps to UNDERNEATH although the bay
+   now has a starter and a sump of its own; the valve train draws one inlet and one exhaust valve per cylinder, a vee's crank draws a pin for each
+   cylinder, and SECTION is one plane through the crank; a short van's bay shows the engine at 85 % (every other car tested is 95 to 100 %); the
+   engine table is written from memory of common UK engines and each screen says typical; speed, look and ink budgets missed under load on a shared
+   machine. NOT REACHED: physics (collision, pressure, real combustion) is not in it: it is KERNEL 2's, one package; WebKit was not tried (the
+   clipping plane for SECTION and the sticky picture are the two things to look at on the phone). THE CALL THAT IS YOURS: none.
+200. **QUALITY PASS: LIFE (BRIEF-QUALITY-LIFE; your words in 178 "i want everything to have insane quality even if there's things in the past which
+   we've had which could have better quality" and 119 "they're just so hard to find"; the mid tier, landed 13 Nov; PR "QUALITY PASS: LIFE (the eight
+   packs made right)").** What it is: The first of the room-by-room quality passes: nothing new added, the eight packs of the LIFE room (MONEY, BODY,
+   KITCHEN, PEOPLE, WORK, CREATIVE, OUTSIDE, HOME) measured at 440 and 390 wide and made right, ten fixes a pack, eighty in all, each with a check in
+   tests/lifepass.spec.mjs that was red on the old code (375 checks, 188 reds before; 399 checks, 0 after). Every empty page now has the same shape (a
+   head and the one next thing), every wait says what for, every failure is said in your words, and every brain-backed page says "No signal…" once
+   when the phone has none. Examples: MONEY with nothing pasted says "Nothing kept yet" and offers the box, a failed read keeps what you pasted;
+   KITCHEN timers stop with one tap anywhere on the card; BODY's REPS has START and STOP under the exercise (START moved from 932 to 499 px down at
+   440 wide, above the dock) and "Run saved" is now "Stop and keep"; PEOPLE with no one says "Tell me about someone" and a birthday reads "in 8 days";
+   the drum pads are sixteen squares as four beats of four, each a full 44 pt (they were 37.6 and 31); HOME's bills say "due in 2 days"; OUTSIDE says
+   once what is sent when you use where you are and that nothing is kept. Amounts are now to the penny with the pound sign (the month card reads
+   "October £1,204.50 out", it was "£1,204"), as your rule says. A STATES RATCHET test (a count of empty, loading, error and offline states per screen
+   that may only rise) now keeps it: 32 screens, 44 states before and 98 after. No new colour (ratchet equal at 1,992); the camera and GPS still start
+   only on START and nothing here sends a position anywhere but OUTSIDE's one question. YOUR PHONE CHECK: (1) LIFE: open each of the eight packs: the
+   same empty shape (a head and the one next thing) and the same waiting lines as the newer rooms. (2) MONEY with nothing pasted: "Nothing kept yet"
+   and the box. Paste a statement: "Reading your statement…", the month's card, pence on every amount. (3) KITCHEN: say "timer 8 minutes for the
+   pasta"; when it rings, one tap anywhere on the card stops it. (4) BODY, REPS: START and STOP are right under the exercise; refuse the camera: "The
+   phone would not give me the camera. Settings, Ghosty, Camera, then press Start." (5) PEOPLE with no one: "Tell me about someone." Tell it a
+   birthday: "in 8 days". (6) OUTSIDE: USE WHERE I AM NOW says once what is sent and that nothing is kept. HOME: a bill shows "due in 2 days". (7)
+   Wi-Fi off: each page says "No signal…" and what still works. Biggest text: nothing cut. (8) Each pack's screen lists the words that open it from
+   the chat: say one. FOUND NOT FIXED: HOME and OUTSIDE's photo readers (bill, meter, room) and BODY's pose model download their models without saying
+   the size before the tap (that belongs to the Lens's files, not this room); BODY has no run history; MONEY's kept rows are not listed on its screen
+   and a statement just read cannot be undone; KITCHEN shopping allows duplicates; WORK's ASK IT ALOUD does nothing without a voice; CREATIVE's song
+   render stalls on long lyrics; PEOPLE has no forget from its screen; BREATHE and STRETCH do not say their total time; OUTSIDE shows only eight
+   results; HOME's lists are capped at 14 and 10 without saying so. THE CALL THAT IS YOURS: none (done as built and said for you to overrule: amounts
+   to the penny; the drum pads as sixteen squares; BODY's "Stop and keep"; the interview's critique in plain words on the phone).
+203. **QUALITY PASS: HOME (BRIEF-QUALITY-HOME; your words in 178 "i want everything to have insane quality even if there's things in the past which
+   we've had which could have better quality", and 43, 45, 142 (the boot "can be a lot lot lot better"); the mid tier, landed 13 Nov; PR "QUALITY
+   PASS: HOME (the first screen made right)").** What it is: The second quality pass: Home, THE BRIEF, the house line (the bar that reaches every
+   room), the boot and the orb measured at 440 and 390 (brain live and cut, signal off, brain slow, a failed send, the clock at 6 am, noon and 11 pm)
+   and 23 of the 25 planned fixes made, each in tests/homepass.spec.mjs (52 reds of 95 checks on the old code; 95 checks clean). HOME: the brain's
+   silence is said once ("My brain isn't answering just now. What I keep on this phone still shows."; with no signal, "No signal. What you type waits
+   here until the phone is back online."), never a dash, every wait says what for ("Asking my brain how much free AI is left…" and five more), the
+   live-state pill never cut mid-word, a failed send says "I COULDN'T" with a RETRY that sends the same words again, error and cooling buttons 44 pt,
+   "Nothing in your diary today. Tell me one thing and I'll keep it." instead of a dead end, weather, diary and roads in your words. THE BRIEF: "Good
+   night" before 5 am as the boot says, the rain line names its source ("Open-Meteo forecast"), sections 44 pt and the first named "TOP STORIES", READ
+   IT TO ME capped at 60 seconds with a "Stop reading" key, no blank line when the weather and diary are away. THE HOUSE LINE: the plan says "Amber:
+   in the works" once, the jump bar says "Nothing matches that." with a way on (the nearest room, else Every screen) and the stray "..." on short
+   words is gone, first-use and the seven rooms' lines are one sentence each. BOOT AND ORB: the boot fault says "I couldn't start this time." and
+   after the tenth press of the orb, once, "The house line below reaches every room." HOME rows join the STATES RATCHET (11 to 14). The boot's
+   storyboard budget is untouched. YOUR PHONE CHECK: (1) Cold-open at breakfast: the boot, then Home, with a greeting true to the hour. (2) Aeroplane
+   mode: one line about the brain, and each instrument says what it has (never a dash). (3) THE BRIEF: READ IT TO ME, one tap stops it; the rain line
+   says "Open-Meteo forecast"; the sections are 44 pt. (4) Swipe three rooms: YOU ARE IN is right; THE PLAN says "Amber: in the works". (5) Jump bar:
+   type "gsdfg": "Nothing matches that." with Every screen offered; type "2" on a room hub: its second thing opens. (6) Press the orb ten times: the
+   house line is mentioned once. (7) Open Home at 11 pm and at the biggest text: nothing sideways or cut. (8) Is Home the best screen? Yours to say
+   (the Gym tile and the empty top-right are the ones to look at). FOUND NOT FIXED: Free AI's "Open" and "no daily cap" (shared with SYSTEM and pinned
+   by a routing spec) is not plain and wants "No limit"; the offline library answer has no RETRY (only the error card does); with no school Home's
+   top-right quadrant is empty and was not redesigned; Glass and ONE INK's Home were not re-measured with the brain cut; Home's first-screen budget is
+   unproven on a quiet machine (1,379 ms against 1,000 under load, as the old code). NOT REACHED: two of the 25 planned fixes (the boot's) were not
+   reached: no further measurable rough spot was found that did not touch the boot storyboard; three of the ten asked-for before-and-after stills (the
+   boot's last shot) were not made. THE CALL THAT IS YOURS: four small calls, left as built: the rain line says "Open-Meteo forecast" (the true feed)
+   and not the Met Office; "TOP" became "TOP STORIES"; Free AI's "Open" stays until you say "No limit"; the orb's hint comes after the tenth press,
+   not the first.
+201. **RELIABILITY AND HEALTH (BRIEF-RELIABILITY; your words in 176 "do all of it" and 178, the depth plan's Pass 2 (a mark on every ability, a "that
+   felt off" tap); the mid tier, landed 13 Nov; PR "RELIABILITY AND HEALTH: a health mark on every ability").** What it is: Every ability now carries
+   one of four marks, WORKING, DEGRADED, NEEDS KEY or OFFLINE, worked out by one rule and never typed in: NEEDS KEY (a key is missing, named by its
+   name) outranks OFFLINE (the brain or the signal is gone), which outranks DEGRADED (the last run of a tool failed, a feed is older than its
+   allowance or failing, or a fallback is in use), else WORKING ("Back since HH:MM." for an hour after a failure clears). Feeds are allowed weather 3
+   hours, news 6, markets 24, flood warnings 3, street crime 2 days. The mark shows after each YOU CAN line in the deck, under the "can you …?" answer
+   and the offer card, in SYSTEM, HEALTH (a new pill), and as the Brief's first line; RETRY runs the ability's own check. ACTIONS ARE VERIFIED: a
+   reminder, schedule, event, memory, saved place, site, library import, budget or social draft is read back from the brain's own list (never from the
+   phone's kept copy) and the reply says "Setting it…" then a tick, or "I tried to set that, but I cannot see it yet." with RETRY and SHOW ME.
+   SETTINGS, PERMISSIONS has nine rows and a record of grants and refusals of camera, microphone, position, notifications, motion and clipboard. CRASH
+   RECORDS: a window error, a failed service-worker file, a screen that throws on opening (a fallen-over frame with RELOAD IT and HOME) and frozen
+   drawing in the Studio, Lens and Arcade ("Still drawing…" at 2 seconds, "This stopped. RELOAD IT." at 8). THAT FELT OFF: a tap beside the thumbs, in
+   the WHY sheet, on a record, or a long press on the house line files that moment with its screen (counts as a thumbs-down; kept on the phone when
+   the brain is away and sent on return; 300 kept). SYSTEM, HEALTH, THE BRAIN shows whether it is reachable, its jobs with last runs, feeds, keys by
+   name only, and the free GPU, every number with its unit and "as of". The brain's health route is its own file mounted under /guardian. YOUR PHONE
+   CHECK: (1) SYSTEM, HEALTH: one line at the top; every ability under NEEDS KEY, DEGRADED, OFFLINE or WORKING with its reason and fix. (2) Wi-Fi off:
+   HEALTH says "Offline: N of M things still work."; the Brief's first line says what needs you, or nothing. (3) Say "Remind me at 3 to call the
+   garage": "Setting it…", then the tick "✓ on your agenda" once it is really there. (4) SETTINGS, PERMISSIONS: each row's state; refuse the camera in
+   the Lens and its line lands there. (5) Any reply: THAT FELT OFF, a word, SEND; on any other screen press and hold the house line. Then SYSTEM,
+   HEALTH, FELT OFF lists it. (6) SYSTEM, HEALTH, THE BRAIN: every job with its last run, every number with a unit and "as of". (7) Did anything say
+   "Done" that was not? Say which. FOUND NOT FIXED: a tool's "watcher added" is not in the verify table (there is no single list route for watchers);
+   the 3-D engine draws on demand, so its frozen drawing cannot be told by a beat (the Studio, Lens and Arcade are wired); a brain job records a
+   failure only if it is given text, so a failed job without one reads "ran, fine"; the brain's "version day" is the app's build day (they ship
+   together); iOS says nothing for motion and clipboard through its Permissions API, so those rows read "Last time: …" from the phone's own record or
+   "Not asked yet"; the Sunday note's "7 moments felt off this week" line is written (`feltLine()`) but not yet placed in the Sunday section. NOT
+   REACHED: the real Safari Permissions answers, the iOS Settings paths and the frozen-draw check on a real graphics chip were not tried in the
+   sandbox. THE CALL THAT IS YOURS: none.
+202. **PRESENTATIONS (BRIEF-EDITOR-PRESENTATIONS; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid
+   tier, landed 13 Nov; PR "PRESENTATIONS: the fourth editor (slides, notes, PowerPoint in and out)").** What it is: MAKE, PRESENTATIONS is the core
+   of PowerPoint on the phone, on the app's own code with no package. A deck has a theme (thirteen, the first Paper, every colour an existing token's
+   value), a master (titles left or centred, the deck's name at the foot, slide numbers) and slides in one of nine layouts (title, bullets, two
+   columns, picture with a caption, chart, table, quote, section, blank). The words reuse Documents' own blocks (bold, italic, underline, links,
+   bullets, numbered lists); a slide may carry one picture (shrunk to 1,280 px, never sent), a chart from typed numbers or the Stage's last chart, or
+   a table, up to two shapes, speaker notes, a transition (none, fade, push) and builds per part. Sixty steps of history. The screen shows the deck as
+   a vertical film of slides, tap one to open it, press and hold then drag to reorder; the words are typed in a line above the slide (never a caret on
+   it); INSERT a photo of yours, a chart, a table or a shape; THEME; NOTES; and PRESENT with your notes and the next title in your hand, NEXT and
+   BACK. START FROM A REPORT turns a research answer, a document of yours or any reply with headings into a deck (a title slide, one slide a heading
+   with its first lines as bullets and the whole section in the notes, a chart slide where numbers draw, a sources slide last); the Stage's MAKE
+   SLIDES OF IT does the same from a document or chart answer. Out: .pptx written by our own writer (real bullets, hyperlinks, pictures, tables, notes
+   pages; a chart is written as its numbers in a table that this app turns back into a chart), PDF (pictures, so the words are not selectable, said in
+   the export sheet) and a PNG of a slide, with the size said first. In: someone else's .pptx through our own strict reader, with what it could not
+   keep (video and sound, SmartArt, animations, comments, nested bullets, single-word fonts, a 4:3 shape) said once. The library also reads a .pptx (a
+   page per slide with its notes). MAKE now holds ten things on the two-row band. A thirteen-slide deck with a theme, three moves, a picture and notes
+   is written and read back equal in 67 ms (97,318 bytes). YOUR PHONE CHECK: (1) MAKE, PRESENTATIONS: the empty page; START FROM A REPORT on a report
+   you have: the slides and a sources slide at the end. (2) Tap a slide, change its words in the line above it; add a bullet; make one bold. Change
+   the theme: every slide repaints. (3) INSERT a photo on one slide and a chart from a few typed numbers on another. Move a slide down (MOVE DOWN, and
+   by pressing and holding it); duplicate one; delete one and UNDO. (4) NOTES on a slide; PRESENT: the slide, your notes and the next title in your
+   hand; NEXT and BACK; a tap advances a build; two fingers back. (5) EXPORT .pptx (the size said) and open it in Keynote or PowerPoint: the same
+   slides, the notes there, the chart as its numbers. Open someone's .pptx here: what it could not keep is said once. (6) Does it feel like a slide
+   app, or like a document with borders? Say which. DECIDED under 179: MAKE holds ten things on the two-row band (SPREADSHEETS nine, PRESENTATIONS
+   ten, settled under 179). FOUND NOT FIXED: one spec (awareness) dies at its car screenshot under load because of the 3-D drawing, its screens part
+   is clean; the jump-bar open budget (300 ms) is missed under load in the tabs and look specs (the bundle is one 3.7 MB app.js with every editor in
+   it); a PDF is pictures, so its words are not selectable (said in the export sheet); the text in a .pptx is Arial and PowerPoint may break a line a
+   word earlier or later than the phone; slides read from someone else's file are placed by our nine layouts, not their coordinates (only a shape
+   keeps its place); a 4:3 deck is set on 16:9 slides (said); the talk keeps the screen awake only where the phone has the Wake Lock. NOT REACHED:
+   PRESENT ON THE WALL (THE WALL was not on this build's base; it needs a slide kind in the wall's list, and a slide already draws alone); a chart
+   from a spreadsheet's range (SPREADSHEETS was not on this build's base); opening our .pptx in PowerPoint and Keynote unchanged, press-and-hold, the
+   pinch, a real two-finger tap and the share sheet, which need a phone. THE CALL THAT IS YOURS: a `slides` brain tool goes to the next kernel pass
+   (the AI parts are chat turns today and the prompt guard is untouched).
+206. **THE WORKSPACE (BRIEF-EDITOR-WORKSPACE; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid tier,
+   landed 13 Nov; PR "THE WORKSPACE: the fifth editor, and the EDITORS fold").** What it is: MAKE, EDITORS, THE WORKSPACE is the core of Notion on the
+   phone, on Documents' blocks and SPREADSHEETS' formula engine, no package: pages inside pages without limit (a cycle is refused; MOVE UP and DOWN; a
+   30-day bin; duplicate; backlinks worked out, never kept), twelve thin-line page marks of the house (never an emoji), databases with properties
+   (text, number, select, multi, date, checkbox, person, relation, rollup, formula) shown as a table, a board, a month calendar, a timeline or a
+   gallery, each view with its own sort, filter and hidden columns, and five templates (PROJECT, MEETING NOTES, A READING LIST, A TRIP, WEEKLY PLAN).
+   Typing "/" in a page offers a to-do, a table or a link to a page or a document. Versions are kept and thinned (the newest ten, then the closest
+   pair merged) so sixty reach back across days; HISTORY restores one; SEARCH reaches deep in the tree. ASK ABOUT THIS PROJECT sends the project as
+   one chat turn's data and says its size first; the answer lands as blocks to keep; "what is due this week in my project" is answered on the phone
+   from its own dates, offline. EXPORT is a zip of Markdown with a CSV beside each database (size said; pictures cannot ride in it, said), and a
+   Markdown folder or CSV imports back. The store is one key of 8 MB (the oldest versions let go first, and said) and rides the daily backup. THE
+   FOLD: MAKE had grown past ten things, so the editors now live under one EDITORS card with a pill each (DOCUMENTS, SPREADSHEETS, PRESENTATIONS, THE
+   WORKSPACE), made from one list; the card says how many things live on this phone across them and its body opens the editor you used last; MAKE
+   shows 8 cards and its band is one row; THE PLAN and Every screen still number every screen. In a simulated week (30 edits a day with a reload after
+   each, and the storage made to fail on day four) all 210 edits were there, median 701 ms to "Saved". YOUR PHONE CHECK: (1) MAKE, EDITORS, THE
+   WORKSPACE: the empty page; START A PROJECT: the tree, the board, the calendar, the table. (2) Add three tasks with dates; drag one across the board
+   (hold a moment; hold at the screen's edge to reach a column beyond it); CALENDAR; TIMELINE (pinch, or the zoom keys). (3) Type a page; "/" for a
+   to-do, a table, a link to a page or a document; open the link; BACKLINKS on the other page. (4) A formula property: prop("Cost") * 1.2; break it on
+   purpose: the error in my words. (5) "…", HISTORY: restore an older version; UNDO. SEARCH a word deep in the tree. (6) ASK ABOUT THIS PROJECT: it
+   says how much it sends first; the answer lands as blocks to keep. Aeroplane mode: "what is due this week in my project". (7) EXPORT: the size said,
+   a zip of Markdown with a CSV beside each database; share a CSV with the IMPORT key: a database. (8) Does it feel like a workspace or a folder of
+   documents? Your call. DECIDED under 179: MAKE shows 8 cards with the editors folded into one EDITORS card (11 things minus 4 plus 1); the editors'
+   keys in the daily backup and the 40 px button rule go to POLISH 3 (SMALL FIXES 2d). FOUND NOT FIXED: the documents, spreadsheets and presentations
+   stores are not in the daily backup (only the workspace rides it); no hook exists for the Shortcuts' ?add= or the library's share path for editors,
+   so import is by the file picker in the screen; pictures cannot ride in the Markdown export (a picture block keeps its description); database rows
+   are pages without their own history list unless they hold words; the phone-wide rule that holds buttons at 40 px is below the 44 pt rule for every
+   other screen's keys too; speed, look, ink and jump-bar budgets missed under load on a shared machine (the bundle is now 4.0 MB). NOT REACHED: a
+   `workspace` brain tool for edits on the brain's side is not built (the AI parts are chat turns with the project's text as data); a plain copy of
+   the workspace on the brain for a second device is not built (the sealed daily backup is what "synced" means). THE CALL THAT IS YOURS: none (the
+   person property reads only the phone's own known names).
+205. **QUALITY PASS: SEE (BRIEF-QUALITY-SEE; your words in 178 "i want everything to have insane quality even if there's things in the past which
+   we've had which could have better quality", with 137 and 139 (the Machine's marks) and 55, 56 and 58 (the Lens's people rule); the mid tier, landed
+   13 Nov; PR "QUALITY PASS: SEE (God's Eye, the Machine view, the Lens, Threats)").** What it is: The third quality pass: nothing new, the SEE room
+   measured at 440 and 390 (camera refused and granted, signal on and off) and made right, 31 fixes against 25 asked, each with a check in
+   tests/seepass.spec.mjs, 218 checks clean, eighteen new rows in the STATES RATCHET. GOD'S EYE: "Drawing the world…" while the first frame draws;
+   ROAD AHEAD with no position says "The phone would not share where it is. Settings, Ghosty, Location, or search a place above." with SEARCH A PLACE;
+   a search with no hit says under the box "I couldn’t find “zzqxqzz”. Try a town, a flight number or a ship’s name." (no signal: "No signal, so I
+   can’t look up “x”. The globe’s cities and your saved places still work."); no cameras near says so; a camera that will not play says "I can’t reach
+   this camera just now." with TRY ANOTHER; plane, ship, satellite and launch cards carry their source and their units ("36,000 feet · FL360 / from
+   the feed", "STARTS IN 5 hours / from the launch schedule", "worked out from its orbit"); every control 44 pt in THE SCAN; LAYERS reads "WHAT TO
+   SHOW" and SENSOR "HOW IT SEES". THE LENS (ten modes): the camera refusal once in your words ("The phone would not give me the camera. Settings,
+   Ghosty, Camera, switch it on, then tap START."), every first load a waiting line ("Waking the eyes…", "Loading the names…", "Measuring… about half
+   a minute for each photo."), READ with no words says "No words in view. Hold the page flatter.", NAME says "Maybe robin, sparrow or wren. I’m
+   guessing.", MEASURE rows say "a first estimate", ASK and PHOTO TOOLS say what to do with no picture or no signal, "PROBLEM" became "NO ANSWER", and
+   PEOPLE's stranger line is the rule's own: "Someone I don’t know. I never identify a stranger." (the logic untouched). THREATS: every row says how
+   old it is and from which feed ("12 minutes ago, from the USGS feed"), empty says "Nothing serious anywhere right now. / I look again by myself
+   every few minutes.", no signal says "No signal; this is from 09:40.", NEAR HOME with no places has one key, SAVE MY HOME. THE MACHINE VIEW and the
+   eyes' packs: "No signal: these counts are the last I saw.", "Looking round Birmingham…", and a stopped pack offers "RETRY · 47 MB" (the size said,
+   on Wi-Fi). The people rule's logic and the models' pins are untouched; no new colour. YOUR PHONE CHECK: (1) God's Eye cold: "Drawing the world…"
+   then the globe; search a town, then nonsense (a line under the box); tap a camera, then a dead one (TRY ANOTHER). (2) The Lens with the camera
+   refused: the words once; allow it; point at nothing, a cup, a blank page ("No words in view…"). (3) NAME a plant ("Maybe …"); PEOPLE yourself, then
+   a stranger on the TV (the rule's line). (4) MEASURE a table (cm, ft/in, "a first estimate"); aeroplane mode: ASK says what still works. (5)
+   THREATS: each row says how old it is and from which feed; NEAR HOME with no places offers SAVE MY HOME. (6) The eyes' packs in Settings: a stopped
+   one offers RETRY with its size. DECIDED under 179: GLASS and ONE INK keep their 40 pt controls on God's Eye's bar (the 44 pt rule is scoped to THE
+   SCAN so those looks stay pixel-equal), the same call as under the MAKE pass. FOUND NOT FIXED: only "machine view" is answered on the phone, so
+   "open the lens" and "show threats" have no phrase line (adding one is a new ability); the Lens's chips are 36 pt boxes with a 44 pt reach and AIM's
+   heading slider is 16 pt high (a real 44 would reflow the Lens); God's Eye, the Machine view, the cameras' grid and THREATS' top still time out in a
+   software-drawn sandbox, so they have no before-and-after pictures; the first-draw time and a model's load to first box depend on machine load and
+   were not recorded as before and after. THE CALL THAT IS YOURS: two small ones: whether "Settings, Ghosty, Camera" is the right path for how you run
+   it (the installed app, not Safari), and whether a local phrase should open ROAD AHEAD, THREATS and the Lens (a new ability).
+210. **QUALITY PASS: MAKE (BRIEF-QUALITY-MAKE; your words in 178 "i want everything to have insane quality even if there's things in the past which
+   we've had which could have better quality", with 127 and 164 (MAKE as your workbench); the mid tier, landed 13 Nov; PR "QUALITY PASS: MAKE (the
+   Workshop, the 3D studio, Reverse, Space, the Workbench, Convert, House)").** What it is: The fourth quality pass: nothing new, the older half of
+   MAKE measured at 440 and 390 and made right, the 25 planned fixes plus six beyond the brief, each with a check in tests/makepass.spec.mjs (264
+   checks green, each red on the old pages). THE WORKSHOP: the website draft says "Opening the website…" and, if it cannot come, "I can’t show this
+   website just now. Tap RETRY and I’ll try again." (no signal has its own line); WHAT'S NEW tells the truth ("NOTHING NEW" when nothing is from this
+   week, the older lines behind "Show 11 earlier"); a project says where it has got to ("RUNNING · step 2 of 3 · a step every 20 minutes · 3 minutes
+   ago"); PROJECTS with none has a key, ASK FOR ONE. THE 3D STUDIO: the load said once ("Loading the studio…"), a model's fetch said with its size
+   where known ("Fetching “BLOODY BAND-AID”, 800 KB…"), a model that will not load says it once with TRY AGAIN and its own page on Sketchfab or Poly
+   Haven, no-hit search names what to try, every card's credit reads "by SV Garip · CC0", TAKE APART's slider and the bar keys are 44 pt. SPACE: the
+   walkway warning names the gap ("62 cm between the sofa and the TV unit: under the 70 cm a walkway needs (red)."), WILL IT FIT? says which side is
+   too long, DESIGN MY HOME asks for a little about your home first and a dead brain is "NEEDS THE BRAIN · OUT OF REACH", a photo with no walls says
+   what to try. THE WORKBENCH: a mistyped number is said beside its field ("“abc” isn’t a number I can read. Type the span in m, like 12."), eight
+   bare numbers carry their unit or "no unit", the tunnel says "Starting the wind…" and, if its worker dies, "The wind stopped. Tap RETRY and I’ll
+   start it again." REVERSE: job rows say their state and when, the list says "Looking for your reports…", START without GitHub says once that GitHub
+   is not connected with CONNECT GITHUB. CONVERT and HOUSE: an unknown unit names what it knows and the nearest ("I don’t know “kilometrs”. The
+   nearest I know: km."), a file it cannot read says what it can, and HOUSE linked with nothing in it says "Nothing in your house yet…". The
+   Workbench, CONVERT and HOUSE list in one line the phrases that open them from the chat (each checked to be a real local phrase). A real bug found
+   on the way: a size like "400 cm" was read as an error code and swapped for the generic line in SPACE. MAKE's rows join the STATES RATCHET. Every
+   engineering number keeps FIRST ESTIMATE · NOT CERTIFIED. The hub cards and band, the editors, the engine's scene and the solvers are untouched.
+   YOUR PHONE CHECK: (1) MAKE, the Workshop with nothing on the go: "Nothing being made. Ask for something that takes days…" and ASK FOR ONE; ask for
+   something small and watch the project line say "RUNNING · step 2 of 5 · …"; pull the signal: "No signal; this is from …". A website draft that will
+   not come: RETRY. (2) The 3D studio cold: "Loading the studio…" once; search "kettle": cards read "by SV Garip · CC0"; search nonsense: "I can’t
+   find “…”. Try a plainer word…"; open a card with the signal pulled: one failure with TRY AGAIN; TAKE APART's slider under the thumb is 44 high. (3)
+   REVERSE with no jobs: "No reports yet" and PASTE A LINK; START without GitHub: "I didn’t start it: GitHub isn’t connected. Tap CONNECT GITHUB
+   above." (4) SPACE: drag two pieces too close: "62 cm between the sofa and the TV unit: under the 70 cm a walkway needs (red)." DESIGN MY HOME with
+   empty words; a photo of a wall as DRAWN PLAN: "I can’t see any walls in that. Try a drawn plan…". (5) The Workbench: type "abc" into a span: said
+   beside the field. The tunnel: "Starting the wind…" before the first numbers. Every number has its unit or "no unit"; FIRST ESTIMATE · NOT CERTIFIED
+   on every card. (6) CONVERT "12 furlongs to km": "I don’t know “furlongs”. I know these lengths: …"; HOUSE with nothing in it: "Nothing in your
+   house yet…". (7) Biggest text in each of the seven: nothing cut. Each of the Workbench, CONVERT and HOUSE lists the words that open it from the
+   chat: say one. (8) Does MAKE's older half feel like the same app as the editors now? The two that still do not: the Workshop's long empties and the
+   studio's HUD words. DECIDED under 179: the five open calls (WHAT'S NEW writing in this fortnight's merges; RETRY on a stopped project; local
+   phrases to open the Workshop, the studio, REVERSE and SPACE; REVERSE's one-sentence line against the hub card's words; the specs resetting the
+   preview's brain) go to POLISH 3 (item 9); GLASS and ONE INK keep their 40 pt controls. FOUND NOT FIXED: the Workshop's roadmap, ideas and changes
+   empties are 30 to 40 words and WHAT'S NEW's lines are 40 to 55 words, cut to three lines on a phone; the studio's HUD says "16 PARTS · 8,312
+   TRIANGLES" and OPEN A FILE says ".glb" (developer words), and the catalogue's first note is 28 words; REVERSE's two notes under the form are 31 and
+   33 words and the report's own body is the report tool's English; SPACE's inputs use placeholders as labels and its FROM PHOTO tips are one 60-word
+   paragraph; the Workbench tunnel's first numbers take 1 to 4 s under load with no stable number; CONVERT's five other tools and HOUSE's unlinked
+   steps (five long technical lines shared with the brain's tests) were not re-cut; the 3-D engine's pane has no loading line while its stage wakes
+   (that file was left alone). NOT REACHED: a real iPhone's 3-D memory for the studio, WebKit and Home Assistant for real were not tried. THE CALL
+   THAT IS YOURS: none.
+211. **QUALITY PASS: PLAN AND ME (BRIEF-QUALITY-PLAN-ME; your words in 178 "i want everything to have insane quality even if there's things in the
+   past which we've had which could have better quality"; the mid tier, landed 13 Nov; PR "QUALITY PASS: PLAN AND ME (spending, markets, radio,
+   memory, settings, system, links, social)").** What it is: The sixth quality pass: nothing new, the PLAN and ME rooms measured at 440 and 390 and
+   made right, 25 fixes, each with a check in tests/planmepass.spec.mjs (211 checks clean), twelve STATES RATCHET rows. SPENDING: amounts to the penny
+   with the pound sign ("£1,234.50 out · £2,000.00 in"), a month with nothing says "Nothing spent in October. Tap ‹ for an earlier month, or add a
+   newer statement.", the arrows are named, the import says "Added 18 rows from Monzo. 1 sorted by the free AI." and a failed read says what to check.
+   THE MARKETS: the top sentence ends "As of 14:02."; offline says "You’re offline · As of 13:50, 12 minutes ago · from CoinGecko"; a panel that
+   cannot load has a 44 pt RETRY; "—" became "not read yet". THE RADIO: "Tuning…", "Finding stations…" while the list loads, and a dead stream offers
+   TRY ANOTHER. MEMORY: days read "Today", "Yesterday"; a search with no hit names your words; "Reading your memory…" and a real failure ("I couldn’t
+   read my memory just now. Nothing was lost. Tap RETRY."); PATTERNS' 48-word empty state is one line. SETTINGS' pages: a switch says what changes
+   when it is off ("I stop when you talk over me. Off, only a tap stops me."); faces with none says "None yet. I only know you, and people you
+   introduce. I never identify a stranger."; the guardian page is one sentence a paragraph with the rest behind a "?". SYSTEM's pages: LOOPS, WHAT I
+   LEARNED and FORESIGHT say "Reading this week…" and carry their "as of"; numbers read "62% right · 8 scored"; storage always says its size. LINKS: a
+   failed sign-in names the service and its key ("I couldn’t sign in to Bluesky. Check the handle and the app password, then tap LINK BLUESKY
+   again."); notification keys are 44 pt. SOCIAL: a draft says exactly what leaves and that only APPROVE sends it ("I will post exactly this on
+   Bluesky, only when you tap APPROVE."), and a failed post says "Not sent: Bluesky was down. Nothing went out. APPROVE sends it once." Every key 44
+   pt. Each of SPENDING, THE RADIO, MEMORY, INDEPENDENCE and SOCIAL lists in one line the chat phrase that opens it. Nothing is fetched that was not
+   before and no wait grew. YOUR PHONE CHECK: (1) PLAN, the Agenda, SPENDING with no statement: ADD STATEMENT and "Or say: “paste a statement”". Add
+   one: every amount is to the penny with the £; a month with nothing says "Nothing spent in October. Tap ‹ for an earlier month, or add a newer
+   statement." (2) THE MARKETS: the top sentence ends "As of 14:02."; in aeroplane mode open a coin: "You’re offline · As of 13:50, 12 minutes ago ·
+   from CoinGecko"; a panel that cannot load has RETRY ("Asking again…"). (3) THE RADIO: the list says "Finding stations…" first; PLAY says "Tuning…";
+   a dead station has TRY ANOTHER. (4) ME, MEMORY, Timeline: FORGET one thing, the undo bar, UNDO; type nonsense in "Find a memory": "Nothing matches
+   “…”"; the days say "Today" and "Yesterday". (5) SETTINGS, VOICE: the switch says "I stop when you talk over me. Off, only a tap stops me.";
+   PRIVACY: faces with none says "None yet. I only know you, and people you introduce. I never identify a stranger."; GUARDIAN: one sentence a
+   paragraph, each with a "?"; SYSTEM, LOOPS: "Reading this week…", then "…as of 14:02". (6) LINKS, NOTIFICATIONS: the ON and OFF keys are as tall as
+   a row; BLUESKY with a wrong app password: "I couldn’t sign in to Bluesky. Check the handle and the app password, then tap LINK BLUESKY again." (7)
+   SOCIAL: a post waits with "I will post exactly this on Bluesky, only when you tap APPROVE." under its words and APPROVE, EDIT and NO under that;
+   nothing goes until you tap APPROVE. (8) Biggest text in each of the eight: nothing cut. Do PLAN and ME feel like one app with the rest now? (The
+   Agenda's front, SYSTEM's front, SETTINGS' front and the BACKUP panel are the likeliest to feel older.) DECIDED under 179: by your posting rule: the
+   draft card's refuse key stays NO (as Telegram's), and a failed post's key stays APPROVE (the brain still refuses a second send of the same draft).
+   FOUND NOT FIXED: SYSTEM's BACKUP panel (RESTORE is 40 pt, the size before the tap is not said, a long note) is left to POLISH 3, which owns that
+   file; a market watch's trip is not drawn in THE MARKETS (the watchers' list is in the Agenda), and gold, silver and the currencies have no chart of
+   their own; the radio has no sleep timer, so there was nothing to make right; SPENDING's budget bars and "since last month" lines are the shared
+   maths' words (also read by the brain's tests) and were not re-cut; SETTINGS' other pages (character, meaning, shortcuts, deeplinks) have long
+   paragraphs and the front's own switches are POLISH 3's; SYSTEM's report card and training pages have no wait line, and some notes are long; the
+   Discord and Mastodon forms use the service's own names; the email and Spotify failure words were not touched; Telegram's own draft buttons (the
+   brain's) still say NO, MEMORY's "NONE YET" chips and the diary's wait were not changed; the social "before" picture is missing (the old code stops
+   at the first step); several specs could not go green in a loaded sandbox (the base the same): worth a quiet-machine run. THE CALL THAT IS YOURS:
+   none.
+212. **QUALITY PASS: LEARN (BRIEF-QUALITY-LEARN; your words in 178 "i want everything to have insane quality even if there's things in the past which
+   we've had which could have better quality", with 125 (the Library as a library); the mid tier, landed 13 Nov; PR "QUALITY PASS: LEARN (courses, the
+   Arcade, the GYM, School, the Library, Learning, the Coach)").** What it is: The fifth quality pass: nothing new, the LEARN room measured at 440 and
+   390 and made right, 25 fixes, each with a check in tests/learnpass.spec.mjs (206 checks clean), eight STATES RATCHET rows. COURSES: "Planning your
+   course…" as a wait, an empty topic said beside the box, the lesson, quiz, exam and marking waits said, a lesson with no brain says "I can’t write
+   this lesson without my brain." and what still works, a wrong answer reads "Not quite. The answer is B) Oxygen." plus why, a typed answer with no
+   brain says it is not counted. THE ARCADE: on mobile data "You’re on mobile data, so I’ll wait for Wi-Fi, then fetch 24 MB." (the download rule is
+   kept exactly), mid-way "Fetching 12 MB of 24 MB (50%)…", a lost signal says nothing was kept with "RETRY · 2.5 MB", a game that will not start says
+   what to do. THE GYM: TRAIN says "Starting to train… my first results come in a moment.", the worker's own text never reaches the board ("Training
+   stopped by itself. Tap TRAIN and I’ll try again."), chess ratings carry their word ("You: about 1,350 (club level) · Me: about 1,850 (strong club
+   level) · give or take 70"), a finished game says "You beat me." or "I won this one." with PLAY AGAIN. SCHOOL: the ladder is one line with the rest
+   behind "How the ladder works", SIT's progress adds "about 14 min left", a paper not passed says "Not top grades yet. Read up on fractions and ratio
+   next." (from that paper's weakest topics), and with no offline brain on the phone it says so with its size. THE LIBRARY: an empty shelf says what
+   to add, a file it cannot read says what works, a no-hit search says "I can’t find “zzqxqzz”. Try one plainer word, or fewer words.", a book that
+   will not open has TRY AGAIN. LEARNING: the typing passage is plain sentences only, each helper one sentence, "Nothing logged yet…" and "Your run
+   ended. Your best is 5 days: start a new one today." THE COACH: a refused microphone says "The phone would not give me the microphone. Settings,
+   Ghosty, Microphone, then press START." (it still starts only on START), the tuner reads "12 cents, a little flat" or "in tune". The level chips,
+   minute chips, START, PLAY keys and the Library's TRY chips are 44 pt in THE SCAN. The games, the workers, the papers, the reader's page engine and
+   the hub cards are untouched. YOUR PHONE CHECK: (1) LEARN, courses with none: "Tell me what to teach and I make you a course." Type nothing and tap
+   START: the line under the box. "Teach me photosynthesis": "Planning your course…", then the map. Aeroplane mode on a lesson not yet read: "I can’t
+   write this lesson without my brain" and what still works. A wrong answer: "Not quite. The answer is B)…". (2) The Arcade on mobile data: GET says
+   the size; "You’re on mobile data, so I’ll wait for Wi-Fi…". Pull Wi-Fi mid-fetch: "Fetching 12 MB of 24 MB (50%)…" then the failed words and RETRY
+   · 24 MB. A game kept: it opens. (3) The GYM: TRAIN on a game: "Starting to train…". PLAY HIM on tic-tac-toe and lose on purpose: "I won this one."
+   and PLAY AGAIN. Chess: your rating "about 1,350 (club level)". (4) SCHOOL: the ladder's one line and "How the ladder works"; with no offline brain
+   on the phone: its size before any tap. SIT a paper: "Question 7 of 20", "about 4 min left"; not passed: "Read up on … next". (5) The Library: an
+   empty shelf and ADD A BOOK; add a file it cannot read: what works; search nonsense: "I can’t find “…”"; a book that will not open: TRY AGAIN. (6)
+   LEARNING: each pill's one line and "How it works"; the typing passage is always plain sentences; a streak ended: "Your run ended. Your best is 5
+   days…". The COACH with the microphone refused: "Settings, Ghosty, Microphone, then press START"; allowed: hum a note, "12 cents, a little flat".
+   (7) Biggest text in each of the seven: nothing cut. The GYM, Library, LEARNING and Coach list the words that open them from the chat: say one. (8)
+   Does LEARN feel like one room now? The two that still do not: School ("he" and "I") and the Arcade's long "HOW IT PLAYS" notes. DECIDED under 179:
+   GLASS and ONE INK keep their control sizes; the GYM league's rating keeps no human-scale word (it is only a rating against its own earlier
+   versions); School's "he" and local phrases to open COURSES, the Arcade and SCHOOL go to POLISH 3 (item 10, SMALL FIXES 2g). FOUND NOT FIXED:
+   COURSES' exam and revise lines and the start panel's second note are 15 to 25 words, and an outline plan says "no model was free to plan it" (a
+   developer word); the Arcade's three HOW IT PLAYS notes are 28 to 33 words (they say the download rule, kept) and the CONTROLS lines for DOS games
+   name keys; the GYM's puzzles line and the league line say "he" (files not this pass's), and the board's strip dots are small with a 44 pt reach;
+   SCHOOL speaks of "he" throughout, its FREE GPU lines are 25 words or more, and its record names a brain model; the Library's Wikipedia-offline
+   notes are 25 to 35 words and the idle search note names a Settings path; LEARNING's First aid screen still has two notes (one shared, not editable
+   here), and the Coach's lessons and metronome were not walked state by state; the Coach's tuner has two voices on the same number (its own words
+   under the new line). NOT REACHED: a real PDF's page draw, READ TO ME on a real iPhone, a real offline brain download and a real game from the
+   Internet Archive were not tried (words and source checked). THE CALL THAT IS YOURS: none.
+204. **PHOTO (BRIEF-EDITOR-PHOTO; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid tier, landed 13 Nov;
+   PR "PHOTO: the sixth editor, on the EDITORS card").** What it is: MAKE, EDITORS, PHOTO is a non-destructive photo editor on the app's own code with
+   no package: your original is kept untouched in the phone's own database with a recipe beside it (sixty steps of history), drawn by the app's own
+   WebGL2 passes with a slower CPU twin that must agree (the largest difference on a test touching every group is 0). The trays are LOOKS (eight looks
+   of ours; SAVE A LOOK), LIGHT, COLOUR, CURVES (one finger), DETAIL, CROP (straighten, perspective, lens), MASKS (a gradient, a brush, SUBJECT),
+   HEAL, LAYER (a second photo in five blends with its own mask), EFFECTS (grain) and BRAIN (the three existing brain tools, BACKGROUND, SHARPER and
+   ERASE, kept exactly as they were). Sliders are 44 pt and say their value; hold the photo to see the original. A HEIC from the camera roll opens
+   upright. EXPORT writes JPEG at the crop's own size in 1,536 px tiles (a 12-megapixel photo took six tiles; a canvas past 16.7 megapixels, which
+   iPhone Safari cannot make, is exported at the largest size that fits, and said); the location is not carried into the edited file and the sheet
+   says so; the original reads back byte-equal. BATCH applies a saved look to many photos (keeping each crop, masks and heals), exports each at full
+   size and says the total size after the draw and before SAVE ALL or SHARE ALL. EDIT IT sits on picture links in the chat and in PHOTO TOOLS'
+   results; "edit a photo" and "my photos" work in the chat. SUBJECT's first cut uses the depth and box eyes where they are kept; where they are not
+   it says what it needs (about 90 MB, on Wi-Fi) and the brush paints it by hand. A RAW says "I can't open RAW yet; a JPEG or HEIC of it works." PHOTO
+   lands on the fold: one line in the EDITORS list adds a PHOTO pill (MAKE still shows 8 cards, now with five pills), and the EDITORS card's line also
+   counts your kept photos. YOUR PHONE CHECK: (1) MAKE, EDITORS, PHOTO: open a photo from your camera roll (a HEIC). Does it open at once, the right
+   way up? (2) LIGHT: exposure and shadows; COLOUR: warm it; CURVES: lift the midtones with one finger. Hold the photo: the original. (3) CROP:
+   straighten a crooked horizon with the dial; 4:5. MASKS: a gradient over the sky, darker; SUBJECT: how good is the first cut? (4) HEAL a spot.
+   LAYER: a second photo, multiply, half. EFFECTS: a little grain. (5) SAVE A LOOK; BATCH it onto five photos; EXPORT ALL: the size said first; the
+   photos land in Photos at full size. (6) EXPORT one as JPEG at the quality you like and share it. The original back out: unchanged. (7) BRAIN:
+   BACKGROUND on one; in aeroplane mode, what does the BRAIN group say, and does everything else still work? (8) Does it feel like a photo editor or
+   like filters on a picture? Say which, and the one slider that feels wrong. Also pinch to zoom and two fingers to pan. DECIDED under 179: RAW, a
+   cut-out model for SUBJECT and an erase model for ERASE become a PHOTO 2 pass under your yes (185), landing right after this; the brain test runs
+   from one import line in router.test; this PR lands only on the EDITORS fold (a PHOTO pill, not a card), with the tabs speed budget under load left
+   to CI's word. FOUND NOT FIXED: no share target or ?add= exists, so OPEN A PHOTO is the file picker (and ?open=photo); HEAL is a feathered clone
+   with an automatic source search and no tone matching; the crop's drag is checked to stay inside the turned picture but does not auto-fit while
+   dragging; the benchmark times are inflated by the sandbox's software graphics and its load (the frame itself took 2.6 to 433 ms, 8.6 in the
+   cleanest run); the jump-bar speed budget is red under load in the tabs spec (not in this diff). NOT REACHED: two-finger pinch and pan could not be
+   driven in the sandbox (double-tap zoom and hold are tested; pinch is for the phone); WebKit was not run for this spec. THE CALL THAT IS YOURS:
+   none.
+209. **PHOTO 2 (BRIEF-EDITOR-PHOTO-2; your "yes to all" (185, 12 Nov) to "RAW photos, cut-outs and object removal on the phone, each on your tap on
+   Wi-Fi with the size said"; the mid tier, landed 13 Nov; PR "PHOTO 2: cut-outs, erase and RAW on the phone").** What it is: PHOTO gains three things
+   that run on the phone, each a pack you fetch only on your own tap, on Wi-Fi, with its size said before a byte moves (offline it waits and says so;
+   one download at a time; STOP and RESUME; REMOVE in Settings says the size freed). Each pack's licence and size were written down before a byte was
+   vendored: the CUT-OUT MODEL (Apache-2.0) is 4.6 MB plus a 14.3 MB shared runtime, about 19 MB; the ERASE MODEL (Apache-2.0 weights, our own int8
+   build of them, made by a script kept beside it, because a ready-made smaller build was rejected as unverifiable and wrong) is 55.7 MB in three
+   parts, about 70 MB with the runtime, under the 120 MB line so no extra big-pack warning; the RAW READER is LibRaw 0.22.1 as WebAssembly, 0.93 MB,
+   free software under LGPL-2.1 or CDDL-1.0 as a separately fetched file never linked into the app (its binding is MIT). A first RAW library was
+   refused because it needed the app's security policy relaxed for one worker; that was not done, and a second library that runs under the policy as
+   it is shipped instead. SUBJECT now uses the cut-out model when it is kept (the first cut remains when not), the brush paints over a mistake, and
+   ERASE paints over a mark with the erase model on the phone (a patch laid over the original; hold shows the photo without it; the batch and the
+   export draw it too), saying "Erasing… about N s" from the last run (25 s the first time); BRAIN ERASE stays beside it. A RAW (CR2, NEF, ARW, RAF,
+   ORF, lossless DNG and more) opens, a 16-bit PNG is kept beside it, EXPORT ORIGINAL gives the RAW's bytes back byte-equal, and one over 40
+   megapixels is read at half size; lossy-JPEG DNG, Kodak JPEG and deflate DNG are said not to be readable. The three packs are listed in Settings,
+   offline eyes (seven packs now). The tray's keys wrap rather than being cut at 390. YOUR PHONE CHECK: (1) PHOTO, a photo of a mug on a table,
+   SUBJECT: the first cut, then GET the cut-out model (about 19 MB, Wi-Fi): the cut again. Better? (2) Paint over a mistake with the brush. Darken
+   only the background through the mask. (3) ERASE: GET the erase model (about 70 MB); brush over a mark on the table: gone? Compare BRAIN ERASE on
+   the same mark. (4) Share a RAW from a camera (or a DNG from a phone that shoots them): does it open, and does EXPORT ORIGINAL give the RAW back?
+   (5) Settings, offline packs: REMOVE the cut-out model: SUBJECT says it is back to the first cut. (6) Aeroplane mode: GET waits and says so;
+   everything already kept still works. DECIDED under 179: no extra warning for the 70 MB erase pack beyond its size said; true 16-bit RAW editing (a
+   float source in the photo pipeline) is left for a later PHOTO pass; the brain test runs from one import line in router.test. FOUND NOT FIXED: a
+   kept RAW's 16-bit picture is stored only up to 90 MB (a bigger one is read again on every open, with the wait said), and the editor's working
+   picture is eight bits with a soft shoulder, so highlights recover only as far as that holds; the cut-out and erase models are loaded per use and
+   put away, so a second erase pays the 8 s load again; the erase model fills plausibly, not truly: across faces, writing or many different things it
+   will look made up (its README says so); 12-megapixel erases are not timed (the hole's crop is 512 px, so cost should not grow with the photo); a
+   spec line on tags standing together in the Lens could not be told from load there; the sandbox's timings are under load and software graphics:
+   SUBJECT cut about 8 to 16 s, whole ERASE about 55 to 64 s, a tiny DNG read in under 2.1 s. NOT REACHED: a real camera RAW was not available in the
+   sandbox (only a hand-written DNG is proven). THE CALL THAT IS YOURS: none.
+216. **VIDEO (BRIEF-EDITOR-VIDEO; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid tier, landed 13 Nov;
+   PR "VIDEO: the seventh editor, on the EDITORS card").** What it is: MAKE, EDITORS, VIDEO is a video editor on the phone, on the app's own code with
+   no package: clips on a timeline with posters, 44 pt trim handles and pinch zoom; TRIM, SPLIT, SPEED, ORDER (keys, and press-and-drag with edge
+   scroll), TRANSITION (crossfade and more), TITLE (typed in a line above the picture), GRADE (the PHOTO grade, ten sliders, a midtones curve, hold to
+   compare, a .cube LUT, COPY THE GRADE), SOUND (clip level, MUSIC with gain and fades from a file, RECORD a voice-over with a level bar, DUCK so
+   music drops under you), SUBTITLES (your brain hears the clip in 25-second pieces after a one-time line, or you type them; .srt and .vtt in and
+   out), OVERLAY (picture-in-picture with a chroma key picked by a tap), MOVE (keyframes), CROP, ASPECT and MASK, SCENES (SPLIT AT THE CUTS) and QUIET
+   (CUT THE PAUSES as a ripple delete, listing what it cut). Projects (new, open, duplicate, delete with UNDO, .zip out and in) keep sixty steps of
+   history. EXPORT writes .mp4 through our own muxer and reader by one of two paths: WebCodecs where the phone has the encoders, else the phone's own
+   recorder in real time; the path and the size are said before the tap, and when the file ends up more than twice off the size said, one line says so
+   ("Smaller than I said (about 48.8 MB): the phone's recorder chose its own rate."). A clip it cannot read (HEVC, webm, over 250 MB) is made into a
+   smaller copy first ("Making a smaller copy… about N s"). Every state is said in words: empty, undecodable codec, slow export path, brain away,
+   offline (once), room running out and what would be let go, unreadable music, no sound in a clip, no WebGL2. A video file dropped on the chat opens
+   it; the Library offers OPEN IN VIDEO; "my videos", "edit a video" and "cut this video" work in the chat. VIDEO lands on the fold: one line adds a
+   VIDEO pill (six pills; MAKE still shows 8 cards) and the EDITORS card also counts your kept videos. On a real run: 1080p exported in 59 s real time
+   to a 1.0 MB file with a frame at 30 s of the expected colour, though that was software drawing under load, not a phone. YOUR PHONE CHECK: (1) ADD
+   four clips: do they open at once, upright, with sound? (2) TRIM, SPLIT, SPEED 2x: does scrubbing follow your finger? (3) A crossfade, a TITLE in
+   the line, GRADE warmer, COPY THE GRADE. (4) MUSIC, then RECORD a few words: does the music drop under you? QUIET: what did it cut? (5) SUBTITLES
+   from the brain: wrong words? (6) EXPORT 1080p: the size said first, which path, the file in Photos with sound, share it to Messages. (7) Aeroplane
+   mode: one line; biggest text: nothing cut. (8) Is it an editor, or a trimmer with filters? Which tool is slowest? DECIDED under 179: stabilisation,
+   best clips, music matching, reverse and a speed ramp go to a VIDEO 2 pass under your yes (185), landing right after; this PR lands only on the
+   EDITORS fold (a VIDEO pill, six pills, MAKE still 8 cards), and the tabs2 count of 42 stands on CI's word because that spec stayed red on the known
+   jump-bar budget under load. FOUND NOT FIXED: the .cube parser accepts 2 to 65 points a side (17 and 33 are what is said); music comes from a file
+   picker, not "your library" (the Library holds text only); an overlay clip's own sound is not mixed, the frame rate is fixed at the project's 30,
+   and a transition at a cut that CUT THE PAUSES makes becomes a plain cut; the recorder path under heavy software drawing records few frames, so the
+   size said before the tap (a bit-rate estimate) can be far above the file; the editor's open budget and several shell budgets missed under load on a
+   shared machine. NOT REACHED: the WebCodecs plus AAC export path is written but was not proved in the sandbox (its browser has no AAC encoder;
+   Safari has both encoders), only the recorder path was proved end to end; a long clip's smaller copy was not run on a long clip, and the share sheet
+   and Photos playback need a phone; Director Mode (a voice model, a download asked for first) and several cameras are not built. THE CALL THAT IS
+   YOURS: none.
+217. **VIDEO 2 (BRIEF-EDITOR-VIDEO-2; your "yes to all" (185, 12 Nov) to "stabilisation and 'best clips' (a Video 2 pass after Video lands)"; the mid
+   tier, landed 13 Nov; PR "VIDEO 2: steady, best clips, on the beat, reverse and a speed ramp").** What it is: VIDEO gains five things, all the
+   phone's own arithmetic: nothing is downloaded, nothing is vendored, and a clip never leaves the phone for any of them. STEADY (under SPEED): the
+   app finds the shake by matching blocks between frames, builds a smoothed camera path and writes corrections (turn, scale and shift) that you can
+   change with a Steadier slider without reading the frames again; it says "Steadying… about N s" with the frames done, then "Steadier: loses N% at
+   the edges"; a clip too dark, too flat or too fast is left as it was and said; UNDO takes it off. BEST CLIPS (under SCENES): clips are scored on the
+   phone for sharpness, light, motion and variety (never for who is in them) in units of about 3 seconds, the best are chosen to 15, 30, 60 seconds or
+   a typed length, each line with a reason ("blurred: left out", "too dark: left out"), and MAKE THE CUT builds the project (it clears titles,
+   pictures and subtitles because their times no longer fit; UNDO brings everything back); the namer's word on a pick is used only where the namer is
+   already kept, otherwise "Without the namer kept, I choose by sharpness, light and variety alone." ON THE BEAT (under SOUND): the music's onsets
+   give a tempo ("about 120 beats a minute") and SNAP TO THE BEAT moves each cut to its nearest beat within 400 ms without changing the video's length
+   ("12 cuts moved to the beat, the biggest by 310 ms"); with no music it says to add some first. REVERSE and a SPEED RAMP (under SPEED): a ramp from
+   1x to 2x over 10 seconds of picture plays in 7.5 seconds (the pace changes in a straight line), the sound is pitched along it or dropped as you
+   choose, the preview seeks to each picture and says once it will be rough until export, and the export reverses exactly with a bounded frame cache.
+   No face is found, named, tracked or scored anywhere in video: a brain test reads every file in video/ and fails on any import from the face,
+   face-store, face-maths or liveness code. The export sheet's "?" line no longer lists the five and still lists Director Mode and several cameras
+   with what each would take. A seek that finishes late no longer draws over a later one, and SPLIT AT THE PLAYHEAD splits where the playhead is now.
+   YOUR PHONE CHECK: (1) VIDEO, a hand-held clip you walked with: select it, SPEED, STEADY: "Steadying… about N s" and the frames done, then
+   "Steadier: loses N% at the edges"; play it: steadier? Move the Steadier slider; UNDO: back. (2) Four clips, one shaky and one in the dark: SCENES,
+   BEST CLIPS at 30 s: which are left out and why? (the dark one: "too dark: left out"; a blurred one: "blurred: left out"); MAKE THE CUT: a 30 s
+   project; UNDO. (3) Add music: SOUND, ON THE BEAT: "about N beats a minute"; SNAP TO THE BEAT: "N cuts moved to the beat, the biggest by N ms"; does
+   it feel cut to the music? UNDO. (4) SPEED, REVERSE on a short clip (the preview is rough, said once); RAMP from slow to fast: the length said;
+   export and play it in Photos (the reversed clip is exact in the file). (5) Aeroplane mode: all four still work and none says a word about the
+   signal. DECIDED under 179: Director Mode and the extra cameras stay out (a voice model download is your word); the ramp's pace changes in a
+   straight line; MAKE THE CUT clears titles, pictures and subtitles with UNDO. FOUND NOT FIXED: QUIET's CUT THE PAUSES and SCENES' cut finder read a
+   clip forwards, so on a reversed or ramped clip they map the wrong stretch; trimming a reversed or ramped clip by the handle does not move the
+   ramp's keys; STEADY's keys are in the picture's share of the canvas, so changing the aspect afterwards leaves the correction a little off; the
+   matching follows one global motion, so a clip full of foreground is left alone, said; on the sandbox steadying takes 4.4 to 9.5 s a second of clip
+   (software drawing dominates; the matching itself is under 2 ms a frame), and BEST CLIPS scoring 2.5 to 4.2 s a clip; how a pitched ramp sounds is
+   for your ears. NOT REACHED: the namer's word on a BEST CLIPS pick is written and guarded but not run (the namer pack is not in the sandbox); a
+   reversed export's backward frame cache is written but only the preview's seek is proved; WebCodecs plus AAC of a reversed or ramped clip was proved
+   only silent on a steadied clip; Director Mode and several cameras are not built. THE CALL THAT IS YOURS: none (a ramp's pace is a straight line as
+   briefed; if you would rather the speed itself changed in a straight line the same ramp plays about 6.9 s).
+208. **THE GAME STUDIO (BRIEF-EDITOR-GAME-STUDIO; your words in 127 "no i don't agree with you, i want the full editors" (4 Nov) and 164; the mid
+   tier, landed 13 Nov; PR "THE GAME STUDIO: the eighth editor, on the EDITORS card").** What it is: MAKE, EDITORS, GAME STUDIO is a 2-D game maker on
+   the Arcade's own platformer and cave engine. A game is a small file: a PLATFORMER or TOP-DOWN kind in one of the Arcade's eight world palettes,
+   your own tiles A to H, rooms up to 64 by 32 (doors that name the room and door they open, locked or not, chests, signs, save points, a flag, a
+   start, characters, things and the platformer's four foes plus a chaser), 16 by 16 sprites with five animations (idle, walk, jump, hurt, talk) of up
+   to eight frames, a player, characters with dialogue and shops, things (coin, heart, key for a named door, quest item, jump power, crate power),
+   quests (TALK TO, COLLECT n, REACH, DEFEAT n, with a reward), rules (lives, an end, a timer) and sound (eight preset loops and eight bars of your
+   own). The editor's ten pills are ROOMS, SPRITES, CHARACTERS, THINGS, QUESTS, RULES, SOUND, PLAY, SHARE and AS AN APP, with UNDO and REDO and
+   autosave. Problems are said in your words before PLAY (a door to a room that is not there, a quest nobody can finish, a room with no exit) and PLAY
+   refuses to start; four templates (a platformer, an adventure, collect them all, blank) start you. Your games are plain: no level, no pass mark, no
+   Ghosty beside them, only your best; they play on the Arcade's MY GAMES row with CONTINUE from a save point. SHARE makes a .ghostygame file (size
+   said) that opens in a friend's studio; AS AN APP makes one standalone page of 160,767 bytes (the size said before you export) that carries its
+   game, pins its one script and style by hash, and has no network at all. Ghosty helps through ordinary chat turns: SKETCH A ROOM (a box in ROOMS, or
+   "sketch a cave room with two ledges") and DRAFT LINES for a character land as first drafts you paint over. A game of yours stays on the phone. The
+   "?" says the first version has no 3-D worlds, no multiplayer and no selling. The studio lands on the fold as the seventh pill of the EDITORS card
+   (its own MAKE card goes; MAKE stays 8 cards), sits on GAMES 5's commits (already landed), and the card's line also counts your kept games. YOUR
+   PHONE CHECK: (1) MAKE, EDITORS, GAME STUDIO, NEW, AN ADVENTURE: the village and the cave. PLAY: walk, talk to the villager, read the quest line.
+   (2) ROOMS: paint a third room with your finger; FILL the floor; place a door and link it to the cave. PLAY FROM HERE: walk through it. (3) SPRITES:
+   draw a 16 × 16 tile and a two-frame walk for your player; PLAY the animation. Does drawing feel right under a finger? (4) CHARACTERS: give the
+   villager two lines and a shop selling a key. QUESTS: talk, collect three coins, reach the cave; a chest as reward. (5) PLAY the whole quest; save
+   at the save point; close the app; ARCADE, MY GAMES, CONTINUE: where you were. (6) SHARE: the size said; send it to a friend with the app: it opens
+   in their studio. AS AN APP: export; the page is in the library; open the saved file from Files and play it. (7) Ask "sketch a cave room with two
+   ledges" (or use the box in ROOMS): the draft lands in the editor; paint over it. (8) Does it feel like a game maker or like a level painter? Say
+   which, and what you wanted to add that is not there. DECIDED under 179: (a) it lands only on the fold, as the GAME STUDIO pill, with the exported
+   page carrying its icon once (160,767 bytes, it was 278,375) and the PUT IT ON MY SITES line one sentence in your voice ("I can’t put this on your
+   sites yet: that needs a change to my server, which needs your word. The file in the library is yours."); (b) PUT IT ON MY SITES (a Worker route
+   serving a stored page at /s/<name>/ with its own policy and a phone-callable publish) and a `game` brain tool are KERNEL 3 items, asked of you in
+   WHATS-LEFT; (c) the studio's 230 KB in the one bundle (the first screen +6%) is a build-shape change for POLISH 3 or KERNEL 3, not this PR. FOUND
+   NOT FIXED: the Arcade specs (games4, games5) and speed budgets are unreliable under load on a shared machine; games5 flapped on different timing
+   checks each run, the scaffolding untouched; the editor's pills row scrolls sideways inside its own box in THE SCAN (ten pills do not fit one row at
+   390), with nothing sideways on the page; tune presets use the studio's own note language, not the Arcade's tune (which cannot be bundled into a 49
+   KB page), so a game sounds the same everywhere; the PNG sheets in a .ghostygame are stored, not compressed (2 KB to 30 KB each). NOT REACHED: PUT
+   IT ON MY SITES is not built: the brain's publish tool takes a page only from its own model turn and serves it framed with no storage and no Home
+   Screen manifest, so it needs a server change (KERNEL 3, your word); a `game` brain tool, so the brain could make a game from a sentence, is not
+   built. THE CALL THAT IS YOURS: PUT IT ON MY SITES and a `game` brain tool, both KERNEL 3 and both still waiting on your word.
+215. **GAMES 6 (BRIEF-GAMES-6; your words in 94 "insanely good quality and not just slop", 172 "no cap on skill" and STARS 100 (poker and a word game
+   as opponents you can lose to); the mid tier, landed 13 Nov; PR "GAMES 6: poker and a word game, and GAMES 5's loose ends").** What it is: Two more
+   games of our own on the Arcade shelf after CONNECT 4, each ending in the two ratings (starting at 1,200). POKER: heads-up hold'em with chips only
+   ("Chips, never money." on the card, the pause card, the end card and the tile), 1,000 chips each, blinds that rise with the level and the hands,
+   sessions of 20 hands or a bust; FOLD, CHECK or CALL n, BET or RAISE n with five size keys (MIN, 1/2 POT, 3/4 POT, POT, ALL IN), HINT, HISTORY and
+   RULES, all 44 pt or more; the pot and both stacks said in chips (and to VoiceOver) and the chips always add up; a result is said with the winning
+   hand named ("Two pair, kings and fours. The pot is yours."). Ghosty's betting narrows a range for your cards with every action you take, so he can
+   bluff, and is deliberately sloppy at level 1. WORDS: a 15 by 15 board with a bonus layout of our own, seven tiles from a bag of exactly 100 (counts
+   and points ours, no blank), 40 for all seven; every word is checked against the word list ("Not in my list." at once, live as tiles go down); the
+   score is said with its bonuses ("PLANK 30 (P on a double letter, double word) · 30 points"); drag a tile or tap a square then a tile (tap again to
+   turn across or down); RECALL, SHUFFLE, SWAP, PASS (asks first), PLAY, one HINT a game, and MAP or ZOOM. The word list is ENABLE, released to the
+   public domain by its compilers (words only, no definitions): 168,551 words of 2 to 15 letters packed to 361,924 bytes, so it is a download on your
+   tap on Wi-Fi, not bundled: the card says "The word list is a 362 KB download, once, on Wi-Fi." before anything is fetched, it is kept in the
+   phone's cache storage, "Remove the word list" deletes it, and on mobile data the tap says it waits for Wi-Fi. GAMES 5's loose ends are closed:
+   backgammon's take-back takes the whole turn back; every worker the build makes is precached so DRAUGHTS and POKER play offline (the list for WORDS
+   is kept in its own cache); the cave's Ghosty level holds ("My level holds: it does not fall until I lose three sessions running."); the platformer
+   bot stomps in world 1 (stomps over 16 seeds went 4 to 30, deaths 4 to 0); Othello and backgammon search run about two to four times faster in the
+   test (Othello mid-game 5,278 to 17,071 playouts a second); and a damaged saved game has a line of its own. The GYM's Report card lists six ratings.
+   YOUR PHONE CHECK: (1) ARCADE: two new tiles after CONNECT 4: POKER and WORDS, each ending in "You: 1,200 · Ghosty: 1,200". (2) POKER: twenty hands
+   at level 1, then at level 10 (a card after each session says how often he raised and bluffed). Does he bluff? Does a result read right? HINT:
+   "about 61%". The card says "Chips, never money." The raise key says what the bet will be. (3) WORDS: tap GET (362 KB, Wi-Fi), drag seven tiles into
+   a word; a made-up word is refused at once; the score says its bonus; Ghosty plays a real word. Can you beat him at level 1? At level 12? MAP shows
+   the whole board. (4) BACKGAMMON: a take-back now takes the whole turn back. (5) Aeroplane mode, app closed and reopened: DRAUGHTS and POKER still
+   play. (6) Tomorrow: the GYM's Report card lists six ratings; the cave's Ghosty level does not drop after one bad session. (7) Does either feel like
+   filler? Say which. DECIDED under 179: the full word list stays a download on your tap (361,924 bytes), not cut to ride in the app; "Chips, never
+   money." stays; PICO-8 and Cave Story itself stay your word. FOUND NOT FIXED: ENABLE is a game word list, so it includes crude words (and no proper
+   nouns); a cleaner list would be a cut of it; the WORDS board in MAP view has squares of about 25 pt (a tap zooms; in the zoomed view every square
+   is 46 pt); poker has no limit on raises (stacks cap them), no antes and no side pots (heads-up needs none), the hint compares your hand with the
+   range his actions leave him, and at level 1 one lost session can end in a bust on the first hand if you call a shove; neither new game has
+   take-backs (poker by nature; words by design, one hint instead); level 12 answers inside its dial by the clock in the test, not measured on the
+   phone's chip; not run in WebKit; the board and arcade timing checks flap at load 15 to 22 and each ran green alone. NOT REACHED: PICO-8 (paid and
+   closed; its carts need a runtime, a download and the carts' terms) and Cave Story itself (GPL engine reimplementation that needs data files) are
+   not built. THE CALL THAT IS YOURS: the word list's form: a 362 KB download (kept), or cut to the commonest 60,000 words (about 150 KB packed) so it
+   rides in the app and drops some real words and the crude ones.
+218. **KERNEL 2 (BRIEF-KERNEL-2; your standing word in 179 "any questions you have just do the best possible thing don't wait for my answer"; the mid
+   tier, landed 13 Nov; PR "KERNEL 2: the test list, a document tool, physics, rollback after a failed first check").** What it is: The four
+   protected-file calls decided under your standing word (179), and nothing else protected. (1) THE TEST LIST: the brain's test script now names every
+   test it runs (23 imports folded into the list in the order they were added, and the import lines the earlier landings left in the test folder are
+   folded in at this landing); the count is the same before and after (1,890). (2) THE DOCUMENT TOOL, proposals only: with a document open, ASK GHOSTY
+   in its write panel (or the chat) sends your words with the open document (numbered paragraphs, headings marked, capped at 6,000 characters with the
+   rest said) and the brain may read it and propose an edit by number or quote, or an append; a proposal arrives as one of the editor's own marked
+   suggestions (the old words struck, the new beside them, ACCEPT or REJECT, UNDO) and the brain can change nothing itself; the tool is off on small
+   talk. (3) PHYSICS for the 3-D engine: Rapier 0.21.0 (Apache-2.0, 4,340,292 bytes, vendored) is fetched only when you turn PHYSICS: ON, says
+   "Loading physics, 4.3 MB…" once, and does nothing until you tap DROP IT, which drops the selected thing from where it hangs onto the floor or what
+   is under it (a table has legs and a top, walls are solid, nothing tips, one undo step); on mobile data PHYSICS: ON fetches nothing and says "You’re
+   on mobile data, so I’ll wait for Wi-Fi, then fetch 4.3 MB." and the switch stays OFF until you turn it on again on Wi-Fi; OFF leaves everything
+   where it is. It is a first estimate, never certified: a part is its boxes, friction and weight are defaults. (4) AUTOMATIC ROLLBACK after a failed
+   first check of a published trained brain: the phone reports a load failure or the REPORT CARD score of the new brain against the one before; a load
+   failure or no first answer rolls back at once, a score lower by more than the training gate's margin (3 points, or one question's worth) rolls
+   back, nothing wrong waits, a pass is logged "kept"; only the brain in use, only within 3 days of its publish, only once; it sets the previous brain
+   in use, keeps the new one on the list so you can put it back, logs why with the two numbers and tells you once; your own ROLLBACK tap is unchanged.
+   The prompt ceilings hold (plain turn 5,266 to 5,280 of 5,500, coding turn 12,001 to 12,015 of 14,000, tool descriptions 6,486 of 6,500), paid for
+   in characters (the spoken line lost 16), and the prompt guard is untouched. No new key and nothing that costs money. YOUR PHONE CHECK: (1)
+   DOCUMENTS, a letter open: type "make the second paragraph shorter" in the write panel and tap ASK GHOSTY: the change is marked in the page with the
+   old words struck; ACCEPT applies it; on another, REJECT leaves it. (2) The 3-D engine (the 3D studio's last key), a room with a table: PHYSICS:
+   OFF, tap it: the line says "Loading physics, 4.3 MB…" once, then "Physics is on." (3) Select the cup (or place it over the table) and tap DROP IT:
+   it lands on the table; a chair on the floor: DROP IT, it lands on the floor; UNDO puts a drop back; PHYSICS: ON to OFF leaves everything where it
+   is. (4) With mobile data on, PHYSICS: ON: it waits for Wi-Fi and says "You’re on mobile data, so I’ll wait for Wi-Fi, then fetch 4.3 MB." (5)
+   SYSTEM, OFFLINE BRAIN TRAINING, WHAT HAPPENED, after a publish: "First check on your phone: kept (it scored …)" or "Published, then rolled back by
+   itself … (it scored 50% … against 60% …)". DECIDED under 179: the lockfile-only install of the one physics package stands (no install was run in
+   the shared checkout), and the 6,500 guard reads the plain turn (a turn whose words call for the document tool carries its 350-character
+   description, as every keyword-gated tool group does). FOUND NOT FIXED: the first check is only as automatic as the REPORT CARD: a published brain
+   that loads fine and is never carded stays "waiting" (your ROLLBACK tap is the answer there); a real smoke question and a held-out score on the
+   phone are separate work; a brain rolled back by itself stays on the list, and a later weekly run still trains on the brain in use, as before; the
+   brain stores the message with the open document (up to 6,000 characters) in its turns for that turn, and 120 turns of up to 12,000 characters could
+   press on a Durable Object value limit (an old risk, a little larger now); physics: a part is its boxes (a chair's seat is one slab), a downloaded
+   model is one box, nothing tips, friction and weight are the engine's defaults; the vendored physics file is 4.3 MB in git, as the other vendored
+   engines are, and the build makes one app.js (no splitting), which is why it is a runtime import and not bundled. NOT REACHED: the main chat's own
+   path for the document tool (the open document sent while the editor is open elsewhere) is built and type-checked but no spec drives it (ASK GHOSTY
+   is the same tool through the same brain); the phone-side hooks of the rollback (the load-failure report and the REPORT CARD report) are not
+   exercised in a browser because no brain is loadable in the sandbox; the brain side and the pure parts are; physics on a real phone (WebAssembly
+   start time, frame time on its own graphics chip, heat) and the owner's phone check. THE CALL THAT IS YOURS: none.
