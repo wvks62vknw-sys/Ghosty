@@ -82,17 +82,31 @@ const FEATURES = new URL('../../web/src/features/', import.meta.url);
 const SRC = new URL('../../web/src/', import.meta.url);
 export const STATES = {
   'money.statement': { dir: 'money', base: 2, now: 4 },
+  // FINAL ROUND (the money lane): the MONEY screen as a budgeting app of its own (features/money/app.ts), each page with all four states
+  'money.month': { dir: 'money', base: 0, now: 4 },
+  'money.budgets': { dir: 'money', base: 0, now: 4 },
+  'money.bills': { dir: 'money', base: 0, now: 4 },
+  'money.trends': { dir: 'money', base: 0, now: 4 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
   'body.stretch': { dir: 'body', base: 0, now: 1 },
   'body.health': { dir: 'body', base: 2, now: 4 },
   'body.water': { dir: 'body', base: 2, now: 4 },
+  // FINAL ROUND, BODY lane: the four new trackers kept on the phone (features/body/track.ts), each its empty and its error
+  'body.sleep': { dir: 'body', base: 0, now: 2 },
+  'body.steps': { dir: 'body', base: 0, now: 2 },
+  'body.weight': { dir: 'body', base: 0, now: 2 },
+  'body.mood': { dir: 'body', base: 0, now: 2 },
   'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
   'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
   'kitchen.plan': { dir: 'kitchen', base: 1, now: 3 },
+  // FINAL ROUND, BODY AND KITCHEN lane: the pantry and the recipe book kept on the phone (features/kitchen/larder.ts)
+  'kitchen.pantry': { dir: 'kitchen', base: 0, now: 3 },
+  'kitchen.recipes': { dir: 'kitchen', base: 0, now: 3 },
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
+  'people.coming': { dir: 'people', base: 0, now: 4 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
