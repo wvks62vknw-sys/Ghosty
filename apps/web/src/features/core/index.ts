@@ -1154,7 +1154,10 @@ export const coreTab: TabDef = {
       lastSig = sig;
       if (atEnd || sent !== lastSent) log.scrollTop = log.scrollHeight;
       lastSent = sent;
-      paintTurnSoon();
+      // (the log is itself drawn in a frame now, or for his own words: the line goes back in the same paint, never a frame later)
+      cancelAnimationFrame(turnFrame);
+      turnFrame = 0;
+      paintTurn();
       reveal(chat.get().live);
       paintCapRate();
       armFade();
