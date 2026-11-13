@@ -72,6 +72,11 @@ export interface MindSnapshot {
   };
   /** The latest episodes of the day log, newest last. */
   recent: Episode[];
+  /**
+   * RECALL (BRIEF-DEPTH-MEMORY 1): his earlier turns that bear on the ask in hand (the last seven days, by words) and today's
+   * earlier ones, at most four, each with its day said ("today", "yesterday", "on Tuesday", "last week"). His own words only.
+   */
+  recall?: { at: number; via: string; day: string; q: string; a?: string }[];
   /** What is coming in the next six hours (from today and tomorrow). */
   ahead: DayLine[];
   /** The tool groups on for this turn. */
