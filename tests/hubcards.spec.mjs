@@ -138,18 +138,18 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const f = await page.$eval('#pg-area-make .hubgrid', (g) => {
     const card = g.querySelector('.hubtile[data-id="editors"]');
     const pills = card ? [...card.querySelectorAll('.hubpill')].map((b) => { return { id: b.dataset.editor, text: b.textContent.trim(), w: b.offsetWidth, h: b.offsetHeight, label: b.getAttribute('aria-label') }; }) : [];
-    return { n: g.children.length, ids: [...g.children].map((c) => c.dataset.id).join(), tag: card?.tagName, pills, line: card?.querySelector('.t')?.textContent?.trim() ?? '', direct: ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio'].filter((id) => g.querySelector(`:scope > .hubtile[data-id="${id}"]`)) };
+    return { n: g.children.length, ids: [...g.children].map((c) => c.dataset.id).join(), tag: card?.tagName, pills, line: card?.querySelector('.t')?.textContent?.trim() ?? '', direct: ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic'].filter((id) => g.querySelector(`:scope > .hubtile[data-id="${id}"]`)) };
   });
   if (f.n !== 8) problems.push(`[fold] the MAKE hub shows ${f.n} cards (want 8: seven things and the EDITORS card): ${f.ids}`);
   if (f.direct.length) problems.push(`[fold] the editors ${f.direct.join(', ')} are still cards of their own beside EDITORS`);
-  if (f.pills.map((p) => p.text).join('|') !== 'DOCUMENTS|SPREADSHEETS|PRESENTATIONS|THE WORKSPACE|PHOTO|VIDEO|GAME STUDIO') problems.push(`[fold] the pills read ${JSON.stringify(f.pills.map((p) => p.text))}`);
+  if (f.pills.map((p) => p.text).join('|') !== 'DOCUMENTS|SPREADSHEETS|PRESENTATIONS|THE WORKSPACE|PHOTO|VIDEO|GAME STUDIO|COMIC') problems.push(`[fold] the pills read ${JSON.stringify(f.pills.map((p) => p.text))}`);
   for (const p of f.pills) {
     if (p.w < 43.5 || p.h < 43.5) problems.push(`[fold] the ${p.text} pill is ${Math.round(p.w)}×${Math.round(p.h)} (under 44 pt)`);
     if (!/^Open /.test(p.label ?? '')) problems.push(`[fold] the ${p.text} pill has no name for VoiceOver`);
   }
   if (!/^Write, calculate, present, plan/.test(f.line)) problems.push(`[fold] a phone with nothing kept: the card's line reads "${f.line}"`);
   // each pill is one tap to its editor
-  for (const id of ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio']) {
+  for (const id of ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'comic', 'gamestudio']) {
     await hub(page, 'make');
     await page.click(`#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="${id}"]`);
     await until(page, (t) => document.body.dataset.tab === t, id, 8000, `[fold] the ${id} pill did not open ${id} in one tap`);

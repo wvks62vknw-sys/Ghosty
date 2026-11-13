@@ -53,6 +53,8 @@ import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/mod
 import { videoInst } from '../video/inst';
 import { videoTally } from '../video/tally';
 import { gameInst } from '../studio-game/inst';
+import { comicInst } from '../features/comic/inst';
+import { comicState } from '../features/comic/state';
 import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
@@ -643,6 +645,20 @@ export const CARDS: Record<string, HubCard> = {
     load: async () => (await import('../studio-game/editor')).refreshInfo(),
     say: () => (studioInfo.games ? `${studioInfo.games} ${studioInfo.games === 1 ? 'game' : 'games'} on this phone, the newest “${studioInfo.last}”` : ''),
     idle: 'No games yet: pick a template, and make one in a minute',
+  },
+  // [comic] MAKE → COMIC (features/comic): his comics read, made, and fetched from the public domain; all kept on this phone
+  comic: {
+    title: 'Read and make comics',
+    status: () => 'READY',
+    instrument: comicInst,
+    readouts: () => [
+      { label: 'On the shelf', value: comicState.books ? String(comicState.books) : null, none: 'None yet' },
+      { label: 'Made', value: comicState.made ? String(comicState.made) : null, none: '—' },
+    ],
+    why: () => (comicState.books ? '' : 'Import a comic, get a free one, or make your own from an idea'),
+    load: async () => (await import('../features/comic/app')).countShelf(),
+    say: () => (comicState.books ? `${comicState.books} ${comicState.books === 1 ? 'comic' : 'comics'} on this phone, ${comicState.made} made by you` : ''),
+    idle: 'No comics yet: import one, get a free one, or make your own',
   },
   learn: {
     title: 'Learn anything',

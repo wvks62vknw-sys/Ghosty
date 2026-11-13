@@ -334,6 +334,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
+  // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),
