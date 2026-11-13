@@ -98,6 +98,7 @@ export function releaseRoom(): void {
 
 /** Take the Stage away (CLOSE, Escape, his next word, leaving the screen): it leaves as quietly as it came. */
 export function clearStage(why: string): void {
+  for (const r of document.querySelectorAll('.waitroom')) r.remove(); // the room "Drawing it…" left under the sentence goes with it
   stop();
   stop = () => undefined;
   const el = document.getElementById('thestage');
@@ -756,7 +757,7 @@ export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'cl
     void import('../assistant/session').then(({ chat }) => chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: NO_PICTURE_BROKE, note: true }].slice(-120) })));
     return null;
   } finally {
-    // The line goes, but its room stays until the conversation next changes: at the foot of the log its going would pull
+    // The line goes, but its room stays until the Stage goes: at the foot of the log its going would pull
     // the sentence above it down just as the Stage rises (the sentence holds still through the hand-over).
     const before = logHost.scrollHeight;
     drawn();
@@ -768,15 +769,7 @@ export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'cl
       room.style.height = `${lost}px`;
       room.style.flex = 'none'; // (the log is a column that shrinks what it holds: the room keeps its height)
       logHost.append(room);
-      // (gone with the next line of the conversation: a new entry, not the reply's own late touches)
-      void import('../assistant/session').then(({ chat }) => {
-        const n = chat.get().entries.length;
-        const off = chat.subscribe((s) => {
-          if (s.entries.length === n) return;
-          room.remove();
-          off();
-        });
-      });
+      // (it goes with the Stage: his next word, CLOSE, Escape; see clearStage)
     }
   }
 }
