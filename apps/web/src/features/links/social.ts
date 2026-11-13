@@ -12,6 +12,7 @@ import { clear, h } from '../../core/dom';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
 import { trail } from '../../ui/hisWords';
 import { linkFailed, LINKING } from './words';
+import { accountOffline } from '../social/words';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -128,13 +129,18 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
     const who = info?.accounts.find((x) => x.id === a.id)?.who ?? null;
     clear(p.body);
     /* state: links.account offline */
-    p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'OFFLINE', who ? 'ok' : 'mid');
+    p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'NOT ANSWERING', who ? 'ok' : 'mid');
+    // the brain not answering: say so, keep the form away (nothing is known, nothing has changed), and offer TRY AGAIN
+    if (!info) {
+      p.body.append(h('div.note.socoff', accountOffline(a.name)), h('div.keyrow', button('TRY AGAIN', () => void paint())));
+      return;
+    }
     if (who && !editing.has(a.id)) {
       // drafts for this account still waiting (made on Telegram or Discord, or an earlier chat): answered here too
       const waiting = (info?.drafts ?? []).filter((x) => x.account === a.id && (x.state === 'waiting' || x.state === 'failed') && Date.now() <= x.expires);
       p.body.append(
         ...(waiting.length ? [h('div.lab', 'WAITING FOR YOUR APPROVE'), ...waiting.map((x) => draftEl(draftCard(x), () => void paint()))] : []),
-        row('ACCOUNT', who),
+        row('LINKED AS', who),
         h('div.note', f.ask),
         ...(f.more?.() ?? []),
         h('div.keyrow', button('UNLINK', async () => {

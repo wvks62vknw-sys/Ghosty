@@ -15,7 +15,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { settings } from '../../state/app';
 import { sayError } from '../../ui/hisWords';
-import { exactLine, failedWords, NO, sendKey } from '../social/words';
+import { exactLine, failedWords, lengthWords, NO, sendKey } from '../social/words';
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -57,9 +57,10 @@ async function refuse(d: Draft, after?: () => void): Promise<void> {
   try {
     const r = await brain.socialNo(d.id);
     if (r.card) patchCard(r.card);
-    toast('Dropped: nothing went out.', 'ok');
+    if (r.error) toast(r.error, 'warn');
+    else toast('Dropped: nothing went out.', 'ok');
   } catch (e) {
-    toast(sayError(e, 'send that'), 'bad');
+    toast(sayError(e, 'drop that draft: it still waits, and nothing went out'), 'bad');
   }
   after?.();
 }
@@ -73,8 +74,9 @@ function edit(d: Draft, after?: () => void): void {
   if (alt) alt.value = d.image!.alt;
   const count = h('small.drcount', { 'aria-live': 'polite' });
   const paint = () => {
-    const n = d.account === 'bluesky' ? graphemes(box.value) : [...box.value].length;
-    count.textContent = `${n} / ${max}`;
+    // counted as the brain counts it (trimmed; Bluesky's 300 are graphemes), and said in words
+    const n = d.account === 'bluesky' ? graphemes(box.value.trim()) : [...box.value.trim()].length;
+    count.textContent = lengthWords(n, max, accountInfo(d.account).name);
     count.classList.toggle('over', n > max);
   };
   box.addEventListener('input', paint);
@@ -93,7 +95,7 @@ function edit(d: Draft, after?: () => void): void {
       toast('Changed: it still waits for your APPROVE.', 'ok');
       after?.();
     } catch (e) {
-      msg.textContent = sayError(e, 'send that');
+      msg.textContent = sayError(e, 'save the new words: the draft still has the old ones');
     } finally {
       b.disabled = false;
     }
@@ -155,7 +157,7 @@ register({
       const { postCard } = await import('../core/cards');
       postCard(r.card);
     } catch (e) {
-      toast(sayError(e, 'send that'), 'bad');
+      toast(sayError(e, 'make the draft'), 'bad');
     }
   },
 });
