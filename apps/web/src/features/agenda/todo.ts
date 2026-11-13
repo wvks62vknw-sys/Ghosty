@@ -37,18 +37,19 @@ export function saveTodos(l: Todo[]): boolean {
 }
 const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Add a to-do (the box, or the chat): the one added. */
-export function addTodo(text: string, due = '', every?: Every, star?: boolean): Todo {
+/** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. */
+export function addTodo(text: string, due = '', every?: Every, star?: boolean): Todo | null {
   // (a repeating one with no day starts today: "water the plants every day" is due today)
   const t: Todo = { id: newId(), text: text.trim().slice(0, 200), due: due || (every ? dayOf(Date.now()) : ''), done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}) };
   const l = loadTodos();
   l.push(t);
-  saveTodos(l);
-  return t;
+  return saveTodos(l) ? t : null;
 }
-/** Tick one off (or back on). A repeating one ticked off makes its next one, due on its next day: that one is returned. */
+/** Tick one off (or back on). A repeating one ticked off makes its next one, due on its next day: that one is returned. Ticked back
+ * on, the next one it made goes again (while it is still open and unchanged), so a mis-tap never leaves two. Null when it was not
+ * there or this phone would not keep the change. */
 export function tickTodo(id: string): { done: boolean; next: Todo | null } | null {
-  const l = loadTodos();
+  let l = loadTodos();
   const x = l.find((y) => y.id === id);
   if (!x) return null;
   x.done = !x.done;
@@ -57,9 +58,13 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
   if (x.done && x.every) {
     next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}) };
     l.push(next);
+    x.nextId = next.id;
+  } else if (!x.done && x.nextId) {
+    const n = l.find((y) => y.id === x.nextId);
+    if (n && !n.done && n.text === x.text && n.every === x.every) l = l.filter((y) => y !== n);
+    delete x.nextId;
   }
-  saveTodos(l);
-  return { done: x.done, next };
+  return saveTodos(l) ? { done: x.done, next } : null;
 }
 /** Take one off the list, with UNDO (it goes back where it was). False when it was not there. */
 export function removeTodo(id: string): boolean {
@@ -67,7 +72,7 @@ export function removeTodo(id: string): boolean {
   const at = l.findIndex((y) => y.id === id);
   if (at < 0) return false;
   const [t] = l.splice(at, 1);
-  saveTodos(l);
+  if (!saveTodos(l)) return false;
   undo(`Removed: ${t!.text}`, () => {
     const now = loadTodos();
     if (!now.some((y) => y.id === t!.id)) now.splice(Math.min(at, now.length), 0, t!);
@@ -75,13 +80,18 @@ export function removeTodo(id: string): boolean {
   });
   return true;
 }
-/** Clear the done ones, with UNDO: how many went. */
+/** Clear the done ones, with UNDO (it puts back only the cleared ones: anything added or ticked since stays): how many went, or -1
+ * when this phone would not keep the change. */
 export function clearDone(): number {
-  const kept = loadTodos();
-  const n = kept.filter((t) => t.done).length;
+  const gone = loadTodos().filter((t) => t.done);
+  const n = gone.length;
   if (!n) return 0;
-  saveTodos(kept.filter((t) => !t.done));
-  undo(`Cleared ${n} done`, () => void saveTodos(kept));
+  if (!saveTodos(loadTodos().filter((t) => !t.done))) return -1;
+  undo(`Cleared ${n} done`, () => {
+    const now = loadTodos();
+    const have = new Set(now.map((t) => t.id));
+    void saveTodos([...now, ...gone.filter((t) => !have.has(t.id))]);
+  });
   return n;
 }
 /** Change a to-do's words, day, repeat or star. */
@@ -115,8 +125,9 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   const due = h('input', { type: 'date', 'aria-label': 'Due day (optional)' });
   const rep = everySelect();
   let view: TodoView = loadView();
-  /** the to-do whose words are open to change (one at a time) */
+  /** the to-do whose words are open to change (one at a time), and what he has typed there so far (kept across repaints) */
   let editing = '';
+  let draft: { id: string; text: string; due: string; every: string } | null = null;
   const add = () => {
     const v = text.value.trim();
     if (!v) return toast(TODO_NEED_TEXT, 'warn');
@@ -144,15 +155,20 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   };
 
   const editor = (t: Todo) => {
-    const tx = h('input', { value: t.text, 'aria-label': 'Change the words', maxlength: '200' });
-    const dd = h('input', { type: 'date', value: t.due, 'aria-label': 'Change the day' });
-    const rp = everySelect(t.every ?? '');
+    const d = draft?.id === t.id ? draft : null;
+    const tx = h('input', { value: d ? d.text : t.text, 'aria-label': 'Change the words', maxlength: '200' });
+    const dd = h('input', { type: 'date', value: d ? d.due : t.due, 'aria-label': 'Change the day' });
+    const rp = everySelect((d ? d.every : t.every ?? '') as Every | '');
+    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value });
+    for (const x of [tx, dd, rp]) x.addEventListener('input', keep);
+    rp.addEventListener('change', keep);
     const save = () => {
       const v = tx.value.trim();
       if (!v) return toast(TODO_NEED_TEXT, 'warn');
       editing = '';
+      draft = null;
       const was = { text: t.text, due: t.due, every: t.every, star: t.star };
-      editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined });
+      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined })) return paint();
       undo(`Changed: ${v}`, () => void editTodo(t.id, was));
     };
     tx.addEventListener('keydown', (e) => e.key === 'Enter' && save());
@@ -161,6 +177,7 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
       h('div.keyrow.wrapit.addev', tx, dd, rp),
       h('div.keyrow.wrapit', button('SAVE', save, 'on'), button('CANCEL', () => {
         editing = '';
+        draft = null;
         paint();
       }), h('span.sp'), button('REMOVE', () => {
         editing = '';
@@ -188,6 +205,7 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     const tx = h('button.todotx', { type: 'button', 'aria-label': `Change ${t.text}`, 'aria-expanded': String(editing === t.id) }, h('b', t.text), words ? h('small', words) : null);
     tx.addEventListener('click', () => {
       editing = editing === t.id ? '' : t.id;
+      draft = null;
       paint();
     });
     return h(`div.todoit${t.done ? '.done' : ''}${late ? '.late' : ''}${t.star ? '.starred' : ''}` as 'div', { role: 'listitem', dataset: { case: 'keep', id: t.id } },

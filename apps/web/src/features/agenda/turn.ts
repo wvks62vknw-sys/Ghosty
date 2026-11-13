@@ -1,11 +1,15 @@
 /** THE AGENDA FROM THE CHAT (planlane): what was asked, done on the phone, and said back in one line (assistant/local.ts calls this). */
 import type { PackReply } from '../../assistant/packs';
 import { agendaAsked, type AgendaAsk } from './asks';
+import { undo } from '../../ui/components';
 import { addTodo, clearDone, loadTodos, removeTodo, tickTodo } from './todo';
 import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
 
-const OPEN_TODO = { id: 'screen:agenda', ask: -1, label: 'Open the to-do list', open: 'agenda' };
-const OPEN_MONTH = { id: 'screen:agenda', ask: -1, label: 'Open the month', open: 'agenda' };
+// (the panel too: the chip opens the agenda on the to-do list or the month, not on whichever section was last chosen)
+const OPEN_TODO = { id: 'screen:agenda', ask: -1, label: 'Open the to-do list', open: 'agenda', panel: 'TO-DO' };
+const OPEN_MONTH = { id: 'screen:agenda', ask: -1, label: 'Open the month', open: 'agenda', panel: 'MONTH' };
+/* state: agenda.todo error */
+const NOT_KEPT = 'This phone would not keep your to-do list (its storage is full or blocked), so nothing changed. Free some space, or leave private browsing, and try again.';
 
 /** One to-do in a sentence: "Buy milk (due today)", "Renew passport (2 days late)". */
 const one = (t: Todo, now: number) => {
@@ -31,7 +35,8 @@ function listWords(ask: Extract<AgendaAsk, { what: 'list' }>, now: number): stri
   const today = open.filter((t) => t.due && daysTo(t.due, now) === 0);
   if (ask.when === 'today') {
     if (!late.length && !today.length) {
-      const next = open.find((t) => t.due) ?? open[0]!;
+      // the one due soonest (not the first starred one, which may be weeks away)
+      const next = open.filter((t) => t.due).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0))[0] ?? open[0]!;
       return `Nothing due today. ${open.length} on your list; next: ${one(next, now)}.`;
     }
     return [today.length ? `Due today: ${join(today.map((t) => one(t, now).replace(/ \(due today\)$/, '')))}.` : 'Nothing new due today.', late.length ? `Late: ${join(late.map((t) => one(t, now)))}.` : ''].filter(Boolean).join(' ');
@@ -59,7 +64,10 @@ async function monthWords(next: boolean, now: number): Promise<string> {
   const name = from.toLocaleDateString('en-GB', { month: 'long' });
   const [{ brain }, { offline }] = await Promise.all([import('../../api/brain'), import('../../api/offline')]);
   const was = offline.get().agenda;
-  const got = await Promise.race([brain.agenda(42).then((a) => a.events), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
+  // enough days to reach the month's last day (the brain reads from the start of today, up to 62 days: always enough)
+  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime();
+  const days = Math.min(62, Math.max(1, Math.ceil((to.getTime() - start) / 86400_000)));
+  const got = await Promise.race([brain.agenda(days).then((a) => a.events), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
   const copy = !got || (was !== null && offline.get().agenda === was);
   const events = (got ?? offline.get().agenda?.events ?? []).filter((e) => e.start >= Math.max(from.getTime(), next ? 0 : new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime()) && e.start < to.getTime());
   const fromDay = dayOf(from.getTime());
@@ -84,6 +92,7 @@ export async function agendaTurn(text: string): Promise<PackReply | null> {
   const now = Date.now();
   if (ask.what === 'add') {
     const t = addTodo(ask.text, ask.due, ask.every, ask.star);
+    if (!t) return reply(text, NOT_KEPT);
     const when = [t.due ? dueWords(t.due, now).replace(/^Due /, 'due ') : '', ask.every ? `repeats ${everyWords(ask.every)}` : '', ask.star ? 'starred' : ''].filter(Boolean).join(', ');
     return reply(text, `Added to your to-do list: ${t.text}${when ? `, ${when}` : ''}. ${loadTodos().filter((x) => !x.done).length} to do.`);
   }
@@ -93,25 +102,31 @@ export async function agendaTurn(text: string): Promise<PackReply | null> {
   }
   if (ask.what === 'tick' || ask.what === 'remove') {
     const l = loadTodos();
-    const t = findTodo(l, ask.text);
+    // a loose wording ("I've done the car", "mark step 2 as done") takes only a to-do whose own words he said, never one shared word
+    const t = findTodo(l, ask.text, false, ask.what === 'tick' && ask.loose);
     if (!t) {
-      // "I've done the washing up" with nothing like it on the list is not about the list: the next table (or the brain) has it
-      if (ask.what === 'tick' && ask.loose) return null;
-      const already = ask.what === 'tick' ? findTodo(l, ask.text, true) : null;
+      const already = ask.what === 'tick' ? findTodo(l, ask.text, true, ask.loose) : null;
       if (already) return reply(text, `“${already.text}” is already ticked off.`);
-      const open = sortTodos(l, now).filter((x) => !x.done);
-      return reply(text, open.length ? `I can’t find “${ask.text}” on your to-do list. On it: ${join(open.slice(0, 6).map((x) => x.text))}.` : `I can’t find “${ask.text}”: your to-do list is empty.`);
+      // nothing like it on his list: not about this list (the shopping list, the work pack's to-dos, a roadmap step, a practice
+      // logged): the next table, or the brain, has it
+      return null;
     }
     if (ask.what === 'remove') {
-      removeTodo(t.id);
+      if (!removeTodo(t.id)) return reply(text, NOT_KEPT);
       return reply(text, `Taken off your list: ${t.text}. UNDO brings it back.`);
     }
     const r = tickTodo(t.id);
+    if (!r) return reply(text, NOT_KEPT);
+    // UNDO ticks it back on (and takes away the next one a repeating one made)
+    undo(`Ticked off: ${t.text}`, () => {
+      if (loadTodos().find((x) => x.id === t.id)?.done) tickTodo(t.id);
+    });
     const left = loadTodos().filter((x) => !x.done).length;
-    return reply(text, `Ticked off: ${t.text}.${r?.next ? ` It repeats: the next one is ${dueWords(r.next.due, now).replace(/^Due /, 'due ')}.` : ''} ${left ? `${left} left to do.` : 'Nothing left to do.'}`);
+    return reply(text, `Ticked off: ${t.text}.${r.next ? ` It repeats: the next one is ${dueWords(r.next.due, now).replace(/^Due /, 'due ')}.` : ''} ${left ? `${left} left to do.` : 'Nothing left to do.'} UNDO puts it back.`);
   }
   if (ask.what === 'clear') {
     const n = clearDone();
+    if (n < 0) return reply(text, NOT_KEPT);
     return reply(text, n ? `Cleared ${n} done ${n === 1 ? 'to-do' : 'to-dos'}. UNDO brings ${n === 1 ? 'it' : 'them'} back.` : 'There are no done to-dos to clear.');
   }
   if (ask.show) void show('MONTH', ask.next);

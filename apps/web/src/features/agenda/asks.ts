@@ -26,8 +26,9 @@ const DAYNAME = '(?:mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)
 const ORD = '(\\d{1,2})(?:st|nd|rd|th)?';
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const MONTH = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
-// the list he means: his to-do list, his to-dos, his tasks, or plainly "my list" (never the shopping list, the kitchen's)
-const LIST = '(?:my|the)\\s+(?:(?:to[- ]?do|todo|task)s?(?:\\s+list)?|list)';
+// the list he means: his to-do list, his to-dos, his tasks, or plainly "my list" (never a bare "the list": that is the kitchen's
+// shopping list, "add milk, eggs and bread to the list")
+const LIST = '(?:(?:my|the)\\s+(?:to[- ]?do|todo|task)s?(?:\\s+list)?|my\\s+list)';
 const NOT_MINE = /\b(?:shopping|grocery|groceries|reading|watch|play|bucket|wish|guest|packing)\s+list\b|\bremind\b|\bplaylist\b/i;
 
 /** A day said in words, from `now`: "today", "tonight", "tomorrow", "Friday" (the next one; today's own name is a week on), "next week",
@@ -54,7 +55,9 @@ export function dayIn(words: string, now: number): string | null {
     let n = (want - base.getDay() + 7) % 7 || 7;
     return plus(n);
   }
+  // a number is a day only with "the", an ordinal or a month ("the 6", "6th", "6 Dec"): a bare "6" is a time or a count
   m = new RegExp(`^(?:${DAYNAME} )?(?:the )?${ORD}(?: of)?(?: ${MONTH})?$`).exec(w) ?? null;
+  if (m && !m[2] && !/^(?:\S+ )?the |\d(?:st|nd|rd|th)\b/.test(w) && !new RegExp(`^${DAYNAME} `).test(w)) m = null;
   const m2 = m ? null : new RegExp(`^(?:${DAYNAME} )?${MONTH} (?:the )?${ORD}$`).exec(w);
   if (m || m2) {
     const day = Number(m ? m[1] : m2![2]);
@@ -100,7 +103,7 @@ export function splitWhen(text: string, now: number): { text: string; due: strin
       t = t.slice(0, rep.index);
       continue;
     }
-    const when = /\s*,?\s+(?:(?:by|on|for|due|before|until|this|from)\s+)?((?:the day after )?tomorrow(?: (?:morning|afternoon|evening|night))?|today|tonight|this (?:morning|afternoon|evening)|(?:this )?weekend|next week|end of (?:the )?month|in \w+ (?:days?|weeks?)|(?:next |this )?(?:mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?(?: (?:the )?\d{1,2}(?:st|nd|rd|th)?(?: of)?(?: \w+)?)?|(?:the )?\d{1,2}(?:st|nd|rd|th)?(?: of)?(?: [a-z]{3,9})?|[a-z]{3,9} (?:the )?\d{1,2}(?:st|nd|rd|th)?)$/i.exec(t);
+    const when = /\s*,?\s+(?:(?:by|on|for|due|before|until|this|from)\s+)?((?:the day after )?tomorrow(?: (?:morning|afternoon|evening|night))?|today|tonight|this (?:morning|afternoon|evening)|(?:this )?weekend|next week|end of (?:the )?month|in \w+ (?:days?|weeks?)|(?:next |this )?(?:mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?(?: (?:the )?\d{1,2}(?:st|nd|rd|th)?(?: of)?(?: \w+)?)?|the \d{1,2}(?:st|nd|rd|th)?(?: of)?(?: [a-z]{3,9})?|\d{1,2}(?:st|nd|rd|th)(?: of)?(?: [a-z]{3,9})?|\d{1,2} [a-z]{3,9}|[a-z]{3,9} (?:the )?\d{1,2}(?:st|nd|rd|th)?)$/i.exec(t);
     const day = when ? dayIn(when[1]!, now) : null;
     if (when && day && !due) {
       // keep "Friday" in "pick up Friday's parcel" and the number in "buy 2": only a day that stands on its own at the end
@@ -139,8 +142,8 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
     return { what: 'clear' };
 
   // ── read the list
-  if (/^(?:what(?:'s|’s| is)|whats) (?:on|in) (?:my|the) (?:(?:to[- ]?do|todo|task)s? )?list(?: today)?$/.test(lc) ||
-    /^(?:show|read|tell|give|list|open)(?: me)?(?: out)? (?:my|the) (?:(?:to[- ]?do|todo|task)s?(?: list)?|list)$/.test(lc) ||
+  if (/^(?:what(?:'s|’s| is)|whats) (?:on|in) (?:my (?:(?:to[- ]?do|todo|task)s? )?list|the (?:to[- ]?do|todo|task)s? list)(?: today)?$/.test(lc) ||
+    /^(?:show|read|tell|give|list|open)(?: me)?(?: out)? (?:(?:my|the) (?:to[- ]?do|todo|task)s?(?: list)?|my list)$/.test(lc) ||
     /^(?:my )?(?:to[- ]?do|todo) list$|^my (?:to[- ]?dos|todos|tasks)$|^what (?:are|r) my (?:to[- ]?dos|todos|tasks)$|^what(?:'s|’s| is) (?:left|still) (?:to do|on my list)$|^what(?:'s|’s| is) left on my (?:(?:to[- ]?do|todo|task) )?list$/.test(lc)) {
     if (/today$/.test(lc)) return { what: 'list', when: 'today' };
     return { what: 'list', when: 'all' };
@@ -156,10 +159,12 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
   m = new RegExp(`^(?:(?:tick|cross|strike)(?: off)?|check off) (.+?)( off)?(?: (?:from|on|off) ${LIST})?$`).exec(lc);
   if (m && !/^(?:off )?(?:my|the) list$/.test(m[1]!)) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!), lc.indexOf(m[1]!) + m[1]!.length)), loose: !/\boff\b/.test(lc) && !/\blist\b/.test(lc) };
   m = new RegExp(`^mark (.+?) (?:as )?(?:done|complete|completed|finished)(?: (?:on|in) ${LIST})?$`).exec(lc);
-  if (m) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!), lc.indexOf(m[1]!) + m[1]!.length)), loose: false };
+  // (loose unless "list" is said: a brain tool's "mark step 2 of the upgrade as done" and the learning pack's "done: typing 52"
+  // are theirs when nothing on his list is named)
+  if (m) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!), lc.indexOf(m[1]!) + m[1]!.length)), loose: !/\blist\b/.test(lc) };
   m = /^(?:done|finished|completed)\s*[:–-]\s*(.+)$/.exec(lc);
-  if (m) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!))), loose: false };
-  m = /^(?:i(?:'ve|’ve| have)? (?:done|finished|completed|sorted|did)|i(?:'m|’m| am) done with|i got) (.+)$/.exec(lc);
+  if (m) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!))), loose: true };
+  m = /^(?:i(?:'ve|’ve| have)? (?:done|finished|completed|sorted|did)|i(?:'m|’m| am) done with) (.+)$/.exec(lc);
   if (m && !/\b(?:today|yesterday|workout|run|walk|exercise|steps|reps|water|my best)\b/.test(m[1]!)) return { what: 'tick', text: strip(t.slice(lc.indexOf(m[1]!))), loose: true };
   m = /^(.+?) (?:is|are) (?:done|sorted|finished)$/.exec(lc);
   if (m && m[1]!.split(' ').length <= 6) return { what: 'tick', text: strip(t.slice(0, m[1]!.length)), loose: true };
@@ -175,7 +180,8 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
   if (m) item = t.slice(lc.indexOf(m[1]!), lc.indexOf(m[1]!) + m[1]!.length) + t.slice(lc.length - m[2]!.length);
   if (!item) {
     m = new RegExp(`^(?:add|put) (?:to|on) ${LIST}\\s*[:,–-]?\\s*(.+)$`).exec(lc);
-    if (m) item = t.slice(lc.length - m[1]!.length);
+    // several jobs in one ("send the invoice by Friday, book the van, ring the landlord") are the work pack's: the brain splits them
+    if (m && !/[,;]|\band\b/.test(m[1]!)) item = t.slice(lc.length - m[1]!.length);
   }
   if (!item) {
     m = /^(?:(?:new|add an?|another|one more|make an?|create an?) )?(?:to[- ]?do|todo|task)(?: item)?\s*[:–-]\s*(.+)$|^(?:new|add an?|another|one more) (?:to[- ]?do|todo|task)(?: item)?\s+(?:to\s+)?(.+)$/.exec(lc);

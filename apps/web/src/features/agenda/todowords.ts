@@ -13,6 +13,8 @@ export interface Todo {
   /** when it was added and when it was ticked (ms) */
   at: number;
   doneAt?: number;
+  /** the next one a repeating to-do made when it was ticked off (it goes again if this one is ticked back on) */
+  nextId?: string;
   /** a star for the important ones (they come right after the late ones) */
   star?: boolean;
   /** a to-do that comes back: ticking it makes the next one (todo.ts) */
@@ -113,13 +115,27 @@ export const VIEW_EMPTY: Record<Exclude<TodoView, 'all'>, string> = {
 /** His words for a to-do, made plain for matching ("I've done the passport" finds "Renew passport"). */
 const plain = (s: string) =>
   s.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\b(?:the|my|a|an|to|of|for|off)\b/g, ' ').replace(/\s+/g, ' ').trim();
-/** The to-do `words` name, among the open ones of `l` (or the done ones): exactly, then one holding all the words, then most words in common. */
-export function findTodo(l: readonly Todo[], words: string, done = false): Todo | null {
+/** The to-do `words` name, among the open ones of `l` (or the done ones): exactly, then one holding all the words, then most words in
+ * common; `strict` (a loose wording) takes only an exact one, one whose own words are all said, or one holding all that was said and its last word. */
+export function findTodo(l: readonly Todo[], words: string, done = false, strict = false): Todo | null {
   const w = plain(words);
   if (!w) return null;
   const pool = l.filter((t) => t.done === done);
   const exact = pool.find((t) => plain(t.text) === w);
   if (exact) return exact;
+  // strict (a loose "I'm done with work" said to anyone): never one shared word. Only a to-do whose own words are all in what he said,
+  // or one holding every word he said with its last word among them ("the passport" is "Renew passport"; "work" is not "Send work
+  // email", "dinner" is not "Book dinner with Sam")
+  if (strict) {
+    const cw = (s: string) => plain(s).split(' ').filter((x) => x.length > 2).map((x) => x.replace(/s$/, ''));
+    const sw = cw(w);
+    if (!sw.length) return null;
+    return pool.find((t) => {
+      const tw = cw(t.text);
+      if (!tw.length) return false;
+      return tw.every((x) => sw.includes(x)) || (sw.every((x) => tw.includes(x)) && sw.includes(tw[tw.length - 1]!));
+    }) ?? null;
+  }
   const has = pool.find((t) => ` ${plain(t.text)} `.includes(` ${w} `) || ` ${w} `.includes(` ${plain(t.text)} `));
   if (has) return has;
   const ws = w.split(' ').filter((x) => x.length > 2);

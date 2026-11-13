@@ -99,6 +99,10 @@ export const agendaTab: TabDef = {
     let stale = false;
     // the event opened whole in the diary ('' for none)
     let openEv = '';
+    /** what he has typed in the open event's change boxes (kept when the diary repaints every minute) */
+    let evDraft: { id: string; title: string; at: string; where: string } | null = null;
+    /** the minutes before an event its reminder rings (an all-day one's is set from 09:00 that day, as the brain sets it) */
+    const remindOf = (e: AgendaEventInfo, rem: { next: number } | undefined) => (rem ? Math.max(0, Math.round(((e.allDay ? e.start + 9 * 3600_000 : e.start) - rem.next) / 60_000)) : null);
     // [planlane] TO-DO (todo.ts): his own list on this phone; MONTH (month.ts): the diary as a calendar, under it
     const tp = todoPanel(() => {
       mp.paint();
@@ -191,7 +195,8 @@ export const agendaTab: TabDef = {
             }
             void load();
             evUndo.show(`Deleted: ${e.title}`, async () => {
-              await brain.addEvent({ title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, remindMin: rem ? Math.max(0, Math.round((e.start - rem.next) / 60_000)) : null });
+              const back = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, notes: e.notes, remindMin: remindOf(e, rem) };
+              await brain.addEvent(back);
               toast(`Back: ${e.title}`, 'ok');
               void load();
             });
@@ -204,6 +209,7 @@ export const agendaTab: TabDef = {
         r.setAttribute('aria-expanded', String(openEv === e.id));
         const toggle = () => {
           openEv = openEv === e.id ? '' : e.id;
+          evDraft = null;
           paintEvents();
         };
         r.addEventListener('click', (ev) => !(ev.target as HTMLElement).closest('.del') && toggle());
@@ -216,24 +222,33 @@ export const agendaTab: TabDef = {
     /** One event whole: its day and time, where, where it is from and its reminder; one of his own can be changed here. */
     const eventCard = (e: AgendaEventInfo): HTMLElement => {
       const rem = jobs.find((j) => j.eventId === e.id);
-      const remindMin = rem ? Math.max(0, Math.round((e.start - rem.next) / 60_000)) : null;
+      const remindMin = remindOf(e, rem);
       const day = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-      const mine = e.source === 'mine';
+      // one added or changed while the brain was out of reach waits on this phone: his own, not a calendar's
+      const waiting = e.id.startsWith('local-') || e.source.startsWith('this device');
+      const mine = e.source === 'mine' || waiting;
+      const remWords = remindMin == null ? 'no reminder' : remindMin ? `reminder ${remindMin >= 60 && remindMin % 60 === 0 ? `${remindMin / 60} h` : `${remindMin} min`} before` : 'reminder at the start';
       const card = h('div.evcard', { dataset: { case: 'keep' } },
         h('b.evcardt', e.title),
         h('span', e.allDay ? `${day}, all day` : `${day}, ${hm(e.start)}${e.end ? ` to ${hm(e.end)}` : ''}`),
         e.location ? h('span', `Where: ${e.location}`) : null,
-        h('small', mine ? `In your diary · ${remindMin == null ? 'no reminder' : remindMin ? `reminder ${remindMin >= 60 && remindMin % 60 === 0 ? `${remindMin / 60} h` : `${remindMin} min`} before` : 'reminder at the start'}` : `From your calendar “${e.source}”. Change it there: Ghosty only reads it.`));
+        e.notes ? h('span', `Notes: ${e.notes}`) : null,
+        h('small', waiting ? 'In your diary, not sent yet: it goes when the brain is back.' : mine ? `In your diary · ${remWords}` : `From your calendar “${e.source}”. Change it there: Ghosty only reads it.`));
       if (!mine) return card;
-      const ti = h('input', { value: e.title, 'aria-label': 'Change the event', maxlength: '200' });
-      const at = h('input', { type: 'datetime-local', value: localInput(e.start), 'aria-label': 'Change when it starts' });
-      const where = h('input', { value: e.location ?? '', placeholder: 'Where (optional)', 'aria-label': 'Change where' });
-      const was = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, remindMin };
+      const d = evDraft?.id === e.id ? evDraft : null;
+      const ti = h('input', { value: d ? d.title : e.title, 'aria-label': 'Change the event', maxlength: '200' });
+      const at = h('input', { type: 'datetime-local', value: d ? d.at : localInput(e.start), 'aria-label': 'Change when it starts' });
+      const where = h('input', { value: d ? d.where : e.location ?? '', placeholder: 'Where (optional)', 'aria-label': 'Change where' });
+      for (const x of [ti, at, where]) x.addEventListener('input', () => void (evDraft = { id: e.id, title: ti.value, at: at.value, where: where.value }));
+      // (its notes go with it, both ways: a change never loses them)
+      const was = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, notes: e.notes, remindMin };
       const save = async (b: HTMLButtonElement) => {
+        // one save at a time: a second Enter (or a held Go key) while the first is on its way would add the event twice
+        if (b.disabled) return;
         const title = ti.value.trim();
         const start = e.allDay ? new Date(new Date(at.value).setHours(0, 0, 0, 0)).getTime() : new Date(at.value).getTime();
         if (!title || !Number.isFinite(start)) return toast('Give the event a name and a time', 'warn');
-        const now = { title, start, end: e.end ? start + (e.end - e.start) : undefined, allDay: e.allDay, location: where.value.trim() || undefined, remindMin };
+        const now = { title, start, end: e.end ? start + (e.end - e.start) : undefined, allDay: e.allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin };
         b.disabled = true;
         // his diary keeps no "change": the event is deleted and added again, changed (said under the keys)
         try {
@@ -251,6 +266,7 @@ export const agendaTab: TabDef = {
           toast(sayError(err, 'change that event'), 'bad');
         }
         openEv = '';
+        evDraft = null;
         void load();
         if (!made) return;
         const id = made.id;
@@ -267,6 +283,7 @@ export const agendaTab: TabDef = {
         h('div.keyrow.wrapit.addev.evedit', ti, at, where),
         h('div.keyrow.wrapit', saveB, button('CLOSE', () => {
           openEv = '';
+          evDraft = null;
           paintEvents();
         })),
         h('small.note', 'Saving takes the event out of your diary and puts it back changed (the diary has no other way to change one). UNDO puts it back as it was.'),
