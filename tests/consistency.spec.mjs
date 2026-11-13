@@ -190,6 +190,8 @@ if (on('deadkeys')) {
   for (const id of TABS()) {
     if (!(await go(page, id))) { problems.push(`[deadkeys] ${id} does not open`); continue; }
     await page.waitForTimeout(700);
+    // (this walk is the 440 sweep of [errors] too: its page's errors are counted, and nothing may scroll sideways)
+    check(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), `[errors 440] ${id} scrolls sideways`);
     // (the check checks itself: on the first screen a key no one listens to is planted, and must be found)
     const planted = id === TABS()[0] && (await page.evaluate((id) => { const b = document.createElement('button'); b.className = 'planted'; b.textContent = 'PLANTED'; document.getElementById(`pg-${id}`)?.prepend(b); return true; }, id));
     // every visible button of the screen, marked so CDP can reach it
@@ -231,7 +233,8 @@ if (on('deadkeys')) {
 
 // ---------------------------------------------------------------- [errors] every screen at 440 and 390; Home and every hub in all seven looks
 if (on('errors')) {
-  for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
+  // (440 is walked by [deadkeys] when it runs, screen by screen)
+  for (const viewport of on('deadkeys') ? [{ width: 390, height: 844 }] : [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
     const { ctx, page } = await phone(viewport);
     for (const id of TABS()) {
       if (!(await go(page, id))) { problems.push(`[errors ${viewport.width}] ${id} does not open`); continue; }
@@ -251,8 +254,8 @@ if (on('errors')) {
     await page.screenshot({ path: `${out}/consistency-${look.world}.png` });
     await ctx.close();
   }
-  problems.push(...[...new Set(errs)]);
 }
+problems.push(...[...new Set(errs)]);
 
 await browser.close();
 const secs = Math.round((Date.now() - started) / 1000);
