@@ -90,18 +90,19 @@ const DIRECTORY = [
 ];
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--autoplay-policy=no-user-gesture-required'] });
 
-async function phone(viewport, world = 'scan', seed = {}) {
+/** A paired phone at `viewport` in the look `world`, with `seed` put in its storage first and BODY at `body` (21 = his largest text; 0 = the default). */
+async function phone(viewport, world = 'scan', seed = {}, body = 0) {
   const ctx = await browser.newContext({ viewport, ...UK });
-  await ctx.addInitScript(({ world, seed }) => {
+  await ctx.addInitScript(({ world, seed, body }) => {
     if (!localStorage.getItem('ghosty.settings'))
-      localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+      localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
     for (const [k, v] of Object.entries(seed)) if (!localStorage.getItem(k)) localStorage.setItem(k, v);
     window.__specActions = {};
     if (navigator.mediaSession) {
       const set = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
       navigator.mediaSession.setActionHandler = (a, fn) => { window.__specActions[a] = fn; return set(a, fn); };
     }
-  }, { world, seed });
+  }, { world, seed, body });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror (${world} ${viewport.width}): ${e.message}`));
   await page.route(/\/api\/proxy\?.*radio-browser/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(DIRECTORY) }));
@@ -285,7 +286,8 @@ log('social');
 // ---- 5. THE SEVEN LOOKS: the to-do list and the radio's keys hold in every world (44 pt, nothing sideways, nothing cut)
 if (core) for (const world of WORLDS) {
   const seed = { 'ghosty.agenda.todo': JSON.stringify([{ id: 'w1', text: 'A to-do long enough to wrap onto a second line at body twenty-one', due: today(), done: false, at: 1 }]) };
-  const { ctx, page } = await phone(PHONE2, world, seed);
+  // (The Scan at BODY 21: his largest text)
+  const { ctx, page } = await phone(PHONE2, world, seed, world === 'scan' ? 21 : 0);
   await open(page, 'agenda');
   await openSection(page, 'agenda', 'To-do');
   await page.waitForSelector('#pg-agenda .todoit', { timeout: 8000 }).catch(() => check(false, `[${world}] the to-do did not show`));
