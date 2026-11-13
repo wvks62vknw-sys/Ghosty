@@ -287,7 +287,9 @@ const CORE = '/vendor/clip/core.f16.bin';
   // a capable phone: 8 GB, 8 cores, WebGPU
   const { ctx, page, asked } = await phone({ mem: 8, cores: 8, gpu: true, larger: LARGER });
   await openEyes(page);
-  check((await eyeRow(page, 'eyes-name-large').count()) === 1 && (await page.locator('#pg-settings .offeyes .wikioffer').count()) === 5, '[sizes] the larger row is not beside the standard four');
+  // the standard seven (the Lens's four and the photo editor's cut-out, erase and RAW packs) and the larger row right after its own
+  const order = await page.$$eval('#pg-settings .offeyes .wikioffer', (rs) => rs.map((r) => r.dataset.pack));
+  check((await eyeRow(page, 'eyes-name-large').count()) === 1 && order.length === 8 && order[order.indexOf('eyes-name-large') - 1] === 'eyes-name', `[sizes] the larger row is not beside the standard seven: ${order.join(', ')}`);
   const t = await eyeText(page, 'eyes-name-large');
   check(/Larger, \d+ MB, for a newer phone/.test(t) && /Get · \d+ MB/i.test(t) && /on Wi-Fi/.test(t), `[sizes] the second size does not say what it is and what it costs: ${t.slice(0, 200)}`);
   check(/memory 8 GB · 8 cores · WebGPU yes\. A larger size would be chosen for it/.test(await caps(page)), `[sizes] the capability line: "${await caps(page)}"`);
@@ -343,7 +345,7 @@ for (const [name, o, re, larger] of [
   // no larger model on the site (the real list): one size, said plainly, and the phone read aloud
   const { ctx, page } = await phone({ mem: 8, cores: 8, gpu: true });
   await openEyes(page);
-  check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 4 && (await page.locator('#pg-settings .offeyes .eyesize').count()) === 0, '[sizes none] a larger row or a choice is offered with no larger model');
+  check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 7 && (await page.locator('#pg-settings .offeyes .eyesize').count()) === 0, '[sizes none] a larger row or a choice is offered with no larger model (the standard seven only)');
   check(/One size only for now: no larger free model with a clear licence is on this site yet/.test(await text(page.locator('#pg-settings .offeyes [data-eyes="one"]'))), '[sizes none] the panel does not say it is one size');
   check(/memory 8 GB/.test(await caps(page)), `[sizes none] the phone is not read aloud: "${await caps(page)}"`);
   await ctx.close();
