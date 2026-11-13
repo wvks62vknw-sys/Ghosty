@@ -60,7 +60,7 @@ errors. There were no page errors, raw strings or small keys. These were wrong:
   - The studio's pane keys wrap inside their 44 pt key.
   - Licence lines are read whole.
   - FROM PHOTO's header shows a short word, and its full sentence stays in the notes under it.
-- **The spec: `tests/makelane.spec.mjs`** (its word is at the end of check.yml's `all=`). It runs 177 checks:
+- **The spec: `tests/makelane.spec.mjs`** (its word is at the end of check.yml's `all=`). It runs 183 checks:
   - the sums, worked by hand: a 4 × 3 m room with a door and a window is 7.1 L of paint (a 5 L and a 2.5 L tin), 13.2 m² of
     flooring, 13.2 m of skirting and 7 rolls;
   - the pad, at both sizes: as you type, SWAP, every unit, kelvin, not-a-number, empty, RECENT, COPY, a reload, "say it";
@@ -69,6 +69,15 @@ errors. There were no page errors, raw strings or small keys. These were wrong:
   - the studio's three views, each changing the model's material;
   - 44 pt keys, nothing sideways and no word cut, at both sizes, at BODY 21 and in all seven looks (scan, map, eye, orbit,
     grown, ink, glass).
+- **An adversarial review before merging.** A second reviewer read the whole diff looking for faults. It found these, all fixed
+  and each now checked by the spec:
+  - "5K in miles" had stopped converting, because K had become kelvin. Now a capital K is kelvin only beside a temperature.
+  - "1,5" typed on a European keypad read as 15. Now a comma is a decimal point unless it splits thousands.
+  - 0 mpg said "type a number" although one was typed.
+  - A high window's part above the ceiling was taken off the wall.
+  - The tins favoured four 1 L tins over one 5 L (small tins cost the most per litre).
+  - Changing the kind alone filled RECENT.
+  - A failed COPY repeated its line on every tap.
 - **makepass, updated to the new truth:** its units check now finds the sentence box by its own class (`input.cvsayq`), because
   the pad sits above it. The check is just as strict.
 
@@ -90,6 +99,8 @@ phone.
 - There's no chat phrase that opens MATERIALS directly ("how much paint for my room"). The chat's wordings belong to the VOICE
   lane, and a new phrase needs the catalogue and the meaning tests changed with it. The catalogue says to open SPACE and read
   MATERIALS.
+- A door between two rooms is taken off one room's walls only, so the other room's paint and skirting come out a little over
+  (the safe side). Fixing it needs to know which neighbour shares the wall. That's left for later.
 - The Game Studio, the Workshop and Reverse passed the sweep with nothing cut, sideways or broken, so I left them as they were.
   The Game Studio is still 2-D only, and its ABOUT says so plainly.
 - Seen only in tests: when the full Chromium binary (not CI's) runs with service workers blocked, the notifications setup

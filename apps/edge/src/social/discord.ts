@@ -12,6 +12,7 @@
  *  - READING the channel's last messages, if the bot may (and their words only with the Message Content intent).
  *  Never a direct message: no DM channel is ever opened.
  */
+import { bodyCapped } from '../netguard';
 import { notLinked, type Draft, type FeedPost } from '../../../../packages/shared/src/social';
 import type { AccountApi, SocialDeps } from './index';
 
@@ -98,7 +99,12 @@ const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { sta
 export async function discordInteraction(req: Request, d: SocialDeps, turn: (words: string) => Promise<string>, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
   const sig = req.headers.get('x-signature-ed25519') ?? '';
   const ts = req.headers.get('x-signature-timestamp') ?? '';
-  const raw = await req.text();
+  // [security] a timestamp older or newer than five minutes is a replay, and a body past 64 KB is no interaction: both turned
+  // away before the body is read whole or the brain's storage is touched
+  const at = Number(ts);
+  if (!/^\d{9,11}$/.test(ts) || Math.abs(d.now() / 1000 - at) > 300) return new Response('invalid request signature', { status: 401 });
+  const raw = await bodyCapped(req, 64_000);
+  if (raw === null) return new Response('too large', { status: 413 });
   const s = await load(d);
   if (!s || !(await verifyDiscord(s.key, sig, ts, raw))) return new Response('invalid request signature', { status: 401 });
   let i: { type?: number; application_id?: string; guild_id?: string; token?: string; data?: { name?: string; options?: { name?: string; value?: unknown }[] }; member?: { user?: { id?: string } }; user?: { id?: string } };

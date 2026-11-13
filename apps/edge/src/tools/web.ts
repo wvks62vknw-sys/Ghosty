@@ -5,6 +5,7 @@
  * keyless APIs together (DuckDuckGo answers, Wikipedia, Stack Overflow, Hacker News, GitHub).
  */
 import { asData } from '../kernel/permissions';
+import { guardedFetch, unsafeUrl } from '../netguard';
 import { arg, clip, type Tool, type ToolContext } from './types';
 import { leadNote, tierOf, tierWord, type Tier } from '../../../../packages/shared/src/sources';
 
@@ -268,12 +269,15 @@ export const webTools: Tool[] = [
     async run(a, ctx) {
       const url = arg.str(a, 'url');
       if (!/^https?:\/\//i.test(url)) throw new Error('url must start with http:// or https://');
+      // [security] a model-chosen address (so possibly a planted one): public web only, every redirect hop checked first
+      const refused = unsafeUrl(url);
+      if (refused) throw new Error(refused);
       // (?. — tests call tools with a bare context)
       const kept = a.fresh === true ? undefined : pages.get(url);
       let page = kept?.v;
       if (!page) {
         ctx.progress?.(`fetching ${hostOf(url)}…`);
-        const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
+        const r = await guardedFetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' } });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const type = r.headers.get('content-type') ?? '';
         ctx.progress?.('reading…');
