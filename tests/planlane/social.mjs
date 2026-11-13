@@ -10,6 +10,8 @@
 //  - the seven looks: the composer with a picture fits and is drawn in the look's colours.
 // His accounts, the draft route and the picture store are stood in with page.route; nothing reaches a real account.
 import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { crc32, deflateSync } from 'node:zlib';
 import { openSection } from '../nav.mjs';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
@@ -19,21 +21,42 @@ const ACCOUNTS = [
   { id: 'discord', name: 'Discord', who: 'Spec bot in Spec server' },
   { id: 'channel', name: 'your Telegram channel', who: null },
 ];
-const SENT = [{ at: Date.now() - 3600_000, account: 'bluesky', kind: 'post', text: 'A post that went out this morning, after his APPROVE.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kspec' }];
+/** A noisy picture well over 1 MB (a camera photo): the composer must make it a JPEG under 1 MB, Bluesky's limit. */
+function bigPng(w = 760, hgt = 760) {
+  const raw = randomBytes((w * 3 + 1) * hgt);
+  for (let y = 0; y < hgt; y++) raw[y * (w * 3 + 1)] = 0;
+  const chunk = (t, d) => {
+    const b = Buffer.alloc(12 + d.length);
+    b.writeUInt32BE(d.length, 0);
+    b.write(t, 4, 'latin1');
+    d.copy(b, 8);
+    b.writeUInt32BE(crc32(Buffer.concat([Buffer.from(t, 'latin1'), d])), 8 + d.length);
+    return b;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(hgt, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+const YESTERDAY = { at: Date.now() - 30 * 3600_000, account: 'bluesky', kind: 'post', text: 'A post from yesterday evening.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kold' };
+const SENT = [YESTERDAY, { at: Date.now() - 3600_000, account: 'bluesky', kind: 'post', text: 'A post that went out this morning, after his APPROVE.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kspec' }];
 
 /** Stand in for his accounts: GET /social, POST /social/draft (kept), /social/approve (recorded), /lens/share (a picture id). */
-async function standIn(page, { offline = false } = {}) {
+async function standIn(page, { offline = false, accounts = ACCOUNTS } = {}) {
   const asked = [];
   const drafts = [];
   const sent = [...SENT];
   const bodies = [];
+  const shares = [];
   let n = 0;
   await page.route(/\/api\/(social|lens\/share)(\/|\?|$)/, async (r) => {
     const u = new URL(r.request().url());
     const m = r.request().method();
     asked.push(`${m} ${u.pathname}`);
     if (offline) return r.abort('internetdisconnected');
-    if (u.pathname === '/api/social' && m === 'GET') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ accounts: ACCOUNTS, drafts, sent }) });
+    if (u.pathname === '/api/social' && m === 'GET') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ accounts, drafts, sent }) });
+    if (u.pathname === '/api/lens/share') shares.push(r.request().postDataBuffer()?.length ?? 0);
     if (u.pathname === '/api/lens/share') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'SpecPicture00001', url: 'https://ghosty.example/i/SpecPicture00001', expires: Date.now() + 86400_000, type: 'image/png' }) });
     if (u.pathname === '/api/social/draft') {
       const b = JSON.parse(r.request().postData() ?? '{}');
@@ -49,9 +72,10 @@ async function standIn(page, { offline = false } = {}) {
       if (d) sent.push({ at: Date.now(), account: d.account, kind: 'post', text: d.text, link: d.link });
       return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ draft: d, said: `Posted: ${d?.link}` }) });
     }
+    if (u.pathname === '/api/social/edit') return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Bluesky takes 300 characters at most; this is 310. Shorter, or say which part to keep.' }) });
     return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"not in this spec"}' });
   });
-  return { asked, drafts, bodies };
+  return { asked, drafts, bodies, shares };
 }
 
 export async function run(H) {
@@ -69,6 +93,8 @@ export async function run(H) {
   check(/^Draft made for Bluesky: it waits above for your APPROVE\. Not for Mastodon: Mastodon takes 500 characters at most\. Your words are still here/.test(W.madeWords(['Bluesky'], [{ name: 'Mastodon', why: 'Mastodon takes 500 characters at most.' }])), 'made for one, not the other, said whole');
   check(W.accountsWords(ACCOUNTS) === 'Linked: Bluesky as spec.bsky.social, Mastodon as @spec@mastodon.social, Discord as Spec bot in Spec server. Not linked: your Telegram channel (under Accounts, with the steps).', `accounts: ${W.accountsWords(ACCOUNTS)}`);
   check(/can’t reach my brain/.test(W.accountsWords(null)) && /Try again/.test(W.accountsWords(null)), 'the brain not answering, said with what to do');
+  check(W.tooLong('Mastodon', 1040, 1000) === 'Mastodon takes 1000 letters at most; this is 1040. Make it 40 shorter.', `over the account's own length, in the count's words: ${W.tooLong('Mastodon', 1040, 1000)}`);
+  check(/1 MB/.test(W.PICTURE_BIG) && !/1\.5/.test(W.PICTURE_BIG), `the picture's limit is Bluesky's 1 MB: ${W.PICTURE_BIG}`);
   check(/APPROVE/.test(W.SENT_EMPTY) && /Try again/.test(W.SENT_ERROR) && /Try again/.test(W.accountOffline('Bluesky')), 'SENT TODAY and the panels say their states');
   for (const s of [W.KEPT_NOTE, W.ALT_MISSING, W.PICTURE_NO(['Discord']), W.PICTURE_BIG, W.PICTURE_KINDS]) check(!RAW.test(s) && s.length < 160, `a short plain line: ${s}`);
 
@@ -156,7 +182,9 @@ export async function run(H) {
 
   // ---- 4. the brain not answering: the queue, the composer and the accounts say so, and show no link form on a guess
   {
-    const { ctx, page } = await phone(PHONE2, 'scan', { 'ghosty.social.compose': JSON.stringify({ text: 'Words written before the signal went', to: ['bluesky'], alt: '' }) }, 21);
+    // a read of SOCIAL kept on the phone from last night (api/brain.ts keeps reads): never shown as now
+    const keptRead = JSON.stringify({ accounts: ACCOUNTS, drafts: [], sent: [YESTERDAY] });
+    const { ctx, page } = await phone(PHONE2, 'scan', { 'ghosty.social.compose': JSON.stringify({ text: 'Words written before the signal went', to: ['bluesky'], alt: '' }), 'ghosty.read:/social': keptRead }, 21);
     await standIn(page, { offline: true });
     await open(page, 'social');
     await page.waitForFunction(() => /can’t reach my brain/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => check(false, 'the queue did not say the brain is not answering'));
@@ -168,11 +196,72 @@ export async function run(H) {
     await page.waitForSelector('#pg-social .socoff', { timeout: 8000 }).catch(() => check(false, 'the account panels did not say the brain is not answering'));
     const off = await page.$$eval('#pg-social .pn.socialpanel', (p) => p.map((x) => ({ off: !!x.querySelector('.socoff'), form: !!x.querySelector('input'), retry: [...x.querySelectorAll('button')].some((b) => /try again/i.test(b.textContent)) })));
     check(off.length === 4 && off.every((x) => x.off && !x.form && x.retry), `every account panel says it and offers TRY AGAIN, with no form: ${JSON.stringify(off)}`);
+    const tags = await page.$$eval('#pg-social .pn.socialpanel h3 small', (t) => t.map((x) => x.textContent.trim().toUpperCase()));
+    check(tags.length === 4 && tags.every((t) => /REACH/.test(t) && !/^NOT LINKED/.test(t)), `each panel's tag is the links lane's "can't reach my brain" (LINKS' top line reads it as offline): ${tags.join(', ')}`);
     const fo = await fit(page, '#pg-social');
     check(!fo.small.length && !fo.sideways && !fo.cut.length, `the panels fit at BODY 21: ${JSON.stringify(fo)}`);
     await ctx.close();
   }
   log('social: offline');
+
+  // ---- 4b. what the reviewers found: his server's own length, an empty choice, a camera photo, EDIT's refusals, SENT TODAY's day
+  {
+    const own = ACCOUNTS.map((a) => ({ ...a, max: a.id === 'mastodon' ? 1000 : a.id === 'bluesky' ? 300 : a.id === 'discord' ? 2000 : 4096 }));
+    const { ctx, page } = await phone(PHONE2, 'scan', { 'ghosty.social.compose': JSON.stringify({ text: '', to: ['mastodon'], alt: '' }) }, 21);
+    const s = await standIn(page, { accounts: own });
+    await open(page, 'social');
+    await page.waitForSelector('#pg-social .soccompose textarea', { timeout: 15000 }).catch(() => check(false, 'no WRITE A POST box'));
+    // SENT TODAY: yesterday's post is not "today"
+    await page.waitForFunction(() => /went out today/.test(document.querySelector('#pg-social .socsentl')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    check((await page.textContent('#pg-social .socsentl').catch(() => '')) === 'One thing went out today, each after your APPROVE:', `SENT TODAY counts only today's: ${await page.textContent('#pg-social .socsentl').catch(() => '')}`);
+    // his Mastodon server takes 1000: 700 letters is fine, counted against his server's own number, and the draft is made
+    const long = 'a'.repeat(700);
+    await page.fill('#pg-social .soccompose textarea', long);
+    check((await page.textContent('#pg-social .soccount')) === '700 of 1000 letters', `his server's own length: ${await page.textContent('#pg-social .soccount')}`);
+    await page.fill('#pg-social .soccompose textarea', 'a'.repeat(1040));
+    await page.click('#pg-social .soccompose .keyrow button:has-text("Make the draft")');
+    check((await page.textContent('#pg-social .socmsg')) === 'Mastodon takes 1000 letters at most; this is 1040. Make it 40 shorter.', `over his server's length, in the count's words: ${await page.textContent('#pg-social .socmsg')}`);
+    await page.fill('#pg-social .soccompose textarea', long);
+    await page.click('#pg-social .soccompose .keyrow button:has-text("Make the draft")');
+    await page.waitForFunction(() => /1 waiting for your APPROVE/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    check(s.bodies.length === 1 && s.bodies[0].account === 'mastodon' && s.bodies[0].text.length === 700, `700 letters to his 1000-letter server became a draft: ${s.bodies.map((b) => `${b.account}:${b.text.length}`).join(',')}`);
+    // unticking the only chosen account leaves none chosen (no other account lights up on its own)
+    await page.click('#pg-social .soccompose [role=group] button:has-text("Mastodon")');
+    await page.waitForFunction(() => /Tap an account above/.test(document.querySelector('#pg-social .socto')?.textContent ?? ''), null, { timeout: 3000 }).catch(() => undefined);
+    const pressed = await page.$$eval('#pg-social .soccompose [role=group] button[aria-pressed=true]', (b) => b.map((x) => x.textContent.trim()));
+    check(!pressed.length && (await page.textContent('#pg-social .socto')) === 'Tap an account above to choose where it goes.', `none chosen stays none: [${pressed.join(',')}] ${await page.textContent('#pg-social .socto')}`);
+    await page.fill('#pg-social .soccompose textarea', 'Words for nowhere yet');
+    await page.click('#pg-social .soccompose .keyrow button:has-text("Make the draft")');
+    check((await page.textContent('#pg-social .socmsg')) === 'Tap an account above to choose where it goes.' && s.bodies.length === 1, 'MAKE with none chosen asks him to choose, and makes nothing');
+    // a camera photo well over 1 MB: made a JPEG under 1 MB on the phone, so Bluesky takes it at APPROVE
+    await page.click('#pg-social .soccompose [role=group] button:has-text("Bluesky")');
+    const big = bigPng();
+    check(big.length > 1_000_000, `the stand-in photo is over 1 MB: ${big.length}`);
+    await page.setInputFiles('#pg-social .soccompose input[type=file]', { name: 'photo.png', mimeType: 'image/png', buffer: big });
+    await page.waitForSelector('#pg-social .soccompose img.socthumb', { timeout: 15000 }).catch(async () => check(false, `the big picture did not show: ${await page.textContent('#pg-social .socmsg').catch(() => '')}`));
+    await page.fill('#pg-social .soccompose input.socalt', 'Noise, as a stand-in for a photo');
+    await page.click('#pg-social .soccompose .keyrow button:has-text("Make the draft")');
+    await page.waitForFunction(() => /2 waiting for your APPROVE/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    check(s.shares.length === 1 && s.shares[0] > 0 && s.shares[0] <= 1_000_000, `the picture went to the brain at 1 MB or less: ${s.shares.join(',')} bytes`);
+    check(s.bodies.length === 2 && s.bodies[1].account === 'bluesky' && s.bodies[1].image === 'SpecPicture00001', `the Bluesky draft carries it: ${JSON.stringify(s.bodies[1] ?? null)}`);
+    // EDIT: too long for Bluesky is said on the phone, and SAVE asks nothing of the brain
+    const card = page.locator('#pg-social .socq .draftcard').filter({ hasText: 'Words for nowhere yet' }).first();
+    await card.locator('button', { hasText: /^edit$/i }).click();
+    await page.waitForSelector('.drbox', { timeout: 5000 }).catch(() => check(false, 'EDIT did not open'));
+    await page.fill('.drbox', 'b'.repeat(310));
+    await page.locator('.dredit button', { hasText: /^save$/i }).click();
+    const said = await page.textContent('.dredit small.note').catch(() => '');
+    check(said === 'Bluesky takes 300 letters at most; this is 310. Make it 10 shorter.' && !s.asked.some((a) => /\/social\/edit/.test(a)), `EDIT says the length on the phone, and asks nothing: ${said} | ${s.asked.filter((a) => /edit/.test(a)).join(',')}`);
+    // a refusal that does reach the brain (here: stood in) is said in its own words, not "try again in a moment"
+    await page.fill('.drbox', 'b'.repeat(299));
+    await page.locator('.dredit button', { hasText: /^save$/i }).click();
+    await page.waitForFunction(() => /characters at most/.test(document.querySelector('.dredit small.note')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => undefined);
+    const refused = await page.textContent('.dredit small.note').catch(() => '');
+    check(/^Bluesky takes 300 characters at most/.test(refused ?? '') && !/Try again in a moment/.test(refused ?? ''), `the brain's refusal is said as it is: ${refused}`);
+    check(!s.asked.some((a) => /approve/.test(a)), `nothing here asked to approve: ${s.asked.join(', ')}`);
+    await ctx.close();
+  }
+  log('social: the review fixes');
 
   // ---- 5. the seven looks: the composer with a picture fits, and its words are drawn in the look's colours
   for (const world of WORLDS) {

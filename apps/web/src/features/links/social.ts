@@ -6,7 +6,7 @@
  */
 import { sayError } from '../../ui/hisWords';
 import { ACCOUNTS, draftCard, type Account } from '../../../../../packages/shared/src/social';
-import { draftEl } from './drafts';
+import { draftEl, noteMax, socialRead } from './drafts';
 import { brain, type SocialInfo } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
@@ -129,7 +129,8 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
     const who = info?.accounts.find((x) => x.id === a.id)?.who ?? null;
     clear(p.body);
     /* state: links.account offline */
-    p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'NOT ANSWERING', who ? 'ok' : 'mid');
+    // the links lane's own words for it (LINKS' top line reads REACH as the brain not answering)
+    p.setStatus(who ? 'LINKED' : info ? 'NOT LINKED' : 'CAN’T REACH MY BRAIN', who ? 'ok' : 'mid');
     // the brain not answering: say so, keep the form away (nothing is known, nothing has changed), and offer TRY AGAIN
     if (!info) {
       p.body.append(h('div.note.socoff', accountOffline(a.name)), h('div.keyrow', button('TRY AGAIN', () => void paint())));
@@ -202,7 +203,8 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
 
   const paint = async () => {
     try {
-      info = await brain.social();
+      info = await socialRead();
+      noteMax(info);
     } catch {
       info = null;
     }
