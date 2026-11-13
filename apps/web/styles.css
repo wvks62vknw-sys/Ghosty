@@ -9470,7 +9470,24 @@ html #pg-brief .pn.wx .rw.brtomorrow .v { white-space: normal; overflow-wrap: an
 /* ==== [planlane:brief end] ==== */
 
 /* ==== [planlane:radio] ==== */
+/* a sleep timer a reload ended: said once, under now playing (the hero hides other notes) */
+html #pg-radio .pn.nowp .bd > .note.nplost { display: block; margin-top: 12px; font: 400 14px/19px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+/* FAVOURITES in his order: REORDER, then each one with its place, its name (wrapping) and ↑ ↓ (44 pt each) */
+html #pg-radio .pn.favs .favnote { display: block; margin: 4px 0 8px; font: 400 14px/19px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-radio .pn.favs .favmove .favno { font: 600 14px/1 var(--sf); color: var(--ink3); text-align: center; }
+html #pg-radio .pn.favs .favmove .favtx b { font: 600 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove .favkeys { display: flex; gap: 8px; }
+html #pg-radio .pn.favs .favmove .favkeys button { width: 44px; height: 44px; min-width: 44px; min-height: 44px !important; padding: 0; font-size: 18px; }
+html #pg-radio .pn.favs .favmove .favkeys button:disabled { opacity: .35; }
+html #pg-radio .pn.favs .keyrow.favorder { display: flex; justify-content: flex-end; padding: 8px 0 0; }
+html #pg-radio .pn.favs .keyrow.favorder button { min-height: 44px !important; height: 44px; padding: 0 16px; }
 
+/* NEAR ME: the word, his country (a 44 pt picker that takes the room), POPULAR */
+html #pg-radio .pn.stations > .keyrow.radnear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 8px; }
+html #pg-radio .pn.stations > .keyrow.radnear .lab { flex: none; margin: 0; }
+html #pg-radio .pn.stations > .keyrow.radnear select { flex: 1 1 140px; min-width: 0; height: 44px; min-height: 44px; padding: 0 12px; font: 400 16px/1 var(--sf); color: var(--ink); background: var(--fill); border: 1px solid var(--hair2); border-radius: var(--rad); }
+html #pg-radio .pn.stations > .keyrow.radnear button { flex: none; height: 44px; min-height: 44px !important; }
 /* ==== [planlane:radio end] ==== */
 
 /* ==== [planlane:markets] ==== */
