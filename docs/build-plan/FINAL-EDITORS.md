@@ -212,3 +212,11 @@ photo with video. A separate reviewer then read all of the changes looking for f
   that he accepts or rejects.
 - **Video:** the fade's length is fixed, with no slider yet. The brain's video tool cannot yet suggest a duplicate or a fade; that
   tool lives in the brain's own files, outside this lane.
+- **Video's own spec:** in this container, the exported file's length was still about 120 ms off the timeline. That is section (l),
+  and it belongs to the CI TIMING lane, which owns the export's length and steadying, so it was left to them.
+
+## What was checked before the merge
+- Both typechecks are clean.
+- The full brain suite passes.
+- The docs, sheets, slides, workspace, photoedit, photo2 and video2 specs pass on the merged tip, and so does the new `editorslane`
+  spec, which covers all six editors in about 8 minutes here.
