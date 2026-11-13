@@ -1,5 +1,5 @@
 /** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
-import { loadTodos } from '../agenda/todo';
+import { loadTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -157,12 +157,14 @@ export const briefTab: TabDef = {
       dayItems = items;
       setCommuteWords();
       const open = () => go('agenda');
+      // (the promise "tap to add" lands on the diary's own section, not on whichever Agenda section was used last)
+      const add = () => goToPanel('agenda', 'DIARY');
       const rows = dayItems.slice(0, 5).map((x) => row(x.when, x.title, x.where ?? null, { wrap: true, onClick: open }));
       if (dayItems.length > 5) rows.push(row(null, `${dayItems.length - 5} more today`, '›', { onClick: open }));
       const next = mind.today.next;
       if (!dayItems.length) {
         /* state: brief.day empty */
-        rows.push(row(null, eveningNow(new Date()) ? 'Nothing more in your diary tonight. Tap to add something for tomorrow.' : 'Nothing in your diary for the rest of today. Tap to add something.', null, { wrap: true, onClick: open }));
+        rows.push(row(null, eveningNow(new Date()) ? 'Nothing more in your diary tonight. Tap to add something for tomorrow.' : 'Nothing in your diary for the rest of today. Tap to add something.', null, { wrap: true, onClick: add }));
         if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       } else if (next && eveningNow(new Date()) && !dayItems.some((x) => x.title === next.title)) {
         // [planlane:brief] in the evening the Brief looks ahead: the next thing in the diary, after tonight's
@@ -208,6 +210,17 @@ export const briefTab: TabDef = {
     // FORESIGHT (foresight.ts): today's expectations, yesterday's score and his questions on record, after the drive to work.
     const fore = briefForesight();
     P.left.append(dp.el, commute.el, fore.el, wp.el);
+    // (PLACES sits under the whole of ME: the tap brings PLACES itself on screen, not the top of ME)
+    const toPlaces = () => {
+      goToPanel('memory', 'ME');
+      let tries = 0;
+      const show = () => {
+        const pl = document.querySelector<HTMLElement>('#pg-memory .places');
+        if (pl && pl.offsetParent) pl.scrollIntoView({ block: 'start' });
+        else if (tries++ < 30) requestAnimationFrame(show);
+      };
+      requestAnimationFrame(show);
+    };
     const paintCommute = async () => {
       try {
         const places = (await brain.places()).places ?? [];
@@ -221,7 +234,7 @@ export const briefTab: TabDef = {
           commuteCost = '';
           commute.setStatus('');
           // [planlane:brief] the same path Foresight and the Eye name, and the tap lands on it (not on whichever section Memory was left on)
-          return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → ME → PLACES and the drive to work shows here.`, '›', { wrap: true, onClick: () => goToPanel('memory', 'ME') }));
+          return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → ME → PLACES and the drive to work shows here.`, '›', { wrap: true, onClick: toPlaces }));
         }
         // Offline the phone would answer with the last drive it was told (kept for every read): an old "LIVE"
         // time is not this morning's, so say it plainly instead.
@@ -351,7 +364,14 @@ export const briefTab: TabDef = {
       // rain first, then tomorrow (its range and rain, what to wear for it, its sunrise), since today's range has gone by
       const evening = eveningNow(now) && d.temperature_2m_min.length > 1;
       const k = evening ? 1 : 0;
-      const wear = wearLine({ max: d.temperature_2m_max[k] ?? c.temperature_2m, feels: evening ? (d.temperature_2m_min[k] ?? c.apparent_temperature) : c.apparent_temperature, rain: d.precipitation_probability_max[k] ?? 0, wind: c.wind_speed_10m, uv: d.uv_index_max[k] ?? 0 });
+      // (WEAR reads the same hours as RAIN: by day the hours still to come, in the evening tomorrow's; the wind is now's, so it is
+      // said by day only (no daily wind in the forecast); the sun cream only while the day's sun is still high: before two hours
+      // past its midday, from the day's own sunrise and sunset)
+      const probs = w.hourly.precipitation_probability;
+      const ahead = evening ? probs.slice(24, 48) : probs.slice(now.getHours(), 24);
+      const noon = (Date.parse(d.sunrise[0] ?? '') + Date.parse(d.sunset[0] ?? '')) / 2;
+      const sunHigh = evening || !Number.isFinite(noon) || now.getTime() < noon + 2 * 3_600_000;
+      const wear = wearLine({ max: d.temperature_2m_max[k] ?? c.temperature_2m, feels: evening ? (d.temperature_2m_min[k] ?? c.apparent_temperature) : c.apparent_temperature, rain: ahead.length ? Math.max(...ahead) : (d.precipitation_probability_max[k] ?? 0), wind: evening ? 0 : c.wind_speed_10m, uv: sunHigh ? (d.uv_index_max[k] ?? 0) : 0 });
       const wearRow = full(row('WEAR', evening ? `Tomorrow: ${wear}` : wear, null, { wrap: true }));
       wearRow.classList.add('brwear');
       const hm = (iso: string | undefined) => (iso ?? '').slice(11, 16);
@@ -403,8 +423,24 @@ export const briefTab: TabDef = {
       if (ui.get().tab === 'brief') markSeen(topHeadlines());
     };
     weather.onChange(paintWeather);
-    addEventListener('online', paintWeather);
-    addEventListener('offline', paintWeather);
+    // (back online: ask again at once, rather than wait for the next poll, and say the connection as it is now)
+    // (each refresh says "getting…" at once and repaints when it answers; the paints here cover a refresh already under way)
+    addEventListener('online', () => {
+      void weather.refresh(true);
+      void air.refresh(true);
+      void news.refresh(true);
+      paintWeather();
+      paintNews();
+    });
+    addEventListener('offline', () => {
+      paintWeather();
+      paintNews();
+    });
+    // (a to-do ticked, added or undone from the chat while the Brief is open: the sentence and YOUR DAY follow it)
+    addEventListener(TODO_CHANGED, () => {
+      paintSay();
+      if (dayItems !== null) void paintDay();
+    });
     air.onChange(paintWeather);
     news.onChange(paintNews);
     paintWeather();

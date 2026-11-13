@@ -11,10 +11,13 @@ import { whenQuiet } from '../../assistant/notices';
 import { speak } from '../../assistant/voice';
 import { news } from '../../data/news';
 import { WMO, temp, weather, type WeatherData } from '../../data/weather';
+import { coins, fresh, money as moneyOf } from '../../data/markets';
+import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
+import { passagesOf } from '../../library/local';
 import { settings } from '../../state/app';
 import { loadTodos } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
-import { commuteLine, diarySentence, isoDay, leaveFor, rainClause, rainWhen, spoken, stillToday, summary, todoClause, tomorrowClause, tonight, type Facts } from './day';
+import { commuteLine, diarySentence, digestDay, isoDay, leaveFor, marketsClause, rainClause, rainWhen, spoken, stillToday, summary, todoClause, tomorrowClause, tonight, type Facts } from './day';
 
 /** The day (it starts at 05:00, not midnight: a night owl's 02:00 is still yesterday's Brief) last read aloud. */
 export const ALOUD_FLAG = 'ghosty.brief.aloud';
@@ -59,14 +62,26 @@ export function todoFacts(now: number): string {
   }
 }
 
+/**
+ * The Brief's top headlines, as the page shows them: the BBC's live feed, else this morning's digest (the phone's own copy of the
+ * library) when the feed can't be reached. An older day's digest is not said as today's news: none then.
+ */
+export async function briefHeadlines(now = Date.now(), n = 3): Promise<string[]> {
+  if (news.data?.length) return news.data.slice(0, n).map((x) => x.title);
+  const d = await within(passagesOf('m-notes_daily').then(digestDay), 3000);
+  return d && d.day === isoDay(new Date(now)) ? d.headlines.slice(0, n).map((x) => x.title) : [];
+}
+
 /** The Brief's spoken line, put together from what the phone can reach in a few seconds (the page itself need not be open). */
 export async function briefLine(now = Date.now()): Promise<string> {
-  const f = await briefFacts(now, true);
-  const heads = (news.data ?? []).slice(0, 3).map((x) => x.title);
+  const [f, heads] = await Promise.all([briefFacts(now, true), briefHeadlines(now)]);
   return spoken(new Date(now), summary(f), heads);
 }
 
-/** The Brief's facts (the weather, the diary, his to-dos, the drive), from the same sources the page reads, each given a few seconds. */
+/**
+ * The Brief's facts, from the same sources the page reads, each given a few seconds: the weather, the diary, his to-dos, the drive
+ * and its fuel, the money near a saved place, and the markets only from the Markets screen's own fresh prices (nothing fetched).
+ */
 export async function briefFacts(now = Date.now(), spokenToo = false): Promise<Facts> {
   const kept = (): WeatherData | null => {
     try {
@@ -78,10 +93,11 @@ export async function briefFacts(now = Date.now(), spokenToo = false): Promise<F
   };
   weather.start();
   news.start();
-  const [w, mind, places] = await Promise.all([
+  const [w, mind, places, spend] = await Promise.all([
     within(weather.data ? Promise.resolve(weather.data) : weather.refresh(), 4500).then((x) => x ?? kept()),
     within(brain.mind(), 7000),
     within(brain.places().then((r) => r.places ?? []), 7000),
+    within(brain.spending(), 7000),
   ]);
   const f = weatherFacts(w, spokenToo, new Date(now).getHours());
   const items = mind ? stillToday(mind.today, now) : null;
@@ -93,7 +109,16 @@ export async function briefFacts(now = Date.now(), spokenToo = false): Promise<F
   if (home && work && navigator.onLine !== false) {
     const c = await within(brain.commute(home, work), 7000);
     if (c) f.commute = commuteLine(c, items ? leaveFor(items, { label: work.label, query: work.query, address: work.address }, c.minutes, now) : null);
+    const fuel = c ? fuelEstimate(c.km) : null;
+    if (fuel) f.cost = fuel.line;
   }
+  // (the page's paintMoney: this month's statement only, the first place it names)
+  const d = new Date(now);
+  const near = spend?.kept && spend.month === `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` && places ? nearPlaces(spend.rows, places)[0] : undefined;
+  if (near) f.money = nearShort(near);
+  const coin = fresh(coins) ? coins.data?.[0] : undefined;
+  const markets = coin ? marketsClause({ name: coin.name, price: moneyOf(coin.price, coin.cur), change: coin.change }) : '';
+  if (markets) f.markets = markets;
   return f;
 }
 

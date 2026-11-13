@@ -252,10 +252,11 @@ for (const vp of on('brief') ? [PHONE, PHONE2] : []) {
   await page.evaluate(() => (location.hash = 'brief'));
   await until(page, () => document.body.dataset.tab === 'brief' && !!document.querySelector('.brdate')?.textContent, null, 12000);
   await page.waitForTimeout(2500);
-  const b = await page.evaluate(() => ({ date: document.querySelector('.brdate')?.textContent, rain: [...document.querySelectorAll('#pg-brief .wx .rw')].map((r) => r.textContent).find((t) => /^RAIN/i.test(t.trim())) ?? '', tabs: [...document.querySelectorAll('#pg-brief .pn.news .tabs button')].map((x) => `${x.textContent}:${Math.round(x.getBoundingClientRect().height)}`), hr: new Date().getHours() }));
+  const b = await page.evaluate(() => ({ date: document.querySelector('.brdate')?.textContent, rain: [...document.querySelectorAll('#pg-brief .wx .rw')].map((r) => r.textContent).find((t) => /^(RAIN|TONIGHT)/i.test(t.trim())) ?? '', src: document.querySelector('#pg-brief .pn.wx h3')?.textContent ?? '', tabs: [...document.querySelectorAll('#pg-brief .pn.news .tabs button')].map((x) => `${x.textContent}:${Math.round(x.getBoundingClientRect().height)}`), hr: new Date().getHours() }));
   const want = b.hr < 5 ? 'Good night' : b.hr < 12 ? 'Good morning' : b.hr < 18 ? 'Good afternoon' : 'Good evening';
   check(b.date?.startsWith(`${want} ·`), `[${W}] [brief: greeting] reads "${b.date}" (want ${want})`);
-  check(/Open-Meteo/.test(b.rain), `[${W}] [brief: the rain says where it is from] "${b.rain}"`);
+  // (the rain line is RAIN by day, TONIGHT from 18:00; where it is from, with the time it was read, is the weather card's status)
+  check(/^(RAIN|TONIGHT)\S/i.test(b.rain.trim()) && /OPEN-METEO · \d\d:\d\d/i.test(b.src), `[${W}] [brief: the rain line, and the card says where it is from and when] "${b.rain}" / "${b.src}"`);
   check(b.tabs.length === 5 && b.tabs.every((x) => Number(x.split(':')[1]) >= 44) && b.tabs[0].startsWith('TOP STORIES'), `[${W}] [brief: sections] ${b.tabs.join(', ')} (want 44 pt, the first "TOP STORIES")`);
   // READ IT TO ME: stopped with one tap, at 44 pt
   await page.evaluate(() => document.querySelector('#pg-brief .brread')?.scrollIntoView({ block: 'center' }));
