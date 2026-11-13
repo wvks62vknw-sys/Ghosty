@@ -29,7 +29,9 @@ const RAW = /aborted|fetch failed|undefined|\[object Object\]|TypeError|NetworkE
 const lookOf = (world, body) => ({ ground: world === 'ink' ? 'warm' : 'graphite', world, night: world === 'ink' ? 'warm' : 'graphite', switches: body ? { body } : {} });
 
 async function open({ world = 'scan', viewport = VIEWPORTS[0], body = 0, boot = false, heavy = false, camera = false } = {}) {
-  const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: boot ? 1 : 2, isMobile: true, hasTouch: true, permissions: camera ? ['camera'] : [] });
+  // (no service worker: CI's Playwright does not route the requests of a page a service worker controls, so the network cut below and the
+  // stubbed Library shelf would go to the real brain once the worker had taken the page, at a moment that depends on the machine's speed)
+  const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: boot ? 1 : 2, isMobile: true, hasTouch: true, permissions: camera ? ['camera'] : [], serviceWorkers: 'block' });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(({ key, look, boot, heavy }) => {
