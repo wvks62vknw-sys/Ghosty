@@ -55,6 +55,8 @@ export interface Watcher {
    * was set, and that morning's outcome: `repliedAt` (a reply came) or not. No person is profiled: a name, a thread, a day.
    */
   who?: string;
+  /** The address of the mail he means (the Brief's line he named), when the phone knew it: the morning's look is by it. */
+  from?: string;
   about?: string;
   thread?: string;
   by?: number;
@@ -89,7 +91,7 @@ async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | unde
   const key = await d.vault?.get('email').catch(() => '');
   if (!key) return undefined;
   const cfg = parseEmailKey(key);
-  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.who ? { from: w.who } : {}), ...(!w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
+  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(!w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
   const at = r.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
   return at ?? null;
 }
@@ -98,12 +100,13 @@ async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | unde
  * "Remind me to chase this if Sam doesn't reply by Thursday": a watcher of kind `reply`, checked once, on that morning at 9 (his
  * zone). Said once, when set (chaseSetLine). Without a mail account it is a plain dated reminder, and says so.
  */
-export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; about?: unknown; thread?: unknown; tz?: unknown }): Promise<{ watcher?: Watcher; said: string; error?: string }> {
+export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; about?: unknown; thread?: unknown; from?: unknown; tz?: unknown }): Promise<{ watcher?: Watcher; said: string; error?: string }> {
   const day = typeof b.day === 'string' ? b.day.toLowerCase().trim() : '';
   if (!/^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/.test(day)) return { said: '', error: 'say by when: a day like Thursday, or tomorrow' };
   const who = typeof b.who === 'string' ? b.who.replace(/[^\p{L}\p{N} '’.-]/gu, '').trim().slice(0, 40) : '';
   const about = typeof b.about === 'string' ? b.about.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
   const thread = typeof b.thread === 'string' ? b.thread.slice(0, 200) : '';
+  const from = typeof b.from === 'string' && /^[^\s@<>"]{1,64}@[^\s@<>"]{1,190}$/.test(b.from.trim()) ? b.from.trim() : '';
   const tz = typeof b.tz === 'string' && b.tz ? b.tz : 'UTC';
   const list = await loadWatchers(d.storage);
   if (list.filter((w) => w.state === 'watching').length >= MAX_WATCHERS) return { said: '', error: `I’m watching ${MAX_WATCHERS} things already: stop one first.` };
@@ -111,7 +114,7 @@ export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; 
   const by = chaseAt(day, now, tz);
   const mail = await mailLinked(d);
   const label = `Chase ${who || 'a reply'}${about ? `: ${about.slice(0, 50)}` : ''}`;
-  const w: Watcher = { id: shortId(), kind: 'reply', url: '', label, created: now, checked: now, ok: true, last: {}, state: 'watching', ...(who ? { who } : {}), ...(about ? { about } : {}), ...(thread ? { thread } : {}), by, mail };
+  const w: Watcher = { id: shortId(), kind: 'reply', url: '', label, created: now, checked: now, ok: true, last: {}, state: 'watching', ...(who ? { who } : {}), ...(about ? { about } : {}), ...(thread ? { thread } : {}), ...(from ? { from } : {}), by, mail };
   await saveWatchers(d.storage, [...list, w]);
   return { watcher: w, said: chaseSetLine(who, by, tz, mail) };
 }

@@ -68,6 +68,8 @@ async function run(vp, body) {
     return route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson' }, body: lines });
   });
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  // the Brief's inbox, stood in: Sam's mail is the one the chase is about (e)
+  await ctx.route('**/api/guardian/mail/inbox', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ linked: true, address: 'tony@example.com', messages: [{ uid: 7, from: 'Sam Carter <sam@example.com>', name: 'Sam Carter', address: 'sam@example.com', subject: 'Invoice 42', date: new Date().toISOString(), unread: true }] }) }));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`${T} pageerror: ${e.message}`));
   await page.addInitScript(({ key, turns, doc, ws, body }) => {
@@ -200,12 +202,16 @@ async function run(vp, body) {
   await page.evaluate(() => window.__ghosty.send("remind me to chase this if Sam doesn't reply by Thursday"));
   const said = await until(page, () => /(?:If nothing comes from Sam by Thursday 9 am, I'll remind you to chase it\.|No mail account is linked, so on Thursday 9 am I'll simply remind you to chase Sam\.)/.test(document.querySelector('.log')?.textContent ?? ''), null, 10000);
   check(said, `${T} [e] the chase's sentence: "${await page.evaluate(() => [...document.querySelectorAll('.log .msg')].pop()?.textContent?.slice(0, 160) ?? '')}"`);
+  // "what are you chasing?": the list, with its morning
+  await page.evaluate(() => window.__ghosty.send('what are you chasing?'));
+  const chasing = await until(page, () => /I'm chasing (?:one reply|\d+ replies): .*Sam by Thursday 9 am/.test([...document.querySelectorAll('.log .msg')].pop()?.textContent ?? ''), null, 8000);
+  check(chasing, `${T} [e] "what are you chasing?" said "${await page.evaluate(() => [...document.querySelectorAll('.log .msg')].pop()?.textContent?.slice(0, 160) ?? '')}"`);
   await page.evaluate(() => (location.hash = 'agenda'));
   await page.waitForSelector('#pg-agenda', { state: 'attached', timeout: 10000 });
   await openSection(page, 'agenda', 'Spending');
   await page.locator('.watchers').first().scrollIntoViewIfNeeded().catch(() => undefined);
-  const listed = await until(page, () => [...document.querySelectorAll('.watchers .wrow[data-kind="reply"]')].some((r) => /Chase Sam/.test(r.textContent ?? '') && r.querySelector('.wstop')), null, 10000);
-  check(listed, `${T} [e] WATCHERS does not list the chase with STOP`);
+  const listed = await until(page, () => [...document.querySelectorAll('.watchers .wrow[data-kind="reply"]')].some((r) => /Chase Sam: Invoice 42/.test(r.textContent ?? '') && r.querySelector('.wstop')), null, 10000);
+  check(listed, `${T} [e] WATCHERS does not list the chase about Sam's mail with STOP: ${await page.evaluate(() => [...document.querySelectorAll('.watchers .wrow')].map((r) => r.textContent).join(' | ').slice(0, 300))}`);
   const row = page.locator('.watchers .wrow[data-kind="reply"]').last();
   if (listed) {
     const stands = await row.textContent();

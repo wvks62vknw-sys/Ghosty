@@ -492,7 +492,7 @@ export const brain = {
   watchers: () => req<{ watchers: WatcherInfo[]; max: number }>('GET', '/guardian/watchers'),
   watchersAdd: (b: { kind: 'price' | 'page' | 'strike'; url: string; label?: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   // [recall] a chase (BRIEF-DEPTH-MEMORY 3): the one watcher system, kind `reply`
-  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
+  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; from?: string; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
   mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
   mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),

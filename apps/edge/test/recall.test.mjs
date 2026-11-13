@@ -179,6 +179,17 @@ test('a chase: said once, checked only on its morning, and the right one of its 
   const none = await run(null);
   assert.equal(none.told, 'No reply from Sam yet: “the invoice”. DRAFT A CHASE writes one for your OK.');
   assert.equal(none.notes[0].title, 'Chase Sam');
+  // the mail he meant (the Brief's line from Sam): the morning's look is by its address; a bad address is dropped
+  {
+    const storage = new Mem();
+    let seen = null;
+    const d = { storage, notify: async () => undefined, now: () => Date.parse('2026-11-11T15:00:00Z'), replied: async (w) => ((seen = w), null) };
+    const r = await W.addChase(d, { kind: 'reply', who: 'Sam', day: 'thursday', about: 'Invoice 42', from: 'sam@example.com', tz: TZ });
+    assert.equal(r.watcher.from, 'sam@example.com');
+    assert.equal(r.watcher.label, 'Chase Sam: Invoice 42');
+    assert.equal((await W.addChase(d, { kind: 'reply', who: 'Sam', day: 'thursday', from: 'not an address', tz: TZ })).watcher.from, undefined);
+    void seen;
+  }
   const nomail = await run(undefined);
   assert.equal(nomail.said, "No mail account is linked, so on Thursday 9 am I'll simply remind you to chase Sam.");
   assert.equal(nomail.told, 'Time to chase Sam: “the invoice”. DRAFT A CHASE writes one for your OK.');
