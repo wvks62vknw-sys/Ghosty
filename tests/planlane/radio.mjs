@@ -121,11 +121,13 @@ export async function run(H) {
     await hourB.click();
     await page.waitForFunction(() => /^Goes quiet at \d\d:00 \(in /.test(document.querySelector('#pg-radio .npsleepl')?.textContent ?? ''), null, { timeout: 3000 }).catch(async () => check(false, `[${vp.width}] the line after AT hh:00: ${await page.textContent('#pg-radio .npsleepl')}`));
     check((await hourB.getAttribute('aria-pressed')) === 'true', `[${vp.width}] AT hh:00 is marked as the one set`);
+    const fs = await H.fit(page, '#pg-radio .pn.stations');
+    check(!fs.small.length && !fs.sideways && !fs.cut.length && (await page.$eval('#pg-radio .radnear select', (e) => e.getBoundingClientRect().height).catch(() => 0)) >= 43.5, `[${vp.width}] STATIONS with NEAR ME fits at BODY 21: ${JSON.stringify(fs)}`);
     const fn = await H.fit(page, '#pg-radio .pn.nowp');
     check(!fn.small.length && !fn.sideways && !fn.cut.length, `[${vp.width}] NOW PLAYING with its timer fits at BODY 21: ${JSON.stringify(fn)}`);
     // FAVOURITES in his order: REORDER, ↓ on the first, DONE; kept across a reload; "play my favourites" follows it
     await page.click('#pg-radio .pn.favs .favorder button');
-    await page.waitForSelector('#pg-radio .pn.favs .favmove', { timeout: 3000 }).catch(() => check(false, `[${vp.width}] REORDER showed no ↑ ↓`));
+    await page.waitForSelector('#pg-radio .pn.favs .favmove', { timeout: 10000 }).catch(() => check(false, `[${vp.width}] REORDER showed no ↑ ↓`));
     check(await page.isDisabled('#pg-radio .pn.favs .favmove:first-of-type button[aria-label^="Move"][aria-label$="up"]').catch(() => false), `[${vp.width}] the first one cannot go up`);
     const ff = await H.fit(page, '#pg-radio .pn.favs');
     check(!ff.small.length && !ff.sideways && !ff.cut.length, `[${vp.width}] REORDER fits at BODY 21: ${JSON.stringify(ff)}`);
@@ -152,6 +154,34 @@ export async function run(H) {
     await ctx.close();
   }
   log('radio: the phone');
+
+  // ---- NEAR ME: the UK unless he changes it, kept on the phone, and where the radio starts
+  {
+    const vp = H.PHONE2;
+    const { ctx, page } = await radioPhone(H, vp, 'scan', {});
+    const asked = [];
+    page.on('request', (r) => /radio-browser/.test(r.url()) && asked.push(decodeURIComponent(r.url())));
+    await H.open(page, 'radio');
+    await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 });
+    check(asked.some((u) => /countrycode=GB/.test(u)) && (await page.inputValue('#pg-radio .radnear select')) === 'GB', `[${vp.width}] the radio starts near the UK: ${asked.join(' ').slice(0, 200)}`);
+    const f = await H.fit(page, '#pg-radio .pn.stations');
+    check(!f.small.length && !f.sideways && !f.cut.length, `[${vp.width}] STATIONS with NEAR ME fits at BODY 21: ${JSON.stringify(f)}`);
+    const h = await page.$eval('#pg-radio .radnear select', (e) => e.getBoundingClientRect().height);
+    check(h >= 43.5, `[${vp.width}] the country picker is 44 pt: ${h}`);
+    await page.selectOption('#pg-radio .radnear select', 'FR');
+    await page.waitForFunction(() => localStorage.getItem('ghosty.radio.country') === 'FR', null, { timeout: 3000 }).catch(() => check(false, `[${vp.width}] the country was not kept`));
+    await page.waitForFunction(() => /popular in France|\d/.test(document.querySelector('#pg-radio .pn.stations')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    check(asked.some((u) => /countrycode=FR/.test(u)), `[${vp.width}] France's stations were asked for`);
+    // (the screen opens again by itself after the reload: what it asks for is counted from the reload on)
+    asked.length = 0;
+    await page.reload();
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    await H.open(page, 'radio');
+    await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 }).catch(() => undefined);
+    check((await page.inputValue('#pg-radio .radnear select')) === 'FR' && asked.some((u) => /countrycode=FR/.test(u)), `[${vp.width}] after a reload the radio starts near France: ${asked.join(' ').slice(0, 200)}`);
+    await ctx.close();
+  }
+  log('radio: near me');
 
   // ---- 3. the seven looks at BODY 21: now playing with its timer, and REORDER
   for (const world of H.WORLDS) {

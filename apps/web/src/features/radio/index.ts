@@ -7,10 +7,12 @@ import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { waiting } from '../../ui/wait';
-import { clockWords, endOfHour, FINDING, hourKey, lostLine, nextStation, NO_OTHER, RECENT_EMPTY, REORDER, REORDER_DONE, REORDER_NOTE, SLEEP_CHOICES, SLEEP_OFF, sleepAtSet, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
+import { clockWords, endOfHour, FINDING, NEAR_ME, nearLabel, nearSet, hourKey, lostLine, nextStation, NO_OTHER, RECENT_EMPTY, REORDER, REORDER_DONE, REORDER_NOTE, SLEEP_CHOICES, SLEEP_OFF, sleepAtSet, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
 import { phrases } from '../lifeui';
-import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
+import { countryWord, tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
+/** The countries NEAR ME offers (his own stays on the list if he chose another one before). */
+const COUNTRIES = ['GB', 'IE', 'US', 'CA', 'AU', 'NZ', 'FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'PT', 'PL', 'SE', 'NO', 'DK', 'FI', 'CH', 'AT', 'GR', 'TR', 'IN', 'PK', 'BD', 'NG', 'GH', 'KE', 'ZA', 'JM', 'AE', 'JP', 'BR', 'MX', 'AR'];
 const GENRES = ['news', 'pop', 'rock', 'jazz', 'classical', 'lofi', 'chillout', 'dance', 'hip hop', 'talk', 'ambient', 'country'];
 
 type Query = { name?: string; tag?: string; country?: string; countrycode?: string };
@@ -22,7 +24,25 @@ async function search(q: Query): Promise<NowPlaying[]> {
   u.searchParams.set('order', 'clickcount');
   u.searchParams.set('reverse', 'true');
   u.searchParams.set('limit', '80');
-  return tidyStations(await fetchJson<RawStation[]>(u.toString(), 1800));
+  return tidyStations(await fetchJson<RawStation[]>(u.toString(), 1800), homeCountry());
+}
+
+/** NEAR ME: his country (UK unless he changes it), kept on this phone. Its stations come first in every list, and it is where the radio starts. */
+const HOME = 'ghosty.radio.country';
+export function homeCountry(): string {
+  try {
+    const c = localStorage.getItem(HOME) ?? '';
+    return /^[A-Z]{2}$/.test(c) ? c : 'GB';
+  } catch {
+    return 'GB';
+  }
+}
+function setHomeCountry(code: string): void {
+  try {
+    localStorage.setItem(HOME, code);
+  } catch {
+    /* ignore */
+  }
 }
 
 const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -118,6 +138,23 @@ export const radioTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.wrapit', q, button('SEARCH', submit)), sp.body);
     const chips = h('div.keyrow.wrapit.chips', ...GENRES.map((g) => button(g.toUpperCase(), () => void go({ tag: g }, g))));
     sp.el.insertBefore(chips, sp.body);
+    // NEAR ME: his country's most-listened stations, one tap; the country is his to change (kept on this phone)
+    const pick = h('select', { 'aria-label': 'Your country for NEAR ME' },
+      ...COUNTRIES.map((c) => h('option', { value: c }, countryWord(c) || c)));
+    pick.value = homeCountry();
+    if (pick.value !== homeCountry()) {
+      pick.append(h('option', { value: homeCountry() }, countryWord(homeCountry()) || homeCountry()));
+      pick.value = homeCountry();
+    }
+    const nearB = button(NEAR_ME, () => void go({ countrycode: homeCountry() }, nearLabel(countryWord(homeCountry()))));
+    nearB.setAttribute('aria-label', `Popular stations in ${countryWord(homeCountry())}`);
+    pick.addEventListener('change', () => {
+      setHomeCountry(pick.value);
+      nearB.setAttribute('aria-label', `Popular stations in ${countryWord(pick.value)}`);
+      toast(nearSet(countryWord(pick.value)), 'ok');
+      void go({ countrycode: pick.value }, nearLabel(countryWord(pick.value)));
+    });
+    sp.el.insertBefore(h('div.keyrow.radnear', h('span.lab', 'NEAR ME'), pick, nearB), sp.body);
     sp.el.insertBefore(phrases(['play BBC Radio 4', 'play some jazz']), sp.body);
 
     const play = async (s: NowPlaying) => {
@@ -372,7 +409,7 @@ export const radioTab: TabDef = {
         paintFavs();
         paintRecent();
         paintNow();
-        if (!results.length) void go({ tag: 'news', countrycode: 'GB' }, 'UK news');
+        if (!results.length) void go({ tag: 'news', countrycode: homeCountry() }, `${countryWord(homeCountry())} news`);
       },
       // (BRIEF-SHELL pass 1) the station
       context: () => {

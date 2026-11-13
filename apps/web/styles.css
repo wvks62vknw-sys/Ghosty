@@ -9399,6 +9399,11 @@ html #pg-radio .pn.favs .favmove .favkeys button:disabled { opacity: .35; }
 html #pg-radio .pn.favs .keyrow.favorder { display: flex; justify-content: flex-end; padding: 8px 0 0; }
 html #pg-radio .pn.favs .keyrow.favorder button { min-height: 44px !important; height: 44px; padding: 0 16px; }
 
+/* NEAR ME: the word, his country (a 44 pt picker that takes the room), POPULAR */
+html #pg-radio .pn.stations > .keyrow.radnear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 8px; }
+html #pg-radio .pn.stations > .keyrow.radnear .lab { flex: none; margin: 0; }
+html #pg-radio .pn.stations > .keyrow.radnear select { flex: 1 1 140px; min-width: 0; height: 44px; min-height: 44px; padding: 0 12px; font: 400 16px/1 var(--sf); color: var(--ink); background: var(--fill); border: 1px solid var(--hair2); border-radius: var(--rad); }
+html #pg-radio .pn.stations > .keyrow.radnear button { flex: none; height: 44px; min-height: 44px !important; }
 /* ==== [planlane:radio end] ==== */
 
 /* ==== [planlane:markets] ==== */

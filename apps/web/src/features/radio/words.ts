@@ -71,3 +71,8 @@ export const REORDER_NOTE = 'Move a station up or down. ⏭ and ⏮ on the lock 
 const ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
 /** "second" for 2 (past ten, "number 12"). */
 export const ordinal = (n: number) => ORD[n - 1] ?? `number ${n}`;
+
+/** NEAR ME: his country's most-listened stations; the country is his to change. */
+export const NEAR_ME = 'POPULAR';
+export const nearLabel = (country: string) => `popular in ${country === 'UK' || country === 'USA' ? `the ${country}` : country}`;
+export const nearSet = (country: string) => `Near me is now ${country}: its stations come first.`;
