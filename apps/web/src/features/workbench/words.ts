@@ -30,3 +30,10 @@ export const TUNNEL = {
 
 /** The chat phrases that open the Workbench on the phone, listed in one line. */
 export const PHRASES = ['beam calculator', 'the wind tunnel', '3 m steel beam 5 kN in the middle'];
+
+/** COPY under an estimate (FINAL ROUND, MAKE lane): the estimate as text, its label always with it. */
+export const COPY = {
+  key: 'COPY',
+  done: 'Copied, with “first estimate, not certified” at the top.',
+  cannot: 'I can’t copy on this phone just now. Hold the numbers to select them.',
+};

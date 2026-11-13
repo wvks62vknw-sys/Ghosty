@@ -103,8 +103,9 @@ export function ratedSection(io: RatedIO): { el: HTMLElement; line(): string; af
     next.textContent = `${t ? `${t[0]!.toUpperCase()}${t.slice(1)}. ` : ''}${book.you.games ? '' : 'Play a rated game to get your first rating. '}Next to try: ${levelWords(suggestLevel(book))}.`;
     levelLine.textContent = levelWords(levelById(level));
     ratedState.level = level;
-    lessBtn.disabled = level <= 1 || !!g;
-    moreBtn.disabled = level >= LEVELS.length || !!g;
+    // (only a game still being played holds the level; a finished one leaves − and + free)
+    lessBtn.disabled = level <= 1 || (!!g && !g.over);
+    moreBtn.disabled = level >= LEVELS.length || (!!g && !g.over);
     if (notify) io.changed();
   };
   const pick = (id: number) => {
@@ -365,7 +366,12 @@ export function ratedSection(io: RatedIO): { el: HTMLElement; line(): string; af
       for (let k = 0; k < games; k++) {
         caption(`I am playing the engine at ${levelWords(levelById(lv))}: game ${k + 1} of ${games}…`);
         const s = await ghostyGame(k % 2 === 0, lv, mine);
-        if (s == null || mine !== token) return;
+        if (mine !== token) return;
+        if (s == null) {
+          caption('I couldn’t finish that game against the engine, so no rating this time. Tap RATE ME to try again.');
+          buttons();
+          return;
+        }
         const who: Who = 'me';
         book = recordGame(book, who, lv, s, Date.now());
         saveBook(book);

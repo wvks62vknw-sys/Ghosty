@@ -13,7 +13,8 @@ import { textOf } from '../llm/content';
 import type { Router } from '../llm/router';
 import { pushIfWanted } from '../notifyprefs';
 import type { Ask } from './mark';
-import { schoolMock } from './mock';
+import { schoolMock, schoolMockSit } from './mock';
+import type { Sit } from './online';
 import { dailyReport, handleSchool, type SchoolDeps } from './routes';
 
 /** What the brain hands SCHOOL: its storage (and KV), the model router and the owner's contact for pushes. Tests pass `ask`/`push` instead. */
@@ -25,6 +26,8 @@ export interface SchoolHost {
   ask?: Ask;
   /** The bank writer and checker, and the official papers' reader (tests pass one). */
   write?: Ask;
+  /** The online sitter (tests pass one). */
+  sit?: Sit;
   fetcher?: typeof fetch;
   push?: SchoolDeps['push'];
   now?: () => number;
@@ -42,6 +45,15 @@ const routerAsk = (router: Pick<Router, 'complete'>, tier: 'small' | 'big' = 'sm
 const routerAskNow = (router: Pick<Router, 'complete'>): Ask => async (system, user) =>
   textOf((await router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { tier: 'small', maxWaitMs: 8000 })).message.content);
 
+/**
+ * The sitter (13 Nov): the brain's own model, the best there is room for (the 'big' tier, the same choice as his chat),
+ * in the background lane so his chat keeps its room, waiting up to 25 s for room. It names itself (the router's label).
+ */
+const routerSit = (router: Pick<Router, 'complete'>): Sit => async (system, user) => {
+  const r = await router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { tier: 'big', priority: 'background', maxWaitMs: 25_000 });
+  return { text: textOf(r.message.content), model: r.model };
+};
+
 export function schoolDeps(h: SchoolHost): SchoolDeps {
   return {
     storage: h.storage,
@@ -51,6 +63,8 @@ export function schoolDeps(h: SchoolHost): SchoolDeps {
     // Writing and checking banks, and reading official papers: the best model there is room for (the 'big' tier),
     // background lane, never waiting. With the scripted test model, SCHOOL's own stand-in (mock.ts).
     write: h.write ?? (h.env?.MOCK_LLM === '1' ? schoolMock : h.router ? routerAsk(h.router, 'big') : undefined),
+    // Sitting a paper online: the brain's own model; with the scripted test model, SCHOOL's own stand-in (mock.ts).
+    sit: h.sit ?? (h.env?.MOCK_LLM === '1' ? schoolMockSit : h.router ? routerSit(h.router) : undefined),
     fetcher: h.fetcher,
     // The nightly report is a kind of its own (the SCHOOL tab's switch), so it is not one of LINKS' switches.
     push: h.push ?? ((msg) => pushIfWanted(h.storage, null, msg, h.contact)),

@@ -209,4 +209,5 @@ const MORE: Record<string, CatValue> = {
   },
 };
 
-export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS, ...PACK3_WORDS };
+import { RECALL_BRAIN_WORDS } from './recall';
+export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS, ...PACK3_WORDS, ...RECALL_BRAIN_WORDS };
