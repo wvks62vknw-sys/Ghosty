@@ -8166,6 +8166,8 @@ html .shsheet .shtab, html .shsheet .shtabs > button { flex: none; padding: 0 va
 .shcode { font: var(--g-t-reading); color: var(--g-accent-text); overflow-wrap: anywhere; }
 .shedits { margin: 0; padding-inline-start: var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-1); }
 .shedits del { color: var(--g-amber); } .shedits ins { color: var(--g-ok); text-decoration: underline; }
+.shedits li { display: flex; flex-direction: column; gap: var(--g-s-half); padding-block: var(--g-s-half); border-bottom: var(--g-hair) solid var(--g-line-faint); }
+.shedit { overflow-wrap: anywhere; }
 /* ---------------------------------------------------------------- THE WORKING ENGINE (BRIEF-WORKING-ENGINE)
    Under the bonnet-up view of the car: the cover to lift, then the strokes named as they happen with the firing order under them, REVS,
    PAUSE and STEP, TAKE APART, SECTION and MEASURE. The keys are the engine pane's own (e3tool); everything else is in the system's tokens. */

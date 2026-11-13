@@ -2,7 +2,8 @@
  * THE SPREADSHEETS SHEET (BRIEF-EDITOR-SPREADSHEETS; MAKE → SPREADSHEETS, "my spreadsheets", the Stage's OPEN on a table, a file shared to
  * Ghosty): MY SPREADSHEETS kept on this phone; a workbook as a grid he touches (grid.ts) with a formula line above it, a name box, the function
  * names offered as he types, FORMAT, SORT and FILTER on a column's header, a chart from a range, several sheets along the foot (long press to
- * rename), UNDO and REDO, FIND, a fill handle, copy and paste; autosave said once; export as .xlsx, CSV and PDF with the size said before; import
+ * rename), UNDO and REDO, FIND and REPLACE, Σ (AutoSum), rows and columns put in and taken out (every formula following its cells), a fill
+ * handle, FILL DOWN and FILL RIGHT, copy and paste; autosave said once; export as .xlsx, CSV and PDF with the size said before; import
  * of an .xlsx or a CSV with what it could not keep said once; Ghosty explaining a cell, writing a formula, tidying a column (chat turns with the
  * chosen cells as context). The workbook, its formulas and its files are the app's own code (this folder): no package.
  */
@@ -844,7 +845,22 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       paintSug();
     })));
     else if (s.edits) {
-      box.append(h('ul.shedits', ...s.edits.slice(0, 12).map((x) => h('li', h('del', x.old), ' → ', h('ins', x.text)))), h('div.shrow', key('ACCEPT ALL', () => {
+      // Ghosty's marked changes, each one his to accept or reject (every one shown: ACCEPT ALL never takes a change he did not see)
+      const decided = (x: { a: string }) => {
+        s.edits = s.edits!.filter((y) => y !== x);
+        if (!s.edits.length) suggestion = null;
+        paintSug();
+      };
+      box.append(h('ul.shedits', ...s.edits.map((x) => h('li', h('span.shedit', h('b', x.a), ' ', h('del', x.old), ' → ', h('ins', x.text)), h('div.shrow',
+        key('ACCEPT', () => {
+          commit(setEntry(book(), sheet().name, x.a, x.text), [`${sheet().name}!${x.a}`]);
+          say(`${x.a} is now “${x.text}”. UNDO puts it back.`);
+          decided(x);
+        }, '', `Accept the change to ${x.a}`),
+        key('REJECT', () => {
+          say(`${x.a} stays “${x.old}”.`);
+          decided(x);
+        }, '', `Reject the change to ${x.a}`))))), h('div.shrow', key('ACCEPT ALL', () => {
         let next = book();
         for (const x of s.edits!) next = setEntry(next, sheet().name, x.a, x.text);
         commit(next, s.edits!.map((x) => `${sheet().name}!${x.a}`));
@@ -902,7 +918,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     const edits = items.flatMap((x, i) => (got[i] && got[i] !== x.old ? [{ a: x.a, old: x.old, text: got[i]! }] : []));
     suggestion = { kind: 'clean', text: edits.length ? `${edits.length} of ${items.length} would change.` : 'My brain would leave every one as it is.', edits };
     paintSug();
-    say(edits.length ? 'Tap ACCEPT ALL, or NO THANKS.' : 'Nothing to tidy.');
+    say(edits.length ? 'Each change is marked: ACCEPT or REJECT it, or ACCEPT ALL, or NO THANKS.' : 'Nothing to tidy.');
   };
   const askBox = h('div.shask', h('small.cvgh', 'GHOSTY IN IT'), h('div.shrow', askIn), h('div.shrow', key('EXPLAIN THIS CELL', () => void explain()), key('WRITE ME A FORMULA', () => void writeFormula(), 'on'), key('CLEAN THIS COLUMN', () => void cleanColumn())), sug);
   askIn.addEventListener('keydown', (e) => e.key === 'Enter' && void writeFormula());

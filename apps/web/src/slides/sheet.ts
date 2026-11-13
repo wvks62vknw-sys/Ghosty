@@ -4,7 +4,8 @@
  * reply with headings), blank, or opened from a .pptx; the deck as a vertical film of slides, a tap opening one to edit: its words in
  * a line above it (never a caret on the slide), its layout from a sheet of nine, a picture, a chart from typed numbers or the
  * Stage's last chart, a table, a shape or two, notes, a transition and the builds; the theme from one sheet repainting every slide;
- * reorder by press and drag or MOVE UP and MOVE DOWN; DUPLICATE; DELETE with UNDO; PRESENT with the notes in his hand; EXPORT as
+ * reorder by press and drag or MOVE UP and MOVE DOWN; DUPLICATE; DELETE with UNDO; SKIP IN THE TALK; FIND AND REPLACE in every slide;
+ * PRESENT with the notes in his hand (a skipped slide stepped over); EXPORT as
  * .pptx, PDF (with notes pages if he asks) and one slide as a PNG, the size said; autosave said once; reopened where he was.
  * Everything is on the phone; nothing is sent.
  */
