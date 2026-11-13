@@ -50,6 +50,8 @@ export interface HouseEntity {
   title?: string;
   /** A scene: the things it sets (Home Assistant's own list), so a scene that touches the guarded set is guarded too. */
   members?: string[];
+  /** A TV or speaker: Home Assistant's feature bits (256: it can be turned off). */
+  features?: number;
   /** Needs his own tap and a confirm, every time. */
   guarded?: boolean;
 }
@@ -90,12 +92,20 @@ const ALLOWED_WORDS = 'lights, switches, the heating, fans, blinds and curtains,
 
 export const domainOf = (entity: string) => String(entity).split('.')[0] ?? '';
 
-/** In the guarded set: any lock or alarm, a garage door or a gate, a switch he marked "needs my word". */
-export function isGuarded(e: Pick<HouseEntity, 'id' | 'domain' | 'cls'> & { members?: string[] }, marked: readonly string[] = []): boolean {
+/**
+ * In the guarded set: any lock or alarm, a garage door or a gate, a switch he marked "needs my word". A scene is guarded when
+ * one of the things it sets is: each member is looked up in `all` (his things as just read, so a garage door is known by its
+ * class, whatever its id says); a cover not in the list is taken as guarded, to be safe.
+ */
+export function isGuarded(e: Pick<HouseEntity, 'id' | 'domain' | 'cls'> & { members?: string[] }, marked: readonly string[] = [], all: readonly Pick<HouseEntity, 'id' | 'domain' | 'cls'>[] = []): boolean {
   if (e.domain in GUARDED_SERVICES) return true;
   if (e.domain === 'cover' && GUARD_CLASSES.includes(e.cls ?? '')) return true;
   // a scene that sets a lock, an alarm, a garage door or gate, or a switch he marked, asks as they would
-  if (e.domain === 'scene' && e.members?.some((m) => domainOf(m) in GUARDED_SERVICES || marked.includes(m) || (domainOf(m) === 'cover' && /garage|gate/.test(m)))) return true;
+  if (e.domain === 'scene' && e.members?.some((m) => {
+    const x = all.find((y) => y.id === m);
+    if (x && x.domain !== 'scene') return isGuarded(x, marked);
+    return domainOf(m) in GUARDED_SERVICES || marked.includes(m) || (domainOf(m) === 'cover' && (!x || /garage|gate/.test(m)));
+  })) return true;
   return (e.domain === 'switch' || e.domain === 'input_boolean') && marked.includes(e.id);
 }
 
@@ -105,10 +115,10 @@ export type Verdict = { ok: true; guarded: boolean } | { ok: false; why: string;
  * May this call be made, from here? A domain off the list is refused with its name; a sensor only read; the guarded set
  * never from a job, and only from his tap with a confirm.
  */
-export function policy(e: Pick<HouseEntity, 'id' | 'domain' | 'cls' | 'name'>, service: string, o: { marked?: readonly string[]; origin: Origin; confirm?: boolean }): Verdict {
+export function policy(e: Pick<HouseEntity, 'id' | 'domain' | 'cls' | 'name'> & { members?: string[] }, service: string, o: { marked?: readonly string[]; origin: Origin; confirm?: boolean; all?: readonly Pick<HouseEntity, 'id' | 'domain' | 'cls'>[] }): Verdict {
   const d = e.domain;
   if (READ_ONLY.includes(d)) return { ok: false, why: `The ${e.name || e.id} is a sensor: I only read sensors, I never change them.` };
-  const guarded = isGuarded(e, o.marked);
+  const guarded = isGuarded(e, o.marked, o.all);
   const known = (ALLOWED[d] ?? []).includes(service) || (GUARDED_SERVICES[d] ?? []).includes(service);
   if (!(d in ALLOWED) && !(d in GUARDED_SERVICES)) return { ok: false, why: `I don’t touch “${d}” things in your house. I only work ${ALLOWED_WORDS}.` };
   if (!known) return { ok: false, why: `That is not something I do to ${DOMAIN_WORDS[d] ?? d} (“${d}.${service}” is not on my list).` };
@@ -229,6 +239,8 @@ export function toEntity(s: HaState, area: string): HouseEntity | null {
     const v = numOf(a.volume_level);
     if (v !== null) e.volume = v;
     if (typeof a.media_title === 'string') e.title = a.media_title.slice(0, 80);
+    const f = numOf(a.supported_features);
+    if (f !== null) e.features = f;
   }
   return e;
 }
@@ -239,6 +251,8 @@ const deg = (v: number) => `${Math.round(v * 10) / 10} °C`;
 /** What it is doing, in his words: "on, 60%", "19.5 °C, set to 21 °C, heating", "open", "playing The News". */
 export function stateWords(e: HouseEntity): string {
   const s = e.state;
+  // (a scene's state is when it last ran; "unknown" only means it has never run)
+  if (e.domain === 'scene') return s === 'unavailable' ? 'not answering' : 'ready';
   if (s === 'unavailable' || s === 'unknown') return 'not answering';
   switch (e.domain) {
     case 'light': return s === 'on' ? (e.brightness !== undefined ? `on, ${e.brightness}%` : 'on') : 'off';
@@ -310,7 +324,7 @@ const span = (ms: number) => {
   return m < 1 ? 'a moment' : m < 60 ? `${m} min` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} ${Math.round(m / 1440) === 1 ? 'day' : 'days'}`;
 };
 /** Not answering: Home Assistant has lost touch with it. */
-export const isDown = (e: HouseEntity) => e.state === 'unavailable' || e.state === 'unknown';
+export const isDown = (e: HouseEntity) => e.state === 'unavailable' || (e.state === 'unknown' && e.domain !== 'scene');
 /** A thing not answering, in his words, with the next thing to do. */
 export const DOWN_LINE = 'Not answering: Home Assistant has lost touch with it. Check it has power, then REFRESH.';
 /** Open now: a door or window sensor that reads open, a garage door or gate not shut, a lock not locked. */
@@ -328,22 +342,60 @@ export function sinceWords(e: HouseEntity, now = Date.now()): string {
   return now - e.changed < 30_000 ? 'changed just now' : `changed ${span(now - e.changed)} ago`;
 }
 
-/** A light, a fan or a TV that is on now (what ALL OFF turns off; a switch may be the fridge, so it is never one of them). */
-export const isOnNow = (e: HouseEntity) => !isDown(e) && !e.guarded && ((['light', 'fan'].includes(e.domain) && e.state === 'on') || (e.domain === 'media_player' && ['on', 'playing', 'paused', 'buffering'].includes(e.state)));
-const inRoom = (e: HouseEntity, room: string) => {
+/**
+ * A light, a fan or a TV that is on now (what ALL OFF turns off; a switch may be the fridge, so it is never one of them). A
+ * speaker left paused is not on: it plays nothing, and many cannot be turned off.
+ */
+export const isOnNow = (e: HouseEntity) => !isDown(e) && !e.guarded && ((['light', 'fan'].includes(e.domain) && e.state === 'on') || (e.domain === 'media_player' && ['on', 'playing', 'buffering'].includes(e.state)));
+const roomOf = (e: HouseEntity) => e.area || guessArea(e.name);
+/**
+ * The things in the room he named ('' the whole house): the room of that very name first ("Bedroom", never "Kids Bedroom"),
+ * then the rooms with just those words, then rooms that have them all. A name that is only small words ("My Room") matches
+ * its own room alone, never the whole house.
+ */
+export function inRoomOf(list: HouseEntity[], room: string): HouseEntity[] {
+  if (!room.trim()) return list;
+  const exact = list.filter((e) => roomOf(e).toLowerCase().trim() === room.toLowerCase().trim());
+  if (exact.length) return exact;
   const want = tokens(room);
-  return !want.length || want.every((w) => tokens(e.area || guessArea(e.name)).includes(w));
-};
+  if (!want.length) return [];
+  const key = [...want].sort().join(' ');
+  const same = list.filter((e) => [...tokens(roomOf(e))].sort().join(' ') === key);
+  if (same.length) return same;
+  return list.filter((e) => want.every((w) => tokens(roomOf(e)).includes(w)));
+}
+/** The call that turns a thing off for ALL OFF: a speaker that cannot be turned off is paused (or stopped) instead. */
+const offCall = (e: HouseEntity) => (e.domain === 'media_player' && e.features !== undefined && !(e.features & 256) ? (e.features & 1 ? 'media_pause' : 'media_stop') : 'turn_off');
 /** ALL OFF for a room ('' for the whole house): each light, fan and TV on in it, and the call that turns it off. */
 export function roomOff(list: HouseEntity[], room = ''): { entity: HouseEntity; service: string }[] {
-  return list.filter((e) => isOnNow(e) && inRoom(e, room)).map((e) => ({ entity: e, service: 'turn_off' }));
+  return inRoomOf(list, room).filter(isOnNow).map((e) => ({ entity: e, service: offCall(e) }));
 }
 /** What ALL OFF did, in his words: "Kitchen: the Kitchen light and the TV are off." */
 export function offWords(room: string, done: string[], failed: string[] = []): string {
   const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
   const where = room ? `${room}: ` : '';
-  if (!done.length && !failed.length) return `${where}nothing is on${room ? ' in there' : ''}.`;
-  return `${where}${done.length ? `${list(done.map((n) => `the ${n}`))} ${done.length === 1 ? 'is' : 'are'} off` : ''}${done.length && failed.length ? '; ' : ''}${failed.length ? `${list(failed.map((n) => `the ${n}`))} didn’t answer` : ''}.`;
+  if (!done.length && !failed.length) return room ? `${where}nothing is on in there.` : 'Nothing is on.';
+  const s = `${where}${done.length ? `${list(done.map((n) => `the ${n}`))} ${done.length === 1 ? 'is' : 'are'} off` : ''}${done.length && failed.length ? '; ' : ''}${failed.length ? `${list(failed.map((n) => `the ${n}`))} didn’t answer` : ''}.`;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** A door or window sensor, a lock (a lock, or a sensor that reads one), a garage door or gate: what "is anything open?" watches. */
+const isWatched = (e: HouseEntity) => (e.domain === 'binary_sensor' && (OPENINGS.includes(e.cls ?? '') || e.cls === 'lock')) || e.domain === 'lock' || (e.domain === 'cover' && GUARD_CLASSES.includes(e.cls ?? ''));
+const isLock = (e: HouseEntity) => e.domain === 'lock' || (e.domain === 'binary_sensor' && e.cls === 'lock');
+/**
+ * Shut and locked, said only as far as I can see it: "locked" only when he has a lock and every lock reads locked; a lock or a
+ * sensor not answering is named as that ("I can't say it's locked"), never counted as shut.
+ */
+function shutWords(list: HouseEntity[]): { short: string; long: string } {
+  const watched = list.filter(isWatched);
+  const lost = watched.filter(isDown);
+  const locks = watched.filter(isLock);
+  const lostLock = lost.some(isLock);
+  const names = (xs: HouseEntity[]) => (xs.length < 2 ? xs.map((e) => `the ${e.name}`).join('') : `${xs.slice(0, -1).map((e) => `the ${e.name}`).join(', ')} and the ${xs[xs.length - 1]!.name}`);
+  const lostLine = lost.length ? `${names(lost.slice(0, 3))} ${lost.length === 1 ? 'isn’t' : 'aren’t'} answering, so I can’t say ${lost.length === 1 ? 'it’s' : 'they’re'} ${lostLock ? 'locked' : 'shut'}` : '';
+  if (!lost.length && locks.length) return { short: 'All shut and locked', long: 'Everything is shut and locked.' };
+  if (lost.length) return { short: `All else shut; ${lostLine}`, long: `Everything else is shut, but ${lostLine}.` };
+  return { short: 'All shut; I can’t see a lock', long: 'Everything is shut. I can’t see a lock in your house, so I can’t say it’s locked.' };
 }
 
 export interface Glance {
@@ -360,8 +412,8 @@ export function glance(list: HouseEntity[], now = Date.now()): Glance[] {
   const heat = list.filter((e) => e.domain === 'climate' || e.domain === 'water_heater');
   if (heat.length) out.push({ key: 'heating', label: 'HEATING', line: heat.slice(0, 3).map((e) => `${heat.length > 1 ? `${e.name} ` : ''}${isDown(e) ? 'not answering' : stateWords(e)}`).join(' · ') });
   const open = list.filter(isOpen);
-  if (list.some((e) => (e.domain === 'binary_sensor' && OPENINGS.includes(e.cls ?? '')) || e.domain === 'lock' || (e.domain === 'cover' && GUARD_CLASSES.includes(e.cls ?? ''))))
-    out.push({ key: 'open', label: 'DOORS', line: open.length ? `${open.slice(0, 3).map((e) => `${e.name} ${sinceWords(e, now)}`).join(' · ')}${open.length > 3 ? ` and ${open.length - 3} more` : ''}` : 'All shut and locked' });
+  if (list.some(isWatched))
+    out.push({ key: 'open', label: 'DOORS', line: open.length ? `${open.slice(0, 3).map((e) => `${e.name} ${sinceWords(e, now)}`).join(' · ')}${open.length > 3 ? ` and ${open.length - 3} more` : ''}` : shutWords(list).short });
   const down = list.filter(isDown);
   if (down.length) out.push({ key: 'down', label: 'NOT ANSWERING', line: names(down) });
   const lately = list.filter((e) => e.changed && now - e.changed < 6 * 3600_000 && !['sensor', 'scene', 'script'].includes(e.domain)).sort((a, b) => b.changed - a.changed).slice(0, 3);
@@ -371,7 +423,7 @@ export function glance(list: HouseEntity[], now = Date.now()): Glance[] {
 
 /** The lights on, in his words (for "which lights are on?"). */
 export function lightsOnWords(list: HouseEntity[], room = ''): string {
-  const all = list.filter((e) => e.domain === 'light' && inRoom(e, room));
+  const all = inRoomOf(list, room).filter((e) => e.domain === 'light');
   const on = all.filter((e) => e.state === 'on');
   const where = room ? ` in the ${room}` : '';
   if (!all.length) return `I can’t find a light${where} in your house.`;
@@ -381,21 +433,27 @@ export function lightsOnWords(list: HouseEntity[], room = ''): string {
 /** The doors and windows open, in his words (for "is anything open?"). */
 export function openWords(list: HouseEntity[], now = Date.now()): string {
   const open = list.filter(isOpen);
-  if (!list.some((e) => (e.domain === 'binary_sensor' && OPENINGS.includes(e.cls ?? '')) || e.domain === 'lock' || (e.domain === 'cover' && GUARD_CLASSES.includes(e.cls ?? '')))) return 'I can’t find a door or window sensor in your house.';
-  return open.length ? `Open: ${open.map((e) => `the ${e.name} (${sinceWords(e, now)})`).join(', ')}.` : 'Everything is shut and locked.';
+  if (!list.some(isWatched)) return 'I can’t find a door or window sensor in your house.';
+  if (!open.length) return shutWords(list).long;
+  const lost = list.filter((e) => isWatched(e) && isDown(e));
+  return `Open: ${open.map((e) => `the ${e.name} (${sinceWords(e, now)})`).join(', ')}.${lost.length ? ` ${lost.slice(0, 3).map((e) => `The ${e.name}`).join(', ')} ${lost.length === 1 ? 'isn’t' : 'aren’t'} answering.` : ''}`;
 }
-/** Every room's temperature, in his words (for "what's the temperature inside?"). */
+/** Not a room's temperature: outdoors, the weather, a fridge or freezer, a machine's own. */
+const NOT_INSIDE = /\b(?:garden|outside|outdoors?|porch|patio|yard|weather|forecast|fridge|freezer|processor|cpu|system|pi|router|nas|car)\b/i;
+/** Every room's temperature, in his words (for "what's the temperature inside?"): rooms only, between 5 and 35 °C. */
 export function insideWords(list: HouseEntity[]): string {
   const rooms = new Map<string, number>();
   for (const e of list) {
     const t = tempOf(e);
     const room = e.area || e.name;
-    if (t !== null && !isDown(e) && (!rooms.has(room) || e.domain === 'sensor')) rooms.set(room, t);
+    if (t === null || isDown(e) || t < 5 || t > 35 || NOT_INSIDE.test(`${e.name} ${e.area}`)) continue;
+    if (!rooms.has(room) || e.domain === 'sensor') rooms.set(room, t);
   }
   if (!rooms.size) return 'I can’t find a thermometer in your house.';
   const all = [...rooms.entries()].sort((a, b) => a[1] - b[1]);
-  const heat = list.find((e) => e.domain === 'climate' && e.target !== undefined && !isDown(e));
-  return `Inside: ${all.map(([r, t]) => `${r} ${deg(t)}`).join(', ')}${heat ? `. The heating is set to ${deg(heat.target!)}` : ''}.`;
+  const heat = list.find((e) => e.domain === 'climate' && !isDown(e));
+  const heatLine = !heat ? '' : heat.state === 'off' ? '. The heating is off' : heat.target !== undefined ? `. The heating is set to ${deg(heat.target)}` : '';
+  return `Inside: ${all.map(([r, t]) => `${r} ${deg(t)}`).join(', ')}${heatLine}.`;
 }
 
 // ---------------------------------------------------------------- his words
@@ -419,10 +477,17 @@ export type HouseAsk =
 const DEVICE = /\b(?:lights?|lamps?|heating|thermostat|radiators?|underfloor|boiler|hot water|telly|tv|television|speakers?|sonos|blinds?|curtains?|shutters?|garage(?: door)?|gate|fans?|plugs?|sockets?|switch|hoover|vacuum|door|lock|alarm|heater)\b/;
 const HEAT = /^(?:the |my )?(?:central heating|underfloor heating|underfloor|heating|thermostat|temperature|radiators?)(?: (?:in|on) (?:the |my )?(.+))?$/;
 let known = new Set<string>();
-/** His own things' names and rooms, so "turn off the christmas tree" is his when it is one of them (the phone sets these). */
-export function setHouseNames(names: string[]): void {
+let runnable = new Set<string>();
+/**
+ * His own things' names and rooms, so "turn off the christmas tree" is his when it is one of them (the phone sets these); and
+ * his scenes' and scripts' names, so "run movie night" is his (and "run the hoover" is not a scene).
+ */
+export function setHouseNames(names: string[], scenes: string[] = []): void {
   known = new Set(names.map((n) => n.toLowerCase().trim()).filter((n) => n.length > 1));
+  runnable = new Set(scenes.map((n) => n.toLowerCase().trim()).filter((n) => n.length > 1));
 }
+/** "run this script", "run the build script": code, never his house. */
+const NOT_RUN = /^(?:this|that|it|a|an|the|my|our|your|which|what|new|test|tests|unit|build|deploy|backup|python|bash|shell|node|npm|code|sql|cron|install|setup|migration|start|startup|bat|batch|java|js|ts|powershell|sh)\b/;
 const mine = (name: string) => DEVICE.test(name) || known.has(name) || [...known].some((k) => k.length > 3 && name.endsWith(k));
 const roomy = (name: string) => ROOM_WORDS.some((r) => new RegExp(`\\b${r}\\b`).test(name)) || known.has(name) || /^(?:the )?(?:house|home)$/.test(name);
 /** The thing's name alone: no "the", and no time or courtesy after it ("the hall light at 11pm", "… every night", "… please"). */
@@ -436,6 +501,8 @@ const clean = (s: string) => {
 /** His words as a house ask, or null (the brain's, as ever). */
 export function houseAsked(text: string): HouseAsk | null {
   let t = String(text ?? '').toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+  // ("is anything open now?" is the shops, late at night: the brain's)
+  const asNow = /\snow$/.test(t);
   // (a time after the words is when, not what: "turn the heating off every night")
   while (TAIL.test(t)) t = t.replace(TAIL, '').trim();
   if (!t || t.length > 120) return null;
@@ -462,11 +529,15 @@ export function houseAsked(text: string): HouseAsk | null {
   }
   m = /^(?:which|what) (?:lights?|lamps?) (?:are|is) (?:still )?on(?: in (?:the |my )?(.+))?$/.exec(t) ?? /^are (?:there )?any (?:of the )?(?:lights|lamps) (?:still |left )?on(?: in (?:the |my )?(.+))?$/.exec(t) ?? /^(?:did i|have i) (?:leave|left) any lights on(?: in (?:the |my )?(.+))?$/.exec(t);
   if (m) return { kind: 'lightson', room: clean(m[1] ?? '') };
-  if (/^(?:is|are) (?:there )?(?:anything|any (?:doors?|windows?)(?: or (?:doors?|windows?))?) (?:left )?(?:open|unlocked)$/.test(t) || /^(?:which|what) (?:doors?|windows?)(?: (?:and|or) (?:doors?|windows?))? (?:are|is) (?:open|unlocked)$/.test(t) || /^is (?:the house|everything|it all) (?:locked|shut|secure|locked up|closed)$/.test(t)) return { kind: 'opens' };
-  if (/^(?:what(?:'s| is) the )?temperature (?:inside|indoors|in here|at home|in the house)$/.test(t) || /^how (?:warm|cold|hot) is (?:it )?(?:inside|indoors|in here|at home|in the house)$/.test(t) || /^how (?:warm|cold) is the house$/.test(t)) return { kind: 'inside' };
-  // a scene or script of his: "run movie night", "activate the goodnight scene"
+  // ("is everything closed?" may be a bank holiday: "everything" is the house only when locked or secure)
+  if (!asNow && (/^(?:is|are) (?:there )?(?:anything|any (?:doors?|windows?)(?: or (?:doors?|windows?))?) (?:left )?(?:open|unlocked)$/.test(t) || /^(?:which|what) (?:doors?|windows?)(?: (?:and|or) (?:doors?|windows?))? (?:are|is) (?:open|unlocked)$/.test(t) || /^is the house (?:locked|shut|secure|locked up|closed)$/.test(t) || /^is (?:everything|it all) (?:locked|secure|locked up)$/.test(t))) return { kind: 'opens' };
+  if (!asNow && (/^(?:what(?:'s| is) the )?temperature (?:inside|indoors|in here|at home|in the house)$/.test(t) || /^how (?:warm|cold|hot) is (?:it )?(?:inside|indoors|in here|at home|in the house)$/.test(t) || /^how (?:warm|cold) is the house$/.test(t))) return { kind: 'inside' };
+  // a scene or script of his: "run movie night", "activate the goodnight scene" (never "run this script", "run the build script")
   m = /^(?:please )?(?:run|activate|trigger) (?:the |my )?(.+?)( scene| script)?$/.exec(t);
-  if (m && (m[2] || known.has(clean(m[1]!)))) return { kind: 'run', name: clean(m[1]!) };
+  if (m) {
+    const name = clean(m[1]!);
+    if (runnable.has(name) || runnable.has(`${name}${m[2] ?? ''}`) || (m[2] && !NOT_RUN.test(name) && !/\b(?:code|test|tests|build|deploy|python|sql)\b/.test(name))) return { kind: 'run', name };
+  }
   m =/^(?:please )?(?:set|turn|put) (?:the |my )?(.+?) (?:up |down )?to (\d{1,2}(?:\.5)?)\s*(?:°c?|degrees?(?: c)?|c)?$/.exec(t) ?? /^make it (\d{1,2}(?:\.5)?) degrees(?: in (?:the |my )?(.+))?$/.exec(t);
   if (m) {
     const words = /^make it/.test(t) ? `heating${m[2] ? ` in ${m[2]}` : ''}` : m[1]!;
@@ -504,7 +575,7 @@ function domainsFor(a: HouseAsk, name: string): string[] {
     case 'power': return heat ? ['climate'] : water ? ['water_heater'] : /\b(?:tv|telly|television|speakers?)\b/.test(name) ? ['media_player'] : /\b(?:hoover|vacuum)\b/.test(name) ? ['vacuum'] : ['light', 'switch', 'input_boolean', 'fan', 'media_player', 'climate', 'water_heater', 'scene', 'script', 'vacuum'];
     case 'dim': return ['light'];
     case 'heat': return water ? ['water_heater'] : ['climate'];
-    case 'is': return a.want === 'locked' || a.want === 'unlocked' ? ['lock'] : ['light', 'switch', 'input_boolean', 'fan', 'binary_sensor', 'cover', 'lock', 'media_player', 'climate', 'alarm_control_panel'];
+    case 'is': return a.want === 'locked' || a.want === 'unlocked' ? ['lock', 'binary_sensor'] : ['light', 'switch', 'input_boolean', 'fan', 'binary_sensor', 'cover', 'lock', 'media_player', 'climate', 'alarm_control_panel'];
     case 'temp': return ['sensor', 'climate'];
     case 'media': return ['media_player'];
     case 'cover': return ['cover'];
@@ -575,7 +646,7 @@ export function resolveAsk(a: HouseAsk, list: HouseEntity[], marked: readonly st
   if (a.kind === 'inside') return { kind: 'answer', text: insideWords(list) };
   if (a.kind === 'alloff') {
     const calls = roomOff(list, a.room).filter((c) => !a.lights || c.entity.domain === 'light');
-    if (a.room && !list.some((e) => tokens(a.room).every((w) => tokens(e.area || guessArea(e.name)).includes(w)))) return { kind: 'none', text: `I can’t find a room called “${a.room}” in your house.` };
+    if (a.room && !inRoomOf(list, a.room).length) return { kind: 'none', text: `I can’t find a room called “${a.room}” in your house.` };
     if (!calls.length) return { kind: 'answer', text: `${a.lights ? 'No lights are' : 'Nothing is'} on${a.room ? ` in the ${a.room}` : ''}.` };
     return { kind: 'many', room: a.room, calls };
   }
@@ -584,7 +655,7 @@ export function resolveAsk(a: HouseAsk, list: HouseEntity[], marked: readonly st
     if (!found.length) return { kind: 'none', text: `I can’t find a scene or script called “${a.name}” in your Home Assistant.` };
     if (found.length > 1) return { kind: 'which', text: `Which one? ${found.slice(0, 4).map((e) => e.name).join(', or ')}?`, options: found.slice(0, 4).map((e) => ({ entity: e, service: 'turn_on', data: {} })) };
     const e = found[0]!;
-    return { kind: 'act', entity: e, service: 'turn_on', data: {}, guarded: isGuarded(e, marked), verb: 'run' };
+    return { kind: 'act', entity: e, service: 'turn_on', data: {}, guarded: isGuarded(e, marked, list), verb: 'run' };
   }
   if (a.kind === 'temp') {
     const want = tokens(a.room);
@@ -594,7 +665,13 @@ export function resolveAsk(a: HouseAsk, list: HouseEntity[], marked: readonly st
     return { kind: 'answer', text: `It’s ${deg(tempOf(pick)!)} in the ${(pick.area || a.room).toLowerCase()}${pick.changed ? ` (${pick.name}, ${ago(pick.changed, now)})` : ''}.` };
   }
   const name = a.name || (a.kind === 'heat' ? 'heating' : '');
-  const found = matchEntities(name || 'heating', list, domainsFor(a, name || 'heating'));
+  const lockAsk = a.kind === 'is' && (a.want === 'locked' || a.want === 'unlocked');
+  // (locked or not: a lock, or a sensor that reads one; never a door's open-or-shut sensor)
+  const found = matchEntities(name || 'heating', lockAsk ? list.filter(isLock) : list, domainsFor(a, name || 'heating'));
+  if (lockAsk && !found.length) {
+    const door = matchEntities(name, list, ['binary_sensor', 'cover']).filter(isWatched)[0];
+    if (door) return { kind: 'answer', text: `I can’t see a lock on the ${door.name}; its sensor says ${stateWords(door)}.` };
+  }
   const label = (e: HouseEntity) => `${e.name}${e.area && !e.name.toLowerCase().includes(e.area.toLowerCase()) ? ` (${e.area})` : ''}`;
   if (!found.length) return { kind: 'none', text: `I can’t find “${name}” in your house.` };
   if (a.kind === 'is') {
@@ -608,7 +685,7 @@ export function resolveAsk(a: HouseAsk, list: HouseEntity[], marked: readonly st
   if (!calls.length) return { kind: 'none', text: `I can’t do that to the ${found[0]!.name}.` };
   if (calls.length > 1) return { kind: 'which', text: `Which one? ${calls.slice(0, 4).map((x) => label(x.e)).join(', or ')}?`, options: calls.slice(0, 4).map((x) => ({ entity: x.e, service: x.c.service, data: x.c.data })) };
   const { e, c } = calls[0]!;
-  return { kind: 'act', entity: e, service: c.service, data: c.data, guarded: isGuarded(e, marked), verb: c.verb };
+  return { kind: 'act', entity: e, service: c.service, data: c.data, guarded: isGuarded(e, marked, list), verb: c.verb };
 }
 
 /** What was done, in his words: "the Hall light is off", "the Heating is set to 21 °C". */

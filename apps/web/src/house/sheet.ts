@@ -9,7 +9,7 @@
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
 import { DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
-import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
+import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PIN_NOT_KEPT, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
 import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
@@ -22,8 +22,11 @@ export const HOUSE_TITLE = 'HOUSE';
 const VERBS: Record<string, string> = { turn_on: 'turn on', turn_off: 'turn off', toggle: 'switch', open_cover: 'open', close_cover: 'close', stop_cover: 'stop', set_cover_position: 'move', lock: 'lock', unlock: 'unlock', open: 'open', alarm_disarm: 'disarm', alarm_arm_home: 'arm', alarm_arm_away: 'arm', media_play: 'play', media_pause: 'pause', set_temperature: 'set', set_hvac_mode: 'set', start: 'start', return_to_base: 'send home' };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** His pins as last set here, when this phone's storage refused to keep them (they last until the app closes). */
+let held: string[] | null = null;
 /** His pinned things (kept on the phone, his own): shown first, in the order he pinned them. */
 export function pins(): string[] {
+  if (held) return held;
   try {
     const v = JSON.parse(localStorage.getItem(PINS_KEY) ?? '[]') as unknown;
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 40) : [];
@@ -33,19 +36,27 @@ export function pins(): string[] {
 }
 function setPin(id: string, on: boolean): void {
   const now = pins().filter((x) => x !== id);
+  const next = on ? [...now, id] : now;
   try {
-    localStorage.setItem(PINS_KEY, JSON.stringify(on ? [...now, id] : now));
+    localStorage.setItem(PINS_KEY, JSON.stringify(next));
+    held = null;
   } catch {
-    /* storage refused (a private window): the pin lasts until the page closes */
+    // storage refused (full, or a private window): the pin is kept here until the app closes, and he is told so
+    held = next;
+    toast(PIN_NOT_KEPT, 'warn');
   }
   houseNow.set({});
 }
 
-/** ALL OFF: each light, fan and TV on in the room ('' the whole house), one after another; never the guarded set, never a switch. */
-async function allOff(list: HouseEntity[], room: string): Promise<void> {
+/**
+ * ALL OFF: each light, fan and TV on among `things` (that room's own things, or the whole house), one after another; never the
+ * guarded set, never a switch. `room` is only for the words. The house is read once, after.
+ */
+async function allOff(things: HouseEntity[], room: string): Promise<void> {
   const done: string[] = [];
   const failed: string[] = [];
-  for (const c of roomOff(list, room)) ((await act(c.entity.id, c.service, {}, { origin: 'tap', why: `ALL OFF${room ? ` in the ${room}` : ''} on the HOUSE sheet` })).ok ? done : failed).push(c.entity.name);
+  for (const c of roomOff(things, '')) ((await act(c.entity.id, c.service, {}, { origin: 'tap', why: `ALL OFF${room ? ` in the ${room}` : ''} on the HOUSE sheet`, reload: false })).ok ? done : failed).push(c.entity.name);
+  void loadHouse(true);
   toast(offWords(room, done, failed), failed.length ? 'warn' : 'ok');
 }
 
@@ -191,10 +202,7 @@ function paint(root: HTMLElement): void {
   const scenes = list.filter((e) => e.domain === 'scene' || e.domain === 'script');
   const mine = pins();
   const pinned = mine.map((id) => list.find((e) => e.id === id)).filter((e): e is HouseEntity => !!e);
-  const offKey = (where: string, label: string) => {
-    const b = btn('ALL OFF', label, () => void allOff(list, where), 'houseoff');
-    return b;
-  };
+  const offKey = (things: HouseEntity[], where: string, label: string) => btn('ALL OFF', label, () => void allOff(things, where), 'houseoff');
   const glanceRows = glance(list);
   const anyOn = list.some(isOnNow);
   clear(root,
@@ -206,7 +214,7 @@ function paint(root: HTMLElement): void {
     !list.length && !v.error ? h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', HOUSE_NONE.head), h('span', HOUSE_NONE.line)) : null,
     glanceRows.length
       ? h('section.houseglance', { 'aria-label': 'Your house at a glance' },
-          h('div.houseglhead', h('h4', 'AT A GLANCE'), anyOn ? offKey('', 'Turn off every light, fan and TV on in the house (never a lock, the alarm, a garage door or a switch)') : null),
+          h('div.houseglhead', h('h4', 'AT A GLANCE'), anyOn ? offKey(list, '', 'Turn off every light, fan and TV on in the house (never a lock, the alarm, a garage door or a switch)') : null),
           ...glanceRows.map((g) => h(`div.houseglrow.gl-${g.key}` as 'div', { dataset: { glance: g.key } }, h('small', g.label), h('span', g.line))))
       : null,
     scenes.length
@@ -224,7 +232,7 @@ function paint(root: HTMLElement): void {
       const things = rooms.get(r)!;
       const temp = things.find((e) => e.domain === 'sensor' && (e.cls === 'temperature' || e.unit === '°C'));
       const on = r !== 'Elsewhere' && roomOff(things, '').length > 0;
-      return h('section.houseroom', { 'aria-label': r }, h('h4', h('span', r), temp ? h('small', stateWords(temp)) : null, on ? offKey(r, `Turn off every light, fan and TV on in the ${r}`) : null), ...things.map((e) => card(e, v.marked)));
+      return h('section.houseroom', { 'aria-label': r }, h('h4', h('span', r), temp ? h('small', stateWords(temp)) : null, on ? offKey(things, r, `Turn off every light, fan and TV on in the ${r}`) : null), ...things.map((e) => card(e, v.marked)));
     }),
     h('p.note.housefoot', 'Locks, alarms, garage doors and gates — and any switch you mark — need your tap and a confirm, every time, and never act on a schedule. A scene that sets one asks too. ALL OFF turns off lights, fans and TVs only. Everything I do here is in WHY and in “what did you do today”.'),
   );
