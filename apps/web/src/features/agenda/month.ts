@@ -12,11 +12,12 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(): void } {
   const p = panel('MONTH', { grow: false, cls: 'month' });
-  const now0 = new Date();
   let shift = 0; // 0 this month, 1 the next
   let picked = dayOf(Date.now());
   const paint = () => {
     const { events, todos } = get();
+    // (today read at each paint: a page left open past midnight moves on with the day)
+    const now0 = new Date();
     const base = new Date(now0.getFullYear(), now0.getMonth() + shift, 1);
     const y = base.getFullYear();
     const m = base.getMonth();
@@ -70,6 +71,13 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
       ...tds.map((t) => h('div.monev.todo', { dataset: { case: 'keep' } }, h('span.monwhen', 'To-do'), h('span', t.text))));
     clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list);
   };
+  // "show me next month" from the chat (turn.ts)
+  addEventListener('ghosty:month', (e) => {
+    shift = (e as CustomEvent<{ next?: boolean }>).detail?.next ? 1 : 0;
+    const n = new Date();
+    picked = shift ? dayOf(new Date(n.getFullYear(), n.getMonth() + 1, 1).getTime()) : dayOf(n.getTime());
+    paint();
+  });
   paint();
   return { el: p.el, paint };
 }

@@ -94,6 +94,9 @@ export const agendaTab: TabDef = {
     let jobs: JobInfo[] = [];
     let feeds: FeedInfo[] = [];
     let errors: string[] = [];
+    // the diary read once (until then it says it is on its way), and whether what it shows is the phone's copy (the brain out of reach)
+    let loaded = false;
+    let stale = false;
     // [planlane] TO-DO (todo.ts): his own list on this phone; MONTH (month.ts): the diary as a calendar, under it
     const tp = todoPanel(() => {
       mp.paint();
@@ -147,8 +150,14 @@ export const agendaTab: TabDef = {
 
     const paintEvents = () => {
       clear(ep.body);
+      /* state: agenda.diary loading */
+      if (!loaded) return void ep.body.append(h('div.empty.wait', { dataset: { case: 'keep', state: 'loading' } }, h('b', 'Reading your diary'), h('span', 'One moment: your events and calendars are on their way.')));
+      // the brain out of reach: what is shown is the last copy on this phone, and it says so
+      /* state: agenda.diary error */
+      if (stale) ep.body.append(h('div.note.bad.agstale', { dataset: { case: 'keep', state: 'error' } }, 'I can’t reach your brain right now, so this is the last copy kept on this phone. Changes you make wait here and go when it’s back.'));
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
       if (!events.length) {
+        /* state: agenda.diary empty */
         ep.body.append(empty('NONE', 'Add an event above, connect a calendar under Calendars, or just tell Ghosty: “add dinner with Sam on Friday at 7”.', 'Nothing in the next two weeks'));
         return;
       }
@@ -353,7 +362,11 @@ export const agendaTab: TabDef = {
 
     const load = async () => {
       try {
+        // the brain's api gives the copy on this phone when it cannot be reached (api/offline.ts): the copy unchanged means it was that
+        const was = offline.get().agenda;
         const a = await brain.agenda(AHEAD_DAYS);
+        stale = was !== null && offline.get().agenda === was;
+        loaded = true;
         allEvents = a.events;
         const cut = new Date();
         cut.setHours(0, 0, 0, 0);
@@ -361,14 +374,18 @@ export const agendaTab: TabDef = {
         jobs = a.jobs;
         feeds = a.feeds;
         errors = a.errors;
-        ep.setStatus(`${events.length}`, 'ok');
-        jp.setStatus(`${jobs.length}`, 'ok');
+        ep.setStatus(stale ? 'COPY' : `${events.length}`, stale ? 'off' : 'ok');
+        jp.setStatus(stale ? 'COPY' : `${jobs.length}`, stale ? 'off' : 'ok');
       } catch {
         ep.setStatus('OFFLINE', 'off');
         if (!events.length) {
+          loaded = true;
           paintFeeds();
-          return void clear(ep.body, empty('OFFLINE'));
+          /* state: agenda.diary offline */
+          return void clear(ep.body, h('div.empty.bad', { dataset: { case: 'keep', state: 'offline' } }, h('b', navigator.onLine === false ? 'You’re offline' : 'I can’t reach your diary'),
+            h('span', 'Your to-do list still works on this phone. The diary fills in by itself when the brain is back; it tries again every minute.')));
         }
+        stale = true;
       }
       paintEvents();
       paintJobs();
@@ -376,6 +393,9 @@ export const agendaTab: TabDef = {
       paintHero();
       mp.paint();
     };
+
+    // until the diary is read it says so (not an empty list that looks like nothing is on)
+    paintEvents();
 
     const suggest = h(
       'div.keyrow.wrapit.suggest',
