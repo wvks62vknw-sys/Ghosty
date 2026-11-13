@@ -182,6 +182,20 @@ export const libraryTab: TabDef = {
     };
     const ingest = async (all: File[]) => {
       let picked = all;
+      // a game made in the game studio (a .ghostygame) is not a document: it goes to the studio, kept there as his
+      const games = all.filter((f) => /\.ghostygame$/i.test(f.name));
+      for (const f of games) {
+        const line = note(`${f.name}: opening…`);
+        try {
+          const { importBytes } = await import('../../studio-game/ed-misc');
+          const r = await importBytes(new Uint8Array(await f.arrayBuffer()));
+          line.textContent = r ? `✓ ${r.said} It is in MAKE → The game studio.` : `✕ ${f.name}: that is not a game file I can read.`;
+          line.className = r ? 'note ok done' : 'note bad';
+        } catch (e) {
+          failed(line, f.name, e);
+        }
+      }
+      picked = all.filter((f) => !/\.ghostygame$/i.test(f.name));
       // Photos of pages picked together are one document (a page per photo); every other file is its own.
       // [video] a video file is not a thing to read: it is offered the video editor instead (OPEN IN VIDEO), the clip handed over as it is
       for (const f of picked.filter(isVideoFile)) {

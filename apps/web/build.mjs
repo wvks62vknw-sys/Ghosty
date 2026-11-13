@@ -38,6 +38,8 @@ const jobs = [
   { ...common, entryPoints: ['src/workers/board.worker.ts'], outfile: 'dist/board.worker.js', format: 'iife' },
   // VIDEO 2: the steadying's block matching, the best clips' scores and the beat's spectrum, off the main thread
   { ...common, entryPoints: ['src/workers/steady.worker.ts'], outfile: 'dist/steady.worker.js', format: 'iife' },
+  // the game studio's runtime as its own small script: AS AN APP inlines it into the one page a game is exported as (no map: it goes into a page)
+  { ...common, entryPoints: ['src/studio-game/player.ts'], outfile: 'dist/studio-player.js', format: 'iife', sourcemap: false },
 ];
 
 if (watch) {

@@ -518,6 +518,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
+      id: 'open_gamestudio',
+      title: 'Game studio: make a 2-D game',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('gamestudio');
+      },
+    },
+    {
       // [reste] DOCUMENTS (docs/sheet.ts): my documents; one read, written in the chat and laid out, edited, translated.
       id: 'open_docs',
       title: 'Documents: read, write, edit, translate',

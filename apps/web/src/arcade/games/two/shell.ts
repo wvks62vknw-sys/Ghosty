@@ -12,7 +12,7 @@ import type { EngineEvents, EngineFiles, EngineHandle } from '../../engines/type
 import type { Intent } from '../../input';
 import { recordScore, recordSitting, scoreOf } from '../../scores';
 import { Synth, Tune, type TuneSpec } from '../audio';
-import { accentHex, clamp, cssSize, fitCanvas, type GameEngine, type GameStats, haptic, hapticIfNoVibrate, hudButton, Loop, num, Overlay, Resolution } from '../kit';
+import { accentHex, clamp, cssSize, fitCanvas, type GameEngine, type GameStats, haptic, hapticIfNoVibrate, hudButton, Loop, type MenuSpec, num, Overlay, Resolution } from '../kit';
 import { bookOf, finishRun, levelOf, levelWords, type PracticeGame, practiceSession, rng } from './skill';
 
 /** A fixed step of the rules (a sixtieth of a second). */
@@ -129,6 +129,8 @@ export interface Rules<R> {
   /** A haptic for an event: 'hit' for a knock, 'tick' for a light one. */
   haptic?(e: Evt): 'hit' | 'tick' | null;
   music?: { spec: TuneSpec; specFor?(r: R): TuneSpec; pace(r: R): number };
+  /** A tune of the game's own, made when a run starts (the studio's note language): started, stopped and paused as the music is. */
+  makeTune?(s: Synth, r: R): { start(): void; stop(): void } | null;
   /** A game that keeps a place in the arcade's save store: NEW GAME and CONTINUE, saved when it says an event 'save'. */
   persist?: { name: string; encode(r: R): string; decode(raw: string): unknown | null };
   /** A card to show for an event (null: none); the game waits behind it. */
@@ -139,6 +141,15 @@ export interface Rules<R> {
   peek?(r: R): Record<string, unknown>;
   /** A line shown as the run goes on, from the events. */
   say?(e: Evt, r: R): string | null;
+  /**
+   * A game of the studio (BRIEF-EDITOR-GAME-STUDIO) is his own, not a level of ours: no level, no pass mark and no
+   * Ghosty beside it. Its best score is still kept. Nothing else about the frame changes.
+   */
+  plain?: boolean;
+  /** A sheet the game wants up (a shop, his things): asked for after each frame; `redo` draws it again, `close` puts it away. */
+  sheet?(r: R, api: { redo(): void; close(): void }): MenuSpec | null;
+  /** A card or a sheet was closed: the game goes on from here. */
+  closed?(r: R): void;
 }
 
 export interface GameHandle extends EngineHandle {
@@ -180,7 +191,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
   const accent = accentHex(0x64d2ff);
   const accentCss = `#${accent.toString(16).padStart(6, '0')}`;
   const synth = new Synth(opts.sound);
-  let music = rules.music ? new Tune(synth, rules.music.spec) : null;
+  let music: { start(): void; stop(): void; pace?: number; pump?(): void } | null = rules.music ? new Tune(synth, rules.music.spec) : null;
   const argLevel = arg(opts.args, 'level');
   const argSeed = arg(opts.args, 'seed');
   const auto = (opts.args ?? []).includes('auto');
@@ -357,16 +368,45 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       ui.menu({
         title: cd.title,
         line: cd.pages[i] ?? '',
-        buttons: [{ label: last ? 'Got it' : 'Next', aria: last ? 'Close this card' : 'Next page', primary: true, act: () => (last ? (ui.closeMenu(), setMode('play')) : page(i + 1)) }],
+        buttons: [{ label: last ? 'Got it' : 'Next', aria: last ? 'Close this card' : 'Next page', primary: true, act: () => (last ? (ui.closeMenu(), setMode('play'), rules.closed?.(run)) : page(i + 1)) }],
         kind: 'card',
       });
     };
     page(0);
   };
 
+  // ---------------------------------------------------------------- a sheet the game asks for (a shop, his things)
+  let sheetOn = false;
+  const sheetApi = {
+    redo: () => {
+      const s = rules.sheet?.(run, sheetApi);
+      if (s && sheetOn) ui.menu({ ...s, kind: 'card' });
+      else closeSheetUi();
+    },
+    close: () => closeSheetUi(),
+  };
+  const closeSheetUi = () => {
+    if (!sheetOn) return;
+    sheetOn = false;
+    ui.closeMenu();
+    setMode('play');
+    rules.closed?.(run);
+    if (!hostPaused) loop.start();
+  };
+  const checkSheet = () => {
+    if (sheetOn || mode !== 'play' || !rules.sheet) return;
+    const s = rules.sheet(run, sheetApi);
+    if (!s) return;
+    sheetOn = true;
+    setMode('paused');
+    touchHeld.clear();
+    held.clear();
+    ui.menu({ ...s, kind: 'card' });
+  };
+
   // ---------------------------------------------------------------- Ghosty practises, a session at a time, when the page is idle
   let practicing = true;
-  let practiceLeft = noPractice ? 0 : 3;
+  let practiceLeft = noPractice || rules.plain ? 0 : 3;
   let practiceN = 0;
   const practiceNext = () => {
     if (!practicing || practiceLeft <= 0 || mode === 'gone') return;
@@ -392,12 +432,13 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     const gb = ghostyBest();
     return `Ghosty: ${levelWords(levelOf(b.ghosty.r))}${gb ? ` · his best ${rules.words(gb)}` : ''}`;
   };
-  const youNote = () => `You: ${levelWords(myLevel())}${best() ? ` · your best ${rules.words(best())}` : ''}`;
+  const youNote = () => (rules.plain ? (best() ? `Your best: ${rules.words(best())}` : 'Not played yet') : `You: ${levelWords(myLevel())}${best() ? ` · your best ${rules.words(best())}` : ''}`);
   const paintTitleNote = () => {
     const n = ui.root.querySelector('.g4ghostnote');
     if (n) n.textContent = ghostNote();
     const m = ui.root.querySelector('.g4younote');
     if (m) m.textContent = youNote();
+    if (rules.plain) return;
   };
   const openTitle = () => {
     reopen = openTitle;
@@ -407,7 +448,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     ui.menu({
       title: rules.title,
       line: entry.ghosty || rules.line,
-      notes: [youNote(), ghostNote()],
+      notes: rules.plain ? [youNote()] : [youNote(), ghostNote()],
       buttons: [
         ...(rules.persist
           ? [...(resume ? [{ label: 'Continue', aria: `Continue ${rules.title} from the last lantern`, primary: true, act: () => startRun(true) }] : []), { label: 'New game', aria: `Start ${rules.title} from the beginning`, primary: !resume, act: () => startRun() }]
@@ -419,12 +460,12 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     });
     const notes = ui.root.querySelectorAll('.g2note');
     notes[0]?.classList.add('g4younote');
-    notes[1]?.classList.add('g4ghostnote');
+    if (!rules.plain) notes[1]?.classList.add('g4ghostnote');
     loop.start();
   };
   const openHow = (back: () => void) => {
     reopen = () => openHow(back);
-    const how = h('div.g2how', ...rules.how.map((p) => h('p', p)), h('p', 'Every run is set at your level. Pass the pass mark and the next one is harder; miss it and it eases back a step. There is no top level.'), h('p', 'A controller: the d-pad or stick moves, A, B and X are the buttons, START pauses. A keyboard: the arrow keys, space, Z, X.'));
+    const how = h('div.g2how', ...rules.how.map((p) => h('p', p)), rules.plain ? null : h('p', 'Every run is set at your level. Pass the pass mark and the next one is harder; miss it and it eases back a step. There is no top level.'), h('p', 'A controller: the d-pad or stick moves, A, B and X are the buttons, START pauses. A keyboard: the arrow keys, space, Z, X.'));
     ui.menu({ title: 'How to play', extra: how, buttons: [{ label: 'Back', act: back }], kind: 'how' });
   };
   const beginDemo = () => {
@@ -449,10 +490,14 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     ui.closeMenu();
     setMode('play');
     hudScore.textContent = '0';
-    hudLevel.textContent = `Level ${level}`;
+    hudLevel.textContent = rules.plain ? '' : `Level ${level}`;
+    pass.hidden = !!rules.plain;
     if (rules.music?.specFor) {
       music?.stop();
       music = new Tune(synth, rules.music.specFor(run));
+    } else if (rules.makeTune) {
+      music?.stop();
+      music = rules.makeTune(synth, run);
     }
     music?.start();
     loop.start();
@@ -495,16 +540,20 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       if (sittingStart) recordSitting(rules.id, (performance.now() - sittingStart) / 1000);
       const passed = didPass();
       const cut = !rules.over(run) && !passed;
-      const out = cut ? null : finishRun(rules.id, 'you', passed, sc, target);
-      lastOutcome = out
+      const out = cut || rules.plain ? null : finishRun(rules.id, 'you', passed, sc, target);
+      lastOutcome = rules.plain
+        ? ''
+        : out
         ? out.levelAfter > out.levelBefore
           ? `${passed ? 'Passed' : ''} Level ${out.levelBefore} done. On to Level ${out.levelAfter}, and it is harder.`.trim()
           : out.levelAfter < out.levelBefore
             ? `Level ${out.levelBefore} was too much this time. Back to Level ${out.levelAfter}.`
             : `The pass mark was ${rules.words(target)}. Level ${out.levelAfter} again.`
         : 'Your level stays where it was.';
-      practiceLeft += 1;
-      practiceNext();
+      if (!rules.plain) {
+        practiceLeft += 1;
+        practiceNext();
+      }
       if (show) showOver(r.isBest);
     } else if (show) showOver(false);
   };
@@ -520,7 +569,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       ui.menu({
         title: e.title,
         line,
-        notes: [...(e.notes ?? [`${rules.words(sc)} · pass mark ${rules.words(target)}`]), lastOutcome, youNote(), ghostNote()],
+        notes: rules.plain ? [...(e.notes ?? [rules.words(sc)]), youNote()] : [...(e.notes ?? [`${rules.words(sc)} · pass mark ${rules.words(target)}`]), lastOutcome, youNote(), ghostNote()],
         buttons: [
           { label: 'Play again', primary: true, act: () => startRun() },
           { label: 'Menu', act: () => openTitle() },
@@ -531,7 +580,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       });
     }
     overMenu();
-    ui.announce(`${e.title}. ${rules.words(sc)}. ${lastOutcome}`);
+    ui.announce(`${e.title}. ${rules.words(sc)}. ${lastOutcome}`.trim());
   };
 
   // ---------------------------------------------------------------- the frame
@@ -594,18 +643,19 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       if (n >= 8 * speed) acc = 0;
       happen(!playing);
       if (playing) {
+        checkSheet();
         const sc = rules.score(run);
         hudScore.textContent = num(sc);
         passBar.style.transform = `scaleX(${clamp(sc / Math.max(1, target), 0, 1)})`;
         pass.classList.toggle('done', sc >= target);
-        if (!passedNoted && didPass()) {
+        if (!passedNoted && !rules.plain && didPass()) {
           passedNoted = true;
           ui.say(`Pass mark reached: Level ${level + 1} is next.`, 2400);
           [659, 784, 988, 1319].forEach((f, i) => synth.tone({ f, dur: 0.1, type: 'triangle', vol: 0.09, at: i * 0.07 }));
         }
         if (music && rules.music) {
           music.pace = clamp(rules.music.pace(run), 0, 1);
-          music.pump();
+          music.pump?.();
         }
         if (rules.over(run) || (auto && sc >= target * 2)) {
           overT += dt;

@@ -86,13 +86,19 @@ export const TABS_WORDS: Record<string, CatValue> = {
     more: 'Through your own free Home Assistant box, linked once with its address and a token in SYSTEM, KEYS. Locks, alarms, garage doors and gates, and any switch you mark, ask your confirm on every tap and never act on a schedule. Everything I do there is in WHY.',
     say: ['The house', 'Turn off the lounge light'], scene: ['phone', 'watching'], cat: 'do', since: SINCE,
   },
+  'screen:gamestudio': {
+    name: 'The game studio', line: 'You can make a 2-D game on your phone, with rooms, people, quests and a save point, then play it, share it or install it.',
+    more: 'Start from a platformer, an adventure, a collect-them-all or a blank game. Paint rooms with your finger, draw sprites and tiles pixel by pixel, give people lines and a shop, build quests, and play it in place. A game stays on this phone until you share it as a .ghostygame or export it as one page that works offline. 3-D worlds, multiplayer and selling a game are not in it yet.',
+    say: ['Make a game', 'My games', 'Sketch a cave room with two ledges'], scene: ['phone', 'playing'], cat: 'build', since: '2026-11-12',
+  },
+  'phrase:gamestudio': { same: 'screen:gamestudio' },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
 
   // ---- their cards on their hubs (each opens its screen)
   'hub:money': { same: 'screen:money' }, 'hub:body': { same: 'screen:body' }, 'hub:kitchen': { same: 'screen:kitchen' }, 'hub:people': { same: 'screen:people' },
   'hub:work': { same: 'screen:work' }, 'hub:creative': { same: 'screen:creative' }, 'hub:outside': { same: 'screen:outside' }, 'hub:homeadmin': { same: 'screen:homeadmin' },
-  'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' },
+  'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' }, 'hub:gamestudio': { same: 'screen:gamestudio' },
   // (the Me hub's own: its screens were there with nothing on their cards)
   'hub:memory': { same: 'screen:memory' }, 'hub:settings': { same: 'screen:settings' }, 'hub:system': { same: 'screen:system' },
   'hub:links': { same: 'screen:links' },
@@ -149,6 +155,9 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'deck:workspace:your-pages-kept-on-this-phone': { same: 'hub:workspace' },
   'deck:workspace:start-a-project-a-board-notes': { same: 'hub:workspace' },
   'deck:workspace:what-is-due-this-week-in': { same: 'hub:workspace' },
+  'deck:gamestudio:make-a-game-from-a-template': { same: 'screen:gamestudio' },
+  'deck:gamestudio:make-a-game': { same: 'screen:gamestudio' },
+  'deck:gamestudio:my-games': { same: 'screen:gamestudio' },
   'deck:house:lights-heating-and-blinds-room-by': { same: 'screen:house' },
   'deck:house:is-the-back-door-open': { same: 'phrase:house' },
   'deck:house:whats-the-temperature-in-the-kitchen': { same: 'phrase:house' },

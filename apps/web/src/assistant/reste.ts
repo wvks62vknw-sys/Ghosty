@@ -11,6 +11,7 @@ import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
 import { workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
+import { gameAsked } from '../studio-game/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -126,4 +127,19 @@ export function numbersTurn(text: string): PackReply | null {
   const x = unixAsked(text);
   if (x) return { said: text, reply: x.text };
   return null;
+}
+
+/** "make a game", "my games", "sketch a cave room with two ledges": the game studio, open on it (the sketch is made in the editor). */
+export async function gameTurn(text: string): Promise<PackReply> {
+  const ask = gameAsked(text) ?? { what: 'list' as const };
+  const { ask: studioAsk } = await import('../studio-game/hub');
+  const { go } = await import('../shell/tabs');
+  studioAsk(ask.what === 'sketch' ? { what: 'sketch', wish: ask.wish } : { what: ask.what });
+  go('gamestudio');
+  const reply = ask.what === 'new'
+    ? 'The game studio is open: pick a template, or blank, and you are making a game.'
+    : ask.what === 'sketch'
+      ? `I am sketching “${ask.wish}” into the room you have open: a first draft, so paint over it. If no game is open, the newest one opens.`
+      : 'These are your games, kept on this phone. Open one to change it, or play it from the arcade.';
+  return { said: text, reply, go: [{ id: 'gamestudio', ask: -1, label: 'Open the game studio', run: 'open_gamestudio', args: {} }] };
 }

@@ -18,7 +18,7 @@ import { GAMES4 } from './games/two/shelf4';
 
 /** The engines: DOOM and Quake natively, DOSBox for the DOS classics, and the two games made by us (games/), each its
  *  own engine: the block world ('voxel') and the runner. */
-export type EngineId = 'doom' | 'quake' | 'dos' | 'voxel' | 'runner' | 'kart' | 'hopper' | 'arena' | 'blocks' | 'blast' | 'flap' | 'climb' | 'beat' | 'platform' | 'cave' | 'draughts' | 'othello' | 'backgammon' | 'connect4';
+export type EngineId = 'doom' | 'quake' | 'dos' | 'voxel' | 'runner' | 'kart' | 'hopper' | 'arena' | 'blocks' | 'blast' | 'flap' | 'climb' | 'beat' | 'platform' | 'cave' | 'draughts' | 'othello' | 'backgammon' | 'connect4' | 'studio';
 
 /** What a game is played with (the touch layer draws only these; the gamepad layer maps the standard pad to them). */
 export type Control = 'move' | 'look' | 'fire' | 'use' | 'weapon' | 'jump' | 'map';

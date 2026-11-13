@@ -134,6 +134,8 @@ export const PAD_BUTTONS: Record<EngineId, Partial<Record<number, Action>>> = {
   get connect4() {
     return GAMES5_PAD.connect4;
   },
+  // a game of his own from the studio: A jumps, B uses, X opens his things, START pauses
+  studio: { [BTN.A]: 'jump', [BTN.B]: 'use', [BTN.X]: 'fire', [BTN.START]: 'pause' },
   doom: { [BTN.RT]: 'fire', [BTN.A]: 'use', [BTN.X]: 'use', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.Y]: 'map', [BTN.SELECT]: 'map', [BTN.LT]: 'run', [BTN.START]: 'pause' },
   quake: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.LT]: 'jump', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.X]: 'run', [BTN.START]: 'pause' },
   // a DOS game fills these slots with its own keys (its CONTROLS block); VIEW is its menu (ESC), a stick click ENTER

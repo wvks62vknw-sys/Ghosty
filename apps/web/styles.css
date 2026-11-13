@@ -9039,3 +9039,170 @@ html .pephoto .pekeys > button { flex: 1 1 auto; white-space: normal; overflow-w
 .vdfile { display: inline-flex; }
 .vdask { display: flex; flex-direction: column; gap: 8px; } .vdask:empty { display: none; }
 @media (prefers-reduced-motion: reduce) { .vdsaved, .vdlevel i { transition: none; } .vdstrip { scroll-behavior: auto; } }
+
+/* ---------------------------------------------------------------- THE GAMES OF PASS 5 (BRIEF-GAMES-5)
+   THE PLATFORMER and THE CAVE put their keys in two groups under the thumbs (◀ ▶ under the left one, the buttons under the
+   right); the four board games keep a title, a line of what is happening ("Ghosty is thinking…", with a dot) and HINT, TAKE BACK
+   and RULES in a row. All in the system's tokens; prefixed g4 and g5. */
+.g4 .g4grp { display: flex; gap: var(--g-s-1); pointer-events: none; }
+.g4 .g4grp > * { pointer-events: auto; }
+.g4 .g4grp .g4btn { flex: 0 0 auto; }
+.g4 .g4pm { width: 60px; max-width: none; font-size: 22px; }
+.g4 .g4grp.grid { display: grid; grid-template-columns: repeat(2, 72px); gap: var(--g-s-1); }
+.g4 .g4grp.grid .g4btn { width: 72px; max-width: none; }
+.g4 .g4grp.right:not(.grid) .g4btn { width: 76px; max-width: none; }
+.g4 .g4grp.right:not(.grid) .g4btn.g4wide { width: 112px; }
+.g4:is(.g4platform, .g4cave) .g4ctl { justify-content: space-between; align-items: flex-end; padding: 0 var(--g-s-2); }
+.g4 .g4board .g4pad, .g4.g4board .g4pad { cursor: pointer; }
+.g4.g4board .g4pad.wait { cursor: progress; }
+.g4.g4board .g5head { position: absolute; left: var(--g-s-2); right: calc(var(--g-s-2) + 56px); top: calc(var(--g-safe-top) + var(--g-s-1)); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--g-s-1); pointer-events: none; }
+.g4.g4board .g5title { font: var(--g-t-head); color: var(--g-ink-1); }
+.g4.g4board .g5lvl { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+.g4.g4board .g5info { flex: 1 1 100%; font: var(--g-t-fine); color: var(--g-ink-3); font-variant-numeric: var(--g-num); }
+.g4.g4board .g5status { position: absolute; left: var(--g-s-2); right: calc(var(--g-s-2) + 56px); top: calc(var(--g-safe-top) + 64px); display: flex; align-items: center; gap: var(--g-s-1); font: var(--g-t-head); color: var(--g-ink-1); pointer-events: none; }
+.g4.g4board .g5dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g-accent); opacity: 0; }
+.g4.g4board .g5status.busy .g5dot { opacity: 1; animation: g5pulse 1s ease-in-out infinite; }
+@keyframes g5pulse { 0%, 100% { transform: scale(.6); } 50% { transform: scale(1.15); } }
+.g4.g4board .g5ctl .g4btn { max-width: 124px; min-width: 88px; font: var(--g-t-key); letter-spacing: var(--g-tr-key); }
+.g4.g4board .g5ctl .g4btn:disabled { opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .g4.g4board .g5status.busy .g5dot { animation: none; } }
+/* ---- end of the games of pass 5 ---- */
+/* the GYM's report card for the board games (BRIEF-GAMES-5) */
+html #pg-gym .gymboards { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-gym .gymboards .gb { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1) 0; border-bottom: var(--g-hair) solid var(--g-line-faint); }
+html #pg-gym .gymboards .gb b { font: var(--g-t-head); color: var(--g-ink-1); }
+html #pg-gym .gymboards .gb span { font: var(--g-t-reading); color: var(--g-ink-2); font-variant-numeric: var(--g-num); }
+html #pg-gym .gymboards .gbnote { font: var(--g-t-caption); color: var(--g-ink-3); }
+
+/* ---------------------------------------------------------------- THE GAME STUDIO (BRIEF-EDITOR-GAME-STUDIO)
+   MY GAMES as a shelf of thumbnails, and the editor as pills (ROOMS, SPRITES, CHARACTERS, THINGS, QUESTS, RULES, SOUND, PLAY,
+   SHARE, AS AN APP). Everything in the system's tokens; the game's own canvas draws its own world in the kit's colours. Every
+   control is 44 pt, nothing runs sideways at 390 or 440, the pixel editor's cells are 22 pt. Prefixed st. */
+html #pg-gamestudio .stPill { display: flex; flex-direction: column; gap: var(--g-s-2); min-width: 0; }
+html #pg-gamestudio .stBtn, html .stSheet .stBtn { text-transform: none; min-height: var(--g-target) !important; min-width: var(--g-target) !important; padding: 0 var(--g-s-2); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate); color: var(--g-ink-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); cursor: pointer; }
+html #pg-gamestudio .stBtn.pri { background: var(--g-plate-strong); color: var(--g-accent-text); border-color: var(--g-accent); }
+html #pg-gamestudio .stBtn.warn { color: var(--g-red); }
+html #pg-gamestudio .stBtn:disabled { opacity: .45; }
+html #pg-gamestudio .stBtn:focus-visible, html #pg-gamestudio :is(.stChip, .stTile, .stInk, .stFrame, .stOpen, .stTpl, .stIn):focus-visible { outline: var(--g-stroke) solid var(--g-accent); outline-offset: 2px; }
+html #pg-gamestudio .stIcon { min-width: var(--g-target) !important; padding: 0; flex: 0 0 auto; }
+html #pg-gamestudio .stNote, html #pg-gamestudio .stSay, html #pg-gamestudio .stSay2 { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-gamestudio .stNote.stWarn { color: var(--g-amber); }
+html #pg-gamestudio .stNote.stHint { color: var(--g-ink-3); }
+html #pg-gamestudio .stNote.stRead { color: var(--g-ink-2); font: var(--g-t-reading); }
+html #pg-gamestudio .stSay { min-height: 0; max-height: 0; overflow: hidden; opacity: 0; transition: opacity var(--g-dur-turn), max-height var(--g-dur-turn); }
+html #pg-gamestudio .stSay.on { max-height: 6em; opacity: 1; color: var(--g-ink-1); font: var(--g-t-body); padding: var(--g-s-1) 0; }
+html #pg-gamestudio .stSay2 { font: var(--g-t-body); color: var(--g-ink-2); }
+html #pg-gamestudio .stH { margin: var(--g-s-2) 0 var(--g-s-1); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html #pg-gamestudio .stSec { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2) 0; border-top: var(--g-hair) solid var(--g-line-faint); min-width: 0; }
+html #pg-gamestudio .stSec > .stH { margin-top: 0; }
+html #pg-gamestudio .stField { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html #pg-gamestudio .stLab { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html #pg-gamestudio .stHint { font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-gamestudio .stIn { width: 100%; min-width: 0; box-sizing: border-box; min-height: var(--g-target) !important; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-canvas); color: var(--g-ink-1); font: var(--g-t-body); }
+html #pg-gamestudio textarea.stIn { resize: vertical; font: var(--g-t-reading); }
+html #pg-gamestudio .stNum { max-width: 9em; font: var(--g-t-reading); }
+html #pg-gamestudio .stRow { display: flex; gap: var(--g-s-1); align-items: center; flex-wrap: wrap; min-width: 0; }
+html #pg-gamestudio .stRow > .stIn { flex: 1 1 8em; }
+html #pg-gamestudio .stTwo { display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); }
+html #pg-gamestudio .stAsk { display: flex; gap: var(--g-s-1); align-items: stretch; flex-wrap: wrap; }
+html #pg-gamestudio .stAsk > .stIn { flex: 1 1 10em; }
+html #pg-gamestudio .stSlide { display: grid; grid-template-columns: 1fr; gap: var(--g-s-half); }
+html #pg-gamestudio .stRange { width: 100%; min-height: var(--g-target) !important; accent-color: var(--g-accent); }
+html #pg-gamestudio .stOut { font: var(--g-t-reading); color: var(--g-ink-1); font-variant-numeric: var(--g-num); }
+html #pg-gamestudio .stChips, html #pg-gamestudio .stTools { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html #pg-gamestudio .stChip { min-height: var(--g-target) !important; min-width: var(--g-target) !important; padding: 0 var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-capsule); background: var(--g-plate); color: var(--g-ink-2); font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: none; cursor: pointer; }
+html #pg-gamestudio .stChip[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); background: var(--g-plate-strong); }
+html #pg-gamestudio .stDet { border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); padding: 0 var(--g-s-1); background: var(--g-plate); }
+html #pg-gamestudio .stDet > summary { min-height: var(--g-target) !important; display: flex; align-items: center; font: var(--g-t-head); color: var(--g-ink-1); cursor: pointer; }
+html #pg-gamestudio .stDet[open] { padding-bottom: var(--g-s-1); display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-gamestudio .stLine, html #pg-gamestudio .stShop, html #pg-gamestudio .stStep { flex-wrap: nowrap; }
+html #pg-gamestudio .stStepText { flex: 1 1 auto; font: var(--g-t-body); color: var(--g-ink-1); min-width: 0; overflow-wrap: anywhere; }
+html #pg-gamestudio .stUnit { font: var(--g-t-fine); color: var(--g-ink-3); }
+html #pg-gamestudio .stSheet.stAddStep { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-gamestudio .stAddPick { display: flex; flex-wrap: wrap; gap: var(--g-s-1); align-items: center; }
+html #pg-gamestudio .stProb { flex-direction: column; align-items: flex-start; }
+/* the shelf */
+html #pg-gamestudio .stGrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); }
+html #pg-gamestudio .stCard { position: relative; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); background: var(--g-plate); display: flex; flex-direction: column; min-width: 0; }
+html #pg-gamestudio .stOpen { text-transform: none; letter-spacing: 0; display: flex; flex-direction: column; gap: var(--g-s-half); align-items: flex-start; text-align: left; padding: var(--g-s-1); min-height: var(--g-target) !important; border: 0; background: none; color: var(--g-ink-1); cursor: pointer; min-width: 0; }
+html #pg-gamestudio .stThumb { width: 100%; height: auto; aspect-ratio: 3 / 2; image-rendering: pixelated; background: var(--g-plate-strong); border-radius: var(--g-radius-key); }
+html #pg-gamestudio .stName { font: var(--g-t-head); overflow-wrap: anywhere; }
+html #pg-gamestudio .stMeta { font: var(--g-t-fine); color: var(--g-ink-3); }
+html #pg-gamestudio .stMore { padding: 0 var(--g-s-1) var(--g-s-1); }
+html #pg-gamestudio .stMore > summary { min-height: var(--g-target) !important; display: flex; align-items: center; color: var(--g-ink-3); cursor: pointer; list-style: none; }
+html #pg-gamestudio .stMore[open] { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-gamestudio .stTemplates { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--g-s-1); }
+html #pg-gamestudio .stTpl { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; white-space: normal; text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); min-height: var(--g-target) !important; padding: var(--g-s-1) var(--g-s-2); text-align: left; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate); color: var(--g-ink-1); cursor: pointer; }
+html #pg-gamestudio .stTpl b { font: var(--g-t-head); }
+html #pg-gamestudio .stTpl span { font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-gamestudio .stEmpty { padding: var(--g-s-2) 0; }
+/* the editor's head and pills */
+html #pg-gamestudio .stHead { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; }
+html #pg-gamestudio .stTitle { flex: 1 1 auto; font: var(--g-t-head); color: var(--g-ink-1); min-width: 0; overflow-wrap: anywhere; }
+html #pg-gamestudio .stSaved { font: var(--g-t-fine); color: var(--g-ok); opacity: 0; transition: opacity var(--g-dur-turn); min-width: 4em; }
+html #pg-gamestudio .stSaved.on { opacity: 1; }
+html #pg-gamestudio .stPills { top: 0; gap: 0; margin: var(--g-s-1) 0; padding: 0; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-strong); box-shadow: var(--g-lift-plate); -webkit-backdrop-filter: none; backdrop-filter: none; position: static; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+html #pg-gamestudio .stPills::-webkit-scrollbar { display: none; }
+html #pg-gamestudio .stPills .secpill { flex: 0 0 auto; height: var(--g-target); min-height: var(--g-target) !important; padding: 0 var(--g-s-2); border-left: var(--g-hair) solid var(--g-line-faint) !important; border-radius: 0; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-2); }
+html #pg-gamestudio .stPills { display: flex; height: auto; min-height: var(--g-target) !important; flex: 0 0 auto; }
+html #pg-gamestudio .stPills .secpill:first-child { border-left: 0 !important; }
+html #pg-gamestudio .stPills .secpill.on { color: var(--g-accent-text); background: var(--g-plate) !important; box-shadow: inset 0 calc(-1 * var(--g-stroke) * 2) 0 var(--g-accent) !important; text-shadow: none; }
+html #pg-gamestudio .stProbs:empty { display: none; }
+/* the room editor */
+html #pg-gamestudio .stTray { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html #pg-gamestudio .stTile { width: var(--g-target); height: var(--g-target); min-width: var(--g-target) !important; padding: 0; display: grid; place-items: center; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate); cursor: pointer; }
+html #pg-gamestudio .stTile canvas { width: 32px; height: 32px; image-rendering: pixelated; }
+html #pg-gamestudio .stTile[aria-pressed="true"] { border: var(--g-stroke) solid var(--g-accent); background: var(--g-plate-strong); }
+html #pg-gamestudio .stTile.stDraw { width: auto; padding: 0 var(--g-s-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); text-transform: uppercase; color: var(--g-ink-1); }
+html #pg-gamestudio .stCanvasWrap { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html #pg-gamestudio .stCanvasBox { position: relative; width: 100%; border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .stCanvas { display: block; width: 100%; height: 100%; touch-action: none; -webkit-user-select: none; user-select: none; }
+html #pg-gamestudio .stCap { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html #pg-gamestudio .stInspect:empty { display: none; }
+html #pg-gamestudio .stInspect { border: var(--g-stroke) solid var(--g-amber); border-radius: var(--g-radius-cell); padding: 0 var(--g-s-1); }
+/* the pixel editor: 22 pt a cell, 352 a side */
+html #pg-gamestudio .stPixWrap { display: flex; justify-content: center; }
+html #pg-gamestudio .stPix { display: block; width: 352px; height: 352px; max-width: none; border: var(--g-hair) solid var(--g-line); touch-action: none; image-rendering: pixelated; -webkit-user-select: none; user-select: none; }
+html #pg-gamestudio .stPalette { display: grid; grid-template-columns: repeat(8, var(--g-target)); gap: 0; justify-content: center; }
+html #pg-gamestudio .stInk { width: var(--g-target); height: var(--g-target); border: var(--g-hair) solid var(--g-line-faint); border-radius: 0; cursor: pointer; padding: 0; }
+html #pg-gamestudio .stInk.clear { background: repeating-conic-gradient(var(--g-plate-strong) 0 25%, var(--g-plate) 0 50%) 50% / 12px 12px; }
+html #pg-gamestudio .stInk[aria-pressed="true"] { outline: var(--g-stroke) solid var(--g-accent); outline-offset: -3px; box-shadow: inset 0 0 0 4px var(--g-canvas); }
+html #pg-gamestudio .stFrames { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html #pg-gamestudio .stFrame { width: var(--g-target); height: var(--g-target); padding: 2px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate); cursor: pointer; }
+html #pg-gamestudio .stFrame canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+html #pg-gamestudio .stFrame[aria-pressed="true"] { border: var(--g-stroke) solid var(--g-accent); }
+html #pg-gamestudio .stPrev { display: flex; gap: var(--g-s-2); align-items: center; }
+html #pg-gamestudio .stPreview { width: 64px; height: 64px; image-rendering: pixelated; border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate-strong); flex: 0 0 auto; }
+/* play, share, app */
+html #pg-gamestudio .stPlay { position: relative; width: 100%; height: min(70vh, 560px); border: var(--g-stroke) solid var(--g-line); border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .stPlayCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+html #pg-gamestudio .stPlay .gpUi { --gp-pad: 150px; }
+html #pg-gamestudio .stLive { margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); }
+html #pg-gamestudio .stLibRow { justify-content: space-between; }
+html #pg-gamestudio .stSize { font: var(--g-t-reading); color: var(--g-ink-1); }
+html #pg-gamestudio .stSites .stWarn { margin: 0; font: var(--g-t-caption); color: var(--g-amber); }
+html #pg-gamestudio .stRoom { color: var(--g-ink-3); }
+html #pg-gamestudio .stAbout .stNote { margin: 0 0 var(--g-s-1); }
+@media (max-width: 420px) { html #pg-gamestudio .stGrid { grid-template-columns: 1fr 1fr; } html #pg-gamestudio .stTwo { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { html #pg-gamestudio .stSay, html #pg-gamestudio .stSaved { transition: none; } }
+/* the shop and his things, over the game in the arcade's frame (shell.ts: a sheet) */
+html .g2card .stSheet { display: flex; flex-direction: column; gap: var(--g-s-1); max-height: 46vh; overflow: auto; text-align: left; }
+html .g2card .stSheet .stRow { display: flex; justify-content: space-between; align-items: center; gap: var(--g-s-1); min-height: var(--g-target) !important; }
+html .g2card .stSheet .stRow canvas { width: 32px; height: 32px; image-rendering: pixelated; vertical-align: middle; }
+html .g2card .stSheet .stR { display: inline-flex; align-items: center; gap: var(--g-s-1); font: var(--g-t-reading); }
+html .g2card .stSheet .stNote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .g2card .stSheet .stBtn { min-height: var(--g-target) !important; }
+/* the top-down pad: a cross under the left thumb */
+.g4 .g4grp.dpad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); gap: var(--g-s-half); }
+.g4 .g4grp.dpad .g4btn { width: 56px; min-height: 56px !important; max-width: none; }
+.g4 .g4grp.dpad .stU { grid-column: 2; grid-row: 1; }
+.g4 .g4grp.dpad .stL { grid-column: 1; grid-row: 2; }
+.g4 .g4grp.dpad .stD { grid-column: 2; grid-row: 2; }
+.g4 .g4grp.dpad .stR { grid-column: 3; grid-row: 2; }
+.g4:is(.g4studio) .g4ctl { justify-content: space-between; align-items: flex-end; padding: 0 var(--g-s-2); }
+/* MY GAMES in the arcade */
+html #pg-arcade .arcmy .arcrow { display: flex; gap: var(--g-s-1); }
+html #pg-arcade .arcmy .arcact { flex: 1 1 0; min-height: var(--g-target) !important; }
+html #pg-gamestudio .gpUi button { min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px !important; }
+/* ---- end of the game studio ---- */

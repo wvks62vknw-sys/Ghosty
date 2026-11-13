@@ -66,7 +66,7 @@ test('the shelf: every entry whole, Freedoom the default DOOM, mirrors https, si
   assert.equal(SHELF[0].line, 'DOOM, the free version with its own levels.');
   for (const g of SHELF) {
     for (const k of ['id', 'title', 'line', 'ghosty', 'done']) assert.ok(typeof g[k] === 'string' && g[k].trim(), `${g.id}: ${k}`);
-    assert.ok(['doom', 'quake', 'dos', 'voxel', 'runner', 'kart', 'hopper', 'arena', 'blocks', 'blast', 'flap', 'climb', 'beat', 'platform', 'cave', 'draughts', 'othello', 'backgammon', 'connect4'].includes(g.engine), `${g.id}: engine`);
+    assert.ok(['doom', 'quake', 'dos', 'voxel', 'runner', 'kart', 'hopper', 'arena', 'blocks', 'blast', 'flap', 'climb', 'beat', 'platform', 'cave', 'draughts', 'othello', 'backgammon', 'connect4', 'studio'].includes(g.engine), `${g.id}: engine`);
     assert.equal(typeof g.saves, 'boolean');
     assert.match(g.since, /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(g.controls.every((c) => CONTROLS.includes(c)), `${g.id}: controls`);
@@ -380,7 +380,7 @@ test('the DOS shelf: a dozen or more classics, each whole, its own licence quote
   assert.ok(games.length >= 12, `only ${games.length} DOS games`);
   assert.ok(games.every((g) => engines.playsToday(g)), 'every DOS game plays today');
   assert.ok(SHELF.every((g) => engines.playsToday(g)), 'every game on the shelf plays today: DOOM, Freedoom and Quake on their native engines');
-  assert.deepEqual(Object.keys(engines.ENGINES).sort(), ['arena', 'backgammon', 'beat', 'blast', 'blocks', 'cave', 'climb', 'connect4', 'doom', 'dos', 'draughts', 'flap', 'hopper', 'kart', 'othello', 'platform', 'quake', 'runner', 'voxel']);
+  assert.deepEqual(Object.keys(engines.ENGINES).sort(), ['arena', 'backgammon', 'beat', 'blast', 'blocks', 'cave', 'climb', 'connect4', 'doom', 'dos', 'draughts', 'flap', 'hopper', 'kart', 'othello', 'platform', 'quake', 'runner', 'studio', 'voxel']);
   // the games made by us: no data, their own engines, nothing PLAY reads
   for (const g of SHELF.filter((x) => x.madeByUs)) {
     assert.equal(engines.engineFor(g).id, g.engine);

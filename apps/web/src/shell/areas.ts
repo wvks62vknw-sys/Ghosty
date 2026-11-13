@@ -55,7 +55,7 @@ export const TINT: Record<string, string> = {
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
-  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', video: '#ff6482', house: '#ffb340',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', video: '#ff6482', gamestudio: '#ff9f0a', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 

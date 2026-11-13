@@ -84,6 +84,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['What games have you got?', 'Open the arcade'], scene: ['playing'], cat: 'play',
     since: '2026-11-01',
   },
+  'panel:arcade:MY GAMES': {
+    name: 'The games you made', line: 'You can play and change every game you made in the game studio, each with PLAY at once, EDIT and your best score.',
+    more: 'A game you make in the game studio plays here on the same frame as the rest: the pad under your thumbs, a controller, sound, and a save point that CONTINUE comes back to. EDIT opens it in the studio.',
+    say: ['My games', 'Make a game'], scene: ['playing'], cat: 'play',
+    since: '2026-11-12',
+  },
   'panel:arcade:HOW IT PLAYS': {
     name: 'How the arcade plays', line: 'You can read how the controls work: the stick, the buttons under your thumbs, drag to turn, PAUSE for the game menu, sound and quit.',
     more: 'A game controller works too when one is attached. In DOOM and Quake, MENU opens the game’s own menu, where you start a new game, save and load. The keyboard key brings up your phone’s keyboard for names and saves in the older games. Your saves are kept on the phone and come back after a reload.',

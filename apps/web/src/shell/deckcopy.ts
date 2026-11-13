@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -488,6 +488,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'What’s the temperature in the kitchen?', act: { ask: 'What’s the temperature in the kitchen?' } },
     ],
     dyk: 'A lock, an alarm or a garage door asks your confirm on every tap, and nothing acts on a schedule.',
+  },
+  gamestudio: {
+    name: 'Game studio',
+    promise: 'Make a 2-D game on your phone',
+    can: [
+      { text: 'Make a game from a template', act: { open: 'gamestudio' } },
+      { text: 'Make a game', act: { ask: 'Make a game' } },
+      { text: 'My games', act: { ask: 'My games' } },
+    ],
+    dyk: 'A game you make stays on this phone until you share it or put it on your Home Screen as an app.',
   },
 };
 

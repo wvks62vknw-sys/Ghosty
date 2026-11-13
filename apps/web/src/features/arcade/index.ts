@@ -28,7 +28,9 @@ import { bookOf, levelOf } from '../../arcade/games/two/skill';
 import { allScores, recordScore, recordSitting, type Score, sittingKey } from '../../arcade/scores';
 import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
-import type { TabDef } from '../../shell/tabs';
+import { go as goTab, type TabDef } from '../../shell/tabs';
+import { ask as studioAsk } from '../../studio-game/hub';
+import { listGames, type Meta } from '../../studio-game/store';
 import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -91,6 +93,7 @@ const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefi
   if (engine === 'voxel') return sc ? `Most blocks changed in a visit ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   const mine: Partial<Record<EngineId, string>> = { blocks: 'Best duel', blast: 'Best grid', flap: 'Best flight', climb: 'Best climb', beat: 'Best song', kart: 'Best race', hopper: 'Best run', arena: 'Best round' };
   if (engine === 'cave') return sc ? `Furthest: ${caveWords(sc.best)} · last ${caveWords(sc.last)}` : 'Not played yet';
+  if (engine === 'studio') return sc ? `Your best ${n(sc.best)} points · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'platform') return sc ? `Best run ${n(sc.best)} points · last ${n(sc.last)}` : 'Not played yet';
   if (BOARDS.has(engine)) return sc ? `Best win at level ${n(sc.best)}` : 'Not won yet';
   if (mine[engine]) return sc ? `${mine[engine]} ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
@@ -231,7 +234,11 @@ export const arcadeTab: TabDef = {
     const levelsPanel = panel('THE FREE LEVELS', { status: `${packs.length} PACKS`, cls: 'arclevels' });
     const levelGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Free level packs for DOOM' });
     levelsPanel.body.append(h('p.arcnote', 'For DOOM: a dozen of the most-loved level packs fans made and gave away, from the idgames archive. Each plays over Freedoom on the same engine, so GET Freedoom on the shelf too.'), levelGrid);
-    P.left.append(shelfPanel.el, ...(packs.length ? [levelsPanel.el] : []));
+    // MY GAMES (BRIEF-EDITOR-GAME-STUDIO): what he made in the game studio, each with PLAY at once and EDIT
+    const myPanel = panel('MY GAMES', { status: '', cls: 'arcmygames' });
+    const myGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Games you made' });
+    myPanel.body.append(myGrid);
+    P.left.append(shelfPanel.el, myPanel.el, ...(packs.length ? [levelsPanel.el] : []));
     P.right.append(about.el);
 
     const ofGame = (e: ShelfEntry): CardOf => ({ id: e.id, title: e.title, at: keptAs(e), data: e.data, saves: e.saves });
@@ -507,6 +514,7 @@ export const arcadeTab: TabDef = {
         arcadeState.intent = null;
         arcadeState.probe = () => null;
         paintAll();
+        void paintMine();
       };
       void (async () => {
         let handle: EngineHandle | null = null;
@@ -535,6 +543,35 @@ export const arcadeTab: TabDef = {
         }
       })();
     };
+
+    // MY GAMES: the games of the studio, played by its own engine ('studio') on the arcade's frame
+    const mine = (m: Meta): ShelfEntry => ({ id: `studio-${m.id}`, title: m.name.toUpperCase(), line: 'A game you made.', engine: 'studio', data: null, madeByUs: true, controls: ['move', 'jump'], saves: true, since: '', ghosty: 'Your own game. Walk about, talk, and finish what it asks.', done: 'Your best is kept.' });
+    const paintMine = async () => {
+      const list = await listGames().catch(() => [] as Meta[]);
+      myPanel.setStatus(list.length ? `${list.length} GAME${list.length === 1 ? '' : 'S'}` : 'NONE YET');
+      const all = allScores();
+      clear(myGrid, ...(list.length
+        ? list.map((m) => {
+            const e = mine(m);
+            const sc = all[`studio.${m.id}`];
+            const playBtn = h('button.arcact.play', { type: 'button', 'aria-label': `Play ${m.name}`, dataset: { label: 'Play' } }, 'PLAY');
+            playBtn.addEventListener('click', () => play({ id: e.id, card: e.id, title: e.title, entry: e, reads: [], args: [`game=${m.id}`] }));
+            const editBtn = h('button.arcact.edit', { type: 'button', 'aria-label': `Edit ${m.name} in the game studio`, dataset: { label: 'Edit' } }, 'EDIT');
+            editBtn.addEventListener('click', () => {
+              studioAsk({ what: 'open', id: m.id });
+              goTab('gamestudio');
+            });
+            const stat = h('p.arcstatus', { 'aria-live': 'polite' }, status.get(e.id) ?? '');
+            return h('article.arccard.arcmy', { role: 'listitem', dataset: { game: m.id }, 'aria-label': m.name },
+              h('h4.arctitle', m.name),
+              h('p.arcline', `Made by you · ${m.rooms} room${m.rooms === 1 ? '' : 's'}${m.maker ? ` · a game by ${m.maker}` : ''}`),
+              h('p.arcscore', scoreWords('studio', sc, undefined)),
+              h('div.arcrow', playBtn, editBtn), stat);
+          })
+        : [h('p.arcnote', 'Nothing here yet. Make a game in MAKE → The game studio and it plays here.')]));
+    };
+    void paintMine();
+    window.addEventListener('ghosty:studio-imported', () => void paintMine());
 
     // what is already on this phone
     void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => (of.data && (await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {

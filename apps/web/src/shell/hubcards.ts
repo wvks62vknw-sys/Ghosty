@@ -52,6 +52,8 @@ import { loadWorkspace } from '../workspace/store';
 import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/model';
 import { videoInst } from '../video/inst';
 import { videoTally } from '../video/tally';
+import { gameInst } from '../studio-game/inst';
+import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
@@ -162,6 +164,15 @@ const loadPhotos = every(3_000, async () => {
   const all = await listPhotos();
   hubFacts.photos = { n: all.length, edited: all.filter((p) => p.edited).length, last: all[0]?.name ?? null, at: all[0]?.at ?? 0 };
 });
+/** THE GAME STUDIO: his games kept on this phone, read from its own store into the tally the studio keeps (studio-game/hub.ts). */
+const loadStudioGames = every(3_000, async () => {
+  const { listGames } = await import('../studio-game/store');
+  const all = await listGames();
+  studioInfo.games = all.length;
+  studioInfo.last = all[0]?.name ?? '';
+  studioInfo.loaded = true;
+});
+const loadEditors = () => Promise.all([loadPhotos(), loadStudioGames()]);
 const loadArcade = every(3_000, async () => {
   const ready = await Promise.all(SHELF.map((e) => (fetched(e) ? isHere({ id: keptAs(e), data: e.data }) : true)));
   hubFacts.arcade = { here: ready.filter(Boolean).length };
@@ -310,7 +321,7 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
   h('span.insc', svg, h('span.ctr', h('span', h('b.tnum', big, h('span.of', of)), h('small', word))));
 
 /* ------------------------------------------------------------------ the twenty tools */
-/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages, photos, videos), and the newest one's name. */
+/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages, photos, videos, games), and the newest one's name. */
 const editorsKept = (): { total: number; newest: string } => {
   const all: { at: number; title: string }[] = [
     ...listDocs().map((d) => ({ at: d.at, title: d.title })),
@@ -321,6 +332,8 @@ const editorsKept = (): { total: number; newest: string } => {
     ...Array.from({ length: hubFacts.photos?.n ?? 0 }, (_, i) => ({ at: i ? 0 : hubFacts.photos!.at, title: hubFacts.photos!.last ?? 'a photo' })),
     // VIDEO's kept videos: counted from the tally its store keeps when a project is saved
     ...Array.from({ length: videoTally()?.n ?? 0 }, (_, i) => ({ at: i ? 0 : videoTally()!.at, title: videoTally()!.last })),
+    // THE GAME STUDIO's kept games: counted from the tally the studio keeps (read from its store by loadEditors, which the card asks for)
+    ...Array.from({ length: studioInfo.games }, (_, i) => ({ at: 0, title: i ? 'a game' : studioInfo.last || 'a game' })),
   ];
   all.sort((a, b) => b.at - a.at);
   return { total: all.length, newest: all[0]?.title ?? '' };
@@ -583,7 +596,7 @@ export const CARDS: Record<string, HubCard> = {
     },
     status: () => 'READY',
     instrument: editorsInst,
-    load: loadPhotos,
+    load: loadEditors,
     readouts: () => {
       const k = editorsKept();
       return [
@@ -616,6 +629,20 @@ export const CARDS: Record<string, HubCard> = {
       return t ? `${t.n} ${t.n === 1 ? 'video' : 'videos'} on this phone, the newest “${t.last}”, ${t.len}` : '';
     },
     idle: 'No videos yet: add a clip and cut it here',
+  },
+  // [gamestudio] MAKE → THE GAME STUDIO (studio-game/): a 2-D game maker on the app's own engine; his games are kept on this phone
+  gamestudio: {
+    title: 'Make a game',
+    status: () => 'READY',
+    instrument: gameInst,
+    readouts: () => [
+      { label: 'Games', value: studioInfo.games ? String(studioInfo.games) : null, none: studioInfo.loaded ? 'None yet' : 'Not yet' },
+      { label: 'Last', value: studioInfo.last || null, none: '—' },
+    ],
+    why: () => (studioInfo.games ? '' : 'Pick a template and make one in a minute'),
+    load: async () => (await import('../studio-game/editor')).refreshInfo(),
+    say: () => (studioInfo.games ? `${studioInfo.games} ${studioInfo.games === 1 ? 'game' : 'games'} on this phone, the newest “${studioInfo.last}”` : ''),
+    idle: 'No games yet: pick a template, and make one in a minute',
   },
   learn: {
     title: 'Learn anything',

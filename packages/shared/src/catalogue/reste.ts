@@ -55,7 +55,7 @@ export const RESTE_WORDS: Record<string, CatValue> = {
   'hub:editors': {
     name: 'Every editor in one place',
     line: 'You can write, calculate, present and plan in one place, and all of it is kept on this phone.',
-    more: 'The six editors sit under one card in MAKE: documents, spreadsheets, slides, the workspace, photos and video. Each opens in one tap, and the card says how many things live on this phone across them.',
+    more: 'The seven editors sit under one card in MAKE: documents, spreadsheets, slides, the workspace, photos, video and the game studio. Each opens in one tap, and the card says how many things live on this phone across them.',
     say: ['My documents', 'My spreadsheets', 'My slides', 'My workspace'],
     scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
     go: { open: 'docs' }, tryText: 'Opens my documents',

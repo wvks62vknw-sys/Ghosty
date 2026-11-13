@@ -58,6 +58,7 @@ import { photoTab } from './photo';
 // THE VIDEO EDITOR (BRIEF-EDITOR-VIDEO): MAKE's seventh full editor
 import { videoTab } from './video';
 import { houseTab } from './house';
+import { gamestudioTab } from './gamestudio';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, gamestudioTab, houseTab, ...HUB_TABS];
