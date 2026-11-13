@@ -605,7 +605,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const fctx = floor.getContext('2d');
   let floorAt = -1;
   // (the film draws the world itself: the floor forming is the scan's points, so the 2-D floor stays out of its way)
-  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass' || world === 'orbit';
+  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass' || world === 'orbit' || world === 'grown';
   if (floorHas || filmWanted) bootState.floorDrawn = world;
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)
@@ -897,7 +897,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       floorAt = fkey;
       drawFloor(fctx, world, fk, vw, vh, dpr, floorTok, { x: cx, y: cy, r: 0.9 * 0.74 * (side / 2) + 5 }, { x1: gutter, x2: vw - gutter, y: topY + 24 }, kc);
       // Glass: the blur over the ground clearing as the floor's moment passes
-      if (world === 'glass') {
+      if (world === 'glass' || world === 'grown') {
         const blur = 18 * (1 - fk);
         glass.style.opacity = (1 - fk).toFixed(3);
         const f = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : '';

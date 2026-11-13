@@ -329,7 +329,7 @@ test('THE READER is drawn from the tokens alone: no colour of its own in its cod
 // ================================================================ THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2)
 
 const GROUND_ORDER = ['black', 'graphite', 'slate', 'warm', 'paper'];
-const WORLD_ORDER = ['scan', 'map', 'eye', 'ink', 'glass', 'orbit'];
+const WORLD_ORDER = ['scan', 'map', 'eye', 'ink', 'glass', 'orbit', 'grown'];
 const blocks = (attr) => {
   assert.equal(typeof T.parseAttrBlocks, 'function', 'tokens.ts reads no recipe blocks: there are no grounds, worlds or switches');
   return T.parseAttrBlocks(css, attr);
@@ -412,7 +412,7 @@ test('THEMES-2: every world defines every drawing token; The Scan is the :root\'
   assert.match(W.scan['--g-floor-mask'], /^url\("data:image\/svg\+xml,.*circle/, 'The Scan: a field of points');
   assert.match(W.map['--g-floor-mask'], /^url\("data:image\/svg\+xml,.*M32 40\.5H49M40\.5 32V49/, 'The Map: a grid and a crosshair every five squares');
   assert.match(W.eye['--g-floor-mask'], /^url\("data:image\/svg\+xml,.*rect/, 'The Eye: grain');
-  for (const k of ['ink', 'glass', 'orbit']) {
+  for (const k of ['ink', 'glass', 'orbit', 'grown']) {
     assert.equal(W[k]['--g-floor-mask'], 'none', `${k}: no floor pattern`);
     assert.equal(Number(W[k]['--g-floor-a']), 0, `${k}: no floor`);
   }
@@ -424,26 +424,29 @@ test('THEMES-2: every world defines every drawing token; The Scan is the :root\'
   assert.deepEqual(corners('eye'), ['2px', '2px', '2px', '2px']);
   assert.deepEqual(corners('ink'), ['0px', '0px', '0px', '0px']);
   assert.deepEqual([W.glass['--g-radius-cell'], W.glass['--g-radius-capsule']], ['20px', '26px']);
+  // Grown Up (D3) is Glass's own drawing, whole: the same corners, plates, blur and glow
+  for (const n of T.WORLD_BLOCK) assert.equal(W.grown[n], W.glass[n], `Grown Up draws ${n} as Glass does`);
   // Orbit (D1): round bodies and pills, a card of 28 (the mock's), no blur and no shadow, an outline and a little glow
   assert.deepEqual(corners('orbit'), ['14px', '28px', '14px', '999px']);
   assert.equal(W.orbit['--g-plate-shadow'], 'none');
   assert.equal(W.orbit['--g-front-shadow'], 'none');
   // the glow: none in One Ink; only Glass's marks glow
   assert.equal(Number(W.ink['--g-glow']), 0, 'One Ink: no glow');
-  for (const k of ['scan', 'map', 'eye', 'glass', 'orbit']) assert.equal(Number(W[k]['--g-glow']), 1, `${k}: the glow`);
-  for (const k of WORLD_ORDER) assert.equal(W[k]['--g-mark-glow'] !== '0px', k === 'glass', `${k}: a glow round a lit mark only in Glass`);
+  for (const k of ['scan', 'map', 'eye', 'glass', 'orbit', 'grown']) assert.equal(Number(W[k]['--g-glow']), 1, `${k}: the glow`);
+  for (const k of WORLD_ORDER) assert.equal(W[k]['--g-mark-glow'] !== '0px', k === 'glass' || k === 'grown', `${k}: a glow round a lit mark only in Glass and Grown Up (the same drawing)`);
   // the marks: The Map's square pins (the arm as thick as it is long), The Eye's one sharp box with its line of sight, One Ink's rules
   assert.equal(W.map['--g-ret-arm'], W.map['--g-ret-weight'], 'The Map: square pins at the corners');
   assert.equal(W.scan['--g-ret-arm'], '10px', 'The Scan: corner marks');
   assert.equal(W.eye['--g-ret-arm'], '0px', 'The Eye: no corners, the sharp box alone');
   assert.notEqual(W.eye['--g-ret-sight'], '0px', 'The Eye: the line of sight drawn on the box');
-  for (const k of ['scan', 'map', 'ink', 'glass', 'orbit']) assert.equal(W[k]['--g-ret-sight'], '0px', `${k}: no line of sight on the box`);
+  for (const k of ['scan', 'map', 'ink', 'glass', 'orbit', 'grown']) assert.equal(W[k]['--g-ret-sight'], '0px', `${k}: no line of sight on the box`);
   assert.equal(W.ink['--g-ret-side'], '0', 'One Ink: a reticle is a rule above and below');
   assert.equal(W.ink['--g-plate-side'], '0', 'One Ink: a plate is a rule above and below');
   assert.equal(W.map['--g-plate-edge'], 'dashed', 'The Map: dashed plates');
   assert.equal(W.eye['--g-plate-edge'], 'dotted', 'The Eye: plates at reduced ink');
   assert.equal(W.eye['--g-plate-shadow'], 'none');
   assert.notEqual(W.glass['--g-blur'], '0px', 'Glass: frosted glass');
+  assert.notEqual(W.grown['--g-blur'], '0px', 'Grown Up: frosted glass, as Glass');
   for (const k of ['scan', 'map', 'eye', 'ink', 'orbit']) assert.equal(W[k]['--g-blur'], '0px', `${k}: no blur`);
   // One Ink says it in the serif, and its accent is never text
   assert.equal(W.ink['--g-face-say'], 'var(--g-font-serif)');
@@ -455,7 +458,7 @@ test('THEMES-2: every world defines every drawing token; The Scan is the :root\'
 test('THEMES-2: every preset resolves to a full recipe — the twelve on Graphite in The Scan, then The Scan, The Map, The Eye, One Ink, Glass', () => {
   needRecipe();
   const P = TH.presets();
-  assert.deepEqual(P.map((p) => p.key), [...Object.keys(BRIEF), 'scan', 'map', 'eye', 'oneink', 'glass', 'orbit'], 'the presets in Settings\' order');
+  assert.deepEqual(P.map((p) => p.key), [...Object.keys(BRIEF), 'scan', 'map', 'eye', 'oneink', 'glass', 'orbit', 'grown'], 'the presets in Settings\' order');
   for (const p of P) {
     const r = TH.presetRecipe(p);
     assert.ok(TH.GROUND_KEYS.includes(r.ground) && TH.COLOUR_KEYS.includes(r.colour) && TH.WORLD_KEYS.includes(r.world), `${p.key}: ${JSON.stringify(r)}`);
@@ -474,6 +477,7 @@ test('THEMES-2: every preset resolves to a full recipe — the twelve on Graphit
   assert.equal(R('oneink').switches.readings, 'system', 'ONE INK: mono off');
   assert.deepEqual(brief('glass'), ['graphite', 'reactor', 'glass']);
   assert.deepEqual(brief('orbit'), ['black', 'reactor', 'orbit']);
+  assert.deepEqual(brief('grown'), ['graphite', 'reactor', 'grown']);
   // a dial changed under a preset makes Custom
   assert.equal(TH.presetOf({ ...R('ember'), switches: { ...R('ember').switches, glow: 'off' } }), null, 'a changed dial is Custom');
   assert.equal(TH.presetOf({ ...R('glass'), ground: 'black' }), null, 'a changed ground is Custom');
@@ -483,11 +487,12 @@ test('THEMES-2: every preset resolves to a full recipe — the twelve on Graphit
   for (const w of TH.WORLDS) assert.ok(/^[A-Z].{12,}[.]$/.test(w.line), `${w.key}: "${w.line}"`);
   assert.match(TH.GROUNDS[0].line, /^Nothing lit but what I’m looking at\.$/, 'Black: his sentence');
   // Orbit is the fifth whole HUD (BRIEF-ORBIT-HUD): a world and a preset, and the old line "a way round, not a look" is retired
-  assert.ok(TH.WORLD_KEYS.includes('orbit') && TH.WORLD_KEYS[TH.WORLD_KEYS.length - 1] === 'orbit', 'orbit is the last world');
+  assert.ok(TH.WORLD_KEYS.includes('orbit') && TH.WORLD_KEYS.indexOf('orbit') === TH.WORLD_KEYS.indexOf('glass') + 1, 'orbit follows glass');
   assert.equal(TH.ORBIT_LINE, undefined, 'the line "a way round, not a look" is retired');
   assert.equal(TH.worldOf('orbit').line, 'No bar: my orb is the way in, the six rooms stand on a ring round it.');
   assert.equal(TH.ROOMS_LINE, 'Every room follows the world fully with the shell.');
-  assert.deepEqual(TH.DIRECTIONS.map((d) => [d.key, d.preset]), [['scan', true], ['map', true], ['eye', true], ['oneink', true], ['glass', true], ['orbit', true]]);
+  assert.deepEqual(TH.DIRECTIONS.map((d) => [d.key, d.preset]), [['scan', true], ['map', true], ['eye', true], ['oneink', true], ['glass', true], ['orbit', true], ['grown', true]]);
+  assert.ok(TH.WORLD_KEYS.includes('grown') && TH.WORLD_KEYS[TH.WORLD_KEYS.length - 1] === 'grown', 'grown is the last world (the sixth whole HUD)');
 });
 
 test('THEMES-2: a bare colour key (every phone before) reads as Graphite + the colour + The Scan, and what is kept comes back exactly', () => {
@@ -503,6 +508,7 @@ test('THEMES-2: a bare colour key (every phone before) reads as Graphite + the c
   assert.equal(TH.recipeFrom('gold', { ground: 'slate', night: 'black' }).night, 'slate');
   // anything it cannot be falls back, nothing breaks
   assert.equal(TH.recipeFrom('gold', { world: 'orbit' }).world, 'orbit', 'orbit is kept as a world');
+  assert.equal(TH.recipeFrom('gold', { world: 'grown' }).world, 'grown', 'grown is kept as a world');
   assert.deepEqual(TH.recipeFrom('violet', { ground: 'neon', world: 'nonesuch', night: 'paper', switches: { body: 12, corners: 'wobbly', sound: 'loud' } }),
     { ground: 'graphite', colour: 'violet', world: 'scan', night: 'graphite', switches: TH.SWITCH_DEFAULTS });
   // the phone keeps it beside `theme` in ghosty.settings (the daily backup carries that key whole, so another phone restored

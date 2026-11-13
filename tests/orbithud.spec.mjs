@@ -2,7 +2,7 @@
 // styles.css ORBIT): no bar, the orb is the way in; on the owner's 440 × 956 and a 390 × 844 phone (every check fails on the code before this
 // brief: it was run against it once):
 //   a. THE GALLERY: ORBIT's card has no COMING; a tap sets recipe.world 'orbit' at once, says YOU'RE IN IT, survives a reload; a tap on THE
-//      SCAN brings The Scan back; "orbit" by words switches to it again (no model), the colour staying his; "grown up" still says its line;
+//      SCAN brings The Scan back; "orbit" by words switches to it again (no model), the colour staying his; "the eye" still says its line;
 //   b. HOME IS THE ORBIT: the stamp, the greeting and one sentence, the orb centred, six stations with their words and exactly one lit,
 //      the capsule with recents then favourites, the hint line present then gone after ten presses (counted on the phone), no tab bar, no
 //      ask bar, no gauges; nothing sideways; every control 44 pt; a station tap opens its hub; an orb press opens the typed word with
@@ -146,7 +146,7 @@ try {
   const o0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built, label: document.querySelector(sel)?.getAttribute('aria-label') }), card('orbit'));
   check(!o0.coming && o0.built === 'true', `[gallery] ORBIT's card is still COMING: ${JSON.stringify(o0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look));
-  check(!comings.includes('orbit') && comings.includes('grown'), `[gallery] COMING is on ${comings} (ORBIT is built; GROWN UP is not)`);
+  check(comings.join() === '', `[gallery] COMING is on ${comings} (want none: all seven looks are built)`);
   await page.click(card('orbit'));
   await until(page, () => document.documentElement.dataset.world === 'orbit', 5000, '[gallery] a tap on ORBIT did not make the world orbit');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
@@ -175,16 +175,14 @@ try {
   await until(page, () => document.body.classList.contains('scanhome'), 10000, '[words] Home did not wear The Scan before the words');
   if (!(await page.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await page.locator('.logbtn:visible').first().click().catch(() => undefined);
   await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
-  await page.fill('#cin', 'grown up');
-  await page.press('#cin', 'Enter');
-  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Grown Up is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "grown up" did not say its line'));
-  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "grown up" changed the world');
+  // (every look is built: none answers with a coming line; checked after the words below)
   await page.fill('#cin', 'orbit');
   await page.press('#cin', 'Enter');
   await until(page, () => document.documentElement.dataset.world === 'orbit', 8000, '[words] "orbit" did not make the world orbit');
   const wd = await page.evaluate(() => ({ colour: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, said: [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /Orbit/.test(t)).pop() ?? '' }));
   check(wd.colour === 'ember' && wd.saved === 'ember', `[words] "orbit" changed his colour: ${JSON.stringify(wd)}`);
   check(/Orbit: on\./.test(wd.said), `[words] "orbit" answered "${wd.said}"`);
+  check(!(await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /is coming/.test(m.textContent ?? '')))), '[words] a look answered that it is coming: all seven are built');
   check(!asked.length, `[words] the brain was asked ${asked.length} times for "orbit"`);
   await ctx.close();
 }
@@ -555,7 +553,7 @@ for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
     await ctx.close();
     return out;
   };
-  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [MAP, 'map', false, 'ask,see,make,learn,plan,life'], [EYE, 'eye', false, 'ask,see,make,learn,plan,life']]) {
+  for (const [look, name, housed, keys] of [[SCAN, 'scan', true, 'ask,see,make,learn,plan,life,me'], [INK, 'ink', true, 'ask,see,make,learn,plan,life,me'], [GLASS, 'glass', false, 'ask,see,make,learn,plan,life'], [MAP, 'map', true, 'ask,see,make,learn,plan,life,me'], [EYE, 'eye', false, 'ask,see,make,learn,plan,life']]) {
     const f = await facts(look, PHONE);
     for (const id of ['home', 'learn', 'settings']) {
       const x = f[id];

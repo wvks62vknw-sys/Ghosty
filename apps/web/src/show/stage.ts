@@ -23,6 +23,8 @@ import { lengthIn, partBoxes, roomBoxesOf, roomPlanFor, type PartKind, type Show
 import { dialsOf, simWith, type Sim } from './sim';
 import { showTrace } from './turn';
 import { waiting } from '../ui/wait';
+import { orbView } from '../shell/capsule';
+import { grownOn } from '../shell/house';
 
 /** What the Stage has done, for the checks (window.__ghosty.show.state()). */
 export const stageState = {
@@ -97,14 +99,15 @@ export function clearStage(why: string): void {
     if (why === 'replaced' || why === 'check' || still()) el.remove();
     else if (!el.classList.contains('leaving')) {
       // (it keeps its place for the length of its leaving; a newer Stage takes it away at once. ORBIT: giving the Stage back is the orb
-      // shrinking again, the same slow tide run backwards, so it stays for the tide's length)
-      const orbit = document.documentElement.dataset.world === 'orbit';
+      // shrinking again, the same slow tide run backwards, so it stays for the tide's length. GROWN UP: the panel folds back to the orb in
+      // its top edge, a short settle)
+      const world = document.documentElement.dataset.world;
       el.classList.add('leaving');
-      if (orbit) {
+      if (world === 'orbit' || world === 'grown') {
         el.dataset.leaving = 'true';
         el.setAttribute('aria-hidden', 'true');
       }
-      setTimeout(() => el.remove(), orbit ? 960 : 360);
+      setTimeout(() => el.remove(), world === 'orbit' ? 960 : 360);
     }
   }
   if (why !== 'replaced') {
@@ -595,6 +598,13 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
     ...(answerEl ? [answerEl] : []),
     h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
+  // GROWN UP: the orb is docked in the panel's top edge like a jewel, and the bezel is lit from it (styles.css `#thestage::before`): a second view of the one Mind
+  if (grownOn()) {
+    const jewel = orbView(56, () => !!el.isConnected && !document.hidden);
+    el.prepend(h('div.stgjewel', { 'aria-hidden': 'true' }, h('i.stgjring'), jewel.cv));
+    jewel.start();
+    stops.push(jewel.stop);
+  }
   document.body.append(el);
   document.body.classList.add('staged');
   place(el);

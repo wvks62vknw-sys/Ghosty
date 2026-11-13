@@ -11,7 +11,7 @@ import { speechCaps } from '../api/brain';
 import { listen, stopListening, voiceSupport } from '../assistant/voice';
 import { toast } from '../ui/components';
 import { index, key, lockBox, recognise, release, truthLine, plate, tag } from '../ui/machine';
-import { houseOn } from './house';
+import { grownOn, houseOn } from './house';
 import { DECK } from './deckcopy';
 import { ROOMS, roomOf, thingOf } from './rooms';
 import { roomWord, thingForNumber, worksLine } from './inventory';
@@ -180,7 +180,8 @@ export function openWithMic(): void {
 }
 
 export const jump = {
-  on: houseOn,
+  // (GROWN UP's one field is the jump bar too: the same rows, ranked as they are, drawn in its own look)
+  on: () => houseOn() || grownOn(),
   draw,
 };
 

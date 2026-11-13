@@ -88,6 +88,12 @@ const setCo = (c: Callout, value: string, unit: string, sub: string, tone: 'live
   c.el.dataset.tone = tone;
 };
 
+/**
+ * What is left of today's free answers, as the outer arc and its call-out read it (state/status.ts freeAiToday): GROWN UP's Home keeps this one ring
+ * on the orb and says it in a line, from this same source. `at` is when it was last read (0: not yet); `offline`: the brain could not be reached.
+ */
+export const freeAnswers: { f: ReturnType<typeof freeAiToday> | null; offline: boolean; at: number } = { f: null, offline: false, at: 0 };
+
 export interface Home {
   /** Put into the navigation bar (the date sits beside search and the avatar). */
   date: HTMLElement;
@@ -238,9 +244,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     if (!s) {
       setCo(ai, '—', '', ui.get().connected === false ? 'brain offline' : 'can’t be read now', 'idle');
       setArc(outer, null, true);
+      Object.assign(freeAnswers, { f: null, offline: ui.get().connected === false, at: Date.now() });
+      dispatchEvent(new CustomEvent('ghosty:freeai'));
       return;
     }
     const f = freeAiToday(s.capacity);
+    Object.assign(freeAnswers, { f, offline: false, at: Date.now() });
+    dispatchEvent(new CustomEvent('ghosty:freeai'));
     setCo(ai, f.value, f.unit, f.sub, f.tone);
     setArc(outer, f.frac, true);
     arcs.dataset.tone = f.tone;

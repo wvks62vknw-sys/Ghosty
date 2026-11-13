@@ -93,6 +93,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:world:ink': world('One Ink, rules not boxes', 'You can have me in One Ink: one ink, rules instead of boxes, and a serif when I talk.', 'From the first round of directions. No floor pattern, no glow, square corners; what is lit is a line, never the words.', 'One ink'),
   'theme:world:glass': world('Glass, my look before', 'You can have me in Glass: blurred glass, rounded corners and the glow, the look I had before.', 'No floor pattern, frosted plates, round corners and my glow: the look before the design system, kept as a choice.', 'Glass'),
   'theme:world:orbit': world('Orbit, my orb is the way', 'You can have me in Orbit: no bar, my orb the way in, the six rooms on a ring round it.', 'The first round’s navigation, built whole. Home is my orb at the centre of its sky; on every other screen the orb sits bottom left as the open end of a line, and holding it fans the rooms.', 'Orbit'),
+  'theme:world:grown': world('Grown Up, today with less', 'You can have me in Grown Up: today’s look with one capsule at the bottom of every screen and less at the top.', 'The sixth whole look, from the third direction. Rooms, one field for asking and jumping, and a small Mind that talks, in one glass capsule; each screen drops a little of its top half into a second tap.', 'Grown up'),
   // ---- the switches: each one visible thing
   'theme:switch:glow': sw('My glow, on or off', 'You can turn my glow off: no halo round my orb or the room, every light a clean line.', 'Glow off'),
   'theme:switch:floor': sw('The floor behind every screen', 'You can turn the floor off: no points, grid or grain behind the screens, just the ground.', 'Floor off'),
@@ -109,6 +110,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:preset:oneink': preset('One Ink, warm and gold', 'You can have One Ink: warm black, bone ink, one gold light, rules instead of boxes.', 'Warm, Gold for the one light, One Ink, and my readings in the phone’s own type. My words stay in the ink.', 'One ink'),
   'theme:preset:glass': preset('Glass, the look before', 'You can have Glass: the look before back, with its glass, round corners and the glow.', 'Graphite, Reactor and Glass: the look you had before the design system, kept as a preset.', 'Glass'),
   'theme:preset:orbit': preset('Orbit on black', 'You can have Orbit: black, no bar, my orb the way in and the six rooms on a ring round it.', 'Black, Reactor and Orbit. Press my orb to type, hold it and the rooms open round it; your colour stays yours.', 'Orbit'),
+  'theme:preset:grown': preset('Grown Up on graphite', 'You can have Grown Up: graphite and glass, one capsule at the bottom of every screen, less at the top.', 'Graphite, Reactor and Grown Up. The rooms key, one field for asking and jumping, and my small Mind in one capsule; your colour stays yours.', 'Grown up'),
   // ---- by words, with no model
   'phrase:look': {
     name: 'Change my look by words', line: 'You can say “black background”, “paper”, “the map”, “calm” or “bigger text” and my look changes at once, with no AI.',

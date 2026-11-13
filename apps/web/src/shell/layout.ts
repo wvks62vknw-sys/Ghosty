@@ -8,8 +8,10 @@ import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
 import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
-import { buildHouse, type House } from './house';
+import { buildHouse, grownOn, housePlan, type House } from './house';
 import { buildOrbit } from './orbit';
+import { buildCapsule } from './capsule';
+import { buildDrops } from './drops';
 import { scanList } from './scanlist';
 import { screenContext, lookingAt, stampFacts } from './awareness';
 import { stampLine } from '../ui/machine';
@@ -145,10 +147,16 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const buildDock = () => {
     dock.classList.add('areas');
     document.querySelector('#top .you')?.remove();
-    paintTabBar = buildTabBar(dock, () => deck.open());
-    house = buildHouse(dock, () => deck.open());
+    // (GROWN UP has no deck page: Every screen is THE ROOMS layer, opened from the capsule's first key and wherever the deck was asked for)
+    const openDeck = () => (grownOn() ? housePlan()?.open() : deck.open());
+    paintTabBar = buildTabBar(dock, openDeck);
+    house = buildHouse(dock, openDeck);
     // ORBIT's line (shell/orbit.ts): the orb at the open end of a thin line; drawn only while the world is Orbit on a phone
     buildOrbit(dock);
+    // GROWN UP's capsule (shell/capsule.ts): one glass capsule at the foot of every screen; drawn only while the world is Grown Up on a phone
+    buildCapsule(dock);
+    // what each dense screen folds from its top half in this look (shell/drops.ts)
+    buildDrops();
     document.body.classList.add('tabbar');
     paintNav();
   };

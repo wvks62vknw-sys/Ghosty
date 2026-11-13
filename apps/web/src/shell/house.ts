@@ -17,8 +17,9 @@ import { ui } from '../state/app';
 import { recipeEvents } from '../state/theme';
 import { togglePalette } from '../commands/registry';
 import { dur } from '../ui/machine';
-import { favourites } from './favourites';
-import { areaOf, navTo, recentTabs } from './areas';
+import { favourites, pinOnHold } from './favourites';
+import { areaOf, navTo, pinnedAndRecent, recentTabs, toolName } from './areas';
+import { AREAS } from './areadefs';
 import { ROOMS, roomOf, type Room, type Thing } from './rooms';
 import { worksLine } from './inventory';
 import { tabs } from './tabs';
@@ -50,6 +51,12 @@ const youWords = (title: string): string => (eyeOn() ? `Looking at ${title}` : `
 export const footOn = (): boolean => narrow && document.documentElement.dataset.world === 'ink';
 /** ORBIT is drawn (a phone): no bar, the orb is the way in; the house is its rooms on a ring and the plan opens from the line's left end (shell/orbit.ts). */
 export const orbitOn = (): boolean => narrow && document.documentElement.dataset.world === 'orbit';
+/**
+ * GROWN UP is drawn (a phone): one glass capsule at the foot of every screen (shell/capsule.ts) in place of the tab bar and the ask bar. It is Glass's own
+ * look with less on it, so the house's Scan drawing (`body.housed`) is not used: the dock is measured as the house's is (--dockh), and THE ROOMS layer
+ * (the plan, below) is the deck folded in.
+ */
+export const grownOn = (): boolean => narrow && document.documentElement.dataset.world === 'grown';
 
 /** The room he is in: the house's key lit and the words at the right ("LEARN"). Every screen has one; Every screen is under ME. */
 export function roomNow(): Room {
@@ -63,6 +70,9 @@ export function fieldWords(): string {
   if (deckState.open) return 'A number, a word, or a question';
   if (tab === 'settings') return 'Find a setting';
   if (tab.startsWith('area-') && tab !== 'area-ask') return `Find anything in ${roomNow().title.charAt(0)}${roomNow().title.slice(1).toLowerCase()}`;
+  // (GROWN UP's one field: what is on the Stage is asked about or changed; everywhere else it is the mock's own words)
+  // (offline, the field still jumps; a sentence waits for the signal, and it says so)
+  if (grownOn()) return document.body.classList.contains('staged') ? 'Ask about it, or change it' : ui.get().connected === false ? 'Jump anywhere. Asking waits for signal' : 'Ask or jump anywhere';
   return 'A number, a word, or a question';
 }
 
@@ -77,7 +87,7 @@ let thePlan: House['plan'] | null = null;
 export const housePlan = (): House['plan'] | null => thePlan;
 
 export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
-  deckOpener = openDeck;
+  deckOpener = () => (grownOn() ? thePlan?.open() : openDeck());
   const cap = dock.querySelector<HTMLElement>('.tabcap');
   // the seventh room: ME is a key of the house (the avatar at the top still opens the Me sheet)
   const meKey = h('button.scanme', { type: 'button', role: 'tab', dataset: { area: 'me', case: 'keep' }, title: 'Me' }, h('span', 'Me'));
@@ -153,7 +163,68 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
       if (l) sec.querySelector('.planroomhead')?.after(h('p.planchg', { dataset: { room: l.room, case: 'keep' } }, l.text));
     }
   };
+  // ---------------------------------------------------------------- GROWN UP'S ROOMS LAYER: the plan, and the deck folded in (d3/nav-440.png)
+  // Recent and starred on top (one tap each), then every room with its screens as chips under it: a screen is two taps from anywhere (the capsule's
+  // first key, the chip). A room's name opens its hub. `Every screen` is this layer, so it is not a chip on itself.
+  const layerChip = (t: { id: string; name: string; screen: string | null }, mark: 'recent' | 'starred' | null, works: boolean, room: string) => {
+    const b = h('button.glychip', {
+      type: 'button',
+      dataset: { id: t.id, room, case: 'keep', ...(mark ? { mark } : {}), ...(works ? { works: 'true' } : {}) },
+      'aria-label': `${t.name}${mark ? `, ${mark}` : ''}${works ? ', in the works' : ''}`,
+    }, mark ? icon(mark === 'starred' ? STAR : CLOCK, 'ic glymark') : null, h('span', t.name), works ? h('i.glydot', { 'aria-hidden': 'true' }) : null);
+    return b;
+  };
+  const drawLayer = () => {
+    const { pinned, lately } = pinnedAndRecent();
+    const starred = new Set(favourites());
+    const recent = new Set(recentTabs());
+    const here = roomNow();
+    const close0 = h('button.glyclose', { type: 'button', 'aria-label': 'Close', dataset: { case: 'keep' } }, icon('<path d="M6 6l12 12M18 6L6 18"/>'));
+    close0.addEventListener('click', () => close());
+    const head = h('div.glyhead', { dataset: { case: 'keep' } },
+      h('div.glykick', h('span.g-truth', houseName()), h('span.g-truth.glyhere', `You are in ${here.title}`)),
+      h('div.glytitle', h('h2', 'Go to'), close0));
+    const hand = [...lately.map((t) => ({ t, mark: 'recent' as const })), ...pinned.map((t) => ({ t, mark: 'starred' as const }))];
+    const handEl = h('section.glysect.glyhand', { dataset: { part: 'hand' } }, h('h3.glylabel', 'Recent and starred'),
+      hand.length
+        ? h('div.glychips', ...hand.map(({ t, mark }) => {
+            const b = layerChip({ id: t.id, name: toolName(t), screen: t.id }, mark, !!worksLine(t.id), roomOf(t.id)?.key ?? '');
+            b.addEventListener('click', () => {
+              close();
+              navTo(t.cardTo ?? t.id, 'push');
+            });
+            pinOnHold(b, t.id);
+            return b;
+          }))
+        : h('p.glynone', { dataset: { case: 'keep' } }, 'Nothing opened yet. The last things you open wait here; hold any thing to star it.'));
+    const rooms = ROOMS.map((r) => {
+      const a = AREAS.find((x) => x.id === r.area)!;
+      const things = r.things.filter((t) => t.id !== 'deck');
+      const n = things.length;
+      const title = h('button.glyroomhead', { type: 'button', dataset: { room: r.key, case: 'keep' }, 'aria-label': `${r.title.charAt(0)}${r.title.slice(1).toLowerCase()}: open the room` },
+        icon(a.icon, 'ic glyic'),
+        h('span.glyname', `${r.title.charAt(0)}${r.title.slice(1).toLowerCase()}`),
+        h('span.glycount', r.key === 'home' ? 'the reactor' : `${n} ${n === 1 ? 'screen' : 'screens'}${r.key === here.key ? ' · you are here' : ''}`),
+        icon('<path d="M9 5l7 7-7 7"/>', 'ic glychev'));
+      title.addEventListener('click', () => {
+        close();
+        if (ui.get().tab !== r.screen) navTo(r.screen, 'switch');
+      });
+      const chips = things.map((t) => {
+        const b = layerChip(t, starred.has(t.id) ? 'starred' : recent.has(t.id) ? 'recent' : null, !!worksLine(t.id), r.key);
+        b.addEventListener('click', () => {
+          close();
+          openThing(t);
+        });
+        return b;
+      });
+      return h(`section.glyroom${r.key === here.key ? '.lit' : ''}` as 'section', { dataset: { room: r.key } }, title, chips.length ? h('div.glychips', ...chips) : null);
+    });
+    const body = h('div.glybody', handEl, h('h3.glylabel', 'Every screen, by room'), ...rooms);
+    return h('div#plan.glayer', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Go to: every room and the screens in it' }, h('i.glygrab', { 'aria-hidden': 'true' }), head, body);
+  };
   const draw = () => {
+    if (grownOn()) return drawLayer();
     const starred = new Set(favourites());
     const recent = new Set(recentTabs());
     const head = h('button.planhead', { type: 'button', 'aria-label': 'Fold the plan', dataset: { case: 'keep' } }, h('span.g-truth', houseName()), h('span.g-truth', youWords(roomNow().title)));
@@ -169,11 +240,11 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     return h('div#plan', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'The house: every room and the things in it' }, head, h('div.plangrid', ...rooms));
   };
   const open = () => {
-    if (el || !houseOn()) return;
+    if (el || !(houseOn() || grownOn())) return;
     el = draw();
     const topEl = document.getElementById('top');
-    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK, THE MAP and THE EYE the plan stands on the foot's, the scale's or the instruments' keys; in ORBIT on the orb's line)
-    const askEl = footOn() || scaleOn() || eyeOn() ? cap : orbitOn() ? dock.querySelector<HTMLElement>('.orbline') : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
+    // (Home's ask line is its own, the talk line: scan/home.ts; in ONE INK, THE MAP and THE EYE the plan stands on the foot's, the scale's or the instruments' keys; in GROWN UP on the capsule; in ORBIT on the orb's line)
+    const askEl = footOn() || scaleOn() || eyeOn() ? cap : grownOn() ? dock.querySelector<HTMLElement>('.gcap') : orbitOn() ? dock.querySelector<HTMLElement>('.orbline') : document.querySelector<HTMLElement>('body.scanhome .scanask') ?? dock.querySelector<HTMLElement>('.houseask');
     // (a line that is not on screen, ORBIT's on Home, has no top to stand on: the plan then ends at the foot)
     const askRect = askEl && askEl.getClientRects().length ? askEl.getBoundingClientRect() : null;
     el.style.setProperty('--plan-top', `${Math.round(topEl ? topEl.getBoundingClientRect().bottom : 0)}px`);
@@ -192,7 +263,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', onKey);
     offKey = () => removeEventListener('keydown', onKey);
-    el.querySelector<HTMLElement>('.planroom.lit .planthing, .planroom.lit .planroomhead')?.scrollIntoView({ block: 'nearest' });
+    el.querySelector<HTMLElement>('.planroom.lit .planthing, .planroom.lit .planroomhead, .glyroom.lit .glyroomhead')?.scrollIntoView({ block: 'nearest' });
   };
   const close = () => {
     if (!el) return;
@@ -212,6 +283,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   const paint = () => {
     const on = houseOn();
     document.body.classList.toggle('housed', on);
+    document.body.classList.toggle('grown', grownOn());
     // (the ME key is in the bar only in the house: Glass's bar has its six keys and nothing else in the DOM)
     if (on) {
       if (!meKey.isConnected) cap?.append(meKey);
@@ -236,7 +308,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     const askKey = cap?.querySelector<HTMLElement>('button[data-area="ask"] span');
     const askWord = on ? 'Home' : 'Ask';
     if (askKey && askKey.textContent !== askWord) askKey.textContent = askWord;
-    if (!on) close();
+    if (!on && !grownOn()) close();
     // the key of the room he is in (the tab bar lights the area; Every screen is under ME)
     if (on && deckState.open) for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
       const me = b.dataset.area === 'me';
@@ -251,7 +323,7 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
     new ResizeObserver(() => {
       const bs = document.body.style;
       const h = Math.round(dock.getBoundingClientRect().height);
-      if (houseOn() && h > 0) bs.setProperty('--dockh', `${h}px`);
+      if ((houseOn() || grownOn()) && h > 0) bs.setProperty('--dockh', `${h}px`);
       else bs.removeProperty('--dockh');
     }).observe(dock);
   }
@@ -264,7 +336,8 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
 
 /** A thing opened: its screen (as a card on its hub opens it), the origin, or Every screen. */
 export function openThing(t: Thing): void {
-  if (t.id === 'deck') return deckOpener();
+  // (GROWN UP's deck is THE ROOMS layer: every screen, by room, from the capsule's first key)
+  if (t.id === 'deck') return grownOn() ? thePlan?.open() : deckOpener();
   if (t.id === 'origin') return void import('../features/me/origin').then((m) => m.openOrigin());
   if (!t.screen) return;
   const def = tabs().find((x) => x.id === t.screen);

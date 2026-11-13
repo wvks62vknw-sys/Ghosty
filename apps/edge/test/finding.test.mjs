@@ -238,7 +238,7 @@ test('the house is drawn from that one list on every screen: the plan, the jump 
 // The rule is proved above on the lists (the bar's areas, a hub's cards, the Me sheet, the deck, the jump bar's ranking); what each world adds is
 // only HOW the lists are drawn and reached, so the way in is checked per world from the code that draws it: every screen is still on a visible
 // list (a room is a key in the bar, its things are the room's cards: two taps), recents and favourites are two taps, and a typed word finds the rest.
-test('the finding rule holds in all six worlds: The Scan, The Map, The Eye, One Ink, Orbit and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
+test('the finding rule holds in all seven worlds: The Scan, The Map, The Eye, One Ink, Orbit, Grown Up and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
   const house = read('shell/house.ts');
   const areas = read('shell/areas.ts');
   const ink = read('features/core/ink/home.ts');
@@ -251,13 +251,14 @@ test('the finding rule holds in all six worlds: The Scan, The Map, The Eye, One 
     eye: { housed: /'eye'/.test(house) && /eyeOn/.test(house), keys: 'the instruments' },
     ink: { housed: /=== 'ink'/.test(house), keys: 'the foot' },
     orbit: { housed: /=== 'orbit'/.test(house), keys: 'the orb and its line' },
+    grown: { housed: /export const grownOn = /.test(house) && /=== 'grown'/.test(house), keys: 'the capsule and THE ROOMS layer' },
     glass: { housed: !/=== 'glass'/.test(house), keys: "today's bar" },
   };
   // the seven keys: the one bar is built once from the areas (six) and the house's ME key joins in the two housed worlds; Glass keeps its six
   assert.match(areas, /for \(const a of AREAS\.filter\(\(x\) => x\.id !== 'me'\)\)/, 'the bar is the areas, six keys, in every world');
   assert.match(house, /const meKey = h\('button\.scanme'/, 'the seventh room, ME, joins the bar in the housed worlds');
   assert.match(css, /html body:not\(\.housed\) #dock \.tabcap \.scanme \{ display: none; \}/, 'and Glass has no ME key in its bar');
-  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.eye.housed && worlds.ink.housed && worlds.orbit.housed && worlds.glass.housed, JSON.stringify(worlds));
+  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.eye.housed && worlds.ink.housed && worlds.orbit.housed && worlds.grown.housed && worlds.glass.housed, JSON.stringify(worlds));
   // each room's hub lists its things (the same cards), in all three: a room is one tap from Home, its thing the second
   assert.match(areas, /const room = ROOMS\.find\(\(r\) => r\.area === a\.id\)!/, "a room's hub is drawn from the one list in every world");
   // recents and favourites: THE SCAN's and Glass's jump bar read pinnedAndRecent; ONE INK's Home lists the same two as words (a tap opens: two taps from Home, one from the page)
@@ -303,7 +304,28 @@ test('the finding rule holds in all six worlds: The Scan, The Map, The Eye, One 
   assert.match(orbitHome, /navTo\(roomHub\(a\), 'push'\)/, 'a station opens its room: one tap from Home');
   assert.match(areas, /isHub\(tab\)\) return orbitOn\(\)/, 'a hub has its way back to Home where there is no Home key');
   assert.match(css, /html\[data-world="orbit"\] body\.housed #dock :is\(\.tabblur, \.tabcap, \.housekick, \.houseask\) \{ display: none !important; \}/, "ORBIT draws no bar, no label row and no ask line");
+  // GROWN UP has one capsule on every screen (the rooms key, the one field, the small Mind): THE ROOMS layer is the plan and the deck folded in, so recents and
+  // favourites are two taps from anywhere (the field's jump bar, or Home's chips: one), any screen is two (the rooms key, its chip) and any ability is a word in the field
+  const capsule = read('shell/capsule.ts');
+  const drops = read('shell/drops.ts');
+  const grownHome = read('features/core/grown/home.ts');
+  assert.match(capsule, /rooms\.addEventListener\('click', \(\) => housePlan\(\)\?\.toggle\(\)\)/, 'the rooms key opens THE ROOMS layer (the plan)');
+  assert.match(capsule, /field\.addEventListener\('click', \(\) => \{[\s\S]*togglePalette\(\)/, 'the one field is the jump bar: recents and favourites first, a typed word finds the rest');
+  assert.match(capsule, /switchItems\(a\)/, "the small Mind's hold fans the room's tools (the quick switcher)");
+  assert.match(house, /const layerChip = /, "THE ROOMS layer's screens are chips");
+  assert.match(house, /const things = r\.things\.filter\(\(t\) => t\.id !== 'deck'\)/, 'every room lists its screens (the one list), the deck being the layer itself');
+  assert.match(house, /pinnedAndRecent\(\)/, 'recent and starred are on top of the layer, from the deck\'s two lists');
+  assert.match(house, /if \(t\.id === 'deck'\) return grownOn\(\) \? thePlan\?\.open\(\) : deckOpener\(\)/, 'Every screen is THE ROOMS layer in this world');
+  assert.match(grownHome, /pinnedAndRecent\(\)/, "GROWN UP's Home lists his recents and favourites as chips, from the same two lists");
+  assert.match(grownHome, /pinOnHold\(b, t\.id\)/, 'a long press on a chip pins or unpins it');
+  assert.match(grownHome, /dots\.addEventListener\('click', \(\) => housePlan\(\)\?\.open\(\)\)/, 'the three dots are THE ROOMS layer: the rest is two taps');
+  assert.match(areas, /isHub\(tab\)\) return orbitOn\(\) \|\| grownOn\(\)/, 'a hub has its way back to Home where there is no Home key');
+  assert.match(css, /html\[data-world="grown"\] body\.grown #dock :is\(\.tabblur, \.tabcap, \.housekick, \.houseask\) \{ display: none !important; \}/, 'GROWN UP draws no tab bar, no label row and no ask line: the capsule is the one bar');
+  // what each dense screen drops is folded, never removed: its key is one tap and the things keep their place
+  assert.match(drops, /els\[0\]!\.before\(holder\)/, 'a dropped thing keeps its place: the key stands before it');
+  assert.match(css, /\[data-gdrop\]\[data-gstate="closed"\] \{ display: none !important; \}/, 'a dropped thing is only closed');
+  for (const id of ['gym', 'school', 'library', 'eye', 'settings', 'system']) assert.match(drops, new RegExp(`tab: '${id}'`), `${id} drops one thing into a fold`);
   // every screen is a thing on the plan (the rule's own test above), so in each world a screen is reached by its room's key and its card, or by its word
   const per = Object.keys(worlds).map((w) => `${w}: ${worlds[w].keys}`).join('; ');
-  console.log(`finding in six worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
+  console.log(`finding in all seven worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
 });

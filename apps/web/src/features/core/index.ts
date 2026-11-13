@@ -30,6 +30,7 @@ import { inkHome, type InkHome } from './ink/home';
 import { mapHome, type MapHome } from './map/home';
 import { eyeHome, type EyeHome } from './eye/home';
 import { orbitHome, type OrbitHome } from './orbit/home';
+import { grownHome, type GrownHome } from './grown/home';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
@@ -491,6 +492,7 @@ let inkHud: InkHome | null = null;
 let mapHud: MapHome | null = null;
 let eyeHud: EyeHome | null = null;
 let orbitHud: OrbitHome | null = null;
+let grownHud: GrownHome | null = null;
 function homeContext(): ScreenContext {
   const live = chat.get().live.replace(/\s+/g, ' ').trim();
   // THE SCAN's Home says where he is (a word and a saved place's name, decided on the phone: scan/place.ts), never a coordinate
@@ -766,17 +768,24 @@ export const coreTab: TabDef = {
     // stamp line and the orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
     orbitHud = orbitHome({ orbWrap: rwrap, stamp: stamp.el, caption, nextUp: () => nextUp, onBack: () => reactor.poke() });
     hud.append(orbitHud.el);
+    // GROWN UP's Home (BRIEF-GROWN-UP-HUD; grown/home.ts): the orb with its one ring, the hour's card and one row of chips; it takes the stamp line and
+    // the orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
+    grownHud = grownHome({ orbWrap: rwrap, stamp: stamp.el, caption, nextUp: () => nextUp });
+    hud.append(grownHud.el);
     const scanWanted = () => recipe().world === 'scan';
     const inkWanted = () => recipe().world === 'ink';
     const orbitWanted = () => recipe().world === 'orbit';
+    const grownWanted = () => recipe().world === 'grown';
     hud.classList.toggle('scan', scanWanted());
     hud.classList.toggle('ink', inkWanted());
     hud.classList.toggle('orbit', orbitWanted());
+    hud.classList.toggle('grown', grownWanted());
     recipeEvents.on('change', () => {
       const on = scanWanted();
       hud.classList.toggle('scan', on);
       hud.classList.toggle('ink', inkWanted());
       hud.classList.toggle('orbit', orbitWanted());
+      hud.classList.toggle('grown', grownWanted());
       if (ui.get().tab !== 'core') return;
       // (one look gives the parts back before the next takes them)
       if (on) {
@@ -784,6 +793,7 @@ export const coreTab: TabDef = {
         mapHud?.leave();
         eyeHud?.leave();
         orbitHud?.leave();
+        grownHud?.leave();
         scanHud?.enter();
       } else {
         scanHud?.leave();
@@ -791,6 +801,7 @@ export const coreTab: TabDef = {
           mapHud?.leave();
           eyeHud?.leave();
           orbitHud?.leave();
+          grownHud?.leave();
           inkHud?.enter();
         } else {
           inkHud?.leave();
@@ -798,9 +809,11 @@ export const coreTab: TabDef = {
           if (w !== 'map') mapHud?.leave();
           if (w !== 'eye') eyeHud?.leave();
           if (w !== 'orbit') orbitHud?.leave();
+          if (w !== 'grown') grownHud?.leave();
           if (w === 'map') mapHud?.enter();
           else if (w === 'eye') eyeHud?.enter();
           else if (orbitWanted()) orbitHud?.enter();
+          else if (grownWanted()) grownHud?.enter();
         }
       }
     });
@@ -1037,6 +1050,7 @@ export const coreTab: TabDef = {
         mapHud?.refresh();
         eyeHud?.refresh();
         orbitHud?.refresh();
+        grownHud?.refresh();
         scanHud?.refresh();
       }
     };
@@ -1075,6 +1089,7 @@ export const coreTab: TabDef = {
         else if (recipe().world === 'map') mapHud?.enter();
         else if (recipe().world === 'eye') eyeHud?.enter();
         else if (recipe().world === 'orbit') orbitHud?.enter();
+        else if (recipe().world === 'grown') grownHud?.enter();
         // back on the reactor with the conversation still open: the bar says so again
         if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
@@ -1100,6 +1115,7 @@ export const coreTab: TabDef = {
         mapHud?.leave();
         eyeHud?.leave();
         orbitHud?.leave();
+        grownHud?.leave();
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here

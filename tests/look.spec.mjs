@@ -19,7 +19,7 @@
 //  6. the states said in a sentence: Reduce Motion on (the orb holds still, the typed line shows whole), sound off, no 3-D (the orb
 //     cannot be drawn here, said; Chromium only).
 //  7. THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2) AND THE GALLERY (BRIEF-THEME-GALLERY; every check fails on the code before it — run
-//     against it once): the Theme page two taps from Settings is SEVEN LOOKS as stills (THE SCAN marked YOU'RE IN IT, one COMING: ONE INK, THE MAP, THE EYE and ORBIT are built) and
+//     against it once): the Theme page two taps from Settings is SEVEN LOOKS as stills (THE SCAN marked YOU'RE IN IT, none COMING: ONE INK, THE MAP, THE EYE, ORBIT and GROWN UP are built) and
 //     the twelve colours, and nothing else (no dial, switch, ground row or preset on it: the selectors are asserted absent), the row
 //     saying the recipe; a tap on GLASS and on THE SCAN (the world at once, Home's frame, kept across a reload), a tap on THE MAP (one
 //     toast, nothing changed); the stills (img, width, height, alt, loaded, each under 60 KB); the twelve colours apply at once, are
@@ -48,7 +48,7 @@ const GL = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-
 const SECTIONS = ['tokens', 'type', 'marks', 'mind', 'themes'];
 const TWELVE = ['reactor', 'graphite', 'ember', 'gold', 'crimson', 'violet', 'emerald', 'ice', 'rose', 'lime', 'sunset', 'mono'];
 /** The presets (BRIEF-THEMES-2 5): the twelve, then the directions seen along the way. */
-const PRESETS17 = [...TWELVE, 'scan', 'map', 'eye', 'oneink', 'glass', 'orbit'];
+const PRESETS17 = [...TWELVE, 'scan', 'map', 'eye', 'oneink', 'glass', 'orbit', 'grown'];
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: GL });
 await standDown(base);
@@ -512,7 +512,7 @@ if (!isWebKit) {
     try {
       await fn();
     } catch (e) {
-      problems.push(`[recipe] ${name} could not run: ${String(e?.message ?? e).split('\n')[0].slice(0, 160)}`);
+      problems.push(`[recipe] ${name} could not run: ${String(e?.message ?? e).split('\n').slice(0, 4).join(' | ').slice(0, 400)}`);
     }
   };
   // ---- 7a. the Theme page: two taps from Settings, the presets first, the dials under them, the row saying the recipe
@@ -548,7 +548,7 @@ if (!isWebKit) {
   check(gal.looks.map((l) => norm(l.name)).join() === LOOKS7.map((l) => l[1]).join(), `[gallery] the names are ${gal.looks.map((l) => l.name).join(' | ')}`);
   check(gal.looks.every((l, i) => (i === 0 ? norm(l.line) === "YOU'RE IN IT" : norm(l.line) === norm(LOOKS7[i][2]))), `[gallery] the lines are ${gal.looks.map((l) => l.line).join(' | ')}`);
   check(gal.looks[0].on === 'true' && gal.looks.slice(1).every((l) => l.on === 'false'), `[gallery] the chosen look on a fresh open is not THE SCAN alone: ${gal.looks.map((l) => l.on).join()}`);
-  check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === 'grown' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want the one that is not built: THE MAP, THE EYE, ORBIT and ONE INK are, and a still on every card)`);
+  check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === '' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want none: all seven are built, and a still on every card)`);
   check(/THE LOOK/i.test(gal.head) && /THE SCAN/i.test(gal.head) && /7 · each a whole HUD/.test(gal.head), `[gallery] the plate reads "${gal.head}"`);
   check(/THE COLOUR/i.test(gal.kick) && /REACTOR/i.test(gal.kick) && /12 · YOURS TO CHANGE/i.test(gal.kick), `[gallery] the colour plate reads "${gal.kick}"`);
   check(gal.swatches.join() === TWELVE.join(), `[gallery] the colours: ${gal.swatches.join()}`);
@@ -660,15 +660,10 @@ if (!isWebKit) {
     check(sc.on === 'true' && /you.re in it/i.test(sc.line) && /THE SCAN/i.test(sc.head), `[gallery] THE SCAN after its tap: ${JSON.stringify(sc)}`);
     await p9.evaluate(() => (location.hash = 'core'));
     await until(p9, () => document.body.classList.contains('scanhome'), null, 10000, '[gallery] with THE SCAN chosen Home did not wear its frame (body.scanhome)');
-    // a tap on GROWN UP (not built; ORBIT is, since its landing): one toast with its line, the world unchanged, no navigation
+    // every card is built (THE MAP, THE EYE, ORBIT and GROWN UP were COMING cards before their landings): none says COMING and each is marked built
     await themePage(p9);
-    await clearToasts(p9);
-    const before = await p9.evaluate(() => ({ hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab }));
-    await p9.click(card('grown'));
-    await p9.waitForTimeout(400);
-    const map = await p9.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent ?? ''), hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab, still: !!document.querySelector('#pg-settings .pn.themepn.pushed'), saved: window.__ghosty.settings.get().look?.world }));
-    check(map.toasts.length === 1 && map.toasts[0].includes('Grown Up is coming: Today, with less on it'), `[gallery] a tap on GROWN UP says ${JSON.stringify(map.toasts)}`);
-    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'grown', `[gallery] a tap on GROWN UP changed something: ${JSON.stringify({ before, map })}`);
+    const cards7 = await p9.evaluate(() => [...document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-look')].map((b) => ({ look: b.dataset.look, built: b.dataset.built, coming: !!b.querySelector('.gg-coming') })));
+    check(cards7.length === 7 && cards7.every((c) => c.built === 'true' && !c.coming), `[gallery] a card is not built or still COMING: ${JSON.stringify(cards7)}`);
     // the stills: each an <img> under looks/ with width, height and alt, loaded; each file under 60 KB, the seven under 350 KB
     const imgs = await p9.evaluate(async () => {
       const list = [...document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-look img')];
@@ -689,7 +684,7 @@ if (!isWebKit) {
     const asked = [];
     p9.on('request', (r) => /\/api\/chat\b/.test(r.url()) && asked.push(r.url()));
     const world0 = (await state(p9)).world;
-    for (const [w, line] of [['grown up', 'Grown Up is coming: Today, with less on it']]) {
+    for (const [w, line] of /** @type {[string, string][]} */ ([])) {
       await say(p9, w);
       await p9.waitForFunction((l) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes(l)), line, { timeout: 8000 }).catch(() => problems.push(`[words] "${w}" did not answer "${line}"`));
       check((await state(p9)).world === world0, `[words] "${w}" changed the world to ${(await state(p9)).world}`);
@@ -723,11 +718,14 @@ if (!isWebKit) {
     await say(p9, 'orbit');
     await until(p9, () => document.documentElement.dataset.world === 'orbit', null, 8000, '[words] "orbit" did not make the world orbit');
     check((await state(p9)).colour === 'ember', '[words] "orbit" changed his colour');
+    await say(p9, 'grown up');
+    await until(p9, () => document.documentElement.dataset.world === 'grown', null, 8000, '[words] "grown up" did not make the world grown');
+    check((await state(p9)).colour === 'ember', '[words] "grown up" changed his colour');
     await say(p9, 'the scan');
-    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 8000, '[words] "the scan" did not bring The Scan back from Orbit');
+    await until(p9, () => document.documentElement.dataset.world === 'scan', null, 8000, '[words] "the scan" did not bring The Scan back from Grown Up');
     await until(p9, () => document.documentElement.dataset.theme === 'ember', null, 8000, '[words] "ember" did not make the colour ember');
     check(!asked.length, `[words] the brain was asked ${asked.length} times for the looks' words`);
-    notes.push('the looks by words (grown up: one line, nothing changed; show me the looks; glass, the scan, one ink, the map, the eye, orbit, ember applied) with no model');
+    notes.push('the looks by words (show me the looks; glass, the scan, one ink, the map, the eye, orbit, grown up, ember applied) with no model');
   });
   await c9.close();
 
