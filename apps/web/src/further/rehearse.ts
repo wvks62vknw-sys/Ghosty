@@ -20,14 +20,47 @@ export const TEMPER_WORD: Record<Dial, string> = { 0: 'mild', 1: 'firm', 2: 'fie
 
 export const ROUNDS = 3;
 
+export const KEEP_KEY = 'ghosty.rehearsals';
+/** At most this many rehearsals are kept (the oldest goes first). */
+export const KEEP_MAX = 20;
+
+/** A rehearsal he tapped KEEP on: the situation, his own answers and the notes (never the other side's lines). */
+export interface Kept {
+  at: number;
+  situation: string;
+  answers: string[];
+  notes: string[];
+}
+
+/** Every kept rehearsal as written (oldest first); a damaged entry is left out, never shown half. */
+export function loadKept(): Kept[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEEP_KEY) ?? '[]') as unknown;
+    if (!Array.isArray(v)) return [];
+    return v.filter(
+      (k): k is Kept =>
+        !!k && typeof k === 'object' && typeof (k as Kept).at === 'number' && typeof (k as Kept).situation === 'string' && Array.isArray((k as Kept).answers) && Array.isArray((k as Kept).notes),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Write the kept list (the newest KEEP_MAX). Throws when the phone's storage is full or blocked. */
+export function saveKept(all: Kept[]): Kept[] {
+  const kept = all.slice(-KEEP_MAX);
+  localStorage.setItem(KEEP_KEY, JSON.stringify(kept));
+  return kept;
+}
+
+/** Drop the kept rehearsal made at `at`. Throws when the phone's storage is blocked. */
+export function deleteKept(at: number): Kept[] {
+  return saveKept(loadKept().filter((k) => k.at !== at));
+}
+
 /** How many rehearsals he tapped KEEP on (kept on this phone: `ghosty.rehearsals`). */
 export function keptRehearsals(): number {
-  try {
-    const v = JSON.parse(localStorage.getItem('ghosty.rehearsals') ?? '[]');
-    return Array.isArray(v) ? v.length : 0;
-  } catch {
-    return 0;
-  }
+  return loadKept().length;
 }
 
 /** The words the brain is given to play the other side: one turn at a time (the talk so far is inside it, since nothing else goes). */

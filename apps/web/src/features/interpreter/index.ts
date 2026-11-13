@@ -5,7 +5,8 @@
  * work (the brain's when there is a signal, the offline brain on the phone when there is none: further/interpret.ts).
  *
  * Nothing is recorded; nothing of the other person is kept. The lines live on this screen only and go when it is left; only the pair
- * of languages is remembered. Every state is said: the language with no voice on this phone, no microphone, no signal.
+ * of languages is remembered. A translated line says itself again on a tap and has a COPY key; PHRASES is a short phrasebook of
+ * everyday lines, each translated from the near side and said aloud. Every state is said: the language with no voice on this phone, no microphone, no signal.
  */
 import { sayError } from '../../ui/hisWords';
 import { speakIn, stopSpeaking, voiceIn } from '../../assistant/voice';
@@ -14,7 +15,7 @@ import { screenSays } from '../../shell/awareness';
 import type { TabDef } from '../../shell/tabs';
 import { button, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { canHear, hear, loadPair, savePair, translate, type Ear, type Pair } from '../../further/interpret';
+import { canHear, hear, loadPair, PHRASES, savePair, translate, type Ear, type Pair } from '../../further/interpret';
 import { LANGUAGES, langName } from '../../../../../packages/shared/src/scan';
 
 type Side = 'near' | 'far';
@@ -40,6 +41,7 @@ export const interpState = {
 };
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
+const COPY = '<rect x="8.5" y="8.5" width="11" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-7a2 2 0 00-2 2v9a2 2 0 002 2h2"/>';
 const KB = '<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M7 10.5h.01M10.5 10.5h.01M14 10.5h.01M17.5 10.5h.01M7.5 14h9"/>';
 export const INTERPRETER_ICON = '<path d="M3.5 6.5h9M8 4v2.5M5.5 6.5c.6 3 2.6 5.2 5.5 6.3M10.5 6.5c-.7 3-3 5.4-6.5 6.6"/><path d="M12.5 19.5l3.8-9 3.8 9M13.8 16.5h4.9"/>';
 
@@ -85,7 +87,6 @@ export const interpreterTab: TabDef = {
       const kb = h('button.fxkb', { type: 'button', 'aria-label': 'Type it instead', 'aria-pressed': 'false', dataset: { case: 'keep' } }, icon(KB));
       kb.addEventListener('click', () => {
         typed.hidden = !typed.hidden;
-        state.hidden = !typed.hidden;
         kb.setAttribute('aria-pressed', String(!typed.hidden));
         if (!typed.hidden) typed.focus();
       });
@@ -93,7 +94,8 @@ export const interpreterTab: TabDef = {
       let ear: Ear | null = null;
       let down = false;
       const begin = () => {
-        if (down || busy) return;
+        if (busy) return half(side).say('One moment: still translating the last one.');
+        if (down) return;
         down = true;
         stopSpeaking();
         interpState.listening = side;
@@ -115,7 +117,7 @@ export const interpreterTab: TabDef = {
         try {
           said = await e.stop();
         } catch (err) {
-          return half(side).say(sayError(err, 'translate that'));
+          return half(side).say(sayError(err, 'hear that'));
         }
         if (!said) return half(side).say('I heard nothing. Hold the key and say it again.');
         void exchange(side, said);
@@ -143,22 +145,57 @@ export const interpreterTab: TabDef = {
       typed.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const t = typed.value.trim();
+        if (!t) return;
+        if (busy) return half(side).say('One moment: still translating the last one.');
         typed.value = '';
-        if (t) void exchange(side, t);
+        void exchange(side, t);
       });
+      // A browser that cannot hear: no key that only ever says so; the typing line is open instead.
+      if (!canHear()) {
+        key.hidden = true;
+        typed.hidden = false;
+        kb.hidden = true;
+      }
       return { el, head, lines, state, key, typed, say: (t) => (state.textContent = t) };
     };
     // (far is made first: it sits on top, the other person's side)
     const halves = { far: mk('far'), near: mk('near') };
     const half = (s: Side) => halves[s];
+    // PHRASES: everyday lines in English, translated from the near side into their language and said aloud, as if I had said them
+    const bookGrid = h(
+      'div.fxphrases',
+      { hidden: true, role: 'group', 'aria-label': 'Phrases' },
+      ...PHRASES.map((p) => {
+        const b = button(p, () => {
+          if (busy) return toast('Wait a moment: I’m still translating the last one.', 'warn');
+          stopSpeaking();
+          void exchange('near', p, 'en');
+        });
+        b.classList.add('fxphrase');
+        b.dataset.case = 'keep';
+        b.dataset.act = 'phrase';
+        return b;
+      }),
+    );
+    const bookKey = button('PHRASES', () => {
+      bookGrid.hidden = !bookGrid.hidden;
+      bookKey.setAttribute('aria-expanded', String(!bookGrid.hidden));
+    });
+    bookKey.classList.add('fxbookkey');
+    bookKey.dataset.case = 'keep';
+    bookKey.dataset.act = 'phrases';
+    bookKey.setAttribute('aria-expanded', 'false');
+    const book = h('div.fxbook', bookKey, h('p.fxbooknote', 'Tap one and I translate it from English and say it aloud to them.'), bookGrid);
     const note = h('p.fxnote', 'Nothing is recorded, and nothing of the other person is kept: what is written here goes when you leave this screen. I use this phone’s own listening and voice; their words (text only, never their voice) are translated through my brain when there is a signal, and nothing is kept; with no signal I translate on the phone, roughly.');
     const pairRow = h('div.fxpair', h('label', h('span', 'YOU SPEAK'), selA), swap, h('label', h('span', 'THEY SPEAK'), selB));
-    P.left.append(pairRow, h('div.fxhalves', halves.far.el, halves.near.el), note);
+    P.left.append(pairRow, h('div.fxhalves', halves.far.el, halves.near.el), book, note);
     P.right.hidden = true;
     P.big.textContent = '';
     (P.big.parentElement?.querySelector('.swap') as HTMLElement | null)?.setAttribute('hidden', '');
 
     let busy = false;
+    /** Bumped when he leaves: a translation still on its way then is dropped, never said aloud on another screen. */
+    let visit = 0;
     /** The key's words and the heading, for the pair now. */
     function paintPair(): void {
       const { a, b } = pairNow();
@@ -177,7 +214,7 @@ export const interpreterTab: TabDef = {
       P.big.textContent = `${langName(a)} ⇄ ${langName(b)}`;
       const miss = [a, b].filter((c) => !voiceIn(c)).map(langName);
       for (const s of ['near', 'far'] as const) {
-        if (!halves[s].state.textContent) halves[s].state.textContent = miss.length ? `No ${miss.join(' or ')} voice on this phone: it will write, not say.` : 'Hold the key and speak.';
+        if (!halves[s].state.textContent) halves[s].state.textContent = miss.length ? `No ${miss.join(' or ')} voice on this phone: it will write, not say.` : canHear() ? 'Hold the key and speak.' : 'Type it below, then Return: this browser can’t listen.';
       }
     }
     function setPair(p: Pair): void {
@@ -191,33 +228,59 @@ export const interpreterTab: TabDef = {
     selA.addEventListener('change', () => (selA.value === pairNow().b ? setPair({ a: selA.value, b: pairNow().a }) : setPair({ a: selA.value, b: pairNow().b })));
     selB.addEventListener('change', () => (selB.value === pairNow().a ? setPair({ a: pairNow().b, b: selB.value }) : setPair({ a: pairNow().a, b: selB.value })));
 
-    /** Both halves show the talk, each in its own language: near in his, far (upside down) in theirs. */
+    /** Say a translated line again, in that half's language. */
+    function replay(text: string, lang: string, side: Side): void {
+      const spoke = speakIn(text, lang);
+      if (spoke) interpState.spoken.push({ text, lang });
+      half(side).say(spoke ? 'Said again.' : `No ${langName(lang)} voice on this phone: it is written here.`);
+    }
+    /** Copy a translated line to the clipboard (it stays on this phone; nothing is kept here). */
+    async function copyLine(text: string): Promise<void> {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Copied.', 'ok');
+      } catch (e) {
+        toast(sayError(e, 'copy that'), 'bad');
+      }
+    }
+    /** Both halves show the talk, each in its own language: near in his, far (upside down) in theirs. A translated line says
+     *  itself again on a tap, and has a COPY key. */
     function paintLines(): void {
       for (const s of ['near', 'far'] as const) {
         const mine = s;
+        const lang = s === 'near' ? pairNow().a : pairNow().b;
         clear(
           halves[s].lines,
-          ...interpState.lines.slice(-4).map((l) => {
+          ...interpState.lines.map((l) => {
             const own = l.from === mine ? l.said : l.came;
             const who = l.from === mine ? 'YOU' : 'THEM';
-            return h(`p.fxline.${l.from === mine ? 'mine' : 'theirs'}${l.how === 'failed' ? '.bad' : ''}` as 'p', h('small', who), l.how === 'failed' && l.from !== mine ? '…' : own || '…');
+            const cls = `p.fxline.${l.from === mine ? 'mine' : 'theirs'}${l.how === 'failed' ? '.bad' : ''}`;
+            const translated = l.from !== mine && l.how !== 'failed' && !!l.came;
+            if (!translated) return h(cls as 'p', h('small', who), l.how === 'failed' && l.from !== mine ? '…' : own || '…');
+            const again = h('button.fxreplay', { type: 'button', 'aria-label': `Say it again: ${own}`, dataset: { case: 'keep', act: 'replay' }, onclick: () => replay(own, lang, s) }, own);
+            const copy = h('button.fxcopy', { type: 'button', 'aria-label': 'Copy this line', title: 'Copy', dataset: { case: 'keep', act: 'copy' }, onclick: () => void copyLine(own) }, icon(COPY));
+            return h(`${cls}.fxtwin` as 'p', h('small', who), again, copy);
           }),
         );
+        halves[s].lines.scrollTop = halves[s].lines.scrollHeight;
       }
       paintSay();
     }
     function paintSay(): void {
       const last = interpState.lines.at(-1);
       if (last?.how === 'failed') {
-        halves.near.say(last.why ?? '');
-        halves.far.say('');
+        halves[last.from].say(last.why ?? '');
+        halves[last.from === 'near' ? 'far' : 'near'].say('…');
       }
       P.sub.textContent = interpState.lines.length ? 'Hold a key to speak again.' : 'Two halves of the screen, one for each of you. Hold a key and speak; the other half writes it and says it.';
     }
 
-    async function exchange(from: Side, said: string): Promise<void> {
+    /** What was said on one side, translated into the other's language and said aloud there. `src` is the language it was said
+     *  in when it is not that side's own (a phrase from the phrasebook is in English). */
+    async function exchange(from: Side, said: string, src = ''): Promise<void> {
       const { a, b } = pairNow();
-      const [fromLang, toLang] = from === 'near' ? [a, b] : [b, a];
+      const [ownLang, toLang] = from === 'near' ? [a, b] : [b, a];
+      const fromLang = src || ownLang;
       const to: Side = from === 'near' ? 'far' : 'near';
       const line: Line = { from, said, came: '', how: '' };
       interpState.lines.push(line);
@@ -227,7 +290,9 @@ export const interpreterTab: TabDef = {
       half(from).say(`Translating into ${langName(toLang)}…`);
       half(to).say(`Translating into ${langName(toLang)}…`);
       try {
+        const at = visit;
         const r = await translate(said, toLang, fromLang);
+        if (at !== visit) return;
         line.came = r.text;
         line.how = r.how;
         paintLines();
@@ -255,10 +320,13 @@ export const interpreterTab: TabDef = {
       },
       leave() {
         // nothing of the other person is kept: the lines, what was heard and what was said aloud all go
+        visit++;
         stopSpeaking();
         interpState.lines.length = 0;
         interpState.spoken.length = 0;
         interpState.listening = '';
+        bookGrid.hidden = true;
+        bookKey.setAttribute('aria-expanded', 'false');
         for (const s of ['near', 'far'] as const) {
           halves[s].state.textContent = '';
           halves[s].typed.value = '';

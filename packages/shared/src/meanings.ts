@@ -49,7 +49,7 @@ export function plainWords(text: string): string {
     const was = t;
     t = t
       .replace(/^(?:hey|hi|oi|ok|okay|right|so|now|um|erm|yo|alright|ghosty|mate|boss|bro|listen up)\s+/, '')
-      .replace(/^(?:please|pls|plz|kindly|just|quickly|go on|could you|can you|would you|will you|can u|could u|would u|will u|you can|i need you to|i want you to|i'd like you to|id like you to|i need to|i want to|i wanna|i'd like to|id like to|i would like to|let's|lets|let me|help me|mind if i|can i|could i|may i|i'm gonna|im gonna|i'm going to|im going to|time to|we need to|need to)\s+/, '')
+      .replace(/^(?:please|pls|plz|kindly|just|quickly|go on|could you|can you|would you|will you|can u|could u|would u|will u|you can|i need you to|i want you to|i'd like you to|id like you to|i need to|i want to|i wanna|i'd like to|id like to|i would like to|let's|lets|let us|wanna|can we have|could we have|can i have|can i get|let me|help me|mind if i|can i|could i|may i|i'm gonna|im gonna|i'm going to|im going to|time to|we need to|need to)\s+/, '')
       .replace(/\s+(?:please|pls|plz|thanks|thank you|cheers|ta|mate|ghosty|for me|now|right now|for us|then|innit|yeah|ok|okay|asap|quick|real quick|if you can|if you could|would you|will you|bro|boss|lad)$/, '')
       .trim();
     if (t === was) break;
@@ -108,6 +108,7 @@ const comic = open('comic', 'creative', 'Opening the comic.', 'comic');
 const arcade = open('games', 'arcade', 'Opening the arcade.');
 const gym = open('board games', 'gym', 'Opening the gym: chess, draughts and the board games.');
 const settings = open('settings', 'settings', 'Opening Settings.');
+const look = open('look', 'look', 'Here are my colours and looks: say one, like “make it red”.');
 const agenda = open('agenda', 'agenda', 'Opening your agenda.');
 const money = open('money', 'money', 'Opening your money.');
 const library = open('library', 'library', 'Opening the library.');
@@ -123,10 +124,11 @@ const timer = (x: RegExpExecArray): Meant | null => {
 const ROWS: Row[] = [
   // ---- the radio and music
   R(new RegExp(`^${PLAY} ${MUSIC}(?: on)?$`), radio),
-  R(new RegExp(`^(?:put|stick|bung|chuck|whack|pop|throw|get) ${MUSIC} on$`), radio),
+  R(new RegExp(`^(?:put|stick|bung|chuck|whack|pop|throw|get|bang) ${MUSIC} (?:on|going)$`), radio),
+  R(new RegExp(`^(?:play|sing) (?:us|me) ${MUSIC}$|^(?:drop|spin) (?:some |a few )?(?:beats|tunes|tracks|records|bangers)$|^${MUSIC} would be (?:nice|good|lovely|great)$`), radio),
   R(/^(?:put|stick|bung|chuck|whack|pop|throw|get) (?:the |a |some )?(?:radio|wireless|tunes|music|some tunes|some music) on$/, radio),
   R(/^(?:play|put on|stick on|turn on|switch on|start|bung on|fire up|crank up|give me|gimme) (?:the |a |some |my )?(?:radio|wireless|station|radio station|my station|my radio|last station|my last station|my favourite station|favourite station)$/, radio),
-  R(/^(?:radio|radio on|music on|music please|tunes|tunes please|some tunes|some music|music|play music|play some music|play tunes|play the radio|play radio)$/, radio),
+  R(/^(?:radio|radio on|music on|music please|tunes|tunes please|some tunes|some music|some music please|music|play music|play some music|play tunes|play the radio|play radio)$/, radio),
   R(/^(?:i want|i fancy|fancy|i need|need|i'd love|id love) (?:some |a bit of |a little )?(?:music|tunes|a tune|a song|some background music|something to listen to)$/, radio),
   R(/^(?:i want to|i wanna|let me) (?:hear|listen to) (?:something|some music|some tunes|music|tunes|the radio|a song)$/, radio),
   R(/^(?:hear|listen to) (?:something|some music|some tunes|music|tunes|the radio|a song)$/, radio),
@@ -139,7 +141,7 @@ const ROWS: Row[] = [
   R(/^(?:log|add|record|note|track|count|put down|mark) (?:a |one |another )?pint(?: of water)?$/, pint),
   R(/^(?:i(?:'ve| have)? (?:just )?(?:had|drank|drunk|finished|downed|necked)|just (?:had|drank|drunk|finished|downed|necked)|had|drank|drunk|necked|downed|finished) (?:a |one |another |some )?(?:glass|cup|mug|bottle|drink|glass of water|cup of water|bottle of water|drink of water|water|bit of water)(?: of water)?$/, water),
   R(/^(?:i(?:'ve| have)? (?:just )?(?:had|drank|drunk|finished|downed|necked)|just (?:had|drank|drunk|necked)|had|drank|drunk|necked|downed) (?:a |one |another )?pint(?: of water)?$/, pint),
-  R(/^(?:water (?:logged|drunk|done|had)|one water|another water|glass of water down|hydrated|i'm hydrated|im hydrated|just hydrated|stayed hydrated)$/, water),
+  R(/^(?:log|track|add|count) (?:my )?water$|^(?:water (?:logged|drunk|done|had)|one water|another water|glass of water down|hydrated|i'm hydrated|im hydrated|just hydrated|stayed hydrated)$/, water),
   // ---- the lights (his own Home Assistant)
   R(/^(?:lights?|the lights?|all the lights|all lights) (?:on|up)$|^(?:turn|switch|flick|put|stick|pop) (?:on )?(?:the |all the |my )?lights?(?: on)?$|^(?:lights|light) please$|^(?:let there be light|it's too dark in here|its too dark in here|too dark in here|i can't see a thing|i cant see a thing|brighten the room|brighten up the room|get the lights)$/, lightsOn),
   R(/^(?:lights?|the lights?|all the lights|all lights) (?:off|out|down)$|^(?:turn|switch|flick|put|knock|shut|kill|cut) (?:off |out )?(?:the |all the |my )?lights?(?: off| out)?$|^(?:kill|cut|lose|douse) (?:the |all the )?lights?$|^(?:lights out|blackout|it's too bright in here|its too bright in here|too bright in here|darkness please|make it dark in here)$/, lightsOff),
@@ -147,14 +149,15 @@ const ROWS: Row[] = [
   R(new RegExp(`^(?:timer|time|countdown|count down|start a timer|start a countdown|set a timer|set timer|set a countdown|set an alarm|alarm|ring|buzz) (?:for |of )?${NUM} ${UNIT}$`), timer),
   R(new RegExp(`^${NUM} ${UNIT} (?:timer|countdown|alarm)$`), timer),
   R(new RegExp(`^(?:give me|give us|gimme) a (?:shout|buzz|bell|nudge|ping|ring|knock) in ${NUM} ${UNIT}$`), timer),
-  R(new RegExp(`^(?:shout|buzz|ping|nudge|beep) (?:at )?(?:me |us )?in ${NUM} ${UNIT}$`), timer),
+  R(new RegExp(`^(?:shout|buzz|ping|nudge|beep|wake) (?:at )?(?:me |us )?in ${NUM} ${UNIT}$`), timer),
+  R(new RegExp(`^time (?:me|us|this|it) (?:for )?${NUM} ${UNIT}$`), timer),
   R(new RegExp(`^(?:tell|remind|warn) me when ${NUM} ${UNIT} (?:is|are|has|have) (?:up|gone|passed)$`), timer),
   R(new RegExp(`^(?:time|count down|countdown) ${NUM} ${UNIT}$`), timer),
   R(new RegExp(`^(?:the |my )?(?:eggs?|pasta|rice|tea|brew|kettle|oven|pizza) (?:for |needs |takes )?${NUM} ${UNIT}$`), timer),
   // ---- the map, the Lens, the comic
-  R(/^(?:open|show|show me|bring up|pull up|load|go to|take me to|get|i need|i want|see|lemme see) (?:the |a |my )?(?:map|maps|world map|globe|god's eye|gods eye|the world)$|^where am i on the map$|^(?:god's eye|gods eye|world map|the globe)$/, map),
+  R(/^(?:open|show|show me|bring up|pull up|load|go to|take me to|get|i need|i want|see|lemme see) (?:the |a |my )?(?:map|maps|world map|globe|god's eye|gods eye|the world)$|^where am i on the map$|^show me where i am(?: on the map)?$|^(?:open|show) (?:google|apple) maps$|^(?:god's eye|gods eye|world map|the globe)$/, map),
   R(/^(?:open|start|launch|fire up|bring up|pull up|go to|use|get|show me) (?:the |my )?(?:lens|camera lens|scanner|camera to look|look camera|visual search|google lens|lens camera)$|^(?:the )?(?:lens|google lens|visual search)$|^(?:point and look|look at this for me|have a look at this|tell me what this is|what is that thing)$/, lens),
-  R(/^(?:open|start|make|draw|write|create|show|show me|read|go to|bring up) (?:the |a |my |me a )?(?:comic|comics|comic book|comic strip|graphic novel|manga|strip)$|^(?:i want to|let's) (?:make|draw|read) (?:a )?comics?$|^comic time$/, comic),
+  R(/^(?:open|start|make|draw|write|create|show|show me|read|go to|bring up) (?:the |a |my |me a )?(?:comic|comics|comic book|comic strip|graphic novel|manga|strip)$|^(?:i want to|let's) (?:make|draw|read) (?:a )?comics?$|^comic time$|^new comic$/, comic),
   // ---- the editors (their own tables take the canonical words)
   R(/^(?:write|start|make|create|open|draft|type|type up|begin) (?:a |an |up a |me a )?(?:new )?(?:document|doc|letter|word doc|word document|essay|note|text document|report)$|^new (?:document|doc|letter|word doc|word document|text document)$|^(?:open|show) (?:my )?(?:documents|docs|word)$/, { id: 'docs', say: 'new document' }),
   R(/^(?:make|start|create|open|build|do) (?:a |an |me a )?(?:new )?(?:spreadsheet|sheet|excel|excel sheet|table|budget sheet|workbook)$|^new (?:spreadsheet|sheet|excel sheet|workbook)$|^(?:open|show) (?:my )?(?:spreadsheets|sheets|excel)$/, { id: 'sheets', say: 'new spreadsheet' }),
@@ -165,10 +168,11 @@ const ROWS: Row[] = [
   R(/^(?:open|go to|show me|take me to) (?:the )?arcade$|^(?:play|start|fancy|i fancy|let's play) (?:an |some )?(?:arcade game|arcade games|arcade|retro game|retro games)$/, arcade),
   R(/^(?:play|start|fancy|i fancy|let's play|give me|gimme) (?:a )?(?:game of )?(?:chess|draughts|checkers|board game|board games|connect four|connect 4)$/, gym),
   // ---- the weather and the news (the brain answers; the meaning is noted for it)
-  R(/^(?:what's|whats|what is|how's|hows|how is) (?:the )?(?:weather|forecast|weather like|weather looking|weather doing)(?: (?:today|tomorrow|like|outside|out there|later))?$|^(?:is it|will it|is it going to|is it gonna|will it be|gonna) (?:rain|raining|snow|snowing|sunny|cold|hot|warm|wet|windy|chuck it down|tip it down|pour|pouring|be nice|be cold|be warm|be wet)(?: (?:today|tomorrow|later|outside|out|this afternoon|tonight|this evening))?$|^(?:do i need|should i take|should i bring) (?:a |an )?(?:coat|brolly|umbrella|jacket)(?: today)?$|^(?:weather|forecast|the weather|the forecast)(?: today| tomorrow)?$|^(?:what's|whats) it (?:like|doing) outside$/, weather),
+  R(/^(?:what's|whats|what is|how's|hows|how is) (?:the )?(?:weather|forecast|weather like|weather looking|weather doing)(?: (?:today|tomorrow|like|outside|out there|later))?$|^(?:is it|will it|is it going to|is it gonna|will it be|gonna) (?:rain|raining|snow|snowing|sunny|cold|hot|warm|wet|windy|chuck it down|tip it down|pour|pouring|be nice|be cold|be warm|be wet)(?: (?:today|tomorrow|later|outside|out|this afternoon|tonight|this evening))?$|^(?:what's|whats|what is) the (?:weather|forecast) (?:going to be|gonna be|looking) like(?: today| tomorrow| later| this weekend)?$|^(?:do i need|should i take|should i bring) (?:a |an )?(?:coat|brolly|umbrella|jacket)(?: today)?$|^(?:weather|forecast|the weather|the forecast)(?: today| tomorrow)?$|^(?:what's|whats) it (?:like|doing) outside$/, weather),
   R(/^(?:what's|whats|what is|any|what's the|whats the) (?:in )?(?:the )?(?:news|headlines|latest|latest news|top stories|happening in the world|going on in the world)(?: today)?$|^(?:news|headlines|the news|the headlines)(?: today| please)?$|^(?:read|tell|give|show) me (?:the )?(?:news|headlines|top stories)$|^(?:what did i miss in the world|anything happening in the world|what's going on out there|whats going on out there)$/, news),
   // ---- the rooms by plainer names
   R(/^(?:open|show|go to|take me to|bring up) (?:the |my )?(?:settings|preferences|options|setup|config|control panel)$|^(?:settings|preferences|options)$|^(?:change|adjust) (?:my |your |the )?settings$/, settings),
+  R(/^(?:change|switch|pick|choose|set) (?:the |your |my |a |a new )?(?:theme|colour|color|colours|colors|look|accent)$|^(?:open|show|show me) (?:the |your )?(?:themes|colours|colors|looks)$/, look),
   R(/^(?:open|show|go to|show me|take me to|bring up|check) (?:the |my )?(?:agenda|diary|calendar|schedule|planner|day plan|week)$|^(?:my )?(?:diary|calendar|schedule)$|^what's on my (?:calendar|diary|schedule)$/, agenda),
   R(/^(?:open|show|go to|show me|take me to|bring up|check) (?:the |my )?(?:money|finances|budget|spending|bank|accounts|wallet)$|^how much (?:have i|did i) spen[dt](?: this month)?$|^where's my money gone$|^wheres my money gone$/, money),
   R(/^(?:open|show|go to|show me|take me to|bring up) (?:the |my )?(?:library|books|bookshelf|reading list|shelf)$|^(?:i want to|let me) read (?:a |my )?book$|^read (?:me )?(?:a |my )?book$/, library),
@@ -224,7 +228,7 @@ export function meaningOf(text: string): Meant | TwoWays | null {
 export const isTwo = (m: Meant | TwoWays | null): m is TwoWays => !!m && 'two' in m;
 
 /** The ids this layer can mean (for the checks: each must have wordings in the table test). */
-export const MEANING_IDS = ['radio', 'radio-stop', 'radio screen', 'water', 'lights-on', 'lights-off', 'timer', 'map', 'lens', 'comic', 'docs', 'sheets', 'slides', 'photo', 'video', 'games', 'board games', 'weather', 'news', 'settings', 'agenda', 'money', 'library', 'learn'] as const;
+export const MEANING_IDS = ['radio', 'radio-stop', 'radio screen', 'water', 'lights-on', 'lights-off', 'timer', 'map', 'lens', 'comic', 'docs', 'sheets', 'slides', 'photo', 'video', 'games', 'board games', 'weather', 'news', 'settings', 'look', 'agenda', 'money', 'library', 'learn'] as const;
 
 /** The note the brain is given beside his words when the phone read a meaning it cannot do itself (one short line). */
 export const meantNote = (m: Meant): string => (m.brain ? `\n\n(The phone read this as: ${m.brain}.)` : '');

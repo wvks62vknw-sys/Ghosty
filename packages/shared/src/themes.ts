@@ -375,7 +375,7 @@ function bare(text: string): string {
 }
 
 /** The verbs a theme word comes after ("switch to", "use", "make it"), taken off; what is left names the thing. */
-const VERB = /^(?:paint (?:it|everything) |colou?r (?:it|everything) |do (?:it|everything) in |switch(?: it)?(?: over)? to |change(?: it)? to |change to |go(?: to)? |set(?: it)? to |use |try |turn(?: it)? (?:to |into )?|make(?: it| everything| the screen)? |put (?:it|me) (?:on|in) |show me |back to |i'll have |i'll take )/;
+const VERB = /^(?:(?:turn|make|paint) yourself |paint (?:it|everything) |colou?r (?:it|everything) |do (?:it|everything) in |switch(?: it)?(?: over)? to |change(?: it)? to |change to |go(?: to)? |set(?: it)? to |use |try |turn(?: it)? (?:to |into )?|make(?: it| everything| the screen)? |put (?:it|me) (?:on|in) |show me |back to |i'll have |i'll take )/;
 const LOOKISH = /(?: look| theme| world| preset| mode| style)$/;
 
 /**
@@ -396,7 +396,8 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:paper|slate)(?: ground)?$/.test(t)) return { ground: t.startsWith('paper') ? 'paper' : 'slate' };
   // ("lights on" and "lights off" left this table: they are the room's lights or the screen, so meanings.ts asks which)
   if (/^(?:light mode|day mode)$/.test(t)) return { ground: 'paper' };
-  if (/^(?:dark mode|night mode)$/.test(t)) return { night: true };
+  if (/^(?:dark mode|night mode|dark theme|dark look|night theme)$/.test(t)) return { night: true };
+  if (/^(?:light theme|light look|day theme)$/.test(t)) return { ground: 'paper' };
   if (/^(?:true black|pure black|all black|black)$/.test(t)) return { ground: 'black' };
   m = /^(?:(?:a )?(?:bit|little|touch|shade) )?(lighter|brighter|darker|dimmer)(?: please)?(?: background| ground| screen| one)?$/.exec(t);
   if (m) return { step: m[1] === 'lighter' || m[1] === 'brighter' ? 'lighter' : 'darker' };
