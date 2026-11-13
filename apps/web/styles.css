@@ -9374,3 +9374,6 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 .mnup { color: var(--amber, var(--fg)); }
 html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
 html body .mnnav button { min-width: var(--g-target, 44px) !important; }
+/* [moneylane] the to-do list in a good to-do app's order (features/work/sheet.ts): the group heads, a late job in the warning colour */
+.pkitems .pktodohead { list-style: none; margin: 10px 0 2px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); overflow-wrap: anywhere; }
+.pkitems .pkitem.late label { color: var(--amber, var(--fg)); }

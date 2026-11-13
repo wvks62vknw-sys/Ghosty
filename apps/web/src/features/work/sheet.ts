@@ -10,7 +10,7 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
-import { dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
+import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
 /** Each sheet's name, as its title and as its panel on the WORK screen (features/work/index.ts). */
@@ -242,6 +242,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
 /** The to-do list, ticked on the phone and kept in my brain. */
 function todoScreen(): Screen {
   const items = h('ul.pkitems', { 'aria-label': 'To-do list' });
+  const count = h('p.pknote.pktodocount', { dataset: { case: 'keep' }, hidden: true });
   const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const status = h('p.pknote', { 'aria-live': 'polite' }, 'Kept in my brain. Add by voice too: “add to my to-do: send the invoice by Friday”.');
   let loaded = false;
@@ -271,12 +272,27 @@ function todoScreen(): Screen {
   const paint = () => {
     /* state: work.todo empty */
     if (loaded) slot.replaceChildren(...(workState.todo.length ? [] : [emptyState('Your list is clear', 'Type the next job below.')]));
+    // [moneylane] in the order a good to-do app keeps: what is late, then today, then what is coming (soonest first), then any time, then done
+    const groupOf = (t: (typeof workState.todo)[number]): number => {
+      if (t.done) return 4;
+      const n = t.due ? daysTo(t.due) : null;
+      return n === null ? 3 : n < 0 ? 0 : n === 0 ? 1 : 2;
+    };
+    const HEADS = ['LATE', 'TODAY', 'COMING UP', 'ANY TIME', 'DONE'];
+    const sorted = workState.todo.map((t, i) => ({ t, i, g: groupOf(t) })).sort((a, b) => a.g - b.g || (a.t.due ?? '').localeCompare(b.t.due ?? '') || a.i - b.i);
+    const open = workState.todo.filter((t) => !t.done).length;
+    const late = sorted.filter((x) => x.g === 0).length;
+    count.textContent = workState.todo.length ? `${open} to do${late ? ` · ${late} late` : ''}${open < workState.todo.length ? ` · ${workState.todo.length - open} done` : ''}` : '';
+    count.hidden = !workState.todo.length;
+    let last = -1;
     items.replaceChildren(
-      ...workState.todo.map((t) => {
+      ...sorted.flatMap(({ t, g }) => {
         const when = t.due ? dueWords(t.due) || t.due : '';
         const box = h('input', { type: 'checkbox', checked: t.done, 'aria-label': `${t.text}${when ? `, ${when}` : ''}${t.done ? ', done' : ''}` }) as HTMLInputElement;
         box.addEventListener('change', () => void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`));
-        return h(`li.pkitem${t.done ? '.done' : ''}` as 'li', h('label', box, `${t.text}${when ? ` · ${when}` : ''}`));
+        const head = g !== last && sorted.some((x) => x.g !== g) ? [h('li.pktodohead', { role: 'presentation', dataset: { group: String(g) } }, HEADS[g]!)] : [];
+        last = g;
+        return [...head, h(`li.pkitem${t.done ? '.done' : ''}${g === 0 ? '.late' : ''}` as 'li', h('label', box, `${t.text}${when ? ` · ${when}` : ''}`))];
       }),
     );
     clear.hidden = !workState.todo.some((t) => t.done);
@@ -294,7 +310,7 @@ function todoScreen(): Screen {
   addBtn.setAttribute('aria-label', 'Add the job');
   const clear = button('Clear done', () => void act('clear done'));
   clear.hidden = true;
-  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
+  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
   /* state: work.todo loading */
   const done = waitFor(el, 'Opening your list…');
   void act('').finally(done);

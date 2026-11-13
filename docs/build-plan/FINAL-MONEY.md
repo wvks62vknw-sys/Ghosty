@@ -50,8 +50,16 @@ Five pills: **Month · Budgets · Bills · Trends · Statement**.
   Forget asks once more before it acts. It still covers only the people you told me about. Nobody is looked up, nobody is told, and
   nothing predicts or profiles anyone.
 
+- **Group plan** can now be made on the screen ("pub on Friday at 8 at the Crown, asked Ali, Sam and Jo") and called off there. Before,
+  the screen could only tell you to say it in the chat. Nobody is messaged.
+
 ### HOME (`apps/web/src/features/homeadmin/sheet.ts`)
 - "A collection moved" with nothing typed now asks where the collection moved to, and keeps nothing.
+- **Bills** shows the unpaid ones first, soonest due first, then the paid ones, with one line adding up what is still to pay.
+
+### WORK (`apps/web/src/features/work/sheet.ts`)
+- The **to-do list** is in the order a good to-do app keeps: Late, Today, Coming up, Any time, Done, each under its own heading (late
+  jobs in the warning colour). A count line reads "3 to do · 1 late · 2 done".
 
 ### Voice and chat (no model needed)
 - "my budgets", "show me my budgets", "my subscriptions", "direct debits", "spending trends", "spending by month", "my spending" and
@@ -65,7 +73,7 @@ Five pills: **Month · Budgets · Bills · Trends · Statement**.
   every figure equals the brain's own sum to the penny, plus search, re-filing, the month arrows, setting and taking away a budget,
   bills in date order with the HOME bill and the price rise, the trends, and every state (empty, waiting, failed, offline). It also
   checks the chat words, Coming up, search, forget-asks-first and the bins fix, BODY 21 on every page, and the seven looks (scan, map,
-  eye, orbit, grown, ink, glass). Every key is 44 pt and nothing goes sideways. It runs clean: 220 checks.
+  eye, orbit, grown, ink, glass). Every key is 44 pt and nothing goes sideways. It also covers the group plan form, the to-do order and the HOME bills total. It runs clean: 233 checks.
 - `tests/lifepass.spec.mjs` and `tests/tabs.spec.mjs` now go through the new pills, which is as strict as before or stricter: BODY 21
   now covers all five money pages and Coming up.
 - The states ratchet gained rows for money.month, money.budgets, money.bills, money.trends and people.coming, each pinned at all four
@@ -85,7 +93,7 @@ Five pills: **Month · Budgets · Bills · Trends · Statement**.
 - **Not mine, reported:** `assistant/push.ts` reads `reg.pushManager` when no service worker registered (a blocked worker in a test
   browser), which throws a page error. It belongs to the SYSTEM AND SETTINGS lane; the fix is `reg?.pushManager`. My spec ignores only
   that one message.
-- Work and Creative had a lighter pass: I read every key on their pages and found none dead and no promise their code does not keep, so they were not changed. A deeper specialist pass on them (for example, the CV builder and the song maker) is the next step. The comic belongs
+- Creative had a lighter pass: I read every key on its pages and found none dead and no promise its code does not keep, so it was not changed. Work's interview and document pages were read the same way and not changed. A deeper specialist pass on those pages (for example, a CV builder or a song maker) is the next step. The comic belongs
   to the COMIC lane and was not touched.
 - The Agenda's SPENDING card (the PLAN lane's) still draws its category bars with its own grandfathered colours. The MONEY screen uses
   tokens only.

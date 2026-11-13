@@ -134,7 +134,8 @@ async function money(page, pill, want = 'ready') {
 const small = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=hidden]):not([type=file]), textarea, select, [role=button])`, (els) => els
   .filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]'))
   .map((e) => {
-    const r = e.getBoundingClientRect();
+    // (a tick box's target is its whole row, as the lifepass spec measures it)
+    const r = (/^(checkbox|radio)$/.test(e.type ?? '') ? e.closest('label') ?? e : e).getBoundingClientRect();
     return r.width >= 43.5 && r.height >= 43.5 ? '' : `${e.tagName.toLowerCase()} "${(e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 24)}" ${Math.round(r.width)}×${Math.round(r.height)}`;
   }).filter(Boolean).slice(0, 5));
 const clipped = (page, id) => page.evaluate((t) => {
@@ -334,6 +335,39 @@ await block('words people home', async () => {
   await page.locator('.modal button:has-text("Forget Mum")').click();
   check(await until(page, () => !(window.__ghosty.people.people ?? []).some((p) => p.name === 'Mum'), null, 10000), 'YOUR PEOPLE Mum is forgotten on his say');
   await bar(page, 'YOUR PEOPLE bar', 'people');
+  // GROUP PLAN: made on the screen and called off there, nobody messaged
+  await open(page, 'people', 'Group plan');
+  await page.waitForSelector(`${P} input[aria-label="The plan, in your words"]`, { timeout: 8000 }).catch(() => undefined);
+  await page.click(`${P} button[aria-label="Make this plan"]`);
+  check(/Say the plan first/.test(await txt(page, `${P} p.pknote`)), 'GROUP PLAN an empty plan says what it needs');
+  await page.fill(`${P} input[aria-label="The plan, in your words"]`, 'pub on Friday at 8 at the Crown, asked Ali, Sam and Jo');
+  await page.click(`${P} button[aria-label="Make this plan"]`);
+  check(await until(page, () => /pub/i.test(window.__ghosty.people.plan?.what ?? '') && (window.__ghosty.people.plan?.asked ?? []).length === 3, null, 10000), `GROUP PLAN a plan typed on the screen is made: ${JSON.stringify(await page.evaluate(() => window.__ghosty.people.plan))}`);
+  check((await count(page, `${P} button[aria-label="Ali: yes"]`)) === 1 && (await page.locator(`${P} button[aria-label="Call off the plan"]`).isVisible()), 'GROUP PLAN its people and CALL OFF are there');
+  await bar(page, 'GROUP PLAN bar', 'people');
+  await page.click(`${P} button[aria-label="Call off the plan"]`);
+  check(await until(page, () => window.__ghosty.people.plan === null, null, 10000), 'GROUP PLAN called off on the screen');
+  // WORK: the to-do list in a to-do app's order, with its count
+  for (const t of (await pk('work', 'todo', { words: '' })).data?.list ?? []) await pk('work', 'todo', { words: `tick ${t.text}` });
+  await pk('work', 'todo', { words: 'clear done' });
+  await pk('work', 'todo', { words: 'add: ring the garage' });
+  await pk('work', 'todo', { words: 'add: post the parcel' });
+  await pk('work', 'todo', { words: 'tick post the parcel' });
+  await open(page, 'work', 'To-do');
+  const Wk = PK('work');
+  await page.waitForSelector(`${Wk} .pkitem`, { timeout: 8000 }).catch(() => undefined);
+  check(/^1 to do · 1 done$/.test((await txt(page, `${Wk} .pktodocount`)).trim()), `WORK the count line: "${await txt(page, `${Wk} .pktodocount`)}"`);
+  const order = await page.$$eval(`${Wk} .pkitems > li`, (l) => l.map((x) => x.textContent.trim()));
+  check(order.join('|').toLowerCase() === 'any time|ring the garage|done|post the parcel', `WORK open jobs first under their heads, done last: ${order.join(' | ')}`);
+  await bar(page, 'WORK to-do bar', 'work');
+  await pk('work', 'todo', { words: 'tick ring the garage' });
+  await pk('work', 'todo', { words: 'clear done' });
+  // HOME: the bills still to pay, added up
+  await pk('homeadmin', 'bill', { text: 'Thames Water\nAmount due £40.10\nPay by 30 December 2026' });
+  await open(page, 'homeadmin', 'Bills');
+  const Hb = PK('homeadmin');
+  await page.waitForSelector(`${Hb} .pkbilltotal`, { timeout: 8000 }).catch(() => undefined);
+  check(/^£\d+\.\d\d still to pay across \d+ bills?, from the bills you showed me\.$/.test((await txt(page, `${Hb} .pkbilltotal`)).trim()), `HOME the bills still to pay are added up: "${await txt(page, `${Hb} .pkbilltotal`)}"`);
   // HOME: a collection moved with nothing typed
   await open(page, 'homeadmin', 'Bins');
   const Hm = PK('homeadmin');

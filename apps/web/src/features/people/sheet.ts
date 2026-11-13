@@ -244,7 +244,24 @@ function planSheet(): HTMLElement {
       ),
     );
   };
-  const el = h('div.pkcol', box, status);
+  // [moneylane] a plan made or called off here, in his words (the brain reads them as the chat's would); nobody is messaged
+  const words = h('input', { type: 'text', placeholder: 'pub on Friday at 8 at the Crown, asked Ali, Sam and Jo', 'aria-label': 'The plan, in your words', enterKeyHint: 'done' }) as HTMLInputElement;
+  const make = async (said: string, clearIt: boolean) => {
+    const r = await say('plan', { words: said });
+    if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} What you typed is still here.`);
+    peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
+    stateIn(status, '', r.text);
+    if (clearIt) words.value = '';
+    paint();
+    cancel.hidden = !peopleState.plan;
+  };
+  const go = button('Make the plan', () => (words.value.trim() ? void make(`new plan: ${words.value.trim().replace(/^(?:new )?plan:\s*/i, '')}`, true) : stateIn(status, '', 'Say the plan first: what, when, where and who you asked.')), 'on');
+  go.setAttribute('aria-label', 'Make this plan');
+  words.addEventListener('keydown', (e) => e.key === 'Enter' && go.click());
+  const cancel = button('Call off the plan', () => void make('cancel the plan', false), 'warn');
+  cancel.setAttribute('aria-label', 'Call off the plan');
+  cancel.hidden = true;
+  const el = h('div.pkcol', box, h('div.lab', 'A NEW PLAN'), words, h('div.pkrow', go, cancel), status);
   /* state: people.plan loading */
   const done = waitFor(el, 'Opening your plan…');
   void say('plan', { words: '' }).then((r) => {
@@ -257,6 +274,7 @@ function planSheet(): HTMLElement {
     }
     peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
     paint();
+    cancel.hidden = !peopleState.plan;
   });
   return el;
 }

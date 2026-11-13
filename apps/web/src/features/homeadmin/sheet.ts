@@ -205,8 +205,13 @@ function billsView(): HTMLElement {
   const paint = () => {
     /* state: home.bills empty */
     slot.replaceChildren(...(loaded && !homeState.bills.length ? [emptyState('No bills kept yet', 'Photograph one or paste its text below.')] : []));
+    // [moneylane] what is still to pay first, soonest first, then what is paid; with what the unpaid ones come to
+    const order = [...homeState.bills].sort((a, b) => Number(!!a.paid) - Number(!!b.paid) || (a.due || '9999').localeCompare(b.due || '9999'));
+    const unpaid = order.filter((b) => !b.paid);
+    const owe = unpaid.reduce((k, b) => k + (Number.isFinite(b.amount) ? b.amount : 0), 0);
     list.replaceChildren(
-      ...homeState.bills.slice(0, 10).map((b) =>
+      ...(unpaid.length ? [h('p.pknote.pkbilltotal', { dataset: { case: 'keep' } }, `£${owe.toFixed(2)} still to pay across ${unpaid.length} bill${unpaid.length === 1 ? '' : 's'}, from the bills you showed me.`)] : []),
+      ...order.slice(0, 10).map((b) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${b.supplier} ${b.amount} pounds, ${b.due ? dueWords(b.due) || `due ${niceDay(b.due)}` : 'no due date'}` }, h('b', `${b.supplier} £${b.amount.toFixed(2)}`),
           h('span.pklab', `${b.kind}${b.due ? ` · ${dueWords(b.due) || `due ${niceDay(b.due)}`} · ${niceDay(b.due)}` : ''}${b.paid ? ` · paid ${niceDay(b.paid)}` : ''} · from the bill you showed me`),
           h('div.pkrow',
