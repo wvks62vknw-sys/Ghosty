@@ -139,8 +139,13 @@ export const linksTab: TabDef = {
           }), button('UNLINK', async () => {
             // The app password is not kept on this phone, so this cannot be undone: said plainly first.
             if (!(await confirmSheet('Unlink your email?', `Ghosty stops reading and sending email as ${st.address ?? 'this account'}. The app password is wiped, not kept anywhere: to link it again you paste a new one.`, 'UNLINK'))) return;
-            await brain.setKey('email', '').catch(() => undefined);
-            toast('Email unlinked', 'ok');
+            // (a failed unlink says so: never "unlinked" while it is still linked)
+            try {
+              await brain.setKey('email', '');
+              toast('Email unlinked', 'ok');
+            } catch (e) {
+              toast(sayError(e, 'unlink your email: it is still linked'), 'bad');
+            }
             void paintEmail();
           }, 'warn')),
         );
@@ -243,8 +248,12 @@ export const linksTab: TabDef = {
             : 'Linked. Ask Ghosty "what\'s playing?", "play some jazz on Spotify", "skip", "turn it down".'),
           h('div.keyrow', button('UNLINK', async () => {
             if (!(await confirmSheet('Unlink Spotify?', 'Ghosty stops seeing and playing your Spotify. To link it again you go through Spotify’s sign-in once more.', 'UNLINK'))) return;
-            await brain.spotifyUnlink().catch(() => undefined);
-            toast('Spotify unlinked', 'ok');
+            try {
+              await brain.spotifyUnlink();
+              toast('Spotify unlinked', 'ok');
+            } catch (e) {
+              toast(sayError(e, 'unlink Spotify: it is still linked'), 'bad');
+            }
             void paintSpotify();
           }, 'warn')),
         );

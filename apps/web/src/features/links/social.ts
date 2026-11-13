@@ -4,6 +4,7 @@
  * password), checked by the brain signing in, and kept in its vault (apps/edge/src/social). Linked, a panel says who it is
  * and what to ask, with UNLINK. Every post, follow and unfollow still waits for his APPROVE on a draft card.
  */
+import { sayError } from '../../ui/hisWords';
 import { ACCOUNTS, draftCard, type Account } from '../../../../../packages/shared/src/social';
 import { draftEl } from './drafts';
 import { brain, type SocialInfo } from '../../api/brain';
@@ -90,7 +91,7 @@ export const FORMS: Partial<Record<Account, Form>> = {
     ask: 'Say /ask in your server, or ask me here “what’s on my Discord?” or “post that to Discord” — every post waits for your APPROVE.',
     more: () => {
       const url = `${location.origin}/api/discord/interactions`;
-      return [h('div.lab', 'INTERACTIONS ENDPOINT URL'), h('code.socialurl', url), h('div.keyrow', button('COPY THE ADDRESS', () => void navigator.clipboard?.writeText(url).then(() => toast('Copied', 'ok'), () => undefined)))];
+      return [h('div.lab', 'INTERACTIONS ENDPOINT URL'), h('code.socialurl', url), h('div.keyrow', button('COPY THE ADDRESS', () => void navigator.clipboard?.writeText(url).then(() => toast('Copied', 'ok'), () => toast('This phone would not copy it: press on the address above and copy it from there', 'warn'))))];
     },
   },
   channel: {
@@ -138,8 +139,12 @@ export function socialPanels(): { panels: Panel[]; paint(): Promise<void> } {
         ...(f.more?.() ?? []),
         h('div.keyrow', button('UNLINK', async () => {
           if (!(await confirmSheet(`Unlink ${a.name}?`, `I stop reading and posting as ${who}. What I kept for it is wiped from my vault: to link it again you paste a new one.`, 'UNLINK'))) return;
-          await brain.socialUnlink(a.id).catch(() => undefined);
-          toast(`${a.name} unlinked`, 'ok');
+          try {
+            await brain.socialUnlink(a.id);
+            toast(`${a.name} unlinked`, 'ok');
+          } catch (e) {
+            toast(sayError(e, `unlink ${a.name}: it is still linked`), 'bad');
+          }
           void paint();
         }, 'warn')),
       );
