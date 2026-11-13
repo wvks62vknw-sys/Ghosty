@@ -573,8 +573,8 @@ test('THEMES-2: the sun times for his home give Paper by day and his night groun
     // when it flips is said on the Theme row
     const dl = TH.daylight(noon, home);
     assert.deepEqual([dl.day, dl.flipAt], [true, sun.set]);
-    assert.equal(TH.recipeWords(r, { now: noon, home }), `Reactor · Paper till ${TH.clockWords(sun.set)} · The Scan`);
-    assert.match(TH.recipeWords(r, { now: Date.UTC(2026, 10, 7, 20), home }), /^Reactor · Black till 07:\d\d · The Scan$/);
+    assert.equal(TH.recipeWords(r, { now: noon, home }), `Blue · Paper till ${TH.clockWords(sun.set)} · The Scan`);
+    assert.match(TH.recipeWords(r, { now: Date.UTC(2026, 10, 7, 20), home }), /^Blue · Black till 07:\d\d · The Scan$/);
     // no home saved: 08:00 to 18:00 on the phone's clock
     const at = (h, m) => new Date(2026, 10, 7, h, m).getTime();
     assert.deepEqual([at(7, 59), at(8, 1), at(17, 59), at(18, 1)].map((t) => TH.groundAt(r, t, null)), ['black', 'paper', 'paper', 'black']);
@@ -601,7 +601,7 @@ test('THEMES-2: the look by words, with no model — his asks taken and said in 
     ['dark mode', { night: true }], ['lighter', { step: 'lighter' }], ['a bit darker', { step: 'darker' }],
     ['the scan', { direction: 'scan' }], ['switch to the map', { direction: 'map' }], ['the eye look', { direction: 'eye' }], ['one ink', { direction: 'oneink' }], ['glass', { direction: 'glass' }],
     ['calm', { switches: { motion: 'calm' } }], ['bigger text', { body: 'bigger' }], ['make the text bigger', { body: 'bigger' }], ['follow the day', { switches: { day: 'on' } }],
-    ['glow off', { switches: { glow: 'off' } }], ['turn the glow off', { switches: { glow: 'off' } }], ['sharp corners', { switches: { corners: 'sharp' } }], ['switch to ember', { colour: 'ember' }],
+    ['glow off', { switches: { glow: 'off' } }], ['turn the glow off', { switches: { glow: 'off' } }], ['sharp corners', { switches: { corners: 'sharp' } }], ['switch to ember', { colour: 'ember', word: 'ember' }],
   ]) assert.deepEqual(A(text), want, `"${text}"`);
   for (const text of ["what's the map of london", 'the eye of the storm', 'paper towels on my shopping list', 'calm down', 'is it black friday', 'show me the map of Birmingham', 'glass of water', 'ember is a nice name', 'when is sunset', 'make it rain', 'lighter fluid', 'bigger picture', 'graphite', 'open the door']) assert.equal(A(text), null, `"${text}" is not about the look`);
   // applied, and said: what changed, what stayed, the honest edge
@@ -611,7 +611,7 @@ test('THEMES-2: the look by words, with no model — his asks taken and said in 
   assert.equal(black.said, 'Black: nothing lit but what I’m looking at.');
   const map = TH.applyAsk(r, A('the map'));
   assert.deepEqual([map.recipe.ground, map.recipe.world, map.recipe.colour], ['slate', 'map', 'ember']);
-  assert.match(map.said, /^The Map: .* On Slate, still in Ember\. Say “reactor” for its own colour\.$/);
+  assert.match(map.said, /^The Map: .* On Slate, still in Orange\. Say “blue” for its own colour\.$/);
   const paper = TH.applyAsk(r, A('lighter'));
   assert.equal(paper.recipe.ground, 'paper', 'lighter from Graphite: Paper');
   assert.equal(paper.recipe.night, 'graphite', 'the night ground kept under Paper');

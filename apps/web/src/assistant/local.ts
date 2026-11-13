@@ -181,6 +181,8 @@ type Opts = { voice?: boolean; private?: boolean };
  * after a reply that ran nothing).
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
+  // [voice lane] "do you know it's me?", "who's talking?": from the phone's own tag, truly (voiceknown.ts whoWords); never a lock
+  speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
   // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",

@@ -431,7 +431,8 @@ export function lookAsked(text: string): LookAsk | null {
 }
 
 const COLOUR_NOUN = '(?:theme|colour|color|accent|colour scheme|color scheme|scheme|light|mode|look|style)';
-const NAMED = new Set([...Object.values(PLAIN), ...Object.values(FANCY)].map((w) => w.toLowerCase()));
+// (a ground's own name alone, "graphite", stays the ground's: it is a colour only with a verb or its noun)
+const NAMED = new Set([...Object.values(PLAIN), ...Object.values(FANCY)].map((w) => w.toLowerCase()).filter((w) => !(GROUND_KEYS as readonly string[]).includes(w)));
 
 /** The colour part of lookAsked: "change the colour to blue", "red theme", "make it crimson", "white" (asked which). */
 function colourAsk(t0: string, t: string, verb: boolean): LookAsk | null {

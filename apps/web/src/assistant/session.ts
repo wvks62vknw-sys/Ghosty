@@ -21,7 +21,7 @@ import { stopwatch } from '../core/stopwatch';
 import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
-import { clearTag, graceOn, hear, hold, labelOf, type Label } from './voiceknown';
+import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -272,7 +272,7 @@ function settle(ids?: Set<string>): void {
 }
 
 /** What goes with every turn (shell/awareness.ts: one function for the chat and the Lens: his time, name and saved place, and what is on screen). */
-const context = () => clientContext(spokenTurn, turnVoice);
+const context = () => clientContext(spokenTurn, turnVoice, heardNote());
 
 let speakReplies = true;
 /** This message was spoken, not typed. */
@@ -928,7 +928,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     const h = await hear(snd);
     who = labelOf(h);
     if (h && h.label === 'unknown' && !graceOn()) {
-      hold(t, () => void send(t, { ...opts, as: 'unknown' }));
+      hold(t, () => void send(t, { ...opts, as: labelOf(h) ?? 'unknown' }));
       return;
     }
   }
