@@ -3,7 +3,8 @@
  * pipeline at the export's size is encoded as H.264 and the mix, rendered offline, as AAC, and the app's own muxer (mp4.ts) writes
  * the flat .mp4. (2) MediaRecorder on the canvas's captureStream with the mix as its audio track, in real time, in the type the
  * phone's recorder writes (mp4 first, else webm). Both say the size before (an estimate from bit rate and length, "about") and
- * after (measured). The originals are never touched, and a proxy is never used here.
+ * after (measured). The originals are never touched, and a proxy is never used here. Where the H.264 encoder takes its settings and
+ * then cannot be made, the export falls back to (2) and says so in one line (FELL_BACK).
  */
 import { shape, type Aspect, type Project } from './model';
 import { endOf } from './compose';
@@ -89,8 +90,7 @@ export function choosePath(w = 1920, h = 1080, fps = 30): Promise<PathInfo> {
       /* treated as not there */
     }
     if (codec && aac) return { path: 'webcodecs', codec, why: '', audioEncoder, videoEncoder } satisfies PathInfo;
-    const R = E.MediaRecorder;
-    const mime = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((t) => R?.isTypeSupported(t));
+    const mime = recorderMime();
     return {
       path: 'recorder',
       ...(mime ? { mime } : {}),
@@ -102,6 +102,21 @@ export function choosePath(w = 1920, h = 1080, fps = 30): Promise<PathInfo> {
   })();
   return chosen;
 }
+
+/** The recorder's type: mp4 first, else webm. */
+const recorderMime = (): string | undefined => ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((t) => encoders().MediaRecorder?.isTypeSupported(t));
+
+/**
+ * The H.264 encoder said yes to its settings (`isConfigSupported`) and then would not start ("Encoder creation error": a browser
+ * built without the codec, as a stock test browser is). The export goes the recorder's way instead and says so in one line.
+ */
+class EncoderWontStart extends Error {
+  constructor() {
+    super('the video encoder would not start');
+  }
+}
+/** The one line the owner reads when that happened. */
+export const FELL_BACK = 'This phone’s H.264 encoder would not start, so I made the file in real time instead.';
 
 /** One sentence for the export sheet: which path this phone takes. */
 export function pathWords(i: PathInfo, durMs: number): string {
@@ -139,6 +154,8 @@ export interface Exported {
   h: number;
   fps: number;
   durationMs: number;
+  /** Said when the frame-by-frame path could not start its encoder and the recorder made the file instead (FELL_BACK). */
+  fellBack?: string;
 }
 export class Cancelled extends Error {
   constructor() {
@@ -173,7 +190,16 @@ export async function exportVideo(p: Project, o: ExportOptions): Promise<Exporte
   try {
     if (path === 'webcodecs') {
       const codec = info.codec ?? 'avc1.42002a';
-      return await viaWebCodecs(q, o, { s, canvas, feeder, fps, dur, codec, t0 });
+      try {
+        return await viaWebCodecs(q, o, { s, canvas, feeder, fps, dur, codec, t0 });
+      } catch (e) {
+        if (!(e instanceof EncoderWontStart)) throw e;
+        // from now on this phone takes the recorder's path, and the export sheet says why
+        const mime = info.mime ?? recorderMime();
+        chosen = Promise.resolve({ ...info, path: 'recorder', ...(mime ? { mime } : {}), why: 'this phone’s video encoder would not start' } satisfies PathInfo);
+        const r = await viaRecorder(q, o, { s, canvas: document.createElement('canvas'), feeder, fps, dur, mime: mime ?? 'video/webm', t0 });
+        return { ...r, fellBack: FELL_BACK };
+      }
     }
     return await viaRecorder(q, o, { s, canvas, feeder, fps, dur, mime: info.mime ?? 'video/webm', t0 });
   } finally {
@@ -269,7 +295,9 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
   const quality = o.quality;
   const vsamples: VideoSample[] = [];
   let avcC: Uint8Array | null = null;
+  /** The video encoder's error, and the sound's (an AAC failure is never taken for the video encoder not starting). */
   let error: Error | null = null;
+  let aerror: Error | null = null;
   const venc = new E.VideoEncoder!({
     output: (chunk, meta) => {
       const data = new Uint8Array(chunk.byteLength);
@@ -281,6 +309,19 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
     error: (e) => (error = e),
   });
   venc.configure({ codec: c.codec, width: c.s.w, height: c.s.h, bitrate: o.bitrate ?? videoBitrate(c.s.w, c.s.h, c.fps, quality), framerate: c.fps, avc: { format: 'avc' }, latencyMode: 'quality' } as VideoEncoderConfig);
+  // the encoder is made when its settings are taken: an empty flush waits for that, and fails if it could not be made
+  const wontStart = () => {
+    if (venc.state !== 'closed') venc.close();
+    pull.dispose();
+    gpu.dispose();
+    return new EncoderWontStart();
+  };
+  try {
+    await venc.flush();
+  } catch {
+    throw wontStart();
+  }
+  if (error) throw wontStart();
 
   // the sound first, rendered offline: it is quick, and its failure should come before the long part
   const asamples: AudioSample[] = [];
@@ -305,7 +346,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
         const d = meta?.decoderConfig?.description;
         if (d && !aconfig) aconfig = new Uint8Array(d instanceof ArrayBuffer ? d : (d as ArrayBufferView).buffer.slice((d as ArrayBufferView).byteOffset, (d as ArrayBufferView).byteOffset + (d as ArrayBufferView).byteLength));
       },
-      error: (e) => (error = e),
+      error: (e) => (aerror = e),
     });
     aenc.configure({ codec: 'mp4a.40.2', sampleRate: 48_000, numberOfChannels: 2, bitrate: AUDIO_BITRATE });
     const L = mixed.getChannelData(0);
@@ -323,6 +364,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
     }
     await aenc.flush();
     aenc.close();
+    if (aerror) throw aerror;
   }
 
   const tStart = performance.now();
@@ -332,7 +374,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
       pull.dispose();
       throw new Cancelled();
     }
-    if (error) throw error;
+    if (error) throw vsamples.length ? error : wontStart();
     const t = (i * 1000) / c.fps;
     const plan = planFrame(p, t);
     pull.keep(new Set(plan.layers.map((l) => l.clip.id)));
@@ -351,9 +393,13 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
       o.onProgress?.({ frames: i + 1, of: n, frac: (i + 1) / n, left, words: `${i + 1} of ${n} frames, ${leftWords(left)}` });
     }
   }
-  await venc.flush();
+  try {
+    await venc.flush();
+  } catch (e) {
+    throw vsamples.length ? e : wontStart();
+  }
   venc.close();
-  if (error) throw error;
+  if (error) throw vsamples.length ? error : wontStart();
   const read = pull.decoded;
   pull.dispose();
   gpu.dispose();

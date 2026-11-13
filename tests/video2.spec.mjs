@@ -348,7 +348,22 @@ async function run(size, clips, full) {
   check(spec1 && spec1.scale > 1 && (Math.abs(spec1.x) + Math.abs(spec1.y) + Math.abs(spec1.rot)) > 0, `${tag} (a) the export's own frame spec carries the steadying at 1 s: ${JSON.stringify(spec1)}`);
   if (full) {
     const ex = await V('forceExport', { path: 'webcodecs', silent: true, preset: 'source', long: 240 });
-    check(ex.frames >= Math.round((lenClip / 1000) * 30) - 2 && Math.abs(ex.durationMs - lenClip) < 100, `${tag} (a) the export of the steadied clip is made, frame by frame: ${ex.frames} frames, ${ex.durationMs} ms`);
+    if (ex.path === 'webcodecs') check(!ex.fellBack && ex.frames >= Math.round((lenClip / 1000) * 30) - 2 && Math.abs(ex.durationMs - lenClip) < 100, `${tag} (a) the export of the steadied clip is made, frame by frame: ${ex.frames} frames, ${ex.durationMs} ms`);
+    else {
+      // this browser's H.264 encoder says yes to its settings and then cannot be made (a stock test browser): the export falls back
+      const dur = await page.evaluate(async () => {
+        const v = document.createElement('video');
+        v.muted = true;
+        v.src = URL.createObjectURL(window.__ghosty.video.lastBlob('forced'));
+        await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = () => bad(new Error('undecodable')); setTimeout(() => bad(new Error('timeout')), 20000); });
+        if (!Number.isFinite(v.duration)) {
+          v.currentTime = 1e9;
+          await new Promise((r) => (v.onseeked = r));
+        }
+        return v.duration * 1000;
+      }).catch((e) => String(e));
+      check(ex.path === 'recorder' && ex.fellBack === 'This phone’s H.264 encoder would not start, so I made the file in real time instead.' && ex.frames > 0 && Math.abs(ex.durationMs - lenClip) < 100 && typeof dur === 'number' && Math.abs(dur - lenClip) < 150, `${tag} (a) with no H.264 encoder to start, the export of the steadied clip falls back to the recorder, says so and is made: ${JSON.stringify(ex)}, the file ${typeof dur === 'number' ? Math.round(dur) : dur} ms`);
+    }
   }
   await looked('the SPEED tray with a steadied clip');
   await page.screenshot({ path: `${out}/video2-${size.width}-steady.png` });

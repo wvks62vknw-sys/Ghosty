@@ -671,19 +671,76 @@ async function run(size, full) {
     }
     // the app's own muxer, proved in the browser: a short video-only file through the WebCodecs writer, read back by the page and by this file's box walk
     const vc = await page.evaluate(() => ({ ve: typeof VideoEncoder })).catch(() => ({ ve: 'undefined' }));
+    const FELL = 'This phone’s H.264 encoder would not start, so I made the file in real time instead.';
+    const probeFile = () => page.evaluate(async () => {
+      const blob = window.__ghosty.video.lastBlob('probe');
+      const v = document.createElement('video');
+      v.muted = true;
+      v.src = URL.createObjectURL(blob);
+      await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = () => bad(new Error('undecodable')); setTimeout(() => bad(new Error('timeout')), 20000); });
+      if (!Number.isFinite(v.duration)) {
+        v.currentTime = 1e9;
+        await new Promise((r) => (v.onseeked = r));
+      }
+      return { dur: v.duration * 1000, w: v.videoWidth, h: v.videoHeight, type: blob.type };
+    }).catch((e) => ({ err: String(e) }));
     if (vc.ve === 'function') {
-      const mp = await page.evaluate(() => window.__ghosty.video.muxProbe({ preset: 'story', long: 1920, ms: 2000 }));
-      const pr = await page.evaluate(async () => {
-        const blob = window.__ghosty.video.lastBlob('probe');
-        const v = document.createElement('video');
-        v.muted = true;
-        v.src = URL.createObjectURL(blob);
-        await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = () => bad(new Error('undecodable')); setTimeout(() => bad(new Error('timeout')), 20000); });
-        return { dur: v.duration * 1000, w: v.videoWidth, h: v.videoHeight };
-      }).catch((e) => ({ err: String(e) }));
-      check(mp && mp.w === 1080 && mp.h === 1920 && !pr.err && Math.abs(pr.dur - 2000) < 120 && pr.w === 1080 && pr.h === 1920, `${tag} (l) the app's own muxer writes a file the page decodes: ${mp?.w}×${mp?.h}, ${mp?.frames} frames, ${Math.round(pr.dur)} ms (a 9:16 preset's size)`);
-      const walk = await page.evaluate(WALK, 'probe');
-      check(walk.tracks.length === 1 && walk.tracks[0].entry === 'avc1' && walk.tracks[0].samples === mp.frames, `${tag} (l) its moov by the box walk: one avc1 track of ${walk.tracks[0]?.samples} samples = ${mp.frames} frames`);
+      // can this browser make an H.264 encoder at all? (CI's stock browser says yes to the settings, then cannot make one)
+      const canMake = await page.evaluate(async () => {
+        for (const codec of ['avc1.64002a', 'avc1.42002a', 'avc1.42001f']) {
+          const cfg = { codec, width: 1080, height: 1920, bitrate: 4_000_000, framerate: 30, avc: { format: 'avc' } };
+          if (!(await VideoEncoder.isConfigSupported(cfg)).supported) continue;
+          const e = new VideoEncoder({ output: () => undefined, error: () => undefined });
+          try {
+            e.configure(cfg);
+            await e.flush();
+            return true;
+          } catch {
+            return false;
+          } finally {
+            if (e.state !== 'closed') e.close();
+          }
+        }
+        return false;
+      });
+      if (canMake) {
+        // this browser's H.264 encoder starts: the frame-by-frame path and the app's own muxer
+        const mp = await page.evaluate(() => window.__ghosty.video.muxProbe({ preset: 'story', long: 1920, ms: 2000 }));
+        const pr = await probeFile();
+        check(mp?.path === 'webcodecs' && mp.w === 1080 && mp.h === 1920 && !mp.fellBack && !pr.err && Math.abs(pr.dur - 2000) < 120 && pr.w === 1080 && pr.h === 1920, `${tag} (l) the app's own muxer writes a file the page decodes: ${mp?.path}, ${mp?.w}×${mp?.h}, ${mp?.frames} frames, ${Math.round(pr.dur)} ms (a 9:16 preset's size)`);
+        const walk = await page.evaluate(WALK, 'probe');
+        check(walk.tracks.length === 1 && walk.tracks[0].entry === 'avc1' && walk.tracks[0].samples === mp?.frames, `${tag} (l) its moov by the box walk: one avc1 track of ${walk.tracks[0]?.samples} samples = ${mp?.frames} frames`);
+      } else console.log('note: this browser says yes to H.264 and then cannot make the encoder; the muxer is proved by the brain test, and the fallback below');
+      // the missing encoder forced here, as CI's browser has it: the encoder takes its settings, then its creation fails
+      await page.evaluate(() => {
+        const Real = VideoEncoder;
+        window.__realVideoEncoder = Real;
+        window.VideoEncoder = class NoH264 extends Real {
+          constructor(init) {
+            super(init);
+            this.__err = init.error;
+          }
+          configure() {
+            this.__dead = new DOMException('Encoder creation error.', 'OperationError');
+            setTimeout(() => this.__err(this.__dead), 0);
+          }
+          encode(f, o) {
+            if (this.__dead) throw new DOMException('Cannot call \'encode\' on a closed codec.', 'InvalidStateError');
+            return super.encode(f, o);
+          }
+          flush() {
+            return this.__dead ? new Promise((_, bad) => setTimeout(() => bad(this.__dead), 0)) : super.flush();
+          }
+        };
+      });
+      const said0 = await page.locator('.vdpath').textContent();
+      // (a 9:16 story at 360 × 640: the recorder draws in real time, and a software GPU draws a full-size story too few times in 2 s)
+      const fb = await page.evaluate(() => window.__ghosty.video.muxProbe({ preset: 'story', long: 640, ms: 2000 })).catch((e) => ({ err: String(e).slice(0, 160) }));
+      const fbFile = await probeFile();
+      check(fb?.path === 'recorder' && fb.fellBack === FELL && !fbFile.err && Math.abs(fbFile.dur - 2000) <= 150 && fbFile.w === 360 && fbFile.h === 640 && /^video\/(mp4|webm)$/.test(fbFile.type), `${tag} (l) an encoder that cannot be made: the export does not fail, it falls back to the recorder, says "${FELL}" and the file decodes: ${JSON.stringify(fb)}, ${JSON.stringify(fbFile)}`);
+      const said1 = await page.locator('.vdpath').textContent();
+      check(/^Made in real time: about \d+ seconds, as \.(mp4|webm) \(this phone’s video encoder would not start\)\.$/.test(said1 ?? ''), `${tag} (l) after it, the export sheet says the path this phone takes now and why: "${said0}" → "${said1}"`);
+      await page.evaluate(() => (window.VideoEncoder = window.__realVideoEncoder));
     } else console.log('note: this browser has no VideoEncoder; the muxer is proved by the brain test alone');
 
     await stopAt('export');

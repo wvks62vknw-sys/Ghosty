@@ -60,7 +60,7 @@ export const videoState = {
   exportPath: '',
   exportSaid: '',
   exportSize: '',
-  exportDone: null as null | { bytes: number; frames: number; audioPackets: number; path: string; seconds: number; ext: string; w: number; h: number; durationMs: number },
+  exportDone: null as null | { bytes: number; frames: number; audioPackets: number; path: string; seconds: number; ext: string; w: number; h: number; durationMs: number; fellBack?: string },
   cues: 0,
   history: 0,
   offlineSaid: false,
@@ -1476,9 +1476,10 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
           },
         });
         lastExport = r;
-        videoState.exportDone = { bytes: r.bytes, frames: r.frames, audioPackets: r.audioPackets, path: r.path, seconds: r.seconds, ext: r.ext, w: r.w, h: r.h, durationMs: r.durationMs };
+        videoState.exportDone = { bytes: r.bytes, frames: r.frames, audioPackets: r.audioPackets, path: r.path, seconds: r.seconds, ext: r.ext, w: r.w, h: r.h, durationMs: r.durationMs, ...(r.fellBack ? { fellBack: r.fellBack } : {}) };
         (videoState as Record<string, unknown>).lastExport = r;
         showResult(result, r);
+        await fellBack(r, pathLine, d);
         // a size said and a size measured more than twice apart is said in one line (the recorder picks its own rate on the slow path)
         const off = r.bytes < est / 2 ? 'Smaller' : r.bytes > est * 2 ? 'Bigger' : '';
         if (off) result.append(h('p.vdnote.vdsizenote', `${off} than I said (about ${sizeWords(est)}): the phone’s ${r.path === 'recorder' ? 'recorder' : 'encoder'} chose its own rate.`));
@@ -1501,9 +1502,19 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     out.push(note('Not in this version: Director Mode (following who is speaking would take a model that tells voices apart, a download I would ask you for first) and several cameras (syncing them by sound and a second timeline would take a day’s work). I’ve said so rather than fake them.'));
     return out;
   }
+  /** The frame-by-frame path's encoder would not start and the recorder made the file: the sheet says the path it takes now. */
+  async function fellBack(r: Exported, pathLine?: HTMLElement, d = duration(project)) {
+    if (!r.fellBack) return;
+    pathInfo = await choosePath();
+    videoState.exportPath = pathInfo.path;
+    videoState.exportSaid = pathWords(pathInfo, d);
+    if (pathLine) pathLine.textContent = videoState.exportSaid;
+    else if (tool === 'export') renderTray();
+  }
   function showResult(into: HTMLElement, r: Exported) {
     clear(into,
       h('p.vdsay.vdresultline', `Saved as ${project.name}.${r.ext}: ${sizeWords(r.bytes)}, ${r.w} × ${r.h}, ${lengthWords(r.durationMs)}, made in ${Math.round(r.seconds)} s (${r.path === 'webcodecs' ? 'frame by frame' : 'in real time'}).`),
+      r.fellBack ? h('p.vdnote.vdfellback', r.fellBack) : null,
       row(
         act('SAVE', () => void (async () => { const { saveBlob } = await import('../convert/run'); saveBlob(r.blob, `${project.name}.${r.ext}`); })()),
         act('SHARE', () => void (async () => {
@@ -1765,7 +1776,8 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     forceExport: async (o: { path?: 'webcodecs' | 'recorder'; silent?: boolean; preset?: string; long?: number }) => {
       const r = await exportVideo(project, { preset: o.preset ?? 'wide', quality: 0, blobOf: (id) => blobFor(id, false), ...(o.path ? { path: o.path } : {}), ...(o.silent ? { silent: true } : {}), ...(o.long ? { long: o.long } : {}) });
       (videoState as Record<string, unknown>).forced = r;
-      return { bytes: r.bytes, frames: r.frames, audioPackets: r.audioPackets, path: r.path, seconds: r.seconds, w: r.w, h: r.h, durationMs: r.durationMs };
+      await fellBack(r);
+      return { bytes: r.bytes, frames: r.frames, audioPackets: r.audioPackets, path: r.path, seconds: r.seconds, w: r.w, h: r.h, durationMs: r.durationMs, fellBack: r.fellBack ?? '' };
     },
     whiteCount: (y0: number, y1: number) => player?.gpu.whiteCount(y0, y1) ?? 0,
     planAt: (t: number) => planFrame(project, t).layers.map((l) => ({ role: l.role, name: project.sources[l.clip.src]?.name ?? '', ov: !!l.ov })),
@@ -1777,9 +1789,10 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       delete mini.main[0]!.lut;
       const r = await exportVideo(mini, { preset: o.preset ?? 'wide', quality: 0, blobOf: (id) => blobFor(id, false), path: 'webcodecs', silent: true, long: o.long ?? 320 });
       (videoState as Record<string, unknown>).probe = r;
-      return { bytes: r.bytes, frames: r.frames, w: r.w, h: r.h, path: r.path, durationMs: r.durationMs };
+      await fellBack(r);
+      return { bytes: r.bytes, frames: r.frames, w: r.w, h: r.h, path: r.path, durationMs: r.durationMs, fellBack: r.fellBack ?? '' };
     },
-    lastBlob: (which: 'export' | 'probe') => ((videoState as Record<string, unknown>)[which === 'export' ? 'lastExport' : 'probe'] as Exported | undefined)?.blob ?? null,
+    lastBlob: (which: 'export' | 'probe' | 'forced') => ((videoState as Record<string, unknown>)[which === 'export' ? 'lastExport' : which] as Exported | undefined)?.blob ?? null,
     holdOriginal: (on: boolean) => {
       if (player) {
         player.ungraded = on;
