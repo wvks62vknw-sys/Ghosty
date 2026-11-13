@@ -250,6 +250,7 @@ export function appPill(ctx: Ctx): HTMLElement {
   const size = h('p.stNote.stSize', { 'aria-live': 'polite' }, 'Measuring the page…');
   const lib = h('div.stLib');
   const sites = h('div.stSites', { 'aria-live': 'polite' });
+  let handing = false;
   let html = '';
   const measure = async () => {
     try {
@@ -304,11 +305,13 @@ export function appPill(ctx: Ctx): HTMLElement {
       note(navigator.onLine === false ? 'You are offline. Everything here works; putting it on your sites waits for a connection, and says so then.' : `Your sites are the public pages I publish for you at /s/<name>. This game would be ${addressOf(g)}: it installs to a Home Screen, plays offline and keeps its saves on the phone that plays it.`),
       h('p.stNote.stSitesLine', sitesLine(g.name)),
       btn('Put it on my sites', async () => {
+        if (handing) return; // a second tap while the first is on its way asks nothing twice
         const now = ctx.game();
         const stop = hardProblems(now)[0];
         if (stop) return void sites.replaceChildren(h('p.stWarn', `Fix this first: ${stop.text}`));
         sites.replaceChildren(note('Handing the game to my brain…'));
-        const r = await handOver(now);
+        handing = true;
+        const r = await handOver(now).finally(() => (handing = false));
         if ('error' in r) return void sites.replaceChildren(h('p.stWarn', r.error), note('Nothing went on your sites. The file in the library is yours.'));
         sites.replaceChildren(note(`“${now.name}” is with me, waiting for your word. I’ve asked in the chat: tap APPROVE there and I’ll give you its link (it would be ${r.link}).`));
         const [{ send }, { openChat }] = await Promise.all([import('../assistant/session'), import('../shell/launcher')]);

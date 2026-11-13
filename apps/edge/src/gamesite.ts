@@ -30,9 +30,9 @@ import { durableDelete, durableGet, durablePut } from './kv';
 /** The one game waiting from his phone, and how long it waits. */
 export const WAITING = 'sitegame:waiting';
 export const WAIT_MS = 2 * 3600_000;
-/** A ticket lives for the time an approval card waits. */
+/** A ticket lives for the time an approval card waits. There is one, the latest card's: a newer card replaces it, so nothing piles up. */
 export const TICKET_MS = 30 * 60_000;
-const TICKET = (t: string) => `sitegame:ticket:${t}`;
+export const TICKET = 'sitegame:ticket';
 /** A game's JSON may be this big (the studio's own page target is 400 KB with the player). */
 export const MAX_GAME_BYTES = 350_000;
 
@@ -41,6 +41,7 @@ export interface WaitingGame {
   at: number;
 }
 export interface GameTicket {
+  id: string;
   game: Game;
   name: string;
   at: number;
@@ -159,7 +160,7 @@ export async function gameApproval(a: Record<string, unknown>, ctx: Ctx, get: (n
   const game = await waitingGame(ctx, typeof a.name === 'string' ? a.name : '');
   const { name, replaces } = await gameLinkName(ctx, game, get);
   const ticket = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
-  await durablePut(ctx.env, ctx.storage, TICKET(ticket), { game, name, at: Date.now() } satisfies GameTicket);
+  await durablePut(ctx.env, ctx.storage, TICKET, { id: ticket, game, name, at: Date.now() } satisfies GameTicket);
   const kb = Math.max(1, Math.round(JSON.stringify(game).length / 1024));
   return {
     args: { ...a, ticket },
@@ -170,12 +171,12 @@ export async function gameApproval(a: Record<string, unknown>, ctx: Ctx, get: (n
   };
 }
 
-/** The run: only a ticket's game, once, and only while the ticket is fresh. */
+/** The run: only the latest approval's game, once, and only while its ticket is fresh. */
 export async function publishGame(a: Record<string, unknown>, ctx: Ctx, put: (name: string, game: Game) => Promise<void>, link: (name: string) => string): Promise<{ name: string; title: string; link: string }> {
   const ticket = typeof a.ticket === 'string' && /^[0-9a-f]{32}$/.test(a.ticket) ? a.ticket : '';
-  const t = ticket ? await fresh<GameTicket>(ctx, TICKET(ticket)) : undefined;
-  if (!t || Date.now() - t.at > TICKET_MS) throw new Error('Not published: a game goes on his sites only through his APPROVE in this chat. Ask him again.');
-  await durableDelete(ctx.env, ctx.storage, TICKET(ticket)).catch(() => undefined);
+  const t = ticket ? await fresh<GameTicket>(ctx, TICKET) : undefined;
+  if (!t || t.id !== ticket || Date.now() - t.at > TICKET_MS) throw new Error('Not published: a game goes on his sites only through his APPROVE in this chat. Ask him again.');
+  await durableDelete(ctx.env, ctx.storage, TICKET).catch(() => undefined);
   await put(t.name, t.game);
   return { name: t.name, title: t.game.name, link: `${link(t.name)}/` };
 }

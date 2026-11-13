@@ -108,7 +108,7 @@ test('a publish without the turn\'s approval is refused; the approval says what 
   // a call that never went through the approval: no ticket, a made-up one, an old one
   await assert.rejects(tool.run({ name: 'Fox Run' }, w.ctx), /only through his APPROVE/);
   await assert.rejects(tool.run({ name: 'Fox Run', ticket: 'a'.repeat(32) }, w.ctx), /only through his APPROVE/);
-  w.storage.m.set(`sitegame:ticket:${'b'.repeat(32)}`, { game: g, name: 'fox-run', at: Date.now() - G.TICKET_MS - 1000 });
+  w.storage.m.set(G.TICKET, { id: 'b'.repeat(32), game: g, name: 'fox-run', at: Date.now() - G.TICKET_MS - 1000 });
   await assert.rejects(tool.run({ ticket: 'b'.repeat(32) }, w.ctx), /only through his APPROVE/);
   // he named another game
   await assert.rejects(tool.approval({ name: 'Space Cats' }, w.ctx), /waiting from his phone is "Fox Run", not "Space Cats"/);
@@ -122,8 +122,15 @@ test('a publish without the turn\'s approval is refused; the approval says what 
   const out = await tool.run(ap.args, w.ctx);
   assert.match(out, /^Published "Fox Run" — live now at https:\/\/ghosty\.example\.workers\.dev\/s\/fox-run\//);
   assert.deepEqual(w.events.find((e) => e.t === 'client'), { t: 'client', name: 'show_link', args: { url: `${ORIGIN}/s/fox-run/`, title: 'Fox Run' } });
-  // once only
+  // once only, and nothing is left behind
   await assert.rejects(tool.run(ap.args, w.ctx), /only through his APPROVE/);
+  assert.ok(![...w.storage.m.keys(), ...w.kv.m.keys()].some((k) => k.startsWith('sitegame:ticket')), 'the used ticket is gone');
+  // cards he declined pile nothing up: one ticket, the latest card's; an older card's ticket no longer publishes
+  const old = await tool.approval({}, w.ctx);
+  const newer = await tool.approval({}, w.ctx);
+  assert.equal([...w.storage.m.keys()].filter((k) => k.startsWith('sitegame:ticket')).length, 1);
+  await assert.rejects(tool.run(old.args, w.ctx), /only through his APPROVE/);
+  await tool.run(newer.args, w.ctx);
   // listed as a game; the same game again is an update at the same link; another page's name is never taken over
   assert.match(await T.toolByName.get('list_sites').run({}, w.ctx), /\/s\/fox-run\/ — "Fox Run" \(game\)/);
   await w.api('/api/sites/game', 'POST', { game: g });
