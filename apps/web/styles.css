@@ -8230,6 +8230,10 @@ h3.slh { margin-top: var(--g-s-half); }
 .slcard { display: flex; flex-direction: column; gap: var(--g-s-1); width: 100%; padding: var(--g-s-1); text-align: left; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; background: var(--g-plate); }
 .slcard.slgrab { box-shadow: 0 0 0 var(--g-stroke) var(--g-accent); opacity: .85; }
 .slcard.slover { box-shadow: 0 calc(var(--g-stroke) * -2) 0 var(--g-accent); }
+.slcard.skip svg, .slcard.skip img { opacity: .45; }
+.slcap .slskipped { flex: none; margin-left: auto; padding: 0 var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.slhits { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+.slhits:empty { display: none; }
 .slthumb { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: var(--g-hair) solid var(--g-line-faint); pointer-events: none; }
 .slthumb svg, .slbox svg { display: block; width: 100%; height: auto; }
 /* a slide drawn inside a key keeps its words as written (the keys show theirs in sentence case) */

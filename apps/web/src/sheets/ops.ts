@@ -5,7 +5,7 @@
  */
 import { addr, parseAddr, parseRange, shiftFormula, sheetIndex, usedRows, type Book, type Cell, type Chart, type Filter, type Sheet, type Val, isErr } from './model';
 import { Engine } from './formula';
-import { colName, MAXC, MAXR, parseAddr as pa, tokenize } from './tokens';
+import { colName, MAXC, MAXR, moveLinesIn, parseAddr as pa, tokenize } from './tokens';
 import { general } from './numfmt';
 import type { Series } from '../show/chart';
 
@@ -215,4 +215,110 @@ export function chartSeries(b: Book, eng: Engine, c: Chart): Series | null {
   if (points.length < 2) return null;
   const cur = fmt?.n === 'currency';
   return { kind: c.kind, points, unit: cur ? '£' : pct ? '%' : '', before: cur };
+}
+
+/**
+ * ROWS AND COLUMNS PUT IN OR TAKEN OUT (as Numbers and Excel do): `n` > 0 puts `n` empty rows (axis 'r') or columns ('c') in before line
+ * `at`; `n` < 0 takes `-n` out from `at`. The cells after move along with their look, widths and heights follow, and every formula, name and
+ * chart on every sheet that pointed past the change follows its cells (one that pointed only into lines taken out says #REF!). Pure.
+ */
+export function moveLines(b: Book, sheet: string | number, axis: 'r' | 'c', at: number, n: number): Book {
+  const si = typeof sheet === 'number' ? sheet : sheetIndex(b, sheet);
+  const s = b.sheets[si];
+  if (!s || !n || at < 0) return b;
+  const max = axis === 'r' ? MAXR : MAXC;
+  const gone = n < 0 ? -n : 0;
+  const to = (i: number): number | null => (n > 0 ? (i >= at ? i + n : i) : i < at ? i : i >= at + gone ? i - gone : null);
+  const lines = (m: Record<number, number>): Record<number, number> => {
+    const out: Record<number, number> = {};
+    for (const [k, v] of Object.entries(m)) {
+      const j = to(Number(k));
+      if (j !== null && j < max) out[j] = v;
+    }
+    return out;
+  };
+  const sheets = b.sheets.map((x, k) => {
+    const cells: Record<string, Cell> = {};
+    for (const [key, c] of Object.entries(x.cells)) {
+      let cell = c;
+      if (c.f !== undefined) {
+        const f = moveLinesIn(c.f, x.name, s.name, axis, at, n);
+        if (f !== c.f) cell = { ...c, f };
+      }
+      if (k !== si) {
+        cells[key] = cell;
+        continue;
+      }
+      const p = parseAddr(key);
+      if (!p) continue;
+      const j = to(p[axis]);
+      if (j === null || j >= max) continue;
+      cells[axis === 'r' ? addr(j, p.c) : addr(p.r, j)] = cell;
+    }
+    if (k !== si) return cells === x.cells ? x : { ...x, cells };
+    const filter = x.filter && axis === 'c' ? (to(x.filter.c) === null ? null : { ...x.filter, c: to(x.filter.c)! }) : x.filter;
+    return { ...x, cells, widths: axis === 'c' ? lines(x.widths) : x.widths, heights: axis === 'r' ? lines(x.heights) : x.heights, filter };
+  });
+  const names: Record<string, string> = {};
+  for (const [k, v] of Object.entries(b.names)) names[k] = moveLinesIn(v, '', s.name, axis, at, n);
+  const charts = b.charts.map((c) => {
+    const values = moveLinesIn(c.values, c.sheet, s.name, axis, at, n);
+    const labels = c.labels ? moveLinesIn(c.labels, c.sheet, s.name, axis, at, n) : null;
+    return values === c.values && labels === c.labels ? c : { ...c, values, labels };
+  });
+  return { ...b, at: Date.now(), sheets, names, charts };
+}
+
+/**
+ * AUTOSUM (Σ): one cell chosen adds up the numbers right above it (or, with none above, those to its left); several cells chosen get a
+ * SUM under each column of them. What it wrote, and where; null when there are no numbers to add up.
+ */
+export function autoSum(b: Book, eng: Engine, sheet: string | number, g: { r1: number; c1: number; r2: number; c2: number }): { book: Book; cells: string[]; f: string } | null {
+  const si = typeof sheet === 'number' ? sheet : sheetIndex(b, sheet);
+  const s = b.sheets[si];
+  if (!s) return null;
+  const num = (r: number, c: number) => typeof eng.value(s.name, addr(r, c)) === 'number';
+  const cells = { ...s.cells };
+  const put = (a: string, f: string) => {
+    const prev = cells[a];
+    const x = prev?.x ?? s.cells[a.replace(/\d+$/, String(Number(a.match(/\d+$/)![0]) - 1))]?.x;
+    cells[a] = { f, ...(x ? { x } : {}) };
+  };
+  const done: string[] = [];
+  let f = '';
+  if (g.r1 === g.r2 && g.c1 === g.c2) {
+    const { r1: r, c1: c } = g;
+    let top = r;
+    while (top > 0 && !num(top - 1, c)) top--;
+    if (top > 0 && top === r) {
+      while (top > 0 && num(top - 1, c)) top--;
+      f = `SUM(${addr(top, c)}:${addr(r - 1, c)})`;
+    } else {
+      let left = c;
+      while (left > 0 && num(r, left - 1)) left--;
+      if (left === c) {
+        // nothing right beside it: the nearest run of numbers above, past a gap or a header
+        let end = r - 1;
+        while (end >= 0 && !num(end, c)) end--;
+        if (end < 0) return null;
+        let start = end;
+        while (start > 0 && num(start - 1, c)) start--;
+        f = `SUM(${addr(start, c)}:${addr(end, c)})`;
+      } else f = `SUM(${addr(r, left)}:${addr(r, c - 1)})`;
+    }
+    put(addr(r, c), f);
+    done.push(addr(r, c));
+  } else {
+    if (g.r2 + 1 >= MAXR) return null;
+    for (let c = g.c1; c <= g.c2; c++) {
+      let any = false;
+      for (let r = g.r1; r <= g.r2 && !any; r++) any = num(r, c);
+      if (!any) continue;
+      f = `SUM(${addr(g.r1, c)}:${addr(g.r2, c)})`;
+      put(addr(g.r2 + 1, c), f);
+      done.push(addr(g.r2 + 1, c));
+    }
+    if (!done.length) return null;
+  }
+  return { book: { ...b, at: Date.now(), sheets: b.sheets.map((x, k) => (k === si ? { ...s, cells } : x)) }, cells: done, f };
 }

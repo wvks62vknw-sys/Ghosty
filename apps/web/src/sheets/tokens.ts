@@ -221,3 +221,60 @@ export function renameSheetIn(f: string, from: string, to: string): string {
     })
     .join('');
 }
+
+/**
+ * The formula after rows (axis 'r') or columns (axis 'c') were put in or taken out of the sheet `target`, as Excel moves it: `n` > 0 lines
+ * put in before line `at` push every reference at or past it along (the $ parts too: the cells themselves moved); `n` < 0 lines taken out
+ * from `at` pull the later ones back, a range loses the lines it had there, and a reference wholly inside them becomes #REF!. `home` is the
+ * sheet the formula lives on (a reference without a sheet's name means that one).
+ */
+export function moveLinesIn(f: string, home: string, target: string, axis: 'r' | 'c', at: number, n: number): string {
+  let toks: Tok[];
+  try {
+    toks = tokenize(f);
+  } catch {
+    return f;
+  }
+  const mine = (sheet?: string) => (sheet ?? home).toLowerCase() === target.toLowerCase();
+  const gone = n < 0 ? -n : 0;
+  const max = axis === 'r' ? MAXR : MAXC;
+  /** A range's two edges after the change, or null when every line it had was taken out. */
+  const edges = (lo: number, hi: number): [number, number] | null => {
+    if (n > 0) return [lo >= at ? lo + n : lo, hi >= at ? hi + n : hi];
+    if (lo >= at && hi < at + gone) return null;
+    const lo2 = lo < at ? lo : lo >= at + gone ? lo - gone : at;
+    const hi2 = hi < at ? hi : hi >= at + gone ? hi - gone : at - 1;
+    return [lo2, hi2];
+  };
+  let changed = false;
+  const bad = (t: { sheetSrc?: string }) => {
+    changed = true;
+    return `${t.sheetSrc ?? ''}#REF!`;
+  };
+  const out = toks.map((t) => {
+    if (t.t === 'ref' && mine(t.sheet)) {
+      const k = axis;
+      const a0 = t.a[k];
+      const b0 = t.b ? t.b[k] : a0;
+      const e = edges(Math.min(a0, b0), Math.max(a0, b0));
+      if (!e || e[1] >= max) return bad(t);
+      const [lo, hi] = e;
+      if (lo === Math.min(a0, b0) && hi === Math.max(a0, b0)) return t.src;
+      changed = true;
+      if (!t.b) return `${t.sheetSrc ?? ''}${refText({ ...t.a, [k]: lo })}`;
+      const up = a0 <= b0;
+      return `${t.sheetSrc ?? ''}${refText({ ...t.a, [k]: up ? lo : hi })}:${refText({ ...t.b, [k]: up ? hi : lo })}`;
+    }
+    if (t.t === 'colrange' && axis === 'c' && mine(t.sheet)) {
+      const lo0 = Math.min(t.c1, t.c2);
+      const hi0 = Math.max(t.c1, t.c2);
+      const e = edges(lo0, hi0);
+      if (!e || e[1] >= max) return bad(t);
+      if (e[0] === lo0 && e[1] === hi0) return t.src;
+      changed = true;
+      return `${t.sheetSrc ?? ''}${t.abs1 ? '$' : ''}${colName(e[0])}:${t.abs2 ? '$' : ''}${colName(e[1])}`;
+    }
+    return t.src;
+  });
+  return changed ? out.join('') : f;
+}
