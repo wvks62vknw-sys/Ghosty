@@ -45,7 +45,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with AIza…',
       link: 'https://aistudio.google.com/apikey',
       need: 'needed',
-      why: "Ghosty's main brain. Free, and the best free model for building things.",
+      why: "Ghosty's main brain; free, and the best free model for building things.",
       steps: [
         'Open the link and sign in with any Google account.',
         'Press "Create API key". If it asks for a project, pick the suggested one or "Create new project".',
@@ -60,7 +60,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       link: ghLink,
       need: 'recommended', // [settings] not needed to talk to him
       // (It no longer brings free GPT-4.1: GitHub retired GitHub Models on 30 July 2026.)
-      why: 'Free. Lets Ghosty change its own code when you ask (new panels, features, fixes). Not needed to talk to him.', // [settings]
+      why: 'Free, lets Ghosty change its own code when you ask, and not needed to talk to him.', // [settings]
       steps: [
         'Open the link (sign in to GitHub if asked). The name, permissions and a 1-year expiry are already filled in.',
         `Under "Repository access" choose "Only select repositories" and pick ${repo ?? 'your Ghosty repository'}.`,
@@ -75,7 +75,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with gsk_…',
       link: 'https://console.groq.com/keys',
       need: 'recommended',
-      why: 'Free, no card. A very fast backup brain, and it lets Ghosty understand your voice (speech to text).', // [settings]
+      why: 'Free with no card: a very fast backup brain that also understands your voice.', // [settings]
       steps: [
         'Open the link and sign in (Google sign-in works).',
         'Press "Create API Key", type any name (e.g. Ghosty) and press Submit.',
@@ -89,7 +89,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'numbers, a colon, then letters (from @BotFather)',
       link: 'https://t.me/BotFather',
       need: 'recommended',
-      why: 'Talk to Ghosty from Telegram — text, voice notes and photos — and get its notifications there. Free.',
+      why: 'Free: talk to Ghosty from Telegram with text, voice notes and photos, and get its notifications there.',
       steps: [
         'Open the link (it opens @BotFather in Telegram) and send /newbot: give the bot a name, then a username ending in "bot". Already have one? Send /mybots → your bot → API Token.',
         'Copy the token BotFather shows (numbers, a colon, then letters).',
@@ -103,7 +103,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with tvly-…',
       link: 'https://app.tavily.com/',
       need: 'recommended',
-      why: 'Better web search results (1,000 free searches a month, no card). Without it Ghosty uses DuckDuckGo.',
+      why: 'Better web search, with 1,000 free searches a month and no card; without it Ghosty uses DuckDuckGo.',
       steps: [
         'Open the link and sign up (Google sign-in works).',
         'Your key is shown on the home page under "API Keys". Press the copy button.',
@@ -116,7 +116,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with csk-…',
       link: 'https://cloud.cerebras.ai/',
       need: 'optional',
-      why: 'Free tier. An extra backup brain for when the others hit their free limits.', // [settings]
+      why: 'Free tier: an extra backup brain for when the others hit their free limits.', // [settings]
       steps: ['Open the link and sign up.', 'Go to "API Keys" in the left menu and create a key.', 'Copy it, paste it below and press SAVE.'],
     },
     {
@@ -143,7 +143,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with nvapi-…',
       link: 'https://build.nvidia.com/settings/api-keys',
       need: 'optional',
-      why: 'Free: big open models (Kimi K2, DeepSeek, Llama 3.3, Qwen3 Coder) at about 40 requests a minute. Asks for a phone number once.',
+      why: 'Free big open models (Kimi K2, DeepSeek, Llama 3.3, Qwen3 Coder), about 40 requests a minute; asks for a phone number once.',
       steps: [
         'Open the link and sign in, or create a free NVIDIA account (it asks you to confirm a phone number once).',
         'Press "Generate API Key", give it any name (e.g. Ghosty) and generate it.',
@@ -195,7 +195,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'a long letters-and-numbers key',
       link: 'https://aisstream.io/apikeys',
       need: 'optional',
-      why: "Live ships anywhere in the world on the God's Eye globe (free). Without it you still see ships around the Baltic.",
+      why: "Free live ships anywhere in the world on the God's Eye globe; without it you still see ships around the Baltic.",
       steps: [
         'Open the link and press "Sign in with GitHub" (use your normal GitHub account).',
         'Press "Create New API Key", then copy the key it shows.',
@@ -208,7 +208,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with BSA…',
       link: 'https://api-dashboard.search.brave.com/',
       need: 'optional',
-      why: 'Alternative web search. Not needed if you have Tavily (Brave may ask for a card even on the free plan).',
+      why: 'Alternative web search, not needed if you have Tavily (Brave may ask for a card even on the free plan).',
       steps: ['Open the link and sign up.', 'Subscribe to the free plan, then open "API Keys" and copy your key.', 'Paste it below and press SAVE.'],
     },
     {
@@ -217,7 +217,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'a 32-character key',
       link: 'https://developer.tomtom.com/user/register',
       need: 'optional',
-      why: "Live road traffic anywhere (e.g. Birmingham city centre): speeds on every road drawn on God's Eye, and crashes, closures and queues when you ask. Free: 50,000 map tiles and 2,500 lookups a day, no card.",
+      why: "Live road traffic anywhere (e.g; birmingham city centre): speeds on every road drawn on God's Eye, and crashes, closures and queues when you ask; free: 50,000 map tiles and 2,500 lookups a day, no card.",
       steps: [
         'Open the link and create a free TomTom Developer account (confirm the email they send).',
         'Open the Dashboard → "Keys". A key called "My first API key" is already there — press copy.',
@@ -230,7 +230,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'app id, a space, then the app key',
       link: 'https://api-portal.tfwm.org.uk/signup',
       need: 'optional',
-      why: "Live National Express West Midlands buses and Metro trams on God's Eye, and \"what buses are running near X\" when you ask. Free, 10,000 hits a day.",
+      why: "Live National Express West Midlands buses and Metro trams on God's Eye, and \"what buses are running near X\" when you ask; free, 10,000 hits a day.",
       steps: [
         'Open the link and register (free, about two minutes; confirm the email they send).',
         'Open your application on the portal to see its Application ID and Key.',
@@ -243,7 +243,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'a long letters-and-numbers key',
       link: 'https://data.bus-data.dft.gov.uk/account/signup/',
       need: 'optional',
-      why: "Live buses anywhere in England on God's Eye, every 10 seconds (the Department for Transport's Bus Open Data Service). Free, no trams.",
+      why: "Live buses anywhere in England on God's Eye, every 10 seconds (the Department for Transport's Bus Open Data Service); free, no trams.",
       steps: [
         'Open the link and create the free account (confirm the email they send).',
         'Sign in, open Account Settings and copy the API key shown there.',
@@ -256,7 +256,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with pk.…',
       link: 'https://account.mapbox.com/access-tokens/',
       need: 'optional',
-      why: "Live traffic colours on the flat map — jams in red, like Google Maps — plus Mapbox's satellite-with-streets and night navigation maps. The map itself works without it. Free tier (50,000 map loads a month).",
+      why: "Live traffic colours on the flat map — jams in red, like Google Maps — plus Mapbox's satellite-with-streets and night navigation maps; the map itself works without it; free tier (50,000 map loads a month).",
       steps: [
         'Open the link and create a free Mapbox account.',
         'On the Access tokens page, copy the "Default public token" (it starts with pk.). That is all Ghosty needs.',
@@ -270,7 +270,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       link: 'https://documentation.history.mot.api.gov.uk/mot-history-api/register/',
       need: 'optional',
       lines: 5,
-      why: "Check one car you photograph or type in: make, model, colour, MOT valid until, every MOT test with its mileage and advisories, and a warning if the mileage ever went down. Free from DVSA. Looked up once, never saved.",
+      why: "Check one car you photograph or type in: make, model, colour, MOT valid until, every MOT test with its mileage and advisories, and a warning if the mileage ever went down; free from DVSA, looked up once and never saved.",
       steps: [
         'Open the link and press "Register for MOT history API". Choose to register as an individual and fill in your name, email and postal address (it is free).',
         'For what you will use it for, write something like: "Personal use: checking the MOT history of a car before buying it."',
@@ -286,7 +286,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'a long letters-and-numbers key (for when DVLA reopens registrations)',
       link: 'https://developer-portal.driver-vehicle-licensing.api.gov.uk/apis/vehicle-enquiry-service/vehicle-enquiry-service-description.html',
       need: 'optional',
-      why: 'Adds tax status and due date, CO2, engine size and year to a vehicle check. DVLA has paused new registrations: keep this for when they reopen. Not needed for MOT history.',
+      why: 'Adds tax status and due date, CO2, engine size and year to a vehicle check; DVLA has paused new registrations: keep this for when they reopen; not needed for MOT history.',
       steps: [
         'DVLA is not taking new registrations at the moment (the link says "Registration closed"). When they reopen, register there (free).',
         'DVLA emails you an API key. Copy it, paste it below and press SAVE.',
@@ -315,7 +315,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with hf_…',
       link: 'https://huggingface.co/settings/tokens/new?tokenType=read',
       need: 'optional',
-      why: "Gives the 3D STUDIO's picture-to-3-D maker your own free daily GPU allowance (about 5 minutes a day) instead of the small one shared by everyone without an account. Free, no card.",
+      why: "Gives the 3D STUDIO's picture-to-3-D maker your own free daily GPU allowance (about 5 minutes a day) instead of the small one shared by everyone without an account; free, no card.",
       steps: [
         'Open the link and create a free Hugging Face account (confirm the email they send), then open the link again.',
         'The token type is already "Read". Type any name (e.g. Ghosty) and press "Create token".',
@@ -329,7 +329,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'the API token (starts with KGAT_) — or the whole kaggle.json text',
       link: 'https://www.kaggle.com/settings',
       need: 'optional',
-      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card). With the Hugging Face token below, it runs on its own.",
+      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card); with the Hugging Face token below, it runs on its own.",
       steps: [
         'Open the link and sign up or sign in to Kaggle (Google sign-in works).',
         'Kaggle only lends GPUs to confirmed accounts: on the same Settings page, under "Phone verification", confirm your phone number (once).',
@@ -344,7 +344,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with hf_… (fine-grained, write access to your two Ghosty repos)',
       link: 'https://huggingface.co/new-dataset',
       need: 'optional',
-      why: 'Where the trained offline brain is kept: two PRIVATE spaces on your free Hugging Face account, one for the training lessons and one for the brain itself. Only Ghosty reaches them, with this token, which never leaves your brain; your phone gets the new brain through Ghosty.',
+      why: 'Where the trained offline brain is kept: two PRIVATE spaces on your free Hugging Face account, one for the training lessons and one for the brain itself; only Ghosty reaches them, with this token, which never leaves your brain; your phone gets the new brain through Ghosty.',
       steps: [
         'Make a free Hugging Face account at huggingface.co (confirm the email they send), then open the link.',
         'Name the dataset ghosty-training, choose Private, and press "Create dataset".',
@@ -360,7 +360,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'https://formspree.io/f/…',
       link: 'https://formspree.io/register',
       need: 'optional',
-      why: "Lets the contact forms on websites Ghosty builds really send to your email (free plan: 50 messages a month). Without it they open WhatsApp or email instead. Only this one address is ever allowed on the page.",
+      why: "Lets the contact forms on websites Ghosty builds really send to your email (free plan: 50 messages a month); without it they open WhatsApp or email instead; only this one address is ever allowed on the page.",
       steps: ['Open the link and make a free Formspree account (confirm the email they send).', 'Press "+ New form", give it a name (e.g. My website) and copy its address — it looks like https://formspree.io/f/abcd1234.', 'Paste it below and press SAVE. The next website Ghosty builds will use it.'],
     },
     {
@@ -369,7 +369,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'your private API key from my.plantnet.org',
       link: 'https://my.plantnet.org/',
       need: 'optional',
-      why: "Lets the Lens's NAME IT name plants from a photo with Pl@ntNet. Free: 500 plants a day, no card.",
+      why: "Lets the Lens's NAME IT name plants from a photo with Pl@ntNet; free: 500 plants a day, no card.",
       steps: [
         'Open the link and sign up (free, no card); confirm the email Pl@ntNet sends, then sign in.',
         'Open your account page and copy your API key.',
@@ -383,7 +383,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       link: 'https://www.home-assistant.io/installation/',
       need: 'optional',
       lines: 2,
-      why: 'Lets me see and work the smart things in your house through your own free Home Assistant box: lights, heating, blinds, TVs. The token stays in my vault, never on your phone.',
+      why: 'Lets me see and work the smart things in your house through your own free Home Assistant box: lights, heating, blinds, TVs; the token stays in my vault, never on your phone.',
       steps: HOUSE_STEPS,
     },
   ];

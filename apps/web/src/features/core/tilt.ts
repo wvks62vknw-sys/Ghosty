@@ -5,6 +5,7 @@
  * asks on that tap, and the answer is remembered as the setting); Reduce Motion and ONE INK never move. Nothing is sent, nothing kept
  * but the on/off.
  */
+import { para } from '../../ui/oneline';
 import { h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { key } from '../../ui/machine';
@@ -48,7 +49,7 @@ export function tiltRow(): HTMLElement {
   btn.append(word);
   const row = h('div.glook-tilt', { dataset: { case: 'keep' } },
     h('b', 'The HUD tilts with the phone'),
-    h('p.note', { dataset: { case: 'keep' } }, 'The world, the plates and my orb shift a few pixels as you tilt the phone, and a light follows your finger across a plate. Off, nothing moves. Reduce Motion keeps it still either way.'),
+    ...para('p.note', 'The world, the plates and my orb shift a few pixels as you tilt the phone, and a light follows your finger across a plate. Off, nothing moves. Reduce Motion keeps it still either way.'),
     btn, said);
   const paint = () => {
     const on = settings.get().hudTilt;

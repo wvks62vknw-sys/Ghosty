@@ -13,6 +13,7 @@
  * kept exactly as set. Nothing here names a colour of its own: every tile and chip draws from the tokens it stands on.
  */
 import { clear, h } from '../core/dom';
+import { para } from './oneline';
 import { applyRecipe, groundNow, recipe, recipeEvents, savedHome, THEMES } from '../state/theme';
 import { settings } from '../state/app';
 import { clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
@@ -60,7 +61,7 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
     return b;
   };
   const head = (name: string, count: string, line: string) =>
-    h('div.gdial-head', tag(name, { count }), h('p.gdial-line', { dataset: { case: 'keep' } }, line));
+    h('div.gdial-head', tag(name, { count }), ...para('p.gdial-line', line));
 
   const paint = () => {
     const r = recipe();

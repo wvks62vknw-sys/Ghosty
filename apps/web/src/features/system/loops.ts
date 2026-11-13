@@ -9,6 +9,7 @@
 import { loopRows, type BrainLoops, type LoopRow, type PhoneLoops } from '../../../../../packages/shared/src/loops';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
+import { more } from '../lifeui';
 import { metaById } from '../../gym/meta';
 import { gymWeek } from '../../gym/session';
 import { sentSince } from '../../offline/star';
@@ -38,7 +39,7 @@ export function loopsPanel(): Panel & { refresh(): void } {
   const p = panel('LOOPS', { grow: false, cls: 'loops' });
   const head = h('div.note.loopshead');
   const list = h('div.loopsrows');
-  p.body.append(head, list, h('div.note.small', 'Measured, not claimed: a new GYM version is kept only if it beats his past selves, a new brain only if it passes its test, and lessons come only from answers an exact check passed.'));
+  p.body.append(head, list, h('div.note.small', 'Measured, not claimed: nothing is kept unless it beats what I had.'), more('A new GYM version is kept only if it beats my past selves, a new brain only if it passes its test, and lessons come only from answers an exact check passed.'));
 
   const paint = (rows: LoopRow[], b: BrainLoops | null, now: number) => {
     loopsState.rows = rows;

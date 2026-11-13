@@ -146,7 +146,7 @@ export async function open(s: SealedBackup, owner: string): Promise<Bundle> {
     throw new Error('This backup was locked with a different owner key, so it cannot be opened with the one on this phone.');
   }
   if (s.z === 'gzip') {
-    if (!canZip()) throw new Error('This browser is too old to open this backup (it cannot unpack it). Update iOS and try again.');
+    if (!canZip()) throw new Error('This browser is too old to open this backup (it cannot unpack it); update iOS and try again.');
     plain = await pipe(plain, new DecompressionStream('gzip'));
   }
   const b = JSON.parse(new TextDecoder().decode(plain)) as Partial<Bundle>;
@@ -174,20 +174,25 @@ export async function collect(): Promise<Bundle> {
   return { v: 1, at: Date.now(), local, library: await deviceOnlyDocs().catch(() => []) };
 }
 
+/** The size a backup would be if it were made now: the bundle's words, as the sealed copy carries them (base64 makes it a third more). An estimate. */
+export async function estimateSize(): Promise<number> {
+  return Math.round(JSON.stringify(await collect()).length * 1.37);
+}
+
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 export const sizeText = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : mb(n));
 
 /** Back up now: bundle, seal, send. Returns a short line for the owner; throws with plain words. */
 export async function backUpNow(): Promise<string> {
   const owner = ownerKey.get();
-  if (!owner) throw new Error('Backups are locked with your owner key, and this phone signed in another way. Pair it with the owner key to turn backups on.');
+  if (!owner) throw new Error('Backups are locked with your owner key, and this phone signed in another way; pair it with the owner key to turn backups on.');
   try {
     const sealed = await seal(await collect(), owner);
     const size = JSON.stringify(sealed).length;
     if (size > MAX_BYTES) throw new Error(`This backup would be ${mb(size)}, but one backup can be at most 25 MB. Remove some documents kept only on this phone, then try again.`);
     const r = await brain.putBackup({ ...sealed, device: deviceId(), label: deviceLabel() });
     lastBackup.set(afterTry(lastBackup.get(), Date.now(), { ok: true, size: r.backup.size }));
-    return `Backed up (${sizeText(r.backup.size)}, locked with your owner key). The brain keeps this phone's last ${7} days.`;
+    return `Backed up (${sizeText(r.backup.size)}, locked with your owner key); the brain keeps this phone's last ${7} days.`;
   } catch (e) {
     const raw = rawText(e);
     const error = sayError(e, 'back up');

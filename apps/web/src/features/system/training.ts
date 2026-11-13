@@ -19,6 +19,9 @@ import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/co
 import { sayOnIt } from '../../assistant/acks';
 import { sendGymLevels } from './ledger';
 import { sayError } from '../../ui/hisWords';
+import { more } from '../lifeui';
+import { waiting } from '../../ui/wait';
+import { WAIT } from './words';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -80,13 +83,14 @@ export function trainingPanel(): Panel & { refresh(): void } {
     const out = h('div.trainkeys');
     const need = [!s.keys.kaggle ? 'Kaggle' : '', !s.keys.hf ? 'Hugging Face' : ''].filter(Boolean);
     out.append(
-      h('div.note', `Ghosty can teach the small brain on your phone by itself, every week, for free. It needs ${need.length === 2 ? 'two keys' : 'one more key'}:`),
+      h('div.note', `I can train the small brain on your phone each week for free, with ${need.length === 2 ? 'two keys' : 'one more key'}:`),
       h(
         'ol.steps',
-        ...(!s.keys.kaggle ? [h('li', 'Kaggle (free computers to train on): in KEYS above press SHOW OPTIONAL KEYS, find "Kaggle (free GPUs for training)", press HOW TO GET IT and follow the steps. You make it at kaggle.com → Settings → API Tokens → Generate New Token (confirm your phone number there first).')] : []),
-        ...(!s.keys.hf ? [h('li', 'Hugging Face (where the brain is kept, privately): in KEYS, find "Hugging Face token (training)", press HOW TO GET IT. You make two private spaces there and a token that can only reach those two.')] : []),
-        h('li', "That is all: Ghosty gathers the week's lessons, trains on Kaggle, and only keeps a new brain that does better than the old one in its test."),
+        ...(!s.keys.kaggle ? [h('li', 'Kaggle: under KEYS open "Kaggle (free GPUs for training)" and press HOW TO GET IT.')] : []),
+        ...(!s.keys.hf ? [h('li', 'Hugging Face: under KEYS open "Hugging Face token (training)" and press HOW TO GET IT.')] : []),
+        h('li', 'Then I train each week and keep a new brain only if it tests better.'),
       ),
+      more(`Press SHOW OPTIONAL KEYS first. Kaggle's token is made at kaggle.com, Settings, API Tokens, Generate New Token; confirm your phone number there first. Hugging Face keeps the brain privately: you make two private spaces and a token that can only reach those two. Each week I gather the lessons, train on Kaggle and keep a new brain only if it does better than the old one in its test.`),
     );
     return out;
   };
@@ -239,16 +243,16 @@ export function trainingPanel(): Panel & { refresh(): void } {
       p.body.append(h('div.lab.trainweek', `WEEK ${r.week}${r.scratch ? ' · RETRAINED FROM SCRATCH' : ''}${r.finishedAt ? ` · ${when(r.finishedAt)}` : ''}`));
       if (Object.keys(r.before ?? {}).length) p.body.append(scores(r, s.previous));
       p.body.append(details(r));
-    } else if (keysOk) p.body.append(h('div.note', 'No training run yet. The first one starts on its own, or press TRAIN NOW.'));
+    } else if (keysOk) p.body.append(h('div.note', 'No run yet: the first starts on its own, or press TRAIN NOW.'));
     // Honest: until a run has come back, none of this has worked for real.
-    if (!r || (!r.published && !Object.keys(r.after ?? {}).length)) p.body.append(h('div.note.small.untried', 'Not tried for real yet: no week has finished on Kaggle. The first run may stop with a problem; if it does, it says so here.'));
+    if (!r || (!r.published && !Object.keys(r.after ?? {}).length)) p.body.append(h('div.note.small.untried', 'Not tried for real yet: no week has finished on Kaggle.'), more('The first run may stop with a problem; if it does, it says so here.'));
     // the last good brains (of every base: after a switch the old chain stays, for ROLLBACK)
     const base = baseById(s.base);
     const several = s.models.some((m) => baseById(m.base).id !== base.id);
     const recommended = s.models.find((m) => m.commit === s.active);
     if (s.switchedFrom && s.switchedFrom !== base.id) {
       // A base switch (SETTINGS → OFFLINE BRAIN): the training starts again from the new base, and says so.
-      p.body.append(h('div.note.trainbase', `Training now follows ${base.label}, the brain chosen in SETTINGS → OFFLINE BRAIN: a fresh start from the stock ${base.label}, tested against that same brain. Your ${baseById(s.switchedFrom).label} brains are kept: ROLLBACK goes back to them.`));
+      p.body.append(h('div.note.trainbase', `Training now follows ${base.label}, from a fresh start.`), more(`It is the brain chosen in SETTINGS → OFFLINE BRAIN, tested against the same stock brain; your ${baseById(s.switchedFrom).label} brains are kept: ROLLBACK goes back to them.`));
     } else if (base.id !== 'qwen3-0.6b') p.body.append(h('div.note.trainbase', `Training follows ${base.label}, the brain chosen in SETTINGS → OFFLINE BRAIN.`));
     p.body.append(h('div.lab', 'BRAINS KEPT'));
     for (const m of s.models) {
@@ -258,7 +262,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
     }
     p.body.append(row('STOCK', `${base.label} as it came (always there to go back to)`, s.active === null ? 'RECOMMENDED' : null, { tone: s.active === null ? 'up' : undefined, wrap: true }));
     const onPhone = currentModel().label;
-    p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? `the stock ${base.label}`}. This phone is set to: ${onPhone}. A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.`));
+    p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? `the stock ${base.label}`}; this phone is set to ${onPhone}.`), more('A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.'));
     const now = act('TRAIN NOW', () => brain.selftrain.now(), () => "Training started: gathering this week's lessons first", 'on');
     now.disabled = !keysOk || s.phase !== 'idle';
     // the monthly retrain whenever he wants it (with a run under way: the next run is one)
@@ -267,7 +271,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
     // ROLLBACK drops the brain in use for good: a one-tap confirm says so first. Back from a new base's stock build to
     // the old chain drops nothing (choosing the base again in SETTINGS → OFFLINE BRAIN undoes it): no question.
     const dropping = s.active !== null;
-    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => (x.base !== s.base ? `Back to your ${baseById(x.base).label} brains: ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}` : `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}`), 'warn', dropping ? ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good (never offered again); the one before it, or the stock ${base.label}, takes its place. A new week can train a better one.`] : undefined);
+    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => (x.base !== s.base ? `Back to your ${baseById(x.base).label} brains: ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}` : `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}`), 'warn', dropping ? ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good; the one before it, or the stock ${base.label}, takes its place.`] : undefined);
     back.disabled = s.active === null && !(s.switchedFrom && s.switchedFrom !== base.id);
     // THE DAILY GPU: a second, small pool of free GPU minutes on his own Hugging Face account (asked once)
     const pool = s.pool;
@@ -276,10 +280,10 @@ export function trainingPanel(): Panel & { refresh(): void } {
       const box = h('div.trainpool');
       box.append(h('div.lab', 'THE DAILY GPU (HUGGING FACE)'));
       if (pool.offer) {
-        box.append(h('div.note', 'Hugging Face lends a free account about 5 minutes of a big GPU every day. Ghosty can use them to practise puzzles for next week\'s training, on top of Kaggle. It needs a small Space on your Hugging Face account.'));
+        box.append(h('div.note', 'Hugging Face lends a free account about 5 minutes of GPU a day.'), more('I can use them to practise puzzles for next week\'s training, on top of Kaggle. It needs a small Space on your Hugging Face account.'));
         const yes = act('ALLOW', () => brain.selftrain.pool(true), () => 'Setting up the daily GPU', 'on', [
           'Make a Space on your Hugging Face account?',
-          'Ghosty makes one Space called ghosty-daily-gpu on your Hugging Face account (private if Hugging Face allows it; if not, it holds none of your data and only Ghosty can use it), puts its code and two secrets in it (your Hugging Face token, so it can read your private training data, and a key), and uses about 5 free GPU minutes a day. Nothing can cost money: a free account cannot buy GPU time, and Ghosty stops if your account is PRO or has a card on it.',
+          ['I make one Space on your account called ghosty-daily-gpu.', 'It is private if Hugging Face allows it; if not, it holds none of your data.', 'It holds my code and two secrets: your token, to read your private lessons, and a key.', 'It uses about 5 free GPU minutes a day.', 'Nothing can cost money: a free account cannot buy GPU time.', 'I stop if your account is PRO or has a card on it.'].join(' '),
         ]);
         const no = act('NO THANKS', () => brain.selftrain.pool(false), () => 'The daily GPU is not used');
         box.append(h('div.keyrow', yes, no));
@@ -298,10 +302,9 @@ export function trainingPanel(): Panel & { refresh(): void } {
     p.body.append(
       h(
         'div.note.small.privacy',
-        s.privateData
-          ? 'Kept private: the lessons and the trained brain sit in two private spaces on your Hugging Face account; only Ghosty can open them, and your phone gets the brain through Ghosty. With MY LIBRARY & CHATS on, the brain learns from your library, your chats and the replies you rated.'
-          : 'MY LIBRARY & CHATS is off: new weeks learn only from puzzles, quizzes and general examples, earlier weeks that held your text are left out, and training starts from the newest brain that never saw it (or the stock one).',
+        s.privateData ? 'Your lessons and the trained brain sit in two private spaces only I can open.' : 'MY LIBRARY & CHATS is off: new weeks learn only from puzzles, quizzes and general examples.',
       ),
+      more(s.privateData ? 'Your phone gets the brain through Ghosty. With MY LIBRARY & CHATS on, the brain learns from your library, your chats and the replies you rated.' : 'Earlier weeks that held your text are left out, and training starts from the newest brain that never saw it (or the stock one).'),
     );
     if (poolBox) p.body.append(poolBox);
     const note = setTrainedModels(s.models, s.active, s.weights, s.base);
@@ -309,11 +312,13 @@ export function trainingPanel(): Panel & { refresh(): void } {
   }
 
   async function refresh(): Promise<void> {
+    const done = st ? () => undefined : waiting(p.body, WAIT.training);
     try {
       st = await brain.selftrain.status();
     } catch {
       st = null;
     }
+    done();
     paint();
     // Checked work waiting on this phone goes to the brain for next week's run (quietly; it waits otherwise).
     void flushStars();

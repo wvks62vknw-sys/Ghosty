@@ -8,6 +8,7 @@
  */
 import { NIGHT_LIMITS } from '../../../../../packages/shared/src/night';
 import { clear, h } from '../../core/dom';
+import { more } from '../lifeui';
 import { night, setNight } from '../../night';
 import { button, panel, row, toast, type Light, type Panel } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
@@ -51,14 +52,14 @@ export function nightPanel(): Panel {
   const live = h('div.nightline', { role: 'status', 'aria-live': 'polite' });
   const plan = h(
     'ol.steps.nightplan',
-    h('li', { dataset: { part: 'school' } }, h('b', 'School practice'), ` — his weak spots at his stage, each question checked twice; what he gets wrong goes first into the weekly training. Stops after ${NIGHT_LIMITS.practice} questions.`),
-    h('li', { dataset: { part: 'gym' } }, h('b', 'Gym'), ` — TRAIN ALL, the least mastered game first. Stops after ${hours(NIGHT_LIMITS.gymMs)}, or with ${hours(NIGHT_LIMITS.studyMs).replace('1 hour', 'an hour')} of the night left.`),
-    h('li', { dataset: { part: 'study' } }, h('b', 'Study'), ' — STUDY ALL, the library’s queue. Until the end of the night.'),
+    h('li', { dataset: { part: 'school' } }, h('b', 'School practice'), ` — my weak spots at my stage, each question checked twice; stops after ${NIGHT_LIMITS.practice} questions.`),
+    h('li', { dataset: { part: 'gym' } }, h('b', 'Gym'), ` — TRAIN ALL, the least mastered game first, for at most ${hours(NIGHT_LIMITS.gymMs)}.`),
+    h('li', { dataset: { part: 'study' } }, h('b', 'Study'), ' — STUDY ALL, the library’s queue, until the night ends.'),
   );
   const honest = h('div.note.small.nightios');
   const extra = h('div.nightextra');
   p.body.append(
-    h('div.note', 'He works through the night on this phone while it charges: school practice first, then the gym, then the library.'),
+    h('div.note', 'I work through the night on this phone while it charges.'),
     h('div.keyrow', sw),
     h('div.nightwin', h('label', 'FROM ', from), h('label', 'TO ', to), h('small', 'UK time')),
     live,
@@ -85,8 +86,8 @@ export function nightPanel(): Panel {
     }
     clear(
       honest,
-      'On an iPhone: leave Ghosty open on the screen and the phone plugged in. The screen stays on, dimmed (tap it to see Ghosty). Closing Ghosty or locking the phone pauses the plan — nothing runs with the screen off — and it carries on when Ghosty is back on screen. ',
-      'Without the phone, the brain does its own part in the same hours: writing and checking practice questions with the free online AIs, and the library’s study.',
+      'On an iPhone, leave Ghosty open and the phone plugged in.',
+      more('The screen stays on, dimmed (tap it to see Ghosty). Closing Ghosty or locking the phone pauses the plan, because nothing runs with the screen off, and it carries on when Ghosty is back on screen. Without the phone, the brain does its own part in the same hours: writing and checking practice questions with the free online AIs, and the library’s study. Each night goes school practice first, then the gym, then the library, and what I get wrong goes first into the weekly training.'),
     );
     clear(extra);
     if (!s.lock.can) extra.append(h('div.note.small.bad', 'This browser cannot keep the screen on by itself: for the night, set Auto-Lock to Never (Settings → Display & Brightness), or the phone will lock and the plan will pause.'));

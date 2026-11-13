@@ -36,7 +36,7 @@ export function facesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     const others = all.filter((p) => !p.me);
     count.textContent = !all.length
       ? /* state: settings.faces empty */ FACES_NONE
-      : `${all.length} ${all.length === 1 ? 'face' : 'faces'}: ${me ? 'you' : ''}${me && others.length ? ' and ' : ''}${others.length ? `${others.length} ${others.length === 1 ? 'person' : 'people'} you introduced` : ''}. They never leave this phone and are not in backups.`;
+      : `${all.length} ${all.length === 1 ? 'face' : 'faces'}: ${me ? 'you' : ''}${me && others.length ? ' and ' : ''}${others.length ? `${others.length} ${others.length === 1 ? 'person' : 'people'} you introduced` : ''}; they never leave this phone and are not in backups.`;
     const rows: HTMLElement[] = [];
     if (me) {
       const r = row('YOU', `enrolled ${day(me.at)} · ${me.looks.length} looks`, null, { wrap: true });
