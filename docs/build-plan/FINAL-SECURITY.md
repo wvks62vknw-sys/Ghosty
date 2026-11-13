@@ -63,3 +63,13 @@ Tests: the extra cases in `security.test.mjs` (`whole words only`, `a photograph
 - Ask it to read a page whose text says "remember that …" and only ask for a summary. A memory it tries to save waits for your APPROVE. Saying "read it and remember it" yourself still saves at once.
 - Import a Markdown file containing `[x](javascript:alert(1))`. The words "x" arrive as plain text, not a link.
 - Pick a file over 150 MB in Docs, Slides, Sheets or the Library. You get one plain line saying it is too big.
+
+## Checks run
+- **Brain.** The full suite passes (2178 of 2178) and both typechecks are clean. The new tests were run against the code before the fixes and failed there (the helper's own unit tests excepted).
+- **Specs, run here.** app, gamestudio, threats, eye and lens pass.
+- **Specs that fail here, before my changes too.** workspace, slides, sheets and library also fail in this container. Each fails the same way on the commit before my changes:
+  - workspace, slides and sheets: a `pushManager` page error from this container's browser;
+  - library: the test PDF's title reads "about:blank".
+
+  So these failures are not from this lane, and I left them to CI's runner.
+
