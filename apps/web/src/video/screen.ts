@@ -669,7 +669,27 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   }
 
   // ---------------------------------------------------------------- the trays
+  // (a field the tray holds sends its 'change' as the tray clears it away, focused: that render waits for this one to end, never
+  // runs inside it, so the clear never meets a child the inner one already took)
+  let trayBusy = false;
+  let trayAgain = false;
   function renderTray() {
+    if (trayBusy) {
+      trayAgain = true;
+      return;
+    }
+    trayBusy = true;
+    try {
+      paintTray();
+    } finally {
+      trayBusy = false;
+    }
+    if (trayAgain) {
+      trayAgain = false;
+      queueMicrotask(renderTray);
+    }
+  }
+  function paintTray() {
     clear(tray);
     tray.dataset.tool = tool;
     const c = selClip();
