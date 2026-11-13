@@ -9402,6 +9402,9 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 /* ==== [planlane:social end] ==== */
 
 /* ==== [planlane:links] ==== */
-
+/* LINKS: the line that says when a connection was last tested sits quietly under its note; the reason a link is not working wraps whole */
+html #pg-links .lkcheck { display: block; color: var(--l2, var(--fg)); margin: 4px 0 2px; white-space: normal; }
+html #pg-links .note.lkwhy { color: var(--amber, var(--a)); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .keyrow.wrapit { flex-wrap: wrap; }
 /* ==== [planlane:links end] ==== */
 

@@ -555,6 +555,8 @@ export const brain = {
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
+  /** LINKS → SPOTIFY's TEST: one read of his own Spotify profile through the saved sign-in (`why`: signin, busy, refused, not or reach). */
+  spotifyTest: () => req<{ works: boolean; name?: string | null; product?: string | null; why?: string }>('POST', '/spotify/test'),
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),

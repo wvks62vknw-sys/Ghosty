@@ -167,9 +167,24 @@ export async function spotifyStatus(vault: Keys): Promise<SpotifyStatus> {
   return { linked: !!s, name: s?.name ?? null, product: s?.product ?? null, clientId: s?.clientId ?? null };
 }
 
-/** The LINKS tab's routes: /spotify/link, /spotify/status, /spotify/unlink. */
+/** Why a check of the saved sign-in failed, as a word the LINKS tab says in his words (features/links/words.ts spotifyWhy). */
+function testWhy(e: unknown): string {
+  if (e instanceof SpotifyError) return e.status === 401 ? 'signin' : e.status === 429 ? 'busy' : 'refused';
+  const m = String((e as Error)?.message ?? '');
+  return m === NOT_LINKED ? 'not' : /withdrawn|expired/.test(m) ? 'signin' : 'reach';
+}
+
+/** The LINKS tab's routes: /spotify/link, /spotify/status, /spotify/unlink, /spotify/test (one read of his own profile: does the sign-in still work?). */
 export async function spotifyRoute(req: Request, path: string, method: string, vault: Keys): Promise<Response> {
   if (path === '/spotify/status' && method === 'GET') return json(await spotifyStatus(vault));
+  if (path === '/spotify/test' && method === 'POST') {
+    try {
+      const me = await api<{ display_name?: string; product?: string }>({ vault }, 'GET', '/me');
+      return json({ works: true, name: me?.display_name ?? null, product: me?.product ?? null });
+    } catch (e) {
+      return json({ works: false, why: testWhy(e) });
+    }
+  }
   if (path === '/spotify/unlink' && method === 'POST') {
     await vault.set(VAULT_NAME, '');
     return json({ ok: true });
