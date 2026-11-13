@@ -795,8 +795,8 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     try {
       sizeSpans.xlsx.textContent = sizeWords(made('xlsx').bytes.length);
       sizeSpans.csv.textContent = sizeWords(made('csv').bytes.length);
-      if (all || cache.get('pdf')?.rev === rev) sizeSpans.pdf.textContent = sizeWords(made('pdf').bytes.length);
-      else sizeSpans.pdf.textContent = 'working it out…';
+      if (cache.get('pdf')?.rev === rev || (all && countCells(book()) < 5_000)) sizeSpans.pdf.textContent = sizeWords(made('pdf').bytes.length);
+      else sizeSpans.pdf.textContent = all ? 'said when it is made (a big sheet)' : 'working it out…';
     } catch {
       sizeSpans.xlsx.textContent = '';
     }
@@ -821,9 +821,9 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     ...(['xlsx', 'csv', 'pdf'] as const).map((k) => h('div.shexrow', button(k.toUpperCase(), () => doExport(k)), sizeSpans[k])),
     h('p.shexportnote.shnote', 'The chart is in the PDF, the numbers are in the file. A CSV keeps the numbers and dates, not the £ and % look, and only this sheet.'),
     outs);
-  const scheduleSizes = () => {
+  const scheduleSizes = (ms = 1200) => {
     clearTimeout(sizeTimer);
-    sizeTimer = window.setTimeout(() => paintSizes(true), 1200);
+    sizeTimer = window.setTimeout(() => paintSizes(true), ms);
   };
 
   // Ghosty in it
@@ -945,9 +945,12 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     sheetsState.title = book().title;
     sheetsState.sheets = book().sheets.map((s) => s.name);
     sheetsState.active = sheet().name;
-    sheetsState.json = countCells(book()) < 20_000 ? JSON.stringify(book()) : '';
-    paintSizes(false);
-    scheduleSizes();
+    const cells = countCells(book());
+    sheetsState.json = cells < 20_000 ? JSON.stringify(book()) : '';
+    // the files' sizes are worked out at once for a small workbook; a big one waits until he stops (each edit stays quick)
+    if (cells < 5_000) paintSizes(false);
+    else for (const sp of Object.values(sizeSpans)) sp.textContent = 'working it out…';
+    scheduleSizes(cells < 5_000 ? 1200 : 3000);
   }
   const closeIfStale = () => {
     if (colOpen >= 0 && !sheet().cells && colOpen >= MAXC) closeColumn();

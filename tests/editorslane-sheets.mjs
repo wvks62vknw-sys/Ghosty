@@ -121,6 +121,30 @@ export default async function (h) {
   const S2 = await active(page);
   check((await read(page, S2, 'H1')).v === 7 && (await read(page, S2, 'C5')).v === 60, 'sheets 3: and works out the same answers');
 
+  // 3b. Ghosty's marked changes: CLEAN THIS COLUMN offers each change marked, and each is his to accept or reject, one by one
+  check(await fresh(page), 'sheets 3b: a new workbook for the tidy');
+  const S4 = await active(page);
+  await type(page, 'A1', 'City');
+  await type(page, 'A2', 'london ');
+  await type(page, 'A3', 'PARIS');
+  await type(page, 'A4', 'rome');
+  await page.locator('.shch[aria-label^="Column A"]').first().click();
+  await until(page, () => window.__ghosty.sheets.range === 'A1:A4');
+  const lines = [{ t: 'status', text: 'thinking…' }, { t: 'text', text: '[1] London\n[2] Paris\n[3] Rome' }, { t: 'done', model: 'Mock · scripted' }].map((e) => JSON.stringify(e)).join('\n') + '\n';
+  await page.route('**/api/chat', (r) => r.continue({ url: `${h.base}/__test/stream?lines=${encodeURIComponent(Buffer.from(lines).toString('base64'))}` }));
+  await page.locator('.shask button', { hasText: /^CLEAN THIS COLUMN$/ }).click();
+  check(await until(page, () => document.querySelectorAll('.shedits li').length === 3, null, 30000), 'sheets 3b: three changes offered, each marked (old struck, new underlined)');
+  check(/ACCEPT or REJECT/.test(await said(page)), `sheets 3b: said in his words (${await said(page)})`);
+  await page.locator('.shedits button[aria-label="Accept the change to A2"]').click();
+  check(await until(page, (s) => window.__ghosty.sheets.read(s, 'A2').text === 'London' && document.querySelectorAll('.shedits li').length === 2, S4), 'sheets 3b: ACCEPT takes that one change, and only it');
+  await page.locator('.shedits button[aria-label="Reject the change to A3"]').click();
+  check(await until(page, (s) => window.__ghosty.sheets.read(s, 'A3').text === 'PARIS' && document.querySelectorAll('.shedits li').length === 1, S4), 'sheets 3b: REJECT leaves that cell as it was');
+  await page.locator('.shedits button[aria-label="Accept the change to A4"]').click();
+  check(await until(page, (s) => window.__ghosty.sheets.read(s, 'A4').text === 'Rome' && !document.querySelector('.shedits'), S4), 'sheets 3b: the last one decided, the marks are gone');
+  await key(page, 'UNDO').click();
+  check(await until(page, (s) => window.__ghosty.sheets.read(s, 'A4').text === 'rome' && window.__ghosty.sheets.read(s, 'A2').text === 'London', S4), 'sheets 3b: UNDO takes back the last accepted change alone');
+  await page.unroute('**/api/chat');
+
   // 4. a big file: 10,000 rows
   const rows = ['Day,Amount,Note'];
   for (let i = 1; i <= 9997; i++) rows.push(`${i},${(i % 97) + 0.5},row ${i}`);
