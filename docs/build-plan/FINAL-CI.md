@@ -20,36 +20,50 @@ The other candidates (the caption's rating keys, the Stage's line, narration, KE
 not show up on the critical path.
 
 **What I made.** The turn line is painted on the next frame, once, however often the turn moves before it. The log is drawn
-once a frame too, except his own sent words, which still show the instant he sends them (chatpass's "reply while he reads
-back" relies on that, and so does he). A frame comes before anything is shown, so nothing flickers.
+once a frame too, and puts the turn line back in that same paint, so there is never a frame without it. His own sent words
+are still drawn the instant he sends them (chatpass's "reply while he reads back" relies on that, and so does he).
 
 **Numbers (this container; CI's runner is slower).**
 
 | | origin/main | before | after |
 | --- | --- | --- | --- |
-| spoken, the page's first turn | 1123 ms | 1138 ms | 886 ms (1049 ms on a second run) |
-| convo, median of ten turns | 877 ms | 951 ms | 813 ms, 830 ms |
+| spoken, the page's first turn | 1123 ms | 1138 ms; 1054 ms on final today | 886, 1049, 861, 951, 1015, 941, 898 ms |
+| convo, median of ten turns | 877 ms | 951 ms; final today a little over 950 | 813, 830, 904, 877, 857, 823 ms |
 | reply in → voice asked (profile) | about 1 ms | 96 ms over six turns | 4.5 ms over six turns |
 
 talk (spoken and convo) and chatpass (whole) pass.
 
 ## 2. video: the exported file was 105 ms shorter than the timeline (54797 ms against 54902 ms)
 
-**What was wrong.** CI's log says what happened. With no H.264 encoder, the export takes the recorder's way, and under
-software drawing the player drew only 164 pictures in 55 seconds, about three a second. The recorder's file runs from its
-start to the last picture that reached it. The last picture was drawn when the player noticed the end (up to a third of a
-second late), and the recorder was stopped 30 to 40 ms after that. A picture drawn that slowly had not reached the recorder
-yet, so the file ended on an earlier picture.
+**What was wrong.** CI's log shows what happened. With no H.264 encoder, the export takes the recorder's way, and under
+software drawing the player drew only 164 pictures in 55 seconds, about three a second.
+
+I reproduced it here: the H.264 encoder was forced to fail as on CI, the CPU slowed to a third, and the player drew 129 to
+254 pictures. Moving the last picture later, or waiting longer before stopping, made no difference: −60 ms with the original
+code, −58 and −68 with those changes.
+
+The cause is that the recorder's encoder hands a picture on only once the next one has come in. So whatever is drawn last
+is still inside it when the recorder stops, and it is lost. The file then ends on the picture before, short by one picture's
+time, which is a third of a second at three pictures a second. I also tried checking the file while it was still being
+recorded, but it is written in pieces and does not say its own length reliably (it ran 2.3 s over), so I took that out.
 
 **What I made** (video/export.ts, video/preview.ts):
 
-- The last picture is drawn at exactly the timeline's length after the start, on its own clock, not whenever the player
-  notices the end.
-- The recorder stops only once that picture has had time to reach it: two frames and at least 150 ms.
-- The export's player no longer seeks back to the last frame after the end. That seek drew a second, later picture, which
-  would have made the file too long.
+- The timeline's last picture is drawn at exactly the timeline's length after the start, on its own clock.
+- The same picture is then drawn twice more, 40 ms apart, to push it through the encoder. Where nothing is held back, the
+  file runs at most 80 ms over.
+- The recorder then gets two frames and 150 ms before it stops.
+- The export's player no longer seeks back to the last frame after the end. That seek drew one more picture later still.
 
-**Numbers.** See "Checked" below.
+**Numbers** (the file's length against the timeline's 54866 ms; the check allows 100 ms either way):
+
+| | original | now |
+| --- | --- | --- |
+| CPU at a third (CI-like, 129 to 254 pictures) | 54806 ms (−60) | 54904 ms (+38) |
+| full speed | n/a | 54897 ms (+31) |
+| CI | 54797 ms (−105) | the combined check will say |
+
+video's own "an encoder that cannot be made" check (a 2 s file) passes at both speeds.
 
 ## 3. video2: "a sampled frame's shift is smaller after: 5.9 px against 8.3 px before"
 
@@ -61,8 +75,12 @@ on the next. The steadier's own check of where the player's picture sits ("the p
 reason.
 
 **What I made.** A seek in the editor (video/preview.ts, `Feeder.seek`) now waits for the new picture itself to be shown
-(`requestVideoFrameCallback`), with a short fallback of 0.4 s for a seek that lands on the picture already showing. The spec's
-samples, the steadier's frames and his own scrubbing all get the frame he asked for, every time.
+(`requestVideoFrameCallback`), not just for `seeked`. A seek that lands on the picture already showing has a short fallback
+of 0.4 s. The spec's samples, the steadier's frames and his own scrubbing all get the frame under the playhead.
+
+**Numbers.** Two runs here with the fix gave the same samples to the tenth of a pixel: 11.1 px before and 6.4 px after, both
+times (6.4 against 11.1 is 0.58; the check wants under 0.7). CI's two runs before the fix gave 12.2 and 8.3 px before for the
+same clip.
 
 ## 4. games5: Ghosty's level-1 answer took about 4 s (draughts 3813 ms; backgammon about 4.1 s)
 
@@ -91,7 +109,19 @@ games5's four board parts pass.
 
 ## Checked
 
-(filled in below as each run finishes)
+All on this branch merged with final:
+
+- The web app typechecks. The brain typechecks, and the whole brain suite passes (2,223 tests after the last merge). ratchet, knowledge and look
+  pass again after the merge (43).
+- **talk:** spoken and convo pass every run. In whole runs, two other parts failed once each and then passed: `?do=listen`
+  listened at 1232 and 1500 ms (31, 50, 63 and 107 ms on other runs), and "cooling" missed its line twice on a preview
+  server that had been up through a dozen runs. Run on their own, mine and final pass alike and take the same time (cooling:
+  mine 759 to 920 ms, final 804 to 1026 ms). I could not tie either to these changes. If CI shows one, it is worth its own look.
+- **chatpass:** passes whole, after the turn line was made to go back in the same paint as the log (an earlier version
+  missed it for one frame, and chatpass caught that).
+- **video:** passes whole. Here, too, the export takes the recorder's way: 54933 ms against 54902 ms.
+- **video2:** passes whole (10.9 px to 3.4 px at both sizes).
+- **games5:** draughts, othello, backgammon and connect four pass (answers 411 to 797 ms after the merge).
 
 ## How to try it on his phone
 
@@ -104,4 +134,11 @@ games5's four board parts pass.
 
 ## What is left
 
-- CI's runner is slower than this container. The numbers above are this container's. The combined check is the real proof.
+- CI's runner is slower than this container, so the numbers above are this container's. The combined check is the real
+  proof.
+- The same stall that held up the board games (an old page's compositor waiting on a GPU kept busy by a picture redrawn
+  every frame) can hit any screen that redraws a heavy canvas sixty times a second while nothing moves. The orb and the eye's
+  layers would be the next places to look if a check right after a reload is slow on CI.
+- One commit on this branch ("the recorder's file is as long as the timeline…") ends with another session's link in its
+  Claude-Session line, copied by mistake. Rewriting a pushed commit was not allowed, so it stays. The later commit on the
+  same files carries this session's link.
