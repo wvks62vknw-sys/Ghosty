@@ -8318,3 +8318,36 @@ html .wallbtns { gap: var(--g-s-1); }
 html .tvwallrow { display: flex; flex-direction: column; gap: var(--g-s-1); align-items: flex-start; margin-top: var(--g-s-1); }
 html .tvwallrow .note { margin: 0; }
 html .tvwallkey { min-height: var(--g-target); }
+/* ---------------------------------------------------------------- THE GAMES OF PASS 5 (BRIEF-GAMES-5)
+   THE PLATFORMER and THE CAVE put their keys in two groups under the thumbs (◀ ▶ under the left one, the buttons under the
+   right); the four board games keep a title, a line of what is happening ("Ghosty is thinking…", with a dot) and HINT, TAKE BACK
+   and RULES in a row. All in the system's tokens; prefixed g4 and g5. */
+.g4 .g4grp { display: flex; gap: var(--g-s-1); pointer-events: none; }
+.g4 .g4grp > * { pointer-events: auto; }
+.g4 .g4grp .g4btn { flex: 0 0 auto; }
+.g4 .g4pm { width: 60px; max-width: none; font-size: 22px; }
+.g4 .g4grp.grid { display: grid; grid-template-columns: repeat(2, 72px); gap: var(--g-s-1); }
+.g4 .g4grp.grid .g4btn { width: 72px; max-width: none; }
+.g4 .g4grp.right:not(.grid) .g4btn { width: 76px; max-width: none; }
+.g4 .g4grp.right:not(.grid) .g4btn.g4wide { width: 112px; }
+.g4:is(.g4platform, .g4cave) .g4ctl { justify-content: space-between; align-items: flex-end; padding: 0 var(--g-s-2); }
+.g4 .g4board .g4pad, .g4.g4board .g4pad { cursor: pointer; }
+.g4.g4board .g4pad.wait { cursor: progress; }
+.g4.g4board .g5head { position: absolute; left: var(--g-s-2); right: calc(var(--g-s-2) + 56px); top: calc(var(--g-safe-top) + var(--g-s-1)); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--g-s-1); pointer-events: none; }
+.g4.g4board .g5title { font: var(--g-t-head); color: var(--g-ink-1); }
+.g4.g4board .g5lvl { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); }
+.g4.g4board .g5info { flex: 1 1 100%; font: var(--g-t-fine); color: var(--g-ink-3); font-variant-numeric: var(--g-num); }
+.g4.g4board .g5status { position: absolute; left: var(--g-s-2); right: calc(var(--g-s-2) + 56px); top: calc(var(--g-safe-top) + 64px); display: flex; align-items: center; gap: var(--g-s-1); font: var(--g-t-head); color: var(--g-ink-1); pointer-events: none; }
+.g4.g4board .g5dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g-accent); opacity: 0; }
+.g4.g4board .g5status.busy .g5dot { opacity: 1; animation: g5pulse 1s ease-in-out infinite; }
+@keyframes g5pulse { 0%, 100% { transform: scale(.6); } 50% { transform: scale(1.15); } }
+.g4.g4board .g5ctl .g4btn { max-width: 124px; min-width: 88px; font: var(--g-t-key); letter-spacing: var(--g-tr-key); }
+.g4.g4board .g5ctl .g4btn:disabled { opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .g4.g4board .g5status.busy .g5dot { animation: none; } }
+/* ---- end of the games of pass 5 ---- */
+/* the GYM's report card for the board games (BRIEF-GAMES-5) */
+html #pg-gym .gymboards { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-gym .gymboards .gb { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1) 0; border-bottom: var(--g-hair) solid var(--g-line-faint); }
+html #pg-gym .gymboards .gb b { font: var(--g-t-head); color: var(--g-ink-1); }
+html #pg-gym .gymboards .gb span { font: var(--g-t-reading); color: var(--g-ink-2); font-variant-numeric: var(--g-num); }
+html #pg-gym .gymboards .gbnote { font: var(--g-t-caption); color: var(--g-ink-3); }

@@ -16,6 +16,7 @@ import { CAR_WORDS } from './car';
 import { GAMES2_WORDS } from './games2';
 import { GAMES3_WORDS } from './games3';
 import { GAMES4_WORDS } from './games4';
+import { GAMES5_WORDS } from './games5';
 import { RESTC_WORDS } from './restc';
 import { RESTB_WORDS } from './restb';
 import { RESTA_WORDS } from './resta';
@@ -32,4 +33,4 @@ import { READER_WORDS } from './reader';
 import { AWARENESS_WORDS } from './awareness';
 import { FURTHER_WORDS } from './further';
 
-export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...GAMES4_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS, ...TABS_WORDS, ...TALK_WORDS, ...LOOK_WORDS, ...READER_WORDS, ...AWARENESS_WORDS, ...ENGINE3D_WORDS, ...LIFEEASIER_WORDS, ...FURTHER_WORDS, ...WALL_WORDS };
+export const APP_WORDS: Record<string, CatValue> = { ...APP_1, ...APP_2, ...APP_3, ...APP_4, ...ARCADE_WORDS, ...GAMES2_WORDS, ...GAMES3_WORDS, ...GAMES4_WORDS, ...CAR_WORDS, ...RESTA_WORDS, ...RESTB_WORDS, ...RESTC_WORDS, ...OFFLINE2_WORDS, ...RESTD_WORDS, ...RESTE_WORDS, ...TABS_WORDS, ...TALK_WORDS, ...LOOK_WORDS, ...READER_WORDS, ...AWARENESS_WORDS, ...ENGINE3D_WORDS, ...LIFEEASIER_WORDS, ...FURTHER_WORDS, ...WALL_WORDS, ...GAMES5_WORDS };

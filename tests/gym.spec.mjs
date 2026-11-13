@@ -164,7 +164,10 @@ await page.screenshot({ path: `${out}/gym-page3.png` });
 if (engine !== 'webkit') {
   const box = await G('.gymcards').boundingBox();
   const cdp = await ctx.newCDPSession(page);
-  const y = Math.round(box.y + 90);
+  // (the middle of the part of the strip that is on screen: the Report card under the games makes the page longer, so the dot's tap
+  // scrolls the strip further up than it used to, and a fixed 90 px below its top can be above the screen)
+  const vh = await page.evaluate(() => innerHeight);
+  const y = Math.round((Math.max(box.y, 0) + Math.min(box.y + box.height, vh)) / 2);
   const finger = async (from, to) => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
     for (let i = 1; i <= 10; i++) {

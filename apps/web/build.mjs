@@ -34,6 +34,8 @@ const jobs = [
   { ...common, entryPoints: ['src/workers/textures.worker.ts'], outfile: 'dist/textures.worker.js', format: 'iife' },
   // the one Lens's cheap pass (frame read, steadiness, the text check), off the main thread
   { ...common, entryPoints: ['src/workers/lens.worker.ts'], outfile: 'dist/lens.worker.js', format: 'iife' },
+  // the board games' search (Ghosty's thinking), off the main thread
+  { ...common, entryPoints: ['src/workers/board.worker.ts'], outfile: 'dist/board.worker.js', format: 'iife' },
 ];
 
 if (watch) {

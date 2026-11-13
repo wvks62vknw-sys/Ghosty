@@ -41,6 +41,8 @@ export interface StartOpts {
   theta: readonly number[] | null;
   /** The words the player handed the engine (a spec's switches). */
   args?: readonly string[];
+  /** What a saved game decoded to (a game with `persist`: CONTINUE hands it back). */
+  resume?: unknown;
 }
 export interface View {
   w: number;
@@ -73,6 +75,14 @@ export type Mode = 'title' | 'play' | 'paused' | 'over' | 'gone';
 export interface Ends {
   title: string;
   tip: string;
+  /** Lines for the end screen in place of the score line (the cave's time and crystals). */
+  notes?: string[];
+}
+
+/** A card the game puts up over itself: a speaker or an item, and the pages said one at a time. */
+export interface Card {
+  title: string;
+  pages: string[];
 }
 
 /** The buttons a game draws under the thumbs: build them with `button`, the shell lays them out in `.g4ctl`. */
@@ -118,7 +128,13 @@ export interface Rules<R> {
   sound(s: Synth, e: Evt): void;
   /** A haptic for an event: 'hit' for a knock, 'tick' for a light one. */
   haptic?(e: Evt): 'hit' | 'tick' | null;
-  music?: { spec: TuneSpec; pace(r: R): number };
+  music?: { spec: TuneSpec; specFor?(r: R): TuneSpec; pace(r: R): number };
+  /** A game that keeps a place in the arcade's save store: NEW GAME and CONTINUE, saved when it says an event 'save'. */
+  persist?: { name: string; encode(r: R): string; decode(raw: string): unknown | null };
+  /** A card to show for an event (null: none); the game waits behind it. */
+  card?(e: Evt, r: R): Card | null;
+  /** The pause menu's line (the score and the mark by default). */
+  pauseLine?(r: R, target: number): string;
   /** The state the spec reads (plain data). */
   peek?(r: R): Record<string, unknown>;
   /** A line shown as the run goes on, from the events. */
@@ -142,7 +158,7 @@ export interface GameStats2 extends GameStats {
   demo: boolean;
 }
 
-const KEYS: Record<string, string> = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ' ': 'a', z: 'b', x: 'x', c: 'c', Shift: 'c' };
+const KEYS: Record<string, string> = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', m: 'map', ' ': 'a', z: 'b', x: 'x', c: 'c', Shift: 'c' };
 const arg = (args: readonly string[] | undefined, k: string): string | null => {
   const hit = (args ?? []).find((a) => a.startsWith(`${k}=`));
   return hit ? hit.slice(k.length + 1) : null;
@@ -164,7 +180,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
   const accent = accentHex(0x64d2ff);
   const accentCss = `#${accent.toString(16).padStart(6, '0')}`;
   const synth = new Synth(opts.sound);
-  const music = rules.music ? new Tune(synth, rules.music.spec) : null;
+  let music = rules.music ? new Tune(synth, rules.music.spec) : null;
   const argLevel = arg(opts.args, 'level');
   const argSeed = arg(opts.args, 'seed');
   const auto = (opts.args ?? []).includes('auto');
@@ -178,6 +194,16 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
   const theta = () => bookOf(rules.id).ghosty.theta ?? null;
   const botTheta = () => theta() ?? rules.practice.theta0;
   const seed0 = () => (argSeed ? Number(argSeed) || 1 : (Math.random() * 2 ** 31) | 0);
+
+  let resume: unknown = null;
+  if (rules.persist) {
+    try {
+      const b = await opts.saves.get(rules.persist.name);
+      if (b) resume = rules.persist.decode(new TextDecoder().decode(b));
+    } catch {
+      resume = null;
+    }
+  }
 
   let mode: Mode = 'title';
   let level = myLevel();
@@ -312,7 +338,30 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       else if (hp === 'tick') haptic(5);
       const w = rules.say?.(e, run);
       if (w) ui.say(w, 2200);
+      if (e.type === 'save' && rules.persist && !demo) {
+        const raw = rules.persist.encode(run);
+        resume = rules.persist.decode(raw);
+        void opts.saves.put(rules.persist.name, new TextEncoder().encode(raw)).catch(() => undefined);
+      }
+      const cd = rules.card?.(e, run);
+      if (cd && mode === 'play') showCard(cd);
     }
+  };
+  const showCard = (cd: Card) => {
+    setMode('paused');
+    touchHeld.clear();
+    held.clear();
+    const page = (i: number) => {
+      const last = i >= cd.pages.length - 1;
+      reopen = () => page(i);
+      ui.menu({
+        title: cd.title,
+        line: cd.pages[i] ?? '',
+        buttons: [{ label: last ? 'Got it' : 'Next', aria: last ? 'Close this card' : 'Next page', primary: true, act: () => (last ? (ui.closeMenu(), setMode('play')) : page(i + 1)) }],
+        kind: 'card',
+      });
+    };
+    page(0);
   };
 
   // ---------------------------------------------------------------- Ghosty practises, a session at a time, when the page is idle
@@ -360,7 +409,9 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       line: entry.ghosty || rules.line,
       notes: [youNote(), ghostNote()],
       buttons: [
-        { label: 'Play', aria: `Play ${rules.title}`, primary: true, act: () => startRun() },
+        ...(rules.persist
+          ? [...(resume ? [{ label: 'Continue', aria: `Continue ${rules.title} from the last lantern`, primary: true, act: () => startRun(true) }] : []), { label: 'New game', aria: `Start ${rules.title} from the beginning`, primary: !resume, act: () => startRun() }]
+          : [{ label: 'Play', aria: `Play ${rules.title}`, primary: true, act: () => startRun() }]),
         { label: 'How to play', act: () => openHow(openTitle) },
         soundBtn(openTitle),
         { label: 'Quit', aria: 'Quit to the arcade', act: () => void leave() },
@@ -382,12 +433,12 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     run = rules.start({ level: Math.min(hisLevel(), 6), seed: seed0(), theta: botTheta() });
     acc = 0;
   };
-  const startRun = () => {
+  const startRun = (fromSave = false) => {
     synth.wake();
     level = myLevel();
     target = rules.target(level);
     demo = false;
-    run = rules.start({ level, seed: seed0(), theta: theta(), args: opts.args });
+    run = rules.start({ level, seed: seed0(), theta: theta(), args: opts.args, resume: fromSave ? resume : undefined });
     acc = 0;
     overT = 0;
     ended = false;
@@ -399,6 +450,10 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     setMode('play');
     hudScore.textContent = '0';
     hudLevel.textContent = `Level ${level}`;
+    if (rules.music?.specFor) {
+      music?.stop();
+      music = new Tune(synth, rules.music.specFor(run));
+    }
     music?.start();
     loop.start();
   };
@@ -410,7 +465,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     touchHeld.clear();
     ui.menu({
       title: 'Paused',
-      line: `${rules.words(rules.score(run))} so far. Pass mark ${rules.words(target)}.`,
+      line: rules.pauseLine ? rules.pauseLine(run, target) : `${rules.words(rules.score(run))} so far. Pass mark ${rules.words(target)}.`,
       buttons: [
         { label: 'Resume', primary: true, act: () => resumeRun() },
         { label: 'How to play', act: () => openHow(openPause) },
@@ -465,7 +520,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
       ui.menu({
         title: e.title,
         line,
-        notes: [`${rules.words(sc)} · pass mark ${rules.words(target)}`, lastOutcome, youNote(), ghostNote()],
+        notes: [...(e.notes ?? [`${rules.words(sc)} · pass mark ${rules.words(target)}`]), lastOutcome, youNote(), ghostNote()],
         buttons: [
           { label: 'Play again', primary: true, act: () => startRun() },
           { label: 'Menu', act: () => openTitle() },
@@ -506,6 +561,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     if (intent.held.has('use')) padHeld.add('b');
     if (intent.held.has('fire')) padHeld.add('x');
     if (intent.held.has('run')) padHeld.add('c');
+    if (intent.held.has('map')) padHeld.add('map');
   };
   let prevPause = false;
   const frame = (dt: number) => {
