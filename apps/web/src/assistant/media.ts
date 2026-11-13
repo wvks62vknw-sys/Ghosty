@@ -90,7 +90,11 @@ function el(): HTMLAudioElement {
   return audio;
 }
 
-export async function playStation(s: NowPlaying): Promise<boolean> {
+/** The list ⏭/⏮ steps through, fixed at the first step (a step's own play must not reorder it); a station picked any other way ends it. */
+let stepping: NowPlaying[] | null = null;
+
+export async function playStation(s: NowPlaying, o: { stepped?: boolean } = {}): Promise<boolean> {
+  if (!o.stepped) stepping = null;
   const t = ++turn;
   clearTimeout(tuneTimer);
   if (player.get().now?.url !== s.url) player.set({ since: 0 });
@@ -169,7 +173,10 @@ export function canSetVolume(): boolean {
 }
 
 /** Lower the radio while Ghosty speaks. */
+/** Ghosty is speaking or listening: the radio is held low (the sleep timer's own volume work keeps to this). */
+let ducked = false;
 export function duck(on: boolean): void {
+  ducked = on;
   if (audio && player.get().now) audio.volume = on ? Math.min(0.15, player.get().volume) : player.get().volume;
 }
 
@@ -228,7 +235,7 @@ function clearSleep(): void {
   clearTimeout(sleepTimer);
   clearInterval(fadeTimer);
   sleepTimer = fadeTimer = 0;
-  if (audio) audio.volume = player.get().volume;
+  if (audio) audio.volume = ducked ? Math.min(0.15, player.get().volume) : player.get().volume;
   try {
     localStorage.removeItem(SLEEP_KEPT);
   } catch {
@@ -281,7 +288,8 @@ export function sleepLost(): { at: number; name: string } | null {
 
 /** The station after (or before) the one on, in his favourites, else the ones he played lately: the lock screen's ⏭ and ⏮. */
 export function stepStation(dir: 1 | -1): NowPlaying | null {
-  const l = favourites.list().length > 1 ? favourites.list() : recentStations();
+  const l = stepping ?? (favourites.list().length > 1 ? favourites.list() : recentStations());
+  stepping = l;
   if (!l.length) return null;
   const at = l.findIndex((s) => s.url === player.get().now?.url);
   return l[(at < 0 ? (dir > 0 ? 0 : l.length - 1) : at + dir + l.length) % l.length] ?? null;
@@ -352,7 +360,7 @@ if (session) {
   // ⏭ and ⏮ on the lock screen and AirPods: the next or previous of his favourites (the ones he played lately when he has none)
   const step = (dir: 1 | -1) => {
     const n = stepStation(dir);
-    if (n && n.url !== player.get().now?.url) void playStation(n);
+    if (n && n.url !== player.get().now?.url) void playStation(n, { stepped: true });
   };
   on('nexttrack', () => step(1));
   on('previoustrack', () => step(-1));

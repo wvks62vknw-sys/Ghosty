@@ -62,7 +62,10 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     const pt = new Date(py!, pm! - 1, pd!).getTime();
     const evs = (byDay.get(picked) ?? []).sort((a, b) => a.start - b.start);
     const tds = todos.filter((t) => !t.done && t.due === picked);
-    const far = pt > Date.now() + AHEAD_DAYS * 86400_000;
+    // (the brain reads from the start of today for AHEAD_DAYS days: the day that starts at that edge is already outside it)
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
+    const far = pt >= startToday.getTime() + AHEAD_DAYS * 86400_000;
     const gone = picked < today;
     const list = h('div.monlist', { 'aria-live': 'polite' },
       h('b.mdayline', { dataset: { case: 'keep' } }, dayLine(pt, evs.length, tds.length)),

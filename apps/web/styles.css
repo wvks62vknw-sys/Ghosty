@@ -9499,6 +9499,7 @@ html #pg-agenda .pn.month button.monwk.past b, html #pg-agenda .pn.month button.
 html #pg-agenda .pn.month button.monwk.today b { color: var(--c); }
 html #pg-agenda .pn.month button.monwk.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
 
+html #pg-agenda .pn.todo .keyrow button { height: 44px; min-height: 44px !important; } /* CLEAR DONE and the rest of the list's keys at 44 pt */
 /* ==== [planlane:agenda end] ==== */
 
 /* ==== [planlane:brief] ==== */

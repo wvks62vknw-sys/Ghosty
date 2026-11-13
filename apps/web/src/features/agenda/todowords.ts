@@ -165,7 +165,7 @@ export function weekWords(events: readonly string[], todos: number): string {
 }
 /** How far ahead the month can show what is on: what the diary reads (the brain gives up to 62 days). */
 export const AHEAD_DAYS = 42;
-export const beyondWords = 'Further ahead than I read your calendars. Events you add still show in the diary.';
+export const beyondWords = 'Further ahead than I read your calendars: what is on that day shows here as it comes closer.';
 export const pastWords = 'This day has gone. The diary shows what is still to come.';
 /** The open to-dos due today or late (late first): the brief's TO-DO line. */
 export function dueToday(l: readonly Todo[], now: number): Todo[] {
