@@ -5,7 +5,7 @@
  */
 import { send } from '../../assistant/session';
 import { clear, h, svgEl } from '../../core/dom';
-import { biggestMove, clock, coinChart, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, loadHoldings, loadWatch, MARKETS_CHANGED, money, moved, ounce, pct, RANGES, rate, rates, saveWatch, searchCoins, setHolding, WATCH_MAX, type Coin, type Range } from '../../data/markets';
+import { biggestMove, clock, coinChart, coinName, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, loadHoldings, loadWatch, MARKETS_CHANGED, money, moved, ounce, pct, RANGES, rate, rates, refreshCoins, saveWatch, searchCoins, setHolding, WATCH_MAX, type Coin, type Range } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { settings } from '../../state/app';
@@ -19,7 +19,16 @@ import {
 } from './words';
 import { waiting } from '../../ui/wait';
 
-const btc = () => coins.data?.find((c) => c.sym === 'BTC') ?? null;
+/** The prices read, drawn through his list as it is now: his order at once, a coin he took off gone at once (no wait for the next read). */
+const shown = (): Coin[] => {
+  const data = coins.data ?? [];
+  return loadWatch().map((w) => data.find((c) => c.id === w.id)).filter((c): c is Coin => !!c);
+};
+/** The coin the deck and the Plan hub read: Bitcoin while it is on his list, else the first coin on it. */
+const lead = (): Coin | null => {
+  const l = shown();
+  return l.find((c) => c.id === 'bitcoin') ?? l[0] ?? null;
+};
 const KEPT_FAIL = 'This phone wouldn’t keep that (its storage is full or blocked).';
 
 /** A coin's prices over a range as a chart: the line between its own high and low (labelled beside it, so the scale is plain). */
@@ -162,7 +171,7 @@ function editList(): void {
         [n[i], n[j]] = [n[j]!, n[i]!];
         if (!saveWatch(n)) return toast(KEPT_FAIL, 'bad');
         paintList();
-        void coins.refresh(true);
+        void refreshCoins();
       };
       const up = button('↑', () => move(-1), 'mkmv');
       up.setAttribute('aria-label', `Move ${w.name} up`);
@@ -171,19 +180,35 @@ function editList(): void {
       dn.setAttribute('aria-label', `Move ${w.name} down`);
       dn.disabled = i === l.length - 1;
       const x = button('✕', () => {
-        const before = loadWatch();
-        if (!saveWatch(before.filter((y) => y.id !== w.id))) return toast(KEPT_FAIL, 'bad');
+        if (!saveWatch(loadWatch().filter((y) => y.id !== w.id))) return toast(KEPT_FAIL, 'bad');
         paintList();
-        void coins.refresh(true);
+        void refreshCoins();
+        // UNDO puts back only this coin, where it was: moves and ADDs made since are kept
         undo(`${w.name} taken off your watchlist`, () => {
-          saveWatch(before);
+          const n = loadWatch();
+          if (n.some((y) => y.id === w.id)) return;
+          if (n.length >= WATCH_MAX) return toast(WATCH_FULL(WATCH_MAX), 'warn');
+          n.splice(Math.min(i, n.length), 0, w);
+          if (!saveWatch(n)) return toast(KEPT_FAIL, 'bad');
           if (list.isConnected) paintList();
-          void coins.refresh(true);
+          void refreshCoins();
         });
       }, 'mkmv mkx');
       x.setAttribute('aria-label', `Take ${w.name} off the list`);
       return h('div.mkwlrow', h('span.mkwln', h('b', w.name), h('small', w.sym)), up, dn, x);
     }));
+    syncAdds();
+  };
+  // each search result's key follows his list as it is now (a coin taken off can be added again; one added says so)
+  const syncAdds = () => {
+    const l = loadWatch();
+    found.querySelectorAll<HTMLButtonElement>('button[data-coin]').forEach((b) => {
+      const on = l.some((y) => y.id === b.dataset.coin);
+      b.textContent = on ? 'ON THE LIST' : 'ADD';
+      b.disabled = on;
+      b.classList.toggle('on', !on);
+      b.setAttribute('aria-label', on ? `${b.dataset.name} is on your list` : `Add ${b.dataset.name}`);
+    });
   };
   const q = h('input.mkq', { type: 'search', placeholder: 'Add a coin: name or symbol', 'aria-label': 'Search CoinGecko for a coin', maxlength: '40', enterkeyhint: 'search' });
   const found = h('div.mkfound', { role: 'status' }, h('p.mknote', SEARCH_HINT));
@@ -207,11 +232,11 @@ function editList(): void {
           if (l.some((y) => y.id === w.id)) return;
           if (l.length >= WATCH_MAX) return toast(WATCH_FULL(WATCH_MAX), 'warn');
           if (!saveWatch([...l, w])) return toast(KEPT_FAIL, 'bad');
-          add.textContent = 'ON THE LIST';
-          add.disabled = true;
           paintList();
-          void coins.refresh(true);
+          void refreshCoins();
         }, on ? 'mkadd' : 'on mkadd');
+        add.dataset.coin = w.id;
+        add.dataset.name = w.name;
         add.disabled = on;
         add.setAttribute('aria-label', on ? `${w.name} is on your list` : `Add ${w.name}`);
         return h('div.mkwlrow', h('span.mkwln', h('b', w.name), h('small', w.sym)), add);
@@ -248,20 +273,22 @@ export const marketsTab: TabDef = {
   blurb: 'crypto · gold · currencies',
   // The deck's line and the Plan hub's card read the same prices as the tab: Bitcoin over the last 24 hours, and
   // never called live (or given a change as now) once they are old or the source has stopped answering.
+  // (Bitcoin while it is on his list, else the first coin on it; with his list empty, never LIVE and never "Not yet" for ever)
   now() {
-    const b = btc();
-    return b && fresh(coins) ? `Bitcoin ${pct(b.change)} · 24 h` : '';
+    const b = lead();
+    return b && fresh(coins) ? `${b.name} ${pct(b.change)} · 24 h` : '';
   },
-  status: () => (fresh(coins) ? 'LIVE' : coins.status === 'NO FEED' || coins.status === 'STALE' ? 'OFF' : 'READY'),
+  status: () => (!loadWatch().length ? 'READY' : fresh(coins) && lead() ? 'LIVE' : coins.status === 'NO FEED' || coins.status === 'STALE' ? 'OFF' : 'READY'),
   instrument: () => {
-    const b = btc();
+    const b = lead();
     return sparkInst(b ? lastDay(b) : [], (b?.change ?? 0) >= 0);
   },
   readouts: () => {
-    const b = btc();
+    const b = lead();
     const live = fresh(coins);
+    if (!loadWatch().length) return [{ label: 'Watchlist', value: 'Empty' }];
     return [
-      { label: 'Bitcoin', value: b ? money(b.price, b.cur) : null, live },
+      { label: b?.name ?? loadWatch()[0]!.name, value: b ? money(b.price, b.cur) : null, live },
       live || !b ? { label: '24 h', value: b ? pct(b.change) : null } : { label: 'As of', value: clock(b.at) },
     ];
   },
@@ -291,7 +318,7 @@ export const marketsTab: TabDef = {
         settings.set({ currency: c });
         markCur();
         paint();
-        void coins.refresh(true);
+        void refreshCoins();
       });
       b.dataset.cur = c;
       b.setAttribute('aria-label', `Prices in ${c === 'gbp' ? 'pounds' : c === 'usd' ? 'dollars' : 'euros'}`);
@@ -310,15 +337,18 @@ export const marketsTab: TabDef = {
       const ids = Object.keys(h0);
       /* state: markets.holdings empty */
       if (!ids.length) return void clear(hp.body, h('div.empty', h('b', HOLD_EMPTY), h('span', HOLD_EMPTY_NEXT)));
-      const data = coins.data ?? [];
+      const data = shown();
       const list: Held[] = [];
       const rows: HTMLElement[] = [];
       for (const id of ids) {
         const c = data.find((x) => x.id === id);
-        const name = c?.name ?? loadWatch().find((w) => w.id === id)?.name ?? id;
+        const n = coinName(id);
+        const name = c?.name ?? n?.name ?? 'A coin I can’t name';
         if (!c) {
+          // (the words follow his list, not whether a read has landed: a coin on it whose price is not here yet is not "off the list")
+          const listed = loadWatch().some((w) => w.id === id);
           /* state: markets.holdings loading */
-          rows.push(row(null, h('span', name, h('br'), h('small', `${amountWords(h0[id]!)} · ${coins.data ? 'not on your watchlist, so no price is read' : 'price not read yet'}`)), NOT_READ));
+          rows.push(row(null, h('span', name, h('br'), h('small', `${amountWords(h0[id]!)}${n?.sym ? ` ${n.sym}` : ''} · ${listed ? 'price not read yet' : 'not on your watchlist, so no price is read'}`)), NOT_READ));
           continue;
         }
         const held: Held = { id, sym: c.sym, name: c.name, amount: h0[id]!, price: c.price, change: c.change, cur: c.cur };
@@ -442,9 +472,9 @@ export const marketsTab: TabDef = {
       }
       return out.join(' ');
     };
-    const coinsAt = () => Math.max(0, ...(coins.data ?? []).map((c) => c.at));
+    const coinsAt = () => Math.max(0, ...shown().map((c) => c.at));
     const paint = () => {
-      const list = coins.data ?? [];
+      const list = shown();
       const cs = state(coins, coinsAt());
       // (his watchlist emptied: said, with the way to fill it, never "Loading" for ever)
       const none = !loadWatch().length;

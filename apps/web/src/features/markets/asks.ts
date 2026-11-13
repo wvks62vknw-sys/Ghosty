@@ -43,6 +43,10 @@ export function coinNamed(words: string): CoinName | null {
   return hit ? KNOWN_COINS.find((c) => c.id === hit[1]) ?? null : null;
 }
 
+/** Coin words that are also people's names, films or plain words ("How's Ada doing?", "watch tron"): taken only with a price cue or "my watchlist". */
+const AMBIGUOUS = /^(?:(?:a|an|the|my)\s+)?(?:ada|sol|pepe|tron|cosmos|atom|near|sui|stellar|avalanche)$/i;
+const ambiguous = (words: string): boolean => AMBIGUOUS.test(words.trim());
+
 /** The money he can name, as CoinGecko's exchange rates key it. */
 const CURRENCIES: [RegExp, string][] = [
   [/^(?:£|gbp|pounds?(?: sterling)?|sterling|quid|british pounds?)$/i, 'gbp'],
@@ -95,13 +99,14 @@ export function marketsAsked(text: string): MarketsAsk | null {
   if (unitsAsked(t)) return null;
 
   // ---- HIS COINS: worth, how they are doing
-  if (/^(?:how(?:'s| is| are)|what(?:'s| is| are))(?: all)? my (?:coins|crypto|cryptos|holdings|portfolio|crypto holdings|investments in crypto)(?: (?:doing|worth|at|today|now|worth now|worth today|looking))*$/.test(l) || /^(?:show me |show )?my (?:holdings|portfolio|crypto portfolio)$/.test(l))
+  // (not a bare "my portfolio": that is his portfolio site, the brain's)
+  if (/^(?:how(?:'s| is| are)|what(?:'s| is| are))(?: all)? my (?:coins|crypto|cryptos|holdings|crypto portfolio|coin portfolio|crypto holdings|investments in crypto)(?: (?:doing|worth|at|today|now|worth now|worth today|looking))*$/.test(l) || /^(?:show me |show )?my (?:holdings|crypto portfolio|coin holdings)$/.test(l))
     return { what: 'holdings' };
   let m = /^(?:what(?:'s| is)|how much is) my (.+?) worth(?: now| today)?$/.exec(l);
   if (m) {
     const coin = coinNamed(m[1]!);
     if (coin) return { what: 'holdings', coin };
-    if (/^(?:coins|crypto|holdings|portfolio)$/.test(m[1]!)) return { what: 'holdings' };
+    if (/^(?:coins|crypto|holdings|crypto portfolio|crypto holdings)$/.test(m[1]!)) return { what: 'holdings' };
   }
 
   // ---- WHAT HE HOLDS: "I have 0.2 bitcoin", "I own 0.5 BTC", "I've got 1,000 doge"; "I don't have any bitcoin now" takes it off
@@ -121,12 +126,13 @@ export function marketsAsked(text: string): MarketsAsk | null {
   if (/^(?:show(?: me)?|what's on|what is on|read(?: me)?|open) my watch ?list$|^my watch ?list$/.test(l)) return { what: 'list' };
   m = /^(?:add|put) (.+?) (?:to|on|onto) (?:my|the) (?:watch ?list|markets?(?: list)?|coins?(?: list)?)$/.exec(l);
   if (m) return { what: 'watch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
-  m = /^(?:start )?watch(?:ing)? (.+?)(?: for me| on markets)?$/.exec(l);
-  if (m && coinNamed(m[1]!)) return { what: 'watch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
+  // (a bare "watch tron" or "watch cosmos" is a film or a series: those words need "on markets" or "on my watchlist")
+  m = /^(?:start )?watch(?:ing)? (.+?)( for me| on markets| on my watch ?list)?$/.exec(l);
+  if (m && coinNamed(m[1]!) && (!ambiguous(m[1]!) || /markets|watch ?list/.test(m[2] ?? ''))) return { what: 'watch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
   m = /^(?:remove|take|drop|delete) (.+?) (?:from|off) (?:my|the) (?:watch ?list|markets?(?: list)?|coins?(?: list)?)$/.exec(l);
   if (m) return { what: 'unwatch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
-  m = /^stop watching (.+)$/.exec(l);
-  if (m && coinNamed(m[1]!)) return { what: 'unwatch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
+  m = /^stop watching (.+?)( on markets| on my watch ?list)?$/.exec(l);
+  if (m && coinNamed(m[1]!) && (!ambiguous(m[1]!) || m[2])) return { what: 'unwatch', q: m[1]!.trim(), coin: coinNamed(m[1]!) };
 
   // ---- MONEY: "convert 50 pounds to euros", "£40 in euros", "how many euros for a pound", "what's a pound worth in euros"
   m = new RegExp(String.raw`^(?:convert |change |what(?:'s| is) |how much is |how much are )?(£|\$|€|¥|₹)?${NUM} ?${CUR_WORD}? (?:in|to|into|as) ${CUR_WORD}$`).exec(l);
@@ -150,8 +156,9 @@ export function marketsAsked(text: string): MarketsAsk | null {
 
   // ---- GOLD AND SILVER
   const metalOf = (w: string): 'xau' | 'xag' | 'both' | null => (/^(?:an ounce of )?gold$/.test(w) ? 'xau' : /^(?:an ounce of )?silver$/.test(w) ? 'xag' : /^gold and silver$|^silver and gold$/.test(w) ? 'both' : null);
-  m = /^(?:what(?:'s| is| are)|how much is|how much are|how(?:'s| is)) (?:the price of |the )?(.+?)(?: (?:at|worth|doing|trading at|selling for|going for|price))?(?: (?:today|now|right now|an ounce|per ounce))?$/.exec(l);
-  if (m && metalOf(m[1]!)) return { what: 'metal', metal: metalOf(m[1]!)! };
+  // (a price cue is needed: "what is gold?" is a learner's question, the brain's and School's, not a price)
+  m = /^(what(?:'s| is| are)|how much is|how much are|how(?:'s| is)) (the price of |the )?(.+?)( (?:at|worth|doing|trading at|selling for|going for|price))?( (?:today|now|right now|an ounce|per ounce))?$/.exec(l);
+  if (m && metalOf(m[3]!) && (/^how much/.test(m[1]!) || m[2] === 'the price of ' || m[4] || /ounce/.test(m[5] ?? '') || /^an ounce of /.test(m[3]!))) return { what: 'metal', metal: metalOf(m[3]!)! };
   m = /^(?:the )?(?:price of |prices of )?(.+?)(?: prices?)?(?: today| now)?$/.exec(l);
   if (m && metalOf(m[1]!) && /price/.test(l)) return { what: 'metal', metal: metalOf(m[1]!)! };
 
@@ -163,7 +170,9 @@ export function marketsAsked(text: string): MarketsAsk | null {
     /^(?:check|look up) (?:the price of )?(.+?)(?: price)?$/.exec(l);
   if (m) {
     const coin = coinNamed(m[1]!);
-    if (coin) return { what: 'price', coin };
+    // (a coin word that is also a name, "How's Ada doing?", "where's Sol at", is taken only with a price cue: "ada price", "price of ada", "ada coin")
+    const cue = /\bprice\b|\bhow much\b|\b(?:coin|token)s?\b/.test(l);
+    if (coin && (cue || !ambiguous(m[1]!))) return { what: 'price', coin };
   }
   return null;
 }

@@ -78,7 +78,8 @@ export const HOLD_EMPTY_NEXT = 'Open a coin and put in how much you have, or say
 export function amountIn(s: string): number | null {
   let t = s.trim().replace(/\s+/g, '');
   if (!t) return null;
-  if (/^\d+,\d{1,8}$/.test(t) && !/^\d{1,3},\d{3}$/.test(t)) t = t.replace(',', '.');
+  // (a leading "0," is always the point: 0,125 is an eighth, never a hundred and twenty-five)
+  if (/^0,\d+$/.test(t) || (/^\d+,\d{1,8}$/.test(t) && !/^[1-9]\d{0,2},\d{3}$/.test(t))) t = t.replace(',', '.');
   t = t.replace(/,/g, '');
   if (!/^\d*\.?\d+$/.test(t)) return null;
   const n = Number(t);

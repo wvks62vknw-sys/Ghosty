@@ -10,6 +10,7 @@
 import { Feed, fetchJson } from '../api/feed';
 import { fmt } from '../core/dom';
 import { settings } from '../state/app';
+import { KNOWN_COINS } from '../features/markets/asks';
 
 export interface Coin {
   /** CoinGecko's id ('bitcoin'). */
@@ -59,6 +60,8 @@ export const DEFAULT_WATCH: Watched[] = [
 ].map(([id, sym, name]) => ({ id: id!, sym: sym!, name: name! }));
 const WATCH_KEY = 'ghosty.markets.watch';
 const HOLD_KEY = 'ghosty.markets.holdings';
+/** The name and symbol of each coin he holds, so a coin taken off his list is still said by its name, never its id. */
+const HOLD_NAMES_KEY = 'ghosty.markets.heldnames';
 /** The most coins the list reads (CoinGecko's free call takes them all at once). */
 export const WATCH_MAX = 30;
 /** Said on the window whenever his watchlist or holdings change (the tab repaints on it). */
@@ -103,6 +106,28 @@ export function loadHoldings(): Record<string, number> {
     return {};
   }
 }
+/** A coin's name and symbol by its id: his list first, then the names kept with his holdings, then the coins the chat knows. */
+export function coinName(id: string): Watched | null {
+  const mine = loadWatch().find((w) => w.id === id);
+  if (mine) return mine;
+  try {
+    const kept = (JSON.parse(localStorage.getItem(HOLD_NAMES_KEY) ?? '{}') as Record<string, Watched>)[id];
+    if (kept && typeof kept.name === 'string' && typeof kept.sym === 'string') return { id, sym: kept.sym, name: kept.name };
+  } catch {
+    /* (nothing kept) */
+  }
+  return KNOWN_COINS.find((c) => c.id === id) ?? null;
+}
+const keepName = (w: Watched) => {
+  try {
+    const o = JSON.parse(localStorage.getItem(HOLD_NAMES_KEY) ?? '{}') as Record<string, Watched>;
+    o[w.id] = { id: w.id, sym: w.sym, name: w.name };
+    localStorage.setItem(HOLD_NAMES_KEY, JSON.stringify(o));
+  } catch {
+    /* (the name is a nicety: the holding itself is kept) */
+  }
+};
+
 /**
  * Set (or with 0, take off) what he holds of one coin. A coin he holds joins his watchlist, so its price is read.
  * Returns 'added' when it joined the list, 'kept' when it was kept, 'full' when the list is full, 'failed' when the phone would not keep it.
@@ -119,9 +144,10 @@ export function setHolding(w: Watched, amount: number): 'added' | 'kept' | 'full
   } catch {
     return 'failed';
   }
+  if (amount > 0) keepName(w);
   if (joins) {
     if (!saveWatch([...l, w])) return 'failed';
-    void coins.refresh(true);
+    void refreshCoins();
     return 'added';
   }
   tell();
@@ -167,6 +193,24 @@ export const coins = new Feed<Coin[]>(
   },
   120_000,
 );
+
+/**
+ * Read his coins again after his list changed. The feed drops a read asked for while one is running (api/feed.ts), and that one
+ * reads the list as it was when it started, so this waits for it and then reads again: a coin he just added is always read.
+ */
+let again: Promise<Coin[] | null> | null = null;
+export function refreshCoins(): Promise<Coin[] | null> {
+  if (again) return again; // (one more read is already waiting; it reads the list as it is when it starts)
+  const busy = () => (coins as unknown as { busy?: boolean }).busy === true;
+  const p = (async () => {
+    await Promise.resolve(); // (always after `again` is set, so it is cleared after, never before)
+    for (let i = 0; i < 100 && busy(); i++) await new Promise((r) => setTimeout(r, 100));
+    again = null;
+    return coins.refresh(true);
+  })();
+  again = p;
+  return p;
+}
 
 /** One coin's price now, for a coin not on his list (the chat's "what's polkadot at"): null when CoinGecko has none. */
 export async function priceOf(w: Watched): Promise<Coin | null> {
