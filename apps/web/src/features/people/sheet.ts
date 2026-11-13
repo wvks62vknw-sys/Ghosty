@@ -326,7 +326,7 @@ function comingSheet(): HTMLElement {
   addB.setAttribute('aria-label', 'Keep this birthday');
   const addD = button('Keep date', () => (date.value.trim() ? void keep({ words: date.value.trim() }, 'date', [date]) : stateIn(status, '', 'Say the date first, like “our anniversary is 12 June”.')));
   addD.setAttribute('aria-label', 'Keep this date');
-  const el = h('div.pkcol', list, h('div.lab', 'A BIRTHDAY'), h('div.pkadd', who, day), h('div.pkrow', addB), h('div.lab', 'A DATE'), date, h('div.pkrow', addD), status, phrases(['what’s coming up', 'birthdays coming']));
+  const el = h('div.pkcol', list, h('div.lab', 'A BIRTHDAY'), h('div.pkadd', who, day), h('div.pkrow', addB), h('div.lab', 'A DATE'), date, h('div.pkrow', addD), status, phrases(['birthdays coming', 'whose birthday is next']));
   void load();
   return el;
 }

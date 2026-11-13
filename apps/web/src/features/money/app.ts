@@ -132,6 +132,35 @@ function monthPage(): HTMLElement {
   let find = '';
   let all = false;
   let s: SpendingSummary | null = null;
+  /** Each read and each filing takes a ticket: an answer for a month he has already left is dropped. */
+  let ticket = 0;
+  // the search box is made once and never redrawn while he types (a phone's keyboard loses its letters when its box is replaced)
+  const search = h('input.mnsearch', { type: 'search', placeholder: 'Find a payment: Tesco, rent, 12.99', 'aria-label': 'Find a payment', enterKeyHint: 'search' }) as HTMLInputElement;
+  const listBox = h('div.pkcol.mnlist');
+  search.addEventListener('input', () => {
+    find = search.value;
+    all = false;
+    paintList();
+  });
+  const paintList = () => {
+    if (!s) return;
+    const q = find.trim().toLowerCase();
+    const rows = s.rows.filter((r) => (!cat || r.c === cat) && (!q || r.t.toLowerCase().includes(q) || r.c.includes(q)));
+    const shown = all ? rows : rows.slice(0, 25);
+    moneyApp.shown = shown.length;
+    const list = shown.map((r) => {
+      const b = h('button.mntxn', { type: 'button', dataset: { k: r.k, c: r.c, by: r.by }, 'aria-label': `${r.t}, ${p2(r.a)} on ${dayWords(r.d)}, filed as ${r.c}. Tap to file it somewhere else.` },
+        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.by === 'you' ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
+        h('span.mnamt', { dataset: { tone: r.a > 0 ? 'in' : '' } }, r.a > 0 ? `+${p2(r.a)}` : p2(-r.a)));
+      b.addEventListener('click', () => refile(r));
+      return b;
+    });
+    const more = rows.length > shown.length ? [label(button(`Show all ${rows.length}`, () => ((all = true), paintList())), `Show all ${rows.length} payments`)] : [];
+    listBox.replaceChildren(
+      ...(list.length ? list : [h('p.pknote', { dataset: { case: 'keep' } }, q ? `No payment this month matches “${find.trim()}”.` : 'No payments here.')]),
+      ...(more.length ? [h('div.pkrow', ...more)] : []),
+    );
+  };
 
   const refile = (r: SpendRow) => {
     const m = modal(`File “${r.t}” as…`, h(
@@ -139,10 +168,12 @@ function monthPage(): HTMLElement {
       h('p.pknote', `Every payment to ${cap(r.k.toLowerCase())} goes there, and the next statement remembers it.`),
       h('div.pkrow.mnchips', ...CATEGORIES.map((c) => label(button(cap(c), async () => {
         m.close();
+        const mine = ++ticket;
         try {
           const x = await brain.spendingFile(r.k, c, s?.month ?? '');
           moneyApp.refiled += x.filed;
           stateIn(status, '', `Filed ${plural(x.filed, 'payment')} as ${c}; the next statement remembers it.`);
+          if (mine !== ticket) return;
           s = x;
           paint();
         } catch (e) {
@@ -203,29 +234,6 @@ function monthPage(): HTMLElement {
     }
     const top = [...by.values()].sort((a, b) => b.out - a.out).slice(0, 5);
     const topMost = Math.max(1, ...top.map((t) => t.out));
-    // the payments: found by words, by a category, all on a tap
-    const q = find.trim().toLowerCase();
-    const rows = s.rows.filter((r) => (!cat || r.c === cat) && (!q || r.t.toLowerCase().includes(q) || r.c.includes(q)));
-    const shown = all ? rows : rows.slice(0, 25);
-    moneyApp.shown = shown.length;
-    const search = h('input.mnsearch', { type: 'search', placeholder: 'Find a payment: Tesco, rent, 12.99', 'aria-label': 'Find a payment', value: find, enterKeyHint: 'search' }) as HTMLInputElement;
-    search.addEventListener('input', () => {
-      find = search.value;
-      all = false;
-      const at = search.selectionStart ?? find.length;
-      paint();
-      const again = el.querySelector<HTMLInputElement>('input.mnsearch');
-      again?.focus();
-      again?.setSelectionRange(at, at);
-    });
-    const list = shown.map((r) => {
-      const b = h('button.mntxn', { type: 'button', dataset: { k: r.k, c: r.c, by: r.by }, 'aria-label': `${r.t}, ${p2(r.a)} on ${dayWords(r.d)}, filed as ${r.c}. Tap to file it somewhere else.` },
-        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.by === 'you' ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
-        h('span.mnamt', { dataset: { tone: r.a > 0 ? 'in' : '' } }, r.a > 0 ? `+${p2(r.a)}` : p2(-r.a)));
-      b.addEventListener('click', () => refile(r));
-      return b;
-    });
-    const more = rows.length > shown.length ? [label(button(`Show all ${rows.length}`, () => ((all = true), paint())), `Show all ${rows.length} payments`)] : [];
     slot.replaceChildren(
       nav,
       figs,
@@ -235,13 +243,14 @@ function monthPage(): HTMLElement {
       ...(top.length ? [h('div.lab', 'WHERE IT WENT MOST'), ...top.map((t) => meter(cap(t.t.toLowerCase()), p2(t.out), t.out / topMost, 'soft', `${plural(t.n, 'payment')} this month.`))] : []),
       h('div.lab', cat ? `${cat.toUpperCase()} · TAP ONE TO FILE IT` : 'EVERY PAYMENT · TAP ONE TO FILE IT'),
       search,
-      ...(list.length ? list : [h('p.pknote', { dataset: { case: 'keep' } }, q ? `No payment this month matches “${find.trim()}”.` : 'No payments here.')]),
-      ...(more.length ? [h('div.pkrow', ...more)] : []),
+      listBox,
     );
+    paintList();
   };
   const load = async (month?: string) => {
+    const mine = ++ticket;
     const got = await read(el, slot, 'month', month, () => void load(month));
-    if (!got) return;
+    if (mine !== ticket || !got) return;
     s = got;
     cat = '';
     all = false;
@@ -287,7 +296,8 @@ function budgetsPage(): HTMLElement {
     const isNow = s.month === now.slice(0, 7);
     const total = daysIn(s.month);
     const day = isNow ? +now.slice(8, 10) : total;
-    const togo = total - day;
+    // (today is still to spend: on day 13 of 30 what is left is shared over 18 days, and on the last day over that day)
+    const togo = total - day + 1;
     const gone = day / total;
     moneyApp.budgets = s.budgets.map((b) => `${b.category}: ${b.line}`);
     const cards = s.budgets.map((b) => {
@@ -372,15 +382,23 @@ function billsPage(): HTMLElement {
       homeSaid = 'The bills on your HOME screen could not be read just now; these are your statements’ alone.';
     }
     const now = today();
-    const due = dueList(s.subscriptions, bills, now);
+    // a subscription whose next payment is more than a whole cycle gone looks stopped: not counted in what he pays, said apart
+    const gone = (x: Subscription) => {
+      const n = daysTo(x.next);
+      return n !== null && n < -(x.cadence === 'monthly' ? 31 : 366);
+    };
+    const stopped = s.subscriptions.filter(gone);
+    const due = dueList(s.subscriptions.filter((x) => !gone(x)), bills, now);
     moneyApp.due = due.map((d) => `${d.on} ${d.name} ${p2(d.amount)}`);
-    const subs = s.subscriptions;
+    const subs = s.subscriptions.filter((x) => !gone(x));
     const month = subs.reduce((k, x) => k + (x.cadence === 'monthly' ? x.amount : x.amount / 12), 0);
     const year = subs.reduce((k, x) => k + x.yearly, 0);
+    // the next 30 days, and a bill already late (still to pay); a subscription's past date is only a guess, so it is not counted
     const soon = due.filter((d) => {
       const n = daysTo(d.on);
-      return n !== null && n >= 0 && n <= 30;
+      return n !== null && n <= 30 && (n >= 0 || d.kind === 'bill');
     });
+    const late = soon.filter((d) => (daysTo(d.on) ?? 0) < 0).length;
     const soonSum = soon.reduce((k, d) => k + d.amount, 0);
     const ups = subs.filter((x) => x.was !== undefined && x.amount > x.was!);
     const row = (d: Due) => {
@@ -395,12 +413,13 @@ function billsPage(): HTMLElement {
       ...(subs.length || due.length
         ? [
             h('div.mnfigs',
-              figure('Next 30 days', p2(soonSum), `${plural(soon.length, 'payment')} due, from the list below.`),
+              figure('Next 30 days', p2(soonSum), `${plural(soon.length, 'payment')} due${late ? `, ${late} of them late` : ''}, from the list below.`),
               figure('Subscriptions a month', p2(month), 'Each monthly one, and each yearly one shared over twelve months.'),
               figure('A year', p2(year), `${plural(subs.length, 'subscription')} at today’s prices.`)),
             ...(ups.length ? [h('div.lab', 'PRICES THAT WENT UP'), ...ups.map((x) => h('p.pknote.mnup', { dataset: { case: 'keep' } }, `${x.name}: ${p2(x.amount)}, up from ${p2(x.was!)} on ${dayWords(x.changed!)}.`))] : []),
             h('div.lab', 'DUE NEXT'),
             ...due.map(row),
+            ...(stopped.length ? [h('div.lab', 'LOOKS STOPPED'), ...stopped.map((x) => h('p.pknote.mnstopped', { dataset: { case: 'keep' } }, `${x.name}: ${p2(x.amount)} ${x.cadence === 'monthly' ? 'a month' : 'a year'}, last paid ${dayWords(x.last)}. Not counted above.`))] : []),
           ]
         /* state: money.bills empty */
         : [emptyState('Nothing repeating found yet', 'A subscription shows here once your statements hold two payments of it. Bills you photograph on the HOME screen show too.')]),
@@ -423,11 +442,13 @@ function trendsPage(): HTMLElement {
   const paint = () => {
     const ms = views.filter((x) => x.view).map((x) => x.view!);
     if (!ms.length) return;
-    const outs = ms.map((m) => m.out);
-    const avg = outs.reduce((k, n) => k + n, 0) / ms.length;
-    const hi = ms.reduce((a, b) => (b.out > a.out ? b : a));
-    const lo = ms.reduce((a, b) => (b.out < a.out ? b : a));
-    const most = Math.max(1, ...outs, ...ms.map((m) => m.in));
+    const nowM = today().slice(0, 7);
+    const whole = ms.length > 1 ? ms.filter((m) => m.month !== nowM) : ms;
+    const outs = whole.map((m) => m.out);
+    const avg = outs.reduce((k, n) => k + n, 0) / whole.length;
+    const hi = whole.reduce((a, b) => (b.out > a.out ? b : a));
+    const lo = whole.reduce((a, b) => (b.out < a.out ? b : a));
+    const most = Math.max(1, ...ms.map((m) => m.out), ...ms.map((m) => m.in));
     moneyApp.trend = ms.map((m) => `${m.month} ${p2(m.out)}`);
     const seen = SPEND.filter((c) => ms.some((m) => m.categories.some((x) => x.c === c)));
     const chips = h('div.pkrow.mnchips', { role: 'group', 'aria-label': 'One category across the months' },
@@ -441,13 +462,13 @@ function trendsPage(): HTMLElement {
     const catAvg = ms.reduce((k, m) => k + val(m), 0) / ms.length;
     slot.replaceChildren(
       h('div.mnfigs',
-        figure('A month on average', p2(avg), `Money out over the last ${plural(ms.length, 'month')} you gave me, added and shared.`),
+        figure('A month on average', p2(avg), `Money out over ${plural(whole.length, 'whole month')} you gave me, added and shared${whole.length < ms.length ? '; this month is still going, so it is left out' : ''}.`),
         figure('Dearest month', `${monthName(hi.month)} · ${p2(hi.out)}`, 'The month with the most money out.', 'over'),
         figure('Cheapest month', `${monthName(lo.month)} · ${p2(lo.out)}`, 'The month with the least money out.', 'ok')),
       h('div.lab', 'MONTH BY MONTH'),
       ...ms.map((m) => {
         const left = Math.round((m.in - m.out) * 100) / 100;
-        return meter(`${monthName(m.month)} ${m.month.slice(0, 4)}`, `${p2(m.out)} out`, m.out / most, m.out > avg ? 'soft' : '', `${p2(m.in)} in · ${left >= 0 ? `${p2(left)} left over` : `${p2(-left)} over`}.`);
+        return meter(`${monthName(m.month)} ${m.month.slice(0, 4)}${m.month === nowM ? ' so far' : ''}`, `${p2(m.out)} out`, m.out / most, m.out > avg ? 'soft' : '', `${p2(m.in)} in · ${left >= 0 ? `${p2(left)} left over` : `${p2(-left)} over`}.`);
       }),
       h('div.lab', 'ONE CATEGORY'),
       chips,
