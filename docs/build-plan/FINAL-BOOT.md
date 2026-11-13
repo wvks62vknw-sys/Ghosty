@@ -67,7 +67,8 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
    - Any other cold open plays **the whole film**, 7 seconds. That includes the first open ever, and every launch after three minutes away.
    - Switching away and straight back (the app still alive) is not a cold open. It gets Mind's one breath, as before.
    - "When you were last here" is the stamp Ghosty already keeps on the phone (`state/lastopen.ts`). Nothing is sent.
-   - The short cut ends by its own 4.8 seconds, even when Mind is late.
+   - The short cut aims to end by its own 4.8 seconds. If Mind is late it plays at most a quarter quicker to catch up, never at double
+     speed, so a very late Mind ends it a little after 4.8 s instead (still well inside the full film's 7 s).
 5. **bootpass was already red on the round's base.** It is on this lane's list to keep green. I fixed one part and improved the other.
    - **The orb's five states with Reduce Motion on.** Idle and attending looked almost the same: about 2.4 of 255 apart in the orb's square,
      and the check wants 5. The changes, in `features/core/mind.ts`:
@@ -85,7 +86,7 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
      instead of throwing.
 6. **Unchanged, and checked:**
    - a tap skips straight to the landing;
-   - Reduce Motion gets the calm still version: two frames, 1.2 s, nothing travelling. It now ends by its own 1.2 s even when Mind is late.
+   - Reduce Motion gets the calm still version: two frames, 1.2 s, nothing travelling, at its own unhurried pace.
    - the landing hands the orb to Home's real Mind in the hero's box to the pixel, with the house and the ask line sliding in a beat later.
    - the score, the greeting rules, "reboot", and the other looks' cinematics.
 
@@ -98,7 +99,7 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
   2. the hand-over: the one Mind in the hero, the orb's last place in the film equal to Home's hero, the HUD a beat later, and the hero in
      the same place half a second later.
   3. a tap skips it, with no greeting after the tap.
-  4. Reduce Motion gives the 1.2 s still version.
+  4. Reduce Motion gives the 1.2 s still version, never hurried: one second of its own after the orb arrives, at pace 1.
   5. the reopen rule: a minute away gives the short cut (4.8 s), and so does a reload; four minutes away gives the whole film; the first open
      ever gives the whole film.
 
@@ -154,6 +155,18 @@ version it chose (`kind`), whether the film drew (`film`), its length (`ended`) 
 - **The app still builds Home underneath during the film.** That can cost a frame or two near the start on a slow open. Moving more of
   that work until after the landing would make the first second smoother, but it touches the whole start-up, so I left it for a round that
   owns `main.ts`.
+
+## The adversarial review
+
+An independent review of the change (a fresh reader given the code, not my conclusions) found two real bugs. Both are fixed, and bootfilm
+checks both now:
+1. **Reduce Motion was hurried.** I had capped the still version at its own 1.2 s, so a slow orb made it race through its words, and the
+   greeting could vanish. It is back to its original, unhurried pacing.
+2. **A quick reopen could play at double speed.** When the orb was late, the short cut sped up to fit 4.8 s. It now catches up at most a
+   quarter quicker.
+
+The words also go quiet during a hold at the original 7-second point again. The reviewer checked the rest and found it sound: the clock
+never runs backwards when the version changes, the skip, "reboot", the slowdown, and the other looks unchanged.
 
 ## The checks' runs
 
