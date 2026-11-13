@@ -8521,6 +8521,9 @@ html #thewall .walltitle { min-width: 0; overflow: hidden; text-overflow: ellips
 html #thewall .wallpic { position: absolute; left: calc(var(--wall-u) * 4); right: calc(var(--wall-u) * 4); top: calc(var(--wall-u) * 7.2); bottom: calc(var(--wall-u) * 11); place-items: center; overflow: hidden; }
 html #thewall .wallframe { width: 100%; height: 100%; display: grid; place-items: center; min-height: 0; }
 html #thewall .wallframe > .stg-svg { width: 100%; height: 100%; display: block; }
+/* the chart (show/chartpic.ts) comes in its own host, drawn at the Stage's width: on the wall it is scaled to the frame, so its type is television size */
+html #thewall .wallframe > .stgchart { width: 100%; height: 100%; min-height: 0; box-sizing: border-box; padding: var(--wall-u); display: grid; place-items: center; } /* (the padding keeps the type's own height above its line inside the frame) */
+html #thewall .wallframe > .stgchart > .stg-svg { width: 100%; height: 100%; display: block; }
 html #thewall .wallframe.wallin { animation: wallin var(--g-dur-bring) var(--g-ease-bring) both; }
 @keyframes wallin { from { opacity: 0; } to { opacity: 1; } }
 html #thewall .wallfoot { position: absolute; left: calc(var(--wall-u) * 4); right: calc(var(--wall-u) * 4); bottom: calc(var(--wall-u) * 5.6); font: var(--g-t-say); font-size: calc(var(--wall-u) * 2.4); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; color: var(--g-ink-1); }

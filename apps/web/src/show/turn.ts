@@ -75,17 +75,18 @@ export function showEnd(ask: string): void {
 
 // for the checks and the console: what the Stage did and decided (window.__ghosty.show), once the app's own handle is up
 if (typeof window !== 'undefined') {
-  setTimeout(() => {
+  // (main.ts makes __ghosty once the first screen is up, later on a slow phone: this waits for it rather than a fixed time)
+  const attach = (n: number): void => {
     const w = window as unknown as { __ghosty?: Record<string, unknown> };
-    if (w.__ghosty) {
-      w.__ghosty.show = {
-        trace: showTrace,
-        decide: async (f: unknown) => (await import('./decide')).decideShow(f as Parameters<typeof import('./decide').decideShow>[0]),
-        state: async () => (await import('./stage')).stageState,
-        present: async (f: unknown) => (await import('./stage')).present(f as Parameters<typeof import('./stage').present>[0]),
-        clear: async () => (await import('./stage')).clearStage('check'),
-        prefetch: async () => (await import('./stage')).prefetch(),
-      };
-    }
-  }, 2800);
+    if (!w.__ghosty) return void (n < 200 && setTimeout(() => attach(n + 1), 300));
+    w.__ghosty.show = {
+      trace: showTrace,
+      decide: async (f: unknown) => (await import('./decide')).decideShow(f as Parameters<typeof import('./decide').decideShow>[0]),
+      state: async () => (await import('./stage')).stageState,
+      present: async (f: unknown) => (await import('./stage')).present(f as Parameters<typeof import('./stage').present>[0]),
+      clear: async () => (await import('./stage')).clearStage('check'),
+      prefetch: async () => (await import('./stage')).prefetch(),
+    };
+  };
+  setTimeout(() => attach(0), 2800);
 }

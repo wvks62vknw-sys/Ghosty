@@ -81,14 +81,20 @@ function drawPicture(p: WallPicture): { el: HTMLElement; title: string; stop: ()
     case 'plan': {
       const page = docPic(String(d.title), d.paragraphs);
       const el = wrap(page);
-      return {
-        el,
-        title: String(d.title),
-        stop: () => undefined,
-        // never a scrollbar on a wall: the page's type steps down until all of it is in the frame
-        fit: () => {
-          for (let fs = 2.1; fs >= 0.85 && page.scrollHeight > page.clientHeight + 1; fs -= 0.05) page.style.setProperty('--wall-page', fs.toFixed(2));
-        },
+      // never a scrollbar on a wall: the page's type steps down until all of it is in the frame. It is fitted again whenever the frame's
+      // size changes (the screen's size changed, or the picture was hidden while the wall had lost the brain and is shown again): a
+      // page fitted while it had no size would otherwise stand cut once it has one
+      const fit = () => {
+        if (!page.clientHeight) return;
+        page.style.removeProperty('--wall-page');
+        for (let fs = 2.1; fs >= 0.85 && page.scrollHeight > page.clientHeight + 1; fs -= 0.05) page.style.setProperty('--wall-page', fs.toFixed(2));
+      let seen = '';
+      const ro = new ResizeObserver(([e]) => {
+        const box = `${Math.round(e!.contentRect.width)}x${Math.round(e!.contentRect.height)}`;
+        if (box !== seen) (seen = box), fit();
+      });
+      ro.observe(el);
+      return { el, title: String(d.title), stop: () => ro.disconnect(), fit };
       };
     }
     case 'room':

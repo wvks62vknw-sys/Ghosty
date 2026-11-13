@@ -296,8 +296,11 @@ const sentKey = await phone.evaluate(() => document.querySelector('#thestage [da
 check(sentKey === 'sent', `[b] the WALL key did not say it was sent: ${sentKey}`);
 
 // ================================================================ c. a map, "on the wall"
+// (this turn's own picture: the chart before it is still on the phone, leaving, when the ask is sent, and "on the wall" must not be said
+// before Lisbon's answer is in, or its stream would be the next say's; the chart's Stage is marked so the wait is for a new one)
+await phone.evaluate(() => document.getElementById('thestage')?.setAttribute('data-spec-before', '1'));
 await say(phone, 'where is Lisbon?', 'Lisbon is the capital of Portugal, on the Atlantic coast.');
-await until(phone, () => !!document.querySelector('#thestage'), null, 20000, '[c] no picture for Lisbon on the phone');
+await until(phone, () => !!document.querySelector('#thestage:not(.leaving):not([data-spec-before])'), null, 20000, '[c] no picture for Lisbon on the phone');
 check((await stageKind(phone)) === 'eye', `[c] Lisbon on the phone is ${await stageKind(phone)}`);
 const mapBefore = (await wallOf(W)).shownAt;
 await say(phone, 'on the wall', '');
