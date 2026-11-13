@@ -156,10 +156,19 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const c = counts(d);
     docsState.words = c.words;
     docsState.chars = c.chars;
-    docsState.pages = pageCount(d);
+    // the pages are a whole layout of the document: a long one is counted once he pauses, so a key or a tick stays quick
+    clearTimeout(pagesTimer);
+    if (d.blocks.length < 200) docsState.pages = pageCount(d);
+    else
+      pagesTimer = window.setTimeout(() => {
+        if (hist?.doc !== d) return;
+        docsState.pages = pageCount(d);
+        paintMeta();
+      }, 700);
     docsState.json = JSON.stringify(d);
     paintMeta();
   };
+  let pagesTimer = 0;
   const metaEl = h('p.dcmeta');
   const savedEl = h('small.dcsaved', { 'aria-live': 'polite' });
   const paintMeta = () => {
@@ -394,13 +403,20 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     if (b.t === 'todo') {
       const el = editableEl(b, 'p');
       const box = h('button.dcbox', { type: 'button', role: 'checkbox', 'aria-checked': String(!!b.ticked), 'aria-label': `${b.ticked ? 'Done' : 'To do'}: ${textOf(b).slice(0, 40) || 'an empty item'}` }, b.ticked ? '✓' : '');
+      const row = h(`div.dctodo${b.ticked ? '.ticked' : ''}` as 'div', box, el);
       box.addEventListener('click', () => {
+        clearTimeout(timer);
         const runs = readRuns(el);
-        change(withBlock(doc(), b.id, (x) => ({ ...x, runs, ...(x.ticked ? { ticked: undefined } : { ticked: true }) })));
-        say(b.ticked ? 'Not done yet.' : 'Ticked. UNDO takes it back.');
-        page.querySelector<HTMLElement>(`[data-id="${b.id}"]`)?.parentElement?.querySelector<HTMLElement>('.dcbox')?.focus();
+        const on = !doc().blocks.find((x) => x.id === b.id)?.ticked;
+        // kept at once, and only this item drawn again (a long document is not repainted for a tick)
+        change(withBlock(doc(), b.id, (x) => ({ ...x, runs, ticked: on ? true : undefined })), false);
+        box.setAttribute('aria-checked', String(on));
+        box.setAttribute('aria-label', `${on ? 'Done' : 'To do'}: ${runs.map((r) => r.text).join('').slice(0, 40) || 'an empty item'}`);
+        box.textContent = on ? '✓' : '';
+        row.classList.toggle('ticked', on);
+        say(on ? 'Ticked. UNDO takes it back.' : 'Not done yet.');
       });
-      return h(`div.dctodo${b.ticked ? '.ticked' : ''}` as 'div', box, el);
+      return row;
     }
     return editableEl(b, tag);
   };
