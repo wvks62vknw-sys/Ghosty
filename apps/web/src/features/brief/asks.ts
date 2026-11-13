@@ -10,8 +10,8 @@
 export type BriefAsk = { what: 'rundown'; [k: string]: unknown };
 
 const WORDINGS: RegExp[] = [
-  // a greeting that starts the day
-  /^(?:good )?morning(?: (?:ghosty|ghost|mate|buddy|pal))?$/,
+  // a greeting that starts the day ("good morning": a bare "morning" is left alone, it may be the answer to "morning or afternoon?")
+  /^good morning(?: (?:ghosty|ghost|mate|buddy|pal))?$/,
   // the day in one look
   /^(?:what(?:'s| is| does) )?(?:my|the) day (?:look(?:ing)?|looks) like(?: today)?$/,
   /^(?:what(?:'s| is) )?my day (?:like|looking like|ahead)(?: today)?$/,
@@ -23,7 +23,8 @@ const WORDINGS: RegExp[] = [
   // what he needs to know
   /^what (?:do|should) i (?:need to |have to )?know (?:today|this morning|for today|about today)$/,
   /^anything i (?:need|should|have) to know (?:today|this morning|about today)$/,
-  /^(?:catch me up|fill me in)(?: on today| for today)?$/,
+  // ("catch me up" is WHAT DID I MISS's, assistant/phrases.ts 'missed': only "fill me in" here)
+  /^fill me in(?: on today| for today)?$/,
   // the brief itself
   /^brief me$/,
   /^(?:give me |read me |show me |what(?:'s| is) )?(?:my|the|today's|a) (?:morning |daily )?brief(?:ing)?(?: for today)?$/,
