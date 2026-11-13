@@ -13,7 +13,7 @@ export type Facing = 'environment' | 'user';
 export function cameraMessage(e: unknown): string {
   const name = String((e as { name?: unknown })?.name ?? '');
   const msg = rawText(e);
-  if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'Camera not allowed: Settings → Safari → Camera (or the site settings in your browser), then try again';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'The phone would not give me the camera. Settings, Ghosty, Camera, switch it on, then tap START.';
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return 'No camera on this device';
   if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return 'The camera is busy in another app';
   if (/secure context|insecure|https/i.test(msg)) return 'The camera only works over https';

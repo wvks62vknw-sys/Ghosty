@@ -6,7 +6,7 @@
  *    once a session ("I think it's you." below certainty). "Who am I?" → "Admin."; "is this me?" → "Yes." — a word.
  *  - PEOPLE HE INTRODUCES IN PERSON: with someone in the picture, "Ghosty, this is Sam" (typed or said, here or in the
  *    chat) → three looks of that face, kept on this phone with the name. Next time, here only: a thin box with "Sam", or
- *    "Sam?" and "I think it's Sam" below certainty; "who's this?" → "Sam.", else "I don't know them: introduce us."
+ *    "Sam?" and "I think it's Sam" below certainty; "who's this?" → "Sam.", else "Someone I don't know. I never identify a stranger."
  *  - Nobody else, ever: a face nobody introduced gets no name and no guess; nothing here runs on God's Eye, CCTV, a web
  *    picture, a screenshot or a photo (vision/faces.ts takes only the live camera). Faces never leave the phone: not to
  *    the brain (these turns never reach the chat, and the Lens tells the brain only that PEOPLE is open), not to
@@ -23,6 +23,8 @@ import type { LensContext, Mode } from './index';
 // [restc] CHECK IT'S LIVE: a quick challenge before a face is saved (features/lens/liveness.ts)
 import { confirmLive, liveEye, liveState, needsLive } from './liveness';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { STRANGER } from './words';
 
 /**
  * [cards] Someone he introduced, recognised for sure: their PERSON card in the chat once a session — only when the guardian
@@ -127,6 +129,8 @@ export function createPeopleMode(L: LensContext): Mode {
   const models = (): Promise<boolean> =>
     (loadingModels ??= faces
       .load((t) => L.status(t, 'mid'))
+      /* state: lens.people loading */
+      .finally(waiting(root, 'Waking the eyes…', { as: 'tag' }))
       .then(() => {
         // the face models are on this phone now: the one view looks for a face he knows from here on (features/lens/one.ts)
         try {
@@ -318,7 +322,8 @@ export function createPeopleMode(L: LensContext): Mode {
       const other = ts.filter((t) => !t.match?.me).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h)[0];
       if (!other) return speakIt('That’s you.', voice);
       const m = other.match;
-      return speakIt(m ? (m.sure ? `${m.name}.` : `I think it’s ${m.name}.`) : 'I don’t know them: introduce us.', voice);
+      /* state: lens.people empty */
+      return speakIt(m ? (m.sure ? `${m.name}.` : `I think it’s ${m.name}.`) : STRANGER, voice);
     }
     // "who am I?" / "is this me?": the face nearest the camera
     const front = [...ts].sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h)[0]!;

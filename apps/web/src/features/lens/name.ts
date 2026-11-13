@@ -22,6 +22,8 @@ import type { LensContext, Mode, ModeOpts } from './index';
 import { createLiving } from './living';
 import { ASKED_KINDS, type AskedKind } from '../../../../../packages/shared/src/living';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { maybeWords, NO_NAME } from './words';
 
 /** How often the live picture is named, at most (the encoder takes ~0.3–1 s on a phone). */
 const EVERY_MS = 700;
@@ -110,6 +112,9 @@ export function createNameMode(L: LensContext): Mode {
   livingBtn.setAttribute('aria-label', 'Living thing: name a plant, bird or insect properly');
   const unsure = h('div.note', "Not sure? LIVING THING names a plant (Pl@ntNet) or a bird or an insect (Ghosty's model).");
   unsure.hidden = true;
+  // the closest names, said as a guess ("Maybe robin, sparrow or wren."), never one said as fact; and when nothing matches, said so
+  const maybeEl = h('p.note.namemaybe', { role: 'status', dataset: { case: 'keep' }, hidden: true });
+  let ran = false;
   const hint = h('div.note', `Names what is in view from 4,624 everyday things (about 33,000 with MORE NAMES), on the phone. Tap the picture to name just that part; tap a name to ask Ghosty or search the web. These are the closest names, not certainties. The first use loads the namer (${NAMER_SIZE}, once).`);
   const root = h('div.stackf',
     h('div.row.wrap', button('PICK PHOTO', () => file.click()), live, whole, more, livingBtn),
@@ -117,6 +122,7 @@ export function createNameMode(L: LensContext): Mode {
     living.el,
     unsure,
     progress,
+    maybeEl,
     list,
     card,
     reply,
@@ -136,6 +142,16 @@ export function createNameMode(L: LensContext): Mode {
     const doubt = names.length > 0 && (names[0]?.p ?? 0) < UNSURE;
     livingBtn.classList.toggle('on', doubt);
     unsure.hidden = !doubt || !living.el.hidden;
+    if (names.length) {
+      maybeEl.textContent = maybeWords(names);
+      delete maybeEl.dataset.state;
+      maybeEl.hidden = false;
+    } else if (ran) {
+      /* state: lens.name empty */
+      maybeEl.textContent = NO_NAME;
+      maybeEl.dataset.state = 'empty';
+      maybeEl.hidden = false;
+    } else maybeEl.hidden = true;
     L.lines(namesLine(names, 2), focus ? 'tapped part' : '');
     if (!L.overlay()) return;
     if (focus) L.drawBox(focus, names[0] ? `${names[0].label} ${Math.round(names[0].p * 100)}%` : '', { on: true });
@@ -216,7 +232,7 @@ export function createNameMode(L: LensContext): Mode {
     try {
       const r = await L.ask(`Search the web for "${chosen}" and tell me in a few lines what it is, with a link or two.`, null);
       reply.hidden = false;
-      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'PROBLEM';
+      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'NO ANSWER';
       replyText.textContent = r.text || r.error || 'No answer came back';
       S.reply = r.text;
       L.status(r.text ? 'answered' : 'no answer', r.text ? 'ok' : 'off');
@@ -233,6 +249,7 @@ export function createNameMode(L: LensContext): Mode {
       const r = await namer.name(src, size, focus ?? undefined);
       if (v !== visit || !r) return;
       names = r.names;
+      ran = true;
       showNames();
       paint();
       S.lookMs = Math.round(r.ms);
@@ -256,8 +273,11 @@ export function createNameMode(L: LensContext): Mode {
   const load = () => {
     if (ready) return;
     const v = visit;
+    /* state: lens.name loading */
+    const woken = waiting(root, 'Loading the names…', { as: 'tag' });
     void namer
       .load(setProgress, morePref())
+      .finally(woken)
       .then((r) => {
         if (v !== visit) return;
         ready = true;
@@ -300,6 +320,7 @@ export function createNameMode(L: LensContext): Mode {
   const usePhoto = async (c: HTMLCanvasElement) => {
     photo = c;
     focus = null;
+    ran = false;
     whole.hidden = true;
     L.showStill(c);
     live.hidden = false;

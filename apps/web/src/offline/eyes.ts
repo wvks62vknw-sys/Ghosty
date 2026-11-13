@@ -31,21 +31,21 @@ export const EYES_LENS = pack(
   'eyes-lens',
   'The Lens’s eyes',
   'Finds everyday things, hands and scenes; reads printed words and QR codes and barcodes. All on the phone.',
-  'Apache-2.0 and MIT (public/vendor/VISION.md)',
+  'Apache-2.0 and MIT',
   [RUNTIME, FINDER, READING, CODES],
 );
 export const EYES_NAMER = pack(
   'eyes-name',
   'The namer',
   'Says what things look like, from a list of 4,600 everyday names. MORE NAMES (another 28,000) needs a signal the first time.',
-  'Research and non-commercial use only: his own private assistant (the licence files in public/vendor/clip); the runtime is MIT',
+  'Research and non-commercial use only, which is what this private assistant is; the runtime is MIT',
   [WORKER_RUNTIME, NAMER],
 );
 export const EYES_PEOPLE = pack(
   'eyes-people',
   'People he knows',
   'Finds a face and knows his own and the people he introduces, in person. Their numbers stay on this phone; nobody else is ever named.',
-  'Apache-2.0 (the licence files in public/vendor/faces)',
+  'Apache-2.0',
   [RUNTIME, WORKER_RUNTIME, FACES],
   'Shares the vision runtime and the worker runtime with the other packs: what is here already is not fetched again.',
 );
@@ -53,7 +53,7 @@ export const EYES_MEASURE = pack(
   'eyes-measure',
   'Measure’s distance',
   'Says how far everything in a photo is, so MEASURE can set its own scale.',
-  'The licence is stated in public/vendor/depth/README.md',
+  'Free to use; its licence is kept with the model',
   [WORKER_RUNTIME, DEPTH],
 );
 

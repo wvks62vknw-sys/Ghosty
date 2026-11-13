@@ -623,7 +623,7 @@ export function createAimMode(L: LensContext): Mode {
       const r = await askWithImage(question, null, (ev) => ev.t === 'tool' && L.status(`Ghosty: ${ev.name.replace(/_/g, ' ')}…`, 'mid'), { seen: seenNote });
       const text = r.text || r.error || 'No answer';
       reply.hidden = false;
-      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'PROBLEM';
+      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'NO ANSWER';
       replyText.textContent = text;
       A.reply = text;
       S.reply = text;

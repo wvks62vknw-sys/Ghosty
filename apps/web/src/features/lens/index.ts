@@ -55,6 +55,9 @@ import { LENS_MODES, TILES, type LensMode } from './tiles';
 import { sayError } from '../../ui/hisWords';
 export { LENS_MODES, TILES, type LensMode };
 
+/** The bar's line while the camera is off because it would not open: the words themselves are said once, in the viewfinder. */
+const CAMERA_OFF = 'camera off · START to try again';
+
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
   mode: LensMode;
@@ -498,8 +501,9 @@ export const lensTab: TabDef = {
           S.error = cameraMessage(e);
           startBtn.textContent = 'START';
           syncBar();
-          L.status(S.error, 'off');
-          toast(S.error, 'warn');
+          // (said once, in the viewfinder; the bar only points at START. AIM and SOUND draw no viewfinder, so they get the toast)
+          L.status(CAMERA_OFF, 'off');
+          if (S.mode === 'aim' || S.mode === 'sound') toast(S.error, 'warn');
         }
       },
       stopCamera() {
@@ -598,7 +602,7 @@ export const lensTab: TabDef = {
     const cameraLine = () => {
       if (S.camera === 'on') L.status(S.frozen ? 'frozen · tap a box or an action' : 'live', S.frozen ? 'mid' : 'ok');
       else if (S.camera === 'starting') L.status('opening the camera…', 'mid');
-      else if (S.camera === 'error') L.status(S.error, 'off');
+      else if (S.camera === 'error') L.status(CAMERA_OFF, 'off');
       else L.status('camera off · START to open it', undefined);
     };
     /** No live picture and no still: say so in the viewfinder (AIM and SOUND draw their own there). */
@@ -607,8 +611,12 @@ export const lensTab: TabDef = {
       empty.hidden = !blank;
       if (!blank) return;
       const photo = ['read', 'name', 'scan', 'measure'].includes(S.mode) ? ' Or PICK PHOTO below to use one from your phone.' : '';
+      /* state: lens.camera empty */
+      /* state: lens.camera loading */
+      /* state: lens.camera error */
+      empty.dataset.state = S.camera === 'starting' ? 'loading' : S.camera === 'error' ? 'error' : 'empty';
       emptyTitle.textContent = S.camera === 'starting' ? 'Opening the camera…' : S.camera === 'error' ? 'The camera did not open' : 'Camera off';
-      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : S.mode === 'lens' ? 'Tap START, then point it: I tag the text, codes and things I see.' : `Tap START to look through it.${photo}`;
+      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}${/[.!?]$/.test(S.error) ? '' : '.'}${photo}` : S.mode === 'lens' ? 'Tap START, then point it: I tag the text, codes and things I see.' : `Tap START to look through it.${photo}`;
     };
     syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {

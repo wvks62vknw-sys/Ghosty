@@ -249,7 +249,10 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     for (const [j, b] of jobBtns) b.classList.toggle('on', j === S.job);
     runBtn.textContent = PHOTO_JOB_WORDS[S.job].run;
     S.offline = offline();
-    who.textContent = S.offline ? `Needs the brain: ${PHOTO_JOB_WORDS[S.job].doing} runs on free computers that Ghosty's brain asks, and the brain is not reachable right now.` : WHO[S.job];
+    /* state: lens.photo offline */
+    who.textContent = S.offline ? `I need my brain for ${PHOTO_JOB_WORDS[S.job].doing}, and it isn’t reachable just now. Try again in a moment.` : WHO[S.job];
+    if (S.offline) who.dataset.state = 'offline';
+    else delete who.dataset.state;
     who.classList.toggle('bad', S.offline);
     runBtn.disabled = busy || S.offline || !work || (S.job === 'erase' && !strokes.length);
     runBtn.hidden = S.phase === 'done';

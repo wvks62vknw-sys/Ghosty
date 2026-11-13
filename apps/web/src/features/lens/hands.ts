@@ -12,6 +12,7 @@ import { GESTURE_HELP, GestureDebouncer, gestureWords, HAND_CONNECTIONS, handSid
 import { detector, gestures, nextStamp, type GestureRecognizerLike, type MPGestureResult } from '../../vision/models';
 import type { LensContext, Mode } from './index';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
 
 export function createHandsMode(L: LensContext): Mode {
   const S = L.state;
@@ -119,6 +120,8 @@ export function createHandsMode(L: LensContext): Mode {
   const load = () => {
     loading ??= (async () => {
       const v = visit;
+      /* state: lens.hands loading */
+      const woken = waiting(root, 'Waking the eyes…', { as: 'tag' });
       try {
         const r = await gestures.get(progress);
         // left meanwhile (leave() dropped the task, the Lens closed it): the next enter loads again
@@ -132,6 +135,8 @@ export function createHandsMode(L: LensContext): Mode {
         loading = null;
         S.error = sayError(e, 'track your hand');
         if (S.mode === 'hands') L.status(S.error, 'off');
+      } finally {
+        woken();
       }
     })();
   };

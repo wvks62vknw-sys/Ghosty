@@ -18,6 +18,7 @@ import { toJpegDataUrl } from '../../vision/camera';
 import { namesSeen, type NameGuess } from '../../vision/clipmath';
 import { classifier, nextStamp } from '../../vision/models';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { NO_PICTURE, NO_SIGNAL_ASK } from './words';
 import { createLiving } from './living';
 import { openPhotoTools } from './photo';
 import { photoJobFor } from '../../../../../packages/shared/src/photo';
@@ -38,7 +39,7 @@ export function createAskMode(L: LensContext): Mode {
   const living = createLiving(L);
   const food = button("What's in it?", () => {
     const still = pendingStill ?? lastStill ?? L.still(1024);
-    if (!still) return void toast('No picture: START the camera first', 'warn');
+    if (!still) return void sayAsk('empty', NO_PICTURE);
     lastStill = still;
     L.showStill(still);
     void living.whatsInIt(still);
@@ -52,10 +53,19 @@ export function createAskMode(L: LensContext): Mode {
   reply.hidden = true;
   const fallback = button('DESCRIBE WITH WHAT I CAN SEE HERE', () => void describe(), 'on');
   fallback.hidden = true;
-  const fallbackNote = h('div.note', "Ghosty's brain could not look at the picture: none of the models it can reach sees pictures right now (a free Gemini key in the System tab fixes that). This sends only words: the labels, scene and text the phone itself found.");
+  const fallbackNote = h('div.note', "I couldn’t look at the picture: my brain has nothing that can see pictures right now. This sends only words: what the phone itself found in it.");
   fallbackNote.hidden = true;
   const note = h('div.note', "ASK GHOSTY sends one picture (a JPEG of at most 1024 px) and your question to Ghosty's brain, which needs a model that can see pictures: your Gemini key or Workers AI on your Cloudflare account — never an open endpoint. What the phone itself saw goes along as a separate note. Nothing is sent before you press it.");
-  const root = h('div.stackf', q, chips, h('div.row', askBtn), living.el, note, reply, fallback, fallbackNote);
+  // what ASK cannot do right now (no picture, no signal), said under the key and gone when he tries again
+  const askNote = h('p.note.askstate', { role: 'status', hidden: true, dataset: { case: 'keep' } });
+  const sayAsk = (kind: 'empty' | 'offline' | '', words: string): void => {
+    /* state: lens.ask empty */
+    askNote.textContent = words;
+    askNote.hidden = !words;
+    if (kind) askNote.dataset.state = kind;
+    else delete askNote.dataset.state;
+  };
+  const root = h('div.stackf', q, chips, h('div.row', askBtn), askNote, living.el, note, reply, fallback, fallbackNote);
 
   const showReply = (text: string, model: string) => {
     reply.hidden = false;
@@ -80,6 +90,9 @@ export function createAskMode(L: LensContext): Mode {
     const question = q.value.trim();
     if (!question) return void toast('Ask something first', 'warn');
     if (busy) return;
+    /* state: lens.ask offline */
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return void sayAsk('offline', NO_SIGNAL_ASK);
+    sayAsk('', '');
     busy = true;
     askBtn.disabled = true;
     fallback.hidden = true;
@@ -93,7 +106,7 @@ export function createAskMode(L: LensContext): Mode {
         extras.scan = pendingText.slice(0, 6000);
       } else {
         const still = pendingStill ?? L.still(1024);
-        if (!still) return void toast('No picture: START the camera first', 'warn');
+        if (!still) return void sayAsk('empty', NO_PICTURE);
         // A photo job, not a question: the PHOTO TOOLS sheet on this picture, on that job.
         const job = photoJobFor(question);
         if (job) {
@@ -111,7 +124,7 @@ export function createAskMode(L: LensContext): Mode {
       L.status(dataUrl ? 'sending the picture to Ghosty…' : 'asking Ghosty…', 'mid');
       const r = await askBrain(question, dataUrl, extras);
       if (r.text) showReply(r.text, r.model);
-      else if (r.error) showReply(r.error, 'PROBLEM');
+      else if (r.error) showReply(r.error, 'NO ANSWER');
       if (r.noVision) {
         fallback.hidden = false;
         fallbackNote.hidden = false;
@@ -146,7 +159,7 @@ export function createAskMode(L: LensContext): Mode {
       L.status('asking Ghosty with words only…', 'mid');
       const r = await askBrain(question, null, { seen });
       if (r.text) showReply(r.text, r.model);
-      else if (r.error) showReply(r.error, 'PROBLEM');
+      else if (r.error) showReply(r.error, 'NO ANSWER');
       L.status(r.text ? 'answered from the on-device description' : 'no answer', r.text ? 'ok' : 'off');
     } finally {
       busy = false;

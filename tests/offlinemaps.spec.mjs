@@ -194,7 +194,7 @@ const small = (page, sel) =>
   await page.evaluate(() => window.__net('wifi'));
   await until(page, () => /The download stopped at piece \d+ of \d+/.test(document.querySelector('.wikioffer[data-pack="map-west-midlands"]')?.textContent ?? ''), null, 20000, '[get] a failed piece did not stop it with the packs\' words');
   const stopped = await rowText(page);
-  check(/Tap GET again on Wi-Fi: it carries on from there/.test(stopped), `[get] the stop does not say it carries on: ${stopped.slice(0, 260)}`);
+  check(/Tap RETRY on Wi-Fi: it carries on from there/.test(stopped), `[get] the stop does not say it carries on: ${stopped.slice(0, 260)}`);
   check(await mapRow(page).locator('button[data-act="get"]').isEnabled(), '[get] GET is not there again after a stop');
   const before = new Map(st.asked);
   await mapRow(page).locator('button[data-act="get"]').click();

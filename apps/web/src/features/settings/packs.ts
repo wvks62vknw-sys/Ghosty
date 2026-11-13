@@ -100,10 +100,12 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
               ? `${d.name} was on this phone, and iPhone has cleared some of it to make room (Ghosty did not). GET fetches only what is missing.`
               : '';
         const on = here.has(d.id) && kept;
-        const get = button(`Get · ${size}`, () => void fetchPack(d), 'on');
+        // (a pack that stopped short offers RETRY, with its size still said before the tap)
+        const retry = failed?.id === d.id && !mine;
+        const get = button(`${retry ? 'RETRY' : 'Get'} · ${size}`, () => void fetchPack(d), 'on');
         get.dataset.case = 'keep';
         get.dataset.act = 'get';
-        get.setAttribute('aria-label', `Get ${d.name}, ${size}, on Wi-Fi`);
+        get.setAttribute('aria-label', `${retry ? 'Retry' : 'Get'} ${d.name}, ${size}, on Wi-Fi`);
         get.disabled = !!getting;
         const stop = button('STOP', () => getting?.ctl.abort());
         stop.dataset.act = 'stop';
@@ -113,15 +115,17 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
         const second = largerList().some((l) => l.pack.id === d.id);
         return h(
           'div.wikioffer',
-          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : 'offered', size: second ? 'larger' : 'standard' } },
+          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : retry ? 'failed' : 'offered', size: second ? 'larger' : 'standard' } },
           h('b', d.name),
           second ? h('small.packsize', `Larger, ${sizeWords(d.bytes)}, for a newer phone`) : null,
           h('span', d.what),
-          on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`),
+          on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`) /* state: settings.packs empty */,
           h('small.packlic', d.licence),
           d.note ? h('small.note', d.note) : null,
           note ? h('small.note', note) : null,
+          /* state: settings.packs error */
           failed?.id === d.id ? h('small.wikierr', { role: 'alert' }, failed.text) : null,
+          /* state: settings.packs loading */
           mine ? h('div.wikiprog', { role: 'status' }, h('div.gauge', h('i', { style: { width: `${Math.round((getting!.frac || 0) * 100)}%` } })), h('small.packline', getting!.line)) : null,
           h('div.row', on ? del : mine ? stop : get),
         );

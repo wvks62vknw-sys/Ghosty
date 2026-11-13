@@ -7,7 +7,7 @@
 //     "who am I?" → "Admin.", "is this me?" → "Yes.";
 //  3. "Ghosty, this is <name>" through the chat's own send() (the stop and raising readings never see it), with someone
 //     in the picture → remembered; next time a box with their name; "who's this?" → their name; a stranger → no name,
-//     no guess, "I don't know them: introduce us.";
+//     no guess, "Someone I don't know. I never identify a stranger.";
 //  4. Settings → PRIVACY → FACES: the count, × each with UNDO, DELETE for his own;
 //  5. a face never leaves the phone, by the marker method (onphone.spec's): every request leaving the page is held at the
 //     door and written down — the introduced name and the face numbers are in none of them.
@@ -189,7 +189,7 @@ await page.screenshot({ path: `${out}/faces-introduced.png` });
 await page.evaluate(() => (window.__scene = 'stranger'));
 await page.waitForTimeout(1500);
 await ask("who's this?");
-await until(() => window.__ghosty.people?.said === 'I don’t know them: introduce us.', null, 8000, `a stranger → "${await said()}"`);
+await until(() => window.__ghosty.people?.said === 'Someone I don’t know. I never identify a stranger.', null, 8000, `a stranger → "${await said()}"`);
 const strangerBoxes = (await people()).faces;
 check(strangerBoxes.length >= 1 && strangerBoxes.every((f) => f.label === ''), `a stranger got a label: ${JSON.stringify(strangerBoxes)}`);
 

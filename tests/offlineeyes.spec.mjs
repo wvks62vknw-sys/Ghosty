@@ -179,7 +179,7 @@ const waitBoot = (page) => page.waitForSelector('#boot', { state: 'detached', ti
   st.short = short;
   await page.evaluate(() => window.__net('wifi'));
   await until(page, () => /came back the wrong size/.test(document.querySelector('.wikioffer[data-pack="eyes-lens"]')?.textContent ?? ''), null, 120000, '[get] a file cut short did not stop it with "came back the wrong size"');
-  check(/Tap GET again on Wi-Fi: it fetches that piece again/.test(await rowText(page, 'eyes-lens')), '[get] the stop does not say what GET again does');
+  check(/Tap RETRY on Wi-Fi: it fetches that piece again/.test(await rowText(page, 'eyes-lens')), '[get] the stop does not say what GET again does');
   check(await row(page, 'eyes-lens').locator('button[data-act="get"]').isEnabled(), '[get] GET is not there again after a stop');
   const kept1 = await page.evaluate(async () => (await (await caches.open('ghosty-eyes-v1')).keys()).length);
   st.short = '';

@@ -117,7 +117,7 @@ const bar = await page.$$eval('#pg-eye .eyebot .btns .bgroup', (gs) => gs.map((g
 if (bar.join(' | ') !== 'THIS SPOT MAP 3D STREET VIEW TRAFFIC GO ROAD AHEAD | VIEW LOOK HOME NORTH TILT') problems.push(`the bar reads: ${bar.join(' | ')}`);
 await page.click('#pg-eye .eyebot .btns button:has-text("LOOK")');
 const sections = await page.$$eval('#pg-eye .lookmenu .lgroup', (g) => g.map((x) => x.textContent.trim()));
-if (sections.join(' | ') !== 'MAP TILES ON THE GLOBE | SENSOR | GLOBE') problems.push(`LOOK sections: ${sections.join(' | ')}`);
+if (sections.join(' | ') !== 'MAP TILES ON THE GLOBE | HOW IT SEES | GLOBE') problems.push(`LOOK sections: ${sections.join(' | ')}`);
 await page.click('#pg-eye .lookmenu button[data-src="dark"]');
 if (!(await page.$('#pg-eye .lookmenu button[data-src="dark"].on'))) problems.push('DARK tiles did not switch on in LOOK');
 await page.click('#pg-eye .eyebot .btns button:has-text("LOOK")');

@@ -156,6 +156,9 @@ export function countLine(c: MachineCounts, o: { home?: string; warning?: string
 /** The Eye hub card's reading while the mode is on: "WATCHING · 41 AIR · 188 TRANSIT". */
 export const hubLine = (c: Pick<MachineCounts, 'air' | 'transit'>) => `WATCHING · ${thousands(c.air)} AIR · ${thousands(c.transit ?? 0)} TRANSIT`;
 
+/** Said on the view when the phone has no signal: the counts are what it last saw. */
+export const MACHINE_OFFLINE = 'No signal: these counts are the last I saw.';
+
 /** Said on the view when there is no saved home. */
 export const NO_HOME = "Save home in Memory → ME → PLACES and I'll watch your city; for now this is the phone's home.";
 

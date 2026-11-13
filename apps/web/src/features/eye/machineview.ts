@@ -28,7 +28,8 @@ import { home as phoneHome } from '../../state/app';
 import { foresight, loadForesight } from '../../state/foresight';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { button } from '../../ui/components';
-import { airTag, countLine, hubLine, inWestMidlands, MACHINE_KM, MACHINE_LAYERS, MACHINE_RANGE, MACHINE_TILT, machineState, nearBaltic, nearest, NO_HOME, overhead, placeTag, transitTag, walkTag, warningSentence, within, type MachineCounts } from './machine';
+import { waiting } from '../../ui/wait';
+import { airTag, countLine, hubLine, inWestMidlands, MACHINE_KM, MACHINE_LAYERS, MACHINE_RANGE, MACHINE_TILT, MACHINE_OFFLINE, machineState, nearBaltic, nearest, NO_HOME, overhead, placeTag, transitTag, walkTag, warningSentence, within, type MachineCounts } from './machine';
 
 export interface MachineHost {
   /** The Eye's middle (the boxes go over the globe there), its top (search and chips), its bottom bar and its HUD. */
@@ -70,6 +71,7 @@ export function createMachine(host: MachineHost): { button: HTMLButtonElement; o
   let t0 = 0;
   let lastSet: number | null = null;
   let pollTimer = 0;
+  let looking: (() => void) | null = null;
   let homeAt: { lat: number; lon: number; label: string } | null = null;
   let tagged: { air: Aircraft[]; bus: Vehicle | null } = { air: [], bus: null };
   /** The open sky between the search and the bar (measured with each count, not each frame): boxes stay inside it. */
@@ -180,6 +182,14 @@ export function createMachine(host: MachineHost): { button: HTMLButtonElement; o
     machineState.aircraft = tagged.air.map(airTag);
     machineState.transit = tagged.bus ? transitTag(tagged.bus) : '';
     if (line.textContent !== machineState.line) line.textContent = machineState.line;
+    // no signal: the numbers are the last the phone saw, said once above the line with the other honest edges
+    /* state: machine.view offline */
+    const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+    const edges = [...machineState.notes, ...(off ? [MACHINE_OFFLINE] : [])].join(' ');
+    if (note.textContent !== edges) note.textContent = edges;
+    note.hidden = !edges;
+    if (off) note.dataset.state = 'offline';
+    else delete note.dataset.state;
   };
 
   /** The boxes, where each thing is on screen now. */
@@ -284,6 +294,10 @@ export function createMachine(host: MachineHost): { button: HTMLButtonElement; o
     paintButton();
     count();
     measure();
+    // the first look takes a moment (the feeds are asked about this frame): said while it does, gone when the first line is in
+    /* state: machine.view loading */
+    looking?.();
+    looking = waiting(panel, `Looking round ${H.label || 'here'}…`, { as: 'tag' });
     // the feeds about his city now, and his places' watch and today's expectations; the first line once they answer
     // (two seconds at most: what is not in by then comes with the next count)
     void loadGuardian().then(count);
@@ -291,6 +305,8 @@ export function createMachine(host: MachineHost): { button: HTMLButtonElement; o
     clearInterval(pollTimer);
     pollTimer = window.setInterval(() => void poll(), 8000);
     await Promise.race([poll(), sleep(2000)]);
+    looking?.();
+    looking = null;
     if (!machineState.on) return;
     count();
     machineState.ready = true;
@@ -299,6 +315,8 @@ export function createMachine(host: MachineHost): { button: HTMLButtonElement; o
   function leave(instant = false): void {
     if (!machineState.on) return;
     clearInterval(pollTimer);
+    looking?.();
+    looking = null;
     const c = globe.cam;
     const b = before;
     before = null;

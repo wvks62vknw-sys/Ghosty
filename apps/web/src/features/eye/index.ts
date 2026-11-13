@@ -53,7 +53,9 @@ import { createRoadAhead } from './roadahead';
 import { machineState } from './machine';
 import { createMachine } from './machineview';
 import { fetchImage } from '../../api/feed';
-import { rawText } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { phrases } from '../lifeui';
+import { cardWords, noCamerasWords, noFindWords, noSignalFindWords, CAM_DOWN, CAM_CONNECTING, CLIP_DOWN, STREAM_DOWN } from './words';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
 /** Open the nearest public camera within `maxKm`; returns its distance (km), or null if none is that close. */
@@ -169,8 +171,18 @@ export const eyeTab: TabDef = {
       globe.cam.flyTo({ lat: p.lat, lon: p.lon, range: 1.2, tilt: 45 });
     };
     const mine = myPlaces(flyToPlace);
+    // what the search found, said under the box (a toast is gone before he has read what to try)
+    const found = h('p.searchnote', { role: 'status', hidden: true, dataset: { case: 'keep' } });
+    const sayFind = (words: string, kind: 'empty' | 'offline' | ''): void => {
+      found.textContent = words;
+      found.hidden = !words;
+      if (kind) found.dataset.state = kind;
+      else delete found.dataset.state;
+    };
+    q.addEventListener('input', () => sayFind('', ''));
     const search = async () => {
       const s = q.value.trim();
+      sayFind('', '');
       if (!s) return;
       const saved = mine.find(s);
       if (saved) return flyToPlace(saved);
@@ -181,9 +193,10 @@ export const eyeTab: TabDef = {
       const ship = ships.find(s);
       if (ship) return select({ kind: 'ship', ref: ship, w: shipLayer.world(ship, Date.now()) }, true);
       // Offline, a place that is not one of the globe's own cities cannot be looked up: say that, not "couldn't find".
-      if (!navigator.onLine && !World.find(s) && !(s.length <= 4 && World.findAirport(s))) return void toast(`You're offline, so I can't look up ${s}. The globe's cities and your saved places still work.`, 'warn');
-      // flyTo says it once when the place is not found.
-      await flyTo({ place: s, range_km: 300 });
+      /* state: eye.search offline */
+      if (!navigator.onLine && !World.find(s) && !(s.length <= 4 && World.findAirport(s))) return void sayFind(noSignalFindWords(s), 'offline');
+      /* state: eye.search empty */
+      if (!(await flyTo({ place: s, range_km: 300, quiet: true }))) sayFind(noFindWords(s), 'empty');
     };
     q.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void search();
@@ -196,7 +209,7 @@ export const eyeTab: TabDef = {
     const paintModes = () => [...modes.children].forEach((b, i) => b.classList.toggle('on', i === globe.mode));
 
     // ---------- layers ----------
-    const lay = panel('LAYERS', { grow: false });
+    const lay = panel('WHAT TO SHOW', { grow: false });
     lay.el.classList.add('eyelay');
     /** A feed's state in plain words (SYNC, STALE, NO FEED and IDLE are the code's own). */
     const said = (st: string) => (st === 'SYNC' ? 'LOADING' : st === 'STALE' ? 'NOT UPDATING' : st === 'NO FEED' ? 'NOT REACHABLE' : st === 'IDLE' ? '' : st);
@@ -357,8 +370,8 @@ export const eyeTab: TabDef = {
         info.title.textContent = (a.call || a.hex).toUpperCase();
         info.setStatus(a.emergency ? `EMERGENCY ${a.emergency}` : a.mil ? 'MILITARY' : 'LIVE', a.emergency ? 'off' : 'ok');
         R('TYPE', `${a.type || '?'}${a.reg ? ` · ${a.reg}` : ''}`);
-        R('ALT', a.gnd ? 'ON GROUND' : `${fmt.n(a.altft)} ft`, `FL${String(Math.round(a.altft / 100)).padStart(3, '0')}`);
-        R('SPEED', `${Math.round(a.gs)} kt`, `${Math.round(a.gs * 1.852)} km/h`);
+        R('ALT', a.gnd ? 'ON GROUND' : cardWords.altitude(a.altft), a.gnd ? 'from the feed' : cardWords.altitudeNote);
+        R('SPEED', cardWords.knots(a.gs), `${Math.round(a.gs * 1.852)} km/h`);
         R('HEADING', `${Math.round(a.trk)}°`, GEO.card(a.trk));
         if (a.squawk) R('SQUAWK', a.squawk);
         actions.append(button('FOLLOW', () => {
@@ -374,8 +387,8 @@ export const eyeTab: TabDef = {
         info.title.textContent = st.name;
         info.setStatus(st.group.toUpperCase(), 'ok');
         R('NORAD', String(st.id));
-        R('ALT', `${Math.round(ll.alt)} km`);
-        R('SPEED', `${v.toFixed(2)} km/s`);
+        R('ALT', `${Math.round(ll.alt)} km`, 'worked out from its orbit');
+        R('SPEED', `${v.toFixed(2)} km/s`, 'worked out from its orbit');
         R('PERIOD', `${(st.period / 60).toFixed(1)} min`);
         R('INCL', `${(st.inc * DEG).toFixed(1)}°`);
         R('NEXT PASS', pass ? `${fmt.time(new Date(pass.rise))} · ${Math.round(pass.max)}° max` : 'none in 24h');
@@ -400,7 +413,7 @@ export const eyeTab: TabDef = {
         R('MISSION', l.name);
         R('PROVIDER', l.provider);
         R('PAD', l.pad);
-        R('T-', `${Math.max(0, Math.round((l.net - Date.now()) / 36e5))} h`);
+        R('STARTS IN', cardWords.hours(l.net - Date.now()), 'from the launch schedule');
       } else if (s.kind === 'route') {
         const rr = (s.ref as { route: RouteInfo }).route;
         info.title.textContent = 'ROUTE';
@@ -434,7 +447,7 @@ export const eyeTab: TabDef = {
         info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
         info.setStatus(shipKind(v.type), shipKind(v.type) === 'MILITARY' ? 'off' : 'ok');
         R('MMSI', String(v.mmsi));
-        R('SPEED', `${v.sog.toFixed(1)} kt`, `${(v.sog * 1.852).toFixed(0)} km/h`);
+        R('SPEED', cardWords.knots(v.sog, 1), `${(v.sog * 1.852).toFixed(0)} km/h`);
         R('COURSE', `${Math.round(v.cog)}°`, GEO.card(v.cog));
         if (v.dest) R('DEST', v.dest);
         if (v.nav < NAV_STATUS.length) R('STATUS', NAV_STATUS[v.nav]!);
@@ -572,11 +585,11 @@ export const eyeTab: TabDef = {
     const lookupSpot = (sp: Spot) =>
       void reverseAddress(sp.lat, sp.lon)
         .then((r) => {
-          sp.address = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
+          sp.address = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'I don’t know an address for this spot.';
           if (!sp.name && r.name) sp.name = r.name;
         })
         .catch(() => {
-          sp.address = 'Address service not reachable';
+          sp.address = 'I can’t look up an address without a signal.';
         })
         .finally(() => {
           if (selected?.ref !== sp) return;
@@ -619,7 +632,16 @@ export const eyeTab: TabDef = {
     /** A live picture of one camera: still images refreshed every few seconds, plus video where the camera offers it. */
     function camView(c: Camera, big: boolean): HTMLElement {
       const img = h('img', { alt: `Live view: ${c.name}` });
-      const stamp = h('small.camstamp', 'CONNECTING…');
+      /* state: eye.cam loading */
+      const stamp = h('small.camstamp', { dataset: { state: 'loading', case: 'keep' } }, CAM_CONNECTING);
+      // the card's way out of a picture that will not come: the next camera along (the grid's tiles are taps of their own)
+      const another = button('TRY ANOTHER', () => {
+        const next = nearestCameras(c.lat, c.lon, 12, 50).filter((x) => x.id !== c.id)[0];
+        if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
+        else toast('No other camera nearby', 'warn');
+      }, 'on');
+      another.hidden = true;
+      another.dataset.act = 'another';
       const box = h(`div.camview${big ? '.big' : ''}` as 'div', img, stamp, h('i.camrec'));
       const v = { cam: c, timer: 0, url: '' };
       const load = async () => {
@@ -630,9 +652,14 @@ export const eyeTab: TabDef = {
           v.url = url;
           img.src = url;
           stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
+          delete stamp.dataset.state;
+          another.hidden = true;
           box.classList.remove('dead');
         } catch (e) {
-          stamp.textContent = rawText(e) === 'offline' ? 'CAMERA OFFLINE (National Highways)' : 'SIGNAL LOST — retrying';
+          /* state: eye.cam error */
+          stamp.textContent = CAM_DOWN;
+          stamp.dataset.state = 'error';
+          another.hidden = false;
           box.classList.add('dead');
         }
       };
@@ -644,17 +671,26 @@ export const eyeTab: TabDef = {
         if (c.video) {
           actions.append(button('▶ PLAY CLIP', () => {
             const vid = h('video', { src: c.video, autoplay: true, muted: true, playsInline: true, loop: true, controls: true });
-            vid.addEventListener('error', () => toast('That clip is not available right now', 'warn'));
+            vid.addEventListener('error', () => {
+              stamp.textContent = CLIP_DOWN;
+              stamp.dataset.state = 'error';
+              another.hidden = false;
+            });
             box.replaceChildren(vid, stamp, h('i.camrec'));
           }));
         }
         if (c.hls && document.createElement('video').canPlayType('application/vnd.apple.mpegurl')) {
           actions.append(button('▶ LIVE VIDEO', () => {
             const vid = h('video', { src: c.hls, autoplay: true, muted: true, playsInline: true, controls: true });
-            vid.addEventListener('error', () => toast('The live stream is not available right now', 'warn'));
+            vid.addEventListener('error', () => {
+              stamp.textContent = STREAM_DOWN;
+              stamp.dataset.state = 'error';
+              another.hidden = false;
+            });
             box.replaceChildren(vid, stamp, h('i.camrec'));
           }));
         }
+        actions.append(another);
         return h('div', box, actions);
       }
       return box;
@@ -671,8 +707,10 @@ export const eyeTab: TabDef = {
       // Only while no card is open: on a phone the grid and a card share the same corner (the card's ASK GHOSTY and ✕ went under it).
       const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && !selected;
       const near = show ? nearestCameras(T.lat, T.lon, 4, Math.max(30, T.range)) : [];
-      grid.el.hidden = !near.length;
-      const key = near.map((c) => c.id).join();
+      // cameras on, close enough to look, and none near: one line instead of nothing (the panel is there only while that is so)
+      const none = show && !near.length;
+      grid.el.hidden = !near.length && !none;
+      const key = none ? 'none' : near.map((c) => c.id).join();
       if (key === gridKey) return;
       gridKey = key;
       for (const el of [...grid.body.children]) {
@@ -684,6 +722,12 @@ export const eyeTab: TabDef = {
         }
       }
       clear(grid.body);
+      if (none) {
+        /* state: eye.cams empty */
+        grid.setStatus('NONE NEAR', 'mid');
+        grid.body.append(h('p.note.camnone', { dataset: { state: 'empty', case: 'keep' } }, noCamerasWords));
+        return;
+      }
       grid.setStatus(near.length ? `${near[0]!.src.toUpperCase()} · ${near.length} LIVE` : '', 'ok');
       for (const c of near) {
         const tile = camView(c, false);
@@ -700,6 +744,7 @@ export const eyeTab: TabDef = {
     const ra = createRoadAhead({
       cameraView: (c) => camView(c, false),
       flyTo: (lat, lon, rangeKm) => globe.cam.flyTo({ lat, lon, range: rangeKm, tilt: 50 }),
+      search: () => q.focus(),
     });
     startRoadAhead = () => {
       machine?.leave();
@@ -780,7 +825,7 @@ export const eyeTab: TabDef = {
       h('div.lgroup', 'MAP TILES ON THE GLOBE'),
       tileChips,
       h('div.hint', 'Satellite photos, streets, a dark map, contours or Sentinel imagery drawn onto the globe — or off for the plain globe.'),
-      h('div.lgroup', 'SENSOR'),
+      h('div.lgroup', 'HOW IT SEES'),
       modes,
       h('div.hint', 'How the whole view is drawn, from the normal globe to night vision and thermal.'),
       h('div.lgroup', 'GLOBE'),
@@ -874,7 +919,7 @@ export const eyeTab: TabDef = {
 
     // ---------- route C: the layers button and three quick layers with their live counts ----------
     const LAYERS_GLYPH = '<path d="M12 3.5l8.5 4.5L12 12.5 3.5 8z"/><path d="M3.5 12L12 16.5 20.5 12M3.5 16L12 20.5 20.5 16"/>';
-    const layBtn = h('button.lchip.ico', { type: 'button', 'aria-label': 'All layers', 'aria-expanded': 'false', dataset: { case: 'keep' } }, icon(LAYERS_GLYPH));
+    const layBtn = h('button.lchip.ico', { type: 'button', 'aria-label': 'Everything I can show', 'aria-expanded': 'false', dataset: { case: 'keep' } }, icon(LAYERS_GLYPH));
     layBtn.addEventListener('click', () => {
       lay.el.classList.toggle('min');
       layBtn.setAttribute('aria-expanded', String(!lay.el.classList.contains('min')));
@@ -906,10 +951,12 @@ export const eyeTab: TabDef = {
       }
       layBtn.setAttribute('aria-expanded', String(!lay.el.classList.contains('min')));
     };
+    // the words that open this screen from the chat, in one line (they are the chat's own, answered on the phone)
+    lay.body.append(phrases(['machine view', 'what are you watching?']));
     const eyeChips = h('div.eyechips', layBtn, ...quick.map((x) => x.b));
 
     const labels = h('div.labels');
-    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips, mine.el);
+    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), found, eyeChips, mine.el);
     const bot = h('div.eyebot', look, readout, btns);
     const mid = h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail);
     const hud = h('div.hud.eye', top, mid, bot);
@@ -928,6 +975,8 @@ export const eyeTab: TabDef = {
     let lastTap = 0;
     const vel = { x: 0, y: 0 };
     const active = () => ui.get().tab === 'eye';
+    let drawing: (() => void) | null = null;
+    let drewOnce = false;
     const pan = (dx: number, dy: number) => {
       const c = globe.cam;
       const T = c.target;
@@ -1153,6 +1202,11 @@ export const eyeTab: TabDef = {
     };
     onFrame((dt) => {
       if (!active()) return;
+      // the globe has drawn: the first-draw line goes
+      if (drawing) {
+        drawing();
+        drawing = null;
+      }
       if (hold) globe.cam.zoom(Math.exp(hold * 1.7 * dt), ...crosshair());
       if (!globe.cam.dragging && (Math.abs(vel.x) > 0.05 || Math.abs(vel.y) > 0.05) && !globe.cam.fly) {
         pan(vel.x, vel.y);
@@ -1214,6 +1268,12 @@ export const eyeTab: TabDef = {
 
     return {
       enter() {
+        // the first draw of the globe can take a moment on a phone: said once, where it happens, gone with the first frame
+        if (!drewOnce) {
+          drewOnce = true;
+          /* state: eye.globe loading */
+          drawing = waiting(mid, 'Drawing the world…', { as: 'tag' });
+        }
         void mine.refresh();
         // (what the Machine view shows, for the specs: window.__ghosty.machine, as the Brief and the Lens do)
         const g = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;

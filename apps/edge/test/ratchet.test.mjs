@@ -108,6 +108,26 @@ export const STATES = {
   'brief.say': { dir: 'brief', base: 0, now: 1 },
   'shell.jump': { at: 'shell', dir: '', base: 1, now: 2 },
   'shell.boot': { at: 'shell', dir: '', base: 1, now: 1 },
+  // SEE (BRIEF-QUALITY-SEE): God's Eye, the Machine view, each of the Lens's modes, THREATS (the list, NEAR HOME), the offline eyes' pack rows.
+  // `base` is what each drew, in words of its own, before that pass (a toast that was gone is not a state).
+  'eye.globe': { dir: 'eye', base: 0, now: 1 },
+  'eye.search': { dir: 'eye', base: 0, now: 2 },
+  'eye.cams': { dir: 'eye', base: 0, now: 1 },
+  'eye.cam': { dir: 'eye', base: 2, now: 2 },
+  'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
+  'machine.view': { dir: 'eye', base: 0, now: 2 },
+  'lens.camera': { dir: 'lens', base: 3, now: 3 },
+  'lens.see': { dir: 'lens', base: 0, now: 1 },
+  'lens.read': { dir: 'lens', base: 0, now: 1 },
+  'lens.hands': { dir: 'lens', base: 0, now: 1 },
+  'lens.ask': { dir: 'lens', base: 0, now: 2 },
+  'lens.name': { dir: 'lens', base: 0, now: 2 },
+  'lens.people': { dir: 'lens', base: 0, now: 2 },
+  'lens.measure': { dir: 'lens', base: 1, now: 1 },
+  'lens.photo': { dir: 'lens', base: 1, now: 1 },
+  'threats.signals': { dir: 'threats', base: 2, now: 4 },
+  'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
+  'settings.packs': { dir: 'settings', base: 3, now: 3 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -132,7 +152,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

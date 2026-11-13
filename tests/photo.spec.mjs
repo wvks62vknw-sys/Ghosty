@@ -197,7 +197,7 @@ if (s.phase !== 'done' || s.by !== 'Real-ESRGAN') problems.push(`sharper: ${s.ph
 await page.evaluate(() => window.__ghosty.ui.set({ connected: false }));
 await page.locator('.ptjobs button', { hasText: 'BACKGROUND' }).click();
 const who = (await page.locator('.ptsheet .ptwho').textContent()) ?? '';
-if (!/^Needs the brain/.test(who) || !(await page.locator('.ptsheet button', { hasText: 'REMOVE THE BACKGROUND' }).isDisabled())) problems.push(`offline: "${who}"`);
+if (!/^I need my brain for /.test(who) || !(await page.locator('.ptsheet button', { hasText: 'REMOVE THE BACKGROUND' }).isDisabled())) problems.push(`offline: "${who}"`);
 await shot('photo-offline');
 await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
 await page.locator('.modal .mhead button', { hasText: 'CLOSE' }).click();

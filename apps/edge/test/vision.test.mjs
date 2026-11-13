@@ -299,12 +299,12 @@ test('engines: the share request posts the JPEG to the brain and reads the link 
 
 test('camera: errors come back as plain words with what to do', () => {
   const err = (name, message = '') => Object.assign(new Error(message), { name });
-  assert.match(C.cameraMessage(err('NotAllowedError')), /Camera not allowed: Settings → Safari → Camera/);
+  assert.equal(C.cameraMessage(err('NotAllowedError')), 'The phone would not give me the camera. Settings, Ghosty, Camera, switch it on, then tap START.');
   assert.equal(C.cameraMessage(err('NotFoundError')), 'No camera on this device');
   assert.equal(C.cameraMessage(err('OverconstrainedError')), 'No camera on this device');
   assert.equal(C.cameraMessage(err('NotReadableError')), 'The camera is busy in another app');
   assert.equal(C.cameraMessage(new TypeError('navigator.mediaDevices is undefined')), 'This browser cannot open the camera');
-  assert.match(C.cameraMessage(err('SecurityError')), /Camera not allowed/);
+  assert.match(C.cameraMessage(err('SecurityError')), /The phone would not give me the camera/);
   assert.equal(C.cameraMessage(err('SomeError', 'needs a secure context (https)')), 'The camera only works over https');
   // one error voice: what the camera said itself never reaches him, the unknown is said in his own words
   const unknown = 'The camera did not open. Close other apps that use it and try again.';

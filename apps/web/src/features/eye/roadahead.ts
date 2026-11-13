@@ -21,6 +21,8 @@ export interface RoadAheadDeps {
   cameraView(c: Camera): HTMLElement;
   /** Fly to and select something on the globe. */
   flyTo(lat: number, lon: number, rangeKm: number): void;
+  /** No position yet: the search is the other way in. */
+  search(): void;
 }
 
 /** The nearest motorway junction within `km`, as "M6 J6 Spaghetti Junction". */
@@ -76,8 +78,9 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
     clear(p.body);
     if (!m) {
       p.setStatus(roadAhead.error ? 'NO FIX' : 'WAITING FOR GPS', roadAhead.error ? 'off' : 'mid');
-      p.body.append(h('div.note', roadAhead.error || 'Waiting for your position… allow location when the phone asks.'));
-      p.body.append(h('div.row.wrap', button('STOP', stop)));
+      /* state: eye.roadahead empty */
+      p.body.append(h('div.note', { dataset: { state: 'empty', case: 'keep' } }, roadAhead.error || 'Waiting for your position. Allow location when the phone asks, or search a place.'));
+      p.body.append(h('div.row.wrap', button('SEARCH A PLACE', () => deps.search(), 'on'), button('STOP', stop)));
       return;
     }
     p.setStatus(`GPS ±${Math.round(m.accuracy)} m · ${fmt.ago(m.t)}`, m.accuracy > 100 ? 'mid' : 'ok');
@@ -129,7 +132,7 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
 
   const start = () => {
     if (!roadAhead.start()) {
-      toast(roadAhead.error || 'No location service on this device', 'warn');
+      toast(roadAhead.error || 'This phone has no location service. Search a place above instead.', 'warn');
       return;
     }
     detached = false;

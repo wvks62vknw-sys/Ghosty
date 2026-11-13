@@ -91,14 +91,15 @@ async function openTraffic(a: Record<string, unknown> | undefined): Promise<void
   openMapSheet('traffic', where);
 }
 
-export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number }): Promise<boolean> {
+export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number; quiet?: boolean }): Promise<boolean> {
   go('eye');
   let lat = Number(args.lat);
   let lon = Number(args.lon);
   if (args.place) {
     const p = await locatePlace(String(args.place));
     if (!p) {
-      toast(`I couldn't find ${args.place}`, 'warn');
+      // (God's Eye's own search says it under the box, with what to try; the chat's answer is the toast)
+      if (!args.quiet) toast(`I couldn't find ${args.place}`, 'warn');
       return false;
     }
     ({ lat, lon } = p);

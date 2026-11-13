@@ -2,7 +2,7 @@
 // aircraft feed fails as it does when adsb.lol turns Ghosty away. Checked: plain names for the sensor looks and 44 pt
 // LOOK chips; a low aurora a faint glow (not a white ring); layer tiles in plain words (no STALE / IDLE / SYNC / NO FEED / KEY NEEDED); LIVE TRAFFIC without the
 // TomTom key says where the free key goes; the readout counts in words; floating names never drawn through the bar or
-// the search; a tapped spot's card never sits under the CCTV grid; layer choices kept after a reload; one toast for a
+// the search; a tapped spot's card never sits under the CCTV grid; layer choices kept after a reload; one line under the search for a
 // search that finds nothing, and the truth when offline.
 //   BASE=http://localhost:8788 node tests/eye.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -203,14 +203,15 @@ await page.click('#pg-eye .eyechips button[data-layer="radar"]');
 await page.fill('#pg-eye .search input', 'zzqxqzz');
 await page.keyboard.press('Enter');
 await page.waitForTimeout(3000);
-const miss = (await toasts()).filter((t) => t.includes('zzqxqzz'));
-if (miss.length !== 1) problems.push(`a search that finds nothing showed ${miss.length} toasts: ${miss.join(' | ')}`);
+// (the miss is said once, in the line under the search: it stays, with what to try, where a toast was gone before it was read)
+const miss = [...(await toasts()), ...(await page.$$eval('#pg-eye .searchnote:not([hidden])', (n) => n.map((x) => x.textContent ?? '')))].filter((t) => t.includes('zzqxqzz'));
+if (miss.length !== 1) problems.push(`a search that finds nothing said it ${miss.length} times: ${miss.join(' | ')}`);
 await ctx.setOffline(true);
 await page.fill('#pg-eye .search input', 'Little Snoring');
 await page.keyboard.press('Enter');
 await page.waitForTimeout(3000);
-const off = (await toasts()).filter((t) => t.includes('Little Snoring'));
-if (off.length !== 1 || !/offline/i.test(off[0] ?? '')) problems.push(`offline, a search said: ${off.join(' | ') || 'nothing'}`);
+const off = [...(await toasts()), ...(await page.$$eval('#pg-eye .searchnote:not([hidden])', (n) => n.map((x) => x.textContent ?? '')))].filter((t) => t.includes('Little Snoring'));
+if (off.length !== 1 || !/no signal|offline/i.test(off[0] ?? '')) problems.push(`offline, a search said: ${off.join(' | ') || 'nothing'}`);
 await page.waitForFunction(() => /offline/i.test(document.querySelector('#pg-eye .readout .r3')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
 const r3off = (await page.textContent('#pg-eye .readout .r3')) ?? '';
 if (!/offline/i.test(r3off)) problems.push(`offline, the readout's counts still read as live: "${r3off}"`);

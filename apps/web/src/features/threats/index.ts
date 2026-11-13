@@ -12,6 +12,8 @@ import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { reconPanel } from './recon';
+import { emptyState, stateLine } from '../lifeui';
+import { feedOf, NOTHING, offlineWords, whenWords } from './words';
 import { nearHomePanel } from './nearhome'; // [guardian]
 
 /** A distance in plain kilometres: "340 km", "5,410 km" (not "5.4k km"). */
@@ -33,7 +35,33 @@ export const threatsTab: TabDef = {
     const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stack: true });
     const sp = panel('ACTIVE SIGNALS', { footer: true, cls: 'signals' });
     // every row says when (a quake's magnitude is already in its text)
-    const sg = pager(sp, 50, (s: Signal) => row(s.kind, s.text, fmt.ago(s.at), { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) }), () => quakes.status);
+    // (each row says when and from which feed: "12 minutes ago, from the USGS feed"; the two states that are no list at all are his words too)
+    const sg = pager(
+      sp,
+      50,
+      (s: Signal) => {
+        const r = row(s.kind, h('span', s.text, h('small.when', { dataset: { case: 'keep', feed: feedOf(s.kind) } }, whenWords(s.kind, s.at))), null, { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) });
+        return r;
+      },
+      () => quakes.status,
+      undefined,
+      () => {
+        if (!quakes.data && !events.data) {
+          const e = empty(quakes.status);
+          /* state: threats.signals loading */
+          /* state: threats.signals error */
+          e.dataset.state = quakes.status === 'NO FEED' ? 'error' : 'loading';
+          return e;
+        }
+        /* state: threats.signals offline */
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return stateLine('offline', offlineWords(Math.max(quakes.at, events.at)));
+        /* state: threats.signals empty */
+        return emptyState(NOTHING.head, NOTHING.line);
+      },
+    );
+    // no signal with a list in hand: the list is what the phone kept, and from when
+    const offNote = h('p.note.pkstate.sigoff', { dataset: { state: 'offline', case: 'keep' }, role: 'status', hidden: true });
+    sp.body.before(offNote);
     P.left.append(sp.el);
     const near = panel('NEAR YOU', { grow: false, cls: 'near' });
     const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
@@ -58,6 +86,9 @@ export const threatsTab: TabDef = {
       P.big.style.color = lv.known ? SEV_COLORS[lv.n]! : lv.label === 'CHECKING' ? '' : 'var(--amber)';
       P.sub.textContent = lv.known ? `${list.length} live signals · ${lv.why}` : `${lv.why.charAt(0).toUpperCase()}${lv.why.slice(1)}`;
       sp.setStatus(quakes.status, quakes.status === 'LIVE' ? 'ok' : 'off');
+      const off = typeof navigator !== 'undefined' && navigator.onLine === false && list.length > 0;
+      offNote.hidden = !off;
+      if (off) offNote.textContent = offlineWords(Math.max(quakes.at, events.at));
       sg.set(list);
       const L = home();
       clear(near.body);

@@ -60,9 +60,9 @@ export const APP_2: Record<string, CatValue> = {
   'panel:core:MARKETS': { same: 'screen:markets' },
   'panel:core:HEADLINES': { same: 'panel:brief:HEADLINES' },
   // ---- GOD'S EYE
-  'panel:eye:LAYERS': {
-    name: 'The globe’s live layers', line: 'You can switch God’s eye layers on and off: planes, ships, satellites, quakes, cameras, rain, traffic.',
-    more: 'Each layer is a public live feed and says where it comes from. Ships need a free key.',
+  'panel:eye:WHAT TO SHOW': {
+    name: 'What the globe shows', line: 'You can choose what the globe shows: planes, ships, satellites, quakes, cameras, rain, traffic.',
+    more: 'Each one is a public live feed and says where it comes from. Ships need a free key.',
     say: ['Show the planes', 'Turn on the rain radar'], scene: ['out', 'watching'], cat: 'see', needs: ['key:aisstream'],
   },
   'panel:eye:TARGET': {

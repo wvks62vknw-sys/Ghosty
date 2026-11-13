@@ -3911,6 +3911,8 @@ html #pg-threats .pn.signals .rw .sev { grid-row: 1 / 3; align-self: stretch; wi
 html #pg-threats .pn.signals .rw .k { grid-column: 2; grid-row: 1; --lfs: 11px; min-width: 0; font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase !important; color: var(--ink3); }
 html #pg-threats .pn.signals .rw .v { grid-column: 2; grid-row: 2; font: 500 16px/21px var(--sf); color: var(--ink); }
 html #pg-threats .pn.signals .rw .n { grid-column: 3; grid-row: 1 / 3; font: 400 13px var(--sf); color: var(--ink3); text-align: right; }
+html #pg-threats .pn.signals .rw .v small.when { display: block; margin-top: 2px; font: 400 12px/16px var(--sf); color: var(--ink3); }
+html #pg-threats .pn.signals .pkstate.sigoff { margin: 0 0 8px; }
 html #pg-threats .pn.near > .bd { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 html #pg-threats .pn.near .rw { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; min-height: 76px; padding: 10px 12px; border: 0; border-radius: 14px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-threats .pn.near .rw .k { --lfs: 11px; min-width: 0; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase !important; color: var(--ink3); }
@@ -8737,3 +8739,18 @@ html body .hubtile.inst.fold .hubpill { min-height: 44px !important; }
 .wsbarlabel { position: absolute; top: 0; height: var(--g-target); display: flex; align-items: center; white-space: nowrap; font: var(--g-t-caption); color: var(--g-ink-1); pointer-events: none; }
 .wssheet button { white-space: normal; }
 .wsgcard > *, .wscardopen > * { min-width: 0; }
+/* ==== SEE quality pass (BRIEF-QUALITY-SEE): the lines the globe and the lens say where they happen ==== */
+.searchnote { margin: 6px 4px 0; font: 400 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.searchnote[hidden], .camnone[hidden] { display: none; }
+.camnone { margin: 0; font: 400 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.namemaybe { margin: 4px 0; font: 500 15px/20px var(--sf); color: var(--ink); }
+.namemaybe[hidden] { display: none; }
+/* every control on God's Eye is 44 pt in The Scan (the chips under the search, the Machine view's key, the bar's four): the hit area is the drawing */
+body.housed .eyechips .lchip { height: 44px; min-height: 44px !important; border-radius: 50vh; }
+body.housed .eyechips .lchip::after { inset: 0; }
+body.housed .eyebot .btns button { min-height: 44px !important; }
+/* (the bar's keys are four points taller; its padding gives the eight back, so the cards above it sit where they sat) */
+body.housed .eyebot .btns { padding-block: 8px; }
+/* the Lens's ENROL ME key is as tall as the rest */
+body.housed #pg-lens .people button { min-height: 44px !important; }
+/* ==== end SEE quality pass ==== */

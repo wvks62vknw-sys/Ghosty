@@ -31,6 +31,8 @@ import { bothText, calibrateDistance, calibrateHeight, calibrateRect, CARD_MM, A
 import { space } from '../../space/store';
 import type { LensContext, Mode } from './index';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { FIRST_ESTIMATE } from './words';
 
 type Tool = 'thing' | 'length' | 'rect';
 
@@ -226,7 +228,7 @@ export function createMeasureMode(L: LensContext): Mode {
       const big = sizeText(m);
       const imp = m.kind === 'length' ? ftInText(m.w) : `${ftInText(m.w)} × ${ftInText(m.h ?? 0)}${m.kind === 'object' && m.d ? ` × ${ftInText(m.d)}` : ''}`;
       const label = m.kind === 'object' ? `${m.name ? `${m.name.toUpperCase()} · ` : ''}W × H${m.d ? ' × D' : ''} · ` : '';
-      list.append(h(`div.measrow.${m.confidence}` as 'div', h('b', `${i + 1}`), h('span.measv', big), h('span.measi', imp), h('small', `${label}${m.confidence.toUpperCase()}${rangeText(m)} · ${r.note}`)));
+      list.append(h(`div.measrow.${m.confidence}` as 'div', h('b', `${i + 1}`), h('span.measv', big), h('span.measi', imp), h('small', `${label}${m.confidence.toUpperCase()}${rangeText(m)} · ${FIRST_ESTIMATE} · ${r.note}`)));
     });
     // what to do next, in one line
     let next = '';
@@ -370,6 +372,8 @@ export function createMeasureMode(L: LensContext): Mode {
     paintState();
     void (async () => {
       const t0 = performance.now();
+      /* state: lens.measure loading */
+      const measuring = waiting(root, 'Measuring… about half a minute for each photo.', { as: 'tag' });
       try {
         if (!asked && (await depthNeedsAsking())) {
           if (gen !== autoGen) return;
@@ -419,6 +423,8 @@ export function createMeasureMode(L: LensContext): Mode {
         Object.assign(S.auto, { state: 'failed', error: sayError(e, 'measure that') });
         paintState();
         if (auto()) status(`AUTO could not run: ${S.auto.error}`, 'off');
+      } finally {
+        measuring();
       }
     })();
   };

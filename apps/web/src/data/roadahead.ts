@@ -33,7 +33,7 @@ export class RoadAhead {
   start(): boolean {
     if (this.on) return true;
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      this.error = 'This device has no location service.';
+      this.error = 'This phone has no location service. Search a place above instead.';
       this.events.emit('change', undefined);
       return false;
     }
@@ -42,7 +42,7 @@ export class RoadAhead {
     this.watch = navigator.geolocation.watchPosition(
       (p) => this.update(p.coords.latitude, p.coords.longitude, p.coords.heading, p.coords.speed, p.coords.accuracy, p.timestamp || Date.now()),
       (e) => {
-        this.error = e.code === 1 ? 'Location permission was refused: allow it for this site in Settings → Safari → Location.' : e.code === 2 ? 'No GPS fix yet.' : 'Location timed out.';
+        this.error = e.code === 1 ? 'The phone would not share where it is. Settings, Ghosty, Location, or search a place above.' : e.code === 2 ? 'The phone has no GPS fix yet. Search a place above in the meantime.' : 'The phone took too long to find where it is. Try again, or search a place above.';
         this.events.emit('change', undefined);
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 },
