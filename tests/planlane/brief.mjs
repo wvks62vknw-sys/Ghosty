@@ -53,7 +53,7 @@ export async function run(H) {
 
   // ---- the page, stood in: the clock at `hour`:05 today, the forecast above, the BBC down until `bbc.up`, no places saved
   // (its own phone, as the harness's phone() makes one, but with the clock and the stand-ins in place before the first load: no reload)
-  async function brief(vp, world, hour, seed = {}) {
+  async function brief(vp, world, hour, seed = {}, wx = { up: true }) {
     const ctx = await H.browser.newContext({ viewport: vp, locale: 'en-GB', timezoneId: 'Europe/London' });
     const bbc = { up: false };
     await ctx.addInitScript(({ world, seed, hour }) => {
@@ -78,7 +78,7 @@ export async function run(H) {
     await page.route(/\/api\/proxy\?/, (r) => {
       const u = new URL(r.request().url()).searchParams.get('url') ?? '';
       if (/air-quality-api\.open-meteo/.test(u)) return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: { european_aqi: 20, pm2_5: 4, pm10: 7, nitrogen_dioxide: 12, ozone: 40 } }) });
-      if (/api\.open-meteo\.com/.test(u)) return r.fulfill({ contentType: 'application/json', body: JSON.stringify(forecast()) });
+      if (/api\.open-meteo\.com/.test(u)) return wx.up ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(forecast()) }) : r.fulfill({ status: 502, body: 'down' });
       if (/bbci\.co\.uk/.test(u)) return bbc.up ? r.fulfill({ status: 200, contentType: 'application/rss+xml', body: RSS() }) : r.fulfill({ status: 502, body: 'down' });
       return r.fallback();
     });
@@ -88,7 +88,7 @@ export async function run(H) {
     await page.click('#pair button.on');
     await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
     await H.open(page, 'brief');
-    await page.waitForSelector('#pg-brief .pn.wx .brwear', { timeout: 15000 }).catch(() => check(false, `[brief ${world} ${vp.width}] the weather card never showed WEAR`));
+    if (wx.up) await page.waitForSelector('#pg-brief .pn.wx .brwear', { timeout: 15000 }).catch(() => check(false, `[brief ${world} ${vp.width}] the weather card never showed WEAR`));
     return { ctx, page, bbc };
   }
   const txt = (page, sel) => page.evaluate((s) => document.querySelector(s)?.innerText?.replace(/\s+/g, ' ').trim() ?? '', sel);
@@ -169,6 +169,22 @@ export async function run(H) {
     await ctx.close();
   }
   log('brief: evening');
+
+  // ---- 3b. the forecast unreachable (and nothing kept today): said in his words, with TRY AGAIN, and back when it answers
+  {
+    const wx = { up: false };
+    const { ctx, page } = await brief(H.PHONE2, 'scan', 8, {}, wx);
+    await page.waitForSelector('#pg-brief .pn.wx button.brwxagain', { timeout: 20000 }).catch(() => check(false, '[brief weather down] no TRY AGAIN on the weather card'));
+    const down = await txt(page, '#pg-brief .pn.wx');
+    check(/Open-Meteo, where the forecast comes from, isn’t answering/.test(down) && !H.RAW.test(down) && !/NO FEED/.test(down), `[brief weather down] the card says so in his words: ${down.slice(0, 200)}`);
+    const f = await H.fit(page, '#pg-brief .pn.wx');
+    check(!f.small.length && !f.sideways && !f.cut.length, `[brief weather down] the card fits: ${JSON.stringify(f)}`);
+    wx.up = true;
+    await page.click('#pg-brief .pn.wx button.brwxagain');
+    await page.waitForSelector('#pg-brief .pn.wx .brwear', { timeout: 15000 }).catch(() => check(false, '[brief weather down] TRY AGAIN did not bring the forecast back'));
+    await ctx.close();
+  }
+  log('brief: weather down');
 
   // ---- 4. the seven looks (390 wide, BODY 21): the card, the commute and the headlines' way on hold in every world
   for (const world of H.WORLDS) {
