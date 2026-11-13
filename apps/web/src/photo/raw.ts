@@ -7,6 +7,7 @@
  * are still there for the highlights to pull back (a RAW is exposed for them to be). Nothing leaves the phone.
  */
 import { decodePng16, encodePng16 } from './png16';
+import { trail } from '../ui/hisWords';
 
 /** What the worker answers (public/vendor/raw/worker.mjs). */
 export interface RawRead {
@@ -40,6 +41,8 @@ export function rawRefusal(code: number, name: string): string {
 
 /** The reader's plain refusal, with LibRaw's code kept for the words. */
 export class RawError extends Error {
+  /** Its words are written in his voice on purpose (rawRefusal), so the one error voice says them whole. */
+  readonly said = true;
   constructor(
     readonly code: number,
     words: string,
@@ -107,7 +110,9 @@ export function readRawBytes(bytes: ArrayBuffer, name: string): Promise<RawRead>
     w.onerror = (ev) => {
       ev.preventDefault();
       end();
-      bad(new RawError(0, `The RAW reader would not start (${ev.message || 'no reason given'}). A JPEG or HEIC of it works.`));
+      // (the worker's own reason goes to the WHY trail: the words said are his)
+      trail(ev.message || 'no reason given', 'the RAW reader');
+      bad(new RawError(0, 'The RAW reader would not start. A JPEG or HEIC of it works.'));
     };
     w.postMessage({ id: 1, op: 'read', bytes }, [bytes]);
   });

@@ -440,7 +440,9 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
       const { eraseHole, erasePlanWords } = await import('../../photo/inpaint');
       const plan = erasePlanWords(hole, srcSize.w, srcSize.h);
       waitLine(plan?.line ?? 'Erasing…');
-      const res = await eraseHole(orig, hole, (w) => waitLine(w.startsWith('Erasing') ? `${w}${plan ? ` · about ${plan.seconds} s` : ''}` : w.charAt(0).toUpperCase() + w.slice(1)));
+      // (the model's opening says its step after the estimate, so "Erasing… about N s" stays up from the tap: the opening is
+      // said in the same task as the plan line, which would otherwise never be drawn)
+      const res = await eraseHole(orig, hole, (w) => waitLine(w.startsWith('Erasing') ? `${w}${plan ? ` · about ${plan.seconds} s` : ''}` : plan ? `${plan.line} · ${w}` : w.charAt(0).toUpperCase() + w.slice(1)));
       live((r) => {
         (r.patches ??= []).push(res.patch);
       });

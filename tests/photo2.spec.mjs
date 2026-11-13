@@ -248,8 +248,8 @@ await page.fill('#pair input', KEY);
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
 await page.evaluate(() => (location.hash = 'area-make'));
-await page.waitForSelector('#pg-area-make .hubtile[data-id="photo"]', { timeout: 15000 });
-await page.click('#pg-area-make .hubtile[data-id="photo"]');
+await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="photo"]', { timeout: 15000 });
+await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="photo"]');
 await page.waitForFunction(() => document.body.dataset.tab === 'photo', null, { timeout: 15000 });
 await page.waitForSelector('.peshelf:not([hidden])', { timeout: 10000 });
 
@@ -563,8 +563,8 @@ await suite(SMALL, false);
   ok(await page.evaluate(async () => !!(await (await caches.open('ghosty-eyes-v1')).match('/vendor/erase/erase.v1.wq8.onnx.part1'))), '(e) REMOVE took the erase model with it');
   // back in PHOTO: SUBJECT is back to its first cut and says so, with the offer
   await page.evaluate(() => (location.hash = 'area-make'));
-  await page.waitForSelector('#pg-area-make .hubtile[data-id="photo"]', { timeout: 15000 });
-  await page.click('#pg-area-make .hubtile[data-id="photo"]');
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="photo"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="photo"]');
   await page.waitForFunction(() => document.body.dataset.tab === 'photo', null, { timeout: 15000 });
   await page.waitForSelector('.pe:not([hidden]) .pestage, .peshelf:not([hidden])', { timeout: 20000 });
   await openFiles(page, [{ name: 'shape-after.jpg', mimeType: 'image/jpeg', buffer: await shapePic(page) }]);
