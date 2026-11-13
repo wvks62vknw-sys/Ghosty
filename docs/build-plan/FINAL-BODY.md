@@ -21,8 +21,8 @@ The lane's screens: BODY (water, sleep, steps, weight, mood, reps, the running c
 ## What I made
 
 ### BODY: five trackers, each an app of its own (features/body/track.ts, trackcore.ts)
-BODY's pills are now Water, Sleep, Move, Mood, Weight and Health, because a screen holds at most six pills:
-- Move holds steps, the camera's reps and the running coach;
+BODY's pills are now Move, Water, Sleep, Mood, Weight and Health, because a screen holds at most six pills:
+- Move holds the camera's reps, the running coach and steps. It comes first, as Reps did, so the camera's START is within reach when the screen opens;
 - Mood holds the mood log, breathing and the stretch set.
 
 `#body?run` and every chat door still open each room on its own.
@@ -119,6 +119,6 @@ number is labelled a first estimate, never medical advice.
   need the brain's push, and that means sending his water to it. I kept it on the phone instead.
 - **The pantry has no barcode scan.** The brain's kitchen tool already reads a barcode by chat. A key on the pantry for it
   would be next.
-- **Notifications code outside my lane** (`assistant/push.ts`) throws "reading 'pushManager'" when a browser has no service worker, for example a spec that blocks them. That belongs to SYSTEM AND SETTINGS. The bodylane spec leaves service workers on rather than hiding the error.
+- **Notifications code outside my lane** (`assistant/push.ts`) throws "reading 'pushManager'" when a browser has no service worker, for example a spec that blocks them. That belongs to SYSTEM AND SETTINGS. With service workers blocked, the browser gives back no registration, and push.ts reads `pushManager` from it. That turns tabs.spec red on its own in this container, with no red from my lane. The bodylane spec leaves service workers on rather than hiding the error. The fix, "no registration means unsupported", is one line in that lane's file.
 - **Outside's walk, nearby, lost and split** were audited and found whole, with their four states in place. They were not
   rebuilt this round.

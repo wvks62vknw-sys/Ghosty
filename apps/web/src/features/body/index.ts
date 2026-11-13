@@ -27,9 +27,10 @@ export const bodyTab: TabDef = {
         const part = (what: import('./sheet').BodyWhat) => ({ title: m.BODY_TITLES[what], pack: 'body', screen: what, build: () => m.bodyScreen(what) });
         // (six pills at most, ui/sections.ts: each holds its rooms, drawn one under another)
         return [
+          // (Move first, as Reps was: the camera's START in reach when the screen opens)
+          { id: 'move', label: 'Move', parts: [part('reps'), part('run'), part('steps')] },
           { id: 'water', label: 'Water', parts: [part('water')] },
           { id: 'sleep', label: 'Sleep', parts: [part('sleep')] },
-          { id: 'move', label: 'Move', parts: [part('steps'), part('reps'), part('run')] },
           { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
           { id: 'weight', label: 'Weight', parts: [part('weight')] },
           { id: 'health', label: 'Health', parts: [part('health')] },

@@ -170,7 +170,9 @@ const chatPhrases = [];
 async function phraseOpens(page, id, packName, tag) {
   const says = await page.evaluate((s) => document.querySelector(`#pg-${s} .pkphrases`)?.dataset.says ?? '', id);
   check(says.length > 0, `${tag}: the screen lists no phrase (.pkphrases)`);
-  check(words(await txt(page, `#pg-${id} .pkphrases`)) <= 22, `${tag}: the phrases line is over one line of words`);
+  // (each screen's phrases line on its own: a screen whose pill holds several rooms has one line for each)
+  const lines = await page.$$eval(`#pg-${id} .pkphrases`, (els) => els.map((e) => e.textContent ?? ''));
+  check(lines.length > 0 && lines.every((l) => words(l) <= 22), `${tag}: a phrases line is over one line of words: ${lines.filter((l) => words(l) > 22).join(' | ')}`);
   // (the chat's door is the same at both widths: it is opened at 440)
   if (says && page.viewportSize().width === 440) chatPhrases.push({ packName, first: says.split('|')[0], tag });
 }
