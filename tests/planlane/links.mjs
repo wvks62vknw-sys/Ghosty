@@ -71,6 +71,20 @@ export async function run(H) {
     check(!/JSON/.test(W.emailWhy('the saved email settings are not valid JSON')), 'email: a developer word never reaches him');
     check(/UNLINK/.test(W.spotifyWhy('signin')) && /TEST again/.test(W.spotifyWhy('reach')) && /in a minute/.test(W.spotifyWhy('busy')), 'Spotify: each reason with its one next step');
     check(/TRY AGAIN/.test(W.OFFLINE_LINE('your email')) && /TRY AGAIN/.test(W.TELEGRAM.offline), 'the brain out of reach always says TRY AGAIN');
+    // (fix stage) what was found untrue, now said true
+    check(!/still works/.test(W.PAUSED_LINE('email')) && !/still works/.test(W.TELEGRAM.paused) && /Nothing you (linked|paired) is lost/.test(W.PAUSED_LINE('email') + W.TELEGRAM.paused), `paused never promises the link still works: ${W.PAUSED_LINE('email')}`);
+    check(!/in a minute/.test(W.emailWhy(raw)) && W.emailUnreached(raw) && !W.emailUnreached('NO [AUTHENTICATIONFAILED] Invalid credentials (Failure)'), 'a mail server out of reach is not kept as failing, and promises no "try again" there is no key for');
+    check(W.stateTag('broken') === 'Not working' && W.stateLight('broken') === 'off', 'broken: not working, red');
+    const hb = W.heroWords([{ id: 'a', state: 'linked' }, { id: 'b', state: 'broken' }, { id: 'c', state: 'not' }]);
+    check(hb.big === '1 linked' && hb.sub === '1 not working · 1 not linked', `blocked notifications or no AI model ready count as not working, never as linked: ${JSON.stringify(hb)}`);
+    check(W.stateDial('checking') === '…' && W.stateDial('offline') === '?' && W.stateDial('paused') === '?' && W.stateDial('not') === 'OFF' && W.stateDial('failing') === 'FIX' && W.stateDial('broken') === 'FIX' && W.stateDial('linked') === 'ON', 'the dials say OFF only when not linked');
+    const tNet = W.keyWhy('tomtom', 'could not reach the service (TypeError: fetch failed)');
+    const t5 = W.keyWhy('tomtom', 'the service answered 503; try again in a minute');
+    const tBad = W.keyWhy('tomtom', 'the service says this key is not valid. Copy it again (no spaces).');
+    check(!tNet.kept && !t5.kept && tBad.kept && /TomTom says this key is not valid/.test(tBad.why), `TomTom: only a key TomTom calls not valid is kept as failing: ${JSON.stringify([tNet, t5, tBad])}`);
+    check([tNet, t5, tBad].every((w) => !RAW.test(w.why) && !/TypeError|fetch failed|503|\.\./.test(w.why)), `TomTom's reasons in his words: ${[tNet.why, t5.why, tBad.why].join(' | ')}`);
+    const gW = W.keyWhy('github', 'the token can read but not write. It needs "Contents: Read and write".');
+    check(gW.kept && /Read and write/.test(gW.why) && W.keyWhy('github', 'GitHub says this token is not valid. Copy it again.').kept && !W.keyWhy('github', 'GitHub answered 502').kept, `GitHub: a token that cannot write is kept as failing: ${gW.why}`);
   }
   log('links: pure words');
 
@@ -100,14 +114,14 @@ export async function run(H) {
       }
     // 2. an email whose check failed when he linked it: never "Linked"; the reason and CHANGE ACCOUNT; the top line says 1 not working
       await back(page);
-      await page.evaluate((a) => localStorage.setItem('ghosty.links.checks', JSON.stringify({ email: { ok: false, at: Date.now() - 30_000, who: a, why: 'I couldn’t reach your mail server. Check the server names, then tap CHANGE ACCOUNT; or try again in a minute.' } })), ADDRESS);
+      await page.evaluate((a) => localStorage.setItem('ghosty.links.checks', JSON.stringify({ email: { ok: false, at: Date.now() - 30_000, who: a, why: 'Your mail server turned down the address or the app password. Make a new app password, tap CHANGE ACCOUNT and paste it.' } })), ADDRESS);
       await page.route(/\/api\/email\/status/, (r) => json(r, { linked: true, address: ADDRESS, server: 'imap.gmail.com' }));
       await openLinks(H, page, 'Accounts');
       let e = await panelOf(page, 'EMAIL');
       check(e?.status === 'Linked, but not working' && /off/.test(e?.light ?? ''), `[${wd}] a failed check is never "Linked": ${e?.status}`);
       await pushPanel(page, 'EMAIL');
       e = await panelOf(page, 'EMAIL');
-      check(/couldn’t reach your mail server/.test(e?.body ?? '') && /Tested just now: it didn’t work\./.test(e?.body ?? '') && e?.keys.includes('CHANGE ACCOUNT') && e?.keys.includes('UNLINK'), `[${wd}] the reason, the last test and the one next step: ${JSON.stringify(e)}`);
+      check(/turned down the address or the app password/.test(e?.body ?? '') && /Tested just now: it didn’t work\./.test(e?.body ?? '') && e?.keys.includes('CHANGE ACCOUNT') && e?.keys.includes('UNLINK'), `[${wd}] the reason, the last test and the one next step: ${JSON.stringify(e)}`);
       const sub = await page.textContent('#pg-links .hero .sub');
       check(/1 not working/.test(sub ?? ''), `[${wd}] the top line says 1 not working: ${sub}`);
       const f = await H.fit(page, '#pg-links');
@@ -192,6 +206,71 @@ export async function run(H) {
     await ctx.close();
   }
   log('links: Spotify TEST');
+
+  // 6. (fix stage) GitHub, Telegram, Spotify, the devices' ✕ and NOTIFICATIONS: each says what is true
+  {
+    const { ctx, page } = await H.phone(H.PHONE, 'scan', {}, 21);
+    let repo = 'spec/ghosty';
+    await page.route(/\/api\/status(\?|$)/, async (r) => {
+      const res = await r.fetch();
+      const st = await res.json();
+      const keys = (st.keys ?? []).filter((k) => k.name !== 'github').concat([{ name: 'github', label: 'GitHub', set: true, hint: 'github_pat_…', link: 'https://github.com/settings/tokens', need: 'optional', why: 'self-editing', steps: ['Make a token.'] }]);
+      return json(r, { ...st, keys, repo, repoReady: !!repo });
+    });
+    // a token saved whose check failed: never "Linked as …" with OPEN WORKSHOP; the reason and the form to replace it
+    await page.evaluate(() => localStorage.setItem('ghosty.links.checks', JSON.stringify({ github: { ok: false, at: Date.now() - 30_000, why: 'GitHub says this key is not valid. Copy it again with no spaces, then paste it below.' }, spotify: { ok: false, at: Date.now() - 30_000, who: 'Spec Owner', why: 'Spotify no longer accepts my sign-in. Tap UNLINK, then link Spotify again.' } })));
+    await openLinks(H, page, 'Services');
+    let g = await panelOf(page, 'GITHUB');
+    check(g?.status === 'Linked, but not working' && /not valid/.test(g?.body ?? '') && g?.keys.includes('REPLACE') && !g?.keys.includes('OPEN WORKSHOP'), `GitHub: a failed token check is never "Linked": ${JSON.stringify(g)}`);
+    // the brain's repository not named: said so, and no token is asked for (a new one could never fix it)
+    repo = null;
+    await back(page);
+    await openLinks(H, page, 'Services');
+    g = await panelOf(page, 'GITHUB');
+    check(g?.status === 'Not linked' && /GITHUB_REPO/.test(g?.body ?? '') && !/cannot edit my repository/.test(g?.body ?? '') && !g?.keys.includes('REPLACE'), `GitHub with no repository named: ${JSON.stringify(g)}`);
+    // Spotify not linked: the check about the last link is forgotten, so linking the same account again starts clean
+    await page.route(/\/api\/spotify\/status/, (r) => json(r, { linked: false, name: null, product: null, clientId: null }));
+    await page.route(/\/api\/telegram\/status/, (r) => json(r, { linked: true, paired: true, bot: 'specbot', name: 'Spec Owner' }));
+    let tgTest = 'abort';
+    await page.route(/\/api\/telegram\/test/, (r) => (tgTest === 'abort' ? r.abort('failed') : json(r, { sent: false, error: 'I couldn’t reach Telegram just now. Try again in a minute.' }, 502)));
+    await back(page);
+    await openLinks(H, page, 'Accounts');
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.links.checks') ?? '{}'));
+    check(!kept.spotify, `Spotify not linked forgets the last link's check: ${JSON.stringify(kept)}`);
+    // Telegram TEST with no signal: a toast, never kept as Telegram not working
+    await pushPanel(page, 'TELEGRAM');
+    await page.locator('#pg-links .pn button', { hasText: /^TEST$/ }).first().click({ timeout: 5000 }).catch(() => check(false, 'no Telegram TEST key'));
+    await page.waitForTimeout(1200);
+    let t = await panelOf(page, 'TELEGRAM');
+    const kept2 = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.links.checks') ?? '{}'));
+    check(t?.status === 'Linked as @specbot' && !kept2.telegram, `a TEST with no signal is not kept as Telegram not working: ${t?.status} ${JSON.stringify(kept2)}`);
+    // the brain's own "could not send": kept, and said as not working
+    tgTest = 'brain';
+    await page.locator('#pg-links .pn button', { hasText: /^TEST$/ }).first().click({ timeout: 5000 }).catch(() => check(false, 'no Telegram TEST key (2)'));
+    await page.waitForFunction(() => [...document.querySelectorAll('#pg-links .pn')].some((p) => (p.querySelector('h3 .ptitle')?.textContent ?? '').startsWith('TELEGRAM') && p.querySelector('h3 small')?.textContent === 'Linked, but not working'), null, { timeout: 5000 }).catch(() => undefined);
+    t = await panelOf(page, 'TELEGRAM');
+    check(t?.status === 'Linked, but not working' && /Tap TEST to try again/.test(t?.body ?? ''), `the brain's own failed send is kept: ${JSON.stringify(t)}`);
+    await ctx.close();
+  }
+  {
+    // each device's ✕ is a 44 pt key; NOTIFICATIONS out of reach says so with TRY AGAIN
+    const { ctx, page } = await H.phone(H.PHONE2, 'scan', {}, 21);
+    await page.route(/\/api\/push\/devices/, (r) => json(r, { devices: [{ id: 'd1', label: 'Spec phone', at: Date.now() - 60_000 }] }));
+    await page.route(/\/api\/push\/prefs/, (r) => r.abort('failed'));
+    await openLinks(H, page, 'This phone');
+    await pushPanel(page, 'PHONE');
+    const x = await page.$eval('#pg-links .rw .n.del', (n) => { const b = n.getBoundingClientRect(); return { w: b.width, h: b.height }; }).catch(() => null);
+    check(x && x.w >= 44 && x.h >= 44, `a device's ✕ is 44 pt: ${JSON.stringify(x)}`);
+    await back(page);
+    await openLinks(H, page, 'This phone');
+    await pushPanel(page, 'NOTIFICATIONS');
+    const n = await panelOf(page, 'NOTIFICATIONS');
+    check(/can’t reach/.test(n?.body ?? '') && n?.keys.includes('TRY AGAIN'), `NOTIFICATIONS out of reach: ${JSON.stringify(n)}`);
+    const f = await H.fit(page, '#pg-links');
+    check(!f.small.length && !f.sideways && !f.cut.length, `NOTIFICATIONS out of reach fits: ${JSON.stringify(f)}`);
+    await ctx.close();
+  }
+  log('links: fix stage');
 
   // 5. the seven looks: the not-working email and its keys hold in every world (390 wide; The Scan at BODY 21)
   for (const world of H.WORLDS) {

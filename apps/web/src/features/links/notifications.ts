@@ -38,7 +38,12 @@ export async function paintNotifications(p: Panel): Promise<void> {
   if (!got) {
     /* state: links.notes offline */
     p.setStatus('', 'off');
-    p.body.append(h('div.note', (failed as { status?: number }).status === 404 ? 'The brain cannot keep these choices yet: it needs an update first.' : 'These choices are kept by the brain, which is not reachable right now.'));
+    const old = (failed as { status?: number }).status === 404;
+    // Out of reach: what it means and the one next thing (TRY AGAIN), as every other panel on LINKS says it.
+    p.body.append(
+      h('div.note', old ? 'The brain cannot keep these choices yet: it needs an update first.' : 'These choices are kept by my brain, which I can’t reach right now. Tap TRY AGAIN when you have a signal.'),
+      old ? '' : h('div.keyrow', button('TRY AGAIN', () => void paintNotifications(p), 'on')),
+    );
     return;
   }
   const prefs = { ...got.prefs };

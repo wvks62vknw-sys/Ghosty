@@ -9639,6 +9639,8 @@ html #pg-links .lkcheck { display: block; color: var(--l2, var(--fg)); margin: 4
 html #pg-links .note.lkwhy { color: var(--amber, var(--a)); white-space: normal; overflow-wrap: anywhere; }
 html #pg-links .keyrow.wrapit { flex-wrap: wrap; }
 html #pg-links .pn .bd .keyrow button { min-height: 44px; }
+/* each device's ✕ (stop notifying it) is a 44 pt key like the rest */
+html #pg-links .rw .n.del { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; }
 /* ==== [planlane:links end] ==== */
 
 

@@ -23,33 +23,9 @@ import { TELEGRAM as TG, missedWords } from './words';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 import { sayError } from '../../ui/hisWords';
-import { NO_DEVICE, OFFLINE_LINE, PAUSED_LINE, checkLine, emailWhy, heroWords, modelsReady, sentTo, spotifyWhy, stateLight, stateTag, TELEGRAM_TEST_FAILED, type LinkCheck, type LinkState } from './words';
+import { NO_DEVICE, OFFLINE_LINE, PAUSED_LINE, checkLine, emailUnreached, emailWhy, heroWords, keyWhy, modelsReady, sentTo, spotifyWhy, stateDial, stateLight, stateTag, TELEGRAM_TEST_FAILED, type LinkCheck, type LinkState } from './words';
 
-/** What the last TEST (or the check when he linked it) said, per connection: kept on the phone. */
-const CHECKS = 'ghosty.links.checks';
-function readChecks(): Record<string, LinkCheck> {
-  try {
-    const all = JSON.parse(localStorage.getItem(CHECKS) ?? '{}') as Record<string, LinkCheck> | null;
-    return all && typeof all === 'object' ? all : {};
-  } catch {
-    return {};
-  }
-}
-function keepCheck(id: string, c: LinkCheck | null): void {
-  try {
-    const all = readChecks();
-    if (c) all[id] = c;
-    else delete all[id];
-    localStorage.setItem(CHECKS, JSON.stringify(all));
-  } catch {
-    /* the phone would not keep it: the line is right until the page closes */
-  }
-}
-/** The last check of `id`, if it was about the account linked now (`who`). */
-function checkOf(id: string, who?: string | null): LinkCheck | null {
-  const c = readChecks()[id];
-  return c && typeof c.ok === 'boolean' && (!who || !c.who || c.who === who) ? c : null;
-}
+import { checkOf, keepCheck } from './checks';
 /** The quiet line under a connection: when it was last tested, and what that said. */
 const checkNote = (c: LinkCheck | null) => (c ? h('small.note.lkcheck', checkLine(c)) : '');
 
@@ -161,7 +137,7 @@ export const linksTab: TabDef = {
       P.sub.textContent = w.sub;
       P.dials((Object.keys(NAMES) as Id[]).map((id) => {
         const s = state[id];
-        return [NAMES[id], s === 'linked' ? 1 : s === 'failing' ? 0.5 : 0.04, s === 'linked' ? 'ON' : s === 'failing' ? 'FIX' : 'OFF', s === 'linked' ? 'var(--c)' : s === 'failing' || s === 'offline' ? 'var(--r)' : 'var(--a)'];
+        return [NAMES[id], s === 'linked' ? 1 : s === 'failing' || s === 'broken' ? 0.5 : 0.04, stateDial(s), s === 'linked' ? 'var(--c)' : s === 'failing' || s === 'broken' || s === 'offline' ? 'var(--r)' : 'var(--a)'];
       }));
     };
     for (const p of others) {
@@ -226,6 +202,8 @@ export const linksTab: TabDef = {
         );
         return;
       }
+      // Nothing linked: a check about a link that is gone says nothing about the next one.
+      if (!st.linked) keepCheck('email', null);
       setState(ep, 'email', st.linked ? state.email : 'not', st.address, st.linked ? said.email : undefined);
       const prov = h('select', { 'aria-label': 'Email provider' }, ...Object.entries(PROVIDERS).map(([k, p]) => h('option', { value: k }, p.label)));
       const addr = h('input', { type: 'email', placeholder: 'you@gmail.com', ...NOSPELL, 'aria-label': 'Email address' });
@@ -250,9 +228,11 @@ export const linksTab: TabDef = {
         msg.textContent = 'Signing in to check it…';
         try {
           const r = await brain.setKey('email', [a, pass, ...hosts].join(' '));
-          // The brain keeps what was pasted even when the check fails: the panel then says it is linked but not working, and why.
-          keepCheck('email', r.works === false ? { ok: false, at: Date.now(), who: a, why: emailWhy(r.info) } : { ok: true, at: Date.now(), who: a });
-          toast(r.works === false ? 'Saved, but it does not work yet: the reason is in EMAIL.' : 'Email linked', r.works === false ? 'warn' : 'ok');
+          // The brain keeps what was pasted even when the check fails: the panel then says it is linked but not working, and why. A mail
+          // server out of reach says nothing about what was pasted, so that is not kept (the chat's next "any new email?" tries it).
+          const unreached = r.works === false && emailUnreached(r.info);
+          keepCheck('email', unreached ? null : r.works === false ? { ok: false, at: Date.now(), who: a, why: emailWhy(r.info) } : { ok: true, at: Date.now(), who: a });
+          toast(unreached ? 'Saved. I couldn’t reach your mail server to check it just now; ask me “any new email?” in a minute to try it.' : r.works === false ? 'Saved, but it does not work yet: the reason is in EMAIL.' : 'Email linked', r.works === false ? 'warn' : 'ok');
           editing = false;
           void paintEmail();
         } catch (e) {
@@ -331,12 +311,11 @@ export const linksTab: TabDef = {
               toast(sayError(e, 'test Spotify'), 'warn');
               return null;
             });
-            if (r) {
-              keepCheck('spotify', { ok: r.works, at: Date.now(), who: st.name ?? undefined, ...(r.works ? {} : { why: spotifyWhy(r.why) }) });
-              toast(r.works ? 'Spotify works: I can see your account.' : spotifyWhy(r.why), r.works ? 'ok' : 'warn');
-            }
+            if (r) keepCheck('spotify', { ok: r.works, at: Date.now(), who: st.name ?? undefined, ...(r.works ? {} : { why: spotifyWhy(r.why) }) });
             b.disabled = false;
-            void paintSpotify();
+            await paintSpotify();
+            // The brain lets a sign-in Spotify withdrew go: then the panel is the link form, and the toast says that (no UNLINK to tap).
+            if (r) toast(r.works ? 'Spotify works: I can see your account.' : state.spotify === 'not' ? spotifyWhy('not') : spotifyWhy(r.why), r.works ? 'ok' : 'warn');
           }, 'on'), button('UNLINK', async () => {
             if (!(await confirmSheet('Unlink Spotify?', 'Ghosty stops seeing and playing your Spotify. To link it again you go through Spotify’s sign-in once more.', 'UNLINK'))) return;
             try {
@@ -351,6 +330,8 @@ export const linksTab: TabDef = {
         );
         return;
       }
+      // Not linked: a check about the last link says nothing about the next one (he may link the same account again).
+      keepCheck('spotify', null);
       setState(spot, 'spotify', 'not');
       const uri = redirectUri();
       const idIn = h('input', { type: 'text', value: st?.clientId ?? savedClientId.get(), placeholder: "paste your app's Client ID", ...NOSPELL, 'aria-label': 'Spotify Client ID' });
@@ -404,6 +385,8 @@ export const linksTab: TabDef = {
       if (!st) return unknownBody(tg, 'telegram', 'offline', 'Telegram', () => void paintTelegram(), TG.offline);
       if (st.unknown) return unknownBody(tg, 'telegram', 'paused', 'Telegram', () => void paintTelegram(), TG.paused);
       clear(tg.body);
+      // Not paired: a check about the last pairing says nothing about the next one.
+      if (!st.linked || !st.paired) keepCheck('telegram', null);
       if (!st.linked) {
         // A key saved that could not connect the bot is linked but not working, with its one next step; no key is not linked.
         setState(tg, 'telegram', st.token ? 'failing' : 'not');
@@ -455,8 +438,14 @@ export const linksTab: TabDef = {
         h('div.keyrow.wrapit', button('TEST', async (b) => {
           b.disabled = true;
           tg.setStatus(stateTag('checking'), undefined);
-          const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: sayError(e, 'send the test to your Telegram') }));
-          keepCheck('telegram', { ok: r.sent, at: Date.now(), who: st!.bot ?? undefined, ...(r.sent ? {} : { why: r.error ?? TELEGRAM_TEST_FAILED }) });
+          // Kept only when the brain answered (sent, or its own reason: no chat, no key, Telegram out of reach). No signal, a sign-in or
+          // a paused database says nothing about Telegram: said in a toast, never kept as Telegram not working.
+          let answered = true;
+          const r = await brain.telegramTest().catch((e: unknown) => {
+            answered = typeof (e as { status?: unknown })?.status === 'number';
+            return { sent: false, error: sayError(e, 'send the test to your Telegram') };
+          });
+          if (answered) keepCheck('telegram', { ok: r.sent, at: Date.now(), who: st!.bot ?? undefined, ...(r.sent ? {} : { why: r.error ?? TELEGRAM_TEST_FAILED }) });
           toast(r.sent ? TG.testSent : (r.error ?? TELEGRAM_TEST_FAILED), r.sent ? 'ok' : 'warn');
           void paintTelegram();
           b.disabled = false;
@@ -483,7 +472,7 @@ export const linksTab: TabDef = {
     };
     const paintApp = async () => {
       const st = pushState.get();
-      const s: LinkState = st.status === 'on' ? 'linked' : st.status === 'blocked' ? 'failing' : st.status === 'needs-install' ? 'waiting' : st.status === 'unknown' ? 'checking' : 'not';
+      const s: LinkState = st.status === 'on' ? 'linked' : st.status === 'blocked' ? 'broken' : st.status === 'needs-install' ? 'waiting' : st.status === 'unknown' ? 'checking' : 'not';
       setState(ap, 'phone', s, null, st.status === 'on' ? 'Notifications on' : st.status === 'blocked' ? 'Blocked by the browser' : st.status === 'needs-install' ? 'Add to Home Screen first' : st.status === 'unsupported' ? 'This browser can’t notify' : st.status === 'unknown' ? undefined : st.installed ? 'Installed · notifications off' : 'Notifications off');
       clear(ap.body);
       ap.body.append(
@@ -566,10 +555,12 @@ export const linksTab: TabDef = {
           const r = await brain.setKey(k.name, v);
           input.value = '';
           const later = r.waiting ? ` · in use now, written to the vault after ${pauseEndsText()}` : '';
-          msg.textContent = r.works === false ? `Saved, but it doesn’t work: ${r.info}${later}` : `Saved · ${r.info ?? 'it works'}${later}`;
-          msg.className = `note ${r.works === false ? 'bad' : 'good'}`;
+          // In his words, never the service's raw text; kept as "not working" only when the service said the key itself is wrong.
+          const w = r.works === false ? keyWhy(k.name, r.info) : null;
+          msg.textContent = w ? `${w.kept ? 'Saved, but it doesn’t work. ' : ''}${w.why}${later}` : `Saved · it works${later}`;
+          msg.className = `note ${w ? 'bad' : 'good'}`;
           const id = KEY_ID[k.name];
-          if (id) keepCheck(id, r.works === false ? { ok: false, at: Date.now(), why: `The key didn’t work: ${r.info ?? 'paste it again'}.` } : { ok: true, at: Date.now() });
+          if (id) keepCheck(id, w ? (w.kept ? { ok: false, at: Date.now(), why: w.why } : null) : { ok: true, at: Date.now() });
           setTimeout(done, 1200);
         } catch (e) {
           msg.textContent = sayError(e, `save the ${k.label} key`);
@@ -600,7 +591,7 @@ export const linksTab: TabDef = {
       clear(tp.body);
       const ready = st.models.filter((m) => m.state === 'ok');
       const missing = st.keys.filter((k) => k.need === 'needed' && !k.set);
-      setState(bp, 'brain', ready.length ? 'linked' : 'failing', null, modelsReady(ready.length));
+      setState(bp, 'brain', ready.length ? 'linked' : 'broken', null, modelsReady(ready.length));
       bp.body.append(
         row('MODELS', `${ready.length} ready of ${st.models.length}`, null, { tone: ready.length ? 'up' : 'dn' }),
         row('KEYS', `${st.keys.filter((k) => k.set).length} saved${missing.length ? ` · ${missing.length} needed` : ''}`, null, { tone: missing.length ? 'bad' : 'up' }),
@@ -610,30 +601,37 @@ export const linksTab: TabDef = {
         h('div.keyrow', button('MANAGE AI KEYS', () => goToPanel('system', 'KEYS'), missing.length || !ready.length ? 'on' : '')),
       );
       const gh = st.keys.find((k) => k.name === 'github');
-      if (st.repoReady) {
-        setState(gp, 'github', 'linked', st.repo);
-        gp.body.append(row('REPO', st.repo ?? '—', null, { tone: 'up' }), h('div.note', 'Ghosty can read its own code and propose, preview and ship changes to itself (Workshop).'), h('div.keyrow', button('OPEN WORKSHOP', () => go('workshop'))));
-      } else if (gh?.set === null) unknownBody(gp, 'github', 'paused', 'GitHub', () => void paintBrain());
-      else if (gh) {
-        // A token saved that cannot edit the repository is linked but not working: the form to replace it is the one next step.
-        setState(gp, 'github', gh.set ? 'failing' : 'not');
-        gp.body.append(gh.set ? h('div.note.bad.lkwhy', checkOf('github')?.why ?? 'The GitHub token is saved, but it cannot edit my repository. Paste a token with "Contents: Read and write" below.') : '', keyForm(gh, () => void paintBrain()));
+      if (gh && !gh.set) keepCheck('github', null);
+      if (!st.repoReady && gh?.set === null) unknownBody(gp, 'github', 'paused', 'GitHub', () => void paintBrain());
+      else if (!st.repo) {
+        // The brain's own repository is not named: no token can fix that, so none is asked for.
+        setState(gp, 'github', 'not');
+        gp.body.append(h('div.note', `Self-editing is not set up on this brain: it needs its repository named in its settings (SETUP.md, GITHUB_REPO).${gh?.set ? ' Your token is saved and is used once it is.' : ''}`));
+      } else if (st.repoReady) {
+        // A token saved is not a token that works: the last check of it, if it failed, says so with the form to replace it.
+        const c = checkOf('github');
+        const bad = c && !c.ok ? (c.why ?? keyWhy('github', 'not valid').why) : '';
+        setState(gp, 'github', bad ? 'failing' : 'linked', st.repo);
+        gp.body.append(row('REPO', st.repo, null, { tone: bad ? undefined : 'up' }));
+        if (bad) gp.body.append(h('div.note.bad.lkwhy', bad), checkNote(c), ...(gh ? [keyForm(gh, () => void paintBrain())] : []));
+        else gp.body.append(h('div.note', 'Ghosty can read its own code and propose, preview and ship changes to itself (Workshop).'), checkNote(c), h('div.keyrow', button('OPEN WORKSHOP', () => go('workshop'))));
       } else {
         setState(gp, 'github', 'not');
-        gp.body.append(h('div.note', 'Self-editing is not set up on this brain: it needs its repository named in its settings (SETUP.md, GITHUB_REPO).'));
+        if (gh) gp.body.append(keyForm(gh, () => void paintBrain()));
       }
       const tt = st.keys.find((k) => k.name === 'tomtom');
       if (tt?.set === null) unknownBody(tp, 'traffic', 'paused', 'live traffic', () => void paintBrain());
       else if (tt?.set) {
         const c = checkOf('traffic');
-        const bad = c && !c.ok ? (c.why ?? 'The key didn’t work.') : '';
+        const bad = c && !c.ok ? (c.why ?? keyWhy('tomtom', 'not valid').why) : '';
         setState(tp, 'traffic', bad ? 'failing' : 'linked');
         tp.body.append(
-          bad ? h('div.note.bad.lkwhy', `${bad} Tap REPLACE KEY and paste it again.`) : h('div.note', 'Live speeds on every road in God\'s Eye (green flowing → red jammed), plus crashes, closures and queues when you ask — e.g. "how\'s the traffic in Birmingham city centre?"'),
+          bad ? h('div.note.bad.lkwhy', bad.replace(/ paste it below\.$/, ' tap REPLACE KEY and paste it.')) : h('div.note', 'Live speeds on every road in God\'s Eye (green flowing → red jammed), plus crashes, closures and queues when you ask — e.g. "how\'s the traffic in Birmingham city centre?"'),
           checkNote(c),
           h('div.keyrow.wrapit', button('SHOW ON GOD\'S EYE', () => go('eye')), button('REPLACE KEY', () => clear(tp.body, keyForm(tt, () => void paintBrain())), bad ? 'on' : '')),
         );
       } else if (tt) {
+        keepCheck('traffic', null);
         setState(tp, 'traffic', 'not');
         tp.body.append(keyForm(tt, () => void paintBrain()));
       } else {
