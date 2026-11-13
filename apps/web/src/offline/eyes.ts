@@ -62,7 +62,7 @@ export const EYES_CUTOUT = pack(
   'photo-cutout',
   'The cut-out model',
   'Cuts what a photo is about out from its ground, for PHOTO’s SUBJECT. On the phone; the photo never leaves it.',
-  'Apache-2.0 (the licence files in public/vendor/cutout); the runtime is MIT',
+  'Apache-2.0, its licence kept with the model; the runtime is MIT',
   [WORKER_RUNTIME, CUTOUT],
   'Shares the worker runtime with the namer, people and distance packs: what is here already is not fetched again.',
 );
@@ -70,7 +70,7 @@ export const EYES_ERASE = pack(
   'photo-erase',
   'The erase model',
   'Fills a part of a photo you paint over with what would have been there, for PHOTO’s ERASE. On the phone; the photo never leaves it.',
-  'Apache-2.0 (the licence files in public/vendor/erase); the runtime is MIT',
+  'Apache-2.0, its licence kept with the model; the runtime is MIT',
   [WORKER_RUNTIME, ERASE],
   'Shares the worker runtime with the namer, people and distance packs: what is here already is not fetched again.',
 );
@@ -78,7 +78,7 @@ export const EYES_RAW = pack(
   'photo-raw',
   'The RAW reader',
   'Opens camera RAW files (CR2, CR3, NEF, ARW, DNG, RAF, ORF) in PHOTO. On the phone; the file never leaves it.',
-  'LGPL-2.1 or CDDL-1.0, a separately fetched file (the licence files in public/vendor/raw)',
+  'LGPL-2.1 or CDDL-1.0, a separately fetched file, its licence kept with it',
   [RAWREADER],
 );
 
