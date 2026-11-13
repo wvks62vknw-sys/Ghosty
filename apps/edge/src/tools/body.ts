@@ -44,7 +44,7 @@ const MAX_LOG = 400;
 export const BODY_WHEN =
   /\b(reps?|squats?|push[ -]?ups?|press[ -]?ups?|star jumps?|jumping jacks?|work ?out|exercise|run|running|ran|jog|jogging|pace|steps|step count|sleep|slept|health (?:app|data|export)|apple health|water|hydrat\w*|glass(?:es)? of|drank|breathe|breathing|breath|calm down|stretch\w*|weigh|weight|kg|stone|rest day|stand up|standing|sitting too long)\b/i;
 export const BODY_ABOUT =
-  "You can keep his body pack (body: reps, run, log, steps, sleep, water, breathe, stretch, weight, rest, stand, week, health): camera and GPS are the phone's; never a diagnosis.";
+  "You can track his health (body: reps, run, log, steps, sleep, water, breathe, stretch, weight, rest, stand, week, health): camera and GPS are the phone's; never a diagnosis.";
 
 interface Water {
   d: string;

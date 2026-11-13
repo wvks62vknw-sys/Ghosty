@@ -63,7 +63,7 @@ const MAX_WATCHES = 20;
 export const MONEY_WHEN =
   /\b(budgets?|spent|spend|spending|money|fuel|petrol|diesel|unleaded|prices?|cheaper|price (?:drop|watch)|watch (?:the |this |that )?price|subscriptions?|renews?|renewal|split|round ?ups?|pay ?day|paid on the|what if i (?:save|put)|save \d|savings?|warrant(?:y|ies)|guarantee|statements?|mpg|trip cost|cost to drive)\b/i;
 export const MONEY_ABOUT =
-  'You can keep his money (money: month, spent, week, fuel, trip, watch, unwatch, subs, split, roundup, payday, whatif, warranty): fuel near a SAVED place only; no bank, nothing billed.';
+  'You can track his money (money: month, spent, week, fuel, trip, watch, unwatch, subs, split, roundup, payday, whatif, warranty): fuel near a SAVED place only; no bank, nothing billed.';
 
 // ---------------------------------------------------------------- the actions
 

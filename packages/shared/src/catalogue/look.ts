@@ -17,13 +17,13 @@ const theme = (label: string, name: string, line: string, more: string): CatValu
 /** When the recipe arrived (BRIEF-THEMES-2). */
 const T2 = '2026-11-07';
 const ground = (name: string, line: string, more: string, say: string): CatValue => ({
-  name, line, more: `${more} Settings → Theme → Ground, or just say it.`, say: [say], scene: ['talking'], cat: 'talk', since: T2,
+  name, line, more: `${more} THE LOOK → THEMES, or just say it.`, say: [say], scene: ['talking'], cat: 'talk', since: T2,
 });
 const world = (name: string, line: string, more: string, say: string): CatValue => ({
-  name, line, more: `${more} Every room follows it fully with the shell. Settings → Theme → World.`, say: [say, `Switch to ${say.toLowerCase()}`], scene: ['talking'], cat: 'talk', since: T2,
+  name, line, more: `${more} Every room follows it fully with the shell. Settings → THEME, one of the seven looks.`, say: [say, `Switch to ${say.toLowerCase()}`], scene: ['talking'], cat: 'talk', since: T2,
 });
 const sw = (name: string, line: string, say: string): CatValue => ({
-  name, line, more: 'One of my switches: it changes one thing you can see, and I keep it. Settings → Theme → Switches, or just say it.', say: [say], scene: ['talking'], cat: 'talk', since: T2,
+  name, line, more: 'One of my switches: it changes one thing you can see, and I keep it. THE LOOK → THEMES, or just say it.', say: [say], scene: ['talking'], cat: 'talk', since: T2,
 });
 const preset = (name: string, line: string, more: string, say: string): CatValue => ({
   name, line, more, say: [say], scene: ['talking'], cat: 'talk', since: T2,
@@ -63,7 +63,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'panel:look:THEMES': {
     name: 'My looks, contrast measured',
     line: 'You can pick a whole look here, or turn its dials: ground, colour, world and switches, each with its contrast measured.',
-    more: 'The same presets and dials as Settings → Theme, applied at once and kept. Every ground holds the floor with every colour, measured on screen. Orbit is a whole look now: no bar, the orb is the way in.',
+    more: 'Every preset and dial lives here, applied at once and kept (Settings → THEME keeps the seven looks and the twelve colours). Every ground holds the floor with every colour, measured on screen. Orbit is a whole look now: no bar, the orb is the way in.',
     say: ['Switch to Ember', 'Black background'], scene: ['talking'], cat: 'talk', since: SINCE,
   },
   'section:look:tokens': { same: 'panel:look:TOKENS' },
@@ -72,12 +72,12 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'section:look:mind': { same: 'panel:look:MIND' },
   'section:look:themes': { same: 'panel:look:THEMES' },
   // ---- the deck's Settings card: the count named, and THE LOOK a tap away
-  'deck:settings:pick-his-look-seventeen-presets-and': { same: 'panel:settings:THEME' },
+  'deck:settings:pick-his-look-seven-looks-twelve': { same: 'panel:settings:THEME' },
   'deck:settings:the-look-how-he-draws-everything': { same: 'screen:look' },
   // ---- THEMES THAT MEAN SOMETHING (BRIEF-THEMES-2): the THEME panel said again for the recipe
   'panel:settings:THEME': {
-    name: 'Pick my look', line: 'You can pick a whole look from seventeen presets, or turn the dials: ground, colour, world and switches.',
-    more: 'The presets first: the twelve colours, then the directions you saw along the way. Change any dial under a preset and I keep it as Custom. Every choice applies at once and I wake up in it.',
+    name: 'Pick my look', line: 'You can pick one of seven whole looks, each drawn as a picture, and one of twelve colours.',
+    more: 'The ground, the switches and the presets are on THE LOOK → THEMES, and every one answers to your words too (“paper”, “glow off”). Every choice applies at once and I wake up in it.',
     say: ['Black background', 'Switch to Graphite'], scene: ['talking'], cat: 'talk', since: T2,
   },
   // ---- the grounds: what everything sits on
@@ -104,7 +104,7 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:switch:sound': sw('A tone, a click or silence', 'You can choose what you hear when I recognise a thing: a tone, a click, or nothing.', 'The click sound'),
   'theme:switch:day': sw('Ground follows the day', 'You can have Paper by day and your night ground after sunset, from your home’s sun times.', 'Follow the day'),
   // ---- the six directions seen along the way: each a preset
-  'theme:preset:scan': preset('The Scan, as rendered', 'You can have The Scan as you saw it: true black, the field of points, no glow.', 'The direction you picked, exactly as it was drawn: Black, Reactor, The Scan, glow off. Tap it in Settings → Theme, or just say it.', 'The scan'),
+  'theme:preset:scan': preset('The Scan, as rendered', 'You can have The Scan as you saw it: true black, the field of points, no glow.', 'The direction you picked, exactly as it was drawn: Black, Reactor, The Scan, glow off. Tap it in THE LOOK → THEMES, or just say it.', 'The scan'),
   'theme:preset:map': preset('The Map on Slate', 'You can have The Map: Slate, the plotting grid and square pins round what I watch.', 'Slate, Reactor and The Map. The grid sits behind every screen; plates have dashed edges and square corners.', 'The map'),
   'theme:preset:eye': preset('The Eye on black', 'You can have The Eye: black, grain, and the one sharp box I’m looking at.', 'Black, Reactor and The Eye. What I attend to is a sharp box with my line of sight; the rest is grain.', 'The eye'),
   'theme:preset:oneink': preset('One Ink, warm and gold', 'You can have One Ink: warm black, bone ink, one gold light, rules instead of boxes.', 'Warm, Gold for the one light, One Ink, and my readings in the phone’s own type. My words stay in the ink.', 'One ink'),
