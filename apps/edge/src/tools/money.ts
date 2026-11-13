@@ -49,6 +49,7 @@ import { addDays, daysBetween, listWords, moneyIn, pounds, prettyDay, shortId } 
 import { monthName } from '../../../../packages/shared/src/spending';
 import { getJson, getText, load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
 import { notSavedYet, savedPlace } from '../places';
+import { unsafeUrl } from '../netguard';
 import { addJob, loadJobs, removeJob } from '../schedule';
 import { monthMoves, spendingSummary } from '../spending';
 import { fromZoned } from '../time';
@@ -160,7 +161,7 @@ const watch: ActionFn = async (a, d) => {
   const url = arg.str(a, 'url', false).trim() || (/https?:\/\/\S+/.exec(wordsOf(a))?.[0] ?? '');
   const list = await load<Watch[]>(d, MONEY_KEYS.watches, []);
   if (!url) return { text: list.length ? `Watching ${list.length}: ${list.map((w) => `${w.label} ${pounds(w.last)} (from ${pounds(w.first)})`).join('; ')}.` : 'Not watching any prices. Send me a product page and say "watch the price".' };
-  if (!/^https:\/\//i.test(url)) return { text: 'Send the page’s full https:// address and I’ll watch it.' };
+  if (!/^https:\/\//i.test(url) || unsafeUrl(url)) return { text: 'Send the page’s full https:// address and I’ll watch it.' };
   if (list.length >= MAX_WATCHES) return { text: `I’m watching ${MAX_WATCHES} pages already: stop one first.` };
   let html: string;
   try {

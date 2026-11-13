@@ -182,7 +182,11 @@ function binsView(): HTMLElement {
     if (!page.value.trim()) return void stateIn(status, '', 'Paste your council’s page first.');
     show(await run('bins', { text: page.value }));
   }), 'Read the council page I pasted');
-  const moved = named(button('A collection moved', async () => show(await run('bins', { words: `bins moved ${words.value || 'to Wednesday this week'}` }))), 'Tell me a collection moved');
+  // (a collection moved says only what he typed: an empty box asks for it, never a made-up day)
+  const moved = named(button('A collection moved', async () => {
+    if (!words.value.trim()) return void stateIn(status, '', 'Type where it moved first, like “to Wednesday this week”.');
+    show(await run('bins', { words: `bins moved ${words.value.trim()}` }));
+  }), 'Tell me a collection moved');
   const el = h('div.pkcol', slot, status, words, h('div.pkrow', keep, moved), page, read);
   /* state: home.bins loading */
   const done = waitFor(el, 'Opening your bin days…');
@@ -201,8 +205,13 @@ function billsView(): HTMLElement {
   const paint = () => {
     /* state: home.bills empty */
     slot.replaceChildren(...(loaded && !homeState.bills.length ? [emptyState('No bills kept yet', 'Photograph one or paste its text below.')] : []));
+    // [moneylane] what is still to pay first, soonest first, then what is paid; with what the unpaid ones come to
+    const order = [...homeState.bills].sort((a, b) => Number(!!a.paid) - Number(!!b.paid) || (a.due || '9999').localeCompare(b.due || '9999'));
+    const unpaid = order.filter((b) => !b.paid);
+    const owe = unpaid.reduce((k, b) => k + (Number.isFinite(b.amount) ? b.amount : 0), 0);
     list.replaceChildren(
-      ...homeState.bills.slice(0, 10).map((b) =>
+      ...(unpaid.length ? [h('p.pknote.pkbilltotal', { dataset: { case: 'keep' } }, `£${owe.toFixed(2)} still to pay across ${unpaid.length} bill${unpaid.length === 1 ? '' : 's'}, from the bills you showed me.`)] : []),
+      ...order.slice(0, 10).map((b) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${b.supplier} ${b.amount} pounds, ${b.due ? dueWords(b.due) || `due ${niceDay(b.due)}` : 'no due date'}` }, h('b', `${b.supplier} £${b.amount.toFixed(2)}`),
           h('span.pklab', `${b.kind}${b.due ? ` · ${dueWords(b.due) || `due ${niceDay(b.due)}`} · ${niceDay(b.due)}` : ''}${b.paid ? ` · paid ${niceDay(b.paid)}` : ''} · from the bill you showed me`),
           h('div.pkrow',

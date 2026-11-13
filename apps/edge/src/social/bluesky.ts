@@ -12,6 +12,7 @@
  *  - rate limits honoured (a 429 says when to try again, in his words); every error in plain words. No DMs: chat is
  *    never called.
  */
+import { unsafeUrl } from '../netguard';
 import { notLinked, postLines, type Draft, type FeedPost } from '../../../../packages/shared/src/social';
 import { digestHeading, dayOf } from '../library/digest';
 import { imageBytes } from '../lens';
@@ -124,7 +125,7 @@ async function signIn(d: SocialDeps, handle: string, password: string): Promise<
   if (claims(access).scope === 'com.atproto.access') throw new BlueskyError('That is your main password, not an app password. Make an app password (Settings → Privacy and security → App passwords) and paste that instead.', 400);
   const doc = j.didDoc as { service?: { id?: string; type?: string; serviceEndpoint?: string }[] } | undefined;
   const pds = doc?.service?.find((s) => s.type === 'AtprotoPersonalDataServer' || s.id === '#atproto_pds')?.serviceEndpoint;
-  return { handle: String(j.handle ?? handle), did: String(j.did ?? ''), service: /^https:\/\//.test(pds ?? '') ? pds!.replace(/\/+$/, '') : ENTRY, access, refresh: String(j.refreshJwt ?? ''), password };
+  return { handle: String(j.handle ?? handle), did: String(j.did ?? ''), service: /^https:\/\//.test(pds ?? '') && !unsafeUrl(pds!) ? pds!.replace(/\/+$/, '') : ENTRY, access, refresh: String(j.refreshJwt ?? ''), password };
 }
 
 /** The session made fresh: refreshed, or signed in again with the app password when the refresh has gone too. */

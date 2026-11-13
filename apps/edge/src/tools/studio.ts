@@ -14,6 +14,7 @@ import { imageResponse, isImageId, LensError, PICTURE_TTL_S, PICTURES_PER_DAY, s
 import { drawObject, objectPrompt } from '../gen3d';
 import { keepModel, makeTextured, Model3dError, startAttempt } from '../model3d';
 import { PICTURE_COUNT } from './pictures';
+import { guardedFetch, readCappedBytes } from '../netguard';
 import { arg, type Tool } from './types';
 
 export { objectPrompt };
@@ -39,11 +40,12 @@ export async function pictureBytes(ref: string, kv: NonNullable<Parameters<Tool[
     throw new Error('give a picture link (a /i/… link from make_picture or the Lens, or a public https address of a picture)');
   }
   if (u.protocol !== 'https:') throw new Error('only https picture addresses can be used');
-  const r = await fetch(u.toString(), { headers: { Accept: 'image/*' } });
+  // [security] public web only, redirects checked hop by hop, and the body read no further than the limit
+  const r = await guardedFetch(u.toString(), { headers: { Accept: 'image/*' } });
   if (!r.ok) throw new Error(`the picture could not be fetched (${r.status})`);
-  const b = await r.arrayBuffer();
-  if (b.byteLength > 5_000_000) throw new Error('that picture is too big (5 MB at most)');
-  return b;
+  const { bytes, cut } = await readCappedBytes(r, 5_000_000);
+  if (cut) throw new Error('that picture is too big (5 MB at most)');
+  return bytes.slice().buffer as ArrayBuffer;
 }
 
 export const studioTools: Tool[] = [
