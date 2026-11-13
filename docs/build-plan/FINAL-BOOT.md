@@ -68,7 +68,7 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
    - Switching away and straight back (the app still alive) is not a cold open. It gets Mind's one breath, as before.
    - "When you were last here" is the stamp Ghosty already keeps on the phone (`state/lastopen.ts`). Nothing is sent.
    - The short cut ends by its own 4.8 seconds, even when Mind is late.
-5. **bootpass was already red on the round's base, so I made it green.** It is on this lane's list to keep green.
+5. **bootpass was already red on the round's base.** It is on this lane's list to keep green. I fixed one part and improved the other.
    - **The orb's five states with Reduce Motion on.** Idle and attending looked almost the same: about 2.4 of 255 apart in the orb's square,
      and the check wants 5. The changes, in `features/core/mind.ts`:
      - attending's lean now tips the whole orb forward, its equator ring with it (before, only the inner constellation tipped);
@@ -76,7 +76,11 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
      - listening's open rim is a step wider;
      - speaking's held sweep sits on the equator, where its refraction shows.
 
-     Every pair of states is now at least 5 apart at both widths. Nothing changes with motion on except these same light levels.
+     That turned the check green at 19:20 UTC. By 19:55 it was red again on the very same build, from before and after the merge:
+     the closest pair was 3.4 apart. The world drawn behind the orb (lit by the hour) or the library the preview's brain reports moves
+     this measure more than the orb's own states do. I stopped tuning there, because a bigger push on light and shape barely moved it.
+     The states are clearly further apart than on the base (idle and attending: 2.4 there, about 3.8 now), but the check is not reliably
+     green. See "What is left". Nothing changes with motion on except these same light levels.
    - **A page error with service workers switched off.** A browser like that has no push. `assistant/push.ts` now says "unsupported" there
      instead of throwing.
 6. **Unchanged, and checked:**
@@ -101,8 +105,8 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
   Every check goes red on the code before this fix (it played `flat`), and green after.
 - **`tests/boot.spec.mjs`** is updated to the new truth, just as strictly. Where the film leans, it must keep its whole length, not quicken.
   The old 2.9-second cinematic still must quicken.
-- **Kept green:** boot, bootpass, hero, polish1, octideas, thescan and eyehud2, plus the typecheck. The results are under "The checks' runs"
-  below.
+- **Kept green:** boot, hero, polish1, octideas, thescan and eyehud2, plus the typecheck. bootpass is green except one orb check that was
+  already red before this round. The results are under "The checks' runs" below.
 
 **Timings on the preview** (software graphics, about 5 to 10 frames a second here; your phone draws at its own rate):
 - before the fix: `flat`, 2,978 ms, no film;
@@ -143,6 +147,10 @@ version it chose (`kind`), whether the film drew (`film`), its length (`ended`) 
 - **The frame rate on your iPhone is measured on the phone, not here.** The preview draws in software at about 5 to 10 frames a second,
   so the checks prove the length, the order, the counting and the hand-over, not 60 frames a second. Each frame's own work is in
   `__bootState.budget` on your phone.
+- **bootpass's orb check is not reliably green, and was red before this round.** It measures how far apart the orb's five states look
+  with the motion off, and the world drawn behind the orb (it changes with the hour) moves that measure more than the states do. The
+  real fix is either to make the check measure only the orb's own pixels, or to hold the world still for it. That is a change to a check
+  this lane does not own, and must not be weakened, so I left it for the round, with the numbers above.
 - **The app still builds Home underneath during the film.** That can cost a frame or two near the start on a slow open. Moving more of
   that work until after the landing would make the first second smoother, but it touches the whole start-up, so I left it for a round that
   owns `main.ts`.
@@ -155,9 +163,10 @@ All on the preview, Chromium with software graphics, at 440 × 956 (and 390 × 8
 | --- | --- |
 | bootfilm (new) | Green. Red on the code before the fix: every check failed, and it played `flat`. |
 | boot | Green, with the updated lean check. |
-| bootpass | Green. Red on the base: the orb's states, and the `pushManager` page error. |
+| bootpass | Every part green except THE ORB's "five states told apart with the motion off". That part was red on the base too; it was green with my change at 19:20 UTC and red again at 19:55 on the same build. The `pushManager` page errors that were red on the base are gone. |
 | hero, octideas | Green. |
 | thescan, polish1, eyehud2 | Green, rerun after the orb change. |
-| The brain suite | 2,153 of 2,153. |
+| boot, bootfilm after merging the final branch | Green. |
+| The brain suite | 2,175 of 2,175, after the merge. |
 | ratchet, knowledge, look tests | 43 of 43. |
 | Typecheck | Clean. |
