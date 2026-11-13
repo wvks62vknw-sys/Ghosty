@@ -24,7 +24,7 @@ import { settings } from '../../../state/app';
 import { currentMind } from '../mind';
 import { decide } from '../scan/place';
 import { bookName, bookNow, sayTwo, whenWord } from '../scan/home';
-import { hourWord, tonightKind, type Entry } from '../ink/home';
+import { hourWord, todoEntry, tonightKind, type Entry } from '../ink/home';
 
 const LISTEN = '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a3.5 3.5 0 010 5M17.5 7a7 7 0 010 10"/>';
 const MORE = '<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>';
@@ -67,7 +67,7 @@ export interface OrbitHome {
 export const STATION_ANGLE: Record<string, number> = { see: -60, make: 0, learn: 60, plan: 120, life: 180, me: -120 };
 
 /** The room that matters tonight, by the kind of tonight's thing (the book is in LEARN; the agenda and the Brief are the day: PLAN). */
-export const roomTonight = (kind: 'book' | 'agenda' | 'brief'): string => (kind === 'book' ? roomOf('library')?.area : roomOf('agenda')?.area) ?? 'plan';
+export const roomTonight = (kind: 'book' | 'agenda' | 'todo' | 'brief'): string => (kind === 'book' ? roomOf('library')?.area : roomOf('agenda')?.area) ?? 'plan';
 
 /**
  * Build Home (once, at Core's mount). `orbWrap`: the hero's wrap holding the 2-D reactor canvas the orb is drawn over (Mind's anchor);
@@ -128,7 +128,7 @@ export function orbitHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption
   };
 
   // ---------------------------------------------------------------- the stations: the one that matters tonight is lit
-  const paintStations = (kind: 'book' | 'agenda' | 'brief') => {
+  const paintStations = (kind: 'book' | 'agenda' | 'todo' | 'brief') => {
     const lit = roomTonight(kind);
     orbitHomeState.lit = lit;
     orbitHomeState.stations = stations.map((s) => s.a.id);
@@ -168,8 +168,11 @@ export function orbitHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption
         ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
       };
     }
+    // [planlane:home] the to-dos due today, when there is no book and nothing next in the diary (ink/home.ts todoEntry, the one source)
+    const todo = kind === 'todo' ? todoEntry() : null;
+    if (todo) return { ...todo, kicker: `${hourWord(new Date(now()))} · on your to-do list` };
     return {
-      kind,
+      kind: 'brief',
       kicker: 'The Brief',
       name: 'The Brief',
       line: 'Tap to read it',

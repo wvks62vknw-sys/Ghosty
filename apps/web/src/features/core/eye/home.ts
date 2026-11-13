@@ -27,6 +27,7 @@ import { drawGrain, inkOf } from './grain';
 import { startGround, stopGround } from './ground';
 import { readingOf } from './reading';
 import { ABILITIES_LINE, LIGHTING } from './words';
+import { freeSquare } from '../todaywords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
@@ -197,8 +198,10 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     SLOTS.forEach((slot, i) => {
       const it = placed[i];
       if (!it) {
+        // [planlane:home] /* state: core.home empty */ a free feed says what fills it (once), not "nothing yet" in each
+        const say = freeSquare(cells.filter((c) => c.kind === 'free').length);
         cells.push({ kind: 'free', id: '' });
-        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, 'nothing yet')));
+        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), say ? h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, say) : null));
         return;
       }
       const { t, kind } = it;
