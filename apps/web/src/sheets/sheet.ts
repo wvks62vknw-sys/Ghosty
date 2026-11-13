@@ -7,6 +7,7 @@
  * of an .xlsx or a CSV with what it could not keep said once; Ghosty explaining a cell, writing a formula, tidying a column (chat turns with the
  * chosen cells as context). The workbook, its formulas and its files are the app's own code (this folder): no package.
  */
+import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
 import { sayError } from '../ui/hisWords';
@@ -1043,7 +1044,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   const importFile = async (f: File) => {
     say(`Reading ${f.name} on this phone…`);
     try {
-      const bytes = new Uint8Array(await f.arrayBuffer());
+      const bytes = await bytesOf(f);
       const t0 = performance.now();
       const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
       let b: Book;

@@ -21,6 +21,13 @@ export const PACK_WORDS: Record<string, CatValue> = {
     say: ['Paste a statement', '(paste the statement in the chat)'], scene: ['money'], cat: 'watch', since: SINCE,
     go: { run: 'open_money' }, tryText: 'Opens the box to paste it in',
   },
+  // [moneylane] the MONEY screen as a budgeting app of its own (features/money/app.ts): its pages opened by name, with no model
+  'phrase:moneyapp': {
+    name: 'Your money app', line: 'I can open your month, your budgets, your bills and subscriptions, or your trends, from the statements you gave me.',
+    more: 'Out, in and what is left over, each budget and what it leaves a day, what is due next and what it comes to a year, and your last six months side by side. Every number says how it was worked out. No bank access, ever.',
+    say: ['My budgets', 'My subscriptions', 'Spending trends', 'My spending'], scene: ['money'], cat: 'watch', needs: ['statement'], since: '2026-11-13',
+    go: { open: 'money' }, tryText: 'Opens MONEY',
+  },
   'act:money:spent': {
     name: 'Keep what you spent', line: 'You can tell me what you spent, like "spent 12 on lunch", and I keep it for the week.',
     more: 'Kept in your brain, sorted into eating out, transport, groceries and the rest. Say "undo that" to take the last one back. Only what you tell me, never your bank.',
@@ -125,12 +132,13 @@ export const PACK_WORDS: Record<string, CatValue> = {
     go: { run: 'open_body', args: { what: 'health' } }, tryText: 'Opens the Health import',
   },
   'act:body:water': {
-    name: 'A glass of water counted', line: 'You can tell me each glass of water, or tap +1 GLASS, and I keep today’s count.',
-    more: 'Eight glasses a day unless you set your own goal. Say "remind me" and I nudge you when you are behind, within my speak-first limit.',
-    say: ['Had a glass of water', 'How much water have I had?'], scene: ['morning', 'watching'], cat: 'do', since: SINCE,
+    name: 'Water, sleep, steps, weight and mood', line: 'You can tell me a glass, a mug, a bottle or a pint, your sleep, steps, weight or mood, and I keep it on your phone.',
+    more: 'Each is its own screen on BODY: today’s ring, the week and month as a chart, your streak. The water goal is worked out from your weight and the day’s heat, a first estimate. Water nudges come only in your nudge hours, never in your quiet hours, and stop once you’re on track. Nothing leaves the phone; not medical advice.',
+    say: ['I drank a pint', 'Log a glass of water', 'How much have I drunk?', 'I slept 7 and a half hours'], scene: ['morning', 'watching', 'phone'], cat: 'do', since: SINCE,
     go: { run: 'open_body', args: { what: 'water' } }, tryText: 'Opens today’s water',
   },
   'phrase:water': { same: 'act:body:water' },
+  'phrase:track': { same: 'act:body:water' },
   'act:body:breathe': {
     name: 'Breathe with me', line: 'I can breathe with you: box breathing or 4-7-8, a circle to follow and a buzz at each change.',
     more: 'Four rounds, about a minute. It all happens on the phone. Stop if you feel dizzy.',
@@ -182,9 +190,11 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:kitchen:recipe': {
     name: 'A recipe step by step', line: 'I can give you a dish’s whole recipe: what you need and every step.',
-    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish.',
-    say: ['How do I make a chicken curry?'], scene: ['making'], cat: 'do', since: SINCE,
+    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer, and puts first what you have.',
+    say: ['How do I make a chicken curry?', 'Open my recipes', 'Add milk to the fridge'], scene: ['making'], cat: 'do', since: SINCE,
+    go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
   },
+  'phrase:larder': { same: 'act:kitchen:recipe' },
   'act:kitchen:shop': {
     name: 'Your shopping list', line: 'You can add to your shopping list by voice, tick things off on the phone, and send it as text.',
     more: 'Kept in your brain. "Add milk and eggs to the list", "tick the milk", SHARE AS TEXT to send it to someone. Clear the ticked ones when you are home.',
