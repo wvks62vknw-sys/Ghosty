@@ -17,7 +17,7 @@ export type Where = 'brain' | 'phone';
 const cloudOff = () => settings.get().offlineBrain === 'always';
 
 /** One question for the brain, its whole reply (the phone's own brain when the cloud is off-limits or out of reach). */
-export async function askBrain(message: string, onWords: (w: string) => void = () => undefined): Promise<{ text: string; where: Where }> {
+export async function askBrain(message: string, onWords: (w: string) => void = () => undefined, tab = 'documents'): Promise<{ text: string; where: Where }> {
   const here = async (): Promise<{ text: string; where: Where }> => {
     if (settings.get().offlineBrain === 'off' || !(await offlineReady().catch(() => false))) throw new Error(cloudOff() ? 'this phone keeps everything on it (Offline brain: always), and my offline brain isn’t downloaded yet: Settings → Offline brain' : 'I can’t reach my brain, and my offline brain isn’t on this phone');
     let raw = '';
@@ -28,7 +28,7 @@ export async function askBrain(message: string, onWords: (w: string) => void = (
   try {
     let text = '';
     let failed = '';
-    await brain.chat(message, { tz: timeZone, tab: 'documents', name: settings.get().name, now: new Date().toLocaleString('en-GB') }, (ev) => {
+    await brain.chat(message, { tz: timeZone, tab, name: settings.get().name, now: new Date().toLocaleString('en-GB') }, (ev) => {
       if (ev.t === 'text') onWords((text += (text ? '\n\n' : '') + ev.text));
       else if (ev.t === 'error') failed = ev.message;
     });

@@ -44,8 +44,9 @@ import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
-import { convertInst, docsInst } from '../convert/inst';
+import { convertInst, docsInst, sheetsInst } from '../convert/inst';
 import { listDocs } from '../docs/store';
+import { listBooks } from '../sheets/store';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
@@ -462,6 +463,25 @@ export const CARDS: Record<string, HubCard> = {
       return all.length ? `${all.length} ${all.length === 1 ? 'document' : 'documents'} on this phone, the newest “${all[0]!.title}”` : '';
     },
     idle: 'No documents yet: start a new one, or open a file',
+  },
+  // [editors] MAKE → SPREADSHEETS (sheets/sheet.ts): budgets and lists with formulas that follow; kept on this phone
+  sheets: {
+    title: 'Budgets and lists',
+    status: () => 'READY',
+    instrument: sheetsInst,
+    readouts: () => {
+      const all = listBooks();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0]?.title ?? null, none: '—' },
+      ];
+    },
+    why: () => (listBooks().length ? '' : 'Start with a household budget, or open an Excel file'),
+    say: () => {
+      const all = listBooks();
+      return all.length ? `${all.length} ${all.length === 1 ? 'spreadsheet' : 'spreadsheets'} on this phone, the newest “${all[0]!.title}”` : '';
+    },
+    idle: 'No spreadsheets yet: start a budget, or open a file',
   },
   learn: {
     title: 'Learn anything',

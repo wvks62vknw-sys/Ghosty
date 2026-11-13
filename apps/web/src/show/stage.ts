@@ -249,6 +249,14 @@ export function mapWidePic(lat: number, lon: number, z: number, label: string): 
   return h('div.stgmap.wallmap', { role: 'img', 'aria-label': `Map of ${label}` }, layer, pin, h('span.wallplace', { dataset: { case: 'keep' } }, label), h('span.stgattr', '© OpenStreetMap'));
 }
 
+/** The answer's own table, as a table: its header, and the first rows that fit (the rest are in the sheet OPEN makes). */
+function tablePic(rows: string[][]): HTMLElement {
+  const [head, ...rest] = rows;
+  const t = h('table.stgtable', h('thead', h('tr', ...head!.map((c) => h('th', c)))), h('tbody', ...rest.slice(0, 8).map((r) => h('tr', ...r.map((c) => h('td', c))))));
+  const wrap = h('div.stgtablewrap', t);
+  if (rest.length > 8) wrap.append(h('p.stgmore', `${rest.length - 8} more rows in the sheet`));
+  return wrap;
+}
 /** The reply as a page: its heading, its paragraphs and list items, set as a page with margins in the system's reading type. */
 export function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
   const page = h('div.stgpage.paper', { role: 'img', 'aria-label': 'The document, laid out as a page' }, h('b.stgh', title));
@@ -466,6 +474,7 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
     setTimeout(() => globe.cam.flyTo({ lat: show.lat, lon: show.lon, range: 500, tilt: 0 }), 400);
     return;
   }
+  if (show.kind === 'table') return void (await run('open_sheets', { table: show.rows, title: show.title }));
   if (show.kind === 'document') return void (await run('open_docs', { doc: docFromReply(facts.reply, facts.ask, { name: facts.me?.name }) }));
   if (show.kind === 'simulation') {
     const { parseProblem, PANEL_OF } = await import('../../../../packages/shared/src/workbench');
@@ -583,6 +592,9 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       break;
     case 'document':
       pic = docPic(show.title, show.paragraphs);
+      break;
+    case 'table':
+      pic = tablePic(show.rows);
       break;
     case 'simulation': {
       const s = simPic(show.sim);

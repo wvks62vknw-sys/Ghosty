@@ -38,7 +38,7 @@ export interface ShowFacts {
   brain?: { kind: string; data: Record<string, unknown> };
 }
 
-export type ShowKind = 'map' | 'eye' | 'journey' | 'chart' | 'document' | 'simulation' | 'room' | 'part';
+export type ShowKind = 'map' | 'eye' | 'journey' | 'chart' | 'document' | 'table' | 'simulation' | 'room' | 'part';
 
 interface Base {
   kind: ShowKind;
@@ -56,6 +56,7 @@ export type Show =
   | (Base & { kind: 'journey'; via: 'its screen' })
   | (Base & { kind: 'chart'; series: Series })
   | (Base & { kind: 'document'; paragraphs: { t: string; text: string }[]; ask: string; replyAt?: number })
+  | (Base & { kind: 'table'; rows: string[][]; ask: string })
   | (Base & { kind: 'simulation'; sim: Sim })
   | (Base & { kind: 'room' | 'part'; room?: RoomAsk; part?: PartAsk });
 
@@ -86,6 +87,26 @@ const simShow = (sim: Sim): Show => ({ kind: 'simulation', id: `sim:${sim.kind}:
 const roomShow = (room: RoomAsk): Show => ({ kind: 'room', id: `room:${room.w}x${room.d}:${room.things.map((t) => t.kind + t.n).join('')}`, tag: 'ROOM', title: `Room ${room.w / 100} × ${room.d / 100} m`, truth: [room.sized ? 'YOUR SIZE' : 'SIZE ASSUMED 4 × 3 m', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], room });
 const partShow = (part: PartAsk): Show => ({ kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part });
 const chartShow = (ask: string, series: Series): Show => ({ kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: chartTitle(ask), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series });
+/**
+ * A table in the reply (a Markdown table: a header, a rule, at least two rows, two columns at least), as rows of words, or null. Cells lose their
+ * bold marks; a table is held to forty rows by twelve columns (the sheet's own start).
+ */
+export function tableOf(reply: string): string[][] | null {
+  const lines = reply.split('\n').map((l) => l.trim());
+  for (let i = 0; i + 2 < lines.length; i++) {
+    const cells = (l: string) => l.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.replace(/\*\*|__|`/g, '').trim());
+    if (!lines[i]!.startsWith('|') || !/^\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)+\|?$/.test(lines[i + 1]!)) continue;
+    const head = cells(lines[i]!);
+    const rows = [head];
+    for (let j = i + 2; j < lines.length && lines[j]!.startsWith('|'); j++) rows.push(cells(lines[j]!).slice(0, head.length).concat(Array(Math.max(0, head.length - cells(lines[j]!).length)).fill('')));
+    if (head.length >= 2 && rows.length >= 3) return rows.slice(0, 41).map((r) => r.slice(0, 12));
+  }
+  return null;
+}
+const TABLE_ASK = /\b(?:table|spreadsheet|sheet|grid|columns?)\b/i;
+function tableShow(ask: string, rows: string[][]): Show {
+  return { kind: 'table', id: `table:${rows[0]!.join('|')}:${rows.length}`, tag: 'TABLE', title: ask.length > 44 ? `${ask.slice(0, 41).replace(/\s+\S*$/, '')}…` : ask.replace(/[?.!]+$/, ''), truth: [`${rows.length - 1} ROWS FROM THE ANSWER`, 'OPEN IT AS A SPREADSHEET'], rows, ask };
+}
 function docShow(f: ShowFacts, letter: boolean): Show | null {
   const { title, list: paragraphs } = paragraphsOf(f.reply.trim(), f.ask.trim(), f.me?.name);
   return paragraphs.length >= 2 ? { kind: 'document', id: `doc:${f.replyAt ?? f.ask.trim().slice(0, 20)}`, tag: letter ? 'LETTER' : 'DOCUMENT', title: title.slice(0, 60), truth: ['YOUR WORDS, LAID OUT', 'EDIT AND SAVE AS PDF OR WORD'], paragraphs, ask: f.ask.trim(), replyAt: f.replyAt } : null;
@@ -153,6 +174,10 @@ export function decideShow(f: ShowFacts): Show | null {
   const shownMap = f.clients.find((c) => c.name === 'show_map');
   if (shownMap) return { kind: 'map', id: `map:${String(shownMap.args.place ?? '')}`, tag: 'MAP', title: String(shownMap.args.place ?? 'The map'), truth: ['ON ITS OWN SCREEN'], lat: Number(shownMap.args.lat) || 0, lon: Number(shownMap.args.lon) || 0, label: String(shownMap.args.place ?? ''), zoom: 15, via: 'its screen' };
   if (f.clients.some((c) => c.name === 'open_studio' || c.name === 'open_docs')) return null;
+
+  // a table he asked for (or one too wide for a chart): the answer's own table, to open as a spreadsheet
+  const table = reply ? tableOf(reply) : null;
+  if (table && (TABLE_ASK.test(ask) || table[0]!.length >= 3)) return tableShow(ask, table);
 
   // a formula: the problem is in his words and the solver has an answer
   const sim = simFrom(ask);

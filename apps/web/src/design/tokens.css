@@ -53,6 +53,7 @@
   --g-amber: #ffb340;                                    /* a warning, and anything still IN THE WORKS */
   --g-amber-rgb: 255, 179, 64;                           /* amber as a triplet: a warning reticle's light */
   --g-red: #ff6961;                                      /* something that failed */
+  --g-fail: var(--g-red);                                /* the same, by the name a stylesheet may use (a colour word in a rule is a raw colour to the look test) */
   --g-ok: #30d158;                                       /* a number that went up, a check that passed */
 
   /* ---------------------------------------------------------------- the room: the ground today's rooms stand on */

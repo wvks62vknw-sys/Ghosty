@@ -7,6 +7,7 @@
  */
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
+import { sheetsAsked } from '../sheets/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -44,6 +45,22 @@ export async function docsTurn(text: string): Promise<PackReply> {
           ? 'Your latest document in Latin letters, by the script’s own table: the sounds, not a translation.'
           : 'My documents are open: the ones you wrote with me, read or translated, kept on this phone with their dates.';
   return { said: text, reply, go: [{ id: 'docs', ask: -1, label: 'Open my documents', run: 'open_docs', args: {} }] };
+}
+
+/** "my spreadsheets", "new spreadsheet", "start a household budget", "open a spreadsheet": the SPREADSHEETS sheet, open on it. */
+export async function sheetsTurn(text: string): Promise<PackReply> {
+  const ask = sheetsAsked(text) ?? { what: 'list' as const };
+  const { openSheets } = await import('../sheets/sheet');
+  void openSheets({ what: ask.what });
+  const reply =
+    ask.what === 'budget'
+      ? 'A household budget is open: twelve months and a summary, with the formulas already in. Change a rent and watch the year move.'
+      : ask.what === 'new'
+        ? 'A blank spreadsheet is open: tap a cell and type, or start with a budget.'
+        : ask.what === 'import'
+          ? 'Choose the file and I open it here: an Excel .xlsx or a CSV. Nothing is uploaded, and what I could not keep I say once.'
+          : 'My spreadsheets are open: the ones you made or opened, kept on this phone with their dates.';
+  return { said: text, reply, go: [{ id: 'sheets', ask: -1, label: 'Open my spreadsheets', run: 'open_sheets', args: {} }] };
 }
 
 /** "3.5 miles in km", "hello in base64", "decode aGVsbG8=", "1700000000 as a date": answered here. */

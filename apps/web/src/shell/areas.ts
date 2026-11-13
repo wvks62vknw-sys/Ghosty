@@ -55,7 +55,7 @@ export const TINT: Record<string, string> = {
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
-  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', house: '#ffb340',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
@@ -305,6 +305,8 @@ function hubTab(a: Area): TabDef {
         rest.hidden = others.length === 0;
         // the band: every thing, reticled and numbered, left to right in the room's order; the ones at hand lit
         const lit = new Set(inHand.map((m) => m.c.id));
+        // (more than eight things in a room: the band takes two rows, five and four, each reticle still a finger's)
+        band.classList.toggle('two', room.things.length > 8);
         clear(band, ...room.things.map((t) => {
           const card = everyCard.find((c) => c.id === t.id);
           const b = h(`button.bandret${lit.has(t.id) ? '.on' : ''}` as 'button', { type: 'button', dataset: { id: t.id, n: String(t.n).padStart(2, '0'), case: 'keep' }, 'aria-label': `${String(t.n).padStart(2, '0')} ${t.name}` },

@@ -527,6 +527,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [editors] SPREADSHEETS (sheets/sheet.ts): my spreadsheets; a budget, a table from an answer, an Excel or CSV file opened.
+      id: 'open_sheets',
+      title: 'Spreadsheets: budgets and lists with formulas, Excel and CSV in and out',
+      group: 'GO',
+      run: async (a) => {
+        const { openSheets } = await import('../sheets/sheet');
+        await openSheets(a && typeof a === 'object' ? (a as Parameters<typeof openSheets>[0]) : {});
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

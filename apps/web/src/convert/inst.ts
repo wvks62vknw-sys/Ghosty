@@ -27,3 +27,11 @@ export function docsInst(): SVGSVGElement {
     path('ln', 'M54 58h22'), path('ln2', 'M58 66h40M58 73h32'), svgEl('circle', { class: 'ln2', cx: 55, cy: 66, r: 1.3 }), svgEl('circle', { class: 'ln2', cx: 55, cy: 73, r: 1.3 }),
   );
 }
+
+/** A grid of cells: its first row lit, a column of figures and a total. */
+export function sheetsInst(): SVGSVGElement {
+  return art(
+    path('ln', 'M30 12h100v72H30z'), path('lit', 'M30 24h100'), path('ln2', 'M30 36h100M30 48h100M30 60h100M30 72h100M64 12v72M98 12v72'),
+    path('ln2', 'M36 42h22M36 54h18M36 66h20M104 42h20M104 54h14M104 66h18'), path('lit', 'M70 78h20'),
+  );
+}

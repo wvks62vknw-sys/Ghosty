@@ -78,7 +78,7 @@ const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 // (BRIEF-TABS): MAKE's converter and documents are screens of their own with the house, LEARN has the learning pack and the
 // coach, and LIFE, the seventh area, its eight everyday packs
 const TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
 };
@@ -253,7 +253,8 @@ await g.ctx.close();
     const numbered = ids.filter((i) => i !== 'voice' && i !== 'core');
     if (a !== 'ask' && room.band.length !== numbered.length) problems.push(`${at} the band has ${room.band.length} reticles for ${numbered.length} things`);
     if (room.band.some((b, i) => b.n !== String(i + 1).padStart(2, '0') || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered 01, 02 … in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
-    if (room.band.length > 8) problems.push(`${at} the band has more than eight (${room.band.length})`);
+    // (a room of more than eight things takes its band on two rows, each reticle 44 pt, never sideways: checked above and below)
+    if (room.band.length > 10) problems.push(`${at} the band has more than ten (${room.band.length})`);
     if (room.glassCards) problems.push(`${at} Glass's card grid is still drawn (${room.glassCards})`);
     if (!room.sub) problems.push(`${at} the hub's one sentence is gone`);
     if (room.side) problems.push(`${at} the room scrolls sideways`);

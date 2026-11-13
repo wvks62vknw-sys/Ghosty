@@ -43,6 +43,7 @@ import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
+import { sheetsAsked } from '../sheets/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -125,6 +126,7 @@ export const LOCAL_ASKS = [
   // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
+  { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

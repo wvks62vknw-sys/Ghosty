@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -428,6 +428,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Translate my letter into Urdu', act: { ask: 'Translate my letter into Urdu' } },
     ],
     dyk: 'A translation keeps every heading and list in its place, beside the original.',
+  },
+  sheets: {
+    name: 'Spreadsheets',
+    promise: 'Budgets and lists, with formulas that follow',
+    can: [
+      { text: 'Your spreadsheets, kept on this phone', act: { open: 'sheets' } },
+      { text: 'Start a household budget', act: { ask: 'New spreadsheet' } },
+      { text: 'Open an Excel file', act: { ask: 'Open a spreadsheet' } },
+    ],
+    dyk: 'Change a rent in March and the month, the summary and the year all move at once.',
   },
   house: {
     name: 'House',

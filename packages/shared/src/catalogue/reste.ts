@@ -26,6 +26,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_docs' }, tryText: 'Opens my documents',
   },
   'phrase:docs': { same: 'hub:docs' },
+  'hub:sheets': {
+    name: 'Budgets and lists with formulas',
+    line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
+    more: 'Start with a household budget and twelve months and a summary appear, with the formulas already in; change a rent and the month, the summary and the year move together. Tap a column’s letter to sort or filter it, choose cells to format them as pounds, percent or dates, or to draw a chart. Export an Excel file, a CSV or a PDF, or open someone’s .xlsx here, and I say once what I could not keep. I can explain a cell or write you a formula.',
+    say: ['My spreadsheets', 'Start a household budget', 'Open a spreadsheet'],
+    scene: ['making', 'money', 'school'], cat: 'do', since: '2026-11-11',
+    go: { run: 'open_sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  'phrase:sheets': { same: 'hub:sheets' },
   'panel:library:RIGHTS AND LAW': {
     name: 'Your rights, from the documents',
     line: 'You can open what the law and the courts actually say: your rights in the UK, and the rulings and findings in the news.',

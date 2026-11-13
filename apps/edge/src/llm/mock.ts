@@ -252,6 +252,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     return { message: { role: 'assistant', content: "Here's a letter you can send:\n\n[Your name]\n12 High Street\nBirmingham B1 1AA\n\n[Date]\n\nDear Mr Khan,\n\nI am writing about the **damp** in the back bedroom of the flat. Black mould has been growing on the wall behind the wardrobe since August, and it has now spread to the ceiling. It smells, and it is affecting my health.\n\nPlease arrange for the cause to be found and repaired within 14 days.\n\nYours sincerely,\n[Your name]\n\nWant me to make it more formal?" }, model };
   }
   const docAsk = last.role === 'user' ? ownerWords(textOf(last.content)) : '';
+  // [editors] SPREADSHEETS (apps/web/src/sheets/ask.ts, the chosen cells as the turn's data): a cell explained, a formula written, words tidied
+  if (/^SHEET EXPLAIN\b/.test(docAsk)) return { message: { role: 'assistant', content: /=SUM\(/i.test(docAsk) ? 'This adds up the numbers it points at, so the total changes whenever one of them does.' : 'This holds a figure or some words typed in, with nothing worked out from other cells.' }, model };
+  if (/^SHEET FORMULA\b/.test(docAsk)) {
+    const wants = /^What he wants: (.*)$/m.exec(docAsk)?.[1] ?? '';
+    const mean = /average|mean/i.test(wants);
+    return { message: { role: 'assistant', content: `Sure, use this:\n\n${mean ? '=AVERAGE(B2:B4)' : '=SUM(B2:B4)'}\n\nIt works out ${mean ? 'the average' : 'the total'} of the three amounts above.` }, model };
+  }
+  if (/^SHEET CLEAN\b/.test(docAsk)) return { message: { role: 'assistant', content: [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((m) => `[${m[1]}] ${m[2]!.trim().replace(/\s+/g, ' ').replace(/\b([a-z])/g, (c) => c.toUpperCase())}`).join('\n') }, model };
   // [editors] DOCUMENTS writing into the page (docs/ask.ts, the document as the turn's data): new words as Markdown with its chatter, one paragraph said again
   if (/^DOCUMENT WRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: "Sure, here you go:\n\n## Next steps\n\nPlease reply within 14 days. If I have not heard from you by then I will take the matter further.\n\n- Repair the **damp** at the back of the flat\n- Confirm the date of the visit\n\nWant me to make it firmer?" }, model };
   if (/^DOCUMENT REWRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: 'Please arrange the repair within 14 days.' }, model };
