@@ -361,6 +361,13 @@ export const eyeTab: TabDef = {
           button('3D', () => openMapSheet('3d', spot())),
           button('TRAFFIC', () => openMapSheet('traffic', spot())),
           button('ZOOM', () => globe.cam.flyTo({ lat: sp.lat, lon: sp.lon, range: 1.2, tilt: 55 })),
+          // the spot to send on: the phone's own share sheet (a message, a note), else copied; a public map link, nothing else
+          button('SHARE', () => {
+            const url = `https://www.openstreetmap.org/?mlat=${sp.lat.toFixed(5)}&mlon=${sp.lon.toFixed(5)}#map=17/${sp.lat.toFixed(5)}/${sp.lon.toFixed(5)}`;
+            const text = `${sp.name ? `${sp.name}: ` : ''}${sp.lat.toFixed(5)}, ${sp.lon.toFixed(5)}`;
+            if (navigator.share) return void navigator.share({ title: sp.name || 'A spot', text, url }).catch(() => undefined);
+            void navigator.clipboard?.writeText(`${text} ${url}`).then(() => toast('Copied: the spot and its map link.', 'ok'), () => toast('I couldn’t copy it on this phone.', 'warn'));
+          }),
           button('CLEAR', () => {
             spotLayer.set(null);
             select(null);
@@ -1327,6 +1334,8 @@ export const eyeTab: TabDef = {
       paintModes();
       if (selected?.kind === 'air' || selected?.kind === 'ship' || selected?.kind === 'transit') paintInfo();
       if (ra.on) ra.paint();
+      // (the bar's ROAD AHEAD is lit only while it runs: the panel's own STOP, or no position, puts it out)
+      if (raBtn.classList.contains('on') !== ra.on) raBtn.classList.toggle('on', ra.on);
       if (globe.vis.cams) {
         loadCameras();
         if (globe.cam.range < 2500 && inCalifornia(g.lat, g.lon)) loadCalifornia();
@@ -1356,17 +1365,20 @@ export const eyeTab: TabDef = {
         events.start();
         launches.start();
         // (while the Machine view is on it asks the feeds about the frame itself: one poller)
-        const tick = () => void (machineState.on || air.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range));
+        // while ROAD AHEAD follows the phone the view's centre is where he is: the feeds are asked about the square around it (0.02°,
+        // about two kilometres), never the point (the brain never gets live GPS)
+        const at = (): [number, number] => (roadAhead.on ? [Math.round(globe.cam.lat * 50) / 50, Math.round(globe.cam.lon * 50) / 50] : [globe.cam.lat, globe.cam.lon]);
+        const tick = () => void (machineState.on || air.refresh(...at(), globe.cam.range));
         tick();
         airTimer = window.setInterval(tick, 8000);
         const shipTick = () => {
           if (machineState.on) return;
-          if (globe.vis.ships) void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
-          if (globe.vis.transit) void transit.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+          if (globe.vis.ships) void ships.refresh(...at(), globe.cam.range);
+          if (globe.vis.transit) void transit.refresh(...at(), globe.cam.range);
           // Motorway incidents: National Highways lists them by region; the West Midlands is the one Ghosty can place on the map.
           if (globe.vis.incidents && globe.cam.range < 600 && globe.cam.lat > 52.2 && globe.cam.lat < 52.8 && globe.cam.lon > -2.5 && globe.cam.lon < -1.2) void incidents.refresh('West Midlands');
-          if (globe.vis.enforce) void enforce.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
-          if (globe.vis.crime) void crime.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+          if (globe.vis.enforce) void enforce.refresh(...at(), globe.cam.range);
+          if (globe.vis.crime) void crime.refresh(...at(), globe.cam.range);
         };
         shipTick();
         shipTimer = window.setInterval(shipTick, 8000);

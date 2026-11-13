@@ -20,6 +20,10 @@ import { offline } from '../offline/pack';
 import { openStreetView } from './streetview';
 import { satelliteUrl, wazeUrl, type MapSpot } from './mapurls';
 
+/* state: map.flat error */
+/** The flat map could not load (its script, or the first tiles): said on the sheet, never a blank square. */
+const MAP_DOWN = 'The map would not load. Check the signal, then open it again.';
+
 export type { MapSpot } from './mapurls';
 export { satelliteUrl, streetViewUrl, wazeUrl } from './mapurls';
 
@@ -108,7 +112,7 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
           note.textContent = WORDS.none;
           if (!flat) {
             flat = createFlatMap(flatHost, hooks);
-            void flat.open(at, opts).then(() => flat?.invalidate());
+            void flat.open(at, opts).then(() => flat?.invalidate(), () => (note.textContent = MAP_DOWN));
           } else flat.invalidate();
           flatHost.hidden = false;
           return;
@@ -130,7 +134,7 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
         flat.invalidate();
       } else {
         flat = createFlatMap(flatHost, hooks);
-        void flat.open(at, opts).then(() => flat?.invalidate());
+        void flat.open(at, opts).then(() => flat?.invalidate(), () => (note.textContent = MAP_DOWN));
       }
     } else if (v === '3d') {
       if (map3d) map3d.invalidate();
