@@ -105,11 +105,11 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'ui',
     tools: uiTools,
     when: 'always',
-    // (", open his camera" was " and open his camera": 3 characters for the kitchen pack's "kitchen pack" on the plain turn, BRIEF-PACKS-1)
+    // (", open the Lens" was ", open his camera", which said the brain could switch the camera on: it never can (FINAL-CONSISTENCY); that was " and open his camera": 3 characters for the kitchen pack's "kitchen pack" on the plain turn, BRIEF-PACKS-1)
     // (BRIEF-KERNEL-3: the four editors' tools are named off as "deck: slides", "cut: videoedit", "pages: workspace" and "game: game" (56 characters
     //  with their line breaks); this line's parenthesis of tool names, " (open_tab, fly_to, set_layer, set_theme, set_sensor_mode)", 58 in all, paid for them.
     //  All five tools are still offered whole: the group is always on, so this line need not list them)
-    about: 'You can drive the app, follow his drive (road_ahead), open his camera (open_lens).',
+    about: 'You can drive the app, follow his drive (road_ahead), open the Lens (open_lens).',
   },
   {
     name: 'widgets',
