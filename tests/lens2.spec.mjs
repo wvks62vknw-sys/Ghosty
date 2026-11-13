@@ -95,7 +95,8 @@ async function run(viewport, all) {
   await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
   await page.evaluate(() => (location.hash = 'lens'));
   await page.waitForSelector('#pg-lens .lensbar', { timeout: 15000 });
-  const until = (fn, arg, ms, what) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => (problems.push(`${T} ${what}`), false));
+  // (polled on a timer, not on animation frames: God's Eye's globe, drawn in software on CI, can hold the frames for seconds)
+  const until = (fn, arg, ms, what) => page.waitForFunction(fn, arg, { timeout: ms, polling: 100 }).then(() => true).catch(() => (problems.push(`${T} ${what}`), false));
 
   // ---- STATES before anything: the eyes are not on the phone: the offer, with its size, on Wi-Fi, done on his tap only
   const offer = ((await page.locator('#pg-lens .lensknow .lensget').textContent().catch(() => '')) ?? '').trim();
@@ -209,7 +210,9 @@ async function run(viewport, all) {
   await layout('text');
   await page.screenshot({ path: `${out}/lens2-text-${viewport.width}.png`, fullPage: false });
   await keyIn('address', 'ON THE MAP').click();
-  await until(() => /^map: 12 High Street, Birmingham B1 1AA/.test(window.__ghosty.cards.done), null, 3000, '[address] ON THE MAP did not take the address to the map');
+  // (the tap itself hands the address to the map, before anything loads: read straight after it)
+  const mapAct = await page.evaluate(() => window.__ghosty.cards.done);
+  check(/^map: 12 High Street, Birmingham B1 1AA/.test(mapAct), `${T} [address] ON THE MAP did not take the address to the map: the last act was "${mapAct}"`);
   await letGo();
   // the map opens on the place (God's Eye, the map sheet titled with it)
   await until(() => !!document.querySelector('.modal .mapsheet') && /BIRMINGHAM/i.test(document.querySelector('.modal .mbox')?.getAttribute('aria-label') ?? ''), null, 15000, `[address] the map did not open on the address: ${await page.evaluate(() => document.querySelector('.modal .mbox')?.getAttribute('aria-label') ?? 'no sheet')}`);
