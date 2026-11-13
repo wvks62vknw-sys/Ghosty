@@ -393,7 +393,11 @@ function boot(): void {
     ui.textContent = 'This game could not be read.';
     return;
   }
-  const key = `ghostygame:${read.game.id}`;
+  // On his sites (/s/<name>/, gamesite.ts) the page names its own key and its offline worker; the exported file has neither.
+  const el = document.getElementById('game');
+  const key = el?.dataset.save || `ghostygame:${read.game.id}`;
+  const sw = el?.dataset.sw ?? '';
+  if (sw && el?.dataset.scope && 'serviceWorker' in navigator) navigator.serviceWorker.register(sw, { scope: el.dataset.scope }).catch(() => undefined);
   const store = (): Storage | null => {
     try {
       return localStorage;

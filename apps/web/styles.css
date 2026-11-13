@@ -4118,6 +4118,9 @@ html .studiocardby { font: 400 11px/14px var(--sf); color: var(--ink3); }
 html #pg-studio .pn .rw.link, html #pg-studio .studiolist .rw { margin: 0; padding: 12px 0; border-radius: 0; }
 html #pg-studio .studiolist .rw .k { font: 500 15px var(--sf); color: var(--ink); min-width: 0; }
 html #pg-studio .studiolist .rw .v { font: 400 13px var(--sf); color: var(--ink3); }
+/* FINAL ROUND (MAKE lane): a model's licence line is read whole ("Khronos sample · CC BY 4.0" at 390), never cut */
+html #pg-studio .studiolist .rw, html #pg-studio .studiopane .rw { flex-wrap: wrap; }
+html #pg-studio .studiolist .rw .v, html #pg-studio .studiopane .rw .v { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: right; }
 /* SPACE: chips in sentence case, FIND ONE THAT FITS as a tinted action (not a warning), the plan's numbers tabular */
 html #pg-space .lenschips button, html #pg-space .spacereview .row button:not(.on) { position: relative; height: 36px; min-height: 36px !important; padding: 0 14px; border-radius: 18px; font-weight: 500 !important; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 html #pg-space .lenschips button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
@@ -4739,8 +4742,8 @@ html .hubtile .hline[hidden] { display: none; }
 /* ---- THE WORKBENCH (BRIEF-WORKSHOP; features/workbench): a compact form in his units, the answer at once below it, and
    FIRST ESTIMATE · NOT CERTIFIED on every card as a shape and its words (never colour alone). Every row 44 pt or more. */
 html .pn.wb .bd { display: flex; flex-direction: column; }
-html .wbmodes { display: flex; gap: 6px; margin: 4px 0 6px; }
-#pg-workbench .wbmodes button { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 0 8px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .wbmodes { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+#pg-workbench .wbmodes button { flex: 1 1 auto; min-width: 48px; min-height: 44px !important; padding: 0 10px; border-radius: 12px; font: 600 14px/18px var(--sf); white-space: normal; overflow-wrap: anywhere; }
 html .wbform { display: flex; flex-direction: column; }
 html .wbf { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid var(--hair); }
 html .wbf > label { flex: 1 1 auto; min-width: 0; font: 400 15px/20px var(--sf); color: var(--ink2); }
@@ -4773,6 +4776,10 @@ html .wbfold ul, html .wbfold p { margin: 0 0 10px; padding-left: 18px; font: 40
 html .wbfold p { padding-left: 0; }
 html .wbproblem { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; font: 500 15px/20px var(--sf); color: var(--ink); }
 html .wbcaveat { margin: 10px 0 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
+/* FINAL ROUND (MAKE lane): COPY under an estimate, a 44 pt key and its line */
+html .wbcopyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; min-width: 0; }
+html .wbcopy { min-height: 44px; min-width: 88px; }
+html .wbcopied { flex: 1 1 160px; min-width: 0; font: 400 13px/18px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { html .wbfold > summary::after { transition: none; } }
 /* the WIND TUNNEL (features/workbench/tunnel.ts): the flow drawn at the lattice's own 192 × 96, scaled smoothly to the card;
    while DRAW is on, a touch draws instead of scrolling. */
@@ -5567,6 +5574,8 @@ body.tv #cbar .tvkbbtn { display: grid; place-items: center; grid-column: 4; wid
 .studioseg { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .studioseg button { grid-column: span 2; }
 .studioseg button[data-pane="car"], .studioseg button[data-pane="build"] { grid-column: span 3; }
+/* FINAL ROUND (MAKE lane): a pane's name is never cut ("CUT · MEASURE" at 390): it wraps on two lines inside its 44 pt key */
+html .studioseg button { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; height: auto; min-height: 44px !important; line-height: 1.15; }
 .buildstage { position: absolute; inset: 0; z-index: 3; overflow: hidden; border-radius: inherit; background: #cfe3f2; touch-action: none; user-select: none; -webkit-user-select: none; }
 .buildstage[hidden] { display: none; }
 .buildstage canvas.buildcanvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
@@ -5705,6 +5714,18 @@ canvas.buildplan { display: block; max-width: 100%; }
 .cvans { font: 600 17px/1.4 var(--sf); color: var(--fg); }
 .cvqr { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0; }
 .cvqr img { width: min(240px, 100%); height: auto; image-rendering: pixelated; border-radius: 8px; background: #fff; }
+/* FINAL ROUND (MAKE lane): the unit pad (convert/unitpad.ts) — the answer big, every unit as a list, recents as keys; tokens only */
+.cvpad { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cvpad .cvpadval { font: 600 22px/1.2 var(--sf); }
+.cvpadans { margin: 0; font: 700 21px/1.35 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
+.cvpadans[data-state] { font-weight: 400; font-size: 15px; color: var(--mute); }
+.cvpadevery { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cvpadrow { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; min-height: 32px; border-bottom: .5px solid var(--line); min-width: 0; }
+.cvpadrow b { font: 600 16px/1.35 var(--sf); color: var(--fg); overflow-wrap: anywhere; min-width: 0; }
+.cvpadrow span { font: 400 14px/1.35 var(--sf); color: var(--mute); }
+.cvpadrecent { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cvpadswap, .cvpadcopy, .cvpadrec { min-height: 44px; }
+html body .cvpadrec[data-case="keep"], html body .cvpadrec[data-case="keep"]::first-letter { text-transform: none !important; }
 .cvtools { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: .5px solid var(--line, rgba(255,255,255,.15)); }
 .rtsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .rtsheet > button, .rtgroup button, .rtlink { min-height: 44px; }
