@@ -383,6 +383,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Beam calculator', 'Wind tunnel', '3 m steel beam 5 kN in the middle'], scene: ['making'], cat: 'build',
     since: '2026-10-31',
   },
+  'phrase:openscreen': {
+    name: 'Open a screen by name', line: 'You can say "open the workshop", "the arcade" or "plan my room" and that screen opens, no AI.',
+    more: 'The Workshop, the 3D studio, Reverse, Space, your courses, the Arcade and School open by their names on the phone. A line that asks more than the name goes to my brain.',
+    say: ['Open the workshop', 'Plan my room', 'Open my courses', 'The arcade'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-13',
+  },
   'phrase:foresight': {
     name: 'What I expect, and my record', line: 'You can ask what I expect today, or how often I am right, and I answer from my record.',
     more: 'No AI needed: straight from my predictions and their scores. On Telegram too.',

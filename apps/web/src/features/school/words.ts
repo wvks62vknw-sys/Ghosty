@@ -33,3 +33,6 @@ export function whatToRead(topics: Record<string, { got: number; max: number }>)
 
 /** The offline brain not on this phone: what to do, with its size, said before the tap (the download rule is the Settings page's). */
 export const notKept = (size: string): string => `With no signal I sit papers on the offline brain, and it isn’t on this phone yet. Get it in Settings, Offline brain: ${size}, on Wi-Fi.`;
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['open school'];

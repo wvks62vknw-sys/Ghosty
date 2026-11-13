@@ -49,3 +49,6 @@ export function pieceName(label: string): string {
   const t = label.replace(/,.*$/, '').trim() || 'piece';
   return /^[A-Z]{2}/.test(t) ? t : `${t.charAt(0).toLowerCase()}${t.slice(1)}`;
 }
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['plan my room'];

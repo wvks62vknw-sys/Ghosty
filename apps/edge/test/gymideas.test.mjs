@@ -268,10 +268,10 @@ test('edge: the difficulty settles where a simulated player solves 40–60 % —
   let e = E.newEdge(4);
   for (let i = 0; i < 80; i++) e = E.edgeNext(e, true, 4, 3);
   assert.equal(e.x, 6.99);
-  assert.equal(E.edgeLine(e), 'Level 6¾: he solves most even at the hardest he makes · solved 20 of his last 20');
+  assert.equal(E.edgeLine(e), 'Level 6¾: I solve most even at the hardest I make · solved 20 of my last 20');
   for (let i = 0; i < 120; i++) e = E.edgeNext(e, false, 4, 3);
   assert.equal(e.x, 4);
-  assert.equal(E.edgeLine(e), 'Level 4: his own level’s puzzles are still hard for him · solved 0 of his last 20');
+  assert.equal(E.edgeLine(e), 'Level 4: my own level’s puzzles are still hard for me · solved 0 of my last 20');
   // a level-up starts it again at the new level's start (the totals carry on)
   const up = E.edgeNext(e, true, 5, 3);
   assert.equal(up.level, 5);
@@ -285,7 +285,7 @@ test('edge: the difficulty settles where a simulated player solves 40–60 % —
   near(E.between(11, (l) => 30 - l), 19, 1e-9, 'past Level 10 it goes on');
 });
 
-test('edge: the real learners — a fresh maze learner at Level 7 settles at "Level 7½: puzzles he only just fails"; Sokoban and Sudoku make puzzles above his level; every try judged by the game\'s own checker, quickly', () => {
+test('edge: the real learners — a fresh maze learner at Level 7 settles at "Level 7½: puzzles I only just fail"; Sokoban and Sudoku make puzzles above his level; every try judged by the game\'s own checker, quickly', () => {
   const s = new S.Session(gameById('maze'), { ...S.newRecord('maze'), level: 7 });
   let solved = 0;
   for (let i = 0; i < 60; i++) {
@@ -295,7 +295,7 @@ test('edge: the real learners — a fresh maze learner at Level 7 settles at "Le
     solved += r.verdict.correct ? 1 : 0;
   }
   assert.equal(s.rec.edge.n, 60);
-  assert.match(E.edgeLine(s.rec.edge), /^Level 7(¼|½|¾)?: puzzles he only just fails · solved (8|9|10|11|12) of his last 20$/, E.edgeLine(s.rec.edge));
+  assert.match(E.edgeLine(s.rec.edge), /^Level 7(¼|½|¾)?: puzzles I only just fail · solved (8|9|10|11|12) of my last 20$/, E.edgeLine(s.rec.edge));
   assert.ok(solved > 10 && solved < 50, `solved ${solved} of 60`);
   // the maze's puzzles are his own maze (from farther starts), so the answer is checked against that maze
   assert.equal(s.stretchTry().problem.data.seed, s.rec.seed);

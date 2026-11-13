@@ -300,3 +300,28 @@ test('words: what did I miss, in the ask line and on the card', () => {
   assert.deepEqual(lines, ['Dentist came and went at 14:00.', '2 headlines you haven’t seen, first: A', 'You added 14 rows of spending.', 'School: Your stage 3 paper is marked.', '2 notices from me are unread.']);
   assert.deepEqual(L.missedLines({ since: 1, now: 2, headlines: [], passed: [], spend: null, school: [], training: [], inbox: 0 }, clock), []);
 });
+
+// POLISH 3 (2b): ONE WATCHER SYSTEM. The money pack's price watch (tools/money.ts `watch`) is stored as a watcher of kind `price`: the watchers'
+// beat reads it, tells it once whichever reader sees the drop first, and `unwatch` and STOP are the same removal (money.test.mjs drives the pack).
+test('watchers 3: a price watch the money pack stored is read by the beat, told once, never twice, and STOP removes it', async () => {
+  const g = watchers();
+  const t0 = g.now;
+  // as tools/money.ts writes it: kind price, the first reading in `last`, watching
+  g.storage.m.set('watchers:list', [{ id: 'mp1', kind: 'price', url: 'https://watch.example.test/kettle', label: 'Hartley Kettle', created: t0, checked: t0, ok: true, last: { price: 29.99 }, state: 'watching' }]);
+  g.w.price = 24.99;
+  g.tick();
+  await G.watchTick(g.d);
+  assert.equal(g.notes.length, 1, 'the beat told the drop');
+  assert.match(g.notes[0].text, /Hartley Kettle is £24\.99 now, down from £29\.99\./);
+  // a second reader of the same drop (the beat again, a manual CHECK) tells nothing: the store carries the told reading
+  g.tick(2 * HOUR);
+  await Wt.watchersTick(g.d, { force: true });
+  await G.watchTick(g.d);
+  assert.equal(g.notes.length, 1, 'never told twice');
+  assert.equal(list(g)[0].state, 'told');
+  // STOP (DELETE /guardian/watchers?id=) is the one removal
+  const u = new URL('https://x/guardian/watchers?id=mp1');
+  const r = await (await Wt.watchersRoute(new Request(u, { method: 'DELETE' }), '/guardian/watchers', 'DELETE', u, g.d)).json();
+  assert.equal(r.removed, true);
+  assert.equal(list(g).length, 0, 'gone from the one store the money pack lists from');
+});

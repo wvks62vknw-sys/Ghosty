@@ -180,3 +180,17 @@ export async function importZip(bytes: Uint8Array): Promise<Project> {
   }
   return q;
 }
+
+// ---------------------------------------------------------------- the daily backup (POLISH 3, 2d)
+/** Every project's JSON (not its clips: they stay on this phone), for the daily backup. Those in the bin are left out. */
+export async function projectsForBackup(): Promise<Project[]> {
+  const rows = (await req((await tx(['projects'], 'readonly')).objectStore('projects').getAll())) as Row[];
+  return rows.filter((r) => !r.gone).map((r) => r.project);
+}
+/** A backed-up project put back when this phone has none by its id, or an older one (the newer wins). Its clips come back only if they are still here. */
+export async function restoreProject(p: Project): Promise<'kept' | 'same'> {
+  const now = await loadProject(p.id).catch(() => null);
+  if (now && (now.at ?? 0) >= (p.at ?? 0)) return 'same';
+  await saveProject(p);
+  return 'kept';
+}

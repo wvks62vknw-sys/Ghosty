@@ -573,7 +573,7 @@ export function looksEnglish(text: string): boolean {
 }
 
 /** The words that ask the Lens to act on its tag ("read that", "what is that", "translate it", "measure it", "name it"). */
-export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who';
+export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy';
 
 export function lensWord(text: string): LensWord | null {
   if (String(text ?? '').length > 60) return null;
@@ -590,5 +590,14 @@ export function lensWord(text: string): LensWord | null {
   if (new RegExp(`^(?:keep|save|file) ${it}$`).test(t)) return 'keep';
   if (/^find (?:this|that) part$/.test(t)) return 'part';
   if (/^who(?:'s| is) (?:that|this|it)(?: person)?$/.test(t) || /^who am i (?:looking|pointing) at$/.test(t)) return 'who';
+  // (FINAL-LENS) the jobs of the cards, by their words, in more than one wording
+  if (new RegExp(`^(?:solve|work out) ${it}(?: sum| for me)?$`).test(t) || new RegExp(`^work ${it} out$`).test(t) || /^what(?:'s| is) the answer(?: to (?:that|this|it))?$/.test(t)) return 'solve';
+  if (new RegExp(`^(?:call|ring|phone|dial) ${it}(?: number)?$`).test(t) || /^(?:call|ring|phone|dial) (?:that|this|the) number$/.test(t)) return 'call';
+  if (new RegExp(`^(?:add|put) ${it}(?: date)? (?:in|on|to|into) (?:my |the )?(?:agenda|diary|calendar)$`).test(t) || /^(?:add|put) (?:that|this|the) date (?:in|on|to|into) (?:my |the )?(?:agenda|diary|calendar)$/.test(t)) return 'agenda';
+  if (new RegExp(`^(?:show|find|put) ${it}(?: address)? on (?:the |a )?map$`).test(t) || /^(?:show me )?where(?:'s| is) (?:that|this) address$/.test(t)) return 'map';
+  if (/^(?:what|which) (?:species|plant|flower|tree|bird|animal|insect|kind of (?:plant|bird|animal|flower|tree)) is (?:that|this|it)$/.test(t)) return 'species';
+  if (/^(?:what|which) (?:place|building|landmark|painting|statue|artwork|monument) is (?:that|this|it)$/.test(t) || /^where is (?:that|this) building$/.test(t)) return 'place';
+  if (new RegExp(`^read ${it} (?:aloud|out loud|out)$`).test(t) || new RegExp(`^read ${it} to me$`).test(t)) return 'aloud';
+  if (new RegExp(`^copy ${it}(?: text| number| link)?$`).test(t)) return 'copy';
   return null;
 }

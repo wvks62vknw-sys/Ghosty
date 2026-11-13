@@ -8,7 +8,8 @@ import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import { screenSays } from '../../shell/awareness';
 import type { TabDef } from '../../shell/tabs';
-import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/components';
+import { button, empty, modal, panel, row, toast, undo, undoBar } from '../../ui/components';
+import { ADD_SHEET, DIARY_OFFLINE, dayLine, EMPTY_DAY, EMPTY_JOBS, parseWhen, previewLine, TIME_PASSED } from './words';
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
@@ -120,6 +121,7 @@ export const agendaTab: TabDef = {
       const title = evTitle.value.trim();
       const start = new Date(evAt.value).getTime();
       if (!title || !Number.isFinite(start)) return toast('Give the event a name and a time', 'warn');
+      if (start < Date.now() - 60_000) return toast(TIME_PASSED, 'warn');
       try {
         await brain.addEvent({ title, start, remindMin: evRemind.value === '' ? null : Number(evRemind.value) });
         evTitle.value = '';
@@ -141,6 +143,7 @@ export const agendaTab: TabDef = {
       const text = rText.value.trim();
       const at = new Date(rAt.value).getTime();
       if (!text || !Number.isFinite(at)) return toast('Type what to remind you about and when', 'warn');
+      if (at < Date.now() - 60_000) return toast(TIME_PASSED, 'warn');
       try {
         await brain.addJob({ kind: 'reminder', text, at, repeat: rRep.value as JobInfo['repeat'] });
         rText.value = '';
@@ -164,7 +167,7 @@ export const agendaTab: TabDef = {
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
       if (!events.length) {
         /* state: agenda.diary empty */
-        ep.body.append(empty('NONE', 'Add an event above, connect a calendar under Calendars, or just tell Ghosty: “add dinner with Sam on Friday at 7”.', 'Nothing in the next two weeks'));
+        ep.body.append(empty('NONE', EMPTY_DAY.line, EMPTY_DAY.head));
         return;
       }
       let lastDay = '';
@@ -176,10 +179,13 @@ export const agendaTab: TabDef = {
         }
         const t = e.allDay ? 'ALL DAY' : `${hm(e.start)}${e.end ? `–${hm(e.end)}` : ''}`;
         // the title, where (route C puts it on its own line), and a countdown for what is still to come today
-        const soon = dayKey(e.start) === dayKey(Date.now()) && !e.allDay ? until(e.start) : '';
+        const live = !e.allDay && e.start <= Date.now() && (e.end ?? e.start) > Date.now();
+        const over = !e.allDay && (e.end ?? e.start) <= Date.now() && dayKey(e.start) === dayKey(Date.now());
+        const soon = dayKey(e.start) === dayKey(Date.now()) && !e.allDay ? (live ? 'now' : until(e.start)) : '';
         const r = row(t, h('span', h('b.evt', e.title), e.location ? h('small.evloc', h('i.evsep', ' · '), e.location) : null, soon ? h('em.evin', soon) : null), e.source === 'mine' ? '✕' : e.source, { wrap: true });
         r.classList.add('ev');
         if (soon) r.classList.add('soon');
+        if (over) r.classList.add('past');
         if (e.source === 'mine') {
           const x = r.lastChild as HTMLElement;
           x.classList.add('del');
@@ -295,13 +301,13 @@ export const agendaTab: TabDef = {
       clear(jp.body);
       if (!jobs.length) {
         jp.body.append(
-          empty('NONE', 'Set one above, or ask Ghosty: “remind me at 6 to call mum”, or “every weekday at 7:30 brief me on the weather, my day and the news”.', 'No reminders or tasks'),
+          empty('NONE', EMPTY_JOBS.line, EMPTY_JOBS.head),
         );
         return;
       }
       for (const j of jobs) {
         const rep = j.repeat === 'none' ? '' : ` · ${REPEATS.find(([v]) => v === j.repeat)?.[1].toLowerCase()}`;
-        const r = row(when(j.next), `${j.kind === 'task' ? '✦ ' : j.kind === 'verify' ? '🛡 ' : '⏰ '}${j.title}${rep}`, '✕', { wrap: true });
+        const r = row(when(j.next), `${j.kind === 'task' ? '✦ ' : j.kind === 'verify' ? '🛡 ' : '⏰ '}${j.kind === 'reminder' && j.text ? j.text : j.title}${rep}`, '✕', { wrap: true });
         r.title = j.kind === 'verify' ? 'Ghosty is checking that a change you shipped deployed correctly' : j.kind === 'task' ? `Ghosty will: ${j.text}${j.lastResult ? `\n\nLast time: ${j.lastResult}` : ''}` : j.text;
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
@@ -438,18 +444,14 @@ export const agendaTab: TabDef = {
 
     const paintHero = () => {
       const now = Date.now();
-      const next = events.find((e) => !e.allDay && (e.end ?? e.start) > now);
-      const today = events.filter((e) => dayKey(e.start) === dayKey(now)).length;
-      // route C: what is next as the title, when and how long until under it
-      const day = next ? dayLabel(next.start) : '';
-      const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
+      // the day at a glance: today's first thing and its time, then the free gap said, then what is left
+      const line = dayLine(events, now);
       P.big.dataset.case = 'keep';
-      P.big.textContent = next ? next.title : 'All clear';
+      P.big.textContent = line.first;
+      // (his to-dos kept on this phone are counted too: the agenda's TO-DO)
       const todo = tp.list().filter((t) => !t.done).length;
-      const todoBit = todo ? `${todo} to do` : '';
-      P.sub.textContent = next
-        ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todoBit].filter(Boolean).join(' · ')
-        : [`Nothing coming up`, `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todoBit].filter(Boolean).join(' · ');
+      P.sub.textContent = [line.gap, `${line.left} left today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todo ? `${todo} to do` : ''].filter(Boolean).join(' · ');
+      P.big.dataset.state = events.length ? 'shown' : 'empty';
     };
 
     const load = async () => {
@@ -474,8 +476,7 @@ export const agendaTab: TabDef = {
           loaded = true;
           paintFeeds();
           /* state: agenda.diary offline */
-          return void clear(ep.body, h('div.empty.bad', { dataset: { case: 'keep', state: 'offline' } }, h('b', navigator.onLine === false ? 'You’re offline' : 'I can’t reach your diary'),
-            h('span', 'Your to-do list still works on this phone. The diary fills in by itself when the brain is back; it tries again every minute.')));
+          return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE), h('p.note', { dataset: { case: 'keep' } }, 'Your to-do list still works on this phone.'));
         }
         stale = true;
       }
@@ -497,6 +498,41 @@ export const agendaTab: TabDef = {
       ].map(([label, text]) => button(label!, () => void send(text!))),
     );
     P.right.append(suggest);
+
+    // ── ADD from anywhere: tap ADD, say what and when, tap ADD (words.ts parseWhen reads "half three" as he says it) ──
+    const openAdd = () => {
+      const box = h('input', { placeholder: ADD_SHEET.placeholder, 'aria-label': 'What and when', autocomplete: 'off', autocapitalize: 'sentences', enterKeyHint: 'done' }) as HTMLInputElement;
+      const say = h('p.note.agsay', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } }, previewLine(''));
+      let m: { close(): void } | null = null;
+      const save = async (b?: HTMLButtonElement) => {
+        const raw = box.value.trim();
+        const remind = /^remind me(?: to)?\s+/i.test(raw);
+        const w = parseWhen(remind ? raw.replace(/^remind me(?: to)?\s+/i, '') : raw);
+        if (!w) return void (say.textContent = previewLine(raw));
+        if (w.at < Date.now() - 60_000) return void (say.textContent = TIME_PASSED);
+        if (b) b.disabled = true;
+        try {
+          if (remind) await brain.addJob({ kind: 'reminder', text: w.title || raw, at: w.at, repeat: 'none' });
+          else await brain.addEvent({ title: w.title || 'Event', start: w.at, remindMin: 15 });
+          toast(`${remind ? 'Reminder set' : 'Added'}: ${w.title || 'Event'} · ${w.said}`, 'ok');
+          m?.close();
+          void load();
+        } catch (e) {
+          say.textContent = sayError(e, 'change your plan');
+          if (b) b.disabled = false;
+        }
+      };
+      box.addEventListener('input', () => (say.textContent = previewLine(box.value)));
+      box.addEventListener('keydown', (e) => e.key === 'Enter' && void save());
+      m = modal(ADD_SHEET.title, h('div.agaddsheet', box, say, h('div.row', button(ADD_SHEET.key, (b) => void save(b), 'on agaddgo'))));
+      setTimeout(() => box.focus(), 60);
+    };
+    const addKey = () => {
+      const b = button('ADD', openAdd, 'on agaddkey');
+      b.setAttribute('aria-label', 'Add an event or a reminder');
+      return b;
+    };
+    P.sub.after(addKey());
     // Sections: the diary first (what he opens the agenda for), then reminders with the notifications they send,
     // the month's spending and the calendars he has connected.
     sections(root, 'agenda', [
@@ -506,6 +542,9 @@ export const agendaTab: TabDef = {
       { id: 'spending', label: 'Spending', match: /^SPENDING/ },
       { id: 'calendars', label: 'Calendars', match: /^CALENDARS/ },
     ]);
+
+    // and in the pills that stay at the top while the page scrolls, so ADD is two taps from anywhere on the screen
+    root.querySelector('.secpills')?.append(addKey());
 
     let timer = 0;
     return {

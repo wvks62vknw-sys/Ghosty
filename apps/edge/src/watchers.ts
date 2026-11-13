@@ -145,7 +145,7 @@ async function chaseTick(d: WatchDeps, w: Watcher, now: number, tz: string): Pro
   return w.line;
 }
 export const loadWatchers = async (s: DurableObjectStorage): Promise<Watcher[]> => (await s.get<Watcher[]>(WATCHERS_KEY)) ?? [];
-const saveWatchers = (s: DurableObjectStorage, list: Watcher[]) => s.put(WATCHERS_KEY, list);
+export const saveWatchers = (s: DurableObjectStorage, list: Watcher[]) => s.put(WATCHERS_KEY, list);
 
 // ---------------------------------------------------------------- which pages
 
