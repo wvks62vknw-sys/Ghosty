@@ -26,6 +26,8 @@ export const SCENES_NOTE = 'Your own scenes and scripts from Home Assistant: a t
 
 /** Where his pinned things are kept (on this phone, his own). */
 export const PINS_KEY = 'ghosty.house.pins';
+/** A pin this phone's storage would not keep (full, or a private window). */
+export const PIN_NOT_KEPT = 'I couldn’t keep that pin on this phone (its storage is full or closed), so it lasts until you close the app.';
 
 /** The chat phrases that work for the house, listed in one line. */
 export const PHRASES = ['the house', 'how’s the house', 'which lights are on?', 'turn everything off in the kitchen', 'what’s the temperature inside?', 'is anything open?'];

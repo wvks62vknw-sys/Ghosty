@@ -23,8 +23,8 @@ function world(now) {
     { id: 'binary_sensor.back_door', domain: 'binary_sensor', name: 'Back door', area: 'Kitchen', state: 'on', cls: 'door', changed: at(120) },
     { id: 'lock.front_door', domain: 'lock', name: 'Front door', area: 'Hall', state: 'locked', changed: at(600), guarded: true },
     { id: 'cover.garage_door', domain: 'cover', name: 'Garage door', area: '', state: 'closed', cls: 'garage', changed: at(1200), guarded: true },
-    { id: 'scene.movie_night', domain: 'scene', name: 'Movie night', area: '', state: 'scening', changed: at(3000), members: ['light.hall_light', 'media_player.living_room_tv'] },
-    { id: 'scene.goodnight', domain: 'scene', name: 'Goodnight', area: '', state: 'scening', changed: at(3000), members: ['light.hall_light', 'lock.front_door'], guarded: true },
+    { id: 'scene.movie_night', domain: 'scene', name: 'Movie night', area: '', state: 'unknown', changed: at(3000), members: ['light.hall_light', 'media_player.living_room_tv'] },
+    { id: 'scene.goodnight', domain: 'scene', name: 'Goodnight', area: '', state: new Date(at(3000)).toISOString(), changed: at(3000), members: ['light.hall_light', 'lock.front_door'], guarded: true },
     { id: 'script.warm_the_house', domain: 'script', name: 'Warm the house', area: '', state: 'off', changed: at(3000) },
   ];
 }
@@ -79,8 +79,50 @@ export async function run(H) {
   };
   for (const [w, k] of Object.entries(asks)) check(S.houseAsked(w)?.kind === k, `[house words] "${w}" is a ${k} ask: ${JSON.stringify(S.houseAsked(w))}`);
   check(S.houseAsked('turn off all notifications') === null && S.houseAsked('run a bath') === null, '[house words] not the house: "turn off all notifications", "run a bath"');
-  S.setHouseNames(list.map((e) => e.name));
+  S.setHouseNames(list.map((e) => e.name), list.filter((e) => e.domain === 'scene' || e.domain === 'script').map((e) => e.name));
   check(S.houseAsked('run movie night')?.kind === 'run', `[house words] "run movie night" runs his scene once his names are known: ${JSON.stringify(S.houseAsked('run movie night'))}`);
+  // ---- the reviewers' findings (fix stage), each checked in the pure words
+  {
+    const L = (id, domain, name, area, state, extra = {}) => ({ id, domain, name, area, state, changed: now - 30 * MIN, ...extra });
+    // a lock not answering, or no lock at all, is never "shut and locked"
+    const downLock = [L('lock.front_door', 'lock', 'Front door lock', 'Hall', 'unavailable'), L('binary_sensor.back_door', 'binary_sensor', 'Back door', 'Kitchen', 'off', { cls: 'door' })];
+    const o1 = S.resolveAsk(S.houseAsked('is the house locked?'), downLock, [], now);
+    const g1 = Object.fromEntries(S.glance(downLock, now).map((x) => [x.key, x.line]));
+    check(!/shut and locked/.test(o1.text) && /Front door lock isn’t answering, so I can’t say it’s locked/.test(o1.text) && !/All shut and locked/.test(g1.open) && /Front door lock isn’t answering/.test(g1.open), `[house fix] a lock not answering is never "shut and locked": ${o1.text} | ${g1.open}`);
+    const noLock = [L('binary_sensor.back_door', 'binary_sensor', 'Back door', 'Kitchen', 'off', { cls: 'door' })];
+    const o2 = S.resolveAsk(S.houseAsked('is the house locked?'), noLock, [], now);
+    const g2 = Object.fromEntries(S.glance(noLock, now).map((x) => [x.key, x.line]));
+    check(o2.text === 'Everything is shut. I can’t see a lock in your house, so I can’t say it’s locked.' && g2.open === 'All shut; I can’t see a lock', `[house fix] a house with no lock is "shut", never "locked": ${o2.text} | ${g2.open}`);
+    // ALL OFF for a room is that room only; "My Room" is never the whole house
+    const beds = [L('light.bed', 'light', 'Bedroom light', 'Bedroom', 'on'), L('light.kids', 'light', 'Kids light', 'Kids Bedroom', 'on'), L('light.mbed', 'light', 'Main light', 'Main Bedroom', 'on'), L('light.mine', 'light', 'Desk lamp', 'My Room', 'on'), L('light.lr', 'light', 'Lamp', 'Living Room', 'on'), L('light.lounge', 'light', 'Lounge lamp', 'Lounge', 'on'), L('media_player.k', 'media_player', 'Kitchen TV', 'Kitchen', 'on')];
+    const ids = (room) => S.roomOff(beds, room).map((c) => c.entity.id).join();
+    const r7 = S.resolveAsk(S.houseAsked('turn everything off in the bedroom'), beds, [], now);
+    check(ids('Bedroom') === 'light.bed' && ids('My Room') === 'light.mine' && ids('Lounge') === 'light.lounge' && r7.kind === 'many' && r7.calls.map((c) => c.entity.id).join() === 'light.bed', `[house fix] a room's ALL OFF is that room alone: Bedroom ${ids('Bedroom')}; My Room ${ids('My Room')}; Lounge ${ids('Lounge')}; chat ${JSON.stringify(r7.calls?.map((c) => c.entity.id))}`);
+    // a scene that opens a garage door or a gate is guarded by the door's class, whatever its id says
+    const gate = [L('cover.up_and_over', 'cover', 'Up and over', '', 'closed', { cls: 'garage' }), L('scene.leaving', 'scene', 'Leaving', '', 'unknown', { members: ['cover.up_and_over', 'light.hall_light'] }), L('light.hall_light', 'light', 'Hall light', 'Hall', 'on')];
+    const lv = gate[1];
+    check(S.isGuarded(lv, [], gate) && S.policy(lv, 'turn_on', { origin: 'job', all: gate }).ok === false && S.policy(lv, 'turn_on', { origin: 'chat', all: gate }).needs === 'confirm' && S.isGuarded({ id: 'scene.x', domain: 'scene', members: ['cover.driveway'] }) && S.resolveAsk({ kind: 'run', name: 'leaving' }, gate, [], now).guarded === true, '[house fix] a scene that sets a garage door (cover.up_and_over, class garage) is guarded on the brain, the job and the chat; an unknown cover is guarded to be safe');
+    // a scene never run is not "not answering"
+    const g3 = Object.fromEntries(S.glance([...gate, L('scene.goodnight', 'scene', 'Goodnight', '', 'unknown')], now).map((x) => [x.key, x.line]));
+    check(!g3.down && S.stateWords(lv) === 'ready', `[house fix] a scene never run is not on NOT ANSWERING: ${JSON.stringify(g3)}`);
+    // inside: rooms only, and the heating off said as off
+    const temps = [L('sensor.garden', 'sensor', 'Garden temperature', 'Garden', '4.2', { cls: 'temperature', unit: '°C' }), L('sensor.cpu', 'sensor', 'Processor temperature', '', '52.1', { cls: 'temperature', unit: '°C' }), L('sensor.freezer', 'sensor', 'Freezer', 'Kitchen', '-18', { cls: 'temperature', unit: '°C' }), L('sensor.hall', 'sensor', 'Hall temperature', 'Hall', '17.5', { cls: 'temperature', unit: '°C' }), L('climate.h', 'climate', 'Heating', 'Hall', 'off', { current: 17.4, target: 21 })];
+    const i1 = S.resolveAsk(S.houseAsked('what’s the temperature inside?'), temps, [], now);
+    check(i1.text === 'Inside: Hall 17.5 °C. The heating is off.', `[house fix] inside leaves out the garden, the freezer and the processor, and says the heating is off: ${i1.text}`);
+    // a lock that reports through a sensor; a door with no lock
+    const bl = [L('binary_sensor.front_door_lock', 'binary_sensor', 'Front door lock', 'Hall', 'on', { cls: 'lock' })];
+    const k1 = S.resolveAsk(S.houseAsked('is the front door locked?'), bl, [], now);
+    const k2 = S.resolveAsk(S.houseAsked('is the back door locked?'), noLock, [], now);
+    check(/^No: the Front door lock is unlocked/.test(k1.text) && k2.text === 'I can’t see a lock on the Back door; its sensor says closed.', `[house fix] a lock read by a sensor answers; a door with no lock says so: ${k1.text} | ${k2.text}`);
+    // a paused speaker is not on; a speaker that cannot be turned off is paused
+    const sp = [L('media_player.sonos', 'media_player', 'Kitchen Sonos', 'Kitchen', 'paused', { features: 1 }), L('media_player.play', 'media_player', 'Hall Sonos', 'Hall', 'playing', { features: 1 | 4 })];
+    check(S.roomOff(sp, '').map((c) => `${c.entity.id}:${c.service}`).join() === 'media_player.play:media_pause', `[house fix] a paused speaker is not on; a playing one that cannot turn off is paused: ${JSON.stringify(S.roomOff(sp, ''))}`);
+    // general questions are not the house's
+    const gen = ['is anything open now?', 'is everything closed?', 'run this script', 'run the build script'].filter((w) => S.houseAsked(w));
+    check(!gen.length && S.houseAsked('run the hoover') === null && S.houseAsked('activate the goodnight scene')?.kind === 'run', `[house fix] shops, bank holidays and code are the brain's; "run the hoover" is not a scene: ${gen.join(' | ')}`);
+    // the whole house's ALL OFF begins with a capital
+    check(S.offWords('', ['Hall light', 'Kitchen light']) === 'The Hall light and the Kitchen light are off.' && S.offWords('', []) === 'Nothing is on.', `[house fix] whole-house ALL OFF said: ${S.offWords('', ['Hall light', 'Kitchen light'])}`);
+  }
   const r0 = S.resolveAsk(S.houseAsked('turn off the lights'), list, [], now);
   check(r0.kind === 'many' && r0.calls.map((c) => c.entity.id).join() === 'light.hall_light,light.kitchen_light' && S.houseAsked('turn off the lights in the hall')?.kind === 'power', `[house words] "turn off the lights" turns off every light on (never the TV), not "which one?"; with a room it is as before: ${JSON.stringify(r0.calls?.map((c) => c.entity.id) ?? r0)}`);
   const r1 = S.resolveAsk(S.houseAsked('turn everything off in the kitchen'), list, [], now);

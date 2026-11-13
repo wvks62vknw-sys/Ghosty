@@ -41,7 +41,8 @@ export async function houseTurn(text: string, opts: Opts, answer: Answer): Promi
   if (r.kind === 'many') {
     const done: string[] = [];
     const failed: string[] = [];
-    for (const c of r.calls) ((await act(c.entity.id, c.service, {}, { origin: 'chat', why: text })).ok ? done : failed).push(c.entity.name);
+    for (const c of r.calls) ((await act(c.entity.id, c.service, {}, { origin: 'chat', why: text, reload: false })).ok ? done : failed).push(c.entity.name);
+    void loadHouse(true);
     return answer(text, offWords(r.room ? r.room.charAt(0).toUpperCase() + r.room.slice(1) : '', done, failed), { kind: 'pack', go: [OPEN] }, opts);
   }
   // the guarded set: never from words alone; a button that asks his confirm (a scene that sets a lock, the alarm or the garage door too)
