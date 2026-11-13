@@ -77,6 +77,8 @@ export const videoState = {
   best: null as null | { ms: number; clips: number; perClip: number; picks: { clip: string; from: number; to: number; reason: string; on: boolean }[]; left: { clip: string; reason: string }[]; line: string; namer: boolean; total: number },
   beat: null as null | { bpm: number; ms: number; musicMs: number; perMinute: number; said: string; moved: number; biggest: number; line: string },
   rough: false,
+  /** How many times the project has been written to the phone (a spec waits for the next one, never for a clock). */
+  saves: 0,
 };
 
 const reduced = (): boolean => !!matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -314,6 +316,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     clear(lineAct, act);
   };
   const autosave = autosaver(() => {
+    videoState.saves++;
     void refreshKept().then(() => noteVideos(kept.filter((k) => !k.gone).length, project.name, lengthWords(duration(project))));
     if (savedOnce) return;
     savedOnce = true;
@@ -1945,6 +1948,12 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   };
   window.addEventListener('offline', offlineLine);
   stopFns.push(() => window.removeEventListener('offline', offlineLine));
+  // the app swiped away or the phone locked inside the 200 ms before a save: the change is kept now, not lost
+  const keepNow = () => void (document.visibilityState === 'hidden' && autosave.flush());
+  const leaving = () => void autosave.flush();
+  document.addEventListener('visibilitychange', keepNow);
+  window.addEventListener('pagehide', leaving);
+  stopFns.push(() => { document.removeEventListener('visibilitychange', keepNow); window.removeEventListener('pagehide', leaving); });
 
   // ---------------------------------------------------------------- what specs and the chat can reach
   const api = {

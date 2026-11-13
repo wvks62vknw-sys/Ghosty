@@ -101,11 +101,11 @@ export default async function (h) {
     check(/A copy of clip 1 is in place 2, right after it\. UNDO takes it out\./.test(await line(page)), `video: the copy is said in his words ("${await line(page)}")`);
     await page.click('.vdundo');
     check(await until(page, (n) => window.__ghosty.video.project().main.length === n, p0.main.length, 5000), 'video: UNDO takes the copy out');
+    const savesBefore = await page.evaluate(() => window.__ghosty.video.state().saves);
     await page.click('.vdredo');
     check(await until(page, (n) => window.__ghosty.video.project().main.length === n + 1, p0.main.length, 5000), 'video: REDO puts the copy back');
-    // the round trip: kept, the app opened again, the copy still there
-    check(await until(page, () => window.__ghosty.video.state().savedSaid > 0, null, 10000), 'video: the project is saved');
-    await page.waitForFunction(() => true);
+    // the round trip: kept (a save after the REDO), the app opened again, the copy still there
+    check(await until(page, (n) => window.__ghosty.video.state().saves > n, savesBefore, 10000), 'video: the project is saved after the REDO');
     const kept = (await proj(page)).main.map((c) => c.src).join();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => undefined);

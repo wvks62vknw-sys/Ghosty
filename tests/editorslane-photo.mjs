@@ -128,6 +128,19 @@ export default async function (h) {
     await tool(page, 'brain');
     const bl = await page.locator('.pebrainline').textContent();
     check(!/WENT TO THE BRAIN/.test(bl), `photo: the BRAIN tray never says the photo went before he pressed ("${bl}")`);
+    // a 24-megapixel photo (6000 × 4000, a big phone camera's) opens at its full size and an edit on it is drawn; the times are said
+    const big = await jpeg(page, 6000, 4000, 10);
+    const t0 = Date.now();
+    const opened = await openFile(page, 'IMG_24MP.jpg', big);
+    const openMs = Date.now() - t0;
+    const s24 = await st(page);
+    check(opened && s24.size.w === 6000 && s24.size.h === 4000, `photo: a 24-megapixel photo opens at 6000 × 4000 and is drawn (${s24.size.w} × ${s24.size.h}, ${openMs} ms)`);
+    await tool(page, 'light');
+    const t1 = Date.now();
+    const draws = s24.draws;
+    await slide(page, 'exposure', 0.8);
+    const redrawn = await until(page, (n) => window.__ghosty.photoedit.draws > n && !window.__ghosty.photoedit.pending, draws, 20000);
+    check(redrawn, `photo: an edit on the 24-megapixel photo is drawn (${Date.now() - t1} ms on this machine's software GPU; the frame took ${(await st(page)).frameMs} ms)`);
     await ctx.close();
   }
 
