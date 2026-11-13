@@ -157,6 +157,12 @@ export function dayLine(t: number, events: number, todos: number): string {
   const bits = [events ? `${events} ${events === 1 ? 'event' : 'events'}` : '', todos ? `${todos} ${todos === 1 ? 'to-do' : 'to-dos'} due` : ''].filter(Boolean);
   return `${d}: ${bits.length ? bits.join(', ') : 'nothing on'}`;
 }
+/** A day of the week strip in a line: "Dentist 10:00 · Gym 18:00 · 1 to-do", "Dentist 10:00 and 2 more", "Nothing on". */
+export function weekWords(events: readonly string[], todos: number): string {
+  const ev = events.length > 2 ? `${events[0]} and ${events.length - 1} more` : events.join(' · ');
+  const td = todos ? `${todos} ${todos === 1 ? 'to-do' : 'to-dos'}` : '';
+  return [ev, td].filter(Boolean).join(' · ') || 'Nothing on';
+}
 /** How far ahead the month can show what is on: what the diary reads (the brain gives up to 62 days). */
 export const AHEAD_DAYS = 42;
 export const beyondWords = 'Further ahead than I read your calendars. Events you add still show in the diary.';

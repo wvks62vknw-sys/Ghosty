@@ -51,6 +51,7 @@ export async function run(H) {
   ];
   check(T.findTodo(L, 'the passport')?.id === 'p' && T.findTodo(L, 'milk')?.id === 'm' && T.findTodo(L, 'gas bill')?.id === 'l' && T.findTodo(L, 'washing up') === null, '[agenda] a to-do found by his words, and nothing found for words not on it');
   check(T.sortTodos(L, now).map((t) => t.id).join('') === 'lspm', `[agenda] late first, then starred, then by day: ${T.sortTodos(L, now).map((t) => t.id).join('')}`);
+  check(T.weekWords([], 0) === 'Nothing on' && T.weekWords(['Dentist 10:00'], 1) === 'Dentist 10:00 · 1 to-do' && T.weekWords(['A 09:00', 'B 10:00', 'C 11:00'], 2) === 'A 09:00 and 2 more · 2 to-dos', `[agenda] a day of the week in a line: ${T.weekWords(['A 09:00', 'B 10:00', 'C 11:00'], 2)}`);
   check(L.filter((t) => T.inView(t, 'today', now)).map((t) => t.id).join('') === 'l' && L.filter((t) => T.inView(t, 'upcoming', now)).map((t) => t.id).join('') === 'p' && L.filter((t) => T.inView(t, 'starred', now)).map((t) => t.id).join('') === 's', '[agenda] the views: today (and late), upcoming, starred');
   log('agenda: pure words');
 
@@ -170,6 +171,19 @@ export async function run(H) {
     await page.locator('#pg-agenda .pn:has(input[aria-label="Event title"]) .undo button').first().click({ timeout: 4000 }).catch(() => check(false, `[agenda ${vp.width}] no UNDO after changing an event`));
     await row(name).first().waitFor({ timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] UNDO did not put the event back as it was`));
     check((await row(`${name} moved`).count()) === 0, `[agenda ${vp.width}] UNDO took the changed one out`);
+    // THIS WEEK under the month: seven days, today lit, each with what it holds; a tap says the day whole under the grid
+    const wk = await page.$$eval('#pg-agenda .monweek button.monwk', (b) => b.map((x) => ({ t: x.innerText.replace(/\s+/g, ' ').trim(), today: x.classList.contains('today'), label: x.getAttribute('aria-label') })));
+    check(wk.length === 7 && wk.filter((d) => d.today).length === 1 && wk.every((d) => /^\w{3} \d{1,2} .+/.test(d.t) && !RAW.test(d.t)), `[agenda ${vp.width}] this week, seven days, today lit: ${JSON.stringify(wk.map((d) => d.t))}`);
+    // (the event went in at the box's own time, the next hour but one: its day's line names it when that day is this week)
+    const evDay = new Date(Math.ceil(Date.now() / 3600_000) * 3600_000 + 3600_000);
+    const evIdx = (evDay.getDay() + 6) % 7;
+    const sameWeek = Math.round((new Date(evDay.getFullYear(), evDay.getMonth(), evDay.getDate()) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / 86400_000) <= 6 - ((new Date().getDay() + 6) % 7);
+    if (sameWeek) check(new RegExp(`^\\w{3} \\d{1,2} ${name} \\d\\d:\\d\\d$`).test(wk[evIdx]?.t ?? ''), `[agenda ${vp.width}] the event's day in this week names it: ${wk[evIdx]?.t}`);
+    const pickAt = wk.findIndex((d) => !d.today);
+    await page.locator('#pg-agenda .monweek button.monwk').nth(pickAt).click();
+    check((await page.textContent('#pg-agenda .mdayline')) === wk[pickAt].label, `[agenda ${vp.width}] a day of the week tapped is said under the grid: ${await page.textContent('#pg-agenda .mdayline')}`);
+    const fw = await fit(page, '#pg-agenda .pn.month');
+    check(!fw.small.length && !fw.sideways && !fw.cut.length, `[agenda ${vp.width}] the month with this week fits: ${JSON.stringify(fw)}`);
     await row(name).first().locator('.del').click();
     await row(name).first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] the spec's event was not removed`));
     await ctx.close();
@@ -186,7 +200,20 @@ export async function run(H) {
     await openSection(page, 'agenda', 'To-do');
     await page.waitForSelector('#pg-agenda .todoit', { timeout: 8000 }).catch(() => check(false, '[agenda looks] no to-dos'));
     await page.click('#pg-agenda .todoit[data-id="a1"] button.todotx').catch(() => undefined);
+    // an event of his own opened whole in the diary, over the month and this week
+    const evName = 'Spec looks event with a long enough name to wrap';
+    await openSection(page, 'agenda', 'Diary');
+    await page.fill('#pg-agenda input[aria-label="Event title"]', evName);
+    await page.click('#pg-agenda .addev:has(input[aria-label="Event title"]) button');
+    const evRow = page.locator('#pg-agenda .rw.ev', { has: page.locator('.evt', { hasText: evName }) }).first();
+    await evRow.waitFor({ timeout: 8000 }).catch(() => check(false, '[agenda looks] the event did not go in'));
+    await evRow.locator('.evt').click().catch(() => undefined);
     for (const world of WORLDS) {
+      await openSection(page, 'agenda', 'Diary');
+      const d = await fit(page, '#pg-agenda .evcard');
+      const mo = await fit(page, '#pg-agenda .pn.month');
+      check((await page.$('#pg-agenda .evcard')) && !d.small.length && !d.sideways && !d.cut.length && !mo.small.length && !mo.cut.length, `[agenda ${world}] the open event and the month with this week fit: ${JSON.stringify({ d, mo })}`);
+      await openSection(page, 'agenda', 'To-do');
       const on = await page.evaluate(async (w) => { await window.__ghosty.run(`world_${w}`); return window.__ghosty.theme.recipe().world; }, world).catch(() => '');
       check(on === world, `[agenda ${world}] the look is on: ${on}`);
       await page.waitForSelector('#pg-agenda .todoedit', { timeout: 3000 }).catch(() => check(false, `[agenda ${world}] no change box`));
@@ -196,6 +223,9 @@ export async function run(H) {
       check(c && c.color !== c.bg, `[agenda ${world}] the view that is on is drawn in a colour of the look: ${JSON.stringify(c)}`);
       if (world === 'ink') await page.screenshot({ path: `${H.out}/planlane-agenda-ink-390.png` });
     }
+    await openSection(page, 'agenda', 'Diary');
+    await page.screenshot({ path: `${H.out}/planlane-agenda-event-390.png` });
+    await evRow.locator('.del').click().catch(() => check(false, '[agenda looks] the spec event could not be removed'));
     await ctx.close();
   }
   log('agenda: seven looks');

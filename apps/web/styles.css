@@ -9402,6 +9402,17 @@ html #pg-agenda .evcard .evcardt { font: 600 17px/22px var(--sf); color: var(--i
 html #pg-agenda .evcard small { font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-agenda .evcard .keyrow.addev { padding: 4px 0 0; }
 html #pg-agenda .evcard .keyrow button { min-height: 44px !important; padding: 0 14px; }
+/* the add and change boxes: a day-and-time box and its reminder each get the whole row (half a row cut "09:00 PM" and "15 min before") */
+html #pg-agenda .keyrow.addev > input[type="datetime-local"], html #pg-agenda .keyrow.addev:has(> input[type="datetime-local"]) > select { grid-column: 1 / -1; }
+/* MONTH → THIS WEEK: Monday to Sunday, each day a key with what it holds; today lit, gone days quieter */
+html #pg-agenda .pn.month .monwkh { display: block; padding: 16px 0 6px; font: 600 13px/18px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+html #pg-agenda .pn.month .monweek { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .pn.month button.monwk { display: grid; grid-template-columns: minmax(64px, auto) minmax(0, 1fr); align-items: center; column-gap: 12px; width: 100%; min-height: 44px !important; height: auto; padding: 6px 10px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: none !important; box-shadow: inset 0 -1px 0 var(--hair) !important; border-radius: 0; }
+html #pg-agenda .pn.month button.monwk b { font: 600 15px/20px var(--sf); color: var(--ink); text-transform: none; white-space: nowrap; }
+html #pg-agenda .pn.month button.monwk span { font: 400 15px/20px var(--sf); color: var(--ink2); text-transform: none; overflow-wrap: anywhere; white-space: normal; }
+html #pg-agenda .pn.month button.monwk.past b, html #pg-agenda .pn.month button.monwk.past span { color: var(--ink3); }
+html #pg-agenda .pn.month button.monwk.today b { color: var(--c); }
+html #pg-agenda .pn.month button.monwk.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
 
 /* ==== [planlane:agenda end] ==== */
 
