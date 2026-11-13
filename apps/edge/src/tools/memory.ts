@@ -104,7 +104,7 @@ export const memoryTools: Tool[] = [
   {
     // [recall] BRIEF-DEPTH-MEMORY 2c: "what did I ask you about X?" over the 30 days of his turns, the app's and Telegram's alike
     name: 'recall',
-    description: 'Find what he asked you before ("what did I ask you about X"): day and channel.',
+    description: 'Find what he asked before ("what did I ask you about X"): day and channel.',
     parameters: { type: 'object', properties: { about: { type: 'string' } }, required: ['about'] },
     risk: 'auto',
     pure: true,
