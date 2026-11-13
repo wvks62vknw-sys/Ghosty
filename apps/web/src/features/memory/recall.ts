@@ -217,12 +217,12 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
     // after a reinstall the log is short: the brain's history fills the gaps (it already holds them)
     if (o.history !== false && turns.length < 20 && navigator.onLine) {
       const h = await Promise.race([brain.history().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 3000))]);
-      const have = new Set(turns.map((x) => Math.round(x.at / 60_000)));
       for (let i = 0; i < (h?.turns.length ?? 0); i++) {
         const t = h!.turns[i]!;
-        if (t.role !== 'user' || have.has(Math.round(t.at / 60_000))) continue;
+        const said = t.text.replace(/\s+/g, ' ').trim().slice(0, 400);
+        if (t.role !== 'user' || !said || turns.some((x) => Math.abs(x.at - t.at) < 120_000 && x.text === said)) continue;
         const r = h!.turns[i + 1];
-        turns.push({ key: `t:${t.at}`, kind: 'turn', id: String(t.at), title: '', text: t.text.slice(0, 400), at: t.at, via: (t as { via?: string }).via === 'telegram' ? 'telegram' : 'app', ...(r?.role === 'assistant' ? { a: firstLine(r.text) } : {}) });
+        turns.push({ key: `t:${t.at}`, kind: 'turn', id: String(t.at), title: '', text: said, at: t.at, via: (t as { via?: string }).via === 'telegram' ? 'telegram' : 'app', ...(r?.role === 'assistant' ? { a: firstLine(r.text) } : {}) });
       }
     }
     turns = turns.filter((x) => !dead.has(x.key));
@@ -236,7 +236,9 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
       return true;
     });
     // (a turn the log dropped stays: the index is where last month's turns are found; a thing deleted from its store goes)
-    const drop = old.filter((x) => !keep.has(x.key) && (x.kind !== 'turn' || dead.has(x.key))).map((x) => x.key);
+    // (the same message under two times — this phone's stamp and the brain's, after the log is read back from it — is one turn)
+    const twin = (x: Thing) => x.kind === 'turn' && turns.some((t) => t.key !== x.key && t.text === x.text && Math.abs(t.at - x.at) < 120_000);
+    const drop = old.filter((x) => !keep.has(x.key) && (x.kind !== 'turn' || dead.has(x.key) || twin(x))).map((x) => x.key);
     // (the index keeps at most MAX_TURNS turns: the oldest go first)
     const allTurns = [...old.filter((x) => x.kind === 'turn' && !drop.includes(x.key) && !keep.has(x.key)), ...turns].sort((a, b) => b.at - a.at);
     for (const x of allTurns.slice(MAX_TURNS)) if (!drop.includes(x.key)) drop.push(x.key);
