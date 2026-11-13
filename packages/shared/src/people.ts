@@ -16,6 +16,8 @@ export const VOICE_KEY = 'people:voice';
 
 /** "who's who", "my people": the phone opens its people sheet with no model (assistant/phrases.ts, features/people). */
 export const PEOPLE_ASK = /^(?:who'?s who|who is who|my people|show (?:me )?my people|open my people|who do you know about)[?.!]?$/i;
+/** [moneylane] "birthdays coming", "whose birthday is next": the people sheet's COMING UP page (features/people). */
+export const COMING_ASK = /^(?:birthdays coming(?: up)?|upcoming birthdays|whose birthday is next|any birthdays coming(?: up)?|people'?s dates)[?.!]?$/i;
 
 // ---------------------------------------------------------------- the book
 

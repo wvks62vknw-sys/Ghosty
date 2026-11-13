@@ -82,6 +82,11 @@ const FEATURES = new URL('../../web/src/features/', import.meta.url);
 const SRC = new URL('../../web/src/', import.meta.url);
 export const STATES = {
   'money.statement': { dir: 'money', base: 2, now: 4 },
+  // FINAL ROUND (the money lane): the MONEY screen as a budgeting app of its own (features/money/app.ts), each page with all four states
+  'money.month': { dir: 'money', base: 0, now: 4 },
+  'money.budgets': { dir: 'money', base: 0, now: 4 },
+  'money.bills': { dir: 'money', base: 0, now: 4 },
+  'money.trends': { dir: 'money', base: 0, now: 4 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
@@ -101,6 +106,7 @@ export const STATES = {
   'kitchen.recipes': { dir: 'kitchen', base: 0, now: 3 },
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
+  'people.coming': { dir: 'people', base: 0, now: 4 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
