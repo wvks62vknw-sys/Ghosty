@@ -348,7 +348,20 @@ for (const vp of [PHONE, PHONE2]) {
   await section('school', async () => {
     log(`school ${vp.width}`);
     // (a phone that can run the offline brain but has not got it: the one the school's words are for)
-    const { ctx, page } = await open(vp, { before: async ({ page }) => { await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'gpu', { get: () => ({ requestAdapter: async () => ({ features: new Set(['shader-f16']), limits: {} }) }), configurable: true })); } });
+    // (and a record with nothing sat, stood in on the brain's own answer: the run's preview brain is shared, and a spec before this
+    // one in the same run, sit, hands papers in; the record is otherwise the brain's)
+    const { ctx, page } = await open(vp, {
+      before: async ({ ctx, page }) => {
+        await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'gpu', { get: () => ({ requestAdapter: async () => ({ features: new Set(['shader-f16']), limits: {} }) }), configurable: true }));
+        await ctx.route(/\/api\/school(\?.*)?$/, async (r) => {
+          if (r.request().method() !== 'GET') return r.fallback();
+          const res = await r.fetch();
+          const v = await res.json().catch(() => null);
+          if (!v?.state) return r.fulfill({ response: res });
+          return r.fulfill({ response: res, json: { ...v, state: { ...v.state, results: [] }, weak: [] } });
+        });
+      },
+    });
     await go(page, 'school', 3500);
     // S1 · the ladder says what unlocks the next stage in one line; the rest is behind a key
     const ld = await page.evaluate(() => ({ line: document.querySelector('#pg-school .schnext')?.textContent ?? '', key: document.querySelector('#pg-school details.schmore summary')?.textContent ?? '', more: document.querySelector('#pg-school details.schmore p')?.textContent ?? '' }));
