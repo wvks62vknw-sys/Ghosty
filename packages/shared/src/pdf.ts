@@ -247,7 +247,10 @@ export async function extractPdf(bytes: Uint8Array, fallbackTitle: string): Prom
   })();
   const total = texts.join('').replace(/\s/g, '').length;
   const warning = encrypted ? 'This PDF is encrypted.' : total < Math.max(60, pages.length * 40) ? 'Very little text found — this PDF may be scanned images.' : undefined;
-  return { title: (title && /[a-z]{3}/i.test(title) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning, ...(author ? { author } : {}) };
+  // (a title a program put there, not a person: a page printed from a browser says "about:blank" or its address, and many
+  // tools say "Untitled"; the file's own name is the better title then)
+  const junk = !title || /^(about:blank|untitled(\s+document)?|document\d*|[a-z][a-z0-9+.-]*:\/\/\S+)$/i.test(title.trim());
+  return { title: (!junk && /[a-z]{3}/i.test(title!) ? title : '') || fallbackTitle, pages: texts, kind: 'pdf', warning, ...(author ? { author } : {}) };
 }
 
 /** ToUnicode CMap: bfchar and bfrange entries. */
