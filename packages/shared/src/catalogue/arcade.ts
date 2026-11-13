@@ -10,8 +10,8 @@ const game = (name: string, line: string, more: string, say: string[]): CatValue
 export const ARCADE_WORDS: Record<string, CatValue> = {
   'arcade:freedoom': game(
     'Freedoom, the free DOOM',
-    'You can play Freedoom: thirty-six levels of its own on the real DOOM engine, free for anyone to share.',
-    'Four episodes made by fans, with their own monsters and weapons, on DOOM’s own engine built for the web. FIRE from the title starts a new game, and MENU opens its menu to save and load. One download also brings Phase 2.',
+    'You can play Freedoom: thirty-six levels made by fans, free for anyone to share.',
+    'Four episodes made by fans, with their own monsters and weapons, built for the web. FIRE from the title starts a new game, and MENU opens its menu to save and load. One download also brings Phase 2.',
     ['Play Freedoom', 'Play free DOOM'],
   ),
   'arcade:freedoom2': game(
@@ -22,13 +22,13 @@ export const ARCADE_WORDS: Record<string, CatValue> = {
   ),
   'arcade:doom-shareware': game(
     'DOOM: Knee-Deep in the Dead',
-    'You can play the original DOOM’s first episode, nine levels as id Software gave them away in 1993, on DOOM’s own engine.',
+    'You can play the original DOOM’s first episode, nine levels as id Software gave them away in 1993.',
     'It runs at DOOM’s own 35 frames a second, with its sound effects (no music). The stick walks, a drag turns, and FIRE, USE and WEAPON sit under your thumbs. MENU opens its own menu to save and load.',
     ['Play DOOM', 'Play the original DOOM'],
   ),
   'arcade:quake-shareware': game(
     'Quake: Dimension of the Doomed',
-    'You can play Quake’s first episode in real 3-D, as id Software gave it away in 1996, on Quake’s own engine.',
+    'You can play Quake’s first episode in real 3-D, as id Software gave it away in 1996.',
     'Your phone’s graphics chip draws it, so your phone decides how smooth it is: tell me if it stutters. JUMP, FIRE and WEAPON sit under your thumbs and a drag looks around. Its music was on the CD, so it plays the sound effects only.',
     ['Play Quake'],
   ),
@@ -40,7 +40,7 @@ export const ARCADE_WORDS: Record<string, CatValue> = {
   ),
   'arcade:heretic-sw': game(
     'Heretic: City of the Damned',
-    'You can play Heretic’s shareware episode from 1994: DOOM’s engine with an elven wand, spells and gargoyles.',
+    'You can play Heretic’s shareware episode from 1994: DOOM with an elven wand, spells and gargoyles.',
     'It runs as it shipped in a DOS machine inside the page, with sound and music. ITEM uses what you carry, like the Tome of Power. Your saves stay on this phone.',
     ['Play Heretic'],
   ),

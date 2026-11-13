@@ -8797,3 +8797,22 @@ body.housed #pg-links a.lnk { display: inline-flex; align-items: center; min-hei
 body.housed #pg-agenda .spend button { min-height: 44px !important; }
 body.housed #pg-agenda .spend .spendnav button { min-width: 44px; }
 /* ==== end PLAN AND ME quality pass: SPENDING ==== */
+
+/* ==== LEARN quality pass (BRIEF-QUALITY-LEARN): the lines the courses, the Arcade, the GYM, SCHOOL, the Library, LEARNING and the Coach say where they happen ==== */
+.learnsay, .learnout p, .learncold, .arcnone, .gymtrainerr, .schread, .schnext, .nohits p, .schmore p, .learnhas p { margin: 0; font: 400 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.learnout { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 8px; }
+.learnsay[data-state="error"], .gymtrainerr { color: var(--r); }
+.gymtrainerr { margin: 6px 0 0; }
+.gymtrainerr[hidden], .learnsay[hidden] { display: none; }
+.arcnone { padding: 8px 0; }
+.schread { margin: 4px 0 0; }
+:is(.learnhas, .schmore, .pkmore) { margin: 4px 0; }
+:is(.learnhas, .schmore, .pkmore) summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink2); font: 500 15px var(--sf); }
+.pkmore p { margin: 4px 0; }
+/* every control on the seven screens is 44 pt in The Scan (GLASS keeps the old sizes, so GLASS stays pixel-equal) */
+body.housed #pg-learn :is(button, input) { min-height: 44px !important; }
+body.housed #pg-learn .learnchips button { min-width: 44px; }
+body.housed #pg-arcade :is(.arcmore, .arcact, .arcdel) { min-height: 44px !important; }
+body.housed #pg-gym button:not(.gymdot):not(.gymcard) { min-height: 44px !important; }
+body.housed #pg-library :is(.trychips button, .secpill) { min-height: 44px !important; min-width: 44px; }
+/* ==== end LEARN quality pass ==== */

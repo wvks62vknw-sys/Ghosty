@@ -44,6 +44,7 @@ import type { Sections } from '../../ui/sections';
 import { offMobileData, onMobileData } from '../../wiki/store';
 import { sizeWords } from '../../wiki/files';
 import { rawText, sayError } from '../../ui/hisWords';
+import { openFailed, TRY_AGAIN } from './words';
 
 /** The reader's glyph: an open book. */
 export const READER_ICON = '<path d="M4 5.5c2.6-1 5.2-1 8 .8 2.8-1.8 5.4-1.8 8-.8v13c-2.6-1-5.2-1-8 .8-2.8-1.8-5.4-1.8-8-.8z"/><path d="M12 6.3v13"/>';
@@ -346,6 +347,8 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
   const states = (list: [string, string][]) => {
     readerState.states = list.map(([k]) => k);
     clear(note, ...list.map(([k, v]) => h('p.grd-state', { dataset: { case: 'keep' } }, h('b', k), v)));
+    if (list[0]?.[0] === 'Opening') note.dataset.state = 'loading';
+    else delete note.dataset.state;
   };
 
   // ---------------------------------------------------------------- drawing the book
@@ -928,7 +931,15 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       flow.replaceChildren();
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
       const m = rawText(e);
-      states([[offline ? 'Not on this phone' : 'Couldn’t open it', offline || /not on this phone/.test(m) ? `“${shortTitle(d.title)}” isn’t on this phone yet, so it opens when I can be reached. Next time you’re on Wi-Fi, Keep on this phone in About and it reads with no signal.` : sayError(e, `open “${shortTitle(d.title)}”`)]]);
+      /* state: library.reader offline */
+      /* state: library.reader error */
+      /* state: library.reader loading */
+      /* state: library.reader empty */
+      const gone = offline || /not on this phone/.test(m);
+      void sayError(e, `open “${shortTitle(d.title)}”`);
+      states([[offline ? 'Not on this phone' : 'Couldn’t open it', gone ? `“${shortTitle(d.title)}” isn’t on this phone yet, so it opens when I can be reached. Next time you’re on Wi-Fi, Keep on this phone in About and it reads with no signal.` : openFailed(shortTitle(d.title))]]);
+      note.dataset.state = gone ? 'offline' : 'error';
+      note.append(key(TRY_AGAIN, () => void open(r), { label: `Try opening “${shortTitle(d.title)}” again` }));
       paintBar();
       return;
     }

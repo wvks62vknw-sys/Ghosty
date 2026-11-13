@@ -13,8 +13,9 @@ import { chessEngine, closeChessEngine } from '../../gym/chessengine';
 import { cellOf, chessFrame, fromFen, fromPageMove, inCheck, legal, make, mFrom, mPromo, mTo, type Pos, posState, san, sq64, sqOfCell, START, status, STATUS_WORDS, toFen, uci } from '../../gym/chessboard';
 import type { Frame } from '../../gym/core';
 import { hintWords, reviewGame, reviewWords, type Score, standingWords } from '../../gym/chessreview';
-import { LEVELS, levelById, levelWords, loadBook, nextWords, ratingWords, recordGame, saveBook, suggestLevel, trendWords, type RateBook, type Who } from '../../gym/chessrate';
+import { LEVELS, aboutR, levelById, levelWords, loadBook, rated, nextWords, ratingWords, recordGame, saveBook, suggestLevel, trendWords, type RateBook, type Who } from '../../gym/chessrate';
 import { sayError } from '../../ui/hisWords';
+import { chessLine } from './words';
 
 /** What the rated chess is doing, for the specs (window.__ghosty.chessRated). */
 export const ratedState = {
@@ -36,9 +37,15 @@ export const ratedState = {
 };
 
 /** The card's line for the chess game in the list ('' before any rated game). */
+export function ratedLineOf(b: RateBook): string {
+  if (!(b.you.games || b.me.games)) return '';
+  // both ratings with their word ("about 1,350 (club level)"), and how unsure it is, said plainly
+  const sides = [b.you, b.me].filter(rated);
+  const rd = Math.max(10, Math.round(Math.max(...sides.map((x) => x.rd)) / 10) * 10);
+  return chessLine(rated(b.you) ? aboutR(b.you) : null, rated(b.me) ? aboutR(b.me) : null, rd);
+}
 export function ratedCardLine(): string {
-  const b = loadBook();
-  return b.you.games || b.me.games ? ratingWords(b) : '';
+  return ratedLineOf(loadBook());
 }
 
 export interface RatedIO {
@@ -88,7 +95,7 @@ export function ratedSection(io: RatedIO): { el: HTMLElement; line(): string; af
   const el = h('div.gymidea.chessrate', { dataset: { rated: '1' } }, title, ratings, next, h('div.row.crpick', lessBtn, levelLine, moreBtn), actions, board, say, extra, review, fine);
 
   const paintCard = (notify = true) => {
-    ratedState.words = ratingWords(book);
+    ratedState.words = ratedLineOf(book) || ratingWords(book);
     ratedState.next = nextWords(book, Date.now());
     ratedState.games = { you: book.you.games, me: book.me.games };
     ratings.textContent = ratedState.words;

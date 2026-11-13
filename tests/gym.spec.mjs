@@ -420,7 +420,7 @@ const seenBack = (ago) => page.evaluate((a) => new Promise((ok) => {
 await snapshotC4();
 // The first trick by taps on the real board: no four for the owner, a reason under the board after each of his moves,
 // and the page never freezes while he thinks (the worker does the thinking).
-await G('button', { hasText: 'NEW GAME' }).click();
+await G('button', { hasText: /NEW GAME|PLAY AGAIN/ }).click();
 await page.evaluate(() => {
   window.__ticks = [];
   clearInterval(window.__tick);
@@ -467,7 +467,7 @@ const oracle = (board) => page.evaluate((b) => new Promise((ok) => {
 }), board);
 let lostGame = null;
 for (let tries = 0; tries < 3 && !lostGame; tries++) {
-  await G('button', { hasText: 'NEW GAME' }).click();
+  await G('button', { hasText: /NEW GAME|PLAY AGAIN/ }).click();
   for (let i = 0; i < 21; i++) {
     const s0 = await st();
     if (s0.play.over) break;

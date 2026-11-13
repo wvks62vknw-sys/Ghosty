@@ -207,7 +207,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   await ui.keyboard.press('Enter');
   await searched(ui);
   const junk = await ui.evaluate(() => ({ hits: document.querySelectorAll('#pg-library .rw.hit').length, said: document.querySelector('#pg-library .nohits')?.textContent ?? '' }));
-  if (junk.hits || !/Nothing in the library mentions/.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
+  if (junk.hits || !/^I can’t find “zzqxv nothing here”\. Try one plainer word, or fewer words\./.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
   // before a search: his own recent searches (the one that found something, not the one that found nothing), in plain words
   await ui.fill('#pg-library input[aria-label="Search the library"]', '');
   await ui.dispatchEvent('#pg-library input[aria-label="Search the library"]', 'search');

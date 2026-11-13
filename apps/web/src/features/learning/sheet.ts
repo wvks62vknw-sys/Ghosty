@@ -49,6 +49,8 @@ import {
 import { libraryPassage, libraryRaw } from './library';
 import { hush, onVoices, sayIn, voiceReport } from './voices';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { brokenRun, MATHS_LINE, MATHS_MORE, MORE_KEY, NO_STREAK, PASSAGE_WAIT, TYPING_LINE, TYPING_MORE } from './words';
 
 export type LearnWhat = 'words' | 'review' | 'draw' | 'typing' | 'hand' | 'readfast' | 'memory' | 'maths' | 'spelling' | 'firstaid' | 'plan' | 'progress';
 /** The sheet's pages (its row of buttons, and the LEARNING screen's panels: features/learning/index.ts). */
@@ -102,6 +104,8 @@ const ls = {
 };
 const ymd = (d = new Date()): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const note = (text = '') => h('p.pknote', { 'aria-live': 'polite' }, text);
+/** What was cut from a helper line: behind "How it works" (nothing lost, never smaller type). */
+const more = (text: string) => h('details.pkmore', h('summary', MORE_KEY), h('p.pknote', text));
 const named = <T extends HTMLElement>(b: T, label: string): T => (b.setAttribute('aria-label', label), b);
 const field = (label: string, control: HTMLElement) => h('label.pkfield', h('span.pklab', label), control);
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -462,7 +466,10 @@ function typingView(a: Record<string, unknown>): HTMLElement {
     result.textContent = '';
     logged.textContent = '';
     const seed = Math.floor(Math.random() * 9973);
+    /* state: learning.pills loading */
+    const done = waiting(target.parentElement ?? target, PASSAGE_WAIT);
     passage = (!fresh && typeof a.passage === 'string' && a.passage) || (await libraryPassage(seed)) || TYPING_LINES[seed % TYPING_LINES.length]!;
+    done();
     target.textContent = passage;
     target.setAttribute('aria-label', `Type this passage: ${passage}`);
   };
@@ -479,7 +486,8 @@ function typingView(a: Record<string, unknown>): HTMLElement {
   return h(
     'div.pkcol',
     { dataset: { view: 'typing' } },
-    note('Type the passage as fast as you can. Speed counts only the right letters, and the clock starts at your first key. It comes from your own library when it has text.'),
+    note(TYPING_LINE),
+    more(TYPING_MORE),
     target,
     box,
     h('div.pkrow', named(button('DONE', () => void finish()), 'Finish and score my typing'), named(button('NEW PASSAGE', () => void load(true)), 'A new passage')),
@@ -689,7 +697,7 @@ function memoryView(a: Record<string, unknown>): HTMLElement {
 // ---------------------------------------------------------------- MATHS
 
 function mathsView(): HTMLElement {
-  const status = note('A five-minute drill at your level. Answer each sum and press ENTER; SKIP if you are stuck. It moves you up after two sets of 90%.');
+  const status = note(MATHS_LINE);
   const q = h('p.pkbig', { 'aria-live': 'off' });
   const clockEl = h('span.pklab', { role: 'timer' });
   const input = h('input', { type: 'text', inputMode: 'numeric', 'aria-label': 'Your answer', autocomplete: 'off', hidden: true }) as HTMLInputElement;
@@ -763,7 +771,7 @@ function mathsView(): HTMLElement {
     paint();
     timer = window.setInterval(paint, 250);
   };
-  return h('div.pkcol', { dataset: { view: 'maths' } }, status, clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), named(button('SKIP', () => answer(true)), 'Skip this sum'), named(button('STOP', () => void finish()), 'Stop and score the drill')), result, logged);
+  return h('div.pkcol', { dataset: { view: 'maths' } }, status, more(MATHS_MORE), clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), named(button('SKIP', () => answer(true)), 'Skip this sum'), named(button('STOP', () => void finish()), 'Stop and score the drill')), result, logged);
 }
 
 // ---------------------------------------------------------------- SPELLING
@@ -912,6 +920,7 @@ function planView(): HTMLElement {
     const r = await run('plan', {});
     const d = (r.data ?? {}) as PlanData;
     const plans = d.plans ?? [];
+    /* state: learning.pills empty */
     status.textContent = plans.length ? r.text : 'No plan yet. Name a skill and I make four weeks of ten minutes a day, with the day’s line in your Brief. It is a plan, not a teacher.';
     draw(plans);
   };
@@ -953,7 +962,9 @@ function progressView(): HTMLElement {
   void run('progress', {}).then((r) => {
     const d = (r.data ?? {}) as { rows?: Row[]; overall?: { current: number; best: number; today: boolean } };
     if (!d.rows?.length) {
-      status.textContent = r.text || 'My brain didn’t answer, so I can’t read your streaks just now.';
+      /* state: learning.pills error */
+      status.textContent = /^Nothing logged yet/.test(r.text ?? '') ? NO_STREAK : r.text || 'My brain didn’t answer, so I can’t read your streaks just now.';
+      status.dataset.state = /^Nothing logged yet/.test(r.text ?? '') ? 'empty' : 'error';
       return;
     }
     const all = d.overall;
@@ -964,7 +975,7 @@ function progressView(): HTMLElement {
           'div.pkperson',
           { role: 'group', 'aria-label': `${x.name}: ${x.streak} days in a row, best ${x.best ?? 'none'}` },
           h('b', x.name),
-          h('span.pklab', `${x.streak ? `${x.streak} day${x.streak === 1 ? '' : 's'} in a row${x.today ? '' : ' (do one today to keep it)'}` : 'no run right now'} · longest ${x.longest} · ${x.count} session${x.count === 1 ? '' : 's'}${x.best !== null ? ` · best ${x.best}${x.unit ? ` ${x.unit}` : ''}` : ''}`),
+          h('span.pklab', `${x.streak ? `${x.streak} day${x.streak === 1 ? '' : 's'} in a row${x.today ? '' : ' (do one today to keep it)'}` : x.count ? brokenRun(x.longest) : 'no run yet'} · longest ${x.longest} · ${x.count} session${x.count === 1 ? '' : 's'}${x.best !== null ? ` · best ${x.best}${x.unit ? ` ${x.unit}` : ''}` : ''}`),
         ),
       ),
     );

@@ -34,6 +34,9 @@ import { openRights, rightsCount, rightsTopics } from '../../docs/rights';
 import { openBook, readingLine, shelfDocs, shelfHooks, shelfRow, sortShelf, type ShelfSort } from './reader';
 import { places, syncPlaces } from '../../library/place';
 import { key } from '../../ui/machine';
+import { MEANING_TIP, noHit, PHRASES, SHELF_NONE, SHELF_WAIT, unreadable } from './words';
+import { phrases } from '../lifeui';
+import { waiting } from '../../ui/wait';
 import { rawText, sayError } from '../../ui/hisWords';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
@@ -169,8 +172,12 @@ export const libraryTab: TabDef = {
     /** What went wrong, in his words: a scan with no converter says what works instead (photos are read here). */
     const failed = (line: HTMLElement, name: string, e: unknown) => {
       const m = `${rawText(e)} ${(e as { raw?: string }).raw ?? ''}`;
-      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : sayError(e, 'add that')}`;
+      const said = sayError(e, 'add that');
+      // (a scan says what works; a file of a kind I do not know says what works; a lost signal or a full phone keeps its own words)
+      const generic = /^I could not add that\./.test(said);
+      line.textContent = `✕ ${/Workers AI/.test(m) || generic ? unreadable(name, /Workers AI/.test(m)) : `${name}: ${said}`}`;
       line.className = 'note bad';
+      line.dataset.state = 'error';
     };
     const ingest = async (picked: File[]) => {
       // Photos of pages picked together are one document (a page per photo); every other file is its own.
@@ -356,7 +363,7 @@ export const libraryTab: TabDef = {
         const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, rareTerms(terms)));
         // a search that found something is kept for next time (RECENT), on this phone only
         if (good.length) keepRecent([t, ...recent().filter((x) => x.toLowerCase() !== t.toLowerCase())]);
-        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
+        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.nohits', { dataset: { state: 'empty', case: 'keep' } }, h('p.note', noHit(t)), meaningComplete() ? null : h('p.note', MEANING_TIP))]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
         sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}${isOffline() ? ' · on this phone' : ''}`, 'ok');
@@ -406,11 +413,13 @@ export const libraryTab: TabDef = {
     }, { label: `Sort your books ${how}` }));
     const sortRow = h('div.shelfsort', { role: 'group', 'aria-label': 'Sort your books' }, h('span.g-tag', { dataset: { case: 'keep' } }, 'Sort'), ...sortKeys);
     shelf.el.insertBefore(h('div.shelfhead', findRow, sortRow), shelf.body);
+    shelf.el.append(phrases(PHRASES));
     const whose = (d: LibraryDoc) => (d.builtin ? 2 : GHOSTYS.test(d.id) || d.kind === 'study' || d.kind === 'digest' ? 1 : 0);
     let othersOpen = false;
     // his shelf with nothing of his on it yet: what it is for, and the one thing to do (ADD A BOOK: the Add section)
+    /* state: library.shelf empty */
     const shelfEmpty = () => h('div.shelfempty', { dataset: { case: 'keep' } },
-      empty('NONE', 'Add a PDF, an e-book, a Word file or photos of pages: it is here with its cover, ready to read or for me to read to you.', 'No books of yours yet'),
+      empty('NONE', SHELF_NONE.line, SHELF_NONE.head),
       key('Add a book', () => secs?.select('add'), { label: 'Add a book: a PDF, an e-book, a Word file or photos of pages' }));
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
@@ -728,9 +737,14 @@ export const libraryTab: TabDef = {
     };
     // the first open: said in words until the shelf lands (a cold brain takes a few seconds), never a blank page
     if (!P.big.textContent) P.big.textContent = 'Opening the library…';
+    let firstLoad = true;
     const refresh = async (): Promise<void> => {
+      // (the shelf's first look says what it is doing when it takes a moment: never a blank panel)
+      /* state: library.shelf loading */
+      const wait = firstLoad ? (firstLoad = false, waiting(shelf.body, SHELF_WAIT)) : () => undefined;
       try {
         const r = await brain.library();
+        wait();
         const was = unreached;
         unreached = !!r.offline;
         if (was !== unreached) showReach();
@@ -743,6 +757,7 @@ export const libraryTab: TabDef = {
         paintShelf();
         paintGadgets(docs.filter((x) => !leaving.has(x.id)));
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
+        /* state: library.shelf offline */
         P.sub.textContent = r.offline
           ? `You’re offline: this is the copy on this phone (${fmt.n(r.stats.docs)} documents). It updates by itself when you’re back.`
           : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'searched by meaning and words' : 'searched by words'}${starterReady ? '' : ' · setting up starter library…'}`;
@@ -766,9 +781,11 @@ export const libraryTab: TabDef = {
           showReach();
         }
         if (P.big.textContent === 'Opening the library…') P.big.textContent = 'The library';
+        wait();
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);
-        shelf.body.append(h('div.note', sayError(e, 'reach my library')));
+        /* state: library.shelf error */
+        shelf.body.append(h('div.note', { dataset: { state: 'error' } }, sayError(e, 'reach my library')));
       }
     };
 

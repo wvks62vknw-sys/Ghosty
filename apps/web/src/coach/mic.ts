@@ -24,10 +24,12 @@ export const audioContext = (): AudioContext => {
   return new C();
 };
 
+import { MIC_REFUSED } from '../features/coach/words';
+
 /** What to tell him when the microphone does not open (plain words, never an error code). */
 export function micMessage(e: unknown): string {
   const name = (e as { name?: string })?.name ?? '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return 'The microphone is blocked. On iPhone: Settings, Safari, Microphone, Allow (or the aA button, Website Settings); then tap START again.';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return MIC_REFUSED;
   if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'This phone has no microphone I can reach.';
   trail(e, 'microphone');
   return 'The microphone did not open. Close other apps that use it and tap START again.';

@@ -33,6 +33,7 @@ import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sayError } from '../../ui/hisWords';
+import { fetchFailed, fetchMid, fetchStart, mobileData, retryKey, SHELF_NONE, startFailed } from './words';
 
 /** What the spec and Ghosty read: the game on screen, what is kept here, the engines' numbers. */
 export const arcadeState = {
@@ -210,9 +211,15 @@ export const arcadeTab: TabDef = {
     const here = new Set<string>();
     const busy = new Map<string, AbortController>();
     const status = new Map<string, string>();
+    /** What kind of line each card's status is (loading, offline, error): the page's own marks, read by the spec. */
+    const kinds = new Map<string, 'loading' | 'offline' | 'error'>();
+    /** The packages whose last fetch failed: their key reads RETRY with the size. */
+    const failed = new Set<string>();
     const shelfPanel = panel('THE SHELF', { status: `${games.length} GAME${games.length === 1 ? '' : 'S'}`, cls: 'arcshelf' });
     const grid = h('div.arcgrid', { role: 'list' });
     shelfPanel.body.append(grid);
+    /* state: arcade.shelf empty */
+    if (!games.length) shelfPanel.body.append(h('div.arcnone', { dataset: { state: 'empty', case: 'keep' } }, h('b', SHELF_NONE.head), h('span', ` ${SHELF_NONE.line}`)));
     const about = panel('HOW IT PLAYS', { cls: 'arcabout' });
     about.body.append(
       h('p.arcnote', 'Each game is fetched once, on Wi-Fi, from the Internet Archive, checked against its known checksum and kept on this phone; it plays with no connection after that.'),
@@ -269,9 +276,12 @@ export const arcadeTab: TabDef = {
         const all = allScores();
         score.textContent = scoreWords(e.engine, all[e.id], all[sittingKey(e.id)]) + levelTail(e);
         stat.textContent = status.get(e.id) ?? '';
+        if (status.get(e.id) && kinds.get(e.id)) stat.dataset.state = kinds.get(e.id)!;
+        else delete stat.dataset.state;
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${e.title}`, 'stop');
         else if (kept) setAct(act, 'PLAY', 'Play', `Play ${e.title}`, 'play');
+        else if (e.data && failed.has(of.at)) setAct(act, retryKey(sizeWords(e.data.bytes)), retryKey(sizeWords(e.data.bytes)), `Retry getting ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         else if (e.data) setAct(act, `GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         clear(details,
           ...(e.data
@@ -333,8 +343,11 @@ export const arcadeTab: TabDef = {
         const all = allScores();
         score.textContent = scoreWords('doom', all[p.id], all[sittingKey(p.id)]);
         stat.textContent = status.get(key) ?? '';
+        if (status.get(key) && kinds.get(key)) stat.dataset.state = kinds.get(key)!;
+        else delete stat.dataset.state;
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${busy.has(p.id) ? p.title : 'Freedoom'}`, 'stop');
+        else if (!kept && failed.has(p.id)) setAct(act, retryKey(sizeWords(p.data.bytes)), retryKey(sizeWords(p.data.bytes)), `Retry getting ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
         else if (!kept) setAct(act, `GET · ${sizeWords(p.data.bytes)}`, `Get · ${sizeWords(p.data.bytes)}`, `Get ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
         else if (!baseHere && baseOf?.data) setAct(act, `GET FREEDOOM · ${sizeWords(baseOf.data.bytes)}`, `Get Freedoom · ${sizeWords(baseOf.data.bytes)}`, `${p.title} plays over Freedoom: get Freedoom, ${sizeWords(baseOf.data.bytes)}, on Wi-Fi`, 'get');
         else setAct(act, 'PLAY', 'Play', `Play ${p.title}`, 'play');
@@ -378,18 +391,23 @@ export const arcadeTab: TabDef = {
       busy.set(of.at, ctl);
       // the cards this GET fills, and any that asked for it (a level pack fetching the Freedoom it plays over)
       const filling = () => [...sharing(of.at), ...also.flatMap((k) => (cards.get(k) ? [cards.get(k)!] : []))];
-      const say = (t: string) => {
+      const say = (t: string, kind?: 'loading' | 'offline' | 'error') => {
         for (const c of filling()) {
           status.set(c.of.id, t);
+          if (kind) kinds.set(c.of.id, kind);
+          else kinds.delete(c.of.id);
           c.paint();
         }
       };
+      failed.delete(of.at);
       try {
         if (onMobileData()) {
-          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(data.bytes)}.`);
+          /* state: arcade.shelf offline */
+          say(mobileData(sizeWords(data.bytes)), 'offline');
           await Promise.race([offMobileData(ctl.signal), new Promise((_, reject) => ctl.signal.addEventListener('abort', () => reject(new DOMException('Stopped', 'AbortError')), { once: true }))]);
         }
-        say(`Fetching ${sizeWords(data.bytes)} from the Internet Archive…`);
+        /* state: arcade.shelf loading */
+        say(fetchStart(sizeWords(data.bytes)), 'loading');
         const onProgress = (p: Progress) => {
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
           for (const c of filling()) {
@@ -397,8 +415,8 @@ export const arcadeTab: TabDef = {
             b?.style.setProperty('--p', `${pct}%`);
             b?.setAttribute('aria-valuenow', String(pct));
           }
-          const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
-          if (status.get(of.id) !== t) say(t);
+          const t = p.phase === 'download' ? fetchMid(sizeWords(p.got), sizeWords(p.total), Math.min(100, Math.round((p.got / p.total) * 100))) : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
+          if (status.get(of.id) !== t) say(t, 'loading');
         };
         // (`headers`: the owner's key, for Ghosty's own copy of the Archive's file, which the Worker streams to him alone)
         await getFiles({ id: of.at, data }, onProgress, { signal: ctl.signal, ownHeaders: headers });
@@ -407,7 +425,9 @@ export const arcadeTab: TabDef = {
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
-        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${sayError(err, 'get that game')}`);
+        if (!stopped) failed.add(of.at);
+        /* state: arcade.shelf error */
+        say(stopped ? 'Stopped. Nothing was kept.' : fetchFailed(sayError(err, 'get that game')), stopped ? undefined : 'error');
       } finally {
         busy.delete(of.at);
         paintAll();
@@ -420,7 +440,7 @@ export const arcadeTab: TabDef = {
       if (!data) return; // a game made by us: nothing to delete
       await removeFiles({ id: of.at, data });
       here.delete(of.at);
-      for (const c of sharing(of.at)) status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`);
+      for (const c of sharing(of.at)) (kinds.delete(c.of.id), status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`));
       paintAll();
       hero();
     };
@@ -497,16 +517,18 @@ export const arcadeTab: TabDef = {
           await handle.quit();
           if (e.madeByUs) {
             // a game made by us keeps its own score (scores.ts), and says its own lines
-            status.set(r.card, `Played ${timeWords(seconds)}.`);
+            kinds.delete(r.card); status.set(r.card, `Played ${timeWords(seconds)}.`);
           } else if (e.engine === 'dos') {
             const best = recordScore(r.id, seconds).isBest;
-            status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
+            kinds.delete(r.card); status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
           } else {
             const best = recordSitting(r.id, seconds).isBest;
-            status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
+            kinds.delete(r.card); status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
           }
         } catch (err) {
-          status.set(r.card, sayError(err, 'start that game'));
+          void sayError(err, 'start that game');
+          kinds.set(r.card, 'error');
+          status.set(r.card, startFailed(r.title.charAt(0) + r.title.slice(1).toLowerCase()));
           await handle?.quit().catch(() => undefined);
         } finally {
           close();

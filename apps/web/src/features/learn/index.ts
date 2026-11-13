@@ -27,6 +27,8 @@ import { button, empty, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import * as L from './store';
 import { sayError } from '../../ui/hisWords';
+import { waiting as said } from '../../ui/wait';
+import { COURSE_HAS, COURSE_HAS_KEY, EXAM_WAIT, INTRO, LESSON_WAIT, MARK_WAIT, OFFLINE_KEYS, PLANNING, QUIZ_WAIT, TOPIC_EMPTY, cantMark, lessonOut, wrongAnswer } from './words';
 
 type View = 'home' | 'course' | 'lesson' | 'quiz' | 'revise' | 'exam';
 
@@ -190,7 +192,7 @@ export const learnTab: TabDef = {
   scene: 'backdrop',
   blurb: 'courses · quizzes · flashcards',
   mount(root) {
-    const P = page(root, { tag: 'TUTOR', sub: 'courses at your level · kept on this phone', leftLabel: 'STUDY', rightLabel: 'START', stack: true });
+    const P = page(root, { tag: 'TUTOR', sub: INTRO, leftLabel: 'STUDY', rightLabel: 'START', stack: true });
     expose();
     let view: View = 'home';
     let current: Course | null = null;
@@ -227,24 +229,39 @@ export const learnTab: TabDef = {
     paintLevels();
     paintMinutes();
     const startBtn = button('START', () => void start(), 'on');
+    /* state: learn.courses empty */
+    /* state: learn.courses error */
+    const topicSay = h('p.note.learnsay', { role: 'status', 'aria-live': 'polite', hidden: true, dataset: { state: 'empty', case: 'keep' } });
     const start = async () => {
       const t = topicIn.value.trim();
-      if (t.length < 2) return void toast('Type what you want to learn', 'warn');
+      topicSay.hidden = true;
+      if (t.length < 2) {
+        topicSay.textContent = TOPIC_EMPTY;
+        topicSay.hidden = false;
+        topicIn.focus();
+        return;
+      }
       startBtn.disabled = true;
-      startBtn.textContent = 'PLANNING…';
+      // (planning is said once, as a waiting line: the key keeps its word)
+      /* state: learn.courses loading */
+      const done = said(np.body, PLANNING);
       try {
         const c = await L.startCourse(t, level, minutes);
         topicIn.value = '';
         toast(`Course ready: ${c.title}`, 'ok');
+        done();
         showCourse(c.id);
       } catch (e) {
-        toast(sayError(e, 'plan it'), 'bad');
+        done();
+        topicSay.textContent = sayError(e, 'plan it');
+        topicSay.dataset.state = 'error';
+        topicSay.hidden = false;
       }
+      done();
       startBtn.disabled = false;
-      startBtn.textContent = 'START';
     };
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
-    np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
+    np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
 
     P.left.append(sp.el, cp.el);
     P.right.append(np.el);
@@ -275,7 +292,9 @@ export const learnTab: TabDef = {
       cp.setStatus(s.synced ? `${s.courses.length}` : 'ON THIS PHONE', s.synced ? 'ok' : 'mid');
       clear(cp.body);
       if (!s.courses.length) {
-        cp.body.append(empty('NONE', 'Start one below, or just say “teach me photosynthesis”.', 'No courses yet'));
+        const none = empty('NONE', 'Start one below, or just say “teach me photosynthesis”.', 'No courses yet');
+        none.dataset.state = 'empty';
+        cp.body.append(none);
         return;
       }
       for (const c of [...s.courses].sort((a, b) => b.updated - a.updated)) {
@@ -305,7 +324,7 @@ export const learnTab: TabDef = {
       if (ex) sp.body.append(button(h('span', h('b', ex.finishing ? 'EXAM WAITING TO BE MARKED' : 'RESUME EXAM'), h('small', `${ex.exam.title} · ${ex.finishing ? 'marked when Ghosty is reachable' : `${mmss(Math.ceil((ex.endsAt - Date.now()) / 1000))} left`}`)), () => void showExam(ex.exam.course), 'learnbig'));
       if (latest && latest.next) sp.body.append(button(h('span', h('b', 'CONTINUE'), h('small', `${latest.title} · lesson ${latest.next}: ${latest.nextTitle}`)), () => void showLesson(latest.id, latest.next), 'learnbig'));
       if (due) sp.body.append(button(h('span', h('b', `REVISE ${Math.min(10, due)} CARD${Math.min(10, due) === 1 ? '' : 'S'}`), h('small', `${due} due · a few minutes keeps them for good`)), () => showRevise({ limit: 10 }), 'learnbig'));
-      if (!latest && !due) sp.body.append(h('div.note', 'Ghosty teaches anything at your level: a course in units, lessons with worked examples and their sources, quizzes, an exam, and flashcards of each lesson and of what you got wrong, brought back just before you would forget them.'));
+      if (!latest && !due) sp.body.append(h('div.note.learncold', { dataset: { state: 'empty' } }, 'Tell me what to teach and I make you a course.'), h('details.learnhas', h('summary', COURSE_HAS_KEY), h('p', COURSE_HAS)));
       else if (!due) sp.body.append(h('div.note', 'No cards due. Each lesson you read, and each wrong answer, becomes a card here.'));
     };
 
@@ -420,13 +439,21 @@ export const learnTab: TabDef = {
       learnState.course = courseId;
       learnState.lesson = n;
       learnState.parts = [];
-      clear(sp.body, h('div.note.learnwait', 'Writing the lesson at your level… (only the first time)'));
+      clear(sp.body);
+      const done = said(sp.body, LESSON_WAIT);
       let l: CourseLesson;
       try {
         if (!L.learn.get().full[courseId]) await L.course(courseId);
         l = await L.lesson(courseId, n);
+        done();
       } catch (e) {
-        clear(sp.body, h('div.note', sayError(e, 'get the lesson')), button('BACK', () => void showCourse(courseId)));
+        done();
+        if (learnState.view !== 'lesson' || learnState.lesson !== n) return;
+        // my brain out of reach or the lesson not written: what still works (the lessons opened, the cards), and the one way on
+        const out = lessonOut(L.dueCards().length);
+        /* state: learn.courses offline */
+        clear(sp.body, h('div.learnout', { role: 'status', dataset: { state: navigator.onLine === false ? 'offline' : 'error' } }, h('p', h('b', out.head)), h('p', out.line)), h('div.row.wrap.learnbar', button(OFFLINE_KEYS.back, () => void showCourse(courseId), 'on'), L.dueCards().length ? button(OFFLINE_KEYS.revise, () => showRevise({ limit: 10 })) : ''));
+        void sayError(e, 'get the lesson');
         return;
       }
       if (learnState.view !== 'lesson' || learnState.lesson !== n) return;
@@ -470,7 +497,7 @@ export const learnTab: TabDef = {
             for (const x of choices) x.disabled = true;
             b.classList.add(right ? 'good' : 'bad');
             choices[ck.answer]!.classList.add('good');
-            out.textContent = `${right ? 'Right.' : `Not quite: ${LETTERS[ck.answer]}) ${ck.choices[ck.answer]}.`}${ck.why ? ` ${ck.why}` : ''}`;
+            out.textContent = right ? `Right.${ck.why ? ` ${ck.why}` : ''}` : wrongAnswer(LETTERS[ck.answer]!, ck.choices[ck.answer]!, ck.why);
             learnState.quiz.last = right ? 'right' : 'wrong';
             void L.answer({ course: courseId, lesson: n, answer: i }).then((r) => r.card && toast('Made a flashcard of it', 'ok')).catch(() => undefined).finally(() => paintAll());
           }, 'learnchoice');
@@ -490,11 +517,14 @@ export const learnTab: TabDef = {
 
     const startQuiz = async (a: { course?: string; topic?: string; lesson?: number }) => {
       setView('quiz', 'QUIZ');
-      clear(sp.body, h('div.note.learnwait', 'Writing your questions…'));
+      clear(sp.body);
+      const done = said(sp.body, QUIZ_WAIT);
       try {
         const q = await L.quiz({ ...a, n: 5 });
+        done();
         showQuiz(q);
       } catch (e) {
+        done();
         clear(sp.body, h('div.note', sayError(e, 'make that quiz')), button('BACK', () => (a.course ? void showCourse(a.course) : showHome())));
       }
     };
@@ -556,7 +586,7 @@ export const learnTab: TabDef = {
               b.classList.add(ok ? 'good' : 'bad');
               choices[Number(item.answer)]?.classList.add('good');
               const guessNote = ok && conf === 'guess' ? ' A lucky guess still becomes a card.' : !ok && conf === 'sure' ? ' You were sure: this card comes back more often.' : '';
-              done(ok, `${ok ? 'Right.' : `Not quite: ${LETTERS[Number(item.answer)]}) ${item.choices?.[Number(item.answer)]}.`}${item.why ? ` ${item.why}` : ''}${guessNote}`, !ok || conf === 'guess');
+              done(ok, `${ok ? `Right.${item.why ? ` ${item.why}` : ''}` : wrongAnswer(LETTERS[Number(item.answer)]!, String(item.choices?.[Number(item.answer)] ?? ''), item.why)}${guessNote}`, !ok || conf === 'guess');
               void L.answer({ quiz: q.id, q: item.id, answer: k, conf }).catch(() => undefined).finally(() => paintAll());
             }));
           }, 'learnchoice');
@@ -579,7 +609,7 @@ export const learnTab: TabDef = {
             } catch {
               // No brain to mark it: the answer is shown and nothing is counted.
               clear(slot);
-              out.textContent = `Can't mark it offline. The answer: ${String(item.answer)}.`;
+              out.textContent = cantMark(String(item.answer));
               nextBtn.hidden = false;
             }
             b.textContent = 'CHECK';
@@ -597,10 +627,13 @@ export const learnTab: TabDef = {
       setView('exam', 'EXAM');
       learnState.course = courseId;
       learnState.exam = { ...learnState.exam, done: false };
-      clear(sp.body, h('div.note.learnwait', 'Drawing your exam from the lessons…'));
+      clear(sp.body);
+      const done = said(sp.body, EXAM_WAIT);
       try {
         await L.startExam(courseId);
+        done();
       } catch (e) {
+        done();
         clear(sp.body, h('div.note', sayError(e, 'make that exam')), button('BACK TO COURSE', () => void showCourse(courseId)));
         return;
       }
@@ -681,7 +714,8 @@ export const learnTab: TabDef = {
       clearInterval(tick);
       const e = L.learn.get().exam;
       if (!e) return;
-      if (view === 'exam') clear(sp.body, h('div.note.learnwait', 'Marking your exam…'));
+      if (view === 'exam') clear(sp.body);
+      const done = view === 'exam' ? said(sp.body, MARK_WAIT) : () => undefined;
       sp.title.textContent = 'EXAM · MARKING';
       let r: ExamMarked | null = null;
       try {
@@ -689,6 +723,7 @@ export const learnTab: TabDef = {
       } catch {
         r = null;
       }
+      done();
       if (view !== 'exam') return;
       if (!r) {
         const still = L.learn.get().exam;

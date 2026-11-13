@@ -548,9 +548,13 @@ await until((s) => /^GET · /.test(document.querySelector(s)?.textContent ?? '')
   page.on('request', onRequest);
   await page.route('https://archive.org/**', blocked);
   await page.click(`${card('test-flash')} .arcact`);
-  await until((s) => /Could not get it/.test(document.querySelector(s)?.textContent ?? ''), 15000, 'GET with the Archive out of reach did not give its reason', `${card('test-flash')} .arcstatus`);
+  // (his words since the one error voice: the mirrors' own reasons go to the WHY trail, never to the screen; QUALITY PASS LEARN adds that nothing
+  // was kept, the RETRY key with the size, and the error state)
+  await until((s) => /Nothing was kept; tap RETRY/.test(document.querySelector(s)?.textContent ?? ''), 15000, 'GET with the Archive out of reach did not give its reason', `${card('test-flash')} .arcstatus`);
   const said = await page.textContent(`${card('test-flash')} .arcstatus`);
-  if (!/^Could not get it: No mirror gave the right file \(archive\.org: [^;]+; this site: answered 404\)\.$/.test(said ?? '')) problems.push(`with the Archive out of reach, GET said "${said}"`);
+  if (said !== 'I could not find what I needed to get that game. It may have moved or never been here. Nothing was kept; tap RETRY and I’ll start again.') problems.push(`with the Archive out of reach, GET said "${said}"`);
+  if ((await page.getAttribute(`${card('test-flash')} .arcstatus`, 'data-state')) !== 'error') problems.push('the failed GET drew no error state');
+  if (!/^RETRY · /.test((await page.textContent(`${card('test-flash')} .arcact`)) ?? '')) problems.push(`the failed GET's key reads "${await page.textContent(`${card('test-flash')} .arcact`)}", not RETRY with the size`);
   if (own.length !== 1 || own[0].url !== `${base}/api/arcade/ghosty-test-fixture/flash.zip` || own[0].key !== 'preview-owner-key-0123456789') problems.push(`this site's copy was asked as ${JSON.stringify(own)}`);
   page.off('request', onRequest);
   await page.unroute('https://archive.org/**', blocked);

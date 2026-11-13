@@ -427,7 +427,7 @@ await ctx.close();
   await page.waitForTimeout(500);
   await sec(page, 'This stage');
   const txt = await page.locator('#pg-school .schstage').textContent();
-  if (!/isn't on this phone yet/.test(txt)) problems.push(`[not downloaded] no plain words about the download: ${txt.slice(0, 200)}`);
+  if (!/isn['’]t on this phone yet/.test(txt) || !/Offline brain: \d+(\.\d+)? ?(MB|GB), on Wi-Fi/.test(txt)) problems.push(`[not downloaded] no plain words about the download, with its size: ${txt.slice(0, 200)}`);
   if (!(await page.locator('#pg-school .schstage button', { hasText: 'DOWNLOAD IT IN SETTINGS' }).isVisible())) problems.push('[not downloaded] no DOWNLOAD IT IN SETTINGS');
   if (!(await page.locator('#pg-school .schstage button', { hasText: 'SIT THE EXAM' }).isDisabled())) problems.push('[not downloaded] SIT THE EXAM is not disabled');
   await page.locator('#pg-school .schstage').scrollIntoViewIfNeeded();

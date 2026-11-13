@@ -44,6 +44,9 @@ import { ratedCardLine, ratedSection, leaveRated } from './chessrated';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
 import { sayError, trail } from '../../ui/hisWords';
+import { waiting as waitFor } from '../../ui/wait';
+import { phrases } from '../lifeui';
+import { AGAIN, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
 export const gymState = {
@@ -309,16 +312,17 @@ export const gymTab: TabDef = {
           worker.onmessage = (e: MessageEvent) => onWorker(e.data as GymOut);
           worker.onerror = (e) => {
             trail(e, 'gym worker');
-            gymState.error = 'The training worker stopped.';
-            gymToast('The gym stopped: training could not run on this phone', 'bad');
+            gymState.error = TRAIN_STOPPED;
+            gymToast(TRAIN_STOPPED, 'bad');
             stopAll(false);
             training = null;
             gymState.training = '';
             paint();
           };
         } catch (e) {
-          gymState.error = sayError(e, 'run that');
-          gymToast('Training cannot run on this phone', 'bad');
+          void sayError(e, 'run that');
+          gymState.error = TRAIN_CANNOT;
+          gymToast(TRAIN_CANNOT, 'bad');
           return;
         }
       }
@@ -381,9 +385,10 @@ export const gymTab: TabDef = {
       if (!current(epochs, m.gym === 'error' ? m.id : m.rec.id, m.epoch)) return;
       if (m.gym === 'error') {
         // Training itself failed in the worker (and stopped there).
-        gymState.error = m.message || 'training failed';
-        gymState.log.push(`training error ${m.id}: ${gymState.error}`);
-        gymToast(`Training stopped: ${m.message}`, 'bad');
+        trail(m.message, 'gym training');
+        gymState.log.push(`training error ${m.id}: ${m.message || 'training failed'}`);
+        gymState.error = TRAIN_FAILED;
+        gymToast(TRAIN_FAILED, 'bad');
         if (training === m.id) {
           stopAll(false);
           training = null;
@@ -426,7 +431,7 @@ export const gymTab: TabDef = {
     // ======================= GAMES: the cards (made once, updated in place so a tap is never lost to a repaint)
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
-    cardsP.body.append(cards);
+    cardsP.body.append(cards, phrases(PHRASES));
     // Each card (BRIEF-IRON-BUILD step 3): the game's picture as line-art (art.ts), its status word, the name and level,
     // the mastery meter with the pass mark's tick, and under it his rating (board games' league) or the next level's mark.
     const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; st: HTMLElement; lvl: HTMLElement; fill: HTMLElement; tick: HTMLElement; pct: HTMLElement; meter: HTMLElement; say?: HTMLElement }>();
@@ -573,6 +578,13 @@ export const gymTab: TabDef = {
     const gameP = panel('GAME', { cls: 'gymgame' });
     const learns = h('div.gymlearns');
     const status = h('div.gymstatus', { role: 'status', 'aria-live': 'polite' });
+    /** A training that stopped, said under the status in words (never the worker's own text), cleared when TRAIN is tapped again. */
+    const trainErr = h('p.gymtrainerr', { role: 'alert', hidden: true, dataset: { state: 'error', case: 'keep' } });
+    /** TRAIN's wait, said until the first results arrive (ui/wait.ts) and the progress it waits for. */
+    let trainWait: (() => void) | null = null;
+    let waitAt = 0;
+    /* state: gym.cards empty */
+    /* state: gym.cards loading */
     // Connect 4: what he says about your games — the last one, then the count (gym2)
     const saysLine = h('b');
     const saysCount = h('small');
@@ -627,7 +639,7 @@ export const gymTab: TabDef = {
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, trainErr, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -743,6 +755,12 @@ export const gymTab: TabDef = {
         pushScreen({ back: 'Gym', label: niceCase(open.title), pop: popGame });
       }
       status.textContent = statusLine(r, open, training === open.id);
+      if (trainWait && (training !== open.id || gymState.progress > waitAt)) {
+        trainWait();
+        trainWait = null;
+      }
+      trainErr.hidden = !gymState.error || training === open.id;
+      trainErr.textContent = trainErr.hidden ? '' : gymState.error;
       says.hidden = open.id !== 'connect4';
       const c4 = gymState.c4;
       c4.screen = studying ? `You beat me at move ${studying.moves.length}. I’m studying it.` : screenLine(journal.c4);
@@ -979,6 +997,10 @@ export const gymTab: TabDef = {
         held = '';
         const id = open.id;
         training = id;
+        gymState.error = '';
+        trainWait?.();
+        waitAt = gymState.progress;
+        trainWait = waitFor(gameP.body, TRAIN_WAIT);
         sendTrain(id);
       }
       paint();
@@ -1066,7 +1088,7 @@ export const gymTab: TabDef = {
         } else note(`study failed: ${m.error ?? 'no answer'}`);
         paint();
         // the finished game on the board gets its review
-        if (gymState.play.game === 'connect4' && gymState.play.over && open.id === 'connect4') paintPlay(gymState.play.over);
+        if (gymState.play.game === 'connect4' && gymState.play.over && open.id === 'connect4') paintPlay(overWords(gymState.play.over));
       });
       paint();
     };
@@ -1253,7 +1275,7 @@ export const gymTab: TabDef = {
       const row = h('div.row.wrap.gymagain');
       if (choices && mine) for (const [label, mv] of choices) row.append(button(label, () => void ownerMove(mv), 'on'));
       if (big.extra && mine && !choices) row.append(button(big.extra.label, () => void ownerMove(big.extra!.move)));
-      row.append(button('NEW GAME', () => startPlay()));
+      row.append(button(pl.over ? AGAIN : NEW_GAME, () => startPlay(), pl.over ? 'on' : ''));
       clear(board, renderFrame(f, mine ? (i) => bigTap(i) : undefined), row);
       gymState.play.sel = sel.path.slice();
     };
@@ -1284,17 +1306,23 @@ export const gymTab: TabDef = {
       await afterOwner(`You played ${r.said}.`);
     };
     /** After the owner's move: is it over? If not, he answers. */
+    /** His move that could not be worked out: the worker's own text goes to the WHY trail, never to the board. */
+    const failedMove = (raw: string): string => {
+      trail(raw, 'gym move');
+      /* state: gym.cards error */
+      return MOVE_FAILED;
+    };
     const afterOwner = async (said: string) => {
       const big = BOARDS[open.id]!;
       const pl = gymState.play;
       pl.over = big.over(pl.board);
-      if (pl.over) return paintBig(pl.over);
+      if (pl.over) return paintBig(overWords(pl.over));
       pl.thinking = true;
       paintBig(`${said} Thinking…`);
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? failedMove(m.error) : 'Your move.');
       const r = big.apply(pl.board, m.move);
       pl.board = r.state;
       last = r.cells;
@@ -1302,7 +1330,7 @@ export const gymTab: TabDef = {
       gymState.play.replies = (gymState.play.replies ?? 0) + 1;
       // his reason, when the move had one (a trick seen, a forced capture, mate)
       pl.why = m.why?.reason ?? '';
-      paintBig(pl.over ? `I played ${r.said}. ${pl.over}` : `I played ${r.said}.${pl.why ? ` ${pl.why}` : ''} Your move.`);
+      paintBig(pl.over ? `I played ${r.said}. ${overWords(pl.over)}` : `I played ${r.said}.${pl.why ? ` ${pl.why}` : ''} Your move.`);
     };
     const paintPlay = (caption: string) => {
       if (BOARDS[open.id]) return paintBig(caption);
@@ -1314,7 +1342,7 @@ export const gymTab: TabDef = {
       const said = done ? (studying === done ? `You beat me at move ${done.moves.length}. I’m studying it.` : screenLine(journal.c4)) : caption;
       const f = open.id === 'tictactoe' ? tttFrame(b, caption) : c4Frame(posFromBoard(b), said);
       const rvBox = rv.length ? h('div.gymreview', h('b', 'Review'), ...rv.map((x) => h('div', x.at ? h('span', `Move ${x.at}`) : null, h('i', x.text)))) : null;
-      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), rvBox, h('div.row.wrap.gymagain', button('NEW GAME', () => startPlay())));
+      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), rvBox, h('div.row.wrap.gymagain', button(gymState.play.over ? AGAIN : NEW_GAME, () => startPlay(), gymState.play.over ? 'on' : '')));
     };
     const outcome = (): string => {
       const b = gymState.play.board;
@@ -1338,14 +1366,14 @@ export const gymTab: TabDef = {
       pl.over = outcome();
       if (pl.over) {
         finishC4();
-        return paintPlay(pl.over);
+        return paintPlay(overWords(pl.over));
       }
       pl.thinking = true;
       paintPlay('Thinking…');
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice(), ...(gymState.limit ? { limit: gymState.limit } : {}) });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? failedMove(m.error) : 'Your move.');
       if (open.id === 'tictactoe') pl.board[m.move] = 2;
       else {
         const p = posFromBoard(pl.board);
@@ -1358,7 +1386,7 @@ export const gymTab: TabDef = {
       finishC4();
       // his reason for the move, in his words ("I had to stop column 4."), kept with the game
       pl.why = m.why?.reason ?? '';
-      paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
+      paintPlay((pl.over && overWords(pl.over)) || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
     };
     secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
 

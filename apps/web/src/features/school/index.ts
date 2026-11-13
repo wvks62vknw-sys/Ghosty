@@ -43,6 +43,7 @@ import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { goToPanel, revealSection, sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
+import { LADDER_KEY, LADDER_LINE, LADDER_MORE, notKept, timeLeft, whatToRead } from './words';
 
 const LOCK = '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>';
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -288,7 +289,7 @@ export const schoolTab: TabDef = {
               : 'Locked';
         return h(`li.schrung.s-${s.status}` as 'li', { 'aria-label': `${s.label}, ${s.years}: ${state}` }, mark, h('span.schname', h('b', short(s.label)), h('small', s.years)), h(`span.schstate${s.status === 'now' ? '.now' : ''}` as 'span', state));
       });
-      clear(ladderP.body, h('ol.schrungs', ...rows), h('div.note', 'Strictly in order: a stage opens only when the one below is passed with top grades in every subject. A placement test can skip ahead.'));
+      clear(ladderP.body, h('ol.schrungs', ...rows), h('div.note.schnext', LADDER_LINE), h('details.schmore', h('summary', LADDER_KEY), h('p', LADDER_MORE)));
       ladderP.setStatus(short(v.current.label).toUpperCase(), 'ok');
     }
 
@@ -311,6 +312,7 @@ export const schoolTab: TabDef = {
         h('div.schgrade', h('b', pending ? '…' : r.grade), h('span', `${r.raw}/${r.max} · ${pct(r)}%`)),
         h('div.schresline', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()} · ${pending ? `${pending} written answer${pending === 1 ? '' : 's'} waiting for a marker: no final grade yet` : r.top ? 'top grades ✓' : 'not top grades yet'}`),
         r.boundary && !pending ? h('div.schbound', r.boundary) : null,
+        !pending && !r.top && whatToRead(r.topics) ? h('div.schread', { dataset: { case: 'keep' } }, whatToRead(r.topics)) : null,
         h('div.schresfrom', `${r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : 'Written by Ghosty in the same style'}${r.where === 'kaggle' ? ' · sat on the free GPU' : ''}`),
         button('SEE THE PAPER', () => openPaper(r)),
       );
@@ -318,6 +320,14 @@ export const schoolTab: TabDef = {
       resultCard.classList.toggle('pending', !!pending);
     }
 
+    /** The sitting's own clock: when this paper was first seen, and the question it was on (so the time left is worked out from the answers so far). */
+    const sitClock = { key: '', t0: 0, n0: 0 };
+    const timeLeftNow = (st: { busy: boolean; stage: string; subject: string; n: number; of: number }): string => {
+      const key = `${st.stage}/${st.subject}/${st.of}`;
+      if (!st.busy || !st.n) return '';
+      if (sitClock.key !== key || st.n < sitClock.n0) Object.assign(sitClock, { key, t0: Date.now(), n0: st.n });
+      return timeLeft(st.n, sitClock.n0, st.of, Date.now() - sitClock.t0);
+    };
     function paintStage(v: WiredView): void {
       const st = sitting.get();
       const cur = v.current;
@@ -351,7 +361,7 @@ export const schoolTab: TabDef = {
       const done = cur.subjects.filter((s) => s.top).length;
       const live = busy
         ? h('div.schlive',
-            h('div.schliveh', h('b', st.line || 'Sitting…'), h('small', `${subjectName(st.subject)}${st.left.length ? ` · then ${st.left.length} more` : ''}`)),
+            h('div.schliveh', h('b', st.line || 'Sitting…'), h('small.schleft', { dataset: { case: 'keep' } }, [timeLeftNow(st), `${subjectName(st.subject)}${st.left.length ? ` · then ${st.left.length} more` : ''}`].filter(Boolean).join(' · '))),
             st.of ? bar('PAPER', st.n / st.of, `${st.n}/${st.of}`) : null,
             st.brain ? h('div.note.schbrain', st.brain) : null,
             h('div.note', 'Keep Ghosty open while he sits it. STOP hands in the answers so far.'),
@@ -415,7 +425,7 @@ export const schoolTab: TabDef = {
             : tapM
               ? re ? '' : `${sitOfferWhy(p?.after ?? null, tapM)}${waitLine ? ` ${waitLine}` : ''}`
               : (p ? !p.here : ready === false)
-                ? notDownloaded
+                ? notKept(sizeText((p?.brain ?? MODELS[0]!).mb))
                 : !cur.papers && !cur.bank
                   ? `There are no papers for ${short(cur.label)} yet, so it cannot be sat. Earlier stages can still be sat for revision.`
                   : '';
@@ -427,7 +437,8 @@ export const schoolTab: TabDef = {
         h('div.note.schpass', `To move up: ${cur.pass}.${row && /scaled score|grade|A\*/.test(cur.pass) ? ' Until the official papers come, the papers Ghosty writes count with their top band (85%+).' : ''} ${done} of ${cur.subjects.length} subjects at top grades.`),
         h('div.schsubs', ...rows),
         live,
-        why ? h('div.note.schwhy', why) : null,
+        /* state: school.ladder offline */
+        why ? h('div.note.schwhy', { dataset: /^The offline brain isn’t on this phone yet/.test(why) ? { state: 'offline' } : {} }, why) : null,
         !cur.papers && cur.bank ? writeBlock(cur.stage) : null,
         which,
         h('div.keyrow.schbtns', sitAll, keyTap, gpuAll, stop, toSettings),
@@ -499,7 +510,8 @@ export const schoolTab: TabDef = {
     // ======================= results
     function paintResults(v: StageView): void {
       const rs = v.state.results;
-      if (!rs.length) return void clear(resultsP.body, h('div.note', 'Nothing sat yet. SIT THE EXAM above sets him this stage’s papers, one subject at a time.'));
+      /* state: school.ladder empty */
+      if (!rs.length) return void clear(resultsP.body, h('div.note', { dataset: { state: 'empty' } }, 'Nothing sat yet. SIT THE EXAM above sets him this stage’s papers, one subject at a time.'));
       clear(
         resultsP.body,
         h('div.schlist', ...rs.slice(0, 20).map((r) =>
@@ -643,7 +655,9 @@ export const schoolTab: TabDef = {
       if (!view) {
         P.big.textContent = 'School';
         P.sub.textContent = schoolState.error ? 'The school record cannot be shown right now' : 'Looking up his record…';
-        clear(ladderP.body, h('div.note', schoolState.error ? `Ghosty could not be reached, so the school record can't be shown: ${schoolState.error}` : 'Asking Ghosty for his school record…'));
+        /* state: school.ladder error */
+        /* state: school.ladder loading */
+        clear(ladderP.body, h('div.note', { dataset: { state: schoolState.error ? 'error' : 'loading' } }, schoolState.error ? `Ghosty could not be reached, so the school record can't be shown: ${schoolState.error}` : 'Asking Ghosty for his school record…'));
         return;
       }
       const v = view;
