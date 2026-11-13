@@ -637,7 +637,7 @@ export const lensTab: TabDef = {
       moreOpen = !moreOpen;
       syncMore();
     }, 'lensmore');
-    moreBtn.setAttribute('aria-label', 'More: the tools, hands, aim, measure, sound, shapes, people, and the acts, read, ask, name, scan, see');
+    moreBtn.setAttribute('aria-label', 'More: tell me to do something else instead: read, ask, name, scan, see, measure, people, hands, aim, sound, shapes');
     const backBtn = button('‹ LENS', () => setMode('lens'), 'on');
     backBtn.setAttribute('aria-label', 'Back to the Lens: the camera with my marks');
     backBtn.classList.add('lensback');
