@@ -1128,7 +1128,10 @@ button.markchip { border-color: var(--ok); font-weight: 600; }
 @media (hover: none) {
   input, textarea, select { font-size: 16px !important; }
   .vcform .vcinput { font-size: 20px !important; }
-  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: 40px !important; }
+  /* (POLISH 3, 2d: measured on every screen at 390 and 440, 13 Nov: ten keys sat at exactly 40 because of this rule (System's three,
+     the interpreter's five, rehearse's and photo's one each); the rule now holds the 44 pt token instead, so they are made right here,
+     not one by one. A key drawn at its own fixed size has its own, more specific rule and is not moved.) */
+  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: var(--g-target) !important; }
 }
 
 /* =====================================================================

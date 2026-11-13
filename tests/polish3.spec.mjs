@@ -634,7 +634,7 @@ await section('h', async () => {
     bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent', loader: { '.css': 'empty' },
   });
   const { ctx, page } = await open({ W: 390, hash: 'core' });
-  await page.addScriptTag({ content: r.outputFiles[0].text });
+  await page.evaluate(r.outputFiles[0].text); // (as a script the page's own policy would refuse: run by the test, not by the page)
   const got = await page.evaluate(async () => {
     const B = window.__bk;
     const png = await (await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==')).blob();
