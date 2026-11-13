@@ -15,7 +15,11 @@ export async function run(H) {
   check(W.todayCount(2, 1) === '2 left · 1 to-do' && W.todayCount(0, 3) === '3 to-dos' && W.todayCount(1, 0) === '1 left' && W.todayCount(0, 0) === '', `[home] the Today head counts: ${W.todayCount(2, 1)} / ${W.todayCount(0, 3)}`);
   check(W.todoSummary(['Bins']) === 'Bins' && W.todoSummary(['Bins', 'Passport']) === '2 due: Bins, Passport' && W.todoSummary(['A', 'B', 'C', 'D']) === '4 due: A, B and 2 more' && W.todoSummary([]) === '', `[home] the to-do line: ${W.todoSummary(['A', 'B', 'C', 'D'])}`);
   check(W.todayTap(0, 2) === 'todo' && W.todayTap(1, 2) === 'diary' && W.todayTap(0, 0) === 'diary' && W.todayTap(-1, 2) === 'diary', '[home] the Today card opens the to-do list only when to-dos are all that is left today');
-  check(W.freeSquare(0) && W.freeSquare(1) && W.freeSquare(2) === '' && !/nothing yet/i.test(W.freeSquare(0) + W.freeSquare(1)), `[home] the free squares: ${W.freeSquare(0)} / ${W.freeSquare(1)}`);
+  check(W.freeSquare('recent', true) === W.FREE_WORDS.recent && W.freeSquare('pin', true) === W.FREE_WORDS.pin && W.freeSquare('recent', false) === '' && W.freeSquare('pin', false) === '' && W.freeSquare('none', true) === '' && !/nothing yet/i.test(W.FREE_WORDS.recent + W.FREE_WORDS.pin), `[home] the free squares say their role: ${W.FREE_WORDS.recent} / ${W.FREE_WORDS.pin}`);
+  // (THE MAP: with its 3 recents full only a pin can fill a free square, so the first free square says how to pin, not "recents")
+  check(JSON.stringify(W.mapFreeRoles(0, 0)) === '["recent","pin"]' && JSON.stringify(W.mapFreeRoles(3, 0)) === '["pin"]' && JSON.stringify(W.mapFreeRoles(2, 4)) === '["recent"]' && JSON.stringify(W.mapFreeRoles(3, 4)) === '[]', `[home] THE MAP's free squares by what fills them: ${JSON.stringify(W.mapFreeRoles(3, 0))}`);
+  check(Object.values(W.FREE_WORDS).every((s) => s.split(' ').every((w) => w.length <= 7) && s.length <= 15), '[home] the free-square words fit two lines of seven letters (the narrowest cell at BODY 21)');
+  check(W.todoNeeds(1) === 'One thing on your to-do list today.' && W.todoNeeds(3) === '3 things on your to-do list today.' && !/nothing/i.test(W.todoNeeds(1)), `[home] the line over a to-do due: ${W.todoNeeds(1)}`);
   check(Object.values(W.TODAY_WORDS).every((s) => s.split(/\s+/).length <= 20 && !H.RAW.test(s)), '[home] the Today card states are short and plain');
   log('home: pure words');
 
@@ -79,6 +83,12 @@ export async function run(H) {
       const t = await page.evaluate((k) => window.__ghosty?.[k]?.tonight ?? null, st);
       const shown = await page.evaluate(() => document.querySelector('#pg-core')?.innerText.includes('Renew the passport before the trip to the coast'));
       check(t?.kind === 'todo' && shown, `[home ${world}] the hour's thing is the to-do due today, in his words: ${JSON.stringify(t)} shown=${shown}`);
+      // the line under the greeting never says "Nothing needs you" over the to-do the hour's thing shows
+      const said = await page.evaluate(() => document.querySelector('#pg-core')?.innerText ?? '');
+      check(t?.kind !== 'todo' || !/Nothing needs you/.test(said), `[home ${world}] no "Nothing needs you" over a to-do due: ${(said.match(/Nothing needs you[^.]*\./) ?? [''])[0]}`);
+      // the to-do is a sentence: its name on the hour's card is whole, not clamped at two or three lines with "…"
+      const clamped = await page.$$eval('.gnhour[data-kind="todo"] .gnname, .mapcell.lit[data-what="todo"] .mcname, .eyefeed.sharp[data-what="todo"] .eyename, .mapcell.free .mcline, .eyefeed.free .eyeline', (l) => l.filter((e) => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+      check(!clamped.length, `[home ${world}] the hour's to-do and the free squares' words are not clamped at BODY 21: ${JSON.stringify(clamped)}`);
     }
     const f = await H.fit(page, '#pg-core');
     check(!f.sideways && !f.cut.length, `[home ${world}] Home at 390, BODY 21: nothing sideways, no word cut: ${JSON.stringify({ sideways: f.sideways, cut: f.cut })}`);
@@ -100,7 +110,11 @@ export async function run(H) {
       const sel = world === 'map' ? '.mapcell.free' : '.eyefeed.free';
       const free = await page.$$eval(sel, (l) => l.map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
       check(!free.some((t) => /nothing yet/i.test(t)), `[home ${world}] a free square says what fills it, never "nothing yet": ${JSON.stringify(free)}`);
-      check(free.length < 2 || (free.filter((t) => /lands here/i.test(t)).length === 1 && free.filter((t) => /pin it/i.test(t)).length === 1), `[home ${world}] the free squares say it once each: ${JSON.stringify(free)}`);
+      // each line at most once, and only on a square of its role (what he opens fills a 'recent' square, a pin a 'pin' square)
+      const roles = await page.$$eval(sel, (l) => l.map((e) => ({ role: e.dataset.role, t: e.innerText.replace(/\s+/g, ' ').trim() })));
+      const rec = roles.filter((r) => r.t.includes('Recents go here'));
+      const pin = roles.filter((r) => r.t.includes('Hold to pin'));
+      check(rec.length <= 1 && pin.length <= 1 && rec.every((r) => r.role === 'recent') && pin.every((r) => r.role === 'pin') && (!roles.some((r) => r.role === 'pin') || pin.length === 1), `[home ${world}] the free squares say what will really fill them, once each: ${JSON.stringify(roles)}`);
     }
     await ctx.close();
   }

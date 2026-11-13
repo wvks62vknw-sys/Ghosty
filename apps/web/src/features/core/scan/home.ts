@@ -42,6 +42,9 @@ import { PRESS_HINT } from '../orbwords';
 import { orbFx } from '../orbfx';
 import { tilt, tiltState } from '../tilt';
 import { startDay } from '../day';
+import { loadTodos } from '../../agenda/todo';
+import { dueToday } from '../../agenda/todowords';
+import { todoNeeds } from '../todaywords';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
@@ -117,9 +120,17 @@ export const litByHour = (d = new Date(now())) => (d.getHours() >= 17 || d.getHo
 export function sayTwo(p: PlaceNow, hr = new Date(now()).getHours()): string {
   if (p.kind === 'out') return 'Shall I plan the way back?';
   if (p.kind === 'way') return 'Shall we read till you get there?';
-  if (hr >= 17 || hr < 5) return bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
+  // [planlane:home] a to-do due today or late is something that needs him: never "Nothing needs you" over it (the Today card and
+  // the hour's thing list it)
+  let due = 0;
+  try {
+    due = dueToday(loadTodos(), now()).length;
+  } catch {
+    due = 0;
+  }
+  if (hr >= 17 || hr < 5) return due ? `${todoNeeds(due)}${bookNow() ? ' Shall we read after?' : ''}` : bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
   if (hr < 12) return 'Shall I brief you?';
-  return 'Nothing needs you right now.';
+  return due ? todoNeeds(due) : 'Nothing needs you right now.';
 }
 
 /** The book he is in (his reading places, newest first): its name, how far, when; null when none is on the go. */

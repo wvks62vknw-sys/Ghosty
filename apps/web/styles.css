@@ -9455,7 +9455,9 @@ html body .rcbody .rd b, html body .rcbody .rdclr { white-space: normal; overflo
 /* ONE INK: RECENT and FAVOURITES are whole words at BODY 21 (the label grows; the words beside it move over or under) */
 html body .inkl > .g-truth { width: auto; min-width: 96px; overflow-wrap: normal; word-break: normal; white-space: nowrap; }
 /* GROWN UP and ORBIT: the hour card's "Ask me" key grows round its words at BODY 21 (a 44 pt circle cut them at the card's edge) */
-html body #app :is(button.gnhourgo, button.orbhourgo) { width: auto; min-width: var(--g-target); padding: 0 var(--g-s-1); white-space: nowrap; }
+html body #app :is(button.gnhourgo, button.orbhourgo) { width: auto; min-width: var(--g-target); padding: 0 var(--g-s-1); white-space: nowrap; border-radius: var(--g-radius-capsule); }
+/* a free square's words and the hour's to-do (a sentence, not a title) are never cut by the two-line clamp */
+html body #app :is(.eyefeed.free .eyeline, .mapcell.free .mcline, .gnhour[data-kind="todo"] .gnname, .mapcell.lit[data-what="todo"] .mcname, .eyefeed.sharp[data-what="todo"] .eyename) { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; text-overflow: clip; }
 html body .orbhour { grid-template-columns: minmax(0, 1fr) auto; }
 /* GROWN UP: the hour card's kicker ("Tonight · on your to-do list") wraps at BODY 21 instead of ending in "…" */
 html body .gnhourtext .gnkick { white-space: normal; overflow: visible; text-overflow: clip; }

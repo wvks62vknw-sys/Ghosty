@@ -184,7 +184,7 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     sideKey = sig;
     for (const n of sideEls) n.remove();
     const cells: { kind: string; id: string }[] = [];
-    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
+    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', what: e.kind, case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
       h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, icon(CLOCK, 'ic eyeic'), h('span', word)),
       h('span.eyename', { dataset: { case: 'keep' } }, e.name),
       h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, e.line));
@@ -199,9 +199,11 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       const it = placed[i];
       if (!it) {
         // [planlane:home] /* state: core.home empty */ a free feed says what fills it (once), not "nothing yet" in each
-        const say = freeSquare(cells.filter((c) => c.kind === 'free').length);
+        // (slots 0-1 are the recents', 2 and up the pins': the words say what will really fill this one)
+        const role = i < 2 ? 'recent' : 'pin';
+        const say = freeSquare(role, !placed.some((q, j) => !q && j < i && j < 2 === i < 2));
         cells.push({ kind: 'free', id: '' });
-        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), say ? h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, say) : null));
+        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', role, case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), say ? h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, say) : null));
         return;
       }
       const { t, kind } = it;
