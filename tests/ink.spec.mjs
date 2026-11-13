@@ -155,10 +155,11 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   if (!(await page.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await page.locator('.logbtn:visible').first().click().catch(() => undefined);
   await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
   // the looks still coming say their line and change nothing
-  await page.fill('#cin', 'orbit');
+  // (ORBIT is built since its landing: GROWN UP is the look still coming)
+  await page.fill('#cin', 'grown up');
   await page.press('#cin', 'Enter');
-  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Orbit is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "orbit" did not say its line'));
-  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "orbit" changed the world');
+  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Grown Up is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "grown up" did not say its line'));
+  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "grown up" changed the world');
   await page.fill('#cin', 'one ink');
   await page.press('#cin', 'Enter');
   await until(page, () => document.documentElement.dataset.world === 'ink', 8000, '[words] "one ink" did not make the world ink');

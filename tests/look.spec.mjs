@@ -660,15 +660,15 @@ if (!isWebKit) {
     check(sc.on === 'true' && /you.re in it/i.test(sc.line) && /THE SCAN/i.test(sc.head), `[gallery] THE SCAN after its tap: ${JSON.stringify(sc)}`);
     await p9.evaluate(() => (location.hash = 'core'));
     await until(p9, () => document.body.classList.contains('scanhome'), null, 10000, '[gallery] with THE SCAN chosen Home did not wear its frame (body.scanhome)');
-    // a tap on ORBIT (not built): one toast with its line, the world unchanged, no navigation
+    // a tap on GROWN UP (not built; ORBIT is, since its landing): one toast with its line, the world unchanged, no navigation
     await themePage(p9);
     await clearToasts(p9);
     const before = await p9.evaluate(() => ({ hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab }));
-    await p9.click(card('orbit'));
+    await p9.click(card('grown'));
     await p9.waitForTimeout(400);
     const map = await p9.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent ?? ''), hash: location.hash, world: document.documentElement.dataset.world, tab: window.__ghosty.ui.get().tab, still: !!document.querySelector('#pg-settings .pn.themepn.pushed'), saved: window.__ghosty.settings.get().look?.world }));
-    check(map.toasts.length === 1 && map.toasts[0].includes('Orbit is coming: Mind is the way in'), `[gallery] a tap on ORBIT says ${JSON.stringify(map.toasts)}`);
-    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'orbit', `[gallery] a tap on ORBIT changed something: ${JSON.stringify({ before, map })}`);
+    check(map.toasts.length === 1 && map.toasts[0].includes('Grown Up is coming: Today, with less on it'), `[gallery] a tap on GROWN UP says ${JSON.stringify(map.toasts)}`);
+    check(map.world === before.world && map.hash === before.hash && map.tab === before.tab && map.still && map.saved !== 'grown', `[gallery] a tap on GROWN UP changed something: ${JSON.stringify({ before, map })}`);
     // the stills: each an <img> under looks/ with width, height and alt, loaded; each file under 60 KB, the seven under 350 KB
     const imgs = await p9.evaluate(async () => {
       const list = [...document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-look img')];

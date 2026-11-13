@@ -127,7 +127,7 @@ const HOME_READY = () => { const f = document.querySelector('.eyeframe'); const 
   const m0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built }), card('eye'));
   check(!m0.coming && m0.built === 'true', `[gallery] THE EYE's card is still COMING: ${JSON.stringify(m0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look).join());
-  check(comings === 'orbit,grown', `[gallery] COMING is on ${comings} (want orbit,grown)`);
+  check(comings === 'grown', `[gallery] COMING is on ${comings} (want grown: ORBIT is built too)`);
   await page.click(card('eye'));
   await until(page, () => document.documentElement.dataset.world === 'eye', 5000, '[gallery] a tap on THE EYE did not make the world eye');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
