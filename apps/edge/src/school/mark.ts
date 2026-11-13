@@ -50,10 +50,18 @@ export function readMarks(reply: string, max: number): { got: number; note: stri
   return { got, note };
 }
 
-/** The pupil's words as kept: the thinking taken out, and trimmed to the item's room. */
+/**
+ * The pupil's words as kept: the thinking taken out, and trimmed to the item's room. Full working that runs past the
+ * room keeps its last "Answer:" line (13 Nov: the brain's own model writes its working out in full), so the code still
+ * marks the answer and never reads a cut-off step instead.
+ */
 export function keepGiven(item: SchoolItem, given: string): string {
   const t = String(given ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  return t.slice(0, item.type === 'extended' ? GIVEN_MAX.extended : GIVEN_MAX.short);
+  const room = item.type === 'extended' ? GIVEN_MAX.extended : GIVEN_MAX.short;
+  if (t.length <= room) return t;
+  const last = t.split('\n').map((l) => l.trim()).filter(Boolean).reverse().find((l) => /^\**\s*(?:final\s+)?answer\s*[:=]/i.test(l));
+  if (!last || last.length > room / 2) return t.slice(0, room);
+  return `${t.slice(0, room - last.length - 3).trimEnd()}\n…\n${last}`;
 }
 
 /** One item: exact by the code, written by the model (or `pending` when no model is free, or it gave no marks). */

@@ -60,8 +60,10 @@ export interface PaperRecord {
   issuedAt: number;
   /** His replies by item id (as the phone sent them). */
   given: Record<string, string>;
-  /** The model that sat it ('stock', or a trained week's key). */
+  /** The model that sat it ('stock', or a trained week's key; online: the brain's model as the router names it). */
   model?: string;
+  /** Where it is being sat: this phone (absent), or by the brain's own model online (school/online.ts). */
+  where?: 'phone' | 'online';
   result?: PaperResult;
 }
 
