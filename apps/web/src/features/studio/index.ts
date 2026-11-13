@@ -32,6 +32,7 @@ import { readScene } from '../../engine3d/scene';
 
 // (the samples and the panes: a pure list the ABILITIES catalogue reads too)
 import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
+import { SHADING_NOTE, SHADINGS } from './words';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
 import { cardCredit, CATALOGUE_DOWN, CATALOGUE_OFFLINE, fetchWords, LOADING, MAKE_MORE, MAKE_NOTE, MAKE_WAIT, NO_PHOTO, PHOTO_OFFLINE, PHOTO_WAIT, noHitWords, openFailWords, OPEN_FAIL_TRY, PHOTO_NOTE } from './words';
@@ -495,6 +496,15 @@ export const studioTab: TabDef = {
         h('div.note', V.info.metres ? 'Tap two points on the model: the straight-line distance between them, in real units (glTF models and rooms are in metres).' : 'Tap two points on the model: the distance in the model’s own units (a model made from a picture has no real size).'),
         h('div.row.wrap', mBtn, button('CLEAR', () => V.clearMeasure())),
         h('div.studioreadout', V.measureText() || (V.measuring ? `${V.measure.points.length} of 2 points` : '—')),
+        // VIEW (FINAL ROUND, MAKE lane): the three ways every 3-D app draws a model
+        h('div.lab', 'VIEW'),
+        h('div.note', SHADING_NOTE[V.shading]),
+        h('div.row.wrap.studioshade', ...SHADINGS.map(([id, label]) => {
+          const b = button(label, () => V.setShading(id), V.shading === id ? 'on' : '');
+          b.dataset.shade = id;
+          b.setAttribute('aria-pressed', String(V.shading === id));
+          return b;
+        })),
       );
     };
 
@@ -1026,6 +1036,17 @@ export const studioTab: TabDef = {
         rooms: V.roomPlan?.rooms?.length ?? (V.info.room ? 1 : 0),
         openings: V.roomPlan?.openings?.length ?? 0,
         boxes: V.parts.length,
+        shading: V.shading,
+        // how the first part's material is drawn now (the VIEW keys change it; SOLID puts the model's own back)
+        look: (() => {
+          let x: { wireframe?: unknown; transparent: boolean; opacity: number } | null = null;
+          V.parts[0]?.obj.traverse((o) => {
+            const m = o as unknown as { isMesh?: boolean; material?: { wireframe?: unknown; transparent: boolean; opacity: number } | { wireframe?: unknown; transparent: boolean; opacity: number }[] };
+            if (!x && m.isMesh && m.material) x = Array.isArray(m.material) ? m.material[0]! : m.material;
+          });
+          const y = x as { wireframe?: unknown; transparent: boolean; opacity: number } | null;
+          return y ? { wireframe: !!y.wireframe, transparent: y.transparent, opacity: y.opacity } : null;
+        })(),
       }),
     };
     const g = window as unknown as { __ghosty?: Record<string, unknown> };

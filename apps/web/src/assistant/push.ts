@@ -41,8 +41,10 @@ export async function initApp(): Promise<void> {
     pushState.set({ status: 'unsupported' });
     return;
   }
-  // (a browser whose service workers are switched off hands back a registration with no push at all: unsupported here, never a throw)
-  const supported = 'PushManager' in window && 'Notification' in window && !!reg?.pushManager;
+  // (a browser that blocks service workers, as a private window can, gives no registration back: then there is no push; one whose
+  // registration carries no push at all is the same: unsupported here, never a throw)
+  if (!reg) return pushState.set({ status: 'unsupported' });
+  const supported = 'PushManager' in window && 'Notification' in window && !!reg.pushManager;
   pushState.set({ supported });
   if (!supported) {
     pushState.set({ status: isIos() && !standalone() ? 'needs-install' : 'unsupported' });

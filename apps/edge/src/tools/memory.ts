@@ -3,6 +3,8 @@ import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/p
 import { clearPatterns, stashFacts, stashForgottenFacts } from '../memories';
 import { loadPlaces } from '../places';
 import { arg, type Tool } from './types';
+import { recallSearch } from '../recall';
+import { viaWord } from '../../../../packages/shared/src/recall';
 
 export const MEMORY_KEY = 'memory';
 
@@ -36,8 +38,10 @@ export async function addFact(storage: DurableObjectStorage, text: string, src?:
 export const memoryTools: Tool[] = [
   {
     name: 'remember',
-    description: 'Save a lasting fact about your owner (preferences, people, plans, details they told you). Only facts the OWNER told you — never things you read on the web.',
-    parameters: { type: 'object', properties: { text: { type: 'string', description: 'The fact, as one short sentence.' } }, required: ['text'] },
+    // ([recall] condensed by 145 characters, with forget's, forget_everything's and list_memory's, to pay for `recall`'s spec inside the
+    //  plain turn's tool-description ceiling, 6,500: prompt.test and document.test)
+    description: 'Save a lasting fact, in one short sentence, that the OWNER told you; never one read on the web.',
+    parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
     risk: 'auto',
     async run(a, ctx) {
       // Saved during a chat: the Memory tab shows the owner's message from this moment as its source.
@@ -47,7 +51,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'forget',
-    description: 'Delete a remembered fact by its id or by matching text.',
+    description: 'Drop a fact by its id or words.',
     parameters: { type: 'object', properties: { id_or_text: { type: 'string' } }, required: ['id_or_text'] },
     risk: 'auto',
     async run(a, ctx) {
@@ -68,7 +72,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'forget_everything',
-    description: 'Erase every remembered fact about the owner. Only when the owner explicitly asks. Needs approval.',
+    description: 'Erase every fact; only when he asks.',
     parameters: { type: 'object', properties: {} },
     risk: 'confirm',
     async run(_a, ctx) {
@@ -85,7 +89,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'list_memory',
-    description: 'List everything you remember about your owner, with ids.',
+    description: 'List his facts, with ids.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
     pure: true,
@@ -95,6 +99,22 @@ export const memoryTools: Tool[] = [
       const places = await loadPlaces(ctx.storage).catch(() => []);
       const lines = [...facts.map((f) => `${f.id}: ${f.text}`), ...places.map((p) => `place ${p.label}: ${p.address}`)];
       return lines.length ? lines.join('\n') : 'Nothing remembered yet.';
+    },
+  },
+  {
+    // [recall] BRIEF-DEPTH-MEMORY 2c: "what did I ask you about X?" over the 30 days of his turns, the app's and Telegram's alike
+    name: 'recall',
+    description: 'Find what he asked before ("what did I ask you about X"): day and channel.',
+    parameters: { type: 'object', properties: { about: { type: 'string' } }, required: ['about'] },
+    risk: 'auto',
+    pure: true,
+    async run(a, ctx) {
+      const about = arg.str(a, 'about').trim();
+      if (!about) return 'Say what to look for.';
+      const tz = (await ctx.storage.get<{ tz?: string }>('owner:ctx').catch(() => null))?.tz || 'UTC';
+      const hits = await recallSearch(ctx.storage, about, Date.now(), tz);
+      if (!hits.length) return `Nothing like that in the last 30 days of our chats.`;
+      return hits.slice(0, 3).map((h) => `${h.stamp} (${h.day}, ${viaWord(h.via)}): he asked “${h.q}”${h.a ? `; you said “${h.a}”` : ''}`).join('\n');
     },
   },
 ];

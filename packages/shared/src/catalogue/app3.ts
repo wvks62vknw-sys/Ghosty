@@ -146,6 +146,12 @@ export const APP_3: Record<string, CatValue> = {
     more: 'Moves only what can move, and keeps the walkways clear.',
     say: ['Make more space in my bedroom'], scene: ['making'], cat: 'build',
   },
+  'panel:space:MATERIALS': {
+    name: 'Paint, flooring and wallpaper', line: 'You can see how much paint, flooring, skirting and wallpaper the rooms on your plan take.',
+    more: 'Two coats on the walls and ceilings in tins you can buy, flooring with 10% over for cuts, doors and windows taken off. A first estimate to shop with, never a quote.',
+    say: ['(open SPACE and read MATERIALS)'], scene: ['making', 'money'], cat: 'build',
+    since: '2026-11-13',
+  },
   'panel:space:MEASURED': {
     name: 'Sizes from the camera', line: 'You can bring in the sizes you measured with the Lens and use them in the plan.',
     more: 'A wall or a sofa measured from a photo lands here.',

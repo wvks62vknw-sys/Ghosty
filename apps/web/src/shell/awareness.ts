@@ -124,7 +124,7 @@ const lastTurn: { at: number; line: string; screen: string; had: boolean } = { a
  * What the phone sends with every turn to the brain (the one function: the chat and the Lens's questions both use it): his time,
  * his name, his saved place (never live GPS), the screen (`ScreenContext`) and its one line for the brain to paste.
  */
-export function clientContext(spoken = false, who?: 'owner' | 'unknown' | { name: string }): ClientContext {
+export function clientContext(spoken = false, who?: 'owner' | 'unknown' | 'unsure' | { name: string }, heard?: ClientContext['heard']): ClientContext {
   const now = new Date();
   const screen = askedScreen() ?? screenContext();
   const screenLine = contextWords(screen);
@@ -140,6 +140,8 @@ export function clientContext(spoken = false, who?: 'owner' | 'unknown' | { name
     // Said into the microphone: the brain answers in its spoken style (persona.ts SPOKEN). `who`: the voice, as a label, when the
     // phone knew voices and scored this one (assistant/voiceknown.ts: owner, unknown, or the name of a person he introduced).
     ...(spoken ? { voice: who ?? true } : {}),
+    // [voice lane] what the phone knows of voices (assistant/voiceknown.ts heardNote): his voice taught or not, whose it last knew
+    ...(heard ? { heard } : {}),
     // where he is, as the phone decided it: a word and a saved place's name, with his question only (never a coordinate)
     ...(placeWord() ? { place: placeWord()! } : {}),
   };

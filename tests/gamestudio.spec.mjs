@@ -6,7 +6,7 @@
 // advancing, the save point's "Saved", RESET; the whole quest walked by scripted inputs, saved, the page reloaded and CONTINUE
 // restoring the room, hearts, coins and the quest step; (g) a quest that cannot be completed is said before PLAY; (h) SHARE's size
 // said and the file read back equal, IMPORT lists it; (i) AS AN APP: the size said and under the target, the manifest, the policy
-// pinning one script by its hash, the exported page running on its own, and the sites path's result said; (j) the ARCADE's MY GAMES
+// pinning one script by its hash, the exported page running on its own, and PUT IT ON MY SITES's sentence; (j) the ARCADE's MY GAMES
 // row with PLAY and EDIT; (k) "Saved" said, the editor reopens on the same room, UNDO after a delete; (l) every control 44 pt,
 // nothing sideways, BODY 21 clips nothing, the pixel editor's cells at least 22 pt at 390; (m) "make me a platformer about a fox" in the chat (the brain's `game` tool, BRIEF-KERNEL-3) opens the studio on a
 // new game of the studio's own kit that plays from the ARCADE. Each step of the benchmark is timed.
@@ -527,10 +527,11 @@ for (const size of [PHONE, { width: 390, height: 844 }].filter((z) => !process.e
   check(pin.has && pin.net && pin.scripts === 1, `${W}: its one script is pinned by hash and the policy has no network`);
   await pressBtn(page, 'Export the game as one page, kept in the library');
   check(await until(page, () => document.querySelector('#pg-gamestudio .stLibRow'), null, 6000), `${W}: the page is kept in the library`);
-  await pressBtn(page, 'Put the page on my sites');
-  await page.waitForTimeout(300);
-  const sites = await page.evaluate(() => document.querySelector('#pg-gamestudio .stSites')?.textContent ?? '');
-  check(/I can’t put this on your sites yet/.test(sites) && /needs a change to my server, which needs your word/.test(sites), `${W}: PUT IT ON MY SITES says honestly what stops it`);
+  // [sites] PUT IT ON MY SITES is now the sentence that starts the chat turn (KERNEL 3 item 6, his yes); its tap, his APPROVE and the
+  // page it publishes are tests/gamesites.spec.mjs's
+  const sites = await page.evaluate(() => document.querySelector('#pg-gamestudio .stSitesLine')?.textContent ?? '');
+  const gname = await S(page, (S) => S.game().name);
+  check(sites === `Ask me in the chat: “put ${gname} on my sites” and I’ll ask your APPROVE.` && !!(await page.evaluate(() => [...document.querySelectorAll('#pg-gamestudio button')].find((b) => b.getAttribute('aria-label') === 'Put the page on my sites'))), `${W}: PUT IT ON MY SITES says the sentence that starts the chat turn: ${sites}`);
   // the exported page runs on its own
   const own = await ctx.newPage();
   const ownErrors = [];
