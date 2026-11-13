@@ -46,6 +46,7 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
+import { recallChip } from '../memory/recallcard';
 import { heldReply, verifyRow } from './verifycard'; // [health] "Setting it…", the tick, RETRY and SHOW ME
 import { holdForWhy, whyButton } from './why';
 import { holdOrb } from '../further/mindmap';
@@ -488,6 +489,8 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       if (e.verify) el.append(verifyRow(e) ?? '');
       // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
       if (e.local) el.append(localRow(e) ?? '');
+      // [recall] "like you said on Tuesday": the RECALL chip opens that turn (features/memory/recallcard.ts)
+      else el.append(recallChip(e.text, e.at) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // [offline2] answered FIRST on this phone: ASK THE CLOUD, one tap; tapped, it stays above the cloud's answer, struck faintly

@@ -403,7 +403,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     // [gallery] the Theme page is seven looks and the twelve colours (BRIEF-THEME-GALLERY; OWNER-ISSUES 155, 157): each colour
     // swatch drawn in its own theme's accent block (data-accent, tokens.css); no preset row, no dial, no switch, no ground row
     const sw = await page.$$eval('#pg-settings .gg-sw', (bs) => bs.map((b) => ({ id: b.dataset.colour, name: b.getAttribute('aria-label')?.replace(/, chosen$/, ''), on: b.getAttribute('aria-checked'), accent: b.dataset.accent, c: getComputedStyle(b).getPropertyValue('--g-accent').trim() })));
-    const COLOURS = 'Reactor,Graphite,Ember,Gold,Crimson,Violet,Emerald,Ice,Rose,Lime,Sunset,Mono';
+    const COLOURS = 'Blue,Grey,Orange,Yellow,Red,Purple,Green,Light blue,Pink,Lime,Peach,White';
     if (sw.map((x) => x.name).join(',') !== COLOURS || sw.some((x) => x.accent !== x.id || !/^#[0-9a-f]{6}$/i.test(x.c)) || sw.find((x) => x.id === name)?.c !== hex) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
     const gone = await page.$$eval('#pg-settings .pn.themepn.pushed :is(.swatch, .swatch[data-theme], .swatches, .gdials, .gdial, .gchoice, .gswitch, .gsw, .swcustom)', (els) => els.length);
     if (gone) problems.push(`[themes] the Theme page still has ${gone} preset, dial, switch or ground controls (they left the page: 155, 157)`);

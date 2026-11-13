@@ -2,6 +2,7 @@
 import type { BrainStatus, KeyStatus, ProviderRoom } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
+import { indexLine } from '../memory/words';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
@@ -272,6 +273,20 @@ export const systemTab: TabDef = {
           h('div.note', 'Without this, Safari deletes what Ghosty keeps on this phone after 7 days without use. Your daily backup (below) can bring it back.'),
         );
       }
+      // [recall] the recall index's size (features/memory/recall.ts), kept only on this phone; CLEAR, and it rebuilds at idle
+      const idx = h('div.note.recallindex', '');
+      const clr = button('CLEAR', async (b) => {
+        b.disabled = true;
+        await import('../memory/recall').then((r) => r.clearIndex());
+        idx.textContent = indexLine(0, 0);
+        b.disabled = false;
+      }, 'recallclear');
+      clr.setAttribute('aria-label', 'Clear the recall index; it rebuilds while the phone sits idle');
+      stp.body.append(h('div.row.wrap.recallidx', idx, clr));
+      void import('../memory/recall').then(async (r) => {
+        await r.recallWarm();
+        idx.textContent = indexLine(r.recallState.items, r.recallState.bytes);
+      });
     };
     storageState.subscribe(() => paintStorage());
 
