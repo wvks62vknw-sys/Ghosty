@@ -48,7 +48,7 @@ export function independenceBlock(): HTMLElement & { paint(): void } {
         'div.note.indsov',
         always
           ? stopped.length
-            ? 'Nothing you ask leaves this phone; what stopped for want of the cloud this week:'
+            ? 'Nothing you ask leaves this phone. What stopped for want of the cloud this week:'
             : 'Nothing you ask leaves this phone, and nothing has stopped for want of the cloud this week.'
           : 'Set WHEN THE PHONE ANSWERS to Always in Settings and nothing you ask leaves this phone.',
       ),

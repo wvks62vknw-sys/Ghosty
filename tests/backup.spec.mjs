@@ -136,7 +136,7 @@ check(/^STORAGE: (PROTECTED( · [\d.]+ MB used)?|NOT PROTECTED — .+?)( · [\d.
 if (/NOT PROTECTED/.test(line ?? '')) {
   const canAsk = await page.evaluate(() => !!navigator.storage?.persisted);
   if (canAsk) {
-    check(/add Ghosty to your Home Screen \(Share → Add to Home Screen\) so iPhone keeps your data|press PROTECT/.test(line), `no Home Screen advice: "${line}"`);
+    check(/add Ghosty to your Home Screen so iPhone keeps your data|press PROTECT/.test(line), `no Home Screen advice: "${line}"`);
     check(!!(await page.$('#pg-system button:has-text("PROTECT")')), 'no PROTECT button while not protected');
   } else check(/cannot be asked|add Ghosty to your Home Screen/.test(line), `no plain words for a browser that cannot be asked: "${line}"`);
 }
