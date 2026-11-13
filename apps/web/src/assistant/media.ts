@@ -25,6 +25,8 @@ export const player = createStore({
   why: '' as Why,
   /** when the sleep timer ends the radio (ms), 0 when none is set */
   sleepAt: 0,
+  /** which choice set it: its minutes ("30"), "hour" for the end of this hour, "at" for a time he said; '' when none */
+  sleepKind: '',
 });
 
 /** A station that has not started after this long is said to be not answering. */
@@ -75,8 +77,9 @@ function el(): HTMLAudioElement {
     });
     // paused from outside Ghosty: the lock screen, Control Centre, AirPods taken out (a pause Ghosty made has
     // already said so, and one left over from the station before has the element playing again by now)
+    // (a stream that ran out pauses too, just before 'ended': that one is said as "stopped sending", never as Paused)
     audio.addEventListener('pause', () => {
-      if (!live() || !audio?.paused) return;
+      if (!live() || !audio?.paused || audio.ended) return;
       clearTimeout(tuneTimer);
       player.set({ state: 'paused' });
     });
@@ -136,7 +139,7 @@ export function stopAudio(): void {
   turn++;
   clearTimeout(tuneTimer);
   clearSleep();
-  player.set({ now: null, state: 'idle', since: 0, why: '', sleepAt: 0 });
+  player.set({ now: null, state: 'idle', since: 0, why: '', sleepAt: 0, sleepKind: '' });
   if (audio) {
     audio.pause();
     audio.removeAttribute('src');
@@ -215,8 +218,10 @@ export function forgetRecent(): void {
   }
 }
 
-// THE SLEEP TIMER: the radio goes quiet over its last 20 seconds, then stops. Kept in this page only (a reload is a new night).
+// THE SLEEP TIMER: the radio goes quiet over its last 20 seconds, then stops. It lives in this page: a reload stops the radio
+// (the browser ends the sound), so the timer goes with it; the time it was set for is kept on the phone only so the Radio can say so.
 const FADE_MS = 20_000;
+const SLEEP_KEPT = 'ghosty.radio.sleep';
 let sleepTimer = 0;
 let fadeTimer = 0;
 function clearSleep(): void {
@@ -224,13 +229,29 @@ function clearSleep(): void {
   clearInterval(fadeTimer);
   sleepTimer = fadeTimer = 0;
   if (audio) audio.volume = player.get().volume;
+  try {
+    localStorage.removeItem(SLEEP_KEPT);
+  } catch {
+    /* ignore */
+  }
 }
 /** Stop the radio in `min` minutes (0 takes the timer off). */
 export function setSleep(min: number): void {
+  setSleepAt(min ? Date.now() + min * 60_000 : 0, String(min));
+}
+/** Stop the radio at `at` (ms; 0 takes the timer off). `kind` says which choice set it, so the screen lights that key. False when nothing is on to stop. */
+export function setSleepAt(at: number, kind = 'at'): boolean {
   clearSleep();
-  if (!min || !player.get().now) return void player.set({ sleepAt: 0 });
-  const at = Date.now() + min * 60_000;
-  player.set({ sleepAt: at });
+  if (!at || at <= Date.now() || !player.get().now) {
+    player.set({ sleepAt: 0, sleepKind: '' });
+    return false;
+  }
+  player.set({ sleepAt: at, sleepKind: kind });
+  try {
+    localStorage.setItem(SLEEP_KEPT, JSON.stringify({ at, name: player.get().now?.name ?? '' }));
+  } catch {
+    /* ignore */
+  }
   sleepTimer = window.setTimeout(() => {
     const v0 = audio?.volume ?? 0;
     const t0 = Date.now();
@@ -240,6 +261,22 @@ export function setSleep(min: number): void {
       if (k <= 0) stopAudio();
     }, 250);
   }, Math.max(0, at - Date.now() - FADE_MS));
+  return true;
+}
+
+/** A sleep timer that was still to run when the page last closed or reloaded (the reload stopped the radio and the timer with it). */
+let lostSleep: { at: number; name: string } | null = null;
+try {
+  const k = JSON.parse(localStorage.getItem(SLEEP_KEPT) ?? 'null') as { at?: unknown; name?: unknown } | null;
+  if (k && typeof k.at === 'number' && k.at > Date.now()) lostSleep = { at: k.at, name: typeof k.name === 'string' ? k.name : '' };
+  localStorage.removeItem(SLEEP_KEPT);
+} catch {
+  /* ignore */
+}
+/** The sleep timer the last reload ended, while it would still have been running (null once he plays again or it would have ended). */
+export function sleepLost(): { at: number; name: string } | null {
+  if (lostSleep && (lostSleep.at <= Date.now() || player.get().now)) lostSleep = null;
+  return lostSleep;
 }
 
 /** The station after (or before) the one on, in his favourites, else the ones he played lately: the lock screen's ⏭ and ⏮. */
@@ -280,6 +317,16 @@ export const favourites = {
     l.splice(Math.max(0, Math.min(at, l.length)), 0, { name: s.name, url: s.url, info: s.info });
     saveFavs(l);
   },
+  /** Move a favourite one place up (-1) or down (1): his own order, which ⏭ and ⏮ and "play my second favourite" follow. */
+  move(url: string, dir: -1 | 1): boolean {
+    const l = favourites.list();
+    const i = l.findIndex((x) => x.url === url);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= l.length) return false;
+    [l[i], l[j]] = [l[j]!, l[i]!];
+    saveFavs(l);
+    return true;
+  },
   indexOf: (url: string) => favourites.list().findIndex((x) => x.url === url),
   has: (url: string) => favourites.list().some((x) => x.url === url),
 };
@@ -311,11 +358,13 @@ if (session) {
   on('previoustrack', () => step(-1));
   let shown = '';
   player.subscribe((p) => {
-    const key = p.now ? `${p.now.url}|${p.now.name}` : '';
+    // the sleep timer shows on the lock screen too, on the line under the station's name ("Stops at 23:10 · UK · News")
+    const stops = p.sleepAt ? `Stops at ${new Date(p.sleepAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
+    const key = p.now ? `${p.now.url}|${p.now.name}|${stops}` : '';
     if (key !== shown) {
       shown = key;
       try {
-        session.metadata = p.now ? new MediaMetadata({ title: p.now.name, artist: p.now.info || 'Live radio', album: 'Ghosty radio', artwork: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] }) : null;
+        session.metadata = p.now ? new MediaMetadata({ title: p.now.name, artist: [stops, p.now.info || 'Live radio'].filter(Boolean).join(' · '), album: 'Ghosty radio', artwork: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] }) : null;
       } catch {
         /* no MediaMetadata here */
       }
