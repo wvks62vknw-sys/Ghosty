@@ -21,6 +21,11 @@ The lane's screens: BODY (water, sleep, steps, weight, mood, reps, the running c
 ## What I made
 
 ### BODY: five trackers, each an app of its own (features/body/track.ts, trackcore.ts)
+BODY's pills are now Water, Sleep, Move, Mood, Weight and Health, because a screen holds at most six pills:
+- Move holds steps, the camera's reps and the running coach;
+- Mood holds the mood log, breathing and the stretch set.
+
+`#body?run` and every chat door still open each room on its own.
 All kept in the phone's own storage only (`ghosty.body.track`); none of it is sent to my brain or anywhere else. Every goal and
 number is labelled a first estimate, never medical advice.
 
@@ -88,7 +93,7 @@ number is labelled a first estimate, never medical advice.
 ### The checks kept honest
 - **lifepass B10** used to require water to fail with no brain. Water now lives on the phone, so the check is just as strict
   the other way: with my brain cut off, the amount is drawn at once (never "…"), there is no error, and a glass is kept.
-- **tabs.spec** lists the new pills: Sleep, Steps, Weight and Mood on BODY, and Pantry and Recipes on KITCHEN.
+- **tabs.spec** lists the new pills and pages: BODY's six (Water, Sleep, Move, Mood, Weight, Health) and its ten pages, and KITCHEN's Pantry and Recipes. **lifepass** opens the camera, the run, breathing and stretching through their new pills, Move and Mood, with every check as before.
 - **The ratchet** gains rows for the new screens' states (body.sleep, steps, weight and mood; kitchen.pantry and recipes).
 - **The catalogue** describes water and the trackers as they really are now, and adds the pantry.
 
@@ -114,5 +119,6 @@ number is labelled a first estimate, never medical advice.
   need the brain's push, and that means sending his water to it. I kept it on the phone instead.
 - **The pantry has no barcode scan.** The brain's kitchen tool already reads a barcode by chat. A key on the pantry for it
   would be next.
+- **Notifications code outside my lane** (`assistant/push.ts`) throws "reading 'pushManager'" when a browser has no service worker, for example a spec that blocks them. That belongs to SYSTEM AND SETTINGS. The bodylane spec leaves service workers on rather than hiding the error.
 - **Outside's walk, nearby, lost and split** were audited and found whole, with their four states in place. They were not
   rebuilt this round.

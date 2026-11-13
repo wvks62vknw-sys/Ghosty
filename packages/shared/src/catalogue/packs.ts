@@ -183,17 +183,11 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:kitchen:recipe': {
     name: 'A recipe step by step', line: 'I can give you a dish’s whole recipe: what you need and every step.',
-    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → RECIPES keeps your own recipes on the phone, scales them, cooks them step by step with a timer, and puts first what your pantry has.',
-    say: ['How do I make a chicken curry?', 'Open my recipes'], scene: ['making'], cat: 'do', since: SINCE,
+    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer, and puts first what you have.',
+    say: ['How do I make a chicken curry?', 'Open my recipes', 'Add milk to the fridge'], scene: ['making'], cat: 'do', since: SINCE,
     go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
   },
-  'act:kitchen:pantry': {
-    name: 'Your pantry', line: 'You can keep what is in your fridge, freezer and cupboard with its use-by date, and I show what to use first.',
-    more: 'Kept on your phone only. USED UP takes it off and can put it on the shopping list. The recipe book puts first what you can cook with it.',
-    say: ['Add milk to the fridge', 'What’s in my pantry?'], scene: ['making'], cat: 'do', since: SINCE,
-    go: { run: 'open_kitchen', args: { what: 'pantry' } }, tryText: 'Opens the pantry',
-  },
-  'phrase:larder': { same: 'act:kitchen:pantry' },
+  'phrase:larder': { same: 'act:kitchen:recipe' },
   'act:kitchen:shop': {
     name: 'Your shopping list', line: 'You can add to your shopping list by voice, tick things off on the phone, and send it as text.',
     more: 'Kept in your brain. "Add milk and eggs to the list", "tick the milk", SHARE AS TEXT to send it to someone. Clear the ticked ones when you are home.',

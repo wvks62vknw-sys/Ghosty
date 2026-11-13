@@ -268,7 +268,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   await block(`body ${W}`, async () => {
     log(`body ${W}`);
     const T = `[body ${W}]`;
-    await open(page, 'body', 'Reps');
+    await open(page, 'body', 'Move');
     const P = PK('body');
     const geom = await page.evaluate(() => ({ b: document.querySelector('.pn:not([hidden]) button[aria-label="Start counting"]')?.getBoundingClientRect().bottom ?? 9999, dock: document.querySelector('#dock')?.getBoundingClientRect().top ?? 0, off: !!document.querySelector('.pn:not([hidden]) .pkstage [data-state="empty"]') }));
     check(geom.b <= geom.dock - 4, `${T} B1 START is in reach above the dock (bottom ${Math.round(geom.b)}, dock ${Math.round(geom.dock)})`);
@@ -296,7 +296,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     check((await page.evaluate(() => window.__ghosty.body.camera)) === 'off', `${T} B2 STOP puts the camera off`);
     await bar(page, `${T} reps bar`, 'body');
     // B5, B6: the run
-    await open(page, 'body', 'Run');
+    await open(page, 'body', 'Move');
     const run = await txt(page, `${P}`);
     check(/measured by the phone/.test(run) && /min per km/.test(run), `${T} B5 a run's distance is "measured by the phone" and its pace is in min per km: ${run.slice(0, 160)}`);
     const rb = await page.$$eval(`${P} button`, (b) => b.map((x) => (x.textContent ?? '').trim()));
@@ -328,11 +328,11 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await unroute(page);
     await open(page, 'body', 'Water');
     await bar(page, `${T} water bar`, 'body');
-    await open(page, 'body', 'Breathe');
+    await open(page, 'body', 'Mood');
     await bar(page, `${T} breathe bar`, 'body');
-    await open(page, 'body', 'Stretch');
+    await open(page, 'body', 'Mood');
     await bar(page, `${T} stretch bar`, 'body');
-    await open(page, 'body', 'Reps');
+    await open(page, 'body', 'Move');
     await phraseOpens(page, 'body', 'body', `${T} B11 phrases`);
   });
 
@@ -721,7 +721,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
 {
   log('body 21');
   const { ctx, page } = await phone(PHONE, { body: 21 });
-  for (const [id, pills] of [['money', ['']], ['body', ['Reps', 'Run', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
+  for (const [id, pills] of [['money', ['']], ['body', ['Move', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
     for (const pill of pills) {
       await open(page, id, pill);
       await page.waitForTimeout(500);

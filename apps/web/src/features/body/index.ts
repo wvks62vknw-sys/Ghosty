@@ -25,17 +25,14 @@ export const bodyTab: TabDef = {
       sections: async () => {
         const m = await import('./sheet');
         const part = (what: import('./sheet').BodyWhat) => ({ title: m.BODY_TITLES[what], pack: 'body', screen: what, build: () => m.bodyScreen(what) });
+        // (six pills at most, ui/sections.ts: each holds its rooms, drawn one under another)
         return [
-          { id: 'reps', label: 'Reps', parts: [part('reps')] },
-          { id: 'run', label: 'Run', parts: [part('run')] },
-          { id: 'breathe', label: 'Breathe', parts: [part('breathe')] },
-          { id: 'stretch', label: 'Stretch', parts: [part('stretch')] },
-          { id: 'health', label: 'Health', parts: [part('health')] },
           { id: 'water', label: 'Water', parts: [part('water')] },
           { id: 'sleep', label: 'Sleep', parts: [part('sleep')] },
-          { id: 'steps', label: 'Steps', parts: [part('steps')] },
+          { id: 'move', label: 'Move', parts: [part('steps'), part('reps'), part('run')] },
+          { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
           { id: 'weight', label: 'Weight', parts: [part('weight')] },
-          { id: 'mood', label: 'Mood', parts: [part('mood')] },
+          { id: 'health', label: 'Health', parts: [part('health')] },
         ];
       },
     }),

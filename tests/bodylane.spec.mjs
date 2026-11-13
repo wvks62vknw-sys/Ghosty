@@ -49,7 +49,7 @@ const seedDays = () => {
 };
 
 async function phone(viewport, o = {}) {
-  const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...UK });
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
@@ -190,7 +190,7 @@ for (const vp of VIEWPORTS) {
   check(/7 h 30 min last night, 30 min under your 8 h goal/.test(await txt(page, `${W} .bt-line`)), `${T} sleep says it against the goal: "${await txt(page, `${W} .bt-line`)}"`);
   await page.evaluate(() => (window.__ghostyClockOffset = 0));
   await bar(page, `${T} sleep`, 'body');
-  await open(page, 'body', 'Steps');
+  await open(page, 'body', 'Move');
   on('steps');
   await tap(page, 'Add 5,000 steps');
   await tap(page, 'Add 5,000 steps');
@@ -298,7 +298,7 @@ for (const vp of VIEWPORTS) {
   // ---- f. every pill of the lane
   log(`every pill ${vp.width}`);
   const p2 = await phone(vp);
-  for (const [id, pills] of [['body', ['Reps', 'Run', 'Breathe', 'Stretch', 'Health', 'Water', 'Sleep', 'Steps', 'Weight', 'Mood']], ['kitchen', ['Timers', 'Shopping', 'Meal plan']], ['outside', ['Walk', 'Nearby', 'My car', 'Lost', 'Split']]]) {
+  for (const [id, pills] of [['body', ['Water', 'Sleep', 'Move', 'Mood', 'Weight', 'Health']], ['kitchen', ['Timers', 'Shopping', 'Meal plan']], ['outside', ['Walk', 'Nearby', 'My car', 'Lost', 'Split']]]) {
     for (const pill of pills) {
       await open(p2.page, id, pill);
       await p2.page.waitForTimeout(300);
@@ -312,7 +312,7 @@ for (const vp of VIEWPORTS) {
 log('body 21 and the seven looks');
 {
   const { ctx, page } = await phone(VIEWPORTS[1], { body: 21, seed: seedDays() });
-  for (const pill of ['Water', 'Sleep', 'Steps', 'Weight', 'Mood']) {
+  for (const pill of ['Water', 'Sleep', 'Move', 'Mood', 'Weight']) {
     await open(page, 'body', pill);
     await page.evaluate(() => document.querySelectorAll('#pg-body .pn:not([hidden]) details').forEach((d) => (d.open = true)));
     const r = await page.evaluate(() => {
