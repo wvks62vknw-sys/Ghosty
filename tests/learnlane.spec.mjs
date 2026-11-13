@@ -129,12 +129,15 @@ for (const vp of [PHONE, PHONE2]) {
         const r = [...(v.state?.results ?? [])].sort((a, b) => b.at - a.at)[0];
         if (!r) return null;
         const p = await (await fetch(`/api/school/paper/${r.paperId}`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': key } })).json();
-        return { where: r.where, model: r.model, answers: (p.result?.answers ?? []).map((a) => ({ id: a.id, how: a.how, given: a.given })), given: Object.values(p.given ?? {}) };
+        return { where: r.where, model: r.model, answers: (p.result?.answers ?? []).map((a) => ({ id: a.id, how: a.how, got: a.got, given: a.given })), top: !!r.top, given: Object.values(p.given ?? {}) };
       }, KEY);
       check(rec?.where === 'online' && rec?.model === 'Stand-in · test model', `${T} [S3 recorded] the latest result: ${JSON.stringify(rec && { where: rec.where, model: rec.model })}`);
       const bad = (rec?.answers ?? []).filter((a) => a.how === 'unanswered' || !/^Working:[\s\S]*\nAnswer: /.test(a.given));
       check(!!rec && rec.answers.length > 0 && !bad.length, `${T} [S3 full working] not every answer was kept in full working and marked: ${JSON.stringify(bad.slice(0, 2)).slice(0, 300)}`);
       check(!!rec && rec.answers.some((a) => a.how === 'exact' || a.how === 'model' || a.how === 'pending'), `${T} [S3 marked] no answer was marked`);
+      // marked for real: the stand-in gets every other question wrong on purpose, so right ones score and wrong ones do not
+      const exact = (rec?.answers ?? []).filter((a) => a.how === 'exact');
+      if (exact.length >= 2) check(exact.some((a) => a.got > 0) && exact.some((a) => a.got === 0) && !rec.top, `${T} [S3 marked for real] exact marks: ${JSON.stringify(exact.map((a) => a.got))}`);
       // the result card says where it was sat
       const seeLine = await until(page, () => /online, in full working/.test(document.querySelector('#pg-school')?.textContent ?? '') || !!document.querySelector('#pg-school .schresult'), null, 8000);
       check(seeLine, `${T} [S3] no result card after the paper`);

@@ -71,11 +71,15 @@ export const schoolMock: Ask = async (system, user) => {
  * model: it writes its working out in full, then the answer line, as the real one is asked to. Never used for real.
  */
 export const schoolMockSit: Sit = async (_system, _user, item) => {
-  const answer = item.type === 'mcq' ? (item.answer ?? 'a').toUpperCase() : item.type === 'extended' ? 'done' : item.answer ?? '';
+  // (every other question it gets wrong, on purpose: the paper is marked for real, some marks and some none, and the shared
+  // test record never reaches top grades, so no spec after it finds a stage or a reading level passed by the stand-in)
+  const wrong = (Number(item.id.replace(/\D/g, '')) || 0) % 2 === 0;
+  const right = item.type === 'mcq' ? (item.answer ?? 'a').toUpperCase() : item.type === 'extended' ? 'done' : item.answer ?? '';
+  const answer = !wrong ? right : item.type === 'mcq' ? ('abcdefgh'.split('').find((l) => l !== (item.answer ?? 'a').toLowerCase()) ?? 'b').toUpperCase() : item.type === 'number' ? '987654321' : item.type === 'extended' ? 'done' : 'not sure';
   const working = [
     `Working: I read the question carefully (${item.marks} mark${item.marks === 1 ? '' : 's'}).`,
-    item.type === 'mcq' ? `Step 1: I check each choice against what the question asks.\nStep 2: Only one choice fits: ${item.options?.['abcdefgh'.indexOf((item.answer ?? 'a').toLowerCase())] ?? answer}.` : `Step 1: I set out what is known.\nStep 2: I work it through: ${item.answer ?? 'my answer'}.`,
-    item.type === 'extended' ? `${item.answer ?? 'My piece of writing, written out in full.'}` : '',
+    item.type === 'mcq' ? `Step 1: I check each choice against what the question asks.\nStep 2: I pick the one that fits best.` : `Step 1: I set out what is known.\nStep 2: I work it through to ${answer}.`,
+    item.type === 'extended' ? (wrong ? 'A short piece that misses the point.' : `${item.answer ?? 'My piece of writing, written out in full.'}`) : '',
     `Answer: ${answer}`,
   ].filter(Boolean);
   return { text: working.join('\n'), model: 'Stand-in · test model' };
