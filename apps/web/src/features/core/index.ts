@@ -1182,9 +1182,11 @@ export const coreTab: TabDef = {
     // just asked for, so his first spoken word came later (FINAL-CI 1). His own words, just sent, are drawn there and then.
     let logFrame = 0;
     chat.subscribe((s) => {
-      const newest = s.entries.at(-1);
-      // (and anything answered on the phone with no turn at work, such as "orbit": its line is there the moment its effect is)
-      if ((newest?.kind === 'user' && newest.at !== lastSent) || !ui.get().busy) {
+      // (his newest message, even when its answer came in the same breath: the reader and the phone's own answers add both at once)
+      // (and with no brain turn at work, everything at once: a line the phone answers itself, such as "orbit", is in the log the
+      // moment its effect is; only a turn of the brain's, the first spoken word's path, is drawn once a frame)
+      const newest = s.entries.findLast((e) => e.kind === 'user');
+      if ((newest && newest.at !== lastSent) || !ui.get().busy) {
         cancelAnimationFrame(logFrame);
         logFrame = 0;
         paintLog();

@@ -101,6 +101,8 @@ export async function run(H) {
   }
   const txt = (page, sel) => page.evaluate((s) => document.querySelector(s)?.innerText?.replace(/\s+/g, ' ').trim() ?? '', sel);
   const fits = async (page, tag) => {
+    // measured once the screen's entrance has finished (mid-way every key reads a fraction short: 43 for 44): the real condition, no sleep
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     for (const sel of ['#pg-brief .hero', '#pg-brief .pn.brday', '#pg-brief .pn.commute', '#pg-brief .pn.wx', '#pg-brief .pn.news']) {
       const f = await H.fit(page, sel);
       check(!f.small.length && !f.sideways && !f.cut.length, `[brief ${tag}] ${sel} fits at BODY 21: ${JSON.stringify(f)}`);
