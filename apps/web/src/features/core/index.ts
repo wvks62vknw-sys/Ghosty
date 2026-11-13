@@ -1183,8 +1183,10 @@ export const coreTab: TabDef = {
     let logFrame = 0;
     chat.subscribe((s) => {
       // (his newest message, even when its answer came in the same breath: the reader and the phone's own answers add both at once)
+      // (and with no brain turn at work, everything at once: a line the phone answers itself, such as "orbit", is in the log the
+      // moment its effect is; only a turn of the brain's, the first spoken word's path, is drawn once a frame)
       const newest = s.entries.findLast((e) => e.kind === 'user');
-      if (newest && newest.at !== lastSent) {
+      if ((newest && newest.at !== lastSent) || !ui.get().busy) {
         cancelAnimationFrame(logFrame);
         logFrame = 0;
         paintLog();
