@@ -183,9 +183,10 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const next = page.locator(`${P} .mnnav button`).last();
     check(!(await prev.isDisabled()) && (await next.isDisabled()) && /latest month I hold/.test((await next.getAttribute('aria-label')) ?? ''), T('MONTH the month arrows: earlier open, later says why it cannot be pressed'));
     // a payment found by a word, then filed
+    await page.evaluate((q) => (window.__box = document.querySelector(q)), `${P} input.mnsearch`);
     await page.fill(`${P} input.mnsearch`, 'netflix');
     check(await until(page, () => window.__ghosty.moneyapp.shown === 1), T(`MONTH "netflix" finds the one payment (${await page.evaluate(() => window.__ghosty.moneyapp.shown)})`));
-    check((await page.evaluate(() => document.activeElement?.classList.contains('mnsearch'))), T('MONTH the search box keeps the finger while it filters'));
+    check((await page.evaluate(() => document.activeElement?.classList.contains('mnsearch') && document.activeElement === window.__box)), T('MONTH the search box keeps the finger while it filters, never replaced under the keyboard'));
     await page.locator(`${P} .mntxn`).first().click();
     await page.waitForSelector('.modal button[aria-label="File it as shopping"]', { timeout: 5000 });
     await page.click('.modal button[aria-label="File it as shopping"]');
@@ -244,6 +245,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const P = PK('money');
     const tr = await page.evaluate(() => window.__ghosty.moneyapp.trend);
     check(tr.length === 3 && tr.map((x) => x.slice(0, 7)).join() === M.join(), T(`TRENDS each month he gave me, in order: ${tr.join(' / ')}`));
+    check(/so far/.test(await txt(page, `${P} .mnmeter .mnline b`)) && /this month is still going, so it is left out/.test(await txt(page, `${P} .mnfig .mnhow`)), T('TRENDS the month still going is said as so far, and left out of the average'));
     check(/A month on average/.test(await txt(page, `${P} .mnfig`)) && /Dearest month/.test(await txt(page, `${P} .mnfig`)) && /Cheapest month/.test(await txt(page, `${P} .mnfig`)), T('TRENDS the average, the dearest and the cheapest'));
     await page.click(`${P} button[aria-label="Show groceries across the months"]`);
     check((await page.getAttribute(`${P} button[aria-label="Show groceries across the months"]`, 'aria-pressed')) === 'true' && /^Groceries: £[\d,]+\.\d\d a month on average/.test(await txt(page, `${P} .mnwhy`)), T(`TRENDS one category across the months: "${await txt(page, `${P} .mnwhy`)}"`));
@@ -373,6 +375,10 @@ await block('words people home', async () => {
   await page.waitForTimeout(600);
   await page.click(`${Hm} button[aria-label="Tell me a collection moved"]`);
   check(/Type where it moved first/.test(await txt(page, `${Hm} p.pknote`)), 'HOME "A collection moved" with nothing typed asks where to');
+  await page.fill(`${Hm} textarea[aria-label="Your bin days, in your words"]`, 'to Wednesday this week');
+  await page.click(`${Hm} button[aria-label="Tell me a collection moved"]`);
+  check(/Tell me your bin days first/.test(await txt(page, `${Hm} p.pknote`)), 'HOME a move with no bin days kept asks for the days first, and keeps none');
+  await page.fill(`${Hm} textarea[aria-label="Your bin days, in your words"]`, '');
   const bins = (await pk('homeadmin', 'bins', {})).text ?? '';
   check(!/Wednesday/.test(bins), `HOME no made-up day was kept: "${bins.slice(0, 80)}"`);
   await ctx.close();
