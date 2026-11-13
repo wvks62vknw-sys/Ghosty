@@ -1,0 +1,14 @@
+/** THE COMIC's state, for the specs (window.__ghosty.comic) and for the screen's own sentence. */
+export const comicState = {
+  books: 0,
+  made: 0,
+  imported: 0,
+  last: '',
+  shelf: { state: '' as string, titles: [] as string[] },
+  import: { state: '' as string, words: '' },
+  editing: { id: '', title: '', pages: 0, page: 0, panel: -1, balloon: '', drawn: 0, panels: 0, balloons: 0, cast: [] as string[] },
+  reader: { open: false, id: '', page: 0, panel: -1, guided: false, rtl: false, zoom: 1, spread: false, pages: 0, shown: [] as number[] },
+  library: { state: '' as string, query: '', items: 0, got: '' },
+  saved: { kind: '', name: '', bytes: 0 },
+  error: '',
+};

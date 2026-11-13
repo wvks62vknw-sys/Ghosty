@@ -1,5 +1,5 @@
 /**
- * The words of the Every screen deck (shell/launcher.ts; OWNER-ISSUES 33–34): for each of the twenty screens its
+ * The words of the Every screen deck (shell/launcher.ts; OWNER-ISSUES 33–34): for each screen of the deck (DECK_GROUPS) its
  * name, a promise (one line of at most 44 characters, so it never needs cutting on a half card), three to five
  * YOU CAN lines, each with what a tap does (a deep link into the right screen and mode, or an example said to
  * Ghosty), and a DID YOU KNOW where there is a true one; then the TRY THIS NOW picks, three a day.
@@ -7,7 +7,7 @@
  * Every claim is one the app makes good on: checked against MAP.md and each feature's own header comment
  * (features/<tab>/index.ts and the files it names). Not claimed: naming plants, birds or insects (the Lens names
  * things from everyday-name lists), calories from a photo of dinner (Lens's ASK sends the picture to the brain,
- * nothing more), Night School (planned, not built). SCHOOL is Ghosty's own schooling: he sits the papers.
+ * nothing more). SCHOOL is Ghosty's own schooling: he sits the papers.
  * British English, plain words; "he" is Ghosty.
  */
 import { META as GAMES } from '../gym/meta';
@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -71,7 +71,7 @@ export const DECK: Record<string, DeckScreen> = {
     can: [
       { text: 'Rain chance and temperature, hour by hour', act: { open: 'brief', panel: 'WEATHER' } },
       { text: 'Headlines by section: world, tech, science', act: { open: 'brief', panel: 'HEADLINES' } },
-      { text: 'Brief me: weather and headlines in 90 words', act: { open: 'brief', panel: 'HEADLINES' } },
+      { text: 'Brief me: weather and headlines in 90 words', act: { open: 'brief' } },
     ],
   },
   eye: {
@@ -168,7 +168,7 @@ export const DECK: Record<string, DeckScreen> = {
     can: [
       { text: 'The wind tunnel: air round a wing, live', act: { open: 'workbench', panel: 'WIND TUNNEL' } },
       { text: 'Will a beam hold? Bend and stress', act: { open: 'workbench', panel: 'BEAM' } },
-      { text: 'Gear ratios and an engine’s power', act: { open: 'workbench', panel: 'GEARS' } },
+      { text: 'Gear ratios, worked out', act: { open: 'workbench', panel: 'GEARS' } },
       { text: 'Wings, cars, projectiles and orbits', act: { open: 'workbench', panel: 'WING' } },
       { text: 'Heat loss, sun and shadow, circuits', act: { open: 'workbench', panel: 'HEAT' } },
     ],
@@ -184,6 +184,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Revise your flashcards', act: { run: 'open_learn', args: { view: 'revise' } } },
     ],
     dyk: 'Flashcards come back just before you would forget them.',
+  },
+  // [consistency] the Arcade was in DECK_GROUPS with no words: its card showed no YOU CAN lines (FINAL-CONSISTENCY)
+  arcade: {
+    name: 'Arcade',
+    promise: 'Real classics, free, kept on the phone',
+    can: [
+      { text: 'DOOM, Quake and more off the shelf', act: { open: 'arcade', panel: 'THE SHELF' } },
+      { text: 'Free DOOM levels fans made', act: { open: 'arcade', panel: 'THE FREE LEVELS' } },
+      { text: 'Play the games you made', act: { open: 'arcade', panel: 'MY GAMES' } },
+    ],
   },
   gym: {
     name: 'Gym',
@@ -230,10 +240,10 @@ export const DECK: Record<string, DeckScreen> = {
   },
   markets: {
     name: 'Markets',
-    promise: 'Crypto, indices and currencies, live',
+    promise: 'Crypto, gold and currencies, live',
     can: [
       { text: 'Bitcoin and friends, with the day’s change', act: { open: 'markets', panel: 'CRYPTO' } },
-      { text: 'The FTSE, gold, oil and currencies', act: { open: 'markets' } },
+      { text: 'Gold, silver and what £1 buys abroad', act: { open: 'markets', panel: 'GOLD & SILVER' } },
       { text: '“Why is bitcoin moving today?”', act: { ask: 'Why is bitcoin moving today?' } },
     ],
   },
@@ -269,11 +279,11 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'Settings',
     promise: 'Make him yours: his look, voice, manner',
     can: [
-      // [themes2] the count follows: seventeen presets, then the dials (a ground, a colour, a world, the switches: BRIEF-THEMES-2)
-      { text: 'Pick his look: seventeen presets and the dials', act: { open: 'settings', panel: 'THEME' } },
+      // [consistency] Settings → THEME is the gallery: seven looks and twelve colours (the presets and dials are on THE LOOK)
+      { text: 'Pick his look: seven looks, twelve colours', act: { open: 'settings', panel: 'THEME' } },
       // THE LOOK (BRIEF-DESIGN-SYSTEM 5): the design system shown by itself, a row of Settings
       { text: 'The look: how he draws everything', act: { open: 'look' } },
-      { text: 'Three dials: how dry, how brief, how warm', act: { open: 'settings', panel: 'CHARACTER' } },
+      { text: 'Four dials: dry, brief, warm and fiery', act: { open: 'settings', panel: 'CHARACTER' } },
       { text: 'Choose the voice he speaks in', act: { open: 'settings', panel: 'VOICE' } },
       { text: 'Download the offline brain', act: { open: 'settings', panel: 'OFFLINE BRAIN' } },
     ],
@@ -370,7 +380,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'Where you are is asked only when you tap, used for that one question and kept nowhere.',
   },
   homeadmin: {
-    name: 'Home',
+    name: 'Household',
     promise: 'Bins, bills, meters and what is due',
     can: [
       { text: 'What is due at home, in date order', act: { open: 'homeadmin', panel: 'DUE' } },
@@ -498,6 +508,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'My games', act: { ask: 'My games' } },
     ],
     dyk: 'A game you make stays on this phone until you share it or put it on your Home Screen as an app.',
+  },
+  comic: {
+    name: 'Comic',
+    promise: 'Read your comics and make your own',
+    can: [
+      { text: 'Make a comic about a cat who wants to fly', act: { ask: 'Make me a comic about a cat who wants to fly' } },
+      { text: 'Read a comic', act: { ask: 'Read a comic' } },
+      { text: 'Free public-domain comics', act: { ask: 'Public domain comics' } },
+    ],
+    dyk: 'A CBZ, a PDF or a folder of pictures becomes a comic on your shelf, read panel by panel, and it never leaves this phone.',
   },
 };
 

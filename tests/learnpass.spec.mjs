@@ -227,7 +227,9 @@ for (const vp of [PHONE, PHONE2]) {
     check(await until(page, (w) => document.querySelector('#pg-learn .learnsay')?.textContent === w && !document.querySelector('#pg-learn .learnsay').hidden, LN.TOPIC_EMPTY, 3000), `${T} [C1 empty topic] START with nothing typed said "${await txt(page, '#pg-learn .learnsay')}"`);
     await still(page, 'courses-cold', vp);
     // C1 · planning: said once as a waiting line, the key keeps its word
-    await page.fill('#pg-learn .learntopic input', 'photosynthesis');
+    // (its own topic: learn.spec plans "photosynthesis" on the same brain and writes its lesson 2, so that course's lesson 2 is
+    // never "a lesson not yet written" for C2 below; the brain hands back the course it already has for the same topic)
+    await page.fill('#pg-learn .learntopic input', 'how leaves make sugar');
     await page.locator('#pg-learn .learnnew button.on', { hasText: /^start$/i }).click({ force: true });
     check(await until(page, (w) => !!document.querySelector(`#pg-learn [data-wait="${w}"]`), LN.PLANNING, 2500), `${T} [C1 planning] no waiting line "${LN.PLANNING}" while the course was planned: waits ${(await waits(page)).filter((x) => /course|Plan/i.test(x)).join(' | ')}`);
     check((await txt(page, '#pg-learn .learnnew .row.wrap button')) === 'START' && (await page.locator('#pg-learn [data-wait="Planning your course…"]').count()) === 1, `${T} [C1 planning] the key reads "${await txt(page, '#pg-learn .learnnew .row.wrap button')}" (the wait is said once)`);
