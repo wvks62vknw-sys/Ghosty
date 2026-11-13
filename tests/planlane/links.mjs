@@ -39,11 +39,13 @@ async function pushPanel(page, title) {
   const open = await page.evaluate((title) => !!document.querySelector('#pg-links .pn.pushed') && (document.querySelector('#pg-links .pn.pushed h3 .ptitle')?.textContent ?? '').startsWith(title), title);
   if (open) return;
   await page.locator('#pg-links .pn > h3', { hasText: title }).first().click().catch(() => undefined);
-  await page.waitForTimeout(600);
+  // (the real condition: that panel pushed open, within 8 s)
+  await page.waitForFunction((title) => (document.querySelector('#pg-links .pn.pushed h3 .ptitle')?.textContent ?? '').startsWith(title), title, { timeout: 8000 }).catch(() => undefined);
 }
 async function back(page) {
   await page.evaluate(() => (location.hash = 'core'));
-  await page.waitForTimeout(200);
+  // (the real condition: the chat screen is the one shown)
+  await page.waitForFunction(() => document.body.dataset.tab === 'core', null, { timeout: 8000 }).catch(() => undefined);
 }
 
 export async function run(H) {
@@ -240,7 +242,8 @@ export async function run(H) {
     // Telegram TEST with no signal: a toast, never kept as Telegram not working
     await pushPanel(page, 'TELEGRAM');
     await page.locator('#pg-links .pn button', { hasText: /^TEST$/ }).first().click({ timeout: 5000 }).catch(() => check(false, 'no Telegram TEST key'));
-    await page.waitForTimeout(1200);
+    // (the real condition: the TEST has answered, its toast up, within 10 s)
+    await page.waitForFunction(() => !!document.getElementById('toasts')?.textContent?.trim(), null, { timeout: 10000 }).catch(() => undefined);
     let t = await panelOf(page, 'TELEGRAM');
     const kept2 = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.links.checks') ?? '{}'));
     check(t?.status === 'Linked as @specbot' && !kept2.telegram, `a TEST with no signal is not kept as Telegram not working: ${t?.status} ${JSON.stringify(kept2)}`);
