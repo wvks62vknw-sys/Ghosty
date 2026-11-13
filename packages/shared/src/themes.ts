@@ -16,6 +16,7 @@
  * (apps/edge/test/look.test.mjs) read the same tables. NEVER live GPS: ground-follows-the-day reads the phone's clock and his
  * home as he saved it in Settings (sunTimes, from his latitude and longitude), else 08:00 to 18:00.
  */
+import { colourWord, FANCY, PLAIN, TWO_WAYS } from './colours';
 
 // ---------------------------------------------------------------- the ground
 
@@ -51,10 +52,8 @@ export const groundOf = (k: string): Ground | undefined => GROUNDS.find((g) => g
 /** The twelve colours, in Settings' order (their names and tag lines: state/theme.ts THEMES; their blocks: tokens.css). */
 export const COLOUR_KEYS = ['reactor', 'graphite', 'ember', 'gold', 'crimson', 'violet', 'emerald', 'ice', 'rose', 'lime', 'sunset', 'mono'] as const;
 export type ColourKey = (typeof COLOUR_KEYS)[number];
-export const COLOUR_LABELS: Record<ColourKey, string> = {
-  reactor: 'Reactor', graphite: 'Graphite', ember: 'Ember', gold: 'Gold', crimson: 'Crimson', violet: 'Violet',
-  emerald: 'Emerald', ice: 'Ice', rose: 'Rose', lime: 'Lime', sunset: 'Sunset', mono: 'Mono',
-};
+/** Named plainly (colours.ts, FINAL ROUND: "red, blue, green", never only "crimson"): the keys stay, so a kept setting still reads. */
+export const COLOUR_LABELS: Record<ColourKey, string> = PLAIN;
 export const DEFAULT_COLOUR: ColourKey = 'reactor';
 export const isColour = (k: string): k is ColourKey => (COLOUR_KEYS as readonly string[]).includes(k);
 
@@ -346,6 +345,10 @@ export interface LookAsk {
   switches?: Partial<Switches>;
   /** "bigger text" / "smaller text": one step of BODY. */
   body?: 'bigger' | 'smaller';
+  /** A word that names a colour and a ground both ("white", "grey"): one short question, both as keys (colours.ts TWO_WAYS). */
+  two?: string;
+  /** The colour word he said, when it was not its plain name ("crimson", "navy"): said back beside the plain name. */
+  word?: string;
 }
 
 const DIRECTION_WORDS: [RegExp, string][] = [
@@ -372,7 +375,7 @@ function bare(text: string): string {
 }
 
 /** The verbs a theme word comes after ("switch to", "use", "make it"), taken off; what is left names the thing. */
-const VERB = /^(?:switch(?: it)?(?: over)? to |change(?: it)? to |change to |go(?: to)? |set(?: it)? to |use |try |turn(?: it)? (?:to |into )?|make(?: it| everything| the screen)? |put (?:it|me) (?:on|in) |show me |back to |i'll have |i'll take )/;
+const VERB = /^(?:paint (?:it|everything) |colou?r (?:it|everything) |do (?:it|everything) in |switch(?: it)?(?: over)? to |change(?: it)? to |change to |go(?: to)? |set(?: it)? to |use |try |turn(?: it)? (?:to |into )?|make(?: it| everything| the screen)? |put (?:it|me) (?:on|in) |show me |back to |i'll have |i'll take )/;
 const LOOKISH = /(?: look| theme| world| preset| mode| style)$/;
 
 /**
@@ -391,14 +394,17 @@ export function lookAsked(text: string): LookAsk | null {
     ?? /^(?:the )?(?:background|ground|floor|screen|page)(?: to)? (black|graphite|slate|warm|paper|white|light|dark)$/.exec(t);
   if (m) return groundWord(m[1]!);
   if (/^(?:paper|slate)(?: ground)?$/.test(t)) return { ground: t.startsWith('paper') ? 'paper' : 'slate' };
-  if (/^(?:light mode|day mode|lights on)$/.test(t)) return { ground: 'paper' };
-  if (/^(?:dark mode|night mode|lights off)$/.test(t)) return { night: true };
+  // ("lights on" and "lights off" left this table: they are the room's lights or the screen, so meanings.ts asks which)
+  if (/^(?:light mode|day mode)$/.test(t)) return { ground: 'paper' };
+  if (/^(?:dark mode|night mode)$/.test(t)) return { night: true };
   if (/^(?:true black|pure black|all black|black)$/.test(t)) return { ground: 'black' };
   m = /^(?:(?:a )?(?:bit|little|touch|shade) )?(lighter|brighter|darker|dimmer)(?: please)?(?: background| ground| screen| one)?$/.exec(t);
   if (m) return { step: m[1] === 'lighter' || m[1] === 'brighter' ? 'lighter' : 'darker' };
   // ---- a direction by its name (with or without "look", "theme", "world")
   const named = t.replace(LOOKISH, '').trim();
-  for (const [re, key] of DIRECTION_WORDS) if (re.test(named) && (verb || named === t || LOOKISH.test(t))) return { direction: key };
+  // ("show me the map" and "open the eye" are those screens' words, as looks.ts says: a direction is taken after them only with its noun)
+  const opens = /^(?:show me|open|see) /.test(t0);
+  for (const [re, key] of DIRECTION_WORDS) if (re.test(named) && (opens ? LOOKISH.test(t) : verb || named === t || LOOKISH.test(t))) return { direction: key };
   // ---- the switches by name
   if (/^(?:(?:the )?glow off|no glow|lose the glow|off the glow|turn off the glow|without (?:the )?glow|kill the glow)$/.test(t)) return { switches: { glow: 'off' } };
   if (/^(?:(?:the )?glow on|on the glow|turn on the glow|the glow back|bring back the glow|more glow|glow)$/.test(t)) return { switches: { glow: 'on' } };
@@ -419,12 +425,35 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?tone|(?:the )?tone (?:sound|for the lock)|(?:the )?(?:recognition|lock) (?:sound|tone) on)$/.test(t)) return { switches: { sound: 'tone' } };
   if (/^(?:follow the (?:day|sun|daylight)|ground follows the day|paper by day|day and night|follow sunrise and sunset)$/.test(t)) return { switches: { day: 'on' } };
   if (/^(?:stop following the (?:day|sun)|don't follow the (?:day|sun)|(?:follow the day|ground follows the day) off)$/.test(t)) return { switches: { day: 'off' } };
-  // ---- a colour, after a verb or with its noun ("switch to ember", "ember theme", "make it gold")
-  m = /^([a-z]+)(?: (?:theme|colour|color|accent|light))?$/.exec(t);
-  if (m && isColour(m[1]!) && (verb || /(?:theme|colour|color|accent|light)$/.test(t))) return { colour: m[1] as ColourKey };
-  m = /^(?:the )?(?:theme|colour|color|accent) (?:to )?([a-z]+)$/.exec(t);
-  if (m && isColour(m[1]!)) return { colour: m[1] as ColourKey };
-  return null;
+  // ---- a colour, by its plain name, its old name or a common synonym (colours.ts): after a verb ("make it red", "switch to
+  //      crimson", "go navy"), with its noun ("red theme", "blue colour", "the theme to green") or its plain or old name alone ("red")
+  return colourAsk(t0, t, verb);
+}
+
+const COLOUR_NOUN = '(?:theme|colour|color|accent|colour scheme|color scheme|scheme|light|mode|look|style)';
+// (a ground's own name alone, "graphite", stays the ground's: it is a colour only with a verb or its noun)
+const NAMED = new Set([...Object.values(PLAIN), ...Object.values(FANCY)].map((w) => w.toLowerCase()).filter((w) => !(GROUND_KEYS as readonly string[]).includes(w)));
+
+/** The colour part of lookAsked: "change the colour to blue", "red theme", "make it crimson", "white" (asked which). */
+function colourAsk(t0: string, t: string, verb: boolean): LookAsk | null {
+  let w = '';
+  let noun = '';
+  let m = new RegExp(`^(?:change|switch|set|turn|make|put|paint|go)(?: the| your| my| ur)? ${COLOUR_NOUN}(?: colou?r)? (?:to|into|in|as|over to) (.+)$`).exec(t0);
+  if (m) [w, noun] = [m[1]!, 'colour'];
+  if (!w && (m = /^(?:the |your |my )?(?:theme|colour|color|accent|colou?r scheme) (?:to |in |as )?(.+)$/.exec(t))) [w, noun] = [m[1]!, 'colour'];
+  if (!w && (m = new RegExp(`^(?:it |everything |you )?(?:in |to be )?(.+?)(?: (${COLOUR_NOUN}))?$`).exec(t))) [w, noun] = [m[1]!, m[2] ?? ''];
+  w = w.replace(/^(?:it |everything |you )?(?:in |to be |go )?/, '').trim();
+  if (/^(?:it|everything) /.test(t)) verb = true; // ("I want it lime green": the "it" is the screen)
+  if (!w || w.split(' ').length > 4) return null;
+  const said = w.toLowerCase().replace(/-/g, ' ');
+  // a bare word ("red") counts only as a colour's own name: "mint" or "olive" alone is a word in a conversation, not a colour ask
+  if (!verb && !noun && !NAMED.has(said)) return null;
+  if (/^(?:black|pitch black|jet black)$/.test(said)) return { ground: 'black' };
+  const two = said === 'gray' ? 'grey' : said;
+  if (TWO_WAYS[two] && !/^(?:colour|color|accent|light)$/.test(noun) && noun !== 'colour') return { two };
+  const c = colourWord(said);
+  if (!c) return null;
+  return said === PLAIN[c].toLowerCase() ? { colour: c } : { colour: c, word: said };
 }
 
 function groundWord(w: string): LookAsk {
@@ -490,7 +519,10 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     said = `${worldOf(ask.world)!.label}: ${lc(worldOf(ask.world)!.line)}`;
   } else if (ask.colour) {
     next.colour = ask.colour;
-    said = `${COLOUR_LABELS[ask.colour]}: my colour changes and nothing else.`;
+    const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
+    said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.two) {
+    said = TWO_WAYS[ask.two]?.q ?? '';
   } else if (ask.body) {
     const b = bodyStep(r.switches.body, ask.body);
     next.switches.body = b;

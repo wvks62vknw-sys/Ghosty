@@ -53,6 +53,7 @@ const TOOLS: Record<string, string> = {
   build_website: 'building the page…',
   draft_site: 'writing the page…',
   publish_site: 'putting it online…',
+  publish_game: 'putting your game on your sites…',
   build_app: 'building the app…',
   vehicle_check: 'checking the car…',
   gadget_manual: 'finding the manual…',
