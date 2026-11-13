@@ -393,7 +393,7 @@ for (const vp of [PHONE, PHONE2]) {
       const ok = await until(page, (s) => location.hash.startsWith('#comic') && document.querySelector('#pg-comic .secpill[aria-selected="true"], #pg-comic .secpill.on')?.dataset.sec === s, sec, 12000)
         || (await until(page, () => location.hash.startsWith('#comic'), null, 3000));
       check(ok, `${T} (f) “${words}” opens COMIC on ${sec}`);
-      if (test) check(test.test(await txt(page, '#pg-comic .cxnote')), `${T} (f) “${words}” says what to pick`);
+      if (test) check(await until(page, (src) => new RegExp(src).test([...document.querySelectorAll('#pg-comic .cxnote')].map((e) => e.textContent).join(' ')), test.source, 6000), `${T} (f) “${words}” says what to pick`);
       if (sec === 'make') check(await until(page, () => /robot/i.test(window.__ghosty.comic.editing.id ? 'robot' : '') && window.__ghosty.comic.editing.pages === 4), `${T} (f) “${words}” makes a new comic`);
       await page.waitForTimeout(300);
     }
