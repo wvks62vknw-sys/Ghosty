@@ -175,6 +175,8 @@ function sourceChips(sources: LearnSource[] = []): HTMLElement {
   );
 }
 
+/** Quiz answers that never reached the brain, by quiz: the DONE line then never claims every miss is a flashcard. */
+const lostAnswers = new Map<string, number>();
 let opener: ((a: Record<string, unknown>) => void) | null = null;
 let waiting: Record<string, unknown> | null = null;
 
@@ -538,7 +540,7 @@ export const learnTab: TabDef = {
         sp.title.textContent = 'QUIZ · DONE';
         const pct = Math.round((right / q.questions.length) * 100);
         sp.body.append(
-          h('div.learnscore', h('b', `${right} / ${q.questions.length}`), h('small', pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good — the misses (and lucky guesses) are now flashcards.' : 'Worth another go — the misses are now flashcards.')),
+          h('div.learnscore', h('b', `${right} / ${q.questions.length}`), h('small', lostAnswers.get(q.id) ? `${pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good.' : 'Worth another go.'} Some answers didn’t reach me, so not every miss is a flashcard yet.` : pct >= 80 ? 'Excellent.' : pct >= 50 ? 'Good — the misses (and lucky guesses) are now flashcards.' : 'Worth another go — the misses are now flashcards.')),
           h('div.row.wrap.learnbar', button('NEW QUIZ', () => void startQuiz(q.course !== 'general' ? { course: q.course } : { topic: q.topic }), 'on'), L.dueCards().length ? button('REVISE', () => showRevise({ limit: 10 })) : '', q.course !== 'general' ? button('BACK TO COURSE', () => void showCourse(q.course)) : ''),
         );
         // The brain's score for the course, now that every answer is in.
@@ -587,7 +589,7 @@ export const learnTab: TabDef = {
               choices[Number(item.answer)]?.classList.add('good');
               const guessNote = ok && conf === 'guess' ? ' A lucky guess still becomes a card.' : !ok && conf === 'sure' ? ' You were sure: this card comes back more often.' : '';
               done(ok, `${ok ? `Right.${item.why ? ` ${item.why}` : ''}` : wrongAnswer(LETTERS[Number(item.answer)]!, String(item.choices?.[Number(item.answer)] ?? ''), item.why)}${guessNote}`, !ok || conf === 'guess');
-              void L.answer({ quiz: q.id, q: item.id, answer: k, conf }).catch(() => undefined).finally(() => paintAll());
+              void L.answer({ quiz: q.id, q: item.id, answer: k, conf }).catch(() => void lostAnswers.set(q.id, (lostAnswers.get(q.id) ?? 0) + 1)).finally(() => paintAll());
             }));
           }, 'learnchoice');
           return b;
@@ -634,7 +636,9 @@ export const learnTab: TabDef = {
         done();
       } catch (e) {
         done();
-        clear(sp.body, h('div.note', sayError(e, 'make that exam')), button('BACK TO COURSE', () => void showCourse(courseId)));
+        // (another course's exam is still open: the way to it, not only the way back)
+        const open = L.learn.get().exam;
+        clear(sp.body, h('div.note', sayError(e, 'make that exam')), open && open.exam.course !== courseId ? button('RESUME THAT EXAM', () => void showExam(open.exam.course), 'on') : null, button('BACK TO COURSE', () => void showCourse(courseId)));
         return;
       }
       if (view === 'exam') runExam();
