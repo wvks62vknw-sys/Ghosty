@@ -8,6 +8,7 @@
  */
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
+import { sayError } from '../ui/hisWords';
 import { MIME, sizeWords } from '../convert/bytes';
 import { saveBlob, shareBlob } from '../convert/run';
 import { askBrain } from '../docs/ask';
@@ -767,7 +768,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
           say(`${m.name} is made (${sizeWords(m.bytes.length)}).${kind === 'xlsx' ? ' Opened in Excel or Numbers it works the same numbers out again.' : ''}`);
         });
       } catch (e) {
-        say(`I couldn’t make it: ${(e as Error).message}.`);
+        say(sayError(e, 'make it'));
       }
     }, 0);
   };
@@ -823,7 +824,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     try {
       return await askBrain(message, () => undefined, 'sheets');
     } catch (e) {
-      say(`I couldn’t ask: ${(e as Error).message}.`);
+      say(sayError(e, 'ask'));
       return null;
     }
   };
@@ -999,7 +1000,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       if (said) said.textContent = lost.length ? `I opened ${f.name} (${kept}). I could not keep: ${lost.join('; ')}.` : `I opened ${f.name}: ${kept}, nothing left out.`;
       say(`${f.name} is open${lost.length ? ' (what I could not keep is said under the title)' : ''}. Nothing was sent anywhere.`);
     } catch (e) {
-      say(`I couldn’t read it: ${(e as Error).message}.`);
+      say(sayError(e, 'read it'));
     }
   };
   fileIn.addEventListener('change', async () => {
