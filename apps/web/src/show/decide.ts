@@ -107,6 +107,11 @@ export function tableOf(reply: string): string[][] | null {
   return null;
 }
 const TABLE_ASK = /\b(?:table|spreadsheet|sheet|grid|columns?)\b/i;
+/** The chart draws the whole table: the reply's numbers are a series with one lane for every column after the label. */
+function chartsWhole(table: string[][], reply: string): boolean {
+  const s = seriesFrom(reply);
+  return !!s && 2 + (s.more?.length ?? 0) === table[0]!.length;
+}
 function tableShow(ask: string, rows: string[][]): Show {
   return { kind: 'table', id: `table:${rows[0]!.join('|')}:${rows.length}`, tag: 'TABLE', title: ask.length > 44 ? `${ask.slice(0, 41).replace(/\s+\S*$/, '')}…` : ask.replace(/[?.!]+$/, ''), truth: [`${rows.length - 1} ROWS FROM THE ANSWER`, 'OPEN IT AS A SPREADSHEET'], rows, ask };
 }
@@ -178,9 +183,10 @@ export function decideShow(f: ShowFacts): Show | null {
   if (shownMap) return { kind: 'map', id: `map:${String(shownMap.args.place ?? '')}`, tag: 'MAP', title: String(shownMap.args.place ?? 'The map'), truth: ['ON ITS OWN SCREEN'], lat: Number(shownMap.args.lat) || 0, lon: Number(shownMap.args.lon) || 0, label: String(shownMap.args.place ?? ''), zoom: 15, via: 'its screen' };
   if (f.clients.some((c) => c.name === 'open_studio' || c.name === 'open_docs')) return null;
 
-  // a table he asked for (or one too wide for a chart): the answer's own table, to open as a spreadsheet
+  // a table he asked for (or one too wide for a chart): the answer's own table, to open as a spreadsheet. A table whose every column
+  // the chart draws (a label and one to four number columns, as "| Month | Spend | Income |") is a chart of its series (POLISH 2)
   const table = reply ? tableOf(reply) : null;
-  if (table && (TABLE_ASK.test(ask) || table[0]!.length >= 3)) return tableShow(ask, table);
+  if (table && (TABLE_ASK.test(ask) || (table[0]!.length >= 3 && !chartsWhole(table, reply)))) return tableShow(ask, table);
 
   // a formula: the problem is in his words and the solver has an answer
   const sim = simFrom(ask);
