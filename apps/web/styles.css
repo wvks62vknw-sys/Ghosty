@@ -3180,6 +3180,9 @@ html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-
 .schsub button { flex: 0 0 auto; }
 .schlive { margin: 8px 0 2px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .schliveh { display: flex; flex-direction: column; }
+.schworking { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 12px; background: var(--thin); }
+.schworking small { color: var(--mute); letter-spacing: .08em; }
+.schworking pre { margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 15px/1.45 var(--sf); color: var(--fg); }
 .schliveh small { color: var(--mute); }
 .schbtns { margin-top: 8px; }
 .schbtns > button { flex: 1 1 140px; }
@@ -8499,8 +8502,7 @@ html body.housed :is(.invnone, .rnone) .empty { border-top: 0; padding: var(--g-
 /* the held landing's line: what the open waits for, in the stamp's small type (shell/bootwords.ts) */
 #boot .bhold { margin: var(--g-s-1) 0 0; color: var(--g-ink-2); }
 #boot .bhold[hidden] { display: none; }
-/* ==========================================================================================================================
-   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
+/* ===================================================================================================================   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
    own canvas and ink; every size is the wall's unit (1 percent of the screen's width or 1.78 of its height, whichever is less: 19.2 px
    at 1,920 × 1,080, 12.8 px at 1,280 × 720) times a step, so the Machine's type is at least twice its phone size at both. The pictures
    are the Stage's own (show/stage.ts), drawn into a frame. Only the colours, lines and type of THE SYSTEM's tokens; nothing else.
@@ -9356,6 +9358,43 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* ===== FINAL ROUND · THE LEARN LANE (13 Nov): every key 44 pt on the reader, rehearse, the lab and the interpreter; at the
+   biggest text (BODY 21) the GYM's card names wrap instead of being cut with an ellipsis. Tokens only. */
+html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard :is(.gymname, .gymsay) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext), html:is([data-body="19"], [data-body="21"]) #pg-gym .gymlvhd .k { white-space: normal; overflow: visible; text-overflow: clip; }
+/* the interpreter keeps the whole talk on screen (scrolls, newest at the foot); a translated line is a key that says it again */
+html .fxlines { justify-content: flex-start; overflow-y: auto; }
+html .fxlines > :first-child { margin-top: auto; }
+html button.fxline.again { display: block; width: 100%; min-height: 44px; padding: 0; text-align: inherit; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; border-radius: 0; color: var(--g-accent-text); font: var(--g-t-reading); }
+
+/* INTERPRETER: a translated line says itself again on a tap and has a COPY key; PHRASES, the short phrasebook */
+html .fxline.fxtwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-1); }
+html .fxline.fxtwin small { grid-column: 1 / -1; }
+html button.fxreplay { box-sizing: border-box; min-width: 0; min-height: var(--g-target); margin: 0; padding: 0; font: inherit; letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; color: inherit; background: none; border: 0; cursor: pointer; }
+html button.fxcopy { flex: none; display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target); padding: 0; color: var(--g-ink-2); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.fxcopy svg { width: var(--g-icon); height: var(--g-icon); stroke: currentColor; fill: none; stroke-width: var(--g-icon-stroke); }
+html .fxbook { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .fxbook button.fxbookkey { align-self: flex-start; min-width: var(--g-target); min-height: var(--g-target); }
+html .fxbook button.fxbookkey[aria-expanded="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .fxphrases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5em), 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .fxphrases[hidden] { display: none; }
+html .fxphrases button.fxphrase { box-sizing: border-box; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-body); letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; }
+
+/* REHEARSE: KEPT, the rehearsals he kept, newest first */
+html .rhkept { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .rhkeptitem { display: flex; flex-direction: column; min-width: 0; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.rhkepthead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-1) var(--g-s-2); text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; color: var(--g-ink-1); background: none; border: 0; }
+html button.rhkepthead[aria-expanded="true"] .rhkeptsit { color: var(--g-accent-text); }
+html .rhkeptsit { font: var(--g-t-body); max-width: 100%; }
+html .rhkeptmeta { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody { display: flex; flex-direction: column; gap: var(--g-s-1); padding: 0 var(--g-s-2) var(--g-s-2); min-width: 0; }
+html .rhkeptbody ol, html .rhkeptbody ul { margin: 0; padding-left: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .rhkeptans small { display: block; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); }
+html .rhkeptbody .row button { min-height: var(--g-target); min-width: var(--g-target); height: auto; white-space: normal; }
+html .fxbooknote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody ol.rhkeptans { list-style: none; padding-left: 0; }
 /* [recall] THE RECALL CARD, FIND and the index's line (features/memory/recallcard.ts): a row per turn or thing, each a 44 pt key that wraps
    rather than clips at BODY 21, FORGET / UNDO beside a turn; the RECALL chip under a reply that says "like you said on Tuesday" */
 html .recallcard, html .recallfind { display: flex; flex-direction: column; gap: var(--g-s-half); width: 100%; min-width: 0; }
