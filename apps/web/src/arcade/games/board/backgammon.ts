@@ -72,11 +72,12 @@ export function allHome(s: BgState, side: Side): boolean {
 function singles(s: BgState): BgMove[] {
   const side = s.side;
   const out: BgMove[] = [];
-  const seen = new Set<number>();
+  let seen = 0;
   const dir = dirOf(side);
-  for (const d of s.dice) {
-    if (seen.has(d)) continue;
-    seen.add(d);
+  for (let di = 0; di < s.dice.length; di++) {
+    const d = s.dice[di]!;
+    if (seen & (1 << d)) continue;
+    seen |= 1 << d;
     if (s.bar[side]) {
       const t = side === 1 ? d - 1 : 24 - d;
       if (theirsAt(s, t, side) < 2) out.push({ f: BAR, t, d });
@@ -124,20 +125,57 @@ function step(s: BgState, m: BgMove): BgState {
   if (i >= 0) n.dice.splice(i, 1);
   return n;
 }
-const memoLen = new WeakMap<BgState, number>();
-/** The most single moves that can still be played from here (the rule: play as many dice as you can). */
-function maxPlies(s: BgState): number {
-  const c = memoLen.get(s);
-  if (c !== undefined) return c;
-  const ms = singles(s);
-  let best = 0;
-  if (s.dice.length)
-    for (const m of ms) {
-      const v = 1 + maxPlies(step(s, m));
-      if (v > best) best = v;
-      if (best === s.dice.length) break;
+/** One die's move made on `n` in place (the search of what can be played goes in and out of it without copying); true if it hit. */
+function doStep(n: BgState, m: BgMove): boolean {
+  const side = n.side;
+  const sg = side === 1 ? 1 : -1;
+  if (m.f === BAR) n.bar[side]!--;
+  else n.p[m.f] = n.p[m.f]! - sg;
+  let hit = false;
+  if (m.t === OFF) n.off[side]!++;
+  else {
+    if (theirsAt(n, m.t, side) === 1) {
+      n.p[m.t] = 0;
+      n.bar[other(side)]!++;
+      hit = true;
     }
-  memoLen.set(s, best);
+    n.p[m.t] = n.p[m.t]! + sg;
+  }
+  const i = n.dice.indexOf(m.d);
+  if (i >= 0) {
+    n.dice[i] = n.dice[n.dice.length - 1]!;
+    n.dice.pop();
+  }
+  return hit;
+}
+function undoStep(n: BgState, m: BgMove, hit: boolean): void {
+  const side = n.side;
+  const sg = side === 1 ? 1 : -1;
+  n.dice.push(m.d);
+  if (m.t === OFF) n.off[side]!--;
+  else {
+    n.p[m.t] = n.p[m.t]! - sg;
+    if (hit) {
+      n.p[m.t] = -sg;
+      n.bar[other(side)]!--;
+    }
+  }
+  if (m.f === BAR) n.bar[side]!++;
+  else n.p[m.f] = n.p[m.f]! + sg;
+}
+/** The most single moves that can still be played from here (the rule: play as many dice as you can); `w` is put back as it was. */
+function maxPlies(w: BgState): number {
+  if (!w.dice.length) return 0;
+  const ms = singles(w);
+  const cap = w.dice.length;
+  let best = 0;
+  for (const m of ms) {
+    const hit = doStep(w, m);
+    const v = 1 + maxPlies(w);
+    undoStep(w, m, hit);
+    if (v > best) best = v;
+    if (best === cap) break;
+  }
   return best;
 }
 const legalMemo = new WeakMap<BgState, BgMove[]>();
@@ -146,8 +184,14 @@ export function legalMoves(s: BgState): BgMove[] {
   if (c) return c;
   if (s.w || !s.dice.length) return [];
   const ms = singles(s);
-  const total = maxPlies(s);
-  let ok = ms.filter((m) => 1 + maxPlies(step(s, m)) === total);
+  const w = clone(s);
+  const total = maxPlies(w);
+  let ok = ms.filter((m) => {
+    const hit = doStep(w, m);
+    const v = 1 + maxPlies(w);
+    undoStep(w, m, hit);
+    return v === total;
+  });
   // only one die can be played: it must be the larger one, if either could be
   if (total === 1 && s.dice.length >= 2 && s.dice[0] !== s.dice[1]) {
     const big = Math.max(...s.dice);

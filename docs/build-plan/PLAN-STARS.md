@@ -102,7 +102,7 @@ item 4; the other screens migrate to the system as their passes touch them; the 
 5.3 [98] Our five games finished to "worth playing on the bus".
 5.4 [108] The arcade on the TV with the PS5 controller, perfect.
 5.5 [99] Ghosty plays with him: beat my time, I built you a level, trash talk in character.
-5.6 [100] Opponents to lose to: draughts, poker, backgammon, a word game, beside chess and Connect 4.
+5.6 [100] Opponents to lose to: draughts, poker, backgammon, a word game, beside chess and Connect 4. Built: draughts, Othello, backgammon and Connect 4 (GAMES 5); poker (chips only) and a word game of our own (GAMES 6). Not built: PICO-8 and Cave Story itself (his word).
 5.7 [101] [102] A daily puzzle at breakfast; trivia from his library and his week.
 5.8 [103] A rhythm game on his Spotify playlists.
 5.9 [104] Two-player with a mate over a Telegram link.

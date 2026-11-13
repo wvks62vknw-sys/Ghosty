@@ -16,6 +16,7 @@ import type { SaveStore } from '../../engines/saves';
 import { type BoardId } from '../shelf5';
 import { bookOf as skillBook, finishRun, levelOf, levelWords } from '../two/skill';
 import { backgammon } from './backgammon';
+import { DAMAGED_SAVE, pushUndo, readSave, turnKey, type Undo } from './keep';
 import { type BoardUI, type BView, type Lay } from './draw';
 import { type AskMsg, type Decision, decide, GAME } from './engine';
 import { type BoardGame, loadWeights, rngAt, rngOf, Search, secondsWords, type Side, thinkMs } from './kit';
@@ -82,16 +83,14 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
   const weights = loadWeights(id);
 
   // ---------------------------------------------------------------- state
-  let saved: Saved | null = null;
-  try {
-    const b = await opts.saves.get(saveName);
-    if (b) {
-      const s = JSON.parse(new TextDecoder().decode(b)) as Saved;
-      if (s && Number.isFinite(s.seed) && Array.isArray(s.moves) && (s.human === 1 || s.human === 2) && Number.isFinite(s.level)) saved = s;
-    }
-  } catch {
-    saved = null;
-  }
+  const read = readSave<Saved>(await opts.saves.get(saveName).catch(() => null), (x) => {
+    const s = x as Saved | null;
+    return !!s && typeof s === 'object' && Number.isFinite(s.seed) && Array.isArray(s.moves) && (s.human === 1 || s.human === 2) && Number.isFinite(s.level);
+  });
+  let saved: Saved | null = read.saved;
+  /** A save that would not read: said on the title card, and cleared. */
+  let damaged = read.damaged;
+  if (damaged) void opts.saves.remove(saveName).catch(() => undefined);
   type Mode = 'title' | 'play' | 'paused' | 'over' | 'gone';
   let mode: Mode = 'title';
   let state: unknown = game.start(1);
@@ -99,7 +98,7 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
   let level = 1;
   let human: Side = 1;
   let moves: unknown[] = [];
-  let undos: { s: unknown; n: number }[] = [];
+  let undos: Undo[] = [];
   let hintUsed = false;
   let hint: [number, number] | null = null;
   let tbLeft = TAKEBACKS;
@@ -146,7 +145,7 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
     return b;
   };
   const hintBtn = mk('HINT', 'Hint: one a game, and it costs your rating nothing', 'hint');
-  const backBtn = mk('TAKE BACK', `Take back your last move and his reply, ${TAKEBACKS} a game`, 'back');
+  const backBtn = mk('TAKE BACK', `Take back your last ${id === 'backgammon' ? 'turn' : 'move'} and his reply, ${TAKEBACKS} a game`, 'back');
   const rulesBtn = mk('RULES', 'The rules of this game', 'rules');
   const ctl = h('div.g4ctl.g5ctl', hintBtn, backBtn, rulesBtn);
   const pauseBtn = hudButton('g2pause.g4pause', '', 'Pause', () => openPause());
@@ -311,12 +310,23 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
       hintUsed = resume.hint;
       tbLeft = resume.tb;
       played = resume.played;
-      state = replay(seed, moves);
+      try {
+        state = replay(seed, moves);
+      } catch {
+        // the moves do not play: the save is damaged after all
+        damaged = true;
+        void opts.saves.remove(saveName).catch(() => undefined);
+        saved = null;
+        begin(null);
+        overlay.say(DAMAGED_SAVE, 4200);
+        return;
+      }
       last = moves.length ? cellsOf(moves[moves.length - 1]) : [];
     } else {
       seed = argSeed ? Number(argSeed) || 1 : (Math.random() * 2 ** 31) | 0;
       level = myLevel();
       human = argHuman === '2' ? 2 : argHuman === '1' ? 1 : ratingBook(id).you.games % 2 === 0 ? 1 : 2;
+      damaged = false;
       moves = [];
       hintUsed = false;
       tbLeft = TAKEBACKS;
@@ -338,7 +348,7 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
   const apply = (m: any, by: 'you' | 'ghosty') => {
     const prev = state;
     prevMover = game.side(prev);
-    if (by === 'you') undos.push({ s: prev, n: moves.length });
+    if (by === 'you') pushUndo(undos, prev, moves.length, turnKey(id, prev, moves.length));
     const next = game.apply(prev, m, rngAt(seed, moves.length));
     moves.push(m);
     state = next;
@@ -481,7 +491,7 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
     overlay.menu({
       title,
       line: entry.ghosty,
-      notes: [`Level ${myLevel()} · he thinks for about ${secondsWords(thinkMs(myLevel()))}`, ratingTail(id), honest()],
+      notes: [`Level ${myLevel()} · he thinks for about ${secondsWords(thinkMs(myLevel()))}`, ratingTail(id), honest(), ...(damaged ? [DAMAGED_SAVE] : [])],
       buttons: [
         ...(saved && !result ? [{ label: 'Continue', aria: `Continue your ${title} game`, primary: true, act: () => begin(saved) }] : []),
         { label: saved && !result ? 'New game' : 'Play', aria: `${saved ? 'Start a new game of' : 'Play'} ${title}`, primary: !saved, act: () => begin(null) },

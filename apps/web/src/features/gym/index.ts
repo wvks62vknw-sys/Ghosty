@@ -19,7 +19,7 @@
  */
 import { trainingPathRow } from './path';
 import { BOARD_NAMES, reportLine } from '../../arcade/games/board/rating';
-import { BOARD_IDS } from '../../arcade/games/shelf5';
+import { RATED_IDS } from '../../arcade/games/shelf6';
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { heavy } from '../../core/heavy';
 import { onFrame } from '../../engine/scheduler';
@@ -544,11 +544,11 @@ export const gymTab: TabDef = {
     nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus, trainingPathRow()));
     const gamesHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Games'), h('span'));
     cards.before(gamesHead);
-    // The REPORT CARD's board games (BRIEF-GAMES-5): a rating for you and one for Ghosty in each of the four he can lose to,
+    // The REPORT CARD's board games (BRIEF-GAMES-5): a rating for you and one for Ghosty in each of the six he can lose to,
     // the same Glicko-2 as the chess above. Search alone until trained; nothing learns on the phone.
     const boardsHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Report card'), h('span', 'Board games'));
-    const boards = h('div.gymboards', { role: 'list', 'aria-label': 'Ratings in the four board games' });
-    const paintBoards = () => clear(boards, ...BOARD_IDS.map((id) => h('div.gb', { role: 'listitem', dataset: { board: id } }, h('b', BOARD_NAMES[id]), h('span', reportLine(id)))), h('small.gbnote', 'Ghosty searches on this phone. He is search alone until the GYM trains him on the free GPU; nothing learns here.'));
+    const boards = h('div.gymboards', { role: 'list', 'aria-label': 'Ratings in the six games he can lose to' });
+    const paintBoards = () => clear(boards, ...RATED_IDS.map((id) => h('div.gb', { role: 'listitem', dataset: { board: id } }, h('b', BOARD_NAMES[id]), h('span', reportLine(id)))), h('small.gbnote', 'Ghosty searches on this phone. He is search alone until the GYM trains him on the free GPU; nothing learns here.'));
     paintBoards();
     cardsP.body.append(boardsHead, boards);
     // ======================= the game as a pushed screen (phones)

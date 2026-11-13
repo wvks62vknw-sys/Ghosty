@@ -46,7 +46,7 @@ export const GAMES5: MadeByUs5Entry[] = [
     controls: ['move', 'jump', 'fire', 'use', 'map'] satisfies Control[],
     saves: true,
     since: '2026-11-11',
-    ghosty: 'Lanterns save your place and mend your hearts. Pinch for the map. Crystals make the blaster stronger, and a hit takes a little back.',
+    ghosty: 'Lanterns save your place. Pinch for the map. Crystals make the blaster stronger. My level holds: it does not fall until I lose three sessions running.',
     done: 'Saved at the last lantern. CONTINUE puts you back where you were.',
   },
   {

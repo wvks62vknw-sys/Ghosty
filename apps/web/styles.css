@@ -8488,6 +8488,27 @@ html .tvwallkey { min-height: var(--g-target); }
 .g4.g4board .g5ctl .g4btn { max-width: 124px; min-width: 88px; font: var(--g-t-key); letter-spacing: var(--g-tr-key); }
 .g4.g4board .g5ctl .g4btn:disabled { opacity: .45; }
 @media (prefers-reduced-motion: reduce) { .g4.g4board .g5status.busy .g5dot { animation: none; } }
+
+/* ---------------------------------------------------------------- THE GAMES OF PASS 6 (BRIEF-GAMES-6)
+   POKER and WORDS keep the board games' frame (the head, the status line, the keys) and add the table's three labels, the rack of
+   tiles and the swap card, all in the system's tokens. Prefixed g6; nothing here reaches outside them. */
+.g4.g6 .g6tag { position: absolute; left: var(--g-s-2); right: var(--g-s-2); text-align: center; font: var(--g-t-fine); color: var(--g-ink-2); font-variant-numeric: var(--g-num); pointer-events: none; }
+.g4.g6 .g6tag b { font: var(--g-t-head); color: var(--g-ink-1); }
+.g4.g6 .g6tag.pot b { color: var(--g-accent-text); }
+.g4.g6 .g6tag div { color: var(--g-amber); }
+.g4.g6:not([data-mode="play"]) .g6tag { display: none; }
+.g4.g6 .g6rack { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: var(--g-s-half); padding: 0 var(--g-s-1); pointer-events: none; }
+.g4.g6:not([data-mode="play"]) .g6rack { display: none; }
+.g4.g6 .g6tile { position: relative; flex: 0 0 auto; width: 46px; height: 54px; min-width: 44px; padding: 0; border: 0; border-radius: var(--g-radius-key); background: color-mix(in srgb, var(--g-amber) 28%, var(--g-ink-1)); color: var(--g-canvas); touch-action: none; pointer-events: auto; cursor: grab; }
+.g4.g6 .g6tile b { font: var(--g-t-head); font-size: 24px; }
+.g4.g6 .g6tile i { position: absolute; right: 5px; bottom: 3px; font: var(--g-t-fine); font-size: 10px; font-style: normal; }
+.g4.g6 .g6tile.on { outline: 3px solid var(--g-accent); }
+.g4.g6 .g6tile:disabled { opacity: .55; }
+.g4.g6 .g6tile.empty { opacity: .14; pointer-events: none; }
+.g4.g6 .g6swap { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--g-s-1); margin: var(--g-s-2) 0; }
+.g4.g6 .g6swap .g6tile { pointer-events: auto; opacity: 1; }
+.g4.g6 .g6hist p { margin: 0 0 var(--g-s-half); font: var(--g-t-fine); text-align: left; }
+
 /* ---- end of the games of pass 5 ---- */
 /* the GYM's report card for the board games (BRIEF-GAMES-5) */
 html #pg-gym .gymboards { display: flex; flex-direction: column; gap: var(--g-s-1); }

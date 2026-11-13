@@ -152,10 +152,10 @@ if (!only || only === 'arcade') {
   }
   // (f) the GYM's Report card lists the four board ratings
   await page.evaluate(() => (location.hash = 'gym'));
-  const gym = await until(page, () => document.querySelectorAll('#pg-gym .gymboards .gb').length === 4, null, 25000);
-  check(gym, 'the GYM\'s Report card lists four board games');
+  const gym = await until(page, () => document.querySelectorAll('#pg-gym .gymboards .gb').length === 6, null, 25000);
+  check(gym, 'the GYM\'s Report card lists six games he can lose to (four board games, poker and words: games6.spec.mjs)');
   const lines = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymboards .gb')].map((e) => e.textContent));
-  check(lines.length === 4 && ['Draughts', 'Othello', 'Backgammon', 'Connect 4'].every((n, i) => lines[i].startsWith(n)), `the four are Draughts, Othello, Backgammon, Connect 4 (${lines.map((l) => l.slice(0, 20)).join(' | ')})`);
+  check(lines.length === 6 && ['Draughts', 'Othello', 'Backgammon', 'Connect 4', 'Poker', 'Words'].every((n, i) => lines[i].startsWith(n)), `the six are Draughts, Othello, Backgammon, Connect 4, Poker, Words (${lines.map((l) => l.slice(0, 20)).join(' | ')})`);
   check(/You: 1,180 · Ghosty: 1,420 · ±\d+ · 6 games: 2 won, 0 drawn, 4 lost/.test(lines[0] ?? ''), `Draughts' line is honest about games and doubt ("${lines[0]}")`);
   check(/not rated yet/.test(lines[1] ?? '') && /You: 1,200 · Ghosty: 1,200/.test(lines[1] ?? ''), 'Othello is not rated yet, and says so');
   check((await page.locator('#pg-gym .gbnote').innerText()).includes('search alone until the GYM trains him'), 'the Report card says plainly he is search alone until trained');

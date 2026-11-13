@@ -776,6 +776,7 @@ await import('./video.test.mjs');
 await import('./video2.test.mjs');
 // THE GAME STUDIO (BRIEF-EDITOR-GAME-STUDIO): the model, the runtime, the .ghostygame file and the app page, held to their rules with no screen.
 await import('./gamestudio.test.mjs');
+await import('./games6.test.mjs');
 
 // [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
 // each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings

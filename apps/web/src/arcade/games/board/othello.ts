@@ -16,6 +16,9 @@ export interface OthelloState {
 export type OthelloMove = number;
 
 const DIRS: [number, number][] = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+// the same eight directions as flat tables, so the hot paths (every playout of the search) allocate nothing
+const DR = Int8Array.from(DIRS.map((d) => d[0]));
+const DC = Int8Array.from(DIRS.map((d) => d[1]));
 
 export function start(): OthelloState {
   const b = new Int8Array(64);
@@ -25,29 +28,60 @@ export function start(): OthelloState {
   b[36] = 2;
   return { b, side: 1, pass: 0 };
 }
+/** How many discs a move at `cell` would flip in direction `d` for `side` (0: none that way). */
+function runIn(b: Int8Array, r0: number, c0: number, d: number, side: Side): number {
+  const dr = DR[d]!;
+  const dc = DC[d]!;
+  const opp = 3 - side;
+  let r = r0 + dr;
+  let c = c0 + dc;
+  let n = 0;
+  while (r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === opp) {
+    n++;
+    r += dr;
+    c += dc;
+  }
+  return n && r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === side ? n : 0;
+}
+/** Whether `side` may play `cell` (it flips something); stops at the first line that does. */
+function canPlay(b: Int8Array, cell: number, side: Side): boolean {
+  if (b[cell]) return false;
+  const r0 = cell >> 3;
+  const c0 = cell & 7;
+  for (let d = 0; d < 8; d++) if (runIn(b, r0, c0, d, side)) return true;
+  return false;
+}
+/** Put `side`'s disc on `cell` and turn what it closes in, in place. */
+function place(b: Int8Array, cell: number, side: Side): void {
+  const r0 = cell >> 3;
+  const c0 = cell & 7;
+  for (let d = 0; d < 8; d++) {
+    const n = runIn(b, r0, c0, d, side);
+    for (let k = 1; k <= n; k++) b[(r0 + DR[d]! * k) * 8 + c0 + DC[d]! * k] = side;
+  }
+  b[cell] = side;
+}
 /** The discs a move at `cell` would flip for `side` (empty: not a legal move). */
 export function flips(b: Int8Array, cell: number, side: Side): number[] {
   if (b[cell]) return [];
   const r0 = cell >> 3;
   const c0 = cell & 7;
   const out: number[] = [];
-  for (const [dr, dc] of DIRS) {
-    const line: number[] = [];
-    let r = r0 + dr;
-    let c = c0 + dc;
-    while (r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === other(side)) {
-      line.push(r * 8 + c);
-      r += dr;
-      c += dc;
-    }
-    if (line.length && r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === side) out.push(...line);
+  for (let d = 0; d < 8; d++) {
+    const n = runIn(b, r0, c0, d, side);
+    for (let k = 1; k <= n; k++) out.push((r0 + DR[d]! * k) * 8 + c0 + DC[d]! * k);
   }
   return out;
 }
 const cellsFor = (b: Int8Array, side: Side): number[] => {
   const out: number[] = [];
-  for (let i = 0; i < 64; i++) if (!b[i] && flips(b, i, side).length) out.push(i);
+  for (let i = 0; i < 64; i++) if (canPlay(b, i, side)) out.push(i);
   return out;
+};
+const countFor = (b: Int8Array, side: Side): number => {
+  let n = 0;
+  for (let i = 0; i < 64; i++) if (canPlay(b, i, side)) n++;
+  return n;
 };
 export const legalCells = (s: OthelloState): number[] => cellsFor(s.b, s.side);
 export const count = (b: Int8Array, side: Side): number => {
@@ -56,8 +90,11 @@ export const count = (b: Int8Array, side: Side): number => {
   return n;
 };
 
-const CORNERS = [0, 7, 56, 63];
-const XSQ: Record<number, number> = { 1: 0, 8: 0, 9: 0, 6: 7, 15: 7, 14: 7, 48: 56, 49: 56, 57: 56, 54: 63, 55: 63, 62: 63 };
+const IS_CORNER = new Uint8Array(64);
+for (const c of [0, 7, 56, 63]) IS_CORNER[c] = 1;
+/** For a square beside an empty-corner gift: which corner it gives (or -1). */
+const XCORNER = new Int8Array(64).fill(-1);
+for (const [k, v] of Object.entries({ 1: 0, 8: 0, 9: 0, 6: 7, 15: 7, 14: 7, 48: 56, 49: 56, 57: 56, 54: 63, 55: 63, 62: 63 })) XCORNER[Number(k)] = v;
 
 function features(s: OthelloState, side: Side): number[] {
   const b = s.b;
@@ -76,26 +113,24 @@ function features(s: OthelloState, side: Side): number[] {
     }
     const sg = v === side ? 1 : -1;
     discs += sg;
-    if (CORNERS.includes(i)) corners += sg;
-    const xc = XSQ[i];
-    if (xc !== undefined && !b[xc]) x += sg;
+    if (IS_CORNER[i]) corners += sg;
+    const xc = XCORNER[i]!;
+    if (xc >= 0 && !b[xc]) x += sg;
     const r = i >> 3;
     const c = i & 7;
     if (r === 0 || r === 7 || c === 0 || c === 7) edges += sg;
     // a disc beside an empty square is on the frontier
-    let front = false;
-    for (const [dr, dc] of DIRS) {
-      const rr = r + dr;
-      const cc = c + dc;
+    for (let d = 0; d < 8; d++) {
+      const rr = r + DR[d]!;
+      const cc = c + DC[d]!;
       if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && !b[rr * 8 + cc]) {
-        front = true;
+        frontier += sg;
         break;
       }
     }
-    if (front) frontier += sg;
   }
-  const mine = cellsFor(b, side).length;
-  const theirs = cellsFor(b, opp).length;
+  const mine = countFor(b, side);
+  const theirs = countFor(b, opp);
   const mobility = (mine - theirs) / (mine + theirs + 1);
   const late = 1 - empty / 60;
   return [corners / 4, x / 4, mobility, (discs / 64) * late * 2, edges / 14, frontier / 20];
@@ -113,8 +148,7 @@ export const othello: BoardGame<OthelloState, OthelloMove> = {
   apply: (s, m) => {
     if (m < 0) return { b: s.b, side: other(s.side), pass: s.pass + 1 };
     const b = s.b.slice();
-    for (const f of flips(b, m, s.side)) b[f] = s.side;
-    b[m] = s.side;
+    place(b, m, s.side);
     return { b, side: other(s.side), pass: 0 };
   },
   result: (s): Result => {

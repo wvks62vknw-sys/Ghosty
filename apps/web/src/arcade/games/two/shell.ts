@@ -6,6 +6,7 @@
  * title screen's attract mode (Ghosty plays the game behind the menu with the weights he has learned). A game gives a
  * `Rules<R>`: how to start a run, step it, draw it, drain its events, who won, and the bot that plays it.
  */
+import { DAMAGED_SAVE } from '../board/keep';
 import { h } from '../../../core/dom';
 import type { SaveStore } from '../../engines/saves';
 import type { EngineEvents, EngineFiles, EngineHandle } from '../../engines/types';
@@ -207,13 +208,20 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
   const seed0 = () => (argSeed ? Number(argSeed) || 1 : (Math.random() * 2 ** 31) | 0);
 
   let resume: unknown = null;
+  // a save that will not read is said, and cleared, not quietly replaced by a new game
+  let damaged = false;
   if (rules.persist) {
     try {
       const b = await opts.saves.get(rules.persist.name);
-      if (b) resume = rules.persist.decode(new TextDecoder().decode(b));
+      if (b) {
+        resume = rules.persist.decode(new TextDecoder().decode(b));
+        if (resume === null || resume === undefined) damaged = true;
+      }
     } catch {
       resume = null;
+      damaged = true;
     }
+    if (damaged) void opts.saves.remove(rules.persist.name).catch(() => undefined);
   }
 
   let mode: Mode = 'title';
@@ -448,7 +456,7 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
     ui.menu({
       title: rules.title,
       line: entry.ghosty || rules.line,
-      notes: rules.plain ? [youNote()] : [youNote(), ghostNote()],
+      notes: [...(rules.plain ? [youNote()] : [youNote(), ghostNote()]), ...(damaged && !resume ? [DAMAGED_SAVE] : [])],
       buttons: [
         ...(rules.persist
           ? [...(resume ? [{ label: 'Continue', aria: `Continue ${rules.title} from the last lantern`, primary: true, act: () => startRun(true) }] : []), { label: 'New game', aria: `Start ${rules.title} from the beginning`, primary: !resume, act: () => startRun() }]

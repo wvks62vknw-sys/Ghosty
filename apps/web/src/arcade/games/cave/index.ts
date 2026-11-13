@@ -84,6 +84,7 @@ const rules: Rules<Run> = {
   bot: (r, th) => botStep(r, th),
   practice: {
     id: CAVE_ID,
+    hold: true,
     theta0: THETA0,
     sigma: SIGMA,
     play: (theta, level, seed) => {

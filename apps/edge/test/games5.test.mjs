@@ -922,7 +922,7 @@ test('nothing learns on the phone: the weights slot is read if present, absent b
 test('the shelf entries are made by us, have no data, sit on the shelf once after THE BEAT, and keep the arcade\'s own words', () => {
   assert.deepEqual(GAMES5.map((e) => e.id), ['platform', 'cave', 'draughts', 'othello', 'backgammon', 'connect4']);
   const ids = SHELF.map((e) => e.id);
-  assert.deepEqual(ids.slice(ids.indexOf('beat') + 1), GAMES5.map((e) => e.id), 'six tiles right after THE BEAT');
+  assert.deepEqual(ids.slice(ids.indexOf('beat') + 1, ids.indexOf('beat') + 1 + GAMES5.length), GAMES5.map((e) => e.id), 'six tiles right after THE BEAT (poker and words follow them: games6.test.mjs)');
   const CONTROLS = ['move', 'look', 'fire', 'use', 'weapon', 'jump', 'map'];
   for (const e of GAMES5) {
     assert.equal(e.data, null);

@@ -6,7 +6,7 @@
  * a handful of games can honestly say.
  */
 import { type Glicko, glicko2, NEW_PLAYER } from '../../../gym/chessrate';
-import type { BoardId } from '../shelf5';
+import type { RatedId } from '../shelf6';
 
 export const RATING_KEY = 'ghosty.arcade.board.rating';
 
@@ -84,4 +84,4 @@ export function reportLine(id: string): string {
   if (!b.you.games) return `${ratingTail(id)} · not rated yet`;
   return `${ratingTail(id)} · ±${Math.max(10, near10(Math.max(b.you.rd, b.me.rd)))} · ${b.you.games} game${b.you.games === 1 ? '' : 's'}: ${b.wins} won, ${b.draws} drawn, ${b.losses} lost`;
 }
-export const BOARD_NAMES: Record<BoardId, string> = { draughts: 'Draughts', othello: 'Othello', backgammon: 'Backgammon', connect4: 'Connect 4' };
+export const BOARD_NAMES: Record<RatedId, string> = { draughts: 'Draughts', othello: 'Othello', backgammon: 'Backgammon', connect4: 'Connect 4', poker: 'Poker', words: 'Words' };

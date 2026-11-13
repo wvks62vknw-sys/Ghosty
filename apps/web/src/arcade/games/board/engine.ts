@@ -10,6 +10,8 @@ import { connect4, type C4State, deepen } from './connect4';
 import { draughts } from './draughts';
 import { type BoardGame, Search, thinkMs } from './kit';
 import { othello } from './othello';
+import { botAct, type Choice, hintFor, type View } from './poker';
+import { bestFor, botPlay, Lex, type WChoice, type WState, type Tile } from './words';
 
 export const GAME: Record<BoardId, BoardGame<any, any>> = { draughts, othello, backgammon, connect4 };
 
@@ -52,3 +54,50 @@ export function decide(m: Omit<AskMsg, 'id'>): Decision {
   return { move: p.move, iters: p.iters, value: p.value, depth: 0 };
 }
 export { thinkMs };
+
+// ---------------------------------------------------------------- poker and the word game, asked the same way
+
+export interface PokerAsk {
+  id: number;
+  kind: 'poker';
+  view: View;
+  level: number;
+  seed: number;
+  ms: number;
+  samples?: number;
+  /** The hint for you (your chance of winning) rather than his move. */
+  hint?: boolean;
+}
+export interface WordsAsk {
+  id: number;
+  kind: 'words';
+  state: WState;
+  level: number;
+  seed: number;
+  ms: number;
+  samples?: number;
+  /** The hint for you (the best placement by score) rather than his move. */
+  hint?: boolean;
+}
+export interface LexMsg {
+  id: number;
+  kind: 'lex';
+  bytes: ArrayBuffer;
+}
+export type WorkerMsg = (AskMsg & { kind?: undefined }) | PokerAsk | WordsAsk | LexMsg;
+
+export function decidePoker(m: Omit<PokerAsk, 'id' | 'kind'>): Choice | { eq: number; need: number; samples: number } {
+  if (m.hint) return hintFor(m.view, m.seed, { ms: m.ms, samples: m.samples });
+  return botAct(m.view, m.level, m.seed, { ms: m.ms, samples: m.samples });
+}
+let lex: Lex | null = null;
+/** The word list, from the packed file the page read (kept for the Worker's life). */
+export function setLex(bytes: ArrayBuffer | Uint8Array): Lex {
+  lex = new Lex(bytes);
+  return lex;
+}
+export function decideWords(m: Omit<WordsAsk, 'id' | 'kind'>, l: Lex | null = lex): WChoice | { tiles: Tile[]; score: number } | null {
+  if (!l) throw new Error('The word list is not here yet.');
+  if (m.hint) return bestFor(m.state, m.state.turn, l);
+  return botPlay(m.state, m.level, m.seed, l, { ms: m.ms, samples: m.samples });
+}

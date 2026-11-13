@@ -105,8 +105,8 @@ const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefi
 
 /** The five games with a level (games/two/skill.ts, no top one): yours and Ghosty's, on the card. */
 const LEVELLED = new Set<string>(['blocks', 'blast', 'flap', 'climb', 'beat', 'platform', 'cave']);
-/** The four board games: a rating for each of you (the same Glicko-2 as the GYM's chess), not a level, ends the card. */
-const BOARDS = new Set<string>(['draughts', 'othello', 'backgammon', 'connect4']);
+/** The four board games, poker and the word game: a rating for each of you (the same Glicko-2 as the GYM's chess), not a level, ends the card. */
+const BOARDS = new Set<string>(['draughts', 'othello', 'backgammon', 'connect4', 'poker', 'words']);
 const levelTail = (e: ShelfEntry): string => {
   if (BOARDS.has(e.engine)) return ` · ${ratingTail(e.id)}`;
   if (!LEVELLED.has(e.engine)) return '';

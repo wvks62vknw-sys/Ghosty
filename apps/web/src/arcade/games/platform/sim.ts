@@ -483,6 +483,31 @@ export function step(r: Run, dt: number, input: Cmd): void {
 // ---------------------------------------------------------------- Ghosty's hands
 
 /**
+ * A STOMP WHEN A STOMP IS THE SHORTEST WAY: a walker on the open floor ahead, with nothing else in the way (no pit, no wall, no
+ * second creature close behind it), is jumped at from the distance at which the jump comes down on it (a jump takes about
+ * two thirds of a second, and he closes on it at his run speed plus its own walk), not from the few pixels at which he would
+ * go over it. The early distance is only used when the floor under the whole jump is there.
+ */
+const STOMP_LAG = 0.57;
+function stompNow(r: Run, e: Enemy, dx: number, groundAhead: (dx: number) => boolean): boolean {
+  const p = r.p;
+  if (Math.abs(e.y - (p.y + p.h - e.h)) > 6 || !e.onGround) return false;
+  const mine = p.vx + (FEEL.run - p.vx) * 0.8;
+  const closing = Math.max(60, mine - (Number.isFinite(e.vx) ? e.vx : 0));
+  const reach = closing * STOMP_LAG;
+  if (dx < 0 || dx > reach) return false;
+  const frontX = p.x + p.w;
+  const feet = Math.floor((p.y + p.h - 1) / TS);
+  for (let k = 0; k <= reach + 150; k += 14) {
+    if (!groundAhead(k)) return false;
+    const tx = Math.floor((frontX + k) / TS);
+    if (isSolid(r, tx, feet) || isSolid(r, tx, feet - 1)) return false;
+  }
+  for (const o of r.enemies) if (o !== e && o.alive && o.x > frontX - 10 && o.x < e.x + 70) return false;
+  return true;
+}
+
+/**
  * Ghosty's rule: always on the way right; jump a pit when its edge is `th[0]` pixels off, jump a creature that is `th[1]`
  * pixels ahead (a stomp when it comes), and run when `th[2]` is above zero (a slower walk is steadier and a run clears the wide pits).
  */
@@ -512,6 +537,7 @@ export function botStep(r: Run, th: readonly number[]): void {
       const dx = e.x - frontX;
       const dy = e.y - p.y;
       if (dx > -4 && dx < d1 && dy > -22 && dy < 18 && (e.kind !== 'flyer' || dy > -12)) want = true;
+      else if (e.kind === 'walker' && stompNow(r, e, dx, groundAhead)) want = true;
     }
     // a pit's far side may be a platform that moves or falls: jump from the very edge, at a run
     if (want) {

@@ -7,7 +7,7 @@ import { dosFiles } from '../dos';
 import { arenaEngine } from '../games/arena/index';
 import { hopperEngine } from '../games/hopper/index';
 import { kartEngine } from '../games/kart/index';
-import { backgammonEngine, connect4Engine, draughtsEngine, othelloEngine } from '../games/board/index';
+import { backgammonEngine, connect4Engine, draughtsEngine, othelloEngine, pokerEngine, wordsEngine } from '../games/board/index';
 import { caveEngine } from '../games/cave/index';
 import { platformEngine } from '../games/platform/index';
 import { beatEngine } from '../games/two/beat';
@@ -24,7 +24,7 @@ import { dosEngine } from './dos';
 import { quake } from './quake';
 import type { Engine, EngineFiles } from './types';
 
-export const ENGINES: Partial<Record<EngineId, Engine>> = { dos: dosEngine, doom, quake, voxel: voxelEngine, runner: runnerEngine, kart: kartEngine, hopper: hopperEngine, arena: arenaEngine, blocks: blocksEngine, blast: blastEngine, flap: flapEngine, climb: climbEngine, beat: beatEngine, platform: platformEngine, cave: caveEngine, draughts: draughtsEngine, othello: othelloEngine, backgammon: backgammonEngine, connect4: connect4Engine, studio: studioEngine };
+export const ENGINES: Partial<Record<EngineId, Engine>> = { dos: dosEngine, doom, quake, voxel: voxelEngine, runner: runnerEngine, kart: kartEngine, hopper: hopperEngine, arena: arenaEngine, blocks: blocksEngine, blast: blastEngine, flap: flapEngine, climb: climbEngine, beat: beatEngine, platform: platformEngine, cave: caveEngine, draughts: draughtsEngine, othello: othelloEngine, backgammon: backgammonEngine, connect4: connect4Engine, studio: studioEngine, poker: pokerEngine, words: wordsEngine };
 
 export const engineFor = (e: ShelfEntry): Engine | null => ENGINES[e.engine] ?? null;
 

@@ -23,6 +23,9 @@ export interface Who {
   r: number;
   n: number;
   theta?: number[];
+  /** A game whose bot's level holds (`PracticeGame.hold`): the highest rating it has reached and the sessions lost in a row since. */
+  peak?: number;
+  lost?: number;
 }
 export interface Book {
   you: Who;
@@ -71,7 +74,7 @@ const storage = (): Storage | null => {
 const fresh = (): Book => ({ you: { r: 0, n: 0 }, ghosty: { r: 0, n: 0 } });
 const goodWho = (w: unknown): w is Who => {
   const v = w as Who | null;
-  return !!v && Number.isFinite(v.r) && v.r >= 0 && Number.isFinite(v.n) && (v.theta === undefined || (Array.isArray(v.theta) && v.theta.every(Number.isFinite)));
+  return !!v && Number.isFinite(v.r) && v.r >= 0 && Number.isFinite(v.n) && (v.peak === undefined || Number.isFinite(v.peak)) && (v.lost === undefined || Number.isFinite(v.lost)) && (v.theta === undefined || (Array.isArray(v.theta) && v.theta.every(Number.isFinite)));
 };
 
 export function allBooks(): Record<string, Book> {
@@ -116,6 +119,28 @@ export interface PracticeGame {
   sigma: readonly number[];
   /** Play one whole run of the real rules at `level` with the bot `theta`; the score and the level's target, and whether it passed. */
   play(theta: readonly number[], level: number, seed: number): { score: number; target: number; passed: boolean };
+  /** His level holds: a lost session does not take him below the level he has reached, unless he loses three sessions running. */
+  hold?: boolean;
+}
+
+/** How many lost sessions in a row it takes to lose a level he holds. */
+export const HOLD_LOSSES = 3;
+/** A held level after one more session (pure): `r` the rating after the run as it would be, `w` his record, changed in place. */
+export function held(w: Who, before: number, after: number, passed: boolean): number {
+  const peak = Math.max(w.peak ?? before, before);
+  if (passed) {
+    w.lost = 0;
+    w.peak = Math.max(peak, after);
+    return after;
+  }
+  w.lost = (w.lost ?? 0) + 1;
+  if (w.lost >= HOLD_LOSSES) {
+    w.lost = 0;
+    w.peak = after;
+    return after;
+  }
+  w.peak = peak;
+  return Math.max(after, Math.floor(peak));
 }
 
 /** A seeded generator for the practice's own choices (the same numbers for the same seed). */
@@ -157,7 +182,8 @@ export function practiceSession(g: PracticeGame, seed: number, book: Book = book
   w.theta = kept ? trial : theta;
   const run = g.play(w.theta, level, Math.floor(rnd() * 2 ** 30) + 1);
   const before = w.r;
-  w.r = afterRun(before, run.passed, run.score, run.target);
+  const after = afterRun(before, run.passed, run.score, run.target);
+  w.r = g.hold ? held(w, before, after, run.passed) : after;
   w.n++;
   saveBook(g.id, book);
   return { level, kept, passed: run.passed, score: run.score, target: run.target, rating: w.r };
