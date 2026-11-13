@@ -79,7 +79,7 @@ export function unitPad(): HTMLElement {
     if (!k.recent.length) return clear(recent, h('p.cvnote', { 'data-state': 'empty' }, PAD_WORDS.recentEmpty));
     clear(recent, h('small.cvgh', 'RECENT'), h('div.cvbtns', ...k.recent.map((r) => {
       const a = convertByName(r.value, r.from, r.to);
-      return button(a ? a.text : `${nice(r.value)} ${r.from} → ${r.to}`, () => {
+      const b = button(a ? a.text : `${nice(r.value)} ${r.from} → ${r.to}`, () => {
         const d = kindOf(r.from)!;
         kind.value = d;
         fill(from, d, r.from);
@@ -87,6 +87,9 @@ export function unitPad(): HTMLElement {
         val.value = String(r.value);
         go(false);
       }, 'cvpadrec');
+      // a unit's own case is kept ("°C", "mph", "MB"): the buttons' sentence case would make it "°c"
+      b.dataset.case = 'keep';
+      return b;
     })));
   };
   const remember = (a: UnitAnswer, v: number) => {

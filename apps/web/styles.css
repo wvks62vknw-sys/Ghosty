@@ -5725,6 +5725,7 @@ canvas.buildplan { display: block; max-width: 100%; }
 .cvpadrow span { font: 400 14px/1.35 var(--sf); color: var(--mute); }
 .cvpadrecent { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cvpadswap, .cvpadcopy, .cvpadrec { min-height: 44px; }
+html body .cvpadrec[data-case="keep"], html body .cvpadrec[data-case="keep"]::first-letter { text-transform: none !important; }
 .cvtools { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: .5px solid var(--line, rgba(255,255,255,.15)); }
 .rtsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .rtsheet > button, .rtgroup button, .rtlink { min-height: 44px; }
