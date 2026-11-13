@@ -264,4 +264,12 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   hub, 14 on THE PLAN). #115 moved the sixteen imported tests into the brain's list (147 test files, each named once). Entry numbers:
   PRESENTATIONS 202, THE WORKSPACE 206 (as the queue gave it). The landing agent merges in order as each goes green and fixes forward.
   GitHub runs about three of these runs at a time on this account, each about 70 minutes, so the set needs most of a day of checks.
+- 13 Nov, the chat pass hand-back: builder/chatpass head e4342b0c (3 commits from 7558973d, 17 files, +1358 −54); 31 fixes against 25, seven
+  ratchet rows (core.log, core.turn, core.talk, show.stage, core.cited, core.local, core.hud), chatpass spec 138 checks clean (86 red on the
+  base), brain 1880/1880, two specs edited and both stronger; reviewed clean (only the `chatpass` word in .github; no model name; no scratch
+  file). Entry 213. Decided under 179: the key back to the latest message reads "Newest"; the first open offers "What should I know today?",
+  "What can you do here?" and "What did you do today?"; "Sending…" stays for the first 0.6 s. Found, not fixed: notices still toast rather
+  than a dismissible card; the voice chosen in SETTINGS not re-worded; the first open can flash before a long log arrives; a phone-made
+  answer shows "0.0 s". It lands after the stack (a landing branch cut from main once #116 is in). The Telegram pass is NOT started: the
+  owner asked on 13 Nov about credit use, so no new builder starts until he says go.
 
