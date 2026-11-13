@@ -875,7 +875,7 @@ const toList = async () => {
     if (!/^Rating \d[\d,]* · (up \d+|down \d+|no change)$/.test(onCard)) problems.push(`ideas: the tic-tac-toe card's rating reads "${onCard}"`);
     const line = ((await G('.gymidea.league .gymrateline').textContent()) ?? '').trim();
     if (line !== lg.line || !/^Rating \d[\d,]* · (up \d+|down \d+|no change) this week$/.test(line)) problems.push(`ideas: the league line reads "${line}"`);
-    const kept = ((await G('.gymidea.league small').first().textContent()) ?? '').trim();
+    const kept = ((await G('.gymidea.league small:not(.gymleaguehelp)').first().textContent()) ?? '').trim();
     if (!/^\d of 8 versions kept on this phone · \d+ KB$/.test(kept)) problems.push(`ideas: the versions line reads "${kept}"`);
     const verdict = ((await G('.gymidea.league small.verdict').textContent()) ?? '').trim();
     if (!/^Level \d+’s version (kept|thrown away): it scored [\d.]+ of \d+ against his/.test(verdict)) problems.push(`ideas: the decision reads "${verdict}"`);
