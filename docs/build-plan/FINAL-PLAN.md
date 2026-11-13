@@ -110,7 +110,7 @@ checked by two more reviewers before it counted, and each is fixed or written do
 - **To-dos, favourites, watchlist, holdings and pins are kept on the phone.** That is your own data on your own phone. It works
   offline and needs no new brain tool.
 - **Markets uses CoinGecko's free, keyless endpoints only.** Nothing costs money. Nothing is a forecast or a call to buy or sell.
-- **The planlane spec runs in two lanes at once.** Its 829 checks took 642 seconds on a busy container, and CI stops a spec at
+- **The planlane spec runs in two lanes at once.** An early run took 642 seconds on a busy container, and CI stops a spec at
   480. The parts that read your diary on the preview brain run one after another in the first lane. The parts whose sources are
   all stood in run in the second.
 
@@ -129,14 +129,14 @@ checked by two more reviewers before it counted, and each is fixed or written do
 
 ## Checks
 
-- **`tests/planlane.spec.mjs`** with a part for each screen (`tests/planlane/<screen>.mjs`): 829 checks, all green on the
-  integrated branch. Each part covers:
+- **`tests/planlane.spec.mjs`** with a part for each screen (`tests/planlane/<screen>.mjs`): 955 checks, all green on the
+  integrated branch (383 s; CI stops a spec at 480 s). Each part covers:
   - 440 × 956 and 390 × 844, BODY 21 and all seven looks;
   - every key 44 pt, nothing sideways, no word cut;
   - every state in your words;
   - the chat's wordings with no model.
   Its word, planlane, is at the end of check.yml's `all=`.
-- The brain suite, the typechecks, and the ratchet, knowledge, look and catalogue tests: all green. The STATES ratchet has the new
+- The brain suite (2,211 tests), the typechecks, and the ratchet, knowledge, look, catalogue and meanings tests: all green. The STATES ratchet has the new
   screens' rows. The catalogue lists the new panels, with only wordings that work.
 - The existing specs of these screens pass: agenda, brief, social, homepass, planmepass and markets. nav's agenda pills read the
   new truth.
