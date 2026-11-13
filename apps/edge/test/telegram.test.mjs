@@ -566,6 +566,26 @@ test('five wrong pairing codes lock a chat out until a new code: the right guess
   tg.calls.length = 0;
 });
 
+test('[security] wrong pairing guesses from many chats together spend the code: twenty in all and no chat pairs with it, until he makes a new one', async () => {
+  const un = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
+  assert.match(un.code, /^\d{6}$/);
+  const wrongs = Array.from({ length: 20 }, (_, i) => String((Number(un.code) + 1 + i) % 1_000_000).padStart(6, '0'));
+  // twenty throwaway accounts, one guess each: none is locked out on its own count, but together they spend the code
+  for (let k = 0; k < 20; k++) {
+    const chat = 990000100 + k;
+    await hook(msg(chat, { text: wrongs[k] }, { id: chat, first_name: 'Mallory' }), secret);
+  }
+  const fresh = 990000999;
+  await hook(msg(fresh, { text: un.code }, { id: fresh, first_name: 'Mallory' }), secret);
+  assert.equal((await status()).paired, false, 'a fresh chat with the right code does not pair once the code is spent');
+  // a new code from the app pairs the owner again
+  const again = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
+  assert.notEqual(again.code, un.code);
+  await hook(msg(OWNER_CHAT, { text: again.code }), secret);
+  assert.equal((await status()).paired, true);
+  tg.calls.length = 0;
+});
+
 // ---- signed buttons, voice back, pictures as files, approvals from the app, upgrade ideas ----
 
 test('signButton / readButton: a press reads back; a changed field, another key or an old button is refused', async () => {

@@ -13,6 +13,7 @@
  *   GET /guardian/watchers · POST /guardian/watchers { kind, url, label? } · DELETE /guardian/watchers?id=
  */
 import { priceOf } from '../../../packages/shared/src/money';
+import { guardedFetch } from './netguard';
 import { parseTarget } from './integrations/recon';
 import type { GuardDeps } from './guardstate';
 
@@ -126,7 +127,14 @@ export interface Reading {
 
 /** One read: https only, a body of at most MAX_BYTES, nine seconds, a login or a private address on the way refused. Throws a plain line. */
 export async function readPage(fetcher: Fetcher, url: string): Promise<Reading> {
-  const r = await fetcher(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, redirect: 'follow', signal: AbortSignal.timeout(9000) });
+  // [security] each redirect hop is checked BEFORE it is asked (a redirect into a private address is never requested)
+  let r: Response;
+  try {
+    r = await guardedFetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, signal: AbortSignal.timeout(9000) }, { fetcher });
+  } catch (e) {
+    if (/redirect/.test(String((e as Error)?.message))) throw new Error('moved');
+    throw e;
+  }
   if (r.status === 401 || r.status === 403) throw new Error('login');
   if (!r.ok) throw new Error(`the page answered ${r.status}`);
   const end = r.url || url;

@@ -4,6 +4,7 @@
  * street crime as police.uk publishes it (a count, never a forecast). "Nothing active" when nothing is. The brain looks
  * every hour (apps/edge/src/guardian.ts) and tells him what is new; CHECK NOW looks this minute.
  */
+import { openSafe } from '../../core/safeurl';
 import { brain } from '../../api/brain';
 import { guardian, loadGuardian, setGuardian } from '../../state/guardian';
 import { clear, h } from '../../core/dom';
@@ -67,7 +68,7 @@ export function nearHomePanel(): { el: HTMLElement; refresh(): void } {
     for (const pl of info.places) {
       if (!pl.active.length) rows.push(row(pl.label.toUpperCase(), `Nothing active near ${pl.label}.`, null, { wrap: true }));
       for (const w of pl.active) {
-        const r = row(pl.label.toUpperCase(), warn(w, info.tz), null, { wrap: true, sev: SEV[w.level], onClick: w.link ? () => window.open(w.link, '_blank', 'noopener') : undefined });
+        const r = row(pl.label.toUpperCase(), warn(w, info.tz), null, { wrap: true, sev: SEV[w.level], onClick: w.link ? () => openSafe(w.link) : undefined });
         r.dataset.feed = w.feed;
         rows.push(r);
       }

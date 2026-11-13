@@ -16,6 +16,7 @@ import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from 
 import { appApproval, buildApp } from '../appbuild';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
+import { guardedFetch, unsafeUrl } from '../netguard';
 import { durableDelete, durableGet, durablePut } from '../kv';
 import { siteApproval, startSiteBuild } from '../sitebuild';
 import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
@@ -548,16 +549,19 @@ export const siteTools: Tool[] = [
     async run(a, ctx) {
       let url = arg.str(a, 'url').trim();
       if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      // [security] public web only; every redirect hop and every stylesheet the page names is checked before it is asked
+      const refused = unsafeUrl(url);
+      if (refused) throw new Error(refused);
       ctx.emit?.({ t: 'status', text: `reading ${hostOf(url) || url}…` });
       // A big page and its stylesheets take a while: the chat shows which step is under way. (?. — tests call tools with a bare context.)
       ctx.progress?.(`fetching ${hostOf(url) || url}…`);
-      const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,*/*;q=0.5' }, redirect: 'follow' });
+      const r = await guardedFetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,*/*;q=0.5' } });
       if (!r.ok) throw new Error(`the site answered HTTP ${r.status}`);
       const html = await readCapped(r, 1_500_000);
       const final = r.url || url;
       const sheets = [...html.matchAll(/<link\b[^>]*rel\s*=\s*["']?stylesheet[^>]*>/gi)].map((m) => abs(attr(m[0], 'href'), final)).filter(Boolean).slice(0, 4);
       ctx.progress?.(sheets.length ? `reading the page and ${sheets.length} stylesheet${sheets.length === 1 ? '' : 's'}…` : 'reading the page…');
-      const css = await Promise.all(sheets.map((s) => fetch(s, { headers: { 'User-Agent': UA } }).then((x) => (x.ok ? readCapped(x, 250_000) : '')).catch(() => '')));
+      const css = await Promise.all(sheets.map((s) => guardedFetch(s, { headers: { 'User-Agent': UA } }).then((x) => (x.ok ? readCapped(x, 250_000) : '')).catch(() => '')));
       // Sites that build their page with JavaScript send almost no text: read it rendered (free reader, no key).
       let rendered = '';
       if (strip(html.match(/<body\b[\s\S]*<\/body>/i)?.[0] ?? html).length < 400) {

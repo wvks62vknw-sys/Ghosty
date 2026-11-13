@@ -35,6 +35,7 @@ import type { Env } from './env';
 import type { Vault } from './kernel/vault';
 import { durableDelete, durableGet, durablePut, storageError } from './kv';
 import { MAX_IMAGE_BYTES, sniffImage } from './lens';
+import { guardedFetch, readCappedBytes } from './netguard';
 import { unreadNote, type ClientContext } from './prompt';
 import { MAX_AUDIO_BYTES, MAX_TTS_CHARS, SpeechError, speakable, synthesize, toBase64, transcribe } from './speech';
 import { loadIdeas } from './upgrades';
@@ -774,6 +775,10 @@ const refused = new Map<number, number>();
 /** Wrong pairing codes per chat: after five, that chat is ignored until a new code is made. */
 const wrongCodes = new Map<number, { code: string; n: number }>();
 const MAX_WRONG_CODES = 5;
+/** [security] Wrong guesses at one code from ALL chats together: past this the code is spent (no chat can pair with it, the
+ * right guess included) until he makes a new one. Five per chat alone let many throwaway accounts share out the million codes. */
+const wrongTotal = new Map<string, number>();
+export const MAX_WRONG_TOTAL = 20;
 
 /**
  * POST /api/telegram/hook, which Telegram calls for every update. The secret header must
@@ -819,7 +824,7 @@ async function handleMessage(host: TelegramHost, link: TelegramLink, u: TgUpdate
     const guess = text.replace(/\s+/g, '');
     const wrong = wrongCodes.get(chatId);
     // Five wrong guesses at this code and the chat is locked out of pairing until a new code is made — the right guess included.
-    const lockedOut = validCode(link) && !!wrong && wrong.code === link.code && wrong.n >= MAX_WRONG_CODES;
+    const lockedOut = validCode(link) && ((!!wrong && wrong.code === link.code && wrong.n >= MAX_WRONG_CODES) || (wrongTotal.get(link.code!) ?? 0) >= MAX_WRONG_TOTAL);
     if (validCode(link) && !lockedOut && guess === link.code) {
       // Only a private chat can be the owner's: in a group every member would have the owner's authority.
       if (m.chat.type !== 'private' || (m.from && m.from.id !== chatId)) {
@@ -836,6 +841,8 @@ async function handleMessage(host: TelegramHost, link: TelegramLink, u: TgUpdate
       // A six-digit guess that did not pair: counted per chat; from the fifth on the chat is silent until the code changes.
       const n = wrong && wrong.code === link.code ? wrong.n + 1 : 1;
       wrongCodes.set(chatId, { code: link.code!, n });
+      wrongTotal.set(link.code!, (wrongTotal.get(link.code!) ?? 0) + 1);
+      if (wrongTotal.size > 50) wrongTotal.delete(wrongTotal.keys().next().value!);
       if (wrongCodes.size > 500) wrongCodes.delete(wrongCodes.keys().next().value!);
       if (n >= MAX_WRONG_CODES) return;
     }
@@ -1105,10 +1112,13 @@ export async function tiktokCard(url: string): Promise<{ title: string; author: 
 /** A picture at a public https address (a TikTok's cover) as a data URL: within the picture limit, JPEG, PNG or WebP; else ''. */
 async function pictureAt(url: string): Promise<string> {
   if (!/^https:\/\//i.test(url)) return '';
-  const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!r.ok || Number(r.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) return '';
-  const bytes = await r.arrayBuffer();
-  const type = bytes.byteLength <= MAX_IMAGE_BYTES ? sniffImage(bytes) : null;
+  // [security] the address comes from another service's answer: public web only, hops checked, the body read to the limit and no further
+  const r = await guardedFetch(url, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+  if (!r || !r.ok || Number(r.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) return '';
+  const got = await readCappedBytes(r, MAX_IMAGE_BYTES);
+  if (got.cut) return '';
+  const bytes = got.bytes.slice().buffer as ArrayBuffer;
+  const type = sniffImage(bytes);
   return type ? `data:${type};base64,${toBase64(bytes)}` : '';
 }
 

@@ -10,6 +10,7 @@ import { imageResponse } from './lens';
 import { zimPassthrough } from './zim';
 import { arcadePassthrough } from './arcade';
 import { demoRoute } from './demo';
+import { callerOf, DOOR_LIMITS, overLimit, slowDown, usedOf } from './ratelimit';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -88,6 +89,18 @@ const FEED_HOSTS = new Set([
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 
+/** [security] Which public door a request knocks on (for its allowance), or null for the owner's own signed-in calls. */
+function publicDoor(path: string, req: Request): keyof typeof DOOR_LIMITS | null {
+  if (path === '/api/telegram/hook') return 'telegram';
+  if (path === '/api/discord/interactions') return 'discord';
+  if (path === '/api/training/hook') return 'training';
+  if (path.startsWith('/api/w/')) return 'weights';
+  if (path.startsWith('/s/')) return 'site';
+  if (path.startsWith('/i/')) return 'image';
+  if (path === '/demo' || path.startsWith('/demo/') || (path.startsWith('/api/') && req.headers.get('x-ghosty-demo') !== null)) return 'demo';
+  return null;
+}
+
 async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
   const u = new URL(req.url);
   const target = u.searchParams.get('url') ?? '';
@@ -103,11 +116,28 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
   const key = new Request(`https://ghosty-cache.internal/${encodeURIComponent(t.toString())}`);
   const hit = await cache.match(key);
   if (hit) return hit;
-  const r = await fetch(t.toString(), {
-    headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: req.headers.get('accept') ?? '*/*', ...(FEED_HEADERS[t.hostname] ?? {}) },
-  });
-  // Redirects must stay on allowed hosts too.
-  if (r.url && !allowedFeed(new URL(r.url))) return json({ error: 'redirected to a host that is not allowed' }, 403);
+  // [security] Redirects must stay on allowed https hosts too, and each hop is checked BEFORE it is asked (redirect: 'manual'),
+  // so a feed that redirects somewhere else never gets a request sent there.
+  let at = t;
+  let r: Response | undefined;
+  for (let hop = 0; hop <= 5; hop++) {
+    r = await fetch(at.toString(), {
+      headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: req.headers.get('accept') ?? '*/*', ...(FEED_HEADERS[at.hostname] ?? {}) },
+      redirect: 'manual',
+    });
+    const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
+    if (!loc) break;
+    let next: URL;
+    try {
+      next = new URL(loc, at);
+    } catch {
+      return json({ error: 'redirected to a host that is not allowed' }, 403);
+    }
+    if (next.protocol !== 'https:' || !allowedFeed(next) || hop === 5) return json({ error: 'redirected to a host that is not allowed' }, 403);
+    at = next;
+    r = undefined;
+  }
+  if (!r) return json({ error: 'redirected to a host that is not allowed' }, 403);
   // Feed data is never rendered as a page on Ghosty's own address: no scripts, download only.
   const out = new Response(r.body, {
     status: r.status,
@@ -126,6 +156,10 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
+    // [security] A caller hammering a public door is told to wait before anything else runs (ratelimit.ts).
+    const who = callerOf(req);
+    const door = publicDoor(url.pathname, req);
+    if (door && overLimit(door, who, DOOR_LIMITS[door])) return slowDown();
     // [demo] The review link (demo/index.ts): /demo's pages, and the /api calls the demo page makes, answered by the demo brain
     // only (its own Durable Object, no owner key, no secrets, an allow-list of reads). Everything else goes on as it always did.
     const demo = await demoRoute(req, env, ctx, { proxy });
@@ -173,8 +207,13 @@ export default {
     const site = req.headers.get('sec-fetch-site');
     if (site && site !== 'same-origin' && site !== 'none') return json({ error: 'cross-site request refused' }, 403);
     if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('x-ghosty') !== '1') return json({ error: 'missing x-ghosty header' }, 403);
+    // [security] Wrong owner keys from one caller are counted: past the allowance, it waits a minute before it may guess again.
+    if (usedOf('badkey', who) >= DOOR_LIMITS.badkey) return slowDown();
     const auth = await authenticate(req, env);
-    if (!auth.ok) return json({ error: auth.reason, auth: true }, auth.status);
+    if (!auth.ok) {
+      if (auth.status === 401) overLimit('badkey', who, DOOR_LIMITS.badkey);
+      return json({ error: auth.reason, auth: true }, auth.status);
+    }
     if (url.pathname === '/api/proxy') return proxy(req, ctx);
     // [resta] WIKIPEDIA, OFFLINE: the owner's phone fetches a Kiwix file a piece at a time through here (zim.ts), streamed
     // and kept nowhere; the brain never reads it.
