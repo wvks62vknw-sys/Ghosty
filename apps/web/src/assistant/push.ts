@@ -41,6 +41,12 @@ export async function initApp(): Promise<void> {
     pushState.set({ status: 'unsupported' });
     return;
   }
+  // (a registration that came back empty, or with no push manager: notifications are not possible here, said so, never a throw)
+  if (!reg?.pushManager) {
+    reg = null;
+    pushState.set({ status: 'unsupported' });
+    return;
+  }
   const supported = 'PushManager' in window && 'Notification' in window;
   pushState.set({ supported });
   if (!supported) {
