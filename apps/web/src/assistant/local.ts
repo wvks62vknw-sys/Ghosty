@@ -45,6 +45,7 @@ import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
+import { screenAsked } from './screenasks';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
 import { TWO_WAYS } from '../../../../packages/shared/src/colours';
@@ -369,6 +370,11 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
+  async openscreen(text, opts) {
+    const s = screenAsked(text);
+    if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;
+    return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
+  },
   // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),

@@ -123,7 +123,8 @@ export interface PlannerPrefill {
   toName?: string;
 }
 
-const HERE = /^(here|my location|where i am|home)$/i;
+const HERE = /^(here|my location|where i am)$/i;
+const HOME = /^(home|my home)$/i;
 
 /** This phone's position (a few seconds at most), else the owner's home. */
 const whereAmI = (): Promise<{ lat: number; lon: number }> =>
@@ -143,9 +144,14 @@ const whereAmI = (): Promise<{ lat: number; lon: number }> =>
 /** The owner's words for a place as the brain takes them: "Here" (or nothing) becomes this phone's position. */
 async function placeArg(text: string): Promise<{ q: string; here: boolean }> {
   const t = text.trim();
+  if (HOME.test(t)) {
+    const H = home();
+    return { q: `${H.lat.toFixed(5)},${H.lon.toFixed(5)}`, here: false };
+  }
   if (t && !HERE.test(t)) return { q: t, here: false };
+  // (the brain never gets live GPS: where he is goes as the square kilometre around him, never the point)
   const p = await whereAmI();
-  return { q: `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`, here: true };
+  return { q: `${p.lat.toFixed(2)},${p.lon.toFixed(2)}`, here: true };
 }
 
 /** "2026-10-17T09:30" in the phone's zone, for a datetime-local input. */

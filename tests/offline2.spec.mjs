@@ -265,7 +265,7 @@ check(5, /^Greetings and small talk: on your phone 7 days \d+% of \d+ · 30 days
 check(5, cats.some((c) => /^Rewording and grammar: .*the cloud’s: 70% on 20 questions: under your 80%/.test(c)), 'the sheet does not say why rewording is the cloud’s');
 check(5, cats.some((c) => /^Everything else: .*the cloud’s: it needs a tool/.test(c)), 'the sheet does not say why everything else is the cloud’s');
 check(5, /SOVEREIGN MODE is the plain name for Always .*the cloud is off-limits; what I can’t do here, I say I can’t\./.test(st), 'no Sovereign mode truth');
-check(5, (st.match(/a phone alone will likely never match the very biggest cloud brains/g) ?? []).length === 1, 'the honest ceiling is not said once');
+check(5, (st.match(/A phone alone will likely never match the biggest cloud brains on the hardest reasoning\./g) ?? []).length === 1, 'the honest ceiling is not said once');
 check(5, /Answering first on this phone: Qwen3 0\.6B\. Your bar: 80%\./.test(st), 'the brain sitting here is not named');
 await sheet.scrollIntoViewIfNeeded().catch(() => undefined);
 await sideways('independence');
