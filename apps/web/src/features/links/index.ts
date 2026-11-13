@@ -148,8 +148,14 @@ export const linksTab: TabDef = {
     type Id = keyof typeof NAMES;
     const state: Record<Id, LinkState> = { email: 'checking', spotify: 'checking', telegram: 'checking', phone: 'checking', traffic: 'checking', brain: 'checking', github: 'checking' };
     const said: Record<Id, string> = { email: '', spotify: '', telegram: '', phone: '', traffic: '', brain: '', github: '' };
+    // The rows others draw here (his social accounts, Home Assistant) count in the top line too, read from their own status line.
+    const others: Panel[] = [...social.panels, hp];
+    const otherState = (p: Panel): LinkState => {
+      const t = (p.el.querySelector('h3 small')?.textContent ?? '').trim().toUpperCase();
+      return !t ? 'checking' : /^NOT LINKED|^NOT CONNECTED/.test(t) ? 'not' : /^OFFLINE|REACH/.test(t) ? 'offline' : /^CHECK|NOT WORKING/.test(t) ? 'failing' : /PAUSED|NOT KNOWN/.test(t) ? 'paused' : /^LINKED|^PAIRED/.test(t) ? 'linked' : 'not';
+    };
     const paintHero = () => {
-      const w = heroWords((Object.keys(state) as Id[]).map((id) => ({ id, state: state[id] })));
+      const w = heroWords([...(Object.keys(state) as Id[]).map((id) => ({ id, state: state[id] })), ...others.map((p, i) => ({ id: `other${i}`, state: otherState(p) }))]);
       /* state: links.connections empty */
       P.big.textContent = w.big;
       P.sub.textContent = w.sub;
@@ -158,6 +164,10 @@ export const linksTab: TabDef = {
         return [NAMES[id], s === 'linked' ? 1 : s === 'failing' ? 0.5 : 0.04, s === 'linked' ? 'ON' : s === 'failing' ? 'FIX' : 'OFF', s === 'linked' ? 'var(--c)' : s === 'failing' || s === 'offline' ? 'var(--r)' : 'var(--a)'];
       }));
     };
+    for (const p of others) {
+      const line = p.el.querySelector('h3 small');
+      if (line) new MutationObserver(() => paintHero()).observe(line, { childList: true, characterData: true, subtree: true });
+    }
     /** One connection's state: its panel's line and light, and the top line. `tag` is said in place of the plain words when given. */
     const setState = (p: Panel, id: Id, s: LinkState, who?: string | null, tag?: string) => {
       state[id] = s;

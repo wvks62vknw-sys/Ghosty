@@ -83,9 +83,11 @@ export async function run(H) {
       await openLinks(H, page, 'Services');
       const seen = await page.evaluate(() => {
         const mine = ['EMAIL', 'SPOTIFY', 'TELEGRAM', 'PHONE', 'LIVE TRAFFIC', 'AI BRAIN', 'GITHUB'];
-        const ps = [...document.querySelectorAll('#pg-links .pn')].filter((p) => mine.some((m) => (p.querySelector('h3 .ptitle')?.textContent ?? '').startsWith(m)) && !/CHANNEL/.test(p.querySelector('h3 .ptitle')?.textContent ?? ''));
-        const st = ps.map((p) => ({ t: p.querySelector('h3 small')?.textContent ?? '', l: p.querySelector('h3 .light')?.className ?? '' }));
-        return { n: ps.length, linked: st.filter((s) => /^Linked|^Notifications on$|model/.test(s.t) && !/^No models/.test(s.t)).length, st, big: document.querySelector('#pg-links .bigv')?.textContent ?? '', sub: document.querySelector('#pg-links .hero .sub')?.textContent ?? '' };
+        const all = [...document.querySelectorAll('#pg-links .pn')].filter((p) => !/^NOTIFICATIONS$/.test(p.querySelector('h3 .ptitle')?.textContent ?? ''));
+        const n = all.filter((p) => mine.some((m) => (p.querySelector('h3 .ptitle')?.textContent ?? '').startsWith(m)) && !/CHANNEL/.test(p.querySelector('h3 .ptitle')?.textContent ?? '')).length;
+        // every row on the screen counts, his social accounts and Home Assistant too (their own words: LINKED)
+        const st = all.map((p) => ({ t: p.querySelector('h3 small')?.textContent ?? '', l: p.querySelector('h3 .light')?.className ?? '' }));
+        return { n, rows: all.length, linked: st.filter((s) => /^Linked|^LINKED|^Notifications on$|model/.test(s.t) && !/^No models/.test(s.t)).length, st, big: document.querySelector('#pg-links .bigv')?.textContent ?? '', sub: document.querySelector('#pg-links .hero .sub')?.textContent ?? '' };
       });
       check(seen.n === 7, `[${wd}] the seven connections are drawn: ${seen.n}`);
       check(seen.big === (seen.linked ? `${seen.linked} linked` : 'Nothing linked yet'), `[${wd}] the top line agrees with the rows: "${seen.big}" for ${JSON.stringify(seen.st)}`);

@@ -9406,5 +9406,6 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 html #pg-links .lkcheck { display: block; color: var(--l2, var(--fg)); margin: 4px 0 2px; white-space: normal; }
 html #pg-links .note.lkwhy { color: var(--amber, var(--a)); white-space: normal; overflow-wrap: anywhere; }
 html #pg-links .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-links .pn .bd .keyrow button { min-height: 44px; }
 /* ==== [planlane:links end] ==== */
 
