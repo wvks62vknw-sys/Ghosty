@@ -24,6 +24,8 @@ import { freeAiToday } from '../../state/status';
 import { niceCase, segRing } from '../../ui/components';
 import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
+import { loadTodos } from '../agenda/todo';
+import { dueToday } from '../agenda/todowords';
 
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
 const CAR = '<path d="M5 16.5V12l1.8-4.6A2 2 0 018.7 6h6.6a2 2 0 011.9 1.4L19 12v4.5"/><path d="M4 12h16v4.5H4z"/><circle cx="7.5" cy="14.3" r=".9"/><circle cx="16.5" cy="14.3" r=".9"/><path d="M6 16.5V19M18 16.5V19"/>';
@@ -355,10 +357,18 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
       // nothing at all today: the one next thing he can do (Today's empty state); something earlier that has gone by: the plain line
       const none = !events.some((e) => e.start < end && (e.end ?? e.start) >= new Date().setHours(0, 0, 0, 0));
       /* state: core.today empty */
-      clear(evs, h('span.rcev.muted', { dataset: { state: 'empty' } }, h('span.nm', none ? 'Nothing in your diary today. Tell me one thing and I’ll keep it.' : 'Nothing more today.')), next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null);
+      clear(evs, h('span.rcev.muted', { dataset: { state: 'empty' } }, h('span.nm', none ? 'Nothing in your diary today. Tell me one thing and I’ll keep it.' : 'Nothing more today.')), next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null, todoLine());
       return;
     }
-    clear(evs, ...left.slice(0, 2).map((e, i) => h('span.rcev', h('span.tm', e.allDay ? 'All day' : clock(e.start)), h(`i.bar${i ? '.dim' : ''}` as 'i'), h(`span.nm${i ? '.r' : ''}` as 'span', e.title), !i && !e.allDay && e.start - now < 3 * 3600_000 ? h('span.in', until(e.start, now)) : null)));
+    // [planlane] with room for it (one event left today), the to-dos due today or late (the agenda's TO-DO, kept on this phone)
+    const td = left.length < 2 ? todoLine() : null;
+    clear(evs, ...left.slice(0, 2).map((e, i) => h('span.rcev', h('span.tm', e.allDay ? 'All day' : clock(e.start)), h(`i.bar${i ? '.dim' : ''}` as 'i'), h(`span.nm${i ? '.r' : ''}` as 'span', e.title), !i && !e.allDay && e.start - now < 3 * 3600_000 ? h('span.in', until(e.start, now)) : null)), td);
+  };
+  /** "To-do · 2 due: Renew passport, Bins" or null when nothing is due today. */
+  const todoLine = () => {
+    const due = dueToday(loadTodos(), Date.now());
+    if (!due.length) return null;
+    return h('span.rcev.rctodo', h('span.tm', 'To-do'), h('i.bar.dim'), h('span.nm.r', due.length === 1 ? due[0]!.text : `${due.length} due: ${due.slice(0, 2).map((t) => t.text).join(', ')}`));
   };
   const loadToday = async (force = false) => {
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
