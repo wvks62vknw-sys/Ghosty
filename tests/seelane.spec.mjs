@@ -22,6 +22,7 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const PHONE2 = { width: 390, height: 844 };
+const WORDS = { scan: 'the scan', map: 'the map', eye: 'the eye', orbit: 'orbit', grown: 'grown up', ink: 'one ink', glass: 'glass' };
 const LOOKS = (process.env.SEE_LOOKS ?? 'scan,map,eye,orbit,grown,ink,glass').split(',');
 const problems = [];
 let checks = 0;
@@ -61,14 +62,13 @@ async function phone(viewport) {
   await page.addInitScript((key) => {
     localStorage.setItem('ghosty.ownerKey', key);
     localStorage.setItem('ghosty.themes1', '1');
-    const world = sessionStorage.getItem('spec.see.world') ?? 'scan';
-    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world: 'scan', night: 'graphite', switches: {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
     window.__ghostyHero = true;
     window.__ghostyPlace = { none: true };
   }, KEY);
   return { ctx, page };
 }
-const until = (page, fn, arg, ms = 10000) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => false);
+const until = (page, fn, arg, ms = 10000) => page.waitForFunction(fn, arg, { timeout: ms, polling: 100 }).then(() => true, () => false);
 
 /** Every floating thing on God's Eye that shows, and each pair that lies over another (the folded layers button sits in the chips' row by design). */
 const overlaps = (page) =>
@@ -115,11 +115,15 @@ const bar = (page) =>
       if (w < 43.5 || h < 43.5) bad.push(`key "${(b.getAttribute('aria-label') || b.textContent || '').trim().slice(0, 20)}" ${Math.round(w)}×${Math.round(h)}`);
     }
     if (document.documentElement.scrollWidth > innerWidth + 1) bad.push(`the page scrolls sideways (${document.documentElement.scrollWidth})`);
+    // (whether an element sits inside a row that clips or scrolls on its own, worked out once per element)
+    const clipped = new Map();
+    const inside = (p) => {
+      if (!p || p.id === 'pg-eye') return false;
+      if (!clipped.has(p)) clipped.set(p, /(auto|scroll|hidden)/.test(getComputedStyle(p).overflowX) || inside(p.parentElement));
+      return clipped.get(p);
+    };
     for (const e of document.querySelectorAll('#pg-eye *')) {
-      if (!shows(e) || e.closest('.labels, canvas')) continue;
-      let inner = false;
-      for (let p = e.parentElement; p && p.id !== 'pg-eye'; p = p.parentElement) if (/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowX)) inner = true;
-      if (inner) continue;
+      if (e.closest('.labels, canvas, [hidden]') || inside(e.parentElement) || !shows(e)) continue;
       const r = e.getBoundingClientRect();
       if (r.width > 0 && (r.left < -1 || r.right > innerWidth + 1)) bad.push(`sideways <${e.tagName.toLowerCase()}.${[...e.classList].join('.')}> ${Math.round(r.left)}–${Math.round(r.right)}`);
     }
@@ -134,7 +138,9 @@ const openEye = async (page) => {
 };
 const tapCamera = (page) => page.evaluate(() => document.querySelector('#pg-eye .camgrid:not([hidden]) .camview')?.click());
 const cardUp = (page) => until(page, () => { const i = document.querySelector('#pg-eye .eyeinfo'); return !!i && !i.hidden && getComputedStyle(i).display !== 'none' && /CCTV/i.test(i.textContent ?? '') && document.querySelector('#pg-eye .camgrid').hidden; }, null, 12000);
-const settled = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 120)))));
+// the view put straight where the check needs it (software GL draws a fly-to at a frame or two a second: what is checked is the band, not the flight)
+const place = (page, pose) => page.evaluate((p) => { const c = window.__ghosty.globe.cam; c.follow = null; c.fly = null; Object.assign(c, p); c.target = { ...p }; }, pose);
+const settled = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 150))));
 
 for (const vp of [PHONE, PHONE2]) {
   const { ctx, page } = await phone(vp);
@@ -143,16 +149,15 @@ for (const vp of [PHONE, PHONE2]) {
   for (const world of LOOKS) {
     const T = `[${vp.width} ${world}]`;
     log(`${T}`);
-    if (world !== 'scan' || vp !== PHONE) {
-      await page.evaluate((w) => sessionStorage.setItem('spec.see.world', w), world);
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 }).catch(() => problems.push(`${T} the boot never ended`));
-    }
+    // the look switched in the page by his own words for it (the chat's set_theme, as "switch to the map" runs it): God's Eye lays itself out again
+    await page.evaluate((w) => window.__ghosty.run('set_theme', { theme: w }), WORDS[world]);
+    await until(page, (w) => document.documentElement.dataset.world === w, world, 5000);
     check((await page.evaluate(() => document.documentElement.dataset.world)) === world, `${T} the look did not take: ${await page.evaluate(() => document.documentElement.dataset.world)}`);
     await openEye(page);
+    log(`${T} open`);
     // a. the grid near London's cameras
     await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: true }));
-    await page.evaluate(() => window.__ghosty.globe.cam.flyTo({ lat: 51.512, lon: -0.135, range: 3, tilt: 0, hd: 0 }));
+    await place(page, { lat: 51.512, lon: -0.135, range: 3, tilt: 0, hd: 0 });
     const grid = check(await until(page, () => document.querySelectorAll('#pg-eye .camgrid:not([hidden]) .camview').length > 0, null, 30000), `${T} [a grid] the CCTV grid never showed near the London cameras`);
     if (grid) {
       await settled(page);
@@ -162,10 +167,12 @@ for (const vp of [PHONE, PHONE2]) {
       check(!b.length, `${T} [e keys] ${b.join(', ')}`);
       if (vp === PHONE && world === 'scan') await page.screenshot({ path: `${out}/seelane-grid-${vp.width}-${world}.png` }).catch(() => undefined);
     }
+    log(`${T} grid`);
     // b. a camera tapped: the card
     await tapCamera(page);
     if (check(await cardUp(page), `${T} [b card] a tapped camera opened no card (or the grid stayed over it)`)) {
       await until(page, () => !!document.querySelector('#pg-eye .eyeinfo .camview.big img')?.naturalWidth, null, 10000);
+      log(`${T} card`);
       await settled(page);
       const o = await overlaps(page);
       check(!o.bad.length, `${T} [b card] ${o.bad.join(', ')}`);
@@ -232,7 +239,7 @@ for (const vp of [PHONE, PHONE2]) {
   // f. the zoom rail's keys, tapped once (in whichever look was loaded last)
   if (vp === PHONE) {
     const T = `[${vp.width}]`;
-    await page.evaluate(() => window.__ghosty.globe.cam.flyTo({ lat: 52.48, lon: -1.9, range: 300, tilt: 0, hd: 0 }));
+    await place(page, { lat: 52.48, lon: -1.9, range: 300, tilt: 0, hd: 0 });
     await until(page, () => !window.__ghosty.globe.cam.fly, null, 10000);
     const r0 = await page.evaluate(() => window.__ghosty.globe.cam.target.range);
     await page.evaluate(() => document.querySelector('#pg-eye .zoomrail button[aria-label="Zoom in"]')?.click());
