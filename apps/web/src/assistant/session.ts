@@ -42,7 +42,7 @@ import { openDocData } from '../docs/live'; // [document] the document open in t
 import { withoutOpenDoc } from '../../../../packages/shared/src/opendoc';
 import { SIGNAL_WENT, type Phase } from '../features/core/words';
 import { withoutOpenWork } from '../../../../packages/shared/src/openwork';
-import { openWorkData } from '../proposals/live'; // [kernel3] a deck, video, workspace or game open in its editor goes with his message, as data (BRIEF-KERNEL-3)
+import { openWorkData, readyWork } from '../proposals/live'; // [kernel3] a deck, video, workspace or game open in its editor goes with his message, as data (BRIEF-KERNEL-3)
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -1054,6 +1054,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   cloudTurn = turn;
   await stream(
     async (cb) => {
+      await readyWork(t); // [sites] the game open in the studio goes to the brain first, for "put it on my sites"
       await brain.chat(t + openDocData() + openWorkData(t), context(), (ev) => {
         lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
