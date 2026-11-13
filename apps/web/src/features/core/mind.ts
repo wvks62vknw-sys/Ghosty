@@ -161,9 +161,9 @@ function rng(seed: number): () => number {
  */
 const TARGET: Record<MindState, { open: number; rim: number; bright: number; spin: number; pulses: number; pace: number; busy: number; grey: number; lean: number; ring: number }> = {
   idle: { open: 0, rim: 1, bright: 1, spin: 0.09, pulses: 4, pace: 0.22, busy: 0, grey: 0, lean: 0, ring: 0 },
-  listening: { open: 1, rim: 1.6, bright: 1.25, spin: 0.12, pulses: 6, pace: 0.3, busy: 0, grey: 0, lean: 0, ring: 0 },
-  thinking: { open: 0.3, rim: 1.25, bright: 1.15, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0, lean: 0, ring: 0 },
-  speaking: { open: 0.45, rim: 1.35, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0, lean: 0, ring: 1 },
+  listening: { open: 1, rim: 1.8, bright: 1.25, spin: 0.12, pulses: 6, pace: 0.3, busy: 0, grey: 0, lean: 0, ring: 0 },
+  thinking: { open: 0.3, rim: 1.45, bright: 1.3, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0, lean: 0, ring: 0 },
+  speaking: { open: 0.45, rim: 1.25, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0, lean: 0, ring: 1 },
   busy: { open: 0.15, rim: 1.1, bright: 1.05, spin: 0.1, pulses: 8, pace: 0.35, busy: 1, grey: 0, lean: 0, ring: 0 },
   offline: { open: 0, rim: 0.6, bright: 0.55, spin: 0.04, pulses: 0, pace: 0.2, busy: 0, grey: 1, lean: 0, ring: 0 },
   // attending (BRIEF-ORB-AND-BOOT): the reticle has landed on a thing: it holds nearly still (the turn to a third of idle's) and
@@ -218,7 +218,7 @@ export interface BootLook {
 /** The whole of Mind, as Home draws it. */
 export const BOOT_DONE: BootLook = { gather: 1, links: 1, sphere: 1, haze: 1, mer: 1, rim: 1, scale: 1, core: 1, turn: 0, push: 1, sweep: NaN, trails: 0, refract: 0 };
 /** Home's whole Mind with the sweep held just below the middle, flaring as it crosses: speaking, in a still frame. */
-const STILL_SWEEP: BootLook = { ...BOOT_DONE, sweep: -0.1, refract: 0.8 };
+const STILL_SWEEP: BootLook = { ...BOOT_DONE, sweep: -0.03, refract: 1 };
 /** Meridians round the sphere (each its own material, so the boot can light them one after another). */
 const MERIDIANS = 6;
 /** How much of the gathering a trail spans (in the gather's own 0..1). */
@@ -1160,6 +1160,8 @@ export class Mind {
     this.spin.rotation.y = t * p.spin + b.turn;
     this.spin.rotation.x = 0.28 + p.lean;
     this.root.rotation.z = 0.08;
+    // attending's lean tips the whole orb forward, its equator ring with it, so with the motion off it reads apart from idle by its shape
+    this.root.rotation.x = 0.5 * p.lean;
     P.eq.rotation.z = -t * 0.04;
     P.tilt.rotation.z = t * 0.03;
     this.spin.scale.setScalar(1 + 0.08 * p.open);
