@@ -7002,6 +7002,9 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .inkl > .g-truth { width: 96px; flex: none; }
   /* (a blur of 0 px is still a blur: nothing on the printed page is frosted) */
   html[data-world="ink"] #app :is(button.g-key, .g-key, .g-plate, .g-tag, .g-lock, .g-ret) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  /* (a toast is printed too, the proactive thought's included: the page's own ground and ink, two rules, no frost, no glow, no shadow) */
+  html[data-world="ink"] #toasts .toast { -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; text-shadow: none; background: var(--g-canvas); color: var(--g-ink-1); border: 0; border-top: var(--g-hair) solid var(--g-ink-1); border-bottom: var(--g-hair) solid var(--g-ink-1); border-radius: 0; animation: none; }
+  html[data-world="ink"] #toasts .toast :is(*, *::before, *::after) { box-shadow: none; text-shadow: none; filter: none; }
   html .inkl .inknone { font: var(--g-t-caption); color: var(--g-ink-3); }
   html #app button.inkword { display: inline-flex; align-items: center; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font: var(--g-t-body) !important; letter-spacing: var(--g-tr-body); text-transform: none; color: var(--g-ink-1); text-decoration: underline; text-decoration-color: var(--g-line-faint); text-decoration-thickness: var(--g-hair); text-underline-offset: 5px; }
   html .inkask { flex: none; display: flex; align-items: center; min-height: 48px; margin: 4px 0 var(--g-s-2); border-bottom: var(--g-hair) solid var(--g-line-faint); }
