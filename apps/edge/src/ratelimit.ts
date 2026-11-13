@@ -41,8 +41,6 @@ export const slowDown = (): Response =>
 
 /** The allowance per minute for each public door. */
 export const DOOR_LIMITS = {
-  telegram: 120,
-  discord: 120,
   training: 30,
   weights: 900,
   site: 300,

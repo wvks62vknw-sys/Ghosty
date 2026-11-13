@@ -24,7 +24,7 @@ export function unsafeUrl(raw: string): string {
   }
   if (u.protocol !== 'https:' && u.protocol !== 'http:') return 'only http:// and https:// addresses can be read';
   if (u.username || u.password) return 'an address with a username or password in it is not read';
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (!host) return 'that address has no host';
   const v6 = host.includes(':');
   if (IPV4.test(host) || v6) {
@@ -43,7 +43,7 @@ function reservedExtra(ip: string): boolean {
   }
   const s = ip.toLowerCase();
   // NAT64 (64:ff9b::/96), 6to4 (2002::/16), Teredo (2001::/32), documentation (2001:db8::/32), the old site-local and IPv4-compatible forms.
-  return /^64:ff9b:/.test(s) || /^2002:/.test(s) || /^2001:0*:/.test(s) || /^2001:0?db8:/.test(s) || /^::(\d|[0-9a-f]{1,4}:)/.test(s) || /^fec0:/.test(s);
+  return /^100:(0{1,4}:){0,3}:/.test(s) || /^100::/.test(s) || /^2001:0?0?[12][0-9a-f]:/.test(s) || /^64:ff9b:/.test(s) || /^2002:/.test(s) || /^2001:0*:/.test(s) || /^2001:0?db8:/.test(s) || /^::(\d|[0-9a-f]{1,4}:)/.test(s) || /^fec0:/.test(s);
 }
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
@@ -55,10 +55,11 @@ export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 export async function guardedFetch(url: string, init: RequestInit = {}, opts: { fetcher?: Fetcher; hops?: number } = {}): Promise<Response> {
   const f = opts.fetcher ?? ((u: string, i?: RequestInit) => fetch(u, i));
   let at = url;
+  let req: RequestInit = init;
   for (let hop = 0; hop <= (opts.hops ?? 5); hop++) {
     const bad = unsafeUrl(at);
     if (bad) throw new Error(hop ? `the page redirected somewhere the brain does not go (${bad})` : bad);
-    const r = await f(at, { ...init, redirect: 'manual' });
+    const r = await f(at, { ...req, redirect: 'manual' });
     const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
     if (!loc) {
       try {
@@ -73,7 +74,16 @@ export async function guardedFetch(url: string, init: RequestInit = {}, opts: { 
     } catch {
       /* nothing to cancel */
     }
-    at = new URL(loc, at).toString();
+    const next = new URL(loc, at);
+    // like a browser: credentials never follow a redirect to another site, and a 303 (or a POST's 301/302) becomes a plain GET
+    if (next.origin !== new URL(at).origin && req.headers) {
+      const h = new Headers(req.headers);
+      for (const k of ['authorization', 'cookie', 'proxy-authorization', 'x-api-key']) h.delete(k);
+      req = { ...req, headers: h };
+    }
+    const method = (req.method ?? 'GET').toUpperCase();
+    if (r.status === 303 || ((r.status === 301 || r.status === 302) && method === 'POST')) req = { ...req, method: method === 'HEAD' ? 'HEAD' : 'GET', body: undefined };
+    at = next.toString();
   }
   throw new Error('the page redirected too many times');
 }

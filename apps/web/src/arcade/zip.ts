@@ -117,7 +117,7 @@ export async function zipRead(buf: Uint8Array, e: ZipEntry): Promise<Uint8Array>
   if (raw.length !== e.csize) throw new Error(`the archive is cut short (${e.name})`);
   let out: Uint8Array;
   if (e.method === 0) out = raw.slice();
-  else if (e.method === 8) out = await inflateRaw(raw, e.usize);
+  else if (e.method === 8) out = await inflateRaw(raw, Math.min(e.usize, 512 * 1024 * 1024)); // [security] the claim, and never past 512 MB
   else throw new Error(`${e.name} is packed in a way this reader does not know (method ${e.method})`);
   if (out.length !== e.usize || crc32(out) !== e.crc) throw new Error(`${e.name} did not unpack whole (size or CRC-32 differs)`);
   return out;

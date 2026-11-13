@@ -586,6 +586,15 @@ test('[security] wrong pairing guesses from many chats together spend the code: 
   tg.calls.length = 0;
 });
 
+test('[security] one stranger alone can never spend his pairing code: only a chat’s first five wrong guesses count toward the total', async () => {
+  const un = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
+  const LONE = 990001234;
+  for (let i = 0; i < 30; i++) await hook(msg(LONE, { text: String((Number(un.code) + 1 + i) % 1_000_000).padStart(6, '0') }, { id: LONE, first_name: 'Mallory' }), secret);
+  await hook(msg(OWNER_CHAT, { text: un.code }), secret);
+  assert.equal((await status()).paired, true, 'his own right guess still pairs after one stranger’s thirty');
+  tg.calls.length = 0;
+});
+
 // ---- signed buttons, voice back, pictures as files, approvals from the app, upgrade ideas ----
 
 test('signButton / readButton: a press reads back; a changed field, another key or an old button is refused', async () => {

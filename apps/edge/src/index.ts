@@ -91,8 +91,8 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 /** [security] Which public door a request knocks on (for its allowance), or null for the owner's own signed-in calls. */
 function publicDoor(path: string, req: Request): keyof typeof DOOR_LIMITS | null {
-  if (path === '/api/telegram/hook') return 'telegram';
-  if (path === '/api/discord/interactions') return 'discord';
+  // (Telegram's and Discord's doors are not counted: every update comes from their servers' few addresses, so a stranger
+  // spamming the bot would use up his allowance too. Their secret and signature checks turn strangers away before any work.)
   if (path === '/api/training/hook') return 'training';
   if (path.startsWith('/api/w/')) return 'weights';
   if (path.startsWith('/s/')) return 'site';
@@ -211,7 +211,8 @@ export default {
     if (usedOf('badkey', who) >= DOOR_LIMITS.badkey) return slowDown();
     const auth = await authenticate(req, env);
     if (!auth.ok) {
-      if (auth.status === 401) overLimit('badkey', who, DOOR_LIMITS.badkey);
+      // only a key that was sent and is wrong counts (the app's own first calls before a key is set never lock him out)
+      if (auth.status === 401 && req.headers.get('x-ghosty-key')) overLimit('badkey', who, DOOR_LIMITS.badkey);
       return json({ error: auth.reason, auth: true }, auth.status);
     }
     if (url.pathname === '/api/proxy') return proxy(req, ctx);

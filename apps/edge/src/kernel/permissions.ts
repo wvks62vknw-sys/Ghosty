@@ -81,31 +81,34 @@ export function asData(source: string, text: string): string {
  * never the page's.
  */
 export const GUARDED_AFTER_OUTSIDE: ReadonlyMap<string, RegExp> = new Map([
-  ['propose_change', /\b(change|fix|edit|improve|update|upgrade|build|code|yourself|propose)/i],
-  ['update_change', /\b(change|fix|edit|improve|update|upgrade|build|code|yourself)/i],
-  ['create_widget', /\b(widget|make|build|create|add)/i],
-  ['remember', /\b(remember|memori[sz]e|note|keep|save|don't forget|do not forget)/i],
-  ['learn_lesson', /\b(learn|lesson|save|file|remember|keep)/i],
-  ['library_import', /\b(library|import|add|save|keep|file)/i],
-  ['plan_upgrade', /\b(plan|roadmap|upgrade)/i],
+  ['propose_change', /\b(fix|change|edit|improve|update|upgrade|rewrite) (it|this|that|them|yourself|your (own )?(code|source|app))\b|\b(propose|open) (a|the) change\b|\bfix yourself\b/i],
+  ['update_change', /\b(fix|change|edit|improve|update|upgrade|rewrite) (it|this|that|them|yourself|your (own )?(code|source|app)|the change)\b|\bfix yourself\b/i],
+  ['create_widget', /\bwidgets?\b/i],
+  ['remember', /\b(remember|memori[sz]e)\b|\b(note|save) (it|this|that|them|these|those)( down)?\b|\bkeep (it|this|that) in mind\b|\b(don't|do not) forget\b/i],
+  ['learn_lesson', /\blessons?\b|\bsave\b|\blearn (it|this|that|from (it|this|that))\b/i],
+  ['library_import', /\blibrary\b|\bsave\b|\bimport (it|this|that|them)\b/i],
+  ['plan_upgrade', /\broadmap\b|\bplan (an? )?upgrades?\b/i],
 ]);
+
+const OUTSIDE = /<<external content from [\s\S]*?(<<end external content>>|$)/g;
 
 const textOfMsg = (c: unknown): string =>
   typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => (p && typeof p === 'object' && typeof (p as { text?: unknown }).text === 'string' ? (p as { text: string }).text : '')).join(' ') : '';
 
-/** True when a tool result since his last message carried outside words (asData's mark). */
+/** True when this turn carried outside words (asData's mark): in a tool result since his last message, or inside that message (a sign the camera read). */
 export function readOutsideThisTurn(ctx: { role: string; content?: unknown }[]): boolean {
   for (let i = ctx.length - 1; i >= 0; i--) {
     const m = ctx[i]!;
-    if (m.role === 'user') return false;
-    if (m.role === 'tool' && typeof m.content === 'string' && m.content.includes('<<external content from ')) return true;
+    const text = textOfMsg(m.content);
+    if (m.role === 'user') return text.includes('<<external content from ');
+    if (m.role === 'tool' && text.includes('<<external content from ')) return true;
   }
   return false;
 }
 
-/** His own last message this turn ('' when there is none). */
+/** His own last message this turn, with any outside words it carries (a photo's text, a file) taken out: only his words count. */
 function hisWords(ctx: { role: string; content?: unknown }[]): string {
-  for (let i = ctx.length - 1; i >= 0; i--) if (ctx[i]!.role === 'user') return textOfMsg(ctx[i]!.content);
+  for (let i = ctx.length - 1; i >= 0; i--) if (ctx[i]!.role === 'user') return textOfMsg(ctx[i]!.content).replace(OUTSIDE, ' ');
   return '';
 }
 

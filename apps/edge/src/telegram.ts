@@ -841,7 +841,8 @@ async function handleMessage(host: TelegramHost, link: TelegramLink, u: TgUpdate
       // A six-digit guess that did not pair: counted per chat; from the fifth on the chat is silent until the code changes.
       const n = wrong && wrong.code === link.code ? wrong.n + 1 : 1;
       wrongCodes.set(chatId, { code: link.code!, n });
-      wrongTotal.set(link.code!, (wrongTotal.get(link.code!) ?? 0) + 1);
+      // only a chat's first five count toward the total, so one stranger alone can never spend his code
+      if (n <= MAX_WRONG_CODES) wrongTotal.set(link.code!, (wrongTotal.get(link.code!) ?? 0) + 1);
       if (wrongTotal.size > 50) wrongTotal.delete(wrongTotal.keys().next().value!);
       if (wrongCodes.size > 500) wrongCodes.delete(wrongCodes.keys().next().value!);
       if (n >= MAX_WRONG_CODES) return;
