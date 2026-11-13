@@ -76,10 +76,22 @@ export function asData(source: string, text: string): string {
  * [security] Tools that change what Ghosty is or what every later prompt carries: his source (a change opens a preview build),
  * a widget in his app, a lasting memory, a lesson, a library document, a roadmap. Once this turn has read words from the
  * outside world (anything wrapped by asData: a page, a feed, a search result, a file), those words could be orders planted
- * for the model — so after them each of these waits for his APPROVE, like a send does. Before them (he asked directly, nothing
- * read yet) they run as before.
+ * for the model — so after them each of these waits for his APPROVE, like a send does, UNLESS his own message this turn asked
+ * for that kind of thing ("read it and remember it", "save that as a lesson", "fix yourself"). The words that count are his,
+ * never the page's.
  */
-export const GUARDED_AFTER_OUTSIDE = new Set<string>(['propose_change', 'update_change', 'create_widget', 'remember', 'learn_lesson', 'library_import', 'plan_upgrade']);
+export const GUARDED_AFTER_OUTSIDE: ReadonlyMap<string, RegExp> = new Map([
+  ['propose_change', /\b(change|fix|edit|improve|update|upgrade|build|code|yourself|propose)/i],
+  ['update_change', /\b(change|fix|edit|improve|update|upgrade|build|code|yourself)/i],
+  ['create_widget', /\b(widget|make|build|create|add)/i],
+  ['remember', /\b(remember|memori[sz]e|note|keep|save|don't forget|do not forget)/i],
+  ['learn_lesson', /\b(learn|lesson|save|file|remember|keep)/i],
+  ['library_import', /\b(library|import|add|save|keep|file)/i],
+  ['plan_upgrade', /\b(plan|roadmap|upgrade)/i],
+]);
+
+const textOfMsg = (c: unknown): string =>
+  typeof c === 'string' ? c : Array.isArray(c) ? c.map((p) => (p && typeof p === 'object' && typeof (p as { text?: unknown }).text === 'string' ? (p as { text: string }).text : '')).join(' ') : '';
 
 /** True when a tool result since his last message carried outside words (asData's mark). */
 export function readOutsideThisTurn(ctx: { role: string; content?: unknown }[]): boolean {
@@ -91,7 +103,15 @@ export function readOutsideThisTurn(ctx: { role: string; content?: unknown }[]):
   return false;
 }
 
-/** needsApproval, plus the guarded tools once this turn has read outside words. */
+/** His own last message this turn ('' when there is none). */
+function hisWords(ctx: { role: string; content?: unknown }[]): string {
+  for (let i = ctx.length - 1; i >= 0; i--) if (ctx[i]!.role === 'user') return textOfMsg(ctx[i]!.content);
+  return '';
+}
+
+/** needsApproval, plus a guarded tool once this turn has read outside words and his own message did not ask for it. */
 export function needsApprovalIn(tool: Tool, ctx: { role: string; content?: unknown }[]): boolean {
-  return needsApproval(tool) || (GUARDED_AFTER_OUTSIDE.has(tool.name) && readOutsideThisTurn(ctx));
+  if (needsApproval(tool)) return true;
+  const asked = GUARDED_AFTER_OUTSIDE.get(tool.name);
+  return !!asked && readOutsideThisTurn(ctx) && !asked.test(hisWords(ctx));
 }
