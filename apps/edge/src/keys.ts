@@ -217,7 +217,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'a 32-character key',
       link: 'https://developer.tomtom.com/user/register',
       need: 'optional',
-      why: "Live road traffic anywhere (e.g; birmingham city centre): speeds on every road drawn on God's Eye, and crashes, closures and queues when you ask; free: 50,000 map tiles and 2,500 lookups a day, no card.",
+      why: "Live road traffic anywhere, Birmingham city centre included: speeds on every road drawn on God's Eye, and crashes, closures and queues when you ask; free for 50,000 map tiles and 2,500 lookups a day, no card.",
       steps: [
         'Open the link and create a free TomTom Developer account (confirm the email they send).',
         'Open the Dashboard → "Keys". A key called "My first API key" is already there — press copy.',
