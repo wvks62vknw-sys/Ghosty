@@ -55,7 +55,7 @@ better ever sat a paper, even with signal.
 **Every other screen in the lane:**
 - **Downloads.** On a phone that cannot tell Wi-Fi from mobile data, the first tap on a book or a game says so, with its size.
   A second tap is your yes.
-- **Interpreter.** The whole conversation stays on screen. A translated line is a key that says it again for the other person.
+- **Interpreter.** The whole conversation stays on screen. A translated line says itself again on a tap and has a COPY key. A PHRASES key holds twelve everyday phrases, translated and said aloud with one tap.
   A browser that can't hear opens the typing line instead of showing a dead key. "One moment: still translating" is said. A
   failure is shown on the half it came from.
 - **GYM.** It says "Reading what I've learned…" while your records load, so they never look wiped. KEEP AWAKE says when the
@@ -74,7 +74,7 @@ better ever sat a paper, even with signal.
   and the plan line now say what they do.
 - **Courses.** The course list says ON THIS PHONE when it is offline. The quiz no longer claims flashcards it couldn't make. When another course's exam is open, RESUME THAT EXAM
   takes you to it.
-- **Rehearse and the coach.** They name what failed ("hear you", "play the other side"). The coach's tuner page no longer
+- **Rehearse and the coach.** Rehearse has a KEPT list: every rehearsal you kept, to reread, with DELETE (tap twice). Both name what failed ("hear you", "play the other side"). The coach's tuner page no longer
   offers "typing test".
 - **Mind map.** A half-read memory is said, with TRY AGAIN, instead of "I don't know anything about you yet".
 - **Every key in the lane is 44 pt.**
@@ -114,7 +114,5 @@ better ever sat a paper, even with signal.
 - The GYM's TIME IT line says "Training on the graphics chip". The timing does run there, but the long training runs on the
   processor. That line is locked by the phone-hardware spec, so I left it.
 - These were found and not done:
-  - Rehearse keeps your rehearsals but has no list to reread them.
-  - The interpreter has no copy key.
 - Making each screen into a full rival of the best dedicated app was more than one afternoon. This round made every screen
   keep its word. A deeper rebuild of each one is the next step.
