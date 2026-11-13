@@ -6,17 +6,18 @@
 import type { AgendaEventInfo } from '../../../../../packages/shared/src/protocol';
 import { clear, fmt, h } from '../../core/dom';
 import { button, panel } from '../../ui/components';
-import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_NAMES, WEEKDAYS, type Todo } from './todowords';
+import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_NAMES, WEEKDAYS, weekWords, type Todo } from './todowords';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(): void } {
   const p = panel('MONTH', { grow: false, cls: 'month' });
-  const now0 = new Date();
   let shift = 0; // 0 this month, 1 the next
   let picked = dayOf(Date.now());
   const paint = () => {
     const { events, todos } = get();
+    // (today read at each paint: a page left open past midnight moves on with the day)
+    const now0 = new Date();
     const base = new Date(now0.getFullYear(), now0.getMonth() + shift, 1);
     const y = base.getFullYear();
     const m = base.getMonth();
@@ -68,8 +69,35 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
       ...(gone && !evs.length ? [h('small.note', pastWords)] : far && !evs.length ? [h('small.note', beyondWords)] : []),
       ...evs.map((e) => h('div.monev', { dataset: { case: 'keep' } }, h('span.monwhen', e.allDay ? 'All day' : fmt.time(new Date(e.start))), h('span', e.title, e.location ? ` · ${e.location}` : ''))),
       ...tds.map((t) => h('div.monev.todo', { dataset: { case: 'keep' } }, h('span.monwhen', 'To-do'), h('span', t.text))));
-    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list);
+    // THIS WEEK (Monday to Sunday), each day with what it holds in a line; a tap shows the day whole under the grid
+    const week = h('div.monweek', { role: 'list', 'aria-label': 'This week' });
+    const mon = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() - ((now0.getDay() + 6) % 7));
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+      const k = dayOf(d.getTime());
+      const de = (byDay.get(k) ?? []).sort((a, b) => a.start - b.start);
+      const dt = todos.filter((t) => !t.done && t.due === k);
+      const b = button('', () => {
+        picked = k;
+        if (k.slice(0, 7) !== `${y}-${String(m + 1).padStart(2, '0')}`) shift = k > today ? 1 : 0;
+        paint();
+      }, `monwk${k === today ? ' today' : ''}${k === picked ? ' on' : ''}${k < today ? ' past' : ''}`);
+      b.setAttribute('role', 'listitem');
+      b.setAttribute('aria-label', dayLine(d.getTime(), de.length, dt.length));
+      b.dataset.case = 'keep';
+      b.append(h('b', d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })),
+        h('span', weekWords(de.map((e) => `${e.title}${e.allDay ? '' : ` ${fmt.time(new Date(e.start))}`}`), dt.length)));
+      week.append(b);
+    }
+    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list, h('b.monwkh', 'This week'), week);
   };
+  // "show me next month" from the chat (turn.ts)
+  addEventListener('ghosty:month', (e) => {
+    shift = (e as CustomEvent<{ next?: boolean }>).detail?.next ? 1 : 0;
+    const n = new Date();
+    picked = shift ? dayOf(new Date(n.getFullYear(), n.getMonth() + 1, 1).getTime()) : dayOf(n.getTime());
+    paint();
+  });
   paint();
   return { el: p.el, paint };
 }

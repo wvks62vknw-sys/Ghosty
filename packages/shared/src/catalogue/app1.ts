@@ -337,6 +337,14 @@ export const APP_1: Record<string, CatValue> = {
     say: ['(tap ASK THE BIG BRAIN under an answer)'], scene: ['phone', 'talking'], cat: 'talk',
   },
   // ---- the phrases answered on the phone with no model
+  // [planlane:agenda] the to-do list and the month by chat (features/agenda/asks.ts, turn.ts)
+  'phrase:planagenda': {
+    name: 'Your to-do list by chat', line: 'You can add to your to-do list, tick things off and hear what is due, just by saying it, with no AI.',
+    more: 'A day ("for tomorrow", "by Friday") and a repeat ("every Monday") are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
+    say: ['Add buy milk to my to-do list', 'Put call the bank on my list for tomorrow', 'What do I need to do today?', 'Tick off buy milk'],
+    scene: ['morning', 'phone'], cat: 'watch',
+    since: '2026-11-13',
+  },
   'phrase:walk': {
     name: 'Walk me home', line: 'You can say "walk me home" and I check you got home, then message your named person if you did not.',
     more: 'I ask "Home?" at your walking time and again ten minutes later; if there is still no answer five minutes after that, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',

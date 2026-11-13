@@ -210,6 +210,9 @@ export const STATES = {
   // [planlane:radio] the sleep timer a reload ended (said once, honestly), and FAVOURITES with none kept yet
   'radio.sleep': { dir: 'radio', base: 0, now: 1 },
   'radio.favs': { dir: 'radio', base: 0, now: 1 },
+  // [planlane:agenda] the diary (loading, the brain out of reach with the phone's copy said so, offline with no copy, empty) and the chat's month
+  'agenda.diary': { dir: 'agenda', base: 0, now: 4 },
+  'agenda.month': { dir: 'agenda', base: 0, now: 1 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

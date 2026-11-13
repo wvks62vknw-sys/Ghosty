@@ -1,10 +1,119 @@
 /** THE AGENDA FROM THE CHAT (planlane): what was asked, done on the phone, and said back in one line (assistant/local.ts calls this). */
 import type { PackReply } from '../../assistant/packs';
-import { agendaAsked } from './asks';
+import { agendaAsked, type AgendaAsk } from './asks';
+import { addTodo, clearDone, loadTodos, removeTodo, tickTodo } from './todo';
+import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
+
+const OPEN_TODO = { id: 'screen:agenda', ask: -1, label: 'Open the to-do list', open: 'agenda' };
+const OPEN_MONTH = { id: 'screen:agenda', ask: -1, label: 'Open the month', open: 'agenda' };
+
+/** One to-do in a sentence: "Buy milk (due today)", "Renew passport (2 days late)". */
+const one = (t: Todo, now: number) => {
+  const w = dueWords(t.due, now).replace(/^Due /, 'due ');
+  return `${t.star ? '★ ' : ''}${t.text}${w ? ` (${w})` : ''}`;
+};
+const join = (l: string[]) => (l.length <= 1 ? l.join('') : `${l.slice(0, -1).join('; ')}; and ${l[l.length - 1]}`);
+const reply = (said: string, words: string, go = OPEN_TODO): PackReply => ({ said, reply: words, go: [go] });
+
+/** Show the agenda's to-do list (or its month) on the screen, as he asked. */
+async function show(title: 'TO-DO' | 'MONTH', next = false): Promise<void> {
+  const { goToPanel } = await import('../../ui/sections');
+  goToPanel('agenda', title);
+  if (title === 'MONTH') dispatchEvent(new CustomEvent('ghosty:month', { detail: { next } }));
+}
+
+function listWords(ask: Extract<AgendaAsk, { what: 'list' }>, now: number): string {
+  const all = sortTodos(loadTodos(), now);
+  const open = all.filter((t) => !t.done);
+  if (!all.length) return 'Your to-do list is empty. Say “add buy milk to my to-do list”, or type one on Agenda › To-do.';
+  if (!open.length) return `Everything on your list is done (${all.length}). Say “clear my done to-dos” to tidy it.`;
+  const late = open.filter((t) => t.due && daysTo(t.due, now) < 0);
+  const today = open.filter((t) => t.due && daysTo(t.due, now) === 0);
+  if (ask.when === 'today') {
+    if (!late.length && !today.length) {
+      const next = open.find((t) => t.due) ?? open[0]!;
+      return `Nothing due today. ${open.length} on your list; next: ${one(next, now)}.`;
+    }
+    return [today.length ? `Due today: ${join(today.map((t) => one(t, now).replace(/ \(due today\)$/, '')))}.` : 'Nothing new due today.', late.length ? `Late: ${join(late.map((t) => one(t, now)))}.` : ''].filter(Boolean).join(' ');
+  }
+  if (ask.when === 'late') return late.length ? `${late.length} late: ${join(late.map((t) => one(t, now)))}.` : 'Nothing is late. Well done.';
+  if (ask.when === 'starred') {
+    const st = open.filter((t) => t.star);
+    return st.length ? `Starred: ${join(st.map((t) => one(t, now)))}.` : 'Nothing starred. Tap ☆ on a to-do that matters, or say “add … to my list, it’s important”.';
+  }
+  if (ask.when === 'week') {
+    const wk = open.filter((t) => t.due && daysTo(t.due, now) <= 7);
+    return wk.length ? `This week: ${join(wk.map((t) => one(t, now)))}.` : `Nothing due in the next seven days. ${open.length} on your list with a later day or none.`;
+  }
+  const shown = open.slice(0, 8).map((t) => one(t, now));
+  const more = open.length > 8 ? ` And ${open.length - 8} more on Agenda › To-do.` : '';
+  const done = all.length - open.length;
+  return `${open.length} to do: ${join(shown)}.${more}${done ? ` ${done} done.` : ''}`;
+}
+
+/** What is on in a month, from his diary (the brain's, or the last copy on this phone, said so) and his to-dos. */
+async function monthWords(next: boolean, now: number): Promise<string> {
+  const base = new Date(now);
+  const from = new Date(base.getFullYear(), base.getMonth() + (next ? 1 : 0), 1);
+  const to = new Date(from.getFullYear(), from.getMonth() + 1, 1);
+  const name = from.toLocaleDateString('en-GB', { month: 'long' });
+  const [{ brain }, { offline }] = await Promise.all([import('../../api/brain'), import('../../api/offline')]);
+  const was = offline.get().agenda;
+  const got = await Promise.race([brain.agenda(42).then((a) => a.events), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
+  const copy = !got || (was !== null && offline.get().agenda === was);
+  const events = (got ?? offline.get().agenda?.events ?? []).filter((e) => e.start >= Math.max(from.getTime(), next ? 0 : new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime()) && e.start < to.getTime());
+  const fromDay = dayOf(from.getTime());
+  const toDay = dayOf(to.getTime());
+  const todos = loadTodos().filter((t) => !t.done && t.due && t.due >= fromDay && t.due < toDay);
+  const evs = events.sort((a, b) => a.start - b.start).slice(0, 6).map((e) => {
+    const d = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    return `${e.title}, ${d}${e.allDay ? '' : ` ${new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}`;
+  });
+  const head = `${name}${next ? '' : ' (from today)'}: ${events.length} ${events.length === 1 ? 'event' : 'events'}${todos.length ? ` and ${todos.length} ${todos.length === 1 ? 'to-do' : 'to-dos'} due` : ''}.`;
+  /* state: agenda.month offline */
+  const stale = !got && !was ? ' I can’t reach your diary right now, so this is only your to-dos.' : copy ? ' I can’t reach your brain right now, so this is the last copy on this phone.' : '';
+  const body = evs.length ? ` ${join(evs)}${events.length > 6 ? `, and ${events.length - 6} more` : ''}.` : events.length ? '' : ' Nothing in the diary.';
+  const tds = todos.length ? ` To-dos: ${join(todos.slice(0, 5).map((t) => one(t, now)))}.` : '';
+  return `${head}${body}${tds}${stale}`;
+}
 
 /** The answer, or null to let the next table (and then the brain) answer. */
 export async function agendaTurn(text: string): Promise<PackReply | null> {
   const ask = agendaAsked(text);
   if (!ask) return null;
-  return null;
+  const now = Date.now();
+  if (ask.what === 'add') {
+    const t = addTodo(ask.text, ask.due, ask.every, ask.star);
+    const when = [t.due ? dueWords(t.due, now).replace(/^Due /, 'due ') : '', ask.every ? `repeats ${everyWords(ask.every)}` : '', ask.star ? 'starred' : ''].filter(Boolean).join(', ');
+    return reply(text, `Added to your to-do list: ${t.text}${when ? `, ${when}` : ''}. ${loadTodos().filter((x) => !x.done).length} to do.`);
+  }
+  if (ask.what === 'list') {
+    if (ask.when === 'all') void show('TO-DO');
+    return reply(text, listWords(ask, now));
+  }
+  if (ask.what === 'tick' || ask.what === 'remove') {
+    const l = loadTodos();
+    const t = findTodo(l, ask.text);
+    if (!t) {
+      // "I've done the washing up" with nothing like it on the list is not about the list: the next table (or the brain) has it
+      if (ask.what === 'tick' && ask.loose) return null;
+      const already = ask.what === 'tick' ? findTodo(l, ask.text, true) : null;
+      if (already) return reply(text, `“${already.text}” is already ticked off.`);
+      const open = sortTodos(l, now).filter((x) => !x.done);
+      return reply(text, open.length ? `I can’t find “${ask.text}” on your to-do list. On it: ${join(open.slice(0, 6).map((x) => x.text))}.` : `I can’t find “${ask.text}”: your to-do list is empty.`);
+    }
+    if (ask.what === 'remove') {
+      removeTodo(t.id);
+      return reply(text, `Taken off your list: ${t.text}. UNDO brings it back.`);
+    }
+    const r = tickTodo(t.id);
+    const left = loadTodos().filter((x) => !x.done).length;
+    return reply(text, `Ticked off: ${t.text}.${r?.next ? ` It repeats: the next one is ${dueWords(r.next.due, now).replace(/^Due /, 'due ')}.` : ''} ${left ? `${left} left to do.` : 'Nothing left to do.'}`);
+  }
+  if (ask.what === 'clear') {
+    const n = clearDone();
+    return reply(text, n ? `Cleared ${n} done ${n === 1 ? 'to-do' : 'to-dos'}. UNDO brings ${n === 1 ? 'it' : 'them'} back.` : 'There are no done to-dos to clear.');
+  }
+  if (ask.show) void show('MONTH', ask.next);
+  return reply(text, await monthWords(ask.next, now), OPEN_MONTH);
 }
