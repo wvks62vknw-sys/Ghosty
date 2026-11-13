@@ -83,10 +83,12 @@ function drawPicture(p: WallPicture): { el: HTMLElement; title: string; stop: ()
       // never a scrollbar on a wall: the page's type steps down until all of it is in the frame. It is fitted again whenever the frame's
       // size changes (the screen's size changed, or the picture was hidden while the wall had lost the brain and is shown again): a
       // page fitted while it had no size would otherwise stand cut once it has one
+      // (measured against the frame as well as the page itself: a page not yet held to the frame's height would read as never too tall)
       const fit = () => {
-        if (!page.clientHeight) return;
+        const room = el.clientHeight;
+        if (!room) return;
         page.style.removeProperty('--wall-page');
-        for (let fs = 2.1; fs >= 0.85 && page.scrollHeight > page.clientHeight + 1; fs -= 0.05) page.style.setProperty('--wall-page', fs.toFixed(2));
+        for (let fs = 2.1; fs >= 0.85 && page.scrollHeight > Math.min(page.clientHeight || room, room) + 1; fs -= 0.05) page.style.setProperty('--wall-page', fs.toFixed(2));
       };
       let seen = '';
       const ro = new ResizeObserver(([e]) => {
@@ -94,6 +96,8 @@ function drawPicture(p: WallPicture): { el: HTMLElement; title: string; stop: ()
         if (box !== seen) (seen = box), fit();
       });
       ro.observe(el);
+      // (and once the page's own type has loaded: the words take more room in it than in the stand-in type)
+      void document.fonts?.ready.then(() => el.isConnected && fit());
       return { el, title: String(d.title), stop: () => ro.disconnect(), fit };
     }
     case 'room':
