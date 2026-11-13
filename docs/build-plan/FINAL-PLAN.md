@@ -43,8 +43,9 @@ checked by two more reviewers before it counted, and each is fixed or written do
   to-dos", "show my month".
 
 **Radio → a radio app**
-- SLEEP TIMER: 15, 30, 45 or 90 minutes, an hour, or the END OF THE HOUR. It fades over the last 20 seconds, then stops. The lock
-  screen's line shows when it stops. TIMER OFF takes it off. A reload while a timer was set says so honestly.
+- SLEEP TIMER: 15, 30, 45 or 90 minutes, an hour, or AT 20:00 (the end of this hour; the key relabels itself as the hour passes).
+  It fades over the last 20 seconds, then stops. The key you chose stays lit, even when the chat set the timer. The lock screen's line
+  says "Stops at 23:10". TIMER OFF takes it off. After a reload it says once that the timer went with the reload.
 - RECENT: the last eight stations you played. FAVOURITES in your own order, with REORDER and ↑ ↓.
 - NEAR ME: your country (the UK unless you change it), kept on the phone.
 - The lock screen and AirPods: ⏭ and ⏮ step through your favourites, or through your recent stations if you have fewer than two
@@ -118,7 +119,7 @@ checked by two more reviewers before it counted, and each is fixed or written do
 1. **Agenda → To-do:** add "Renew passport" for today and star it. Tap its words to change them. Tick it, then CLEAR DONE, then
    UNDO. In the chat: "add buy milk to my to-do list", then "what's on my to-do list".
 2. **Agenda → Diary:** the month and this week are under the diary. Tap a day. Tap one of your own events to change it.
-3. **Radio:** play a station and tap END OF THE HOUR. Lock the phone and look at the line under the station; press ⏭. Say "sleep
+3. **Radio:** play a station and tap the AT key (the end of this hour). Lock the phone and look at the line under the station; press ⏭. Say "sleep
    timer 30 minutes", then "how long until the radio stops".
 4. **Brief:** open it in the morning and again in the evening. Say "good morning".
 5. **Markets:** EDIT LIST and add a coin. Say "I have 0.2 ethereum", then "what are my holdings worth".
