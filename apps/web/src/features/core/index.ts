@@ -261,7 +261,14 @@ function linked(text: string): HTMLElement {
   let last = 0;
   for (const m of text.matchAll(/https?:\/\/[^\s<>"')\]]+[^\s<>"')\].,;:!?]/g)) {
     out.append(text.slice(last, m.index));
-    if (PICTURE.test(m[0])) out.append(h('a.piccard', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, h('img', { src: m[0], alt: 'picture Ghosty made', loading: 'lazy' })));
+    if (PICTURE.test(m[0])) {
+      const pic = m[0];
+      out.append(h('a.piccard', { href: pic, target: '_blank', rel: 'noopener noreferrer' }, h('img', { src: pic, alt: 'picture Ghosty made', loading: 'lazy' })));
+      // EDIT IT (BRIEF-EDITOR-PHOTO): the picture opens in the photo editor, kept on this phone untouched
+      const edit = button('EDIT IT', () => void import('../../commands/registry').then(({ run }) => run('open_photo', { picture: pic })), 'piceditit');
+      edit.setAttribute('aria-label', 'Edit this picture in the photo editor');
+      out.append(edit);
+    }
     else out.append(h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, m[0]));
     last = m.index! + m[0].length;
   }

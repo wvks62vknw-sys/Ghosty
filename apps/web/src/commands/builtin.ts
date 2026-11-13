@@ -558,6 +558,21 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // PHOTO (features/photo): the photo editor, on his shelf or on a photo (the Lens's still, one of Ghosty's pictures, a kept photo).
+      id: 'open_photo',
+      title: 'Photo: edit, grade, mask, heal, crop, looks',
+      group: 'GO',
+      run: async (a) => {
+        const { openPhotoEditor } = await import('../features/photo');
+        await openPhotoEditor({
+          still: a?.still instanceof HTMLCanvasElement ? a.still : undefined,
+          picture: typeof a?.picture === 'string' ? a.picture : undefined,
+          id: typeof a?.id === 'string' ? a.id : undefined,
+          tool: typeof a?.tool === 'string' ? a.tool : undefined,
+        });
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

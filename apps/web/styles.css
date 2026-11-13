@@ -8816,3 +8816,138 @@ body.housed #pg-arcade :is(.arcmore, .arcact, .arcdel) { min-height: 44px !impor
 body.housed #pg-gym button:not(.gymdot):not(.gymcard) { min-height: 44px !important; }
 body.housed #pg-library :is(.trychips button, .secpill) { min-height: 44px !important; min-width: 44px; }
 /* ==== end LEARN quality pass ==== */
+
+/* ---------------------------------------------------------------- PHOTO (BRIEF-EDITOR-PHOTO)
+   MAKE → PHOTO: the shelf of his edited photos and the editor over one: the stage, UNDO / REDO / HISTORY / EXPORT, a tray, the tools
+   as pills along the foot. Prefixed pe; every colour, size, corner and duration here is a token (the ratchet), and every control is at
+   least 44 pt. Nothing here reaches outside .pephoto and the one EDIT IT key a chat picture carries. */
+html .pephoto .peroot { pointer-events: auto; position: absolute; inset: 0; display: flex; flex-direction: column; box-sizing: border-box; min-height: 0; padding: var(--g-s-1) var(--g-gutter) calc(var(--tabh, 16px) + var(--g-s-1) + var(--g-safe-bottom)); color: var(--g-ink-1); }
+html .pephoto :is(.pe, .peshelf) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: var(--g-s-1); }
+html .pephoto :is(.pe, .peshelf, .peempty, .petray, .pebusy, .pehint, .peslow, .pebefore, .pered, .pebatchbar, .peexbar)[hidden] { display: none !important; }
+html .pephoto .peshelf { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html .pephoto button { min-height: 44px !important; min-width: 44px; }
+html .pephoto .perow { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; }
+html .pephoto .pekeys > button { flex: 1 1 0; }
+html .pephoto .pnote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html .pephoto .g-truth.peintro { margin: var(--g-s-half) 0 0; }
+
+/* the shelf */
+html .pephoto .peshelfhead { display: flex; flex-direction: column; gap: var(--g-s-1); padding-top: var(--g-s-1); }
+html .pephoto .pehero { margin: 0; font: var(--g-t-display); letter-spacing: var(--g-tr-display); }
+html .pephoto .pesub { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html .pephoto .peshelfmsg { margin: 0; font: var(--g-t-caption); color: var(--g-amber); min-height: 0; }
+html .pephoto .peshelfmsg:empty { display: none; }
+html .pephoto .peempty { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); border: 1px dashed var(--g-line-faint); border-radius: var(--g-radius-cell); }
+html .pephoto .peempty b { font: var(--g-t-head); }
+html .pephoto .peempty p { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }
+html .pephoto .peshelfgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+html .pephoto .peshot, html .pephoto .peshot.on { position: relative; display: block; padding: 0; text-align: left; border-radius: var(--g-radius-cell); background: var(--g-plate); box-shadow: inset 0 0 0 1px var(--g-line-faint); overflow: hidden; }
+html .pephoto .peshot.on { box-shadow: inset 0 0 0 2px var(--g-accent); }
+html .pephoto .petile { display: flex; flex-direction: column; }
+html .pephoto .pethumb { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--g-plate-strong); }
+html .pephoto .petileinfo { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); min-width: 0; }
+html .pephoto .petileinfo b { font: var(--g-t-head); font-size: 15px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .pephoto .petileinfo em { font: var(--g-t-caption); font-style: normal; color: var(--g-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .pephoto .petick { position: absolute; top: var(--g-s-1); right: var(--g-s-1); width: 28px; height: 28px; display: grid; place-items: center; background: var(--g-accent); color: var(--g-canvas); border-radius: var(--g-radius-orb); font-style: normal; font-weight: 700; }
+html .pephoto .peroom { margin: 0; }
+html .pephoto .pebatchbar { position: sticky; bottom: 0; display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1); background: var(--g-plate-strong); border-radius: var(--g-radius-cell); box-shadow: inset 0 0 0 1px var(--g-line-faint); }
+
+/* the editor */
+html .pephoto .pehead { display: flex; align-items: center; gap: var(--g-s-1); min-height: 48px; }
+html .pephoto .peback { flex: 0 0 auto; }
+html .pephoto .pename { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+html .pephoto .petitle { font: var(--g-t-head); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .pephoto .pesaved { opacity: 0; transition: opacity var(--g-dur-turn) var(--g-ease-lock); min-height: 16px; }
+html .pephoto .pesaved.show { opacity: 1; }
+html .pephoto .pestage { position: relative; flex: 1 1 auto; min-height: 160px; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; background: var(--g-plate); border-radius: var(--g-radius-cell); box-shadow: inset 0 0 0 1px var(--g-line-faint); }
+html .pephoto .pecanvas, html .pephoto .pered, html .pephoto .peover { position: absolute; display: block; left: 0; top: 0; }
+html .pephoto .pered { pointer-events: none; image-rendering: auto; }
+html .pephoto .peover { overflow: visible; pointer-events: none; }
+html .pephoto .pehandle { pointer-events: auto; cursor: grab; outline: none; }
+html .pephoto .pehandle .hit { fill: transparent; }
+html .pephoto .pehandle .dot { fill: var(--g-ink-1); stroke: var(--g-canvas); stroke-width: 2; }
+html .pephoto .pehandle.drag .dot, html .pephoto .pehandle:focus-visible .dot { fill: var(--g-accent); }
+html .pephoto .pel { fill: none; stroke: var(--g-ink-1); stroke-width: 1.5; opacity: .9; }
+html .pephoto .pel.full { stroke: var(--g-accent); }
+html .pephoto .pel.gone { stroke-dasharray: 4 4; }
+html .pephoto .pel.src { stroke-dasharray: 5 4; }
+html .pephoto .pel.on { stroke: var(--g-accent); stroke-width: 2.5; }
+html .pephoto .pel.thirds, html .pephoto .pel.level { stroke-width: 1; opacity: .45; }
+html .pephoto .pel.level { stroke: var(--g-accent); opacity: .35; }
+html .pephoto .pedim { fill: var(--g-scrim); }
+html .pephoto .pecrop { fill: none; stroke: var(--g-ink-1); stroke-width: 2; }
+html .pephoto .pecropmove { fill: transparent; pointer-events: auto; cursor: move; }
+html .pephoto .pebefore { position: absolute; left: var(--g-s-1); top: var(--g-s-1); padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-key); letter-spacing: var(--g-tr-key); background: var(--g-plate-strong); color: var(--g-ink-1); border-radius: var(--g-radius-key); pointer-events: none; }
+html .pephoto :is(.pehint, .peslow, .pebusy) { position: absolute; left: var(--g-s-1); right: var(--g-s-1); margin: 0; padding: var(--g-s-half) var(--g-s-1); background: var(--g-scrim); border-radius: var(--g-radius-key); pointer-events: none; text-transform: none; letter-spacing: 0; font: var(--g-t-caption); color: var(--g-ink-1); }
+html .pephoto .pehint { bottom: var(--g-s-1); }
+html .pephoto .pebusy { top: var(--g-s-1); }
+html .pephoto .peslow { top: var(--g-s-1); color: var(--g-amber); }
+html .pephoto .pe.held .pestage { box-shadow: inset 0 0 0 2px var(--g-accent); }
+html .pephoto .peacts { display: flex; gap: var(--g-s-1); }
+html .pephoto .peacts > button { flex: 1 1 0; padding-left: var(--g-s-half); padding-right: var(--g-s-half); }
+html .pephoto .petray { flex: 0 1 auto; max-height: 36vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: var(--g-s-1); background: var(--g-plate); border-radius: var(--g-radius-cell); box-shadow: inset 0 0 0 1px var(--g-line-faint); }
+html .pephoto .petrayin { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .pephoto .pepills { display: flex; gap: var(--g-s-1); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+html .pephoto .pepills::-webkit-scrollbar { display: none; }
+html .pephoto .pepill { flex: 0 0 auto; min-width: 72px; padding: 0 var(--g-s-1); }
+html .pephoto :is(.pepill, .pechips > button, .peacts > button, .pekeys > button, .pemask, .pelook, .peshot).on { background: var(--g-accent); color: var(--g-canvas); }
+html .pephoto .pechips { gap: var(--g-s-half); }
+html .pephoto .pechips > button { flex: 1 1 auto; padding: 0 var(--g-s-1); }
+
+/* a slider: its name and value on one line, the track 44 pt tall under them */
+html :is(.pephoto, .peexport) .peslider { display: flex; flex-direction: column; }
+html :is(.pephoto, .peexport) .peslider .perow { flex-wrap: nowrap; justify-content: space-between; min-height: 24px; }
+html :is(.pephoto, .peexport) .pelabel { font: var(--g-t-caption); color: var(--g-ink-2); }
+html :is(.pephoto, .peexport) .peval { min-width: 44px; padding: 0 var(--g-s-half); background: none; box-shadow: none; font: var(--g-t-reading); font-size: 14px; color: var(--g-ink-3); text-align: right; min-height: 44px !important; margin: -10px 0; font-variant-numeric: var(--g-num); }
+html :is(.pephoto, .peexport) .peval.moved { color: var(--g-accent-text); }
+html :is(.pephoto, .peexport) .peslider input[type=range], html .peexport input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 44px !important; min-height: 44px !important; margin: 0; padding: 0; background:
+  linear-gradient(to right, transparent calc(var(--r, 50%) - 1px), var(--g-ink-3) calc(var(--r, 50%) - 1px) calc(var(--r, 50%) + 1px), transparent calc(var(--r, 50%) + 1px)) center / 100% 14px no-repeat,
+  linear-gradient(to right, var(--g-accent) 0 var(--f, 50%), var(--g-line-faint) var(--f, 50%) 100%) center / 100% 4px no-repeat; box-shadow: none; touch-action: pan-y; }
+html :is(.pephoto, .peexport) .peslider input[type=range]::-webkit-slider-thumb, html .peexport input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: var(--g-radius-orb); background: var(--g-ink-1); border: 0; box-shadow: 0 0 0 4px var(--g-plate); }
+html :is(.pephoto, .peexport) .peslider input[type=range]::-moz-range-thumb, html .peexport input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: var(--g-radius-orb); background: var(--g-ink-1); border: 0; }
+
+/* the curve, the looks, the masks */
+html .pephoto .pecurvebox { display: flex; justify-content: center; }
+html .pephoto .pecurve { width: min(100%, 280px); aspect-ratio: 280 / 220; touch-action: none; background: var(--g-plate-strong); border-radius: var(--g-radius-key); box-shadow: inset 0 0 0 1px var(--g-line-faint); }
+html .pephoto .pelooks { display: flex; gap: var(--g-s-1); overflow-x: auto; scrollbar-width: none; padding-bottom: var(--g-s-half); }
+html .pephoto .pelooks::-webkit-scrollbar { display: none; }
+html .pephoto .pelook { flex: 0 0 auto; width: 112px; padding: 0; display: block; text-align: left; background: var(--g-plate-strong); border-radius: var(--g-radius-key); overflow: hidden; }
+html .pephoto .pelookface { display: flex; flex-direction: column; }
+html .pephoto .pelookthumb { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--g-plate); }
+html .pephoto .pelookface b { padding: var(--g-s-half); font: var(--g-t-key); font-size: 12px; letter-spacing: .04em; white-space: normal; }
+html .pephoto .pelookmine { position: relative; flex: 0 0 auto; }
+html .pephoto .pelookdel { position: absolute; top: 0; right: 0; padding: 0; background: var(--g-scrim); }
+html .pephoto .pemasks { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .pephoto .pemask { display: block; text-align: left; padding: 0 var(--g-s-1); }
+html .pephoto .pemask span { display: flex; justify-content: space-between; gap: var(--g-s-1); align-items: center; }
+html .pephoto .pemask em, html .pephoto .pestep em { font-style: normal; font: var(--g-t-caption); opacity: .75; }
+html .pephoto .pebrainkeys { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .pephoto .pebrain { display: block; text-align: left; padding: 0 var(--g-s-1); }
+html .pephoto .pebrain span { display: flex; justify-content: space-between; gap: var(--g-s-1); align-items: center; }
+html .pephoto .pebrain em { font: var(--g-t-caption); font-style: normal; opacity: .75; }
+html .pephoto .peinput { width: 100%; min-height: 44px; box-sizing: border-box; padding: 0 var(--g-s-1); font: var(--g-t-body); }
+
+/* the sheets over it (history, export, a look's name, a batch) */
+html .peexport, html .pesave, html .pehistbox { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1); }
+html .peexport .peexbar { width: 100%; height: 6px; }
+html .peexport .peexsize { margin: 0; font: var(--g-t-value); font-size: 20px; line-height: 26px; font-variant-numeric: var(--g-num); }
+html .peexport .peexstatus { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html .peexport button, html .pesave button, html .pehistbox button { min-height: 44px !important; min-width: 44px; }
+html .peexport .perow, html .pesave .perow { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; }
+html .peexport .pekeys > button { flex: 1 1 0; }
+html .peexport .pechips > button { flex: 1 1 auto; }
+html .peexport .pechips > button.on, html .pesave button.on, html .peexport button.on { background: var(--g-accent); color: var(--g-canvas); }
+html .pehist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--g-s-half); max-height: 50vh; overflow-y: auto; }
+html .pestep { display: block; width: 100%; text-align: left; padding: 0 var(--g-s-1); }
+html .pestep span { display: flex; justify-content: space-between; gap: var(--g-s-1); }
+html .pestep.on { background: var(--g-accent); color: var(--g-canvas); }
+
+html .piceditit { display: block; margin: var(--g-s-half) 0; min-height: 44px !important; min-width: 44px; }
+@media (prefers-reduced-motion: reduce) { html .pephoto .pesaved { transition: none; } }
+html :is(.peexport, .pesave, .pehistbox) .pnote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
+html :is(.peexport, .pesave, .pehistbox) .g-truth { margin: 0; }
+html :is(.pephoto, .peexport) .peval, html .pephoto :is(.pemask b, .pestep b), html .pestep b { text-transform: none; }
+html .pephoto :is(.pelookface b, .pebrain b) { text-transform: uppercase; }
+/* the room's band past eight things (PHOTO makes MAKE nine): two rows, each reticle still 44 pt, the numbers in order */
+html .roomband:has(> .bandret:nth-child(9)) { flex-wrap: wrap; height: auto; }
+html #app .roomband:has(> .bandret:nth-child(9)) button.bandret { flex: 1 1 calc(20% - 1px); max-width: 25%; height: 72px; }

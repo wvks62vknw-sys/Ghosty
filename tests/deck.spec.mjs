@@ -68,11 +68,11 @@ if (look.groups.join(',') !== 'Ask and see,Make,Learn and plan,Life,Me') problem
 // (ABILITIES joined the Me group on 31 Oct: OWNER-ISSUES 68; the WORKBENCH the Make group the same evening: 61b)
 // (the fourteen sheets became screens on 1 Nov, night, BRIEF-TABS: LIFE's eight, LEARN's two, MAKE's three and ME's one)
 const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links', 'arcade',
-  'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'house',
+  'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'house',
   // (the interpreter and REHEARSE joined on 11 Nov: BRIEF-OCT-IDEAS-3; THE LAB sits inside the Workshop)
   'interpreter', 'rehearse'];
 // and each sits in its area's group, never in a More row
-const GROUP = { 'Ask and see': ['interpreter'], Make: ['convert', 'docs', 'sheets', 'slides', 'workspace', 'house'], 'Learn and plan': ['learning', 'coach', 'rehearse'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
+const GROUP = { 'Ask and see': ['interpreter'], Make: ['convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'house'], 'Learn and plan': ['learning', 'coach', 'rehearse'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
 const inGroups = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#deck .dkgroup')].map((g) => [g.dataset.group, [...g.querySelectorAll('.dkcard')].map((c) => c.dataset.id)])));
 for (const [g, ids] of Object.entries(GROUP)) for (const id of ids) if (!inGroups[g]?.includes(id)) problems.push(`${id} is not in the deck's ${g} group: ${JSON.stringify(inGroups)}`);
 if (inGroups.More?.some((id) => ALL.includes(id) && Object.values(GROUP).flat().includes(id))) problems.push(`a new screen is in the deck's More row: ${inGroups.More.join(', ')}`);
@@ -252,13 +252,13 @@ await page.keyboard.press('Escape');
   if (inv.pins.join() !== '01 lens,02 agenda,03 gym,04 learn') problems.push(`[scan] FAVOURITES are ${inv.pins.join()}`);
   if (inv.recent.join() !== '01 library,02 eye,03 brief') problems.push(`[scan] RECENT is ${inv.recent.join()}`);
   if (inv.small.pins !== 'Hold a thing to pin it' || inv.small.recent !== 'Newest first') problems.push(`[scan] the groups' small lines: ${JSON.stringify(inv.small)}`);
-  // (MAKE holds eleven: its hub folds the four editors under one EDITORS card, but THE PLAN and Every screen number every screen, so the editors keep 07 to 10)
-  const want = { home: 1, see: 3, make: 11, learn: 8, plan: 4, life: 8, me: 6 };
+  // (MAKE holds twelve: its hub folds the five editors under one EDITORS card, but THE PLAN and Every screen number every screen, so the editors keep 07 to 11)
+  const want = { home: 1, see: 3, make: 12, learn: 8, plan: 4, life: 8, me: 6 };
   for (const [r, n] of Object.entries(want)) {
     const got = inv.rooms[r] ?? [];
     if (got.length !== n || got.some((x, i) => !x.startsWith(String(i + 1).padStart(2, '0') + ':'))) problems.push(`[scan] the ${r} room lists ${got.join()} (want ${n}, numbered 01, 02 …)`);
   }
-  const makeWant = '01:studio,02:workshop,03:reverse,04:space,05:workbench,06:convert,07:docs,08:sheets,09:slides,10:workspace,11:house';
+  const makeWant = '01:studio,02:workshop,03:reverse,04:space,05:workbench,06:convert,07:docs,08:sheets,09:slides,10:workspace,11:photo,12:house';
   if ((inv.rooms.make ?? []).join() !== makeWant) problems.push(`[scan] Every screen lists MAKE as ${(inv.rooms.make ?? []).join()} (want every editor on its own row, numbered by THE PLAN: ${makeWant})`);
   if (inv.noLine.length) problems.push(`[scan] no one true line for ${inv.noLine.join()}`);
   if (inv.small44.length) problems.push(`[scan] under 44 pt: ${inv.small44.join()}`);

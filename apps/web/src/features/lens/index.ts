@@ -622,7 +622,8 @@ export const lensTab: TabDef = {
     const photoBtn = button('PHOTO TOOLS', () => {
       if (!shown) return void toast('Take or pick a photo first', 'warn');
       S.lastAction = 'photo tools';
-      openPhotoTools({ still: shown });
+      // the photo editor (BRIEF-EDITOR-PHOTO), landing on BRAIN: its three keys are these photo tools
+      void import('../photo').then((m) => m.openPhotoEditor({ still: shown, tool: 'brain' }));
     }, 'on');
     photoBtn.hidden = true;
     photoBtn.classList.add('lensphoto');

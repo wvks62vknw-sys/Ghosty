@@ -62,3 +62,13 @@ export function editorsInst(): SVGSVGElement {
     path('ln', 'M116 14h8v52h-8z'), path('ln', 'M127 14h8v34h-8z'), path('ln', 'M138 14h8v44h-8z'), path('lit', 'M118 22h4v6h-4z'),
   );
 }
+
+/** A photo with a sun and hills, and a curve drawn over it: a picture being graded. */
+export function photoInst(): SVGSVGElement {
+  return art(
+    path('ln', 'M30 12h100a8 8 0 018 8v52a8 8 0 01-8 8H30a8 8 0 01-8-8V20a8 8 0 018-8z'),
+    svgEl('circle', { class: 'ln2', cx: 52, cy: 32, r: 7 }),
+    path('ln2', 'M22 66l28-24 22 18 20-14 46 30'),
+    path('lit', 'M38 78C62 78 70 30 134 22'),
+  );
+}

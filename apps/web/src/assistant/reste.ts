@@ -10,6 +10,7 @@ import { docsAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
 import { workspaceAsked } from '../workspace/asks';
+import { photoAsked } from '../photo/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -103,6 +104,17 @@ export async function workspaceTurn(text: string): Promise<PackReply> {
             ? 'The BIN is open: pages I deleted sit there for 30 days.'
             : 'My workspace is open: your pages as a tree, your projects, search, and the pages you touched last.';
   return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
+/** "edit a photo", "my photos": the photo editor, open on my photos. */
+export async function photoTurn(text: string): Promise<PackReply> {
+  const ask = photoAsked(text) ?? { what: 'shelf' as const };
+  const { openPhotoEditor } = await import('../features/photo');
+  void openPhotoEditor({});
+  const reply = ask.what === 'edit'
+    ? 'The photo editor is open: OPEN A PHOTO from your camera roll and I keep it here untouched, with every edit beside it.'
+    : 'My photos are open: the ones you have edited here, newest first, each kept untouched with its edits beside it. OPEN A PHOTO for another.';
+  return { said: text, reply, go: [{ id: 'photo', ask: -1, label: 'Open the photo editor', run: 'open_photo', args: {} }] };
 }
 
 /** "3.5 miles in km", "hello in base64", "decode aGVsbG8=", "1700000000 as a date": answered here. */

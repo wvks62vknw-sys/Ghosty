@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -458,6 +458,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'What is due this week in my project?', act: { ask: 'What is due this week in my project' } },
     ],
     dyk: 'A database is one list of rows: draw it as a table, a board, a calendar, a timeline or a gallery, and a change in one shows in all of them.',
+  },
+  photo: {
+    name: 'Photo',
+    promise: 'Edit a photo, kept untouched',
+    can: [
+      { text: 'Your photos, kept untouched on this phone', act: { open: 'photo' } },
+      { text: 'Edit a photo', act: { ask: 'Edit a photo' } },
+      { text: 'Straighten, grade, mask, heal and save a look', act: { open: 'photo' } },
+    ],
+    dyk: 'Your original is never changed: every edit is a recipe beside it, and the look you save goes onto many photos at once.',
   },
   house: {
     name: 'House',

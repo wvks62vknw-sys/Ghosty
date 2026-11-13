@@ -118,6 +118,7 @@ export const CLIENT_COMMANDS = [
   'design_changes',
   'home_plan',
   'open_photo_tools',
+  'open_photo', // the photo editor (BRIEF-EDITOR-PHOTO): his shelf, or a photo opened in it
   'open_money', // [packs] the money pack's statement box (BRIEF-PACKS-1)
   'open_body', // [packs] the body pack's screens (BRIEF-PACKS-1)
   'open_kitchen', // [packs] the kitchen pack's sheets

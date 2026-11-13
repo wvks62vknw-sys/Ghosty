@@ -122,7 +122,15 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
   const eraseTools = h('div.row.wrap.pterase');
   const saveBtn = button('SAVE TO PHOTOS', () => void save(), 'on');
   const shareBtn = button('SHARE', () => void share());
-  const done = h('div.row.wrap.ptdone', saveBtn, shareBtn);
+  const editBtn = button('EDIT IT', () => {
+    // the result kept at /i/<id> opens in the photo editor (BRIEF-EDITOR-PHOTO)
+    const at = S.result;
+    if (!at) return;
+    void import('../photo').then((m) => m.openPhotoEditor({ picture: at }));
+    current?.close();
+  });
+  editBtn.setAttribute('aria-label', 'Edit this picture in the photo editor');
+  const done = h('div.row.wrap.ptdone', saveBtn, shareBtn, editBtn);
   done.hidden = true;
   const picker = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'Pick a photo' });
   const pickBtn = button('PICK A PHOTO', () => picker.click());

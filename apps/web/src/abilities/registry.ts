@@ -189,6 +189,7 @@ export function runLabel(g: { run: string; args?: Record<string, unknown> }): st
     case 'journey_planner': return 'Opens the journey planner';
     case 'vehicle_check': return 'Opens the vehicle check: you type the plate';
     case 'open_photo_tools': return 'Opens the photo tools';
+    case 'open_photo': return 'Opens the photo editor';
     default: {
       const c = allCommands().find((x) => x.id === g.run);
       return c ? `Does it now: ${c.title}` : 'Does it now';

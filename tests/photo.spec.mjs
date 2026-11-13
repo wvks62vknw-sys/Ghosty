@@ -98,6 +98,9 @@ await page.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).click();
 await chip.waitFor({ state: 'visible', timeout: 5000 }).catch(() => problems.push('no PHOTO TOOLS chip once a photo was taken'));
 await shot('photo-chip');
 await chip.click();
+// the chip lands in the photo editor (BRIEF-EDITOR-PHOTO) on its BRAIN group; the BACKGROUND key opens the sheet below, as the chip did
+await page.waitForSelector('#pg-photo .pe:not([hidden]) .pebrain[data-job="background"]', { timeout: 30000 }).catch(() => problems.push('the PHOTO TOOLS chip did not land on the editor\'s BRAIN keys'));
+await page.locator('#pg-photo .pebrain[data-job="background"]').click();
 
 // ---- the sheet: three jobs; REMOVE THE BACKGROUND through BiRefNet's limit to BRIA RMBG-1.4 ----
 const sheet = page.locator('.modal .ptsheet');
@@ -203,6 +206,14 @@ await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
 await page.locator('.modal .mhead button', { hasText: 'CLOSE' }).click();
 
 // ---- ASK "remove the background" opens the sheet on that job ----
+// (the chip took him into the photo editor: back to the Lens, and a photo taken again)
+await page.evaluate(() => window.__ghosty.run('open_lens', { mode: 'ask' }));
+await page.waitForSelector('#pg-lens', { state: 'visible', timeout: 15000 });
+await page.waitForTimeout(1500);
+if ((await page.evaluate(() => window.__ghosty.lens.camera)) === 'off') await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+await page.waitForFunction(() => window.__ghosty?.lens?.camera === 'on', null, { timeout: 30000 }).catch(() => problems.push('the fake camera did not open again'));
+await page.waitForTimeout(800);
+if (await page.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).isVisible()) await page.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).click();
 await page.locator('#pg-lens textarea.lensq').fill('remove the background please');
 await page.locator('#pg-lens button', { hasText: 'ASK GHOSTY' }).click();
 await sheet.waitFor({ state: 'visible', timeout: 5000 }).catch(() => problems.push('ASK "remove the background" did not open PHOTO TOOLS'));

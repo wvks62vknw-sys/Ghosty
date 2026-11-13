@@ -55,12 +55,22 @@ export const RESTE_WORDS: Record<string, CatValue> = {
   'hub:editors': {
     name: 'Every editor in one place',
     line: 'You can write, calculate, present and plan in one place, and all of it is kept on this phone.',
-    more: 'The four editors sit under one card in MAKE: documents, spreadsheets, slides and the workspace. Each opens in one tap, and the card says how many things live on this phone across them.',
+    more: 'The five editors sit under one card in MAKE: documents, spreadsheets, slides, the workspace and photos. Each opens in one tap, and the card says how many things live on this phone across them.',
     say: ['My documents', 'My spreadsheets', 'My slides', 'My workspace'],
     scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
     go: { open: 'docs' }, tryText: 'Opens my documents',
   },
   'phrase:workspace': { same: 'hub:workspace' },
+  'hub:photo': {
+    name: 'Edit and grade a photo',
+    line: 'You can edit a photo here like a real editor: light, colour, curves, masks, healing, a crop, and a look saved for many.',
+    more: 'Open a photo from your camera roll and it is kept on this phone untouched, with every edit beside it. Straighten a horizon, darken a sky with a gradient, heal a blemish, lay a second photo over it, save the look and put it on five photos at once, then export at full size. Background removal, sharper and erase are in it too; those three go to my brain, and everything else stays on the phone.',
+    say: ['Edit a photo', 'My photos', 'Open the photo editor'],
+    scene: ['making', 'phone'], cat: 'build', since: '2026-11-12',
+    go: { run: 'open_photo' }, tryText: 'Opens the photo editor',
+  },
+  'phrase:photoedit': { same: 'hub:photo' },
+  'screen:photo': { same: 'hub:photo' },
   'panel:library:RIGHTS AND LAW': {
     name: 'Your rights, from the documents',
     line: 'You can open what the law and the courts actually say: your rights in the UK, and the rulings and findings in the news.',

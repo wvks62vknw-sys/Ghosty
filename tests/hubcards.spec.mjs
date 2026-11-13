@@ -74,8 +74,8 @@ const cardsOf = (page, a) => page.$$eval(`#pg-area-${a} .hubgrid > *`, (els) => 
 const barTop = (page) => page.$eval('#dock .tabcap', (e) => e.getBoundingClientRect().top);
 const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
-// what each hub holds, every tool of its area as a card (shell/areas.ts AREAS; Ask adds Voice). Since MAKE passed ten things, the four editors
-// (DOCUMENTS, SPREADSHEETS, PRESENTATIONS, THE WORKSPACE) are one EDITORS card whose pills open each (shell/areadefs.ts EDITORS), so MAKE shows 8 cards.
+// what each hub holds, every tool of its area as a card (shell/areas.ts AREAS; Ask adds Voice). Since MAKE passed ten things, the five editors
+// (DOCUMENTS, SPREADSHEETS, PRESENTATIONS, THE WORKSPACE, PHOTO) are one EDITORS card whose pills open each (shell/areadefs.ts EDITORS), so MAKE shows 8 cards.
 // Since 1 Nov, night
 // (BRIEF-TABS): MAKE's converter and documents are screens of their own with the house, LEARN has the learning pack and the
 // coach, and LIFE, the seventh area, its eight everyday packs
@@ -138,26 +138,26 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const f = await page.$eval('#pg-area-make .hubgrid', (g) => {
     const card = g.querySelector('.hubtile[data-id="editors"]');
     const pills = card ? [...card.querySelectorAll('.hubpill')].map((b) => { return { id: b.dataset.editor, text: b.textContent.trim(), w: b.offsetWidth, h: b.offsetHeight, label: b.getAttribute('aria-label') }; }) : [];
-    return { n: g.children.length, ids: [...g.children].map((c) => c.dataset.id).join(), tag: card?.tagName, pills, line: card?.querySelector('.t')?.textContent?.trim() ?? '', direct: ['docs', 'sheets', 'slides', 'workspace'].filter((id) => g.querySelector(`:scope > .hubtile[data-id="${id}"]`)) };
+    return { n: g.children.length, ids: [...g.children].map((c) => c.dataset.id).join(), tag: card?.tagName, pills, line: card?.querySelector('.t')?.textContent?.trim() ?? '', direct: ['docs', 'sheets', 'slides', 'workspace', 'photo'].filter((id) => g.querySelector(`:scope > .hubtile[data-id="${id}"]`)) };
   });
   if (f.n !== 8) problems.push(`[fold] the MAKE hub shows ${f.n} cards (want 8: seven things and the EDITORS card): ${f.ids}`);
   if (f.direct.length) problems.push(`[fold] the editors ${f.direct.join(', ')} are still cards of their own beside EDITORS`);
-  if (f.pills.map((p) => p.text).join('|') !== 'DOCUMENTS|SPREADSHEETS|PRESENTATIONS|THE WORKSPACE') problems.push(`[fold] the pills read ${JSON.stringify(f.pills.map((p) => p.text))}`);
+  if (f.pills.map((p) => p.text).join('|') !== 'DOCUMENTS|SPREADSHEETS|PRESENTATIONS|THE WORKSPACE|PHOTO') problems.push(`[fold] the pills read ${JSON.stringify(f.pills.map((p) => p.text))}`);
   for (const p of f.pills) {
     if (p.w < 43.5 || p.h < 43.5) problems.push(`[fold] the ${p.text} pill is ${Math.round(p.w)}×${Math.round(p.h)} (under 44 pt)`);
     if (!/^Open /.test(p.label ?? '')) problems.push(`[fold] the ${p.text} pill has no name for VoiceOver`);
   }
   if (!/^Write, calculate, present, plan/.test(f.line)) problems.push(`[fold] a phone with nothing kept: the card's line reads "${f.line}"`);
   // each pill is one tap to its editor
-  for (const id of ['docs', 'sheets', 'slides', 'workspace']) {
+  for (const id of ['docs', 'sheets', 'slides', 'workspace', 'photo']) {
     await hub(page, 'make');
     await page.click(`#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="${id}"]`);
     await until(page, (t) => document.body.dataset.tab === t, id, 8000, `[fold] the ${id} pill did not open ${id} in one tap`);
   }
-  // the card's body opens the editor he used last (he just used the workspace)
+  // the card's body opens the editor he used last (the loop's last pill was PHOTO)
   await hub(page, 'make');
   await page.click('#pg-area-make .hubtile[data-id="editors"] .reads');
-  await until(page, () => document.body.dataset.tab === 'workspace', null, 8000, '[fold] a tap on the EDITORS card’s body did not open the editor he used last');
+  await until(page, () => document.body.dataset.tab === 'photo', null, 8000, '[fold] a tap on the EDITORS card’s body did not open the editor he used last');
   // what lives on this phone across the editors: a document and a workspace page kept, then the line counts them
   await page.evaluate(() => {
     localStorage.setItem('ghosty.docs', JSON.stringify([{ id: 'dspec', title: 'Letter to the landlord', blocks: [{ id: 'b1', t: 'p', runs: [{ text: 'Hello' }] }], at: Date.now(), kind: 'document' }]));
@@ -286,7 +286,7 @@ await g.ctx.close();
       const r = document.querySelector(`#pg-area-${a}`);
       const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
       return {
-        band: [...r.querySelectorAll('.roomband .bandret')].map((b) => ({ id: b.dataset.id, n: b.dataset.n, frame: !!b.querySelector('.g-ret-frame'), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width })),
+        band: [...r.querySelectorAll('.roomband .bandret')].map((b) => ({ id: b.dataset.id, n: b.dataset.n, frame: !!b.querySelector('.g-ret-frame'), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width, top: b.getBoundingClientRect().top })),
         hand: [...r.querySelectorAll('.athand .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, why: c.dataset.why, reads: [...c.querySelectorAll('.reads .rd')].filter((x) => vis(x)).length })),
         rest: [...r.querySelectorAll('.therest .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, one: c.querySelector('.one')?.textContent?.trim() ?? '', works: c.dataset.works === 'true', worksShown: vis(c.querySelector('.works b')) })),
         glassCards: [...r.querySelectorAll('.hubgrid > .hubtile')].filter(vis).length, sub: r.querySelector('.hubsub')?.textContent?.trim() ?? '', side: document.documentElement.scrollWidth > innerWidth + 1,
@@ -297,8 +297,8 @@ await g.ctx.close();
     if (everything !== ids.slice().sort().join()) problems.push(`${at} the room holds "${everything}", want every tool of the area: "${ids.slice().sort().join()}" (nothing left out)`);
     const numbered = ids.filter((i) => i !== 'voice' && i !== 'core');
     if (a !== 'ask' && room.band.length !== numbered.length) problems.push(`${at} the band has ${room.band.length} reticles for ${numbered.length} things`);
-    // (THE PLAN numbers every screen: the EDITORS reticle keeps the number of the first editor it holds, 07, and the HOUSE after the four is 11)
-    const wantN = a === 'make' ? ['01', '02', '03', '04', '05', '06', '07', '11'] : room.band.map((_b, i) => String(i + 1).padStart(2, '0'));
+    // (THE PLAN numbers every screen: the EDITORS reticle keeps the number of the first editor it holds, 07, and the HOUSE after the five is 12)
+    const wantN = a === 'make' ? ['01', '02', '03', '04', '05', '06', '07', '12'] : room.band.map((_b, i) => String(i + 1).padStart(2, '0'));
     if (room.band.some((b, i) => b.n !== wantN[i] || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered ${wantN.join(', ')} in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
     // (a room of more than eight things takes its band on two rows, each reticle 44 pt, never sideways: checked above and below)
     if (room.band.length > 10) problems.push(`${at} the band has more than ten (${room.band.length})`);
