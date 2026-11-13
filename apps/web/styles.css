@@ -9347,7 +9347,6 @@ html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate
 html .fxlines { justify-content: flex-start; overflow-y: auto; }
 html .fxlines > :first-child { margin-top: auto; }
 html button.fxline.again { display: block; width: 100%; min-height: 44px; padding: 0; text-align: inherit; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; border-radius: 0; color: var(--g-accent-text); font: var(--g-t-reading); }
-=======
 
 /* INTERPRETER: a translated line says itself again on a tap and has a COPY key; PHRASES, the short phrasebook */
 html .fxline.fxtwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-1); }
