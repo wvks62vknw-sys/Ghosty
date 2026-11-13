@@ -580,7 +580,8 @@ await section('f', async () => {
   check(gotLib, '[f] the shared picture is not in the library (no line for shared-pic.png)');
   const box = await page.evaluate(() => document.querySelector('#cin')?.value ?? '');
   check(box === 'The pharmacy opens at eight on Saturday', `[f] the ask line holds "${box}" (want the shared words, not sent)`);
-  const sent = await page.evaluate(() => document.querySelectorAll('.msg.me, .msg.user').length);
+  // (the shared words as a sent message; an earlier spec's turns on the same preview brain are not this share's)
+  const sent = await page.evaluate(() => [...document.querySelectorAll('.msg.me, .msg.user')].filter((m) => /pharmacy opens at eight/i.test(m.textContent ?? '')).length);
   check(sent === 0, '[f] a share sent its words by itself');
   const said = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).join('|'));
   check(/Shared from another app; kept here\./.test(said), `[f] the first share did not say it was kept here: "${said}"`);
@@ -637,7 +638,7 @@ await section('h', async () => {
   await page.evaluate(r.outputFiles[0].text); // (as a script the page's own policy would refuse: run by the test, not by the page)
   const got = await page.evaluate(async () => {
     const B = window.__bk;
-    const png = await (await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==')).blob();
+    const png = new Blob([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))], { type: 'image/png' });
     const kept = await B.ph.keepPhoto(png, 'Backup test photo', { w: 1, h: 1 });
     const id = kept.meta.id;
     const rc = B.newRecipe();
@@ -680,4 +681,4 @@ await section('h', async () => {
 problems.push(...(await brainAfter(base, cleanBrain)));
 await browser.close();
 if (problems.length) process.exitCode = 1;
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'POLISH 3 run clean at 440 × 956 and 390 × 844: one sentence a screen on Settings, System, the Theme page and the packs\' cards; the Agenda\'s ten fixes and the System screen\'s; "On it." in the phone\'s own voice and never over DOWNLOAD; one watcher system; Share to Ghosty; the Make and Learn leftovers.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'POLISH 3 run clean at 440 × 956 and 390 × 844: one sentence a screen on Settings, System, the Theme page and the packs\' cards; the Agenda\'s ten fixes and the System screen\'s; "On it." in the phone\'s own voice and never over DOWNLOAD; one watcher system; Share to Ghosty; the Make and Learn leftovers; the photo and video editors' work in the daily backup.');
