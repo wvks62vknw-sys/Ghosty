@@ -63,6 +63,19 @@ Branch `claude/new-session-4erjve-lane-polish3`, merged into `claude/new-session
   - push no longer throws when the browser blocks service workers;
   - the Gym's review reads "Your odd threat on the third row of column 5.";
   - `polish3` is the last word in check.yml's `all=`.
+- **The jump bar (item 8).** tabs.spec's opening, run ten times on its own, each a median of five:
+  - at normal speed: 56, 50, 56, 51, 47, 58, 52, 52, 54, 50 ms;
+  - with the CPU slowed four times: 81, 74, 80, 86, 87, 92, 76, 85, 95, 84 ms.
+
+  Every run is under 250 ms, with the 300 ms budget untouched. tabs.spec passes on its own (it read 371 ms only while four other
+  specs ran beside it).
+- **Merging the final branch:**
+  - the WATCHERS rows keep POLISH 3's time-first layout and gain the recall lane's DRAFT A CHASE;
+  - School keeps the voice lane's written-out working and still says "I";
+  - the meanings test accepts the phone's "open a screen" table when it opens the same screen the meaning would ("open the arcade"
+    opens the Arcade either way);
+  - the selftrain test builds with the Worker's sockets marked external, as the suite's own build steps already do. It was red on
+    the final tip too: a school file now reaches the mail code.
 - **Decided, as the brief said:** School and the Gym speak as "I" and keep doing so.
 
 ## How to try it on your phone
@@ -74,8 +87,12 @@ Branch `claude/new-session-4erjve-lane-polish3`, merged into `claude/new-session
 5. Make → Reverse: the card's line fits in two lines.
 
 ## What is left
-- The jump bar's ten runs: see the numbers below. They were measured in this container with the CPU slowed to stand in for the
-  runner. The runner itself cannot be measured from here.
+- The jump bar's ten runs were measured in this container, with the CPU slowed to stand in for the runner. The runner itself
+  cannot be measured from here.
+- homepass's house line hangs on its first tap in this container, on the untouched final tip as well, so it is not from this lane.
+  CI will show whether it happens there too. Its BRIEF section, the one CI had listed, runs clean.
+- The Gym's "opens on the page of the game played last" check was red once, while four specs ran at the same time. It was green
+  when the Gym spec ran again with less load.
 - The specialist pass on System, Settings, Me, THE LOOK and the chat core went as far as this list shows. Each of those screens was
   measured for 44 pt and sideways scrolling in the default look, Glass and Ink. The other four looks and BODY 21 were not swept
   screen by screen before the deadline.
