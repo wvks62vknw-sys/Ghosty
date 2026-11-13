@@ -197,7 +197,7 @@ const cut = (page) => page.$$eval('.vd button, .vd .vdsay, .vd .vdnote, .vd .vdl
 
 async function pair(ctx, size) {
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${size.width}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${size.width}] pageerror: ${e.message} (at ${(e.stack ?? '').split('\n').slice(1, 4).map((l) => l.trim()).join(' · ')})`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 20000 });
   await page.fill('#pair input', KEY);
