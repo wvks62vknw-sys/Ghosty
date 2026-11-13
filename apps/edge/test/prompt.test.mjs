@@ -44,7 +44,7 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.match(sys, /show_cameras: the West Midlands motorways/, 'the traffic group is on: its about line is there');
   assert.match(sys, /say so plainly and show the nearest motorway camera/);
   assert.match(sys, /ALSO \(call by name\):\n/);
-  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
+  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, publish_game, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
   assert.ok(!/DO IT, never reply/.test(sys), 'the website rule comes only with the sites group');
   assert.ok(!/TOOLS: only the tools that look relevant/.test(sys) && !/WHAT YOU CAN DO:/.test(sys), 'the old paragraph and name list are gone');
   const site = P.systemPrompt(client, [], false, [], { groups: T.selectGroups('make me a website for my bakery', new Set(), false) });
@@ -328,6 +328,13 @@ test('the voice line (BRIEF-VOICE-KNOWN 4): every label on every channel and eve
       worstOf[`${cn} / ${ln}`] = worst.n;
       assert.ok(worst.n <= 5500, `${cn} with ${ln}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
     }
+  }
+  // (the final round's voice lane) a typed turn carries what the phone knows of voices: the longest such line, with the longest name
+  for (const [ln, heard] of Object.entries({ 'typed, last heard a person': { taught: true, last: { name: 'Bartholomew-Anne Fitzgerald' }, mins: 25 }, 'typed, not taught': { taught: false }, 'spoken, too short': { taught: true } })) {
+    let n = 0;
+    for (const dials of ALL_DIALS) n = Math.max(n, P.systemPrompt({ ...client, heard, ...(ln.startsWith('spoken') ? { voice: true } : {}) }, [], true, [], { groups: hello(), profile: withDials(dials), band, mood }).length);
+    worstOf[`app / ${ln}`] = n;
+    assert.ok(n <= 5500, `${ln}: the longest is ${n} characters`);
   }
   const worst = Math.max(...Object.values(worstOf));
   console.log(`MEASURED prompt worst case with the voice line, per channel and label: ${Object.entries(worstOf).map(([k, v]) => `${k} ${v}`).join(' | ')} (the guard: 5,500; worst ${worst})`);

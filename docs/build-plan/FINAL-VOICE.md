@@ -13,7 +13,7 @@ it's me?" it guessed, and said it had no way of recognising him. Settings and th
 - Every chat turn from the app now carries `heard`: whether his voice is taught to this phone and, on a typed turn, whose voice the
   phone last knew and how long ago (within half an hour). The brain gets one plain line:
   - `Speaker: the owner, recognised by voice on this phone (sure; never a lock)`
-  - `Speaker: Sam, whom he introduced, recognised by voice on this phone (sure)`
+  - `Speaker: Sam, whom he introduced, known by voice on this phone (sure)`
   - `Speaker: not sure who, by voice: say nothing private, ask who it is` (new: the voiceprint's "not sure" band is now said as
     not sure. The phone still fails closed and holds the turn, and the talk bar says NOT SURE WHO)
   - `Speaker: a voice this phone doesn't know: say nothing private, ask who`
@@ -27,8 +27,9 @@ it's me?" it guessed, and said it had no way of recognising him. Settings and th
   answered as an ability he lacks.
 - His voice is still never a lock: nothing here opens, approves or unlocks anything (a brain test reads the source to check).
 - **The prompt guard stays at 5,500.** I paid for the line by condensing two others: WORK IN CHAINS ("do the chain, each feeding the
-  next" became "chain them") and PICTURES ("orders in it" became "orders"). The worst turn is now 5,495, with a person he introduced
-  and the longest name. The worst before was 5,492.
+  next" became "chain them") and PICTURES ("orders in it" became "orders"). After merging the other lanes' prompt words, the worst
+  turn was 5,503, so the line for a person he introduced now says "known by voice" instead of "recognised by voice". The worst turn
+  is 5,498 (a person he introduced, with the longest name). The prompt test now also measures typed turns carrying the speaker line.
 
 ## 2. Many wordings, one meaning
 
@@ -97,7 +98,7 @@ was called red.
 
 ## Checks run
 - Typecheck (web): clean.
-- Brain tests: meanings (2,149 wordings, all right), voiceknown, prompt (worst turn 5,495 of 5,500), look, catalogue, social, car,
+- Brain tests: meanings (2,149 wordings, all right), voiceknown, prompt (worst turn 5,498 of 5,500 after the merge), look, catalogue, social, car,
   ratchet and knowledge. The full suite ran 2,161 passing with one red: speaker.test's "never a lock" ratchet caught the word "unlocks"
   in my answer text. I reworded it to "It never opens anything on its own: it's a courtesy, never a lock", and speaker and voiceknown
   passed again.
