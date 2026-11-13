@@ -1,6 +1,6 @@
 /**
  * THE PHOTO EDITOR'S TRAYS (BRIEF-EDITOR-PHOTO): what each tool opens above the pills. LOOKS · LIGHT · COLOUR · CURVES · DETAIL · CROP ·
- * MASKS · HEAL · LAYER · EFFECTS · BRAIN. Each slider is 44 pt tall with its value said and a double tap to reset (slider.ts).
+ * MASKS · HEAL · ERASE · LAYER · EFFECTS · BRAIN. Each slider is 44 pt tall with its value said and a double tap to reset (slider.ts).
  */
 import { h } from '../../core/dom';
 import { sayError } from '../../ui/hisWords';
@@ -701,7 +701,7 @@ function brainErase(ed: Ed, line: HTMLElement): HTMLButtonElement {
       const { openPhotoTools } = await import('../lens/photo');
       openPhotoTools({ still, job: 'erase' });
       peState.erasedBy = 'brain';
-      line.textContent = 'ERASE BY YOUR BRAIN: THE PHOTO TOOLS ARE OPEN. THE PHOTO WENT TO THE BRAIN ONLY WHEN YOU PRESSED THEIR BUTTON';
+      line.textContent = 'ERASE BY YOUR BRAIN: THE PHOTO TOOLS ARE OPEN. THE PHOTO GOES TO THE BRAIN ONLY WHEN YOU PRESS THEIR BUTTON';
     })();
   }, 'pebrain');
   b.dataset.job = 'erase';
@@ -819,7 +819,7 @@ function brain(ed: Ed): HTMLElement {
         const still = await ed.snapshot(1024);
         const { openPhotoTools } = await import('../lens/photo');
         openPhotoTools({ still, job });
-        line.textContent = 'THE PHOTO TOOLS ARE OPEN. THE PHOTO WENT TO THE BRAIN ONLY WHEN YOU PRESSED THEIR BUTTON';
+        line.textContent = 'THE PHOTO TOOLS ARE OPEN. THE PHOTO GOES TO THE BRAIN ONLY WHEN YOU PRESS THEIR BUTTON';
       })();
     }, 'pebrain');
     b.dataset.job = job;
