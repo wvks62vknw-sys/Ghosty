@@ -74,8 +74,8 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   t = await panelText();
   if (t.status !== 'WAITING FOR PAIRING') problems.push(`[${name}] waiting status reads "${t.status}"`);
   if (t.code !== '482913') problems.push(`[${name}] the pairing code is not shown big (got "${t.code}")`);
-  if (!/@GhostyTestBot/.test(t.body) || !/press START/.test(t.body)) problems.push(`[${name}] the waiting note does not say which bot to open and to press START`);
-  if (!/valid for 1[34] min/.test(t.body)) problems.push(`[${name}] no countdown on the code: ${t.body.slice(0, 200)}`);
+  if (!/@GhostyTestBot/.test(t.body) || !/tap START/.test(t.body)) problems.push(`[${name}] the waiting note does not say which bot to open and to tap START`);
+  if (!/valid for about 1[34] minutes/.test(t.body)) problems.push(`[${name}] no countdown on the code: ${t.body.slice(0, 200)}`);
   if (!t.buttons.includes('NEW CODE')) problems.push(`[${name}] no NEW CODE button while waiting`);
   await shot(`${name}-telegram-waiting.png`);
   // NEW CODE asks the brain and shows the new one
@@ -86,7 +86,7 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   state = { ...WAITING, code: '111111', codeUntil: Date.now() - 1000 };
   await open();
   t = await panelText();
-  if (!/expired/.test(t.body) || t.code === '111111') problems.push(`[${name}] an expired code is still shown as valid: ${t.code} / ${t.body.slice(0, 120)}`);
+  if (!/run out/.test(t.body) || t.code === '111111') problems.push(`[${name}] an expired code is still shown as valid: ${t.code} / ${t.body.slice(0, 120)}`);
 
   // 3. paired
   state = PAIRED;
@@ -101,7 +101,7 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   if (!/\/ 7 ONLINE/.test(hero)) problems.push(`[${name}] the hero does not count Telegram: "${hero}"`);
   await shot(`${name}-telegram-paired.png`);
   await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'TEST')?.click());
-  await page.waitForFunction(() => /Sent to your Telegram/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] TEST showed no confirmation`));
+  await page.waitForFunction(() => /Look in your Telegram/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] TEST showed no confirmation`));
   if (!asked.some((p) => p.endsWith('/telegram/test'))) problems.push(`[${name}] TEST did not call the brain`);
   // UNPAIR (confirmed in its one-tap sheet) → back to waiting with the new code
   await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'UNPAIR')?.click());

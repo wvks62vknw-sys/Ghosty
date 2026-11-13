@@ -235,7 +235,7 @@ test('through the brain: the named person by invite on Telegram, and his own cha
     };
     // the bot, paired with his chat
     const k = await (await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'telegram', value: TOKEN }) })).json();
-    const pairing = k.info.match(/pairing code (\d{6})/)[1];
+    const pairing = k.info.match(/send it this code: (\d{6})\./)[1];
     const secret = tg.calls.find((c) => c.method === 'setWebhook').body.secret_token;
     let n = 0;
     const hook = async (chatId, text, from = { id: chatId, first_name: 'Aqis' }) => {
@@ -258,7 +258,7 @@ test('through the brain: the named person by invite on Telegram, and his own cha
     assert.equal(linked.person.linked, true);
     assert.equal(linked.person.via, 'telegram');
     await hook(SAM, 'walk me home', { id: SAM, first_name: 'Sam', username: 'sam_k' });
-    assert.match(tg.calls.filter((c) => c.method === 'sendMessage' && c.body.chat_id === SAM).at(-1).body.text, /answers only to its owner/);
+    assert.match(tg.calls.filter((c) => c.method === 'sendMessage' && c.body.chat_id === SAM).at(-1).body.text, /only answer to my owner/);
     assert.equal((await (await call('/guardian')).json()).walk, null, 'nothing Sam sends is acted on');
     // his chat: walk me home → how long → 20 minutes
     const said = () => tg.calls.filter((c) => c.method === 'sendMessage' && c.body.chat_id === OWNER).at(-1).body;

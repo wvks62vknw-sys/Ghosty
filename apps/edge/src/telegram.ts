@@ -54,6 +54,8 @@ import { cardText, type Card } from '../../../packages/shared/src/cards'; // [ca
 import { draftText, type Draft } from '../../../packages/shared/src/social'; // [social] a draft with APPROVE · EDIT · NO
 import type { SocialTelegram } from './social'; // [social]
 import { pictureFor } from './telegrampic'; // [polish2] the picture of a reply, drawn here and sent as a photo
+import * as W from './telegramwords'; // every line Ghosty says here, in one pure file
+export * from './telegramwords';
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -71,6 +73,8 @@ const API = 'https://api.telegram.org';
 export const MAX_FETCH_BYTES = 20 * 1024 * 1024;
 /** A button press counts for this long after the message was sent. */
 export const BUTTON_TTL_MS = 24 * 3600_000;
+/** The one message that did not reach Telegram, kept for the app to say once (W.Missed). */
+export const MISSED_KEY = 'telegram:missed';
 /** Answers given on Telegram, kept for the app to show (the newest few). */
 export const ANSWERS_KEY = 'telegram:answers';
 /** Approvals from the app already sent here (each once). */
@@ -287,26 +291,19 @@ export async function readButton(token: string, data: string, now = Date.now()):
   return { kind: m[1] as ButtonPress['kind'], id: m[2]!, yes: m[3] === '1' };
 }
 
-/** A reply cut into messages Telegram accepts: at a paragraph break, else a sentence end, else a space. */
+/** A reply cut into messages Telegram accepts: at a paragraph break, else a sentence's end or a line, else a space (telegramwords.ts). */
 export function splitMessage(text: string, max = CHUNK): string[] {
-  const out: string[] = [];
-  let rest = text.trim();
-  while (rest.length > max) {
-    const slice = rest.slice(0, max);
-    let cut = slice.lastIndexOf('\n\n');
-    if (cut < max / 3) cut = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '), slice.lastIndexOf('\n')) + 1;
-    if (cut < max / 3) cut = slice.lastIndexOf(' ');
-    if (cut < max / 3) cut = max;
-    out.push(rest.slice(0, cut).trimEnd());
-    rest = rest.slice(cut).trimStart();
-  }
-  if (rest) out.push(rest);
-  return out;
+  return W.splitParts(text, max);
 }
 
-/** Plain text to a chat (no parse mode: Telegram shows links as links), in as many messages as it takes. */
-export async function tgSend(token: string, chatId: number, text: string): Promise<void> {
-  for (const part of splitMessage(text)) await api(token, 'sendMessage', { chat_id: chatId, text: part });
+/**
+ * Plain text to a chat (no parse mode: Telegram shows links as links), in as many messages as it takes. A reply's parts say
+ * "(1 of 3)" when `label` is set and there are parts; a line that is never long goes without.
+ */
+export async function tgSend(token: string, chatId: number, text: string, label = false): Promise<void> {
+  const whole = text.trim();
+  const parts = label && whole.length > CHUNK ? W.splitParts(whole, CHUNK - W.LABEL_ROOM) : splitMessage(text);
+  for (let i = 0; i < parts.length; i++) await api(token, 'sendMessage', { chat_id: chatId, text: `${label ? W.partLabel(i, parts.length) : ''}${parts[i]}` });
 }
 
 /** Picture links in a reply: Ghosty's own /i/<id> pictures (made or shared), which Telegram can fetch. */
@@ -317,11 +314,12 @@ export function pictureLinks(text: string, origin: string): string[] {
 }
 
 /** A reply: its pictures as photos (a short reply as the first one's caption), the rest as text. */
-export async function tgReply(token: string, chatId: number, text: string, origin: string): Promise<void> {
+export async function tgReply(token: string, chatId: number, markdown: string, origin: string): Promise<void> {
+  const text = W.plainReply(markdown); // Telegram shows plain text: the markdown the model wrote is made plain, nothing lost
   const pics = pictureLinks(text, origin);
-  if (!pics.length) return tgSend(token, chatId, text);
+  if (!pics.length) return tgSend(token, chatId, text, true);
   const caption = text.length <= CAPTION;
-  if (!caption) await tgSend(token, chatId, text);
+  if (!caption) await tgSend(token, chatId, text, true);
   for (let i = 0; i < pics.length; i++) {
     try {
       await api(token, 'sendPhoto', { chat_id: chatId, photo: pics[i], ...(caption && i === 0 ? { caption: text } : {}) });
@@ -363,7 +361,7 @@ async function tgAsk(token: string, chatId: number, text: string, kind: ButtonPr
   });
 }
 
-const tgApproval = (token: string, chatId: number, reason: string, id: string): Promise<void> => tgAsk(token, chatId, `Needs your approval: ${reason}`, 'a', id);
+const tgApproval = (token: string, chatId: number, reason: string, id: string): Promise<void> => tgAsk(token, chatId, W.approvalCard(reason), 'a', id);
 
 /** [social] A draft for one of his accounts: its words in full, APPROVE · EDIT · NO (signed; acted on only in his chat, by him). */
 export async function tgDraft(token: string, chatId: number, d: Draft): Promise<void> {
@@ -448,14 +446,24 @@ function typing(token: string, chatId: number): { stop: () => void } {
 /** Screen actions worth a line in Telegram (they only happen in the Ghosty app on the phone). */
 const SCREEN_ACTIONS = new Set(['open_tab', 'fly_to', 'show_map', 'show_route', 'show_cameras', 'street_view', 'traffic_map', 'show_traffic', 'show_crime', 'show_transit', 'show_incidents', 'open_lens', 'open_widget', 'play_radio', 'road_ahead', 'show_link', 'set_layer']);
 
+/** A slow turn says what it is doing after this long without an answer (a quick one never does). */
+export const NARRATE_AFTER_MS = 3000;
+/** The one narration message is edited no faster than this. */
+const NARRATE_EDIT_MS = 1500;
+
 /**
  * The turn's events as Telegram messages, sent in order: the reply (with a heard voice note
- * echoed first), an approval with its buttons, a screen action as a note, an error as it is.
+ * echoed first), its sources, an approval with its buttons, a screen action as a note, an error in his words. A turn that
+ * runs long says what it is doing in ONE message that is edited in place and taken away when the answer comes.
  */
-export function collector(token: string, chatId: number, origin: string, prefix = '', onAsk?: (id: string) => Promise<void>, ask = ''): { emit: (ev: ChatEvent) => void; flush: () => Promise<void>; said: () => string } {
+// the sixth argument: what he asked, so the Stage's picture of the reply can follow it ([polish2]), or the narration's timings (the tests)
+export function collector(token: string, chatId: number, origin: string, prefix = '', onAsk?: (id: string) => Promise<void>, how: string | { narrateAfterMs?: number; editEveryMs?: number; ask?: string } = {}): { emit: (ev: ChatEvent) => void; flush: () => Promise<void>; said: () => string; spoke: () => boolean } {
+  const opts = typeof how === 'string' ? {} : how;
+  const ask = typeof how === 'string' ? how : (how.ask ?? '');
   let chain: Promise<void> = Promise.resolve();
   const queue = (fn: () => Promise<void>) => void (chain = chain.then(fn).catch(() => undefined));
   let first = true;
+  let spoke = false;
   const replies: string[] = [];
   // [cards] a tool's cards come before the reply that uses them: held, and sent as text lines after it
   let cards: string[] = [];
@@ -468,15 +476,57 @@ export function collector(token: string, chatId: number, origin: string, prefix 
     cards = [];
     queue(() => tgSend(token, chatId, lines));
   };
+  // the narration: one message, edited in place, taken away when the answer (or an error) comes
+  const after = opts.narrateAfterMs ?? NARRATE_AFTER_MS;
+  let step = '';
+  let shown = '';
+  let narrationId: number | undefined;
+  let lastEdit = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let over = false;
+  const narrate = () => {
+    timer = undefined;
+    if (over || !step || step === shown) return;
+    const words = step;
+    shown = words;
+    lastEdit = Date.now();
+    queue(async () => {
+      if (narrationId === undefined) narrationId = (await api<{ message_id?: number }>(token, 'sendMessage', { chat_id: chatId, text: words })).message_id;
+      else await api(token, 'editMessageText', { chat_id: chatId, message_id: narrationId, text: words });
+    });
+  };
+  const stepTo = (status: string) => {
+    const words = W.stepWords(status);
+    if (over || !words || words === step) return;
+    step = words;
+    if (timer) return;
+    const wait = narrationId === undefined ? after : Math.max(0, (opts.editEveryMs ?? NARRATE_EDIT_MS) - (Date.now() - lastEdit));
+    timer = setTimeout(narrate, wait);
+  };
+  const endNarration = () => {
+    over = true;
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+    queue(async () => {
+      if (narrationId !== undefined) await api(token, 'deleteMessage', { chat_id: chatId, message_id: narrationId });
+      narrationId = undefined;
+    });
+  };
   return {
     emit(ev) {
-      if (ev.t === 'text') {
+      if (ev.t === 'status') stepTo(ev.text);
+      else if (ev.t === 'text') {
+        if (!ev.text.trim()) return;
+        endNarration();
         const text = `${first ? prefix : ''}${ev.text}`;
         first = false;
+        spoke = true;
         replies.push(ev.text);
         queue(() => tgReply(token, chatId, text, origin));
         sendCards();
       } else if (ev.t === 'approval') {
+        endNarration();
+        spoke = true;
         queue(async () => {
           await tgApproval(token, chatId, ev.reason, ev.id);
           await onAsk?.(ev.id);
@@ -487,6 +537,7 @@ export function collector(token: string, chatId: number, origin: string, prefix 
           const a = (ev.args ?? {}) as Record<string, unknown>;
           if (typeof a.lat === 'number' && typeof a.lon === 'number') place = { name: String(a.place ?? '').slice(0, 60) || 'The place', lat: a.lat, lon: a.lon, zoom: typeof a.zoom === 'number' ? a.zoom : 15 };
         }
+        spoke = true;
         // (a map with a place is drawn and sent as a picture after the sentence, so it needs no note; other screen actions keep theirs)
         if (!(ev.name === 'show_map' && place)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
       }
@@ -494,13 +545,21 @@ export function collector(token: string, chatId: number, origin: string, prefix 
       // came after the reply (the car he named) goes at once, one that came before it waits for it
       else if (ev.t === 'cards' && ev.cards.length) {
         // [social] a draft for his accounts comes as itself, with APPROVE · EDIT · NO, never as a line of text
-        for (const c of ev.cards) if (c.kind === 'draft' && c.draft) queue(() => tgDraft(token, chatId, c.draft!));
+        for (const c of ev.cards) if (c.kind === 'draft' && c.draft) { spoke = true; queue(() => tgDraft(token, chatId, c.draft!)); }
         cards.push(...ev.cards.filter((c) => c.kind !== 'draft').map((c) => `▸ ${cardText(c, origin)}`));
         if (replies.length) sendCards();
+      } else if (ev.t === 'cited') {
+        // a cited answer ends in its sources: numbered, with the address of each
+        const block = W.sourcesBlock(ev.citations);
+        if (block) queue(() => tgSend(token, chatId, block));
       } else if (ev.t === 'error') {
-        queue(() => tgSend(token, chatId, ev.message));
+        endNarration();
+        spoke = true;
+        queue(() => tgSend(token, chatId, W.sayBrain(scrub(ev.message, token))));
         sendCards();
       } else if (ev.t === 'done') {
+        endNarration();
+        if (cards.length) spoke = true;
         sendCards();
         // [polish2] the picture the Stage would have drawn on the phone, as an image after the sentence; none when it cannot be drawn
         if (ask && replies.length && !pictured) {
@@ -509,8 +568,12 @@ export function collector(token: string, chatId: number, origin: string, prefix 
         }
       }
     },
-    flush: () => chain,
+    flush: () => {
+      endNarration();
+      return chain;
+    },
     said: () => replies.join('\n\n'),
+    spoke: () => spoke,
   };
 }
 
@@ -574,8 +637,8 @@ export function statusOf(link: TelegramLink | undefined, token: boolean | null):
  * a different bot starts over. Returns what the System tab shows under the key.
  */
 export async function telegramConnect(env: Env, storage: DurableObjectStorage, token: string, origin: string): Promise<{ ok: boolean; info: string }> {
-  if (!/^\d{5,}:[\w-]{20,}$/.test(token)) return { ok: false, info: 'that does not look like a bot token (numbers, a colon, then letters — from @BotFather)' };
-  if (!/^https:\/\//.test(origin)) return { ok: false, info: 'saved, but Ghosty does not know its own https address (PUBLIC_ORIGIN in wrangler.jsonc), so the bot could not be connected' };
+  if (!/^\d{5,}:[\w-]{20,}$/.test(token)) return { ok: false, info: W.KEY_BAD };
+  if (!/^https:\/\//.test(origin)) return { ok: false, info: W.KEY_NO_ADDRESS };
   try {
     const me = await api<TgUser>(token, 'getMe', {});
     const bot = me.username || String(me.id);
@@ -589,10 +652,11 @@ export async function telegramConnect(env: Env, storage: DurableObjectStorage, t
     await durablePut(env, storage, LINK_KEY, link);
     return {
       ok: true,
-      info: same ? `connected to @${bot} · still paired with ${prev.name ?? 'you'} on Telegram` : `connected to @${bot} · pairing code ${link.code} (valid 15 min): open the bot in Telegram, press START and send it the code`,
+      info: same ? W.stillPaired(bot, prev.name ?? 'you') : W.codeInfo(bot, link.code!, CODE_TTL_MS),
     };
-  } catch (e) {
-    return { ok: false, info: `saved, but the bot could not be connected: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 220)}` };
+  } catch {
+    // (what Telegram said stays out of what he reads: it is in no log either, and the token is never in it)
+    return { ok: false, info: W.KEY_NOT_CONNECTED };
   }
 }
 
@@ -600,7 +664,7 @@ export async function telegramConnect(env: Env, storage: DurableObjectStorage, t
 export async function telegramDisconnect(env: Env, storage: DurableObjectStorage, token: string | null): Promise<{ ok: boolean; info: string }> {
   if (token) await api(token, 'deleteWebhook', { drop_pending_updates: true }).catch(() => undefined);
   await durableDelete(env, storage, LINK_KEY).catch(() => undefined);
-  return { ok: true, info: 'removed · the bot is disconnected' };
+  return { ok: true, info: W.KEY_REMOVED };
 }
 
 /** POST /keys for the `telegram` key: `value` is the new token ('' removes it), `was` the one before. */
@@ -620,17 +684,20 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
     // Database paused and no KV copy: not "unlinked", just not known right now.
     return json({ linked: false, bot: null, paired: false, name: null, unknown: true, token: !!token } satisfies TelegramStatus);
   }
-  if (path === '/telegram/status' && method === 'GET') return json(statusOf(link, !!token));
+  if (path === '/telegram/status' && method === 'GET') {
+    const missed = await host.storage.get<W.Missed>(MISSED_KEY).catch(() => undefined);
+    return json({ ...statusOf(link, !!token), ...(missed && link?.chatId ? { missed } : {}) });
+  }
   if (path === '/telegram/code' && method === 'POST') {
-    if (!link) return json({ error: 'not connected: paste the bot token in SYSTEM → KEYS first' }, 400);
+    if (!link) return json({ error: W.ROUTE.notConnectedYet }, 400);
     // While paired there is no code to give out: a code the owner cannot see would only let a stranger take the chat over.
-    if (link.chatId) return json({ error: 'already paired: press UNPAIR first to pair another chat' }, 400);
+    if (link.chatId) return json({ error: W.ROUTE.alreadyPaired }, 400);
     link = withNewCode(link);
     await durablePut(host.env, host.storage, LINK_KEY, link);
     return json(statusOf(link, !!token));
   }
   if (path === '/telegram/unpair' && method === 'POST') {
-    if (!link) return json({ error: 'not connected' }, 400);
+    if (!link) return json({ error: W.ROUTE.notConnected }, 400);
     const { chatId: _c, name: _n, ...rest } = link;
     link = withNewCode(rest);
     await durablePut(host.env, host.storage, LINK_KEY, link);
@@ -639,16 +706,16 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
   // An approval waiting in the app, sent here too (the app does this once the owner has walked away from it).
   const ask = path.match(/^\/telegram\/ask\/([\w-]{1,16})$/);
   if (ask && method === 'POST') {
-    if (!link?.chatId || !token) return json({ sent: false, error: 'Telegram is not paired' }, 400);
+    if (!link?.chatId || !token) return json({ sent: false, error: W.ROUTE.notPaired }, 400);
     const pending = await host.storage.get<{ id: string; calls: { function: { name: string; arguments: string } }[] }>(PENDING_KEY).catch(() => undefined);
     // Only the approval really waiting, under that id: nothing a request makes up is ever put to the owner.
-    if (!pending || pending.id !== ask[1] || !pending.calls[0]) return json({ sent: false, error: 'nothing is waiting for approval' }, 404);
+    if (!pending || pending.id !== ask[1] || !pending.calls[0]) return json({ sent: false, error: W.ROUTE.nothingWaiting }, 404);
     const asked = (await host.storage.get<string[]>(ASKED_KEY).catch(() => undefined)) ?? [];
     if (asked.includes(pending.id)) return json({ sent: false, already: true });
     try {
       await tgApproval(token, link.chatId, `${pendingReason(pending.calls[0].function)} (asked in the app)`, pending.id);
-    } catch (e) {
-      return json({ sent: false, error: scrub(String((e as Error)?.message ?? e), token).slice(0, 200) }, 502);
+    } catch {
+      return json({ sent: false, error: W.ROUTE.cannotReach }, 502);
     }
     await host.storage.put(ASKED_KEY, [...asked, pending.id].slice(-20)).catch(() => undefined);
     return json({ sent: true });
@@ -660,16 +727,17 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
     return json(a ? { answered: true, allow: a.allow, at: a.at } : { answered: false });
   }
   if (path === '/telegram/test' && method === 'POST') {
-    if (!link?.chatId) return json({ sent: false, error: 'no chat is paired yet' }, 400);
-    if (!token) return json({ sent: false, error: 'the bot token is not saved' }, 400);
+    if (!link?.chatId) return json({ sent: false, error: W.ROUTE.noChat }, 400);
+    if (!token) return json({ sent: false, error: W.ROUTE.noKey }, 400);
     try {
-      await tgSend(token, link.chatId, 'Ghosty here. I can reach you on Telegram now.');
+      await tgSend(token, link.chatId, W.TEST_LINE);
+      await host.storage.delete(MISSED_KEY).catch(() => undefined);
       return json({ sent: true });
-    } catch (e) {
-      return json({ sent: false, error: String((e as Error)?.message ?? e).slice(0, 200) }, 502);
+    } catch {
+      return json({ sent: false, error: W.ROUTE.cannotReach }, 502);
     }
   }
-  return json({ error: 'not found' }, 404);
+  return json({ error: W.ROUTE.notFound }, 404);
 }
 
 /** A notification (reminder, task result, error) to the paired chat, if there is one. */
@@ -678,9 +746,19 @@ export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' 
   if (!link?.chatId) return false;
   const token = await host.vault.get('telegram').catch(() => null);
   if (!token) return false;
-  const head = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-  // [cards] a card he did not ask for (speak.ts): the same card as text — title · line · the deep link
-  await tgReply(token, link.chatId, item.card ? `✦ ${cardText(item.card, host.origin)}` : `${head}\n${item.text}`, host.origin);
+  // [cards] a card he did not ask for (speak.ts): the same card as text — title · line · the deep link. Anything else: a head in
+  // words ("Reminder: …", "Done: …", "Something went wrong: …"), its one body and its time, in his time zone when it is known.
+  const tz = ((await host.storage.get<ClientContext>('owner:ctx').catch(() => undefined)) ?? {}).tz;
+  const words = item.card ? `✦ ${cardText(item.card, host.origin)}` : W.notifyText(item, Date.now(), tz);
+  try {
+    await tgReply(token, link.chatId, words, host.origin);
+  } catch {
+    // It did not reach Telegram: recorded once for the app to say (never retried: a failing chat must not become a flood).
+    const prev = await host.storage.get<W.Missed>(MISSED_KEY).catch(() => undefined);
+    await host.storage.put(MISSED_KEY, { at: Date.now(), what: item.kind === 'reminder' || item.kind === 'task' ? item.kind : 'error', n: Math.min(99, (prev?.n ?? 0) + 1) } satisfies W.Missed).catch(() => undefined);
+    return false;
+  }
+  await host.storage.delete(MISSED_KEY).catch(() => undefined);
   // New upgrade ideas (upgrades.ts names them in the text): each with BUILD IT / NOT NOW.
   if (item.title === 'Upgrade idea') {
     const ideas = (await loadIdeas(host.storage).catch(() => [])).filter((i) => item.text.includes(i.title)).slice(0, 3);
@@ -712,6 +790,16 @@ export async function telegramHook(host: TelegramHost, req: Request): Promise<Re
 }
 
 async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate): Promise<void> {
+  // "typing…" starts as soon as a message needs work (a voice note to hear, a picture to fetch, a turn to wait for) and ends with it.
+  const live: { busy?: { stop: () => void } } = {};
+  try {
+    await handleMessage(host, link, u, live);
+  } finally {
+    live.busy?.stop();
+  }
+}
+
+async function handleMessage(host: TelegramHost, link: TelegramLink, u: TgUpdate, live: { busy?: { stop: () => void } }): Promise<void> {
   const token = await host.vault.get('telegram').catch(() => null);
   if (!token) return;
   if (u.callback_query) return handleCallback(host, link, token, u.callback_query);
@@ -735,13 +823,13 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     if (validCode(link) && !lockedOut && guess === link.code) {
       // Only a private chat can be the owner's: in a group every member would have the owner's authority.
       if (m.chat.type !== 'private' || (m.from && m.from.id !== chatId)) {
-        await tgSend(token, chatId, 'Pair me in a private chat with you, not in a group.').catch(() => undefined);
+        await tgSend(token, chatId, W.GROUP_PAIR).catch(() => undefined);
         return;
       }
       const { code: _c, codeUntil: _u, ...rest } = link;
       wrongCodes.delete(chatId);
       await durablePut(host.env, host.storage, LINK_KEY, { ...rest, chatId, name: (m.from?.first_name || m.chat.first_name || 'you').slice(0, 60) });
-      await tgSend(token, chatId, "Paired. I'm Ghosty — talk to me here any time.");
+      await tgSend(token, chatId, W.PAIRED);
       return;
     }
     if (validCode(link) && /^\d{6}$/.test(guess)) {
@@ -755,7 +843,7 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     if (Date.now() - last < 3600_000) return;
     refused.set(chatId, Date.now());
     if (refused.size > 500) refused.delete(refused.keys().next().value!);
-    await tgSend(token, chatId, 'This bot answers only to its owner.').catch(() => undefined);
+    await tgSend(token, chatId, W.STRANGER).catch(() => undefined);
     return;
   }
   const cmd = COMMAND.exec(text)?.[1]?.toLowerCase();
@@ -763,12 +851,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   if (cmd === 'status') return tgSend(token, chatId, await host.statusLine());
   if (cmd === 'stop') {
     host.stop();
-    return tgSend(token, chatId, 'Stopped.');
+    return tgSend(token, chatId, W.STOPPED);
   }
   if (cmd === 'unpair') {
     const { chatId: _c, name: _n, ...rest } = link;
     await durablePut(host.env, host.storage, LINK_KEY, withNewCode(rest));
-    return tgSend(token, chatId, 'Unpaired: I will not answer this chat any more. To pair again, open LINKS → TELEGRAM in Ghosty and send me the new code.');
+    return tgSend(token, chatId, W.UNPAIRED);
   }
   // [social] EDIT pressed on a draft: his next message is its new words (a fresh draft card comes back; still waits for APPROVE)
   if (!cmd && text && host.social) {
@@ -783,10 +871,11 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   let note = '';
   if (m.photo?.length) {
     // The Lens's way: the picture itself to a model that can see, the caption as the question.
+    live.busy ??= typing(token, chatId);
     try {
       images.push(await photoDataUrl(token, m.photo));
     } catch (e) {
-      return tgSend(token, chatId, `I couldn't get that photo: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
+      return tgSend(token, chatId, W.photoFail(String((e as Error)?.message ?? e)));
     }
     if (!text) text = 'What is in this picture?';
   } else if (m.video || m.video_note || m.animation || /^video\//i.test(m.document?.mime_type ?? '')) {
@@ -796,55 +885,60 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     const v = (m.video ?? m.video_note ?? m.animation ?? m.document)!;
     const kind = m.video_note ? 'video note' : m.animation ? 'GIF' : 'video';
     const sound = kind === 'GIF' ? '' : ", and I can't hear its sound";
+    live.busy ??= typing(token, chatId);
     const over = (v.file_size ?? 0) > MAX_FETCH_BYTES ? ` It's ${Math.round(v.file_size! / 1e6)} MB, and Telegram only lets me fetch files up to 20 MB.` : '';
     const thumb = v.thumbnail ?? v.thumb;
     const frame = thumb ? await photoDataUrl(token, [thumb]).catch(() => '') : '';
     if (!frame) return tgSend(token, chatId, `I can't watch ${kind}s yet, and this one came without a still frame I could get, so I can't see anything of it.${over} Tell me what's in it, or send a screenshot.`);
     images.push(frame);
-    shown = `🎞 I can't watch ${kind}s yet: I'm going by one still frame of it${sound}.${over}`;
+    shown = W.unwatchable(kind, !!sound, over);
     note = unreadNote(kind, `one still frame of it (the picture with this message)${sound ? ', and none of its sound' : ''}`);
     if (!text) text = `What do you make of this ${kind}?`;
   } else if (m.document && /^image\//i.test(m.document.mime_type ?? '')) {
     // A picture sent as a file: an iPhone original is often 2–5 MB or HEIC. Read whole when it can be
     // (JPEG, PNG or WebP within the limit — the size checked before any download), else Telegram's preview of it.
     const d = m.document;
+    live.busy ??= typing(token, chatId);
     const whole = /^image\/(jpeg|png|webp)$/i.test(d.mime_type ?? '') && (d.file_size ?? 0) <= MAX_IMAGE_BYTES;
     const preview = d.thumbnail ?? d.thumb;
     let got = '';
     if (whole) got = await photoDataUrl(token, [{ file_id: d.file_id, width: 1, height: 1, file_size: d.file_size }]).catch(() => '');
     if (!got && preview) {
       got = await photoDataUrl(token, [preview]).catch(() => '');
-      if (got) await tgSend(token, chatId, 'That file is too big or in a format I cannot read whole, so I am looking at its small preview. Send it as a photo, not a file, for more detail.').catch(() => undefined);
+      if (got) await tgSend(token, chatId, W.PICTURE_FILE_PREVIEW).catch(() => undefined);
     }
-    if (!got) return tgSend(token, chatId, 'I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.');
+    if (!got) return tgSend(token, chatId, W.PICTURE_FILE_FAILED);
     images.push(got);
     if (!text) text = 'What is in this picture?';
   } else if (m.document) {
-    return tgSend(token, chatId, 'I can read photos and pictures sent as files here; other files go in the Library tab in the app.');
+    return tgSend(token, chatId, W.OTHER_FILE);
   } else if (m.voice || m.audio) {
     const f = (m.voice ?? m.audio)!;
-    if ((f.file_size ?? 0) > MAX_AUDIO_BYTES) return tgSend(token, chatId, `I couldn't hear that: the recording is too big (${(MAX_AUDIO_BYTES / 1e6).toFixed(0)} MB at most).`);
+    if ((f.file_size ?? 0) > MAX_AUDIO_BYTES) return tgSend(token, chatId, W.HEARD.tooBig(Math.round(MAX_AUDIO_BYTES / 1e6)));
+    live.busy ??= typing(token, chatId);
     try {
       const bytes = await download(token, f.file_id, MAX_AUDIO_BYTES);
       heard = await transcribe(host.env, host.vault, bytes, f.mime_type || 'audio/ogg');
     } catch (e) {
-      if (e instanceof SpeechError && e.status === 400) return tgSend(token, chatId, "I couldn't hear that: voice notes need Workers AI (always there on Cloudflare) or a Groq key.");
-      return tgSend(token, chatId, `I couldn't hear that: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
+      if (e instanceof SpeechError && e.status === 400) return tgSend(token, chatId, W.HEARD.noEars);
+      if (/too big/i.test(String((e as Error)?.message ?? e))) return tgSend(token, chatId, W.HEARD.tooBig(Math.round(MAX_AUDIO_BYTES / 1e6)));
+      return tgSend(token, chatId, W.HEARD.failed);
     }
-    if (!heard) return tgSend(token, chatId, "I couldn't make out any words in that voice note.");
+    if (!heard) return tgSend(token, chatId, W.HEARD.silent);
     text = heard;
   }
   // A TikTok link (no file came): its public oEmbed — title, author and cover — the same honest way. (A YouTube link needs
   // nothing here: the youtube tool reads its captions.)
   const tiktok = !images.length && !heard ? TIKTOK.exec(text)?.[0] : undefined;
   if (tiktok) {
+    live.busy ??= typing(token, chatId);
     const card = await tiktokCard(tiktok);
     const cover = card?.cover ? await pictureAt(card.cover).catch(() => '') : '';
     if (cover) images.push(cover);
     shown = card ? `🎞 I can't watch TikToks yet: I'm going by its title and author${cover ? ', and its cover picture' : ''}.` : "🎞 I couldn't open that TikTok (it may be private or gone), and I can't watch videos yet.";
     note = unreadNote('TikTok video, as a link', card ? `its public title "${card.title}" by ${card.author}${cover ? ', and its cover picture (with this message)' : ''}` : 'nothing of it: the link could not be opened');
   }
-  if (!text) return tgSend(token, chatId, 'Send me text, a voice note or a photo.');
+  if (!text) return tgSend(token, chatId, W.NEEDS_INPUT);
   // [guardian] Before anything else: his panic phrase (typed or in a voice note), the walk home's "home", "walk me home"
   // and its "how long?" (walk.ts) — no model, no turn slot.
   if (!images.length && host.guardian) {
@@ -883,20 +977,30 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     const f = await foresightReply(host.foresight(), text).catch(() => null);
     if (f) return tgSend(token, chatId, f);
   }
+  // What of a video, a GIF or a TikTok did not come through is said plainly, as its own message, before anything answers it.
+  if (shown) await tgSend(token, chatId, shown).catch(() => undefined);
+  // (typing shows while the turn slot is waited for too: a wait is never silence)
+  const busy = (live.busy ??= typing(token, chatId));
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
-  if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
-  const busy = typing(token, chatId);
-  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : shown ? `${shown}\n\n` : '', (id) => noteAsked(host.storage, id), text);
+  if (!slot) return tgSend(token, chatId, W.BUSY);
+  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : '', (id) => noteAsked(host.storage, id), text);
+  // A turn he stopped (/stop, or by saying so) has nothing more to say: the stop was answered where it was given.
+  const emit = (ev: ChatEvent) => {
+    if (ev.t === 'error' && slot.signal.aborted && /^Stopped\.?$/i.test(ev.message.trim())) return;
+    out.emit(ev);
+  };
   try {
     const client = await host.client();
     // Spoken to: answered in the spoken style (persona.ts SPOKEN), and in Ghosty's voice below.
     if (heard) client.voice = true;
-    await host.runTurn(text, images, client, out.emit, slot.signal, note || undefined);
+    await host.runTurn(text, images, client, emit, slot.signal, note || undefined);
   } catch (e) {
-    out.emit({ t: 'error', message: storageError(e) ?? scrub(String((e as Error)?.message ?? e), token).slice(0, 300) });
+    emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
   } finally {
     busy.stop();
     slot.done();
+    // Nothing ever goes unanswered: a turn that ended with no words, no question and no error says so (unless he stopped it).
+    if (!slot.signal.aborted && !out.spoke()) out.emit({ t: 'text', text: W.NO_ANSWER });
     await out.flush();
   }
   // A voice note gets a voice note back, after the text (which always goes).
@@ -951,7 +1055,7 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
   }
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   // The buttons stay while the brain is busy, so the answer can be given again later.
-  if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, then press the button again.");
+  if (!slot) return tgSend(token, chatId, W.BUSY_BUTTON);
   // The buttons come off the question, so it cannot be answered twice.
   await unbutton();
   const out = collector(token, chatId, host.origin, '', (id) => noteAsked(host.storage, id));
@@ -971,7 +1075,7 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
       }
     }
   } catch (e) {
-    out.emit({ t: 'error', message: storageError(e) ?? scrub(String((e as Error)?.message ?? e), token).slice(0, 300) });
+    out.emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
   } finally {
     busy.stop();
     slot.done();

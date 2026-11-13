@@ -155,8 +155,9 @@ test('saving the token connects the bot: getMe, setWebhook with a fresh secret a
   const j = await r.json();
   await settle();
   assert.equal(j.works, true, j.info);
-  const code = j.info.match(/^connected to @GhostyTestBot · pairing code (\d{6}) \(valid 15 min\): open the bot in Telegram, press START and send it the code$/)?.[1];
+  const code = j.info.match(/^Connected to @GhostyTestBot\. Open it in Telegram, tap START, then send it this code: (\d{6})\. It lasts about 15 minutes\.$/)?.[1];
   assert.ok(code, j.info);
+  assert.equal(j.info, TG.codeInfo('GhostyTestBot', code, 15 * 60_000), 'the code\'s message is the words file\'s: the three taps in order, then the code');
   assert.deepEqual(tg.calls.map((c) => c.method), ['getMe', 'setWebhook']);
   assert.ok(tg.calls.every((c) => c.token === TOKEN));
   const wh = tg.calls[1].body;
@@ -186,7 +187,9 @@ test('saving the token connects the bot: getMe, setWebhook with a fresh secret a
 test('a stranger is turned away once, then ignored for an hour; the pairing code pairs the owner; a wrong code does not', async () => {
   const st = await status();
   assert.equal((await hook(msg(STRANGER, { text: 'hello?' }, { id: STRANGER, first_name: 'Eve' }), secret)).status, 200);
-  assert.deepEqual(texts(), ['This bot answers only to its owner.']);
+  assert.deepEqual(texts(), [TG.STRANGER]);
+  assert.match(TG.STRANGER, /^[^.!?]+[.]$/, "the stranger's line is one sentence");
+  assert.ok(!/bot|owner's chat/i.test(TG.STRANGER.replace(/my owner/, '')) && /^I /.test(TG.STRANGER), "and in his voice (I), nothing about who or why");
   assert.equal(sent()[0].body.chat_id, STRANGER);
   await hook(msg(STRANGER, { text: 'let me in' }, { id: STRANGER, first_name: 'Eve' }), secret);
   await hook(msg(STRANGER, { text: '000000' }, { id: STRANGER, first_name: 'Eve' }), secret);
@@ -197,7 +200,9 @@ test('a stranger is turned away once, then ignored for an hour; the pairing code
   // the owner, with a space in the code as phones type it
   const code = st.code;
   await hook(msg(OWNER_CHAT, { text: `${code.slice(0, 3)} ${code.slice(3)}` }), secret);
-  assert.equal(texts().at(-1), "Paired. I'm Ghosty — talk to me here any time.");
+  assert.equal(texts().at(-1), TG.PAIRED);
+  assert.match(TG.PAIRED, /message, a voice note or a photo/, 'the greeting says what he can send');
+  assert.equal((TG.PAIRED.match(/[.!?](?=\s|$)/g) ?? []).length, 2, 'Paired. plus one sentence');
   assert.equal(sent().at(-1).body.chat_id, OWNER_CHAT);
   const paired = await status();
   assert.equal(paired.paired, true);
@@ -320,8 +325,8 @@ test('a photo from the paired chat reaches the model as a picture (the largest s
   assert.deepEqual(texts(), ['I can see a picture. What is in this picture?']);
   tg.calls.length = 0;
   await hook(msg(OWNER_CHAT, { caption: 'and this?', photo: [{ file_id: 'missing', width: 10, height: 10 }] }), secret);
-  assert.match(texts()[0], /^I couldn't get that photo: could not download it \(404\)$/);
-  assert.equal(texts().length, 1);
+  assert.deepEqual(texts(), [TG.photoFail('could not download it (404)')]);
+  assert.ok(!/404|download|could not/.test(texts()[0]) && /send it again/.test(texts()[0]), 'his words and what to do, never the raw error');
   tg.calls.length = 0;
 });
 
@@ -339,18 +344,18 @@ test('a voice note is transcribed (Workers AI here) and answered, the reply star
     // silence
     env.AI = { async run() { return { text: '' }; } };
     await hook(msg(OWNER_CHAT, { audio: { file_id: 'note1', mime_type: 'audio/mpeg' } }), secret);
-    assert.deepEqual(texts(), ["I couldn't make out any words in that voice note."]);
+    assert.deepEqual(texts(), [TG.HEARD.silent]);
     tg.calls.length = 0;
   } finally {
     delete env.AI;
   }
   await hook(msg(OWNER_CHAT, { voice: { file_id: 'note1', mime_type: 'audio/ogg' } }), secret);
-  assert.deepEqual(texts(), ["I couldn't hear that: voice notes need Workers AI (always there on Cloudflare) or a Groq key."]);
+  assert.deepEqual(texts(), [TG.HEARD.noEars]);
   tg.calls.length = 0;
   // too big for a voice note: refused before any download
   await hook(msg(OWNER_CHAT, { voice: { file_id: 'note1', mime_type: 'audio/ogg', file_size: 9_000_000 } }), secret);
   assert.equal(sent('download').length, 0);
-  assert.match(texts()[0], /too big/);
+  assert.deepEqual(texts(), [TG.HEARD.tooBig(8)]);
   tg.calls.length = 0;
 });
 
@@ -359,7 +364,9 @@ test('an approval becomes APPROVE / NOT NOW buttons; the callback answers it exa
   await hook(msg(OWNER_CHAT, { text: 'forget everything' }), secret);
   const ask = sent().find((c) => c.body.reply_markup);
   assert.ok(ask, 'the question was sent');
-  assert.match(ask.body.text, /^Needs your approval: /);
+  assert.equal(ask.body.text, TG.approvalCard('Allow forget everything?'));
+  assert.match(ask.body.text, /^If you approve, I'll do exactly this: “forget everything”\. APPROVE does it now; NOT NOW leaves it undone\.$/, 'the thing quoted, what APPROVE does, what NOT NOW does, in one line');
+  assert.ok(!/\n/.test(ask.body.text));
   const [approve, decline] = ask.body.reply_markup.inline_keyboard[0];
   assert.equal(approve.text, 'APPROVE');
   assert.equal(decline.text, 'NOT NOW');
@@ -431,7 +438,8 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   const job = (await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text: 'Call the dentist', at: Date.now() + 3600_000, repeat: 'none', tz: 'UTC' }) })).json()).job;
   await call(`/api/jobs/${job.id}/run`, { method: 'POST' });
   await settle();
-  assert.deepEqual(texts(), ['⏰ Reminder\nCall the dentist']);
+  assert.equal(texts().length, 1);
+  assert.match(texts()[0], /^Reminder: Call the dentist\nIt was due at \d\d:\d\d( UTC)?\.$/);
   tg.calls.length = 0;
   // REMINDERS switched off (LINKS → NOTIFICATIONS): Telegram does not get it either
   await call('/api/push/prefs', { method: 'POST', body: JSON.stringify({ reminders: false }) });
@@ -453,13 +461,14 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   assert.equal(un.paired, false);
   assert.match(un.code, /^\d{6}$/);
   await hook(msg(OWNER_CHAT, { text: 'hello' }), secret);
-  assert.deepEqual(texts(), ['This bot answers only to its owner.']);
+  assert.deepEqual(texts(), [TG.STRANGER]);
   tg.calls.length = 0;
   // pair again with the new code, then /unpair from Telegram
   await hook(msg(OWNER_CHAT, { text: un.code }), secret);
   assert.equal((await status()).paired, true);
   await hook(msg(OWNER_CHAT, { text: '/unpair' }), secret);
-  assert.match(texts().at(-1), /^Unpaired/);
+  assert.equal(texts().at(-1), TG.UNPAIRED);
+  assert.match(TG.UNPAIRED, /stopped answering this chat.*send nothing more here/, 'says what stops');
   assert.equal((await status()).paired, false);
   assert.equal((await call('/api/telegram/test', { method: 'POST' })).status, 400);
   tg.calls.length = 0;
@@ -470,18 +479,18 @@ test('the token never appears in an error: a dead connection while connecting is
   const r = await (await call('/api/keys', { method: 'POST', body: JSON.stringify({ name: 'telegram', value: TOKEN }) })).json();
   tg.fail = null;
   assert.equal(r.works, false);
-  assert.match(r.info, /saved, but the bot could not be connected: Telegram getMe: fetch failed: https:\/\/api\.telegram\.org\/bot…\/getMe/);
-  assert.ok(!r.info.includes(TOKEN));
+  assert.equal(r.info, TG.KEY_NOT_CONNECTED);
+  assert.ok(!r.info.includes(TOKEN) && !/fetch|api\.telegram|getMe/.test(r.info), 'not even a scrubbed address: his words and what to do');
   tg.calls.length = 0;
   const bad = await (await call('/api/keys', { method: 'POST', body: JSON.stringify({ name: 'telegram', value: 'not-a-token' }) })).json();
   assert.equal(bad.works, false);
-  assert.match(bad.info, /does not look like a bot token/);
+  assert.equal(bad.info, TG.KEY_BAD);
   assert.equal(tg.calls.length, 0);
   // removing the key takes the webhook down (with the token that was saved) and forgets the link
   tg.calls.length = 0;
   const gone = await (await call('/api/keys', { method: 'POST', body: JSON.stringify({ name: 'telegram', value: '' }) })).json();
   await settle();
-  assert.equal(gone.info, 'removed · the bot is disconnected');
+  assert.equal(gone.info, TG.KEY_REMOVED);
   assert.deepEqual(tg.calls.map((c) => [c.method, c.token]), [['deleteWebhook', 'not-a-token']]);
   assert.equal((await status()).linked, false);
   assert.equal((await status()).token, false);
@@ -672,7 +681,7 @@ test("an iPhone original sent as a file (4 MB, or HEIC) is read from Telegram's 
   // 4 MB JPEG: over the limit, so the size is checked before any download and the preview is read instead
   await hook(msg(OWNER_CHAT, { caption: 'Is this damp?', document: { file_id: 'bigdoc', mime_type: 'image/jpeg', file_name: 'IMG_0001.JPG', file_size: 4_000_000, thumbnail: { file_id: 'thumb1', width: 320, height: 240, file_size: 400 } } }), secret);
   assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['thumb1'], 'the 4 MB file is never fetched');
-  assert.deepEqual(texts(), ['That file is too big or in a format I cannot read whole, so I am looking at its small preview. Send it as a photo, not a file, for more detail.', 'I can see a picture. Is this damp?']);
+  assert.deepEqual(texts(), [TG.PICTURE_FILE_PREVIEW, 'I can see a picture. Is this damp?']);
   tg.calls.length = 0;
   // HEIC: a format the models do not take — the preview again
   await hook(msg(OWNER_CHAT, { document: { file_id: 'heic1', mime_type: 'image/heic', file_name: 'IMG_0002.HEIC', file_size: 900_000, thumbnail: { file_id: 'thumb1', width: 320, height: 240, file_size: 400 } } }), secret);
@@ -682,7 +691,8 @@ test("an iPhone original sent as a file (4 MB, or HEIC) is read from Telegram's 
   // no preview at all: nothing downloaded, and the plain way out
   await hook(msg(OWNER_CHAT, { document: { file_id: 'heic2', mime_type: 'image/heic', file_name: 'IMG_0003.HEIC', file_size: 3_000_000 } }), secret);
   assert.equal(sent('getFile').length, 0);
-  assert.deepEqual(texts(), ['I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.']);
+  assert.deepEqual(texts(), [TG.PICTURE_FILE_FAILED]);
+  assert.match(TG.PICTURE_FILE_FAILED, /Send it as a photo/, 'and the one thing to do');
   tg.calls.length = 0;
 });
 
@@ -698,7 +708,7 @@ test("a video (79): its one still frame goes the photo's way with the caption as
   assert.equal(r.status, 200);
   assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['vframe'], 'only the frame is fetched');
   // the reply: the honest line, then the model's answer — which shows it was told it saw one picture of a video
-  assert.deepEqual(texts(), [`${SAID}\n\nI can only see one picture of it, as I was told. what do you think of this kiddo`]);
+  assert.deepEqual(texts(), [SAID, 'I can only see one picture of it, as I was told. what do you think of this kiddo'], 'the plain line is a message of its own, first');
   // the history keeps the owner's words and the picture's marker, never the note
   const turns = (await (await call('/api/history')).json()).turns;
   assert.equal(turns.at(-2).text, 'what do you think of this kiddo [photo]');
@@ -710,15 +720,16 @@ test('a video over 20 MB says so plainly; a GIF, a round video note and a video 
   tg.calls.length = 0;
   // over the Bot API's 20 MB: said in plain words (and still only the frame is fetched)
   await hook(msg(OWNER_CHAT, { video: { file_id: 'vbig', file_size: 48_000_000, thumbnail: FRAME } }), secret);
-  assert.deepEqual(texts(), [`${SAID} It's 48 MB, and Telegram only lets me fetch files up to 20 MB.\n\nI can only see one picture of it, as I was told. What do you make of this video?`]);
+  assert.deepEqual(texts(), [`${SAID} It's 48 MB, and Telegram only lets me fetch files up to 20 MB.`, 'I can only see one picture of it, as I was told. What do you make of this video?']);
   assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['vframe']);
   tg.calls.length = 0;
   // a GIF (Telegram sends it as animation AND as document): no sound to speak of
   await hook(msg(OWNER_CHAT, { animation: { file_id: 'gif1', mime_type: 'video/mp4', thumbnail: FRAME }, document: { file_id: 'gif1', mime_type: 'video/mp4', thumbnail: FRAME } }), secret);
-  assert.match(texts()[0] ?? '', /^🎞 I can't watch GIFs yet: I'm going by one still frame of it\.\n\nI can only see one picture of it, as I was told\. What do you make of this GIF\?$/);
+  assert.deepEqual(texts(), ["🎞 I can't watch GIFs yet: I'm going by one still frame of it.", 'I can only see one picture of it, as I was told. What do you make of this GIF?']);
   tg.calls.length = 0;
   await hook(msg(OWNER_CHAT, { video_note: { file_id: 'vn1', duration: 9, thumbnail: FRAME } }), secret);
-  assert.match(texts()[0] ?? '', /^🎞 I can't watch video notes yet: I'm going by one still frame of it, and I can't hear its sound\.\n\n/);
+  assert.equal(texts()[0], "🎞 I can't watch video notes yet: I'm going by one still frame of it, and I can't hear its sound.");
+  assert.ok(texts().length === 2, 'then its answer');
   tg.calls.length = 0;
   await hook(msg(OWNER_CHAT, { caption: 'look', document: { file_id: 'mp4doc', mime_type: 'video/mp4', file_name: 'clip.mp4', file_size: 5_000_000, thumbnail: FRAME } }), secret);
   assert.match(texts()[0] ?? '', /^🎞 I can't watch videos yet/, 'a video sent as a file is a video, not "other files"');
@@ -736,14 +747,15 @@ test('a TikTok link: its public card (oEmbed) — title, author and cover — wi
   tg.web['https://p16-sign.tiktokcdn.test/cover.jpeg'] = () => new Response(jpeg(700));
   tg.calls.length = 0;
   await hook(msg(OWNER_CHAT, { text: `what do you think of this ${link}` }), secret);
-  assert.deepEqual(texts(), [`🎞 I can't watch TikToks yet: I'm going by its title and author, and its cover picture.\n\nI can only see one picture of it, as I was told. what do you think of this ${link}`]);
+  assert.deepEqual(texts(), ["🎞 I can't watch TikToks yet: I'm going by its title and author, and its cover picture.", `I can only see one picture of it, as I was told. what do you think of this ${link}`]);
   assert.equal(sent('getFile').length, 0, 'nothing from Telegram to fetch');
   tg.calls.length = 0;
   // gone or private: said plainly, and the turn still runs with the note that nothing came
   const gone = 'https://vm.tiktok.com/ZZgone123/';
   tg.web[`https://www.tiktok.com/oembed?url=${encodeURIComponent(gone)}`] = () => new Response('{"code":400}', { status: 400 });
   await hook(msg(OWNER_CHAT, { text: `is this one funny ${gone}` }), secret);
-  assert.match(texts()[0] ?? '', /^🎞 I couldn't open that TikTok \(it may be private or gone\), and I can't watch videos yet\.\n\n/);
+  assert.equal(texts()[0], "🎞 I couldn't open that TikTok (it may be private or gone), and I can't watch videos yet.");
+  assert.equal(texts().length, 2, 'then its answer');
   tg.calls.length = 0;
 });
 
@@ -761,7 +773,8 @@ test('an approval asked in the app reaches Telegram once; a forged press from an
   assert.deepEqual(await (await call(`/api/telegram/ask/${id}`, { method: 'POST' })).json(), { sent: true });
   assert.deepEqual(await (await call(`/api/telegram/ask/${id}`, { method: 'POST' })).json(), { sent: false, already: true }, 'never twice');
   const ask = sent().find((c) => c.body.reply_markup);
-  assert.match(ask.body.text, /^Needs your approval: Allow forget everything\? \(asked in the app\)$/);
+  assert.equal(ask.body.text, TG.approvalCard('Allow forget everything? (asked in the app)'));
+  assert.match(ask.body.text, /^If you approve, I'll do exactly this: “forget everything”\. APPROVE does it now; NOT NOW leaves it undone\. It's waiting in the app too\.$/);
   const [yes, no] = ask.body.reply_markup.inline_keyboard[0];
   assert.deepEqual([yes.text, no.text], ['APPROVE', 'NOT NOW']);
   assert.deepEqual(await (await call(`/api/telegram/answer/${id}`)).json(), { answered: false });
@@ -795,6 +808,228 @@ test('an approval asked in the app reaches Telegram once; a forged press from an
   const ans = await (await call(`/api/telegram/answer/${id}`)).json();
   assert.equal(ans.answered, true);
   assert.equal(ans.allow, false);
+  tg.calls.length = 0;
+});
+
+// ---- QUALITY PASS: TELEGRAM (each check is named for the rough spot it closes; each failed on the code before the pass) ----
+const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+const NEWS = Array.from({ length: 60 }, (_, i) => `${i + 1}. Item number ${i + 1} is e.g. a thing about Dr. Smith vs. the world, which takes a while to say in full and ends here.`).join('\n');
+
+test('a long reply splits at a sentence end or a line and never mid-sentence, mid-word or after a list number; "(1 of 3)" only when there are parts', async () => {
+  const big = `${NEWS}\n\n${'The forecast says rain in the afternoon. '.repeat(160)}`.slice(0, 9000);
+  const parts = TG.splitMessage(big);
+  assert.ok(parts.length >= 3, `${parts.length} parts`);
+  // every part but the last ends where a sentence ends (or a line does), not after "vs." or "Dr." or a bare "35."
+  for (const p of parts.slice(0, -1)) {
+    assert.ok(!/(?:\bvs|\bDr|\be\.g|\bi\.e)\.$/.test(p) && !/(?:^|\n)\d+\.$/.test(p), `ends after an abbreviation or a list number: …${p.slice(-40)}`);
+    assert.ok(/[.!?]$/.test(p), `ends mid-sentence: …${p.slice(-40)}`);
+  }
+  // nothing lost, nothing cut inside a word
+  assert.equal(parts.join(' ').replace(/\s+/g, ' '), big.trim().replace(/\s+/g, ' '));
+  // a part never starts in the middle of a list item or a sentence: it begins with a number or a capital
+  for (const p of parts.slice(1)) assert.match(p, /^(?:\d+\. |The |Item )/, `starts mid-sentence: ${p.slice(0, 40)}…`);
+  // the reply path labels the parts; one that fits has no label
+  tg.calls.length = 0;
+  await TG.tgReply(TOKEN, OWNER_CHAT, big, ORIGIN);
+  const sentParts = texts();
+  assert.equal(sentParts.length, parts.length >= 3 ? sentParts.length : 0);
+  sentParts.forEach((t, i) => {
+    assert.ok(t.startsWith(`(${i + 1} of ${sentParts.length}) `), `part ${i + 1} says its place: ${t.slice(0, 20)}`);
+    assert.ok(t.length <= 4000, `part ${i + 1} is ${t.length} characters`);
+  });
+  tg.calls.length = 0;
+  await TG.tgReply(TOKEN, OWNER_CHAT, 'A short reply.', ORIGIN);
+  assert.deepEqual(texts(), ['A short reply.'], 'no "(1 of 1)"');
+  tg.calls.length = 0;
+});
+
+test('markdown the model wrote reaches Telegram as plain, clean text with nothing lost: headings in capitals, bullets as •, bold dropped, a table as lines', async () => {
+  const md = ['# Weekend plan', '', 'Here is **the plan** for the weekend, with `code` and a [link](https://example.com/a_b).', '', '## Things to do', '', '- Visit the *market* early.', '- Cook dinner.', '  - nested item', '', '1. First step.', '2. Second step.', '', '| Day | Weather |', '|---|---|', '| Sat | Rain |', '| Sun | Sun |', '', '> A quote.', '', '```', 'keep_this_as_is(**x**)', '```'].join('\n');
+  const plain = TG.plainReply(md);
+  assert.equal(plain, ['WEEKEND PLAN', '', 'Here is the plan for the weekend, with code and a link (https://example.com/a_b).', '', 'THINGS TO DO', '', '• Visit the market early.', '• Cook dinner.', '  ◦ nested item', '', '1. First step.', '2. Second step.', '', 'Day · Weather', 'Sat · Rain', 'Sun · Sun', '', 'A quote.', '', 'keep_this_as_is(**x**)'].join('\n'));
+  assert.ok(!/[*`#|]|\]\(/.test(plain.replace('keep_this_as_is(**x**)', '')), 'no stray marks');
+  for (const w of ['Weekend', 'market', 'Cook dinner', 'nested item', 'First step', 'Second step', 'Rain', 'Sun', 'quote', 'https://example.com/a_b']) assert.ok(new RegExp(w, 'i').test(plain), `lost: ${w}`);
+  // underscores inside words and addresses survive; a list's own text does too
+  assert.equal(TG.plainReply('snake_case_name at https://x.test/a_b_c and 2 * 3 * 4'), 'snake_case_name at https://x.test/a_b_c and 2 * 3 * 4');
+  tg.calls.length = 0;
+  await TG.tgReply(TOKEN, OWNER_CHAT, md, ORIGIN);
+  assert.deepEqual(texts(), [plain], 'what is sent is the plain shape, in one message');
+  tg.calls.length = 0;
+});
+
+test('typing shows from the first moment of work — before a voice note is fetched or heard, before a picture is fetched — not only once the turn starts', async () => {
+  tg.files.note1 = new Uint8Array(5000).fill(7);
+  env.AI = { async run() { return { text: 'remember I like coffee' }; } };
+  try {
+    tg.calls.length = 0;
+    await hook(msg(OWNER_CHAT, { voice: { file_id: 'note1', mime_type: 'audio/ogg', duration: 3, file_size: 5000 } }), secret);
+    const order = tg.calls.map((c) => c.method);
+    const typed = order.indexOf('sendChatAction');
+    assert.ok(typed >= 0 && typed < order.indexOf('getFile'), `typing came first: ${order.join(' > ')}`);
+    tg.calls.length = 0;
+    tg.files.small = jpeg(200);
+    await hook(msg(OWNER_CHAT, { photo: [{ file_id: 'small', width: 90, height: 60, file_size: 200 }] }), secret);
+    const o2 = tg.calls.map((c) => c.method);
+    assert.ok(o2.indexOf('sendChatAction') < o2.indexOf('getFile'), `typing before the picture is fetched: ${o2.join(' > ')}`);
+    assert.equal(sent('sendChatAction').length, 1, 'once for the whole message, not once per step');
+  } finally {
+    delete env.AI;
+  }
+  tg.calls.length = 0;
+});
+
+test('a slow turn is narrated in ONE message that is edited in place and taken away when the answer comes; a quick turn is never narrated', async () => {
+  tg.calls.length = 0;
+  const slow = TG.collector(TOKEN, OWNER_CHAT, ORIGIN, '', undefined, { narrateAfterMs: 10, editEveryMs: 10 });
+  slow.emit({ t: 'status', text: 'thinking…' });
+  slow.emit({ t: 'status', text: 'waiting for free AI room · 12 s' }); // a counting-down line says one thing, once
+  await wait(60);
+  slow.emit({ t: 'status', text: 'reading example.com…' });
+  await wait(60);
+  slow.emit({ t: 'status', text: 'waiting for free AI room · 11 s' });
+  await wait(60);
+  slow.emit({ t: 'text', text: 'The answer.' });
+  slow.emit({ t: 'done', model: 'x' });
+  await slow.flush();
+  assert.deepEqual(sent().map((c) => c.body.text), ['All my models are busy. Waiting for one…', 'The answer.'], 'one narration message, then the answer — never a message per step');
+  const edits = sent('editMessageText');
+  assert.deepEqual(edits.map((c) => c.body.text), ['Reading example.com…', 'All my models are busy. Waiting for one…']);
+  const narrationId = edits[0].body.message_id;
+  assert.ok(edits.every((c) => c.body.message_id === narrationId), 'every change is the same message edited');
+  assert.deepEqual(sent('deleteMessage').map((c) => c.body.message_id), [narrationId], 'taken away when the answer comes');
+  const order = tg.calls.map((c) => c.method);
+  assert.ok(order.lastIndexOf('editMessageText') < order.indexOf('deleteMessage') && order.indexOf('deleteMessage') < order.lastIndexOf('sendMessage'), `in order: ${order.join(' > ')}`);
+  tg.calls.length = 0;
+  // a quick turn: the answer comes before the wait is over; nothing but the answer is sent, nothing to take away
+  const quick = TG.collector(TOKEN, OWNER_CHAT, ORIGIN, '', undefined, { narrateAfterMs: 200 });
+  quick.emit({ t: 'status', text: 'thinking…' });
+  quick.emit({ t: 'text', text: 'Quick.' });
+  quick.emit({ t: 'done', model: 'x' });
+  await quick.flush();
+  await wait(250);
+  assert.deepEqual(tg.calls.map((c) => c.method), ['sendMessage']);
+  assert.equal(texts()[0], 'Quick.');
+  tg.calls.length = 0;
+  // the words themselves are the chat's own
+  assert.equal(TG.stepWords('thinking…'), 'Asking my brain…');
+  assert.equal(TG.stepWords('publishing bakery (4 KB)…'), 'Publishing bakery (4 KB)…');
+  assert.equal(TG.stepWords('TypeError: x is undefined'), 'Working on it…', 'never a raw error');
+});
+
+test('what could not be heard is said in one sentence with the one thing to do — never a raw error, never a developer word', async () => {
+  tg.files.note1 = new Uint8Array(5000).fill(7);
+  const says = [];
+  env.AI = { async run() { throw new Error('boom 500 internal Whisper exploded'); } };
+  try {
+    await hook(msg(OWNER_CHAT, { voice: { file_id: 'note1', mime_type: 'audio/ogg' } }), secret);
+    says.push(...texts());
+  } finally {
+    delete env.AI;
+  }
+  assert.deepEqual(says, [TG.HEARD.failed]);
+  for (const line of [TG.HEARD.tooBig(8), TG.HEARD.noEars, TG.HEARD.silent, TG.HEARD.failed, TG.photoFail('every size of that photo is over 1.5 MB'), TG.photoFail('could not download it (404)'), TG.photoFail('that is not a JPEG, PNG or WebP picture')]) {
+    assert.equal((line.match(/[.!?](?=\s|$)/g) ?? []).length, 1, `one sentence: ${line}`);
+    assert.ok(/send|type|try|add/i.test(line), `the one thing to do: ${line}`);
+    assert.ok(!/Workers AI|\b\d{3}\b.*\b(error|status)|webhook|token|payload|undefined|fetch|Whisper/i.test(line), `a developer word: ${line}`);
+  }
+  tg.calls.length = 0;
+});
+
+test('a cited answer ends in a SOURCES block of numbered addresses; a source never opened is left out', async () => {
+  tg.calls.length = 0;
+  const out = TG.collector(TOKEN, OWNER_CHAT, ORIGIN, '', undefined, { narrateAfterMs: 1e6 });
+  out.emit({ t: 'text', text: 'Rain is likely [1] and the wind is light [2].' });
+  out.emit({ t: 'cited', citations: [{ n: 1, title: 'Met Office forecast', url: 'https://www.metoffice.gov.uk/x' }, { n: 2, title: 'My notes', doc: 'Garden notes' }, { n: 3, title: 'Never opened', url: 'https://x.test/y', missing: true }], checks: [] });
+  out.emit({ t: 'done', model: 'x' });
+  await out.flush();
+  assert.deepEqual(texts(), ['Rain is likely [1] and the wind is light [2].', 'SOURCES\n1. Met Office forecast — https://www.metoffice.gov.uk/x\n2. Garden notes (in your library)']);
+  assert.equal(TG.sourcesBlock([{ n: 1, title: 'Only', url: 'https://only.test', missing: true }]), '', 'nothing to list: no block');
+  tg.calls.length = 0;
+});
+
+test('an approval card says in one line what APPROVE does and what NOT NOW does, the thing quoted, and the arguments with it', () => {
+  assert.equal(TG.approvalCard('Allow publish site? name: bakery · public: true'), "If you approve, I'll do exactly this: “publish site (name: bakery · public: true)”. APPROVE does it now; NOT NOW leaves it undone.");
+  assert.equal(TG.approvalCard('Allow forget all?'), "If you approve, I'll do exactly this: “forget all”. APPROVE does it now; NOT NOW leaves it undone.");
+  assert.match(TG.approvalCard('Erase the diary for March'), /“Erase the diary for March”/, 'a reason that is not "Allow …?" is quoted whole');
+});
+
+test('every model cooling is said once, in his words, with the time the first is back; the paused database in his words; nothing raw ever', async () => {
+  tg.calls.length = 0;
+  const cool = 'Every model I can reach is cooling down after rate limits. The first one frees up in about 20 seconds. Another free key in the System tab gives me more room.';
+  const out = TG.collector(TOKEN, OWNER_CHAT, ORIGIN, '', undefined, { narrateAfterMs: 1e6 });
+  out.emit({ t: 'status', text: 'waiting for free AI room · 20 s' });
+  out.emit({ t: 'error', message: cool });
+  out.emit({ t: 'done', model: '' });
+  await out.flush();
+  assert.deepEqual(texts(), ['All my models are busy right now. The first is back in about 20 seconds. Ask me again then.'], 'once');
+  assert.equal(TG.sayBrain('Every model I can reach is full for now (free limits). The first one frees up in about 200 seconds. Another free key in the System tab gives me more room.'), 'All my models are busy right now. The first is back in about 4 minutes. Ask me again then.');
+  assert.equal(TG.sayBrain('Hmm. No AI model answered either (the first is back at 14:05). Give Ghosty an AI key once in System → Keys (Gemini). (Error: 429 {"x":1})'), 'All my models are busy right now. The first is back at 14:05. Ask me again then.');
+  // the paused database: Cloudflare's own allowance, "$5/month" and "the heavy readers" are not what he reads
+  const paused = "Ghosty's database has used up Cloudflare's free daily allowance, so it is paused until it resets at midnight UTC (1am UK summer time). Nothing is lost. The heavy readers that caused this have been fixed; Workers Paid ($5/month) removes the limit.";
+  assert.equal(TG.sayBrain(paused), TG.PAUSED);
+  assert.ok(!/Cloudflare|\$5|readers/.test(TG.PAUSED) && /midnight UTC/.test(TG.PAUSED));
+  assert.equal(TG.sayBrain('Answered, but not saved: my database is paused until midnight UTC.'), 'Answered, but not saved: my database is paused until midnight UTC.');
+  // raw text becomes one plain line, however long or technical
+  for (const raw of ['TypeError: Cannot read properties of undefined (reading "x")', 'Telegram sendMessage answered 400: Bad Request: chat not found', 'fetch failed: https://api.telegram.org/bot123/x', '', 'x'.repeat(400)]) assert.equal(TG.sayBrain(raw), TG.GENERIC_FAIL, raw.slice(0, 40));
+  // and his own sentences stay as they are
+  assert.equal(TG.sayBrain('I ran out of steps.'), 'I ran out of steps.');
+  tg.calls.length = 0;
+  // end to end: a turn that fails with the raw text sends the one line, and the token is nowhere in it
+  const real = state.storage.get;
+  try {
+    state.storage.get = async () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+    await hook(msg(OWNER_CHAT, { text: 'say hello' }), secret);
+  } finally {
+    state.storage.get = real;
+  }
+  assert.ok(texts().length >= 1 && texts().every((t) => !/Exceeded|rows read|Cloudflare|free tier|\$5/.test(t) && !t.includes(TOKEN)), texts().join(' | '));
+  tg.calls.length = 0;
+});
+
+test('a notification has a head in words, one body and its time; a warning never shows a raw error; one that cannot reach Telegram is recorded once for the app and never retried', async () => {
+  const host = { env, storage: state.storage, vault: { get: async () => TOKEN }, origin: ORIGIN };
+  tg.calls.length = 0;
+  await TG.telegramNotify(host, { kind: 'task', title: 'Weekly digest', text: 'Your digest is ready.' });
+  await TG.telegramNotify(host, { kind: 'error', title: 'Morning brief', text: 'This did not run: TypeError: fetch failed (ECONNRESET)' });
+  await TG.telegramNotify(host, { kind: 'error', title: 'Change #4 failed', text: 'It failed its checks after shipping, so I rolled nothing back.' });
+  const [task, err, own] = texts();
+  assert.match(task, /^Done: Weekly digest\nYour digest is ready\.\nFinished at \d\d:\d\d( UTC)?\.$/);
+  assert.match(err, /^Something went wrong: Morning brief\nI couldn't finish it; the details are in your inbox in the app\.\nIt happened at \d\d:\d\d( UTC)?\.$/);
+  assert.ok(!/TypeError|ECONN|fetch/.test(err), 'no raw error');
+  assert.match(own, /^Something went wrong: Change #4 failed\nIt failed its checks after shipping, so I rolled nothing back\.\n/, 'a sentence of his own is kept');
+  assert.ok(![task, err, own].some((t) => /^[⏰✦⚠]/.test(t)), 'a head in words, not a symbol alone');
+  // a send that fails: false, recorded once (one record, the newest, with a count), and one attempt each, never a retry
+  tg.calls.length = 0;
+  tg.fail = true;
+  assert.equal(await TG.telegramNotify(host, { kind: 'reminder', title: 'Reminder', text: 'Call Mum' }), false);
+  assert.equal(sent().length, 1, 'tried once');
+  assert.equal(await TG.telegramNotify(host, { kind: 'task', title: 'Digest', text: 'Done.' }), false);
+  tg.fail = null;
+  assert.equal(sent().length, 2, 'once each: never retried into a flood');
+  const missed = (await status()).missed;
+  assert.deepEqual([missed.what, missed.n], ['task', 2]);
+  assert.ok(missed.at <= Date.now() && missed.at > Date.now() - 60_000);
+  assert.match(TG.missedLine(missed, 'UTC'), /^2 messages did not reach you on Telegram, the last one at \d\d:\d\d \(a finished task\); they are in your inbox in the app\.$/);
+  assert.match(TG.missedLine({ at: Date.now(), what: 'reminder', n: 1 }, 'UTC'), /^A message didn't reach you on Telegram at \d\d:\d\d \(a reminder\); it is in your inbox in the app\.$/);
+  // the next one that arrives clears it
+  tg.calls.length = 0;
+  assert.equal(await TG.telegramNotify(host, { kind: 'reminder', title: 'Reminder', text: 'Call Mum' }), true);
+  assert.equal((await status()).missed, undefined);
+  tg.calls.length = 0;
+});
+
+test('the routes the phone calls answer in his words: never a raw error, one sentence each', async () => {
+  tg.calls.length = 0;
+  tg.fail = true;
+  const sentTest = await call('/api/telegram/test', { method: 'POST' });
+  tg.fail = null;
+  assert.equal(sentTest.status, 502);
+  assert.equal((await sentTest.json()).error, TG.ROUTE.cannotReach);
+  assert.equal((await (await call('/api/telegram/code', { method: 'POST' })).json()).error, TG.ROUTE.alreadyPaired);
+  for (const line of Object.values(TG.ROUTE)) assert.equal((line.match(/[.!?](?=\s|$)/g) ?? []).length, 1, line);
+  assert.equal(TG.codeLife(14 * 60_000 + 1), 'about 15 minutes');
+  assert.equal(TG.codeLife(30_000), 'about a minute');
+  assert.match(TG.BUSY, /^I'm still answering something from your phone\. Send \/stop to stop it, or ask me again in a minute\.$/);
   tg.calls.length = 0;
 });
 

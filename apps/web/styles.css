@@ -8256,6 +8256,8 @@ html .citeaddr { display: block; margin: var(--g-s-1) 0; padding: var(--g-s-1); 
 html .hud.core .convo .msg.err[data-state="empty"] > small { color: var(--g-ink-3); }
 html .hud.core .convo .localacts button, html .localacts button { min-height: var(--g-target) !important; height: auto; }
 html :is(.log, #talkline, #thestage, .citedoc, .modal) button.g-key, html #app .approval .row button.apkey { min-height: var(--g-target) !important; height: auto; }
+/* ==== TELEGRAM pass: LINKS → TELEGRAM's keys (NEW CODE, OPEN THE BOT, TEST, UNPAIR, SYSTEM → KEYS) and the keys of a one-tap sheet (KEEP IT / UNPAIR, UNLINK…) are 44 pt, which the phone-wide 40 px rule held them under ==== */
+html .tgbody button, html .modal .confirm.sure button { min-height: var(--g-target) !important; height: auto; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

@@ -533,6 +533,8 @@ export interface TelegramStatus {
   token?: boolean;
   /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
   unknown?: boolean;
+  /** A message that did not reach Telegram (the newest; `n` of them since the last one that did), for the panel to say once. */
+  missed?: { at: number; what: 'reminder' | 'task' | 'error'; n: number };
 }
 
 export interface SpotifyStatus {

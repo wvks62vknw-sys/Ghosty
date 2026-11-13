@@ -89,12 +89,12 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'numbers, a colon, then letters (from @BotFather)',
       link: 'https://t.me/BotFather',
       need: 'recommended',
-      why: 'Talk to Ghosty from Telegram — text, voice notes and photos — and get its notifications there. Free.',
+      why: "Talk to me from Telegram and get my notices there: your bot's key comes from @BotFather, never leaves my vault, and costs nothing.",
       steps: [
         'Open the link (it opens @BotFather in Telegram) and send /newbot: give the bot a name, then a username ending in "bot". Already have one? Send /mybots → your bot → API Token.',
-        'Copy the token BotFather shows (numbers, a colon, then letters).',
-        'Paste it below and press SAVE. Ghosty connects itself and shows a 6-digit pairing code here (and in LINKS → TELEGRAM).',
-        'Open your bot in Telegram, press START and send it the code. From then on only you can talk to it.',
+        'Copy the key BotFather shows (numbers, a colon, then letters).',
+        'Paste it below and press SAVE. I connect the bot myself and show a 6-digit code here and in LINKS → TELEGRAM.',
+        'Open your bot in Telegram, tap START and send it the code. From then on only you can talk to it.',
       ],
     },
     {

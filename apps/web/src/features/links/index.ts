@@ -14,6 +14,7 @@ import { ui } from '../../state/app';
 import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
+import { TELEGRAM as TG, missedWords } from './words';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 import { sayError } from '../../ui/hisWords';
@@ -86,6 +87,7 @@ export const linksTab: TabDef = {
     const ep = panel('EMAIL', { grow: false });
     const spot = panel('SPOTIFY', { grow: false });
     const tg = panel('TELEGRAM', { grow: false });
+    tg.body.classList.add('tgbody');
     const ap = panel('PHONE · APP & NOTIFICATIONS', { grow: false });
     const np = panel('NOTIFICATIONS', { grow: false });
     const bp = panel('AI BRAIN', { grow: false });
@@ -300,13 +302,11 @@ export const linksTab: TabDef = {
       clearInterval(codeTimer);
       clear(tg.body);
       tg.setStatus(st?.paired ? `PAIRED · @${st.bot}` : st?.linked ? 'WAITING FOR PAIRING' : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT CONNECTED' : 'OFFLINE', st?.paired ? 'ok' : 'mid');
-      if (!st) return void tg.body.append(h('div.note', 'The brain is not reachable right now.'));
-      if (st.unknown) return void tg.body.append(h('div.note', "The brain cannot read its Telegram link while its database is paused. If a chat was paired, it still works."));
+      if (!st) return void tg.body.append(h('div.note', TG.offline));
+      if (st.unknown) return void tg.body.append(h('div.note', TG.paused));
       if (!st.linked) {
         tg.body.append(
-          h('div.note', st.token
-            ? 'The bot token is saved, but the bot is not connected yet (Ghosty could not reach Telegram, or has no https address). Open SYSTEM → KEYS → Telegram bot and press SAVE again.'
-            : 'Talk to Ghosty from the Telegram app — text, voice notes and photos — and get its reminders and task results there. Paste the bot token in SYSTEM → KEYS → Telegram bot (HOW TO GET IT shows the two-minute setup).'),
+          h('div.note', st.token ? TG.keyNotConnected : TG.noKey),
           h('div.keyrow', button('SYSTEM → KEYS', () => goToPanel('system', 'KEYS'), 'on')),
         );
         return;
@@ -326,14 +326,14 @@ export const linksTab: TabDef = {
         const tick = () => {
           const ms = (st!.codeUntil ?? 0) - Date.now();
           const live = !!st!.code && ms > 0;
-          left.textContent = live ? `valid for ${Math.max(1, Math.ceil(ms / 60_000))} min` : 'the code has expired — press NEW CODE';
+          left.textContent = TG.left(ms, live);
           if (!live) code.textContent = '······';
         };
         tick();
         codeTimer = window.setInterval(tick, 5000);
         tg.body.append(
           row('BOT', `@${st.bot}`),
-          h('div.note', `Open Telegram → @${st.bot} → press START → send it this code:`),
+          h('div.note', TG.steps(st.bot ?? '')),
           code,
           left,
           h('div.keyrow', newCode, button('OPEN THE BOT ↗', () => void window.open(`https://t.me/${st!.bot}`, '_blank', 'noopener'))),
@@ -343,16 +343,18 @@ export const linksTab: TabDef = {
       tg.body.append(
         row('BOT', `@${st.bot}`, null, { tone: 'up' }),
         row('PAIRED WITH', st.name ?? 'you'),
-        h('div.note', 'Message the bot in Telegram the way you talk to Ghosty here: text, a voice note or a photo. Reminders and finished tasks arrive there too.'),
+        h('div.note', TG.pairedNote),
+        ...(st.missed ? [h('div.note.tgmissed', missedWords(st.missed))] : []),
         h('div.keyrow.wrapit', button('TEST', async (b) => {
           b.disabled = true;
           const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: sayError(e, 'send that') }));
-          toast(r.sent ? 'Sent to your Telegram' : TELEGRAM_TEST_FAILED, r.sent ? 'ok' : 'warn');
+          toast(r.sent ? TG.testSent : (r.error ?? TELEGRAM_TEST_FAILED), r.sent ? 'ok' : 'warn');
+          void paintTelegram();
           b.disabled = false;
         }, 'on'), button('UNPAIR', async () => {
-          if (!(await confirmSheet('Unpair Telegram?', 'Ghosty stops answering in your Telegram chat and sends nothing there. To pair again, send the bot a new code.', 'UNPAIR'))) return;
-          await brain.telegramUnpair().catch(() => undefined);
-          toast('Telegram unpaired', 'ok');
+          if (!(await confirmSheet(TG.unpairTitle, TG.unpairBody, TG.unpairKey))) return;
+          const gone = await brain.telegramUnpair().then(() => true, () => false);
+          toast(gone ? TG.unpaired : TG.unpairFailed, gone ? 'ok' : 'warn');
           void paintTelegram();
         }, 'warn')),
       );
