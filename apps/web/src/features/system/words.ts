@@ -64,3 +64,17 @@ export const meterValue = (reads: string, readsOf: string, rp: string, writes: s
 
 /** The size a backup would be, said on its key before the tap (an estimate: what is sealed is a little more than the words). */
 export const backupKey = (sizeText: string): string => `BACK UP NOW · about ${sizeText}`;
+
+/** The database's biggest users in his words: what used it, rows read and rows written (never "route:library 111r/304w"). */
+export const biggestLine = (by: { label: string; r: number; w: number }[], n: (x: number) => string = String): string =>
+  by.slice(0, 3).map((b) => `${b.label.replace(/^[a-z]+:/, '').replace(/^\/?$/, 'the app')} ${n(b.r)} rows read, ${n(b.w)} written`).join(' · ');
+
+/** HEALTH's KEYS row: how many of how many are added and which; the ones not added are behind its "?" (never a list of twenty names). */
+export const keysLine = (have: string[], missing: number, asOf: string): string =>
+  have.length ? `${have.length} of ${have.length + missing} added: ${have.join(', ')} (${asOf}).` : `None of the ${missing} added yet (${asOf}).`;
+
+/** The frame rate with its units: frames a second, and the size the scene is drawn at. */
+export const frameLine = (fps: number, scale: number): string => `${Math.round(fps)} frames a second, drawn at ${Math.round(scale * 100)}% size`;
+
+/** The training report's average: the test score, the old brain against the new. */
+export const averageLine = (before: string, after: string): string => `test score ${before} on the old brain → ${after} on the new`;

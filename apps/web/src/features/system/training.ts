@@ -21,7 +21,7 @@ import { sendGymLevels } from './ledger';
 import { sayError } from '../../ui/hisWords';
 import { more } from '../lifeui';
 import { waiting } from '../../ui/wait';
-import { WAIT } from './words';
+import { averageLine, WAIT } from './words';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -108,7 +108,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
       rr.dataset.area = a;
       box.append(rr);
     }
-    box.append(row('AVERAGE', `${pct(examMean(r.before))} → ${pct(examMean(r.after))}`, r.gate.pass ? 'KEPT' : 'NOT KEPT', { tone: r.gate.pass ? 'up' : 'dn' }));
+    box.append(row('AVERAGE', averageLine(pct(examMean(r.before)), pct(examMean(r.after))), r.gate.pass ? 'KEPT' : 'NOT KEPT', { tone: r.gate.pass ? 'up' : 'dn', wrap: true }));
     box.append(h(`div.note.gate${r.gate.pass ? '.good' : '.bad'}` as 'div', r.gate.pass ? `Kept: ${r.gate.why}. (Both brains were tested exactly as your phone would run them.)` : `Not kept: ${r.gate.why}. Nothing changed on your phone.`));
     return box;
   };

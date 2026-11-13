@@ -8,7 +8,8 @@
 //      said, a time that has gone refused, "N left today" and NOW, the biggest text and calm motion;
 //   c. THE SYSTEM SCREEN'S TEN FIXES: the one honest line, every number with its unit and its "as of" (the database, the AI room, storage), a
 //      wait said on each page that fetches, the report card readable at BODY 21, BACKUP's size on its key, every "?" a 44 pt target, nothing
-//      that looks like a key and is not;
+//      that looks like a key and is not, the database's biggest users in words, HEALTH's keys counted, the frame rate and training's average
+//      with their units;
 //   d. "ON IT." in the phone's own voice: no request and no brain route on an ack, one word counted; never over DOWNLOAD (its confirm opens, zero
 //      said); never over a reply being spoken;
 //   e. ONE WATCHER SYSTEM: a price watch made by the money pack's words is under WATCHERS with STOP, and STOP removes it from the money pack's list;
@@ -364,6 +365,19 @@ for (const W of [440, 390]) {
     check(!adv || (/rows read/.test(adv) && /rows written/.test(adv) && /as of \d\d:\d\d/.test(adv)), `${T} [2 units] the database row reads "${adv}"`);
     const stor = await page.evaluate(() => document.querySelector('#pg-system .storageline')?.textContent ?? '');
     check(/as of \d\d:\d\d$/.test(stor), `${T} [2 as of] the storage line reads "${stor}"`);
+    // 7. the database's biggest users in his words, not code words ("route:library 111r/304w")
+    const big = SYS.biggestLine([{ label: 'route:library', r: 111, w: 304 }, { label: 'route:/', r: 2, w: 0 }]);
+    check(big === 'library 111 rows read, 304 written · the app 2 rows read, 0 written', `${T} [7 no code words] the biggest users read "${big}"`);
+    const resets = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.adv .rw')].map((r) => r.textContent).find((t) => /ALLOWANCE RESETS/i.test(t)) ?? '');
+    check(!/route:|\d+r\/\d+w|biggest:/.test(resets), `${T} [7 no code words] the allowance row reads "${resets}"`);
+    // 8. HEALTH's KEYS row: how many of how many, never a list of twenty names (the ones not added behind its WHICH)
+    check(SYS.keysLine(['Gemini', 'Groq'], 18, 'as of 10:00') === '2 of 20 added: Gemini, Groq (as of 10:00).' && SYS.keysLine([], 20, 'as of 10:00') === 'None of the 20 added yet (as of 10:00).', `${T} [8 the keys line] reads "${SYS.keysLine(['Gemini', 'Groq'], 18, 'as of 10:00')}"`);
+    // 9. the frame rate with its units (never "58 fps @ 75%")
+    check(SYS.frameLine(58.4, 0.75) === '58 frames a second, drawn at 75% size', `${T} [9 units] the frame rate reads "${SYS.frameLine(58.4, 0.75)}"`);
+    const fr = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.adv .rw')].map((r) => r.textContent).find((t) => /FRAME RATE/i.test(t)) ?? '');
+    check(!fr || (/frames a second/.test(fr) && !/@/.test(fr)), `${T} [9 units] the frame-rate row reads "${fr}"`);
+    // 10. the training report's AVERAGE says what it averages (the test score, old brain → new)
+    check(SYS.averageLine('62%', '71%') === 'test score 62% on the old brain → 71% on the new', `${T} [10 the average] reads "${SYS.averageLine('62%', '71%')}"`);
     // 3. a wait said on each page that fetches (the brain slowed down)
     const slow = await open({ W, hash: 'core' });
     for (const path of ['**/api/status', '**/api/training', '**/api/backup']) await slow.page.route(path, async (r) => { await new Promise((x) => setTimeout(x, 2500)); r.fallback(); });

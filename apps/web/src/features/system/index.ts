@@ -25,7 +25,7 @@ import { phoneCard } from './phone';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
-import { backupKey, clockOf, honestLine, meterValue, roomNow, roomToday, WAIT } from './words';
+import { backupKey, biggestLine, clockOf, frameLine, honestLine, meterValue, roomNow, roomToday, WAIT } from './words';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -210,11 +210,11 @@ export const systemTab: TabDef = {
       if (!m) return [];
       const pct = (n: number, of: number) => `${Math.min(999, Math.round((n / of) * 100))}%`;
       const resets = new Date(m.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const top = m.by.slice(0, 3).map((b) => `${b.label} ${fmt.n(b.r)}r/${fmt.n(b.w)}w`).join(' · ');
+      const top = biggestLine(m.by, (x) => fmt.n(x));
       const tone = m.level >= 1 ? 'bad' : m.level > 0.7 ? 'dn' : 'up';
       return [
         row('DATABASE TODAY', meterValue(fmt.n(m.reads), fmt.n(m.limits.reads), pct(m.reads, m.limits.reads), fmt.n(m.writes), fmt.n(m.limits.writes), pct(m.writes, m.limits.writes), Date.now()), m.level >= 1 ? 'PAUSED' : m.level > 0.7 ? 'LOW' : 'OK', { tone, wrap: true }),
-        row('ALLOWANCE RESETS', `${resets} (midnight UTC)${top ? ` · biggest: ${top}` : ''}`, null, { wrap: true }),
+        row('ALLOWANCE RESETS', `${resets} (midnight UTC)${top ? ` · most used by ${top}` : ''}`, null, { wrap: true }),
         ...(status?.waiting ? [row('KEYS WAITING', `${status.waiting} saved while memory was paused · in use now, written to the vault at ${resets}`, null, { wrap: true })] : []),
       ];
     };
@@ -238,7 +238,7 @@ export const systemTab: TabDef = {
         h('details.adv', h('summary', 'Advanced'),
           row('OWNER', status?.owner ?? '—'),
           row('PREVIEWS', status?.previews ?? 'not reported'),
-          row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
+          row('FRAME RATE', frameLine(stats.fps, stats.scale), null, { wrap: true }),
           ...meterRows(),
           row('BUILD', ver),
         ),
